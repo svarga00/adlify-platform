@@ -223,7 +223,7 @@ const MessagesModule = {
           <div class="message-subject text-sm truncate">${m.subject || '(bez predmetu)'}</div>
           <div class="flex items-center gap-2 mt-2">
             ${m.is_starred ? '<span>⭐</span>' : ''}
-            ${m.attachments && JSON.parse(m.attachments || '[]').length > 0 ? '<span>📎</span>' : ''}
+            ${this.parseAttachments(m.attachments).length > 0 ? '<span>📎</span>' : ''}
             ${m.status === 'sent' ? '<span class="text-xs text-green-600">✓ Odoslané</span>' : ''}
             ${m.status === 'failed' ? '<span class="text-xs text-red-600">✗ Chyba</span>' : ''}
           </div>
@@ -269,7 +269,7 @@ const MessagesModule = {
     
     const m = this.selectedMessage;
     const isInbound = m.type === 'inbound';
-    const attachments = JSON.parse(m.attachments || '[]');
+    const attachments = this.parseAttachments(m.attachments);
     
     return `
       <div class="max-w-3xl">
@@ -631,6 +631,20 @@ Tím Adlify`,
   
   setupEventListeners() {
     // Any additional event listeners
+  },
+  
+  // Helper function to safely parse attachments
+  parseAttachments(attachments) {
+    if (!attachments) return [];
+    if (Array.isArray(attachments)) return attachments;
+    if (typeof attachments === 'string') {
+      try {
+        return JSON.parse(attachments) || [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
   }
 };
 
