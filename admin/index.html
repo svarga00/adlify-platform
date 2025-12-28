@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adlify CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#FF6B35',
+                        'secondary': '#E91E63',
+                        'accent': '#9C27B0',
+                        'sidebar': '#1e1e2f',
+                        'sidebar-hover': '#2d2d44'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
+        .gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63, #9C27B0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar-item { transition: all 0.2s; }
+        .sidebar-item:hover { background: #2d2d44; }
+        .sidebar-item.active { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); }
+        .card { background: white; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app" class="flex h-screen">
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="w-64 bg-sidebar text-white flex flex-col flex-shrink-0">
+            <!-- Logo -->
+            <div class="p-6 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center font-bold text-lg">A</div>
+                    <div>
+                        <span class="text-xl font-bold">ADLIFY</span>
+                        <span class="text-xs text-gray-400 block">CRM Platform</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+                <!-- Main Section -->
+                <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Hlavné</p>
+                <div data-menu-section="main">
+                    <!-- Menu items will be added dynamically -->
+                </div>
+                
+                <!-- Tools Section -->
+                <div class="pt-4 mt-4 border-t border-white/10">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Nástroje</p>
+                </div>
+                <div data-menu-section="tools"></div>
+                
+                <!-- Settings Section -->
+                <div class="pt-4 mt-4 border-t border-white/10">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Systém</p>
+                </div>
+                <div data-menu-section="settings"></div>
+            </nav>
+            
+            <!-- User & Status -->
+            <div class="p-4 border-t border-white/10">
+                <div class="flex items-center gap-3 mb-4">
+                    <div id="user-avatar" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-sm font-medium">U</div>
+                    <div class="flex-1 min-w-0">
+                        <div id="user-name" class="font-medium truncate">Načítavam...</div>
+                        <div id="user-role" class="text-xs text-gray-400">-</div>
+                    </div>
+                    <button data-action="logout" class="p-2 hover:bg-white/10 rounded-lg" title="Odhlásiť">
+                        🚪
+                    </button>
+                </div>
+                <div id="connection-status" class="flex items-center gap-2 text-sm text-gray-400">
+                    <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                    Pripájam...
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- TOP BAR -->
+            <header class="bg-white border-b px-6 py-4 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h1 id="page-title" class="text-2xl font-bold text-gray-800">Dashboard</h1>
+                    <p id="page-subtitle" class="text-sm text-gray-500">Prehľad</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="location.reload()" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 text-sm font-medium">
+                        🔄 Obnoviť
+                    </button>
+                    <button onclick="Router.navigate('settings')" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 text-sm font-medium">
+                        ⚙️
+                    </button>
+                </div>
+            </header>
+
+            <!-- PAGE CONTENT -->
+            <main id="main-content" class="flex-1 overflow-y-auto p-6">
+                <div class="flex items-center justify-center h-64">
+                    <div class="animate-spin text-4xl">⏳</div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Core Scripts -->
+    <script src="../shared/js/core/config.js"></script>
+    <script src="../shared/js/core/database.js"></script>
+    <script src="../shared/js/core/auth.js"></script>
+    <script src="../shared/js/core/router.js"></script>
+    <script src="../shared/js/core/utils.js"></script>
+    <script src="../shared/js/core/app.js"></script>
+    
+    <!-- Module Scripts -->
+    <script src="../modules/dashboard/dashboard.js"></script>
+    <script src="../modules/leads/leads.js"></script>
+    <script src="../modules/clients/clients.js"></script>
+    
+    <!-- Initialize App -->
+    <script>
+        (async () => {
+            const success = await App.init({ requireTeam: true });
+            
+            if (success) {
+                // Register modules
+                App.register(DashboardModule);
+                App.register(LeadsModule);
+                App.register(ClientsModule);
+                
+                // Navigate to default or current route
+                if (!window.location.hash) {
+                    Router.navigate('dashboard');
+                }
+            }
+        })();
+    </script>
+</body>
+</html>

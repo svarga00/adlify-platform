@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prihlásenie | Adlify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#FF6B35',
+                        'secondary': '#E91E63'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+    <div id="app" class="min-h-screen flex">
+        <!-- Left side - Branding -->
+        <div class="hidden lg:flex lg:w-1/2 gradient-bg items-center justify-center p-12">
+            <div class="text-white max-w-md">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-2xl font-bold">A</div>
+                    <span class="text-3xl font-bold">ADLIFY</span>
+                </div>
+                <h1 class="text-4xl font-bold mb-4">Automatizovaná marketingová agentúra</h1>
+                <p class="text-lg text-white/80 mb-8">
+                    Spravujte leady, klientov a kampane na jednom mieste. 
+                    AI-powered analýza a automatizácia.
+                </p>
+                <div class="flex gap-6 text-white/60 text-sm">
+                    <div class="flex items-center gap-2"><span>✓</span> Leady & Klienti</div>
+                    <div class="flex items-center gap-2"><span>✓</span> Google & Meta Ads</div>
+                    <div class="flex items-center gap-2"><span>✓</span> AI Analýza</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right side - Login Form -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-8">
+            <div class="w-full max-w-md">
+                <!-- Mobile logo -->
+                <div class="lg:hidden text-center mb-8">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">A</div>
+                    <h1 class="text-2xl font-bold">ADLIFY</h1>
+                </div>
+                
+                <!-- Login Form -->
+                <div id="login-form-container">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Prihlásenie</h2>
+                    <p class="text-gray-500 mb-8">Zadaj svoje prihlasovacie údaje</p>
+                    
+                    <form id="login-form" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="email" required placeholder="vas@email.sk"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Heslo</label>
+                            <input type="password" id="password" required placeholder="••••••••"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="remember" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary">
+                                <span class="text-sm text-gray-600">Zapamätať si ma</span>
+                            </label>
+                            <a href="#" onclick="showForgotPassword(); return false;" class="text-sm text-primary hover:underline">Zabudnuté heslo?</a>
+                        </div>
+                        
+                        <div id="error-message" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"></div>
+                        
+                        <button type="submit" id="login-btn"
+                            class="w-full py-3 gradient-bg text-white font-semibold rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2">
+                            <span>Prihlásiť sa</span>
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Forgot Password Form -->
+                <div id="forgot-form-container" class="hidden">
+                    <button onclick="showLogin()" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6">
+                        <span>←</span> Späť na prihlásenie
+                    </button>
+                    
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Obnovenie hesla</h2>
+                    <p class="text-gray-500 mb-8">Zadaj email a pošleme ti odkaz na obnovenie hesla</p>
+                    
+                    <form id="forgot-form" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="forgot-email" required placeholder="vas@email.sk"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                        </div>
+                        
+                        <div id="forgot-message" class="hidden p-3 rounded-xl text-sm"></div>
+                        
+                        <button type="submit" class="w-full py-3 gradient-bg text-white font-semibold rounded-xl hover:opacity-90 transition">
+                            Odoslať odkaz
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Footer -->
+                <div class="mt-8 text-center text-sm text-gray-400">
+                    © 2024 Adlify.eu | Všetky práva vyhradené
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="shared/js/core/config.js"></script>
+    <script src="shared/js/core/database.js"></script>
+    <script src="shared/js/core/auth.js"></script>
+    
+    <script>
+        // Check if already logged in
+        (async () => {
+            if (!Config.isSupabaseConfigured()) {
+                showSetup();
+                return;
+            }
+            
+            Database.init();
+            
+            const { data: { session } } = await Database.client.auth.getSession();
+            
+            if (session) {
+                await Auth.init();
+                window.location.href = Auth.getRedirectUrl();
+            }
+        })();
+        
+        // Login form handler
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('login-btn');
+            const errorEl = document.getElementById('error-message');
+            
+            errorEl.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="animate-spin">⏳</span> Prihlasujem...';
+            
+            try {
+                await Auth.login(email, password);
+                window.location.href = Auth.getRedirectUrl();
+            } catch (error) {
+                console.error('Login error:', error);
+                errorEl.textContent = getErrorMessage(error);
+                errorEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<span>Prihlásiť sa</span>';
+            }
+        });
+        
+        // Forgot password form handler
+        document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('forgot-email').value.trim();
+            const messageEl = document.getElementById('forgot-message');
+            
+            try {
+                await Auth.resetPassword(email);
+                messageEl.className = 'p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm';
+                messageEl.textContent = 'Email s odkazom na obnovenie hesla bol odoslaný.';
+                messageEl.classList.remove('hidden');
+            } catch (error) {
+                messageEl.className = 'p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm';
+                messageEl.textContent = getErrorMessage(error);
+                messageEl.classList.remove('hidden');
+            }
+        });
+        
+        function showForgotPassword() {
+            document.getElementById('login-form-container').classList.add('hidden');
+            document.getElementById('forgot-form-container').classList.remove('hidden');
+        }
+        
+        function showLogin() {
+            document.getElementById('forgot-form-container').classList.add('hidden');
+            document.getElementById('login-form-container').classList.remove('hidden');
+        }
+        
+        function showSetup() {
+            document.getElementById('app').innerHTML = `
+                <div class="w-full flex items-center justify-center p-8">
+                    <div class="w-full max-w-md">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">A</div>
+                            <h1 class="text-2xl font-bold">Prvé spustenie</h1>
+                            <p class="text-gray-500 mt-2">Nastav pripojenie k Supabase</p>
+                        </div>
+                        
+                        <form id="setup-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Supabase URL</label>
+                                <input type="url" id="setup-url" required placeholder="https://xxx.supabase.co" class="w-full p-3 border rounded-xl">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Supabase Anon Key</label>
+                                <input type="password" id="setup-key" required placeholder="eyJhbGc..." class="w-full p-3 border rounded-xl">
+                            </div>
+                            <button type="submit" class="w-full py-3 gradient-bg text-white font-semibold rounded-xl">
+                                Uložiť a pokračovať
+                            </button>
+                        </form>
+                        
+                        <p class="text-xs text-gray-400 text-center mt-4">
+                            Údaje nájdeš v Supabase Dashboard → Settings → API
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('setup-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                Config.set('supabase_url', document.getElementById('setup-url').value.trim());
+                Config.set('supabase_key', document.getElementById('setup-key').value.trim());
+                location.reload();
+            });
+        }
+        
+        function getErrorMessage(error) {
+            const messages = {
+                'Invalid login credentials': 'Nesprávny email alebo heslo',
+                'Email not confirmed': 'Email nie je potvrdený. Skontroluj svoju schránku.',
+                'User not found': 'Používateľ neexistuje',
+                'Too many requests': 'Príliš veľa pokusov. Skús to neskôr.'
+            };
+            return messages[error.message] || error.message || 'Nastala chyba. Skús to znova.';
+        }
+    </script>
+</body>
+</html>
