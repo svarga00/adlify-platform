@@ -839,15 +839,15 @@ ${a.swot ? `
     </div>
   </div>
 </section>
-` : ''}
+\` : ''}
 
 <!-- Page 6: Keywords -->
-${k.topKeywords?.length ? `
+\${k.topKeywords?.length ? \`
 <section class="page page-white">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">5</span> Kľúčové slová</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">${k.summary || `Identifikovali sme ${k.topKeywords.length} relevantných kľúčových slov pre vaše podnikanie. Tu je ukážka top ${Math.min(k.topKeywords.length, 10)}:`}</p>
+    <p class="section-subtitle">Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top \${Math.min(k.topKeywords.length, 10)}:</p>
     
     <table class="data-table">
       <thead>
@@ -859,21 +859,21 @@ ${k.topKeywords?.length ? `
         </tr>
       </thead>
       <tbody>
-        ${k.topKeywords.slice(0, 10).map(kw => `
+        \${k.topKeywords.slice(0, 10).map(kw => \`
           <tr>
-            <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
-            <td style="text-align: center; font-weight: 600;">${kw.searchVolume}</td>
-            <td style="text-align: center;"><span class="tag ${kw.competition === 'nízka' ? 'tag-success' : kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light'}">${kw.competition}</span></td>
-            <td style="text-align: right; font-weight: 700; color: #FF6B35;">${kw.cpc}</td>
+            <td><strong style="color: #1a1a2e;">\${kw.keyword}</strong></td>
+            <td style="text-align: center; font-weight: 600;">\${kw.searchVolume}</td>
+            <td style="text-align: center;"><span class="tag \${kw.competition === 'nízka' ? 'tag-success' : kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light'}">\${kw.competition}</span></td>
+            <td style="text-align: right; font-weight: 700; color: #FF6B35;">\${kw.cpc}</td>
           </tr>
-        `).join('')}
+        \`).join('')}
       </tbody>
     </table>
     
-    ${k.topKeywords.length > 10 ? `<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>${k.topKeywords.length - 10}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>` : ''}
+    \${k.topKeywords.length > 10 ? \`<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>\${k.topKeywords.length - 10}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>\` : ''}
   </div>
 </section>
-` : ''}
+\` : ''}
 
 <!-- Page 7: Strategy -->
 <section class="page page-gray">
