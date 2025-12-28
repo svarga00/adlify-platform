@@ -573,17 +573,26 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .package-btn-gradient { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border: none; }
 .package-btn-gradient:hover { transform: scale(1.02); box-shadow: 0 5px 20px rgba(255,107,53,0.4); }
 
-/* Timeline */
-.timeline { position: relative; padding-left: 35px; }
-.timeline::before { content: ''; position: absolute; left: 10px; top: 5px; bottom: 5px; width: 3px; background: linear-gradient(180deg, #FF6B35, #E91E63, #9C27B0, #7c3aed); border-radius: 3px; }
-.timeline-item { position: relative; margin-bottom: 35px; }
-.timeline-item::before { content: ''; position: absolute; left: -30px; top: 5px; width: 16px; height: 16px; background: white; border: 3px solid #FF6B35; border-radius: 50%; }
-.timeline-item:nth-child(2)::before { border-color: #E91E63; }
-.timeline-item:nth-child(3)::before { border-color: #9C27B0; }
-.timeline-item:nth-child(4)::before { border-color: #7c3aed; }
-.timeline-item:nth-child(5)::before { border-color: #3b82f6; }
-.timeline-title { font-weight: 700; color: #1a1a2e; margin-bottom: 8px; font-size: 1.1rem; }
-.timeline-desc { color: #64748b; font-size: 0.95rem; line-height: 1.6; }
+/* Timeline - Dark style */
+.timeline-section { background: #1a1a2e; border-radius: 24px; padding: 50px; }
+.timeline-section h2 { color: white !important; }
+.timeline-section .section-badge { background: linear-gradient(135deg, #FF6B35, #E91E63) !important; }
+.timeline { position: relative; padding-left: 50px; margin-top: 40px; }
+.timeline::before { content: ''; position: absolute; left: 15px; top: 20px; bottom: 20px; width: 3px; background: linear-gradient(180deg, #FF6B35, #E91E63, #9C27B0, #7c3aed, #3b82f6); border-radius: 3px; }
+.timeline-item { position: relative; margin-bottom: 25px; }
+.timeline-item::before { content: ''; position: absolute; left: -42px; top: 20px; width: 18px; height: 18px; background: #FF6B35; border-radius: 50%; box-shadow: 0 0 0 4px rgba(255,107,53,0.3); }
+.timeline-item:nth-child(2)::before { background: #E91E63; box-shadow: 0 0 0 4px rgba(233,30,99,0.3); }
+.timeline-item:nth-child(3)::before { background: #9C27B0; box-shadow: 0 0 0 4px rgba(156,39,176,0.3); }
+.timeline-item:nth-child(4)::before { background: #7c3aed; box-shadow: 0 0 0 4px rgba(124,58,237,0.3); }
+.timeline-item:nth-child(5)::before { background: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,0.3); }
+.timeline-card { background: rgba(255,255,255,0.08); border-radius: 16px; padding: 25px 30px; border: 1px solid rgba(255,255,255,0.1); }
+.timeline-title { font-weight: 700; margin-bottom: 10px; font-size: 1.1rem; }
+.timeline-item:nth-child(1) .timeline-title { color: #FF6B35; }
+.timeline-item:nth-child(2) .timeline-title { color: #E91E63; }
+.timeline-item:nth-child(3) .timeline-title { color: #9C27B0; }
+.timeline-item:nth-child(4) .timeline-title { color: #7c3aed; }
+.timeline-item:nth-child(5) .timeline-title { color: #3b82f6; }
+.timeline-desc { color: rgba(255,255,255,0.8); font-size: 0.95rem; line-height: 1.7; }
 
 /* Benefits */
 .benefit-card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: all 0.3s; }
@@ -870,7 +879,7 @@ ${k.topKeywords?.length ? `
       </tbody>
     </table>
     
-    ${k.topKeywords.length > 10 ? `<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>${k.topKeywords.length - 10}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>` : ''}
+    ${k.topKeywords.length > 10 ? `<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>${Math.max(k.topKeywords.length - 10, 30)}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>` : `<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>30+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>`}
   </div>
 </section>
 ` : ''}
@@ -1052,32 +1061,43 @@ ${r.projection ? `
 ` : ''}
 
 <!-- Page 11: Timeline -->
-<section class="page page-gray">
+<section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">10</span> Časový plán implementácie</h2>
-    <div class="section-divider"></div>
-    <p class="section-subtitle">Prehľad aktivít od spustenia spolupráce až po škálovanie kampaní.</p>
-    
-    <div class="timeline">
-      <div class="timeline-item">
-        <div class="timeline-title">Týždeň 1 - Príprava</div>
-        <div class="timeline-desc">${timeline.week1 || 'Kompletný audit, nastavenie reklamných účtov, inštalácia tracking kódov (Google Analytics, Facebook Pixel), príprava kampaní'}</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-title">Týždeň 2 - Spustenie</div>
-        <div class="timeline-desc">${timeline.week2 || 'Spustenie prvých kampaní, monitoring výkonu, prvé optimalizácie na základe dát'}</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-title">Týždeň 3-4 - Optimalizácia</div>
-        <div class="timeline-desc">${timeline.week3_4 || 'A/B testovanie reklám a landing pages, optimalizácia cieľových skupín, úprava rozpočtov podľa výkonu'}</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-title">Mesiac 2 - Rozširovanie</div>
-        <div class="timeline-desc">${timeline.month2 || 'Spustenie remarketingových kampaní, rozšírenie na ďalšie kľúčové slová, testovanie nových formátov'}</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-title">Mesiac 3+ - Škálovanie</div>
-        <div class="timeline-desc">${timeline.month3 || 'Škálovanie úspešných kampaní, strategické odporúčania, pravidelné reporty a konzultácie'}</div>
+    <div class="timeline-section">
+      <h2 class="section-title" style="color: white;"><span class="section-badge">10</span> Časový plán</h2>
+      <div class="section-divider" style="background: linear-gradient(135deg, #FF6B35, #E91E63);"></div>
+      
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-card">
+            <div class="timeline-title">Týždeň 1</div>
+            <div class="timeline-desc">${timeline.week1 || 'Audit existujúcej web stránky, nastavenie Google Ads a Meta Ads účtov, tracking implementácia'}</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-card">
+            <div class="timeline-title">Týždeň 2</div>
+            <div class="timeline-desc">${timeline.week2 || 'Spustenie search kampaní, prvé A/B testy ad copy, optimalizácia landing pages'}</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-card">
+            <div class="timeline-title">Týždeň 3-4</div>
+            <div class="timeline-desc">${timeline.week3_4 || 'Rozšírenie o display kampane, remarketing nastavenie, testovanie rôznych audience'}</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-card">
+            <div class="timeline-title">Mesiac 2</div>
+            <div class="timeline-desc">${timeline.month2 || 'Rozšírenie keyword listu, škálovanie úspešných kampaní, case studies tvorba'}</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-card">
+            <div class="timeline-title">Mesiac 3+</div>
+            <div class="timeline-desc">${timeline.month3 || 'Plná optimalizácia na základe dát, scaling successful campaigns, SEO odporúčania'}</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
