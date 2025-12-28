@@ -216,6 +216,8 @@ const LeadsModule = {
     return this.leads.map(lead => {
       const a = lead.analysis || {};
       const hasAnalysis = a.company || a.analysis;
+      const proposalStatus = lead.proposal_status || 'not_sent';
+      const proposalBadge = this.getProposalBadge(proposalStatus, lead.proposal_sent_at);
       return `
         <div class="px-4 py-3 hover:bg-gray-50 flex items-center gap-3">
           <input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="LeadsModule.toggleSelect('${lead.id}')" class="w-4 h-4 rounded">
@@ -225,6 +227,7 @@ const LeadsModule = {
               ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="text-xs text-primary hover:underline">${lead.domain}</a>` : ''}
               ${Utils.statusBadge(lead.status, 'lead')}
               ${hasAnalysis ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">✓ Analyzované</span>' : ''}
+              ${proposalBadge}
             </div>
             <div class="text-xs text-gray-500">${a.company?.location ? '📍 ' + a.company.location : ''} ${a.company?.industry ? '• ' + a.company.industry : ''}</div>
           </div>
@@ -233,10 +236,22 @@ const LeadsModule = {
             <button onclick="LeadsModule.analyze('${lead.id}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Analyzovať">🤖</button>
             ${hasAnalysis ? `<button onclick="LeadsModule.showAnalysis('${lead.id}')" class="p-2 hover:bg-blue-100 rounded-lg" title="Zobraziť">📊</button>` : ''}
             ${hasAnalysis ? `<button onclick="LeadsModule.generateProposalFor('${lead.id}')" class="p-2 hover:bg-green-100 rounded-lg" title="Ponuka">📄</button>` : ''}
+            ${hasAnalysis && lead.email ? `<button onclick="LeadsModule.sendProposalEmail('${lead.id}')" class="p-2 hover:bg-orange-100 rounded-lg" title="Odoslať ponuku emailom">📧</button>` : ''}
           </div>
         </div>
       `;
     }).join('');
+  },
+  
+  getProposalBadge(status, sentAt) {
+    const badges = {
+      'not_sent': '',
+      'sent': `<span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="${sentAt ? 'Odoslané: ' + Utils.formatDate(sentAt) : ''}">📧 Odoslané</span>`,
+      'opened': `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">👁️ Otvorené</span>`,
+      'responded': `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">💬 Odpovedal</span>`,
+      'converted': `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">🎉 Konvertovaný</span>`
+    };
+    return badges[status] || '';
   },
 
   setupEventListeners() {
@@ -1274,6 +1289,67 @@ ${r.projection ? `
     await this.loadLeads();
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
     document.getElementById('leads-count').textContent = this.leads.length;
+  },
+  
+  // Odoslanie ponuky emailom
+  async sendProposalEmail(leadId) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return Utils.toast('Lead nenájdený', 'error');
+    if (!lead.email) return Utils.toast('Lead nemá email', 'warning');
+    
+    const analysis = lead.analysis;
+    if (!analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
+    
+    // Generuj HTML ponuku
+    const proposalHtml = this.generateProposalHTML(lead, analysis);
+    
+    // Otvor messages modul s predvyplnenými údajmi
+    if (window.MessagesModule) {
+      const companyName = analysis.company?.name || lead.company_name || lead.domain;
+      
+      MessagesModule.showComposeModal({
+        to: lead.email,
+        toName: lead.contact_person || companyName,
+        subject: `Návrh marketingovej stratégie pre ${companyName}`,
+        body: `Dobrý deň,
+
+dovoľujeme si Vám zaslať návrh marketingovej stratégie pre ${companyName}.
+
+V prílohe nájdete kompletnú analýzu vašej online prítomnosti a konkrétne odporúčania ako získať viac zákazníkov prostredníctvom online reklamy.
+
+V prípade záujmu ma neváhajte kontaktovať.
+
+S pozdravom,
+Tím Adlify
++421 944 184 045
+info@adlify.eu`,
+        leadId: lead.id,
+        proposalHtml: proposalHtml,
+        onSent: () => this.markProposalSent(leadId, lead.email)
+      });
+    } else {
+      Utils.toast('Messages modul nie je dostupný', 'error');
+    }
+  },
+  
+  // Označenie leadu že ponuka bola odoslaná
+  async markProposalSent(leadId, email) {
+    await Database.update('leads', leadId, {
+      proposal_status: 'sent',
+      proposal_sent_at: new Date().toISOString(),
+      proposal_sent_to: email
+    });
+    
+    // Refresh zoznam
+    const leadIndex = this.leads.findIndex(l => l.id === leadId);
+    if (leadIndex !== -1) {
+      this.leads[leadIndex].proposal_status = 'sent';
+      this.leads[leadIndex].proposal_sent_at = new Date().toISOString();
+      this.leads[leadIndex].proposal_sent_to = email;
+    }
+    
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    Utils.toast('Ponuka odoslaná! Lead označený.', 'success');
   }
 };
 
