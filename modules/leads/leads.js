@@ -1,5 +1,5 @@
 /**
- * ADLIFY PLATFORM - Leads Module v2.1
+ * ADLIFY PLATFORM - Leads Module v2.2
  * Professional AI Analysis & Proposal Generation - Light Theme
  */
 
@@ -22,6 +22,9 @@ const LeadsModule = {
   
   ANALYZE_URL: 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/analyze-lead',
   
+  // Správne logo URL
+  LOGO: 'https://adlify.eu/wp/wp-content/uploads/2025/10/ADLIFY-LOGO.webp',
+  
   CONTACT: {
     phone: '+421 944 184 045',
     email: 'info@adlify.eu',
@@ -29,13 +32,41 @@ const LeadsModule = {
   },
   
   packages: {
-    starter: { name: 'Starter', price: 149, description: 'Ideálne pre živnostníkov', features: ['1 reklamná platforma', '1 kampaň', '2 reklamné vizuály', 'Reklamné texty', 'Základná optimalizácia', 'Mesačný report', 'Email podpora'] },
-    pro: { name: 'Pro', price: 249, description: 'Pre firmy na viacerých platformách', features: ['2 platformy (FB/IG + Google)', 'Až 3 kampane', '4 reklamné vizuály', 'A/B testovanie', 'Optimalizácia každé 2 týždne', 'Detailný report', 'Email + telefón podpora'] },
-    enterprise: { name: 'Enterprise', price: 399, description: 'Pre e-shopy a väčšie firmy', features: ['Všetky platformy + remarketing', 'Až 5 kampaní', '8 vizuálov', 'Pokročilé A/B testovanie', 'Týždenná optimalizácia', 'Strategické konzultácie', 'Prioritná podpora'] },
-    premium: { name: 'Premium', price: 799, description: 'VIP riešenie', features: ['Všetky platformy', 'Neobmedzené kampane', 'Neobmedzené vizuály', 'Dedikovaný account manager', 'Denná optimalizácia', 'Mesačné stretnutia', '24/7 VIP podpora'] }
+    starter: { 
+      name: 'Starter', 
+      price: 149, 
+      icon: '🚀',
+      badge: 'Pre začiatok',
+      description: 'Ideálne pre živnostníkov, ktorí chcú vyskúšať online reklamu',
+      features: ['1 reklamná platforma', '1 kampaň', '2 reklamné vizuály', 'Reklamné texty (copy)', 'Základná optimalizácia', 'Mesačný report', 'Email podpora'] 
+    },
+    pro: { 
+      name: 'Pro', 
+      price: 249, 
+      icon: '⭐',
+      badge: 'Najobľúbenejšie',
+      description: 'Pre firmy, ktoré chcú rásť na viacerých platformách',
+      features: ['2 platformy (FB/IG + Google)', 'Až 3 kampane súčasne', '4 reklamné vizuály', 'A/B testovanie', 'Optimalizácia každé 2 týždne', 'Detailný report', 'Email + telefón podpora'] 
+    },
+    enterprise: { 
+      name: 'Enterprise', 
+      price: 399, 
+      icon: '💎',
+      badge: 'Pre firmy',
+      description: 'Pre e-shopy a firmy s vyšším rozpočtom na reklamu',
+      features: ['Všetky platformy + remarketing', 'Až 5 kampaní súčasne', '8 reklamných vizuálov', 'Pokročilé A/B testovanie', 'Týždenná optimalizácia', 'Strategické konzultácie', 'Prioritná podpora + WhatsApp'] 
+    },
+    premium: { 
+      name: 'Premium', 
+      price: 799, 
+      icon: '🏆',
+      badge: 'VIP',
+      description: 'Individuálna cena podľa rozsahu a potrieb vášho projektu',
+      features: ['Všetky platformy + remarketing', 'Neobmedzený počet kampaní', 'Neobmedzené vizuály', 'Dedikovaný account manager', 'Denná optimalizácia', 'Mesačné strategické stretnutia', '24/7 VIP podpora'] 
+    }
   },
 
-  init() { console.log('👥 Leads module v2.1 initialized'); },
+  init() { console.log('👥 Leads module v2.2 initialized'); },
   
   async render(container, params = {}) {
     if (params.status) this.filters.status = params.status;
@@ -263,11 +294,11 @@ const LeadsModule = {
       ${c.services?.length ? `<div class="analysis-section"><h3>🛠️ Služby</h3><div class="flex flex-wrap gap-2">${c.services.map(s => `<span class="tag tag-blue">${s}</span>`).join('')}</div></div>` : ''}
       ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
       ${a.swot ? `<div class="analysis-section"><h3>📊 SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">⚠️ Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">🚀 Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">⚡ Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
-      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><p class="text-sm text-gray-500 mb-3">${k.summary || ''}</p><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div><p class="text-xs text-gray-400 mt-3">📌 Kompletný zoznam ${k.totalFound || 'všetkých'} kľúčových slov dostanete po objednaní služby</p></div>` : ''}
-      ${b.recommendations ? `<div class="analysis-section"><h3>💰 Odporúčaný rozpočet</h3><p class="text-sm text-gray-600 mb-4">${b.analysis || ''}</p><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne na reklamu</p><div class="mt-3 pt-3 border-t text-sm"><p>~${b.recommendations.starter?.expectedClicks || 400} klikov</p><p>~${b.recommendations.starter?.expectedConversions || '15-25'} dopytov</p></div></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">⭐ Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne na reklamu</p><div class="mt-3 pt-3 border-t border-white/30 text-sm"><p>~${b.recommendations.recommended?.expectedClicks || 700} klikov</p><p>~${b.recommendations.recommended?.expectedConversions || '30-45'} dopytov</p></div></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne na reklamu</p><div class="mt-3 pt-3 border-t text-sm"><p>~${b.recommendations.aggressive?.expectedClicks || 1200} klikov</p><p>~${b.recommendations.aggressive?.expectedConversions || '50-70'} dopytov</p></div></div></div></div>` : ''}
-      ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť (ROI)</h3><p class="text-sm text-gray-600 mb-4">${r.explanation || ''}</p><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
+      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><p class="text-sm text-gray-500 mb-3">${k.summary || ''}</p><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      ${b.recommendations ? `<div class="analysis-section"><h3>💰 Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">⭐ Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
+      ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
       ${analysis.customNote ? `<div class="analysis-section border-l-4 border-purple-500 bg-purple-50"><h3>💬 Osobná poznámka</h3><p class="text-gray-700 italic">${analysis.customNote}</p></div>` : ''}
-      <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>🎯 Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong> pre optimálny pomer ceny a výkonu.</p></div>
+      <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>🎯 Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
     `;
   },
 
@@ -338,7 +369,6 @@ const LeadsModule = {
     const timeline = analysis.timeline || {};
     const recPkg = (analysis.recommendedPackage || 'pro').toLowerCase();
     const clientLogo = lead.domain ? `https://logo.clearbit.com/${lead.domain}` : null;
-    const adlifyLogo = 'https://adlify.eu/wp-content/uploads/2025/05/logo_na_sirku.png';
 
     return `<!DOCTYPE html>
 <html lang="sk">
@@ -349,121 +379,736 @@ const LeadsModule = {
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Poppins', sans-serif; background: #fff; color: #1a1a2e; line-height: 1.7; }
+body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; line-height: 1.7; }
+
+/* Header */
 .header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 15px 60px; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 2px 20px rgba(0,0,0,0.08); }
-.header-logo { height: 32px; }
+.header-logo { height: 36px; }
+.header-right { display: flex; align-items: center; gap: 15px; }
 .header-client { display: flex; align-items: center; gap: 10px; font-weight: 500; color: #64748b; font-size: 0.9rem; }
 .header-client img { height: 28px; border-radius: 6px; }
+
+/* Pages */
 .page { min-height: 100vh; padding: 120px 60px 80px; }
 .page-content { max-width: 1000px; margin: 0 auto; }
-.page-white { background: #fff; }
+.page-white { background: #ffffff; }
 .page-gray { background: #f8fafc; }
-.gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.section-badge { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border-radius: 50%; font-weight: 700; font-size: 0.9rem; margin-right: 12px; }
-.section-title { font-size: 2rem; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; }
-.section-subtitle { font-size: 1.05rem; color: #64748b; margin-bottom: 35px; }
+
+/* Typography */
+.gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.section-badge { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border-radius: 50%; font-weight: 700; font-size: 1rem; margin-right: 15px; flex-shrink: 0; }
+.section-title { font-size: 2rem; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; color: #1a1a2e; }
+.section-subtitle { font-size: 1.05rem; color: #64748b; margin-bottom: 35px; line-height: 1.8; }
 .section-divider { width: 80px; height: 4px; background: linear-gradient(135deg, #FF6B35, #E91E63); border-radius: 2px; margin-bottom: 30px; }
+
+/* Cards */
 .card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 25px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e2e8f0; }
 .card-highlight { border-left: 4px solid #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); }
+
+/* Grid */
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-.stat-box { text-align: center; padding: 24px; background: white; border-radius: 16px; box-shadow: 0 2px 15px rgba(0,0,0,0.05); }
-.stat-icon { font-size: 2.5rem; margin-bottom: 10px; }
-.stat-value { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.stat-label { font-size: 0.85rem; color: #64748b; margin-top: 5px; }
+
+/* Stats */
+.stat-box { text-align: center; padding: 28px; background: white; border-radius: 16px; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+.stat-icon { font-size: 2.5rem; margin-bottom: 12px; }
+.stat-value { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.stat-label { font-size: 0.85rem; color: #64748b; margin-top: 8px; }
+
+/* Tags */
 .tag { display: inline-block; padding: 8px 18px; border-radius: 25px; font-size: 0.85rem; font-weight: 500; margin: 4px; }
 .tag-gradient { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; }
 .tag-light { background: #f1f5f9; color: #475569; }
 .tag-success { background: #dcfce7; color: #166534; }
 .tag-warning { background: #fef3c7; color: #92400e; }
-.swot-box { padding: 24px; border-radius: 14px; }
-.swot-box h4 { font-size: 1rem; font-weight: 600; margin-bottom: 12px; }
+
+/* SWOT */
+.swot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.swot-box { padding: 24px; border-radius: 16px; }
+.swot-box h4 { font-size: 1rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
 .swot-box ul { list-style: none; }
-.swot-box li { padding: 6px 0; font-size: 0.9rem; }
-.swot-strengths { background: #f0fdf4; }
+.swot-box li { padding: 8px 0; font-size: 0.9rem; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.swot-box li:last-child { border-bottom: none; }
+.swot-strengths { background: #f0fdf4; border: 1px solid #bbf7d0; }
 .swot-strengths h4 { color: #166534; }
-.swot-weaknesses { background: #fef3c7; }
+.swot-weaknesses { background: #fef3c7; border: 1px solid #fde68a; }
 .swot-weaknesses h4 { color: #92400e; }
-.swot-opportunities { background: #dbeafe; }
+.swot-opportunities { background: #dbeafe; border: 1px solid #93c5fd; }
 .swot-opportunities h4 { color: #1e40af; }
-.swot-threats { background: #fee2e2; }
+.swot-threats { background: #fee2e2; border: 1px solid #fecaca; }
 .swot-threats h4 { color: #991b1b; }
-table { width: 100%; border-collapse: collapse; }
-th { background: #f8fafc; padding: 14px; text-align: left; font-weight: 600; color: #475569; font-size: 0.85rem; }
-td { padding: 14px; border-bottom: 1px solid #e2e8f0; }
-tr:hover { background: #f8fafc; }
+
+/* Table */
+.data-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.data-table th { background: #f8fafc; padding: 16px; text-align: left; font-weight: 600; color: #475569; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; }
+.data-table td { padding: 16px; border-bottom: 1px solid #e2e8f0; }
+.data-table tr:hover { background: #f8fafc; }
+.data-table tr:last-child td { border-bottom: none; }
+
+/* Packages */
 .package-card { background: white; border: 2px solid #e2e8f0; border-radius: 20px; padding: 35px 28px; text-align: center; transition: all 0.3s; position: relative; }
 .package-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
 .package-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); }
-.package-card.featured::before { content: "Odporúčame"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 5px 20px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-.package-icon { font-size: 2.5rem; margin-bottom: 15px; }
-.package-name { font-size: 1.4rem; font-weight: 700; margin-bottom: 5px; }
-.package-price { font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.package-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.package-icon { font-size: 3rem; margin-bottom: 15px; }
+.package-name { font-size: 1.5rem; font-weight: 700; margin-bottom: 5px; color: #1a1a2e; }
+.package-price { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .package-period { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
-.package-features { list-style: none; text-align: left; margin-bottom: 25px; }
-.package-features li { padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
-.package-features li::before { content: "✓ "; color: #22c55e; font-weight: bold; }
-.package-btn { display: block; width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.3s; }
+.package-desc { color: #64748b; font-size: 0.85rem; margin-bottom: 25px; min-height: 45px; }
+.package-features { list-style: none; text-align: left; margin-bottom: 30px; }
+.package-features li { padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
+.package-features li::before { content: "✓"; color: #22c55e; font-weight: bold; font-size: 1.1rem; }
+.package-btn { display: block; width: 100%; padding: 16px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.3s; font-size: 1rem; }
 .package-btn-outline { border: 2px solid #e2e8f0; color: #475569; background: white; }
+.package-btn-outline:hover { border-color: #FF6B35; color: #FF6B35; }
 .package-btn-gradient { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border: none; }
-.timeline { position: relative; padding-left: 30px; }
-.timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #FF6B35, #E91E63, #9C27B0); border-radius: 3px; }
-.timeline-item { position: relative; margin-bottom: 30px; }
-.timeline-item::before { content: ''; position: absolute; left: -26px; top: 5px; width: 14px; height: 14px; background: white; border: 3px solid #FF6B35; border-radius: 50%; }
-.timeline-title { font-weight: 600; color: #1a1a2e; margin-bottom: 5px; }
-.timeline-desc { color: #64748b; font-size: 0.9rem; }
-.benefit-card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-.benefit-icon { width: 50px; height: 50px; background: linear-gradient(135deg, #fff7ed, #fef2f2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 15px; }
-.benefit-title { font-weight: 600; margin-bottom: 8px; }
-.benefit-desc { color: #64748b; font-size: 0.9rem; }
-.cta-section { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); border-radius: 24px; padding: 60px; text-align: center; color: white; margin-top: 40px; }
-.cta-title { font-size: 2.2rem; font-weight: 700; margin-bottom: 15px; }
-.cta-subtitle { font-size: 1.1rem; opacity: 0.9; margin-bottom: 35px; max-width: 500px; margin-left: auto; margin-right: auto; }
-.cta-buttons { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 30px; }
-.cta-btn { padding: 16px 35px; border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 1rem; transition: all 0.3s; }
+.package-btn-gradient:hover { transform: scale(1.02); box-shadow: 0 5px 20px rgba(255,107,53,0.4); }
+
+/* Timeline */
+.timeline { position: relative; padding-left: 35px; }
+.timeline::before { content: ''; position: absolute; left: 10px; top: 5px; bottom: 5px; width: 3px; background: linear-gradient(180deg, #FF6B35, #E91E63, #9C27B0, #7c3aed); border-radius: 3px; }
+.timeline-item { position: relative; margin-bottom: 35px; }
+.timeline-item::before { content: ''; position: absolute; left: -30px; top: 5px; width: 16px; height: 16px; background: white; border: 3px solid #FF6B35; border-radius: 50%; }
+.timeline-item:nth-child(2)::before { border-color: #E91E63; }
+.timeline-item:nth-child(3)::before { border-color: #9C27B0; }
+.timeline-item:nth-child(4)::before { border-color: #7c3aed; }
+.timeline-item:nth-child(5)::before { border-color: #3b82f6; }
+.timeline-title { font-weight: 700; color: #1a1a2e; margin-bottom: 8px; font-size: 1.1rem; }
+.timeline-desc { color: #64748b; font-size: 0.95rem; line-height: 1.6; }
+
+/* Benefits */
+.benefit-card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: all 0.3s; }
+.benefit-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+.benefit-icon { width: 60px; height: 60px; background: linear-gradient(135deg, #fff7ed, #fef2f2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 20px; }
+.benefit-title { font-weight: 700; margin-bottom: 10px; font-size: 1.1rem; color: #1a1a2e; }
+.benefit-desc { color: #64748b; font-size: 0.95rem; line-height: 1.6; }
+
+/* CTA Section */
+.cta-section { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); border-radius: 24px; padding: 70px; text-align: center; color: white; }
+.cta-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 20px; }
+.cta-subtitle { font-size: 1.15rem; opacity: 0.95; margin-bottom: 40px; max-width: 550px; margin-left: auto; margin-right: auto; line-height: 1.7; }
+.cta-buttons { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 35px; }
+.cta-btn { padding: 18px 40px; border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 1.05rem; transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px; }
 .cta-btn-white { background: white; color: #FF6B35; }
+.cta-btn-white:hover { transform: scale(1.05); box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
 .cta-btn-outline { background: transparent; color: white; border: 2px solid white; }
-.cta-contact { margin-top: 20px; font-size: 0.95rem; opacity: 0.9; }
-.cta-contact a { color: white; text-decoration: none; }
-.footer { text-align: center; padding: 40px; background: #f8fafc; color: #64748b; font-size: 0.85rem; }
-.footer-logo { height: 30px; margin-bottom: 15px; opacity: 0.7; }
+.cta-btn-outline:hover { background: white; color: #FF6B35; }
+.cta-contact { margin-top: 25px; font-size: 1rem; }
+.cta-contact p { margin: 10px 0; }
+.cta-contact a { color: white; text-decoration: none; font-weight: 500; }
+.cta-contact a:hover { text-decoration: underline; }
+
+/* Footer */
+.footer { text-align: center; padding: 50px; background: #f8fafc; color: #64748b; font-size: 0.9rem; }
+.footer-logo { height: 35px; margin-bottom: 20px; }
+
+/* Hero */
 .hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 60px; }
-.hero-content { max-width: 800px; }
-.hero-logo { height: 50px; margin-bottom: 40px; }
-.hero-badge { display: inline-block; padding: 8px 20px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border-radius: 25px; font-size: 0.85rem; font-weight: 500; margin-bottom: 25px; }
-.hero-title { font-size: 3rem; font-weight: 800; margin-bottom: 20px; color: #1a1a2e; }
-.hero-subtitle { font-size: 1.2rem; color: #64748b; margin-bottom: 40px; }
-.hero-client { display: inline-flex; align-items: center; gap: 15px; padding: 20px 40px; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
-.hero-client img { height: 40px; border-radius: 8px; }
-.hero-client-name { font-size: 1.4rem; font-weight: 700; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.hero-info { margin-top: 50px; color: #94a3b8; font-size: 0.9rem; }
-@media (max-width: 768px) { .page { padding: 100px 25px 60px; } .header { padding: 12px 20px; } .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } .hero-title { font-size: 2rem; } .section-title { font-size: 1.5rem; } .cta-section { padding: 40px 25px; } }
+.hero-content { max-width: 850px; }
+.hero-logo { height: 55px; margin-bottom: 45px; }
+.hero-badge { display: inline-block; padding: 10px 25px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border-radius: 30px; font-size: 0.9rem; font-weight: 600; margin-bottom: 30px; }
+.hero-title { font-size: 3.2rem; font-weight: 800; margin-bottom: 25px; color: #1a1a2e; line-height: 1.2; }
+.hero-subtitle { font-size: 1.25rem; color: #64748b; margin-bottom: 45px; line-height: 1.7; }
+.hero-client { display: inline-flex; align-items: center; gap: 20px; padding: 25px 50px; background: white; border-radius: 20px; box-shadow: 0 15px 50px rgba(0,0,0,0.1); }
+.hero-client img { height: 50px; border-radius: 10px; }
+.hero-client-name { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-info { margin-top: 55px; color: #94a3b8; font-size: 0.95rem; line-height: 1.7; }
+
+/* Ad Previews */
+.ad-preview { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+.ad-preview-google { border-left: 4px solid #4285f4; }
+.ad-preview-meta { border-left: 4px solid #1877f2; }
+.ad-preview-label { font-size: 0.8rem; color: #64748b; margin-bottom: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Budget Cards */
+.budget-card { background: white; border-radius: 20px; padding: 35px; text-align: center; border: 2px solid #e2e8f0; transition: all 0.3s; }
+.budget-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+.budget-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); transform: scale(1.05); position: relative; }
+.budget-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+.budget-label { color: #64748b; font-size: 0.9rem; margin-bottom: 8px; }
+.budget-value { font-size: 3rem; font-weight: 800; color: #1a1a2e; }
+.budget-card.featured .budget-value { background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.budget-period { color: #94a3b8; font-size: 0.85rem; margin-bottom: 25px; }
+.budget-stats { border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: left; }
+.budget-stat { display: flex; justify-content: space-between; padding: 10px 0; }
+.budget-stat-label { color: #64748b; }
+.budget-stat-value { font-weight: 600; }
+
+@media (max-width: 768px) {
+  .page { padding: 100px 25px 60px; }
+  .header { padding: 12px 20px; }
+  .grid-2, .grid-3, .grid-4, .swot-grid { grid-template-columns: 1fr; }
+  .hero { padding: 40px 20px; }
+  .hero-title { font-size: 2rem; }
+  .hero-client { padding: 20px 30px; flex-direction: column; text-align: center; }
+  .section-title { font-size: 1.5rem; }
+  .cta-section { padding: 40px 25px; }
+  .cta-title { font-size: 1.8rem; }
+  .package-card.featured { transform: none; }
+  .budget-card.featured { transform: none; }
+}
+
+@media print {
+  .header { position: relative; }
+  .page { min-height: auto; page-break-after: always; padding: 40px; }
+}
 </style>
 </head>
 <body>
-<div class="header"><img src="${adlifyLogo}" alt="Adlify" class="header-logo"><div class="header-client">${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.style.display='none'">` : ''}<span>Pripravené pre ${c.name || lead.company_name}</span></div></div>
-<div class="hero"><div class="hero-content"><img src="${adlifyLogo}" alt="Adlify" class="hero-logo"><div class="hero-badge">📊 Personalizovaná analýza</div><h1 class="hero-title">Návrh <span class="gradient-text">marketingovej stratégie</span></h1><p class="hero-subtitle">Komplexná analýza vašej online prítomnosti a konkrétne odporúčania pre rast</p><div class="hero-client">${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.style.display='none'">` : '<span style="font-size:2rem">🏢</span>'}<span class="hero-client-name">${c.name || lead.company_name || lead.domain}</span></div><p class="hero-info">V tejto prezentácii nájdete analýzu vášho podnikania a konkrétny plán ako získať viac zákazníkov online.</p></div></div>
-<div class="page page-white"><div class="page-content"><div class="section-title"><span class="section-badge">1</span> O vašej firme</div><div class="section-divider"></div><div class="card card-highlight"><p style="font-size: 1.15rem; line-height: 1.9;">${c.description || 'Popis firmy'}</p></div>${c.services?.length ? `<h3 style="margin: 35px 0 20px; font-size: 1.2rem; font-weight: 600;">🛠️ Vaše služby</h3><div style="display: flex; flex-wrap: wrap; gap: 10px;">${c.services.map(s => `<span class="tag tag-gradient">${s}</span>`).join('')}</div>` : ''}</div></div>
-${a.humanWrittenIntro ? `<div class="page page-gray"><div class="page-content"><div class="section-title"><span class="section-badge">2</span> Čo sme zistili</div><div class="section-divider"></div><div class="card card-highlight"><p style="font-size: 1.1rem; line-height: 1.9;">${a.humanWrittenIntro}</p></div></div></div>` : ''}
-<div class="page page-white"><div class="page-content"><div class="section-title"><span class="section-badge">3</span> Online prítomnosť</div><div class="section-divider"></div><p class="section-subtitle">${o.summary || ''}</p><div class="grid-4"><div class="stat-box"><div class="stat-icon">${o.website?.exists ? '✅' : '❌'}</div><div style="font-weight: 600;">Webstránka</div></div><div class="stat-box"><div class="stat-icon">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div style="font-weight: 600;">Facebook</div></div><div class="stat-box"><div class="stat-icon">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div style="font-weight: 600;">Instagram</div></div><div class="stat-box"><div class="stat-icon">${o.paidAds?.detected ? '✅' : '❌'}</div><div style="font-weight: 600;">Reklama</div></div></div></div></div>
-${a.swot ? `<div class="page page-gray"><div class="page-content"><div class="section-title"><span class="section-badge">4</span> SWOT Analýza</div><div class="section-divider"></div><div class="grid-2"><div class="swot-box swot-strengths"><h4>💪 Silné stránky</h4><ul>${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="swot-box swot-weaknesses"><h4>⚠️ Slabé stránky</h4><ul>${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="swot-box swot-opportunities"><h4>🚀 Príležitosti</h4><ul>${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="swot-box swot-threats"><h4>⚡ Hrozby</h4><ul>${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div></div>` : ''}
-${k.topKeywords?.length ? `<div class="page page-white"><div class="page-content"><div class="section-title"><span class="section-badge">5</span> Kľúčové slová</div><div class="section-divider"></div><p class="section-subtitle">${k.summary || ''}</p><div class="card" style="overflow: hidden; padding: 0;"><table><thead><tr><th>Kľúčové slovo</th><th style="text-align: center;">Hľadanosť</th><th style="text-align: center;">Konkurencia</th><th style="text-align: right;">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr><td><strong>${kw.keyword}</strong></td><td style="text-align: center;">${kw.searchVolume}</td><td style="text-align: center;"><span class="tag ${kw.competition === 'nízka' ? 'tag-success' : kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light'}">${kw.competition}</span></td><td style="text-align: right; font-weight: 600;">${kw.cpc}</td></tr>`).join('')}</tbody></table></div><p style="margin-top: 20px; font-size: 0.85rem; color: #94a3b8; text-align: center;">📌 Máme pripravených ďalších ${(k.totalFound || 45) - 10}+ kľúčových slov</p></div></div>` : ''}
-<div class="page page-gray"><div class="page-content"><div class="section-title"><span class="section-badge">6</span> Odporúčaný rozpočet</div><div class="section-divider"></div><p class="section-subtitle">${b.analysis || ''}</p><div class="grid-3"><div class="card" style="text-align: center;"><p style="color: #94a3b8; margin-bottom: 5px;">Štart</p><p style="font-size: 2.5rem; font-weight: 800; color: #64748b;">${b.recommendations?.starter?.adSpend || 300}€</p><p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">mesačne</p><div style="border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: left;"><p style="display: flex; justify-content: space-between; padding: 8px 0;"><span style="color: #64748b;">Kliky</span><strong>~${b.recommendations?.starter?.expectedClicks || 400}</strong></p><p style="display: flex; justify-content: space-between; padding: 8px 0;"><span style="color: #64748b;">Dopyty</span><strong>~${b.recommendations?.starter?.expectedConversions || '15-25'}</strong></p></div></div><div class="card" style="text-align: center; border: 2px solid #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); transform: scale(1.05); position: relative;"><div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 5px 20px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">⭐ Odporúčame</div><p style="color: #FF6B35; margin-bottom: 5px; margin-top: 10px;">Optimum</p><p style="font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${b.recommendations?.recommended?.adSpend || 500}€</p><p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">mesačne</p><div style="border-top: 1px solid #fed7aa; padding-top: 15px; text-align: left;"><p style="display: flex; justify-content: space-between; padding: 8px 0;"><span style="color: #64748b;">Kliky</span><strong>~${b.recommendations?.recommended?.expectedClicks || 700}</strong></p><p style="display: flex; justify-content: space-between; padding: 8px 0;"><span style="color: #64748b;">Dopyty</span><strong>~${b.recommendations?.recommended?.expectedConversions || '30-45'}</strong></p></div></div><div class="card" style="text-align: center;"><p style="color: #94a3b8; margin-bottom: 5px;">Agresívny</p><p style="font-size: 2.5rem; font-weight: 800; color: #64748b;">${b.recommendations?.aggressive?.adSpend || 800}€</p><p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">mesačne</p><div style="border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: left;"><p style="display: flex; justify-content: space-between; padding: 8px 0;"><span style="color: #64748b;">Kliky</span><strong>~${b.recommendations?.aggressive?.expectedClicks || 1200}</strong></p><p style="display: flex; justify-content: space-between; padding: 8px 0;"><span style="color: #64748b;">Dopyty</span><strong>~${b.recommendations?.aggressive?.expectedConversions || '50-70'}</strong></p></div></div></div><p style="margin-top: 25px; font-size: 0.9rem; color: #64748b; text-align: center; background: #e2e8f0; padding: 15px; border-radius: 10px;">💡 <strong>Dôležité:</strong> Reklamný rozpočet platíte priamo Google/Facebook. Nie je súčasťou ceny za správu.</p></div></div>
-${r.projection ? `<div class="page page-white"><div class="page-content"><div class="section-title"><span class="section-badge">7</span> Predpokladaná návratnosť</div><div class="section-divider"></div><p class="section-subtitle">${r.explanation || ''}</p><div class="grid-3"><div class="stat-box"><div class="stat-value">${r.projection.monthlyLeads}</div><div class="stat-label">Mesačných dopytov</div></div><div class="stat-box"><div class="stat-value">${r.projection.monthlyRevenue}</div><div class="stat-label">Potenciálny obrat</div></div><div class="stat-box"><div class="stat-value">${r.projection.roi}</div><div class="stat-label">ROI</div></div></div></div></div>` : ''}
-<div class="page page-gray"><div class="page-content"><div class="section-title"><span class="section-badge">8</span> Časový plán</div><div class="section-divider"></div><div class="timeline"><div class="timeline-item"><div class="timeline-title">Týždeň 1</div><div class="timeline-desc">${timeline.week1 || 'Audit, nastavenie účtov, tracking kódy'}</div></div><div class="timeline-item"><div class="timeline-title">Týždeň 2</div><div class="timeline-desc">${timeline.week2 || 'Spustenie prvých kampaní'}</div></div><div class="timeline-item"><div class="timeline-title">Týždeň 3-4</div><div class="timeline-desc">${timeline.week3_4 || 'A/B testovanie, optimalizácia'}</div></div><div class="timeline-item"><div class="timeline-title">Mesiac 2</div><div class="timeline-desc">${timeline.month2 || 'Remarketing, rozšírenie'}</div></div><div class="timeline-item"><div class="timeline-title">Mesiac 3+</div><div class="timeline-desc">${timeline.month3 || 'Škálovanie'}</div></div></div></div></div>
-<div class="page page-white"><div class="page-content"><div class="section-title"><span class="section-badge">9</span> Benefity spolupráce</div><div class="section-divider"></div><div class="grid-2"><div class="benefit-card"><div class="benefit-icon">🎯</div><div class="benefit-title">Zákazníci s potrebou</div><div class="benefit-desc">Oslovíte ľudí hľadajúcich vaše služby PRÁVE TERAZ.</div></div><div class="benefit-card"><div class="benefit-icon">📊</div><div class="benefit-title">Merateľné výsledky</div><div class="benefit-desc">Presne viete koľko ľudí videlo reklamu a kliklo.</div></div><div class="benefit-card"><div class="benefit-icon">🏆</div><div class="benefit-title">Konkurenčná výhoda</div><div class="benefit-desc">Aktívne oslovujete zákazníkov.</div></div><div class="benefit-card"><div class="benefit-icon">📈</div><div class="benefit-title">Sezónne kampane</div><div class="benefit-desc">Navýšime rozpočet pred sezónou.</div></div></div></div></div>
-<div class="page page-gray"><div class="page-content"><div class="section-title"><span class="section-badge">10</span> Naše balíčky</div><div class="section-divider"></div><p class="section-subtitle">Odporúčame balíček <strong style="color: #FF6B35;">${analysis.recommendedPackage || 'Pro'}</strong></p><div class="grid-4"><div class="package-card ${recPkg === 'starter' ? 'featured' : ''}"><div class="package-icon">🚀</div><div class="package-name">Starter</div><div class="package-price">149€</div><div class="package-period">/mesiac</div><ul class="package-features">${this.packages.starter.features.slice(0, 5).map(f => `<li>${f}</li>`).join('')}</ul><a href="mailto:${this.CONTACT.email}?subject=Záujem o Starter - ${c.name || lead.company_name}" class="package-btn package-btn-outline">Vybrať Starter</a></div><div class="package-card ${recPkg === 'pro' ? 'featured' : ''}"><div class="package-icon">⭐</div><div class="package-name">Pro</div><div class="package-price">249€</div><div class="package-period">/mesiac</div><ul class="package-features">${this.packages.pro.features.slice(0, 5).map(f => `<li>${f}</li>`).join('')}</ul><a href="mailto:${this.CONTACT.email}?subject=Záujem o Pro - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'pro' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Pro</a></div><div class="package-card ${recPkg === 'enterprise' ? 'featured' : ''}"><div class="package-icon">💎</div><div class="package-name">Enterprise</div><div class="package-price">399€</div><div class="package-period">/mesiac</div><ul class="package-features">${this.packages.enterprise.features.slice(0, 5).map(f => `<li>${f}</li>`).join('')}</ul><a href="mailto:${this.CONTACT.email}?subject=Záujem o Enterprise - ${c.name || lead.company_name}" class="package-btn package-btn-outline">Vybrať Enterprise</a></div><div class="package-card ${recPkg === 'premium' ? 'featured' : ''}"><div class="package-icon">🏆</div><div class="package-name" style="color: #FF6B35;">Premium</div><div class="package-price">799€</div><div class="package-period">/mesiac</div><ul class="package-features">${this.packages.premium.features.slice(0, 5).map(f => `<li>${f}</li>`).join('')}</ul><a href="mailto:${this.CONTACT.email}?subject=Záujem o Premium - ${c.name || lead.company_name}" class="package-btn package-btn-outline">Kontaktujte nás</a></div></div></div></div>
-<div class="page page-white"><div class="page-content"><div class="cta-section"><h2 class="cta-title">Začnime spoluprácu</h2><p class="cta-subtitle">Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť.</p><div class="cta-buttons"><a href="mailto:${this.CONTACT.email}?subject=Mám záujem - ${c.name || lead.company_name}" class="cta-btn cta-btn-white">✓ Mám záujem</a><a href="mailto:${this.CONTACT.email}?subject=Otázky - ${c.name || lead.company_name}" class="cta-btn cta-btn-outline">Mám otázky</a></div><div class="cta-contact"><p>📧 <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p><p style="margin-top: 8px;">📞 <a href="tel:${this.CONTACT.phone.replace(/\\s/g, '')}">${this.CONTACT.phone}</a></p><p style="margin-top: 8px;">🌐 <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p></div></div>${analysis.customNote ? `<div class="card card-highlight" style="margin-top: 40px;"><h4 style="margin-bottom: 10px; font-weight: 600;">💬 Osobná poznámka</h4><p style="color: #64748b; font-style: italic;">${analysis.customNote}</p></div>` : ''}</div></div>
-<div class="footer"><img src="${adlifyLogo}" alt="Adlify" class="footer-logo"><p>© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ❤️ pre ${c.name || lead.company_name}</p><p style="margin-top: 8px;">Táto prezentácia je dôverná a určená výhradne pre ${c.name || lead.company_name}</p></div>
-</body></html>`;
+
+<!-- Fixed Header -->
+<header class="header">
+  <img src="${this.LOGO}" alt="Adlify" class="header-logo" onerror="this.outerHTML='<span style=\\'font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#FF6B35,#E91E63);-webkit-background-clip:text;-webkit-text-fill-color:transparent;\\'>ADLIFY</span>'">
+  <div class="header-right">
+    <div class="header-client">
+      ${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
+      <span>Pripravené pre ${c.name || lead.company_name}</span>
+    </div>
+  </div>
+</header>
+
+<!-- Page 1: Hero -->
+<section class="hero">
+  <div class="hero-content">
+    <img src="${this.LOGO}" alt="Adlify" class="hero-logo" onerror="this.outerHTML='<div style=\\'font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#FF6B35,#E91E63);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:40px;\\'>ADLIFY</div>'">
+    <div class="hero-badge">📊 Personalizovaná analýza & stratégia</div>
+    <h1 class="hero-title">Návrh <span class="gradient-text">marketingovej stratégie</span></h1>
+    <p class="hero-subtitle">Komplexná analýza vašej online prítomnosti, identifikácia príležitostí a konkrétne odporúčania pre rast vášho podnikania prostredníctvom online reklamy</p>
+    <div class="hero-client">
+      ${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.outerHTML='<span style=\\'font-size:2.5rem\\'>🏢</span>'">` : '<span style="font-size:2.5rem">🏢</span>'}
+      <span class="hero-client-name">${c.name || lead.company_name || lead.domain}</span>
+    </div>
+    <p class="hero-info">V tejto prezentácii nájdete detailnú analýzu vášho podnikania, zhodnotenie aktuálnej online prítomnosti, identifikované príležitosti a konkrétny akčný plán ako získať viac zákazníkov cez online reklamu.</p>
+  </div>
+</section>
+
+<!-- Page 2: About Company -->
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">1</span> O vašej firme</h2>
+    <div class="section-divider"></div>
+    
+    <div class="card card-highlight">
+      <p style="font-size: 1.15rem; line-height: 1.9; color: #374151;">${c.description || 'Váš popis firmy bude doplnený na základe analýzy.'}</p>
+    </div>
+    
+    ${c.services?.length ? `
+    <h3 style="margin: 40px 0 20px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">🛠️ Vaše služby a produkty</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+      ${c.services.map(s => `<span class="tag tag-gradient">${s}</span>`).join('')}
+    </div>
+    ` : ''}
+    
+    ${c.targetCustomers ? `
+    <h3 style="margin: 40px 0 20px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">👥 Vaši ideálni zákazníci</h3>
+    <p style="color: #64748b; font-size: 1.05rem; line-height: 1.8;">${c.targetCustomers}</p>
+    ` : ''}
+  </div>
+</section>
+
+<!-- Page 3: Our Findings -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">2</span> Čo sme zistili</h2>
+    <div class="section-divider"></div>
+    
+    ${a.humanWrittenIntro ? `
+    <div class="card card-highlight" style="margin-bottom: 40px;">
+      <p style="font-size: 1.1rem; line-height: 1.9; color: #374151;">${a.humanWrittenIntro}</p>
+    </div>
+    ` : ''}
+    
+    ${a.strengths?.length ? `
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">✅ Vaše silné stránky</h3>
+    <div class="grid-2" style="margin-bottom: 40px;">
+      ${a.strengths.map(str => `
+        <div class="card">
+          <h4 style="color: #166534; margin-bottom: 12px; font-weight: 700; font-size: 1.1rem;">${str.title || str}</h4>
+          ${str.description ? `<p style="color: #64748b; font-size: 0.95rem; line-height: 1.7;">${str.description}</p>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+    
+    ${a.opportunities?.length ? `
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">🚀 Príležitosti na zlepšenie</h3>
+    <div class="grid-2">
+      ${a.opportunities.map(opp => `
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="color: #FF6B35; font-weight: 700; font-size: 1.1rem;">${opp.title || opp}</h4>
+            ${opp.priority ? `<span class="tag ${opp.priority === 'vysoká' ? 'tag-warning' : 'tag-light'}" style="font-size: 0.75rem;">${opp.priority}</span>` : ''}
+          </div>
+          ${opp.description ? `<p style="color: #64748b; font-size: 0.95rem; line-height: 1.7;">${opp.description}</p>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+  </div>
+</section>
+
+<!-- Page 4: Online Presence -->
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">3</span> Vaša online prítomnosť</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${o.summary || 'Zhodnotenie vašej aktuálnej prítomnosti na webe a sociálnych sieťach.'}</p>
+    
+    <div class="grid-4" style="margin-bottom: 40px;">
+      <div class="stat-box">
+        <div class="stat-icon">${o.website?.exists ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Webstránka</div>
+        <div class="stat-label">${o.website?.quality || (o.website?.exists ? 'Aktívna' : 'Chýba')}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Facebook</div>
+        <div class="stat-label">${o.socialMedia?.facebook?.exists ? 'Aktívny' : 'Neaktívny'}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Instagram</div>
+        <div class="stat-label">${o.socialMedia?.instagram?.exists ? 'Aktívny' : 'Neaktívny'}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">${o.paidAds?.detected ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Platená reklama</div>
+        <div class="stat-label">${o.paidAds?.detected ? 'Využíva' : 'Nevyužíva'}</div>
+      </div>
+    </div>
+    
+    ${o.website?.strengths?.length || o.website?.weaknesses?.length ? `
+    <div class="grid-2">
+      ${o.website?.strengths?.length ? `
+      <div class="card" style="border-left: 4px solid #22c55e;">
+        <h4 style="color: #166534; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">💪 Čo funguje dobre</h4>
+        <ul style="list-style: none;">
+          ${o.website.strengths.map(s => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #22c55e; font-size: 1.2rem;">✓</span> ${s}</li>`).join('')}
+        </ul>
+      </div>
+      ` : ''}
+      ${o.website?.weaknesses?.length ? `
+      <div class="card" style="border-left: 4px solid #f59e0b;">
+        <h4 style="color: #92400e; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">⚠️ Čo treba zlepšiť</h4>
+        <ul style="list-style: none;">
+          ${o.website.weaknesses.map(w => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #f59e0b; font-size: 1.2rem;">!</span> ${w}</li>`).join('')}
+        </ul>
+      </div>
+      ` : ''}
+    </div>
+    ` : ''}
+    
+    <p style="margin-top: 30px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby</p>
+  </div>
+</section>
+
+<!-- Page 5: SWOT -->
+${a.swot ? `
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">4</span> SWOT Analýza</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Strategická analýza silných a slabých stránok, príležitostí a hrozieb pre vaše podnikanie.</p>
+    
+    <div class="swot-grid">
+      <div class="swot-box swot-strengths">
+        <h4>💪 Silné stránky</h4>
+        <ul>${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+      <div class="swot-box swot-weaknesses">
+        <h4>⚠️ Slabé stránky</h4>
+        <ul>${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+      <div class="swot-box swot-opportunities">
+        <h4>🚀 Príležitosti</h4>
+        <ul>${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+      <div class="swot-box swot-threats">
+        <h4>⚡ Hrozby</h4>
+        <ul>${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+    </div>
+  </div>
+</section>
+` : ''}
+
+<!-- Page 6: Keywords -->
+${k.topKeywords?.length ? `
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">5</span> Kľúčové slová</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${k.summary || `Identifikovali sme ${k.totalFound || k.topKeywords.length} relevantných kľúčových slov pre vaše podnikanie.`}</p>
+    
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="border-radius: 12px 0 0 0;">Kľúčové slovo</th>
+          <th style="text-align: center;">Mesačná hľadanosť</th>
+          <th style="text-align: center;">Konkurencia</th>
+          <th style="text-align: right; border-radius: 0 12px 0 0;">Cena za klik</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${k.topKeywords.slice(0, 10).map(kw => `
+          <tr>
+            <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
+            <td style="text-align: center; font-weight: 600;">${kw.searchVolume}</td>
+            <td style="text-align: center;"><span class="tag ${kw.competition === 'nízka' ? 'tag-success' : kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light'}">${kw.competition}</span></td>
+            <td style="text-align: right; font-weight: 700; color: #FF6B35;">${kw.cpc}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    
+    <p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>${(k.totalFound || 45) - 10}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>
+  </div>
+</section>
+` : ''}
+
+<!-- Page 7: Strategy -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">6</span> Navrhovaná stratégia</h2>
+    <div class="section-divider"></div>
+    
+    <div class="grid-2" style="margin-bottom: 35px;">
+      <div class="card">
+        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">📱 Odporúčané platformy</h4>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-gradient">${p}</span>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">🎯 Hlavný cieľ</h4>
+        <p style="color: #64748b; font-size: 1.05rem; line-height: 1.7;">${s.primaryGoal || 'Generovanie kvalifikovaných dopytov a zvýšenie povedomia o značke'}</p>
+      </div>
+    </div>
+    
+    ${s.targetAudience ? `
+    <div class="card">
+      <h4 style="margin-bottom: 25px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">👥 Cieľová skupina</h4>
+      <div class="grid-3">
+        <div>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Demografia</p>
+          <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.demographics || 'Bude upresnené'}</p>
+        </div>
+        <div>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Záujmy</p>
+          <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.interests?.join(', ') || 'Bude upresnené'}</p>
+        </div>
+        <div>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Správanie</p>
+          <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.behaviors?.join(', ') || 'Bude upresnené'}</p>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+  </div>
+</section>
+
+<!-- Page 8: Ad Examples -->
+${camp.google || camp.meta ? `
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">7</span> Návrhy reklám</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám.</p>
+    
+    <div class="grid-2">
+      ${camp.google?.searchCampaign ? `
+      <div>
+        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #4285f4;">🔍 Google Ads - Vyhľadávanie</h4>
+        <div class="ad-preview ad-preview-google">
+          <div class="ad-preview-label">Náhľad reklamy vo vyhľadávaní</div>
+          <p style="color: #1a0dab; font-size: 1.2rem; margin-bottom: 8px; font-weight: 600;">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines?.[0] || 'Váš Headline'}</p>
+          <p style="color: #006621; font-size: 0.9rem; margin-bottom: 12px;">Ad · www.${lead.domain || 'example.sk'}</p>
+          <p style="color: #545454; font-size: 0.95rem; line-height: 1.6;">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions?.[0] || 'Váš popis reklamy bude tu.'}</p>
+        </div>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 15px;">Keywords: ${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 3).join(', ') || 'Budú doplnené'}</p>
+      </div>
+      ` : ''}
+      
+      ${camp.meta?.campaign ? `
+      <div>
+        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #1877f2;">📘 Facebook / Instagram</h4>
+        <div class="ad-preview ad-preview-meta">
+          <div class="ad-preview-label">Náhľad reklamy</div>
+          <p style="font-size: 0.95rem; margin-bottom: 20px; color: #1a1a2e; line-height: 1.6;">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Text vašej reklamy bude tu.'}</p>
+          <div style="background: #f0f2f5; padding: 20px; border-radius: 12px; margin-bottom: 15px;">
+            <p style="font-weight: 700; margin-bottom: 5px; font-size: 1.05rem;">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || 'Váš Headline'}</p>
+            <p style="font-size: 0.9rem; color: #64748b;">${camp.meta.campaign.adSets?.[0]?.adCopy?.description || 'Váš popis'}</p>
+          </div>
+          <span class="tag tag-gradient">${camp.meta.campaign.adSets?.[0]?.adCopy?.cta || 'Zistiť viac'}</span>
+        </div>
+      </div>
+      ` : ''}
+    </div>
+    
+    <p style="margin-top: 30px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Toto sú ukážkové reklamy. Finálne verzie vrátane profesionálnych vizuálov vytvoríme na mieru po objednaní.</p>
+  </div>
+</section>
+` : ''}
+
+<!-- Page 9: Budget -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">8</span> Odporúčaný rozpočet na reklamu</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${b.analysis || 'Na základe analýzy kľúčových slov a konkurencie sme pripravili tri varianty rozpočtu pre vaše kampane.'}</p>
+    
+    <div class="grid-3">
+      <div class="budget-card">
+        <div class="budget-label">Štart</div>
+        <div class="budget-value">${b.recommendations?.starter?.adSpend || 300}€</div>
+        <div class="budget-period">mesačne na reklamu</div>
+        <div class="budget-stats">
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedClicks || 400}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedConversions || '15-25'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.starter?.cpa || '12-20€'}</span></div>
+        </div>
+      </div>
+      
+      <div class="budget-card featured">
+        <div class="budget-label" style="color: #FF6B35;">Optimum</div>
+        <div class="budget-value">${b.recommendations?.recommended?.adSpend || 500}€</div>
+        <div class="budget-period">mesačne na reklamu</div>
+        <div class="budget-stats">
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedClicks || 700}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedConversions || '30-45'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.recommended?.cpa || '11-17€'}</span></div>
+        </div>
+      </div>
+      
+      <div class="budget-card">
+        <div class="budget-label">Agresívny rast</div>
+        <div class="budget-value">${b.recommendations?.aggressive?.adSpend || 800}€</div>
+        <div class="budget-period">mesačne na reklamu</div>
+        <div class="budget-stats">
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedClicks || 1200}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedConversions || '50-70'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.aggressive?.cpa || '10-15€'}</span></div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top: 35px; padding: 25px; background: white; border-radius: 16px; border-left: 4px solid #3b82f6;">
+      <p style="font-size: 1rem; color: #1a1a2e;"><strong>💡 Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Page 10: ROI -->
+${r.projection ? `
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">9</span> Predpokladaná návratnosť (ROI)</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${r.explanation || 'Na základe odhadov návštevnosti, konverzného pomeru a priemernej hodnoty objednávky sme vypočítali potenciálnu návratnosť vašej investície.'}</p>
+    
+    <div class="grid-3" style="margin-bottom: 40px;">
+      <div class="stat-box">
+        <div class="stat-value">${r.projection.monthlyLeads}</div>
+        <div class="stat-label">Mesačných dopytov</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${r.projection.monthlyRevenue}</div>
+        <div class="stat-label">Potenciálny mesačný obrat</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${r.projection.roi}</div>
+        <div class="stat-label">Návratnosť investície</div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h4 style="margin-bottom: 25px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">📊 Predpoklady výpočtu</h4>
+      <div class="grid-3">
+        <div style="text-align: center; padding: 20px;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">Priemerná hodnota objednávky</p>
+          <p style="font-size: 1.8rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.averageOrderValue || 'N/A'}€</p>
+        </div>
+        <div style="text-align: center; padding: 20px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">Konverzný pomer</p>
+          <p style="font-size: 1.8rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.conversionRate || 'N/A'}</p>
+        </div>
+        <div style="text-align: center; padding: 20px;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">Hodnota zákazníka (LTV)</p>
+          <p style="font-size: 1.8rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.customerLifetimeValue || 'N/A'}€</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+` : ''}
+
+<!-- Page 11: Timeline -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">10</span> Časový plán implementácie</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Prehľad aktivít od spustenia spolupráce až po škálovanie kampaní.</p>
+    
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-title">Týždeň 1 - Príprava</div>
+        <div class="timeline-desc">${timeline.week1 || 'Kompletný audit, nastavenie reklamných účtov, inštalácia tracking kódov (Google Analytics, Facebook Pixel), príprava kampaní'}</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-title">Týždeň 2 - Spustenie</div>
+        <div class="timeline-desc">${timeline.week2 || 'Spustenie prvých kampaní, monitoring výkonu, prvé optimalizácie na základe dát'}</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-title">Týždeň 3-4 - Optimalizácia</div>
+        <div class="timeline-desc">${timeline.week3_4 || 'A/B testovanie reklám a landing pages, optimalizácia cieľových skupín, úprava rozpočtov podľa výkonu'}</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-title">Mesiac 2 - Rozširovanie</div>
+        <div class="timeline-desc">${timeline.month2 || 'Spustenie remarketingových kampaní, rozšírenie na ďalšie kľúčové slová, testovanie nových formátov'}</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-title">Mesiac 3+ - Škálovanie</div>
+        <div class="timeline-desc">${timeline.month3 || 'Škálovanie úspešných kampaní, strategické odporúčania, pravidelné reporty a konzultácie'}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Page 12: Benefits -->
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">11</span> Čo vám spolupráca prinesie</h2>
+    <div class="section-divider"></div>
+    
+    <div class="grid-2">
+      <div class="benefit-card">
+        <div class="benefit-icon">🎯</div>
+        <div class="benefit-title">Zákazníci s urgentnou potrebou</div>
+        <div class="benefit-desc">Oslovíte ľudí, ktorí PRÁVE TERAZ aktívne hľadajú vaše služby alebo produkty. Žiadne čakanie - okamžité výsledky.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📊</div>
+        <div class="benefit-title">100% merateľné výsledky</div>
+        <div class="benefit-desc">Presne viete, koľko ľudí videlo reklamu, kliklo, zavolalo alebo vyplnilo formulár. Každé euro je merateľné.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🏆</div>
+        <div class="benefit-title">Konkurenčná výhoda</div>
+        <div class="benefit-desc">Zatiaľ čo vaša konkurencia čaká na zákazníkov, vy ich aktívne oslovujete presne v momente, keď hľadajú riešenie.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📈</div>
+        <div class="benefit-title">Flexibilita a kontrola</div>
+        <div class="benefit-desc">Rozpočet môžete kedykoľvek navýšiť pred sezónou alebo znížiť. Máte plnú kontrolu nad svojimi investíciami.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Page 13: Packages -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">12</span> Naše balíčky</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Na základe analýzy vám odporúčame balíček <strong style="color: #FF6B35;">${analysis.recommendedPackage || 'Pro'}</strong> pre optimálny pomer ceny a výkonu.</p>
+    
+    <div class="grid-4">
+      <div class="package-card ${recPkg === 'starter' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.starter.icon}</div>
+        <div class="package-name">Starter</div>
+        <div class="package-price">149€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.starter.description}</div>
+        <ul class="package-features">
+          ${this.packages.starter.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Starter balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'starter' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Starter</a>
+      </div>
+      
+      <div class="package-card ${recPkg === 'pro' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.pro.icon}</div>
+        <div class="package-name">Pro</div>
+        <div class="package-price">249€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.pro.description}</div>
+        <ul class="package-features">
+          ${this.packages.pro.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Pro balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'pro' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Pro</a>
+      </div>
+      
+      <div class="package-card ${recPkg === 'enterprise' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.enterprise.icon}</div>
+        <div class="package-name">Enterprise</div>
+        <div class="package-price">399€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.enterprise.description}</div>
+        <ul class="package-features">
+          ${this.packages.enterprise.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Enterprise balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'enterprise' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Enterprise</a>
+      </div>
+      
+      <div class="package-card ${recPkg === 'premium' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.premium.icon}</div>
+        <div class="package-name" style="color: #FF6B35;">Premium</div>
+        <div class="package-price">od 799€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.premium.description}</div>
+        <ul class="package-features">
+          ${this.packages.premium.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Premium balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'premium' ? 'package-btn-gradient' : 'package-btn-outline'}">Kontaktujte nás</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Page 14: CTA -->
+<section class="page page-white">
+  <div class="page-content">
+    <div class="cta-section">
+      <h2 class="cta-title">Začnime spoluprácu 🚀</h2>
+      <p class="cta-subtitle">Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov cez online reklamu.</p>
+      
+      <div class="cta-buttons">
+        <a href="mailto:${this.CONTACT.email}?subject=Mám záujem o spoluprácu - ${c.name || lead.company_name}" class="cta-btn cta-btn-white">✓ Mám záujem</a>
+        <a href="mailto:${this.CONTACT.email}?subject=Otázky k ponuke - ${c.name || lead.company_name}" class="cta-btn cta-btn-outline">Mám otázky</a>
+      </div>
+      
+      <div class="cta-contact">
+        <p>📧 <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
+        <p>📞 <a href="tel:${this.CONTACT.phone.replace(/\\s/g, '')}">${this.CONTACT.phone}</a></p>
+        <p>🌐 <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
+      </div>
+    </div>
+    
+    ${analysis.customNote ? `
+    <div class="card card-highlight" style="margin-top: 50px;">
+      <h4 style="margin-bottom: 15px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">💬 Osobná poznámka od nás</h4>
+      <p style="color: #64748b; font-style: italic; font-size: 1.05rem; line-height: 1.8;">${analysis.customNote}</p>
+    </div>
+    ` : ''}
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <img src="${this.LOGO}" alt="Adlify" class="footer-logo" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;color:#94a3b8;margin-bottom:20px;\\'>ADLIFY</div>'">
+  <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ❤️ pre <strong>${c.name || lead.company_name}</strong></p>
+  <p style="font-size: 0.85rem; color: #94a3b8;">Táto prezentácia je dôverná a je určená výhradne pre ${c.name || lead.company_name}</p>
+</footer>
+
+</body>
+</html>`;
   },
 
   async handleImport() {
     const textarea = document.getElementById('import-domains');
     const text = textarea.value.trim();
     if (!text) return Utils.toast('Zadaj domény', 'warning');
-    const domains = text.split('\n').map(d => d.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]).filter(d => d.includes('.'));
+    const domains = text.split('\\n').map(d => d.trim().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('/')[0]).filter(d => d.includes('.'));
     let added = 0, skipped = 0;
     for (const domain of domains) {
       try {
@@ -487,7 +1132,7 @@ ${r.projection ? `<div class="page page-white"><div class="page-content"><div cl
     const domain = document.getElementById('add-domain').value.trim();
     const industry = document.getElementById('add-industry').value.trim();
     const city = document.getElementById('add-city').value.trim();
-    await Database.insert('leads', { domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`, company_name: name, status: 'new', score: 50, analysis: { company: { industry, location: city } } });
+    await Database.insert('leads', { domain: domain || `${name.toLowerCase().replace(/\\s+/g, '-')}.local`, company_name: name, status: 'new', score: 50, analysis: { company: { industry, location: city } } });
     Utils.toast('Lead pridaný!', 'success');
     ['add-name', 'add-domain', 'add-industry', 'add-city'].forEach(id => document.getElementById(id).value = '');
     await this.loadLeads();
