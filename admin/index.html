@@ -130,6 +130,7 @@
     <script src="../modules/dashboard/dashboard.js"></script>
     <script src="../modules/leads/leads.js"></script>
     <script src="../modules/clients/clients.js"></script>
+    <script src="../modules/messages/messages.js"></script>
     
     <!-- Initialize App -->
     <script>
@@ -141,6 +142,7 @@
                 App.register(DashboardModule);
                 App.register(LeadsModule);
                 App.register(ClientsModule);
+                App.register(MessagesModule);
                 
                 // Navigate to default or current route
                 if (!window.location.hash) {
