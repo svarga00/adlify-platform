@@ -128,66 +128,83 @@
     <script src="shared/js/core/auth.js"></script>
     
     <script>
-        // Check if already logged in
+        // Initialize app
         (async () => {
+            // Check if Supabase is configured
             if (!Config.isSupabaseConfigured()) {
                 showSetup();
-                return;
+                return; // Stop here - don't setup event listeners
             }
             
+            // Setup event listeners only if not showing setup
+            setupEventListeners();
+            
+            // Initialize database
             Database.init();
             
-            const { data: { session } } = await Database.client.auth.getSession();
-            
-            if (session) {
-                await Auth.init();
-                window.location.href = Auth.getRedirectUrl();
+            // Check if already logged in
+            try {
+                const { data: { session } } = await Database.client.auth.getSession();
+                if (session) {
+                    await Auth.init();
+                    window.location.href = Auth.getRedirectUrl();
+                }
+            } catch (error) {
+                console.error('Session check error:', error);
             }
         })();
         
-        // Login form handler
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const btn = document.getElementById('login-btn');
-            const errorEl = document.getElementById('error-message');
-            
-            errorEl.classList.add('hidden');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="animate-spin">⏳</span> Prihlasujem...';
-            
-            try {
-                await Auth.login(email, password);
-                window.location.href = Auth.getRedirectUrl();
-            } catch (error) {
-                console.error('Login error:', error);
-                errorEl.textContent = getErrorMessage(error);
-                errorEl.classList.remove('hidden');
-                btn.disabled = false;
-                btn.innerHTML = '<span>Prihlásiť sa</span>';
+        function setupEventListeners() {
+            // Login form handler
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const email = document.getElementById('email').value.trim();
+                    const password = document.getElementById('password').value;
+                    const btn = document.getElementById('login-btn');
+                    const errorEl = document.getElementById('error-message');
+                    
+                    errorEl.classList.add('hidden');
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="animate-spin">⏳</span> Prihlasujem...';
+                    
+                    try {
+                        await Auth.login(email, password);
+                        window.location.href = Auth.getRedirectUrl();
+                    } catch (error) {
+                        console.error('Login error:', error);
+                        errorEl.textContent = getErrorMessage(error);
+                        errorEl.classList.remove('hidden');
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>Prihlásiť sa</span>';
+                    }
+                });
             }
-        });
-        
-        // Forgot password form handler
-        document.getElementById('forgot-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
             
-            const email = document.getElementById('forgot-email').value.trim();
-            const messageEl = document.getElementById('forgot-message');
-            
-            try {
-                await Auth.resetPassword(email);
-                messageEl.className = 'p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm';
-                messageEl.textContent = 'Email s odkazom na obnovenie hesla bol odoslaný.';
-                messageEl.classList.remove('hidden');
-            } catch (error) {
-                messageEl.className = 'p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm';
-                messageEl.textContent = getErrorMessage(error);
-                messageEl.classList.remove('hidden');
+            // Forgot password form handler
+            const forgotForm = document.getElementById('forgot-form');
+            if (forgotForm) {
+                forgotForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const email = document.getElementById('forgot-email').value.trim();
+                    const messageEl = document.getElementById('forgot-message');
+                    
+                    try {
+                        await Auth.resetPassword(email);
+                        messageEl.className = 'p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm';
+                        messageEl.textContent = 'Email s odkazom na obnovenie hesla bol odoslaný.';
+                        messageEl.classList.remove('hidden');
+                    } catch (error) {
+                        messageEl.className = 'p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm';
+                        messageEl.textContent = getErrorMessage(error);
+                        messageEl.classList.remove('hidden');
+                    }
+                });
             }
-        });
+        }
         
         function showForgotPassword() {
             document.getElementById('login-form-container').classList.add('hidden');
