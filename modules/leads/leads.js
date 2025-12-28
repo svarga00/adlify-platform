@@ -167,6 +167,33 @@ const LeadsModule = {
           </div>
         </div>
       </div>
+      <div id="proposal-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+          <div class="p-4 border-b flex items-center justify-between bg-gradient-to-r from-orange-500 to-pink-500 text-white">
+            <h2 class="text-xl font-bold">📄 Generovať ponuku</h2>
+            <button onclick="LeadsModule.closeProposalModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+          </div>
+          <div class="p-6 overflow-y-auto flex-1">
+            <div class="mb-4">
+              <p class="text-gray-600 mb-4">Pred generovaním ponuky môžeš pridať poznámky alebo inštrukcie. AI prepracuje analýzu podľa tvojich pokynov.</p>
+            </div>
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2">📝 Poznámky pre AI (voliteľné)</label>
+              <textarea id="proposal-notes" rows="6" placeholder="Napr.: Majú Facebook aj Instagram, treba to opraviť. Zameraj sa viac na lokálnych zákazníkov. Odporúčam Pro balík..." class="w-full p-3 border rounded-xl"></textarea>
+            </div>
+            <div class="bg-blue-50 rounded-xl p-4 text-sm text-blue-700">
+              <strong>💡 Tip:</strong> Môžeš napísať čokoľvek - opravy faktov, zmenu tónu, špecifické odporúčania. AI to zapracuje do ponuky.
+            </div>
+          </div>
+          <div class="p-4 border-t flex gap-3 justify-between bg-gray-50">
+            <button onclick="LeadsModule.closeProposalModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Zrušiť</button>
+            <div class="flex gap-3">
+              <button onclick="LeadsModule.generateProposalDirect()" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">Bez úprav</button>
+              <button onclick="LeadsModule.generateProposalWithNotes()" class="px-6 py-2 gradient-bg text-white rounded-lg font-semibold">🤖 Generovať s AI</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <style>
         .tab-btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; background: #f3f4f6; }
         .tab-btn.active { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; }
@@ -346,15 +373,96 @@ const LeadsModule = {
     Utils.toast('Zmeny uložené!', 'success');
   },
 
-  async generateProposal() { if (!this.currentLeadId || !this.currentAnalysis) return Utils.toast('Najprv spusti analýzu', 'warning'); this.generateProposalFor(this.currentLeadId); },
+  async generateProposal() { if (!this.currentLeadId || !this.currentAnalysis) return Utils.toast('Najprv spusti analýzu', 'warning'); this.showProposalModal(this.currentLeadId); },
 
   async generateProposalFor(id) {
     const lead = this.leads.find(l => l.id === id);
     if (!lead?.analysis) return Utils.toast('Lead nemá analýzu', 'warning');
+    this.showProposalModal(id);
+  },
+
+  showProposalModal(id) {
+    this.currentLeadId = id;
+    const lead = this.leads.find(l => l.id === id);
+    if (lead?.analysis) {
+      this.currentAnalysis = lead.analysis;
+      this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
+    }
+    const modal = document.getElementById('proposal-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.getElementById('proposal-notes').value = '';
+  },
+
+  closeProposalModal() {
+    document.getElementById('proposal-modal').classList.add('hidden');
+    document.getElementById('proposal-modal').classList.remove('flex');
+  },
+
+  generateProposalDirect() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead?.analysis) return;
+    this.closeProposalModal();
     Utils.toast('Generujem ponuku...', 'info');
     const html = this.generateProposalHTML(lead, lead.analysis);
     const blob = new Blob([html], { type: 'text/html' });
     window.open(URL.createObjectURL(blob), '_blank');
+  },
+
+  async generateProposalWithNotes() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead?.analysis) return;
+    
+    const notes = document.getElementById('proposal-notes').value.trim();
+    if (!notes) {
+      this.generateProposalDirect();
+      return;
+    }
+    
+    this.closeProposalModal();
+    Utils.toast('AI prepracováva analýzu...', 'info');
+    
+    try {
+      const session = await Database.client.auth.getSession();
+      const token = session?.data?.session?.access_token || '';
+      
+      // Call AI to refine analysis based on notes
+      const response = await fetch(this.ANALYZE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          action: 'refine',
+          existingAnalysis: lead.analysis,
+          refinementNotes: notes,
+          companyName: lead.company_name,
+          domain: lead.domain
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.analysis) {
+        // Use refined analysis
+        const html = this.generateProposalHTML(lead, result.analysis);
+        const blob = new Blob([html], { type: 'text/html' });
+        window.open(URL.createObjectURL(blob), '_blank');
+        Utils.toast('Ponuka vygenerovaná s úpravami!', 'success');
+      } else {
+        // Fallback to original if refine fails
+        console.warn('Refine failed, using original:', result.error);
+        const html = this.generateProposalHTML(lead, lead.analysis);
+        const blob = new Blob([html], { type: 'text/html' });
+        window.open(URL.createObjectURL(blob), '_blank');
+        Utils.toast('Ponuka vygenerovaná (bez AI úprav)', 'warning');
+      }
+    } catch (error) {
+      console.error('Refine error:', error);
+      // Fallback to original
+      const html = this.generateProposalHTML(lead, lead.analysis);
+      const blob = new Blob([html], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+      Utils.toast('Ponuka vygenerovaná (AI nedostupné)', 'warning');
+    }
   },
 
   generateProposalHTML(lead, analysis) {
@@ -408,7 +516,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 /* Grid */
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: stretch; }
 
 /* Stats */
 .stat-box { text-align: center; padding: 28px; background: white; border-radius: 16px; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
@@ -447,7 +555,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .data-table tr:last-child td { border-bottom: none; }
 
 /* Packages */
-.package-card { background: white; border: 2px solid #e2e8f0; border-radius: 20px; padding: 35px 28px; text-align: center; transition: all 0.3s; position: relative; }
+.package-card { background: white; border: 2px solid #e2e8f0; border-radius: 20px; padding: 35px 28px; text-align: center; transition: all 0.3s; position: relative; display: flex; flex-direction: column; height: 100%; }
 .package-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
 .package-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); }
 .package-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
@@ -456,10 +564,10 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .package-price { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .package-period { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
 .package-desc { color: #64748b; font-size: 0.85rem; margin-bottom: 25px; min-height: 45px; }
-.package-features { list-style: none; text-align: left; margin-bottom: 30px; }
+.package-features { list-style: none; text-align: left; margin-bottom: 30px; flex-grow: 1; }
 .package-features li { padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
 .package-features li::before { content: "✓"; color: #22c55e; font-weight: bold; font-size: 1.1rem; }
-.package-btn { display: block; width: 100%; padding: 16px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.3s; font-size: 1rem; }
+.package-btn { display: block; width: 100%; padding: 16px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.3s; font-size: 1rem; margin-top: auto; }
 .package-btn-outline { border: 2px solid #e2e8f0; color: #475569; background: white; }
 .package-btn-outline:hover { border-color: #FF6B35; color: #FF6B35; }
 .package-btn-gradient { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border: none; }
@@ -576,7 +684,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     <h1 class="hero-title">Návrh <span class="gradient-text">marketingovej stratégie</span></h1>
     <p class="hero-subtitle">Komplexná analýza vašej online prítomnosti, identifikácia príležitostí a konkrétne odporúčania pre rast vášho podnikania prostredníctvom online reklamy</p>
     <div class="hero-client">
-      ${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.outerHTML='<span style=\\'font-size:2.5rem\\'>🏢</span>'">` : '<span style="font-size:2.5rem">🏢</span>'}
+      ${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
       <span class="hero-client-name">${c.name || lead.company_name || lead.domain}</span>
     </div>
     <p class="hero-info">V tejto prezentácii nájdete detailnú analýzu vášho podnikania, zhodnotenie aktuálnej online prítomnosti, identifikované príležitosti a konkrétny akčný plán ako získať viac zákazníkov cez online reklamu.</p>
@@ -739,7 +847,7 @@ ${k.topKeywords?.length ? `
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">5</span> Kľúčové slová</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">${k.summary || `Identifikovali sme ${k.totalFound || k.topKeywords.length} relevantných kľúčových slov pre vaše podnikanie.`}</p>
+    <p class="section-subtitle">${k.summary || `Identifikovali sme ${k.topKeywords.length} relevantných kľúčových slov pre vaše podnikanie. Tu je ukážka top ${Math.min(k.topKeywords.length, 10)}:`}</p>
     
     <table class="data-table">
       <thead>
@@ -762,7 +870,7 @@ ${k.topKeywords?.length ? `
       </tbody>
     </table>
     
-    <p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>${(k.totalFound || 45) - 10}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>
+    ${k.topKeywords.length > 10 ? `<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>${k.topKeywords.length - 10}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>` : ''}
   </div>
 </section>
 ` : ''}
