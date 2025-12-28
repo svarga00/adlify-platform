@@ -447,7 +447,13 @@ const MessagesModule = {
     this.showComposeModal();
   },
   
+  // Callback po odoslaní (napr. pre označenie leadu)
+  onSentCallback: null,
+  
   showComposeModal(prefill = {}) {
+    // Uložíme callback ak bol poskytnutý
+    this.onSentCallback = prefill.onSent || null;
+    
     document.getElementById('compose-content').innerHTML = this.renderComposeForm(prefill);
     const modal = document.getElementById('compose-modal');
     modal.classList.remove('hidden');
@@ -458,6 +464,7 @@ const MessagesModule = {
     const modal = document.getElementById('compose-modal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    this.onSentCallback = null; // Reset callback
   },
   
   loadTemplate(slug) {
@@ -520,6 +527,12 @@ const MessagesModule = {
       
       if (result.success) {
         Utils.toast('Email odoslaný! ✉️', 'success');
+        
+        // Zavolaj callback ak existuje (napr. pre označenie leadu)
+        if (this.onSentCallback && typeof this.onSentCallback === 'function') {
+          this.onSentCallback();
+        }
+        
         this.closeComposeModal();
         await this.loadMessages();
         document.getElementById('messages-list').innerHTML = this.renderMessagesList();
