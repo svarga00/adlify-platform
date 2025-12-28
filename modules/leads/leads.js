@@ -135,6 +135,8 @@ const LeadsModule = {
           <div class="grid md:grid-cols-2 gap-4">
             <input type="text" id="add-name" placeholder="Názov firmy *" class="p-3 border rounded-xl">
             <input type="text" id="add-domain" placeholder="domena.sk" class="p-3 border rounded-xl">
+            <input type="email" id="add-email" placeholder="Email" class="p-3 border rounded-xl">
+            <input type="text" id="add-phone" placeholder="Telefón" class="p-3 border rounded-xl">
             <input type="text" id="add-industry" placeholder="Odvetvie" class="p-3 border rounded-xl">
             <input type="text" id="add-city" placeholder="Mesto" class="p-3 border rounded-xl">
           </div>
@@ -229,14 +231,18 @@ const LeadsModule = {
               ${hasAnalysis ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">✓ Analyzované</span>' : ''}
               ${proposalBadge}
             </div>
-            <div class="text-xs text-gray-500">${a.company?.location ? '📍 ' + a.company.location : ''} ${a.company?.industry ? '• ' + a.company.industry : ''}</div>
+            <div class="text-xs text-gray-500">
+              ${a.company?.location ? '📍 ' + a.company.location : ''} ${a.company?.industry ? '• ' + a.company.industry : ''}
+              ${lead.email ? `<span class="ml-2 text-blue-600">📧 ${lead.email}</span>` : ''}
+              ${lead.phone ? `<span class="ml-2 text-green-600">📞 ${lead.phone}</span>` : ''}
+            </div>
           </div>
           ${Utils.scoreBadge(lead.score)}
           <div class="flex gap-1">
             <button onclick="LeadsModule.analyze('${lead.id}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Analyzovať">🤖</button>
             ${hasAnalysis ? `<button onclick="LeadsModule.showAnalysis('${lead.id}')" class="p-2 hover:bg-blue-100 rounded-lg" title="Zobraziť">📊</button>` : ''}
             ${hasAnalysis ? `<button onclick="LeadsModule.generateProposalFor('${lead.id}')" class="p-2 hover:bg-green-100 rounded-lg" title="Ponuka">📄</button>` : ''}
-            ${hasAnalysis && lead.email ? `<button onclick="LeadsModule.sendProposalEmail('${lead.id}')" class="p-2 hover:bg-orange-100 rounded-lg" title="Odoslať ponuku emailom">📧</button>` : ''}
+            ${hasAnalysis ? `<button onclick="LeadsModule.sendProposalEmail('${lead.id}')" class="p-2 hover:bg-orange-100 rounded-lg" title="Odoslať ponuku emailom">📧</button>` : ''}
           </div>
         </div>
       `;
@@ -365,7 +371,21 @@ const LeadsModule = {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     const a = this.editedAnalysis;
-    content.innerHTML = `<div class="space-y-6"><div><label class="block text-sm font-medium mb-2">Názov firmy</label><input type="text" id="edit-company-name" value="${a.company?.name || ''}" class="w-full p-3 border rounded-xl"></div><div><label class="block text-sm font-medium mb-2">Popis firmy</label><textarea id="edit-company-desc" rows="3" class="w-full p-3 border rounded-xl">${a.company?.description || ''}</textarea></div><div><label class="block text-sm font-medium mb-2">Naše zistenia (úvodný text)</label><textarea id="edit-intro" rows="4" class="w-full p-3 border rounded-xl">${a.analysis?.humanWrittenIntro || ''}</textarea></div><div><label class="block text-sm font-medium mb-2">Osobná poznámka pre klienta</label><textarea id="edit-custom-note" rows="3" class="w-full p-3 border rounded-xl">${a.customNote || ''}</textarea></div><div><label class="block text-sm font-medium mb-2">Odporúčaný balíček</label><select id="edit-package" class="w-full p-3 border rounded-xl"><option value="Starter" ${a.recommendedPackage === 'Starter' ? 'selected' : ''}>Starter (149€)</option><option value="Pro" ${a.recommendedPackage === 'Pro' ? 'selected' : ''}>Pro (249€)</option><option value="Enterprise" ${a.recommendedPackage === 'Enterprise' ? 'selected' : ''}>Enterprise (399€)</option><option value="Premium" ${a.recommendedPackage === 'Premium' ? 'selected' : ''}>Premium (799€)</option></select></div></div>`;
+    const lead = this.leads.find(l => l.id === this.currentLeadId) || {};
+    content.innerHTML = `
+      <div class="space-y-6">
+        <div class="grid md:grid-cols-2 gap-4">
+          <div><label class="block text-sm font-medium mb-2">Názov firmy</label><input type="text" id="edit-company-name" value="${a.company?.name || ''}" class="w-full p-3 border rounded-xl"></div>
+          <div><label class="block text-sm font-medium mb-2">Odporúčaný balíček</label><select id="edit-package" class="w-full p-3 border rounded-xl"><option value="Starter" ${a.recommendedPackage === 'Starter' ? 'selected' : ''}>Starter (149€)</option><option value="Pro" ${a.recommendedPackage === 'Pro' ? 'selected' : ''}>Pro (249€)</option><option value="Enterprise" ${a.recommendedPackage === 'Enterprise' ? 'selected' : ''}>Enterprise (399€)</option><option value="Premium" ${a.recommendedPackage === 'Premium' ? 'selected' : ''}>Premium (799€)</option></select></div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4 p-4 bg-orange-50 rounded-xl">
+          <div><label class="block text-sm font-medium mb-2">📧 Email kontakt</label><input type="email" id="edit-email" value="${lead.email || ''}" class="w-full p-3 border rounded-xl" placeholder="email@firma.sk"></div>
+          <div><label class="block text-sm font-medium mb-2">📞 Telefón</label><input type="text" id="edit-phone" value="${lead.phone || ''}" class="w-full p-3 border rounded-xl" placeholder="+421..."></div>
+        </div>
+        <div><label class="block text-sm font-medium mb-2">Popis firmy</label><textarea id="edit-company-desc" rows="3" class="w-full p-3 border rounded-xl">${a.company?.description || ''}</textarea></div>
+        <div><label class="block text-sm font-medium mb-2">Naše zistenia (úvodný text)</label><textarea id="edit-intro" rows="4" class="w-full p-3 border rounded-xl">${a.analysis?.humanWrittenIntro || ''}</textarea></div>
+        <div><label class="block text-sm font-medium mb-2">Osobná poznámka pre klienta</label><textarea id="edit-custom-note" rows="3" class="w-full p-3 border rounded-xl">${a.customNote || ''}</textarea></div>
+      </div>`;
   },
 
   closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); document.getElementById('edit-modal').classList.remove('flex'); },
@@ -379,12 +399,27 @@ const LeadsModule = {
     this.editedAnalysis.analysis.humanWrittenIntro = document.getElementById('edit-intro').value;
     this.editedAnalysis.customNote = document.getElementById('edit-custom-note').value;
     this.editedAnalysis.recommendedPackage = document.getElementById('edit-package').value;
-    await Database.update('leads', this.currentLeadId, { analysis: this.editedAnalysis });
+    
+    // Ulož aj kontaktné údaje k leadu
+    const email = document.getElementById('edit-email').value.trim();
+    const phone = document.getElementById('edit-phone').value.trim();
+    
+    await Database.update('leads', this.currentLeadId, { 
+      analysis: this.editedAnalysis,
+      email: email || null,
+      phone: phone || null
+    });
+    
     this.currentAnalysis = this.editedAnalysis;
     const lead = this.leads.find(l => l.id === this.currentLeadId);
-    if (lead) lead.analysis = this.editedAnalysis;
+    if (lead) {
+      lead.analysis = this.editedAnalysis;
+      lead.email = email || null;
+      lead.phone = phone || null;
+    }
     this.renderAnalysisResults(lead, this.editedAnalysis);
     this.closeEditModal();
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
     Utils.toast('Zmeny uložené!', 'success');
   },
 
@@ -1268,11 +1303,21 @@ ${r.projection ? `
     const name = document.getElementById('add-name').value.trim();
     if (!name) return Utils.toast('Zadaj názov firmy', 'warning');
     const domain = document.getElementById('add-domain').value.trim();
+    const email = document.getElementById('add-email').value.trim();
+    const phone = document.getElementById('add-phone').value.trim();
     const industry = document.getElementById('add-industry').value.trim();
     const city = document.getElementById('add-city').value.trim();
-    await Database.insert('leads', { domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`, company_name: name, status: 'new', score: 50, analysis: { company: { industry, location: city } } });
+    await Database.insert('leads', { 
+      domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`, 
+      company_name: name, 
+      email: email || null,
+      phone: phone || null,
+      status: 'new', 
+      score: 50, 
+      analysis: { company: { industry, location: city } } 
+    });
     Utils.toast('Lead pridaný!', 'success');
-    ['add-name', 'add-domain', 'add-industry', 'add-city'].forEach(id => document.getElementById(id).value = '');
+    ['add-name', 'add-domain', 'add-email', 'add-phone', 'add-industry', 'add-city'].forEach(id => document.getElementById(id).value = '');
     await this.loadLeads();
     this.showTab('list');
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
@@ -1295,7 +1340,6 @@ ${r.projection ? `
   async sendProposalEmail(leadId) {
     const lead = this.leads.find(l => l.id === leadId);
     if (!lead) return Utils.toast('Lead nenájdený', 'error');
-    if (!lead.email) return Utils.toast('Lead nemá email', 'warning');
     
     const analysis = lead.analysis;
     if (!analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
@@ -1308,7 +1352,7 @@ ${r.projection ? `
       const companyName = analysis.company?.name || lead.company_name || lead.domain;
       
       MessagesModule.showComposeModal({
-        to: lead.email,
+        to: lead.email || '', // Ak nemá email, nechaj prázdne - používateľ zadá ručne
         toName: lead.contact_person || companyName,
         subject: `Návrh marketingovej stratégie pre ${companyName}`,
         body: `Dobrý deň,
@@ -1325,7 +1369,7 @@ Tím Adlify
 info@adlify.eu`,
         leadId: lead.id,
         proposalHtml: proposalHtml,
-        onSent: () => this.markProposalSent(leadId, lead.email)
+        onSent: () => this.markProposalSent(leadId, document.getElementById('compose-to')?.value || lead.email)
       });
     } else {
       Utils.toast('Messages modul nie je dostupný', 'error');
@@ -1334,11 +1378,19 @@ info@adlify.eu`,
   
   // Označenie leadu že ponuka bola odoslaná
   async markProposalSent(leadId, email) {
-    await Database.update('leads', leadId, {
+    const updateData = {
       proposal_status: 'sent',
       proposal_sent_at: new Date().toISOString(),
       proposal_sent_to: email
-    });
+    };
+    
+    // Ak lead nemal email, ulož ho
+    const lead = this.leads.find(l => l.id === leadId);
+    if (email && lead && !lead.email) {
+      updateData.email = email;
+    }
+    
+    await Database.update('leads', leadId, updateData);
     
     // Refresh zoznam
     const leadIndex = this.leads.findIndex(l => l.id === leadId);
@@ -1346,6 +1398,7 @@ info@adlify.eu`,
       this.leads[leadIndex].proposal_status = 'sent';
       this.leads[leadIndex].proposal_sent_at = new Date().toISOString();
       this.leads[leadIndex].proposal_sent_to = email;
+      if (email) this.leads[leadIndex].email = email;
     }
     
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
