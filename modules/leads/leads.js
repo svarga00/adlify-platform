@@ -1079,7 +1079,7 @@ ${r.projection ? `
       
       <div class="cta-contact">
         <p>📧 <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
-        <p>📞 <a href="tel:${this.CONTACT.phone.replace(/\\s/g, '')}">${this.CONTACT.phone}</a></p>
+        <p>📞 <a href="tel:${this.CONTACT.phone.replace(/\s/g, '')}">${this.CONTACT.phone}</a></p>
         <p>🌐 <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
       </div>
     </div>
@@ -1108,7 +1108,7 @@ ${r.projection ? `
     const textarea = document.getElementById('import-domains');
     const text = textarea.value.trim();
     if (!text) return Utils.toast('Zadaj domény', 'warning');
-    const domains = text.split('\\n').map(d => d.trim().replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('/')[0]).filter(d => d.includes('.'));
+    const domains = text.split('\n').map(d => d.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]).filter(d => d.includes('.'));
     let added = 0, skipped = 0;
     for (const domain of domains) {
       try {
@@ -1132,7 +1132,7 @@ ${r.projection ? `
     const domain = document.getElementById('add-domain').value.trim();
     const industry = document.getElementById('add-industry').value.trim();
     const city = document.getElementById('add-city').value.trim();
-    await Database.insert('leads', { domain: domain || `${name.toLowerCase().replace(/\\s+/g, '-')}.local`, company_name: name, status: 'new', score: 50, analysis: { company: { industry, location: city } } });
+    await Database.insert('leads', { domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`, company_name: name, status: 'new', score: 50, analysis: { company: { industry, location: city } } });
     Utils.toast('Lead pridaný!', 'success');
     ['add-name', 'add-domain', 'add-industry', 'add-city'].forEach(id => document.getElementById(id).value = '');
     await this.loadLeads();
