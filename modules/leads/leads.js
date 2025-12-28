@@ -340,11 +340,14 @@ const LeadsModule = {
     
     try {
       // Call Edge Function
+      const session = await Database.client.auth.getSession();
+      const token = session?.data?.session?.access_token || '';
+      
       const response = await fetch(this.ANALYZE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Database.client.auth.session()?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           websiteUrl: lead.domain ? `https://${lead.domain}` : null,
