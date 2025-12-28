@@ -454,6 +454,26 @@ const MessagesModule = {
     // Uložíme callback ak bol poskytnutý
     this.onSentCallback = prefill.onSent || null;
     
+    // Ak modal neexistuje (sme v inom module), vytvor ho
+    if (!document.getElementById('compose-modal')) {
+      const modalHtml = `
+        <div id="compose-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="p-4 border-b flex items-center justify-between bg-gradient-to-r from-orange-500 to-pink-500 text-white">
+              <h2 class="text-xl font-bold">✏️ Nová správa</h2>
+              <button onclick="MessagesModule.closeComposeModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+            </div>
+            <div id="compose-content" class="p-6 overflow-y-auto flex-1"></div>
+            <div class="p-4 border-t flex gap-3 justify-end bg-gray-50">
+              <button onclick="MessagesModule.closeComposeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Zrušiť</button>
+              <button onclick="MessagesModule.sendEmail()" class="px-6 py-2 gradient-bg text-white rounded-lg font-semibold hover:opacity-90">📤 Odoslať</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
     document.getElementById('compose-content').innerHTML = this.renderComposeForm(prefill);
     const modal = document.getElementById('compose-modal');
     modal.classList.remove('hidden');
