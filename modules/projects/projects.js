@@ -1029,7 +1029,11 @@ const CampaignProjectsModule = {
             <div class="border rounded-lg p-3">
               <div class="flex items-center justify-between mb-2">
                 <span class="font-medium">${ag.name}</span>
-                <span class="text-xs text-gray-500">${(adsByGroup[ag.id] || []).length} reklám</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-gray-500">${(adsByGroup[ag.id] || []).length} reklám</span>
+                  <button onclick="event.stopPropagation(); CampaignProjectsModule.editAdGroup('${ag.id}')" 
+                    class="p-1 hover:bg-gray-200 rounded text-xs" title="Upraviť">✏️</button>
+                </div>
               </div>
               ${ag.keywords?.length ? `
               <div class="flex flex-wrap gap-1 mb-2">
@@ -1040,9 +1044,13 @@ const CampaignProjectsModule = {
               ${adsByGroup[ag.id]?.length ? `
               <div class="space-y-1">
                 ${adsByGroup[ag.id].slice(0, 3).map(ad => `
-                  <div class="bg-gray-50 rounded p-2 text-sm">
-                    <div class="font-medium text-blue-600">${ad.headlines?.[0] || 'Reklama'}</div>
-                    <div class="text-gray-500 text-xs truncate">${ad.descriptions?.[0] || ''}</div>
+                  <div class="bg-gray-50 rounded p-2 text-sm flex items-start justify-between group">
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-blue-600">${ad.headlines?.[0] || 'Reklama'}</div>
+                      <div class="text-gray-500 text-xs truncate">${ad.descriptions?.[0] || ''}</div>
+                    </div>
+                    <button onclick="event.stopPropagation(); CampaignProjectsModule.editAd('${ad.id}')" 
+                      class="p-1 hover:bg-gray-200 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity" title="Upraviť">✏️</button>
                   </div>
                 `).join('')}
                 ${adsByGroup[ag.id].length > 3 ? `<div class="text-xs text-gray-400 text-center">+${adsByGroup[ag.id].length - 3} ďalších reklám</div>` : ''}
@@ -1543,6 +1551,584 @@ const CampaignProjectsModule = {
 
   viewReport(projectId) {
     Utils.toast('Report - pripravuje sa', 'info');
+  },
+  
+  // ==========================================
+  // CAMPAIGN EDITING
+  // ==========================================
+  
+  async editCampaign(campaignId) {
+    // Load campaign data
+    const { data: campaign, error } = await Database.client
+      .from('campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .single();
+    
+    if (error || !campaign) {
+      Utils.toast('Chyba pri načítaní kampane', 'error');
+      return;
+    }
+    
+    this.showCampaignEditModal(campaign);
+  },
+  
+  showCampaignEditModal(campaign) {
+    const platformNames = {
+      'google': 'Google Ads',
+      'meta': 'Meta Ads',
+      'tiktok': 'TikTok',
+      'linkedin': 'LinkedIn'
+    };
+    
+    const targeting = campaign.targeting || {};
+    const estimated = campaign.metrics?.estimated || {};
+    
+    const modalHtml = `
+      <div id="campaign-edit-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+          <div class="p-4 border-b flex items-center justify-between gradient-bg text-white">
+            <h2 class="text-xl font-bold">✏️ Upraviť kampaň</h2>
+            <button onclick="CampaignProjectsModule.closeCampaignEditModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+          </div>
+          
+          <div class="p-6 overflow-y-auto flex-1 space-y-6">
+            <!-- Basic Info -->
+            <div>
+              <h3 class="font-semibold text-gray-700 mb-3">📊 Základné info</h3>
+              <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Názov kampane</label>
+                  <input type="text" id="edit-campaign-name" value="${campaign.name || ''}" 
+                    class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Platforma</label>
+                  <select id="edit-campaign-platform" class="w-full p-3 border rounded-xl">
+                    ${Object.entries(platformNames).map(([key, name]) => 
+                      `<option value="${key}" ${campaign.platform === key ? 'selected' : ''}>${name}</option>`
+                    ).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Typ kampane</label>
+                  <input type="text" id="edit-campaign-type" value="${campaign.campaign_type || ''}" 
+                    class="w-full p-3 border rounded-xl">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Cieľ</label>
+                  <select id="edit-campaign-objective" class="w-full p-3 border rounded-xl">
+                    <option value="conversions" ${campaign.objective === 'conversions' ? 'selected' : ''}>Konverzie</option>
+                    <option value="traffic" ${campaign.objective === 'traffic' ? 'selected' : ''}>Návštevnosť</option>
+                    <option value="awareness" ${campaign.objective === 'awareness' ? 'selected' : ''}>Povedomie</option>
+                    <option value="leads" ${campaign.objective === 'leads' ? 'selected' : ''}>Leads</option>
+                    <option value="engagement" ${campaign.objective === 'engagement' ? 'selected' : ''}>Angažovanosť</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Budget -->
+            <div>
+              <h3 class="font-semibold text-gray-700 mb-3">💰 Rozpočet</h3>
+              <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Denný rozpočet (€)</label>
+                  <input type="number" id="edit-campaign-budget" value="${campaign.budget_daily || 0}" step="0.01"
+                    class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Status</label>
+                  <select id="edit-campaign-status" class="w-full p-3 border rounded-xl">
+                    <option value="draft" ${campaign.status === 'draft' ? 'selected' : ''}>Draft</option>
+                    <option value="active" ${campaign.status === 'active' ? 'selected' : ''}>Aktívna</option>
+                    <option value="paused" ${campaign.status === 'paused' ? 'selected' : ''}>Pozastavená</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Targeting -->
+            <div>
+              <h3 class="font-semibold text-gray-700 mb-3">🎯 Cielenie</h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Lokality (oddelené čiarkou)</label>
+                  <input type="text" id="edit-campaign-locations" value="${targeting.locations?.join(', ') || ''}" 
+                    class="w-full p-3 border rounded-xl" placeholder="Slovensko, Česko">
+                </div>
+                <div class="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Vek od</label>
+                    <input type="number" id="edit-campaign-age-min" value="${targeting.age_range?.min || 18}" 
+                      class="w-full p-3 border rounded-xl" min="13" max="65">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Vek do</label>
+                    <input type="number" id="edit-campaign-age-max" value="${targeting.age_range?.max || 65}" 
+                      class="w-full p-3 border rounded-xl" min="13" max="65">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Pohlavie</label>
+                    <select id="edit-campaign-gender" class="w-full p-3 border rounded-xl">
+                      <option value="all" ${targeting.gender === 'all' ? 'selected' : ''}>Všetci</option>
+                      <option value="male" ${targeting.gender === 'male' ? 'selected' : ''}>Muži</option>
+                      <option value="female" ${targeting.gender === 'female' ? 'selected' : ''}>Ženy</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Kľúčové slová (oddelené čiarkou)</label>
+                  <textarea id="edit-campaign-keywords" rows="2" class="w-full p-3 border rounded-xl"
+                    placeholder="práca v nemecku, elektrikár nemecko">${targeting.keywords?.join(', ') || ''}</textarea>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Záujmy (oddelené čiarkou)</label>
+                  <textarea id="edit-campaign-interests" rows="2" class="w-full p-3 border rounded-xl"
+                    placeholder="Elektrotechnika, Stavebníctvo">${targeting.interests?.join(', ') || ''}</textarea>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Estimated Results -->
+            <div>
+              <h3 class="font-semibold text-gray-700 mb-3">📈 Odhadované výsledky</h3>
+              <div class="grid md:grid-cols-4 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Zobrazenia</label>
+                  <input type="text" id="edit-campaign-impressions" value="${estimated.impressions || ''}" 
+                    class="w-full p-3 border rounded-xl" placeholder="1,000 - 2,000">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Kliknutia</label>
+                  <input type="text" id="edit-campaign-clicks" value="${estimated.clicks || ''}" 
+                    class="w-full p-3 border rounded-xl" placeholder="50 - 100">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">Konverzie</label>
+                  <input type="text" id="edit-campaign-conversions" value="${estimated.conversions || ''}" 
+                    class="w-full p-3 border rounded-xl" placeholder="5 - 10">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">CPA</label>
+                  <input type="text" id="edit-campaign-cpa" value="${estimated.cpa || ''}" 
+                    class="w-full p-3 border rounded-xl" placeholder="10€ - 20€">
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-4 border-t flex justify-end gap-3 bg-gray-50">
+            <button onclick="CampaignProjectsModule.closeCampaignEditModal()" 
+              class="px-6 py-2 bg-gray-200 rounded-xl hover:bg-gray-300">
+              Zrušiť
+            </button>
+            <button onclick="CampaignProjectsModule.saveCampaign('${campaign.id}')" 
+              class="px-6 py-2 gradient-bg text-white rounded-xl hover:opacity-90">
+              💾 Uložiť
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+  
+  closeCampaignEditModal() {
+    const modal = document.getElementById('campaign-edit-modal');
+    if (modal) modal.remove();
+  },
+  
+  async saveCampaign(campaignId) {
+    const name = document.getElementById('edit-campaign-name').value.trim();
+    const platform = document.getElementById('edit-campaign-platform').value;
+    const campaign_type = document.getElementById('edit-campaign-type').value.trim();
+    const objective = document.getElementById('edit-campaign-objective').value;
+    const budget_daily = parseFloat(document.getElementById('edit-campaign-budget').value) || 0;
+    const status = document.getElementById('edit-campaign-status').value;
+    
+    // Targeting
+    const locations = document.getElementById('edit-campaign-locations').value.split(',').map(s => s.trim()).filter(Boolean);
+    const age_min = parseInt(document.getElementById('edit-campaign-age-min').value) || 18;
+    const age_max = parseInt(document.getElementById('edit-campaign-age-max').value) || 65;
+    const gender = document.getElementById('edit-campaign-gender').value;
+    const keywords = document.getElementById('edit-campaign-keywords').value.split(',').map(s => s.trim()).filter(Boolean);
+    const interests = document.getElementById('edit-campaign-interests').value.split(',').map(s => s.trim()).filter(Boolean);
+    
+    // Estimated
+    const impressions = document.getElementById('edit-campaign-impressions').value.trim();
+    const clicks = document.getElementById('edit-campaign-clicks').value.trim();
+    const conversions = document.getElementById('edit-campaign-conversions').value.trim();
+    const cpa = document.getElementById('edit-campaign-cpa').value.trim();
+    
+    if (!name) {
+      Utils.toast('Názov je povinný', 'warning');
+      return;
+    }
+    
+    try {
+      const { error } = await Database.client
+        .from('campaigns')
+        .update({
+          name,
+          platform,
+          campaign_type,
+          objective,
+          budget_daily,
+          status,
+          targeting: {
+            locations,
+            age_range: { min: age_min, max: age_max },
+            gender,
+            keywords,
+            interests
+          },
+          metrics: {
+            estimated: { impressions, clicks, conversions, cpa }
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', campaignId);
+      
+      if (error) throw error;
+      
+      Utils.toast('Kampaň uložená! ✅', 'success');
+      this.closeCampaignEditModal();
+      
+      // Refresh project detail
+      if (this.selectedProject) {
+        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+      }
+      
+    } catch (error) {
+      console.error('Save campaign error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
+  // ==========================================
+  // AD GROUP EDITING
+  // ==========================================
+  
+  async editAdGroup(adGroupId) {
+    const { data: adGroup, error } = await Database.client
+      .from('ad_groups')
+      .select('*')
+      .eq('id', adGroupId)
+      .single();
+    
+    if (error || !adGroup) {
+      Utils.toast('Chyba pri načítaní ad group', 'error');
+      return;
+    }
+    
+    this.showAdGroupEditModal(adGroup);
+  },
+  
+  showAdGroupEditModal(adGroup) {
+    const modalHtml = `
+      <div id="adgroup-edit-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div class="p-4 border-b flex items-center justify-between bg-purple-600 text-white">
+            <h2 class="text-xl font-bold">✏️ Upraviť reklamnú skupinu</h2>
+            <button onclick="CampaignProjectsModule.closeAdGroupEditModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+          </div>
+          
+          <div class="p-6 overflow-y-auto flex-1 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Názov</label>
+              <input type="text" id="edit-adgroup-name" value="${adGroup.name || ''}" 
+                class="w-full p-3 border rounded-xl">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Kľúčové slová (oddelené čiarkou)</label>
+              <textarea id="edit-adgroup-keywords" rows="3" class="w-full p-3 border rounded-xl"
+                placeholder="keyword1, keyword2, keyword3">${adGroup.keywords?.join(', ') || ''}</textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Negatívne kľúčové slová</label>
+              <textarea id="edit-adgroup-negative" rows="2" class="w-full p-3 border rounded-xl"
+                placeholder="negative1, negative2">${adGroup.negative_keywords?.join(', ') || ''}</textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Audience</label>
+              <input type="text" id="edit-adgroup-audience" value="${adGroup.audience || ''}" 
+                class="w-full p-3 border rounded-xl" placeholder="Popis cieľovej skupiny">
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Bid stratégia</label>
+                <select id="edit-adgroup-bidstrategy" class="w-full p-3 border rounded-xl">
+                  <option value="" ${!adGroup.bid_strategy ? 'selected' : ''}>Automatická</option>
+                  <option value="manual_cpc" ${adGroup.bid_strategy === 'manual_cpc' ? 'selected' : ''}>Manual CPC</option>
+                  <option value="maximize_clicks" ${adGroup.bid_strategy === 'maximize_clicks' ? 'selected' : ''}>Maximize Clicks</option>
+                  <option value="maximize_conversions" ${adGroup.bid_strategy === 'maximize_conversions' ? 'selected' : ''}>Maximize Conversions</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Max CPC (€)</label>
+                <input type="number" id="edit-adgroup-maxcpc" value="${adGroup.max_cpc || ''}" step="0.01"
+                  class="w-full p-3 border rounded-xl" placeholder="0.50">
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-4 border-t flex justify-end gap-3 bg-gray-50">
+            <button onclick="CampaignProjectsModule.closeAdGroupEditModal()" 
+              class="px-6 py-2 bg-gray-200 rounded-xl hover:bg-gray-300">
+              Zrušiť
+            </button>
+            <button onclick="CampaignProjectsModule.saveAdGroup('${adGroup.id}')" 
+              class="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
+              💾 Uložiť
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+  
+  closeAdGroupEditModal() {
+    const modal = document.getElementById('adgroup-edit-modal');
+    if (modal) modal.remove();
+  },
+  
+  async saveAdGroup(adGroupId) {
+    const name = document.getElementById('edit-adgroup-name').value.trim();
+    const keywords = document.getElementById('edit-adgroup-keywords').value.split(',').map(s => s.trim()).filter(Boolean);
+    const negative_keywords = document.getElementById('edit-adgroup-negative').value.split(',').map(s => s.trim()).filter(Boolean);
+    const audience = document.getElementById('edit-adgroup-audience').value.trim();
+    const bid_strategy = document.getElementById('edit-adgroup-bidstrategy').value || null;
+    const max_cpc = parseFloat(document.getElementById('edit-adgroup-maxcpc').value) || null;
+    
+    if (!name) {
+      Utils.toast('Názov je povinný', 'warning');
+      return;
+    }
+    
+    try {
+      const { error } = await Database.client
+        .from('ad_groups')
+        .update({ name, keywords, negative_keywords, audience, bid_strategy, max_cpc })
+        .eq('id', adGroupId);
+      
+      if (error) throw error;
+      
+      Utils.toast('Ad group uložená! ✅', 'success');
+      this.closeAdGroupEditModal();
+      
+      // Refresh project detail
+      if (this.selectedProject) {
+        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+      }
+      
+    } catch (error) {
+      console.error('Save ad group error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
+  // ==========================================
+  // AD EDITING
+  // ==========================================
+  
+  async editAd(adId) {
+    const { data: ad, error } = await Database.client
+      .from('ads')
+      .select('*')
+      .eq('id', adId)
+      .single();
+    
+    if (error || !ad) {
+      Utils.toast('Chyba pri načítaní reklamy', 'error');
+      return;
+    }
+    
+    this.showAdEditModal(ad);
+  },
+  
+  showAdEditModal(ad) {
+    const headlines = ad.headlines || ['', '', ''];
+    const descriptions = ad.descriptions || ['', ''];
+    
+    const modalHtml = `
+      <div id="ad-edit-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div class="p-4 border-b flex items-center justify-between bg-blue-600 text-white">
+            <h2 class="text-xl font-bold">✏️ Upraviť reklamu</h2>
+            <button onclick="CampaignProjectsModule.closeAdEditModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+          </div>
+          
+          <div class="p-6 overflow-y-auto flex-1 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Typ reklamy</label>
+              <select id="edit-ad-type" class="w-full p-3 border rounded-xl">
+                <option value="responsive" ${ad.type === 'responsive' ? 'selected' : ''}>Responsive</option>
+                <option value="text" ${ad.type === 'text' ? 'selected' : ''}>Textová</option>
+                <option value="image" ${ad.type === 'image' ? 'selected' : ''}>Obrázková</option>
+                <option value="video" ${ad.type === 'video' ? 'selected' : ''}>Video</option>
+                <option value="carousel" ${ad.type === 'carousel' ? 'selected' : ''}>Carousel</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-2">Nadpisy (Headlines)</label>
+              <div class="space-y-2" id="headlines-container">
+                ${headlines.map((h, i) => `
+                  <input type="text" class="headline-input w-full p-3 border rounded-xl" 
+                    value="${h}" placeholder="Nadpis ${i + 1}" maxlength="30">
+                `).join('')}
+              </div>
+              <button onclick="CampaignProjectsModule.addHeadlineInput()" type="button"
+                class="mt-2 text-sm text-blue-600 hover:underline">+ Pridať nadpis</button>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-2">Popisy (Descriptions)</label>
+              <div class="space-y-2" id="descriptions-container">
+                ${descriptions.map((d, i) => `
+                  <textarea class="description-input w-full p-3 border rounded-xl" rows="2"
+                    placeholder="Popis ${i + 1}" maxlength="90">${d}</textarea>
+                `).join('')}
+              </div>
+              <button onclick="CampaignProjectsModule.addDescriptionInput()" type="button"
+                class="mt-2 text-sm text-blue-600 hover:underline">+ Pridať popis</button>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Call to Action</label>
+                <input type="text" id="edit-ad-cta" value="${ad.call_to_action || ''}" 
+                  class="w-full p-3 border rounded-xl" placeholder="Zistiť viac">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Landing Page</label>
+                <input type="url" id="edit-ad-landing" value="${ad.landing_page || ''}" 
+                  class="w-full p-3 border rounded-xl" placeholder="https://...">
+              </div>
+            </div>
+            
+            <!-- Preview -->
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h4 class="text-sm font-medium text-gray-500 mb-2">📱 Náhľad</h4>
+              <div class="bg-white border rounded-lg p-4">
+                <div class="text-blue-600 font-medium" id="preview-headline">${headlines[0] || 'Nadpis reklamy'}</div>
+                <div class="text-green-700 text-sm">${ad.landing_page || 'www.example.com'}</div>
+                <div class="text-gray-600 text-sm mt-1" id="preview-description">${descriptions[0] || 'Popis reklamy...'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="p-4 border-t flex justify-end gap-3 bg-gray-50">
+            <button onclick="CampaignProjectsModule.closeAdEditModal()" 
+              class="px-6 py-2 bg-gray-200 rounded-xl hover:bg-gray-300">
+              Zrušiť
+            </button>
+            <button onclick="CampaignProjectsModule.saveAd('${ad.id}')" 
+              class="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700">
+              💾 Uložiť
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Add live preview listeners
+    setTimeout(() => {
+      document.querySelectorAll('.headline-input').forEach(input => {
+        input.addEventListener('input', () => this.updateAdPreview());
+      });
+      document.querySelectorAll('.description-input').forEach(input => {
+        input.addEventListener('input', () => this.updateAdPreview());
+      });
+    }, 100);
+  },
+  
+  addHeadlineInput() {
+    const container = document.getElementById('headlines-container');
+    const count = container.querySelectorAll('input').length;
+    if (count >= 15) {
+      Utils.toast('Maximum 15 nadpisov', 'warning');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'headline-input w-full p-3 border rounded-xl';
+    input.placeholder = `Nadpis ${count + 1}`;
+    input.maxLength = 30;
+    input.addEventListener('input', () => this.updateAdPreview());
+    container.appendChild(input);
+  },
+  
+  addDescriptionInput() {
+    const container = document.getElementById('descriptions-container');
+    const count = container.querySelectorAll('textarea').length;
+    if (count >= 4) {
+      Utils.toast('Maximum 4 popisy', 'warning');
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.className = 'description-input w-full p-3 border rounded-xl';
+    textarea.rows = 2;
+    textarea.placeholder = `Popis ${count + 1}`;
+    textarea.maxLength = 90;
+    textarea.addEventListener('input', () => this.updateAdPreview());
+    container.appendChild(textarea);
+  },
+  
+  updateAdPreview() {
+    const headlines = [...document.querySelectorAll('.headline-input')].map(i => i.value).filter(Boolean);
+    const descriptions = [...document.querySelectorAll('.description-input')].map(i => i.value).filter(Boolean);
+    
+    const previewHeadline = document.getElementById('preview-headline');
+    const previewDescription = document.getElementById('preview-description');
+    
+    if (previewHeadline) previewHeadline.textContent = headlines[0] || 'Nadpis reklamy';
+    if (previewDescription) previewDescription.textContent = descriptions[0] || 'Popis reklamy...';
+  },
+  
+  closeAdEditModal() {
+    const modal = document.getElementById('ad-edit-modal');
+    if (modal) modal.remove();
+  },
+  
+  async saveAd(adId) {
+    const type = document.getElementById('edit-ad-type').value;
+    const headlines = [...document.querySelectorAll('.headline-input')].map(i => i.value.trim()).filter(Boolean);
+    const descriptions = [...document.querySelectorAll('.description-input')].map(i => i.value.trim()).filter(Boolean);
+    const call_to_action = document.getElementById('edit-ad-cta').value.trim();
+    const landing_page = document.getElementById('edit-ad-landing').value.trim();
+    
+    if (headlines.length === 0) {
+      Utils.toast('Minimálne 1 nadpis je povinný', 'warning');
+      return;
+    }
+    
+    try {
+      const { error } = await Database.client
+        .from('ads')
+        .update({ type, headlines, descriptions, call_to_action, landing_page })
+        .eq('id', adId);
+      
+      if (error) throw error;
+      
+      Utils.toast('Reklama uložená! ✅', 'success');
+      this.closeAdEditModal();
+      
+      // Refresh project detail
+      if (this.selectedProject) {
+        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+      }
+      
+    } catch (error) {
+      console.error('Save ad error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
   }
 };
 
