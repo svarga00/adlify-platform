@@ -1431,10 +1431,21 @@ const OnboardingModule = {
     if (this.isSaving) return;
     this.isSaving = true;
     
+    // Clean data - convert empty strings to null for numeric fields
+    const numericFields = ['company_founded_year', 'monthly_budget_min', 'monthly_budget_max', 
+      'expected_cpa', 'expected_roas', 'previous_monthly_budget', 'average_order_value', 'customer_lifetime_value'];
+    
+    const cleanData = {...this.formData};
+    numericFields.forEach(field => {
+      if (cleanData[field] === '' || cleanData[field] === undefined) {
+        cleanData[field] = null;
+      }
+    });
+    
     const data = {
       client_id: this.clientId,
       status: status,
-      ...this.formData,
+      ...cleanData,
       submitted_at: status === 'submitted' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString()
     };
