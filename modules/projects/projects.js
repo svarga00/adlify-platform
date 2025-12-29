@@ -478,6 +478,13 @@ const CampaignProjectsModule = {
       .eq('project_id', project.id)
       .order('created_at');
     
+    // Load onboarding data
+    const { data: onboarding } = await Database.client
+      .from('onboarding_responses')
+      .select('*')
+      .eq('client_id', project.client_id)
+      .single();
+    
     const status = this.STATUSES[project.status] || this.STATUSES.draft;
     
     return `
@@ -496,6 +503,30 @@ const CampaignProjectsModule = {
             ${this.renderWorkflowProgress(project.status)}
           </div>
         </div>
+        
+        <!-- Client Portal Link (if exists) -->
+        ${project.client_portal_token ? `
+        <div class="card p-4 bg-blue-50 border border-blue-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="font-semibold text-blue-800">🔗 Odkaz pre klienta</h4>
+              <p class="text-sm text-blue-600 truncate max-w-md">${window.location.origin}/client-portal.html?token=${project.client_portal_token}</p>
+            </div>
+            <button onclick="CampaignProjectsModule.copyClientLink('${project.id}')" 
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              📋 Kopírovať
+            </button>
+          </div>
+        </div>
+        ` : ''}
+        
+        <!-- Client Feedback (if exists) -->
+        ${project.client_feedback ? `
+        <div class="card p-4 bg-orange-50 border border-orange-200">
+          <h4 class="font-semibold text-orange-800 mb-2">💬 Spätná väzba od klienta</h4>
+          <p class="text-orange-700">${project.client_feedback}</p>
+        </div>
+        ` : ''}
         
         <!-- Info Grid -->
         <div class="grid md:grid-cols-2 gap-4">
@@ -556,6 +587,181 @@ const CampaignProjectsModule = {
         </div>
         ` : ''}
         
+        <!-- Onboarding Data -->
+        ${onboarding ? `
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="font-semibold">📋 Onboarding dáta klienta</h4>
+            <button onclick="CampaignProjectsModule.toggleOnboardingDetail()" 
+              class="text-sm text-blue-600 hover:underline">
+              Zobraziť/Skryť detaily
+            </button>
+          </div>
+          
+          <!-- Quick Summary -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div class="text-center p-3 bg-gray-50 rounded-lg">
+              <div class="text-lg font-bold text-gray-800">${onboarding.company_industry || '-'}</div>
+              <div class="text-xs text-gray-500">Odvetvie</div>
+            </div>
+            <div class="text-center p-3 bg-gray-50 rounded-lg">
+              <div class="text-lg font-bold text-gray-800">${onboarding.company_size || '-'}</div>
+              <div class="text-xs text-gray-500">Veľkosť</div>
+            </div>
+            <div class="text-center p-3 bg-gray-50 rounded-lg">
+              <div class="text-lg font-bold text-gray-800">${onboarding.monthly_budget_min || 0}-${onboarding.monthly_budget_max || 0}€</div>
+              <div class="text-xs text-gray-500">Rozpočet</div>
+            </div>
+            <div class="text-center p-3 bg-gray-50 rounded-lg">
+              <div class="text-lg font-bold text-gray-800">${onboarding.primary_goals?.length || 0}</div>
+              <div class="text-xs text-gray-500">Cieľov</div>
+            </div>
+          </div>
+          
+          <!-- Expandable Details -->
+          <div id="onboarding-detail" class="hidden space-y-4 pt-4 border-t">
+            <!-- Company Info -->
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🏢 O firme</h5>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                <p><strong>Názov:</strong> ${onboarding.company_name || '-'}</p>
+                <p><strong>Web:</strong> ${onboarding.company_website ? `<a href="${onboarding.company_website}" target="_blank" class="text-blue-600">${onboarding.company_website}</a>` : '-'}</p>
+                <p><strong>Popis:</strong> ${onboarding.company_description || '-'}</p>
+                <p><strong>Lokalita:</strong> ${onboarding.company_location || '-'}</p>
+              </div>
+            </div>
+            
+            <!-- Products -->
+            ${onboarding.products_services?.length ? `
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">📦 Produkty/Služby</h5>
+              <div class="space-y-2">
+                ${onboarding.products_services.map(p => `
+                  <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                    <strong>${p.name}</strong> ${p.is_main ? '<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Hlavný</span>' : ''}
+                    <p class="text-gray-600">${p.description || ''}</p>
+                    ${p.price_range ? `<p class="text-gray-500">Cena: ${p.price_range}</p>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- USPs -->
+            ${onboarding.unique_selling_points?.length ? `
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">⭐ USP (Unikátne predajné argumenty)</h5>
+              <div class="flex flex-wrap gap-2">
+                ${onboarding.unique_selling_points.map(u => `<span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">${u}</span>`).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- Target Audience -->
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🎯 Cieľová skupina</h5>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                <p><strong>Typ:</strong> ${onboarding.target_audience?.b2b ? 'B2B' : ''} ${onboarding.target_audience?.b2c ? 'B2C' : ''}</p>
+                <p><strong>Vek:</strong> ${onboarding.target_audience?.demographics?.age_from || 18} - ${onboarding.target_audience?.demographics?.age_to || 65} rokov</p>
+                <p><strong>Krajiny:</strong> ${onboarding.target_audience?.geographic?.countries?.join(', ') || 'Slovensko'}</p>
+                <p><strong>Ideálny zákazník:</strong> ${onboarding.ideal_customer_description || '-'}</p>
+              </div>
+            </div>
+            
+            <!-- Goals -->
+            ${onboarding.primary_goals?.length ? `
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🚀 Hlavné ciele</h5>
+              <div class="flex flex-wrap gap-2">
+                ${onboarding.primary_goals.map(g => {
+                  const goalLabels = {
+                    'more_sales': 'Viac predajov',
+                    'leads': 'Získať leads',
+                    'awareness': 'Povedomie o značke',
+                    'traffic': 'Návštevnosť webu',
+                    'local': 'Lokálni zákazníci',
+                    'app': 'Inštalácie appky',
+                    'engagement': 'Angažovanosť'
+                  };
+                  return `<span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">${goalLabels[g] || g}</span>`;
+                }).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- Marketing Channels -->
+            ${onboarding.current_marketing_channels?.length ? `
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">📊 Aktuálne marketingové kanály</h5>
+              <div class="flex flex-wrap gap-2">
+                ${onboarding.current_marketing_channels.map(c => `<span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">${c}</span>`).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- Previous Experience -->
+            ${onboarding.previous_ad_experience ? `
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">📈 Predchádzajúce skúsenosti</h5>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                <p>${onboarding.previous_ad_experience}</p>
+                ${onboarding.what_worked ? `<p class="mt-2 text-green-600"><strong>Čo fungovalo:</strong> ${onboarding.what_worked}</p>` : ''}
+                ${onboarding.what_didnt_work ? `<p class="text-red-600"><strong>Čo nefungovalo:</strong> ${onboarding.what_didnt_work}</p>` : ''}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- Brand -->
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🎨 Brand</h5>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                <p><strong>Tón komunikácie:</strong> ${onboarding.brand_tone_of_voice || '-'}</p>
+                <p><strong>Brand guidelines:</strong> ${onboarding.has_brand_guidelines ? 'Áno' : 'Nie'}</p>
+                <p><strong>Materiály:</strong> 
+                  ${onboarding.existing_assets?.has_photos ? '📷 Fotky' : ''} 
+                  ${onboarding.existing_assets?.has_videos ? '🎬 Videá' : ''} 
+                  ${onboarding.existing_assets?.has_logo ? '🎨 Logo' : ''}
+                  ${!onboarding.existing_assets?.has_photos && !onboarding.existing_assets?.has_videos && !onboarding.existing_assets?.has_logo ? 'Žiadne' : ''}
+                </p>
+              </div>
+            </div>
+            
+            <!-- Technical -->
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">⚙️ Technické</h5>
+              <div class="flex flex-wrap gap-2">
+                ${onboarding.has_google_analytics ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Google Analytics</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Google Analytics</span>'}
+                ${onboarding.has_facebook_pixel ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Meta Pixel</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Meta Pixel</span>'}
+                ${onboarding.has_google_ads_account ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Google Ads účet</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Google Ads účet</span>'}
+                ${onboarding.has_meta_business ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Meta Business</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Meta Business</span>'}
+              </div>
+              <p class="mt-2 text-sm text-gray-500">Platforma webu: ${onboarding.website_platform || 'Neuvedené'}</p>
+            </div>
+            
+            <!-- Special Notes -->
+            ${onboarding.special_requirements || onboarding.questions_for_us ? `
+            <div>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">📝 Poznámky</h5>
+              <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                ${onboarding.special_requirements ? `<p><strong>Špeciálne požiadavky:</strong> ${onboarding.special_requirements}</p>` : ''}
+                ${onboarding.questions_for_us ? `<p><strong>Otázky od klienta:</strong> ${onboarding.questions_for_us}</p>` : ''}
+              </div>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        ` : `
+        <div class="card p-4 bg-yellow-50 border border-yellow-200">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">⚠️</span>
+            <div>
+              <h4 class="font-semibold text-yellow-800">Chýba onboarding</h4>
+              <p class="text-sm text-yellow-700">Klient ešte nevyplnil onboarding dotazník. <a href="#onboarding?client_id=${project.client_id}" class="underline">Vyplniť teraz</a></p>
+            </div>
+          </div>
+        </div>
+        `}
+        
         <!-- Kampane -->
         <div class="card p-4">
           <div class="flex items-center justify-between mb-4">
@@ -587,6 +793,13 @@ const CampaignProjectsModule = {
         </div>
       </div>
     `;
+  },
+  
+  toggleOnboardingDetail() {
+    const detail = document.getElementById('onboarding-detail');
+    if (detail) {
+      detail.classList.toggle('hidden');
+    }
   },
   
   renderWorkflowProgress(currentStatus) {
@@ -908,9 +1121,14 @@ const CampaignProjectsModule = {
         
       case 'client_review':
         actions.push(`
+          <button onclick="CampaignProjectsModule.generateClientLink('${project.id}')" 
+            class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
+            🔗 ${project.client_portal_token ? 'Kopírovať odkaz' : 'Generovať odkaz pre klienta'}
+          </button>
           <button onclick="CampaignProjectsModule.previewAsClient('${project.id}')" 
-            class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">
-            👁️ Náhľad ako klient
+            class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+            ${!project.client_portal_token ? 'disabled title="Najprv vygenerujte odkaz"' : ''}>
+            👁️ Náhľad portálu
           </button>
           <button onclick="CampaignProjectsModule.simulateClientApproval('${project.id}')" 
             class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
@@ -1208,9 +1426,61 @@ const CampaignProjectsModule = {
   },
   
   previewAsClient(projectId) {
-    Utils.toast('Náhľad ako klient - pripravuje sa', 'info');
+    // Open client portal in new tab
+    const project = this.projects.find(p => p.id === projectId);
+    if (project?.client_portal_token) {
+      window.open(`/client-portal.html?token=${project.client_portal_token}`, '_blank');
+    } else {
+      Utils.toast('Najprv vygenerujte odkaz pre klienta', 'warning');
+    }
   },
   
+  async generateClientLink(projectId) {
+    const token = 'cp_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    try {
+      const { error } = await Database.client
+        .from('campaign_projects')
+        .update({ client_portal_token: token })
+        .eq('id', projectId);
+      
+      if (error) throw error;
+      
+      const url = `${window.location.origin}/client-portal.html?token=${token}`;
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(url);
+      
+      Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
+      
+      // Update local data
+      const project = this.projects.find(p => p.id === projectId);
+      if (project) project.client_portal_token = token;
+      
+      // Refresh detail if open
+      if (this.selectedProject?.id === projectId) {
+        this.selectedProject.client_portal_token = token;
+        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+      }
+      
+    } catch (error) {
+      console.error('Generate link error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
+  async copyClientLink(projectId) {
+    const project = this.projects.find(p => p.id === projectId);
+    if (!project?.client_portal_token) {
+      await this.generateClientLink(projectId);
+      return;
+    }
+    
+    const url = `${window.location.origin}/client-portal.html?token=${project.client_portal_token}`;
+    await navigator.clipboard.writeText(url);
+    Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
+  },
+
   viewReport(projectId) {
     Utils.toast('Report - pripravuje sa', 'info');
   }
