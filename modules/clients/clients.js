@@ -65,25 +65,30 @@ const ClientsModule = {
   },
   
   async loadClients() {
-    let query = Database.client.from('clients').select('*').order('company_name');
-    
-    if (this.filters.status) {
-      query = query.eq('status', this.filters.status);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    
-    this.clients = data || [];
-    
-    // Apply search filter
-    if (this.filters.search) {
-      const search = this.filters.search.toLowerCase();
-      this.clients = this.clients.filter(c => 
-        c.company_name?.toLowerCase().includes(search) ||
-        c.contact_person?.toLowerCase().includes(search) ||
-        c.email?.toLowerCase().includes(search)
-      );
+    try {
+      // Použijem Database.select helper
+      const filters = {};
+      if (this.filters.status) {
+        filters.status = this.filters.status;
+      }
+      
+      this.clients = await Database.select('clients', {
+        filters,
+        order: { column: 'company_name', ascending: true }
+      });
+      
+      // Apply search filter locally
+      if (this.filters.search) {
+        const search = this.filters.search.toLowerCase();
+        this.clients = this.clients.filter(c => 
+          c.company_name?.toLowerCase().includes(search) ||
+          c.contact_person?.toLowerCase().includes(search) ||
+          c.email?.toLowerCase().includes(search)
+        );
+      }
+    } catch (error) {
+      console.error('Load clients error:', error);
+      this.clients = [];
     }
   },
   
@@ -482,29 +487,21 @@ const ClientsModule = {
     try {
       if (this.currentClient?.id) {
         // Update
-        const { error } = await Database.client
-          .from('clients')
-          .update(data)
-          .eq('id', this.currentClient.id);
-        
-        if (error) throw error;
+        await Database.update('clients', this.currentClient.id, data);
         Utils.toast('Klient aktualizovaný!', 'success');
       } else {
         // Create
         data.onboarding_status = 'pending';
         data.onboarding_token = this.generateToken();
         
-        const { error } = await Database.client
-          .from('clients')
-          .insert(data);
-        
-        if (error) throw error;
+        await Database.insert('clients', data);
         Utils.toast('Klient vytvorený!', 'success');
       }
       
       this.closeModal();
-      await this.loadClients();
-      document.getElementById('clients-grid').innerHTML = this.renderClientsGrid();
+      
+      // Refresh - naviguj na clients list
+      Router.navigate('clients');
       
     } catch (error) {
       console.error('Save error:', error);
@@ -516,16 +513,17 @@ const ClientsModule = {
     if (!confirm('Naozaj chcete zmazať tohto klienta?')) return;
     
     try {
-      const { error } = await Database.client
-        .from('clients')
-        .delete()
-        .eq('id', clientId);
-      
-      if (error) throw error;
+      await Database.delete('clients', clientId);
       
       Utils.toast('Klient zmazaný', 'success');
       await this.loadClients();
-      document.getElementById('clients-grid').innerHTML = this.renderClientsGrid();
+      
+      const grid = document.getElementById('clients-grid');
+      if (grid) {
+        grid.innerHTML = this.renderClientsGrid();
+      } else {
+        Router.navigate('clients');
+      }
       
     } catch (error) {
       console.error('Delete error:', error);
@@ -545,13 +543,12 @@ const ClientsModule = {
     container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     
     try {
-      const { data: client, error } = await Database.client
-        .from('clients')
-        .select('*')
-        .eq('id', clientId)
-        .single();
+      // Get client
+      const client = await Database.select('clients', {
+        filters: { id: clientId },
+        single: true
+      });
       
-      if (error) throw error;
       if (!client) {
         Utils.showEmpty(container, 'Klient nenájdený', '🔍');
         return;
@@ -560,13 +557,15 @@ const ClientsModule = {
       this.currentClient = client;
       
       // Load projects for this client
-      const { data: projects } = await Database.client
-        .from('campaign_projects')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
-      
-      this.currentClient.projects = projects || [];
+      try {
+        const projects = await Database.select('campaign_projects', {
+          filters: { client_id: clientId },
+          order: { column: 'created_at', ascending: false }
+        });
+        this.currentClient.projects = projects || [];
+      } catch (e) {
+        this.currentClient.projects = [];
+      }
       
       container.innerHTML = this.templateDetail();
       
