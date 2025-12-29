@@ -554,8 +554,13 @@ const MessagesModule = {
         }
         
         this.closeComposeModal();
-        await this.loadMessages();
-        document.getElementById('messages-list').innerHTML = this.renderMessagesList();
+        
+        // Aktualizuj zoznam len ak sme v Messages module
+        const messagesList = document.getElementById('messages-list');
+        if (messagesList) {
+          await this.loadMessages();
+          messagesList.innerHTML = this.renderMessagesList();
+        }
       } else {
         throw new Error(result.error || 'Chyba pri odosielaní');
       }
