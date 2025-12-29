@@ -53,6 +53,8 @@
     
     // Init
     async function init() {
+      console.log('Token:', token);
+      
       if (!token) {
         showError('Neplatný odkaz', 'Chýba prístupový token.');
         return;
@@ -60,14 +62,17 @@
       
       try {
         // Load project by token
+        console.log('Loading project...');
         const { data: projectData, error: projectError } = await db
           .from('campaign_projects')
           .select('*')
           .eq('client_portal_token', token)
           .single();
         
+        console.log('Project result:', projectData, projectError);
+        
         if (projectError || !projectData) {
-          showError('Neplatný odkaz', 'Tento odkaz je neplatný alebo expiroval.');
+          showError('Neplatný odkaz', 'Tento odkaz je neplatný alebo expiroval. Error: ' + (projectError?.message || 'no data'));
           return;
         }
         
