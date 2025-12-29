@@ -293,7 +293,7 @@ const ClientsModule = {
   
   renderForm(client = {}) {
     return `
-      <form id="client-form" class="space-y-6">
+      <form id="client-form" class="space-y-6" onsubmit="event.preventDefault(); ClientsModule.saveClient(); return false;">
         <!-- Základné info -->
         <div>
           <h3 class="font-semibold mb-3 text-gray-700">🏢 Základné informácie</h3>
@@ -439,13 +439,6 @@ const ClientsModule = {
           </button>
         </div>
       </form>
-      
-      <script>
-        document.getElementById('client-form').addEventListener('submit', (e) => {
-          e.preventDefault();
-          ClientsModule.saveClient();
-        });
-      </script>
     `;
   },
   
