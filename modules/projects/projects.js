@@ -617,25 +617,258 @@ const CampaignProjectsModule = {
   },
   
   renderCampaignItem(campaign) {
-    const platform = this.PLATFORMS[campaign.platform] || { name: campaign.platform, icon: '📣' };
+    const platformIcons = {
+      'google': '🔍',
+      'meta': '📘',
+      'tiktok': '🎵',
+      'linkedin': '💼',
+      'other': '📣'
+    };
+    const platformNames = {
+      'google': 'Google Ads',
+      'meta': 'Meta Ads',
+      'tiktok': 'TikTok Ads',
+      'linkedin': 'LinkedIn Ads'
+    };
+    
+    const icon = platformIcons[campaign.platform] || '📣';
+    const platformName = platformNames[campaign.platform] || campaign.platform;
     const status = this.STATUSES[campaign.status] || this.STATUSES.draft;
+    const estimated = campaign.metrics?.estimated || {};
     
     return `
-      <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
-        <div class="text-2xl">${platform.icon}</div>
-        <div class="flex-1 min-w-0">
-          <div class="font-medium truncate">${campaign.name}</div>
-          <div class="text-xs text-gray-500">${platform.name} • ${campaign.campaign_type || 'Kampaň'}</div>
+      <div class="border rounded-xl overflow-hidden">
+        <div class="flex items-center gap-3 p-4 bg-gray-50 cursor-pointer hover:bg-gray-100"
+          onclick="CampaignProjectsModule.toggleCampaignDetail('${campaign.id}')">
+          <div class="text-2xl">${icon}</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium">${campaign.name}</div>
+            <div class="text-xs text-gray-500">${platformName} • ${campaign.campaign_type || 'Kampaň'}</div>
+          </div>
+          <div class="text-right mr-2">
+            <div class="font-semibold text-green-600">${campaign.budget_daily || 0}€/deň</div>
+            <div class="text-xs text-gray-400">${campaign.ai_generated ? '🤖 AI' : '✋ Manuálne'}</div>
+          </div>
+          <span class="px-2 py-1 rounded text-xs bg-${status.color}-100 text-${status.color}-700">
+            ${status.label}
+          </span>
+          <span class="text-gray-400 transition-transform" id="arrow-${campaign.id}">▼</span>
         </div>
-        <span class="px-2 py-1 rounded text-xs bg-${status.color}-100 text-${status.color}-700">
-          ${status.label}
-        </span>
-        <button onclick="CampaignProjectsModule.editCampaign('${campaign.id}')" 
-          class="p-2 hover:bg-white rounded-lg" title="Upraviť">
-          ✏️
-        </button>
+        
+        <!-- Expandable Detail -->
+        <div id="campaign-detail-${campaign.id}" class="hidden border-t">
+          <div class="p-4 space-y-4">
+            <!-- Targeting -->
+            ${campaign.targeting ? `
+            <div>
+              <h5 class="text-sm font-semibold text-gray-700 mb-2">🎯 Cielenie</h5>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                ${campaign.targeting.locations ? `
+                <div class="bg-blue-50 rounded-lg p-2">
+                  <div class="text-xs text-gray-500">Lokality</div>
+                  <div class="font-medium">${campaign.targeting.locations.join(', ')}</div>
+                </div>
+                ` : ''}
+                ${campaign.targeting.age_range ? `
+                <div class="bg-purple-50 rounded-lg p-2">
+                  <div class="text-xs text-gray-500">Vek</div>
+                  <div class="font-medium">${campaign.targeting.age_range.min} - ${campaign.targeting.age_range.max}</div>
+                </div>
+                ` : ''}
+                ${campaign.targeting.gender ? `
+                <div class="bg-pink-50 rounded-lg p-2">
+                  <div class="text-xs text-gray-500">Pohlavie</div>
+                  <div class="font-medium">${campaign.targeting.gender === 'all' ? 'Všetci' : campaign.targeting.gender}</div>
+                </div>
+                ` : ''}
+                ${campaign.targeting.keywords?.length ? `
+                <div class="bg-green-50 rounded-lg p-2">
+                  <div class="text-xs text-gray-500">Kľúčové slová</div>
+                  <div class="font-medium">${campaign.targeting.keywords.length} slov</div>
+                </div>
+                ` : ''}
+              </div>
+              ${campaign.targeting.keywords?.length ? `
+              <div class="mt-2 flex flex-wrap gap-1">
+                ${campaign.targeting.keywords.slice(0, 10).map(k => `<span class="px-2 py-1 bg-gray-100 rounded text-xs">${k}</span>`).join('')}
+                ${campaign.targeting.keywords.length > 10 ? `<span class="px-2 py-1 text-gray-400 text-xs">+${campaign.targeting.keywords.length - 10} ďalších</span>` : ''}
+              </div>
+              ` : ''}
+              ${campaign.targeting.interests?.length ? `
+              <div class="mt-2 flex flex-wrap gap-1">
+                ${campaign.targeting.interests.map(i => `<span class="px-2 py-1 bg-orange-100 rounded text-xs">${i}</span>`).join('')}
+              </div>
+              ` : ''}
+            </div>
+            ` : ''}
+            
+            <!-- Estimated Results -->
+            ${Object.keys(estimated).length > 0 ? `
+            <div>
+              <h5 class="text-sm font-semibold text-gray-700 mb-2">📊 Odhadované výsledky</h5>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                ${estimated.impressions ? `
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <div class="text-xs text-gray-500">Zobrazenia</div>
+                  <div class="font-semibold">${estimated.impressions}</div>
+                </div>
+                ` : ''}
+                ${estimated.clicks ? `
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <div class="text-xs text-gray-500">Kliknutia</div>
+                  <div class="font-semibold">${estimated.clicks}</div>
+                </div>
+                ` : ''}
+                ${estimated.conversions ? `
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <div class="text-xs text-gray-500">Konverzie</div>
+                  <div class="font-semibold">${estimated.conversions}</div>
+                </div>
+                ` : ''}
+                ${estimated.cpa ? `
+                <div class="text-center p-2 bg-gray-50 rounded-lg">
+                  <div class="text-xs text-gray-500">CPA</div>
+                  <div class="font-semibold">${estimated.cpa}</div>
+                </div>
+                ` : ''}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- Ad Groups (loaded on expand) -->
+            <div id="ad-groups-${campaign.id}">
+              <h5 class="text-sm font-semibold text-gray-700 mb-2">📁 Reklamné skupiny</h5>
+              <div class="text-center py-4 text-gray-400 text-sm">Načítavam...</div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex gap-2 pt-2 border-t">
+              <button onclick="CampaignProjectsModule.editCampaign('${campaign.id}')" 
+                class="px-3 py-1 bg-gray-100 rounded-lg text-sm hover:bg-gray-200">
+                ✏️ Upraviť
+              </button>
+              <button onclick="CampaignProjectsModule.duplicateCampaign('${campaign.id}')" 
+                class="px-3 py-1 bg-gray-100 rounded-lg text-sm hover:bg-gray-200">
+                📋 Duplikovať
+              </button>
+              <button onclick="CampaignProjectsModule.deleteCampaign('${campaign.id}')" 
+                class="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100 ml-auto">
+                🗑️ Zmazať
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     `;
+  },
+  
+  async toggleCampaignDetail(campaignId) {
+    const detail = document.getElementById(`campaign-detail-${campaignId}`);
+    const arrow = document.getElementById(`arrow-${campaignId}`);
+    
+    if (detail.classList.contains('hidden')) {
+      detail.classList.remove('hidden');
+      arrow.style.transform = 'rotate(180deg)';
+      
+      // Load ad groups
+      await this.loadAdGroups(campaignId);
+    } else {
+      detail.classList.add('hidden');
+      arrow.style.transform = 'rotate(0deg)';
+    }
+  },
+  
+  async loadAdGroups(campaignId) {
+    const container = document.getElementById(`ad-groups-${campaignId}`);
+    
+    try {
+      const { data: adGroups } = await Database.client
+        .from('ad_groups')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at');
+      
+      if (!adGroups || adGroups.length === 0) {
+        container.innerHTML = `
+          <h5 class="text-sm font-semibold text-gray-700 mb-2">📁 Reklamné skupiny</h5>
+          <div class="text-center py-4 text-gray-400 text-sm">Žiadne reklamné skupiny</div>
+        `;
+        return;
+      }
+      
+      // Load ads for each ad group
+      const adGroupIds = adGroups.map(ag => ag.id);
+      const { data: ads } = await Database.client
+        .from('ads')
+        .select('*')
+        .in('ad_group_id', adGroupIds);
+      
+      const adsByGroup = {};
+      (ads || []).forEach(ad => {
+        if (!adsByGroup[ad.ad_group_id]) adsByGroup[ad.ad_group_id] = [];
+        adsByGroup[ad.ad_group_id].push(ad);
+      });
+      
+      container.innerHTML = `
+        <h5 class="text-sm font-semibold text-gray-700 mb-2">📁 Reklamné skupiny (${adGroups.length})</h5>
+        <div class="space-y-2">
+          ${adGroups.map(ag => `
+            <div class="border rounded-lg p-3">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-medium">${ag.name}</span>
+                <span class="text-xs text-gray-500">${(adsByGroup[ag.id] || []).length} reklám</span>
+              </div>
+              ${ag.keywords?.length ? `
+              <div class="flex flex-wrap gap-1 mb-2">
+                ${ag.keywords.slice(0, 5).map(k => `<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">${k}</span>`).join('')}
+                ${ag.keywords.length > 5 ? `<span class="text-xs text-gray-400">+${ag.keywords.length - 5}</span>` : ''}
+              </div>
+              ` : ''}
+              ${adsByGroup[ag.id]?.length ? `
+              <div class="space-y-1">
+                ${adsByGroup[ag.id].slice(0, 3).map(ad => `
+                  <div class="bg-gray-50 rounded p-2 text-sm">
+                    <div class="font-medium text-blue-600">${ad.headlines?.[0] || 'Reklama'}</div>
+                    <div class="text-gray-500 text-xs truncate">${ad.descriptions?.[0] || ''}</div>
+                  </div>
+                `).join('')}
+                ${adsByGroup[ag.id].length > 3 ? `<div class="text-xs text-gray-400 text-center">+${adsByGroup[ag.id].length - 3} ďalších reklám</div>` : ''}
+              </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (error) {
+      console.error('Load ad groups error:', error);
+      container.innerHTML = `
+        <h5 class="text-sm font-semibold text-gray-700 mb-2">📁 Reklamné skupiny</h5>
+        <div class="text-center py-4 text-red-400 text-sm">Chyba pri načítaní</div>
+      `;
+    }
+  },
+  
+  async duplicateCampaign(campaignId) {
+    Utils.toast('Duplikovanie kampane - pripravuje sa', 'info');
+  },
+  
+  async deleteCampaign(campaignId) {
+    if (!confirm('Naozaj chcete zmazať túto kampaň?')) return;
+    
+    try {
+      const { error } = await Database.client.from('campaigns').delete().eq('id', campaignId);
+      if (error) throw error;
+      
+      Utils.toast('Kampaň zmazaná', 'success');
+      
+      // Refresh detail
+      if (this.selectedProject) {
+        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+      }
+    } catch (error) {
+      console.error('Delete campaign error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
   },
   
   renderDetailActions(project) {
@@ -819,25 +1052,79 @@ const CampaignProjectsModule = {
   },
   
   async startGeneration(projectId) {
-    Utils.toast('Spúšťam AI generovanie...', 'info');
+    const project = this.projects.find(p => p.id === projectId);
+    if (!project) return;
     
-    // Update status to generating
+    // Get onboarding_id for this client
+    const { data: onboarding } = await Database.client
+      .from('onboarding_responses')
+      .select('id')
+      .eq('client_id', project.client_id)
+      .eq('status', 'submitted')
+      .single();
+    
+    if (!onboarding) {
+      Utils.toast('Klient nemá vyplnený onboarding dotazník!', 'warning');
+      return;
+    }
+    
+    Utils.toast('Spúšťam AI generovanie... Môže trvať 30-60 sekúnd.', 'info');
+    
+    // Update UI immediately
     if (await this.updateStatus(projectId, 'generating')) {
-      // TODO: Call AI generation Edge Function
-      // For now, simulate and move to internal_review
-      setTimeout(async () => {
-        await this.updateStatus(projectId, 'internal_review');
-        Utils.toast('AI generovanie dokončené!', 'success');
+      await this.loadData();
+      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      
+      try {
+        // Call Edge Function
+        const { data: { session } } = await Database.client.auth.getSession();
+        const token = session?.access_token || Config.SUPABASE_ANON_KEY;
+        
+        const response = await fetch(
+          'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/generate-campaigns',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              project_id: projectId,
+              onboarding_id: onboarding.id,
+              platforms: ['google_search', 'meta_facebook']
+            })
+          }
+        );
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          Utils.toast(`AI vygenerovalo ${result.campaigns_generated} kampaní! 🎉`, 'success');
+          
+          // Refresh data
+          await this.loadData();
+          document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+          
+          // Update detail modal if open
+          if (this.selectedProject?.id === projectId) {
+            const updatedProject = this.projects.find(p => p.id === projectId);
+            if (updatedProject) {
+              document.getElementById('detail-content').innerHTML = await this.renderDetailContent(updatedProject);
+            }
+          }
+        } else {
+          throw new Error(result.error || 'Neznáma chyba');
+        }
+        
+      } catch (error) {
+        console.error('AI generation error:', error);
+        Utils.toast('Chyba pri generovaní: ' + error.message, 'error');
+        
+        // Revert status
+        await this.updateStatus(projectId, 'draft');
         await this.loadData();
         document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-        
-        if (this.selectedProject?.id === projectId) {
-          const project = this.projects.find(p => p.id === projectId);
-          if (project) {
-            document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
-          }
-        }
-      }, 2000);
+      }
     }
   },
   
