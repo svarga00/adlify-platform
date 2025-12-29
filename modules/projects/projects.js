@@ -1087,6 +1087,24 @@ const CampaignProjectsModule = {
   renderDetailActions(project) {
     const actions = [];
     
+    // Status dropdown
+    actions.push(`
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500">Status:</label>
+        <select onchange="CampaignProjectsModule.changeStatus('${project.id}', this.value)" 
+          class="p-2 border rounded-lg text-sm font-medium">
+          ${Object.entries(this.STATUSES).map(([key, val]) => `
+            <option value="${key}" ${project.status === key ? 'selected' : ''}>
+              ${val.icon} ${val.label}
+            </option>
+          `).join('')}
+        </select>
+      </div>
+    `);
+    
+    // Divider
+    actions.push('<div class="border-l h-8 mx-2"></div>');
+    
     // Always show edit
     actions.push(`
       <button onclick="CampaignProjectsModule.editProject('${project.id}')" 
@@ -1158,6 +1176,15 @@ const CampaignProjectsModule = {
           </button>
         `);
         break;
+        
+      case 'paused':
+        actions.push(`
+          <button onclick="CampaignProjectsModule.resumeProject('${project.id}')" 
+            class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
+            ▶️ Obnoviť
+          </button>
+        `);
+        break;
     }
     
     // Delete always at the end
@@ -1169,6 +1196,39 @@ const CampaignProjectsModule = {
     `);
     
     return actions.join('');
+  },
+  
+  async changeStatus(projectId, newStatus) {
+    if (await this.updateStatus(projectId, newStatus)) {
+      Utils.toast(`Status zmenený na: ${this.STATUSES[newStatus]?.label || newStatus}`, 'success');
+      await this.loadData();
+      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      
+      // Update detail if open
+      if (this.selectedProject?.id === projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+          this.selectedProject = project;
+          document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+        }
+      }
+    }
+  },
+  
+  async resumeProject(projectId) {
+    if (await this.updateStatus(projectId, 'active')) {
+      Utils.toast('Projekt obnovený', 'success');
+      await this.loadData();
+      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      
+      if (this.selectedProject?.id === projectId) {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+          this.selectedProject = project;
+          document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+        }
+      }
+    }
   },
   
   // ==========================================
