@@ -37,7 +37,7 @@
     // Supabase init
     const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMTkxNDgsImV4cCI6MjA2NDY5NTE0OH0.bHdTtME-r1DVBK8EAPpnvD3Ongk2nWb2juvSjVoEVlQ';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     // State
     let project = null;
@@ -60,7 +60,7 @@
       
       try {
         // Load project by token
-        const { data: projectData, error: projectError } = await supabase
+        const { data: projectData, error: projectError } = await db
           .from('campaign_projects')
           .select('*')
           .eq('client_portal_token', token)
@@ -74,7 +74,7 @@
         project = projectData;
         
         // Load client
-        const { data: clientData } = await supabase
+        const { data: clientData } = await db
           .from('clients')
           .select('*')
           .eq('id', project.client_id)
@@ -83,7 +83,7 @@
         client = clientData;
         
         // Load onboarding data
-        const { data: onboardingData } = await supabase
+        const { data: onboardingData } = await db
           .from('onboarding_responses')
           .select('*')
           .eq('client_id', project.client_id)
@@ -92,7 +92,7 @@
         onboarding = onboardingData;
         
         // Load campaigns
-        const { data: campaignsData } = await supabase
+        const { data: campaignsData } = await db
           .from('campaigns')
           .select('*')
           .eq('project_id', project.id)
@@ -102,7 +102,7 @@
         
         // Load ad groups and ads
         for (const campaign of campaigns) {
-          const { data: agData } = await supabase
+          const { data: agData } = await db
             .from('ad_groups')
             .select('*')
             .eq('campaign_id', campaign.id);
@@ -110,7 +110,7 @@
           adGroups[campaign.id] = agData || [];
           
           for (const ag of (agData || [])) {
-            const { data: adsData } = await supabase
+            const { data: adsData } = await db
               .from('ads')
               .select('*')
               .eq('ad_group_id', ag.id);
@@ -517,7 +517,7 @@
     // Actions
     async function approveProposal() {
       try {
-        const { error } = await supabase
+        const { error } = await db
           .from('campaign_projects')
           .update({ 
             status: 'approved',
@@ -528,7 +528,7 @@
         if (error) throw error;
         
         // Log approval
-        await supabase.from('approval_history').insert({
+        await db.from('approval_history').insert({
           entity_type: 'project',
           entity_id: project.id,
           action: 'client_approved',
@@ -567,7 +567,7 @@
       }
       
       try {
-        const { error } = await supabase
+        const { error } = await db
           .from('campaign_projects')
           .update({ 
             status: 'revision',
@@ -579,7 +579,7 @@
         if (error) throw error;
         
         // Log feedback
-        await supabase.from('approval_history').insert({
+        await db.from('approval_history').insert({
           entity_type: 'project',
           entity_id: project.id,
           action: 'client_feedback',
