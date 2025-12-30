@@ -105,7 +105,7 @@ const BillingModule = {
                 Database.client.from('clients').select('id, company_name, email, phone, address, city, zip, ico, dic, ic_dph'),
                 Database.client.from('services').select('id, name, base_price, category, unit'),
                 Database.client.from('billing_settings').select('*').single(),
-                Database.client.from('leads').select('id, company_name, email, phone, address, city, zip, ico, dic, status').neq('status', 'converted').order('company_name')
+                Database.client.from('leads').select('*').order('company_name')
             ]);
             
             this.invoices = results[0].status === 'fulfilled' ? (results[0].value.data || []) : [];
@@ -114,7 +114,17 @@ const BillingModule = {
             this.clients = results[3].status === 'fulfilled' ? (results[3].value.data || []) : [];
             this.services = results[4].status === 'fulfilled' ? (results[4].value.data || []) : [];
             this.settings = results[5].status === 'fulfilled' ? (results[5].value.data || {}) : {};
-            this.leads = results[6].status === 'fulfilled' ? (results[6].value.data || []) : [];
+            
+            // Leads s extra debugom
+            if (results[6].status === 'fulfilled') {
+                this.leads = results[6].value.data || [];
+                if (results[6].value.error) {
+                    console.warn('Leads query error:', results[6].value.error);
+                }
+            } else {
+                console.warn('Leads query failed:', results[6].reason);
+                this.leads = [];
+            }
             
             console.log('Billing data loaded:', {
                 invoices: this.invoices.length,
@@ -122,7 +132,8 @@ const BillingModule = {
                 orders: this.orders.length,
                 clients: this.clients.length,
                 services: this.services.length,
-                leads: this.leads.length
+                leads: this.leads.length,
+                leadsData: this.leads.slice(0, 3) // Ukáže prvé 3 leady
             });
             
         } catch (error) {
