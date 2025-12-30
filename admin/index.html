@@ -134,6 +134,7 @@
     <script src="../modules/projects/projects.js"></script>
     <script src="../modules/onboarding/onboarding.js"></script>
     <script src="../modules/services/services.js"></script>
+    <script src="../modules/billing/billing.js"></script>
     
     <!-- Initialize App -->
     <script>
@@ -149,6 +150,7 @@
                 App.register(CampaignProjectsModule);
                 App.register(OnboardingModule);
                 App.register(ServicesModule);
+                App.register(BillingModule);
                 
                 // Navigate to default or current route
                 if (!window.location.hash) {
