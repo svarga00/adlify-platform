@@ -31,59 +31,83 @@ const BillingModule = {
         // Načítanie dát
         await this.loadData();
         
+        const invoices = this.invoices.filter(i => i.invoice_type === 'invoice');
+        const proformas = this.invoices.filter(i => i.invoice_type === 'proforma');
+        
         container.innerHTML = `
-            <div class="billing-module">
-                <div class="module-header">
-                    <h1>📄 Fakturácia</h1>
-                    <div class="header-actions">
-                        <button class="btn btn-secondary" onclick="BillingModule.showSettings()">
-                            ⚙️ Nastavenia
-                        </button>
-                        <div class="dropdown">
-                            <button class="btn btn-primary dropdown-toggle">
-                                + Nový doklad
-                            </button>
-                            <div class="dropdown-menu">
-                                <a href="#" onclick="BillingModule.createInvoice(); return false;">📄 Faktúra</a>
-                                <a href="#" onclick="BillingModule.createProforma(); return false;">📋 Zálohová faktúra</a>
-                                <a href="#" onclick="BillingModule.createQuote(); return false;">📝 Ponuka</a>
-                                <a href="#" onclick="BillingModule.createOrder(); return false;">🛒 Objednávka</a>
+            <div class="billing-module-new">
+                <!-- Header s gradientom -->
+                <div class="billing-header">
+                    <div class="header-content">
+                        <div class="header-title">
+                            <h1>Fakturácia</h1>
+                            <p class="header-subtitle">Správa faktúr, ponúk a objednávok</p>
+                        </div>
+                        <div class="header-actions">
+                            <div class="dropdown">
+                                <button class="btn-new-document">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                    Nový doklad
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a href="#" onclick="BillingModule.createInvoice(); return false;">
+                                        <span class="menu-icon">📄</span> Faktúra
+                                    </a>
+                                    <a href="#" onclick="BillingModule.createProforma(); return false;">
+                                        <span class="menu-icon">📋</span> Zálohová faktúra
+                                    </a>
+                                    <a href="#" onclick="BillingModule.createQuote(); return false;">
+                                        <span class="menu-icon">📝</span> Ponuka
+                                    </a>
+                                    <a href="#" onclick="BillingModule.createOrder(); return false;">
+                                        <span class="menu-icon">🛒</span> Objednávka
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Tabs -->
-                <div class="billing-tabs">
-                    <button class="tab-btn ${this.currentTab === 'invoices' ? 'active' : ''}" 
-                            onclick="BillingModule.switchTab('invoices')">
-                        📄 Faktúry <span class="badge">${this.invoices.filter(i => i.invoice_type === 'invoice').length}</span>
-                    </button>
-                    <button class="tab-btn ${this.currentTab === 'proforma' ? 'active' : ''}" 
-                            onclick="BillingModule.switchTab('proforma')">
-                        📋 Zálohové <span class="badge">${this.invoices.filter(i => i.invoice_type === 'proforma').length}</span>
-                    </button>
-                    <button class="tab-btn ${this.currentTab === 'quotes' ? 'active' : ''}" 
-                            onclick="BillingModule.switchTab('quotes')">
-                        📝 Ponuky <span class="badge">${this.quotes.length}</span>
-                    </button>
-                    <button class="tab-btn ${this.currentTab === 'orders' ? 'active' : ''}" 
-                            onclick="BillingModule.switchTab('orders')">
-                        🛒 Objednávky <span class="badge">${this.orders.length}</span>
-                    </button>
-                    <button class="tab-btn ${this.currentTab === 'payments' ? 'active' : ''}" 
-                            onclick="BillingModule.switchTab('payments')">
-                        💰 Platby
-                    </button>
-                </div>
-                
-                <!-- Stats -->
-                <div class="billing-stats">
+                <!-- Štatistiky -->
+                <div class="billing-stats-grid">
                     ${this.renderStats()}
                 </div>
                 
+                <!-- Taby -->
+                <div class="billing-tabs-container">
+                    <div class="billing-tabs-new">
+                        <button class="tab-btn-new ${this.currentTab === 'invoices' ? 'active' : ''}" 
+                                onclick="BillingModule.switchTab('invoices')">
+                            <span class="tab-icon">📄</span>
+                            <span class="tab-label">Faktúry</span>
+                            <span class="tab-count">${invoices.length}</span>
+                        </button>
+                        <button class="tab-btn-new ${this.currentTab === 'proformas' ? 'active' : ''}" 
+                                onclick="BillingModule.switchTab('proformas')">
+                            <span class="tab-icon">📋</span>
+                            <span class="tab-label">Zálohové</span>
+                            <span class="tab-count">${proformas.length}</span>
+                        </button>
+                        <button class="tab-btn-new ${this.currentTab === 'quotes' ? 'active' : ''}" 
+                                onclick="BillingModule.switchTab('quotes')">
+                            <span class="tab-icon">📝</span>
+                            <span class="tab-label">Ponuky</span>
+                            <span class="tab-count">${this.quotes.length}</span>
+                        </button>
+                        <button class="tab-btn-new ${this.currentTab === 'orders' ? 'active' : ''}" 
+                                onclick="BillingModule.switchTab('orders')">
+                            <span class="tab-icon">🛒</span>
+                            <span class="tab-label">Objednávky</span>
+                            <span class="tab-count">${this.orders.length}</span>
+                        </button>
+                    </div>
+                </div>
+                
                 <!-- Content -->
-                <div class="billing-content" id="billing-content">
+                <div class="billing-content-area" id="billing-content">
                     ${this.renderTabContent()}
                 </div>
             </div>
@@ -157,32 +181,62 @@ const BillingModule = {
         const paidThisMonth = thisMonth.filter(i => i.status === 'paid').reduce((sum, i) => sum + parseFloat(i.total || 0), 0);
         
         return `
-            <div class="stat-card">
-                <div class="stat-icon">💰</div>
-                <div class="stat-info">
-                    <div class="stat-value">${this.formatMoney(totalUnpaid)}</div>
-                    <div class="stat-label">Neuhradené (${unpaid.length})</div>
+            <div class="stat-card-new">
+                <div class="stat-card-icon orange">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
                 </div>
-            </div>
-            <div class="stat-card ${overdue.length > 0 ? 'stat-warning' : ''}">
-                <div class="stat-icon">⚠️</div>
-                <div class="stat-info">
-                    <div class="stat-value">${this.formatMoney(totalOverdue)}</div>
-                    <div class="stat-label">Po splatnosti (${overdue.length})</div>
+                <div class="stat-card-content">
+                    <span class="stat-card-value">${this.formatMoney(totalUnpaid)}</span>
+                    <span class="stat-card-label">Neuhradené</span>
                 </div>
+                <div class="stat-card-badge">${unpaid.length}</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon">📅</div>
-                <div class="stat-info">
-                    <div class="stat-value">${this.formatMoney(totalThisMonth)}</div>
-                    <div class="stat-label">Tento mesiac (${thisMonth.length})</div>
+            
+            <div class="stat-card-new ${overdue.length > 0 ? 'warning' : ''}">
+                <div class="stat-card-icon red">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
                 </div>
+                <div class="stat-card-content">
+                    <span class="stat-card-value">${this.formatMoney(totalOverdue)}</span>
+                    <span class="stat-card-label">Po splatnosti</span>
+                </div>
+                <div class="stat-card-badge red">${overdue.length}</div>
             </div>
-            <div class="stat-card stat-success">
-                <div class="stat-icon">✅</div>
-                <div class="stat-info">
-                    <div class="stat-value">${this.formatMoney(paidThisMonth)}</div>
-                    <div class="stat-label">Uhradené tento mesiac</div>
+            
+            <div class="stat-card-new">
+                <div class="stat-card-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                </div>
+                <div class="stat-card-content">
+                    <span class="stat-card-value">${this.formatMoney(totalThisMonth)}</span>
+                    <span class="stat-card-label">Tento mesiac</span>
+                </div>
+                <div class="stat-card-badge">${thisMonth.length}</div>
+            </div>
+            
+            <div class="stat-card-new success">
+                <div class="stat-card-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <div class="stat-card-content">
+                    <span class="stat-card-value">${this.formatMoney(paidThisMonth)}</span>
+                    <span class="stat-card-label">Uhradené tento mesiac</span>
                 </div>
             </div>
         `;
@@ -190,10 +244,12 @@ const BillingModule = {
 
     switchTab(tab) {
         this.currentTab = tab;
-        document.querySelectorAll('.billing-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`.billing-tabs .tab-btn:nth-child(${
-            tab === 'invoices' ? 1 : tab === 'proforma' ? 2 : tab === 'quotes' ? 3 : tab === 'orders' ? 4 : 5
-        })`).classList.add('active');
+        document.querySelectorAll('.tab-btn-new').forEach(btn => btn.classList.remove('active'));
+        const tabs = ['invoices', 'proformas', 'quotes', 'orders'];
+        const index = tabs.indexOf(tab);
+        if (index >= 0) {
+            document.querySelectorAll('.tab-btn-new')[index]?.classList.add('active');
+        }
         document.getElementById('billing-content').innerHTML = this.renderTabContent();
     },
 
@@ -201,16 +257,15 @@ const BillingModule = {
         switch (this.currentTab) {
             case 'invoices':
                 return this.renderInvoicesTable('invoice');
-            case 'proforma':
+            case 'proformas':
                 return this.renderInvoicesTable('proforma');
             case 'quotes':
                 return this.renderQuotesTable();
             case 'orders':
                 return this.renderOrdersTable();
-            case 'payments':
-                return this.renderPaymentsTab();
             default:
                 return '';
+        }
         }
     },
 
@@ -2847,447 +2902,458 @@ const BillingModule = {
     renderStyles() {
         return `
             <style>
-                .billing-module { padding: 0; }
+                /* =====================================================
+                   BILLING MODULE - MODERNÝ DIZAJN
+                   ===================================================== */
                 
-                .billing-tabs {
-                    display: flex;
-                    gap: 0;
-                    border-bottom: 2px solid var(--border-color);
-                    margin-bottom: 1.5rem;
+                .billing-module-new {
+                    padding: 0;
+                    max-width: 1400px;
+                    margin: 0 auto;
                 }
                 
-                .billing-tabs .tab-btn {
-                    padding: 0.75rem 1.5rem;
-                    border: none;
-                    background: none;
-                    cursor: pointer;
+                /* Header */
+                .billing-header {
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+                    border-radius: 16px;
+                    padding: 2rem;
+                    margin-bottom: 1.5rem;
+                    color: white;
+                }
+                
+                .header-content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                
+                .header-title h1 {
+                    margin: 0;
+                    font-size: 1.75rem;
+                    font-weight: 700;
+                }
+                
+                .header-subtitle {
+                    margin: 0.25rem 0 0;
+                    opacity: 0.9;
                     font-size: 0.95rem;
-                    color: var(--text-secondary);
-                    border-bottom: 2px solid transparent;
-                    margin-bottom: -2px;
+                }
+                
+                .btn-new-document {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1.5rem;
+                    background: rgba(255,255,255,0.2);
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    border-radius: 12px;
+                    cursor: pointer;
                     transition: all 0.2s;
                 }
                 
-                .billing-tabs .tab-btn:hover {
-                    color: var(--text-primary);
-                    background: rgba(0,0,0,0.02);
+                .btn-new-document:hover {
+                    background: rgba(255,255,255,0.3);
+                    transform: translateY(-1px);
                 }
                 
-                .billing-tabs .tab-btn.active {
-                    color: var(--primary-color);
-                    border-bottom-color: var(--primary-color);
+                .billing-header .dropdown-menu {
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                    padding: 0.5rem;
+                    min-width: 200px;
                 }
                 
-                .billing-tabs .badge {
-                    background: var(--bg-secondary);
-                    padding: 0.1rem 0.5rem;
-                    border-radius: 10px;
-                    font-size: 0.8rem;
-                    margin-left: 0.5rem;
+                .billing-header .dropdown-menu a {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 0.75rem 1rem;
+                    color: #334155;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    transition: background 0.15s;
                 }
                 
-                .billing-stats {
+                .billing-header .dropdown-menu a:hover {
+                    background: #f1f5f9;
+                }
+                
+                .menu-icon {
+                    font-size: 1.1rem;
+                }
+                
+                /* Stats Grid */
+                .billing-stats-grid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    grid-template-columns: repeat(4, 1fr);
                     gap: 1rem;
                     margin-bottom: 1.5rem;
                 }
                 
-                .stat-card {
+                @media (max-width: 1200px) {
+                    .billing-stats-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                }
+                
+                @media (max-width: 600px) {
+                    .billing-stats-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                
+                .stat-card-new {
                     background: white;
-                    border-radius: 12px;
-                    padding: 1rem 1.25rem;
+                    border-radius: 16px;
+                    padding: 1.25rem;
                     display: flex;
                     align-items: center;
                     gap: 1rem;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+                    border: 1px solid #f1f5f9;
+                    position: relative;
+                    transition: all 0.2s;
                 }
                 
-                .stat-card.stat-warning { border-left: 4px solid #f59e0b; }
-                .stat-card.stat-success { border-left: 4px solid #10b981; }
+                .stat-card-new:hover {
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                    transform: translateY(-2px);
+                }
                 
-                .stat-icon { font-size: 1.5rem; }
-                .stat-value { font-size: 1.25rem; font-weight: 600; }
-                .stat-label { color: var(--text-secondary); font-size: 0.85rem; }
+                .stat-card-new.warning {
+                    border-color: #fecaca;
+                    background: linear-gradient(135deg, #fff 0%, #fef2f2 100%);
+                }
                 
+                .stat-card-new.success {
+                    border-color: #bbf7d0;
+                    background: linear-gradient(135deg, #fff 0%, #f0fdf4 100%);
+                }
+                
+                .stat-card-icon {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+                
+                .stat-card-icon.orange { background: #fff7ed; color: #ea580c; }
+                .stat-card-icon.red { background: #fef2f2; color: #dc2626; }
+                .stat-card-icon.blue { background: #eff6ff; color: #2563eb; }
+                .stat-card-icon.green { background: #f0fdf4; color: #16a34a; }
+                
+                .stat-card-content {
+                    flex: 1;
+                    min-width: 0;
+                }
+                
+                .stat-card-value {
+                    display: block;
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    color: #0f172a;
+                    line-height: 1.2;
+                }
+                
+                .stat-card-label {
+                    display: block;
+                    font-size: 0.85rem;
+                    color: #64748b;
+                    margin-top: 0.25rem;
+                }
+                
+                .stat-card-badge {
+                    position: absolute;
+                    top: 0.75rem;
+                    right: 0.75rem;
+                    background: #f1f5f9;
+                    color: #475569;
+                    padding: 0.25rem 0.625rem;
+                    border-radius: 20px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                }
+                
+                .stat-card-badge.red {
+                    background: #fecaca;
+                    color: #dc2626;
+                }
+                
+                /* Tabs */
+                .billing-tabs-container {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 0.5rem;
+                    margin-bottom: 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+                    border: 1px solid #f1f5f9;
+                }
+                
+                .billing-tabs-new {
+                    display: flex;
+                    gap: 0.5rem;
+                }
+                
+                .tab-btn-new {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.875rem 1.25rem;
+                    border: none;
+                    background: transparent;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    color: #64748b;
+                    transition: all 0.2s;
+                }
+                
+                .tab-btn-new:hover {
+                    background: #f8fafc;
+                    color: #334155;
+                }
+                
+                .tab-btn-new.active {
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+                    color: white;
+                    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+                }
+                
+                .tab-icon {
+                    font-size: 1.1rem;
+                }
+                
+                .tab-label {
+                    font-weight: 500;
+                }
+                
+                .tab-count {
+                    background: rgba(255,255,255,0.2);
+                    padding: 0.15rem 0.5rem;
+                    border-radius: 20px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                }
+                
+                .tab-btn-new:not(.active) .tab-count {
+                    background: #f1f5f9;
+                    color: #64748b;
+                }
+                
+                /* Content Area */
+                .billing-content-area {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 1.5rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+                    border: 1px solid #f1f5f9;
+                }
+                
+                /* Table Filters */
                 .table-filters {
                     display: flex;
                     gap: 1rem;
-                    margin-bottom: 1rem;
+                    margin-bottom: 1.5rem;
                 }
                 
-                .filter-search, .filter-select {
-                    padding: 0.5rem 1rem;
-                    border: 1px solid var(--border-color);
-                    border-radius: 8px;
+                .filter-search {
+                    flex: 1;
+                    max-width: 300px;
+                    padding: 0.75rem 1rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
                     font-size: 0.9rem;
+                    transition: all 0.2s;
                 }
                 
-                .filter-search { flex: 1; max-width: 300px; }
-                
-                .row-warning { background: #fef3c7 !important; }
-                .overdue-badge {
-                    background: #fee2e2;
-                    color: #dc2626;
-                    padding: 0.1rem 0.4rem;
-                    border-radius: 4px;
-                    font-size: 0.75rem;
-                    margin-left: 0.5rem;
+                .filter-search:focus {
+                    outline: none;
+                    border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
                 }
                 
+                .filter-select {
+                    padding: 0.75rem 1rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    font-size: 0.9rem;
+                    background: white;
+                    cursor: pointer;
+                }
+                
+                /* Data Table */
+                .data-table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                }
+                
+                .data-table thead th {
+                    background: #f8fafc;
+                    padding: 1rem;
+                    text-align: left;
+                    font-weight: 600;
+                    font-size: 0.8rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    color: #64748b;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                
+                .data-table thead th:first-child {
+                    border-radius: 10px 0 0 0;
+                }
+                
+                .data-table thead th:last-child {
+                    border-radius: 0 10px 0 0;
+                }
+                
+                .data-table tbody tr {
+                    transition: background 0.15s;
+                }
+                
+                .data-table tbody tr:hover {
+                    background: #f8fafc;
+                }
+                
+                .data-table tbody td {
+                    padding: 1rem;
+                    border-bottom: 1px solid #f1f5f9;
+                    font-size: 0.9rem;
+                    color: #334155;
+                }
+                
+                .data-table tbody td a {
+                    color: #0f172a;
+                    text-decoration: none;
+                    font-weight: 600;
+                }
+                
+                .data-table tbody td a:hover {
+                    color: #f97316;
+                }
+                
+                /* Status Badges */
                 .status-badge {
-                    padding: 0.25rem 0.75rem;
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 0.35rem 0.75rem;
                     border-radius: 20px;
                     font-size: 0.8rem;
                     font-weight: 500;
                 }
                 
-                .status-gray { background: #f3f4f6; color: #6b7280; }
-                .status-blue { background: #dbeafe; color: #2563eb; }
-                .status-green { background: #d1fae5; color: #059669; }
-                .status-orange { background: #fed7aa; color: #c2410c; }
+                .status-gray { background: #f1f5f9; color: #64748b; }
+                .status-blue { background: #dbeafe; color: #1d4ed8; }
+                .status-green { background: #dcfce7; color: #15803d; }
+                .status-orange { background: #ffedd5; color: #c2410c; }
                 .status-red { background: #fee2e2; color: #dc2626; }
-                .status-purple { background: #ede9fe; color: #7c3aed; }
+                .status-purple { background: #f3e8ff; color: #7c3aed; }
                 
+                /* Action Buttons */
                 .action-buttons {
                     display: flex;
                     gap: 0.25rem;
                 }
                 
                 .btn-icon {
-                    padding: 0.3rem;
-                    border: none;
-                    background: none;
-                    cursor: pointer;
-                    border-radius: 4px;
-                }
-                
-                .btn-icon:hover { background: var(--bg-secondary); }
-                
-                .dropdown { position: relative; }
-                .dropdown-menu {
-                    display: none;
-                    position: absolute;
-                    top: 100%;
-                    right: 0;
-                    background: white;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    min-width: 180px;
-                    z-index: 100;
-                    padding: 0.5rem 0;
-                }
-                .dropdown-menu.show { display: block; }
-                .dropdown-menu a {
-                    display: block;
-                    padding: 0.5rem 1rem;
-                    color: var(--text-primary);
-                    text-decoration: none;
-                }
-                .dropdown-menu a:hover { background: var(--bg-secondary); }
-                
-                .empty-state {
-                    text-align: center;
-                    padding: 3rem;
-                    color: var(--text-secondary);
-                }
-                .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
-                
-                /* Modal form styles */
-                .form-section {
-                    margin-bottom: 1.5rem;
-                    padding-bottom: 1.5rem;
-                    border-bottom: 1px solid var(--border-color);
-                }
-                
-                .form-section:last-child { border-bottom: none; }
-                .form-section h3 { margin-bottom: 1rem; font-size: 1rem; }
-                
-                .form-row {
-                    display: flex;
-                    gap: 1rem;
-                    margin-bottom: 0.75rem;
-                }
-                
-                .form-group { flex: 1; }
-                .form-group.flex-2 { flex: 2; }
-                .form-group.flex-3 { flex: 3; }
-                
-                .form-group label {
-                    display: block;
-                    margin-bottom: 0.25rem;
-                    font-size: 0.85rem;
-                    color: var(--text-secondary);
-                }
-                
-                .form-group input,
-                .form-group select,
-                .form-group textarea {
-                    width: 100%;
-                    padding: 0.5rem;
-                    border: 1px solid var(--border-color);
-                    border-radius: 6px;
-                    font-size: 0.9rem;
-                }
-                
-                .item-row {
-                    background: var(--bg-secondary);
-                    padding: 0.75rem;
-                    border-radius: 8px;
-                    margin-bottom: 0.5rem;
-                }
-                
-                .item-fields {
-                    display: flex;
-                    gap: 0.5rem;
-                    align-items: center;
-                }
-                
-                .item-fields .form-group { margin-bottom: 0; }
-                .item-total { 
-                    min-width: 100px; 
-                    text-align: right; 
-                    font-weight: 600;
-                }
-                
-                .btn-remove {
-                    color: #dc2626;
-                }
-                
-                .quick-add-service {
-                    margin-top: 1rem;
-                }
-                
-                .quick-add-service select {
-                    padding: 0.5rem;
-                    border: 1px dashed var(--border-color);
-                    border-radius: 6px;
-                    background: transparent;
-                    color: var(--text-secondary);
-                    cursor: pointer;
-                }
-                
-                .invoice-summary {
-                    background: var(--bg-secondary);
-                    padding: 1rem;
-                    border-radius: 8px;
-                    max-width: 300px;
-                    margin-left: auto;
-                }
-                
-                .summary-row {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 0.5rem 0;
-                }
-                
-                .summary-total {
-                    border-top: 2px solid var(--border-color);
-                    margin-top: 0.5rem;
-                    padding-top: 0.75rem;
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                }
-                
-                .client-preview {
-                    background: var(--bg-secondary);
-                    padding: 1rem;
-                    border-radius: 8px;
-                    margin-top: 0.75rem;
-                }
-                
-                /* Invoice detail */
-                .invoice-status-bar {
-                    margin-bottom: 1.5rem;
-                    display: flex;
-                    align-items: center;
-                    gap: 1rem;
-                }
-                
-                .overdue-info {
-                    color: #dc2626;
-                    font-weight: 500;
-                }
-                
-                .invoice-header-detail {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 2rem;
-                    margin-bottom: 1.5rem;
-                }
-                
-                .invoice-items-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 1.5rem;
-                }
-                
-                .invoice-items-table th,
-                .invoice-items-table td {
-                    padding: 0.75rem;
-                    text-align: left;
-                    border-bottom: 1px solid var(--border-color);
-                }
-                
-                .invoice-items-table th {
-                    background: var(--bg-secondary);
-                    font-weight: 500;
-                }
-                
-                .invoice-totals {
-                    max-width: 300px;
-                    margin-left: auto;
-                }
-                
-                .total-row {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 0.5rem 0;
-                }
-                
-                .total-final {
-                    font-size: 1.2rem;
-                    font-weight: 600;
-                    border-top: 2px solid var(--text-primary);
-                    margin-top: 0.5rem;
-                    padding-top: 0.75rem;
-                }
-                
-                .total-row.paid { color: #059669; }
-                .total-row.remaining { color: #dc2626; font-weight: 500; }
-                
-                .invoice-payments {
-                    margin-top: 2rem;
-                    padding-top: 1.5rem;
-                    border-top: 1px solid var(--border-color);
-                }
-                
-                .payments-table {
-                    width: 100%;
-                    font-size: 0.9rem;
-                }
-                
-                .payments-table th,
-                .payments-table td {
-                    padding: 0.5rem;
-                    text-align: left;
-                }
-                
-                .invoice-notes {
-                    margin-top: 1.5rem;
-                    padding: 1rem;
-                    background: #fef3c7;
-                    border-radius: 8px;
-                }
-                
-                .coming-soon {
-                    text-align: center;
-                    padding: 3rem;
-                    color: var(--text-secondary);
-                }
-                
-                .coming-soon span { font-size: 2rem; }
-                
-                .modal-large {
-                    max-width: 900px;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                }
-                
-                .modal-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0, 0, 0, 0.5);
+                    width: 32px;
+                    height: 32px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    z-index: 1000;
-                    padding: 1rem;
-                }
-                
-                .modal {
-                    background: white;
-                    border-radius: 1rem;
-                    width: 100%;
-                    max-width: 600px;
-                    max-height: 90vh;
-                    overflow-y: auto;
-                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-                }
-                
-                .modal-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 1rem 1.5rem;
-                    border-bottom: 1px solid #e5e7eb;
-                }
-                
-                .modal-header h2 {
-                    margin: 0;
-                    font-size: 1.25rem;
-                }
-                
-                .modal-close {
-                    background: none;
+                    background: transparent;
                     border: none;
-                    font-size: 1.5rem;
+                    border-radius: 8px;
                     cursor: pointer;
-                    color: #6b7280;
-                    padding: 0.25rem;
-                    line-height: 1;
+                    font-size: 1rem;
+                    transition: all 0.15s;
                 }
                 
-                .modal-close:hover {
-                    color: #111827;
+                .btn-icon:hover {
+                    background: #f1f5f9;
                 }
                 
-                .modal-body {
-                    padding: 1.5rem;
+                /* Empty State */
+                .empty-state {
+                    text-align: center;
+                    padding: 4rem 2rem;
                 }
                 
-                .modal-footer {
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 0.75rem;
-                    padding: 1rem 1.5rem;
-                    border-top: 1px solid #e5e7eb;
-                    background: #f9fafb;
-                    border-radius: 0 0 1rem 1rem;
+                .empty-icon {
+                    font-size: 4rem;
+                    margin-bottom: 1rem;
+                    opacity: 0.5;
                 }
                 
-                .btn-sm { 
-                    padding: 0.35rem 0.75rem; 
-                    font-size: 0.85rem; 
+                .empty-state h3 {
+                    margin: 0 0 0.5rem;
+                    color: #334155;
                 }
                 
-                /* ========================================
-                   NOVÝ INVOICE MODAL DIZAJN
-                   ======================================== */
+                .empty-state p {
+                    color: #64748b;
+                    margin-bottom: 1.5rem;
+                }
+                
+                .empty-state .btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1.5rem;
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .empty-state .btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+                }
+                
+                /* Badge Small */
+                .badge-sm {
+                    padding: 0.2rem 0.5rem;
+                    background: #f1f5f9;
+                    border-radius: 6px;
+                    font-size: 0.75rem;
+                    color: #64748b;
+                }
+
+                /* =====================================================
+                   INVOICE MODAL STYLES (zachované z predtým)
+                   ===================================================== */
                 
                 .invoice-modal {
-                    background: #f8fafc;
-                    border-radius: 1rem;
                     width: 95%;
                     max-width: 1100px;
                     max-height: 95vh;
+                    background: #f8fafc;
+                    border-radius: 16px;
                     overflow: hidden;
                     display: flex;
                     flex-direction: column;
-                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
                 }
                 
-                /* Header */
                 .invoice-modal-header {
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+                    color: white;
+                    padding: 1.5rem 2rem;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 1.25rem 1.5rem;
-                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
-                    color: white;
                 }
                 
                 .header-left {
@@ -3298,21 +3364,18 @@ const BillingModule = {
                 
                 .header-icon {
                     font-size: 2rem;
-                    background: rgba(255,255,255,0.2);
-                    padding: 0.5rem;
-                    border-radius: 0.75rem;
                 }
                 
-                .header-left h2 {
+                .invoice-modal-header h2 {
                     margin: 0;
                     font-size: 1.5rem;
                     font-weight: 600;
                 }
                 
                 .header-subtitle {
-                    margin: 0;
+                    margin: 0.25rem 0 0;
                     opacity: 0.9;
-                    font-size: 0.875rem;
+                    font-size: 0.9rem;
                 }
                 
                 .close-btn {
@@ -3321,7 +3384,7 @@ const BillingModule = {
                     color: white;
                     width: 40px;
                     height: 40px;
-                    border-radius: 0.5rem;
+                    border-radius: 10px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
@@ -3333,16 +3396,15 @@ const BillingModule = {
                     background: rgba(255,255,255,0.3);
                 }
                 
-                /* Body */
                 .invoice-modal-body {
                     flex: 1;
                     overflow-y: auto;
-                    padding: 1.5rem;
+                    padding: 1.5rem 2rem;
                 }
                 
                 .form-grid {
                     display: grid;
-                    grid-template-columns: 1fr 320px;
+                    grid-template-columns: 1fr 340px;
                     gap: 1.5rem;
                 }
                 
@@ -3352,24 +3414,12 @@ const BillingModule = {
                     }
                 }
                 
-                .form-main {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.5rem;
-                }
-                
-                .form-sidebar {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1.5rem;
-                }
-                
-                /* Karty */
                 .form-card {
                     background: white;
-                    border-radius: 1rem;
+                    border-radius: 12px;
                     border: 1px solid #e2e8f0;
                     overflow: hidden;
+                    margin-bottom: 1rem;
                 }
                 
                 .card-header {
@@ -3387,91 +3437,90 @@ const BillingModule = {
                 
                 .card-header h3 {
                     margin: 0;
-                    font-size: 1rem;
+                    font-size: 0.95rem;
                     font-weight: 600;
-                    color: #1e293b;
+                    color: #334155;
                 }
                 
                 .card-body {
                     padding: 1.25rem;
                 }
                 
-                /* Klient select */
                 .client-select-wrapper label {
                     display: block;
-                    font-size: 0.875rem;
+                    font-size: 0.85rem;
                     font-weight: 500;
                     color: #475569;
                     margin-bottom: 0.5rem;
                 }
                 
-                .required {
-                    color: #ef4444;
-                }
-                
                 .client-select {
                     width: 100%;
                     padding: 0.75rem 1rem;
-                    border: 2px solid #e2e8f0;
-                    border-radius: 0.75rem;
-                    font-size: 1rem;
-                    transition: border-color 0.2s;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    font-size: 0.9rem;
                     background: white;
+                    cursor: pointer;
                 }
                 
                 .client-select:focus {
                     outline: none;
                     border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
                 }
                 
-                /* Client preview */
                 .client-preview-card {
                     margin-top: 1rem;
+                }
+                
+                .client-card-preview {
+                    background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+                    border: 1px solid #fde047;
+                    border-radius: 10px;
                     padding: 1rem;
-                    background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
-                    border-radius: 0.75rem;
-                    border: 1px solid #fde68a;
                 }
                 
-                .client-card-preview .client-name {
+                .client-name {
                     font-weight: 600;
-                    font-size: 1rem;
-                    color: #1e293b;
+                    color: #854d0e;
                     margin-bottom: 0.5rem;
                 }
                 
-                .client-card-preview .client-address {
-                    font-size: 0.875rem;
-                    color: #64748b;
-                    margin-bottom: 0.5rem;
+                .client-address {
+                    font-size: 0.85rem;
+                    color: #a16207;
+                    line-height: 1.5;
                 }
                 
-                .client-card-preview .client-ids {
+                .client-ids {
+                    margin-top: 0.75rem;
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 1rem;
-                    font-size: 0.8rem;
-                    color: #78716c;
+                    gap: 0.5rem;
                 }
                 
-                .client-card-preview .client-ids span {
-                    background: rgba(255,255,255,0.7);
+                .client-ids span {
+                    background: rgba(255,255,255,0.6);
                     padding: 0.25rem 0.5rem;
-                    border-radius: 0.375rem;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    color: #92400e;
                 }
                 
-                /* Items table */
                 .items-table-header {
                     display: grid;
                     grid-template-columns: 1fr 80px 70px 100px 100px 40px;
-                    gap: 0.75rem;
-                    padding: 0.75rem 0;
-                    border-bottom: 2px solid #e2e8f0;
+                    gap: 0.5rem;
+                    padding: 0.75rem 0.5rem;
+                    background: #f8fafc;
+                    border-radius: 8px;
+                    margin-bottom: 0.5rem;
                     font-size: 0.75rem;
                     font-weight: 600;
-                    color: #64748b;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
+                    color: #64748b;
                 }
                 
                 .items-container {
@@ -3481,56 +3530,62 @@ const BillingModule = {
                 .item-row-new {
                     display: grid;
                     grid-template-columns: 1fr 80px 70px 100px 100px 40px;
-                    gap: 0.75rem;
-                    padding: 0.75rem 0;
+                    gap: 0.5rem;
+                    padding: 0.5rem;
                     border-bottom: 1px solid #f1f5f9;
                     align-items: center;
+                }
+                
+                .item-row-new:hover {
+                    background: #fafafa;
                 }
                 
                 .item-row-new input,
                 .item-row-new select {
                     width: 100%;
-                    padding: 0.625rem 0.75rem;
+                    padding: 0.5rem;
                     border: 1px solid #e2e8f0;
-                    border-radius: 0.5rem;
+                    border-radius: 6px;
                     font-size: 0.875rem;
-                    transition: border-color 0.2s, box-shadow 0.2s;
                 }
                 
                 .item-row-new input:focus,
                 .item-row-new select:focus {
                     outline: none;
                     border-color: #f97316;
-                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
                 }
                 
-                .item-row-new .col-total {
+                .col-total {
                     font-weight: 600;
-                    color: #1e293b;
+                    color: #334155;
                     text-align: right;
                     padding-right: 0.5rem;
                 }
                 
                 .remove-item-btn {
-                    background: none;
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: transparent;
                     border: none;
-                    color: #94a3b8;
+                    border-radius: 6px;
                     cursor: pointer;
-                    padding: 0.5rem;
-                    border-radius: 0.375rem;
-                    transition: all 0.2s;
+                    color: #94a3b8;
+                    transition: all 0.15s;
                 }
                 
                 .remove-item-btn:hover {
                     background: #fee2e2;
-                    color: #ef4444;
+                    color: #dc2626;
                 }
                 
-                /* Add item section */
                 .add-item-section {
                     display: flex;
                     gap: 1rem;
-                    padding-top: 1rem;
+                    align-items: center;
+                    margin-top: 0.5rem;
                 }
                 
                 .add-item-btn {
@@ -3538,55 +3593,30 @@ const BillingModule = {
                     align-items: center;
                     gap: 0.5rem;
                     padding: 0.625rem 1rem;
-                    background: #f1f5f9;
-                    border: 2px dashed #cbd5e1;
-                    border-radius: 0.5rem;
+                    background: transparent;
+                    border: 2px dashed #e2e8f0;
+                    border-radius: 8px;
                     color: #64748b;
                     font-size: 0.875rem;
-                    font-weight: 500;
                     cursor: pointer;
-                    transition: all 0.2s;
+                    transition: all 0.15s;
                 }
                 
                 .add-item-btn:hover {
-                    background: #e2e8f0;
-                    border-color: #94a3b8;
-                    color: #475569;
+                    border-color: #f97316;
+                    color: #f97316;
+                    background: #fff7ed;
                 }
                 
                 .service-dropdown select {
                     padding: 0.625rem 1rem;
                     border: 1px solid #e2e8f0;
-                    border-radius: 0.5rem;
+                    border-radius: 8px;
                     font-size: 0.875rem;
                     background: white;
-                    color: #64748b;
                     cursor: pointer;
                 }
                 
-                .service-dropdown select:hover {
-                    border-color: #f97316;
-                }
-                
-                /* Notes */
-                .note-textarea {
-                    width: 100%;
-                    padding: 0.75rem 1rem;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 0.75rem;
-                    font-size: 0.875rem;
-                    resize: vertical;
-                    min-height: 80px;
-                    font-family: inherit;
-                }
-                
-                .note-textarea:focus {
-                    outline: none;
-                    border-color: #f97316;
-                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
-                }
-                
-                /* Date fields */
                 .date-field {
                     margin-bottom: 1rem;
                 }
@@ -3597,21 +3627,39 @@ const BillingModule = {
                 
                 .date-field label {
                     display: block;
-                    font-size: 0.8rem;
+                    font-size: 0.85rem;
                     font-weight: 500;
-                    color: #64748b;
-                    margin-bottom: 0.375rem;
+                    color: #475569;
+                    margin-bottom: 0.5rem;
                 }
                 
-                .date-field input {
+                .date-field input,
+                .date-field select {
                     width: 100%;
                     padding: 0.625rem 0.75rem;
                     border: 1px solid #e2e8f0;
-                    border-radius: 0.5rem;
+                    border-radius: 8px;
                     font-size: 0.875rem;
                 }
                 
-                .date-field input:focus {
+                .date-field input:focus,
+                .date-field select:focus {
+                    outline: none;
+                    border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                }
+                
+                .note-textarea {
+                    width: 100%;
+                    padding: 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    font-size: 0.875rem;
+                    resize: vertical;
+                    min-height: 80px;
+                }
+                
+                .note-textarea:focus {
                     outline: none;
                     border-color: #f97316;
                     box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
@@ -3621,7 +3669,7 @@ const BillingModule = {
                     width: 100%;
                     padding: 0.625rem 0.75rem;
                     border: 1px solid #e2e8f0;
-                    border-radius: 0.5rem;
+                    border-radius: 8px;
                     font-size: 0.875rem;
                     background: white;
                     cursor: pointer;
@@ -3673,7 +3721,6 @@ const BillingModule = {
                     to { opacity: 1; transform: translateY(0); }
                 }
                 
-                /* Nový klient form */
                 .new-client-form {
                     display: flex;
                     flex-direction: column;
@@ -3736,12 +3783,12 @@ const BillingModule = {
                 }
                 
                 .summary-value {
-                    font-weight: 500;
-                    color: #1e293b;
+                    font-weight: 600;
+                    color: #334155;
                 }
                 
                 .summary-value.discount {
-                    color: #16a34a;
+                    color: #dc2626;
                 }
                 
                 .summary-row.with-input {
@@ -3766,9 +3813,9 @@ const BillingModule = {
                     width: 60px;
                     padding: 0.375rem 0.5rem;
                     border: 1px solid #e2e8f0;
-                    border-radius: 0.375rem;
-                    font-size: 0.875rem;
+                    border-radius: 6px;
                     text-align: right;
+                    font-size: 0.875rem;
                 }
                 
                 .input-with-suffix input:focus {
@@ -3784,34 +3831,29 @@ const BillingModule = {
                 .summary-divider {
                     height: 1px;
                     background: #e2e8f0;
-                    margin: 0.5rem 0;
-                }
-                
-                .summary-row.total {
-                    padding-top: 0.75rem;
+                    margin: 0.75rem 0;
                 }
                 
                 .summary-row.total .summary-label {
                     font-size: 1rem;
                     font-weight: 600;
-                    color: #1e293b;
+                    color: #0f172a;
                 }
                 
                 .summary-row.total .summary-value {
                     font-size: 1.5rem;
-                    font-weight: 700;
-                    background: linear-gradient(135deg, #f97316, #ec4899);
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                     background-clip: text;
                 }
                 
-                /* Footer */
+                /* Modal Footer */
                 .invoice-modal-footer {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 1rem 1.5rem;
+                    padding: 1.25rem 2rem;
                     background: white;
                     border-top: 1px solid #e2e8f0;
                 }
@@ -3822,29 +3864,29 @@ const BillingModule = {
                 }
                 
                 .btn-cancel {
-                    padding: 0.75rem 1.25rem;
-                    background: none;
-                    border: none;
+                    padding: 0.75rem 1.5rem;
+                    background: transparent;
+                    border: 1px solid #e2e8f0;
                     color: #64748b;
                     font-size: 0.875rem;
                     font-weight: 500;
-                    cursor: pointer;
                     border-radius: 0.5rem;
+                    cursor: pointer;
                     transition: all 0.2s;
                 }
                 
                 .btn-cancel:hover {
-                    background: #f1f5f9;
-                    color: #475569;
+                    background: #f8fafc;
+                    border-color: #cbd5e1;
                 }
                 
                 .btn-draft {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
-                    padding: 0.75rem 1.25rem;
+                    padding: 0.75rem 1.5rem;
                     background: white;
-                    border: 2px solid #e2e8f0;
+                    border: 1px solid #e2e8f0;
                     color: #475569;
                     font-size: 0.875rem;
                     font-weight: 500;
@@ -3854,8 +3896,8 @@ const BillingModule = {
                 }
                 
                 .btn-draft:hover {
-                    border-color: #94a3b8;
                     background: #f8fafc;
+                    border-color: #cbd5e1;
                 }
                 
                 .btn-primary-action {
@@ -3877,6 +3919,24 @@ const BillingModule = {
                 .btn-primary-action:hover {
                     transform: translateY(-1px);
                     box-shadow: 0 6px 20px 0 rgba(249, 115, 22, 0.5);
+                }
+                
+                /* Dropdown */
+                .dropdown {
+                    position: relative;
+                }
+                
+                .dropdown-menu {
+                    display: none;
+                    position: absolute;
+                    top: 100%;
+                    right: 0;
+                    margin-top: 0.5rem;
+                    z-index: 1000;
+                }
+                
+                .dropdown.active .dropdown-menu {
+                    display: block;
                 }
             </style>
         `;
