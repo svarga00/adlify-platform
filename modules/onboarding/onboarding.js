@@ -500,6 +500,7 @@ const OnboardingModule = {
   renderSection2() {
     const products = this.formData.products_services || [];
     const usps = this.formData.unique_selling_points || [];
+    const suggestedKeywords = this.formData.suggested_keywords || [];
     
     return `
       <div class="space-y-6">
@@ -545,8 +546,141 @@ const OnboardingModule = {
           <textarea name="competitive_advantages" rows="3" class="w-full p-3 border rounded-xl" 
             placeholder="Opíšte čo vás odlišuje od konkurencie - kvalita, cena, servis, tradícia...">${this.formData.competitive_advantages || ''}</textarea>
         </div>
+        
+        <!-- Keyword Suggestions Section -->
+        <div class="border-t pt-6">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <label class="block text-sm font-medium">Návrhy kľúčových slov</label>
+              <p class="text-xs text-gray-500">AI navrhne kľúčové slová na základe vašich produktov</p>
+            </div>
+            <button type="button" onclick="OnboardingModule.generateKeywordSuggestions()" 
+              id="keyword-suggest-btn"
+              class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 flex items-center gap-2">
+              ✨ Navrhnúť kľúčové slová
+            </button>
+          </div>
+          
+          <div id="keyword-suggestions-container">
+            ${suggestedKeywords.length > 0 ? this.renderKeywordSuggestions(suggestedKeywords) : `
+              <div class="bg-gray-50 rounded-xl p-4 text-center text-gray-500 text-sm">
+                Najprv pridajte produkty a kliknite na "Navrhnúť kľúčové slová"
+              </div>
+            `}
+          </div>
+        </div>
       </div>
     `;
+  },
+  
+  renderKeywordSuggestions(keywords) {
+    if (!keywords || keywords.length === 0) {
+      return `<div class="bg-gray-50 rounded-xl p-4 text-center text-gray-500 text-sm">Žiadne návrhy</div>`;
+    }
+    
+    return `
+      <div class="bg-gray-50 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium">${keywords.length} návrhov</span>
+          <button type="button" onclick="OnboardingModule.selectAllKeywords()" 
+            class="text-xs text-purple-600 hover:underline">Vybrať všetky</button>
+        </div>
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+          ${keywords.map((kw, i) => `
+            <label class="flex items-center gap-2 p-2 bg-white rounded-lg border hover:border-purple-300 cursor-pointer text-sm">
+              <input type="checkbox" name="selected_keyword_${i}" value="${kw.keyword}" 
+                ${this.formData.selected_keywords?.includes(kw.keyword) ? 'checked' : ''} 
+                class="keyword-checkbox rounded text-purple-600">
+              <div class="flex-1 min-w-0">
+                <div class="truncate">${kw.keyword}</div>
+                <div class="text-xs text-gray-500">
+                  ${kw.search_volume > 0 ? `${kw.search_volume.toLocaleString()}/mes` : '-'}
+                  ${kw.cpc > 0 ? ` • ${kw.cpc.toFixed(2)}€` : ''}
+                </div>
+              </div>
+            </label>
+          `).join('')}
+        </div>
+        <div class="mt-3 pt-3 border-t text-xs text-gray-500">
+          Vybrané kľúčové slová sa použijú pre generovanie kampaní
+        </div>
+      </div>
+    `;
+  },
+  
+  async generateKeywordSuggestions() {
+    // Collect product names from form
+    this.collectFormData();
+    const products = this.formData.products_services || [];
+    
+    if (products.length === 0 || !products[0]?.name) {
+      Utils.toast('Najprv pridajte aspoň jeden produkt', 'warning');
+      return;
+    }
+    
+    const btn = document.getElementById('keyword-suggest-btn');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generujem...';
+    
+    try {
+      // Get product names as seed keywords
+      const seedKeywords = products
+        .map(p => p.name)
+        .filter(Boolean)
+        .slice(0, 5);
+      
+      // Add company name if available
+      if (this.formData.company_name) {
+        seedKeywords.unshift(this.formData.company_name);
+      }
+      
+      // Call Marketing Miner API
+      const { data: { session } } = await Database.client.auth.getSession();
+      const response = await fetch(
+        'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/keyword-research',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || Config.SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            keywords: seedKeywords,
+            lang: 'sk',
+            action: 'suggestions'
+          })
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (result.success && result.data?.length > 0) {
+        this.formData.suggested_keywords = result.data;
+        
+        // Update UI
+        const container = document.getElementById('keyword-suggestions-container');
+        if (container) {
+          container.innerHTML = this.renderKeywordSuggestions(result.data);
+        }
+        
+        Utils.toast(`Nájdených ${result.data.length} kľúčových slov! ✨`, 'success');
+      } else {
+        throw new Error(result.error || 'Žiadne návrhy');
+      }
+      
+    } catch (error) {
+      console.error('Keyword suggestions error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '✨ Navrhnúť kľúčové slová';
+  },
+  
+  selectAllKeywords() {
+    const checkboxes = document.querySelectorAll('.keyword-checkbox');
+    const allChecked = [...checkboxes].every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
   },
   
   renderProductItem(product = {}, index) {
@@ -1165,6 +1299,7 @@ const OnboardingModule = {
     if (this.currentStep === 2) {
       this.collectProducts(formData);
       this.collectUsps(formData);
+      this.collectSelectedKeywords(formData);
     }
     
     // Handle channels
@@ -1221,6 +1356,23 @@ const OnboardingModule = {
       i++;
     }
     this.formData.unique_selling_points = usps;
+  },
+  
+  collectSelectedKeywords(formData) {
+    const selectedKeywords = [];
+    let i = 0;
+    while (formData.has(`selected_keyword_${i}`)) {
+      selectedKeywords.push(formData.get(`selected_keyword_${i}`));
+      i++;
+    }
+    // Also check checkboxes that are checked
+    const checkboxes = document.querySelectorAll('.keyword-checkbox:checked');
+    checkboxes.forEach(cb => {
+      if (!selectedKeywords.includes(cb.value)) {
+        selectedKeywords.push(cb.value);
+      }
+    });
+    this.formData.selected_keywords = selectedKeywords;
   },
   
   collectChannels(formData) {
