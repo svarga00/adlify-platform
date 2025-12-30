@@ -98,8 +98,8 @@ export const BillingModule = {
             const [invoicesRes, quotesRes, ordersRes, clientsRes, servicesRes, settingsRes] = await Promise.all([
                 supabase.from('invoices_overview').select('*').order('created_at', { ascending: false }),
                 supabase.from('quotes_overview').select('*').order('created_at', { ascending: false }),
-                supabase.from('orders').select('*, clients(name, company)').order('created_at', { ascending: false }),
-                supabase.from('clients').select('id, name, company, email, phone, address, city, zip, ico, dic, ic_dph'),
+                supabase.from('orders').select('*, clients(company_name)').order('created_at', { ascending: false }),
+                supabase.from('clients').select('id, company_name, email, phone, address, city, zip, ico, dic, ic_dph'),
                 supabase.from('services').select('id, name, price, category'),
                 supabase.from('billing_settings').select('*').single()
             ]);
@@ -382,7 +382,7 @@ export const BillingModule = {
                         ${this.orders.map(o => `
                             <tr data-status="${o.status}">
                                 <td><strong>${o.order_number}</strong></td>
-                                <td>${o.clients?.company || o.clients?.name || '-'}</td>
+                                <td>${o.clients?.company_name || '-'}</td>
                                 <td>${this.formatDate(o.order_date)}</td>
                                 <td><strong>${this.formatMoney(o.total)}</strong></td>
                                 <td>${this.renderOrderStatus(o.status)}</td>
@@ -475,7 +475,7 @@ export const BillingModule = {
                                     <select name="client_id" required onchange="BillingModule.onClientSelect(this.value)">
                                         <option value="">-- Vyberte klienta --</option>
                                         ${this.clients.map(c => `
-                                            <option value="${c.id}">${c.company || c.name} ${c.ico ? `(IČO: ${c.ico})` : ''}</option>
+                                            <option value="${c.id}">${c.company_name} ${c.ico ? `(IČO: ${c.ico})` : ''}</option>
                                         `).join('')}
                                     </select>
                                 </div>
@@ -607,7 +607,7 @@ export const BillingModule = {
                                     <select name="client_id">
                                         <option value="">-- Vyberte --</option>
                                         ${this.clients.map(c => `
-                                            <option value="${c.id}">${c.company || c.name}</option>
+                                            <option value="${c.id}">${c.company_name}</option>
                                         `).join('')}
                                     </select>
                                 </div>
@@ -801,7 +801,7 @@ export const BillingModule = {
         if (client) {
             detailsDiv.innerHTML = `
                 <div class="client-info-preview">
-                    <strong>${client.company || client.name}</strong><br>
+                    <strong>${client.company_name}</strong><br>
                     ${client.address ? client.address + '<br>' : ''}
                     ${client.zip ? client.zip + ' ' : ''}${client.city || ''}<br>
                     ${client.ico ? 'IČO: ' + client.ico + '<br>' : ''}
