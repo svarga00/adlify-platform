@@ -460,113 +460,200 @@ const BillingModule = {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal modal-large">
-                <div class="modal-header">
-                    <h2>📄 Nová faktúra</h2>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+            <div class="invoice-modal">
+                <!-- Header -->
+                <div class="invoice-modal-header">
+                    <div class="header-left">
+                        <span class="header-icon">📄</span>
+                        <div>
+                            <h2>Nová faktúra</h2>
+                            <p class="header-subtitle">Vytvorte novú faktúru pre klienta</p>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
-                <div class="modal-body">
+                
+                <!-- Body -->
+                <div class="invoice-modal-body">
                     <form id="invoice-form">
-                        <!-- Klient -->
-                        <div class="form-section">
-                            <h3>Klient</h3>
-                            <div class="form-row">
-                                <div class="form-group flex-2">
-                                    <label>Vybrať klienta *</label>
-                                    <select name="client_id" required onchange="BillingModule.onClientSelect(this.value)">
-                                        <option value="">-- Vyberte klienta --</option>
-                                        ${this.clients.map(c => `
-                                            <option value="${c.id}">${c.company_name} ${c.ico ? `(IČO: ${c.ico})` : ''}</option>
-                                        `).join('')}
-                                    </select>
+                        <div class="form-grid">
+                            <!-- Ľavá strana - Klient a položky -->
+                            <div class="form-main">
+                                <!-- Klient karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">👤</span>
+                                        <h3>Odberateľ</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="client-select-wrapper">
+                                            <label>Vybrať klienta <span class="required">*</span></label>
+                                            <select name="client_id" required onchange="BillingModule.onClientSelect(this.value)" class="client-select">
+                                                <option value="">Vyhľadať alebo vybrať klienta...</option>
+                                                ${this.clients.map(c => `
+                                                    <option value="${c.id}">${c.company_name}${c.ico ? ' • IČO: ' + c.ico : ''}</option>
+                                                `).join('')}
+                                            </select>
+                                        </div>
+                                        <div id="client-details" class="client-preview-card" style="display: none;"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Položky karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📦</span>
+                                        <h3>Položky faktúry</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Hlavička tabuľky -->
+                                        <div class="items-table-header">
+                                            <div class="col-desc">Popis</div>
+                                            <div class="col-qty">Množstvo</div>
+                                            <div class="col-unit">Jedn.</div>
+                                            <div class="col-price">Cena/jedn.</div>
+                                            <div class="col-total">Spolu</div>
+                                            <div class="col-action"></div>
+                                        </div>
+                                        
+                                        <!-- Položky -->
+                                        <div id="invoice-items" class="items-container">
+                                            ${this.renderItemRowNew(0)}
+                                        </div>
+                                        
+                                        <!-- Pridať položku -->
+                                        <div class="add-item-section">
+                                            <button type="button" class="add-item-btn" onclick="BillingModule.addItemRow()">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                </svg>
+                                                Pridať položku
+                                            </button>
+                                            
+                                            <div class="service-dropdown">
+                                                <select id="quick-service" onchange="BillingModule.addServiceItem(this.value)">
+                                                    <option value="">📦 Pridať zo služieb...</option>
+                                                    ${this.services.map(s => `
+                                                        <option value="${s.id}">${s.name} — ${this.formatMoney(s.base_price)}</option>
+                                                    `).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Poznámka -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📝</span>
+                                        <h3>Poznámka</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <textarea name="notes" rows="3" placeholder="Interná poznámka alebo text pre klienta..." class="note-textarea">${this.settings?.invoice_footer || ''}</textarea>
+                                    </div>
                                 </div>
                             </div>
-                            <div id="client-details" class="client-preview" style="display: none;"></div>
-                        </div>
-                        
-                        <!-- Dátumy -->
-                        <div class="form-section">
-                            <h3>Dátumy</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Dátum vystavenia</label>
-                                    <input type="date" name="issue_date" value="${new Date().toISOString().split('T')[0]}">
-                                </div>
-                                <div class="form-group">
-                                    <label>Dátum dodania</label>
-                                    <input type="date" name="delivery_date" value="${new Date().toISOString().split('T')[0]}">
-                                </div>
-                                <div class="form-group">
-                                    <label>Splatnosť</label>
-                                    <input type="date" name="due_date" value="${this.addDays(new Date(), this.settings?.default_due_days || 14).toISOString().split('T')[0]}">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Položky -->
-                        <div class="form-section">
-                            <h3>Položky</h3>
-                            <div id="invoice-items">
-                                ${this.renderItemRow(0)}
-                            </div>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="BillingModule.addItemRow()">
-                                + Pridať položku
-                            </button>
                             
-                            <!-- Rýchle pridanie služby -->
-                            <div class="quick-add-service">
-                                <select id="quick-service" onchange="BillingModule.addServiceItem(this.value)">
-                                    <option value="">+ Pridať službu z katalógu</option>
-                                    ${this.services.map(s => `
-                                        <option value="${s.id}">${s.name} - ${this.formatMoney(s.base_price)}</option>
-                                    `).join('')}
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <!-- Súhrn -->
-                        <div class="form-section">
-                            <div class="invoice-summary">
-                                <div class="summary-row">
-                                    <span>Medzisúčet:</span>
-                                    <span id="subtotal">0,00 €</span>
+                            <!-- Pravá strana - Dátumy a súhrn -->
+                            <div class="form-sidebar">
+                                <!-- Dátumy karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📅</span>
+                                        <h3>Dátumy</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="date-field">
+                                            <label>Dátum vystavenia</label>
+                                            <input type="date" name="issue_date" value="${new Date().toISOString().split('T')[0]}">
+                                        </div>
+                                        <div class="date-field">
+                                            <label>Dátum dodania</label>
+                                            <input type="date" name="delivery_date" value="${new Date().toISOString().split('T')[0]}">
+                                        </div>
+                                        <div class="date-field">
+                                            <label>Dátum splatnosti</label>
+                                            <input type="date" name="due_date" value="${this.addDays(new Date(), this.settings?.default_due_days || 14).toISOString().split('T')[0]}">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="summary-row">
-                                    <span>
-                                        Zľava: 
-                                        <input type="number" name="discount_percent" value="0" min="0" max="100" 
-                                               style="width: 60px;" onchange="BillingModule.recalculateTotals()"> %
-                                    </span>
-                                    <span id="discount-amount">0,00 €</span>
+                                
+                                <!-- Súhrn karta -->
+                                <div class="form-card summary-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">💰</span>
+                                        <h3>Súhrn</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="summary-row">
+                                            <span class="summary-label">Medzisúčet</span>
+                                            <span class="summary-value" id="subtotal">0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-row with-input">
+                                            <div class="summary-label-with-input">
+                                                <span>Zľava</span>
+                                                <div class="input-with-suffix">
+                                                    <input type="number" name="discount_percent" value="0" min="0" max="100" 
+                                                           onchange="BillingModule.recalculateTotals()">
+                                                    <span class="suffix">%</span>
+                                                </div>
+                                            </div>
+                                            <span class="summary-value discount" id="discount-amount">-0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-row with-input">
+                                            <div class="summary-label-with-input">
+                                                <span>DPH</span>
+                                                <div class="input-with-suffix">
+                                                    <input type="number" name="vat_rate" value="${this.settings?.default_vat_rate || 20}" 
+                                                           onchange="BillingModule.recalculateTotals()">
+                                                    <span class="suffix">%</span>
+                                                </div>
+                                            </div>
+                                            <span class="summary-value" id="vat-amount">0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-divider"></div>
+                                        
+                                        <div class="summary-row total">
+                                            <span class="summary-label">Celkom</span>
+                                            <span class="summary-value" id="total">0,00 €</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="summary-row">
-                                    <span>
-                                        DPH:
-                                        <input type="number" name="vat_rate" value="${this.settings?.default_vat_rate || 20}" 
-                                               style="width: 60px;" onchange="BillingModule.recalculateTotals()"> %
-                                    </span>
-                                    <span id="vat-amount">0,00 €</span>
-                                </div>
-                                <div class="summary-row summary-total">
-                                    <span>Celkom:</span>
-                                    <span id="total">0,00 €</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Poznámky -->
-                        <div class="form-section">
-                            <div class="form-group">
-                                <label>Poznámka na faktúru</label>
-                                <textarea name="notes" rows="2" placeholder="Poznámka pre klienta...">${this.settings?.invoice_footer || ''}</textarea>
                             </div>
                         </div>
                     </form>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
-                    <button class="btn btn-secondary" onclick="BillingModule.saveInvoice('draft')">Uložiť ako koncept</button>
-                    <button class="btn btn-primary" onclick="BillingModule.saveInvoice('issued')">Vystaviť faktúru</button>
+                
+                <!-- Footer -->
+                <div class="invoice-modal-footer">
+                    <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">
+                        Zrušiť
+                    </button>
+                    <div class="footer-actions">
+                        <button class="btn-draft" onclick="BillingModule.saveInvoice('draft')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Uložiť koncept
+                        </button>
+                        <button class="btn-primary-action" onclick="BillingModule.saveInvoice('issued')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Vystaviť faktúru
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -723,17 +810,61 @@ const BillingModule = {
         `;
     },
 
+    renderItemRowNew(index) {
+        return `
+            <div class="item-row-new" data-index="${index}">
+                <div class="col-desc">
+                    <input type="text" name="items[${index}][description]" placeholder="Názov služby alebo produktu..." 
+                           onchange="BillingModule.recalculateTotals()">
+                </div>
+                <div class="col-qty">
+                    <input type="number" name="items[${index}][quantity]" value="1" min="0.01" step="0.01"
+                           onchange="BillingModule.recalculateRow(${index})">
+                </div>
+                <div class="col-unit">
+                    <select name="items[${index}][unit]">
+                        <option value="ks">ks</option>
+                        <option value="hod">hod</option>
+                        <option value="mes">mes</option>
+                        <option value="rok">rok</option>
+                    </select>
+                </div>
+                <div class="col-price">
+                    <input type="number" name="items[${index}][unit_price]" placeholder="0.00" min="0" step="0.01"
+                           onchange="BillingModule.recalculateRow(${index})">
+                </div>
+                <div class="col-total">
+                    <span id="item-total-${index}">0,00 €</span>
+                </div>
+                <div class="col-action">
+                    <button type="button" class="remove-item-btn" onclick="BillingModule.removeItemRow(${index})" title="Odstrániť">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
     addItemRow(type = 'invoice') {
         this.itemRowIndex++;
         const container = document.getElementById(type === 'invoice' ? 'invoice-items' : 'quote-items');
         const div = document.createElement('div');
-        div.innerHTML = this.renderItemRow(this.itemRowIndex, type);
+        // Použiť nový štýl pre invoice modal
+        if (document.querySelector('.invoice-modal')) {
+            div.innerHTML = this.renderItemRowNew(this.itemRowIndex);
+        } else {
+            div.innerHTML = this.renderItemRow(this.itemRowIndex, type);
+        }
         container.appendChild(div.firstElementChild);
     },
 
     removeItemRow(index) {
-        const row = document.querySelector(`.item-row[data-index="${index}"]`);
-        if (row && document.querySelectorAll('.item-row').length > 1) {
+        const row = document.querySelector(`.item-row[data-index="${index}"], .item-row-new[data-index="${index}"]`);
+        const allRows = document.querySelectorAll('.item-row, .item-row-new');
+        if (row && allRows.length > 1) {
             row.remove();
             this.recalculateTotals();
         }
@@ -759,7 +890,7 @@ const BillingModule = {
     },
 
     recalculateRow(index) {
-        const row = document.querySelector(`.item-row[data-index="${index}"]`);
+        const row = document.querySelector(`.item-row[data-index="${index}"], .item-row-new[data-index="${index}"]`);
         if (!row) return;
         
         const qty = parseFloat(row.querySelector('input[name*="[quantity]"]').value) || 0;
@@ -773,7 +904,7 @@ const BillingModule = {
     recalculateTotals() {
         let subtotal = 0;
         
-        document.querySelectorAll('.item-row').forEach(row => {
+        document.querySelectorAll('.item-row, .item-row-new').forEach(row => {
             const qty = parseFloat(row.querySelector('input[name*="[quantity]"]')?.value) || 0;
             const price = parseFloat(row.querySelector('input[name*="[unit_price]"]')?.value) || 0;
             subtotal += qty * price;
@@ -801,13 +932,17 @@ const BillingModule = {
         
         if (client) {
             detailsDiv.innerHTML = `
-                <div class="client-info-preview">
-                    <strong>${client.company_name}</strong><br>
-                    ${client.address ? client.address + '<br>' : ''}
-                    ${client.zip ? client.zip + ' ' : ''}${client.city || ''}<br>
-                    ${client.ico ? 'IČO: ' + client.ico + '<br>' : ''}
-                    ${client.dic ? 'DIČ: ' + client.dic + '<br>' : ''}
-                    ${client.ic_dph ? 'IČ DPH: ' + client.ic_dph : ''}
+                <div class="client-card-preview">
+                    <div class="client-name">${client.company_name}</div>
+                    <div class="client-address">
+                        ${client.address ? client.address : ''}
+                        ${client.zip || client.city ? '<br>' + (client.zip || '') + ' ' + (client.city || '') : ''}
+                    </div>
+                    <div class="client-ids">
+                        ${client.ico ? '<span>IČO: ' + client.ico + '</span>' : ''}
+                        ${client.dic ? '<span>DIČ: ' + client.dic + '</span>' : ''}
+                        ${client.ic_dph ? '<span>IČ DPH: ' + client.ic_dph + '</span>' : ''}
+                    </div>
                 </div>
             `;
             detailsDiv.style.display = 'block';
@@ -828,7 +963,7 @@ const BillingModule = {
         
         // Zozbierať položky
         const items = [];
-        document.querySelectorAll('.item-row').forEach(row => {
+        document.querySelectorAll('.item-row, .item-row-new').forEach(row => {
             const desc = row.querySelector('input[name*="[description]"]')?.value;
             const qty = parseFloat(row.querySelector('input[name*="[quantity]"]')?.value) || 0;
             const unit = row.querySelector('select[name*="[unit]"]')?.value || 'ks';
@@ -1999,6 +2134,520 @@ const BillingModule = {
                 .btn-sm { 
                     padding: 0.35rem 0.75rem; 
                     font-size: 0.85rem; 
+                }
+                
+                /* ========================================
+                   NOVÝ INVOICE MODAL DIZAJN
+                   ======================================== */
+                
+                .invoice-modal {
+                    background: #f8fafc;
+                    border-radius: 1rem;
+                    width: 95%;
+                    max-width: 1100px;
+                    max-height: 95vh;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                }
+                
+                /* Header */
+                .invoice-modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1.25rem 1.5rem;
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+                    color: white;
+                }
+                
+                .header-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                }
+                
+                .header-icon {
+                    font-size: 2rem;
+                    background: rgba(255,255,255,0.2);
+                    padding: 0.5rem;
+                    border-radius: 0.75rem;
+                }
+                
+                .header-left h2 {
+                    margin: 0;
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                }
+                
+                .header-subtitle {
+                    margin: 0;
+                    opacity: 0.9;
+                    font-size: 0.875rem;
+                }
+                
+                .close-btn {
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: background 0.2s;
+                }
+                
+                .close-btn:hover {
+                    background: rgba(255,255,255,0.3);
+                }
+                
+                /* Body */
+                .invoice-modal-body {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 1.5rem;
+                }
+                
+                .form-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 320px;
+                    gap: 1.5rem;
+                }
+                
+                @media (max-width: 900px) {
+                    .form-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                
+                .form-main {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.5rem;
+                }
+                
+                .form-sidebar {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.5rem;
+                }
+                
+                /* Karty */
+                .form-card {
+                    background: white;
+                    border-radius: 1rem;
+                    border: 1px solid #e2e8f0;
+                    overflow: hidden;
+                }
+                
+                .card-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 1rem 1.25rem;
+                    background: #f8fafc;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                
+                .card-icon {
+                    font-size: 1.25rem;
+                }
+                
+                .card-header h3 {
+                    margin: 0;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    color: #1e293b;
+                }
+                
+                .card-body {
+                    padding: 1.25rem;
+                }
+                
+                /* Klient select */
+                .client-select-wrapper label {
+                    display: block;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    color: #475569;
+                    margin-bottom: 0.5rem;
+                }
+                
+                .required {
+                    color: #ef4444;
+                }
+                
+                .client-select {
+                    width: 100%;
+                    padding: 0.75rem 1rem;
+                    border: 2px solid #e2e8f0;
+                    border-radius: 0.75rem;
+                    font-size: 1rem;
+                    transition: border-color 0.2s;
+                    background: white;
+                }
+                
+                .client-select:focus {
+                    outline: none;
+                    border-color: #f97316;
+                }
+                
+                /* Client preview */
+                .client-preview-card {
+                    margin-top: 1rem;
+                    padding: 1rem;
+                    background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
+                    border-radius: 0.75rem;
+                    border: 1px solid #fde68a;
+                }
+                
+                .client-card-preview .client-name {
+                    font-weight: 600;
+                    font-size: 1rem;
+                    color: #1e293b;
+                    margin-bottom: 0.5rem;
+                }
+                
+                .client-card-preview .client-address {
+                    font-size: 0.875rem;
+                    color: #64748b;
+                    margin-bottom: 0.5rem;
+                }
+                
+                .client-card-preview .client-ids {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                    font-size: 0.8rem;
+                    color: #78716c;
+                }
+                
+                .client-card-preview .client-ids span {
+                    background: rgba(255,255,255,0.7);
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.375rem;
+                }
+                
+                /* Items table */
+                .items-table-header {
+                    display: grid;
+                    grid-template-columns: 1fr 80px 70px 100px 100px 40px;
+                    gap: 0.75rem;
+                    padding: 0.75rem 0;
+                    border-bottom: 2px solid #e2e8f0;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+                
+                .items-container {
+                    margin-bottom: 1rem;
+                }
+                
+                .item-row-new {
+                    display: grid;
+                    grid-template-columns: 1fr 80px 70px 100px 100px 40px;
+                    gap: 0.75rem;
+                    padding: 0.75rem 0;
+                    border-bottom: 1px solid #f1f5f9;
+                    align-items: center;
+                }
+                
+                .item-row-new input,
+                .item-row-new select {
+                    width: 100%;
+                    padding: 0.625rem 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                    transition: border-color 0.2s, box-shadow 0.2s;
+                }
+                
+                .item-row-new input:focus,
+                .item-row-new select:focus {
+                    outline: none;
+                    border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                }
+                
+                .item-row-new .col-total {
+                    font-weight: 600;
+                    color: #1e293b;
+                    text-align: right;
+                    padding-right: 0.5rem;
+                }
+                
+                .remove-item-btn {
+                    background: none;
+                    border: none;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    padding: 0.5rem;
+                    border-radius: 0.375rem;
+                    transition: all 0.2s;
+                }
+                
+                .remove-item-btn:hover {
+                    background: #fee2e2;
+                    color: #ef4444;
+                }
+                
+                /* Add item section */
+                .add-item-section {
+                    display: flex;
+                    gap: 1rem;
+                    padding-top: 1rem;
+                }
+                
+                .add-item-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.625rem 1rem;
+                    background: #f1f5f9;
+                    border: 2px dashed #cbd5e1;
+                    border-radius: 0.5rem;
+                    color: #64748b;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .add-item-btn:hover {
+                    background: #e2e8f0;
+                    border-color: #94a3b8;
+                    color: #475569;
+                }
+                
+                .service-dropdown select {
+                    padding: 0.625rem 1rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                    background: white;
+                    color: #64748b;
+                    cursor: pointer;
+                }
+                
+                .service-dropdown select:hover {
+                    border-color: #f97316;
+                }
+                
+                /* Notes */
+                .note-textarea {
+                    width: 100%;
+                    padding: 0.75rem 1rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 0.75rem;
+                    font-size: 0.875rem;
+                    resize: vertical;
+                    min-height: 80px;
+                    font-family: inherit;
+                }
+                
+                .note-textarea:focus {
+                    outline: none;
+                    border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                }
+                
+                /* Date fields */
+                .date-field {
+                    margin-bottom: 1rem;
+                }
+                
+                .date-field:last-child {
+                    margin-bottom: 0;
+                }
+                
+                .date-field label {
+                    display: block;
+                    font-size: 0.8rem;
+                    font-weight: 500;
+                    color: #64748b;
+                    margin-bottom: 0.375rem;
+                }
+                
+                .date-field input {
+                    width: 100%;
+                    padding: 0.625rem 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                }
+                
+                .date-field input:focus {
+                    outline: none;
+                    border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                }
+                
+                /* Summary card */
+                .summary-card .card-body {
+                    padding: 1rem 1.25rem;
+                }
+                
+                .summary-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.625rem 0;
+                }
+                
+                .summary-label {
+                    color: #64748b;
+                    font-size: 0.875rem;
+                }
+                
+                .summary-value {
+                    font-weight: 500;
+                    color: #1e293b;
+                }
+                
+                .summary-value.discount {
+                    color: #16a34a;
+                }
+                
+                .summary-row.with-input {
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 0.5rem;
+                }
+                
+                .summary-label-with-input {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                
+                .input-with-suffix {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                }
+                
+                .input-with-suffix input {
+                    width: 60px;
+                    padding: 0.375rem 0.5rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 0.375rem;
+                    font-size: 0.875rem;
+                    text-align: right;
+                }
+                
+                .input-with-suffix input:focus {
+                    outline: none;
+                    border-color: #f97316;
+                }
+                
+                .input-with-suffix .suffix {
+                    color: #94a3b8;
+                    font-size: 0.875rem;
+                }
+                
+                .summary-divider {
+                    height: 1px;
+                    background: #e2e8f0;
+                    margin: 0.5rem 0;
+                }
+                
+                .summary-row.total {
+                    padding-top: 0.75rem;
+                }
+                
+                .summary-row.total .summary-label {
+                    font-size: 1rem;
+                    font-weight: 600;
+                    color: #1e293b;
+                }
+                
+                .summary-row.total .summary-value {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    background: linear-gradient(135deg, #f97316, #ec4899);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                }
+                
+                /* Footer */
+                .invoice-modal-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1rem 1.5rem;
+                    background: white;
+                    border-top: 1px solid #e2e8f0;
+                }
+                
+                .footer-actions {
+                    display: flex;
+                    gap: 0.75rem;
+                }
+                
+                .btn-cancel {
+                    padding: 0.75rem 1.25rem;
+                    background: none;
+                    border: none;
+                    color: #64748b;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    border-radius: 0.5rem;
+                    transition: all 0.2s;
+                }
+                
+                .btn-cancel:hover {
+                    background: #f1f5f9;
+                    color: #475569;
+                }
+                
+                .btn-draft {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1.25rem;
+                    background: white;
+                    border: 2px solid #e2e8f0;
+                    color: #475569;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .btn-draft:hover {
+                    border-color: #94a3b8;
+                    background: #f8fafc;
+                }
+                
+                .btn-primary-action {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1.5rem;
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+                    border: none;
+                    color: white;
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    box-shadow: 0 4px 14px 0 rgba(249, 115, 22, 0.39);
+                }
+                
+                .btn-primary-action:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 6px 20px 0 rgba(249, 115, 22, 0.5);
                 }
             </style>
         `;
