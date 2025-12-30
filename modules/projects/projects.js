@@ -1132,7 +1132,7 @@ const CampaignProjectsModule = {
       'carousel': { icon: '🎠', label: 'Carousel', color: 'purple' }
     };
     
-    const config = typeConfig[ad.type] || typeConfig.text;
+    const config = typeConfig[ad.ad_type] || typeConfig.text;
     const headlines = ad.headlines || [];
     const descriptions = ad.descriptions || [];
     
@@ -2178,11 +2178,11 @@ const CampaignProjectsModule = {
             <div>
               <label class="block text-sm font-medium text-gray-600 mb-1">Typ reklamy</label>
               <select id="edit-ad-type" class="w-full p-3 border rounded-xl">
-                <option value="responsive" ${ad.type === 'responsive' ? 'selected' : ''}>Responsive</option>
-                <option value="text" ${ad.type === 'text' ? 'selected' : ''}>Textová</option>
-                <option value="image" ${ad.type === 'image' ? 'selected' : ''}>Obrázková</option>
-                <option value="video" ${ad.type === 'video' ? 'selected' : ''}>Video</option>
-                <option value="carousel" ${ad.type === 'carousel' ? 'selected' : ''}>Carousel</option>
+                <option value="responsive" ${ad.ad_type === 'responsive' ? 'selected' : ''}>Responsive</option>
+                <option value="text" ${ad.ad_type === 'text' ? 'selected' : ''}>Textová</option>
+                <option value="image" ${ad.ad_type === 'image' ? 'selected' : ''}>Obrázková</option>
+                <option value="video" ${ad.ad_type === 'video' ? 'selected' : ''}>Video</option>
+                <option value="carousel" ${ad.ad_type === 'carousel' ? 'selected' : ''}>Carousel</option>
               </select>
             </div>
             
@@ -2460,7 +2460,7 @@ const CampaignProjectsModule = {
     try {
       const { error } = await Database.client
         .from('ads')
-        .update({ type, headlines, descriptions, call_to_action, landing_page })
+        .update({ ad_type: type, headlines, descriptions, call_to_action, landing_page })
         .eq('id', adId);
       
       if (error) throw error;
@@ -2547,7 +2547,7 @@ const CampaignProjectsModule = {
         .from('ads')
         .insert({
           ad_group_id: adGroupId,
-          type: 'responsive',
+          ad_type: 'responsive',
           headlines: [''],
           descriptions: [''],
           status: 'draft'
