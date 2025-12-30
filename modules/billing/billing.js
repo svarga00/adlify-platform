@@ -2,12 +2,13 @@
 // ADLIFY - Billing Module (Fakturácia)
 // =====================================================
 
-import { supabase } from './config.js';
-
-export const BillingModule = {
-    name: 'billing',
-    label: 'Fakturácia',
+const BillingModule = {
+    id: 'billing',
+    name: 'Fakturácia',
     icon: '📄',
+    title: 'Fakturácia',
+    menu: { section: 'main', order: 40 },
+    permissions: [],
     
     // Aktuálny sub-tab
     currentTab: 'invoices',
@@ -96,12 +97,12 @@ export const BillingModule = {
         try {
             // Paralelné načítanie
             const [invoicesRes, quotesRes, ordersRes, clientsRes, servicesRes, settingsRes] = await Promise.all([
-                supabase.from('invoices_overview').select('*').order('created_at', { ascending: false }),
-                supabase.from('quotes_overview').select('*').order('created_at', { ascending: false }),
-                supabase.from('orders').select('*, clients(company_name)').order('created_at', { ascending: false }),
-                supabase.from('clients').select('id, company_name, email, phone, address, city, zip, ico, dic, ic_dph'),
-                supabase.from('services').select('id, name, price, category'),
-                supabase.from('billing_settings').select('*').single()
+                Database.client.from('invoices_overview').select('*').order('created_at', { ascending: false }),
+                Database.client.from('quotes_overview').select('*').order('created_at', { ascending: false }),
+                Database.client.from('orders').select('*, clients(company_name)').order('created_at', { ascending: false }),
+                Database.client.from('clients').select('id, company_name, email, phone, address, city, zip, ico, dic, ic_dph'),
+                Database.client.from('services').select('id, name, price, category'),
+                Database.client.from('billing_settings').select('*').single()
             ]);
             
             this.invoices = invoicesRes.data || [];
@@ -988,7 +989,7 @@ export const BillingModule = {
                 sort_order: idx
             }));
             
-            await supabase.from('quote_items').insert(quoteItems);
+            await Database.client.from('quote_items').insert(quoteItems);
             
             document.querySelector('.modal-overlay').remove();
             await this.loadData();
