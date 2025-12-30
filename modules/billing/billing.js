@@ -1931,6 +1931,71 @@ const BillingModule = {
                     overflow-y: auto;
                 }
                 
+                .modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    padding: 1rem;
+                }
+                
+                .modal {
+                    background: white;
+                    border-radius: 1rem;
+                    width: 100%;
+                    max-width: 600px;
+                    max-height: 90vh;
+                    overflow-y: auto;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                }
+                
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1rem 1.5rem;
+                    border-bottom: 1px solid #e5e7eb;
+                }
+                
+                .modal-header h2 {
+                    margin: 0;
+                    font-size: 1.25rem;
+                }
+                
+                .modal-close {
+                    background: none;
+                    border: none;
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                    color: #6b7280;
+                    padding: 0.25rem;
+                    line-height: 1;
+                }
+                
+                .modal-close:hover {
+                    color: #111827;
+                }
+                
+                .modal-body {
+                    padding: 1.5rem;
+                }
+                
+                .modal-footer {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 0.75rem;
+                    padding: 1rem 1.5rem;
+                    border-top: 1px solid #e5e7eb;
+                    background: #f9fafb;
+                    border-radius: 0 0 1rem 1rem;
+                }
+                
                 .btn-sm { 
                     padding: 0.35rem 0.75rem; 
                     font-size: 0.85rem; 
