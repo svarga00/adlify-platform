@@ -11,7 +11,7 @@ const ServicesModule = {
   subtitle: 'Správa produktov a cenníka',
   
   menu: { section: 'main', order: 35 },
-  permissions: ['admin'],
+  permissions: [],
   
   // State
   services: [],
@@ -39,8 +39,8 @@ const ServicesModule = {
     { value: 'purple', label: 'Fialová', class: 'bg-purple-100 text-purple-700' }
   ],
   
-  async init() {
-    await this.loadData();
+  init() {
+    console.log('📦 Services module v1.0 initialized');
   },
   
   async loadData() {
@@ -79,8 +79,9 @@ const ServicesModule = {
     }
   },
   
-  render() {
-    return `
+  async render(container, params = {}) {
+    await this.loadData();
+    container.innerHTML = `
       <div class="space-y-6">
         <!-- Header -->
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -123,7 +124,8 @@ const ServicesModule = {
   
   switchTab(tab) {
     this.activeTab = tab;
-    document.getElementById('main-content').innerHTML = this.render();
+    const container = document.getElementById('main-content');
+    this.render(container);
   },
   
   // ==========================================
@@ -434,7 +436,7 @@ const ServicesModule = {
       
       this.closeServiceModal();
       await this.loadData();
-      document.getElementById('main-content').innerHTML = this.render();
+      this.render(document.getElementById('main-content'));
       
     } catch (error) {
       console.error('Save service error:', error);
@@ -462,7 +464,7 @@ const ServicesModule = {
       
       Utils.toast('Služba zmazaná', 'success');
       await this.loadData();
-      document.getElementById('main-content').innerHTML = this.render();
+      this.render(document.getElementById('main-content'));
       
     } catch (error) {
       console.error('Delete service error:', error);
@@ -680,7 +682,7 @@ const ServicesModule = {
       Utils.toast(this.editingPackage ? 'Balíček upravený! ✅' : 'Balíček vytvorený! ✅', 'success');
       this.closePackageModal();
       await this.loadData();
-      document.getElementById('main-content').innerHTML = this.render();
+      this.render(document.getElementById('main-content'));
       
     } catch (error) {
       console.error('Save package error:', error);
@@ -708,7 +710,7 @@ const ServicesModule = {
       
       Utils.toast('Balíček zmazaný', 'success');
       await this.loadData();
-      document.getElementById('main-content').innerHTML = this.render();
+      this.render(document.getElementById('main-content'));
       
     } catch (error) {
       console.error('Delete package error:', error);
