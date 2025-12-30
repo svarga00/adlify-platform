@@ -584,6 +584,27 @@ const BillingModule = {
                                     </div>
                                 </div>
                                 
+                                <!-- Platba karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">💳</span>
+                                        <h3>Platba</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="date-field">
+                                            <label>Forma úhrady</label>
+                                            <select name="payment_method" class="payment-select">
+                                                <option value="bank_transfer">🏦 Bankový prevod</option>
+                                                <option value="cash">💵 Hotovosť</option>
+                                                <option value="card">💳 Platobná karta</option>
+                                                <option value="cod">📦 Dobierka</option>
+                                                <option value="paypal">🅿️ PayPal</option>
+                                                <option value="crypto">₿ Kryptomeny</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <!-- Súhrn karta -->
                                 <div class="form-card summary-card">
                                     <div class="card-header">
@@ -1033,6 +1054,7 @@ const BillingModule = {
                     issue_date: formData.get('issue_date'),
                     delivery_date: formData.get('delivery_date'),
                     due_date: formData.get('due_date'),
+                    payment_method: formData.get('payment_method') || 'bank_transfer',
                     status: status,
                     subtotal: subtotal,
                     discount_percent: discountPercent,
@@ -2506,6 +2528,22 @@ const BillingModule = {
                 }
                 
                 .date-field input:focus {
+                    outline: none;
+                    border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                }
+                
+                .payment-select {
+                    width: 100%;
+                    padding: 0.625rem 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                    background: white;
+                    cursor: pointer;
+                }
+                
+                .payment-select:focus {
                     outline: none;
                     border-color: #f97316;
                     box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
