@@ -97,24 +97,33 @@ const BillingModule = {
 
     async loadData() {
         try {
-            // Paralelné načítanie
-            const [invoicesRes, quotesRes, ordersRes, clientsRes, servicesRes, settingsRes, leadsRes] = await Promise.all([
+            // Paralelné načítanie s error handling pre každú query
+            const results = await Promise.allSettled([
                 Database.client.from('invoices_overview').select('*').order('created_at', { ascending: false }),
                 Database.client.from('quotes_overview').select('*').order('created_at', { ascending: false }),
                 Database.client.from('orders_overview').select('*').order('created_at', { ascending: false }),
                 Database.client.from('clients').select('id, company_name, email, phone, address, city, zip, ico, dic, ic_dph'),
                 Database.client.from('services').select('id, name, base_price, category, unit'),
                 Database.client.from('billing_settings').select('*').single(),
-                Database.client.from('leads').select('id, company_name, email, phone, address, city, zip, ico, dic').order('company_name')
+                Database.client.from('leads').select('id, company_name, email, phone, address, city, zip, ico, dic, status').neq('status', 'converted').order('company_name')
             ]);
             
-            this.invoices = invoicesRes.data || [];
-            this.quotes = quotesRes.data || [];
-            this.orders = ordersRes.data || [];
-            this.clients = clientsRes.data || [];
-            this.services = servicesRes.data || [];
-            this.settings = settingsRes.data || {};
-            this.leads = leadsRes.data || [];
+            this.invoices = results[0].status === 'fulfilled' ? (results[0].value.data || []) : [];
+            this.quotes = results[1].status === 'fulfilled' ? (results[1].value.data || []) : [];
+            this.orders = results[2].status === 'fulfilled' ? (results[2].value.data || []) : [];
+            this.clients = results[3].status === 'fulfilled' ? (results[3].value.data || []) : [];
+            this.services = results[4].status === 'fulfilled' ? (results[4].value.data || []) : [];
+            this.settings = results[5].status === 'fulfilled' ? (results[5].value.data || {}) : {};
+            this.leads = results[6].status === 'fulfilled' ? (results[6].value.data || []) : [];
+            
+            console.log('Billing data loaded:', {
+                invoices: this.invoices.length,
+                quotes: this.quotes.length,
+                orders: this.orders.length,
+                clients: this.clients.length,
+                services: this.services.length,
+                leads: this.leads.length
+            });
             
         } catch (error) {
             console.error('Error loading billing data:', error);
@@ -520,16 +529,7 @@ const BillingModule = {
                                         <h3>Odberateľ</h3>
                                     </div>
                                     <div class="card-body">
-                                        <div class="client-select-wrapper">
-                                            <label>Vybrať klienta <span class="required">*</span></label>
-                                            <select name="client_id" required onchange="BillingModule.onClientSelect(this.value)" class="client-select">
-                                                <option value="">Vyhľadať alebo vybrať klienta...</option>
-                                                ${this.clients.map(c => `
-                                                    <option value="${c.id}">${c.company_name}${c.ico ? ' • IČO: ' + c.ico : ''}</option>
-                                                `).join('')}
-                                            </select>
-                                        </div>
-                                        <div id="client-details" class="client-preview-card" style="display: none;"></div>
+                                        ${this.renderRecipientSelector()}
                                     </div>
                                 </div>
                                 
@@ -714,8 +714,166 @@ const BillingModule = {
     async createProforma() {
         // Podobné ako createInvoice, len s typom 'proforma'
         await this.createInvoice();
-        // Zmeniť titulok
-        document.querySelector('.modal h2').textContent = '📋 Nová zálohová faktúra';
+        // Zmeniť titulok a farbu
+        const header = document.querySelector('.invoice-modal-header');
+        if (header) {
+            header.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)';
+            header.querySelector('h2').textContent = 'Nová zálohová faktúra';
+            header.querySelector('.header-subtitle').textContent = 'Vytvorte zálohovú faktúru pre klienta';
+            header.querySelector('.header-icon').textContent = '📋';
+        }
+        // Zmeniť uloženie na proforma typ
+        const saveBtn = document.querySelector('.btn-primary-action');
+        if (saveBtn) {
+            saveBtn.onclick = () => BillingModule.saveProforma('issued');
+            saveBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Vystaviť zálohovku
+            `;
+            saveBtn.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)';
+        }
+        const draftBtn = document.querySelector('.btn-draft');
+        if (draftBtn) {
+            draftBtn.onclick = () => BillingModule.saveProforma('draft');
+        }
+    },
+    
+    async saveProforma(status) {
+        // Rovnaká logika ako saveInvoice, len s invoice_type = 'proforma'
+        const form = document.getElementById('invoice-form');
+        const formData = new FormData(form);
+        
+        let clientId = formData.get('client_id') || null;
+        const leadId = formData.get('lead_id') || null;
+        const newCompanyName = formData.get('new_company_name');
+        
+        try {
+            // Ak je nový klient
+            if (newCompanyName && !clientId) {
+                const { data: newClient, error: clientError } = await Database.client
+                    .from('clients')
+                    .insert({
+                        company_name: newCompanyName,
+                        ico: formData.get('new_ico') || null,
+                        dic: formData.get('new_dic') || null,
+                        email: formData.get('new_email') || null,
+                        address: formData.get('new_address') || null,
+                        status: 'active'
+                    })
+                    .select()
+                    .single();
+                
+                if (clientError) throw clientError;
+                clientId = newClient.id;
+            }
+            
+            // Ak je vybraný lead
+            if (leadId && !clientId) {
+                const lead = this.leads.find(l => l.id === leadId);
+                if (lead) {
+                    const { data: newClient, error: clientError } = await Database.client
+                        .from('clients')
+                        .insert({
+                            company_name: lead.company_name,
+                            ico: lead.ico || null,
+                            dic: lead.dic || null,
+                            email: lead.email || null,
+                            phone: lead.phone || null,
+                            address: lead.address || null,
+                            status: 'active'
+                        })
+                        .select()
+                        .single();
+                    
+                    if (clientError) throw clientError;
+                    clientId = newClient.id;
+                }
+            }
+            
+            if (!clientId) {
+                alert('Vyberte klienta alebo vytvorte nového');
+                return;
+            }
+        
+            // Zozbierať položky
+            const items = [];
+            document.querySelectorAll('#invoice-items .item-row, #invoice-items .item-row-new').forEach(row => {
+                const desc = row.querySelector('input[name*="[description]"]')?.value;
+                const qty = parseFloat(row.querySelector('input[name*="[quantity]"]')?.value) || 0;
+                const unit = row.querySelector('select[name*="[unit]"]')?.value || 'ks';
+                const price = parseFloat(row.querySelector('input[name*="[unit_price]"]')?.value) || 0;
+                
+                if (desc && qty > 0 && price > 0) {
+                    items.push({ description: desc, quantity: qty, unit: unit, unit_price: price, total: qty * price });
+                }
+            });
+            
+            if (items.length === 0) {
+                alert('Pridajte aspoň jednu položku');
+                return;
+            }
+            
+            const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+            const discountPercent = parseFloat(formData.get('discount_percent')) || 0;
+            const discountAmount = subtotal * (discountPercent / 100);
+            const afterDiscount = subtotal - discountAmount;
+            const vatRate = parseFloat(formData.get('vat_rate')) || 20;
+            const vatAmount = afterDiscount * (vatRate / 100);
+            const total = afterDiscount + vatAmount;
+        
+            const { data: numberData, error: numberError } = await Database.client
+                .rpc('get_next_number', { p_sequence_type: 'proforma' });
+            
+            if (numberError) throw numberError;
+            
+            const { data: invoice, error: invoiceError } = await Database.client
+                .from('invoices')
+                .insert({
+                    invoice_number: numberData,
+                    client_id: clientId,
+                    invoice_type: 'proforma',
+                    issue_date: formData.get('issue_date'),
+                    delivery_date: formData.get('delivery_date'),
+                    due_date: formData.get('due_date'),
+                    payment_method: formData.get('payment_method') || 'bank_transfer',
+                    status: status,
+                    subtotal, discount_percent: discountPercent, discount_amount: discountAmount,
+                    vat_rate: vatRate, vat_amount: vatAmount, total, remaining_amount: total,
+                    variable_symbol: numberData.replace(/\D/g, ''),
+                    notes: formData.get('notes')
+                })
+                .select()
+                .single();
+            
+            if (invoiceError) throw invoiceError;
+            
+            // Pridať položky
+            const invoiceItems = items.map((item, idx) => ({
+                invoice_id: invoice.id,
+                description: item.description,
+                quantity: item.quantity,
+                unit: item.unit,
+                unit_price: item.unit_price,
+                vat_rate: vatRate,
+                total: item.total,
+                sort_order: idx
+            }));
+            
+            await Database.client.from('invoice_items').insert(invoiceItems);
+            
+            document.querySelector('.modal-overlay').remove();
+            await this.loadData();
+            this.currentTab = 'proformas';
+            document.getElementById('billing-content').innerHTML = this.renderTabContent();
+            
+            alert(`Zálohová faktúra ${numberData} bola vytvorená!`);
+            
+        } catch (error) {
+            console.error('Error saving proforma:', error);
+            alert('Chyba pri ukladaní zálohovky: ' + error.message);
+        }
     },
 
     async createQuote(fromLead = null) {
@@ -1136,12 +1294,19 @@ const BillingModule = {
             <div id="recipient-lead" class="recipient-content" style="display: none;">
                 <div class="client-select-wrapper">
                     <label>Vybrať lead</label>
-                    <select name="lead_id" class="client-select" onchange="BillingModule.onRecipientSelect('lead', this.value)">
-                        <option value="">Vyhľadať alebo vybrať...</option>
-                        ${(this.leads || []).map(l => `
-                            <option value="${l.id}" ${fromLead?.id === l.id ? 'selected' : ''}>${l.company_name}${l.email ? ' • ' + l.email : ''}</option>
-                        `).join('')}
-                    </select>
+                    ${(this.leads || []).length > 0 ? `
+                        <select name="lead_id" class="client-select" onchange="BillingModule.onRecipientSelect('lead', this.value)">
+                            <option value="">Vyhľadať alebo vybrať...</option>
+                            ${this.leads.map(l => `
+                                <option value="${l.id}" ${fromLead?.id === l.id ? 'selected' : ''}>${l.company_name}${l.email ? ' • ' + l.email : ''}</option>
+                            `).join('')}
+                        </select>
+                    ` : `
+                        <div class="empty-leads-msg">
+                            <p>Žiadne dostupné leady</p>
+                            <small>Leady môžete pridať v module Leady</small>
+                        </div>
+                    `}
                 </div>
                 <div id="recipient-preview-lead" class="client-preview-card" style="display: none;"></div>
             </div>
@@ -1435,74 +1600,108 @@ const BillingModule = {
     },
 
     onClientSelect(clientId) {
-        const client = this.clients.find(c => c.id === clientId);
-        const detailsDiv = document.getElementById('client-details');
-        
-        if (client) {
-            detailsDiv.innerHTML = `
-                <div class="client-card-preview">
-                    <div class="client-name">${client.company_name}</div>
-                    <div class="client-address">
-                        ${client.address ? client.address : ''}
-                        ${client.zip || client.city ? '<br>' + (client.zip || '') + ' ' + (client.city || '') : ''}
-                    </div>
-                    <div class="client-ids">
-                        ${client.ico ? '<span>IČO: ' + client.ico + '</span>' : ''}
-                        ${client.dic ? '<span>DIČ: ' + client.dic + '</span>' : ''}
-                        ${client.ic_dph ? '<span>IČ DPH: ' + client.ic_dph + '</span>' : ''}
-                    </div>
-                </div>
-            `;
-            detailsDiv.style.display = 'block';
-        } else {
-            detailsDiv.style.display = 'none';
-        }
+        // Kompatibilita s novým recipient selectorom
+        this.onRecipientSelect('client', clientId);
     },
 
     async saveInvoice(status) {
         const form = document.getElementById('invoice-form');
         const formData = new FormData(form);
         
-        const clientId = formData.get('client_id');
-        if (!clientId) {
-            alert('Vyberte klienta');
-            return;
-        }
-        
-        // Zozbierať položky
-        const items = [];
-        document.querySelectorAll('.item-row, .item-row-new').forEach(row => {
-            const desc = row.querySelector('input[name*="[description]"]')?.value;
-            const qty = parseFloat(row.querySelector('input[name*="[quantity]"]')?.value) || 0;
-            const unit = row.querySelector('select[name*="[unit]"]')?.value || 'ks';
-            const price = parseFloat(row.querySelector('input[name*="[unit_price]"]')?.value) || 0;
-            
-            if (desc && qty > 0 && price > 0) {
-                items.push({
-                    description: desc,
-                    quantity: qty,
-                    unit: unit,
-                    unit_price: price,
-                    total: qty * price
-                });
-            }
-        });
-        
-        if (items.length === 0) {
-            alert('Pridajte aspoň jednu položku');
-            return;
-        }
-        
-        // Výpočet súm
-        const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-        const discountPercent = parseFloat(formData.get('discount_percent')) || 0;
-        const discountAmount = subtotal * (discountPercent / 100);
-        const afterDiscount = subtotal - discountAmount;
-        const vatRate = parseFloat(formData.get('vat_rate')) || 20;
-        const vatAmount = afterDiscount * (vatRate / 100);
-        const total = afterDiscount + vatAmount;
+        // Získať client_id - buď z existujúceho klienta, leadu alebo vytvoriť nového
+        let clientId = formData.get('client_id') || null;
+        const leadId = formData.get('lead_id') || null;
+        const newCompanyName = formData.get('new_company_name');
         
         try {
+            // Ak je nový klient
+            if (newCompanyName && !clientId) {
+                const { data: newClient, error: clientError } = await Database.client
+                    .from('clients')
+                    .insert({
+                        company_name: newCompanyName,
+                        ico: formData.get('new_ico') || null,
+                        dic: formData.get('new_dic') || null,
+                        email: formData.get('new_email') || null,
+                        address: formData.get('new_address') || null,
+                        status: 'active'
+                    })
+                    .select()
+                    .single();
+                
+                if (clientError) throw clientError;
+                clientId = newClient.id;
+            }
+            
+            // Ak je vybraný lead, vytvoríme z neho klienta
+            if (leadId && !clientId) {
+                const lead = this.leads.find(l => l.id === leadId);
+                if (lead) {
+                    const { data: newClient, error: clientError } = await Database.client
+                        .from('clients')
+                        .insert({
+                            company_name: lead.company_name,
+                            ico: lead.ico || null,
+                            dic: lead.dic || null,
+                            email: lead.email || null,
+                            phone: lead.phone || null,
+                            address: lead.address || null,
+                            city: lead.city || null,
+                            zip: lead.zip || null,
+                            status: 'active'
+                        })
+                        .select()
+                        .single();
+                    
+                    if (clientError) throw clientError;
+                    clientId = newClient.id;
+                    
+                    // Aktualizovať lead na converted
+                    await Database.client
+                        .from('leads')
+                        .update({ status: 'converted', client_id: clientId })
+                        .eq('id', leadId);
+                }
+            }
+            
+            if (!clientId) {
+                alert('Vyberte klienta alebo vytvorte nového');
+                return;
+            }
+        
+            // Zozbierať položky
+            const items = [];
+            document.querySelectorAll('#invoice-items .item-row, #invoice-items .item-row-new').forEach(row => {
+                const desc = row.querySelector('input[name*="[description]"]')?.value;
+                const qty = parseFloat(row.querySelector('input[name*="[quantity]"]')?.value) || 0;
+                const unit = row.querySelector('select[name*="[unit]"]')?.value || 'ks';
+                const price = parseFloat(row.querySelector('input[name*="[unit_price]"]')?.value) || 0;
+                
+                if (desc && qty > 0 && price > 0) {
+                    items.push({
+                        description: desc,
+                        quantity: qty,
+                        unit: unit,
+                        unit_price: price,
+                        total: qty * price
+                    });
+                }
+            });
+            
+            if (items.length === 0) {
+                alert('Pridajte aspoň jednu položku');
+                return;
+            }
+            
+            // Výpočet súm
+            const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+            const discountPercent = parseFloat(formData.get('discount_percent')) || 0;
+            const discountAmount = subtotal * (discountPercent / 100);
+            const afterDiscount = subtotal - discountAmount;
+            const vatRate = parseFloat(formData.get('vat_rate')) || 20;
+            const vatAmount = afterDiscount * (vatRate / 100);
+            const total = afterDiscount + vatAmount;
+        
             // Získať číslo faktúry
             const { data: numberData, error: numberError } = await Database.client
                 .rpc('get_next_number', { p_sequence_type: 'invoice' });
@@ -3488,6 +3687,24 @@ const BillingModule = {
                     outline: none;
                     border-color: #f97316;
                     box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                }
+                
+                .empty-leads-msg {
+                    padding: 1rem;
+                    background: #f8fafc;
+                    border: 1px dashed #e2e8f0;
+                    border-radius: 0.5rem;
+                    text-align: center;
+                    color: #64748b;
+                }
+                
+                .empty-leads-msg p {
+                    margin: 0 0 0.25rem 0;
+                    font-weight: 500;
+                }
+                
+                .empty-leads-msg small {
+                    font-size: 0.75rem;
                 }
                 
                 /* Summary card */
