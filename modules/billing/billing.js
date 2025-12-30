@@ -876,14 +876,36 @@ const BillingModule = {
         const service = this.services.find(s => s.id === serviceId);
         if (!service) return;
         
-        this.addItemRow('invoice');
+        // Skúsiť nájsť prázdny riadok
+        let targetRow = null;
+        const allRows = document.querySelectorAll('.item-row-new, .item-row');
         
-        const lastRow = document.querySelector('.item-row:last-child');
-        lastRow.querySelector('input[name*="[description]"]').value = service.name;
-        lastRow.querySelector('input[name*="[unit_price]"]').value = service.base_price;
-        lastRow.querySelector('select[name*="[unit]"]').value = 'mes';
+        for (const row of allRows) {
+            const descInput = row.querySelector('input[name*="[description]"]');
+            if (descInput && !descInput.value.trim()) {
+                targetRow = row;
+                break;
+            }
+        }
         
-        this.recalculateRow(this.itemRowIndex);
+        // Ak nie je prázdny riadok, pridať nový
+        if (!targetRow) {
+            this.addItemRow('invoice');
+            targetRow = document.querySelector('.item-row-new:last-of-type') || document.querySelector('.item-row:last-child');
+        }
+        
+        if (targetRow) {
+            const descInput = targetRow.querySelector('input[name*="[description]"]');
+            const priceInput = targetRow.querySelector('input[name*="[unit_price]"]');
+            const unitSelect = targetRow.querySelector('select[name*="[unit]"]');
+            const index = targetRow.dataset.index;
+            
+            if (descInput) descInput.value = service.name;
+            if (priceInput) priceInput.value = service.base_price;
+            if (unitSelect) unitSelect.value = service.unit || 'mes';
+            
+            this.recalculateRow(index);
+        }
         
         // Reset select
         document.getElementById('quick-service').value = '';
@@ -996,13 +1018,13 @@ const BillingModule = {
         
         try {
             // Získať číslo faktúry
-            const { data: numberData, error: numberError } = await supabase
+            const { data: numberData, error: numberError } = await Database.client
                 .rpc('get_next_number', { p_sequence_type: 'invoice' });
             
             if (numberError) throw numberError;
             
             // Vytvoriť faktúru
-            const { data: invoice, error: invoiceError } = await supabase
+            const { data: invoice, error: invoiceError } = await Database.client
                 .from('invoices')
                 .insert({
                     invoice_number: numberData,
@@ -1039,7 +1061,7 @@ const BillingModule = {
                 sort_order: idx
             }));
             
-            const { error: itemsError } = await supabase
+            const { error: itemsError } = await Database.client
                 .from('invoice_items')
                 .insert(invoiceItems);
             
@@ -1088,11 +1110,11 @@ const BillingModule = {
         
         try {
             // Získať číslo ponuky
-            const { data: numberData } = await supabase
+            const { data: numberData } = await Database.client
                 .rpc('get_next_number', { p_sequence_type: 'quote' });
             
             // Vytvoriť ponuku
-            const { data: quote, error } = await supabase
+            const { data: quote, error } = await Database.client
                 .from('quotes')
                 .insert({
                     quote_number: numberData,
@@ -1144,14 +1166,14 @@ const BillingModule = {
         if (!invoice) return;
         
         // Načítať položky
-        const { data: items } = await supabase
+        const { data: items } = await Database.client
             .from('invoice_items')
             .select('*')
             .eq('invoice_id', invoiceId)
             .order('sort_order');
         
         // Načítať platby
-        const { data: payments } = await supabase
+        const { data: payments } = await Database.client
             .from('payments')
             .select('*')
             .eq('invoice_id', invoiceId)
@@ -1292,7 +1314,7 @@ const BillingModule = {
         const quote = this.quotes.find(q => q.id === quoteId);
         if (!quote) return;
         
-        const { data: items } = await supabase
+        const { data: items } = await Database.client
             .from('quote_items')
             .select('*')
             .eq('quote_id', quoteId)
@@ -1440,7 +1462,7 @@ const BillingModule = {
         }
         
         try {
-            const { error } = await supabase
+            const { error } = await Database.client
                 .from('payments')
                 .insert({
                     invoice_id: formData.get('invoice_id'),
@@ -1473,7 +1495,7 @@ const BillingModule = {
             if (status === 'accepted') updateData.accepted_at = new Date().toISOString();
             if (status === 'rejected') updateData.rejected_at = new Date().toISOString();
             
-            const { error } = await supabase
+            const { error } = await Database.client
                 .from('quotes')
                 .update(updateData)
                 .eq('id', quoteId);
@@ -1619,12 +1641,12 @@ const BillingModule = {
         
         try {
             if (this.settings?.id) {
-                await supabase
+                await Database.client
                     .from('billing_settings')
                     .update(data)
                     .eq('id', this.settings.id);
             } else {
-                await supabase
+                await Database.client
                     .from('billing_settings')
                     .insert(data);
             }
