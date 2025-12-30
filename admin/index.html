@@ -135,6 +135,8 @@
     <script src="../modules/onboarding/onboarding.js"></script>
     <script src="../modules/services/services.js"></script>
     <script src="../modules/billing/billing.js"></script>
+    <script src="../modules/settings/settings.js"></script>
+    <script src="../modules/integrations/integrations.js"></script>
     
     <!-- Initialize App -->
     <script>
@@ -142,15 +144,21 @@
             const success = await App.init({ requireTeam: true });
             
             if (success) {
-                // Register modules
+                // Register modules - HLAVNÉ
                 App.register(DashboardModule);
                 App.register(LeadsModule);
                 App.register(ClientsModule);
-                App.register(MessagesModule);
                 App.register(CampaignProjectsModule);
+                App.register(MessagesModule);
+                App.register(BillingModule);
+                
+                // Register modules - NÁSTROJE
                 App.register(OnboardingModule);
                 App.register(ServicesModule);
-                App.register(BillingModule);
+                
+                // Register modules - SYSTÉM
+                App.register(SettingsModule);
+                App.register(IntegrationsModule);
                 
                 // Navigate to default or current route
                 if (!window.location.hash) {
