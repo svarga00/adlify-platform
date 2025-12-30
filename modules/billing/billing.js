@@ -266,7 +266,6 @@ const BillingModule = {
             default:
                 return '';
         }
-        }
     },
 
     renderInvoicesTable(type) {
