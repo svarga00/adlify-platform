@@ -101,7 +101,7 @@ const BillingModule = {
                 Database.client.from('quotes_overview').select('*').order('created_at', { ascending: false }),
                 Database.client.from('orders').select('*, clients(company_name)').order('created_at', { ascending: false }),
                 Database.client.from('clients').select('id, company_name, email, phone, address, city, zip, ico, dic, ic_dph'),
-                Database.client.from('services').select('id, name, price, category'),
+                Database.client.from('services').select('id, name, base_price, category'),
                 Database.client.from('billing_settings').select('*').single()
             ]);
             
@@ -518,7 +518,7 @@ const BillingModule = {
                                 <select id="quick-service" onchange="BillingModule.addServiceItem(this.value)">
                                     <option value="">+ Pridať službu z katalógu</option>
                                     ${this.services.map(s => `
-                                        <option value="${s.id}">${s.name} - ${this.formatMoney(s.price)}</option>
+                                        <option value="${s.id}">${s.name} - ${this.formatMoney(s.base_price)}</option>
                                     `).join('')}
                                 </select>
                             </div>
@@ -749,7 +749,7 @@ const BillingModule = {
         
         const lastRow = document.querySelector('.item-row:last-child');
         lastRow.querySelector('input[name*="[description]"]').value = service.name;
-        lastRow.querySelector('input[name*="[unit_price]"]').value = service.price;
+        lastRow.querySelector('input[name*="[unit_price]"]').value = service.base_price;
         lastRow.querySelector('select[name*="[unit]"]').value = 'mes';
         
         this.recalculateRow(this.itemRowIndex);
