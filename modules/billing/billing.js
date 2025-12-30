@@ -27,6 +27,88 @@ const BillingModule = {
         console.log('BillingModule initialized');
     },
 
+    // Modal pre výber typu nového dokladu
+    showNewDocumentModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="document-type-modal">
+                <div class="dtm-header">
+                    <h2>Nový doklad</h2>
+                    <p>Vyberte typ dokladu, ktorý chcete vytvoriť</p>
+                </div>
+                <div class="dtm-options">
+                    <button class="dtm-option" onclick="BillingModule.createInvoice(); this.closest('.modal-overlay').remove();">
+                        <div class="dtm-icon" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                            </svg>
+                        </div>
+                        <div class="dtm-text">
+                            <span class="dtm-title">Faktúra</span>
+                            <span class="dtm-desc">Štandardná faktúra za služby</span>
+                        </div>
+                    </button>
+                    
+                    <button class="dtm-option" onclick="BillingModule.createProforma(); this.closest('.modal-overlay').remove();">
+                        <div class="dtm-icon" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="12" y1="18" x2="12" y2="12"></line>
+                                <line x1="9" y1="15" x2="15" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="dtm-text">
+                            <span class="dtm-title">Zálohová faktúra</span>
+                            <span class="dtm-desc">Predfaktúra pre platbu vopred</span>
+                        </div>
+                    </button>
+                    
+                    <button class="dtm-option" onclick="BillingModule.createQuote(); this.closest('.modal-overlay').remove();">
+                        <div class="dtm-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="9" y1="15" x2="15" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="dtm-text">
+                            <span class="dtm-title">Cenová ponuka</span>
+                            <span class="dtm-desc">Ponuka pre potenciálneho klienta</span>
+                        </div>
+                    </button>
+                    
+                    <button class="dtm-option" onclick="BillingModule.createOrder(); this.closest('.modal-overlay').remove();">
+                        <div class="dtm-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                        </div>
+                        <div class="dtm-text">
+                            <span class="dtm-title">Objednávka</span>
+                            <span class="dtm-desc">Potvrdená objednávka od klienta</span>
+                        </div>
+                    </button>
+                </div>
+                <div class="dtm-footer">
+                    <button class="dtm-cancel" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Zavrieť kliknutím mimo
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    },
+
     async render(container, params = {}) {
         // Načítanie dát
         await this.loadData();
@@ -44,29 +126,13 @@ const BillingModule = {
                             <p class="header-subtitle">Správa faktúr, ponúk a objednávok</p>
                         </div>
                         <div class="header-actions">
-                            <div class="dropdown">
-                                <button class="btn-new-document">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                                    </svg>
-                                    Nový doklad
-                                </button>
-                                <div class="dropdown-menu">
-                                    <a href="#" onclick="BillingModule.createInvoice(); return false;">
-                                        <span class="menu-icon">📄</span> Faktúra
-                                    </a>
-                                    <a href="#" onclick="BillingModule.createProforma(); return false;">
-                                        <span class="menu-icon">📋</span> Zálohová faktúra
-                                    </a>
-                                    <a href="#" onclick="BillingModule.createQuote(); return false;">
-                                        <span class="menu-icon">📝</span> Ponuka
-                                    </a>
-                                    <a href="#" onclick="BillingModule.createOrder(); return false;">
-                                        <span class="menu-icon">🛒</span> Objednávka
-                                    </a>
-                                </div>
-                            </div>
+                            <button class="btn-new-document" onclick="BillingModule.showNewDocumentModal()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Nový doklad
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -265,7 +331,6 @@ const BillingModule = {
                 return this.renderOrdersTable();
             default:
                 return '';
-        }
         }
     },
 
@@ -3937,6 +4002,234 @@ const BillingModule = {
                 
                 .dropdown.active .dropdown-menu {
                     display: block;
+                }
+                
+                /* Modal Overlay */
+                .modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(15, 23, 42, 0.6);
+                    backdrop-filter: blur(4px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                    padding: 1rem;
+                }
+                
+                /* Document Type Modal */
+                .document-type-modal {
+                    background: white;
+                    border-radius: 20px;
+                    width: 100%;
+                    max-width: 500px;
+                    overflow: hidden;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    animation: modalSlideIn 0.3s ease;
+                }
+                
+                @keyframes modalSlideIn {
+                    from {
+                        opacity: 0;
+                        transform: scale(0.95) translateY(-20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: scale(1) translateY(0);
+                    }
+                }
+                
+                .dtm-header {
+                    padding: 1.5rem 2rem;
+                    text-align: center;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+                
+                .dtm-header h2 {
+                    margin: 0 0 0.25rem;
+                    font-size: 1.25rem;
+                    color: #0f172a;
+                }
+                
+                .dtm-header p {
+                    margin: 0;
+                    color: #64748b;
+                    font-size: 0.9rem;
+                }
+                
+                .dtm-options {
+                    padding: 1rem;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                
+                .dtm-option {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    padding: 1rem;
+                    background: #f8fafc;
+                    border: 2px solid transparent;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    text-align: left;
+                }
+                
+                .dtm-option:hover {
+                    background: white;
+                    border-color: #f97316;
+                    transform: translateX(4px);
+                }
+                
+                .dtm-icon {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+                
+                .dtm-text {
+                    flex: 1;
+                }
+                
+                .dtm-title {
+                    display: block;
+                    font-weight: 600;
+                    font-size: 1rem;
+                    color: #0f172a;
+                    margin-bottom: 0.25rem;
+                }
+                
+                .dtm-desc {
+                    display: block;
+                    font-size: 0.85rem;
+                    color: #64748b;
+                }
+                
+                .dtm-footer {
+                    padding: 1rem 2rem 1.5rem;
+                    text-align: center;
+                }
+                
+                .dtm-cancel {
+                    padding: 0.625rem 1.5rem;
+                    background: transparent;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
+                    font-size: 0.9rem;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+                
+                .dtm-cancel:hover {
+                    background: #f8fafc;
+                    border-color: #cbd5e1;
+                }
+                
+                /* Standard Modal */
+                .modal {
+                    background: white;
+                    border-radius: 16px;
+                    width: 95%;
+                    max-width: 700px;
+                    max-height: 90vh;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                }
+                
+                .modal-large {
+                    max-width: 900px;
+                }
+                
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1.25rem 1.5rem;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                
+                .modal-header h2 {
+                    margin: 0;
+                    font-size: 1.25rem;
+                    color: #0f172a;
+                }
+                
+                .modal-close {
+                    width: 36px;
+                    height: 36px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #f1f5f9;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 1.25rem;
+                    color: #64748b;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+                
+                .modal-close:hover {
+                    background: #e2e8f0;
+                    color: #334155;
+                }
+                
+                .modal-body {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 1.5rem;
+                }
+                
+                .modal-footer {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 0.75rem;
+                    padding: 1rem 1.5rem;
+                    border-top: 1px solid #e2e8f0;
+                    background: #f8fafc;
+                }
+                
+                .btn {
+                    padding: 0.625rem 1.25rem;
+                    border-radius: 8px;
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+                
+                .btn-secondary {
+                    background: white;
+                    border: 1px solid #e2e8f0;
+                    color: #475569;
+                }
+                
+                .btn-secondary:hover {
+                    background: #f8fafc;
+                    border-color: #cbd5e1;
+                }
+                
+                .btn-primary {
+                    background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+                    border: none;
+                    color: white;
+                }
+                
+                .btn-primary:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
                 }
             </style>
         `;
