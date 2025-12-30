@@ -2147,18 +2147,34 @@ const CampaignProjectsModule = {
   },
   
   showAdEditModal(ad) {
-    const headlines = ad.headlines || ['', '', ''];
-    const descriptions = ad.descriptions || ['', ''];
+    const headlines = ad.headlines?.length > 0 && ad.headlines[0] !== '' ? ad.headlines : [''];
+    const descriptions = ad.descriptions?.length > 0 && ad.descriptions[0] !== '' ? ad.descriptions : [''];
+    const isNew = !ad.headlines?.[0] || ad.headlines[0] === '';
     
     const modalHtml = `
       <div id="ad-edit-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           <div class="p-4 border-b flex items-center justify-between bg-blue-600 text-white">
-            <h2 class="text-xl font-bold">✏️ Upraviť reklamu</h2>
+            <h2 class="text-xl font-bold">${isNew ? '➕ Nová reklama' : '✏️ Upraviť reklamu'}</h2>
             <button onclick="CampaignProjectsModule.closeAdEditModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
           </div>
           
           <div class="p-6 overflow-y-auto flex-1 space-y-4">
+            <!-- AI Generate Button -->
+            <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="font-semibold text-purple-800">🤖 AI Generovanie</h4>
+                  <p class="text-sm text-purple-600">Nechaj AI vygenerovať texty na základe onboardingu</p>
+                </div>
+                <button onclick="CampaignProjectsModule.generateAdContent('${ad.id}')" 
+                  class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                  id="ai-generate-btn">
+                  ✨ Generovať
+                </button>
+              </div>
+            </div>
+            
             <div>
               <label class="block text-sm font-medium text-gray-600 mb-1">Typ reklamy</label>
               <select id="edit-ad-type" class="w-full p-3 border rounded-xl">
@@ -2171,11 +2187,11 @@ const CampaignProjectsModule = {
             </div>
             
             <div>
-              <label class="block text-sm font-medium text-gray-600 mb-2">Nadpisy (Headlines)</label>
+              <label class="block text-sm font-medium text-gray-600 mb-2">Nadpisy (Headlines) <span class="text-red-500">*</span></label>
               <div class="space-y-2" id="headlines-container">
                 ${headlines.map((h, i) => `
                   <input type="text" class="headline-input w-full p-3 border rounded-xl" 
-                    value="${h}" placeholder="Nadpis ${i + 1}" maxlength="30">
+                    value="${this.escapeHtml(h)}" placeholder="Nadpis ${i + 1} (max 30 znakov)" maxlength="30">
                 `).join('')}
               </div>
               <button onclick="CampaignProjectsModule.addHeadlineInput()" type="button"
@@ -2187,7 +2203,7 @@ const CampaignProjectsModule = {
               <div class="space-y-2" id="descriptions-container">
                 ${descriptions.map((d, i) => `
                   <textarea class="description-input w-full p-3 border rounded-xl" rows="2"
-                    placeholder="Popis ${i + 1}" maxlength="90">${d}</textarea>
+                    placeholder="Popis ${i + 1} (max 90 znakov)" maxlength="90">${this.escapeHtml(d)}</textarea>
                 `).join('')}
               </div>
               <button onclick="CampaignProjectsModule.addDescriptionInput()" type="button"
@@ -2197,7 +2213,7 @@ const CampaignProjectsModule = {
             <div class="grid md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-600 mb-1">Call to Action</label>
-                <input type="text" id="edit-ad-cta" value="${ad.call_to_action || ''}" 
+                <input type="text" id="edit-ad-cta" value="${this.escapeHtml(ad.call_to_action || '')}" 
                   class="w-full p-3 border rounded-xl" placeholder="Zistiť viac">
               </div>
               <div>
@@ -2209,24 +2225,30 @@ const CampaignProjectsModule = {
             
             <!-- Preview -->
             <div class="bg-gray-50 rounded-xl p-4">
-              <h4 class="text-sm font-medium text-gray-500 mb-2">📱 Náhľad</h4>
+              <h4 class="text-sm font-medium text-gray-500 mb-2">📱 Náhľad Google Ads</h4>
               <div class="bg-white border rounded-lg p-4">
-                <div class="text-blue-600 font-medium" id="preview-headline">${headlines[0] || 'Nadpis reklamy'}</div>
-                <div class="text-green-700 text-sm">${ad.landing_page || 'www.example.com'}</div>
-                <div class="text-gray-600 text-sm mt-1" id="preview-description">${descriptions[0] || 'Popis reklamy...'}</div>
+                <div class="text-blue-600 font-medium text-lg" id="preview-headline">${this.escapeHtml(headlines[0]) || 'Nadpis reklamy'}</div>
+                <div class="text-green-700 text-sm">${ad.landing_page ? new URL(ad.landing_page).hostname : 'www.example.com'}</div>
+                <div class="text-gray-600 text-sm mt-1" id="preview-description">${this.escapeHtml(descriptions[0]) || 'Popis reklamy...'}</div>
               </div>
             </div>
           </div>
           
-          <div class="p-4 border-t flex justify-end gap-3 bg-gray-50">
-            <button onclick="CampaignProjectsModule.closeAdEditModal()" 
-              class="px-6 py-2 bg-gray-200 rounded-xl hover:bg-gray-300">
-              Zrušiť
+          <div class="p-4 border-t flex justify-between gap-3 bg-gray-50">
+            <button onclick="CampaignProjectsModule.deleteAdAndClose('${ad.id}')" 
+              class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl ${isNew ? '' : ''}">
+              🗑️ Zmazať
             </button>
-            <button onclick="CampaignProjectsModule.saveAd('${ad.id}')" 
-              class="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700">
-              💾 Uložiť
-            </button>
+            <div class="flex gap-3">
+              <button onclick="CampaignProjectsModule.closeAdEditModal()" 
+                class="px-6 py-2 bg-gray-200 rounded-xl hover:bg-gray-300">
+                Zrušiť
+              </button>
+              <button onclick="CampaignProjectsModule.saveAd('${ad.id}')" 
+                class="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700">
+                💾 Uložiť
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2243,6 +2265,136 @@ const CampaignProjectsModule = {
         input.addEventListener('input', () => this.updateAdPreview());
       });
     }, 100);
+  },
+  
+  escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+  
+  async generateAdContent(adId) {
+    const btn = document.getElementById('ai-generate-btn');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generujem...';
+    
+    try {
+      // Get ad's ad_group to find campaign and project
+      const { data: ad } = await Database.client
+        .from('ads')
+        .select('ad_group_id')
+        .eq('id', adId)
+        .single();
+      
+      const { data: adGroup } = await Database.client
+        .from('ad_groups')
+        .select('campaign_id, name, keywords')
+        .eq('id', ad.ad_group_id)
+        .single();
+      
+      const { data: campaign } = await Database.client
+        .from('campaigns')
+        .select('project_id, name, platform, targeting')
+        .eq('id', adGroup.campaign_id)
+        .single();
+      
+      const { data: project } = await Database.client
+        .from('campaign_projects')
+        .select('client_id')
+        .eq('id', campaign.project_id)
+        .single();
+      
+      const { data: onboarding } = await Database.client
+        .from('onboarding_responses')
+        .select('*')
+        .eq('client_id', project.client_id)
+        .single();
+      
+      if (!onboarding) {
+        Utils.toast('Chýba onboarding - nemám z čoho generovať', 'warning');
+        btn.disabled = false;
+        btn.innerHTML = '✨ Generovať';
+        return;
+      }
+      
+      // Call Claude API via Edge Function
+      const { data: { session } } = await Database.client.auth.getSession();
+      const response = await fetch(
+        'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/generate-ad-content',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || Config.SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            onboarding,
+            campaign_name: campaign.name,
+            platform: campaign.platform,
+            ad_group_name: adGroup.name,
+            keywords: adGroup.keywords || campaign.targeting?.keywords || []
+          })
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Fill in the form
+        const headlinesContainer = document.getElementById('headlines-container');
+        const descriptionsContainer = document.getElementById('descriptions-container');
+        
+        headlinesContainer.innerHTML = result.headlines.map((h, i) => `
+          <input type="text" class="headline-input w-full p-3 border rounded-xl" 
+            value="${this.escapeHtml(h)}" placeholder="Nadpis ${i + 1}" maxlength="30">
+        `).join('');
+        
+        descriptionsContainer.innerHTML = result.descriptions.map((d, i) => `
+          <textarea class="description-input w-full p-3 border rounded-xl" rows="2"
+            placeholder="Popis ${i + 1}" maxlength="90">${this.escapeHtml(d)}</textarea>
+        `).join('');
+        
+        document.getElementById('edit-ad-cta').value = result.cta || '';
+        
+        // Re-add listeners
+        document.querySelectorAll('.headline-input').forEach(input => {
+          input.addEventListener('input', () => this.updateAdPreview());
+        });
+        document.querySelectorAll('.description-input').forEach(input => {
+          input.addEventListener('input', () => this.updateAdPreview());
+        });
+        
+        this.updateAdPreview();
+        Utils.toast('AI vygenerovalo texty! ✨', 'success');
+      } else {
+        throw new Error(result.error || 'Neznáma chyba');
+      }
+      
+    } catch (error) {
+      console.error('Generate ad content error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '✨ Generovať';
+  },
+  
+  async deleteAdAndClose(adId) {
+    if (!confirm('Naozaj chcete zmazať túto reklamu?')) return;
+    
+    try {
+      const { error } = await Database.client.from('ads').delete().eq('id', adId);
+      if (error) throw error;
+      
+      Utils.toast('Reklama zmazaná', 'success');
+      this.closeAdEditModal();
+      
+      if (this.selectedProject) {
+        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+      }
+    } catch (error) {
+      console.error('Delete ad error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
   },
   
   addHeadlineInput() {
