@@ -20,6 +20,8 @@ const BillingModule = {
     clients: [],
     services: [],
     settings: null,
+    leads: [],
+    currentDocType: 'invoice',
 
     async init() {
         console.log('BillingModule initialized');
@@ -96,13 +98,14 @@ const BillingModule = {
     async loadData() {
         try {
             // Paralelné načítanie
-            const [invoicesRes, quotesRes, ordersRes, clientsRes, servicesRes, settingsRes] = await Promise.all([
+            const [invoicesRes, quotesRes, ordersRes, clientsRes, servicesRes, settingsRes, leadsRes] = await Promise.all([
                 Database.client.from('invoices_overview').select('*').order('created_at', { ascending: false }),
                 Database.client.from('quotes_overview').select('*').order('created_at', { ascending: false }),
-                Database.client.from('orders').select('*, clients(company_name)').order('created_at', { ascending: false }),
+                Database.client.from('orders_overview').select('*').order('created_at', { ascending: false }),
                 Database.client.from('clients').select('id, company_name, email, phone, address, city, zip, ico, dic, ic_dph'),
-                Database.client.from('services').select('id, name, base_price, category'),
-                Database.client.from('billing_settings').select('*').single()
+                Database.client.from('services').select('id, name, base_price, category, unit'),
+                Database.client.from('billing_settings').select('*').single(),
+                Database.client.from('leads').select('id, company_name, email, phone, address, city, zip, ico, dic').order('company_name')
             ]);
             
             this.invoices = invoicesRes.data || [];
@@ -111,6 +114,7 @@ const BillingModule = {
             this.clients = clientsRes.data || [];
             this.services = servicesRes.data || [];
             this.settings = settingsRes.data || {};
+            this.leads = leadsRes.data || [];
             
         } catch (error) {
             console.error('Error loading billing data:', error);
@@ -329,7 +333,7 @@ const BillingModule = {
                                 </td>
                                 <td>
                                     <div class="client-cell">
-                                        <span class="client-name">${q.company_name || q.contact_name || '-'}</span>
+                                        <span class="client-name">${q.client_name || q.lead_name || '-'}</span>
                                     </div>
                                 </td>
                                 <td>${q.title || '-'}</td>
@@ -340,7 +344,9 @@ const BillingModule = {
                                 <td>
                                     <div class="action-buttons">
                                         <button class="btn-icon" title="Detail" onclick="BillingModule.showQuoteDetail('${q.id}')">👁️</button>
-                                        <button class="btn-icon" title="PDF" onclick="BillingModule.downloadQuotePDF('${q.id}')">📥</button>
+                                        ${q.status === 'sent' || q.status === 'accepted' ? `
+                                            <button class="btn-icon" title="Vytvoriť objednávku" onclick="BillingModule.createOrderFromQuote('${q.id}')">🛒</button>
+                                        ` : ''}
                                         ${q.status === 'accepted' ? `
                                             <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromQuote('${q.id}')">📄</button>
                                         ` : ''}
@@ -361,18 +367,35 @@ const BillingModule = {
                 <div class="empty-state">
                     <div class="empty-icon">🛒</div>
                     <h3>Žiadne objednávky</h3>
-                    <p>Objednávky sa vytvárajú z akceptovaných ponúk</p>
+                    <p>Vytvorte novú objednávku alebo ju vytvorte z ponuky</p>
+                    <button class="btn btn-primary" onclick="BillingModule.createOrder()">
+                        + Nová objednávka
+                    </button>
                 </div>
             `;
         }
         
         return `
+            <div class="table-filters">
+                <input type="text" class="filter-search" placeholder="Hľadať..." 
+                       onkeyup="BillingModule.filterTable(this.value, 'orders-table')">
+                <select class="filter-select" onchange="BillingModule.filterByStatus(this.value, 'order')">
+                    <option value="">Všetky stavy</option>
+                    <option value="new">Nová</option>
+                    <option value="confirmed">Potvrdená</option>
+                    <option value="in_progress">V realizácii</option>
+                    <option value="completed">Dokončená</option>
+                    <option value="cancelled">Zrušená</option>
+                </select>
+            </div>
+            
             <div class="table-container">
                 <table class="data-table" id="orders-table">
                     <thead>
                         <tr>
                             <th>Číslo</th>
                             <th>Klient</th>
+                            <th>Z ponuky</th>
                             <th>Dátum</th>
                             <th>Suma</th>
                             <th>Stav</th>
@@ -382,13 +405,19 @@ const BillingModule = {
                     <tbody>
                         ${this.orders.map(o => `
                             <tr data-status="${o.status}">
-                                <td><strong>${o.order_number}</strong></td>
-                                <td>${o.clients?.company_name || '-'}</td>
-                                <td>${this.formatDate(o.order_date)}</td>
+                                <td>
+                                    <a href="#" onclick="BillingModule.showOrderDetail('${o.id}'); return false;">
+                                        <strong>${o.order_number || '-'}</strong>
+                                    </a>
+                                </td>
+                                <td>${o.client_name || '-'}</td>
+                                <td>${o.quote_number ? `<span class="badge badge-sm">${o.quote_number}</span>` : '-'}</td>
+                                <td>${this.formatDate(o.order_date || o.created_at)}</td>
                                 <td><strong>${this.formatMoney(o.total)}</strong></td>
                                 <td>${this.renderOrderStatus(o.status)}</td>
                                 <td>
                                     <div class="action-buttons">
+                                        <button class="btn-icon" title="Vytvoriť zálohovku" onclick="BillingModule.createProformaFromOrder('${o.id}')">📋</button>
                                         <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromOrder('${o.id}')">📄</button>
                                     </div>
                                 </td>
@@ -689,110 +718,543 @@ const BillingModule = {
         document.querySelector('.modal h2').textContent = '📋 Nová zálohová faktúra';
     },
 
-    async createQuote() {
+    async createQuote(fromLead = null) {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal modal-large">
-                <div class="modal-header">
-                    <h2>📝 Nová ponuka</h2>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+            <div class="invoice-modal">
+                <!-- Header -->
+                <div class="invoice-modal-header" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);">
+                    <div class="header-left">
+                        <span class="header-icon">📝</span>
+                        <div>
+                            <h2>Nová ponuka</h2>
+                            <p class="header-subtitle">Vytvorte cenovú ponuku pre klienta</p>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
-                <div class="modal-body">
+                
+                <!-- Body -->
+                <div class="invoice-modal-body">
                     <form id="quote-form">
-                        <!-- Klient alebo Lead -->
-                        <div class="form-section">
-                            <h3>Príjemca</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Typ</label>
-                                    <select name="recipient_type" onchange="BillingModule.toggleRecipientType(this.value)">
-                                        <option value="client">Existujúci klient</option>
-                                        <option value="lead">Lead</option>
-                                    </select>
+                        <div class="form-grid">
+                            <!-- Ľavá strana -->
+                            <div class="form-main">
+                                <!-- Príjemca karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">👤</span>
+                                        <h3>Príjemca</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        ${this.renderRecipientSelector(fromLead)}
+                                    </div>
                                 </div>
-                                <div class="form-group flex-2" id="recipient-select">
-                                    <label>Klient</label>
-                                    <select name="client_id">
-                                        <option value="">-- Vyberte --</option>
-                                        ${this.clients.map(c => `
-                                            <option value="${c.id}">${c.company_name}</option>
-                                        `).join('')}
-                                    </select>
+                                
+                                <!-- Detaily ponuky -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📋</span>
+                                        <h3>Detaily ponuky</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="date-field">
+                                            <label>Názov ponuky</label>
+                                            <input type="text" name="title" placeholder="Napr. Marketingová stratégia 2025" class="full-input">
+                                        </div>
+                                        <div class="date-field">
+                                            <label>Úvodný text</label>
+                                            <textarea name="introduction" rows="2" placeholder="Ďakujeme za Váš záujem..." class="note-textarea"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Položky karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📦</span>
+                                        <h3>Položky ponuky</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="items-table-header">
+                                            <div class="col-desc">Popis</div>
+                                            <div class="col-qty">Množstvo</div>
+                                            <div class="col-unit">Jedn.</div>
+                                            <div class="col-price">Cena/jedn.</div>
+                                            <div class="col-total">Spolu</div>
+                                            <div class="col-action"></div>
+                                        </div>
+                                        
+                                        <div id="quote-items" class="items-container">
+                                            ${this.renderItemRowNew(0)}
+                                        </div>
+                                        
+                                        <div class="add-item-section">
+                                            <button type="button" class="add-item-btn" onclick="BillingModule.addItemRow('quote')">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                </svg>
+                                                Pridať položku
+                                            </button>
+                                            
+                                            <div class="service-dropdown">
+                                                <select id="quick-service-quote" onchange="BillingModule.addServiceItemQuote(this.value)">
+                                                    <option value="">📦 Pridať zo služieb...</option>
+                                                    ${this.services.map(s => `
+                                                        <option value="${s.id}">${s.name} — ${this.formatMoney(s.base_price)}</option>
+                                                    `).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Podmienky -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📜</span>
+                                        <h3>Podmienky</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <textarea name="terms" rows="3" placeholder="Platobné podmienky, dodacie lehoty..." class="note-textarea"></textarea>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- Detaily ponuky -->
-                        <div class="form-section">
-                            <h3>Detaily ponuky</h3>
-                            <div class="form-row">
-                                <div class="form-group flex-2">
-                                    <label>Názov ponuky</label>
-                                    <input type="text" name="title" placeholder="Napr. Marketingová stratégia 2025">
+                            
+                            <!-- Pravá strana -->
+                            <div class="form-sidebar">
+                                <!-- Platnosť -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📅</span>
+                                        <h3>Platnosť</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="date-field">
+                                            <label>Dátum vystavenia</label>
+                                            <input type="date" name="issue_date" value="${new Date().toISOString().split('T')[0]}">
+                                        </div>
+                                        <div class="date-field">
+                                            <label>Platná do</label>
+                                            <input type="date" name="valid_until" value="${this.addDays(new Date(), 30).toISOString().split('T')[0]}">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Platnosť do</label>
-                                    <input type="date" name="valid_until" value="${this.addDays(new Date(), 30).toISOString().split('T')[0]}">
+                                
+                                <!-- Súhrn karta -->
+                                <div class="form-card summary-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">💰</span>
+                                        <h3>Súhrn</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="summary-row">
+                                            <span class="summary-label">Medzisúčet</span>
+                                            <span class="summary-value" id="subtotal">0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-row with-input">
+                                            <div class="summary-label-with-input">
+                                                <span>Zľava</span>
+                                                <div class="input-with-suffix">
+                                                    <input type="number" name="discount_percent" value="0" min="0" max="100" 
+                                                           onchange="BillingModule.recalculateTotals()">
+                                                    <span class="suffix">%</span>
+                                                </div>
+                                            </div>
+                                            <span class="summary-value discount" id="discount-amount">-0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-row with-input">
+                                            <div class="summary-label-with-input">
+                                                <span>DPH</span>
+                                                <div class="input-with-suffix">
+                                                    <input type="number" name="vat_rate" value="${this.settings?.default_vat_rate || 20}" 
+                                                           onchange="BillingModule.recalculateTotals()">
+                                                    <span class="suffix">%</span>
+                                                </div>
+                                            </div>
+                                            <span class="summary-value" id="vat-amount">0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-divider"></div>
+                                        
+                                        <div class="summary-row total">
+                                            <span class="summary-label">Celkom</span>
+                                            <span class="summary-value" id="total">0,00 €</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Úvodný text</label>
-                                <textarea name="introduction" rows="3" placeholder="Ďakujeme za Váš záujem..."></textarea>
-                            </div>
-                        </div>
-                        
-                        <!-- Položky -->
-                        <div class="form-section">
-                            <h3>Položky</h3>
-                            <div id="quote-items">
-                                ${this.renderItemRow(0, 'quote')}
-                            </div>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="BillingModule.addItemRow('quote')">
-                                + Pridať položku
-                            </button>
-                        </div>
-                        
-                        <!-- Súhrn -->
-                        <div class="form-section">
-                            <div class="invoice-summary">
-                                <div class="summary-row">
-                                    <span>Medzisúčet:</span>
-                                    <span id="subtotal">0,00 €</span>
-                                </div>
-                                <div class="summary-row">
-                                    <span>DPH (${this.settings?.default_vat_rate || 20}%):</span>
-                                    <span id="vat-amount">0,00 €</span>
-                                </div>
-                                <div class="summary-row summary-total">
-                                    <span>Celkom:</span>
-                                    <span id="total">0,00 €</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Podmienky -->
-                        <div class="form-section">
-                            <div class="form-group">
-                                <label>Obchodné podmienky</label>
-                                <textarea name="terms" rows="3" placeholder="Platobné podmienky, dodacie lehoty..."></textarea>
                             </div>
                         </div>
                     </form>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
-                    <button class="btn btn-secondary" onclick="BillingModule.saveQuote('draft')">Uložiť koncept</button>
-                    <button class="btn btn-primary" onclick="BillingModule.saveQuote('sent')">Odoslať ponuku</button>
+                
+                <!-- Footer -->
+                <div class="invoice-modal-footer">
+                    <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">
+                        Zrušiť
+                    </button>
+                    <div class="footer-actions">
+                        <button class="btn-draft" onclick="BillingModule.saveQuote('draft')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            </svg>
+                            Uložiť koncept
+                        </button>
+                        <button class="btn-primary-action" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);" onclick="BillingModule.saveQuote('sent')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                            Odoslať ponuku
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
         this.itemRowIndex = 0;
+        this.currentDocType = 'quote';
     },
 
-    async createOrder() {
-        alert('Objednávky sa väčšinou vytvárajú automaticky z akceptovaných ponúk.');
+    async createOrder(fromQuote = null) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="invoice-modal">
+                <!-- Header -->
+                <div class="invoice-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <div class="header-left">
+                        <span class="header-icon">🛒</span>
+                        <div>
+                            <h2>Nová objednávka</h2>
+                            <p class="header-subtitle">${fromQuote ? 'Vytvorené z ponuky' : 'Vytvorte novú objednávku'}</p>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Body -->
+                <div class="invoice-modal-body">
+                    <form id="order-form">
+                        <div class="form-grid">
+                            <!-- Ľavá strana -->
+                            <div class="form-main">
+                                <!-- Odberateľ karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">👤</span>
+                                        <h3>Odberateľ</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        ${this.renderRecipientSelector(null, fromQuote?.client_id)}
+                                    </div>
+                                </div>
+                                
+                                <!-- Položky karta -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📦</span>
+                                        <h3>Položky objednávky</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="items-table-header">
+                                            <div class="col-desc">Popis</div>
+                                            <div class="col-qty">Množstvo</div>
+                                            <div class="col-unit">Jedn.</div>
+                                            <div class="col-price">Cena/jedn.</div>
+                                            <div class="col-total">Spolu</div>
+                                            <div class="col-action"></div>
+                                        </div>
+                                        
+                                        <div id="order-items" class="items-container">
+                                            ${this.renderItemRowNew(0)}
+                                        </div>
+                                        
+                                        <div class="add-item-section">
+                                            <button type="button" class="add-item-btn" onclick="BillingModule.addItemRow('order')">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                </svg>
+                                                Pridať položku
+                                            </button>
+                                            
+                                            <div class="service-dropdown">
+                                                <select id="quick-service-order" onchange="BillingModule.addServiceItemOrder(this.value)">
+                                                    <option value="">📦 Pridať zo služieb...</option>
+                                                    ${this.services.map(s => `
+                                                        <option value="${s.id}">${s.name} — ${this.formatMoney(s.base_price)}</option>
+                                                    `).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Poznámka -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📝</span>
+                                        <h3>Poznámka</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <textarea name="notes" rows="3" placeholder="Interná poznámka k objednávke..." class="note-textarea"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Pravá strana -->
+                            <div class="form-sidebar">
+                                <!-- Dátumy -->
+                                <div class="form-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">📅</span>
+                                        <h3>Dátumy</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="date-field">
+                                            <label>Dátum objednávky</label>
+                                            <input type="date" name="order_date" value="${new Date().toISOString().split('T')[0]}">
+                                        </div>
+                                        <div class="date-field">
+                                            <label>Požadovaný termín</label>
+                                            <input type="date" name="requested_date" value="${this.addDays(new Date(), 14).toISOString().split('T')[0]}">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                ${fromQuote ? `<input type="hidden" name="quote_id" value="${fromQuote.id}">` : ''}
+                                
+                                <!-- Súhrn karta -->
+                                <div class="form-card summary-card">
+                                    <div class="card-header">
+                                        <span class="card-icon">💰</span>
+                                        <h3>Súhrn</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="summary-row">
+                                            <span class="summary-label">Medzisúčet</span>
+                                            <span class="summary-value" id="subtotal">0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-row with-input">
+                                            <div class="summary-label-with-input">
+                                                <span>DPH</span>
+                                                <div class="input-with-suffix">
+                                                    <input type="number" name="vat_rate" value="${this.settings?.default_vat_rate || 20}" 
+                                                           onchange="BillingModule.recalculateTotals()">
+                                                    <span class="suffix">%</span>
+                                                </div>
+                                            </div>
+                                            <span class="summary-value" id="vat-amount">0,00 €</span>
+                                        </div>
+                                        
+                                        <div class="summary-divider"></div>
+                                        
+                                        <div class="summary-row total">
+                                            <span class="summary-label">Celkom</span>
+                                            <span class="summary-value" id="total">0,00 €</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Footer -->
+                <div class="invoice-modal-footer">
+                    <button class="btn-cancel" onclick="this.closest('.modal-overlay').remove()">
+                        Zrušiť
+                    </button>
+                    <div class="footer-actions">
+                        <button class="btn-draft" onclick="BillingModule.saveOrder('new')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            </svg>
+                            Uložiť
+                        </button>
+                        <button class="btn-primary-action" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="BillingModule.saveOrder('confirmed')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Potvrdiť objednávku
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        this.itemRowIndex = 0;
+        this.currentDocType = 'order';
+    },
+
+    // Recipient selector s možnosťou výberu klienta, leadu alebo pridania nového
+    renderRecipientSelector(fromLead = null, preselectedClientId = null) {
+        return `
+            <div class="recipient-tabs">
+                <button type="button" class="recipient-tab active" onclick="BillingModule.switchRecipientTab('client', this)">
+                    🏢 Klient
+                </button>
+                <button type="button" class="recipient-tab" onclick="BillingModule.switchRecipientTab('lead', this)">
+                    🎯 Lead
+                </button>
+                <button type="button" class="recipient-tab" onclick="BillingModule.switchRecipientTab('new', this)">
+                    ➕ Nový
+                </button>
+            </div>
+            
+            <!-- Klient select -->
+            <div id="recipient-client" class="recipient-content">
+                <div class="client-select-wrapper">
+                    <label>Vybrať klienta</label>
+                    <select name="client_id" class="client-select" onchange="BillingModule.onRecipientSelect('client', this.value)">
+                        <option value="">Vyhľadať alebo vybrať...</option>
+                        ${this.clients.map(c => `
+                            <option value="${c.id}" ${preselectedClientId === c.id ? 'selected' : ''}>${c.company_name}${c.ico ? ' • IČO: ' + c.ico : ''}</option>
+                        `).join('')}
+                    </select>
+                </div>
+                <div id="recipient-preview-client" class="client-preview-card" style="display: none;"></div>
+            </div>
+            
+            <!-- Lead select -->
+            <div id="recipient-lead" class="recipient-content" style="display: none;">
+                <div class="client-select-wrapper">
+                    <label>Vybrať lead</label>
+                    <select name="lead_id" class="client-select" onchange="BillingModule.onRecipientSelect('lead', this.value)">
+                        <option value="">Vyhľadať alebo vybrať...</option>
+                        ${(this.leads || []).map(l => `
+                            <option value="${l.id}" ${fromLead?.id === l.id ? 'selected' : ''}>${l.company_name}${l.email ? ' • ' + l.email : ''}</option>
+                        `).join('')}
+                    </select>
+                </div>
+                <div id="recipient-preview-lead" class="client-preview-card" style="display: none;"></div>
+            </div>
+            
+            <!-- Nový klient form -->
+            <div id="recipient-new" class="recipient-content" style="display: none;">
+                <div class="new-client-form">
+                    <div class="date-field">
+                        <label>Názov firmy <span class="required">*</span></label>
+                        <input type="text" name="new_company_name" placeholder="ABC s.r.o." class="full-input">
+                    </div>
+                    <div class="form-row-2">
+                        <div class="date-field">
+                            <label>IČO</label>
+                            <input type="text" name="new_ico" placeholder="12345678" class="full-input">
+                        </div>
+                        <div class="date-field">
+                            <label>DIČ</label>
+                            <input type="text" name="new_dic" placeholder="1234567890" class="full-input">
+                        </div>
+                    </div>
+                    <div class="date-field">
+                        <label>Email</label>
+                        <input type="email" name="new_email" placeholder="info@firma.sk" class="full-input">
+                    </div>
+                    <div class="date-field">
+                        <label>Adresa</label>
+                        <input type="text" name="new_address" placeholder="Ulica 123, 12345 Mesto" class="full-input">
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    switchRecipientTab(type, btn) {
+        // Prepnúť aktívny tab
+        document.querySelectorAll('.recipient-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Zobraziť správny content
+        document.querySelectorAll('.recipient-content').forEach(c => c.style.display = 'none');
+        document.getElementById(`recipient-${type}`).style.display = 'block';
+    },
+
+    onRecipientSelect(type, id) {
+        if (!id) {
+            document.getElementById(`recipient-preview-${type}`).style.display = 'none';
+            return;
+        }
+        
+        let data;
+        if (type === 'client') {
+            data = this.clients.find(c => c.id === id);
+        } else if (type === 'lead') {
+            data = (this.leads || []).find(l => l.id === id);
+        }
+        
+        if (data) {
+            const preview = document.getElementById(`recipient-preview-${type}`);
+            preview.innerHTML = `
+                <div class="client-card-preview">
+                    <div class="client-name">${data.company_name}</div>
+                    <div class="client-address">
+                        ${data.address || ''}
+                        ${data.city ? '<br>' + (data.zip || '') + ' ' + data.city : ''}
+                    </div>
+                    <div class="client-ids">
+                        ${data.ico ? '<span>IČO: ' + data.ico + '</span>' : ''}
+                        ${data.dic ? '<span>DIČ: ' + data.dic + '</span>' : ''}
+                        ${data.email ? '<span>📧 ' + data.email + '</span>' : ''}
+                    </div>
+                </div>
+            `;
+            preview.style.display = 'block';
+        }
+    },
+
+    addServiceItemQuote(serviceId) {
+        if (!serviceId) return;
+        const service = this.services.find(s => s.id === serviceId);
+        if (!service) return;
+        
+        this.addItemRow('quote');
+        const container = document.getElementById('quote-items');
+        const lastRow = container.querySelector('.item-row-new:last-of-type');
+        
+        if (lastRow) {
+            lastRow.querySelector('input[name*="[description]"]').value = service.name;
+            lastRow.querySelector('input[name*="[unit_price]"]').value = service.base_price;
+            lastRow.querySelector('select[name*="[unit]"]').value = service.unit || 'mes';
+            this.recalculateRow(this.itemRowIndex);
+        }
+        
+        document.getElementById('quick-service-quote').value = '';
+    },
+
+    addServiceItemOrder(serviceId) {
+        if (!serviceId) return;
+        const service = this.services.find(s => s.id === serviceId);
+        if (!service) return;
+        
+        this.addItemRow('order');
+        const container = document.getElementById('order-items');
+        const lastRow = container.querySelector('.item-row-new:last-of-type');
+        
+        if (lastRow) {
+            lastRow.querySelector('input[name*="[description]"]').value = service.name;
+            lastRow.querySelector('input[name*="[unit_price]"]').value = service.base_price;
+            lastRow.querySelector('select[name*="[unit]"]').value = service.unit || 'mes';
+            this.recalculateRow(this.itemRowIndex);
+        }
+        
+        document.getElementById('quick-service-order').value = '';
     },
 
     // Položky faktúry/ponuky
@@ -871,9 +1333,12 @@ const BillingModule = {
 
     addItemRow(type = 'invoice') {
         this.itemRowIndex++;
-        const container = document.getElementById(type === 'invoice' ? 'invoice-items' : 'quote-items');
+        const containerId = type === 'invoice' ? 'invoice-items' : (type === 'quote' ? 'quote-items' : 'order-items');
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
         const div = document.createElement('div');
-        // Použiť nový štýl pre invoice modal
+        // Použiť nový štýl pre moderné modaly
         if (document.querySelector('.invoice-modal')) {
             div.innerHTML = this.renderItemRowNew(this.itemRowIndex);
         } else {
@@ -1108,7 +1573,7 @@ const BillingModule = {
         
         // Zozbierať položky
         const items = [];
-        document.querySelectorAll('.item-row').forEach(row => {
+        document.querySelectorAll('#quote-items .item-row, #quote-items .item-row-new').forEach(row => {
             const desc = row.querySelector('input[name*="[description]"]')?.value;
             const qty = parseFloat(row.querySelector('input[name*="[quantity]"]')?.value) || 0;
             const unit = row.querySelector('select[name*="[unit]"]')?.value || 'ks';
@@ -1125,12 +1590,44 @@ const BillingModule = {
             }
         });
         
+        if (items.length === 0) {
+            alert('Pridajte aspoň jednu položku');
+            return;
+        }
+        
+        // Výpočty
         const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-        const vatRate = this.settings?.default_vat_rate || 20;
-        const vatAmount = subtotal * (vatRate / 100);
-        const total = subtotal + vatAmount;
+        const discountPercent = parseFloat(formData.get('discount_percent')) || 0;
+        const discountAmount = subtotal * (discountPercent / 100);
+        const afterDiscount = subtotal - discountAmount;
+        const vatRate = parseFloat(formData.get('vat_rate')) || 20;
+        const vatAmount = afterDiscount * (vatRate / 100);
+        const total = afterDiscount + vatAmount;
         
         try {
+            // Ak je nový klient, najprv ho vytvoríme
+            let clientId = formData.get('client_id') || null;
+            let leadId = formData.get('lead_id') || null;
+            
+            const newCompanyName = formData.get('new_company_name');
+            if (newCompanyName && !clientId) {
+                const { data: newClient, error: clientError } = await Database.client
+                    .from('clients')
+                    .insert({
+                        company_name: newCompanyName,
+                        ico: formData.get('new_ico') || null,
+                        dic: formData.get('new_dic') || null,
+                        email: formData.get('new_email') || null,
+                        address: formData.get('new_address') || null,
+                        status: 'active'
+                    })
+                    .select()
+                    .single();
+                
+                if (clientError) throw clientError;
+                clientId = newClient.id;
+            }
+            
             // Získať číslo ponuky
             const { data: numberData } = await Database.client
                 .rpc('get_next_number', { p_sequence_type: 'quote' });
@@ -1140,17 +1637,20 @@ const BillingModule = {
                 .from('quotes')
                 .insert({
                     quote_number: numberData,
-                    client_id: formData.get('client_id') || null,
-                    title: formData.get('title'),
-                    introduction: formData.get('introduction'),
-                    terms: formData.get('terms'),
+                    client_id: clientId,
+                    lead_id: leadId,
+                    title: formData.get('title') || null,
+                    introduction: formData.get('introduction') || null,
+                    terms: formData.get('terms') || null,
+                    issue_date: formData.get('issue_date'),
                     valid_until: formData.get('valid_until'),
                     status: status,
                     subtotal: subtotal,
+                    discount_percent: discountPercent,
+                    discount_amount: discountAmount,
                     vat_rate: vatRate,
                     vat_amount: vatAmount,
-                    total: total,
-                    sent_at: status === 'sent' ? new Date().toISOString() : null
+                    total: total
                 })
                 .select()
                 .single();
@@ -1180,6 +1680,114 @@ const BillingModule = {
         } catch (error) {
             console.error('Error saving quote:', error);
             alert('Chyba pri ukladaní ponuky: ' + error.message);
+        }
+    },
+
+    async saveOrder(status) {
+        const form = document.getElementById('order-form');
+        const formData = new FormData(form);
+        
+        // Zozbierať položky
+        const items = [];
+        document.querySelectorAll('#order-items .item-row, #order-items .item-row-new').forEach(row => {
+            const desc = row.querySelector('input[name*="[description]"]')?.value;
+            const qty = parseFloat(row.querySelector('input[name*="[quantity]"]')?.value) || 0;
+            const unit = row.querySelector('select[name*="[unit]"]')?.value || 'ks';
+            const price = parseFloat(row.querySelector('input[name*="[unit_price]"]')?.value) || 0;
+            
+            if (desc && qty > 0 && price > 0) {
+                items.push({
+                    description: desc,
+                    quantity: qty,
+                    unit: unit,
+                    unit_price: price,
+                    total: qty * price
+                });
+            }
+        });
+        
+        if (items.length === 0) {
+            alert('Pridajte aspoň jednu položku');
+            return;
+        }
+        
+        // Výpočty
+        const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+        const vatRate = parseFloat(formData.get('vat_rate')) || 20;
+        const vatAmount = subtotal * (vatRate / 100);
+        const total = subtotal + vatAmount;
+        
+        try {
+            // Ak je nový klient
+            let clientId = formData.get('client_id') || null;
+            
+            const newCompanyName = formData.get('new_company_name');
+            if (newCompanyName && !clientId) {
+                const { data: newClient, error: clientError } = await Database.client
+                    .from('clients')
+                    .insert({
+                        company_name: newCompanyName,
+                        ico: formData.get('new_ico') || null,
+                        dic: formData.get('new_dic') || null,
+                        email: formData.get('new_email') || null,
+                        address: formData.get('new_address') || null,
+                        status: 'active'
+                    })
+                    .select()
+                    .single();
+                
+                if (clientError) throw clientError;
+                clientId = newClient.id;
+            }
+            
+            // Získať číslo objednávky
+            const { data: numberData } = await Database.client
+                .rpc('get_next_number', { p_sequence_type: 'order' });
+            
+            // Vytvoriť objednávku
+            const { data: order, error } = await Database.client
+                .from('orders')
+                .insert({
+                    order_number: numberData,
+                    client_id: clientId,
+                    quote_id: formData.get('quote_id') || null,
+                    order_date: formData.get('order_date'),
+                    requested_date: formData.get('requested_date') || null,
+                    status: status,
+                    subtotal: subtotal,
+                    vat_rate: vatRate,
+                    vat_amount: vatAmount,
+                    total: total,
+                    notes: formData.get('notes') || null
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            // Pridať položky
+            const orderItems = items.map((item, idx) => ({
+                order_id: order.id,
+                description: item.description,
+                quantity: item.quantity,
+                unit: item.unit,
+                unit_price: item.unit_price,
+                total: item.total,
+                sort_order: idx
+            }));
+            
+            await Database.client.from('order_items').insert(orderItems);
+            
+            document.querySelector('.modal-overlay').remove();
+            await this.loadData();
+            this.currentTab = 'orders';
+            document.getElementById('billing-content').innerHTML = this.renderTabContent();
+            
+            alert(`Objednávka ${numberData} bola vytvorená!`);
+            
+        } catch (error) {
+            console.error('Error saving order:', error);
+            alert('Chyba pri ukladaní objednávky: ' + error.message);
         }
     },
 
@@ -1534,8 +2142,274 @@ const BillingModule = {
         }
     },
 
+    // ==========================================
+    // WORKFLOW FUNKCIE - Prevody medzi dokladmi
+    // ==========================================
+    
+    async createOrderFromQuote(quoteId) {
+        const quote = this.quotes.find(q => q.id === quoteId);
+        if (!quote) return;
+        
+        // Načítať položky ponuky
+        const { data: items } = await Database.client
+            .from('quote_items')
+            .select('*')
+            .eq('quote_id', quoteId)
+            .order('sort_order');
+        
+        // Otvoriť modal objednávky s prefill
+        this.createOrder(quote);
+        
+        // Po otvorení modalu vyplniť položky
+        setTimeout(() => {
+            const clientSelect = document.querySelector('select[name="client_id"]');
+            if (clientSelect && quote.client_id) {
+                clientSelect.value = quote.client_id;
+                this.onRecipientSelect('client', quote.client_id);
+            }
+            
+            // Pridať položky
+            if (items && items.length > 0) {
+                items.forEach((item, idx) => {
+                    if (idx > 0) this.addItemRow('order');
+                    
+                    const rows = document.querySelectorAll('#order-items .item-row-new');
+                    const row = rows[idx];
+                    if (row) {
+                        row.querySelector('input[name*="[description]"]').value = item.description;
+                        row.querySelector('input[name*="[quantity]"]').value = item.quantity;
+                        row.querySelector('input[name*="[unit_price]"]').value = item.unit_price;
+                        row.querySelector('select[name*="[unit]"]').value = item.unit || 'ks';
+                    }
+                });
+                this.recalculateTotals();
+            }
+        }, 100);
+    },
+
+    async createProformaFromOrder(orderId) {
+        const order = this.orders.find(o => o.id === orderId);
+        if (!order) return;
+        
+        // Načítať položky objednávky
+        const { data: items } = await Database.client
+            .from('order_items')
+            .select('*')
+            .eq('order_id', orderId)
+            .order('sort_order');
+        
+        // Vytvoriť zálohovú faktúru
+        this.createProformaWithData(order, items);
+    },
+    
+    async createProformaWithData(order, items) {
+        try {
+            const { data: numberData } = await Database.client
+                .rpc('get_next_number', { p_sequence_type: 'proforma' });
+            
+            const subtotal = items.reduce((sum, i) => sum + parseFloat(i.total || 0), 0);
+            const vatRate = this.settings?.default_vat_rate || 20;
+            const vatAmount = subtotal * (vatRate / 100);
+            const total = subtotal + vatAmount;
+            
+            const { data: invoice, error } = await Database.client
+                .from('invoices')
+                .insert({
+                    invoice_number: numberData,
+                    invoice_type: 'proforma',
+                    client_id: order.client_id,
+                    issue_date: new Date().toISOString().split('T')[0],
+                    due_date: this.addDays(new Date(), 14).toISOString().split('T')[0],
+                    status: 'issued',
+                    subtotal,
+                    vat_rate: vatRate,
+                    vat_amount: vatAmount,
+                    total,
+                    remaining_amount: total,
+                    variable_symbol: numberData.replace(/\D/g, ''),
+                    notes: `Záloha k objednávke ${order.order_number}`
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            // Pridať položky
+            const invoiceItems = items.map((item, idx) => ({
+                invoice_id: invoice.id,
+                description: item.description,
+                quantity: item.quantity,
+                unit: item.unit,
+                unit_price: item.unit_price,
+                vat_rate: vatRate,
+                total: item.total,
+                sort_order: idx
+            }));
+            
+            await Database.client.from('invoice_items').insert(invoiceItems);
+            
+            await this.loadData();
+            this.currentTab = 'proformas';
+            document.getElementById('billing-content').innerHTML = this.renderTabContent();
+            
+            alert(`Zálohovka ${numberData} bola vytvorená!`);
+            
+        } catch (error) {
+            console.error('Error creating proforma:', error);
+            alert('Chyba pri vytváraní zálohovky: ' + error.message);
+        }
+    },
+
+    async createInvoiceFromOrder(orderId) {
+        const order = this.orders.find(o => o.id === orderId);
+        if (!order) return;
+        
+        // Načítať položky objednávky
+        const { data: items } = await Database.client
+            .from('order_items')
+            .select('*')
+            .eq('order_id', orderId)
+            .order('sort_order');
+        
+        // Vytvoriť faktúru s prefill
+        await this.createInvoice();
+        
+        setTimeout(() => {
+            const clientSelect = document.querySelector('select[name="client_id"]');
+            if (clientSelect && order.client_id) {
+                clientSelect.value = order.client_id;
+                this.onClientSelect(order.client_id);
+            }
+            
+            // Pridať položky
+            if (items && items.length > 0) {
+                items.forEach((item, idx) => {
+                    if (idx > 0) this.addItemRow('invoice');
+                    
+                    const rows = document.querySelectorAll('#invoice-items .item-row-new');
+                    const row = rows[idx];
+                    if (row) {
+                        row.querySelector('input[name*="[description]"]').value = item.description;
+                        row.querySelector('input[name*="[quantity]"]').value = item.quantity;
+                        row.querySelector('input[name*="[unit_price]"]').value = item.unit_price;
+                        row.querySelector('select[name*="[unit]"]').value = item.unit || 'ks';
+                    }
+                });
+                this.recalculateTotals();
+            }
+        }, 100);
+    },
+    
     async createInvoiceFromQuote(quoteId) {
-        alert('Táto funkcia bude čoskoro implementovaná - vytvorí faktúru s položkami z ponuky.');
+        const quote = this.quotes.find(q => q.id === quoteId);
+        if (!quote) return;
+        
+        // Načítať položky ponuky
+        const { data: items } = await Database.client
+            .from('quote_items')
+            .select('*')
+            .eq('quote_id', quoteId)
+            .order('sort_order');
+        
+        // Vytvoriť faktúru s prefill
+        await this.createInvoice();
+        
+        setTimeout(() => {
+            const clientSelect = document.querySelector('select[name="client_id"]');
+            if (clientSelect && quote.client_id) {
+                clientSelect.value = quote.client_id;
+                this.onClientSelect(quote.client_id);
+            }
+            
+            // Pridať položky
+            if (items && items.length > 0) {
+                items.forEach((item, idx) => {
+                    if (idx > 0) this.addItemRow('invoice');
+                    
+                    const rows = document.querySelectorAll('#invoice-items .item-row-new');
+                    const row = rows[idx];
+                    if (row) {
+                        row.querySelector('input[name*="[description]"]').value = item.description;
+                        row.querySelector('input[name*="[quantity]"]').value = item.quantity;
+                        row.querySelector('input[name*="[unit_price]"]').value = item.unit_price;
+                        row.querySelector('select[name*="[unit]"]').value = item.unit || 'ks';
+                    }
+                });
+                this.recalculateTotals();
+            }
+        }, 100);
+    },
+    
+    // Detail objednávky
+    async showOrderDetail(orderId) {
+        const order = this.orders.find(o => o.id === orderId);
+        if (!order) return;
+        
+        const { data: items } = await Database.client
+            .from('order_items')
+            .select('*')
+            .eq('order_id', orderId)
+            .order('sort_order');
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal modal-large">
+                <div class="modal-header">
+                    <h2>🛒 Objednávka ${order.order_number}</h2>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="invoice-detail-grid">
+                        <div class="detail-section">
+                            <h4>Odberateľ</h4>
+                            <p><strong>${order.client_name || '-'}</strong></p>
+                        </div>
+                        <div class="detail-section">
+                            <h4>Dátumy</h4>
+                            <p>Objednané: ${this.formatDate(order.order_date)}</p>
+                            ${order.requested_date ? `<p>Požadovaný termín: ${this.formatDate(order.requested_date)}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    <h4>Položky</h4>
+                    <table class="invoice-items-table">
+                        <thead>
+                            <tr>
+                                <th>Popis</th>
+                                <th>Množstvo</th>
+                                <th>Cena</th>
+                                <th>Spolu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(items || []).map(item => `
+                                <tr>
+                                    <td>${item.description}</td>
+                                    <td>${item.quantity} ${item.unit}</td>
+                                    <td>${this.formatMoney(item.unit_price)}</td>
+                                    <td>${this.formatMoney(item.total)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3"><strong>Celkom</strong></td>
+                                <td><strong>${this.formatMoney(order.total)}</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    
+                    ${order.notes ? `<div class="detail-notes"><h4>Poznámka</h4><p>${order.notes}</p></div>` : ''}
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
+                    <button class="btn btn-secondary" onclick="BillingModule.createProformaFromOrder('${orderId}')">📋 Zálohovka</button>
+                    <button class="btn btn-primary" onclick="BillingModule.createInvoiceFromOrder('${orderId}')">📄 Faktúra</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     },
 
     async showSettings() {
@@ -2544,6 +3418,73 @@ const BillingModule = {
                 }
                 
                 .payment-select:focus {
+                    outline: none;
+                    border-color: #f97316;
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                }
+                
+                /* Recipient tabs */
+                .recipient-tabs {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1rem;
+                }
+                
+                .recipient-tab {
+                    flex: 1;
+                    padding: 0.625rem 1rem;
+                    border: 2px solid #e2e8f0;
+                    background: white;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    color: #64748b;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .recipient-tab:hover {
+                    border-color: #cbd5e1;
+                    color: #475569;
+                }
+                
+                .recipient-tab.active {
+                    border-color: #f97316;
+                    background: #fff7ed;
+                    color: #ea580c;
+                }
+                
+                .recipient-content {
+                    animation: fadeIn 0.2s ease;
+                }
+                
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                
+                /* Nový klient form */
+                .new-client-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                }
+                
+                .form-row-2 {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 0.75rem;
+                }
+                
+                .full-input {
+                    width: 100%;
+                    padding: 0.625rem 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                }
+                
+                .full-input:focus {
                     outline: none;
                     border-color: #f97316;
                     box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
