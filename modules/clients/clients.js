@@ -560,6 +560,54 @@ const ClientsModule = {
         this.currentClient.projects = [];
       }
       
+      // Load subscription for this client
+      try {
+        const { data: subscriptions } = await Database.client
+          .from('client_subscriptions')
+          .select(`
+            *,
+            packages (id, name, icon, slug)
+          `)
+          .eq('client_id', clientId)
+          .eq('status', 'active')
+          .limit(1);
+        
+        if (subscriptions && subscriptions.length > 0) {
+          const sub = subscriptions[0];
+          this.currentClient.subscription = {
+            ...sub,
+            package_name: sub.packages?.name,
+            package_icon: sub.packages?.icon
+          };
+        } else {
+          this.currentClient.subscription = null;
+        }
+      } catch (e) {
+        console.error('Load subscription error:', e);
+        this.currentClient.subscription = null;
+      }
+      
+      // Load extra services for this client
+      try {
+        const { data: services } = await Database.client
+          .from('client_services')
+          .select(`
+            *,
+            services (id, name, icon, category)
+          `)
+          .eq('client_id', clientId)
+          .eq('status', 'active');
+        
+        this.currentClient.services = (services || []).map(s => ({
+          ...s,
+          name: s.services?.name,
+          icon: s.services?.icon
+        }));
+      } catch (e) {
+        console.error('Load client services error:', e);
+        this.currentClient.services = [];
+      }
+      
       container.innerHTML = this.templateDetail();
       
     } catch (error) {
@@ -625,6 +673,7 @@ const ClientsModule = {
       <!-- Tabs -->
       <div class="flex gap-2 mb-6 flex-wrap">
         <button onclick="ClientsModule.showTab('info')" class="tab-btn active" data-tab="info">📋 Info</button>
+        <button onclick="ClientsModule.showTab('subscription')" class="tab-btn" data-tab="subscription">📦 Predplatné</button>
         <button onclick="ClientsModule.showTab('projects')" class="tab-btn" data-tab="projects">📁 Projekty</button>
         <button onclick="ClientsModule.showTab('onboarding')" class="tab-btn" data-tab="onboarding">📝 Onboarding</button>
         <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices">💰 Faktúry</button>
@@ -632,6 +681,7 @@ const ClientsModule = {
       
       <!-- Tab Content -->
       <div id="tab-info" class="tab-content">${this.templateTabInfo()}</div>
+      <div id="tab-subscription" class="tab-content hidden">${this.templateTabSubscription()}</div>
       <div id="tab-projects" class="tab-content hidden">${this.templateTabProjects()}</div>
       <div id="tab-onboarding" class="tab-content hidden">${this.templateTabOnboarding()}</div>
       <div id="tab-invoices" class="tab-content hidden">${this.templateTabInvoices()}</div>
@@ -701,6 +751,313 @@ const ClientsModule = {
     `;
   },
   
+  templateTabSubscription() {
+    const c = this.currentClient;
+    const subscription = c.subscription || null;
+    
+    return `
+      <div class="space-y-6">
+        <!-- Current Subscription -->
+        <div class="card p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">📦 Aktuálne predplatné</h3>
+            <button onclick="ClientsModule.showSubscriptionModal()" 
+              class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-sm">
+              ${subscription ? '✏️ Upraviť' : '➕ Priradiť balíček'}
+            </button>
+          </div>
+          
+          ${subscription ? `
+            <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="text-3xl mb-2">${subscription.package_icon || '📦'}</div>
+                  <h4 class="text-xl font-bold">${subscription.package_name || 'Vlastný balíček'}</h4>
+                  <p class="text-gray-500">${subscription.custom_name || ''}</p>
+                </div>
+                <div class="text-right">
+                  <div class="text-3xl font-bold text-purple-600">${subscription.monthly_price}€</div>
+                  <div class="text-gray-500">/mesiac</div>
+                </div>
+              </div>
+              
+              <div class="grid md:grid-cols-3 gap-4 mt-6 pt-4 border-t border-purple-200">
+                <div>
+                  <div class="text-xs text-gray-500">Status</div>
+                  <div class="font-medium ${subscription.status === 'active' ? 'text-green-600' : 'text-gray-600'}">
+                    ${subscription.status === 'active' ? '● Aktívne' : '○ ' + subscription.status}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500">Od</div>
+                  <div class="font-medium">${subscription.start_date ? new Date(subscription.start_date).toLocaleDateString('sk-SK') : '-'}</div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500">Fakturačný deň</div>
+                  <div class="font-medium">${subscription.billing_day || 1}. v mesiaci</div>
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div class="text-center py-8 bg-gray-50 rounded-xl">
+              <div class="text-4xl mb-4">📦</div>
+              <h4 class="text-lg font-medium text-gray-600">Žiadne predplatné</h4>
+              <p class="text-gray-500 mb-4">Klient nemá priradený žiadny balíček</p>
+              <button onclick="ClientsModule.showSubscriptionModal()" 
+                class="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
+                ➕ Priradiť balíček
+              </button>
+            </div>
+          `}
+        </div>
+        
+        <!-- Client Services -->
+        <div class="card p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">🔧 Extra služby</h3>
+            <button onclick="ClientsModule.showAddServiceModal()" 
+              class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
+              ➕ Pridať službu
+            </button>
+          </div>
+          
+          <div id="client-services-list">
+            ${this.renderClientServices()}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+  
+  renderClientServices() {
+    const services = this.currentClient.services || [];
+    
+    if (services.length === 0) {
+      return `
+        <div class="text-center py-6 text-gray-500 text-sm">
+          Žiadne extra služby
+        </div>
+      `;
+    }
+    
+    return `
+      <div class="divide-y">
+        ${services.map(svc => `
+          <div class="py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-xl">${svc.icon || '📋'}</span>
+              <div>
+                <div class="font-medium">${svc.name}</div>
+                <div class="text-xs text-gray-500">${svc.is_extra ? 'Extra k balíčku' : 'À la carte'}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="font-medium">${svc.price || 0}€</span>
+              <button onclick="ClientsModule.removeClientService('${svc.id}')" 
+                class="p-1 hover:bg-red-100 rounded text-red-500">✕</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+  
+  async showSubscriptionModal() {
+    // Load packages from DB
+    let packages = [];
+    try {
+      const { data } = await Database.client
+        .from('packages')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      packages = data || [];
+    } catch (e) {
+      console.error('Load packages error:', e);
+    }
+    
+    const subscription = this.currentClient.subscription || {};
+    
+    const modalHtml = `
+      <div id="subscription-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+          <div class="p-6 border-b flex items-center justify-between">
+            <h2 class="text-xl font-bold">📦 Predplatné klienta</h2>
+            <button onclick="ClientsModule.closeSubscriptionModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
+          </div>
+          
+          <div class="p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Balíček</label>
+              <select id="sub-package" class="w-full p-3 border rounded-xl" onchange="ClientsModule.onPackageChange()">
+                <option value="">-- Vlastný (bez balíčka) --</option>
+                ${packages.map(p => `
+                  <option value="${p.id}" data-price="${p.price}" ${subscription.package_id === p.id ? 'selected' : ''}>
+                    ${p.icon || '📦'} ${p.name} (${p.price}€/mes)
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+            
+            <div id="custom-name-wrapper" class="${subscription.package_id ? 'hidden' : ''}">
+              <label class="block text-sm font-medium mb-1">Vlastný názov</label>
+              <input type="text" id="sub-custom-name" value="${subscription.custom_name || ''}" 
+                class="w-full p-3 border rounded-xl" placeholder="napr. Špeciálny balíček">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Mesačná cena (€)</label>
+                <input type="number" id="sub-price" value="${subscription.monthly_price || ''}" 
+                  class="w-full p-3 border rounded-xl" placeholder="249">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Fakturačný deň</label>
+                <input type="number" id="sub-billing-day" value="${subscription.billing_day || 1}" min="1" max="28"
+                  class="w-full p-3 border rounded-xl">
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Dátum začiatku</label>
+                <input type="date" id="sub-start-date" value="${subscription.start_date || new Date().toISOString().split('T')[0]}" 
+                  class="w-full p-3 border rounded-xl">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Status</label>
+                <select id="sub-status" class="w-full p-3 border rounded-xl">
+                  <option value="active" ${subscription.status === 'active' ? 'selected' : ''}>Aktívne</option>
+                  <option value="pending" ${subscription.status === 'pending' ? 'selected' : ''}>Čaká</option>
+                  <option value="paused" ${subscription.status === 'paused' ? 'selected' : ''}>Pozastavené</option>
+                  <option value="cancelled" ${subscription.status === 'cancelled' ? 'selected' : ''}>Zrušené</option>
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium mb-1">Poznámky</label>
+              <textarea id="sub-notes" rows="2" class="w-full p-3 border rounded-xl" 
+                placeholder="Interné poznámky...">${subscription.notes || ''}</textarea>
+            </div>
+          </div>
+          
+          <div class="p-6 border-t flex justify-between gap-3 bg-gray-50">
+            ${subscription.id ? `
+              <button onclick="ClientsModule.deleteSubscription('${subscription.id}')" 
+                class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl">
+                🗑️ Zmazať
+              </button>
+            ` : '<div></div>'}
+            <div class="flex gap-3">
+              <button onclick="ClientsModule.closeSubscriptionModal()" class="px-6 py-2 bg-gray-200 rounded-xl hover:bg-gray-300">
+                Zrušiť
+              </button>
+              <button onclick="ClientsModule.saveSubscription()" class="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
+                💾 Uložiť
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+  
+  onPackageChange() {
+    const select = document.getElementById('sub-package');
+    const customNameWrapper = document.getElementById('custom-name-wrapper');
+    const priceInput = document.getElementById('sub-price');
+    
+    if (select.value) {
+      customNameWrapper.classList.add('hidden');
+      const selectedOption = select.options[select.selectedIndex];
+      priceInput.value = selectedOption.dataset.price || '';
+    } else {
+      customNameWrapper.classList.remove('hidden');
+    }
+  },
+  
+  closeSubscriptionModal() {
+    const modal = document.getElementById('subscription-modal');
+    if (modal) modal.remove();
+  },
+  
+  async saveSubscription() {
+    const data = {
+      client_id: this.currentClient.id,
+      package_id: document.getElementById('sub-package').value || null,
+      custom_name: document.getElementById('sub-custom-name').value.trim() || null,
+      monthly_price: parseFloat(document.getElementById('sub-price').value) || 0,
+      billing_day: parseInt(document.getElementById('sub-billing-day').value) || 1,
+      start_date: document.getElementById('sub-start-date').value,
+      status: document.getElementById('sub-status').value,
+      notes: document.getElementById('sub-notes').value.trim() || null
+    };
+    
+    if (!data.monthly_price) {
+      Utils.toast('Zadajte mesačnú cenu', 'warning');
+      return;
+    }
+    
+    try {
+      const existingSubscription = this.currentClient.subscription;
+      
+      if (existingSubscription?.id) {
+        // Update
+        const { error } = await Database.client
+          .from('client_subscriptions')
+          .update(data)
+          .eq('id', existingSubscription.id);
+        if (error) throw error;
+      } else {
+        // Insert
+        const { error } = await Database.client
+          .from('client_subscriptions')
+          .insert(data);
+        if (error) throw error;
+      }
+      
+      // Update monthly_fee in clients table
+      await Database.client
+        .from('clients')
+        .update({ monthly_fee: data.monthly_price })
+        .eq('id', this.currentClient.id);
+      
+      Utils.toast('Predplatné uložené! ✅', 'success');
+      this.closeSubscriptionModal();
+      
+      // Reload client detail
+      await this.renderClientDetail(document.getElementById('main-content'), this.currentClient.id);
+      
+    } catch (error) {
+      console.error('Save subscription error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
+  async deleteSubscription(subscriptionId) {
+    if (!confirm('Naozaj chcete zmazať predplatné?')) return;
+    
+    try {
+      const { error } = await Database.client
+        .from('client_subscriptions')
+        .delete()
+        .eq('id', subscriptionId);
+      
+      if (error) throw error;
+      
+      Utils.toast('Predplatné zmazané', 'success');
+      this.closeSubscriptionModal();
+      await this.renderClientDetail(document.getElementById('main-content'), this.currentClient.id);
+      
+    } catch (error) {
+      console.error('Delete subscription error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+
   templateTabProjects() {
     const projects = this.currentClient.projects || [];
     
