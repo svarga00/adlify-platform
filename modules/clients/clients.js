@@ -271,6 +271,42 @@ const ClientsModule = {
     modal.classList.add('flex');
   },
   
+  async copyPortalLink(clientId) {
+    try {
+      // Načítať klienta s portal_token
+      const { data: client, error } = await Database.client
+        .from('clients')
+        .select('id, portal_token, company_name')
+        .eq('id', clientId)
+        .single();
+      
+      if (error) throw error;
+      
+      // Ak nemá token, vygeneruj ho
+      let token = client.portal_token;
+      if (!token) {
+        token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+        await Database.client
+          .from('clients')
+          .update({ portal_token: token })
+          .eq('id', clientId);
+      }
+      
+      // Vytvor link
+      const baseUrl = window.location.origin;
+      const portalLink = `${baseUrl}/portal/?token=${token}`;
+      
+      // Kopíruj do schránky
+      await navigator.clipboard.writeText(portalLink);
+      
+      Utils.showNotification(`Portál link pre ${client.company_name} skopírovaný!`, 'success');
+      
+    } catch (error) {
+      console.error('Copy portal link error:', error);
+      Utils.showNotification('Chyba pri kopírovaní linku', 'error');
+    }
+  },
+  
   editClient(clientId) {
     const client = this.clients.find(c => c.id === clientId);
     if (!client) return;
@@ -638,6 +674,9 @@ const ClientsModule = {
           </div>
         </div>
         <div class="flex gap-2">
+          <button onclick="ClientsModule.copyPortalLink('${c.id}')" class="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200" title="Kopírovať link na klientský portál">
+            🔗 Portál
+          </button>
           <button onclick="ClientsModule.editClient('${c.id}')" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-gray-200">
             ✏️ Upraviť
           </button>
