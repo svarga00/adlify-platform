@@ -213,7 +213,7 @@
                 if (authError) throw authError;
                 
                 // 2. Update team_member with user_id
-                const { error: updateError } = await supabase
+                const { error: updateError } = await db
                     .from('team_members')
                     .update({
                         user_id: authData.user.id,
@@ -225,7 +225,7 @@
                 if (updateError) throw updateError;
                 
                 // 3. Mark invitation as used
-                await supabase
+                await db
                     .from('invitation_tokens')
                     .update({ used_at: new Date().toISOString() })
                     .eq('id', inviteData.id);
