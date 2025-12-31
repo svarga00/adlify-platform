@@ -48,22 +48,25 @@ const Auth = {
     if (!this.user) return null;
     
     // Get profile (may not exist for new users)
-    const { data: profile } = await Database.client
+    const { data: profile, error: profileError } = await Database.client
       .from('user_profiles')
       .select('*')
       .eq('id', this.user.id)
       .single();
     
+    if (profileError) console.log('⚠️ Profile error:', profileError.message);
     this.profile = profile;
     
     // Check if user is team member (directly from team_members table)
-    const { data: teamMember } = await Database.client
+    const { data: teamMember, error: teamError } = await Database.client
       .from('team_members')
       .select('*')
       .eq('user_id', this.user.id)
       .eq('status', 'active')
       .single();
     
+    if (teamError) console.log('⚠️ Team member error:', teamError.message);
+    console.log('👤 Team member loaded:', teamMember);
     this.teamMember = teamMember;
     
     // If client, load client data
@@ -289,10 +292,11 @@ const Auth = {
    * Get redirect URL based on role
    */
   getRedirectUrl() {
+    console.log('🔀 getRedirectUrl:', { isClient: this.isClient(), isTeamMember: this.isTeamMember(), teamMember: this.teamMember });
     if (this.isClient()) {
-      return '/portal/';
+      return '/client-portal.html';
     }
-    return '/admin/';
+    return '/admin/index.html';
   },
   
   /**
