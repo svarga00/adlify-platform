@@ -625,6 +625,15 @@ const TeamModule = {
         return `${supabaseUrl}/functions/v1/send-email`;
     },
     
+    // Base URL pre pozvánky - TODO: zmeniť na ostrú doménu
+    getBaseUrl() {
+        // Ak sme na localhost, použijeme produkčnú URL
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'https://adlify-platform.vercel.app';
+        }
+        return window.location.origin;
+    },
+    
     // Generovať náhodný token
     generateToken() {
         const array = new Uint8Array(32);
@@ -683,7 +692,7 @@ const TeamModule = {
             if (tokenError) throw tokenError;
             
             // 3. Odoslať email
-            const inviteUrl = `${window.location.origin}/invite.html?token=${token}`;
+            const inviteUrl = `${this.getBaseUrl()}/invite.html?token=${token}`;
             const roleInfo = this.getRoleInfo(role);
             
             let emailSent = false;
@@ -856,7 +865,7 @@ const TeamModule = {
             if (tokenError) throw tokenError;
             
             // Odoslať email
-            const inviteUrl = `${window.location.origin}/invite.html?token=${token}`;
+            const inviteUrl = `${this.getBaseUrl()}/invite.html?token=${token}`;
             const roleInfo = this.getRoleInfo(member.role);
             
             await this.sendInviteEmail({
