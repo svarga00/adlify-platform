@@ -219,19 +219,36 @@ const Auth = {
     // Owner can do everything
     if (this.isOwner()) return true;
     
-    // Get permissions based on user type
-    let permissions;
+    // Admin can do almost everything
+    if (this.isAdmin()) return true;
     
+    // Team members can at least view everything
     if (this.teamMember) {
-      permissions = this.teamMember.permissions;
-    } else if (this.clientUser) {
-      permissions = this.clientUser.permissions;
-    } else {
+      if (action === 'view') return true;
+      
+      // For other actions, check role-based permissions
+      const role = this.teamMember.role;
+      
+      // Sales can manage leads
+      if (role === 'sales' && resource === 'leads') return true;
+      if (role === 'sales' && resource === 'messages') return true;
+      
+      // Manager can manage clients and projects
+      if (role === 'manager' && ['leads', 'clients', 'projects', 'tasks'].includes(resource)) return true;
+      
+      // Support can manage messages and tasks
+      if (role === 'support' && ['messages', 'tasks'].includes(resource)) return true;
+      
       return false;
     }
     
-    // Check permission
-    return permissions?.[resource]?.[action] === true;
+    // Clients have limited permissions
+    if (this.clientUser) {
+      const permissions = this.clientUser.permissions;
+      return permissions?.[resource]?.[action] === true;
+    }
+    
+    return false;
   },
   
   /**
