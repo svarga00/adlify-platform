@@ -619,8 +619,11 @@ const TeamModule = {
         });
     },
 
-    // URL pre Edge Function
-    SEND_EMAIL_URL: 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/send-email',
+    // URL pre Edge Function - berie z configu
+    getSendEmailUrl() {
+        const supabaseUrl = Config.get('supabase_url');
+        return `${supabaseUrl}/functions/v1/send-email`;
+    },
     
     // Generovať náhodný token
     generateToken() {
@@ -683,25 +686,71 @@ const TeamModule = {
             const inviteUrl = `${window.location.origin}/invite.html?token=${token}`;
             const roleInfo = this.getRoleInfo(role);
             
-            await this.sendInviteEmail({
-                to: email,
-                toName: `${firstName} ${lastName}`,
-                firstName,
-                role: roleInfo.label,
-                inviteUrl,
-                expiresAt
-            });
+            let emailSent = false;
+            try {
+                await this.sendInviteEmail({
+                    to: email,
+                    toName: `${firstName} ${lastName}`,
+                    firstName,
+                    role: roleInfo.label,
+                    inviteUrl,
+                    expiresAt
+                });
+                emailSent = true;
+            } catch (emailError) {
+                console.error('Email error:', emailError);
+                // Email zlyhalo, ale člen bol vytvorený - ukážeme link
+            }
             
             document.querySelector('.modal-overlay').remove();
             await this.loadData();
             document.getElementById('team-content').innerHTML = this.renderTabContent();
             
-            Utils.toast(`Pozvánka odoslaná na ${email}! ✉️`, 'success');
+            if (emailSent) {
+                Utils.toast(`Pozvánka odoslaná na ${email}! ✉️`, 'success');
+            } else {
+                // Ukáž modal s linkom
+                this.showInviteLinkModal(inviteUrl, email);
+            }
             
         } catch (error) {
             console.error('Error sending invite:', error);
             Utils.toast('Chyba: ' + error.message, 'error');
         }
+    },
+    
+    showInviteLinkModal(inviteUrl, email) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <span class="modal-icon">⚠️</span>
+                        <div>
+                            <h2>Email sa nepodarilo odoslať</h2>
+                            <p class="modal-subtitle">Člen bol vytvorený, pošlite link manuálne</p>
+                        </div>
+                    </div>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 1rem;">Skopírujte tento link a pošlite ho na <strong>${email}</strong>:</p>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="invite-link-input" value="${inviteUrl}" readonly 
+                               style="flex: 1; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem;">
+                        <button onclick="navigator.clipboard.writeText('${inviteUrl}'); Utils.toast('Link skopírovaný!', 'success');" 
+                                class="btn-primary" style="white-space: nowrap;">
+                            📋 Kopírovať
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     },
 
     async sendInviteEmail({ to, toName, firstName, role, inviteUrl, expiresAt }) {
@@ -740,24 +789,41 @@ const TeamModule = {
             </div>
         `;
         
-        const response = await fetch(this.SEND_EMAIL_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                to,
-                toName,
-                subject: 'Pozvánka do tímu Adlify',
-                htmlBody,
-                textBody: `Ahoj ${firstName}, bol/a si pozvaný/á do tímu Adlify s rolou ${role}. Prijmi pozvánku tu: ${inviteUrl}`
-            })
-        });
+        const emailUrl = this.getSendEmailUrl();
+        console.log('Sending invite email to:', to, 'via:', emailUrl);
         
-        const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.error || 'Nepodarilo sa odoslať email');
+        try {
+            const response = await fetch(emailUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    to,
+                    toName,
+                    subject: 'Pozvánka do tímu Adlify',
+                    htmlBody,
+                    textBody: `Ahoj ${firstName}, bol/a si pozvaný/á do tímu Adlify s rolou ${role}. Prijmi pozvánku tu: ${inviteUrl}`
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Email API error:', response.status, errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log('Email result:', result);
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Nepodarilo sa odoslať email');
+            }
+        } catch (fetchError) {
+            console.error('Fetch error:', fetchError);
+            // Ak zlyhá email, aspoň informujeme že člen bol vytvorený
+            throw new Error(`Email sa nepodarilo odoslať: ${fetchError.message}. Člen bol vytvorený, môžete skopírovať link manuálne.`);
         }
     },
 
