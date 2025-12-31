@@ -243,6 +243,7 @@ const LeadsModule = {
             ${hasAnalysis ? `<button onclick="LeadsModule.showAnalysis('${lead.id}')" class="p-2 hover:bg-blue-100 rounded-lg" title="Zobraziť">📊</button>` : ''}
             ${hasAnalysis ? `<button onclick="LeadsModule.generateProposalFor('${lead.id}')" class="p-2 hover:bg-green-100 rounded-lg" title="Ponuka">📄</button>` : ''}
             ${hasAnalysis ? `<button onclick="LeadsModule.sendProposalEmail('${lead.id}')" class="p-2 hover:bg-orange-100 rounded-lg" title="Odoslať ponuku emailom">📧</button>` : ''}
+            <button onclick="LeadsModule.convertToClient('${lead.id}')" class="p-2 hover:bg-emerald-100 rounded-lg" title="Konvertovať na klienta">🎯</button>
           </div>
         </div>
       `;
@@ -1321,6 +1322,72 @@ ${r.projection ? `
     await this.loadLeads();
     this.showTab('list');
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+  },
+
+  // Konverzia leadu na klienta
+  async convertToClient(leadId) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return Utils.toast('Lead nenájdený', 'error');
+    
+    const analysis = lead.analysis || {};
+    const companyData = analysis.company || {};
+    
+    // Potvrdiť konverziu
+    if (!await Utils.confirm(`Konvertovať "${lead.company_name || lead.domain}" na klienta?`)) return;
+    
+    try {
+      // Vytvoriť klienta
+      const clientData = {
+        company_name: lead.company_name || companyData.name || lead.domain,
+        contact_person: lead.contact_person || '',
+        email: lead.email || '',
+        phone: lead.phone || '',
+        website: lead.domain ? `https://${lead.domain}` : '',
+        city: lead.city || companyData.location || '',
+        industry: lead.industry || companyData.industry || '',
+        source: 'lead',
+        source_lead_id: lead.id,
+        status: 'active',
+        onboarding_status: 'pending',
+        notes: lead.notes || '',
+        // Generovať portal token
+        portal_token: crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+      };
+      
+      const { data: newClient, error } = await Database.client
+        .from('clients')
+        .insert([clientData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Aktualizovať lead
+      await Database.client
+        .from('leads')
+        .update({ 
+          status: 'won',
+          proposal_status: 'converted',
+          converted_client_id: newClient.id,
+          converted_at: new Date().toISOString()
+        })
+        .eq('id', leadId);
+      
+      Utils.toast(`🎉 Klient "${newClient.company_name}" vytvorený!`, 'success');
+      
+      // Reload
+      await this.loadLeads();
+      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+      
+      // Ponúknuť presmerovanie
+      if (await Utils.confirm('Chceš ísť na detail klienta?')) {
+        Router.navigate('clients', { id: newClient.id });
+      }
+      
+    } catch (error) {
+      console.error('Convert to client error:', error);
+      Utils.toast('Chyba pri konverzii: ' + error.message, 'error');
+    }
   },
 
   async analyzeSelected() { if (this.selectedIds.size === 0) return Utils.toast('Označ leady', 'warning'); for (const id of this.selectedIds) await this.analyze(id); this.selectedIds.clear(); },
