@@ -179,10 +179,12 @@ const Auth = {
   },
   
   /**
-   * Check if user is client
+   * Check if user is client (and NOT team member)
    */
   isClient() {
-    return this.profile?.role === 'client';
+    // Team member má prioritu
+    if (this.teamMember) return false;
+    return this.profile?.role === 'client' || !!this.clientUser;
   },
   
   /**
