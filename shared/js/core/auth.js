@@ -222,19 +222,27 @@ const Auth = {
     // Admin can do almost everything
     if (this.isAdmin()) return true;
     
-    // Team members can at least view everything
+    // Team members
     if (this.teamMember) {
-      if (action === 'view') return true;
+      // 1. Check custom_permissions first (individuálne oprávnenia)
+      if (this.teamMember.custom_permissions) {
+        const customPerm = this.teamMember.custom_permissions[resource]?.[action];
+        if (customPerm !== undefined) {
+          return customPerm === true;
+        }
+      }
       
-      // For other actions, check role-based permissions
+      // 2. Fallback to role-based permissions
       const role = this.teamMember.role;
       
-      // Sales can manage leads
-      if (role === 'sales' && resource === 'leads') return true;
-      if (role === 'sales' && resource === 'messages') return true;
+      // Everyone can view
+      if (action === 'view') return true;
       
-      // Manager can manage clients and projects
-      if (role === 'manager' && ['leads', 'clients', 'projects', 'tasks'].includes(resource)) return true;
+      // Sales can manage leads and messages
+      if (role === 'sales' && ['leads', 'messages'].includes(resource)) return true;
+      
+      // Manager can manage clients, projects, tasks
+      if (role === 'manager' && ['leads', 'clients', 'projects', 'tasks', 'messages'].includes(resource)) return true;
       
       // Support can manage messages and tasks
       if (role === 'support' && ['messages', 'tasks'].includes(resource)) return true;
