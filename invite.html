@@ -107,7 +107,7 @@
             showError('Aplikácia nie je nakonfigurovaná');
         }
         
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const db = window.supabase.createClient(supabaseUrl, supabaseKey);
         
         let inviteData = null;
         
@@ -124,7 +124,7 @@
         async function validateToken(token) {
             try {
                 // Get invitation
-                const { data: invitation, error: invError } = await supabase
+                const { data: invitation, error: invError } = await db
                     .from('invitation_tokens')
                     .select('*, team_member:team_members(*)')
                     .eq('token', token)
@@ -200,7 +200,7 @@
                 const member = inviteData.team_member;
                 
                 // 1. Create auth user
-                const { data: authData, error: authError } = await supabase.auth.signUp({
+                const { data: authData, error: authError } = await db.auth.signUp({
                     email: member.email,
                     password: password,
                     options: {
