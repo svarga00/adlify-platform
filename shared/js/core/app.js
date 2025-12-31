@@ -52,13 +52,16 @@ const App = {
       }
       
       // 6. Check access
+      console.log('🔍 Auth check:', { teamMember: Auth.teamMember, isTeamMember: Auth.isTeamMember() });
+      
       if (options.requireTeam && !Auth.isTeamMember()) {
-        window.location.href = '/portal/';
+        console.log('❌ Not a team member, redirecting to portal');
+        window.location.href = '/client-portal.html';
         return false;
       }
       
       if (options.requireClient && !Auth.isClient()) {
-        window.location.href = '/admin/';
+        window.location.href = '/admin/index.html';
         return false;
       }
       
