@@ -246,10 +246,19 @@ const TeamModule = {
                     <div class="member-meta">
                         ${member.last_login_at 
                             ? `<span title="Posledné prihlásenie">🕐 ${this.formatDate(member.last_login_at)}</span>`
-                            : `<span class="text-muted">Ešte sa neprihlásil</span>`
+                            : member.status === 'invited'
+                                ? `<span class="text-muted">Čaká na prijatie</span>`
+                                : `<span class="text-muted">Ešte sa neprihlásil</span>`
                         }
                     </div>
                     <div class="member-actions">
+                        ${member.status === 'invited' ? `
+                            <button class="btn-icon btn-resend" onclick="TeamModule.resendInvite('${member.id}')" title="Znovu odoslať pozvánku">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                                </svg>
+                            </button>
+                        ` : ''}
                         <button class="btn-icon" onclick="TeamModule.editMember('${member.id}')" title="Upraviť">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -610,25 +619,39 @@ const TeamModule = {
         });
     },
 
+    // URL pre Edge Function
+    SEND_EMAIL_URL: 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/send-email',
+    
+    // Generovať náhodný token
+    generateToken() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    },
+
     async sendInvite() {
         const form = document.getElementById('invite-form');
         const formData = new FormData(form);
         
+        const firstName = formData.get('first_name');
+        const lastName = formData.get('last_name');
         const email = formData.get('email');
         const role = formData.get('role');
         
-        if (!email || !role) {
-            alert('Vyplňte všetky povinné polia');
+        if (!firstName || !lastName || !email || !role) {
+            Utils.toast('Vyplňte všetky povinné polia', 'warning');
             return;
         }
         
+        Utils.toast('Odosielam pozvánku...', 'info');
+        
         try {
-            // Vytvoriť člena tímu
+            // 1. Vytvoriť člena tímu
             const { data: member, error } = await Database.client
                 .from('team_members')
                 .insert({
-                    first_name: formData.get('first_name'),
-                    last_name: formData.get('last_name'),
+                    first_name: firstName,
+                    last_name: lastName,
                     email: email,
                     phone: formData.get('phone') || null,
                     position: formData.get('position') || null,
@@ -641,18 +664,158 @@ const TeamModule = {
             
             if (error) throw error;
             
-            // TODO: Odoslať email s pozvánkou
-            // const token = await Database.client.rpc('generate_invitation_token', { p_team_member_id: member.id });
+            // 2. Generovať invitation token
+            const token = this.generateToken();
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7); // 7 dní platnosť
+            
+            const { error: tokenError } = await Database.client
+                .from('invitation_tokens')
+                .insert({
+                    team_member_id: member.id,
+                    token: token,
+                    expires_at: expiresAt.toISOString()
+                });
+            
+            if (tokenError) throw tokenError;
+            
+            // 3. Odoslať email
+            const inviteUrl = `${window.location.origin}/invite.html?token=${token}`;
+            const roleInfo = this.getRoleInfo(role);
+            
+            await this.sendInviteEmail({
+                to: email,
+                toName: `${firstName} ${lastName}`,
+                firstName,
+                role: roleInfo.label,
+                inviteUrl,
+                expiresAt
+            });
             
             document.querySelector('.modal-overlay').remove();
             await this.loadData();
             document.getElementById('team-content').innerHTML = this.renderTabContent();
             
-            alert(`Pozvánka bola odoslaná na ${email}`);
+            Utils.toast(`Pozvánka odoslaná na ${email}! ✉️`, 'success');
             
         } catch (error) {
             console.error('Error sending invite:', error);
-            alert('Chyba pri odosielaní pozvánky: ' + error.message);
+            Utils.toast('Chyba: ' + error.message, 'error');
+        }
+    },
+
+    async sendInviteEmail({ to, toName, firstName, role, inviteUrl, expiresAt }) {
+        const session = await Database.client.auth.getSession();
+        const token = session?.data?.session?.access_token || '';
+        
+        const htmlBody = `
+            <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">A</div>
+                    <h1 style="margin: 20px 0 10px; color: #1e1e2f; font-size: 24px;">Pozvánka do tímu Adlify</h1>
+                </div>
+                
+                <div style="background: #f8fafc; border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                        Ahoj <strong>${firstName}</strong>,
+                    </p>
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                        Bol/a si pozvaný/á do tímu <strong>Adlify</strong> s rolou <strong>${role}</strong>.
+                    </p>
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0;">
+                        Klikni na tlačidlo nižšie pre vytvorenie účtu a pripojenie sa k tímu.
+                    </p>
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px;">
+                        Prijať pozvánku
+                    </a>
+                </div>
+                
+                <div style="text-align: center; color: #94a3b8; font-size: 14px;">
+                    <p style="margin: 0 0 10px;">Pozvánka je platná do ${new Date(expiresAt).toLocaleDateString('sk-SK')}</p>
+                    <p style="margin: 0; font-size: 12px;">Ak si túto pozvánku nečakal/a, môžeš tento email ignorovať.</p>
+                </div>
+            </div>
+        `;
+        
+        const response = await fetch(this.SEND_EMAIL_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                to,
+                toName,
+                subject: 'Pozvánka do tímu Adlify',
+                htmlBody,
+                textBody: `Ahoj ${firstName}, bol/a si pozvaný/á do tímu Adlify s rolou ${role}. Prijmi pozvánku tu: ${inviteUrl}`
+            })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Nepodarilo sa odoslať email');
+        }
+    },
+
+    async resendInvite(memberId) {
+        const member = this.members.find(m => m.id === memberId);
+        if (!member || member.status !== 'invited') return;
+        
+        Utils.toast('Odosielam pozvánku...', 'info');
+        
+        try {
+            // Zmazať starý token
+            await Database.client
+                .from('invitation_tokens')
+                .delete()
+                .eq('team_member_id', memberId);
+            
+            // Generovať nový token
+            const token = this.generateToken();
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7);
+            
+            const { error: tokenError } = await Database.client
+                .from('invitation_tokens')
+                .insert({
+                    team_member_id: memberId,
+                    token: token,
+                    expires_at: expiresAt.toISOString()
+                });
+            
+            if (tokenError) throw tokenError;
+            
+            // Odoslať email
+            const inviteUrl = `${window.location.origin}/invite.html?token=${token}`;
+            const roleInfo = this.getRoleInfo(member.role);
+            
+            await this.sendInviteEmail({
+                to: member.email,
+                toName: `${member.first_name} ${member.last_name}`,
+                firstName: member.first_name,
+                role: roleInfo.label,
+                inviteUrl,
+                expiresAt
+            });
+            
+            // Aktualizovať invited_at
+            await Database.client
+                .from('team_members')
+                .update({ invited_at: new Date().toISOString() })
+                .eq('id', memberId);
+            
+            await this.loadData();
+            document.getElementById('team-content').innerHTML = this.renderTabContent();
+            
+            Utils.toast(`Pozvánka znovu odoslaná! ✉️`, 'success');
+            
+        } catch (error) {
+            console.error('Error resending invite:', error);
+            Utils.toast('Chyba: ' + error.message, 'error');
         }
     },
 
@@ -1101,6 +1264,15 @@ const TeamModule = {
                 .btn-icon.btn-danger:hover {
                     background: #fee2e2;
                     color: #dc2626;
+                }
+                
+                .btn-icon.btn-resend {
+                    color: #f59e0b;
+                }
+                
+                .btn-icon.btn-resend:hover {
+                    background: #fef3c7;
+                    color: #d97706;
                 }
                 
                 /* Roles Tab */
