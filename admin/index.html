@@ -137,6 +137,7 @@
     <script src="../modules/billing/billing.js"></script>
     <script src="../modules/settings/settings.js"></script>
     <script src="../modules/integrations/integrations.js"></script>
+    <script src="../modules/team/team.js"></script>
     
     <!-- Initialize App -->
     <script>
@@ -159,6 +160,7 @@
                 // Register modules - SYSTÉM
                 App.register(SettingsModule);
                 App.register(IntegrationsModule);
+                App.register(TeamModule);
                 
                 // Navigate to default or current route
                 if (!window.location.hash) {
