@@ -124,6 +124,7 @@
     <script src="../shared/js/core/auth.js"></script>
     <script src="../shared/js/core/router.js"></script>
     <script src="../shared/js/core/utils.js"></script>
+    <script src="../shared/js/utils/pdf-generator.js"></script>
     <script src="../shared/js/core/app.js"></script>
     <script src="../shared/js/components/notifications.js"></script>
     
@@ -133,6 +134,7 @@
     <script src="../modules/clients/clients.js"></script>
     <script src="../modules/messages/messages.js"></script>
     <script src="../modules/projects/projects.js"></script>
+    <script src="../modules/campaigns/campaigns.js"></script>
     <script src="../modules/onboarding/onboarding.js"></script>
     <script src="../modules/services/services.js"></script>
     <script src="../modules/billing/billing.js"></script>
@@ -143,6 +145,8 @@
     <script src="../modules/tickets/tickets.js"></script>
     <script src="../modules/reporting/reporting.js"></script>
     <script src="../modules/calendar/calendar.js"></script>
+    <script src="../modules/templates/templates.js"></script>
+    <script src="../modules/documents/documents.js"></script>
     
     <!-- Initialize App -->
     <script>
@@ -160,6 +164,7 @@
                 App.register(LeadsModule);
                 App.register(ClientsModule);
                 App.register(CampaignProjectsModule);
+                App.register(CampaignsModule);
                 App.register(MessagesModule);
                 App.register(TasksModule);
                 App.register(TicketsModule);
@@ -170,6 +175,8 @@
                 App.register(ServicesModule);
                 App.register(ReportingModule);
                 App.register(CalendarModule);
+                App.register(TemplatesModule);
+                App.register(DocumentsModule);
                 
                 // Register modules - SYSTÉM
                 App.register(SettingsModule);
