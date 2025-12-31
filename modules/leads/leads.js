@@ -207,13 +207,60 @@ const LeadsModule = {
           <!-- Import Tab -->
           <div id="tab-import" class="tab-content hidden">
             <div class="leads-form-card">
-              <h2>📥 Import domén</h2>
-              <p class="form-desc">Vložte domény (jedna na riadok) alebo skopírujte z Excelu</p>
-              <textarea id="import-domains" rows="10" placeholder="firma1.sk&#10;firma2.sk&#10;firma3.sk"></textarea>
-              <div class="form-actions">
-                <button onclick="LeadsModule.handleImport()" class="btn-leads-primary">
-                  📥 Importovať domény
-                </button>
+              <h2>📥 Import leadov</h2>
+              
+              <div class="import-options">
+                <div class="import-option" onclick="LeadsModule.showImportType('domains')">
+                  <div class="import-icon">📝</div>
+                  <div class="import-text">
+                    <strong>Domény / Zoznam</strong>
+                    <span>Vložte domény alebo skopírujte z Excelu</span>
+                  </div>
+                </div>
+                <div class="import-option" onclick="LeadsModule.showImportType('miner')">
+                  <div class="import-icon">⛏️</div>
+                  <div class="import-text">
+                    <strong>Marketing Miner</strong>
+                    <span>Import z SERP analýzy / Contact Finder</span>
+                  </div>
+                </div>
+                <div class="import-option" onclick="LeadsModule.showImportType('csv')">
+                  <div class="import-icon">📄</div>
+                  <div class="import-text">
+                    <strong>CSV súbor</strong>
+                    <span>Nahrajte CSV s leadmi</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Domains Import -->
+              <div id="import-domains-section" class="import-section">
+                <label>Domény (jedna na riadok)</label>
+                <textarea id="import-domains" rows="8" placeholder="firma1.sk&#10;firma2.sk&#10;firma3.sk"></textarea>
+                <div class="form-actions">
+                  <button onclick="LeadsModule.handleImport()" class="btn-leads-primary">📥 Importovať domény</button>
+                </div>
+              </div>
+              
+              <!-- Marketing Miner Import -->
+              <div id="import-miner-section" class="import-section hidden">
+                <label>Marketing Miner JSON/CSV výstup</label>
+                <textarea id="import-miner-data" rows="8" placeholder="Vložte JSON alebo CSV dáta z Marketing Miner..."></textarea>
+                <p class="form-hint">Podporované: SERP Analyzer, Contact Finder, Company Details</p>
+                <div class="form-actions">
+                  <button onclick="LeadsModule.handleMinerImport()" class="btn-leads-primary">⛏️ Importovať z Miner</button>
+                </div>
+              </div>
+              
+              <!-- CSV Import -->
+              <div id="import-csv-section" class="import-section hidden">
+                <label>CSV súbor</label>
+                <input type="file" id="import-csv-file" accept=".csv" onchange="LeadsModule.handleCSVSelect(this)">
+                <p class="form-hint">Očakávané stĺpce: domain, company_name, email, phone</p>
+                <div id="csv-preview"></div>
+                <div class="form-actions">
+                  <button onclick="LeadsModule.handleCSVImport()" class="btn-leads-primary" id="csv-import-btn" disabled>📄 Importovať CSV</button>
+                </div>
               </div>
             </div>
           </div>
@@ -786,10 +833,487 @@ const LeadsModule = {
           display: none;
         }
         
+        /* Table Styles */
+        .leads-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        
+        .leads-table th {
+          background: #f8fafc;
+          padding: 0.875rem 1rem;
+          text-align: left;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #64748b;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .leads-table td {
+          padding: 0.875rem 1rem;
+          border-bottom: 1px solid #f1f5f9;
+          vertical-align: middle;
+        }
+        
+        .lead-row {
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        
+        .lead-row:hover {
+          background: #f8fafc;
+        }
+        
+        .col-check { width: 40px; }
+        .col-actions { width: 140px; }
+        
+        .lead-company {
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+        }
+        
+        .lead-company strong {
+          color: #1e293b;
+        }
+        
+        .lead-domain {
+          font-size: 0.8rem;
+          color: #f97316;
+          text-decoration: none;
+        }
+        
+        .lead-domain:hover {
+          text-decoration: underline;
+        }
+        
+        .lead-contact {
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+          font-size: 0.85rem;
+        }
+        
+        .contact-email { color: #2563eb; }
+        .contact-phone { color: #059669; }
+        
+        .lead-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.375rem;
+        }
+        
+        .status-badge {
+          display: inline-block;
+          padding: 0.25rem 0.625rem;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+        
+        .status-badge.blue { background: #dbeafe; color: #1d4ed8; }
+        .status-badge.yellow { background: #fef3c7; color: #b45309; }
+        .status-badge.purple { background: #ede9fe; color: #7c3aed; }
+        .status-badge.green { background: #d1fae5; color: #047857; }
+        .status-badge.red { background: #fee2e2; color: #dc2626; }
+        
+        .analysis-badge {
+          display: inline-block;
+          padding: 0.25rem 0.5rem;
+          background: #d1fae5;
+          color: #047857;
+          border-radius: 12px;
+          font-size: 0.7rem;
+          font-weight: 600;
+        }
+        
+        .proposal-badge {
+          font-size: 0.8rem;
+        }
+        
+        .score-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 0.9rem;
+        }
+        
+        .score-badge.high { background: #d1fae5; color: #047857; }
+        .score-badge.medium { background: #fef3c7; color: #b45309; }
+        .score-badge.low { background: #f1f5f9; color: #64748b; }
+        
+        .btn-action {
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: #f1f5f9;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.15s;
+        }
+        
+        .btn-action:hover { background: #e2e8f0; }
+        .btn-action.green:hover { background: #d1fae5; }
+        
+        /* Detail Modal Styles */
+        .lead-detail {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+        
+        .detail-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .detail-title h2 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 0;
+          color: #1e293b;
+        }
+        
+        .detail-domain {
+          color: #f97316;
+          text-decoration: none;
+          font-size: 0.9rem;
+        }
+        
+        .detail-domain:hover { text-decoration: underline; }
+        
+        .detail-score {
+          text-align: center;
+        }
+        
+        .score-big {
+          display: block;
+          font-size: 2rem;
+          font-weight: 800;
+          line-height: 1;
+        }
+        
+        .score-big.high { color: #047857; }
+        .score-big.medium { color: #b45309; }
+        .score-big.low { color: #64748b; }
+        
+        .score-label {
+          font-size: 0.75rem;
+          color: #94a3b8;
+          text-transform: uppercase;
+        }
+        
+        .detail-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        
+        .detail-card {
+          background: #f8fafc;
+          border-radius: 12px;
+          padding: 1.25rem;
+        }
+        
+        .detail-card h4 {
+          font-size: 0.9rem;
+          font-weight: 600;
+          margin: 0 0 1rem 0;
+          color: #475569;
+        }
+        
+        .info-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.5rem 0;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .info-row:last-child { border-bottom: none; }
+        
+        .info-label {
+          font-size: 0.85rem;
+          color: #64748b;
+        }
+        
+        .info-value {
+          font-size: 0.85rem;
+          color: #1e293b;
+          font-weight: 500;
+        }
+        
+        .info-value a {
+          color: #f97316;
+          text-decoration: none;
+        }
+        
+        .info-value a:hover { text-decoration: underline; }
+        
+        .status-selector {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        
+        .status-option {
+          padding: 0.5rem 0.75rem;
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        
+        .status-option:hover {
+          border-color: #f97316;
+        }
+        
+        .status-option.active {
+          background: #f97316;
+          border-color: #f97316;
+          color: white;
+        }
+        
+        .detail-section {
+          background: #f8fafc;
+          border-radius: 12px;
+          padding: 1.25rem;
+        }
+        
+        .detail-section h4 {
+          font-size: 0.9rem;
+          font-weight: 600;
+          margin: 0 0 1rem 0;
+          color: #475569;
+        }
+        
+        .analysis-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        
+        .analysis-block {
+          background: white;
+          border-radius: 8px;
+          padding: 1rem;
+        }
+        
+        .analysis-block h5 {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #64748b;
+          margin: 0 0 0.5rem 0;
+        }
+        
+        .analysis-block p {
+          font-size: 0.9rem;
+          color: #334155;
+          margin: 0;
+          line-height: 1.5;
+        }
+        
+        .analysis-block.highlight {
+          background: #fff7ed;
+          border: 1px solid #fed7aa;
+        }
+        
+        .analysis-block.package {
+          background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+          color: white;
+        }
+        
+        .analysis-block.package h5 { color: rgba(255,255,255,0.8); }
+        .analysis-block.package .package-name { font-size: 1.1rem; font-weight: 700; }
+        .analysis-block.package .package-price { font-size: 0.9rem; opacity: 0.9; }
+        
+        .no-analysis-box {
+          text-align: center;
+          padding: 2.5rem;
+          background: #f8fafc;
+          border-radius: 12px;
+        }
+        
+        .no-analysis-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        
+        .no-analysis-box h4 {
+          margin: 0 0 0.5rem;
+          color: #1e293b;
+        }
+        
+        .no-analysis-box p {
+          color: #64748b;
+          margin: 0 0 1.5rem;
+        }
+        
+        .detail-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+        
+        .btn-leads-success {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.25rem;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border: none;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 0.9rem;
+          cursor: pointer;
+        }
+        
+        .edit-lead-form h3 {
+          margin: 0 0 1.5rem;
+        }
+        
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+        }
+        
+        .empty-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        
+        .empty-state h3 {
+          margin: 0 0 0.5rem;
+          color: #1e293b;
+        }
+        
+        .empty-state p {
+          color: #64748b;
+          margin: 0;
+        }
+        
+        /* Import Options */
+        .import-options {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        
+        .import-option {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          background: #f8fafc;
+          border: 2px solid #e2e8f0;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .import-option:hover {
+          border-color: #f97316;
+          background: #fff7ed;
+        }
+        
+        .import-option.active {
+          border-color: #f97316;
+          background: #fff7ed;
+        }
+        
+        .import-icon {
+          font-size: 1.75rem;
+        }
+        
+        .import-text {
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .import-text strong {
+          font-size: 0.9rem;
+          color: #1e293b;
+        }
+        
+        .import-text span {
+          font-size: 0.8rem;
+          color: #64748b;
+        }
+        
+        .import-section {
+          margin-top: 1rem;
+        }
+        
+        .import-section.hidden {
+          display: none;
+        }
+        
+        .import-section label {
+          display: block;
+          font-size: 0.9rem;
+          font-weight: 500;
+          color: #475569;
+          margin-bottom: 0.5rem;
+        }
+        
+        .form-hint {
+          font-size: 0.8rem;
+          color: #94a3b8;
+          margin-top: 0.5rem;
+        }
+        
+        .csv-preview-box {
+          background: #f8fafc;
+          border-radius: 8px;
+          padding: 1rem;
+          margin-top: 1rem;
+        }
+        
+        .csv-preview-box p {
+          margin: 0 0 0.5rem;
+          font-size: 0.85rem;
+        }
+        
+        .preview-header {
+          color: #64748b;
+        }
+        
+        .preview-sample {
+          color: #94a3b8;
+          font-size: 0.8rem !important;
+        }
+        
+        @media (max-width: 768px) {
+          .import-options {
+            grid-template-columns: 1fr;
+          }
+        }
+        
         /* Responsive */
         @media (max-width: 1024px) {
           .leads-stats {
             grid-template-columns: repeat(2, 1fr);
+          }
+          .detail-grid, .analysis-grid {
+            grid-template-columns: 1fr;
           }
         }
         
@@ -824,39 +1348,221 @@ const LeadsModule = {
   },
 
   renderLeadsList() {
-    if (this.leads.length === 0) return '<div class="p-8 text-center text-gray-400">Žiadne leady</div>';
-    return this.leads.map(lead => {
-      const a = lead.analysis || {};
-      const hasAnalysis = a.company || a.analysis;
-      const proposalStatus = lead.proposal_status || 'not_sent';
-      const proposalBadge = this.getProposalBadge(proposalStatus, lead.proposal_sent_at);
-      return `
-        <div class="px-4 py-3 hover:bg-gray-50 flex items-center gap-3">
-          <input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="LeadsModule.toggleSelect('${lead.id}')" class="w-4 h-4 rounded">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap mb-0.5">
-              <strong class="truncate">${lead.company_name || lead.domain || 'Neznámy'}</strong>
-              ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="text-xs text-primary hover:underline">${lead.domain}</a>` : ''}
-              ${Utils.statusBadge(lead.status, 'lead')}
-              ${hasAnalysis ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">✓ Analyzované</span>' : ''}
-              ${proposalBadge}
-            </div>
-            <div class="text-xs text-gray-500">
-              ${a.company?.location ? '📍 ' + a.company.location : ''} ${a.company?.industry ? '• ' + a.company.industry : ''}
-              ${lead.email ? `<span class="ml-2 text-blue-600">📧 ${lead.email}</span>` : ''}
-              ${lead.phone ? `<span class="ml-2 text-green-600">📞 ${lead.phone}</span>` : ''}
-            </div>
+    if (this.leads.length === 0) return '<div class="empty-state"><div class="empty-icon">👥</div><h3>Žiadne leady</h3><p>Pridajte lead alebo importujte domény</p></div>';
+    
+    return `
+      <table class="leads-table">
+        <thead>
+          <tr>
+            <th class="col-check"><input type="checkbox" onchange="LeadsModule.toggleAllCheckbox(this.checked)"></th>
+            <th>Firma</th>
+            <th>Kontakt</th>
+            <th>Status</th>
+            <th>Skóre</th>
+            <th>Akcie</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this.leads.map(lead => this.renderLeadRow(lead)).join('')}
+        </tbody>
+      </table>
+    `;
+  },
+
+  renderLeadRow(lead) {
+    const a = lead.analysis || {};
+    const hasAnalysis = a.company || a.analysis;
+    const proposalStatus = lead.proposal_status || 'not_sent';
+    const score = lead.score || 0;
+    const scoreClass = score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low';
+    
+    const statusConfig = {
+      'new': { label: 'Nový', class: 'blue' },
+      'contacted': { label: 'Kontaktovaný', class: 'yellow' },
+      'proposal_sent': { label: 'Ponuka', class: 'purple' },
+      'won': { label: 'Vyhraný', class: 'green' },
+      'lost': { label: 'Prehraný', class: 'red' }
+    };
+    const status = statusConfig[lead.status] || statusConfig['new'];
+    
+    return `
+      <tr class="lead-row" onclick="LeadsModule.showLeadDetail('${lead.id}')">
+        <td class="col-check" onclick="event.stopPropagation()">
+          <input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="LeadsModule.toggleSelect('${lead.id}')">
+        </td>
+        <td>
+          <div class="lead-company">
+            <strong>${lead.company_name || lead.domain || 'Neznámy'}</strong>
+            ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" onclick="event.stopPropagation()" class="lead-domain">${lead.domain}</a>` : ''}
           </div>
-          ${Utils.scoreBadge(lead.score)}
-          <div class="flex gap-1">
-            <button onclick="LeadsModule.analyze('${lead.id}')" class="p-2 hover:bg-purple-100 rounded-lg" title="Analyzovať">🤖</button>
-            ${hasAnalysis ? `<button onclick="LeadsModule.showAnalysis('${lead.id}')" class="p-2 hover:bg-blue-100 rounded-lg" title="Zobraziť">📊</button>` : ''}
-            ${hasAnalysis ? `<button onclick="LeadsModule.generateProposalFor('${lead.id}')" class="p-2 hover:bg-green-100 rounded-lg" title="Ponuka">📄</button>` : ''}
-            ${hasAnalysis ? `<button onclick="LeadsModule.sendProposalEmail('${lead.id}')" class="p-2 hover:bg-orange-100 rounded-lg" title="Odoslať ponuku emailom">📧</button>` : ''}
+        </td>
+        <td>
+          <div class="lead-contact">
+            ${lead.email ? `<span class="contact-email">📧 ${lead.email}</span>` : ''}
+            ${lead.phone ? `<span class="contact-phone">📞 ${lead.phone}</span>` : ''}
+            ${!lead.email && !lead.phone ? '-' : ''}
+          </div>
+        </td>
+        <td>
+          <div class="lead-badges">
+            <span class="status-badge ${status.class}">${status.label}</span>
+            ${hasAnalysis ? '<span class="analysis-badge">✓ AI</span>' : ''}
+            ${proposalStatus === 'sent' ? '<span class="proposal-badge">📧</span>' : ''}
+          </div>
+        </td>
+        <td><div class="score-badge ${scoreClass}">${score}</div></td>
+        <td class="col-actions" onclick="event.stopPropagation()">
+          <button class="btn-action" onclick="LeadsModule.analyze('${lead.id}')" title="AI Analýza">🤖</button>
+          ${hasAnalysis ? `<button class="btn-action" onclick="LeadsModule.showProposalModal('${lead.id}')" title="Ponuka">📄</button>` : ''}
+          <button class="btn-action green" onclick="LeadsModule.convertToClient('${lead.id}')" title="Konvertovať">🎯</button>
+        </td>
+      </tr>
+    `;
+  },
+
+  toggleAllCheckbox(checked) {
+    if (checked) this.leads.forEach(l => this.selectedIds.add(l.id));
+    else this.selectedIds.clear();
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+  },
+
+  async showLeadDetail(leadId) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    
+    this.currentLeadId = leadId;
+    const a = lead.analysis || {};
+    const company = a.company || {};
+    const analysis = a.analysis || {};
+    const hasAnalysis = company.name || analysis.business_overview;
+    
+    const modal = document.getElementById('analysis-modal');
+    const content = document.getElementById('analysis-content');
+    
+    content.innerHTML = `
+      <div class="lead-detail">
+        <div class="detail-header">
+          <div class="detail-title">
+            <h2>${lead.company_name || lead.domain || 'Neznámy'}</h2>
+            ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="detail-domain">${lead.domain} ↗</a>` : ''}
+          </div>
+          <div class="detail-score">
+            <span class="score-big ${(lead.score || 0) >= 80 ? 'high' : (lead.score || 0) >= 50 ? 'medium' : 'low'}">${lead.score || 0}</span>
+            <span class="score-label">Skóre</span>
           </div>
         </div>
-      `;
-    }).join('');
+        
+        <div class="detail-grid">
+          <div class="detail-card">
+            <h4>📋 Kontaktné údaje</h4>
+            <div class="info-row"><span class="info-label">Email</span><span class="info-value">${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '-'}</span></div>
+            <div class="info-row"><span class="info-label">Telefón</span><span class="info-value">${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '-'}</span></div>
+            <div class="info-row"><span class="info-label">Odvetvie</span><span class="info-value">${lead.industry || company.industry || '-'}</span></div>
+            <div class="info-row"><span class="info-label">Lokalita</span><span class="info-value">${lead.city || company.location || '-'}</span></div>
+          </div>
+          
+          <div class="detail-card">
+            <h4>📊 Status</h4>
+            <div class="status-selector">
+              ${['new', 'contacted', 'proposal_sent', 'won', 'lost'].map(s => {
+                const cfg = { new: '🆕 Nový', contacted: '📞 Kontaktovaný', proposal_sent: '📧 Ponuka', won: '✅ Vyhraný', lost: '❌ Prehraný' };
+                return `<button class="status-option ${lead.status === s ? 'active' : ''}" onclick="LeadsModule.updateLeadStatus('${lead.id}', '${s}')">${cfg[s]}</button>`;
+              }).join('')}
+            </div>
+            <div class="info-row" style="margin-top:1rem"><span class="info-label">Vytvorený</span><span class="info-value">${new Date(lead.created_at).toLocaleDateString('sk-SK')}</span></div>
+          </div>
+        </div>
+        
+        ${hasAnalysis ? `
+          <div class="detail-section">
+            <h4>🤖 AI Analýza</h4>
+            <div class="analysis-grid">
+              ${analysis.business_overview ? `<div class="analysis-block"><h5>Prehľad podnikania</h5><p>${analysis.business_overview}</p></div>` : ''}
+              ${analysis.marketing_assessment ? `<div class="analysis-block"><h5>Marketingové hodnotenie</h5><p>${analysis.marketing_assessment}</p></div>` : ''}
+              ${analysis.recommendation ? `<div class="analysis-block highlight"><h5>💡 Odporúčanie</h5><p>${analysis.recommendation}</p></div>` : ''}
+              ${a.recommendedPackage ? `<div class="analysis-block package"><h5>📦 Odporúčaný balík</h5><p class="package-name">${this.packages[a.recommendedPackage]?.icon || '📦'} ${this.packages[a.recommendedPackage]?.name || a.recommendedPackage}</p><p class="package-price">${this.packages[a.recommendedPackage]?.price || '???'}€/mesiac</p></div>` : ''}
+            </div>
+          </div>
+        ` : `
+          <div class="no-analysis-box">
+            <div class="no-analysis-icon">🤖</div>
+            <h4>Lead ešte nebol analyzovaný</h4>
+            <p>Spustite AI analýzu pre získanie odporúčaní</p>
+            <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-leads-primary">🤖 Spustiť AI analýzu</button>
+          </div>
+        `}
+        
+        <div class="detail-actions">
+          <button onclick="LeadsModule.editLeadInfo('${lead.id}')" class="btn-leads-secondary">✏️ Upraviť</button>
+          ${hasAnalysis ? `<button onclick="LeadsModule.editAnalysis()" class="btn-leads-secondary">✏️ Analýza</button>` : ''}
+          ${hasAnalysis ? `<button onclick="LeadsModule.showProposalModal('${lead.id}')" class="btn-leads-secondary">📄 Ponuka</button>` : ''}
+          ${hasAnalysis && lead.email ? `<button onclick="LeadsModule.sendProposalEmail('${lead.id}')" class="btn-leads-primary">📧 Odoslať</button>` : ''}
+          <button onclick="LeadsModule.convertToClient('${lead.id}')" class="btn-leads-success">🎯 Konvertovať</button>
+        </div>
+      </div>
+    `;
+    
+    if (hasAnalysis) this.currentAnalysis = a;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  },
+
+  async updateLeadStatus(leadId, newStatus) {
+    try {
+      await Database.client.from('leads').update({ status: newStatus }).eq('id', leadId);
+      const lead = this.leads.find(l => l.id === leadId);
+      if (lead) lead.status = newStatus;
+      Utils.toast('Status aktualizovaný', 'success');
+      this.showLeadDetail(leadId);
+      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    } catch (error) {
+      Utils.toast('Chyba', 'error');
+    }
+  },
+
+  editLeadInfo(leadId) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    document.getElementById('analysis-content').innerHTML = `
+      <div class="edit-lead-form">
+        <h3>✏️ Upraviť lead</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Názov firmy</label><input type="text" id="edit-company-name" value="${lead.company_name || ''}"></div>
+          <div class="form-group"><label>Doména</label><input type="text" id="edit-domain" value="${lead.domain || ''}"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="edit-lead-email" value="${lead.email || ''}"></div>
+          <div class="form-group"><label>Telefón</label><input type="text" id="edit-lead-phone" value="${lead.phone || ''}"></div>
+          <div class="form-group"><label>Odvetvie</label><input type="text" id="edit-industry" value="${lead.industry || ''}"></div>
+          <div class="form-group"><label>Mesto</label><input type="text" id="edit-city" value="${lead.city || ''}"></div>
+        </div>
+        <div class="form-group"><label>Poznámky</label><textarea id="edit-notes" rows="3">${lead.notes || ''}</textarea></div>
+        <div class="form-actions">
+          <button onclick="LeadsModule.showLeadDetail('${leadId}')" class="btn-leads-secondary">← Späť</button>
+          <button onclick="LeadsModule.saveLeadInfo('${leadId}')" class="btn-leads-primary">💾 Uložiť</button>
+        </div>
+      </div>
+    `;
+  },
+
+  async saveLeadInfo(leadId) {
+    const updates = {
+      company_name: document.getElementById('edit-company-name').value.trim(),
+      domain: document.getElementById('edit-domain').value.trim().replace(/^https?:\/\//, '').replace(/^www\./, ''),
+      email: document.getElementById('edit-lead-email').value.trim() || null,
+      phone: document.getElementById('edit-lead-phone').value.trim() || null,
+      industry: document.getElementById('edit-industry').value.trim() || null,
+      city: document.getElementById('edit-city').value.trim() || null,
+      notes: document.getElementById('edit-notes').value.trim() || null
+    };
+    try {
+      await Database.client.from('leads').update(updates).eq('id', leadId);
+      const lead = this.leads.find(l => l.id === leadId);
+      if (lead) Object.assign(lead, updates);
+      Utils.toast('Uložené!', 'success');
+      this.showLeadDetail(leadId);
+      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    } catch (error) {
+      Utils.toast('Chyba', 'error');
+    }
   },
   
   getProposalBadge(status, sentAt) {
@@ -880,9 +1586,9 @@ const LeadsModule = {
 
   showTab(tab) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.leads-tab').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab)?.classList.remove('hidden');
-    document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
+    document.querySelector(`.leads-tab[data-tab="${tab}"]`)?.classList.add('active');
   },
 
   async onSearchChange(value) { this.filters.search = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); document.getElementById('leads-count').textContent = this.leads.length; },
@@ -1895,14 +2601,208 @@ ${r.projection ? `
     let added = 0, skipped = 0;
     for (const domain of domains) {
       try {
-        const existing = await Database.select('leads', { filters: { domain }, limit: 1 });
-        if (existing?.length > 0) { skipped++; continue; }
+        // Kontrola duplicity
+        const { data: existing } = await Database.client
+          .from('leads')
+          .select('id')
+          .eq('domain', domain)
+          .limit(1);
+        
+        if (existing && existing.length > 0) { 
+          skipped++; 
+          continue; 
+        }
+        
         await Database.insert('leads', { domain, company_name: domain.split('.')[0], status: 'new', score: 50 });
         added++;
       } catch (e) { console.error('Import error:', e); }
     }
+    Utils.toast(`Pridaných: ${added}, Preskočených (duplicity): ${skipped}`, 'success');
+    textarea.value = '';
+    await this.loadLeads();
+    this.showTab('list');
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    document.getElementById('leads-count').textContent = this.leads.length;
+  },
+
+  // Import type switcher
+  showImportType(type) {
+    document.querySelectorAll('.import-section').forEach(s => s.classList.add('hidden'));
+    document.getElementById(`import-${type}-section`)?.classList.remove('hidden');
+    document.querySelectorAll('.import-option').forEach(o => o.classList.remove('active'));
+    event.currentTarget?.classList.add('active');
+  },
+
+  // Marketing Miner import
+  async handleMinerImport() {
+    const textarea = document.getElementById('import-miner-data');
+    const text = textarea.value.trim();
+    if (!text) return Utils.toast('Vložte dáta z Marketing Miner', 'warning');
+    
+    let leads = [];
+    
+    try {
+      // Try JSON first
+      if (text.startsWith('[') || text.startsWith('{')) {
+        const data = JSON.parse(text);
+        const items = Array.isArray(data) ? data : (data.results || data.data || [data]);
+        leads = items.map(item => ({
+          domain: (item.domain || item.url || item.website || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0],
+          company_name: item.company_name || item.companyName || item.name || item.title || '',
+          email: item.email || item.emails?.[0] || '',
+          phone: item.phone || item.phones?.[0] || item.telephone || '',
+          industry: item.industry || item.category || '',
+          city: item.city || item.location || ''
+        })).filter(l => l.domain);
+      } else {
+        // Try CSV
+        const lines = text.split('\n').filter(l => l.trim());
+        const header = lines[0].toLowerCase().split(/[,;\t]/);
+        const domainIdx = header.findIndex(h => h.includes('domain') || h.includes('url') || h.includes('web'));
+        const nameIdx = header.findIndex(h => h.includes('name') || h.includes('company') || h.includes('firma'));
+        const emailIdx = header.findIndex(h => h.includes('email') || h.includes('mail'));
+        const phoneIdx = header.findIndex(h => h.includes('phone') || h.includes('tel'));
+        
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(/[,;\t]/);
+          const domain = (cols[domainIdx] || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].replace(/"/g, '');
+          if (domain && domain.includes('.')) {
+            leads.push({
+              domain,
+              company_name: (cols[nameIdx] || domain.split('.')[0]).replace(/"/g, ''),
+              email: (cols[emailIdx] || '').replace(/"/g, ''),
+              phone: (cols[phoneIdx] || '').replace(/"/g, '')
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Parse error:', e);
+      return Utils.toast('Nepodarilo sa spracovať dáta. Skontrolujte formát.', 'error');
+    }
+    
+    if (leads.length === 0) return Utils.toast('Žiadne platné leady v dátach', 'warning');
+    
+    let added = 0, skipped = 0;
+    for (const lead of leads) {
+      try {
+        const { data: existing } = await Database.client
+          .from('leads')
+          .select('id')
+          .eq('domain', lead.domain)
+          .limit(1);
+        
+        if (existing && existing.length > 0) { skipped++; continue; }
+        
+        await Database.insert('leads', {
+          domain: lead.domain,
+          company_name: lead.company_name || lead.domain.split('.')[0],
+          email: lead.email || null,
+          phone: lead.phone || null,
+          industry: lead.industry || null,
+          city: lead.city || null,
+          status: 'new',
+          score: 50
+        });
+        added++;
+      } catch (e) { console.error('Import error:', e); }
+    }
+    
     Utils.toast(`Pridaných: ${added}, Preskočených: ${skipped}`, 'success');
     textarea.value = '';
+    await this.loadLeads();
+    this.showTab('list');
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    document.getElementById('leads-count').textContent = this.leads.length;
+  },
+
+  // CSV file handling
+  csvData: null,
+  
+  handleCSVSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) {
+        Utils.toast('CSV je prázdny alebo má len hlavičku', 'warning');
+        return;
+      }
+      
+      const header = lines[0].split(/[,;\t]/).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+      const preview = lines.slice(1, 4).map(line => {
+        const cols = line.split(/[,;\t]/);
+        return header.map((h, i) => `${h}: ${(cols[i] || '').replace(/"/g, '')}`).join(', ');
+      });
+      
+      this.csvData = { text, header, count: lines.length - 1 };
+      
+      document.getElementById('csv-preview').innerHTML = `
+        <div class="csv-preview-box">
+          <p><strong>${this.csvData.count} riadkov</strong></p>
+          <p class="preview-header">Stĺpce: ${header.join(', ')}</p>
+          <p class="preview-sample">Ukážka: ${preview[0]}</p>
+        </div>
+      `;
+      document.getElementById('csv-import-btn').disabled = false;
+    };
+    reader.readAsText(file);
+  },
+
+  async handleCSVImport() {
+    if (!this.csvData) return Utils.toast('Najprv vyberte CSV súbor', 'warning');
+    
+    const lines = this.csvData.text.split('\n').filter(l => l.trim());
+    const header = this.csvData.header;
+    
+    const domainIdx = header.findIndex(h => h.includes('domain') || h.includes('url') || h.includes('web'));
+    const nameIdx = header.findIndex(h => h.includes('name') || h.includes('company') || h.includes('firma'));
+    const emailIdx = header.findIndex(h => h.includes('email') || h.includes('mail'));
+    const phoneIdx = header.findIndex(h => h.includes('phone') || h.includes('tel'));
+    
+    if (domainIdx === -1 && nameIdx === -1) {
+      return Utils.toast('CSV musí obsahovať stĺpec domain alebo company_name', 'error');
+    }
+    
+    let added = 0, skipped = 0;
+    
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(/[,;\t]/).map(c => c.trim().replace(/"/g, ''));
+      const domain = (cols[domainIdx] || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+      const name = cols[nameIdx] || domain?.split('.')[0] || '';
+      
+      if (!domain && !name) continue;
+      
+      try {
+        if (domain) {
+          const { data: existing } = await Database.client
+            .from('leads')
+            .select('id')
+            .eq('domain', domain)
+            .limit(1);
+          if (existing && existing.length > 0) { skipped++; continue; }
+        }
+        
+        await Database.insert('leads', {
+          domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`,
+          company_name: name,
+          email: cols[emailIdx] || null,
+          phone: cols[phoneIdx] || null,
+          status: 'new',
+          score: 50
+        });
+        added++;
+      } catch (e) { console.error('Import error:', e); }
+    }
+    
+    Utils.toast(`Pridaných: ${added}, Preskočených: ${skipped}`, 'success');
+    this.csvData = null;
+    document.getElementById('csv-preview').innerHTML = '';
+    document.getElementById('csv-import-btn').disabled = true;
+    document.getElementById('import-csv-file').value = '';
     await this.loadLeads();
     this.showTab('list');
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
@@ -1912,13 +2812,30 @@ ${r.projection ? `
   async handleAdd() {
     const name = document.getElementById('add-name').value.trim();
     if (!name) return Utils.toast('Zadaj názov firmy', 'warning');
-    const domain = document.getElementById('add-domain').value.trim();
+    const domain = document.getElementById('add-domain').value.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
     const email = document.getElementById('add-email').value.trim();
     const phone = document.getElementById('add-phone').value.trim();
     const industry = document.getElementById('add-industry').value.trim();
     const city = document.getElementById('add-city').value.trim();
+    
+    // Kontrola duplicity podľa domény alebo názvu
+    const checkDomain = domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`;
+    try {
+      const { data: existing } = await Database.client
+        .from('leads')
+        .select('id, company_name, domain')
+        .or(`domain.eq.${checkDomain},company_name.ilike.${name}`)
+        .limit(1);
+      
+      if (existing && existing.length > 0) {
+        return Utils.toast(`Lead "${existing[0].company_name || existing[0].domain}" už existuje!`, 'warning');
+      }
+    } catch (e) {
+      console.warn('Duplicate check failed:', e);
+    }
+    
     await Database.insert('leads', { 
-      domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`, 
+      domain: checkDomain, 
       company_name: name, 
       email: email || null,
       phone: phone || null,
