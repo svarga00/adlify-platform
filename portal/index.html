@@ -8,40 +8,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', -apple-system, sans-serif;
-            background: #f8fafc;
+            background: linear-gradient(135deg, #fef3e2 0%, #fce7f3 50%, #ede9fe 100%);
+            min-height: 100vh;
             color: #1e293b;
-            min-height: 100vh;
         }
 
-        /* Layout */
-        .portal-layout {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 260px;
+        .portal-header {
             background: white;
-            border-right: 1px solid #e2e8f0;
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            height: 100vh;
-            z-index: 100;
-        }
-
-        .sidebar-header {
-            padding: 1.5rem;
             border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .logo {
@@ -63,134 +47,74 @@
             font-size: 1.25rem;
         }
 
-        .logo-text {
-            font-weight: 700;
-            font-size: 1.25rem;
-        }
+        .logo-text { font-weight: 700; font-size: 1.25rem; }
 
         .client-badge {
             font-size: 0.65rem;
             background: #dbeafe;
             color: #1d4ed8;
-            padding: 0.125rem 0.5rem;
+            padding: 0.25rem 0.5rem;
             border-radius: 4px;
-            margin-left: 0.5rem;
         }
 
-        .sidebar-nav {
-            flex: 1;
-            padding: 1rem;
-            overflow-y: auto;
+        .header-right { display: flex; align-items: center; gap: 1rem; }
+        .client-name { font-weight: 600; }
+
+        .portal-nav {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 2rem;
         }
 
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
+        .nav-tabs { display: flex; gap: 0.5rem; }
+
+        .nav-tab {
+            padding: 1rem 1.5rem;
+            border: none;
+            background: transparent;
+            font-size: 0.9rem;
+            font-weight: 500;
             color: #64748b;
-            text-decoration: none;
-            margin-bottom: 0.25rem;
             cursor: pointer;
+            border-bottom: 2px solid transparent;
             transition: all 0.2s;
         }
 
-        .nav-item:hover {
-            background: #f1f5f9;
-            color: #1e293b;
-        }
+        .nav-tab:hover { color: #1e293b; }
+        .nav-tab.active { color: #f97316; border-bottom-color: #f97316; }
 
-        .nav-item.active {
-            background: linear-gradient(135deg, #f97316, #ec4899);
-            color: white;
-        }
-
-        .nav-icon {
-            font-size: 1.25rem;
-        }
-
-        .sidebar-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .client-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .client-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-        }
-
-        .client-name {
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .client-company {
-            font-size: 0.75rem;
-            color: #64748b;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            margin-left: 260px;
+        .portal-main {
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 2rem;
         }
 
-        /* Header */
-        .page-header {
-            margin-bottom: 2rem;
-        }
-
-        .page-header h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-
-        .page-header p {
-            color: #64748b;
-        }
-
-        /* Cards */
         .card {
             background: white;
-            border-radius: 12px;
+            border-radius: 16px;
             border: 1px solid #e2e8f0;
             overflow: hidden;
+            margin-bottom: 1.5rem;
         }
 
         .card-header {
-            padding: 1rem 1.5rem;
+            padding: 1.25rem 1.5rem;
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .card-header h3 {
-            font-size: 1rem;
+        .card-header h2 {
+            font-size: 1.1rem;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .card-body {
-            padding: 1.5rem;
-        }
+        .card-body { padding: 1.5rem; }
 
-        /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -200,63 +124,50 @@
 
         .stat-card {
             background: white;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 1.5rem;
+            text-align: center;
             border: 1px solid #e2e8f0;
         }
 
-        .stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
+        .stat-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 1.75rem; font-weight: 700; color: #1e293b; }
+        .stat-label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+
+        .welcome-card {
+            background: linear-gradient(135deg, #f97316, #ec4899);
+            color: white;
+            border: none;
+        }
+
+        .welcome-card .card-body {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
         }
 
-        .stat-icon.campaigns { background: #dbeafe; }
-        .stat-icon.spend { background: #fef3c7; }
-        .stat-icon.clicks { background: #d1fae5; }
-        .stat-icon.conversions { background: #e0e7ff; }
+        .welcome-text h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .welcome-text p { opacity: 0.9; }
+        .welcome-icon { font-size: 4rem; }
 
-        .stat-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: #1e293b;
-        }
+        .item-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
-        .stat-label {
-            font-size: 0.875rem;
-            color: #64748b;
-            margin-top: 0.25rem;
-        }
-
-        /* Content Grid */
-        .content-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-        }
-
-        /* Campaigns List */
-        .campaigns-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .campaign-item {
+        .item {
             display: flex;
             align-items: center;
             gap: 1rem;
             padding: 1rem;
             background: #f8fafc;
-            border-radius: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: inherit;
         }
 
-        .campaign-icon {
+        .item:hover { background: #f1f5f9; }
+
+        .item-icon {
             width: 44px;
             height: 44px;
             border-radius: 10px;
@@ -266,204 +177,40 @@
             font-size: 1.25rem;
         }
 
-        .campaign-icon.google { background: #fef3c7; }
-        .campaign-icon.meta { background: #dbeafe; }
+        .item-icon.project { background: #dbeafe; }
+        .item-icon.campaign { background: #fef3c7; }
+        .item-icon.invoice { background: #d1fae5; }
+        .item-icon.document { background: #e0e7ff; }
 
-        .campaign-info {
-            flex: 1;
-        }
+        .item-info { flex: 1; }
+        .item-name { font-weight: 600; margin-bottom: 0.125rem; }
+        .item-meta { font-size: 0.8rem; color: #64748b; }
 
-        .campaign-name {
-            font-weight: 600;
-            margin-bottom: 0.125rem;
-        }
-
-        .campaign-stats {
-            font-size: 0.8rem;
-            color: #64748b;
-        }
-
-        .campaign-status {
+        .item-status {
             padding: 0.25rem 0.75rem;
             border-radius: 6px;
             font-size: 0.75rem;
             font-weight: 500;
         }
 
-        .status-active { background: #d1fae5; color: #059669; }
-        .status-paused { background: #fef3c7; color: #d97706; }
+        .status-active, .status-paid { background: #d1fae5; color: #059669; }
+        .status-pending, .status-in_progress { background: #fef3c7; color: #d97706; }
         .status-draft { background: #f1f5f9; color: #64748b; }
+        .status-overdue { background: #fecaca; color: #dc2626; }
 
-        /* Invoices */
-        .invoice-item {
+        .invoice-amount { font-weight: 700; font-size: 1.1rem; }
+
+        .empty-state { text-align: center; padding: 3rem; color: #64748b; }
+        .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+        .loading-screen, .error-screen {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .invoice-item:last-child {
-            border-bottom: none;
-        }
-
-        .invoice-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .invoice-icon {
-            width: 36px;
-            height: 36px;
-            background: #f1f5f9;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .invoice-number {
-            font-weight: 500;
-            font-size: 0.875rem;
-        }
-
-        .invoice-date {
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
-
-        .invoice-amount {
-            font-weight: 600;
-        }
-
-        .invoice-status {
-            font-size: 0.7rem;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-        }
-
-        .invoice-paid { background: #d1fae5; color: #059669; }
-        .invoice-pending { background: #fef3c7; color: #d97706; }
-        .invoice-overdue { background: #fecaca; color: #dc2626; }
-
-        /* Documents */
-        .document-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .document-item:hover {
-            background: #f8fafc;
-        }
-
-        .document-icon {
-            font-size: 1.5rem;
-        }
-
-        .document-name {
-            flex: 1;
-            font-size: 0.875rem;
-        }
-
-        .document-date {
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
-
-        /* Messages */
-        .messages-section {
-            margin-top: 1.5rem;
-        }
-
-        .message-item {
-            display: flex;
-            gap: 0.75rem;
-            padding: 1rem;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .message-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #f97316, #ec4899);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .message-content {
-            flex: 1;
-        }
-
-        .message-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.25rem;
-        }
-
-        .message-sender {
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .message-time {
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
-
-        .message-text {
-            font-size: 0.875rem;
-            color: #64748b;
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-            text-decoration: none;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #f97316, #ec4899);
-            color: white;
-        }
-
-        .btn-secondary {
-            background: white;
-            border: 1px solid #e2e8f0;
-            color: #64748b;
-        }
-
-        .btn-secondary:hover {
-            background: #f8fafc;
-        }
-
-        /* Loading */
-        .loading-screen {
-            display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            flex-direction: column;
-            gap: 1rem;
+            text-align: center;
+            padding: 2rem;
         }
 
         .loading-spinner {
@@ -473,362 +220,279 @@
             border-top-color: #f97316;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #64748b;
-        }
-
-        .empty-icon {
-            font-size: 3rem;
             margin-bottom: 1rem;
         }
 
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .content-grid {
-                grid-template-columns: 1fr;
-            }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .error-screen h1 { margin-bottom: 0.5rem; }
+        .error-screen p { color: #64748b; margin-bottom: 1.5rem; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+            font-size: 0.9rem;
         }
+
+        .btn-primary { background: linear-gradient(135deg, #f97316, #ec4899); color: white; }
+        .btn-secondary { background: white; border: 1px solid #e2e8f0; color: #64748b; }
+
+        .contact-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: #f8fafc;
+            border-radius: 12px;
+        }
+
+        .contact-avatar {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .contact-info h4 { margin-bottom: 0.25rem; }
+        .contact-info p { font-size: 0.85rem; color: #64748b; }
+        .contact-actions { margin-left: auto; display: flex; gap: 0.5rem; }
 
         @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            .main-content {
-                margin-left: 0;
-            }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .portal-main { padding: 1rem; }
+            .welcome-card .card-body { flex-direction: column; text-align: center; }
+            .nav-tabs { overflow-x: auto; }
+            .contact-card { flex-direction: column; text-align: center; }
+            .contact-actions { margin-left: 0; margin-top: 1rem; }
         }
-
-        /* Reports Page */
-        .report-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            border: 1px solid #e2e8f0;
-            margin-bottom: 1rem;
-        }
-
-        .report-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .report-title {
-            font-weight: 600;
-        }
-
-        .report-period {
-            font-size: 0.8rem;
-            color: #64748b;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-        }
-
-        .metric-item {
-            text-align: center;
-            padding: 1rem;
-            background: #f8fafc;
-            border-radius: 8px;
-        }
-
-        .metric-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #1e293b;
-        }
-
-        .metric-label {
-            font-size: 0.75rem;
-            color: #64748b;
-            margin-top: 0.25rem;
-        }
-
-        .metric-change {
-            font-size: 0.7rem;
-            margin-top: 0.25rem;
-        }
-
-        .metric-change.positive { color: #059669; }
-        .metric-change.negative { color: #dc2626; }
     </style>
 </head>
 <body>
     <div id="app">
         <div class="loading-screen">
             <div class="loading-spinner"></div>
-            <p>Načítavam portál...</p>
+            <p>Načítavam váš portál...</p>
         </div>
     </div>
 
     <script>
-        // Supabase init
         const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // State
-        let currentPage = 'dashboard';
         let client = null;
+        let projects = [];
         let campaigns = [];
         let invoices = [];
         let documents = [];
-        let messages = [];
+        let currentTab = 'overview';
 
-        // Init
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
         async function init() {
-            // Check auth
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            if (!session) {
-                window.location.href = '/login.html?redirect=portal';
+            if (!token) {
+                showError('Neplatný odkaz', 'Chýba prístupový token. Skontrolujte odkaz od Adlify.');
                 return;
             }
 
-            // Load client data
-            const { data: clientData, error } = await supabase
-                .from('clients')
-                .select('*')
-                .eq('user_id', session.user.id)
-                .single();
+            try {
+                const { data: clientData, error } = await supabase
+                    .from('clients')
+                    .select('*')
+                    .eq('portal_token', token)
+                    .single();
 
-            if (error || !clientData) {
-                document.getElementById('app').innerHTML = `
-                    <div class="loading-screen">
-                        <div class="empty-icon">🔒</div>
-                        <h2>Prístup zamietnutý</h2>
-                        <p>Nemáte prístup do klientského portálu.</p>
-                        <a href="/login.html" class="btn btn-primary" style="margin-top: 1rem;">Prihlásiť sa</a>
-                    </div>
-                `;
-                return;
+                if (error || !clientData) {
+                    showError('Neplatný odkaz', 'Tento odkaz je neplatný alebo expiroval.');
+                    return;
+                }
+
+                client = clientData;
+                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments()]);
+                render();
+
+            } catch (error) {
+                console.error('Init error:', error);
+                showError('Chyba', 'Nastala chyba pri načítavaní.');
             }
+        }
 
-            client = clientData;
-
-            // Load all data
-            await Promise.all([
-                loadCampaigns(),
-                loadInvoices(),
-                loadDocuments(),
-                loadMessages()
-            ]);
-
-            // Render
-            render();
+        async function loadProjects() {
+            const { data } = await supabase.from('campaign_projects').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
+            projects = data || [];
         }
 
         async function loadCampaigns() {
-            const { data } = await supabase
-                .from('campaigns')
-                .select('*, project:campaign_projects(*)')
-                .eq('campaign_projects.client_id', client.id)
-                .order('created_at', { ascending: false });
-            
+            const { data } = await supabase.from('campaigns').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
             campaigns = data || [];
         }
 
         async function loadInvoices() {
-            const { data } = await supabase
-                .from('invoices')
-                .select('*')
-                .eq('client_id', client.id)
-                .order('created_at', { ascending: false });
-            
+            const { data } = await supabase.from('invoices').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
             invoices = data || [];
         }
 
         async function loadDocuments() {
-            const { data } = await supabase
-                .from('documents')
-                .select('*')
-                .eq('client_id', client.id)
-                .eq('is_public', true)
-                .order('created_at', { ascending: false });
-            
+            const { data } = await supabase.from('documents').select('*').eq('client_id', client.id).eq('is_public', true).order('created_at', { ascending: false });
             documents = data || [];
         }
 
-        async function loadMessages() {
-            // Simplified - in production you'd have proper messaging
-            messages = [];
+        function showError(title, message) {
+            document.getElementById('app').innerHTML = `
+                <div class="error-screen">
+                    <div class="error-icon">😕</div>
+                    <h1>${title}</h1>
+                    <p>${message}</p>
+                    <a href="https://adlify.eu" class="btn btn-primary">Navštíviť adlify.eu</a>
+                </div>
+            `;
         }
 
         function render() {
-            document.getElementById('app').innerHTML = `
-                <div class="portal-layout">
-                    ${renderSidebar()}
-                    <main class="main-content">
-                        ${renderPage()}
-                    </main>
-                </div>
-            `;
-        }
-
-        function renderSidebar() {
-            const initials = client.company_name ? client.company_name.substring(0, 2).toUpperCase() : 'CL';
+            const firstName = client.contact_person?.split(' ')[0] || 'vážený klient';
             
-            return `
-                <aside class="sidebar">
-                    <div class="sidebar-header">
-                        <div class="logo">
-                            <div class="logo-icon">A</div>
-                            <span class="logo-text">Adlify</span>
-                            <span class="client-badge">Portál</span>
-                        </div>
+            document.getElementById('app').innerHTML = `
+                <header class="portal-header">
+                    <div class="logo">
+                        <div class="logo-icon">A</div>
+                        <span class="logo-text">Adlify</span>
+                        <span class="client-badge">Klientský portál</span>
                     </div>
-                    
-                    <nav class="sidebar-nav">
-                        <div class="nav-item ${currentPage === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">
-                            <span class="nav-icon">📊</span>
-                            <span>Prehľad</span>
-                        </div>
-                        <div class="nav-item ${currentPage === 'campaigns' ? 'active' : ''}" onclick="navigate('campaigns')">
-                            <span class="nav-icon">📢</span>
-                            <span>Kampane</span>
-                        </div>
-                        <div class="nav-item ${currentPage === 'reports' ? 'active' : ''}" onclick="navigate('reports')">
-                            <span class="nav-icon">📈</span>
-                            <span>Reporty</span>
-                        </div>
-                        <div class="nav-item ${currentPage === 'invoices' ? 'active' : ''}" onclick="navigate('invoices')">
-                            <span class="nav-icon">💰</span>
-                            <span>Faktúry</span>
-                        </div>
-                        <div class="nav-item ${currentPage === 'documents' ? 'active' : ''}" onclick="navigate('documents')">
-                            <span class="nav-icon">📁</span>
-                            <span>Dokumenty</span>
-                        </div>
-                        <div class="nav-item ${currentPage === 'support' ? 'active' : ''}" onclick="navigate('support')">
-                            <span class="nav-icon">💬</span>
-                            <span>Podpora</span>
-                        </div>
-                    </nav>
-                    
-                    <div class="sidebar-footer">
-                        <div class="client-info">
-                            <div class="client-avatar">${initials}</div>
-                            <div>
-                                <div class="client-name">${client.contact_person || 'Klient'}</div>
-                                <div class="client-company">${client.company_name}</div>
-                            </div>
-                        </div>
-                        <button class="btn btn-secondary" style="width: 100%; margin-top: 1rem;" onclick="logout()">
-                            Odhlásiť sa
-                        </button>
+                    <div class="header-right">
+                        <span class="client-name">${client.company_name}</span>
                     </div>
-                </aside>
+                </header>
+
+                <nav class="portal-nav">
+                    <div class="nav-tabs">
+                        <button class="nav-tab ${currentTab === 'overview' ? 'active' : ''}" onclick="switchTab('overview')">📊 Prehľad</button>
+                        <button class="nav-tab ${currentTab === 'projects' ? 'active' : ''}" onclick="switchTab('projects')">📁 Projekty</button>
+                        <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">📢 Kampane</button>
+                        <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">💰 Faktúry</button>
+                        <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">📄 Dokumenty</button>
+                        <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">💬 Podpora</button>
+                    </div>
+                </nav>
+
+                <main class="portal-main">${renderTab()}</main>
             `;
         }
 
-        function renderPage() {
-            switch (currentPage) {
-                case 'dashboard': return renderDashboard();
+        function switchTab(tab) { currentTab = tab; render(); }
+
+        function renderTab() {
+            switch (currentTab) {
+                case 'overview': return renderOverview();
+                case 'projects': return renderProjects();
                 case 'campaigns': return renderCampaigns();
-                case 'reports': return renderReports();
                 case 'invoices': return renderInvoices();
                 case 'documents': return renderDocuments();
                 case 'support': return renderSupport();
-                default: return renderDashboard();
+                default: return renderOverview();
             }
         }
 
-        function renderDashboard() {
+        function renderOverview() {
+            const firstName = client.contact_person?.split(' ')[0] || 'vážený klient';
+            const activeProjects = projects.filter(p => ['active', 'in_progress'].includes(p.status)).length;
             const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
-            const totalSpend = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
-            const pendingInvoices = invoices.filter(i => i.status === 'pending').length;
+            const pendingInvoices = invoices.filter(i => ['pending', 'sent'].includes(i.status)).length;
 
             return `
-                <div class="page-header">
-                    <h1>Dobrý deň, ${client.contact_person?.split(' ')[0] || 'vážený klient'}! 👋</h1>
-                    <p>Prehľad vašich marketingových aktivít</p>
+                <div class="card welcome-card">
+                    <div class="card-body">
+                        <div class="welcome-text">
+                            <h1>Dobrý deň, ${firstName}! 👋</h1>
+                            <p>Vitajte vo vašom klientskom portáli. Tu nájdete prehľad všetkých projektov, kampaní a faktúr.</p>
+                        </div>
+                        <div class="welcome-icon">🚀</div>
+                    </div>
                 </div>
 
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon campaigns">📢</div>
-                        <div class="stat-value">${activeCampaigns}</div>
-                        <div class="stat-label">Aktívne kampane</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon spend">💰</div>
-                        <div class="stat-value">${formatCurrency(totalSpend)}</div>
-                        <div class="stat-label">Mesačný budget</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon clicks">👆</div>
-                        <div class="stat-value">-</div>
-                        <div class="stat-label">Kliknutia (tento mesiac)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon conversions">🎯</div>
-                        <div class="stat-value">-</div>
-                        <div class="stat-label">Konverzie</div>
-                    </div>
+                    <div class="stat-card"><div class="stat-icon">📁</div><div class="stat-value">${activeProjects}</div><div class="stat-label">Aktívne projekty</div></div>
+                    <div class="stat-card"><div class="stat-icon">📢</div><div class="stat-value">${activeCampaigns}</div><div class="stat-label">Aktívne kampane</div></div>
+                    <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-value">${documents.length}</div><div class="stat-label">Dokumenty</div></div>
+                    <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">${pendingInvoices}</div><div class="stat-label">Neuhradené faktúry</div></div>
                 </div>
 
-                <div class="content-grid">
+                ${projects.length > 0 ? `
                     <div class="card">
-                        <div class="card-header">
-                            <h3>📢 Vaše kampane</h3>
-                            <button class="btn btn-secondary" onclick="navigate('campaigns')">Zobraziť všetky</button>
-                        </div>
+                        <div class="card-header"><h2>📁 Posledné projekty</h2></div>
                         <div class="card-body">
-                            ${campaigns.length > 0 ? `
-                                <div class="campaigns-list">
-                                    ${campaigns.slice(0, 3).map(c => renderCampaignItem(c)).join('')}
-                                </div>
-                            ` : `
-                                <div class="empty-state">
-                                    <div class="empty-icon">📢</div>
-                                    <p>Zatiaľ nemáte žiadne kampane</p>
-                                </div>
-                            `}
+                            <div class="item-list">
+                                ${projects.slice(0, 3).map(p => `
+                                    <div class="item">
+                                        <div class="item-icon project">📁</div>
+                                        <div class="item-info">
+                                            <div class="item-name">${p.name}</div>
+                                            <div class="item-meta">Vytvorené ${formatDate(p.created_at)}</div>
+                                        </div>
+                                        <span class="item-status status-${p.status || 'draft'}">${getStatusLabel(p.status)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     </div>
+                ` : ''}
 
-                    <div>
-                        <div class="card" style="margin-bottom: 1rem;">
-                            <div class="card-header">
-                                <h3>💰 Posledné faktúry</h3>
-                            </div>
-                            <div class="card-body">
-                                ${invoices.length > 0 ? invoices.slice(0, 3).map(i => renderInvoiceItem(i)).join('') : `
-                                    <div class="empty-state">
-                                        <p>Žiadne faktúry</p>
+                ${invoices.length > 0 ? `
+                    <div class="card">
+                        <div class="card-header"><h2>💰 Posledné faktúry</h2></div>
+                        <div class="card-body">
+                            <div class="item-list">
+                                ${invoices.slice(0, 3).map(i => `
+                                    <div class="item">
+                                        <div class="item-icon invoice">💰</div>
+                                        <div class="item-info">
+                                            <div class="item-name">${i.invoice_number || 'Faktúra'}</div>
+                                            <div class="item-meta">Splatnosť: ${formatDate(i.due_date)}</div>
+                                        </div>
+                                        <span class="invoice-amount">${formatCurrency(i.total)}</span>
+                                        <span class="item-status status-${i.status || 'pending'}">${getInvoiceStatusLabel(i.status)}</span>
                                     </div>
-                                `}
+                                `).join('')}
                             </div>
                         </div>
+                    </div>
+                ` : ''}
+            `;
+        }
 
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>📁 Dokumenty</h3>
-                            </div>
-                            <div class="card-body">
-                                ${documents.length > 0 ? documents.slice(0, 3).map(d => renderDocumentItem(d)).join('') : `
-                                    <div class="empty-state">
-                                        <p>Žiadne dokumenty</p>
+        function renderProjects() {
+            return `
+                <div class="card">
+                    <div class="card-header"><h2>📁 Vaše projekty</h2></div>
+                    <div class="card-body">
+                        ${projects.length > 0 ? `
+                            <div class="item-list">
+                                ${projects.map(p => `
+                                    <div class="item">
+                                        <div class="item-icon project">📁</div>
+                                        <div class="item-info">
+                                            <div class="item-name">${p.name}</div>
+                                            <div class="item-meta">${p.description || 'Bez popisu'}</div>
+                                        </div>
+                                        <span class="item-status status-${p.status || 'draft'}">${getStatusLabel(p.status)}</span>
                                     </div>
-                                `}
+                                `).join('')}
                             </div>
-                        </div>
+                        ` : '<div class="empty-state"><div class="empty-icon">📁</div><h3>Zatiaľ žiadne projekty</h3></div>'}
                     </div>
                 </div>
             `;
@@ -836,103 +500,48 @@
 
         function renderCampaigns() {
             return `
-                <div class="page-header">
-                    <h1>📢 Kampane</h1>
-                    <p>Prehľad vašich reklamných kampaní</p>
-                </div>
-
                 <div class="card">
+                    <div class="card-header"><h2>📢 Vaše kampane</h2></div>
                     <div class="card-body">
                         ${campaigns.length > 0 ? `
-                            <div class="campaigns-list">
-                                ${campaigns.map(c => renderCampaignItem(c)).join('')}
+                            <div class="item-list">
+                                ${campaigns.map(c => `
+                                    <div class="item">
+                                        <div class="item-icon campaign">${c.platform === 'meta' ? '📱' : '🔍'}</div>
+                                        <div class="item-info">
+                                            <div class="item-name">${c.name}</div>
+                                            <div class="item-meta">${c.platform === 'meta' ? 'Meta Ads' : 'Google Ads'} • Budget: ${formatCurrency(c.budget || 0)}/mes</div>
+                                        </div>
+                                        <span class="item-status status-${c.status || 'draft'}">${getStatusLabel(c.status)}</span>
+                                    </div>
+                                `).join('')}
                             </div>
-                        ` : `
-                            <div class="empty-state">
-                                <div class="empty-icon">📢</div>
-                                <h3>Zatiaľ nemáte žiadne kampane</h3>
-                                <p>Kampane sa zobrazia po ich vytvorení</p>
-                            </div>
-                        `}
+                        ` : '<div class="empty-state"><div class="empty-icon">📢</div><h3>Zatiaľ žiadne kampane</h3></div>'}
                     </div>
-                </div>
-            `;
-        }
-
-        function renderReports() {
-            return `
-                <div class="page-header">
-                    <h1>📈 Reporty</h1>
-                    <p>Výsledky vašich kampaní</p>
-                </div>
-
-                <div class="report-card">
-                    <div class="report-header">
-                        <div>
-                            <div class="report-title">Mesačný prehľad</div>
-                            <div class="report-period">December 2024</div>
-                        </div>
-                        <button class="btn btn-secondary">📥 Stiahnuť PDF</button>
-                    </div>
-                    
-                    <div class="metrics-grid">
-                        <div class="metric-item">
-                            <div class="metric-value">-</div>
-                            <div class="metric-label">Zobrazenia</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-value">-</div>
-                            <div class="metric-label">Kliknutia</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-value">-</div>
-                            <div class="metric-label">Konverzie</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-value">-</div>
-                            <div class="metric-label">Cena/konverzia</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="empty-state">
-                    <div class="empty-icon">📊</div>
-                    <h3>Reporty budú dostupné čoskoro</h3>
-                    <p>Po spustení kampaní tu uvidíte podrobné štatistiky</p>
                 </div>
             `;
         }
 
         function renderInvoices() {
             return `
-                <div class="page-header">
-                    <h1>💰 Faktúry</h1>
-                    <p>História fakturácie</p>
-                </div>
-
                 <div class="card">
+                    <div class="card-header"><h2>💰 Faktúry</h2></div>
                     <div class="card-body">
-                        ${invoices.length > 0 ? invoices.map(i => `
-                            <div class="invoice-item" style="padding: 1rem; background: #f8fafc; border-radius: 8px; margin-bottom: 0.5rem;">
-                                <div class="invoice-info">
-                                    <div class="invoice-icon">📄</div>
-                                    <div>
-                                        <div class="invoice-number">${i.invoice_number || 'FA-' + i.id.slice(0, 6)}</div>
-                                        <div class="invoice-date">${formatDate(i.created_at)}</div>
+                        ${invoices.length > 0 ? `
+                            <div class="item-list">
+                                ${invoices.map(i => `
+                                    <div class="item">
+                                        <div class="item-icon invoice">💰</div>
+                                        <div class="item-info">
+                                            <div class="item-name">${i.invoice_number || 'Faktúra'}</div>
+                                            <div class="item-meta">Vystavená: ${formatDate(i.issue_date || i.created_at)} | Splatnosť: ${formatDate(i.due_date)}</div>
+                                        </div>
+                                        <span class="invoice-amount">${formatCurrency(i.total)}</span>
+                                        <span class="item-status status-${i.status || 'pending'}">${getInvoiceStatusLabel(i.status)}</span>
                                     </div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 1rem;">
-                                    <span class="invoice-amount">${formatCurrency(i.total)}</span>
-                                    <span class="invoice-status ${getInvoiceStatusClass(i.status)}">${getInvoiceStatusLabel(i.status)}</span>
-                                    ${i.pdf_url ? `<a href="${i.pdf_url}" target="_blank" class="btn btn-secondary">📥 PDF</a>` : ''}
-                                </div>
+                                `).join('')}
                             </div>
-                        `).join('') : `
-                            <div class="empty-state">
-                                <div class="empty-icon">💰</div>
-                                <h3>Zatiaľ nemáte žiadne faktúry</h3>
-                            </div>
-                        `}
+                        ` : '<div class="empty-state"><div class="empty-icon">💰</div><h3>Zatiaľ žiadne faktúry</h3></div>'}
                     </div>
                 </div>
             `;
@@ -940,28 +549,23 @@
 
         function renderDocuments() {
             return `
-                <div class="page-header">
-                    <h1>📁 Dokumenty</h1>
-                    <p>Zmluvy, reporty a ďalšie súbory</p>
-                </div>
-
                 <div class="card">
+                    <div class="card-header"><h2>📄 Dokumenty</h2></div>
                     <div class="card-body">
-                        ${documents.length > 0 ? documents.map(d => `
-                            <a href="${d.file_url}" target="_blank" class="document-item" style="display: flex; padding: 1rem; background: #f8fafc; border-radius: 8px; margin-bottom: 0.5rem; text-decoration: none; color: inherit;">
-                                <span class="document-icon">${getDocumentIcon(d.category)}</span>
-                                <div style="flex: 1; margin-left: 1rem;">
-                                    <div style="font-weight: 500;">${d.name}</div>
-                                    <div style="font-size: 0.75rem; color: #64748b;">${d.file_name} • ${formatDate(d.created_at)}</div>
-                                </div>
-                                <span>📥</span>
-                            </a>
-                        `).join('') : `
-                            <div class="empty-state">
-                                <div class="empty-icon">📁</div>
-                                <h3>Zatiaľ nemáte žiadne dokumenty</h3>
+                        ${documents.length > 0 ? `
+                            <div class="item-list">
+                                ${documents.map(d => `
+                                    <a href="${d.file_url}" target="_blank" class="item">
+                                        <div class="item-icon document">${getDocIcon(d.category)}</div>
+                                        <div class="item-info">
+                                            <div class="item-name">${d.name}</div>
+                                            <div class="item-meta">${d.file_name} • ${formatDate(d.created_at)}</div>
+                                        </div>
+                                        <span>📥</span>
+                                    </a>
+                                `).join('')}
                             </div>
-                        `}
+                        ` : '<div class="empty-state"><div class="empty-icon">📄</div><h3>Zatiaľ žiadne dokumenty</h3></div>'}
                     </div>
                 </div>
             `;
@@ -969,138 +573,59 @@
 
         function renderSupport() {
             return `
-                <div class="page-header">
-                    <h1>💬 Podpora</h1>
-                    <p>Máte otázku? Napíšte nám</p>
-                </div>
-
                 <div class="card">
+                    <div class="card-header"><h2>💬 Podpora</h2></div>
                     <div class="card-body">
-                        <div style="text-align: center; padding: 2rem;">
-                            <div style="font-size: 4rem; margin-bottom: 1rem;">💬</div>
-                            <h3>Potrebujete pomoc?</h3>
-                            <p style="color: #64748b; margin: 1rem 0;">Kontaktujte nás emailom alebo telefonicky</p>
-                            
-                            <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
-                                <a href="mailto:info@adlify.eu" class="btn btn-primary">
-                                    📧 info@adlify.eu
-                                </a>
-                                <a href="tel:+421900000000" class="btn btn-secondary">
-                                    📞 +421 900 000 000
-                                </a>
+                        <p style="margin-bottom: 1.5rem; color: #64748b;">Máte otázky? Kontaktujte nás.</p>
+                        
+                        <div class="contact-card">
+                            <div class="contact-avatar">A</div>
+                            <div class="contact-info">
+                                <h4>Adlify Support</h4>
+                                <p>Váš marketing partner</p>
+                            </div>
+                            <div class="contact-actions">
+                                <a href="mailto:info@adlify.eu" class="btn btn-secondary">📧 Email</a>
+                                <a href="tel:+421900000000" class="btn btn-primary">📞 Zavolať</a>
                             </div>
                         </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Helper renders
-        function renderCampaignItem(campaign) {
-            const type = campaign.platform === 'google' ? 'google' : 'meta';
-            const icon = type === 'google' ? '🔍' : '📱';
-            
-            return `
-                <div class="campaign-item">
-                    <div class="campaign-icon ${type}">${icon}</div>
-                    <div class="campaign-info">
-                        <div class="campaign-name">${campaign.name}</div>
-                        <div class="campaign-stats">Budget: ${formatCurrency(campaign.budget || 0)}/mes</div>
-                    </div>
-                    <span class="campaign-status status-${campaign.status || 'draft'}">${getCampaignStatusLabel(campaign.status)}</span>
-                </div>
-            `;
-        }
-
-        function renderInvoiceItem(invoice) {
-            return `
-                <div class="invoice-item">
-                    <div class="invoice-info">
-                        <div class="invoice-icon">📄</div>
-                        <div>
-                            <div class="invoice-number">${invoice.invoice_number || 'FA-' + invoice.id.slice(0, 6)}</div>
-                            <div class="invoice-date">${formatDate(invoice.created_at)}</div>
+                        
+                        <div style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px;">
+                            <h4 style="margin-bottom: 0.5rem;">📍 Kontaktné údaje</h4>
+                            <p style="color: #64748b; font-size: 0.9rem;">
+                                Email: info@adlify.eu<br>
+                                Web: www.adlify.eu
+                            </p>
                         </div>
                     </div>
-                    <div style="text-align: right;">
-                        <div class="invoice-amount">${formatCurrency(invoice.total)}</div>
-                        <span class="invoice-status ${getInvoiceStatusClass(invoice.status)}">${getInvoiceStatusLabel(invoice.status)}</span>
-                    </div>
                 </div>
             `;
-        }
-
-        function renderDocumentItem(doc) {
-            return `
-                <a href="${doc.file_url}" target="_blank" class="document-item">
-                    <span class="document-icon">${getDocumentIcon(doc.category)}</span>
-                    <span class="document-name">${doc.name}</span>
-                    <span class="document-date">${formatDate(doc.created_at)}</span>
-                </a>
-            `;
-        }
-
-        // Helpers
-        function navigate(page) {
-            currentPage = page;
-            render();
-        }
-
-        async function logout() {
-            await supabase.auth.signOut();
-            window.location.href = '/login.html';
-        }
-
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('sk-SK', {
-                style: 'currency',
-                currency: 'EUR',
-                minimumFractionDigits: 0
-            }).format(amount || 0);
         }
 
         function formatDate(dateStr) {
-            if (!dateStr) return '';
+            if (!dateStr) return '-';
             return new Date(dateStr).toLocaleDateString('sk-SK');
         }
 
-        function getCampaignStatusLabel(status) {
-            const labels = {
-                active: 'Aktívna',
-                paused: 'Pozastavená',
-                draft: 'Návrh',
-                ended: 'Ukončená'
-            };
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(amount || 0);
+        }
+
+        function getStatusLabel(status) {
+            const labels = { draft: 'Návrh', active: 'Aktívny', in_progress: 'V procese', completed: 'Dokončený', paused: 'Pozastavený' };
             return labels[status] || status || 'Návrh';
         }
 
         function getInvoiceStatusLabel(status) {
-            const labels = {
-                paid: 'Zaplatená',
-                pending: 'Čaká',
-                overdue: 'Po splatnosti',
-                cancelled: 'Zrušená'
-            };
+            const labels = { draft: 'Návrh', sent: 'Odoslaná', pending: 'Čaká', paid: 'Zaplatená', overdue: 'Po splatnosti' };
             return labels[status] || status || 'Čaká';
         }
 
-        function getInvoiceStatusClass(status) {
-            return 'invoice-' + (status || 'pending');
+        function getDocIcon(category) {
+            const icons = { contract: '📝', invoice: '💰', proposal: '📄', report: '📊', image: '🖼️' };
+            return icons[category] || '📄';
         }
 
-        function getDocumentIcon(category) {
-            const icons = {
-                contract: '📝',
-                invoice: '💰',
-                proposal: '📄',
-                report: '📊',
-                image: '🖼️',
-                video: '🎬'
-            };
-            return icons[category] || '📁';
-        }
-
-        // Init
         init();
     </script>
 </body>
