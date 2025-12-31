@@ -320,6 +320,15 @@ const Auth = {
    */
   getRedirectUrl() {
     console.log('🔀 getRedirectUrl:', { isClient: this.isClient(), isTeamMember: this.isTeamMember(), teamMember: this.teamMember });
+    
+    // Ak nie je ani team member ani client, odhlásiť
+    if (!this.isTeamMember() && !this.isClient()) {
+      console.log('❌ User is neither team member nor client - logging out');
+      alert('Váš účet nie je priradený k tímu. Kontaktujte administrátora.');
+      this.logout();
+      return '/login.html';
+    }
+    
     if (this.isClient()) {
       return '/client-portal.html';
     }
