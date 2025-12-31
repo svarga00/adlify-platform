@@ -299,11 +299,11 @@ const ClientsModule = {
       // Kopíruj do schránky
       await navigator.clipboard.writeText(portalLink);
       
-      Utils.showNotification(`Portál link pre ${client.company_name} skopírovaný!`, 'success');
+      Utils.toast(`Portál link pre ${client.company_name} skopírovaný!`, 'success');
       
     } catch (error) {
       console.error('Copy portal link error:', error);
-      Utils.showNotification('Chyba pri kopírovaní linku', 'error');
+      Utils.toast('Chyba pri kopírovaní linku', 'error');
     }
   },
   
