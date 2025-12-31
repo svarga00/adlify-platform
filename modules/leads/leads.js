@@ -1345,12 +1345,10 @@ ${r.projection ? `
         website: lead.domain ? `https://${lead.domain}` : '',
         city: lead.city || companyData.location || '',
         industry: lead.industry || companyData.industry || '',
-        source: 'lead',
         source_lead_id: lead.id,
         status: 'active',
         onboarding_status: 'pending',
         notes: lead.notes || '',
-        // Generovať portal token
         portal_token: crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
       };
       
