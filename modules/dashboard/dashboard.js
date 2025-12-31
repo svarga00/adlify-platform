@@ -35,11 +35,16 @@ const DashboardModule = {
     
     try {
       // Fetch data
-      const [leads, clients, tasks] = await Promise.all([
+      const [leads, clients, tasksResult] = await Promise.all([
         Database.select('leads', { columns: 'id, status, score, created_at' }),
         Database.select('clients', { columns: 'id, status, monthly_fee' }),
-        Database.select('tasks', { columns: 'id, status, due_date', filters: { assignee: Auth.user?.id } })
+        Database.client.from('tasks').select('id, status, due_date, assigned_to')
       ]);
+      
+      // Filter tasks for current user
+      const tasks = (tasksResult.data || []).filter(t => 
+        t.assigned_to === Auth.teamMember?.id || !t.assigned_to
+      );
       
       // Calculate stats
       const stats = this.calculateStats(leads, clients, tasks);
