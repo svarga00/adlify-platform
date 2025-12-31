@@ -266,6 +266,14 @@ const TeamModule = {
                             </svg>
                         </button>
                         ${member.role !== 'owner' ? `
+                            <button class="btn-icon btn-permissions" onclick="TeamModule.editPermissions('${member.id}')" title="Oprávnenia">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                            </button>
+                        ` : ''}
+                        ${member.role !== 'owner' ? `
                             <button class="btn-icon btn-danger" onclick="TeamModule.deleteMember('${member.id}')" title="Odstrániť">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="3 6 5 6 21 6"></polyline>
@@ -1350,6 +1358,15 @@ const TeamModule = {
                     color: #d97706;
                 }
                 
+                .btn-icon.btn-permissions {
+                    color: #6366f1;
+                }
+                
+                .btn-icon.btn-permissions:hover {
+                    background: #eef2ff;
+                    color: #4f46e5;
+                }
+                
                 /* Roles Tab */
                 .roles-section {
                     display: flex;
@@ -1747,6 +1764,379 @@ const TeamModule = {
                 }
             </style>
         `;
+    },
+
+    // ===================================================
+    // CUSTOM PERMISSIONS
+    // ===================================================
+    
+    async editPermissions(memberId) {
+        const member = this.members.find(m => m.id === memberId);
+        if (!member) return;
+        
+        // Definícia modulov a akcií
+        const modules = [
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'leads', name: 'Leady', icon: '🎯' },
+            { id: 'clients', name: 'Klienti', icon: '👥' },
+            { id: 'projects', name: 'Projekty', icon: '📁' },
+            { id: 'messages', name: 'Správy', icon: '💬' },
+            { id: 'billing', name: 'Fakturácia', icon: '💰' },
+            { id: 'tasks', name: 'Úlohy', icon: '✅' },
+            { id: 'team', name: 'Tím', icon: '👤' },
+            { id: 'settings', name: 'Nastavenia', icon: '⚙️' },
+            { id: 'integrations', name: 'Integrácie', icon: '🔌' }
+        ];
+        
+        const actions = [
+            { id: 'view', name: 'Zobraziť' },
+            { id: 'create', name: 'Vytvoriť' },
+            { id: 'edit', name: 'Upraviť' },
+            { id: 'delete', name: 'Zmazať' }
+        ];
+        
+        // Aktuálne custom permissions alebo prázdne
+        const customPerms = member.custom_permissions || {};
+        
+        // Defaultné permissions podľa role
+        const roleDefaults = this.getRoleDefaults(member.role);
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal permissions-modal">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <span class="modal-icon">🔐</span>
+                        <div>
+                            <h2>Oprávnenia</h2>
+                            <p class="modal-subtitle">${member.first_name} ${member.last_name} (${this.getRoleName(member.role)})</p>
+                        </div>
+                    </div>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="permissions-info">
+                        <span class="info-icon">ℹ️</span>
+                        <span>Zaškrtnuté = povolené. Nezaškrtnuté = zakázané. Šedé = podľa role.</span>
+                    </div>
+                    
+                    <div class="permissions-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="use-custom-perms" ${Object.keys(customPerms).length > 0 ? 'checked' : ''} onchange="TeamModule.toggleCustomPermissions()">
+                            <span>Použiť vlastné oprávnenia (inak platia podľa role)</span>
+                        </label>
+                    </div>
+                    
+                    <input type="hidden" id="perm-member-id" value="${member.id}">
+                    
+                    <div class="permissions-table-wrapper" id="permissions-wrapper" style="${Object.keys(customPerms).length > 0 ? '' : 'opacity: 0.5; pointer-events: none;'}">
+                        <table class="permissions-table">
+                            <thead>
+                                <tr>
+                                    <th>Modul</th>
+                                    ${actions.map(a => `<th>${a.name}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${modules.map(mod => `
+                                    <tr>
+                                        <td class="module-cell">
+                                            <span class="module-icon">${mod.icon}</span>
+                                            <span>${mod.name}</span>
+                                        </td>
+                                        ${actions.map(act => {
+                                            const customVal = customPerms[mod.id]?.[act.id];
+                                            const defaultVal = roleDefaults[mod.id]?.[act.id] || false;
+                                            const isChecked = customVal !== undefined ? customVal : defaultVal;
+                                            return `
+                                                <td class="action-cell">
+                                                    <input type="checkbox" 
+                                                        class="perm-checkbox"
+                                                        data-module="${mod.id}" 
+                                                        data-action="${act.id}"
+                                                        ${isChecked ? 'checked' : ''}>
+                                                </td>
+                                            `;
+                                        }).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="TeamModule.resetToRoleDefaults('${member.id}')">
+                        Resetovať na defaultné
+                    </button>
+                    <div class="footer-right">
+                        <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
+                        <button class="btn-primary" onclick="TeamModule.savePermissions()">
+                            Uložiť oprávnenia
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <style>
+                .permissions-modal {
+                    max-width: 800px;
+                    width: 95%;
+                }
+                
+                .permissions-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px 16px;
+                    background: #f0f9ff;
+                    border-radius: 8px;
+                    color: #0369a1;
+                    font-size: 14px;
+                    margin-bottom: 16px;
+                }
+                
+                .permissions-toggle {
+                    margin-bottom: 20px;
+                }
+                
+                .toggle-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    cursor: pointer;
+                    font-weight: 500;
+                }
+                
+                .toggle-label input {
+                    width: 18px;
+                    height: 18px;
+                    cursor: pointer;
+                }
+                
+                .permissions-table-wrapper {
+                    overflow-x: auto;
+                    transition: opacity 0.3s;
+                }
+                
+                .permissions-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 14px;
+                }
+                
+                .permissions-table th {
+                    text-align: center;
+                    padding: 12px 8px;
+                    background: #f8fafc;
+                    border-bottom: 2px solid #e2e8f0;
+                    font-weight: 600;
+                    color: #475569;
+                }
+                
+                .permissions-table th:first-child {
+                    text-align: left;
+                    padding-left: 16px;
+                }
+                
+                .permissions-table td {
+                    padding: 10px 8px;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+                
+                .module-cell {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding-left: 16px !important;
+                    font-weight: 500;
+                }
+                
+                .module-icon {
+                    font-size: 18px;
+                }
+                
+                .action-cell {
+                    text-align: center;
+                }
+                
+                .perm-checkbox {
+                    width: 20px;
+                    height: 20px;
+                    cursor: pointer;
+                    accent-color: #6366f1;
+                }
+                
+                .permissions-table tr:hover {
+                    background: #fafafa;
+                }
+                
+                .modal-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                
+                .footer-right {
+                    display: flex;
+                    gap: 12px;
+                }
+            </style>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    },
+    
+    toggleCustomPermissions() {
+        const checkbox = document.getElementById('use-custom-perms');
+        const wrapper = document.getElementById('permissions-wrapper');
+        
+        if (checkbox.checked) {
+            wrapper.style.opacity = '1';
+            wrapper.style.pointerEvents = 'auto';
+        } else {
+            wrapper.style.opacity = '0.5';
+            wrapper.style.pointerEvents = 'none';
+        }
+    },
+    
+    getRoleDefaults(role) {
+        const defaults = {
+            admin: {
+                dashboard: { view: true, create: true, edit: true, delete: true },
+                leads: { view: true, create: true, edit: true, delete: true },
+                clients: { view: true, create: true, edit: true, delete: true },
+                projects: { view: true, create: true, edit: true, delete: true },
+                messages: { view: true, create: true, edit: true, delete: true },
+                billing: { view: true, create: true, edit: true, delete: true },
+                tasks: { view: true, create: true, edit: true, delete: true },
+                team: { view: true, create: true, edit: true, delete: false },
+                settings: { view: true, create: true, edit: true, delete: false },
+                integrations: { view: true, create: true, edit: true, delete: true }
+            },
+            manager: {
+                dashboard: { view: true, create: false, edit: false, delete: false },
+                leads: { view: true, create: true, edit: true, delete: true },
+                clients: { view: true, create: true, edit: true, delete: false },
+                projects: { view: true, create: true, edit: true, delete: false },
+                messages: { view: true, create: true, edit: true, delete: true },
+                billing: { view: true, create: false, edit: false, delete: false },
+                tasks: { view: true, create: true, edit: true, delete: true },
+                team: { view: true, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false },
+                integrations: { view: false, create: false, edit: false, delete: false }
+            },
+            sales: {
+                dashboard: { view: true, create: false, edit: false, delete: false },
+                leads: { view: true, create: true, edit: true, delete: false },
+                clients: { view: true, create: false, edit: false, delete: false },
+                projects: { view: true, create: false, edit: false, delete: false },
+                messages: { view: true, create: true, edit: true, delete: false },
+                billing: { view: true, create: false, edit: false, delete: false },
+                tasks: { view: true, create: true, edit: true, delete: false },
+                team: { view: true, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false },
+                integrations: { view: false, create: false, edit: false, delete: false }
+            },
+            support: {
+                dashboard: { view: true, create: false, edit: false, delete: false },
+                leads: { view: true, create: false, edit: false, delete: false },
+                clients: { view: true, create: false, edit: false, delete: false },
+                projects: { view: true, create: false, edit: false, delete: false },
+                messages: { view: true, create: true, edit: true, delete: false },
+                billing: { view: false, create: false, edit: false, delete: false },
+                tasks: { view: true, create: true, edit: true, delete: false },
+                team: { view: true, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false },
+                integrations: { view: false, create: false, edit: false, delete: false }
+            }
+        };
+        
+        return defaults[role] || defaults.support;
+    },
+    
+    getRoleName(role) {
+        const names = {
+            owner: 'Vlastník',
+            admin: 'Admin',
+            manager: 'Manažér',
+            sales: 'Obchodník',
+            support: 'Podpora'
+        };
+        return names[role] || role;
+    },
+    
+    async savePermissions() {
+        const memberId = document.getElementById('perm-member-id').value;
+        const useCustom = document.getElementById('use-custom-perms').checked;
+        
+        let customPermissions = null;
+        
+        if (useCustom) {
+            customPermissions = {};
+            const checkboxes = document.querySelectorAll('.perm-checkbox');
+            
+            checkboxes.forEach(cb => {
+                const module = cb.dataset.module;
+                const action = cb.dataset.action;
+                
+                if (!customPermissions[module]) {
+                    customPermissions[module] = {};
+                }
+                customPermissions[module][action] = cb.checked;
+            });
+        }
+        
+        try {
+            const { error } = await Database.client
+                .from('team_members')
+                .update({ custom_permissions: customPermissions })
+                .eq('id', memberId);
+            
+            if (error) throw error;
+            
+            // Zavrieť modal
+            document.querySelector('.modal-overlay').remove();
+            
+            // Reload members
+            await this.loadMembers();
+            this.renderMembersTab();
+            
+            Utils.showNotification('Oprávnenia boli uložené', 'success');
+            
+        } catch (error) {
+            console.error('Save permissions error:', error);
+            Utils.showNotification('Chyba pri ukladaní oprávnení', 'error');
+        }
+    },
+    
+    async resetToRoleDefaults(memberId) {
+        if (!confirm('Naozaj chceš resetovať oprávnenia na defaultné podľa role?')) return;
+        
+        try {
+            const { error } = await Database.client
+                .from('team_members')
+                .update({ custom_permissions: null })
+                .eq('id', memberId);
+            
+            if (error) throw error;
+            
+            document.querySelector('.modal-overlay').remove();
+            await this.loadMembers();
+            this.renderMembersTab();
+            
+            Utils.showNotification('Oprávnenia resetované', 'success');
+            
+        } catch (error) {
+            console.error('Reset permissions error:', error);
+            Utils.showNotification('Chyba pri resetovaní', 'error');
+        }
     }
 };
 
