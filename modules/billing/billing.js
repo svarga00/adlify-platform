@@ -2888,7 +2888,36 @@ const BillingModule = {
     },
 
     async downloadPDF(invoiceId) {
-        alert('PDF generovanie bude implementované - zatiaľ nie je k dispozícii.');
+        try {
+            // Načítať faktúru s klientom
+            const { data: invoice, error } = await Database.client
+                .from('invoices')
+                .select('*, client:clients(*)')
+                .eq('id', invoiceId)
+                .single();
+            
+            if (error) throw error;
+            
+            // Načítať položky
+            const { data: items } = await Database.client
+                .from('invoice_items')
+                .select('*')
+                .eq('invoice_id', invoiceId)
+                .order('sort_order');
+            
+            invoice.items = items || [];
+            
+            // Generovať PDF
+            if (typeof PDFGenerator !== 'undefined') {
+                await PDFGenerator.generateInvoicePDF(invoice);
+            } else {
+                console.error('PDFGenerator not loaded');
+                Utils.showNotification('PDF generátor nie je dostupný', 'error');
+            }
+        } catch (error) {
+            console.error('Download PDF error:', error);
+            Utils.showNotification('Chyba pri generovaní PDF', 'error');
+        }
     },
 
     // Pomocné funkcie
