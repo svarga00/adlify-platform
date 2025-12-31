@@ -1,15 +1,15 @@
 /**
  * ADLIFY PLATFORM - Configuration
- * @version 1.0.0
+ * @version 1.1.0
  * 
- * Handles all app configuration stored in localStorage
+ * Handles all app configuration
  */
 
 const Config = {
-  // Default values
+  // Default values - Supabase credentials sú verejné (anon key)
   defaults: {
-    supabase_url: '',
-    supabase_key: '',
+    supabase_url: 'https://eidkljfaeqvvegiponwl.supabase.co',
+    supabase_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ',
     claude_api_key: '',
     mm_api_key: '',
     app_name: 'Adlify',
