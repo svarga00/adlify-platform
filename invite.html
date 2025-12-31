@@ -123,6 +123,8 @@
         
         async function validateToken(token) {
             try {
+                console.log('Validating token:', token.substring(0, 10) + '...');
+                
                 // Get invitation
                 const { data: invitation, error: invError } = await db
                     .from('invitation_tokens')
@@ -131,14 +133,29 @@
                     .is('used_at', null)
                     .single();
                 
-                if (invError || !invitation) {
+                console.log('Invitation result:', { invitation, error: invError });
+                
+                if (invError) {
+                    console.error('Query error:', invError);
                     showError('Pozvánka neexistuje alebo už bola použitá');
+                    return;
+                }
+                
+                if (!invitation) {
+                    showError('Pozvánka neexistuje');
                     return;
                 }
                 
                 // Check expiration
                 if (new Date(invitation.expires_at) < new Date()) {
                     showError('Pozvánka vypršala. Požiadaj o novú pozvánku.');
+                    return;
+                }
+                
+                // Check if team_member exists
+                if (!invitation.team_member) {
+                    console.error('Team member not found for invitation');
+                    showError('Člen tímu nebol nájdený');
                     return;
                 }
                 
@@ -154,7 +171,7 @@
                 
             } catch (error) {
                 console.error('Validation error:', error);
-                showError('Chyba pri overovaní pozvánky');
+                showError('Chyba pri overovaní pozvánky: ' + error.message);
             }
         }
         
