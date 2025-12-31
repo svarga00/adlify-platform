@@ -125,6 +125,7 @@
     <script src="../shared/js/core/router.js"></script>
     <script src="../shared/js/core/utils.js"></script>
     <script src="../shared/js/core/app.js"></script>
+    <script src="../shared/js/components/notifications.js"></script>
     
     <!-- Module Scripts -->
     <script src="../modules/dashboard/dashboard.js"></script>
@@ -139,6 +140,7 @@
     <script src="../modules/integrations/integrations.js"></script>
     <script src="../modules/team/team.js"></script>
     <script src="../modules/tasks/tasks.js"></script>
+    <script src="../modules/tickets/tickets.js"></script>
     
     <!-- Initialize App -->
     <script>
@@ -146,6 +148,11 @@
             const success = await App.init({ requireTeam: true });
             
             if (success) {
+                // Initialize Notifications
+                if (typeof Notifications !== 'undefined') {
+                    Notifications.init();
+                }
+                
                 // Register modules - HLAVNÉ
                 App.register(DashboardModule);
                 App.register(LeadsModule);
@@ -153,6 +160,7 @@
                 App.register(CampaignProjectsModule);
                 App.register(MessagesModule);
                 App.register(TasksModule);
+                App.register(TicketsModule);
                 App.register(BillingModule);
                 
                 // Register modules - NÁSTROJE
