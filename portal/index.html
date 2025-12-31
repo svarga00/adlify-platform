@@ -311,7 +311,7 @@
             }
 
             try {
-                const { data: clientData, error } = await supabase
+                const { data: clientData, error } = await db
                     .from('clients')
                     .select('*')
                     .eq('portal_token', token)
