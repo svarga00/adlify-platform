@@ -47,7 +47,7 @@ const Auth = {
   async loadProfile() {
     if (!this.user) return null;
     
-    // Get profile
+    // Get profile (may not exist for new users)
     const { data: profile } = await Database.client
       .from('user_profiles')
       .select('*')
@@ -56,16 +56,15 @@ const Auth = {
     
     this.profile = profile;
     
-    // If team member, load team data
-    if (profile && ['owner', 'admin', 'employee'].includes(profile.role)) {
-      const { data: teamMember } = await Database.client
-        .from('team_members')
-        .select('*')
-        .eq('user_id', this.user.id)
-        .single();
-      
-      this.teamMember = teamMember;
-    }
+    // Check if user is team member (directly from team_members table)
+    const { data: teamMember } = await Database.client
+      .from('team_members')
+      .select('*')
+      .eq('user_id', this.user.id)
+      .eq('status', 'active')
+      .single();
+    
+    this.teamMember = teamMember;
     
     // If client, load client data
     if (profile && profile.role === 'client') {
@@ -78,11 +77,13 @@ const Auth = {
       this.clientUser = clientUser;
     }
     
-    // Update last login
-    await Database.client
-      .from('user_profiles')
-      .update({ last_login: new Date().toISOString() })
-      .eq('id', this.user.id);
+    // Update last login if profile exists
+    if (profile) {
+      await Database.client
+        .from('user_profiles')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', this.user.id);
+    }
     
     return this.profile;
   },
