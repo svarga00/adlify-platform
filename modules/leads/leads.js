@@ -237,7 +237,7 @@ const LeadsModule = {
                     <small>Uložiť na disk</small>
                   </span>
                 </button>
-                <button onclick="LeadsModule.sendProposalByEmail()" class="proposal-option-btn primary" id="btn-send-email">
+                <button onclick="LeadsModule.openEmailModal()" class="proposal-option-btn primary" id="btn-send-email">
                   <span class="option-icon">📧</span>
                   <span class="option-text">
                     <strong>Poslať emailom</strong>
@@ -247,7 +247,7 @@ const LeadsModule = {
               </div>
             </div>
             
-            <div class="tip-box">💡 <strong>Tip:</strong> PDF sa automaticky vygeneruje a priloží k emailu.</div>
+            <div class="tip-box">💡 <strong>Tip:</strong> Pri odoslaní emailom môžeš vybrať zo šablón.</div>
           </div>
           <div class="modal-footer">
             <button onclick="LeadsModule.closeProposalModal()" class="btn-secondary">Zavrieť</button>
@@ -255,8 +255,26 @@ const LeadsModule = {
         </div>
       </div>
       
+      <!-- Email Modal so šablónami -->
+      <div id="email-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box-new modal-large">
+          <div class="modal-header-gradient">
+            <h2>📧 Odoslať ponuku emailom</h2>
+            <button onclick="LeadsModule.closeEmailModal()" class="modal-close">✕</button>
+          </div>
+          <div class="modal-body" id="email-modal-body">
+            <!-- Content loaded dynamically -->
+          </div>
+          <div class="modal-footer">
+            <button onclick="LeadsModule.closeEmailModal()" class="btn-secondary">Zrušiť</button>
+            <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">📤 Odoslať email</button>
+          </div>
+        </div>
+      </div>
+      
       <style>
         .modal-medium { max-width: 600px; }
+        .modal-large { max-width: 800px; }
         .proposal-options { margin-top: 1.5rem; }
         .proposal-options > label { font-size: 0.85rem; font-weight: 500; color: #475569; display: block; margin-bottom: 0.75rem; }
         .proposal-buttons { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -270,6 +288,26 @@ const LeadsModule = {
         .option-text { flex: 1; }
         .option-text strong { display: block; font-size: 0.95rem; }
         .option-text small { font-size: 0.8rem; color: #64748b; }
+        
+        /* Email Modal Styles */
+        .email-form { display: flex; flex-direction: column; gap: 1rem; }
+        .email-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .email-field { display: flex; flex-direction: column; gap: 0.25rem; }
+        .email-field label { font-size: 0.85rem; font-weight: 500; color: #475569; }
+        .email-field input, .email-field select, .email-field textarea { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; }
+        .email-field input:focus, .email-field select:focus, .email-field textarea:focus { outline: none; border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
+        .email-field textarea { min-height: 200px; resize: vertical; font-family: inherit; line-height: 1.6; }
+        .template-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+        .template-btn { padding: 0.5rem 1rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 20px; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; }
+        .template-btn:hover { background: #fff7ed; border-color: #f97316; }
+        .template-btn.active { background: #f97316; color: white; border-color: #f97316; }
+        .email-preview { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-top: 0.5rem; }
+        .email-preview-label { font-size: 0.75rem; color: #64748b; margin-bottom: 0.5rem; }
+        .variables-info { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.8rem; color: #9a3412; }
+        .variables-info code { background: white; padding: 0.1rem 0.3rem; border-radius: 3px; font-family: monospace; }
+        .email-actions { margin-top: 1rem; text-align: right; }
+        .btn-link { background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.85rem; }
+        .btn-link:hover { color: #f97316; text-decoration: underline; }
       </style>
       
       ${this.getStyles()}
@@ -1373,6 +1411,516 @@ const LeadsModule = {
     document.getElementById('proposal-modal').style.display = 'none';
   },
   
+  // ========== EMAIL MODAL S ŠABLÓNAMI ==========
+  
+  // Fallback šablóny ak DB je prázdna
+  defaultEmailTemplates: [
+    {
+      id: 'formal',
+      slug: 'proposal-formal',
+      name: '📋 Formálna',
+      subject: 'Marketingová ponuka pre {{company}} - Adlify',
+      body_html: `Vážený pán / Vážená pani,
+
+dovoľujeme si Vás osloviť s ponukou marketingových služieb pre spoločnosť {{company}}.
+
+Na základe analýzy Vašej online prítomnosti sme pripravili personalizovanú marketingovú stratégiu, ktorá by mohla významne prispieť k rastu Vášho podnikania.
+
+Naša ponuka zahŕňa:
+• Komplexnú analýzu Vašej aktuálnej online prítomnosti
+• Odporúčanú marketingovú stratégiu pre Google a Meta platformy
+• Návrh rozpočtu s predpokladanou návratnosťou investície
+• Konkrétne kroky pre zvýšenie viditeľnosti a získanie nových zákazníkov
+
+Radi Vám ponuku predstavíme osobne alebo prostredníctvom videohovoru. Pre dohodnutie termínu nás prosím kontaktujte odpoveďou na tento email.
+
+S úctou,
+Adlify tím
+
+---
+📧 info@adlify.eu
+🌐 www.adlify.eu`
+    },
+    {
+      id: 'friendly',
+      slug: 'proposal-friendly',
+      name: '😊 Priateľská',
+      subject: 'Máme pre {{company}} niečo zaujímavé! 🚀',
+      body_html: `Dobrý deň,
+
+volám sa [Vaše meno] z Adlify a rád by som Vám predstavil niečo, čo by mohlo pomôcť {{company}} získať viac zákazníkov.
+
+Pozreli sme sa na Vašu online prítomnosť a pripravili sme pre Vás pár tipov a odporúčaní, ako by ste mohli osloviť viac ľudí cez internet.
+
+Čo sme pre Vás pripravili:
+✅ Zhodnotenie Vašej aktuálnej situácie
+✅ Návrh stratégie pre Google a Facebook/Instagram
+✅ Odhad koľko nových dopytov by ste mohli získať
+✅ Transparentný rozpočet bez skrytých poplatkov
+
+Máte 15 minút na krátky hovor tento týždeň? Rád Vám všetko vysvetlím a odpoviem na otázky.
+
+Stačí odpovedať na tento email alebo zavolať na [telefón].
+
+Ďakujem a teším sa na spoluprácu!
+
+[Vaše meno]
+Adlify tím`
+    },
+    {
+      id: 'short',
+      slug: 'proposal-short',
+      name: '⚡ Stručná',
+      subject: 'Ponuka pre {{company}}',
+      body_html: `Dobrý deň,
+
+pripravili sme pre {{company}} marketingovú ponuku.
+
+Zahŕňa analýzu vašej online prítomnosti a konkrétne odporúčania pre reklamu na Google a sociálnych sieťach.
+
+Máte záujem o krátku prezentáciu? Stačí odpovedať na tento email.
+
+S pozdravom,
+Adlify tím
+info@adlify.eu`
+    },
+    {
+      id: 'followup',
+      slug: 'proposal-followup', 
+      name: '🔄 Follow-up',
+      subject: 'Pripomíname sa - ponuka pre {{company}}',
+      body_html: `Dobrý deň,
+
+pred niekoľkými dňami sme Vám poslali marketingovú ponuku pre {{company}}.
+
+Chcel by som sa uistiť, že ste email dostali a či nemáte nejaké otázky.
+
+Radi Vám ponuku predstavíme osobne - stačí 15-20 minút Vášho času.
+
+Kedy by Vám vyhovovalo?
+
+S pozdravom,
+Adlify tím`
+    }
+  ],
+  
+  emailTemplates: [],
+  selectedTemplateId: null,
+  
+  async loadEmailTemplates() {
+    try {
+      // Načítať z DB
+      const dbTemplates = await Database.select('email_templates', {
+        filters: { is_active: true },
+        order: { column: 'name', ascending: true }
+      }) || [];
+      
+      if (dbTemplates.length > 0) {
+        this.emailTemplates = dbTemplates;
+      } else {
+        // Fallback na predvolené
+        this.emailTemplates = this.defaultEmailTemplates;
+      }
+      
+      // Pridať "Vlastná" možnosť
+      this.emailTemplates.push({
+        id: 'custom',
+        slug: 'custom',
+        name: '✏️ Vlastná správa',
+        subject: '',
+        body_html: ''
+      });
+      
+    } catch (error) {
+      console.error('Failed to load email templates:', error);
+      this.emailTemplates = [...this.defaultEmailTemplates, {
+        id: 'custom',
+        slug: 'custom',
+        name: '✏️ Vlastná správa',
+        subject: '',
+        body_html: ''
+      }];
+    }
+  },
+  
+  async openEmailModal() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead?.email) return Utils.toast('Lead nemá email', 'warning');
+    
+    this.closeProposalModal();
+    
+    // Načítať šablóny z DB
+    await this.loadEmailTemplates();
+    this.selectedTemplateId = this.emailTemplates[0]?.id || this.emailTemplates[0]?.slug;
+    
+    const modal = document.getElementById('email-modal');
+    const body = document.getElementById('email-modal-body');
+    
+    body.innerHTML = this.renderEmailForm(lead);
+    modal.style.display = 'flex';
+  },
+  
+  closeEmailModal() {
+    document.getElementById('email-modal').style.display = 'none';
+  },
+  
+  renderEmailForm(lead) {
+    const companyName = lead.analysis?.company?.name || lead.company_name || lead.domain || 'firma';
+    const template = this.emailTemplates.find(t => (t.id || t.slug) === this.selectedTemplateId) || this.emailTemplates[0];
+    
+    // Nahradiť premenné
+    const subject = this.replaceVariables(template?.subject || '', lead);
+    const body = this.replaceVariables(this.htmlToPlainText(template?.body_html || ''), lead);
+    
+    return `
+      <div class="email-form">
+        <div class="variables-info">
+          💡 <strong>Premenné:</strong> <code>{{company}}</code> = názov firmy, <code>{{email}}</code> = email, <code>{{domain}}</code> = doména
+        </div>
+        
+        <div class="email-field">
+          <label>📋 Vybrať šablónu</label>
+          <div class="template-selector">
+            ${this.emailTemplates.map(t => `
+              <button type="button" class="template-btn ${(t.id || t.slug) === this.selectedTemplateId ? 'active' : ''}" 
+                onclick="LeadsModule.selectEmailTemplate('${t.id || t.slug}')">
+                ${t.name}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div class="email-row">
+          <div class="email-field">
+            <label>📧 Komu</label>
+            <input type="email" id="email-to" value="${lead.email}" readonly style="background:#f8fafc;">
+          </div>
+          <div class="email-field">
+            <label>👤 Meno príjemcu</label>
+            <input type="text" id="email-to-name" value="${companyName}" placeholder="Názov firmy alebo meno">
+          </div>
+        </div>
+        
+        <div class="email-field">
+          <label>📝 Predmet</label>
+          <input type="text" id="email-subject" value="${subject}" placeholder="Predmet emailu">
+        </div>
+        
+        <div class="email-field">
+          <label>✉️ Správa</label>
+          <textarea id="email-body" placeholder="Text emailu...">${body}</textarea>
+        </div>
+        
+        <input type="hidden" id="email-lead-id" value="${lead.id}">
+        
+        <div class="email-actions">
+          <button type="button" class="btn-link" onclick="LeadsModule.openTemplateManager()">
+            ⚙️ Spravovať šablóny
+          </button>
+        </div>
+      </div>
+    `;
+  },
+  
+  htmlToPlainText(html) {
+    if (!html) return '';
+    return html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<li>/gi, '• ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  },
+  
+  replaceVariables(text, lead) {
+    if (!text) return '';
+    const companyName = lead.analysis?.company?.name || lead.company_name || lead.domain || 'firma';
+    return text
+      .replace(/\{\{company\}\}/g, companyName)
+      .replace(/\{\{email\}\}/g, lead.email || '')
+      .replace(/\{\{domain\}\}/g, lead.domain || '')
+      .replace(/\{\{phone\}\}/g, lead.phone || '');
+  },
+  
+  selectEmailTemplate(templateId) {
+    this.selectedTemplateId = templateId;
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (lead) {
+      document.getElementById('email-modal-body').innerHTML = this.renderEmailForm(lead);
+    }
+  },
+  
+  // ========== TEMPLATE MANAGER ==========
+  
+  openTemplateManager() {
+    const modal = document.getElementById('email-modal');
+    const body = document.getElementById('email-modal-body');
+    
+    body.innerHTML = this.renderTemplateManager();
+    
+    // Zmeniť footer tlačidlá
+    const footer = modal.querySelector('.modal-footer');
+    footer.innerHTML = `
+      <button onclick="LeadsModule.backToEmailForm()" class="btn-secondary">← Späť</button>
+      <button onclick="LeadsModule.showAddTemplateForm()" class="btn-primary">+ Nová šablóna</button>
+    `;
+  },
+  
+  renderTemplateManager() {
+    const templates = this.emailTemplates.filter(t => t.slug !== 'custom');
+    
+    return `
+      <div class="template-manager">
+        <h3 style="margin-bottom: 1rem;">⚙️ Správa email šablón</h3>
+        
+        <div class="template-list">
+          ${templates.map(t => `
+            <div class="template-item">
+              <div class="template-item-info">
+                <strong>${t.name}</strong>
+                <small>${t.subject || 'Bez predmetu'}</small>
+              </div>
+              <div class="template-item-actions">
+                <button onclick="LeadsModule.editTemplate('${t.id || t.slug}')" class="btn-icon" title="Upraviť">✏️</button>
+                <button onclick="LeadsModule.deleteTemplate('${t.id || t.slug}')" class="btn-icon red" title="Zmazať">🗑️</button>
+              </div>
+            </div>
+          `).join('')}
+          
+          ${templates.length === 0 ? '<p class="text-muted">Žiadne šablóny. Pridajte novú.</p>' : ''}
+        </div>
+      </div>
+      
+      <style>
+        .template-manager { }
+        .template-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .template-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .template-item-info { flex: 1; }
+        .template-item-info strong { display: block; margin-bottom: 0.25rem; }
+        .template-item-info small { color: #64748b; }
+        .template-item-actions { display: flex; gap: 0.5rem; }
+        .template-item-actions .btn-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: none; cursor: pointer; background: white; }
+        .template-item-actions .btn-icon:hover { background: #e2e8f0; }
+        .template-item-actions .btn-icon.red:hover { background: #fee2e2; }
+      </style>
+    `;
+  },
+  
+  backToEmailForm() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (lead) {
+      document.getElementById('email-modal-body').innerHTML = this.renderEmailForm(lead);
+      
+      // Obnoviť footer
+      const modal = document.getElementById('email-modal');
+      const footer = modal.querySelector('.modal-footer');
+      footer.innerHTML = `
+        <button onclick="LeadsModule.closeEmailModal()" class="btn-secondary">Zrušiť</button>
+        <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">📤 Odoslať email</button>
+      `;
+    }
+  },
+  
+  showAddTemplateForm() {
+    this.editingTemplateId = null;
+    document.getElementById('email-modal-body').innerHTML = this.renderTemplateForm();
+    
+    const modal = document.getElementById('email-modal');
+    const footer = modal.querySelector('.modal-footer');
+    footer.innerHTML = `
+      <button onclick="LeadsModule.openTemplateManager()" class="btn-secondary">← Späť</button>
+      <button onclick="LeadsModule.saveTemplate()" class="btn-primary">💾 Uložiť šablónu</button>
+    `;
+  },
+  
+  editTemplate(templateId) {
+    const template = this.emailTemplates.find(t => (t.id || t.slug) === templateId);
+    if (!template) return;
+    
+    this.editingTemplateId = template.id;
+    document.getElementById('email-modal-body').innerHTML = this.renderTemplateForm(template);
+    
+    const modal = document.getElementById('email-modal');
+    const footer = modal.querySelector('.modal-footer');
+    footer.innerHTML = `
+      <button onclick="LeadsModule.openTemplateManager()" class="btn-secondary">← Späť</button>
+      <button onclick="LeadsModule.saveTemplate()" class="btn-primary">💾 Uložiť zmeny</button>
+    `;
+  },
+  
+  renderTemplateForm(template = null) {
+    return `
+      <div class="template-form">
+        <h3 style="margin-bottom: 1rem;">${template ? '✏️ Upraviť šablónu' : '➕ Nová šablóna'}</h3>
+        
+        <div class="variables-info">
+          💡 <strong>Premenné:</strong> <code>{{company}}</code>, <code>{{email}}</code>, <code>{{domain}}</code>, <code>{{phone}}</code>
+        </div>
+        
+        <div class="email-field" style="margin-top: 1rem;">
+          <label>Názov šablóny</label>
+          <input type="text" id="tpl-name" value="${template?.name || ''}" placeholder="Napr.: Úvodná ponuka">
+        </div>
+        
+        <div class="email-field">
+          <label>Predmet emailu</label>
+          <input type="text" id="tpl-subject" value="${template?.subject || ''}" placeholder="Predmet s {{company}}">
+        </div>
+        
+        <div class="email-field">
+          <label>Text emailu</label>
+          <textarea id="tpl-body" rows="12" placeholder="Text emailu...">${this.htmlToPlainText(template?.body_html || '')}</textarea>
+        </div>
+      </div>
+    `;
+  },
+  
+  async saveTemplate() {
+    const name = document.getElementById('tpl-name').value.trim();
+    const subject = document.getElementById('tpl-subject').value.trim();
+    const bodyText = document.getElementById('tpl-body').value.trim();
+    
+    if (!name || !subject || !bodyText) {
+      return Utils.toast('Vyplň všetky polia', 'warning');
+    }
+    
+    // Konvertovať na HTML
+    const body_html = bodyText
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+      .replace(/^/, '<p>')
+      .replace(/$/, '</p>');
+    
+    const slug = name.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    
+    try {
+      if (this.editingTemplateId) {
+        // Update
+        await Database.update('email_templates', this.editingTemplateId, {
+          name,
+          subject,
+          body_html
+        });
+        Utils.toast('Šablóna aktualizovaná!', 'success');
+      } else {
+        // Insert
+        await Database.insert('email_templates', {
+          slug,
+          name,
+          subject,
+          body_html,
+          category: 'proposal',
+          is_active: true
+        });
+        Utils.toast('Šablóna vytvorená!', 'success');
+      }
+      
+      // Reload a späť
+      await this.loadEmailTemplates();
+      this.openTemplateManager();
+      
+    } catch (error) {
+      console.error('Save template error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
+  async deleteTemplate(templateId) {
+    if (!confirm('Naozaj chceš zmazať túto šablónu?')) return;
+    
+    try {
+      const template = this.emailTemplates.find(t => (t.id || t.slug) === templateId);
+      if (template?.id) {
+        await Database.update('email_templates', template.id, { is_active: false });
+      }
+      
+      await this.loadEmailTemplates();
+      this.openTemplateManager();
+      Utils.toast('Šablóna zmazaná', 'success');
+      
+    } catch (error) {
+      console.error('Delete template error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
+  async sendEmailFromModal() {
+    const to = document.getElementById('email-to').value.trim();
+    const toName = document.getElementById('email-to-name').value.trim();
+    const subject = document.getElementById('email-subject').value.trim();
+    const body = document.getElementById('email-body').value.trim();
+    const leadId = document.getElementById('email-lead-id').value;
+    
+    if (!to || !subject || !body) {
+      return Utils.toast('Vyplň všetky povinné polia', 'warning');
+    }
+    
+    Utils.toast('Odosielam email...', 'info');
+    
+    try {
+      const session = await Database.client.auth.getSession();
+      const token = session?.data?.session?.access_token || '';
+      
+      // Konvertovať plain text na HTML
+      const htmlBody = body
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+        .replace(/^/, '<p>')
+        .replace(/$/, '</p>');
+      
+      // Použiť MessagesModule SEND_URL
+      const sendUrl = (typeof MessagesModule !== 'undefined' && MessagesModule.SEND_URL) 
+        ? MessagesModule.SEND_URL 
+        : 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/send-email';
+      
+      const response = await fetch(sendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          to,
+          toName,
+          subject,
+          htmlBody,
+          textBody: body,
+          leadId
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Aktualizovať lead
+        const lead = this.leads.find(l => l.id === leadId);
+        if (lead) {
+          await Database.update('leads', leadId, { 
+            status: 'contacted',
+            proposal_status: 'sent',
+            proposal_sent_at: new Date().toISOString()
+          });
+          lead.status = 'contacted';
+          document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+        }
+        
+        this.closeEmailModal();
+        Utils.toast('Email odoslaný! ✉️', 'success');
+      } else {
+        throw new Error(result.error || 'Odoslanie zlyhalo');
+      }
+      
+    } catch (error) {
+      console.error('Email send error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
   // HTML ponuka - otvorí v novom okne
   generateProposalHTML() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
@@ -1466,91 +2014,6 @@ const LeadsModule = {
   },
   
   // Poslať emailom - otvoriť compose modal z Messages modulu
-  sendProposalByEmail() {
-    const lead = this.leads.find(l => l.id === this.currentLeadId);
-    if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
-    if (!lead.email) return Utils.toast('Lead nemá email', 'warning');
-    
-    const notes = document.getElementById('proposal-notes')?.value?.trim();
-    let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
-    if (notes) analysisToUse.customNote = notes;
-    
-    const companyName = analysisToUse.company?.name || lead.company_name || 'firma';
-    const subject = `Marketingová ponuka pre ${companyName} - Adlify`;
-    
-    // Vytvoriť text emailu
-    const emailText = `Dobrý deň,
-
-ďakujeme za Váš záujem o spoluprácu. Pripravili sme pre ${companyName} personalizovanú marketingovú ponuku na základe analýzy Vašej online prítomnosti.
-
-Čo sme pre Vás pripravili:
-• Analýzu Vašej aktuálnej online prítomnosti
-• Odporúčanú marketingovú stratégiu
-• Návrh rozpočtu a predpokladanú návratnosť
-• Konkrétne kroky pre zvýšenie viditeľnosti
-
-Radi Vám ponuku predstavíme osobne alebo cez videohovor. Stačí odpovedať na tento email a dohodneme sa na termíne.
-
-S pozdravom,
-Adlify tím
-
----
-📧 info@adlify.eu
-🌐 www.adlify.eu`;
-    
-    this.closeProposalModal();
-    
-    // Použiť MessagesModule ak existuje
-    if (typeof MessagesModule !== 'undefined') {
-      MessagesModule.showComposeModal({
-        to: lead.email,
-        toName: lead.company_name || '',
-        subject: subject,
-        body: emailText,
-        leadId: lead.id,
-        onSent: async () => {
-          // Callback po odoslaní - aktualizovať status leadu
-          try {
-            await Database.update('leads', lead.id, { 
-              status: 'contacted',
-              proposal_status: 'sent',
-              proposal_sent_at: new Date().toISOString()
-            });
-            lead.status = 'contacted';
-            document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-            Utils.toast('Lead označený ako kontaktovaný', 'success');
-          } catch (e) {
-            console.error('Failed to update lead:', e);
-          }
-        }
-      });
-    } else {
-      // Fallback - mailto
-      this.openMailClient(lead, analysisToUse);
-    }
-  },
-  
-  openMailClient(lead, analysis) {
-    const companyName = analysis.company?.name || lead.company_name || 'firma';
-    const subject = encodeURIComponent(`Marketingová ponuka pre ${companyName} - Adlify`);
-    const body = encodeURIComponent(`Dobrý deň,
-
-ďakujeme za Váš záujem o spoluprácu. 
-
-Pripravili sme pre Vás personalizovanú marketingovú ponuku pre ${companyName}.
-
-Pre zobrazenie ponuky prosím odpíšte na tento email a my Vám ju pošleme.
-
-S pozdravom,
-Adlify tím
-info@adlify.eu
-www.adlify.eu`);
-    
-    window.open(`mailto:${lead.email}?subject=${subject}&body=${body}`, '_blank');
-    this.closeProposalModal();
-    Utils.toast('Otvorený emailový klient', 'info');
-  },
-  
   blobToBase64(blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
