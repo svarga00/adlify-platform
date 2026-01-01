@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Marketingová ponuka - Adlify</title>
-  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" href="/admin/favicon.ico">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; min-height: 100vh; }
@@ -49,87 +49,95 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // Supabase config
-    const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4OTg0NjksImV4cCI6MjA2MjQ3NDQ2OX0.5n8Xti-xnM7pemH_kKALEfgnHfLnKAckqzLqLord0WU';
-    
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    
-    async function loadProposal() {
-      const app = document.getElementById('app');
+    (function() {
+      // Supabase config - wrapped in IIFE to avoid conflicts
+      const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4OTg0NjksImV4cCI6MjA2MjQ3NDQ2OX0.5n8Xti-xnM7pemH_kKALEfgnHfLnKAckqzLqLord0WU';
       
-      // Get token from URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('t') || urlParams.get('token');
+      const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       
-      if (!token) {
-        showError('Chýba token ponuky', 'Odkaz na ponuku nie je platný.');
-        return;
+      async function loadProposal() {
+        const app = document.getElementById('app');
+        
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('t') || urlParams.get('token');
+        
+        if (!token) {
+          showError('Chýba token ponuky', 'Odkaz na ponuku nie je platný.');
+          return;
+        }
+        
+        console.log('Loading proposal with token:', token);
+        
+        try {
+          // Fetch proposal
+          const { data: proposal, error } = await db
+            .from('proposals')
+            .select('*')
+            .eq('token', token)
+            .single();
+          
+          console.log('Proposal result:', { proposal, error });
+          
+          if (error) {
+            console.error('DB Error:', error);
+            showError('Ponuka nenájdená', 'Táto ponuka neexistuje alebo jej platnosť vypršala. (' + error.message + ')');
+            return;
+          }
+          
+          if (!proposal) {
+            showError('Ponuka nenájdená', 'Táto ponuka neexistuje.');
+            return;
+          }
+          
+          // Check expiration
+          if (proposal.expires_at && new Date(proposal.expires_at) < new Date()) {
+            showError('Ponuka vypršala', 'Platnosť tejto ponuky už vypršala. Kontaktujte nás pre novú ponuku.');
+            return;
+          }
+          
+          // Increment views (don't wait for it)
+          db.rpc('increment_proposal_views', { proposal_token: token }).catch(console.warn);
+          
+          // Render proposal
+          app.innerHTML = `
+            <div class="proposal-container">
+              ${proposal.html_content}
+            </div>
+            <div class="action-bar">
+              <button class="btn-secondary" onclick="window.print()">
+                📄 Stiahnuť PDF
+              </button>
+              <button class="btn-primary" onclick="window.location.href='mailto:info@adlify.eu?subject=Záujem o ponuku'">
+                📧 Kontaktovať nás
+              </button>
+            </div>
+          `;
+          
+          // Update page title
+          document.title = 'Ponuka pre ' + (proposal.company_name || 'Vás') + ' - Adlify';
+          
+        } catch (err) {
+          console.error('Load proposal error:', err);
+          showError('Chyba', 'Nepodarilo sa načítať ponuku. Skúste to znova neskôr.');
+        }
       }
       
-      try {
-        // Fetch proposal
-        const { data: proposal, error } = await supabase
-          .from('proposals')
-          .select('*')
-          .eq('token', token)
-          .single();
-        
-        if (error || !proposal) {
-          showError('Ponuka nenájdená', 'Táto ponuka neexistuje alebo jej platnosť vypršala.');
-          return;
-        }
-        
-        // Check expiration
-        if (proposal.expires_at && new Date(proposal.expires_at) < new Date()) {
-          showError('Ponuka vypršala', 'Platnosť tejto ponuky už vypršala. Kontaktujte nás pre novú ponuku.');
-          return;
-        }
-        
-        // Increment views
-        await supabase.rpc('increment_proposal_views', { proposal_token: token });
-        
-        // Render proposal
-        app.innerHTML = `
-          <div class="proposal-container">
-            ${proposal.html_content}
-          </div>
-          <div class="action-bar">
-            <button class="btn-secondary" onclick="window.print()">
-              📄 Stiahnuť PDF
-            </button>
-            <button class="btn-primary" onclick="contactUs()">
-              📧 Kontaktovať nás
-            </button>
+      function showError(title, message) {
+        document.getElementById('app').innerHTML = `
+          <div class="error-page">
+            <h1>😕</h1>
+            <h2>${title}</h2>
+            <p>${message}</p>
+            <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
           </div>
         `;
-        
-        // Update page title
-        document.title = `Ponuka pre ${proposal.company_name || 'Vás'} - Adlify`;
-        
-      } catch (err) {
-        console.error('Load proposal error:', err);
-        showError('Chyba', 'Nepodarilo sa načítať ponuku. Skúste to znova neskôr.');
       }
-    }
-    
-    function showError(title, message) {
-      document.getElementById('app').innerHTML = `
-        <div class="error-page">
-          <h1>😕</h1>
-          <h2>${title}</h2>
-          <p>${message}</p>
-          <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
-        </div>
-      `;
-    }
-    
-    function contactUs() {
-      window.location.href = 'mailto:info@adlify.eu?subject=Záujem o ponuku';
-    }
-    
-    // Load on page ready
-    loadProposal();
+      
+      // Load on page ready
+      loadProposal();
+    })();
   </script>
 </body>
 </html>
