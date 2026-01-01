@@ -1465,8 +1465,8 @@ const LeadsModule = {
     Utils.toast('V novom okne klikni "Uložiť ako PDF" → v dialogu vyber "Uložiť ako PDF"', 'info');
   },
   
-  // Poslať emailom - použiť Messages modul
-  async sendProposalByEmail() {
+  // Poslať emailom - otvoriť compose modal z Messages modulu
+  sendProposalByEmail() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
     if (!lead.email) return Utils.toast('Lead nemá email', 'warning');
@@ -1477,38 +1477,57 @@ const LeadsModule = {
     
     const companyName = analysisToUse.company?.name || lead.company_name || 'firma';
     const subject = `Marketingová ponuka pre ${companyName} - Adlify`;
-    const emailBody = this.buildEmailBody(lead, analysisToUse);
     
-    // Skúsiť použiť Messages modul
-    if (typeof MessagesModule !== 'undefined' && MessagesModule.sendEmail) {
-      try {
-        Utils.toast('Odosielam email...', 'info');
-        
-        await MessagesModule.sendEmail({
-          to: lead.email,
-          subject: subject,
-          html: emailBody
-        });
-        
-        // Update lead status
-        await Database.update('leads', lead.id, { 
-          status: 'contacted',
-          proposal_status: 'sent',
-          proposal_sent_at: new Date().toISOString()
-        });
-        lead.status = 'contacted';
-        
-        this.closeProposalModal();
-        Utils.toast('Email odoslaný!', 'success');
-        document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-        return;
-      } catch (error) {
-        console.error('MessagesModule error:', error);
-      }
+    // Vytvoriť text emailu
+    const emailText = `Dobrý deň,
+
+ďakujeme za Váš záujem o spoluprácu. Pripravili sme pre ${companyName} personalizovanú marketingovú ponuku na základe analýzy Vašej online prítomnosti.
+
+Čo sme pre Vás pripravili:
+• Analýzu Vašej aktuálnej online prítomnosti
+• Odporúčanú marketingovú stratégiu
+• Návrh rozpočtu a predpokladanú návratnosť
+• Konkrétne kroky pre zvýšenie viditeľnosti
+
+Radi Vám ponuku predstavíme osobne alebo cez videohovor. Stačí odpovedať na tento email a dohodneme sa na termíne.
+
+S pozdravom,
+Adlify tím
+
+---
+📧 info@adlify.eu
+🌐 www.adlify.eu`;
+    
+    this.closeProposalModal();
+    
+    // Použiť MessagesModule ak existuje
+    if (typeof MessagesModule !== 'undefined') {
+      MessagesModule.showComposeModal({
+        to: lead.email,
+        toName: lead.company_name || '',
+        subject: subject,
+        body: emailText,
+        leadId: lead.id,
+        onSent: async () => {
+          // Callback po odoslaní - aktualizovať status leadu
+          try {
+            await Database.update('leads', lead.id, { 
+              status: 'contacted',
+              proposal_status: 'sent',
+              proposal_sent_at: new Date().toISOString()
+            });
+            lead.status = 'contacted';
+            document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+            Utils.toast('Lead označený ako kontaktovaný', 'success');
+          } catch (e) {
+            console.error('Failed to update lead:', e);
+          }
+        }
+      });
+    } else {
+      // Fallback - mailto
+      this.openMailClient(lead, analysisToUse);
     }
-    
-    // Fallback - otvoriť v mail klientovi
-    this.openMailClient(lead, analysisToUse);
   },
   
   openMailClient(lead, analysis) {
