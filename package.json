@@ -1,0 +1,9 @@
+{
+  "name": "adlify-platform",
+  "version": "1.0.0",
+  "description": "Adlify Marketing Platform",
+  "private": true,
+  "dependencies": {
+    "nodemailer": "^6.9.8"
+  }
+}
