@@ -15,7 +15,7 @@ const LeadsModule = {
   
   leads: [],
   selectedIds: new Set(),
-  filters: { status: '', search: '', minScore: '' },
+  filters: { status: '', search: '', minScore: '', industry: '' },
   currentLeadId: null,
   currentAnalysis: null,
   editedAnalysis: null,
@@ -315,6 +315,11 @@ const LeadsModule = {
   },
   
   renderListTab() {
+    // Získať unikátne typy/odvetvia z leadov
+    const industries = [...new Set(this.leads.map(l => {
+      return l.industry || l.analysis?.company?.industry || null;
+    }).filter(Boolean))];
+    
     return `
       <div class="table-filters">
         <input type="text" class="filter-search" id="filter-search" placeholder="Hľadať..." value="${this.filters.search}">
@@ -325,9 +330,14 @@ const LeadsModule = {
           <option value="won" ${this.filters.status === 'won' ? 'selected' : ''}>✅ Vyhraní</option>
           <option value="lost" ${this.filters.status === 'lost' ? 'selected' : ''}>❌ Prehraní</option>
         </select>
+        <select class="filter-select" id="filter-industry" onchange="LeadsModule.onIndustryChange(this.value)">
+          <option value="">Všetky typy</option>
+          ${industries.map(i => `<option value="${i}" ${this.filters.industry === i ? 'selected' : ''}>${i}</option>`).join('')}
+        </select>
         <div class="filter-actions">
           <button onclick="LeadsModule.selectAll()" class="btn-filter">☑️ Všetky</button>
           <button onclick="LeadsModule.analyzeSelected()" class="btn-filter purple">🤖 Analyzovať</button>
+          <button onclick="LeadsModule.sendBulkProposals()" class="btn-filter orange" title="Hromadné odoslanie ponúk">📧 Ponuky</button>
           <button onclick="LeadsModule.deleteSelected()" class="btn-filter red">🗑️</button>
         </div>
       </div>
@@ -338,8 +348,10 @@ const LeadsModule = {
             <tr>
               <th style="width:40px;"><input type="checkbox" onchange="LeadsModule.toggleAllCheckbox(this.checked)"></th>
               <th>Firma</th>
+              <th>Typ</th>
               <th>Kontakt</th>
               <th>Stav</th>
+              <th>Dátum</th>
               <th>Skóre</th>
               <th>Akcie</th>
             </tr>
@@ -475,6 +487,8 @@ const LeadsModule = {
       .btn-filter:hover { background: #e2e8f0; }
       .btn-filter.purple:hover { background: #f3e8ff; color: #7c3aed; }
       .btn-filter.red:hover { background: #fee2e2; color: #dc2626; }
+      .btn-filter.orange { background: linear-gradient(135deg, #f97316, #ea580c); color: white; }
+      .btn-filter.orange:hover { opacity: 0.9; box-shadow: 0 2px 8px rgba(249,115,22,0.3); }
       
       /* Data Table */
       .table-container { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #f1f5f9; }
@@ -503,6 +517,14 @@ const LeadsModule = {
       .status-badge.red { background: #fee2e2; color: #dc2626; }
       
       .analysis-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.5rem; background: #d1fae5; color: #047857; border-radius: 12px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
+      
+      /* Industry Tag */
+      .industry-tag { display: inline-block; padding: 0.25rem 0.6rem; background: #f1f5f9; color: #475569; border-radius: 6px; font-size: 0.8rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .text-muted { color: #94a3b8; }
+      
+      /* Date Cell */
+      .date-cell { font-size: 0.85rem; color: #475569; }
+      .time-ago { display: block; font-size: 0.75rem; color: #94a3b8; }
       
       /* Score */
       .score-cell { display: flex; align-items: center; justify-content: center; }
@@ -667,7 +689,7 @@ const LeadsModule = {
     if (this.leads.length === 0) {
       return `
         <tr>
-          <td colspan="6">
+          <td colspan="8">
             <div class="empty-state">
               <div class="empty-icon">👥</div>
               <h3>Žiadne leady</h3>
@@ -687,6 +709,15 @@ const LeadsModule = {
       const score = lead.score || 0;
       const scoreClass = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
       
+      // Typ/Industry - z analysis alebo lead.industry
+      const industry = lead.industry || a.company?.industry || a.analysis?.industry || '';
+      const industryShort = industry.length > 20 ? industry.substring(0, 18) + '...' : industry;
+      
+      // Dátum importu
+      const createdAt = lead.created_at ? new Date(lead.created_at) : null;
+      const dateStr = createdAt ? createdAt.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) : '-';
+      const timeAgo = createdAt ? this.getTimeAgo(createdAt) : '';
+      
       const statusConfig = {
         'new': { label: 'Nový', class: 'blue' },
         'contacted': { label: 'Kontaktovaný', class: 'yellow' },
@@ -704,7 +735,7 @@ const LeadsModule = {
       if (socials.linkedin) socialIcons.push(`<a href="${socials.linkedin}" target="_blank" onclick="event.stopPropagation()" class="social-icon li" title="LinkedIn">in</a>`);
       
       return `
-        <tr data-status="${lead.status}">
+        <tr data-status="${lead.status}" data-industry="${industry}">
           <td>
             <input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="LeadsModule.toggleSelect('${lead.id}')">
           </td>
@@ -713,6 +744,9 @@ const LeadsModule = {
               <strong>${lead.company_name || lead.domain || 'Neznámy'}</strong>
               ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="lead-domain">${lead.domain} ↗</a>` : ''}
             </div>
+          </td>
+          <td>
+            ${industry ? `<span class="industry-tag" title="${industry}">${industryShort}</span>` : '<span class="text-muted">-</span>'}
           </td>
           <td>
             <div class="lead-contact">
@@ -726,6 +760,10 @@ const LeadsModule = {
             <span class="status-badge ${status.class}">${status.label}</span>
             ${hasAnalysis ? '<span class="analysis-badge">✓ AI</span>' : ''}
             ${hasSocials && !hasAnalysis ? '<span class="analysis-badge" style="background:#dbeafe;color:#1d4ed8;">📊 MM</span>' : ''}
+          </td>
+          <td>
+            <span class="date-cell" title="${createdAt ? createdAt.toLocaleString('sk-SK') : ''}">${dateStr}</span>
+            ${timeAgo ? `<small class="time-ago">${timeAgo}</small>` : ''}
           </td>
           <td>
             <div class="score-cell">
@@ -742,6 +780,18 @@ const LeadsModule = {
         </tr>
       `;
     }).join('');
+  },
+  
+  getTimeAgo(date) {
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (days === 0) return 'dnes';
+    if (days === 1) return 'včera';
+    if (days < 7) return `pred ${days}d`;
+    if (days < 30) return `pred ${Math.floor(days / 7)}t`;
+    return '';
   },
 
   toggleAllCheckbox(checked) {
@@ -794,6 +844,21 @@ const LeadsModule = {
 
   async onSearchChange(value) { this.filters.search = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); document.getElementById('leads-count').textContent = this.leads.length; },
   async onStatusChange(value) { this.filters.status = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); document.getElementById('leads-count').textContent = this.leads.length; },
+  async onIndustryChange(value) { 
+    this.filters.industry = value; 
+    // Filter lokálne (industry nie je v DB)
+    if (value) {
+      const allLeads = [...this.leads];
+      this.leads = allLeads.filter(l => {
+        const ind = l.industry || l.analysis?.company?.industry || '';
+        return ind.toLowerCase().includes(value.toLowerCase());
+      });
+    } else {
+      await this.loadLeads();
+    }
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList(); 
+    document.getElementById('leads-count').textContent = this.leads.length; 
+  },
   toggleSelect(id) { if (this.selectedIds.has(id)) this.selectedIds.delete(id); else this.selectedIds.add(id); },
   selectAll() { this.leads.forEach(l => this.selectedIds.add(l.id)); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); },
 
@@ -3225,6 +3290,306 @@ ${r.projection ? `
   },
 
   async analyzeSelected() { if (this.selectedIds.size === 0) return Utils.toast('Označ leady', 'warning'); for (const id of this.selectedIds) await this.analyze(id); this.selectedIds.clear(); },
+
+  // Hromadné odoslanie ponúk
+  async sendBulkProposals() {
+    if (this.selectedIds.size === 0) {
+      return Utils.toast('Najprv označ leady', 'warning');
+    }
+    
+    // Filtrovať len leady s emailom a analýzou
+    const selectedLeads = this.leads.filter(l => this.selectedIds.has(l.id));
+    const validLeads = selectedLeads.filter(l => l.email && l.analysis);
+    const noEmail = selectedLeads.filter(l => !l.email);
+    const noAnalysis = selectedLeads.filter(l => l.email && !l.analysis);
+    
+    if (validLeads.length === 0) {
+      let msg = 'Žiadny lead nie je pripravený na odoslanie.';
+      if (noEmail.length > 0) msg += ` ${noEmail.length} bez emailu.`;
+      if (noAnalysis.length > 0) msg += ` ${noAnalysis.length} bez analýzy.`;
+      return Utils.toast(msg, 'warning');
+    }
+    
+    // Zobraziť modal s potvrdením
+    this.showBulkSendModal(validLeads, noEmail, noAnalysis);
+  },
+  
+  showBulkSendModal(validLeads, noEmail, noAnalysis) {
+    // Načítať šablóny
+    this.loadEmailTemplates();
+    
+    const modal = document.createElement('div');
+    modal.id = 'bulk-send-modal';
+    modal.className = 'modal-overlay';
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+      <div class="modal-box-new modal-large">
+        <div class="modal-header-gradient">
+          <h2>📧 Hromadné odoslanie ponúk</h2>
+          <button onclick="LeadsModule.closeBulkSendModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="bulk-send-summary">
+            <div class="summary-item success">
+              <span class="summary-number">${validLeads.length}</span>
+              <span class="summary-label">pripravených na odoslanie</span>
+            </div>
+            ${noEmail.length > 0 ? `
+              <div class="summary-item warning">
+                <span class="summary-number">${noEmail.length}</span>
+                <span class="summary-label">bez emailu (preskočené)</span>
+              </div>
+            ` : ''}
+            ${noAnalysis.length > 0 ? `
+              <div class="summary-item warning">
+                <span class="summary-number">${noAnalysis.length}</span>
+                <span class="summary-label">bez analýzy (preskočené)</span>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="bulk-leads-preview">
+            <label>Leady na odoslanie:</label>
+            <div class="leads-chips">
+              ${validLeads.map(l => `
+                <span class="lead-chip">
+                  ${l.company_name || l.domain}
+                  <small>${l.email}</small>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>📋 Vybrať šablónu emailu</label>
+            <div class="template-selector" id="bulk-template-selector">
+              ${(this.emailTemplates || this.defaultEmailTemplates).filter(t => t.slug !== 'custom').map(t => `
+                <button type="button" class="template-btn ${t.slug === 'proposal-formal' ? 'active' : ''}" 
+                  onclick="LeadsModule.selectBulkTemplate('${t.id || t.slug}', this)">
+                  ${t.name}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>📝 Predmet emailu</label>
+            <input type="text" id="bulk-subject" value="Marketingová ponuka pre {{company}} - Adlify" class="form-input">
+            <small class="form-hint">Použite {{company}} pre názov firmy</small>
+          </div>
+          
+          <div class="bulk-options">
+            <label class="checkbox-label">
+              <input type="checkbox" id="bulk-include-link" checked>
+              Pridať odkaz na online ponuku
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="bulk-delay" checked>
+              Oneskorenie medzi emailami (2s) - odporúčané
+            </label>
+          </div>
+          
+          <div id="bulk-progress" style="display:none;">
+            <div class="progress-bar">
+              <div class="progress-fill" id="bulk-progress-fill" style="width:0%"></div>
+            </div>
+            <p class="progress-text" id="bulk-progress-text">Odosielam...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button onclick="LeadsModule.closeBulkSendModal()" class="btn-secondary">Zrušiť</button>
+          <button onclick="LeadsModule.executeBulkSend()" class="btn-primary" id="bulk-send-btn">
+            📧 Odoslať ${validLeads.length} ponúk
+          </button>
+        </div>
+      </div>
+      
+      <style>
+        .bulk-send-summary { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+        .summary-item { flex: 1; padding: 1rem; border-radius: 12px; text-align: center; }
+        .summary-item.success { background: #dcfce7; border: 1px solid #86efac; }
+        .summary-item.warning { background: #fef3c7; border: 1px solid #fcd34d; }
+        .summary-number { display: block; font-size: 2rem; font-weight: 700; }
+        .summary-item.success .summary-number { color: #16a34a; }
+        .summary-item.warning .summary-number { color: #d97706; }
+        .summary-label { font-size: 0.85rem; color: #64748b; }
+        .bulk-leads-preview { margin-bottom: 1.5rem; }
+        .bulk-leads-preview label { display: block; font-weight: 500; margin-bottom: 0.5rem; }
+        .leads-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; max-height: 120px; overflow-y: auto; padding: 0.5rem; background: #f8fafc; border-radius: 8px; }
+        .lead-chip { display: flex; flex-direction: column; padding: 0.5rem 0.75rem; background: white; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; }
+        .lead-chip small { color: #64748b; font-size: 0.75rem; }
+        .bulk-options { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+        .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+        .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #f97316, #ea580c); transition: width 0.3s; }
+        .progress-text { text-align: center; color: #64748b; font-size: 0.9rem; }
+        .btn-filter.orange { background: linear-gradient(135deg, #f97316, #ea580c); color: white; }
+        .btn-filter.orange:hover { opacity: 0.9; }
+      </style>
+    `;
+    
+    document.body.appendChild(modal);
+    this.bulkValidLeads = validLeads;
+  },
+  
+  closeBulkSendModal() {
+    const modal = document.getElementById('bulk-send-modal');
+    if (modal) modal.remove();
+    this.bulkValidLeads = null;
+  },
+  
+  selectBulkTemplate(templateId, btn) {
+    // Update active state
+    document.querySelectorAll('#bulk-template-selector .template-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this.selectedBulkTemplateId = templateId;
+    
+    // Update subject based on template
+    const template = (this.emailTemplates || this.defaultEmailTemplates).find(t => (t.id || t.slug) === templateId);
+    if (template?.subject) {
+      document.getElementById('bulk-subject').value = template.subject;
+    }
+  },
+  
+  async executeBulkSend() {
+    const leads = this.bulkValidLeads;
+    if (!leads || leads.length === 0) return;
+    
+    const subject = document.getElementById('bulk-subject').value;
+    const includeLink = document.getElementById('bulk-include-link').checked;
+    const useDelay = document.getElementById('bulk-delay').checked;
+    
+    // Disable button
+    const btn = document.getElementById('bulk-send-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Odosielam...';
+    
+    // Show progress
+    document.getElementById('bulk-progress').style.display = 'block';
+    const progressFill = document.getElementById('bulk-progress-fill');
+    const progressText = document.getElementById('bulk-progress-text');
+    
+    let sent = 0;
+    let failed = 0;
+    
+    for (let i = 0; i < leads.length; i++) {
+      const lead = leads[i];
+      progressText.textContent = `Odosielam ${i + 1}/${leads.length}: ${lead.company_name || lead.domain}`;
+      
+      try {
+        await this.sendSingleBulkEmail(lead, subject, includeLink);
+        sent++;
+      } catch (e) {
+        console.error('Bulk send error for', lead.email, e);
+        failed++;
+      }
+      
+      // Update progress
+      const percent = Math.round(((i + 1) / leads.length) * 100);
+      progressFill.style.width = percent + '%';
+      
+      // Delay between emails
+      if (useDelay && i < leads.length - 1) {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+    
+    // Done
+    progressText.textContent = `Hotovo! Odoslaných: ${sent}, Zlyhalo: ${failed}`;
+    btn.textContent = '✅ Dokončené';
+    
+    // Clear selection
+    this.selectedIds.clear();
+    
+    // Refresh list after 2s
+    setTimeout(() => {
+      this.closeBulkSendModal();
+      this.loadLeads().then(() => {
+        document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+      });
+    }, 2000);
+    
+    Utils.toast(`Odoslaných ${sent} ponúk${failed > 0 ? `, ${failed} zlyhalo` : ''}`, sent > 0 ? 'success' : 'error');
+  },
+  
+  async sendSingleBulkEmail(lead, subjectTemplate, includeLink) {
+    const companyName = lead.analysis?.company?.name || lead.company_name || lead.domain || 'firma';
+    const subject = subjectTemplate.replace(/\{\{company\}\}/g, companyName);
+    
+    // Získať šablónu
+    const templateId = this.selectedBulkTemplateId || 'proposal-formal';
+    const template = (this.emailTemplates || this.defaultEmailTemplates).find(t => (t.id || t.slug) === templateId);
+    let body = this.htmlToPlainText(template?.body_html || '');
+    body = this.replaceVariables(body, lead);
+    
+    let proposalUrl = null;
+    
+    // Uložiť ponuku a získať odkaz
+    if (includeLink && lead.analysis) {
+      try {
+        const proposalHtml = this.buildProposalHTML(lead, lead.analysis);
+        const proposalToken = this.generateToken();
+        
+        await Database.client.from('proposals').insert({
+          lead_id: lead.id,
+          token: proposalToken,
+          company_name: companyName,
+          domain: lead.domain,
+          html_content: proposalHtml,
+          analysis_data: lead.analysis,
+          status: 'sent'
+        });
+        
+        proposalUrl = `${window.location.origin}/proposal.html?t=${proposalToken}`;
+        
+        // Pridať odkaz do emailu
+        body += `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 VAŠA PERSONALIZOVANÁ PONUKA
+
+Kliknite na odkaz nižšie pre jej zobrazenie:
+🔗 ${proposalUrl}
+
+Odkaz je platný 30 dní.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      } catch (e) {
+        console.warn('Failed to save proposal:', e);
+      }
+    }
+    
+    // Vytvoriť HTML body
+    const htmlBody = this.buildEmailHtmlBody(body, proposalUrl, companyName);
+    
+    // Odoslať email
+    const response = await fetch('/.netlify/functions/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: lead.email,
+        toName: companyName,
+        subject,
+        htmlBody,
+        textBody: body,
+        leadId: lead.id
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to send');
+    }
+    
+    // Aktualizovať lead
+    await Database.update('leads', lead.id, {
+      status: 'contacted',
+      proposal_status: 'sent',
+      proposal_sent_at: new Date().toISOString()
+    });
+  },
 
   async deleteSelected() {
     if (this.selectedIds.size === 0) return Utils.toast('Označ leady', 'warning');
