@@ -1875,49 +1875,56 @@ Adlify tím`
       return Utils.toast('Lead nenájdený', 'error');
     }
     
-    Utils.toast('Ukladám ponuku a odosielam email...', 'info');
+    Utils.toast('Odosielam email...', 'info');
     
     try {
-      // 1. Vygenerovať HTML ponuku
-      const notes = document.getElementById('proposal-notes')?.value?.trim();
-      let analysisToUse = lead.analysis ? JSON.parse(JSON.stringify(lead.analysis)) : {};
-      if (notes) analysisToUse.customNote = notes;
+      const companyName = lead.analysis?.company?.name || lead.company_name || lead.domain || 'firma';
+      let proposalUrl = null;
       
-      const proposalHtml = this.buildProposalHTML(lead, analysisToUse);
-      
-      // 2. Uložiť ponuku do DB a získať odkaz
-      const proposalToken = this.generateToken();
-      const companyName = analysisToUse.company?.name || lead.company_name || lead.domain || 'firma';
-      
-      const { data: proposal, error: proposalError } = await Database.client
-        .from('proposals')
-        .insert({
-          lead_id: leadId,
-          token: proposalToken,
-          company_name: companyName,
-          domain: lead.domain,
-          html_content: proposalHtml,
-          analysis_data: analysisToUse,
-          status: 'sent'
-        })
-        .select()
-        .single();
-      
-      if (proposalError) {
-        console.error('Proposal save error:', proposalError);
-        // Pokračovať aj bez uloženia ponuky
+      // 1. Skúsiť uložiť ponuku do DB (voliteľné)
+      if (lead.analysis) {
+        try {
+          const notes = document.getElementById('proposal-notes')?.value?.trim();
+          let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+          if (notes) analysisToUse.customNote = notes;
+          
+          const proposalHtml = this.buildProposalHTML(lead, analysisToUse);
+          const proposalToken = this.generateToken();
+          
+          const { data: proposal, error: proposalError } = await Database.client
+            .from('proposals')
+            .insert({
+              lead_id: leadId,
+              token: proposalToken,
+              company_name: companyName,
+              domain: lead.domain,
+              html_content: proposalHtml,
+              analysis_data: analysisToUse,
+              status: 'sent'
+            })
+            .select()
+            .single();
+          
+          if (!proposalError && proposal) {
+            // Použiť aktuálnu doménu pre odkaz
+            const baseUrl = window.location.origin;
+            proposalUrl = `${baseUrl}/proposal.html?t=${proposalToken}`;
+            console.log('Proposal saved, URL:', proposalUrl);
+          } else {
+            console.warn('Proposal save failed:', proposalError?.message);
+          }
+        } catch (e) {
+          console.warn('Proposal save error (continuing without link):', e.message);
+        }
       }
       
-      // 3. Vytvoriť odkaz na ponuku
-      const proposalUrl = `https://admin.adlify.eu/proposal.html?t=${proposalToken}`;
-      
-      // 4. Pridať odkaz do emailu
-      const proposalSection = `
+      // 2. Pridať odkaz do emailu ak sa podarilo uložiť
+      if (proposalUrl) {
+        const proposalSection = `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📊 VAŠA PERSONALIZOVANÁ PONUKA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Pripravili sme pre Vás detailnú marketingovú ponuku.
 Kliknite na odkaz nižšie pre jej zobrazenie:
@@ -1926,7 +1933,7 @@ Kliknite na odkaz nižšie pre jej zobrazenie:
 
 V ponuke nájdete:
 ✓ Analýzu Vašej online prítomnosti
-✓ SWOT analýzu a odporúčania
+✓ SWOT analýzu a odporúčania  
 ✓ Návrh kľúčových slov
 ✓ Odporúčaný rozpočet a ROI
 ✓ Balíčky služieb
@@ -1934,61 +1941,40 @@ V ponuke nájdete:
 Odkaz je platný 30 dní.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-      // Vložiť sekciu s ponukou do tela emailu
-      body = body + proposalSection;
-      
-      // 5. Konvertovať plain text na HTML
-      const htmlBody = this.buildEmailHtmlBody(body, proposalUrl, companyName);
-      
-      // 6. Odoslať email - skúsiť Netlify, potom Supabase
-      const session = await Database.client.auth.getSession();
-      const authToken = session?.data?.session?.access_token || '';
-      
-      // Skúsiť najprv Netlify, potom Supabase
-      const sendUrls = [
-        '/.netlify/functions/send-email',
-        (typeof MessagesModule !== 'undefined' && MessagesModule.SEND_URL) ? MessagesModule.SEND_URL : null,
-        'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/send-email'
-      ].filter(Boolean);
-      
-      let lastError = null;
-      let success = false;
-      
-      for (const sendUrl of sendUrls) {
-        try {
-          console.log('Trying to send email via:', sendUrl);
-          const response = await fetch(sendUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({
-              to,
-              toName,
-              subject,
-              htmlBody,
-              textBody: body,
-              leadId
-            })
-          });
-          
-          const result = await response.json();
-          
-          if (result.success) {
-            success = true;
-            break;
-          } else {
-            lastError = result.error || 'Odoslanie zlyhalo';
-          }
-        } catch (err) {
-          console.warn('Send via', sendUrl, 'failed:', err.message);
-          lastError = err.message;
-        }
+        body = body + proposalSection;
       }
       
-      if (success) {
+      // 3. Konvertovať plain text na HTML
+      const htmlBody = this.buildEmailHtmlBody(body, proposalUrl, companyName);
+      
+      // 4. Odoslať email - len cez Netlify
+      console.log('Sending email to:', to);
+      
+      const response = await fetch('/.netlify/functions/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          to,
+          toName,
+          subject,
+          htmlBody,
+          textBody: body,
+          leadId
+        })
+      });
+      
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        result = { success: false, error: 'Invalid response from server' };
+      }
+      
+      console.log('Email send result:', result);
+      
+      if (result.success) {
         // Aktualizovať lead
         await Database.update('leads', leadId, { 
           status: 'contacted',
@@ -1999,9 +1985,9 @@ Odkaz je platný 30 dní.
         document.getElementById('leads-list').innerHTML = this.renderLeadsList();
         
         this.closeEmailModal();
-        Utils.toast('Email s ponukou odoslaný! ✉️', 'success');
+        Utils.toast('Email odoslaný! ✉️', 'success');
       } else {
-        throw new Error(lastError || 'Nepodarilo sa odoslať email cez žiadny endpoint');
+        throw new Error(result.error || 'Odoslanie zlyhalo');
       }
       
     } catch (error) {
