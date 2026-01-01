@@ -207,28 +207,70 @@ const LeadsModule = {
       
       <!-- Proposal Modal -->
       <div id="proposal-modal" class="modal-overlay" style="display:none;">
-        <div class="modal-box-new">
+        <div class="modal-box-new modal-medium">
           <div class="modal-header-gradient">
             <h2>📄 Generovať ponuku</h2>
             <button onclick="LeadsModule.closeProposalModal()" class="modal-close">✕</button>
           </div>
           <div class="modal-body">
-            <p class="modal-desc">Pridajte poznámky pre AI. Prepracuje analýzu podľa vašich pokynov.</p>
+            <p class="modal-desc">Pridajte poznámky a vyberte formát ponuky.</p>
+            
             <div class="form-group">
-              <label>📝 Poznámky (voliteľné)</label>
-              <textarea id="proposal-notes" rows="6" placeholder="Napr.: Zameraj sa na lokálnych zákazníkov..."></textarea>
+              <label>📝 Poznámky pre ponuku (voliteľné)</label>
+              <textarea id="proposal-notes" rows="4" placeholder="Napr.: Zameraj sa na lokálnych zákazníkov, odporúčam Pro balík..."></textarea>
             </div>
-            <div class="tip-box">💡 <strong>Tip:</strong> Môžete napísať čokoľvek - opravy, zmenu tónu, odporúčania.</div>
+            
+            <div class="proposal-options">
+              <label>Vyberte akciu:</label>
+              <div class="proposal-buttons">
+                <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
+                  <span class="option-icon">🌐</span>
+                  <span class="option-text">
+                    <strong>Otvoriť ako HTML</strong>
+                    <small>Náhľad v prehliadači</small>
+                  </span>
+                </button>
+                <button onclick="LeadsModule.generateProposalPDF()" class="proposal-option-btn">
+                  <span class="option-icon">📑</span>
+                  <span class="option-text">
+                    <strong>Stiahnuť PDF</strong>
+                    <small>Uložiť na disk</small>
+                  </span>
+                </button>
+                <button onclick="LeadsModule.sendProposalByEmail()" class="proposal-option-btn primary" id="btn-send-email">
+                  <span class="option-icon">📧</span>
+                  <span class="option-text">
+                    <strong>Poslať emailom</strong>
+                    <small id="proposal-email-target">-</small>
+                  </span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="tip-box">💡 <strong>Tip:</strong> PDF sa automaticky vygeneruje a priloží k emailu.</div>
           </div>
           <div class="modal-footer">
-            <button onclick="LeadsModule.closeProposalModal()" class="btn-secondary">Zrušiť</button>
-            <div style="display:flex;gap:0.5rem;">
-              <button onclick="LeadsModule.generateProposalDirect()" class="btn-secondary">Bez úprav</button>
-              <button onclick="LeadsModule.generateProposalWithNotes()" class="btn-primary">🤖 Generovať</button>
-            </div>
+            <button onclick="LeadsModule.closeProposalModal()" class="btn-secondary">Zavrieť</button>
           </div>
         </div>
       </div>
+      
+      <style>
+        .modal-medium { max-width: 600px; }
+        .proposal-options { margin-top: 1.5rem; }
+        .proposal-options > label { font-size: 0.85rem; font-weight: 500; color: #475569; display: block; margin-bottom: 0.75rem; }
+        .proposal-buttons { display: flex; flex-direction: column; gap: 0.75rem; }
+        .proposal-option-btn { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: white; border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; text-align: left; transition: all 0.15s; }
+        .proposal-option-btn:hover { border-color: #f97316; background: #fff7ed; }
+        .proposal-option-btn.primary { background: linear-gradient(135deg, #f97316, #ea580c); border: none; color: white; }
+        .proposal-option-btn.primary:hover { box-shadow: 0 4px 12px rgba(249,115,22,0.4); }
+        .proposal-option-btn.primary .option-text small { color: rgba(255,255,255,0.8); }
+        .proposal-option-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .option-icon { font-size: 1.75rem; }
+        .option-text { flex: 1; }
+        .option-text strong { display: block; font-size: 0.95rem; }
+        .option-text small { font-size: 0.8rem; color: #64748b; }
+      </style>
       
       ${this.getStyles()}
     `;
@@ -492,6 +534,92 @@ const LeadsModule = {
         .filter-search { max-width: 100%; }
         .filter-actions { margin-left: 0; width: 100%; justify-content: flex-start; }
       }
+      
+      /* Social Icons in table */
+      .social-icons { display: flex; gap: 0.25rem; margin-top: 0.25rem; }
+      .social-icon { width: 20px; height: 20px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; text-decoration: none; color: white; }
+      .social-icon.fb { background: #1877f2; }
+      .social-icon.ig { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); font-size: 0.7rem; }
+      .social-icon.li { background: #0a66c2; }
+      
+      /* Lead Detail Modal */
+      .lead-detail-modal { }
+      .lead-detail-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 1.5rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem; }
+      .lead-detail-info h2 { margin: 0; font-size: 1.5rem; font-weight: 700; color: #1e293b; }
+      .lead-detail-domain { color: #f97316; text-decoration: none; font-size: 0.9rem; }
+      .lead-detail-domain:hover { text-decoration: underline; }
+      .lead-detail-score { text-align: center; }
+      .score-big { width: 64px; height: 64px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; font-weight: 800; }
+      .score-big.high { background: #d1fae5; color: #047857; }
+      .score-big.medium { background: #fef3c7; color: #b45309; }
+      .score-big.low { background: #f1f5f9; color: #64748b; }
+      .lead-detail-score span { font-size: 0.75rem; color: #64748b; }
+      
+      /* Detail Tabs */
+      .lead-detail-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; }
+      .lead-tab { padding: 0.5rem 1rem; background: transparent; border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; color: #64748b; transition: all 0.15s; }
+      .lead-tab:hover { background: #f1f5f9; color: #1e293b; }
+      .lead-tab.active { background: #f97316; color: white; }
+      
+      /* Detail Cards */
+      .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+      @media (max-width: 640px) { .detail-grid { grid-template-columns: 1fr; } }
+      .detail-card { background: #f8fafc; border-radius: 12px; overflow: hidden; }
+      .detail-card-header { display: flex; align-items: center; gap: 0.5rem; padding: 1rem; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
+      .detail-card-icon { font-size: 1.25rem; }
+      .detail-card-header h3 { margin: 0; font-size: 0.9rem; font-weight: 600; }
+      .detail-card-body { padding: 1rem; }
+      .detail-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0; }
+      .detail-row:last-child { border-bottom: none; }
+      .detail-label { color: #64748b; font-size: 0.85rem; }
+      .detail-value { font-size: 0.85rem; color: #1e293b; }
+      .detail-value a { color: #2563eb; text-decoration: none; }
+      .detail-value a:hover { text-decoration: underline; }
+      .detail-value .empty { color: #94a3b8; font-style: italic; }
+      .source-badge { background: #dbeafe; color: #1d4ed8; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+      
+      /* Status Buttons */
+      .status-buttons { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+      .status-buttons label { font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 0.5rem; }
+      .status-btn-group { display: flex; gap: 0.25rem; }
+      .status-btn { width: 36px; height: 36px; border: none; border-radius: 8px; background: #e2e8f0; cursor: pointer; font-size: 1rem; transition: all 0.15s; }
+      .status-btn:hover { background: #cbd5e1; }
+      .status-btn.active { background: #f97316; }
+      
+      /* CTA Box */
+      .detail-cta { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; background: linear-gradient(135deg, #fff7ed, #fef3c7); border: 1px solid #fed7aa; border-radius: 12px; }
+      .cta-icon { font-size: 2.5rem; }
+      .cta-content { flex: 1; }
+      .cta-content h3 { margin: 0 0 0.25rem; font-size: 1rem; font-weight: 600; }
+      .cta-content p { margin: 0; font-size: 0.85rem; color: #64748b; }
+      
+      /* Social Cards */
+      .social-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+      @media (max-width: 640px) { .social-grid { grid-template-columns: 1fr; } }
+      .social-card { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: white; border: 1px solid #e2e8f0; border-radius: 12px; text-decoration: none; color: inherit; transition: all 0.15s; }
+      .social-card:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-1px); }
+      .social-card-icon { width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+      .social-card.facebook .social-card-icon { background: #e7f3ff; }
+      .social-card.instagram .social-card-icon { background: #fce7f3; }
+      .social-card.linkedin .social-card-icon { background: #e0f2fe; }
+      .social-card.youtube .social-card-icon { background: #fee2e2; }
+      .social-card.tiktok .social-card-icon { background: #f3e8ff; }
+      .social-card-info { flex: 1; }
+      .social-card-info strong { display: block; font-size: 0.9rem; }
+      .social-card-info span { font-size: 0.8rem; color: #64748b; }
+      .social-card-arrow { color: #94a3b8; font-size: 1.25rem; }
+      .contact-page-info { margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; }
+      .contact-page-info span { color: #64748b; }
+      .contact-page-info a { color: #2563eb; margin-left: 0.5rem; }
+      
+      /* History Timeline */
+      .history-timeline { padding-left: 1rem; }
+      .history-item { display: flex; gap: 1rem; padding: 1rem 0; position: relative; }
+      .history-item:not(:last-child)::before { content: ''; position: absolute; left: 5px; top: 2.5rem; bottom: 0; width: 2px; background: #e2e8f0; }
+      .history-dot { width: 12px; height: 12px; border-radius: 50%; background: #10b981; margin-top: 0.25rem; flex-shrink: 0; }
+      .history-dot.blue { background: #3b82f6; }
+      .history-content strong { display: block; font-size: 0.9rem; }
+      .history-content span { font-size: 0.8rem; color: #64748b; }
     </style>`;
   },
 
@@ -513,7 +641,9 @@ const LeadsModule = {
     
     return this.leads.map(lead => {
       const a = lead.analysis || {};
+      const md = lead.marketing_data || {};
       const hasAnalysis = a.company || a.analysis;
+      const hasSocials = md.socialMedia && Object.keys(md.socialMedia).length > 0;
       const score = lead.score || 0;
       const scoreClass = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
       
@@ -526,6 +656,13 @@ const LeadsModule = {
       };
       const status = statusConfig[lead.status] || statusConfig['new'];
       
+      // Social icons
+      const socials = md.socialMedia || {};
+      const socialIcons = [];
+      if (socials.facebook) socialIcons.push(`<a href="${socials.facebook}" target="_blank" onclick="event.stopPropagation()" class="social-icon fb" title="Facebook">f</a>`);
+      if (socials.instagram) socialIcons.push(`<a href="${socials.instagram}" target="_blank" onclick="event.stopPropagation()" class="social-icon ig" title="Instagram">📷</a>`);
+      if (socials.linkedin) socialIcons.push(`<a href="${socials.linkedin}" target="_blank" onclick="event.stopPropagation()" class="social-icon li" title="LinkedIn">in</a>`);
+      
       return `
         <tr onclick="LeadsModule.showLeadDetail('${lead.id}')" data-status="${lead.status}">
           <td onclick="event.stopPropagation()">
@@ -534,19 +671,21 @@ const LeadsModule = {
           <td>
             <div class="lead-company">
               <strong>${lead.company_name || lead.domain || 'Neznámy'}</strong>
-              ${lead.domain ? `<span class="lead-domain">${lead.domain}</span>` : ''}
+              ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" onclick="event.stopPropagation()" class="lead-domain">${lead.domain} ↗</a>` : ''}
             </div>
           </td>
           <td>
             <div class="lead-contact">
-              ${lead.email ? `<span class="contact-email">📧 ${lead.email}</span>` : ''}
-              ${lead.phone ? `<span class="contact-phone">📞 ${lead.phone}</span>` : ''}
-              ${!lead.email && !lead.phone ? '-' : ''}
+              ${lead.email ? `<a href="mailto:${lead.email}" onclick="event.stopPropagation()" class="contact-email">📧 ${lead.email}</a>` : ''}
+              ${lead.phone ? `<a href="tel:${lead.phone}" onclick="event.stopPropagation()" class="contact-phone">📞 ${lead.phone}</a>` : ''}
+              ${!lead.email && !lead.phone ? '<span style="color:#94a3b8">-</span>' : ''}
             </div>
+            ${socialIcons.length > 0 ? `<div class="social-icons">${socialIcons.join('')}</div>` : ''}
           </td>
           <td>
             <span class="status-badge ${status.class}">${status.label}</span>
             ${hasAnalysis ? '<span class="analysis-badge">✓ AI</span>' : ''}
+            ${hasSocials && !hasAnalysis ? '<span class="analysis-badge" style="background:#dbeafe;color:#1d4ed8;">📊 MM</span>' : ''}
           </td>
           <td>
             <div class="score-cell">
@@ -625,29 +764,74 @@ const LeadsModule = {
     this.currentLeadId = id;
     const modal = document.getElementById('analysis-modal');
     const content = document.getElementById('analysis-content');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    content.innerHTML = `<div class="text-center py-16"><div class="animate-spin text-6xl mb-6">🤖</div><h3 class="text-2xl font-bold mb-2">Analyzujem ${lead.company_name || lead.domain}...</h3><p class="text-gray-500">Sťahujem web, analyzujem konkurenciu a pripravujem stratégiu</p><p class="text-sm text-gray-400 mt-4">Toto môže trvať 15-30 sekúnd</p></div>`;
+    modal.style.display = 'flex';
+    content.innerHTML = `<div style="text-align:center;padding:4rem;"><div style="font-size:4rem;margin-bottom:1.5rem;animation:spin 2s linear infinite;">🤖</div><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Analyzujem ${lead.company_name || lead.domain}...</h3><p style="color:#64748b;">Sťahujem web, analyzujem konkurenciu a pripravujem stratégiu</p><p style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;">Toto môže trvať 15-30 sekúnd</p></div><style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>`;
+    this.renderModalFooter(false);
+    
     try {
       const session = await Database.client.auth.getSession();
       const token = session?.data?.session?.access_token || '';
+      
+      // Pripraviť Marketing Miner dáta pre AI
+      const md = lead.marketing_data || {};
+      const existingSocials = md.socialMedia || {};
+      
       const response = await fetch(this.ANALYZE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ websiteUrl: lead.domain ? `https://${lead.domain}` : null, companyName: lead.company_name, leadId: lead.id })
+        body: JSON.stringify({ 
+          websiteUrl: lead.domain ? `https://${lead.domain}` : null, 
+          companyName: lead.company_name, 
+          leadId: lead.id,
+          // Marketing Miner dáta pre AI
+          knownData: {
+            email: lead.email,
+            phone: lead.phone,
+            contactPage: md.contactPage,
+            socialMedia: existingSocials,
+            source: md.source
+          }
+        })
       });
       const result = await response.json();
       if (!result.success) throw new Error(result.error || 'Analýza zlyhala');
+      
+      // Merge Marketing Miner dáta do analýzy
+      if (Object.keys(existingSocials).length > 0) {
+        result.analysis.onlinePresence = result.analysis.onlinePresence || {};
+        result.analysis.onlinePresence.socialMedia = result.analysis.onlinePresence.socialMedia || {};
+        // Pridať existujúce sociálne siete ak nie sú v analýze
+        Object.keys(existingSocials).forEach(key => {
+          if (existingSocials[key] && !result.analysis.onlinePresence.socialMedia[key]?.url) {
+            result.analysis.onlinePresence.socialMedia[key] = {
+              exists: true,
+              url: existingSocials[key],
+              source: 'marketing_miner'
+            };
+          }
+        });
+      }
+      
       this.currentAnalysis = result.analysis;
       this.editedAnalysis = JSON.parse(JSON.stringify(result.analysis));
-      await Database.update('leads', id, { analysis: result.analysis, status: 'analyzed', score: this.calculateScore(result.analysis), analyzed_at: new Date().toISOString() });
+      await Database.update('leads', id, { 
+        analysis: result.analysis, 
+        status: 'analyzed', 
+        score: this.calculateScore(result.analysis), 
+        analyzed_at: new Date().toISOString() 
+      });
+      lead.analysis = result.analysis;
+      lead.status = 'analyzed';
+      lead.score = this.calculateScore(result.analysis);
+      
       this.renderAnalysisResults(lead, result.analysis);
-      await this.loadLeads();
+      this.renderModalFooter(true);
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
       Utils.toast('Analýza dokončená!', 'success');
     } catch (error) {
       console.error('Analysis error:', error);
-      content.innerHTML = `<div class="text-center py-16"><div class="text-6xl mb-6">❌</div><h3 class="text-xl font-bold mb-2">Chyba pri analýze</h3><p class="text-gray-500 mb-4">${error.message}</p><button onclick="LeadsModule.analyze('${id}')" class="px-6 py-2 bg-purple-100 text-purple-700 rounded-lg">Skúsiť znova</button></div>`;
+      content.innerHTML = `<div style="text-align:center;padding:4rem;"><div style="font-size:4rem;margin-bottom:1.5rem;">❌</div><h3 style="font-size:1.25rem;font-weight:700;margin-bottom:0.5rem;">Chyba pri analýze</h3><p style="color:#64748b;margin-bottom:1.5rem;">${error.message}</p><button onclick="LeadsModule.analyze('${id}')" class="btn-primary">🔄 Skúsiť znova</button></div>`;
+      this.renderModalFooter(false);
     }
   },
 
@@ -731,6 +915,7 @@ const LeadsModule = {
     
     this.currentLeadId = id;
     const a = lead.analysis || {};
+    const md = lead.marketing_data || {};
     const hasAnalysis = a.company || a.analysis;
     
     const modal = document.getElementById('analysis-modal');
@@ -746,7 +931,7 @@ const LeadsModule = {
       return;
     }
     
-    // Ak nemá analýzu, zobrazí základný detail
+    // Modal bez analýzy - lepší štýl
     const statusConfig = {
       'new': { label: 'Nový', class: 'blue' },
       'contacted': { label: 'Kontaktovaný', class: 'yellow' },
@@ -754,57 +939,202 @@ const LeadsModule = {
       'lost': { label: 'Prehraný', class: 'red' }
     };
     const status = statusConfig[lead.status] || statusConfig['new'];
+    const socials = md.socialMedia || {};
+    const hasSocials = Object.keys(socials).length > 0;
     
     content.innerHTML = `
-      <div class="lead-detail-view">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #e2e8f0;">
-          <div>
-            <h2 style="font-size:1.5rem;font-weight:700;margin:0;">${lead.company_name || lead.domain || 'Neznámy'}</h2>
-            ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" style="color:#f97316;text-decoration:none;">${lead.domain} ↗</a>` : ''}
+      <div class="lead-detail-modal">
+        <!-- Header -->
+        <div class="lead-detail-header">
+          <div class="lead-detail-info">
+            <h2>${lead.company_name || lead.domain || 'Neznámy'}</h2>
+            ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="lead-detail-domain">${lead.domain} ↗</a>` : ''}
           </div>
-          <div style="text-align:center;">
-            <div style="font-size:2rem;font-weight:800;color:${(lead.score || 0) >= 70 ? '#047857' : (lead.score || 0) >= 40 ? '#b45309' : '#64748b'}">${lead.score || 0}</div>
-            <div style="font-size:0.75rem;color:#64748b;">Skóre</div>
+          <div class="lead-detail-score">
+            <div class="score-big ${(lead.score || 0) >= 70 ? 'high' : (lead.score || 0) >= 40 ? 'medium' : 'low'}">${lead.score || 0}</div>
+            <span>Skóre</span>
           </div>
         </div>
         
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
-          <div class="analysis-section">
-            <h3 style="margin:0 0 1rem;">📋 Kontaktné údaje</h3>
-            <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #e2e8f0;"><span style="color:#64748b;">Email:</span><span>${lead.email ? `<a href="mailto:${lead.email}" style="color:#2563eb;">${lead.email}</a>` : '-'}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #e2e8f0;"><span style="color:#64748b;">Telefón:</span><span>${lead.phone ? `<a href="tel:${lead.phone}" style="color:#059669;">${lead.phone}</a>` : '-'}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #e2e8f0;"><span style="color:#64748b;">Odvetvie:</span><span>${lead.industry || '-'}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:0.5rem 0;"><span style="color:#64748b;">Mesto:</span><span>${lead.city || '-'}</span></div>
-          </div>
-          
-          <div class="analysis-section">
-            <h3 style="margin:0 0 1rem;">📊 Status</h3>
-            <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #e2e8f0;"><span style="color:#64748b;">Stav:</span><span class="status-badge ${status.class}">${status.label}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #e2e8f0;"><span style="color:#64748b;">Vytvorený:</span><span>${new Date(lead.created_at).toLocaleDateString('sk-SK')}</span></div>
+        <!-- Tabs -->
+        <div class="lead-detail-tabs">
+          <button class="lead-tab active" onclick="LeadsModule.switchDetailTab('info', this)">📋 Info</button>
+          ${hasSocials ? `<button class="lead-tab" onclick="LeadsModule.switchDetailTab('social', this)">📱 Sociálne siete</button>` : ''}
+          <button class="lead-tab" onclick="LeadsModule.switchDetailTab('history', this)">📜 História</button>
+        </div>
+        
+        <!-- Tab Content -->
+        <div id="detail-tab-info" class="detail-tab-content">
+          <div class="detail-grid">
+            <!-- Kontakt -->
+            <div class="detail-card">
+              <div class="detail-card-header">
+                <span class="detail-card-icon">📧</span>
+                <h3>Kontaktné údaje</h3>
+              </div>
+              <div class="detail-card-body">
+                <div class="detail-row">
+                  <span class="detail-label">Email</span>
+                  <span class="detail-value">${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '<em class="empty">nezadaný</em>'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Telefón</span>
+                  <span class="detail-value">${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '<em class="empty">nezadaný</em>'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Odvetvie</span>
+                  <span class="detail-value">${lead.industry || '<em class="empty">nezadané</em>'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Mesto</span>
+                  <span class="detail-value">${lead.city || '<em class="empty">nezadané</em>'}</span>
+                </div>
+              </div>
+            </div>
             
-            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #e2e8f0;">
-              <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.5rem;">Zmeniť status:</label>
-              <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
-                ${['new', 'contacted', 'won', 'lost'].map(s => {
-                  const labels = { new: '🆕 Nový', contacted: '📞 Kontaktovaný', won: '✅ Vyhraný', lost: '❌ Prehraný' };
-                  return `<button onclick="LeadsModule.updateStatus('${lead.id}', '${s}')" class="btn-filter ${lead.status === s ? 'active' : ''}" style="${lead.status === s ? 'background:#f97316;color:white;' : ''}">${labels[s]}</button>`;
-                }).join('')}
+            <!-- Status -->
+            <div class="detail-card">
+              <div class="detail-card-header">
+                <span class="detail-card-icon">📊</span>
+                <h3>Status</h3>
+              </div>
+              <div class="detail-card-body">
+                <div class="detail-row">
+                  <span class="detail-label">Stav</span>
+                  <span class="detail-value"><span class="status-badge ${status.class}">${status.label}</span></span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Vytvorený</span>
+                  <span class="detail-value">${new Date(lead.created_at).toLocaleDateString('sk-SK')}</span>
+                </div>
+                ${md.importedAt ? `
+                <div class="detail-row">
+                  <span class="detail-label">Zdroj</span>
+                  <span class="detail-value"><span class="source-badge">Marketing Miner</span></span>
+                </div>
+                ` : ''}
+                
+                <div class="status-buttons">
+                  <label>Zmeniť status:</label>
+                  <div class="status-btn-group">
+                    ${['new', 'contacted', 'won', 'lost'].map(s => {
+                      const labels = { new: '🆕', contacted: '📞', won: '✅', lost: '❌' };
+                      return `<button onclick="LeadsModule.updateStatus('${lead.id}', '${s}')" class="status-btn ${lead.status === s ? 'active' : ''}" title="${statusConfig[s]?.label || s}">${labels[s]}</button>`;
+                    }).join('')}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+          
+          <!-- CTA -->
+          <div class="detail-cta">
+            <div class="cta-icon">🤖</div>
+            <div class="cta-content">
+              <h3>Spustiť AI analýzu</h3>
+              <p>Získajte marketingovú stratégiu, odporúčania a generujte personalizovanú ponuku.</p>
+            </div>
+            <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-primary">🤖 Analyzovať</button>
+          </div>
         </div>
         
-        <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:2rem;text-align:center;">
-          <div style="font-size:3rem;margin-bottom:1rem;">🤖</div>
-          <h3 style="font-size:1.1rem;font-weight:600;margin:0 0 0.5rem;">Tento lead ešte nebol analyzovaný</h3>
-          <p style="color:#64748b;margin:0 0 1.5rem;">Spustite AI analýzu pre získanie odporúčaní a stratégie.</p>
-          <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-primary">🤖 Spustiť AI analýzu</button>
+        <!-- Social Tab -->
+        ${hasSocials ? `
+        <div id="detail-tab-social" class="detail-tab-content" style="display:none;">
+          <div class="social-grid">
+            ${socials.facebook ? `
+            <a href="${socials.facebook}" target="_blank" class="social-card facebook">
+              <div class="social-card-icon">📘</div>
+              <div class="social-card-info">
+                <strong>Facebook</strong>
+                <span>Profil nájdený</span>
+              </div>
+              <span class="social-card-arrow">↗</span>
+            </a>
+            ` : ''}
+            ${socials.instagram ? `
+            <a href="${socials.instagram}" target="_blank" class="social-card instagram">
+              <div class="social-card-icon">📷</div>
+              <div class="social-card-info">
+                <strong>Instagram</strong>
+                <span>Profil nájdený</span>
+              </div>
+              <span class="social-card-arrow">↗</span>
+            </a>
+            ` : ''}
+            ${socials.linkedin ? `
+            <a href="${socials.linkedin}" target="_blank" class="social-card linkedin">
+              <div class="social-card-icon">💼</div>
+              <div class="social-card-info">
+                <strong>LinkedIn</strong>
+                <span>Profil nájdený</span>
+              </div>
+              <span class="social-card-arrow">↗</span>
+            </a>
+            ` : ''}
+            ${socials.youtube ? `
+            <a href="${socials.youtube}" target="_blank" class="social-card youtube">
+              <div class="social-card-icon">▶️</div>
+              <div class="social-card-info">
+                <strong>YouTube</strong>
+                <span>Kanál nájdený</span>
+              </div>
+              <span class="social-card-arrow">↗</span>
+            </a>
+            ` : ''}
+            ${socials.tiktok ? `
+            <a href="${socials.tiktok}" target="_blank" class="social-card tiktok">
+              <div class="social-card-icon">🎵</div>
+              <div class="social-card-info">
+                <strong>TikTok</strong>
+                <span>Profil nájdený</span>
+              </div>
+              <span class="social-card-arrow">↗</span>
+            </a>
+            ` : ''}
+          </div>
+          ${md.contactPage ? `
+          <div class="contact-page-info">
+            <span>📄 Kontaktná stránka:</span>
+            <a href="${md.contactPage}" target="_blank">${md.contactPage}</a>
+          </div>
+          ` : ''}
+        </div>
+        ` : ''}
+        
+        <!-- History Tab -->
+        <div id="detail-tab-history" class="detail-tab-content" style="display:none;">
+          <div class="history-timeline">
+            <div class="history-item">
+              <div class="history-dot"></div>
+              <div class="history-content">
+                <strong>Lead vytvorený</strong>
+                <span>${new Date(lead.created_at).toLocaleString('sk-SK')}</span>
+              </div>
+            </div>
+            ${md.importedAt ? `
+            <div class="history-item">
+              <div class="history-dot blue"></div>
+              <div class="history-content">
+                <strong>Import z Marketing Miner</strong>
+                <span>${new Date(md.importedAt).toLocaleString('sk-SK')}</span>
+              </div>
+            </div>
+            ` : ''}
+          </div>
         </div>
       </div>
     `;
     
     modal.style.display = 'flex';
     this.renderModalFooter(false);
+  },
+  
+  switchDetailTab(tab, btn) {
+    document.querySelectorAll('.lead-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.detail-tab-content').forEach(c => c.style.display = 'none');
+    document.getElementById(`detail-tab-${tab}`).style.display = 'block';
   },
 
   async updateStatus(leadId, newStatus) {
@@ -1025,53 +1355,247 @@ const LeadsModule = {
     const modal = document.getElementById('proposal-modal');
     modal.style.display = 'flex';
     document.getElementById('proposal-notes').value = '';
+    
+    // Update email target
+    const emailTarget = document.getElementById('proposal-email-target');
+    const emailBtn = document.getElementById('btn-send-email');
+    if (lead?.email) {
+      emailTarget.textContent = lead.email;
+      emailBtn.disabled = false;
+    } else {
+      emailTarget.textContent = 'Email nie je k dispozícii';
+      emailBtn.disabled = true;
+    }
   },
 
   closeProposalModal() {
     document.getElementById('proposal-modal').style.display = 'none';
   },
-
-  generateProposalDirect() {
-    const lead = this.leads.find(l => l.id === this.currentLeadId);
-    if (!lead?.analysis) return;
-    this.closeProposalModal();
-    Utils.toast('Generujem ponuku...', 'info');
-    const html = this.generateProposalHTML(lead, lead.analysis);
-    const blob = new Blob([html], { type: 'text/html' });
-    window.open(URL.createObjectURL(blob), '_blank');
-  },
-
-  async generateProposalWithNotes() {
+  
+  // HTML ponuka - otvorí v novom okne
+  generateProposalHTML() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
     
     const notes = document.getElementById('proposal-notes')?.value?.trim();
-    
-    // Ak sú poznámky, pridáme ich do analýzy ako customNote
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
-    if (notes) {
-      analysisToUse.customNote = notes;
-      
-      // Uložíme poznámky aj do databázy
-      try {
-        const updatedAnalysis = { ...lead.analysis, customNote: notes };
-        await Database.update('leads', lead.id, { analysis: updatedAnalysis });
-        lead.analysis = updatedAnalysis;
-      } catch (e) {
-        console.warn('Failed to save custom note:', e);
-      }
-    }
+    if (notes) analysisToUse.customNote = notes;
     
-    this.closeProposalModal();
-    
-    // Generujeme ponuku s poznámkami
-    const html = this.generateProposalHTML(lead, analysisToUse);
+    const html = this.buildProposalHTML(lead, analysisToUse);
     const blob = new Blob([html], { type: 'text/html' });
     window.open(URL.createObjectURL(blob), '_blank');
-    Utils.toast('Ponuka vygenerovaná!', 'success');
+    this.closeProposalModal();
+    Utils.toast('Ponuka otvorená', 'success');
+  },
+  
+  // PDF ponuka - stiahne súbor
+  async generateProposalPDF() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
+    
+    Utils.toast('Generujem PDF...', 'info');
+    
+    const notes = document.getElementById('proposal-notes')?.value?.trim();
+    let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+    if (notes) analysisToUse.customNote = notes;
+    
+    try {
+      // Load html2pdf if not loaded
+      if (!window.html2pdf) {
+        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+      }
+      
+      const html = this.buildProposalHTML(lead, analysisToUse);
+      
+      // Create hidden iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:absolute;left:-9999px;width:1200px;height:900px;';
+      document.body.appendChild(iframe);
+      iframe.contentDocument.write(html);
+      iframe.contentDocument.close();
+      
+      // Wait for content to render
+      await new Promise(r => setTimeout(r, 500));
+      
+      const element = iframe.contentDocument.body;
+      const filename = `ponuka-${lead.domain || lead.company_name || 'lead'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      await html2pdf().set({
+        margin: 0,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: 'avoid-all' }
+      }).from(element).save();
+      
+      document.body.removeChild(iframe);
+      this.closeProposalModal();
+      Utils.toast('PDF stiahnuté!', 'success');
+      
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      Utils.toast('Chyba pri generovaní PDF', 'error');
+    }
+  },
+  
+  // Poslať emailom s PDF prílohou
+  async sendProposalByEmail() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
+    if (!lead.email) return Utils.toast('Lead nemá email', 'warning');
+    
+    Utils.toast('Generujem PDF a odosielam...', 'info');
+    
+    const notes = document.getElementById('proposal-notes')?.value?.trim();
+    let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+    if (notes) analysisToUse.customNote = notes;
+    
+    try {
+      // Generate PDF as base64
+      if (!window.html2pdf) {
+        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+      }
+      
+      const html = this.buildProposalHTML(lead, analysisToUse);
+      
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:absolute;left:-9999px;width:1200px;height:900px;';
+      document.body.appendChild(iframe);
+      iframe.contentDocument.write(html);
+      iframe.contentDocument.close();
+      await new Promise(r => setTimeout(r, 500));
+      
+      const element = iframe.contentDocument.body;
+      const pdfBlob = await html2pdf().set({
+        margin: 0,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(element).outputPdf('blob');
+      
+      document.body.removeChild(iframe);
+      
+      // Convert blob to base64
+      const pdfBase64 = await this.blobToBase64(pdfBlob);
+      
+      // Send via Messages module
+      const companyName = analysisToUse.company?.name || lead.company_name || 'firma';
+      const subject = `Marketingová ponuka pre ${companyName} - Adlify`;
+      const body = this.buildEmailBody(lead, analysisToUse);
+      
+      // Call messages API
+      const response = await fetch('/.netlify/functions/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: lead.email,
+          subject: subject,
+          html: body,
+          attachments: [{
+            filename: `ponuka-${lead.domain || 'adlify'}.pdf`,
+            content: pdfBase64,
+            encoding: 'base64'
+          }]
+        })
+      });
+      
+      if (response.ok) {
+        // Update lead status
+        await Database.update('leads', lead.id, { 
+          status: 'contacted',
+          proposal_status: 'sent',
+          proposal_sent_at: new Date().toISOString()
+        });
+        lead.status = 'contacted';
+        lead.proposal_status = 'sent';
+        
+        this.closeProposalModal();
+        Utils.toast('Email odoslaný!', 'success');
+        document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+      } else {
+        throw new Error('Email send failed');
+      }
+      
+    } catch (error) {
+      console.error('Email send error:', error);
+      // Fallback - open in mail client
+      this.openMailClient(lead, analysisToUse);
+    }
+  },
+  
+  openMailClient(lead, analysis) {
+    const companyName = analysis.company?.name || lead.company_name || 'firma';
+    const subject = encodeURIComponent(`Marketingová ponuka pre ${companyName} - Adlify`);
+    const body = encodeURIComponent(`Dobrý deň,
+
+ďakujeme za Váš záujem. V prílohe posielame personalizovanú marketingovú ponuku pre ${companyName}.
+
+V prípade otázok nás neváhajte kontaktovať.
+
+S pozdravom,
+Adlify tím
+info@adlify.eu`);
+    
+    window.open(`mailto:${lead.email}?subject=${subject}&body=${body}`, '_blank');
+    this.closeProposalModal();
+    Utils.toast('Otvorený emailový klient - nezabudnite priložiť PDF', 'info');
+  },
+  
+  blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  },
+  
+  buildEmailBody(lead, analysis) {
+    const companyName = analysis.company?.name || lead.company_name || 'firma';
+    return `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="https://adlify.eu/logo.png" alt="Adlify" style="height: 40px;">
+        </div>
+        
+        <h1 style="color: #1e293b; font-size: 24px; margin-bottom: 20px;">
+          Personalizovaná marketingová ponuka
+        </h1>
+        
+        <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+          Dobrý deň,
+        </p>
+        
+        <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+          ďakujeme za Váš záujem o spoluprácu. Pripravili sme pre <strong>${companyName}</strong> 
+          personalizovanú marketingovú ponuku na základe analýzy Vašej online prítomnosti.
+        </p>
+        
+        <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+          <strong>V prílohe nájdete:</strong><br>
+          📄 Detailnú ponuku vo formáte PDF
+        </p>
+        
+        <div style="background: linear-gradient(135deg, #f97316, #ec4899); border-radius: 12px; padding: 20px; margin: 30px 0; text-align: center;">
+          <p style="color: white; font-size: 18px; margin: 0 0 15px;">
+            Máte otázky? Radi Vám ich zodpovieme!
+          </p>
+          <a href="mailto:info@adlify.eu" style="display: inline-block; background: white; color: #f97316; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+            Kontaktovať nás
+          </a>
+        </div>
+        
+        <p style="color: #64748b; font-size: 14px; text-align: center; margin-top: 30px;">
+          S pozdravom,<br>
+          <strong>Adlify tím</strong><br>
+          <a href="https://adlify.eu" style="color: #f97316;">www.adlify.eu</a>
+        </p>
+      </div>
+    `;
   },
 
-  generateProposalHTML(lead, analysis) {
+  buildProposalHTML(lead, analysis) {
     const c = analysis.company || {};
     const a = analysis.analysis || {};
     const o = analysis.onlinePresence || {};
@@ -1865,78 +2389,111 @@ ${r.projection ? `
         return;
       }
       
-      // Detect Marketing Miner format
-      const headers = rows[0].map(h => (h || '').toString().toLowerCase());
-      const isMarketingMiner = headers.includes('input') || headers.includes('contact emails');
+      // Detect columns
+      const headers = rows[0].map(h => (h || '').toString().toLowerCase().trim());
+      const getIdx = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
+      
+      const inputIdx = getIdx(['input', 'domain', 'url']);
+      const emailIdx = getIdx(['email', 'mail']);
+      const contactPageIdx = getIdx(['contact page', 'kontakt']);
+      const fbIdx = getIdx(['facebook']);
+      const igIdx = getIdx(['instagram']);
+      const liIdx = getIdx(['linkedin']);
+      const twIdx = getIdx(['twitter', 'x.com']);
+      const ytIdx = getIdx(['youtube']);
+      const tiktokIdx = getIdx(['tiktok']);
+      const ipIdx = getIdx(['ip address', 'ip']);
+      const mxIdx = getIdx(['mx']);
+      const txtIdx = getIdx(['txt']);
       
       let leads = [];
       
-      if (isMarketingMiner) {
-        // Marketing Miner format
-        const inputIdx = headers.findIndex(h => h === 'input');
-        const emailIdx = headers.findIndex(h => h.includes('email'));
-        const fbIdx = headers.findIndex(h => h === 'facebook');
-        const igIdx = headers.findIndex(h => h === 'instagram');
-        const liIdx = headers.findIndex(h => h === 'linkedin');
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[inputIdx]) continue;
         
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row || !row[inputIdx]) continue;
-          
-          const domain = this.cleanDomain(row[inputIdx]);
-          if (!domain) continue;
-          
-          // Parse email (format: "email@test.com (90%); email2@test.com (80%)")
-          let email = null;
-          if (emailIdx >= 0 && row[emailIdx]) {
-            const emailStr = row[emailIdx].toString();
-            const match = emailStr.match(/([^\s;]+@[^\s;(]+)/);
-            if (match) email = match[1].trim();
-          }
-          
-          // Social links
-          const socials = {};
-          if (fbIdx >= 0 && row[fbIdx]) socials.facebook = row[fbIdx];
-          if (igIdx >= 0 && row[igIdx]) socials.instagram = row[igIdx];
-          if (liIdx >= 0 && row[liIdx]) socials.linkedin = row[liIdx];
-          
-          leads.push({
-            domain,
-            company_name: domain.split('.')[0],
-            email,
-            status: 'new',
-            score: 50,
-            analysis: Object.keys(socials).length > 0 ? { onlinePresence: { socialMedia: socials } } : null
-          });
-        }
-      } else {
-        // Simple format - first column is domain
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          const domain = this.cleanDomain(row[0]);
-          if (domain) {
-            leads.push({
-              domain,
-              company_name: domain.split('.')[0],
-              status: 'new',
-              score: 50
-            });
+        const domain = this.cleanDomain(row[inputIdx]);
+        if (!domain) continue;
+        
+        // Parse email (format: "email@test.com (90%); email2@test.com (80%)")
+        let email = null;
+        let allEmails = [];
+        if (emailIdx >= 0 && row[emailIdx]) {
+          const emailStr = row[emailIdx].toString();
+          const matches = emailStr.match(/([^\s;(]+@[^\s;(]+)/g);
+          if (matches) {
+            allEmails = matches.map(e => e.trim());
+            email = allEmails[0];
           }
         }
+        
+        // Collect all Marketing Miner data
+        const marketingData = {
+          contactPage: contactPageIdx >= 0 ? row[contactPageIdx] : null,
+          emails: allEmails,
+          socialMedia: {
+            facebook: fbIdx >= 0 ? row[fbIdx] : null,
+            instagram: igIdx >= 0 ? row[igIdx] : null,
+            linkedin: liIdx >= 0 ? row[liIdx] : null,
+            twitter: twIdx >= 0 ? row[twIdx] : null,
+            youtube: ytIdx >= 0 ? row[ytIdx] : null,
+            tiktok: tiktokIdx >= 0 ? row[tiktokIdx] : null
+          },
+          technical: {
+            ip: ipIdx >= 0 ? row[ipIdx] : null,
+            mx: mxIdx >= 0 ? row[mxIdx] : null,
+            txt: txtIdx >= 0 ? row[txtIdx] : null
+          },
+          importedAt: new Date().toISOString(),
+          source: 'marketing_miner'
+        };
+        
+        // Clean nulls from social media
+        Object.keys(marketingData.socialMedia).forEach(k => {
+          if (!marketingData.socialMedia[k]) delete marketingData.socialMedia[k];
+        });
+        
+        // Count social presence
+        const socialCount = Object.keys(marketingData.socialMedia).length;
+        const hasEmail = email ? 1 : 0;
+        const baseScore = 30 + (socialCount * 10) + (hasEmail * 20);
+        
+        leads.push({
+          domain,
+          company_name: this.formatCompanyName(domain),
+          email,
+          status: 'new',
+          score: Math.min(baseScore, 80),
+          marketing_data: marketingData
+        });
       }
       
       // Import leads
-      let added = 0, skipped = 0;
+      let added = 0, skipped = 0, updated = 0;
       for (const lead of leads) {
         try {
           const existing = await Database.select('leads', { filters: { domain: lead.domain }, limit: 1 });
-          if (existing?.length > 0) { skipped++; continue; }
+          if (existing?.length > 0) {
+            // Update existing with new marketing data if missing
+            const ex = existing[0];
+            if (!ex.marketing_data && lead.marketing_data) {
+              await Database.update('leads', ex.id, { 
+                marketing_data: lead.marketing_data,
+                email: lead.email || ex.email,
+                score: Math.max(lead.score, ex.score || 0)
+              });
+              updated++;
+            } else {
+              skipped++;
+            }
+            continue;
+          }
           await Database.insert('leads', lead);
           added++;
         } catch (e) { console.error('Import error:', e); }
       }
       
-      Utils.toast(`Pridaných: ${added}, Preskočených: ${skipped}`, 'success');
+      Utils.toast(`Pridané: ${added}, Aktualizované: ${updated}, Preskočené: ${skipped}`, 'success');
       await this.loadLeads();
       this.showTab('list');
       
@@ -1944,6 +2501,11 @@ ${r.projection ? `
       console.error('Excel parse error:', error);
       Utils.toast('Chyba pri čítaní súboru', 'error');
     }
+  },
+
+  formatCompanyName(domain) {
+    const name = domain.split('.')[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
   },
 
   cleanDomain(value) {
@@ -2040,7 +2602,7 @@ ${r.projection ? `
     if (!analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
     
     // Generuj HTML ponuku
-    const proposalHtml = this.generateProposalHTML(lead, analysis);
+    const proposalHtml = this.buildProposalHTML(lead, analysis);
     
     // Otvor messages modul s predvyplnenými údajmi
     if (window.MessagesModule) {
