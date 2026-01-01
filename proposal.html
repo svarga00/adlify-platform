@@ -98,7 +98,11 @@
           }
           
           // Increment views (don't wait for it)
-          db.rpc('increment_proposal_views', { proposal_token: token }).catch(console.warn);
+          try {
+            db.rpc('increment_proposal_views', { proposal_token: token });
+          } catch (e) {
+            console.warn('Could not increment views:', e);
+          }
           
           // Render proposal
           app.innerHTML = `
