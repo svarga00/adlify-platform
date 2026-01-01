@@ -1849,76 +1849,225 @@ Adlify tím`
     }
   },
   
+  // Generovať unikátny token
+  generateToken() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < 32; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+  },
+  
   async sendEmailFromModal() {
     const to = document.getElementById('email-to').value.trim();
     const toName = document.getElementById('email-to-name').value.trim();
-    const subject = document.getElementById('email-subject').value.trim();
-    const body = document.getElementById('email-body').value.trim();
+    let subject = document.getElementById('email-subject').value.trim();
+    let body = document.getElementById('email-body').value.trim();
     const leadId = document.getElementById('email-lead-id').value;
     
     if (!to || !subject || !body) {
       return Utils.toast('Vyplň všetky povinné polia', 'warning');
     }
     
-    Utils.toast('Odosielam email...', 'info');
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) {
+      return Utils.toast('Lead nenájdený', 'error');
+    }
+    
+    Utils.toast('Ukladám ponuku a odosielam email...', 'info');
     
     try {
-      const session = await Database.client.auth.getSession();
-      const token = session?.data?.session?.access_token || '';
+      // 1. Vygenerovať HTML ponuku
+      const notes = document.getElementById('proposal-notes')?.value?.trim();
+      let analysisToUse = lead.analysis ? JSON.parse(JSON.stringify(lead.analysis)) : {};
+      if (notes) analysisToUse.customNote = notes;
       
-      // Konvertovať plain text na HTML
-      const htmlBody = body
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>')
-        .replace(/^/, '<p>')
-        .replace(/$/, '</p>');
+      const proposalHtml = this.buildProposalHTML(lead, analysisToUse);
       
-      // Použiť MessagesModule SEND_URL
-      const sendUrl = (typeof MessagesModule !== 'undefined' && MessagesModule.SEND_URL) 
-        ? MessagesModule.SEND_URL 
-        : 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/send-email';
+      // 2. Uložiť ponuku do DB a získať odkaz
+      const proposalToken = this.generateToken();
+      const companyName = analysisToUse.company?.name || lead.company_name || lead.domain || 'firma';
       
-      const response = await fetch(sendUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          to,
-          toName,
-          subject,
-          htmlBody,
-          textBody: body,
-          leadId
+      const { data: proposal, error: proposalError } = await Database.client
+        .from('proposals')
+        .insert({
+          lead_id: leadId,
+          token: proposalToken,
+          company_name: companyName,
+          domain: lead.domain,
+          html_content: proposalHtml,
+          analysis_data: analysisToUse,
+          status: 'sent'
         })
-      });
+        .select()
+        .single();
       
-      const result = await response.json();
+      if (proposalError) {
+        console.error('Proposal save error:', proposalError);
+        // Pokračovať aj bez uloženia ponuky
+      }
       
-      if (result.success) {
-        // Aktualizovať lead
-        const lead = this.leads.find(l => l.id === leadId);
-        if (lead) {
-          await Database.update('leads', leadId, { 
-            status: 'contacted',
-            proposal_status: 'sent',
-            proposal_sent_at: new Date().toISOString()
+      // 3. Vytvoriť odkaz na ponuku
+      const proposalUrl = `https://admin.adlify.eu/proposal.html?t=${proposalToken}`;
+      
+      // 4. Pridať odkaz do emailu
+      const proposalSection = `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 VAŠA PERSONALIZOVANÁ PONUKA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Pripravili sme pre Vás detailnú marketingovú ponuku.
+Kliknite na odkaz nižšie pre jej zobrazenie:
+
+🔗 ${proposalUrl}
+
+V ponuke nájdete:
+✓ Analýzu Vašej online prítomnosti
+✓ SWOT analýzu a odporúčania
+✓ Návrh kľúčových slov
+✓ Odporúčaný rozpočet a ROI
+✓ Balíčky služieb
+
+Odkaz je platný 30 dní.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+      // Vložiť sekciu s ponukou do tela emailu
+      body = body + proposalSection;
+      
+      // 5. Konvertovať plain text na HTML
+      const htmlBody = this.buildEmailHtmlBody(body, proposalUrl, companyName);
+      
+      // 6. Odoslať email - skúsiť Netlify, potom Supabase
+      const session = await Database.client.auth.getSession();
+      const authToken = session?.data?.session?.access_token || '';
+      
+      // Skúsiť najprv Netlify, potom Supabase
+      const sendUrls = [
+        '/.netlify/functions/send-email',
+        (typeof MessagesModule !== 'undefined' && MessagesModule.SEND_URL) ? MessagesModule.SEND_URL : null,
+        'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/send-email'
+      ].filter(Boolean);
+      
+      let lastError = null;
+      let success = false;
+      
+      for (const sendUrl of sendUrls) {
+        try {
+          console.log('Trying to send email via:', sendUrl);
+          const response = await fetch(sendUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              to,
+              toName,
+              subject,
+              htmlBody,
+              textBody: body,
+              leadId
+            })
           });
-          lead.status = 'contacted';
-          document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            success = true;
+            break;
+          } else {
+            lastError = result.error || 'Odoslanie zlyhalo';
+          }
+        } catch (err) {
+          console.warn('Send via', sendUrl, 'failed:', err.message);
+          lastError = err.message;
         }
+      }
+      
+      if (success) {
+        // Aktualizovať lead
+        await Database.update('leads', leadId, { 
+          status: 'contacted',
+          proposal_status: 'sent',
+          proposal_sent_at: new Date().toISOString()
+        });
+        lead.status = 'contacted';
+        document.getElementById('leads-list').innerHTML = this.renderLeadsList();
         
         this.closeEmailModal();
-        Utils.toast('Email odoslaný! ✉️', 'success');
+        Utils.toast('Email s ponukou odoslaný! ✉️', 'success');
       } else {
-        throw new Error(result.error || 'Odoslanie zlyhalo');
+        throw new Error(lastError || 'Nepodarilo sa odoslať email cez žiadny endpoint');
       }
       
     } catch (error) {
       console.error('Email send error:', error);
       Utils.toast('Chyba: ' + error.message, 'error');
     }
+  },
+  
+  // Vytvoriť pekné HTML telo emailu
+  buildEmailHtmlBody(plainText, proposalUrl, companyName) {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    
+    <!-- Header -->
+    <div style="text-align:center;padding:20px 0;">
+      <img src="https://adlify.eu/logo.png" alt="Adlify" style="height:40px;" onerror="this.outerHTML='<span style=font-size:24px;font-weight:bold;color:#f97316;>ADLIFY</span>'">
+    </div>
+    
+    <!-- Content -->
+    <div style="background:white;border-radius:12px;padding:30px;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+      ${plainText.split('\n\n').map(p => {
+        if (p.includes('━━━')) return '';
+        if (p.includes('VAŠA PERSONALIZOVANÁ PONUKA')) {
+          return `<h2 style="color:#f97316;font-size:18px;margin:20px 0;">📊 Vaša personalizovaná ponuka</h2>`;
+        }
+        if (p.includes('🔗')) {
+          return '';
+        }
+        if (p.includes('✓')) {
+          const items = p.split('\n').filter(l => l.includes('✓'));
+          return `<ul style="list-style:none;padding:0;margin:15px 0;">${items.map(i => `<li style="padding:5px 0;color:#475569;">✓ ${i.replace('✓', '').trim()}</li>`).join('')}</ul>`;
+        }
+        return `<p style="color:#475569;line-height:1.6;margin:15px 0;">${p.replace(/\n/g, '<br>')}</p>`;
+      }).join('')}
+      
+      <!-- CTA Button -->
+      <div style="text-align:center;margin:30px 0;">
+        <a href="${proposalUrl}" style="display:inline-block;background:linear-gradient(135deg,#f97316,#ea580c);color:white;padding:15px 40px;border-radius:30px;text-decoration:none;font-weight:600;font-size:16px;">
+          📄 Zobraziť ponuku
+        </a>
+      </div>
+      
+      <p style="color:#94a3b8;font-size:13px;text-align:center;margin-top:20px;">
+        Odkaz je platný 30 dní. Po kliknutí sa otvorí interaktívna ponuka s možnosťou stiahnutia PDF.
+      </p>
+    </div>
+    
+    <!-- Footer -->
+    <div style="text-align:center;padding:30px 0;color:#94a3b8;font-size:13px;">
+      <p style="margin:5px 0;">S pozdravom, <strong>Adlify tím</strong></p>
+      <p style="margin:5px 0;">
+        <a href="mailto:info@adlify.eu" style="color:#f97316;text-decoration:none;">info@adlify.eu</a> | 
+        <a href="https://adlify.eu" style="color:#f97316;text-decoration:none;">www.adlify.eu</a>
+      </p>
+    </div>
+    
+  </div>
+</body>
+</html>`;
   },
   
   // HTML ponuka - otvorí v novom okne
