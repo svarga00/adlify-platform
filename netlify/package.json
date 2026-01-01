@@ -1,0 +1,8 @@
+{
+  "name": "adlify-functions",
+  "version": "1.0.0",
+  "description": "Netlify Functions for Adlify",
+  "dependencies": {
+    "nodemailer": "^6.9.8"
+  }
+}
