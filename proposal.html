@@ -13,11 +13,12 @@
     .loading .spinner { width: 50px; height: 50px; border: 4px solid #e2e8f0; border-top-color: #f97316; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    .error-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 1rem; text-align: center; padding: 2rem; }
+    .error-page, .success-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 1rem; text-align: center; padding: 2rem; }
     .error-page h1 { font-size: 4rem; color: #f97316; }
-    .error-page p { color: #64748b; max-width: 400px; }
-    .error-page a { color: #f97316; text-decoration: none; font-weight: 600; }
-    .error-page a:hover { text-decoration: underline; }
+    .success-page h1 { font-size: 4rem; }
+    .error-page p, .success-page p { color: #64748b; max-width: 400px; }
+    .error-page a, .success-page a { color: #f97316; text-decoration: none; font-weight: 600; }
+    .error-page a:hover, .success-page a:hover { text-decoration: underline; }
     
     .proposal-container { max-width: 100%; }
     
@@ -28,14 +29,42 @@
     .action-bar .btn-primary:hover { box-shadow: 0 4px 15px rgba(249,115,22,0.4); transform: translateY(-2px); }
     .action-bar .btn-secondary { background: #f1f5f9; color: #475569; }
     .action-bar .btn-secondary:hover { background: #e2e8f0; }
+    .action-bar .btn-success { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+    .action-bar .btn-success:hover { box-shadow: 0 4px 15px rgba(34,197,94,0.4); transform: translateY(-2px); }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: white; border-radius: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 1.5rem; border-radius: 20px 20px 0 0; }
+    .modal-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .modal-header p { opacity: 0.9; font-size: 0.9rem; }
+    .modal-body { padding: 1.5rem; }
+    .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; display: flex; gap: 1rem; justify-content: flex-end; }
+    
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-weight: 500; margin-bottom: 0.5rem; color: #334155; }
+    .form-group input, .form-group textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 1rem; transition: all 0.2s; }
+    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
+    .form-group textarea { resize: vertical; min-height: 100px; }
+    .form-hint { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
+    
+    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-cancel { background: #f1f5f9; color: #64748b; }
+    .btn-cancel:hover { background: #e2e8f0; }
+    .btn-submit { background: linear-gradient(135deg, #f97316, #ea580c); color: white; }
+    .btn-submit:hover { box-shadow: 0 4px 15px rgba(249,115,22,0.3); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-submit-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+    .btn-submit-green:hover { box-shadow: 0 4px 15px rgba(34,197,94,0.3); }
     
     @media print {
-      .action-bar { display: none !important; }
+      .action-bar, .modal-overlay { display: none !important; }
     }
     
     @media (max-width: 600px) {
-      .action-bar { width: calc(100% - 40px); justify-content: center; }
-      .action-bar button { padding: 10px 15px; font-size: 0.9rem; }
+      .action-bar { width: calc(100% - 40px); justify-content: center; flex-wrap: wrap; }
+      .action-bar button { padding: 10px 15px; font-size: 0.85rem; }
     }
   </style>
 </head>
@@ -47,101 +76,293 @@
     </div>
   </div>
 
+  <!-- Modal: Mám záujem -->
+  <div class="modal-overlay" id="modal-interested">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>🎉 Mám záujem o spoluprácu!</h2>
+        <p>Vyplňte kontaktné údaje a ozveme sa vám</p>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Vaše meno *</label>
+          <input type="text" id="interested-name" placeholder="Ján Novák" required>
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="interested-email" placeholder="jan@firma.sk" required>
+        </div>
+        <div class="form-group">
+          <label>Telefón</label>
+          <input type="tel" id="interested-phone" placeholder="+421 9XX XXX XXX">
+          <p class="form-hint">Pre rýchlejšiu komunikáciu</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-cancel" onclick="closeModal('interested')">Zrušiť</button>
+        <button class="btn btn-submit-green" id="btn-submit-interested" onclick="submitInterested()">✓ Odoslať</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Mám otázky -->
+  <div class="modal-overlay" id="modal-question">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>❓ Mám otázku</h2>
+        <p>Napíšte nám a radi odpovieme</p>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Vaša otázka *</label>
+          <textarea id="question-message" placeholder="Napíšte vašu otázku..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Vaše meno</label>
+          <input type="text" id="question-name" placeholder="Ján Novák">
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="question-email" placeholder="jan@firma.sk" required>
+          <p class="form-hint">Na tento email vám odpovieme</p>
+        </div>
+        <div class="form-group">
+          <label>Telefón</label>
+          <input type="tel" id="question-phone" placeholder="+421 9XX XXX XXX">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-cancel" onclick="closeModal('question')">Zrušiť</button>
+        <button class="btn btn-submit" id="btn-submit-question" onclick="submitQuestion()">📤 Odoslať otázku</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    (function() {
-      // Supabase config - wrapped in IIFE to avoid conflicts
-      const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
+    // Global variables
+    let proposalToken = null;
+    let proposalData = null;
+    
+    const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
+    
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    async function loadProposal() {
+      const app = document.getElementById('app');
       
-      const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // Get token from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      proposalToken = urlParams.get('t') || urlParams.get('token');
       
-      async function loadProposal() {
-        const app = document.getElementById('app');
+      if (!proposalToken) {
+        showError('Chýba token ponuky', 'Odkaz na ponuku nie je platný.');
+        return;
+      }
+      
+      console.log('Loading proposal with token:', proposalToken);
+      
+      try {
+        // Fetch proposal
+        const { data: proposal, error } = await db
+          .from('proposals')
+          .select('*')
+          .eq('token', proposalToken)
+          .single();
         
-        // Get token from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('t') || urlParams.get('token');
+        console.log('Proposal result:', { proposal, error });
         
-        if (!token) {
-          showError('Chýba token ponuky', 'Odkaz na ponuku nie je platný.');
+        if (error) {
+          console.error('DB Error:', error);
+          showError('Ponuka nenájdená', 'Táto ponuka neexistuje alebo jej platnosť vypršala.');
           return;
         }
         
-        console.log('Loading proposal with token:', token);
-        
-        try {
-          // Fetch proposal
-          const { data: proposal, error } = await db
-            .from('proposals')
-            .select('*')
-            .eq('token', token)
-            .single();
-          
-          console.log('Proposal result:', { proposal, error });
-          
-          if (error) {
-            console.error('DB Error:', error);
-            showError('Ponuka nenájdená', 'Táto ponuka neexistuje alebo jej platnosť vypršala. (' + error.message + ')');
-            return;
-          }
-          
-          if (!proposal) {
-            showError('Ponuka nenájdená', 'Táto ponuka neexistuje.');
-            return;
-          }
-          
-          // Check expiration
-          if (proposal.expires_at && new Date(proposal.expires_at) < new Date()) {
-            showError('Ponuka vypršala', 'Platnosť tejto ponuky už vypršala. Kontaktujte nás pre novú ponuku.');
-            return;
-          }
-          
-          // Increment views (don't wait for it)
-          try {
-            db.rpc('increment_proposal_views', { proposal_token: token });
-          } catch (e) {
-            console.warn('Could not increment views:', e);
-          }
-          
-          // Render proposal
-          app.innerHTML = `
-            <div class="proposal-container">
-              ${proposal.html_content}
-            </div>
-            <div class="action-bar">
-              <button class="btn-secondary" onclick="window.print()">
-                📄 Stiahnuť PDF
-              </button>
-              <button class="btn-primary" onclick="window.location.href='mailto:info@adlify.eu?subject=Záujem o ponuku'">
-                📧 Kontaktovať nás
-              </button>
-            </div>
-          `;
-          
-          // Update page title
-          document.title = 'Ponuka pre ' + (proposal.company_name || 'Vás') + ' - Adlify';
-          
-        } catch (err) {
-          console.error('Load proposal error:', err);
-          showError('Chyba', 'Nepodarilo sa načítať ponuku. Skúste to znova neskôr.');
+        if (!proposal) {
+          showError('Ponuka nenájdená', 'Táto ponuka neexistuje.');
+          return;
         }
-      }
-      
-      function showError(title, message) {
-        document.getElementById('app').innerHTML = `
-          <div class="error-page">
-            <h1>😕</h1>
-            <h2>${title}</h2>
-            <p>${message}</p>
-            <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
+        
+        proposalData = proposal;
+        
+        // Check expiration
+        if (proposal.expires_at && new Date(proposal.expires_at) < new Date()) {
+          showError('Ponuka vypršala', 'Platnosť tejto ponuky už vypršala. Kontaktujte nás pre novú ponuku.');
+          return;
+        }
+        
+        // Increment views
+        try {
+          await db.rpc('increment_proposal_views', { proposal_token: proposalToken });
+        } catch (e) {
+          console.warn('Could not increment views:', e);
+        }
+        
+        // Render proposal
+        app.innerHTML = `
+          <div class="proposal-container">
+            ${proposal.html_content}
+          </div>
+          <div class="action-bar">
+            <button class="btn-secondary" onclick="window.print()">
+              📄 PDF
+            </button>
+            <button class="btn-primary" onclick="openModal('question')">
+              ❓ Mám otázky
+            </button>
+            <button class="btn-success" onclick="openModal('interested')">
+              ✓ Mám záujem
+            </button>
           </div>
         `;
+        
+        // Update page title
+        document.title = 'Ponuka pre ' + (proposal.company_name || 'Vás') + ' - Adlify';
+        
+      } catch (err) {
+        console.error('Load proposal error:', err);
+        showError('Chyba', 'Nepodarilo sa načítať ponuku. Skúste to znova neskôr.');
+      }
+    }
+    
+    function showError(title, message) {
+      document.getElementById('app').innerHTML = `
+        <div class="error-page">
+          <h1>😕</h1>
+          <h2>${title}</h2>
+          <p>${message}</p>
+          <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
+        </div>
+      `;
+    }
+    
+    function showSuccess(title, message) {
+      document.getElementById('app').innerHTML = `
+        <div class="success-page">
+          <h1>🎉</h1>
+          <h2>${title}</h2>
+          <p>${message}</p>
+          <br>
+          <p><strong>Adlify tím</strong></p>
+          <p>📧 info@adlify.eu</p>
+          <p>📞 +421 944 184 045</p>
+          <br>
+          <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
+        </div>
+      `;
+      // Hide action bar
+      const actionBar = document.querySelector('.action-bar');
+      if (actionBar) actionBar.style.display = 'none';
+    }
+    
+    function openModal(type) {
+      document.getElementById('modal-' + type).classList.add('active');
+    }
+    
+    function closeModal(type) {
+      document.getElementById('modal-' + type).classList.remove('active');
+    }
+    
+    async function submitInterested() {
+      const name = document.getElementById('interested-name').value.trim();
+      const email = document.getElementById('interested-email').value.trim();
+      const phone = document.getElementById('interested-phone').value.trim();
+      
+      if (!name || !email) {
+        alert('Vyplňte prosím meno a email.');
+        return;
       }
       
-      // Load on page ready
-      loadProposal();
-    })();
+      const btn = document.getElementById('btn-submit-interested');
+      btn.disabled = true;
+      btn.textContent = '⏳ Odosielam...';
+      
+      try {
+        const response = await fetch('/.netlify/functions/proposal-response', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: proposalToken,
+            action: 'interested',
+            contactName: name,
+            contactEmail: email,
+            contactPhone: phone
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          closeModal('interested');
+          showSuccess('Ďakujeme za váš záujem!', 'Čoskoro vás budeme kontaktovať s ďalšími krokmi spolupráce.');
+        } else {
+          throw new Error(result.error || 'Nepodarilo sa odoslať');
+        }
+      } catch (err) {
+        console.error('Submit error:', err);
+        alert('Chyba pri odosielaní. Skúste to znova alebo nás kontaktujte na info@adlify.eu');
+        btn.disabled = false;
+        btn.textContent = '✓ Odoslať';
+      }
+    }
+    
+    async function submitQuestion() {
+      const message = document.getElementById('question-message').value.trim();
+      const name = document.getElementById('question-name').value.trim();
+      const email = document.getElementById('question-email').value.trim();
+      const phone = document.getElementById('question-phone').value.trim();
+      
+      if (!message || !email) {
+        alert('Vyplňte prosím otázku a email.');
+        return;
+      }
+      
+      const btn = document.getElementById('btn-submit-question');
+      btn.disabled = true;
+      btn.textContent = '⏳ Odosielam...';
+      
+      try {
+        const response = await fetch('/.netlify/functions/proposal-response', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: proposalToken,
+            action: 'question',
+            message: message,
+            contactName: name,
+            contactEmail: email,
+            contactPhone: phone
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          closeModal('question');
+          showSuccess('Ďakujeme za vašu otázku!', 'Odpovieme vám čo najskôr na ' + email);
+        } else {
+          throw new Error(result.error || 'Nepodarilo sa odoslať');
+        }
+      } catch (err) {
+        console.error('Submit error:', err);
+        alert('Chyba pri odosielaní. Skúste to znova alebo nás kontaktujte na info@adlify.eu');
+        btn.disabled = false;
+        btn.textContent = '📤 Odoslať otázku';
+      }
+    }
+    
+    // Close modal on outside click
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+        }
+      });
+    });
+    
+    // Load on page ready
+    loadProposal();
   </script>
 </body>
 </html>
