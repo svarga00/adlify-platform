@@ -275,14 +275,41 @@ const LeadsModule = {
   renderImportTab() {
     return `
       <div class="form-card">
-        <h2>📥 Import domén</h2>
-        <p class="form-desc">Vložte domény (jedna na riadok) alebo skopírujte z Excelu</p>
-        <textarea id="import-domains" rows="10" placeholder="firma1.sk&#10;firma2.sk&#10;firma3.sk" class="form-textarea"></textarea>
+        <h2>📥 Import leadov</h2>
+        <p class="form-desc">Nahrajte Excel z Marketing Miner alebo vložte domény manuálne</p>
+        
+        <!-- Excel Upload -->
+        <div id="excel-dropzone" class="dropzone" ondrop="LeadsModule.handleFileDrop(event)" ondragover="event.preventDefault()" ondragenter="this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')">
+          <div class="dropzone-content">
+            <div class="dropzone-icon">📊</div>
+            <p><strong>Pretiahni Excel súbor sem</strong></p>
+            <p class="text-sm">alebo klikni pre výber súboru</p>
+            <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" onchange="LeadsModule.handleFileSelect(event)" style="display:none;">
+          </div>
+        </div>
+        <button onclick="document.getElementById('excel-file').click()" class="btn-secondary" style="width:100%;margin-top:0.5rem;">📂 Vybrať súbor</button>
+        
+        <div class="divider"><span>alebo</span></div>
+        
+        <!-- Manual domains -->
+        <label class="form-label">Manuálny import domén</label>
+        <textarea id="import-domains" rows="6" placeholder="firma1.sk&#10;firma2.sk&#10;firma3.sk" class="form-textarea"></textarea>
+        
         <div class="form-actions">
-          <button onclick="LeadsModule.handleImport()" class="btn-primary">📥 Importovať domény</button>
+          <button onclick="LeadsModule.handleImport()" class="btn-primary">📥 Importovať</button>
           <button onclick="LeadsModule.showTab('list')" class="btn-secondary">← Späť</button>
         </div>
       </div>
+      
+      <style>
+        .dropzone { border: 2px dashed #e2e8f0; border-radius: 12px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 1rem; }
+        .dropzone:hover, .dropzone.dragover { border-color: #f97316; background: #fff7ed; }
+        .dropzone-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+        .dropzone .text-sm { color: #64748b; font-size: 0.85rem; }
+        .divider { display: flex; align-items: center; gap: 1rem; margin: 1.5rem 0; color: #94a3b8; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+        .form-label { display: block; font-size: 0.85rem; font-weight: 500; color: #475569; margin-bottom: 0.5rem; }
+      </style>
     `;
   },
   
@@ -1016,58 +1043,32 @@ const LeadsModule = {
 
   async generateProposalWithNotes() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
-    if (!lead?.analysis) return;
+    if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
     
-    const notes = document.getElementById('proposal-notes').value.trim();
-    if (!notes) {
-      this.generateProposalDirect();
-      return;
+    const notes = document.getElementById('proposal-notes')?.value?.trim();
+    
+    // Ak sú poznámky, pridáme ich do analýzy ako customNote
+    let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+    if (notes) {
+      analysisToUse.customNote = notes;
+      
+      // Uložíme poznámky aj do databázy
+      try {
+        const updatedAnalysis = { ...lead.analysis, customNote: notes };
+        await Database.update('leads', lead.id, { analysis: updatedAnalysis });
+        lead.analysis = updatedAnalysis;
+      } catch (e) {
+        console.warn('Failed to save custom note:', e);
+      }
     }
     
     this.closeProposalModal();
-    Utils.toast('AI prepracováva analýzu...', 'info');
     
-    try {
-      const session = await Database.client.auth.getSession();
-      const token = session?.data?.session?.access_token || '';
-      
-      // Call AI to refine analysis based on notes
-      const response = await fetch(this.ANALYZE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          action: 'refine',
-          existingAnalysis: lead.analysis,
-          refinementNotes: notes,
-          companyName: lead.company_name,
-          domain: lead.domain
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success && result.analysis) {
-        // Use refined analysis
-        const html = this.generateProposalHTML(lead, result.analysis);
-        const blob = new Blob([html], { type: 'text/html' });
-        window.open(URL.createObjectURL(blob), '_blank');
-        Utils.toast('Ponuka vygenerovaná s úpravami!', 'success');
-      } else {
-        // Fallback to original if refine fails
-        console.warn('Refine failed, using original:', result.error);
-        const html = this.generateProposalHTML(lead, lead.analysis);
-        const blob = new Blob([html], { type: 'text/html' });
-        window.open(URL.createObjectURL(blob), '_blank');
-        Utils.toast('Ponuka vygenerovaná (bez AI úprav)', 'warning');
-      }
-    } catch (error) {
-      console.error('Refine error:', error);
-      // Fallback to original
-      const html = this.generateProposalHTML(lead, lead.analysis);
-      const blob = new Blob([html], { type: 'text/html' });
-      window.open(URL.createObjectURL(blob), '_blank');
-      Utils.toast('Ponuka vygenerovaná (AI nedostupné)', 'warning');
-    }
+    // Generujeme ponuku s poznámkami
+    const html = this.generateProposalHTML(lead, analysisToUse);
+    const blob = new Blob([html], { type: 'text/html' });
+    window.open(URL.createObjectURL(blob), '_blank');
+    Utils.toast('Ponuka vygenerovaná!', 'success');
   },
 
   generateProposalHTML(lead, analysis) {
@@ -1832,11 +1833,152 @@ ${r.projection ? `
 </html>`;
   },
 
+  // Excel file handlers
+  handleFileDrop(event) {
+    event.preventDefault();
+    event.target.classList.remove('dragover');
+    const file = event.dataTransfer.files[0];
+    if (file) this.processExcelFile(file);
+  },
+
+  handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) this.processExcelFile(file);
+  },
+
+  async processExcelFile(file) {
+    Utils.toast('Načítavam súbor...', 'info');
+    
+    try {
+      // Load SheetJS library if not loaded
+      if (!window.XLSX) {
+        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+      }
+      
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      
+      if (rows.length < 2) {
+        Utils.toast('Súbor je prázdny', 'warning');
+        return;
+      }
+      
+      // Detect Marketing Miner format
+      const headers = rows[0].map(h => (h || '').toString().toLowerCase());
+      const isMarketingMiner = headers.includes('input') || headers.includes('contact emails');
+      
+      let leads = [];
+      
+      if (isMarketingMiner) {
+        // Marketing Miner format
+        const inputIdx = headers.findIndex(h => h === 'input');
+        const emailIdx = headers.findIndex(h => h.includes('email'));
+        const fbIdx = headers.findIndex(h => h === 'facebook');
+        const igIdx = headers.findIndex(h => h === 'instagram');
+        const liIdx = headers.findIndex(h => h === 'linkedin');
+        
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || !row[inputIdx]) continue;
+          
+          const domain = this.cleanDomain(row[inputIdx]);
+          if (!domain) continue;
+          
+          // Parse email (format: "email@test.com (90%); email2@test.com (80%)")
+          let email = null;
+          if (emailIdx >= 0 && row[emailIdx]) {
+            const emailStr = row[emailIdx].toString();
+            const match = emailStr.match(/([^\s;]+@[^\s;(]+)/);
+            if (match) email = match[1].trim();
+          }
+          
+          // Social links
+          const socials = {};
+          if (fbIdx >= 0 && row[fbIdx]) socials.facebook = row[fbIdx];
+          if (igIdx >= 0 && row[igIdx]) socials.instagram = row[igIdx];
+          if (liIdx >= 0 && row[liIdx]) socials.linkedin = row[liIdx];
+          
+          leads.push({
+            domain,
+            company_name: domain.split('.')[0],
+            email,
+            status: 'new',
+            score: 50,
+            analysis: Object.keys(socials).length > 0 ? { onlinePresence: { socialMedia: socials } } : null
+          });
+        }
+      } else {
+        // Simple format - first column is domain
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const domain = this.cleanDomain(row[0]);
+          if (domain) {
+            leads.push({
+              domain,
+              company_name: domain.split('.')[0],
+              status: 'new',
+              score: 50
+            });
+          }
+        }
+      }
+      
+      // Import leads
+      let added = 0, skipped = 0;
+      for (const lead of leads) {
+        try {
+          const existing = await Database.select('leads', { filters: { domain: lead.domain }, limit: 1 });
+          if (existing?.length > 0) { skipped++; continue; }
+          await Database.insert('leads', lead);
+          added++;
+        } catch (e) { console.error('Import error:', e); }
+      }
+      
+      Utils.toast(`Pridaných: ${added}, Preskočených: ${skipped}`, 'success');
+      await this.loadLeads();
+      this.showTab('list');
+      
+    } catch (error) {
+      console.error('Excel parse error:', error);
+      Utils.toast('Chyba pri čítaní súboru', 'error');
+    }
+  },
+
+  cleanDomain(value) {
+    if (!value) return null;
+    return value.toString().trim()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .split('/')[0]
+      .toLowerCase();
+  },
+
+  loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  },
+
   async handleImport() {
     const textarea = document.getElementById('import-domains');
-    const text = textarea.value.trim();
-    if (!text) return Utils.toast('Zadaj domény', 'warning');
-    const domains = text.split('\n').map(d => d.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]).filter(d => d.includes('.'));
+    const text = textarea?.value?.trim();
+    if (!text) return Utils.toast('Zadaj domény alebo nahraj súbor', 'warning');
+    
+    const domains = text.split('\n')
+      .map(d => this.cleanDomain(d))
+      .filter(d => d && d.includes('.'));
+    
+    if (domains.length === 0) {
+      Utils.toast('Žiadne platné domény', 'warning');
+      return;
+    }
+    
     let added = 0, skipped = 0;
     for (const domain of domains) {
       try {
@@ -1850,8 +1992,6 @@ ${r.projection ? `
     textarea.value = '';
     await this.loadLeads();
     this.showTab('list');
-    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-    document.getElementById('leads-count').textContent = this.leads.length;
   },
 
   async handleAdd() {
