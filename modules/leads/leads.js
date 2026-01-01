@@ -1394,6 +1394,7 @@ const LeadsModule = {
     if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
     
     Utils.toast('Generujem PDF...', 'info');
+    console.log('Starting PDF generation for:', lead.company_name);
     
     const notes = document.getElementById('proposal-notes')?.value?.trim();
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
@@ -1402,30 +1403,39 @@ const LeadsModule = {
     try {
       // Load html2pdf if not loaded
       if (!window.html2pdf) {
+        console.log('Loading html2pdf library...');
         await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+        console.log('html2pdf loaded:', !!window.html2pdf);
+      }
+      
+      if (!window.html2pdf) {
+        throw new Error('Nepodarilo sa načítať PDF knižnicu');
       }
       
       // Vytvor PDF-friendly HTML
       const pdfHtml = this.buildPDFTemplate(lead, analysisToUse);
+      console.log('PDF HTML generated, length:', pdfHtml.length);
       
       // Create container
       const container = document.createElement('div');
       container.innerHTML = pdfHtml;
-      container.style.cssText = 'position:absolute;left:-9999px;width:210mm;';
+      container.style.cssText = 'position:absolute;left:-9999px;width:210mm;background:white;';
       document.body.appendChild(container);
       
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 500));
       
-      const filename = `ponuka-${lead.domain || lead.company_name || 'lead'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      const filename = `ponuka-${(lead.domain || lead.company_name || 'lead').replace(/[^a-z0-9]/gi, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log('Generating PDF:', filename);
       
-      await html2pdf().set({
-        margin: [10, 10, 10, 10],
+      const opt = {
+        margin: 10,
         filename: filename,
         image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      }).from(container).save();
+        html2canvas: { scale: 2, useCORS: true, logging: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      
+      await html2pdf().set(opt).from(container).save();
       
       document.body.removeChild(container);
       this.closeProposalModal();
@@ -1433,8 +1443,28 @@ const LeadsModule = {
       
     } catch (error) {
       console.error('PDF generation error:', error);
-      Utils.toast('Chyba pri generovaní PDF', 'error');
+      Utils.toast('PDF zlyhalo - skúšam alternatívu...', 'warning');
+      
+      // Fallback - otvoriť v novom okne s tlačou
+      this.openPDFPrintView(lead, analysisToUse);
     }
+  },
+  
+  openPDFPrintView(lead, analysis) {
+    const pdfHtml = this.buildPDFTemplate(lead, analysis);
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(pdfHtml);
+    printWindow.document.close();
+    
+    // Pridaj print button
+    const printBtn = printWindow.document.createElement('button');
+    printBtn.innerHTML = '🖨️ Tlačiť / Uložiť PDF';
+    printBtn.style.cssText = 'position:fixed;top:10px;right:10px;padding:12px 24px;background:#f97316;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+    printBtn.onclick = () => printWindow.print();
+    printWindow.document.body.appendChild(printBtn);
+    
+    this.closeProposalModal();
+    Utils.toast('Otvorené v novom okne - použi Tlačiť > Uložiť ako PDF', 'info');
   },
   
   buildPDFTemplate(lead, analysis) {
