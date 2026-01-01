@@ -1405,31 +1405,29 @@ const LeadsModule = {
         await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
       }
       
-      const html = this.buildProposalHTML(lead, analysisToUse);
+      // Vytvor PDF-friendly HTML
+      const pdfHtml = this.buildPDFTemplate(lead, analysisToUse);
       
-      // Create hidden iframe
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:absolute;left:-9999px;width:1200px;height:900px;';
-      document.body.appendChild(iframe);
-      iframe.contentDocument.write(html);
-      iframe.contentDocument.close();
+      // Create container
+      const container = document.createElement('div');
+      container.innerHTML = pdfHtml;
+      container.style.cssText = 'position:absolute;left:-9999px;width:210mm;';
+      document.body.appendChild(container);
       
-      // Wait for content to render
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 300));
       
-      const element = iframe.contentDocument.body;
       const filename = `ponuka-${lead.domain || lead.company_name || 'lead'}-${new Date().toISOString().split('T')[0]}.pdf`;
       
       await html2pdf().set({
-        margin: 0,
+        margin: [10, 10, 10, 10],
         filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: 'avoid-all' }
-      }).from(element).save();
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      }).from(container).save();
       
-      document.body.removeChild(iframe);
+      document.body.removeChild(container);
       this.closeProposalModal();
       Utils.toast('PDF stiahnuté!', 'success');
       
@@ -1437,6 +1435,291 @@ const LeadsModule = {
       console.error('PDF generation error:', error);
       Utils.toast('Chyba pri generovaní PDF', 'error');
     }
+  },
+  
+  buildPDFTemplate(lead, analysis) {
+    const c = analysis.company || {};
+    const a = analysis.analysis || {};
+    const o = analysis.onlinePresence || {};
+    const k = analysis.keywords || {};
+    const b = analysis.budget || {};
+    const r = analysis.roi || {};
+    const recPkg = analysis.recommendedPackage || 'Pro';
+    
+    const prices = { Starter: '149€', Pro: '249€', Enterprise: '399€', Premium: '799€' };
+    
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; line-height: 1.5; color: #333; }
+    
+    .page { padding: 15mm; }
+    
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #f97316; }
+    .logo { font-size: 24pt; font-weight: bold; color: #f97316; }
+    .date { color: #666; font-size: 10pt; }
+    
+    /* Company Hero */
+    .hero { background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 25px; border-radius: 10px; margin-bottom: 20px; }
+    .hero h1 { font-size: 22pt; margin-bottom: 8px; }
+    .hero p { font-size: 11pt; opacity: 0.9; }
+    .hero .location { margin-top: 10px; font-size: 10pt; opacity: 0.8; }
+    
+    /* Section */
+    .section { margin-bottom: 20px; page-break-inside: avoid; }
+    .section-title { font-size: 13pt; font-weight: bold; color: #1e293b; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e2e8f0; }
+    
+    /* Intro box */
+    .intro-box { background: #fff7ed; border-left: 4px solid #f97316; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0; }
+    .intro-box p { color: #9a3412; }
+    
+    /* Services */
+    .services { display: flex; flex-wrap: wrap; gap: 8px; }
+    .service-tag { background: #dbeafe; color: #1d4ed8; padding: 4px 12px; border-radius: 15px; font-size: 10pt; }
+    
+    /* Stats Grid */
+    .stats-grid { display: flex; gap: 15px; margin: 15px 0; }
+    .stat-box { flex: 1; text-align: center; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .stat-value { font-size: 18pt; font-weight: bold; color: #f97316; }
+    .stat-label { font-size: 9pt; color: #64748b; margin-top: 5px; }
+    
+    /* SWOT Grid */
+    .swot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .swot-box { padding: 12px; border-radius: 8px; }
+    .swot-box h4 { font-size: 10pt; margin-bottom: 8px; }
+    .swot-box ul { font-size: 9pt; padding-left: 15px; }
+    .swot-box li { margin-bottom: 3px; }
+    .swot-strengths { background: #dcfce7; }
+    .swot-strengths h4 { color: #166534; }
+    .swot-weaknesses { background: #fef3c7; }
+    .swot-weaknesses h4 { color: #92400e; }
+    .swot-opportunities { background: #dbeafe; }
+    .swot-opportunities h4 { color: #1e40af; }
+    .swot-threats { background: #fee2e2; }
+    .swot-threats h4 { color: #991b1b; }
+    
+    /* Keywords Table */
+    .keywords-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    .keywords-table th { background: #f1f5f9; padding: 8px; text-align: left; font-weight: 600; }
+    .keywords-table td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    
+    /* Budget Cards */
+    .budget-grid { display: flex; gap: 10px; }
+    .budget-card { flex: 1; text-align: center; padding: 15px; border-radius: 10px; border: 2px solid #e2e8f0; }
+    .budget-card.recommended { background: linear-gradient(135deg, #f97316, #ec4899); color: white; border: none; transform: scale(1.02); }
+    .budget-card .label { font-size: 9pt; opacity: 0.8; }
+    .budget-card .price { font-size: 20pt; font-weight: bold; margin: 8px 0; }
+    .budget-card.recommended .price { color: white; }
+    .budget-card .period { font-size: 9pt; opacity: 0.7; }
+    
+    /* ROI Box */
+    .roi-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 15px; }
+    .roi-grid { display: flex; justify-content: space-around; text-align: center; }
+    .roi-item .value { font-size: 18pt; font-weight: bold; color: #16a34a; }
+    .roi-item .label { font-size: 9pt; color: #64748b; }
+    
+    /* Package Box */
+    .package-box { background: linear-gradient(135deg, #fff7ed, #fef3c7); border: 2px solid #f97316; border-radius: 10px; padding: 20px; text-align: center; margin-top: 20px; }
+    .package-box h3 { color: #ea580c; font-size: 14pt; }
+    .package-box .price { font-size: 28pt; font-weight: bold; color: #f97316; margin: 10px 0; }
+    
+    /* Custom Note */
+    .note-box { background: #f3e8ff; border-left: 4px solid #8b5cf6; padding: 15px; margin-top: 15px; border-radius: 0 8px 8px 0; }
+    .note-box p { color: #6b21a8; font-style: italic; }
+    
+    /* Footer */
+    .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 9pt; }
+    .footer a { color: #f97316; }
+    
+    /* Online Presence */
+    .presence-grid { display: flex; gap: 15px; flex-wrap: wrap; }
+    .presence-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; }
+    .presence-icon { font-size: 14pt; }
+    .presence-status { font-size: 10pt; }
+    .presence-yes { color: #16a34a; }
+    .presence-no { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">Adlify</div>
+      <div class="date">Ponuka zo dňa ${new Date().toLocaleDateString('sk-SK')}</div>
+    </div>
+    
+    <!-- Hero -->
+    <div class="hero">
+      <h1>${c.name || lead.company_name || 'Vaša firma'}</h1>
+      <p>${c.description || 'Personalizovaná marketingová stratégia'}</p>
+      ${c.location ? `<div class="location">📍 ${c.location}</div>` : ''}
+    </div>
+    
+    ${a.humanWrittenIntro ? `
+    <!-- Intro -->
+    <div class="intro-box">
+      <p>${a.humanWrittenIntro}</p>
+    </div>
+    ` : ''}
+    
+    ${c.services?.length ? `
+    <!-- Services -->
+    <div class="section">
+      <div class="section-title">🛠️ Vaše služby</div>
+      <div class="services">
+        ${c.services.map(s => `<span class="service-tag">${s}</span>`).join('')}
+      </div>
+    </div>
+    ` : ''}
+    
+    <!-- Online Presence -->
+    <div class="section">
+      <div class="section-title">🌐 Online prítomnosť</div>
+      <div class="presence-grid">
+        <div class="presence-item">
+          <span class="presence-icon">🌍</span>
+          <span class="presence-status ${o.website?.exists ? 'presence-yes' : 'presence-no'}">${o.website?.exists ? '✓ Webstránka' : '✗ Webstránka'}</span>
+        </div>
+        <div class="presence-item">
+          <span class="presence-icon">📘</span>
+          <span class="presence-status ${o.socialMedia?.facebook?.exists ? 'presence-yes' : 'presence-no'}">${o.socialMedia?.facebook?.exists ? '✓ Facebook' : '✗ Facebook'}</span>
+        </div>
+        <div class="presence-item">
+          <span class="presence-icon">📷</span>
+          <span class="presence-status ${o.socialMedia?.instagram?.exists ? 'presence-yes' : 'presence-no'}">${o.socialMedia?.instagram?.exists ? '✓ Instagram' : '✗ Instagram'}</span>
+        </div>
+        <div class="presence-item">
+          <span class="presence-icon">📢</span>
+          <span class="presence-status ${o.paidAds?.detected ? 'presence-yes' : 'presence-no'}">${o.paidAds?.detected ? '✓ Reklamy' : '✗ Reklamy'}</span>
+        </div>
+      </div>
+    </div>
+    
+    ${a.swot ? `
+    <!-- SWOT -->
+    <div class="section">
+      <div class="section-title">📊 SWOT Analýza</div>
+      <div class="swot-grid">
+        <div class="swot-box swot-strengths">
+          <h4>💪 Silné stránky</h4>
+          <ul>${(a.swot.strengths || []).slice(0, 3).map(s => `<li>${s}</li>`).join('')}</ul>
+        </div>
+        <div class="swot-box swot-weaknesses">
+          <h4>⚠️ Slabé stránky</h4>
+          <ul>${(a.swot.weaknesses || []).slice(0, 3).map(w => `<li>${w}</li>`).join('')}</ul>
+        </div>
+        <div class="swot-box swot-opportunities">
+          <h4>🚀 Príležitosti</h4>
+          <ul>${(a.swot.opportunities || []).slice(0, 3).map(o => `<li>${o}</li>`).join('')}</ul>
+        </div>
+        <div class="swot-box swot-threats">
+          <h4>⚡ Hrozby</h4>
+          <ul>${(a.swot.threats || []).slice(0, 3).map(t => `<li>${t}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+    
+    ${k.topKeywords?.length ? `
+    <!-- Keywords -->
+    <div class="section">
+      <div class="section-title">🔍 Top kľúčové slová</div>
+      <table class="keywords-table">
+        <thead>
+          <tr>
+            <th>Kľúčové slovo</th>
+            <th>Hľadanosť/mes</th>
+            <th>Konkurencia</th>
+            <th>CPC</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${k.topKeywords.slice(0, 8).map(kw => `
+            <tr>
+              <td>${kw.keyword}</td>
+              <td>${kw.searchVolume}</td>
+              <td>${kw.competition}</td>
+              <td>${kw.cpc}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+    
+    ${b.recommendations ? `
+    <!-- Budget -->
+    <div class="section">
+      <div class="section-title">💰 Odporúčaný mesačný rozpočet na reklamu</div>
+      <div class="budget-grid">
+        <div class="budget-card">
+          <div class="label">Štart</div>
+          <div class="price">${b.recommendations.starter?.adSpend || 300}€</div>
+          <div class="period">mesačne</div>
+        </div>
+        <div class="budget-card recommended">
+          <div class="label">⭐ Odporúčame</div>
+          <div class="price">${b.recommendations.recommended?.adSpend || 500}€</div>
+          <div class="period">mesačne</div>
+        </div>
+        <div class="budget-card">
+          <div class="label">Agresívny</div>
+          <div class="price">${b.recommendations.aggressive?.adSpend || 800}€</div>
+          <div class="period">mesačne</div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+    
+    ${r.projection ? `
+    <!-- ROI -->
+    <div class="section">
+      <div class="section-title">📈 Predpokladaná návratnosť</div>
+      <div class="roi-box">
+        <div class="roi-grid">
+          <div class="roi-item">
+            <div class="value">${r.projection.monthlyLeads}</div>
+            <div class="label">Mesačných dopytov</div>
+          </div>
+          <div class="roi-item">
+            <div class="value">${r.projection.monthlyRevenue}</div>
+            <div class="label">Potenciálny obrat</div>
+          </div>
+          <div class="roi-item">
+            <div class="value">${r.projection.roi}</div>
+            <div class="label">ROI</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+    
+    ${analysis.customNote ? `
+    <div class="note-box">
+      <p>💬 ${analysis.customNote}</p>
+    </div>
+    ` : ''}
+    
+    <!-- Package -->
+    <div class="package-box">
+      <h3>🎯 Odporúčaný balíček pre vás</h3>
+      <div class="price">${recPkg} - ${prices[recPkg] || '249€'}/mes</div>
+      <p>Správa kampaní + mesačný reporting</p>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <p><strong>Adlify</strong> - Automatizovaný online marketing pre malé a stredné firmy</p>
+      <p>📧 info@adlify.eu | 🌐 <a href="https://adlify.eu">www.adlify.eu</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
   },
   
   // Poslať emailom s PDF prílohou
