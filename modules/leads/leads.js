@@ -1389,269 +1389,80 @@ const LeadsModule = {
     Utils.toast('Ponuka otvorená', 'success');
   },
   
-  // PDF ponuka - stiahne súbor
-  async generateProposalPDF() {
+  // PDF ponuka - otvorí v novom okne s print dialogom
+  generateProposalPDF() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
-    
-    Utils.toast('Generujem PDF...', 'info');
-    console.log('Starting PDF generation for:', lead.company_name);
     
     const notes = document.getElementById('proposal-notes')?.value?.trim();
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
     if (notes) analysisToUse.customNote = notes;
     
-    try {
-      // Load html2pdf if not loaded
-      if (!window.html2pdf) {
-        console.log('Loading html2pdf library...');
-        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
-        console.log('html2pdf loaded:', !!window.html2pdf);
-      }
-      
-      if (!window.html2pdf) {
-        throw new Error('Nepodarilo sa načítať PDF knižnicu');
-      }
-      
-      // Vytvor PDF-friendly HTML
-      const pdfHtml = this.buildPDFTemplate(lead, analysisToUse);
-      console.log('PDF HTML generated, length:', pdfHtml.length);
-      
-      // Create container
-      const container = document.createElement('div');
-      container.innerHTML = pdfHtml;
-      container.style.cssText = 'position:absolute;left:-9999px;width:210mm;background:white;';
-      document.body.appendChild(container);
-      
-      await new Promise(r => setTimeout(r, 500));
-      
-      const filename = `ponuka-${(lead.domain || lead.company_name || 'lead').replace(/[^a-z0-9]/gi, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
-      console.log('Generating PDF:', filename);
-      
-      const opt = {
-        margin: 10,
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, logging: true, backgroundColor: '#ffffff' },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      
-      await html2pdf().set(opt).from(container).save();
-      
-      document.body.removeChild(container);
-      this.closeProposalModal();
-      Utils.toast('PDF stiahnuté!', 'success');
-      
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      Utils.toast('PDF zlyhalo - skúšam alternatívu...', 'warning');
-      
-      // Fallback - otvoriť v novom okne s tlačou
-      this.openPDFPrintView(lead, analysisToUse);
-    }
-  },
-  
-  openPDFPrintView(lead, analysis) {
-    const pdfHtml = this.buildPDFTemplate(lead, analysis);
+    // Použiť rovnaký HTML ako prezentácia
+    const html = this.buildProposalHTML(lead, analysisToUse);
+    
+    // Otvoriť v novom okne
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(pdfHtml);
+    printWindow.document.write(html);
     printWindow.document.close();
     
-    // Pridaj print button
-    const printBtn = printWindow.document.createElement('button');
-    printBtn.innerHTML = '🖨️ Tlačiť / Uložiť PDF';
-    printBtn.style.cssText = 'position:fixed;top:10px;right:10px;padding:12px 24px;background:#f97316;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
-    printBtn.onclick = () => printWindow.print();
-    printWindow.document.body.appendChild(printBtn);
+    // Počkať na načítanie a pridať print controls
+    printWindow.onload = () => {
+      // Pridať floating print button
+      const controls = printWindow.document.createElement('div');
+      controls.id = 'print-controls';
+      controls.innerHTML = `
+        <style>
+          #print-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+          }
+          #print-controls button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          #print-controls .btn-print {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: white;
+          }
+          #print-controls .btn-print:hover {
+            box-shadow: 0 4px 12px rgba(249,115,22,0.4);
+          }
+          #print-controls .btn-close {
+            background: #f1f5f9;
+            color: #64748b;
+          }
+          @media print {
+            #print-controls { display: none !important; }
+          }
+        </style>
+        <button class="btn-print" onclick="window.print()">
+          📄 Uložiť ako PDF
+        </button>
+        <button class="btn-close" onclick="window.close()">
+          ✕ Zavrieť
+        </button>
+      `;
+      printWindow.document.body.appendChild(controls);
+    };
     
     this.closeProposalModal();
-    Utils.toast('Otvorené v novom okne - použi Tlačiť > Uložiť ako PDF', 'info');
-  },
-  
-  buildPDFTemplate(lead, analysis) {
-    const c = analysis.company || {};
-    const a = analysis.analysis || {};
-    const o = analysis.onlinePresence || {};
-    const k = analysis.keywords || {};
-    const b = analysis.budget || {};
-    const r = analysis.roi || {};
-    const recPkg = analysis.recommendedPackage || 'Pro';
-    const prices = { Starter: '149€', Pro: '249€', Enterprise: '399€', Premium: '799€' };
-    const companyName = c.name || lead.company_name || 'Firma';
-    const today = new Date().toLocaleDateString('sk-SK');
-    
-    // Jednoduché služby
-    const servicesHtml = c.services?.length ? c.services.map(s => `<span style="display:inline-block;background:#e0f2fe;color:#0369a1;padding:3px 10px;border-radius:12px;margin:2px;font-size:10pt;">${s}</span>`).join('') : '';
-    
-    // SWOT
-    const swotHtml = a.swot ? `
-      <div style="margin-bottom:20px;">
-        <h3 style="font-size:12pt;border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:10px;">📊 SWOT Analýza</h3>
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="width:50%;padding:10px;background:#dcfce7;vertical-align:top;border:1px solid #ddd;">
-              <strong style="color:#166534;">💪 Silné stránky</strong><br>
-              ${(a.swot.strengths || []).slice(0,3).map(s => `• ${s}`).join('<br>')}
-            </td>
-            <td style="width:50%;padding:10px;background:#fef3c7;vertical-align:top;border:1px solid #ddd;">
-              <strong style="color:#92400e;">⚠️ Slabé stránky</strong><br>
-              ${(a.swot.weaknesses || []).slice(0,3).map(s => `• ${s}`).join('<br>')}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:10px;background:#dbeafe;vertical-align:top;border:1px solid #ddd;">
-              <strong style="color:#1e40af;">🚀 Príležitosti</strong><br>
-              ${(a.swot.opportunities || []).slice(0,3).map(s => `• ${s}`).join('<br>')}
-            </td>
-            <td style="padding:10px;background:#fee2e2;vertical-align:top;border:1px solid #ddd;">
-              <strong style="color:#991b1b;">⚡ Hrozby</strong><br>
-              ${(a.swot.threats || []).slice(0,3).map(s => `• ${s}`).join('<br>')}
-            </td>
-          </tr>
-        </table>
-      </div>
-    ` : '';
-    
-    // Keywords
-    const keywordsHtml = k.topKeywords?.length ? `
-      <div style="margin-bottom:20px;">
-        <h3 style="font-size:12pt;border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:10px;">🔍 Odporúčané kľúčové slová</h3>
-        <table style="width:100%;border-collapse:collapse;font-size:10pt;">
-          <tr style="background:#f1f5f9;">
-            <th style="padding:8px;text-align:left;border:1px solid #ddd;">Kľúčové slovo</th>
-            <th style="padding:8px;text-align:center;border:1px solid #ddd;">Hľadanosť</th>
-            <th style="padding:8px;text-align:center;border:1px solid #ddd;">Konkurencia</th>
-            <th style="padding:8px;text-align:right;border:1px solid #ddd;">CPC</th>
-          </tr>
-          ${k.topKeywords.slice(0,6).map(kw => `
-            <tr>
-              <td style="padding:8px;border:1px solid #ddd;">${kw.keyword}</td>
-              <td style="padding:8px;text-align:center;border:1px solid #ddd;">${kw.searchVolume}</td>
-              <td style="padding:8px;text-align:center;border:1px solid #ddd;">${kw.competition}</td>
-              <td style="padding:8px;text-align:right;border:1px solid #ddd;">${kw.cpc}</td>
-            </tr>
-          `).join('')}
-        </table>
-      </div>
-    ` : '';
-    
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Ponuka - ${companyName}</title>
-<style>
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
-</style>
-</head>
-<body>
-
-<!-- Header -->
-<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #f97316;padding-bottom:15px;margin-bottom:20px;">
-  <div style="font-size:28pt;font-weight:bold;color:#f97316;">Adlify</div>
-  <div style="text-align:right;color:#666;font-size:10pt;">
-    Marketingová ponuka<br>
-    ${today}
-  </div>
-</div>
-
-<!-- Company -->
-<div style="background:#f97316;color:white;padding:20px;border-radius:8px;margin-bottom:20px;">
-  <h1 style="margin:0 0 5px 0;font-size:20pt;">${companyName}</h1>
-  <p style="margin:0;opacity:0.9;">${c.description || 'Personalizovaná marketingová stratégia'}</p>
-  ${c.location ? `<p style="margin:10px 0 0 0;font-size:10pt;">📍 ${c.location}</p>` : ''}
-</div>
-
-${a.humanWrittenIntro ? `
-<div style="background:#fff7ed;border-left:4px solid #f97316;padding:15px;margin-bottom:20px;">
-  <p style="margin:0;color:#9a3412;">${a.humanWrittenIntro}</p>
-</div>
-` : ''}
-
-${servicesHtml ? `
-<div style="margin-bottom:20px;">
-  <h3 style="font-size:12pt;border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:10px;">🛠️ Vaše služby</h3>
-  ${servicesHtml}
-</div>
-` : ''}
-
-<!-- Online Presence -->
-<div style="margin-bottom:20px;">
-  <h3 style="font-size:12pt;border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:10px;">🌐 Online prítomnosť</h3>
-  <table style="width:100%;">
-    <tr>
-      <td style="padding:8px;">🌍 Web: <strong>${o.website?.exists ? '✅ Áno' : '❌ Nie'}</strong></td>
-      <td style="padding:8px;">📘 Facebook: <strong>${o.socialMedia?.facebook?.exists ? '✅ Áno' : '❌ Nie'}</strong></td>
-      <td style="padding:8px;">📷 Instagram: <strong>${o.socialMedia?.instagram?.exists ? '✅ Áno' : '❌ Nie'}</strong></td>
-      <td style="padding:8px;">📢 Reklamy: <strong>${o.paidAds?.detected ? '✅ Áno' : '❌ Nie'}</strong></td>
-    </tr>
-  </table>
-</div>
-
-${swotHtml}
-
-${keywordsHtml}
-
-${b.recommendations ? `
-<div style="margin-bottom:20px;">
-  <h3 style="font-size:12pt;border-bottom:1px solid #ccc;padding-bottom:5px;margin-bottom:10px;">💰 Odporúčaný rozpočet na reklamu</h3>
-  <table style="width:100%;text-align:center;">
-    <tr>
-      <td style="padding:15px;border:1px solid #ddd;width:33%;">
-        <div style="font-size:9pt;color:#666;">Štart</div>
-        <div style="font-size:18pt;font-weight:bold;">${b.recommendations.starter?.adSpend || 300}€</div>
-        <div style="font-size:9pt;color:#666;">mesačne</div>
-      </td>
-      <td style="padding:15px;background:#f97316;color:white;width:33%;">
-        <div style="font-size:9pt;">⭐ Odporúčame</div>
-        <div style="font-size:18pt;font-weight:bold;">${b.recommendations.recommended?.adSpend || 500}€</div>
-        <div style="font-size:9pt;">mesačne</div>
-      </td>
-      <td style="padding:15px;border:1px solid #ddd;width:33%;">
-        <div style="font-size:9pt;color:#666;">Agresívny</div>
-        <div style="font-size:18pt;font-weight:bold;">${b.recommendations.aggressive?.adSpend || 800}€</div>
-        <div style="font-size:9pt;color:#666;">mesačne</div>
-      </td>
-    </tr>
-  </table>
-</div>
-` : ''}
-
-${r.projection ? `
-<div style="margin-bottom:20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:15px;">
-  <h3 style="font-size:12pt;margin:0 0 10px 0;">📈 Predpokladaná návratnosť</h3>
-  <table style="width:100%;text-align:center;">
-    <tr>
-      <td><div style="font-size:20pt;font-weight:bold;color:#16a34a;">${r.projection.monthlyLeads}</div><div style="font-size:9pt;color:#666;">Dopytov/mes</div></td>
-      <td><div style="font-size:20pt;font-weight:bold;color:#16a34a;">${r.projection.monthlyRevenue}</div><div style="font-size:9pt;color:#666;">Potenciálny obrat</div></td>
-      <td><div style="font-size:20pt;font-weight:bold;color:#16a34a;">${r.projection.roi}</div><div style="font-size:9pt;color:#666;">ROI</div></td>
-    </tr>
-  </table>
-</div>
-` : ''}
-
-${analysis.customNote ? `
-<div style="background:#f3e8ff;border-left:4px solid #8b5cf6;padding:15px;margin-bottom:20px;">
-  <p style="margin:0;color:#6b21a8;font-style:italic;">💬 ${analysis.customNote}</p>
-</div>
-` : ''}
-
-<!-- Package -->
-<div style="background:#fff7ed;border:2px solid #f97316;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px;">
-  <h3 style="margin:0;color:#ea580c;">🎯 Odporúčaný balíček</h3>
-  <div style="font-size:24pt;font-weight:bold;color:#f97316;margin:10px 0;">${recPkg} - ${prices[recPkg] || '249€'}/mes</div>
-  <p style="margin:0;color:#666;">Správa kampaní + mesačný reporting</p>
-</div>
-
-<!-- Footer -->
-<div style="border-top:1px solid #ddd;padding-top:15px;text-align:center;color:#666;font-size:9pt;">
-  <strong>Adlify</strong> - Automatizovaný online marketing<br>
-  📧 info@adlify.eu | 🌐 www.adlify.eu
-</div>
-
-</body>
-</html>`;
+    Utils.toast('V novom okne klikni "Uložiť ako PDF" → v dialogu vyber "Uložiť ako PDF"', 'info');
   },
   
   // Poslať emailom s PDF prílohou
