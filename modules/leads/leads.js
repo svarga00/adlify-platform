@@ -15,7 +15,7 @@ const LeadsModule = {
   
   leads: [],
   selectedIds: new Set(),
-  filters: { status: '', search: '', minScore: '', industry: '' },
+  filters: { status: '', search: '', minScore: '', industry: '', dateRange: '' },
   currentLeadId: null,
   currentAnalysis: null,
   editedAnalysis: null,
@@ -82,14 +82,22 @@ const LeadsModule = {
   },
   
   async loadLeads() {
-    const filters = {};
-    if (this.filters.status) filters.status = this.filters.status;
-    this.leads = await Database.getLeads(filters);
-    if (this.filters.search) {
-      const search = this.filters.search.toLowerCase();
-      this.leads = this.leads.filter(l => (l.company_name || '').toLowerCase().includes(search) || (l.domain || '').toLowerCase().includes(search));
+    try {
+      const filters = {};
+      if (this.filters.status) filters.status = this.filters.status;
+      console.log('Loading leads with filters:', filters);
+      this.leads = await Database.getLeads(filters);
+      console.log('Loaded leads:', this.leads.length);
+      if (this.filters.search) {
+        const search = this.filters.search.toLowerCase();
+        this.leads = this.leads.filter(l => (l.company_name || '').toLowerCase().includes(search) || (l.domain || '').toLowerCase().includes(search));
+      }
+      if (this.filters.minScore) this.leads = this.leads.filter(l => (l.score || 0) >= parseInt(this.filters.minScore));
+    } catch (error) {
+      console.error('Load leads error:', error);
+      Utils.toast('Chyba pri načítaní leadov', 'error');
+      this.leads = [];
     }
-    if (this.filters.minScore) this.leads = this.leads.filter(l => (l.score || 0) >= parseInt(this.filters.minScore));
   },
 
   template() {
@@ -334,10 +342,18 @@ const LeadsModule = {
           <option value="">Všetky typy</option>
           ${industries.map(i => `<option value="${i}" ${this.filters.industry === i ? 'selected' : ''}>${i}</option>`).join('')}
         </select>
+        <select class="filter-select" id="filter-date" onchange="LeadsModule.onDateChange(this.value)">
+          <option value="">Všetky dátumy</option>
+          <option value="today" ${this.filters.dateRange === 'today' ? 'selected' : ''}>📅 Dnes</option>
+          <option value="yesterday" ${this.filters.dateRange === 'yesterday' ? 'selected' : ''}>📅 Včera</option>
+          <option value="week" ${this.filters.dateRange === 'week' ? 'selected' : ''}>📅 Tento týždeň</option>
+          <option value="month" ${this.filters.dateRange === 'month' ? 'selected' : ''}>📅 Tento mesiac</option>
+          <option value="older" ${this.filters.dateRange === 'older' ? 'selected' : ''}>📅 Staršie</option>
+        </select>
         <div class="filter-actions">
           <button onclick="LeadsModule.selectAll()" class="btn-filter">☑️ Všetky</button>
           <button onclick="LeadsModule.analyzeSelected()" class="btn-filter purple">🤖 Analyzovať</button>
-          <button onclick="LeadsModule.sendBulkProposals()" class="btn-filter orange" title="Hromadné odoslanie ponúk">📧 Ponuky</button>
+          <button onclick="LeadsModule.sendBulkProposals()" class="btn-filter orange">📧 Ponuky</button>
           <button onclick="LeadsModule.deleteSelected()" class="btn-filter red">🗑️</button>
         </div>
       </div>
@@ -859,6 +875,42 @@ const LeadsModule = {
     document.getElementById('leads-list').innerHTML = this.renderLeadsList(); 
     document.getElementById('leads-count').textContent = this.leads.length; 
   },
+  
+  async onDateChange(value) {
+    this.filters.dateRange = value;
+    await this.loadLeads(); // Načítať všetky
+    
+    if (value) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      this.leads = this.leads.filter(l => {
+        if (!l.created_at) return value === 'older';
+        const created = new Date(l.created_at);
+        
+        switch (value) {
+          case 'today':
+            return created >= today;
+          case 'yesterday':
+            return created >= yesterday && created < today;
+          case 'week':
+            return created >= weekAgo;
+          case 'month':
+            return created >= monthAgo;
+          case 'older':
+            return created < monthAgo;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    document.getElementById('leads-count').textContent = this.leads.length;
+  },
   toggleSelect(id) { if (this.selectedIds.has(id)) this.selectedIds.delete(id); else this.selectedIds.add(id); },
   selectAll() { this.leads.forEach(l => this.selectedIds.add(l.id)); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); },
 
@@ -1290,15 +1342,30 @@ const LeadsModule = {
       notes: document.getElementById('edit-lead-notes').value.trim() || null
     };
     
+    console.log('Saving lead:', leadId, updates);
+    
     try {
-      await Database.update('leads', leadId, updates);
+      const { data, error } = await Database.client
+        .from('leads')
+        .update(updates)
+        .eq('id', leadId)
+        .select();
+      
+      if (error) {
+        console.error('Save error:', error);
+        throw error;
+      }
+      
+      console.log('Save result:', data);
+      
       const lead = this.leads.find(l => l.id === leadId);
       if (lead) Object.assign(lead, updates);
-      Utils.toast('Uložené!', 'success');
+      Utils.toast('Uložené! ✅', 'success');
       this.showLeadDetail(leadId);
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
     } catch (error) {
-      Utils.toast('Chyba pri ukladaní', 'error');
+      console.error('Save lead error:', error);
+      Utils.toast('Chyba pri ukladaní: ' + (error.message || error), 'error');
     }
   },
 
