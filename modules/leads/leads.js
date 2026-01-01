@@ -1465,68 +1465,31 @@ const LeadsModule = {
     Utils.toast('V novom okne klikni "Uložiť ako PDF" → v dialogu vyber "Uložiť ako PDF"', 'info');
   },
   
-  // Poslať emailom s PDF prílohou
+  // Poslať emailom - použiť Messages modul
   async sendProposalByEmail() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
     if (!lead.email) return Utils.toast('Lead nemá email', 'warning');
     
-    Utils.toast('Generujem PDF a odosielam...', 'info');
-    
     const notes = document.getElementById('proposal-notes')?.value?.trim();
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
     if (notes) analysisToUse.customNote = notes;
     
-    try {
-      // Generate PDF as base64
-      if (!window.html2pdf) {
-        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
-      }
-      
-      const html = this.buildProposalHTML(lead, analysisToUse);
-      
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:absolute;left:-9999px;width:1200px;height:900px;';
-      document.body.appendChild(iframe);
-      iframe.contentDocument.write(html);
-      iframe.contentDocument.close();
-      await new Promise(r => setTimeout(r, 500));
-      
-      const element = iframe.contentDocument.body;
-      const pdfBlob = await html2pdf().set({
-        margin: 0,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(element).outputPdf('blob');
-      
-      document.body.removeChild(iframe);
-      
-      // Convert blob to base64
-      const pdfBase64 = await this.blobToBase64(pdfBlob);
-      
-      // Send via Messages module
-      const companyName = analysisToUse.company?.name || lead.company_name || 'firma';
-      const subject = `Marketingová ponuka pre ${companyName} - Adlify`;
-      const body = this.buildEmailBody(lead, analysisToUse);
-      
-      // Call messages API
-      const response = await fetch('/.netlify/functions/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const companyName = analysisToUse.company?.name || lead.company_name || 'firma';
+    const subject = `Marketingová ponuka pre ${companyName} - Adlify`;
+    const emailBody = this.buildEmailBody(lead, analysisToUse);
+    
+    // Skúsiť použiť Messages modul
+    if (typeof MessagesModule !== 'undefined' && MessagesModule.sendEmail) {
+      try {
+        Utils.toast('Odosielam email...', 'info');
+        
+        await MessagesModule.sendEmail({
           to: lead.email,
           subject: subject,
-          html: body,
-          attachments: [{
-            filename: `ponuka-${lead.domain || 'adlify'}.pdf`,
-            content: pdfBase64,
-            encoding: 'base64'
-          }]
-        })
-      });
-      
-      if (response.ok) {
+          html: emailBody
+        });
+        
         // Update lead status
         await Database.update('leads', lead.id, { 
           status: 'contacted',
@@ -1534,20 +1497,18 @@ const LeadsModule = {
           proposal_sent_at: new Date().toISOString()
         });
         lead.status = 'contacted';
-        lead.proposal_status = 'sent';
         
         this.closeProposalModal();
         Utils.toast('Email odoslaný!', 'success');
         document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-      } else {
-        throw new Error('Email send failed');
+        return;
+      } catch (error) {
+        console.error('MessagesModule error:', error);
       }
-      
-    } catch (error) {
-      console.error('Email send error:', error);
-      // Fallback - open in mail client
-      this.openMailClient(lead, analysisToUse);
     }
+    
+    // Fallback - otvoriť v mail klientovi
+    this.openMailClient(lead, analysisToUse);
   },
   
   openMailClient(lead, analysis) {
@@ -1555,17 +1516,20 @@ const LeadsModule = {
     const subject = encodeURIComponent(`Marketingová ponuka pre ${companyName} - Adlify`);
     const body = encodeURIComponent(`Dobrý deň,
 
-ďakujeme za Váš záujem. V prílohe posielame personalizovanú marketingovú ponuku pre ${companyName}.
+ďakujeme za Váš záujem o spoluprácu. 
 
-V prípade otázok nás neváhajte kontaktovať.
+Pripravili sme pre Vás personalizovanú marketingovú ponuku pre ${companyName}.
+
+Pre zobrazenie ponuky prosím odpíšte na tento email a my Vám ju pošleme.
 
 S pozdravom,
 Adlify tím
-info@adlify.eu`);
+info@adlify.eu
+www.adlify.eu`);
     
     window.open(`mailto:${lead.email}?subject=${subject}&body=${body}`, '_blank');
     this.closeProposalModal();
-    Utils.toast('Otvorený emailový klient - nezabudnite priložiť PDF', 'info');
+    Utils.toast('Otvorený emailový klient', 'info');
   },
   
   blobToBase64(blob) {
@@ -1596,11 +1560,6 @@ info@adlify.eu`);
         <p style="color: #475569; font-size: 16px; line-height: 1.6;">
           ďakujeme za Váš záujem o spoluprácu. Pripravili sme pre <strong>${companyName}</strong> 
           personalizovanú marketingovú ponuku na základe analýzy Vašej online prítomnosti.
-        </p>
-        
-        <p style="color: #475569; font-size: 16px; line-height: 1.6;">
-          <strong>V prílohe nájdete:</strong><br>
-          📄 Detailnú ponuku vo formáte PDF
         </p>
         
         <div style="background: linear-gradient(135deg, #f97316, #ec4899); border-radius: 12px; padding: 20px; margin: 30px 0; text-align: center;">
@@ -1820,8 +1779,50 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 }
 
 @media print {
-  .header { position: relative; }
-  .page { min-height: auto; page-break-after: always; padding: 40px; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  body { font-size: 10pt; }
+  .header { display: none !important; }
+  .hero { min-height: auto !important; padding: 30px !important; page-break-after: always; }
+  .hero-title { font-size: 2rem !important; }
+  .hero-subtitle { font-size: 1rem !important; }
+  .hero-client { padding: 15px 25px !important; }
+  .page { min-height: auto !important; padding: 25px !important; page-break-inside: avoid; }
+  .page-content { max-width: 100% !important; }
+  .section-title { font-size: 1.3rem !important; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr) !important; gap: 15px !important; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr) !important; gap: 12px !important; }
+  .grid-4 { grid-template-columns: repeat(4, 1fr) !important; gap: 10px !important; }
+  .swot-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .swot-box { padding: 15px !important; }
+  .swot-box h4 { font-size: 0.9rem !important; }
+  .swot-box li { font-size: 0.8rem !important; padding: 5px 0 !important; }
+  .card { padding: 18px !important; margin-bottom: 12px !important; box-shadow: none !important; border: 1px solid #ddd !important; }
+  .stat-box { padding: 15px !important; }
+  .stat-value { font-size: 1.5rem !important; }
+  .stat-label { font-size: 0.75rem !important; }
+  .data-table th, .data-table td { padding: 10px !important; font-size: 0.85rem !important; }
+  .package-card { padding: 20px 15px !important; }
+  .package-card.featured { transform: none !important; }
+  .package-card.featured::before { font-size: 0.65rem !important; padding: 4px 12px !important; }
+  .package-name { font-size: 1.1rem !important; }
+  .package-price { font-size: 2rem !important; }
+  .package-features li { padding: 8px 0 !important; font-size: 0.8rem !important; }
+  .package-btn { padding: 10px !important; font-size: 0.85rem !important; }
+  .timeline { padding-left: 35px !important; margin-top: 20px !important; }
+  .timeline-card { padding: 15px !important; }
+  .timeline-title { font-size: 0.95rem !important; }
+  .timeline-desc { font-size: 0.85rem !important; }
+  .cta-section { padding: 30px !important; page-break-inside: avoid; }
+  .cta-title { font-size: 1.5rem !important; }
+  .cta-subtitle { font-size: 0.95rem !important; }
+  .cta-btn { padding: 12px 25px !important; font-size: 0.9rem !important; }
+  .footer { padding: 25px !important; page-break-inside: avoid; }
+  .benefit-card { padding: 18px !important; }
+  .benefit-icon { width: 45px !important; height: 45px !important; font-size: 1.3rem !important; }
+  .budget-card { padding: 20px !important; }
+  .budget-card.featured { transform: none !important; }
+  .budget-value { font-size: 2rem !important; }
+  .tag { padding: 5px 12px !important; font-size: 0.75rem !important; }
 }
 </style>
 </head>
