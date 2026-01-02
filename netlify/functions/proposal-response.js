@@ -124,7 +124,7 @@ exports.handler = async (event, context) => {
       await supabase
         .from('tickets')
         .insert({
-          title: `🎉 Nový klient: ${companyName}`,
+          subject: `🎉 Nový klient: ${companyName}`,
           description: `Firma ${companyName} prejavila záujem o spoluprácu!\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'high',
           status: 'open',
@@ -205,7 +205,7 @@ exports.handler = async (event, context) => {
       const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
-          title: `❓ Otázka od: ${companyName}`,
+          subject: `❓ Otázka od: ${companyName}`,
           description: `Firma ${companyName} má otázky k ponuke.\n\n📝 Správa:\n${message || '(bez správy)'}\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'medium',
           status: 'open',
