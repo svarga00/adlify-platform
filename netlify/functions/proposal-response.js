@@ -3,6 +3,37 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
+// Email notification helper
+async function sendNotificationEmail(to, subject, htmlBody) {
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_API_KEY) {
+    console.warn('No RESEND_API_KEY, skipping email notification');
+    return;
+  }
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM || 'Adlify <onboarding@resend.dev>',
+        to: to,
+        subject: subject,
+        html: htmlBody
+      })
+    });
+
+    const result = await response.json();
+    console.log('📧 Notification email sent:', result);
+    return result;
+  } catch (err) {
+    console.error('Email notification error:', err);
+  }
+}
+
 exports.handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -46,6 +77,7 @@ exports.handler = async (event, context) => {
 
     const leadId = proposal.lead_id;
     const companyName = proposal.company_name || 'Neznámy';
+    const notifyEmail = 'info@adlify.eu';
 
     if (action === 'interested') {
       // ===== MÁM ZÁUJEM - Konvertovať na klienta =====
@@ -95,11 +127,58 @@ exports.handler = async (event, context) => {
           title: `🎉 Nový klient: ${companyName}`,
           description: `Firma ${companyName} prejavila záujem o spoluprácu!\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'high',
-          status: 'new',
-          type: 'conversion',
+          status: 'open',
+          category: 'conversion',
           lead_id: leadId,
           client_id: newClient?.id
         });
+
+      // 5. Poslať email notifikáciu
+      await sendNotificationEmail(
+        notifyEmail,
+        `🎉 NOVÝ KLIENT: ${companyName}`,
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0;">🎉 Máte nového klienta!</h1>
+          </div>
+          <div style="padding: 20px; background: #f8fafc; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #1e293b; margin-top: 0;">${companyName}</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Kontaktná osoba:</td>
+                <td style="padding: 8px 0; font-weight: 600;">${contactName || '-'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Email:</td>
+                <td style="padding: 8px 0;"><a href="mailto:${contactEmail}" style="color: #f97316;">${contactEmail || '-'}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Telefón:</td>
+                <td style="padding: 8px 0;"><a href="tel:${contactPhone}" style="color: #f97316;">${contactPhone || '-'}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Doména:</td>
+                <td style="padding: 8px 0;">${proposal.domain || '-'}</td>
+              </tr>
+            </table>
+            <div style="margin-top: 20px; padding: 15px; background: #dcfce7; border-radius: 8px;">
+              <strong>✅ Akcie vykonané automaticky:</strong>
+              <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                <li>Lead označený ako "Vyhraný"</li>
+                <li>Vytvorený nový klient</li>
+                <li>Vytvorený ticket v systéme</li>
+              </ul>
+            </div>
+            <div style="margin-top: 20px;">
+              <a href="https://adlify-app.netlify.app/admin#tickets" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f97316, #ea580c); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                Otvoriť v Adlify →
+              </a>
+            </div>
+          </div>
+        </div>
+        `
+      );
 
       console.log('✅ Lead converted to client:', companyName);
 
@@ -129,8 +208,8 @@ exports.handler = async (event, context) => {
           title: `❓ Otázka od: ${companyName}`,
           description: `Firma ${companyName} má otázky k ponuke.\n\n📝 Správa:\n${message || '(bez správy)'}\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'medium',
-          status: 'new',
-          type: 'question',
+          status: 'open',
+          category: 'question',
           lead_id: leadId
         })
         .select()
@@ -144,12 +223,54 @@ exports.handler = async (event, context) => {
       if (leadId) {
         await supabase
           .from('leads')
-          .update({ 
-            status: 'contacted',
-            notes: supabase.sql`COALESCE(notes, '') || '\n\n[Otázka z ponuky]: ' || ${message || ''}`
-          })
+          .update({ status: 'contacted' })
           .eq('id', leadId);
       }
+
+      // 4. Poslať email notifikáciu
+      await sendNotificationEmail(
+        notifyEmail,
+        `❓ Otázka od: ${companyName}`,
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0;">❓ Nová otázka k ponuke</h1>
+          </div>
+          <div style="padding: 20px; background: #f8fafc; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #1e293b; margin-top: 0;">${companyName}</h2>
+            
+            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #f97316; margin-bottom: 20px;">
+              <strong>📝 Otázka:</strong>
+              <p style="margin: 10px 0 0 0; color: #334155;">${message || '(bez správy)'}</p>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Kontaktná osoba:</td>
+                <td style="padding: 8px 0; font-weight: 600;">${contactName || '-'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Email:</td>
+                <td style="padding: 8px 0;"><a href="mailto:${contactEmail}" style="color: #f97316;">${contactEmail || '-'}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Telefón:</td>
+                <td style="padding: 8px 0;"><a href="tel:${contactPhone}" style="color: #f97316;">${contactPhone || '-'}</a></td>
+              </tr>
+            </table>
+            
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+              <a href="mailto:${contactEmail}?subject=Re: Otázka k ponuke - ${companyName}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f97316, #ea580c); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                📧 Odpovedať
+              </a>
+              <a href="https://adlify-app.netlify.app/admin#tickets" style="display: inline-block; padding: 12px 24px; background: #e2e8f0; color: #475569; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                Otvoriť ticket →
+              </a>
+            </div>
+          </div>
+        </div>
+        `
+      );
 
       console.log('✅ Question ticket created for:', companyName);
 
