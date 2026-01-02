@@ -128,7 +128,7 @@ exports.handler = async (event, context) => {
           description: `Firma ${companyName} prejavila záujem o spoluprácu!\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'high',
           status: 'open',
-          category: 'conversion',
+          category: 'general',
           lead_id: leadId,
           client_id: newClient?.id
         });
@@ -209,7 +209,7 @@ exports.handler = async (event, context) => {
           description: `Firma ${companyName} má otázky k ponuke.\n\n📝 Správa:\n${message || '(bez správy)'}\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'medium',
           status: 'open',
-          category: 'question',
+          category: 'general',
           lead_id: leadId
         })
         .select()
