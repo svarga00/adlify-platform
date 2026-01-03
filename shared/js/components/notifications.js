@@ -115,6 +115,7 @@ const Notifications = {
             client_message: '📧',
             conversion: '🎉',
             question: '❓',
+            rejection: '🚫',
             system: '⚙️',
             default: '📌'
         };
