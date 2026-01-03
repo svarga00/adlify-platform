@@ -22,10 +22,11 @@ const Notifications = {
             const teamMemberId = Auth.teamMember?.id;
             if (!teamMemberId) return;
 
+            // Načítaj osobné + systémové notifikácie (user_id = null)
             const { data, error } = await Database.client
                 .from('notifications')
                 .select('*')
-                .eq('user_id', teamMemberId)
+                .or(`user_id.eq.${teamMemberId},user_id.is.null`)
                 .order('created_at', { ascending: false })
                 .limit(20);
 
@@ -41,8 +42,8 @@ const Notifications = {
     },
 
     render() {
-        // Nájdi header-actions alebo vytvor container
-        const header = document.querySelector('.header-right') || document.querySelector('header');
+        // Nájdi header-right
+        const header = document.getElementById('header-right');
         if (!header) return;
 
         // Ak už existuje, odstráň
@@ -80,7 +81,8 @@ const Notifications = {
             ${this.getStyles()}
         `;
 
-        header.insertBefore(container, header.firstChild);
+        // Pridaj na koniec (pravá strana)
+        header.appendChild(container);
 
         // Close on outside click
         document.addEventListener('click', (e) => {
@@ -111,6 +113,8 @@ const Notifications = {
             payment_received: '💰',
             invoice_overdue: '⚠️',
             client_message: '📧',
+            conversion: '🎉',
+            question: '❓',
             system: '⚙️',
             default: '📌'
         };
