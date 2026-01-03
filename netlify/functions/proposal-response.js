@@ -51,7 +51,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { token, action, message, contactName, contactEmail, contactPhone } = JSON.parse(event.body);
+    const { token, action, message, contactName, contactEmail, contactPhone, subType, reason } = JSON.parse(event.body);
 
     if (!token || !action) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing token or action' }) };
@@ -307,6 +307,69 @@ exports.handler = async (event, context) => {
           success: true, 
           message: 'Ďakujeme za vašu otázku! Odpovieme vám čo najskôr.',
           ticketId: ticket?.id
+        })
+      };
+    
+    } else if (action === 'not_interested') {
+      // ===== NEMÁM ZÁUJEM =====
+      
+      // 1. Aktualizovať proposal status
+      await supabase
+        .from('proposals')
+        .update({ status: subType === 'later' ? 'postponed' : 'rejected' })
+        .eq('token', token);
+
+      // 2. Aktualizovať lead
+      if (leadId) {
+        const newStatus = subType === 'later' ? 'contacted' : 'lost';
+        await supabase
+          .from('leads')
+          .update({ 
+            status: newStatus,
+            notes: reason ? `[Odmietnutie]: ${reason}` : null
+          })
+          .eq('id', leadId);
+      }
+
+      // 3. Vytvoriť notifikáciu v DB
+      const notifTitle = subType === 'later' 
+        ? `⏰ ${companyName} - osloviť neskôr`
+        : `🚫 ${companyName} - nemá záujem`;
+      
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: null,
+          type: 'rejection',
+          title: notifTitle,
+          message: reason || (subType === 'later' ? 'Požiadal o kontakt neskôr' : 'Definitívne odmietol'),
+          entity_type: 'lead',
+          entity_id: leadId,
+          action_url: '#leads'
+        });
+
+      // 4. Ak je to "neskôr", vytvor ticket pre follow-up
+      if (subType === 'later') {
+        await supabase
+          .from('tickets')
+          .insert({
+            title: `⏰ Follow-up: ${companyName}`,
+            description: `Klient požiadal o kontakt neskôr.\n\nDôvod: ${reason || '(neuvedený)'}\n\nOdporúčanie: Kontaktovať o 1-2 mesiace.`,
+            priority: 'low',
+            status: 'open',
+            category: 'followup',
+            lead_id: leadId
+          });
+      }
+
+      console.log('✅ Not interested processed for:', companyName, subType);
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          message: subType === 'later' ? 'Poznačili sme si to.' : 'Ďakujeme za spätnú väzbu.'
         })
       };
     }
