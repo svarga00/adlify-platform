@@ -133,6 +133,19 @@ exports.handler = async (event, context) => {
           client_id: newClient?.id
         });
 
+      // 4b. Vytvoriť notifikáciu v DB (systémová - pre všetkých)
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: null, // systémová notifikácia
+          type: 'conversion',
+          title: `🎉 Nový klient: ${companyName}`,
+          message: `${contactName || 'Niekto'} z firmy ${companyName} má záujem o spoluprácu!`,
+          entity_type: 'client',
+          entity_id: newClient?.id,
+          action_url: '#clients'
+        });
+
       // 5. Poslať email notifikáciu
       await sendNotificationEmail(
         notifyEmail,
@@ -226,6 +239,19 @@ exports.handler = async (event, context) => {
           .update({ status: 'contacted' })
           .eq('id', leadId);
       }
+
+      // 3b. Vytvoriť notifikáciu v DB (systémová - pre všetkých)
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: null, // systémová notifikácia
+          type: 'question',
+          title: `❓ Otázka od: ${companyName}`,
+          message: message ? (message.length > 100 ? message.substring(0, 100) + '...' : message) : 'Nová otázka k ponuke',
+          entity_type: 'ticket',
+          entity_id: ticket?.id,
+          action_url: '#tickets'
+        });
 
       // 4. Poslať email notifikáciu
       await sendNotificationEmail(
