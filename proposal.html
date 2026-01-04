@@ -20,154 +20,36 @@
     .error-page a, .success-page a { color: #f97316; text-decoration: none; font-weight: 600; }
     .error-page a:hover, .success-page a:hover { text-decoration: underline; }
     
-    .proposal-container { max-width: 100%; padding-bottom: 100px; }
+    .proposal-container { max-width: 100%; }
     
-    /* Floating Action Bar - Minimal Modern Style */
-    .action-bar {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px;
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
-      z-index: 1000;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      pointer-events: none;
-    }
-    
-    .action-bar.visible {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
-    
-    .action-bar button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 10px;
-      font-weight: 500;
-      font-size: 0.875rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    
-    .action-bar .btn-main {
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: white;
-      font-weight: 600;
-      padding: 12px 20px;
-    }
-    .action-bar .btn-main:hover {
-      box-shadow: 0 4px 12px rgba(34,197,94,0.4);
-      transform: translateY(-1px);
-    }
-    
-    .action-bar .btn-secondary {
-      background: #f1f5f9;
-      color: #475569;
-    }
-    .action-bar .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-    
-    .action-bar .btn-subtle {
-      background: transparent;
-      color: #94a3b8;
-      padding: 10px 12px;
-    }
-    .action-bar .btn-subtle:hover {
-      color: #ef4444;
-      background: #fef2f2;
-    }
+    /* Floating action bar */
+    .action-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 12px 24px; border-radius: 50px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; gap: 12px; z-index: 1000; }
+    .action-bar button { padding: 10px 20px; border: none; border-radius: 25px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+    .action-bar .btn-primary { background: linear-gradient(135deg, #f97316, #ea580c); color: white; }
+    .action-bar .btn-primary:hover { box-shadow: 0 4px 15px rgba(249,115,22,0.4); transform: translateY(-2px); }
+    .action-bar .btn-secondary { background: #f1f5f9; color: #475569; }
+    .action-bar .btn-secondary:hover { background: #e2e8f0; }
+    .action-bar .btn-success { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+    .action-bar .btn-success:hover { box-shadow: 0 4px 15px rgba(34,197,94,0.4); transform: translateY(-2px); }
     
     /* Modal */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-      padding: 1rem;
-      backdrop-filter: blur(4px);
-    }
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; }
     .modal-overlay.active { display: flex; }
-    
-    .modal-box {
-      background: white;
-      border-radius: 20px;
-      max-width: 480px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
-      animation: modalIn 0.3s ease;
-    }
-    
-    @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.95) translateY(10px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    
-    .modal-header {
-      background: linear-gradient(135deg, #f97316, #ec4899);
-      color: white;
-      padding: 1.5rem;
-      border-radius: 20px 20px 0 0;
-    }
-    .modal-header h2 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+    .modal-box { background: white; border-radius: 20px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 1.5rem; border-radius: 20px 20px 0 0; }
+    .modal-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }
     .modal-header p { opacity: 0.9; font-size: 0.9rem; }
     .modal-body { padding: 1.5rem; }
-    .modal-footer {
-      padding: 1rem 1.5rem;
-      border-top: 1px solid #e2e8f0;
-      display: flex;
-      gap: 1rem;
-      justify-content: flex-end;
-    }
+    .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; display: flex; gap: 1rem; justify-content: flex-end; }
     
     .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; font-weight: 500; margin-bottom: 0.5rem; color: #334155; font-size: 0.9rem; }
-    .form-group input, .form-group textarea {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 1rem;
-      transition: all 0.2s;
-    }
-    .form-group input:focus, .form-group textarea:focus {
-      outline: none;
-      border-color: #f97316;
-      box-shadow: 0 0 0 3px rgba(249,115,22,0.1);
-    }
-    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group label { display: block; font-weight: 500; margin-bottom: 0.5rem; color: #334155; }
+    .form-group input, .form-group textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 1rem; transition: all 0.2s; }
+    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
+    .form-group textarea { resize: vertical; min-height: 100px; }
     .form-hint { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
     
-    .btn {
-      padding: 0.75rem 1.5rem;
-      border: none;
-      border-radius: 10px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 0.95rem;
-    }
+    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .btn-cancel { background: #f1f5f9; color: #64748b; }
     .btn-cancel:hover { background: #e2e8f0; }
     .btn-submit { background: linear-gradient(135deg, #f97316, #ea580c); color: white; }
@@ -176,54 +58,13 @@
     .btn-submit-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
     .btn-submit-green:hover { box-shadow: 0 4px 15px rgba(34,197,94,0.3); }
     
-    /* Choice buttons for "not interested" */
-    .choice-buttons { display: flex; flex-direction: column; gap: 0.75rem; }
-    .choice-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 1rem 1.25rem;
-      border: 2px solid #e2e8f0;
-      border-radius: 12px;
-      background: white;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-align: left;
-    }
-    .choice-btn:hover { border-color: #94a3b8; background: #f8fafc; }
-    .choice-icon { font-size: 1.25rem; margin-bottom: 0.25rem; }
-    .choice-title { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
-    .choice-desc { font-size: 0.8rem; color: #64748b; margin-top: 0.125rem; }
-    .choice-later:hover { border-color: #f97316; background: #fff7ed; }
-    .choice-never:hover { border-color: #ef4444; background: #fef2f2; }
-    
     @media print {
       .action-bar, .modal-overlay { display: none !important; }
-      .proposal-container { padding-bottom: 0; }
     }
     
-    @media (max-width: 768px) {
-      .action-bar {
-        bottom: 16px;
-        right: 16px;
-        left: 16px;
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-      .action-bar button { 
-        padding: 10px 14px;
-        font-size: 0.8rem;
-      }
-      .action-bar .btn-main {
-        order: -1;
-        flex: 1 1 100%;
-        margin-bottom: 4px;
-      }
-      .action-bar .btn-subtle {
-        order: 10;
-        flex: 1 1 100%;
-        margin-top: 4px;
-      }
+    @media (max-width: 600px) {
+      .action-bar { width: calc(100% - 40px); justify-content: center; flex-wrap: wrap; }
+      .action-bar button { padding: 10px 15px; font-size: 0.85rem; }
     }
   </style>
 </head>
@@ -238,7 +79,7 @@
   <!-- Modal: Mám záujem -->
   <div class="modal-overlay" id="modal-interested">
     <div class="modal-box">
-      <div class="modal-header">
+      <div class="modal-header" style="background: linear-gradient(135deg, #22c55e, #16a34a);">
         <h2>🎉 Mám záujem o spoluprácu!</h2>
         <p>Vyplňte kontaktné údaje a ozveme sa vám</p>
       </div>
@@ -292,42 +133,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-cancel" onclick="closeModal('question')">Zrušiť</button>
-        <button class="btn btn-submit" id="btn-submit-question" onclick="submitQuestion()">📤 Odoslať</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal: Nemám záujem -->
-  <div class="modal-overlay" id="modal-notinterested">
-    <div class="modal-box">
-      <div class="modal-header" style="background: linear-gradient(135deg, #64748b, #475569);">
-        <h2>🤔 Nemáte záujem?</h2>
-        <p>Nevadí, rešpektujeme vaše rozhodnutie</p>
-      </div>
-      <div class="modal-body">
-        <p style="margin-bottom: 1.25rem; color: #64748b;">Môžeme vás osloviť v budúcnosti?</p>
-        
-        <div class="choice-buttons">
-          <button class="choice-btn choice-later" onclick="submitNotInterested('later')">
-            <span class="choice-icon">⏰</span>
-            <span class="choice-title">Oslovte ma neskôr</span>
-            <span class="choice-desc">Teraz to nie je aktuálne, ale v budúcnosti možno</span>
-          </button>
-          
-          <button class="choice-btn choice-never" onclick="submitNotInterested('never')">
-            <span class="choice-icon">🚫</span>
-            <span class="choice-title">Nekontaktujte ma</span>
-            <span class="choice-desc">Nemám záujem o tieto služby</span>
-          </button>
-        </div>
-        
-        <div class="form-group" style="margin-top: 1.25rem;">
-          <label>Dôvod (voliteľné)</label>
-          <textarea id="notinterested-reason" placeholder="Čo vás odradilo?" rows="2"></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-cancel" onclick="closeModal('notinterested')">← Späť</button>
+        <button class="btn btn-submit" id="btn-submit-question" onclick="submitQuestion()">📤 Odoslať otázku</button>
       </div>
     </div>
   </div>
@@ -386,6 +192,12 @@
           return;
         }
         
+        // Check if already converted
+        if (proposal.status === 'converted') {
+          showSuccess('Ponuka už bola prijatá', 'Táto ponuka už bola prijatá. Skontrolujte si email pre ďalšie inštrukcie.');
+          return;
+        }
+        
         // Increment views
         try {
           await db.rpc('increment_proposal_views', { proposal_token: proposalToken });
@@ -398,18 +210,15 @@
           <div class="proposal-container">
             ${proposal.html_content}
           </div>
-          <div class="action-bar" id="action-bar">
-            <button class="btn-main" onclick="openModal('interested')">
-              ✓ Mám záujem
-            </button>
-            <button class="btn-secondary" onclick="openModal('question')">
-              ❓ Otázka
-            </button>
+          <div class="action-bar">
             <button class="btn-secondary" onclick="window.print()">
               📄 PDF
             </button>
-            <button class="btn-subtle" onclick="openModal('notinterested')">
-              ✕ Nemám záujem
+            <button class="btn-primary" onclick="openModal('question')">
+              ❓ Mám otázky
+            </button>
+            <button class="btn-success" onclick="openModal('interested')">
+              ✓ Mám záujem
             </button>
           </div>
         `;
@@ -417,46 +226,10 @@
         // Update page title
         document.title = 'Ponuka pre ' + (proposal.company_name || 'Vás') + ' - Adlify';
         
-        // Setup scroll listener for action bar
-        setupScrollListener();
-        
       } catch (err) {
         console.error('Load proposal error:', err);
         showError('Chyba', 'Nepodarilo sa načítať ponuku. Skúste to znova neskôr.');
       }
-    }
-    
-    function setupScrollListener() {
-      const actionBar = document.getElementById('action-bar');
-      if (!actionBar) return;
-      
-      let ticking = false;
-      
-      function updateActionBar() {
-        const scrollY = window.scrollY;
-        const viewportHeight = window.innerHeight;
-        
-        // Show after scrolling 400px or 50% of viewport (whichever is less)
-        const showThreshold = Math.min(400, viewportHeight * 0.5);
-        
-        if (scrollY > showThreshold) {
-          actionBar.classList.add('visible');
-        } else {
-          actionBar.classList.remove('visible');
-        }
-        
-        ticking = false;
-      }
-      
-      window.addEventListener('scroll', () => {
-        if (!ticking) {
-          requestAnimationFrame(updateActionBar);
-          ticking = true;
-        }
-      });
-      
-      // Initial check after small delay
-      setTimeout(updateActionBar, 500);
     }
     
     function showError(title, message) {
@@ -485,7 +258,7 @@
         </div>
       `;
       // Hide action bar
-      const actionBar = document.getElementById('action-bar');
+      const actionBar = document.querySelector('.action-bar');
       if (actionBar) actionBar.style.display = 'none';
     }
     
@@ -525,10 +298,17 @@
         });
         
         const result = await response.json();
+        console.log('Response:', result);
         
         if (result.success) {
           closeModal('interested');
-          showSuccess('Ďakujeme za váš záujem!', 'Čoskoro vás budeme kontaktovať s ďalšími krokmi spolupráce.');
+          
+          // REDIRECT na thank-you stránku
+          if (result.redirectUrl) {
+            window.location.href = result.redirectUrl;
+          } else {
+            showSuccess('Ďakujeme za váš záujem!', 'Čoskoro vás budeme kontaktovať s ďalšími krokmi spolupráce.');
+          }
         } else {
           throw new Error(result.error || 'Nepodarilo sa odoslať');
         }
@@ -581,69 +361,17 @@
         console.error('Submit error:', err);
         alert('Chyba pri odosielaní. Skúste to znova alebo nás kontaktujte na info@adlify.eu');
         btn.disabled = false;
-        btn.textContent = '📤 Odoslať';
+        btn.textContent = '📤 Odoslať otázku';
       }
     }
     
-    async function submitNotInterested(type) {
-      const reason = document.getElementById('notinterested-reason').value.trim();
-      
-      // Disable buttons
-      document.querySelectorAll('.choice-btn').forEach(btn => {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        btn.style.pointerEvents = 'none';
-      });
-      
-      try {
-        const response = await fetch('/.netlify/functions/proposal-response', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token: proposalToken,
-            action: 'not_interested',
-            subType: type,
-            reason: reason
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          closeModal('notinterested');
-          if (type === 'later') {
-            showSuccess('Ďakujeme za spätnú väzbu!', 'Budeme vás kontaktovať neskôr. Držíme palce!');
-          } else {
-            showSuccess('Rozumieme, ďakujeme!', 'Vaša požiadavka bola zaznamenaná. Prajem veľa úspechov!');
-          }
-        } else {
-          throw new Error(result.error || 'Nepodarilo sa odoslať');
-        }
-      } catch (err) {
-        console.error('Submit error:', err);
-        alert('Chyba pri odosielaní.');
-        document.querySelectorAll('.choice-btn').forEach(btn => {
-          btn.disabled = false;
-          btn.style.opacity = '1';
-          btn.style.pointerEvents = 'auto';
-        });
-      }
-    }
-    
-    // Close modal on outside click - using event delegation
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('modal-overlay')) {
-        e.target.classList.remove('active');
-      }
-    });
-    
-    // Close modal on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+    // Close modal on outside click
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
           modal.classList.remove('active');
-        });
-      }
+        }
+      });
     });
     
     // Load on page ready
