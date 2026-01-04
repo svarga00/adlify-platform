@@ -46,6 +46,10 @@ const SettingsModule = {
                                 onclick="SettingsModule.switchTab('email')">
                             📧 Email
                         </button>
+                        <button class="tab-btn ${this.currentTab === 'onboarding' ? 'active' : ''}" 
+                                onclick="SettingsModule.switchTab('onboarding')">
+                            📋 Onboarding
+                        </button>
                     </div>
                 </div>
                 
@@ -112,6 +116,10 @@ const SettingsModule = {
                 break;
             case 'email':
                 content.innerHTML = this.renderEmailSettings();
+                break;
+            case 'onboarding':
+                content.innerHTML = this.renderOnboardingSettings();
+                this.loadOnboardingData();
                 break;
         }
     },
@@ -439,6 +447,192 @@ const SettingsModule = {
                 this.saveSettings('email-form');
             }
         });
+    },
+    
+    // ===========================================
+    // ONBOARDING SETTINGS
+    // ===========================================
+    
+    onboardingData: {
+        platforms: [],
+        packages: [],
+        recommendations: {}
+    },
+    
+    async loadOnboardingData() {
+        try {
+            // Load packages with limits
+            const { data: packages } = await Database.client
+                .from('packages')
+                .select('*')
+                .order('sort_order');
+            this.onboardingData.packages = packages || [];
+            
+            // Load platforms (if table exists)
+            try {
+                const { data: platforms } = await Database.client
+                    .from('onboarding_platforms')
+                    .select('*')
+                    .order('sort_order');
+                this.onboardingData.platforms = platforms || this.getDefaultPlatforms();
+            } catch (e) {
+                this.onboardingData.platforms = this.getDefaultPlatforms();
+            }
+            
+            // Re-render with data
+            const content = document.getElementById('settings-content');
+            if (content && this.currentTab === 'onboarding') {
+                content.innerHTML = this.renderOnboardingSettings();
+            }
+        } catch (err) {
+            console.error('Error loading onboarding data:', err);
+        }
+    },
+    
+    getDefaultPlatforms() {
+        return [
+            { id: 'google_ads', name: 'Google Ads', short_desc: 'Search, Display, YouTube', color: '#4285F4', enabled: true, sort_order: 1 },
+            { id: 'meta_ads', name: 'Meta Ads', subtitle: 'Facebook + Instagram', short_desc: 'Feed, Stories, Reels', color: '#0081FB', enabled: true, sort_order: 2 },
+            { id: 'linkedin_ads', name: 'LinkedIn Ads', short_desc: 'B2B reklamy', color: '#0A66C2', enabled: true, sort_order: 3 },
+            { id: 'tiktok_ads', name: 'TikTok Ads', short_desc: 'Video reklamy', color: '#000000', enabled: true, sort_order: 4 }
+        ];
+    },
+    
+    renderOnboardingSettings() {
+        const packages = this.onboardingData.packages;
+        const platforms = this.onboardingData.platforms;
+        
+        return `
+            <div class="settings-card">
+                <h2 class="text-lg font-semibold mb-4">📋 Nastavenia onboardingu</h2>
+                <p class="text-sm text-gray-500 mb-6">Nastavte limity pre balíky a spravujte reklamné platformy.</p>
+                
+                <!-- Package Limits -->
+                <div class="mb-8">
+                    <h3 class="font-medium mb-4 flex items-center gap-2">
+                        💎 Limity balíkov
+                        <span class="text-xs text-gray-400">(prázdne = neobmedzené)</span>
+                    </h3>
+                    
+                    ${packages.length === 0 ? `
+                        <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                            <p class="text-sm text-amber-700">Žiadne balíky. Vytvorte ich v sekcii "Služby & Balíčky".</p>
+                        </div>
+                    ` : `
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left font-medium text-gray-600">Balík</th>
+                                        <th class="px-4 py-2 text-center font-medium text-gray-600">Max. platforiem</th>
+                                        <th class="px-4 py-2 text-center font-medium text-gray-600">Max. kampaní</th>
+                                        <th class="px-4 py-2 text-center font-medium text-gray-600">Max. vizuálov</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${packages.map(pkg => `
+                                        <tr data-package-id="${pkg.id}">
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-xl">${pkg.icon || '📦'}</span>
+                                                    <span class="font-medium">${pkg.name}</span>
+                                                    <span class="text-gray-400">${pkg.price}€</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <input type="number" class="w-20 px-2 py-1 border rounded text-center pkg-limit" 
+                                                    data-field="max_platforms" value="${pkg.max_platforms || ''}" placeholder="∞" min="0">
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <input type="number" class="w-20 px-2 py-1 border rounded text-center pkg-limit"
+                                                    data-field="max_campaigns" value="${pkg.max_campaigns || ''}" placeholder="∞" min="0">
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <input type="number" class="w-20 px-2 py-1 border rounded text-center pkg-limit"
+                                                    data-field="max_visuals" value="${pkg.max_visuals || ''}" placeholder="∞" min="0">
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="flex justify-end mt-4">
+                            <button onclick="SettingsModule.savePackageLimits()" class="btn-primary">
+                                💾 Uložiť limity
+                            </button>
+                        </div>
+                    `}
+                </div>
+                
+                <hr class="my-6">
+                
+                <!-- Platforms -->
+                <div>
+                    <h3 class="font-medium mb-4">📱 Reklamné platformy</h3>
+                    <p class="text-sm text-gray-500 mb-4">Platformy zobrazené v onboarding dotazníku.</p>
+                    
+                    <div class="space-y-2">
+                        ${platforms.map(p => `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: ${p.color}20">
+                                        <div class="w-4 h-4 rounded" style="background: ${p.color}"></div>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium">${p.name}</p>
+                                        <p class="text-xs text-gray-500">${p.short_desc || ''}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="${p.enabled ? 'text-green-600' : 'text-gray-400'} text-sm">
+                                        ${p.enabled ? '● Aktívna' : '○ Neaktívna'}
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <p class="text-sm text-blue-800">
+                            <strong>💡 Tip:</strong> Pre pridanie nových platforiem spustite SQL migráciu 
+                            <code class="bg-blue-100 px-1 rounded">020_onboarding_settings.sql</code>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+    
+    async savePackageLimits() {
+        const rows = document.querySelectorAll('[data-package-id]');
+        
+        try {
+            for (const row of rows) {
+                const id = row.dataset.packageId;
+                const data = {};
+                
+                row.querySelectorAll('.pkg-limit').forEach(input => {
+                    const field = input.dataset.field;
+                    const value = input.value.trim();
+                    data[field] = value === '' ? null : parseInt(value);
+                });
+                
+                const { error } = await Database.client
+                    .from('packages')
+                    .update(data)
+                    .eq('id', id);
+                
+                if (error) throw error;
+            }
+            
+            Utils.toast('Limity balíkov uložené! ✅', 'success');
+            await this.loadOnboardingData();
+            
+        } catch (err) {
+            console.error('Error saving limits:', err);
+            Utils.toast('Chyba pri ukladaní: ' + err.message, 'error');
+        }
     },
     
     // ===========================================
