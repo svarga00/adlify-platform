@@ -1,12 +1,10 @@
 /**
- * ADLIFY PLATFORM - Onboarding Extension v2.1
+ * ADLIFY PLATFORM - Onboarding Extension v2.2
  * 
  * Rozšírenie existujúceho OnboardingModule o:
- * - Výber balíka (PackageCalculator) - KROK 4
- * - Výber reklamných platforiem (PlatformSelector) - KROK 5
- * - Technické možnosti (zjednodušený krok) - KROK 9
- * 
- * Prepojenie účtov je riešené separátne v profile klienta.
+ * - Výber balíka - KROK 4
+ * - Výber reklamných platforiem - KROK 5
+ * - Technické možnosti - KROK 9
  */
 
 (function() {
@@ -17,7 +15,7 @@
         return;
     }
     
-    console.log('🔌 Onboarding Extension v2.1 loading...');
+    console.log('🔌 Onboarding Extension v2.2 loading...');
     
     // Uložíme pôvodné metódy
     const originalRenderCurrentSection = OnboardingModule.renderCurrentSection;
@@ -37,6 +35,76 @@
             websiteManager: null
         },
         componentsInitialized: false
+    };
+    
+    // ==========================================
+    // DEFINÍCIA PLATFORIEM
+    // ==========================================
+    
+    OnboardingModule.PLATFORMS = {
+        google_ads: {
+            id: 'google_ads',
+            name: 'Google Ads',
+            icon: '🔍',
+            color: '#4285F4',
+            description: 'Search, Display, YouTube, Shopping',
+            features: ['Vyhľadávanie', 'Display reklamy', 'YouTube video', 'Shopping'],
+            recommended: ['local_business', 'ecommerce', 'b2b'],
+            minBudget: 5
+        },
+        meta_ads: {
+            id: 'meta_ads',
+            name: 'Meta Ads',
+            icon: '📘',
+            color: '#1877F2',
+            description: 'Facebook, Instagram - Feed, Stories, Reels',
+            features: ['Facebook Feed', 'Instagram', 'Stories', 'Reels'],
+            recommended: ['local_business', 'ecommerce', 'startup'],
+            minBudget: 3
+        },
+        linkedin_ads: {
+            id: 'linkedin_ads',
+            name: 'LinkedIn Ads',
+            icon: '💼',
+            color: '#0A66C2',
+            description: 'B2B reklamy, profesionálne cielenie',
+            features: ['Sponsored Content', 'InMail', 'B2B targeting'],
+            recommended: ['b2b'],
+            minBudget: 10
+        },
+        tiktok_ads: {
+            id: 'tiktok_ads',
+            name: 'TikTok Ads',
+            icon: '🎵',
+            color: '#000000',
+            description: 'Video reklamy pre mladšiu cieľovku',
+            features: ['In-Feed Video', 'TopView', 'Spark Ads'],
+            recommended: ['ecommerce', 'startup'],
+            minBudget: 5
+        }
+    };
+    
+    // ==========================================
+    // ODPORÚČANIA PODĽA TYPU KLIENTA
+    // ==========================================
+    
+    OnboardingModule.PLATFORM_RECOMMENDATIONS = {
+        local_business: {
+            platforms: ['google_ads', 'meta_ads'],
+            message: 'Pre lokálne služby odporúčame Google Ads + Meta Ads'
+        },
+        ecommerce: {
+            platforms: ['google_ads', 'meta_ads'],
+            message: 'Pre e-shop odporúčame Google Ads + Meta Ads'
+        },
+        b2b: {
+            platforms: ['google_ads', 'linkedin_ads'],
+            message: 'Pre B2B odporúčame Google Ads + LinkedIn Ads'
+        },
+        startup: {
+            platforms: ['meta_ads', 'tiktok_ads'],
+            message: 'Pre startup odporúčame Meta Ads + TikTok Ads'
+        }
     };
     
     // ==========================================
@@ -124,7 +192,7 @@
                 
                 <div id="onboarding-package-calculator"></div>
                 
-                <div id="package-fallback" class="hidden">
+                <div id="package-fallback">
                     ${this.renderPackageCardsFallback()}
                 </div>
             </div>
@@ -160,16 +228,19 @@
         return `
             <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                 ${packages.map(pkg => `
-                    <div class="relative p-5 border-2 rounded-2xl cursor-pointer transition-all
+                    <div class="relative p-5 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg
                         ${selected === pkg.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}
                         ${pkg.popular ? 'bg-gray-900 text-white border-gray-900' : ''}"
                         onclick="OnboardingModule.selectPackageFallback('${pkg.id}')">
-                        ${pkg.popular ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-bold rounded-full">Najobľúbenejšie</div>' : ''}
+                        ${pkg.popular ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-bold rounded-full whitespace-nowrap">Najobľúbenejšie</div>' : ''}
                         <div class="text-center mb-4">
-                            <span class="text-3xl">${pkg.icon}</span>
-                            <h3 class="text-lg font-bold mt-2" style="color: ${pkg.popular ? '#F97316' : pkg.color}">${pkg.name}</h3>
-                            <p class="text-2xl font-bold mt-2 ${pkg.popular ? 'text-white' : ''}">
+                            <span class="text-3xl block mb-2">${pkg.icon}</span>
+                            <h3 class="text-lg font-bold" style="color: ${pkg.popular ? '#F97316' : pkg.color}">${pkg.name}</h3>
+                            <p class="text-2xl font-bold mt-2 ${pkg.popular ? 'text-white' : 'text-gray-800'}">
                                 ${pkg.priceFrom ? 'od ' : ''}${pkg.price}€<span class="text-sm font-normal ${pkg.popular ? 'text-gray-400' : 'text-gray-500'}">/mes</span>
+                            </p>
+                            <p class="text-sm ${pkg.popular ? 'text-gray-400' : 'text-gray-500'} mt-1">
+                                ${typeof pkg.platforms === 'number' ? pkg.platforms + ' platforma' : pkg.platforms}
                             </p>
                         </div>
                         <ul class="space-y-2 mb-4">
@@ -179,10 +250,10 @@
                                 </li>
                             `).join('')}
                         </ul>
-                        <div class="w-full py-2 text-center rounded-xl text-sm font-semibold
+                        <div class="w-full py-2 text-center rounded-xl text-sm font-semibold transition-all
                             ${selected === pkg.id 
                                 ? 'bg-orange-500 text-white' 
-                                : (pkg.popular ? 'bg-white/10 text-white' : 'bg-gray-100')}">
+                                : (pkg.popular ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-100 hover:bg-gray-200')}">
                             ${selected === pkg.id ? '✓ Vybraný' : 'Vybrať'}
                         </div>
                         <input type="radio" name="selected_package" value="${pkg.id}" 
@@ -200,83 +271,133 @@
     };
     
     // ==========================================
-    // SEKCIA: PLATFORMY
+    // SEKCIA: PLATFORMY (OPRAVENÁ)
     // ==========================================
     
     OnboardingModule.renderPlatformsSection = function() {
         const selectedPkg = this.extensionState.selectedPackage || 'pro';
         const platformLimit = this.PACKAGE_PLATFORM_LIMITS[selectedPkg];
-        const platformLimitText = platformLimit === Infinity ? 'neobmedzene' : platformLimit;
+        const platformLimitText = platformLimit === Infinity ? 'neobmedzený počet' : platformLimit;
+        const clientType = this.detectClientType();
+        const recommendation = this.PLATFORM_RECOMMENDATIONS[clientType] || this.PLATFORM_RECOMMENDATIONS.local_business;
+        
+        const selected = this.extensionState.selectedPlatforms || [];
         
         return `
             <div class="platforms-section">
-                <div class="mb-6">
-                    <p class="text-gray-600">
-                        Vyberte platformy, na ktorých chcete propagovať váš biznis.
+                <!-- Info o limite -->
+                <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <p class="text-blue-800 flex items-center gap-2">
+                        <span class="text-xl">💡</span>
+                        <span>Váš balík <strong>${selectedPkg.charAt(0).toUpperCase() + selectedPkg.slice(1)}</strong> 
+                        umožňuje <strong>${platformLimitText}</strong> 
+                        ${platformLimit === 1 ? 'platformu' : (platformLimit === Infinity ? 'platforiem' : 'platformy')}.</span>
                     </p>
-                    <div class="mt-3 p-3 bg-blue-50 rounded-xl">
-                        <p class="text-sm text-blue-800">
-                            💡 Váš balík <strong>${selectedPkg.charAt(0).toUpperCase() + selectedPkg.slice(1)}</strong> 
-                            umožňuje <strong>${platformLimitText}</strong> 
-                            platfor${platformLimit === 1 ? 'mu' : (platformLimit === Infinity ? 'iem' : 'my')}.
+                </div>
+                
+                <!-- Odporúčanie -->
+                <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <p class="text-green-800 flex items-center gap-2">
+                            <span class="text-xl">🎯</span>
+                            <span>${recommendation.message}</span>
                         </p>
+                        <button type="button" 
+                            onclick="OnboardingModule.applyRecommendation()"
+                            class="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
+                            Použiť odporúčanie
+                        </button>
                     </div>
                 </div>
                 
-                <div id="onboarding-platform-selector"></div>
+                <!-- Grid platforiem -->
+                <div class="grid md:grid-cols-2 gap-4">
+                    ${Object.values(this.PLATFORMS).map(platform => this.renderPlatformCard(platform, selected, platformLimit)).join('')}
+                </div>
                 
-                <div id="platforms-fallback" class="hidden">
-                    ${this.renderPlatformsFallback()}
+                <!-- Súhrn -->
+                <div class="mt-6 p-4 bg-gray-100 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Vybrané platformy:</span>
+                        <span class="font-bold text-lg ${selected.length > platformLimit && platformLimit !== Infinity ? 'text-red-600' : 'text-gray-800'}">
+                            ${selected.length} / ${platformLimit === Infinity ? '∞' : platformLimit}
+                        </span>
+                    </div>
+                    ${selected.length > 0 ? `
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            ${selected.map(id => {
+                                const p = this.PLATFORMS[id];
+                                return p ? `<span class="inline-flex items-center gap-1 px-3 py-1 bg-white rounded-full text-sm font-medium shadow-sm">${p.icon} ${p.name}</span>` : '';
+                            }).join('')}
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
     };
     
-    OnboardingModule.renderPlatformsFallback = function() {
-        const platforms = [
-            { id: 'google_ads', name: 'Google Ads', icon: '🔍', desc: 'Search, Display, YouTube' },
-            { id: 'meta_ads', name: 'Meta (Facebook/IG)', icon: '📘', desc: 'Feed, Stories, Reels' },
-            { id: 'linkedin_ads', name: 'LinkedIn Ads', icon: '💼', desc: 'B2B reklamy' },
-            { id: 'tiktok_ads', name: 'TikTok Ads', icon: '🎵', desc: 'Video reklamy' }
-        ];
-        
-        const selected = this.extensionState.selectedPlatforms || [];
-        const limit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage] || 1;
+    OnboardingModule.renderPlatformCard = function(platform, selected, limit) {
+        const isSelected = selected.includes(platform.id);
+        const isDisabled = !isSelected && selected.length >= limit && limit !== Infinity;
         
         return `
-            <div class="grid md:grid-cols-2 gap-3">
-                ${platforms.map(p => `
-                    <label class="flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all
-                        ${selected.includes(p.id) ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}">
-                        <input type="checkbox" name="platform_${p.id}" value="${p.id}" 
-                            ${selected.includes(p.id) ? 'checked' : ''}
-                            class="w-5 h-5 mr-4 accent-orange-500"
-                            onchange="OnboardingModule.togglePlatformFallback('${p.id}')">
-                        <span class="text-2xl mr-3">${p.icon}</span>
-                        <div>
-                            <span class="font-semibold block">${p.name}</span>
-                            <span class="text-sm text-gray-500">${p.desc}</span>
+            <div class="platform-card relative p-5 border-2 rounded-2xl transition-all cursor-pointer
+                ${isSelected ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow'}
+                ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}"
+                onclick="${isDisabled ? '' : `OnboardingModule.togglePlatform('${platform.id}')`}"
+                style="--platform-color: ${platform.color}">
+                
+                <div class="flex items-start gap-4">
+                    <!-- Checkbox -->
+                    <div class="flex-shrink-0 mt-1">
+                        <div class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
+                            ${isSelected ? 'bg-orange-500 border-orange-500' : 'border-gray-300 bg-white'}">
+                            ${isSelected ? '<span class="text-white text-sm">✓</span>' : ''}
                         </div>
-                    </label>
-                `).join('')}
+                    </div>
+                    
+                    <!-- Icon & Content -->
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-3xl">${platform.icon}</span>
+                            <div>
+                                <h4 class="font-bold text-gray-800">${platform.name}</h4>
+                                <p class="text-sm text-gray-500">${platform.description}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Features -->
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            ${platform.features.map(f => `
+                                <span class="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">${f}</span>
+                            `).join('')}
+                        </div>
+                        
+                        <!-- Min budget -->
+                        <p class="text-xs text-gray-400 mt-2">Min. denný rozpočet: ${platform.minBudget}€</p>
+                    </div>
+                </div>
+                
+                <!-- Hidden input -->
+                <input type="checkbox" name="platform_${platform.id}" value="${platform.id}" 
+                    ${isSelected ? 'checked' : ''} class="sr-only">
             </div>
-            <p class="text-sm text-gray-500 mt-3">
-                Vybrané: <strong>${selected.length}</strong> / ${limit === Infinity ? '∞' : limit}
-            </p>
         `;
     };
     
-    OnboardingModule.togglePlatformFallback = function(platformId) {
+    OnboardingModule.togglePlatform = function(platformId) {
         const platforms = this.extensionState.selectedPlatforms || [];
         const index = platforms.indexOf(platformId);
         const limit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage] || 1;
         
         if (index > -1) {
+            // Odobrať
             platforms.splice(index, 1);
         } else {
+            // Pridať - skontroluj limit
             if (platforms.length >= limit && limit !== Infinity) {
-                if (typeof Utils !== 'undefined') {
-                    Utils.toast(`Váš balík umožňuje max. ${limit} platformy`, 'warning');
+                if (typeof Utils !== 'undefined' && Utils.toast) {
+                    Utils.toast(`Váš balík umožňuje max. ${limit} ${limit === 1 ? 'platformu' : 'platformy'}. Pre viac platforiem zvoľte vyšší balík.`, 'warning');
                 }
                 return;
             }
@@ -288,8 +409,44 @@
         this.rerender();
     };
     
+    OnboardingModule.applyRecommendation = function() {
+        const clientType = this.detectClientType();
+        const recommendation = this.PLATFORM_RECOMMENDATIONS[clientType] || this.PLATFORM_RECOMMENDATIONS.local_business;
+        const limit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage] || 1;
+        
+        // Vyber len toľko platforiem, koľko dovoľuje balík
+        let platforms = [...recommendation.platforms];
+        if (limit !== Infinity && platforms.length > limit) {
+            platforms = platforms.slice(0, limit);
+        }
+        
+        this.extensionState.selectedPlatforms = platforms;
+        this.formData.selected_platforms = platforms;
+        this.rerender();
+        
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+            Utils.toast('Odporúčanie bolo aplikované', 'success');
+        }
+    };
+    
+    OnboardingModule.detectClientType = function() {
+        const industry = this.formData.company_industry || '';
+        const target = this.formData.target_audience || {};
+        
+        if (industry.includes('E-commerce') || industry.includes('Maloobchod') || industry.includes('Online obchod')) {
+            return 'ecommerce';
+        }
+        if (industry.includes('B2B') || industry.includes('IT') || industry.includes('Služby pre firmy') || target.b2b) {
+            return 'b2b';
+        }
+        if (industry.includes('Startup') || industry.includes('Technológie')) {
+            return 'startup';
+        }
+        return 'local_business';
+    };
+    
     // ==========================================
-    // SEKCIA: TECHNICKÉ MOŽNOSTI (ZJEDNODUŠENÁ)
+    // SEKCIA: TECHNICKÉ MOŽNOSTI
     // ==========================================
     
     OnboardingModule.renderTechnicalSimpleSection = function() {
@@ -395,7 +552,7 @@
             <button type="button" 
                 class="px-4 py-2 rounded-xl text-sm font-medium transition-all
                     ${isSelected 
-                        ? 'bg-orange-500 text-white' 
+                        ? 'bg-orange-500 text-white shadow-md' 
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
                 onclick="OnboardingModule.setTechnicalOption('${field}', '${value}')">
                 ${isSelected ? '✓ ' : ''}${label}
@@ -414,12 +571,12 @@
     // ==========================================
     
     OnboardingModule.initExtensionComponents = function() {
-        const hasPlatformSelector = typeof window.PlatformSelector !== 'undefined';
         const hasPackageCalculator = typeof window.PackageCalculator !== 'undefined';
         
-        // PackageCalculator
+        // PackageCalculator - ak existuje, použijeme ho a skryjeme fallback
         if (hasPackageCalculator && document.getElementById('onboarding-package-calculator')) {
-            document.getElementById('package-fallback')?.classList.add('hidden');
+            const fallback = document.getElementById('package-fallback');
+            if (fallback) fallback.style.display = 'none';
             
             PackageCalculator.init('onboarding-package-calculator', {
                 defaultPackage: this.extensionState.selectedPackage || 'pro',
@@ -429,49 +586,11 @@
                     this.extensionState.selectedPackage = pkg.id;
                     this.formData.selected_package = pkg.id;
                     this.formData.package_price = pkg.price;
-                    
-                    if (hasPlatformSelector && PlatformSelector.container) {
-                        PlatformSelector.setMaxPlatforms(pkg.limits.platforms);
-                    }
                 }
             });
-        } else if (document.getElementById('package-fallback')) {
-            document.getElementById('package-fallback')?.classList.remove('hidden');
-        }
-        
-        // PlatformSelector
-        if (hasPlatformSelector && document.getElementById('onboarding-platform-selector')) {
-            document.getElementById('platforms-fallback')?.classList.add('hidden');
-            
-            const platformLimit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage] || 2;
-            
-            PlatformSelector.init('onboarding-platform-selector', {
-                maxPlatforms: platformLimit,
-                clientType: this.detectClientType(),
-                preselected: this.extensionState.selectedPlatforms || [],
-                showRecommendations: true,
-                onChange: (platforms) => {
-                    this.extensionState.selectedPlatforms = platforms;
-                    this.formData.selected_platforms = platforms;
-                },
-                onLimitExceeded: (platforms, limit) => {
-                    if (hasPackageCalculator) {
-                        PackageCalculator.showUpgradeModal(this.extensionState.selectedPackage);
-                    }
-                }
-            });
-        } else if (document.getElementById('platforms-fallback')) {
-            document.getElementById('platforms-fallback')?.classList.remove('hidden');
         }
         
         this.extensionState.componentsInitialized = true;
-    };
-    
-    OnboardingModule.detectClientType = function() {
-        const industry = this.formData.company_industry || '';
-        if (industry.includes('E-commerce') || industry.includes('Maloobchod')) return 'ecommerce';
-        if (industry.includes('B2B') || industry.includes('IT')) return 'b2b';
-        return 'local_business';
     };
     
     // ==========================================
@@ -492,27 +611,6 @@
         this.formData.has_existing_accounts = this.extensionState.technicalInfo.hasExistingAccounts;
         this.formData.can_add_tracking_codes = this.extensionState.technicalInfo.canAddTrackingCodes;
         this.formData.website_manager = this.extensionState.technicalInfo.websiteManager;
-        
-        const form = document.getElementById('onboarding-form');
-        if (form) {
-            const formData = new FormData(form);
-            
-            if (formData.get('selected_package')) {
-                this.formData.selected_package = formData.get('selected_package');
-                this.extensionState.selectedPackage = formData.get('selected_package');
-            }
-            
-            if (!this.formData.selected_platforms.length) {
-                const platforms = [];
-                ['google_ads', 'meta_ads', 'linkedin_ads', 'tiktok_ads'].forEach(p => {
-                    if (formData.has(`platform_${p}`)) platforms.push(p);
-                });
-                if (platforms.length > 0) {
-                    this.formData.selected_platforms = platforms;
-                    this.extensionState.selectedPlatforms = platforms;
-                }
-            }
-        }
     };
     
     OnboardingModule.validateCurrentStep = function() {
@@ -522,25 +620,30 @@
             switch (section.key) {
                 case 'package':
                     if (!this.extensionState.selectedPackage) {
-                        Utils?.toast?.('Vyberte balík služieb', 'warning');
+                        if (typeof Utils !== 'undefined' && Utils.toast) {
+                            Utils.toast('Vyberte balík služieb', 'warning');
+                        }
                         return false;
                     }
                     return true;
                     
                 case 'platforms':
                     if (!this.extensionState.selectedPlatforms?.length) {
-                        Utils?.toast?.('Vyberte aspoň jednu platformu', 'warning');
+                        if (typeof Utils !== 'undefined' && Utils.toast) {
+                            Utils.toast('Vyberte aspoň jednu platformu', 'warning');
+                        }
                         return false;
                     }
                     const limit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage];
                     if (this.extensionState.selectedPlatforms.length > limit && limit !== Infinity) {
-                        Utils?.toast?.(`Váš balík umožňuje max. ${limit} platformy`, 'warning');
+                        if (typeof Utils !== 'undefined' && Utils.toast) {
+                            Utils.toast(`Váš balík umožňuje max. ${limit} platformy`, 'warning');
+                        }
                         return false;
                     }
                     return true;
                     
                 case 'technical_simple':
-                    // Technický krok je voliteľný
                     return true;
             }
         }
@@ -558,13 +661,19 @@
         const style = document.createElement('style');
         style.id = 'onboarding-extension-styles';
         style.textContent = `
-            .platforms-section .platform-selector,
+            .platforms-section .platform-card {
+                transition: all 0.2s ease;
+            }
+            
+            .platforms-section .platform-card:hover:not(.opacity-50) {
+                transform: translateY(-2px);
+            }
+            
             .package-section .package-calculator {
                 margin: 0 -24px;
             }
             
             @media (max-width: 768px) {
-                .platforms-section .platform-selector,
                 .package-section .package-calculator {
                     margin: 0 -16px;
                 }
@@ -587,10 +696,10 @@
     const originalInit = OnboardingModule.init;
     OnboardingModule.init = function() {
         if (originalInit) originalInit.call(this);
-        console.log('📋 Onboarding module v2.1 (extended) initialized');
+        console.log('📋 Onboarding module v2.2 (extended) initialized');
     };
     
-    console.log('✅ Onboarding Extension v2.1 loaded!');
+    console.log('✅ Onboarding Extension v2.2 loaded!');
     console.log('📊 Sections:', OnboardingModule.SECTIONS.length);
     
 })();
