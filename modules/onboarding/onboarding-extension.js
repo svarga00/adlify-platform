@@ -1,9 +1,9 @@
 /**
- * ADLIFY PLATFORM - Onboarding Extension v2.3
+ * ADLIFY PLATFORM - Onboarding Extension v2.4
  * 
  * Rozšírenie existujúceho OnboardingModule o:
  * - Výber balíka - KROK 4
- * - Výber reklamných platforiem - KROK 5
+ * - Výber reklamných platforiem (s modalom) - KROK 5
  * - Technické možnosti - KROK 9
  */
 
@@ -15,7 +15,7 @@
         return;
     }
     
-    console.log('🔌 Onboarding Extension v2.3 loading...');
+    console.log('🔌 Onboarding Extension v2.4 loading...');
     
     // Uložíme pôvodné metódy
     const originalRenderCurrentSection = OnboardingModule.renderCurrentSection;
@@ -42,52 +42,34 @@
     // ==========================================
     
     OnboardingModule.PLATFORM_LOGOS = {
-        google_ads: `<svg viewBox="0 0 24 24" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.345-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z" fill="#4285F4"/>
-            <path d="M5.277 14.268l-.835 3.118-3.054.065A11.946 11.946 0 010 12c0-1.89.436-3.68 1.213-5.27l2.721.499.946 2.146A7.13 7.13 0 004.5 12c0 .815.137 1.598.39 2.327l.387-.06z" fill="#FBBC05"/>
-            <path d="M12.24 4.8c1.77 0 3.36.608 4.61 1.802l3.46-3.462C18.19 1.186 15.48 0 12.24 0 7.463 0 3.303 2.69 1.213 6.73l3.666 2.843C5.826 6.708 8.76 4.8 12.24 4.8z" fill="#EA4335"/>
-            <path d="M12.24 19.2c-3.48 0-6.414-1.908-7.361-4.773l-3.666 2.843C3.303 21.31 7.463 24 12.24 24c3.103 0 5.94-1.073 8.04-3.066l-3.487-2.702c-.948.645-2.2 1.088-3.553 1.088v-.12z" fill="#34A853"/>
+        google_ads: `<svg viewBox="0 0 24 24" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
         </svg>`,
         
-        meta_ads: `<svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="meta-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#0081FB"/>
-                    <stop offset="100%" style="stop-color:#0064E0"/>
-                </linearGradient>
-            </defs>
-            <circle cx="16" cy="16" r="16" fill="url(#meta-gradient)"/>
-            <path d="M21.214 20.238c-.397.67-1.17 1.012-1.923 1.012-.673 0-1.276-.318-1.835-.93-.56-.613-1.058-1.51-1.456-2.626-.398-1.115-.597-2.307-.597-3.576 0-1.046.143-1.998.43-2.854.286-.857.676-1.526 1.17-2.008.493-.482 1.042-.724 1.647-.724.75 0 1.414.356 1.992 1.067.578.71 1.034 1.707 1.367 2.99.334 1.282.5 2.747.5 4.394 0 1.206-.166 2.266-.5 3.178-.333.913-.795 1.407-1.385 1.48a1.58 1.58 0 01-.41.597zm-10.428 0c-.397.67-1.17 1.012-1.923 1.012-.673 0-1.276-.318-1.835-.93-.56-.613-1.058-1.51-1.456-2.626-.398-1.115-.597-2.307-.597-3.576 0-1.046.143-1.998.43-2.854.286-.857.676-1.526 1.17-2.008.493-.482 1.042-.724 1.647-.724.75 0 1.414.356 1.992 1.067.578.71 1.034 1.707 1.367 2.99.334 1.282.5 2.747.5 4.394 0 1.206-.166 2.266-.5 3.178-.333.913-.795 1.407-1.385 1.48a1.58 1.58 0 01-.41.597z" fill="#fff"/>
+        meta_ads: `<svg viewBox="0 0 36 36" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="meta-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0081FB"/><stop offset="100%" stop-color="#0064E0"/></linearGradient></defs>
+            <circle cx="18" cy="18" r="18" fill="url(#meta-grad)"/>
+            <path d="M25.2 14.5c0-1.4-.5-2.5-1.3-3.3-.8-.8-1.9-1.2-3.2-1.2-1.1 0-2.1.3-2.9.9-.5.4-.9.8-1.2 1.3-.3-.5-.7-.9-1.2-1.3-.8-.6-1.8-.9-2.9-.9-1.3 0-2.4.4-3.2 1.2-.8.8-1.3 1.9-1.3 3.3 0 .7.1 1.4.4 2.1.5 1.4 1.5 2.8 2.8 4.2 1.8 1.9 4.1 3.7 5.4 4.7.2.1.4.1.6 0 1.3-1 3.6-2.8 5.4-4.7 1.3-1.4 2.3-2.8 2.8-4.2.3-.7.4-1.4.4-2.1z" fill="#fff"/>
         </svg>`,
         
-        linkedin_ads: `<svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="32" rx="4" fill="#0A66C2"/>
-            <path d="M10.526 24.088H7.088V13.174h3.438v10.914zM8.807 11.73a1.992 1.992 0 110-3.984 1.992 1.992 0 010 3.984zm15.28 12.358h-3.433v-5.31c0-1.266-.025-2.895-1.765-2.895-1.766 0-2.037 1.38-2.037 2.805v5.4h-3.43V13.174h3.294v1.49h.046c.458-.87 1.58-1.786 3.25-1.786 3.478 0 4.12 2.29 4.12 5.267v5.943h-.045z" fill="#fff"/>
+        linkedin_ads: `<svg viewBox="0 0 36 36" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <rect width="36" height="36" rx="4" fill="#0A66C2"/>
+            <path d="M12.15 27.1H8.08V15.2h4.07v11.9zM10.12 13.5c-1.3 0-2.36-1.06-2.36-2.36 0-1.3 1.06-2.36 2.36-2.36 1.3 0 2.36 1.06 2.36 2.36 0 1.3-1.06 2.36-2.36 2.36zm17.12 13.6h-4.06v-5.79c0-1.38-.03-3.16-1.93-3.16-1.93 0-2.22 1.5-2.22 3.06v5.89h-4.06V15.2h3.9v1.62h.05c.54-1.03 1.87-2.12 3.85-2.12 4.12 0 4.88 2.71 4.88 6.24v6.16h-.41z" fill="#fff"/>
         </svg>`,
         
-        tiktok_ads: `<svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="32" rx="4" fill="#000"/>
-            <path d="M22.465 13.028a5.147 5.147 0 01-3.102-1.036v7.49a5.518 5.518 0 11-4.755-5.466v2.795a2.785 2.785 0 101.96 2.67V7h2.795a5.142 5.142 0 003.102 4.277v1.751z" fill="#fff"/>
-            <path d="M22.465 13.028a5.147 5.147 0 01-3.102-1.036v7.49a5.518 5.518 0 01-5.518 5.518 5.474 5.474 0 01-3.236-1.052 5.518 5.518 0 008.754-4.466v-7.49a5.147 5.147 0 003.102 1.036v-1.751a5.12 5.12 0 01-3.102-1.036v1.751a5.142 5.142 0 003.102 1.036z" fill="#69C9D0"/>
-            <path d="M9.609 20.962a2.785 2.785 0 014.75-1.968v-2.796a5.576 5.576 0 00-.763-.052 5.518 5.518 0 00-3.987 9.36 5.518 5.518 0 010-4.544z" fill="#EE1D52"/>
-        </svg>`,
-        
-        pinterest_ads: `<svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="16" fill="#E60023"/>
-            <path d="M16 6.4c-5.302 0-9.6 4.298-9.6 9.6 0 4.07 2.532 7.544 6.112 8.944-.085-.762-.162-1.932.034-2.766.177-.752 1.142-4.842 1.142-4.842s-.291-.582-.291-1.444c0-1.352.784-2.362 1.76-2.362.83 0 1.232.624 1.232 1.372 0 .836-.532 2.086-.806 3.246-.23.97.486 1.76 1.442 1.76 1.73 0 3.06-1.824 3.06-4.458 0-2.33-1.674-3.96-4.066-3.96-2.77 0-4.394 2.076-4.394 4.222 0 .836.322 1.732.724 2.22.08.096.092.18.068.278-.074.306-.238.97-.27 1.106-.042.178-.14.216-.324.13-1.21-.564-1.966-2.334-1.966-3.756 0-3.058 2.222-5.866 6.41-5.866 3.366 0 5.982 2.398 5.982 5.602 0 3.344-2.108 6.036-5.034 6.036-1.108 0-2.148-.576-2.506-1.256l-.682 2.6c-.246.952-.914 2.144-1.362 2.872.976.302 2.01.466 3.084.466 5.302 0 9.6-4.298 9.6-9.6S21.302 6.4 16 6.4z" fill="#fff"/>
-        </svg>`,
-        
-        microsoft_ads: `<svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="32" rx="4" fill="#00A4EF"/>
-            <path d="M7 7h8v8H7V7z" fill="#F25022"/>
-            <path d="M17 7h8v8h-8V7z" fill="#7FBA00"/>
-            <path d="M7 17h8v8H7v-8z" fill="#00A4EF"/>
-            <path d="M17 17h8v8h-8v-8z" fill="#FFB900"/>
+        tiktok_ads: `<svg viewBox="0 0 36 36" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <rect width="36" height="36" rx="4" fill="#000"/>
+            <path d="M26.4 15.1c-1.7 0-3.3-.6-4.5-1.6v7.3c0 3.6-2.9 6.5-6.5 6.5s-6.5-2.9-6.5-6.5 2.9-6.5 6.5-6.5c.3 0 .7 0 1 .1v3.3c-.3-.1-.6-.1-1-.1-1.8 0-3.2 1.4-3.2 3.2s1.4 3.2 3.2 3.2 3.2-1.4 3.2-3.2V8h3.3c0 .3.1.6.1.9.3 1.5 1.2 2.8 2.5 3.5.8.5 1.7.7 2.6.7v2h-.7z" fill="#fff"/>
+            <path d="M26.4 15.1v-2c-.9 0-1.8-.3-2.6-.7-1.3-.8-2.2-2-2.5-3.5 0-.3-.1-.6-.1-.9h-3.3v14.8c0 1.8-1.4 3.2-3.2 3.2-1 0-1.8-.4-2.4-1.1-.9-.9-1.2-2.3-.6-3.5.5-1.2 1.7-1.9 3-1.9.3 0 .7 0 1 .1v-3.3c-.3 0-.7-.1-1-.1-3.6 0-6.5 2.9-6.5 6.5s2.9 6.5 6.5 6.5 6.5-2.9 6.5-6.5v-7.3c1.2 1 2.8 1.6 4.5 1.6h.7z" fill="#25F4EE"/>
+            <path d="M14.7 20.5c-1.3 0-2.5.8-3 1.9-.5 1.2-.3 2.6.6 3.5.6.7 1.5 1.1 2.4 1.1 1.8 0 3.2-1.4 3.2-3.2v-2.4c-.8-.6-1.4-1.5-1.6-2.5-.5.3-1 .4-1.6.4v3.2z" fill="#FE2C55"/>
         </svg>`
     };
     
     // ==========================================
-    // DEFINÍCIA PLATFORIEM S DETAILMI
+    // DEFINÍCIA PLATFORIEM
     // ==========================================
     
     OnboardingModule.PLATFORMS = {
@@ -95,93 +77,73 @@
             id: 'google_ads',
             name: 'Google Ads',
             color: '#4285F4',
-            description: 'Najväčšia reklamná sieť na svete',
-            longDescription: 'Google Ads vám umožní osloviť zákazníkov presne vtedy, keď hľadajú vaše produkty alebo služby. Reklamy sa zobrazujú vo vyhľadávaní Google, na YouTube, v Gmaile a na miliónoch partnerských webov.',
+            shortDesc: 'Search, Display, YouTube, Shopping',
+            description: 'Najväčšia reklamná sieť na svete. Oslovte zákazníkov presne vtedy, keď hľadajú vaše produkty alebo služby.',
             features: [
-                { name: 'Search', desc: 'Textové reklamy vo vyhľadávaní' },
-                { name: 'Display', desc: 'Bannerové reklamy na weboch' },
-                { name: 'YouTube', desc: 'Video reklamy pred/počas videí' },
-                { name: 'Shopping', desc: 'Produktové reklamy pre e-shopy' }
+                { name: 'Search', desc: 'Textové reklamy vo výsledkoch vyhľadávania Google' },
+                { name: 'Display', desc: 'Bannerové reklamy na miliónoch partnerských webov' },
+                { name: 'YouTube', desc: 'Video reklamy pred a počas videí' },
+                { name: 'Shopping', desc: 'Produktové reklamy s obrázkom a cenou' }
             ],
-            bestFor: ['E-shopy', 'Lokálne služby', 'B2B', 'Všetky odvetvia'],
-            minBudget: 5,
-            setupDifficulty: 'Stredná',
+            bestFor: ['E-shopy', 'Lokálne služby', 'B2B'],
             recommended: ['local_business', 'ecommerce', 'b2b']
         },
         meta_ads: {
             id: 'meta_ads',
             name: 'Meta Ads',
             color: '#0081FB',
-            description: 'Facebook a Instagram reklamy',
-            longDescription: 'Meta Ads (Facebook & Instagram) ponúkajú najpresnejšie cielenie na základe záujmov, správania a demografických údajov. Ideálne pre budovanie značky a remarketing.',
+            shortDesc: 'Facebook, Instagram - Feed, Stories, Reels',
+            description: 'Facebook a Instagram reklamy s najpresnejším cielením podľa záujmov a správania. Ideálne pre budovanie značky.',
             features: [
-                { name: 'Feed', desc: 'Reklamy v hlavnom feede' },
-                { name: 'Stories', desc: 'Fullscreen stories formát' },
-                { name: 'Reels', desc: 'Krátke video reklamy' },
-                { name: 'Messenger', desc: 'Reklamy v Messengeri' }
+                { name: 'Feed', desc: 'Reklamy priamo v hlavnom feede používateľov' },
+                { name: 'Stories', desc: 'Fullscreen formát pre Stories na FB aj IG' },
+                { name: 'Reels', desc: 'Krátke video reklamy v populárnom formáte' },
+                { name: 'Messenger', desc: 'Reklamy a chatboty v Messengeri' }
             ],
             bestFor: ['E-shopy', 'Lokálne služby', 'Gastro', 'Beauty'],
-            minBudget: 3,
-            setupDifficulty: 'Nízka',
             recommended: ['local_business', 'ecommerce', 'startup']
         },
         linkedin_ads: {
             id: 'linkedin_ads',
             name: 'LinkedIn Ads',
             color: '#0A66C2',
-            description: 'B2B reklamy pre profesionálov',
-            longDescription: 'LinkedIn je najlepšia platforma pre B2B marketing. Cieľte podľa pracovnej pozície, odvetvia, veľkosti firmy alebo konkrétnych spoločností.',
+            shortDesc: 'B2B reklamy pre profesionálov',
+            description: 'Najlepšia platforma pre B2B marketing. Cieľte podľa pracovnej pozície, odvetvia alebo konkrétnych firiem.',
             features: [
-                { name: 'Sponsored Content', desc: 'Natívne reklamy vo feede' },
-                { name: 'InMail', desc: 'Priame správy do schránky' },
-                { name: 'Text Ads', desc: 'Textové reklamy v sidebar' },
-                { name: 'Lead Gen Forms', desc: 'Formuláre priamo v reklame' }
+                { name: 'Sponsored Content', desc: 'Natívne príspevky priamo vo feede' },
+                { name: 'InMail', desc: 'Priame správy do LinkedIn schránky' },
+                { name: 'Lead Gen Forms', desc: 'Predvyplnené formuláre pre zber kontaktov' },
+                { name: 'Text Ads', desc: 'Textové reklamy v pravom paneli' }
             ],
-            bestFor: ['B2B služby', 'IT firmy', 'Recruiteri', 'SaaS'],
-            minBudget: 10,
-            setupDifficulty: 'Stredná',
+            bestFor: ['B2B služby', 'IT firmy', 'SaaS', 'Recruiting'],
             recommended: ['b2b']
         },
         tiktok_ads: {
             id: 'tiktok_ads',
             name: 'TikTok Ads',
             color: '#000000',
-            description: 'Video reklamy pre Gen Z a Millennials',
-            longDescription: 'TikTok je najrýchlejšie rastúca sociálna sieť. Ak je vaša cieľovka do 35 rokov, TikTok ponúka najvyššiu organickú dosažiteľnosť a engagement.',
+            shortDesc: 'Video reklamy pre mladšiu cieľovku',
+            description: 'Najrýchlejšie rastúca sociálna sieť. Ak je vaša cieľovka do 35 rokov, TikTok ponúka najvyšší engagement.',
             features: [
-                { name: 'In-Feed', desc: 'Video v hlavnom feede' },
-                { name: 'TopView', desc: 'Premium umiestnenie' },
-                { name: 'Spark Ads', desc: 'Boost organického obsahu' },
-                { name: 'Effects', desc: 'Brandované efekty a filtre' }
+                { name: 'In-Feed', desc: 'Video reklamy v hlavnom feede For You' },
+                { name: 'TopView', desc: 'Premium umiestnenie pri otvorení apky' },
+                { name: 'Spark Ads', desc: 'Propagácia organického obsahu' },
+                { name: 'Branded Effects', desc: 'Vlastné filtre a efekty pre značku' }
             ],
             bestFor: ['Móda', 'Kozmetika', 'F&B', 'Entertainment'],
-            minBudget: 5,
-            setupDifficulty: 'Nízka',
             recommended: ['ecommerce', 'startup']
         }
     };
     
     // ==========================================
-    // ODPORÚČANIA PODĽA TYPU KLIENTA
+    // ODPORÚČANIA
     // ==========================================
     
     OnboardingModule.PLATFORM_RECOMMENDATIONS = {
-        local_business: {
-            platforms: ['google_ads', 'meta_ads'],
-            message: 'Pre lokálne služby odporúčame Google Ads + Meta Ads'
-        },
-        ecommerce: {
-            platforms: ['google_ads', 'meta_ads'],
-            message: 'Pre e-shop odporúčame Google Ads + Meta Ads'
-        },
-        b2b: {
-            platforms: ['google_ads', 'linkedin_ads'],
-            message: 'Pre B2B odporúčame Google Ads + LinkedIn Ads'
-        },
-        startup: {
-            platforms: ['meta_ads', 'tiktok_ads'],
-            message: 'Pre startup odporúčame Meta Ads + TikTok Ads'
-        }
+        local_business: { platforms: ['google_ads', 'meta_ads'], message: 'Pre lokálne služby odporúčame Google Ads + Meta Ads' },
+        ecommerce: { platforms: ['google_ads', 'meta_ads'], message: 'Pre e-shop odporúčame Google Ads + Meta Ads' },
+        b2b: { platforms: ['google_ads', 'linkedin_ads'], message: 'Pre B2B odporúčame Google Ads + LinkedIn Ads' },
+        startup: { platforms: ['meta_ads', 'tiktok_ads'], message: 'Pre startup odporúčame Meta Ads + TikTok Ads' }
     };
     
     // ==========================================
@@ -234,13 +196,7 @@
             }
         }
         
-        // Mapovanie na pôvodné sekcie
-        const originalStepMapping = {
-            1: 1, 2: 2, 3: 3,
-            6: 4, 7: 5, 8: 6,
-            10: 8, 11: 9
-        };
-        
+        const originalStepMapping = { 1: 1, 2: 2, 3: 3, 6: 4, 7: 5, 8: 6, 10: 8, 11: 9 };
         const originalStep = originalStepMapping[this.currentStep];
         if (originalStep) {
             const currentBackup = this.currentStep;
@@ -262,13 +218,10 @@
             <div class="package-section">
                 <div class="mb-6">
                     <p class="text-gray-600">
-                        Vyberte balík služieb, ktorý najlepšie vyhovuje vašim potrebám. 
-                        Podľa vybraného balíka budete môcť zvoliť počet reklamných platforiem.
+                        Vyberte balík služieb, ktorý najlepšie vyhovuje vašim potrebám.
                     </p>
                 </div>
-                
                 <div id="onboarding-package-calculator"></div>
-                
                 <div id="package-fallback">
                     ${this.renderPackageCardsFallback()}
                 </div>
@@ -278,63 +231,40 @@
     
     OnboardingModule.renderPackageCardsFallback = function() {
         const packages = [
-            { 
-                id: 'starter', name: 'Starter', price: 149, platforms: 1, 
-                icon: '🚀', color: '#3B82F6',
-                features: ['1 platforma', '1 kampaň', '2 vizuály', 'Mesačný report']
-            },
-            { 
-                id: 'pro', name: 'Pro', price: 249, platforms: 2, 
-                icon: '⭐', color: '#F97316', popular: true,
-                features: ['2 platformy', '3 kampane', '4 vizuály', 'A/B testovanie']
-            },
-            { 
-                id: 'enterprise', name: 'Enterprise', price: 399, platforms: 'Všetky', 
-                icon: '💎', color: '#8B5CF6',
-                features: ['Všetky platformy', '5 kampaní', '8 vizuálov', 'Remarketing']
-            },
-            { 
-                id: 'premium', name: 'Premium', price: 799, platforms: 'Všetky', 
-                icon: '👑', color: '#F59E0B', priceFrom: true,
-                features: ['Všetky platformy', 'Neobmedzené', 'Dedikovaný manager', '24/7 podpora']
-            }
+            { id: 'starter', name: 'Starter', price: 149, platforms: 1, icon: '🚀', color: '#3B82F6', features: ['1 platforma', '1 kampaň', '2 vizuály', 'Mesačný report'] },
+            { id: 'pro', name: 'Pro', price: 249, platforms: 2, icon: '⭐', color: '#F97316', popular: true, features: ['2 platformy', '3 kampane', '4 vizuály', 'A/B testovanie'] },
+            { id: 'enterprise', name: 'Enterprise', price: 399, platforms: 'Všetky', icon: '💎', color: '#8B5CF6', features: ['Všetky platformy', '5 kampaní', '8 vizuálov', 'Remarketing'] },
+            { id: 'premium', name: 'Premium', price: 799, platforms: 'Všetky', icon: '👑', color: '#F59E0B', priceFrom: true, features: ['Všetky platformy', 'Neobmedzené', 'Dedikovaný manager', '24/7 podpora'] }
         ];
         
         const selected = this.extensionState.selectedPackage || 'pro';
         
         return `
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 ${packages.map(pkg => `
-                    <div class="relative p-5 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg
+                    <div class="relative p-4 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg
                         ${selected === pkg.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}
                         ${pkg.popular ? 'bg-gray-900 text-white border-gray-900' : ''}"
                         onclick="OnboardingModule.selectPackageFallback('${pkg.id}')">
-                        ${pkg.popular ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-bold rounded-full whitespace-nowrap">Najobľúbenejšie</div>' : ''}
-                        <div class="text-center mb-4">
-                            <span class="text-3xl block mb-2">${pkg.icon}</span>
-                            <h3 class="text-lg font-bold" style="color: ${pkg.popular ? '#F97316' : pkg.color}">${pkg.name}</h3>
-                            <p class="text-2xl font-bold mt-2 ${pkg.popular ? 'text-white' : 'text-gray-800'}">
-                                ${pkg.priceFrom ? 'od ' : ''}${pkg.price}€<span class="text-sm font-normal ${pkg.popular ? 'text-gray-400' : 'text-gray-500'}">/mes</span>
-                            </p>
-                            <p class="text-sm ${pkg.popular ? 'text-gray-400' : 'text-gray-500'} mt-1">
-                                ${typeof pkg.platforms === 'number' ? pkg.platforms + ' platforma' : pkg.platforms}
+                        ${pkg.popular ? '<div class="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-bold rounded-full whitespace-nowrap">Najobľúbenejšie</div>' : ''}
+                        <div class="text-center mb-3">
+                            <span class="text-2xl">${pkg.icon}</span>
+                            <h3 class="text-base font-bold mt-1" style="color: ${pkg.popular ? '#F97316' : pkg.color}">${pkg.name}</h3>
+                            <p class="text-xl font-bold mt-1 ${pkg.popular ? 'text-white' : 'text-gray-800'}">
+                                ${pkg.priceFrom ? 'od ' : ''}${pkg.price}€<span class="text-xs font-normal ${pkg.popular ? 'text-gray-400' : 'text-gray-500'}">/mes</span>
                             </p>
                         </div>
-                        <ul class="space-y-2 mb-4">
+                        <ul class="space-y-1 mb-3 text-xs">
                             ${pkg.features.map(f => `
-                                <li class="flex items-center gap-2 text-sm ${pkg.popular ? 'text-gray-300' : 'text-gray-600'}">
+                                <li class="flex items-center gap-1 ${pkg.popular ? 'text-gray-300' : 'text-gray-600'}">
                                     <span class="${pkg.popular ? 'text-orange-400' : 'text-green-500'}">✓</span> ${f}
                                 </li>
                             `).join('')}
                         </ul>
-                        <div class="w-full py-2 text-center rounded-xl text-sm font-semibold transition-all
-                            ${selected === pkg.id 
-                                ? 'bg-orange-500 text-white' 
-                                : (pkg.popular ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-100 hover:bg-gray-200')}">
+                        <div class="w-full py-1.5 text-center rounded-lg text-sm font-semibold
+                            ${selected === pkg.id ? 'bg-orange-500 text-white' : (pkg.popular ? 'bg-white/10 text-white' : 'bg-gray-100')}">
                             ${selected === pkg.id ? '✓ Vybraný' : 'Vybrať'}
                         </div>
-                        <input type="radio" name="selected_package" value="${pkg.id}" 
-                            ${selected === pkg.id ? 'checked' : ''} class="sr-only">
                     </div>
                 `).join('')}
             </div>
@@ -348,7 +278,7 @@
     };
     
     // ==========================================
-    // SEKCIA: PLATFORMY S LOGAMI A VYSVETLIVKAMI
+    // SEKCIA: PLATFORMY S MODALOM
     // ==========================================
     
     OnboardingModule.renderPlatformsSection = function() {
@@ -357,15 +287,14 @@
         const platformLimitText = platformLimit === Infinity ? 'neobmedzený počet' : platformLimit;
         const clientType = this.detectClientType();
         const recommendation = this.PLATFORM_RECOMMENDATIONS[clientType] || this.PLATFORM_RECOMMENDATIONS.local_business;
-        
         const selected = this.extensionState.selectedPlatforms || [];
         
         return `
             <div class="platforms-section">
                 <!-- Info o limite -->
-                <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                    <p class="text-blue-800 flex items-center gap-2">
-                        <span class="text-xl">💡</span>
+                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                    <p class="text-blue-800 text-sm flex items-center gap-2">
+                        <span>💡</span>
                         <span>Váš balík <strong>${selectedPkg.charAt(0).toUpperCase() + selectedPkg.slice(1)}</strong> 
                         umožňuje <strong>${platformLimitText}</strong> 
                         ${platformLimit === 1 ? 'platformu' : (platformLimit === Infinity ? 'platforiem' : 'platformy')}.</span>
@@ -373,132 +302,185 @@
                 </div>
                 
                 <!-- Odporúčanie -->
-                <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-                    <div class="flex items-center justify-between flex-wrap gap-3">
-                        <p class="text-green-800 flex items-center gap-2">
-                            <span class="text-xl">🎯</span>
+                <div class="mb-5 p-3 bg-green-50 border border-green-200 rounded-xl">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <p class="text-green-800 text-sm flex items-center gap-2">
+                            <span>🎯</span>
                             <span>${recommendation.message}</span>
                         </p>
-                        <button type="button" 
-                            onclick="OnboardingModule.applyRecommendation()"
-                            class="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
-                            Použiť odporúčanie
+                        <button type="button" onclick="OnboardingModule.applyRecommendation()"
+                            class="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
+                            Použiť
                         </button>
                     </div>
                 </div>
                 
-                <!-- Grid platforiem -->
-                <div class="space-y-4">
-                    ${Object.values(this.PLATFORMS).map(platform => this.renderPlatformCard(platform, selected, platformLimit)).join('')}
+                <!-- Grid platforiem - kompaktné karty -->
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    ${Object.values(this.PLATFORMS).map(platform => this.renderPlatformCardCompact(platform, selected, platformLimit)).join('')}
                 </div>
                 
-                <!-- Súhrn -->
-                <div class="mt-6 p-4 bg-gray-100 rounded-xl">
-                    <div class="flex items-center justify-between">
-                        <span class="text-gray-600">Vybrané platformy:</span>
-                        <span class="font-bold text-lg ${selected.length > platformLimit && platformLimit !== Infinity ? 'text-red-600' : 'text-gray-800'}">
-                            ${selected.length} / ${platformLimit === Infinity ? '∞' : platformLimit}
-                        </span>
-                    </div>
-                    ${selected.length > 0 ? `
-                        <div class="mt-3 flex flex-wrap gap-2">
+                <!-- Vybrané platformy -->
+                ${selected.length > 0 ? `
+                    <div class="p-4 bg-gray-50 rounded-xl border">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm font-medium text-gray-600">Vybrané platformy</span>
+                            <span class="text-sm font-bold ${selected.length > platformLimit && platformLimit !== Infinity ? 'text-red-600' : 'text-gray-800'}">
+                                ${selected.length}/${platformLimit === Infinity ? '∞' : platformLimit}
+                            </span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
                             ${selected.map(id => {
                                 const p = this.PLATFORMS[id];
                                 return p ? `
-                                    <span class="inline-flex items-center gap-2 px-3 py-2 bg-white rounded-lg text-sm font-medium shadow-sm border">
-                                        <span class="w-5 h-5">${this.PLATFORM_LOGOS[id]}</span>
-                                        ${p.name}
-                                    </span>
+                                    <div class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-orange-200 shadow-sm">
+                                        <div class="w-6 h-6">${this.PLATFORM_LOGOS[id]}</div>
+                                        <span class="text-sm font-medium text-gray-800">${p.name}</span>
+                                        <button type="button" onclick="event.stopPropagation(); OnboardingModule.togglePlatform('${id}')" 
+                                            class="ml-1 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                                            ✕
+                                        </button>
+                                    </div>
                                 ` : '';
                             }).join('')}
                         </div>
-                    ` : ''}
-                </div>
+                    </div>
+                ` : `
+                    <div class="p-4 bg-gray-50 rounded-xl border text-center">
+                        <p class="text-sm text-gray-500">Zatiaľ nemáte vybrané žiadne platformy</p>
+                    </div>
+                `}
             </div>
         `;
     };
     
-    OnboardingModule.renderPlatformCard = function(platform, selected, limit) {
+    OnboardingModule.renderPlatformCardCompact = function(platform, selected, limit) {
         const isSelected = selected.includes(platform.id);
         const isDisabled = !isSelected && selected.length >= limit && limit !== Infinity;
         
         return `
-            <div class="platform-card relative border-2 rounded-2xl transition-all overflow-hidden
-                ${isSelected ? 'border-orange-500 bg-orange-50 shadow-lg' : 'border-gray-200 hover:border-gray-300 hover:shadow'}
+            <div class="platform-card-compact relative border-2 rounded-xl transition-all overflow-hidden
+                ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}
                 ${isDisabled ? 'opacity-50' : 'cursor-pointer'}"
-                onclick="${isDisabled ? '' : `OnboardingModule.togglePlatform('${platform.id}')`}"
-                style="--platform-color: ${platform.color}">
+                onclick="${isDisabled ? '' : `OnboardingModule.togglePlatform('${platform.id}')`}">
                 
-                <div class="p-5">
-                    <div class="flex items-start gap-4">
+                <div class="p-4">
+                    <div class="flex items-center gap-3">
                         <!-- Checkbox -->
-                        <div class="flex-shrink-0 mt-1">
-                            <div class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all
+                        <div class="flex-shrink-0">
+                            <div class="w-5 h-5 rounded border-2 flex items-center justify-center transition-all
                                 ${isSelected ? 'bg-orange-500 border-orange-500' : 'border-gray-300 bg-white'}">
-                                ${isSelected ? '<span class="text-white text-sm font-bold">✓</span>' : ''}
+                                ${isSelected ? '<span class="text-white text-xs font-bold">✓</span>' : ''}
                             </div>
                         </div>
                         
-                        <!-- Logo & Header -->
-                        <div class="flex-1">
-                            <div class="flex items-center gap-4 mb-3">
-                                <div class="w-12 h-12 flex items-center justify-center">
-                                    ${this.PLATFORM_LOGOS[platform.id]}
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-lg text-gray-800">${platform.name}</h4>
-                                    <p class="text-sm text-gray-500">${platform.description}</p>
-                                </div>
-                            </div>
-                            
-                            <!-- Dlhý popis -->
-                            <p class="text-sm text-gray-600 mb-4 leading-relaxed">
-                                ${platform.longDescription}
-                            </p>
-                            
-                            <!-- Features grid -->
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                ${platform.features.map(f => `
-                                    <div class="p-3 bg-white rounded-lg border ${isSelected ? 'border-orange-200' : 'border-gray-100'}">
-                                        <p class="font-semibold text-sm text-gray-800">${f.name}</p>
-                                        <p class="text-xs text-gray-500 mt-1">${f.desc}</p>
-                                    </div>
-                                `).join('')}
-                            </div>
-                            
-                            <!-- Best for & Info -->
-                            <div class="flex flex-wrap items-center gap-4 text-sm">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-gray-500">Ideálne pre:</span>
-                                    <div class="flex flex-wrap gap-1">
-                                        ${platform.bestFor.map(b => `
-                                            <span class="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">${b}</span>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-2 text-gray-500">
-                                    <span>Min. rozpočet:</span>
-                                    <span class="font-semibold text-gray-700">${platform.minBudget}€/deň</span>
-                                </div>
-                                <div class="flex items-center gap-2 text-gray-500">
-                                    <span>Náročnosť:</span>
-                                    <span class="font-semibold text-gray-700">${platform.setupDifficulty}</span>
-                                </div>
-                            </div>
+                        <!-- Logo -->
+                        <div class="w-10 h-10 flex-shrink-0">
+                            ${this.PLATFORM_LOGOS[platform.id]}
                         </div>
+                        
+                        <!-- Text -->
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-gray-800 text-sm">${platform.name}</h4>
+                            <p class="text-xs text-gray-500 truncate">${platform.shortDesc}</p>
+                        </div>
+                        
+                        <!-- Info button -->
+                        <button type="button" 
+                            onclick="event.stopPropagation(); OnboardingModule.showPlatformModal('${platform.id}')"
+                            class="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 16v-4M12 8h.01"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 
-                <!-- Selected indicator -->
-                ${isSelected ? `
-                    <div class="h-1 bg-gradient-to-r from-orange-500 to-pink-500"></div>
-                ` : ''}
-                
-                <!-- Hidden input -->
-                <input type="checkbox" name="platform_${platform.id}" value="${platform.id}" 
-                    ${isSelected ? 'checked' : ''} class="sr-only">
+                ${isSelected ? '<div class="h-1 bg-gradient-to-r from-orange-500 to-pink-500"></div>' : ''}
             </div>
         `;
+    };
+    
+    // ==========================================
+    // MODAL PRE DETAIL PLATFORMY
+    // ==========================================
+    
+    OnboardingModule.showPlatformModal = function(platformId) {
+        const platform = this.PLATFORMS[platformId];
+        if (!platform) return;
+        
+        const isSelected = (this.extensionState.selectedPlatforms || []).includes(platformId);
+        const limit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage] || 1;
+        const canSelect = isSelected || (this.extensionState.selectedPlatforms || []).length < limit || limit === Infinity;
+        
+        const modalHtml = `
+            <div class="platform-modal-overlay" id="platformModal" onclick="OnboardingModule.closePlatformModal(event)">
+                <div class="platform-modal" onclick="event.stopPropagation()">
+                    <!-- Header -->
+                    <div class="platform-modal__header" style="background: ${platform.color}">
+                        <button class="platform-modal__close" onclick="OnboardingModule.closePlatformModal()">✕</button>
+                        <div class="platform-modal__logo">
+                            ${this.PLATFORM_LOGOS[platformId]}
+                        </div>
+                        <h2 class="platform-modal__title">${platform.name}</h2>
+                        <p class="platform-modal__subtitle">${platform.shortDesc}</p>
+                    </div>
+                    
+                    <!-- Body -->
+                    <div class="platform-modal__body">
+                        <p class="platform-modal__description">${platform.description}</p>
+                        
+                        <h3 class="platform-modal__section-title">Typy reklám</h3>
+                        <div class="platform-modal__features">
+                            ${platform.features.map(f => `
+                                <div class="platform-modal__feature">
+                                    <strong>${f.name}</strong>
+                                    <span>${f.desc}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <h3 class="platform-modal__section-title">Ideálne pre</h3>
+                        <div class="platform-modal__tags">
+                            ${platform.bestFor.map(b => `<span class="platform-modal__tag">${b}</span>`).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div class="platform-modal__footer">
+                        ${canSelect ? `
+                            <button class="platform-modal__btn ${isSelected ? 'platform-modal__btn--selected' : 'platform-modal__btn--primary'}"
+                                onclick="OnboardingModule.togglePlatform('${platformId}'); OnboardingModule.closePlatformModal()">
+                                ${isSelected ? '✓ Vybraná platforma' : 'Vybrať túto platformu'}
+                            </button>
+                        ` : `
+                            <p class="platform-modal__limit-msg">Dosiahli ste limit platforiem pre váš balík</p>
+                        `}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.body.style.overflow = 'hidden';
+        
+        requestAnimationFrame(() => {
+            document.getElementById('platformModal')?.classList.add('platform-modal-overlay--visible');
+        });
+    };
+    
+    OnboardingModule.closePlatformModal = function(event) {
+        if (event && event.target !== event.currentTarget) return;
+        
+        const modal = document.getElementById('platformModal');
+        if (modal) {
+            modal.classList.remove('platform-modal-overlay--visible');
+            setTimeout(() => {
+                modal.remove();
+                document.body.style.overflow = '';
+            }, 200);
+        }
     };
     
     OnboardingModule.togglePlatform = function(platformId) {
@@ -511,7 +493,7 @@
         } else {
             if (platforms.length >= limit && limit !== Infinity) {
                 if (typeof Utils !== 'undefined' && Utils.toast) {
-                    Utils.toast(`Váš balík umožňuje max. ${limit} ${limit === 1 ? 'platformu' : 'platformy'}. Pre viac platforiem zvoľte vyšší balík.`, 'warning');
+                    Utils.toast(`Váš balík umožňuje max. ${limit} ${limit === 1 ? 'platformu' : 'platformy'}.`, 'warning');
                 }
                 return;
             }
@@ -544,17 +526,9 @@
     
     OnboardingModule.detectClientType = function() {
         const industry = this.formData.company_industry || '';
-        const target = this.formData.target_audience || {};
-        
-        if (industry.includes('E-commerce') || industry.includes('Maloobchod') || industry.includes('Online obchod')) {
-            return 'ecommerce';
-        }
-        if (industry.includes('B2B') || industry.includes('IT') || industry.includes('Služby pre firmy') || target.b2b) {
-            return 'b2b';
-        }
-        if (industry.includes('Startup') || industry.includes('Technológie')) {
-            return 'startup';
-        }
+        if (industry.includes('E-commerce') || industry.includes('Maloobchod')) return 'ecommerce';
+        if (industry.includes('B2B') || industry.includes('IT')) return 'b2b';
+        if (industry.includes('Startup')) return 'startup';
         return 'local_business';
     };
     
@@ -567,106 +541,75 @@
         const platforms = this.extensionState.selectedPlatforms || [];
         
         return `
-            <div class="technical-section space-y-6">
-                <div class="mb-4">
-                    <p class="text-gray-600">
-                        Tieto informácie nám pomôžu pripraviť sa na spoluprácu. 
-                        <strong>Nemusíte teraz nič nastavovať</strong> - všetko vyriešime spoločne.
-                    </p>
-                </div>
+            <div class="technical-section space-y-5">
+                <p class="text-gray-600 text-sm">
+                    Tieto informácie nám pomôžu pripraviť sa na spoluprácu. 
+                    <strong>Nemusíte teraz nič nastavovať</strong> - všetko vyriešime spoločne.
+                </p>
                 
-                <!-- Otázka 1: Existujúce účty -->
-                <div class="p-5 bg-white border rounded-2xl">
-                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                <!-- Otázka 1 -->
+                <div class="p-4 bg-white border rounded-xl">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2 text-sm">
+                        <span class="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
                         Máte už vytvorené reklamné účty?
                     </h3>
-                    <p class="text-sm text-gray-500 mb-4">
-                        ${this.getTechnicalAccountsHint(platforms)}
-                    </p>
-                    <div class="flex flex-wrap gap-3">
-                        ${this.renderTechOption('hasExistingAccounts', 'yes', 'Áno, mám účty', tech.hasExistingAccounts)}
-                        ${this.renderTechOption('hasExistingAccounts', 'some', 'Mám niektoré', tech.hasExistingAccounts)}
-                        ${this.renderTechOption('hasExistingAccounts', 'no', 'Nie, nemám', tech.hasExistingAccounts)}
-                        ${this.renderTechOption('hasExistingAccounts', 'unknown', 'Neviem / Nie som si istý', tech.hasExistingAccounts)}
+                    <p class="text-xs text-gray-500 mb-3">${this.getTechnicalAccountsHint(platforms)}</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${this.renderTechOption('hasExistingAccounts', 'yes', 'Áno, mám', tech.hasExistingAccounts)}
+                        ${this.renderTechOption('hasExistingAccounts', 'some', 'Niektoré', tech.hasExistingAccounts)}
+                        ${this.renderTechOption('hasExistingAccounts', 'no', 'Nie', tech.hasExistingAccounts)}
+                        ${this.renderTechOption('hasExistingAccounts', 'unknown', 'Neviem', tech.hasExistingAccounts)}
                     </div>
                 </div>
                 
-                <!-- Otázka 2: Prístup k webu -->
-                <div class="p-5 bg-white border rounded-2xl">
-                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
-                        Viete pridať sledovacie kódy na váš web?
+                <!-- Otázka 2 -->
+                <div class="p-4 bg-white border rounded-xl">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2 text-sm">
+                        <span class="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                        Viete pridať sledovacie kódy na web?
                     </h3>
-                    <p class="text-sm text-gray-500 mb-4">
-                        Pre meranie konverzií potrebujeme pridať kódy (pixely) na vašu stránku.
-                    </p>
-                    <div class="flex flex-wrap gap-3">
-                        ${this.renderTechOption('canAddTrackingCodes', 'yes', 'Áno, viem to spraviť', tech.canAddTrackingCodes)}
-                        ${this.renderTechOption('canAddTrackingCodes', 'gtm', 'Mám Google Tag Manager', tech.canAddTrackingCodes)}
-                        ${this.renderTechOption('canAddTrackingCodes', 'help', 'Budem potrebovať pomoc', tech.canAddTrackingCodes)}
-                        ${this.renderTechOption('canAddTrackingCodes', 'no', 'Nie, neviem', tech.canAddTrackingCodes)}
+                    <div class="flex flex-wrap gap-2">
+                        ${this.renderTechOption('canAddTrackingCodes', 'yes', 'Áno', tech.canAddTrackingCodes)}
+                        ${this.renderTechOption('canAddTrackingCodes', 'gtm', 'Mám GTM', tech.canAddTrackingCodes)}
+                        ${this.renderTechOption('canAddTrackingCodes', 'help', 'Potrebujem pomoc', tech.canAddTrackingCodes)}
+                        ${this.renderTechOption('canAddTrackingCodes', 'no', 'Nie', tech.canAddTrackingCodes)}
                     </div>
                 </div>
                 
-                <!-- Otázka 3: Kto spravuje web -->
-                <div class="p-5 bg-white border rounded-2xl">
-                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                <!-- Otázka 3 -->
+                <div class="p-4 bg-white border rounded-xl">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2 text-sm">
+                        <span class="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">3</span>
                         Kto spravuje váš web?
                     </h3>
-                    <p class="text-sm text-gray-500 mb-4">
-                        Ak nemáte prístup, budeme potrebovať kontakt na správcu.
-                    </p>
-                    <div class="flex flex-wrap gap-3">
-                        ${this.renderTechOption('websiteManager', 'self', 'Ja sám/sama', tech.websiteManager)}
-                        ${this.renderTechOption('websiteManager', 'internal', 'Náš tím / IT oddelenie', tech.websiteManager)}
-                        ${this.renderTechOption('websiteManager', 'agency', 'Externá agentúra / Freelancer', tech.websiteManager)}
-                        ${this.renderTechOption('websiteManager', 'platform', 'Platforma (Shopify, Wix...)', tech.websiteManager)}
+                    <div class="flex flex-wrap gap-2">
+                        ${this.renderTechOption('websiteManager', 'self', 'Ja', tech.websiteManager)}
+                        ${this.renderTechOption('websiteManager', 'internal', 'Náš tím', tech.websiteManager)}
+                        ${this.renderTechOption('websiteManager', 'agency', 'Agentúra', tech.websiteManager)}
+                        ${this.renderTechOption('websiteManager', 'platform', 'Platforma', tech.websiteManager)}
                     </div>
                 </div>
                 
-                <!-- Info box -->
-                <div class="p-4 bg-green-50 border border-green-200 rounded-xl">
-                    <div class="flex items-start gap-3">
-                        <span class="text-2xl">💡</span>
-                        <div>
-                            <p class="font-medium text-green-800">Nemusíte sa báť!</p>
-                            <p class="text-sm text-green-700 mt-1">
-                                Po vyplnení dotazníka vám pošleme email s podrobnými návodmi 
-                                a naši špecialisti vám pomôžu so všetkým technickým nastavením.
-                            </p>
-                        </div>
-                    </div>
+                <div class="p-3 bg-green-50 border border-green-200 rounded-xl">
+                    <p class="text-sm text-green-800">
+                        <strong>💡 Tip:</strong> Po vyplnení dotazníka vám pošleme email s návodmi a pomôžeme so všetkým.
+                    </p>
                 </div>
             </div>
         `;
     };
     
     OnboardingModule.getTechnicalAccountsHint = function(platforms) {
-        const hints = {
-            google_ads: 'Google Ads',
-            meta_ads: 'Meta Business Manager',
-            linkedin_ads: 'LinkedIn Campaign Manager',
-            tiktok_ads: 'TikTok Ads Manager'
-        };
-        
-        if (platforms.length === 0) {
-            return 'Napr. Google Ads, Meta Business Manager a pod.';
-        }
-        
-        const names = platforms.map(p => hints[p] || p).filter(Boolean);
-        return `Pre vaše platformy: <strong>${names.join(', ')}</strong>`;
+        const hints = { google_ads: 'Google Ads', meta_ads: 'Meta Business Manager', linkedin_ads: 'LinkedIn Campaign Manager', tiktok_ads: 'TikTok Ads Manager' };
+        if (platforms.length === 0) return 'Napr. Google Ads, Meta Business Manager...';
+        return `Pre: <strong>${platforms.map(p => hints[p] || p).join(', ')}</strong>`;
     };
     
     OnboardingModule.renderTechOption = function(field, value, label, currentValue) {
         const isSelected = currentValue === value;
         return `
-            <button type="button" 
-                class="px-4 py-2 rounded-xl text-sm font-medium transition-all
-                    ${isSelected 
-                        ? 'bg-orange-500 text-white shadow-md' 
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+            <button type="button" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                ${isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
                 onclick="OnboardingModule.setTechnicalOption('${field}', '${value}')">
                 ${isSelected ? '✓ ' : ''}${label}
             </button>
@@ -680,16 +623,12 @@
     };
     
     // ==========================================
-    // INICIALIZÁCIA KOMPONENTOV
+    // OVERRIDES & INIT
     // ==========================================
     
     OnboardingModule.initExtensionComponents = function() {
-        const hasPackageCalculator = typeof window.PackageCalculator !== 'undefined';
-        
-        if (hasPackageCalculator && document.getElementById('onboarding-package-calculator')) {
-            const fallback = document.getElementById('package-fallback');
-            if (fallback) fallback.style.display = 'none';
-            
+        if (typeof window.PackageCalculator !== 'undefined' && document.getElementById('onboarding-package-calculator')) {
+            document.getElementById('package-fallback')?.style.setProperty('display', 'none');
             PackageCalculator.init('onboarding-package-calculator', {
                 defaultPackage: this.extensionState.selectedPackage || 'pro',
                 showComparison: true,
@@ -697,17 +636,11 @@
                 onPackageChange: (pkg) => {
                     this.extensionState.selectedPackage = pkg.id;
                     this.formData.selected_package = pkg.id;
-                    this.formData.package_price = pkg.price;
                 }
             });
         }
-        
         this.extensionState.componentsInitialized = true;
     };
-    
-    // ==========================================
-    // OVERRIDES
-    // ==========================================
     
     const originalRerender = OnboardingModule.rerender;
     OnboardingModule.rerender = function() {
@@ -717,7 +650,6 @@
     
     OnboardingModule.collectFormData = function() {
         if (originalCollectFormData) originalCollectFormData.call(this);
-        
         this.formData.selected_package = this.extensionState.selectedPackage || 'pro';
         this.formData.selected_platforms = this.extensionState.selectedPlatforms || [];
         this.formData.has_existing_accounts = this.extensionState.technicalInfo.hasExistingAccounts;
@@ -727,44 +659,23 @@
     
     OnboardingModule.validateCurrentStep = function() {
         const section = this.SECTIONS[this.currentStep - 1];
-        
         if (section?.isNew) {
-            switch (section.key) {
-                case 'package':
-                    if (!this.extensionState.selectedPackage) {
-                        if (typeof Utils !== 'undefined' && Utils.toast) {
-                            Utils.toast('Vyberte balík služieb', 'warning');
-                        }
-                        return false;
-                    }
-                    return true;
-                    
-                case 'platforms':
-                    if (!this.extensionState.selectedPlatforms?.length) {
-                        if (typeof Utils !== 'undefined' && Utils.toast) {
-                            Utils.toast('Vyberte aspoň jednu platformu', 'warning');
-                        }
-                        return false;
-                    }
-                    const limit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage];
-                    if (this.extensionState.selectedPlatforms.length > limit && limit !== Infinity) {
-                        if (typeof Utils !== 'undefined' && Utils.toast) {
-                            Utils.toast(`Váš balík umožňuje max. ${limit} platformy`, 'warning');
-                        }
-                        return false;
-                    }
-                    return true;
-                    
-                case 'technical_simple':
-                    return true;
+            if (section.key === 'package' && !this.extensionState.selectedPackage) {
+                Utils?.toast?.('Vyberte balík služieb', 'warning');
+                return false;
+            }
+            if (section.key === 'platforms') {
+                if (!this.extensionState.selectedPlatforms?.length) {
+                    Utils?.toast?.('Vyberte aspoň jednu platformu', 'warning');
+                    return false;
+                }
             }
         }
-        
         return originalValidateCurrentStep ? originalValidateCurrentStep.call(this) : true;
     };
     
     // ==========================================
-    // CSS
+    // CSS PRE MODAL
     // ==========================================
     
     OnboardingModule.injectExtensionStyles = function() {
@@ -773,53 +684,199 @@
         const style = document.createElement('style');
         style.id = 'onboarding-extension-styles';
         style.textContent = `
-            .platforms-section .platform-card {
+            /* Platform Modal Overlay */
+            .platform-modal-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 16px;
+                opacity: 0;
+                visibility: hidden;
                 transition: all 0.2s ease;
             }
+            .platform-modal-overlay--visible {
+                opacity: 1;
+                visibility: visible;
+            }
             
-            .platforms-section .platform-card:hover:not(.opacity-50) {
+            /* Platform Modal */
+            .platform-modal {
+                background: white;
+                border-radius: 20px;
+                width: 100%;
+                max-width: 440px;
+                max-height: 90vh;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                transform: scale(0.95) translateY(20px);
+                transition: all 0.2s ease;
+            }
+            .platform-modal-overlay--visible .platform-modal {
+                transform: scale(1) translateY(0);
+            }
+            
+            /* Modal Header */
+            .platform-modal__header {
+                padding: 24px;
+                color: white;
+                text-align: center;
+                position: relative;
+            }
+            .platform-modal__close {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                width: 32px;
+                height: 32px;
+                border: none;
+                background: rgba(255,255,255,0.2);
+                color: white;
+                border-radius: 50%;
+                font-size: 16px;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+            .platform-modal__close:hover {
+                background: rgba(255,255,255,0.3);
+            }
+            .platform-modal__logo {
+                width: 64px;
+                height: 64px;
+                margin: 0 auto 12px;
+                background: white;
+                border-radius: 16px;
+                padding: 12px;
+            }
+            .platform-modal__logo svg {
+                width: 100%;
+                height: 100%;
+            }
+            .platform-modal__title {
+                font-size: 24px;
+                font-weight: 700;
+                margin: 0 0 4px;
+            }
+            .platform-modal__subtitle {
+                font-size: 14px;
+                opacity: 0.9;
+                margin: 0;
+            }
+            
+            /* Modal Body */
+            .platform-modal__body {
+                padding: 20px 24px;
+                overflow-y: auto;
+                flex: 1;
+            }
+            .platform-modal__description {
+                font-size: 14px;
+                color: #4b5563;
+                line-height: 1.6;
+                margin: 0 0 20px;
+            }
+            .platform-modal__section-title {
+                font-size: 13px;
+                font-weight: 600;
+                color: #6b7280;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 0 0 12px;
+            }
+            .platform-modal__features {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            .platform-modal__feature {
+                padding: 12px;
+                background: #f9fafb;
+                border-radius: 10px;
+            }
+            .platform-modal__feature strong {
+                display: block;
+                font-size: 13px;
+                color: #1f2937;
+                margin-bottom: 2px;
+            }
+            .platform-modal__feature span {
+                font-size: 12px;
+                color: #6b7280;
+            }
+            .platform-modal__tags {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .platform-modal__tag {
+                padding: 6px 12px;
+                background: #f3f4f6;
+                border-radius: 20px;
+                font-size: 13px;
+                color: #374151;
+            }
+            
+            /* Modal Footer */
+            .platform-modal__footer {
+                padding: 16px 24px;
+                border-top: 1px solid #e5e7eb;
+                background: #f9fafb;
+            }
+            .platform-modal__btn {
+                width: 100%;
+                padding: 14px;
+                border: none;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .platform-modal__btn--primary {
+                background: linear-gradient(135deg, #f97316, #ec4899);
+                color: white;
+            }
+            .platform-modal__btn--primary:hover {
                 transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+            }
+            .platform-modal__btn--selected {
+                background: #10b981;
+                color: white;
+            }
+            .platform-modal__limit-msg {
+                text-align: center;
+                color: #9ca3af;
+                font-size: 14px;
+                margin: 0;
             }
             
-            .platforms-section .platform-card svg {
-                flex-shrink: 0;
-            }
-            
-            .package-section .package-calculator {
-                margin: 0 -24px;
-            }
-            
-            @media (max-width: 768px) {
-                .package-section .package-calculator {
-                    margin: 0 -16px;
+            /* Responsive */
+            @media (max-width: 480px) {
+                .platform-modal {
+                    max-height: 85vh;
+                    border-radius: 16px;
                 }
-                
-                .platforms-section .platform-card .grid {
-                    grid-template-columns: repeat(2, 1fr);
+                .platform-modal__features {
+                    grid-template-columns: 1fr;
                 }
-            }
-            
-            .technical-section button:focus {
-                outline: none;
-                box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3);
             }
         `;
         document.head.appendChild(style);
     };
-    
-    // ==========================================
-    // INIT
-    // ==========================================
     
     OnboardingModule.injectExtensionStyles();
     
     const originalInit = OnboardingModule.init;
     OnboardingModule.init = function() {
         if (originalInit) originalInit.call(this);
-        console.log('📋 Onboarding module v2.3 (extended) initialized');
+        console.log('📋 Onboarding module v2.4 initialized');
     };
     
-    console.log('✅ Onboarding Extension v2.3 loaded!');
-    console.log('📊 Sections:', OnboardingModule.SECTIONS.length);
-    
+    console.log('✅ Onboarding Extension v2.4 loaded!');
 })();
