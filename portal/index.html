@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Klientský portál | Adlify</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="icon" href="/admin/favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -28,11 +28,7 @@
             z-index: 100;
         }
 
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
+        .logo { display: flex; align-items: center; gap: 0.75rem; }
 
         .logo-icon {
             width: 40px;
@@ -58,7 +54,20 @@
         }
 
         .header-right { display: flex; align-items: center; gap: 1rem; }
-        .client-name { font-weight: 600; }
+        .client-name { font-weight: 600; color: #64748b; }
+        
+        .btn-logout {
+            padding: 0.5rem 1rem;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        
+        .btn-logout:hover { background: #e2e8f0; }
 
         .portal-nav {
             background: white;
@@ -198,66 +207,93 @@
         .status-draft { background: #f1f5f9; color: #64748b; }
         .status-overdue { background: #fecaca; color: #dc2626; }
 
-        .invoice-amount { font-weight: 700; font-size: 1.1rem; }
+        .invoice-amount {
+            font-weight: 700;
+            color: #1e293b;
+            margin-right: 1rem;
+        }
 
-        .empty-state { text-align: center; padding: 3rem; color: #64748b; }
-        .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #64748b;
+        }
 
-        .loading-screen, .error-screen {
+        .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .empty-state h3 { font-size: 1rem; font-weight: 500; }
+
+        .error-screen {
+            min-height: 80vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
             text-align: center;
             padding: 2rem;
         }
 
-        .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid #e2e8f0;
-            border-top-color: #f97316;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 1rem;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
         .error-icon { font-size: 4rem; margin-bottom: 1rem; }
-        .error-screen h1 { margin-bottom: 0.5rem; }
+        .error-screen h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
         .error-screen p { color: #64748b; margin-bottom: 1.5rem; }
 
-        .btn {
+        .btn { 
+            padding: 0.75rem 1.5rem; 
+            border-radius: 10px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
             border: none;
-            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary { 
+            background: linear-gradient(135deg, #f97316, #ec4899); 
+            color: white; 
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 4px 15px rgba(249,115,22,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary { background: #f1f5f9; color: #475569; }
+
+        .loading {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
         }
 
-        .btn-primary { background: linear-gradient(135deg, #f97316, #ec4899); color: white; }
-        .btn-secondary { background: white; border: 1px solid #e2e8f0; color: #64748b; }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #f97316;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .contact-card {
             display: flex;
             align-items: center;
             gap: 1rem;
             padding: 1.5rem;
-            background: #f8fafc;
+            background: linear-gradient(135deg, #fef3e7, #fce7f3);
             border-radius: 12px;
         }
 
         .contact-avatar {
-            width: 56px;
-            height: 56px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #f97316, #ec4899);
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -267,68 +303,80 @@
             font-size: 1.25rem;
         }
 
-        .contact-info h4 { margin-bottom: 0.25rem; }
+        .contact-info { flex: 1; }
+        .contact-info h4 { font-size: 1rem; margin-bottom: 0.25rem; }
         .contact-info p { font-size: 0.85rem; color: #64748b; }
-        .contact-actions { margin-left: auto; display: flex; gap: 0.5rem; }
+        .contact-actions { display: flex; gap: 0.5rem; }
 
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .portal-header { padding: 1rem; }
             .portal-main { padding: 1rem; }
-            .welcome-card .card-body { flex-direction: column; text-align: center; }
             .nav-tabs { overflow-x: auto; }
-            .contact-card { flex-direction: column; text-align: center; }
-            .contact-actions { margin-left: 0; margin-top: 1rem; }
         }
     </style>
 </head>
 <body>
     <div id="app">
-        <div class="loading-screen">
-            <div class="loading-spinner"></div>
-            <p>Načítavam váš portál...</p>
+        <div class="loading">
+            <div class="spinner"></div>
+            <p style="color: #64748b;">Načítavam portál...</p>
         </div>
     </div>
 
     <script>
+        // Config
         const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
         const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // State
+        let user = null;
         let client = null;
         let projects = [];
         let campaigns = [];
         let invoices = [];
         let documents = [];
-        let currentTab = 'overview';
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        let currentTab = 'dashboard';
 
         async function init() {
-            if (!token) {
-                showError('Neplatný odkaz', 'Chýba prístupový token. Skontrolujte odkaz od Adlify.');
+            // Check authentication
+            const { data: { session } } = await db.auth.getSession();
+            
+            if (!session) {
+                window.location.href = '/portal/login.html';
                 return;
             }
+            
+            user = session.user;
 
             try {
-                const { data: clientData, error } = await db
-                    .from('clients')
-                    .select('*')
-                    .eq('portal_token', token)
+                // Get client user link
+                const { data: clientUser, error: clientError } = await db
+                    .from('client_users')
+                    .select('*, clients(*)')
+                    .eq('user_id', user.id)
                     .single();
 
-                if (error || !clientData) {
-                    showError('Neplatný odkaz', 'Tento odkaz je neplatný alebo expiroval.');
+                if (clientError || !clientUser) {
+                    showError('Účet nie je prepojený', 'Váš účet nie je prepojený so žiadnou firmou. Kontaktujte podporu.');
                     return;
                 }
 
-                client = clientData;
+                client = clientUser.clients;
+                
+                // Check if onboarding completed
+                if (client.onboarding_status && client.onboarding_status !== 'completed') {
+                    window.location.href = '/portal/onboarding.html';
+                    return;
+                }
+
                 await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments()]);
                 render();
 
             } catch (error) {
                 console.error('Init error:', error);
-                showError('Chyba', 'Nastala chyba pri načítavaní.');
+                showError('Chyba', 'Nastala chyba pri načítavaní. Skúste obnoviť stránku.');
             }
         }
 
@@ -358,13 +406,18 @@
                     <div class="error-icon">😕</div>
                     <h1>${title}</h1>
                     <p>${message}</p>
-                    <a href="https://adlify.eu" class="btn btn-primary">Navštíviť adlify.eu</a>
+                    <button class="btn btn-primary" onclick="logout()">Odhlásiť sa</button>
                 </div>
             `;
         }
 
+        async function logout() {
+            await db.auth.signOut();
+            window.location.href = '/portal/login.html';
+        }
+
         function render() {
-            const firstName = client.contact_person?.split(' ')[0] || 'vážený klient';
+            const firstName = user.user_metadata?.full_name?.split(' ')[0] || client.contact_person?.split(' ')[0] || 'vážený klient';
             
             document.getElementById('app').innerHTML = `
                 <header class="portal-header">
@@ -375,13 +428,13 @@
                     </div>
                     <div class="header-right">
                         <span class="client-name">${client.company_name}</span>
+                        <button class="btn-logout" onclick="logout()">Odhlásiť sa</button>
                     </div>
                 </header>
 
                 <nav class="portal-nav">
                     <div class="nav-tabs">
-                        <button class="nav-tab ${currentTab === 'overview' ? 'active' : ''}" onclick="switchTab('overview')">📊 Prehľad</button>
-                        <button class="nav-tab ${currentTab === 'projects' ? 'active' : ''}" onclick="switchTab('projects')">📁 Projekty</button>
+                        <button class="nav-tab ${currentTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">📊 Prehľad</button>
                         <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">📢 Kampane</button>
                         <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">💰 Faktúry</button>
                         <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">📄 Dokumenty</button>
@@ -389,95 +442,86 @@
                     </div>
                 </nav>
 
-                <main class="portal-main">${renderTab()}</main>
+                <main class="portal-main">
+                    ${renderContent()}
+                </main>
             `;
         }
 
-        function switchTab(tab) { currentTab = tab; render(); }
+        function switchTab(tab) {
+            currentTab = tab;
+            render();
+        }
 
-        function renderTab() {
+        function renderContent() {
             switch (currentTab) {
-                case 'overview': return renderOverview();
-                case 'projects': return renderProjects();
+                case 'dashboard': return renderDashboard();
                 case 'campaigns': return renderCampaigns();
                 case 'invoices': return renderInvoices();
                 case 'documents': return renderDocuments();
                 case 'support': return renderSupport();
-                default: return renderOverview();
+                default: return renderDashboard();
             }
         }
 
-        function renderOverview() {
-            const firstName = client.contact_person?.split(' ')[0] || 'vážený klient';
-            const activeProjects = projects.filter(p => ['active', 'in_progress'].includes(p.status)).length;
+        function renderDashboard() {
+            const firstName = user.user_metadata?.full_name?.split(' ')[0] || 'vážený klient';
+            const unpaidInvoices = invoices.filter(i => i.status !== 'paid').length;
             const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
-            const pendingInvoices = invoices.filter(i => ['pending', 'sent'].includes(i.status)).length;
-
+            
             return `
                 <div class="card welcome-card">
                     <div class="card-body">
                         <div class="welcome-text">
-                            <h1>Dobrý deň, ${firstName}! 👋</h1>
-                            <p>Vitajte vo vašom klientskom portáli. Tu nájdete prehľad všetkých projektov, kampaní a faktúr.</p>
+                            <h1>Ahoj, ${firstName}! 👋</h1>
+                            <p>Vitajte v klientskom portáli Adlify</p>
                         </div>
                         <div class="welcome-icon">🚀</div>
                     </div>
                 </div>
 
                 <div class="stats-grid">
-                    <div class="stat-card"><div class="stat-icon">📁</div><div class="stat-value">${activeProjects}</div><div class="stat-label">Aktívne projekty</div></div>
-                    <div class="stat-card"><div class="stat-icon">📢</div><div class="stat-value">${activeCampaigns}</div><div class="stat-label">Aktívne kampane</div></div>
-                    <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-value">${documents.length}</div><div class="stat-label">Dokumenty</div></div>
-                    <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">${pendingInvoices}</div><div class="stat-label">Neuhradené faktúry</div></div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📢</div>
+                        <div class="stat-value">${activeCampaigns}</div>
+                        <div class="stat-label">Aktívne kampane</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📁</div>
+                        <div class="stat-value">${projects.length}</div>
+                        <div class="stat-label">Projekty</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-value">${unpaidInvoices}</div>
+                        <div class="stat-label">Neuhradené faktúry</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-value">${documents.length}</div>
+                        <div class="stat-label">Dokumenty</div>
+                    </div>
                 </div>
 
-                ${projects.length > 0 ? `
-                    <div class="card">
-                        <div class="card-header"><h2>📁 Posledné projekty</h2></div>
-                        <div class="card-body">
-                            <div class="item-list">
-                                ${projects.slice(0, 3).map(p => `
-                                    <div class="item">
-                                        <div class="item-icon project">📁</div>
-                                        <div class="item-info">
-                                            <div class="item-name">${p.name}</div>
-                                            <div class="item-meta">Vytvorené ${formatDate(p.created_at)}</div>
-                                        </div>
-                                        <span class="item-status status-${p.status || 'draft'}">${getStatusLabel(p.status)}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
+                ${unpaidInvoices > 0 ? `
+                    <div class="card" style="border-color: #fbbf24;">
+                        <div class="card-header" style="background: #fef3c7;">
+                            <h2>⚠️ Neuhradené faktúry (${unpaidInvoices})</h2>
+                            <button class="btn btn-primary" onclick="switchTab('invoices')">Zobraziť</button>
                         </div>
                     </div>
                 ` : ''}
 
-                ${invoices.length > 0 ? `
-                    <div class="card">
-                        <div class="card-header"><h2>💰 Posledné faktúry</h2></div>
-                        <div class="card-body">
-                            <div class="item-list">
-                                ${invoices.slice(0, 3).map(i => `
-                                    <div class="item">
-                                        <div class="item-icon invoice">💰</div>
-                                        <div class="item-info">
-                                            <div class="item-name">${i.invoice_number || 'Faktúra'}</div>
-                                            <div class="item-meta">Splatnosť: ${formatDate(i.due_date)}</div>
-                                        </div>
-                                        <span class="invoice-amount">${formatCurrency(i.total)}</span>
-                                        <span class="item-status status-${i.status || 'pending'}">${getInvoiceStatusLabel(i.status)}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
+                ${renderProjects()}
             `;
         }
 
         function renderProjects() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>📁 Vaše projekty</h2></div>
+                    <div class="card-header">
+                        <h2>📁 Aktuálne projekty</h2>
+                    </div>
                     <div class="card-body">
                         ${projects.length > 0 ? `
                             <div class="item-list">
@@ -516,7 +560,7 @@
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">📢</div><h3>Zatiaľ žiadne kampane</h3></div>'}
+                        ` : '<div class="empty-state"><div class="empty-icon">📢</div><h3>Zatiaľ žiadne kampane</h3><p style="color:#94a3b8;margin-top:0.5rem;">Kampane sa zobrazia po spustení</p></div>'}
                     </div>
                 </div>
             `;
@@ -586,7 +630,7 @@
                             </div>
                             <div class="contact-actions">
                                 <a href="mailto:info@adlify.eu" class="btn btn-secondary">📧 Email</a>
-                                <a href="tel:+421900000000" class="btn btn-primary">📞 Zavolať</a>
+                                <a href="tel:+421944184045" class="btn btn-primary">📞 Zavolať</a>
                             </div>
                         </div>
                         
@@ -594,6 +638,7 @@
                             <h4 style="margin-bottom: 0.5rem;">📍 Kontaktné údaje</h4>
                             <p style="color: #64748b; font-size: 0.9rem;">
                                 Email: info@adlify.eu<br>
+                                Telefón: +421 944 184 045<br>
                                 Web: www.adlify.eu
                             </p>
                         </div>
