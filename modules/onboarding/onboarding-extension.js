@@ -1,10 +1,8 @@
 /**
- * ADLIFY PLATFORM - Onboarding Extension v3.0
+ * ADLIFY PLATFORM - Onboarding Extension v3.1
  * 
- * Načítava balíky a platformy z databázy
- * - Výber balíka (z DB)
- * - Výber platforiem (z DB)
- * - Technické možnosti
+ * Rozšírenie onboardingu o výber balíka a platforiem
+ * - Data sa načítavajú pri renderovaní modulu (nie async v renderCurrentSection)
  */
 
 (function() {
@@ -15,9 +13,11 @@
         return;
     }
     
-    console.log('🔌 Onboarding Extension v3.0 loading...');
+    console.log('🔌 Onboarding Extension v3.1 loading...');
     
     // Uložíme pôvodné metódy
+    const originalRender = OnboardingModule.render;
+    const originalRenderPublic = OnboardingModule.renderPublic;
     const originalRenderCurrentSection = OnboardingModule.renderCurrentSection;
     const originalCollectFormData = OnboardingModule.collectFormData;
     const originalValidateCurrentStep = OnboardingModule.validateCurrentStep;
@@ -27,23 +27,21 @@
     // ==========================================
     
     OnboardingModule.extensionState = {
-        selectedPackage: null,
+        selectedPackage: 'pro',
         selectedPlatforms: [],
         technicalInfo: {
             hasExistingAccounts: null,
             canAddTrackingCodes: null,
             websiteManager: null
         },
-        // Data z DB
         packages: [],
         platforms: [],
         recommendations: {},
-        dataLoaded: false,
-        isLoading: false
+        dataLoaded: false
     };
     
     // ==========================================
-    // SVG LOGÁ (fallback ak nie je v DB)
+    // SVG LOGÁ
     // ==========================================
     
     OnboardingModule.PLATFORM_LOGOS = {
@@ -71,17 +69,15 @@
     };
     
     // ==========================================
-    // NAČÍTANIE DÁT Z DB
+    // NAČÍTANIE DÁT (synchrónne volané pred renderom)
     // ==========================================
     
     OnboardingModule.loadExtensionData = async function() {
-        if (this.extensionState.dataLoaded || this.extensionState.isLoading) return;
+        if (this.extensionState.dataLoaded) return;
         
-        this.extensionState.isLoading = true;
         console.log('📦 Loading onboarding data from DB...');
         
         try {
-            // Skontroluj či máme Database
             if (typeof Database === 'undefined' || !Database.client) {
                 console.warn('⚠️ Database not available, using defaults');
                 this.useDefaultData();
@@ -95,9 +91,7 @@
                 .eq('is_active', true)
                 .order('sort_order');
             
-            if (pkgError) throw pkgError;
-            
-            if (packages && packages.length > 0) {
+            if (!pkgError && packages && packages.length > 0) {
                 this.extensionState.packages = packages.map(pkg => ({
                     id: pkg.slug || pkg.id,
                     name: pkg.name,
@@ -109,17 +103,17 @@
                     description: pkg.description || '',
                     popular: pkg.is_featured,
                     limits: {
-                        platforms: pkg.max_platforms || Infinity,
-                        campaigns: pkg.max_campaigns || Infinity,
-                        visuals: pkg.max_visuals || Infinity
+                        platforms: pkg.max_platforms || 999,
+                        campaigns: pkg.max_campaigns || 999,
+                        visuals: pkg.max_visuals || 999
                     }
                 }));
-                console.log(`✅ Loaded ${packages.length} packages`);
+                console.log(`✅ Loaded ${packages.length} packages from DB`);
             } else {
                 this.useDefaultPackages();
             }
             
-            // Načítaj platformy (ak existuje tabuľka)
+            // Načítaj platformy
             try {
                 const { data: platforms, error: platError } = await Database.client
                     .from('onboarding_platforms')
@@ -139,12 +133,11 @@
                         bestFor: p.best_for || [],
                         recommended: p.recommended_for || []
                     }));
-                    console.log(`✅ Loaded ${platforms.length} platforms`);
+                    console.log(`✅ Loaded ${platforms.length} platforms from DB`);
                 } else {
                     this.useDefaultPlatforms();
                 }
             } catch (e) {
-                console.log('ℹ️ onboarding_platforms table not found, using defaults');
                 this.useDefaultPlatforms();
             }
             
@@ -161,7 +154,6 @@
                             message: r.message
                         };
                     });
-                    console.log(`✅ Loaded ${recs.length} recommendations`);
                 } else {
                     this.useDefaultRecommendations();
                 }
@@ -171,30 +163,20 @@
             
             this.extensionState.dataLoaded = true;
             
-            // Nastav default balík
-            if (!this.extensionState.selectedPackage && this.extensionState.packages.length > 0) {
+            // Set default package
+            if (!this.extensionState.selectedPackage) {
                 const popularPkg = this.extensionState.packages.find(p => p.popular);
-                this.extensionState.selectedPackage = popularPkg?.id || this.extensionState.packages[0].id;
+                this.extensionState.selectedPackage = popularPkg?.id || this.extensionState.packages[0]?.id || 'pro';
             }
             
         } catch (error) {
-            console.error('❌ Error loading data:', error);
+            console.error('❌ Error loading extension data:', error);
             this.useDefaultData();
-        } finally {
-            this.extensionState.isLoading = false;
         }
     };
     
     OnboardingModule.getPackageColor = function(pkg) {
-        // Mapovanie badge_color na skutočnú farbu
-        const colors = {
-            'blue': '#3B82F6',
-            'orange': '#F97316',
-            'purple': '#8B5CF6',
-            'gold': '#F59E0B',
-            'green': '#10B981',
-            'gray': '#6B7280'
-        };
+        const colors = { 'blue': '#3B82F6', 'orange': '#F97316', 'purple': '#8B5CF6', 'gold': '#F59E0B', 'green': '#10B981', 'gray': '#6B7280' };
         return colors[pkg.badge_color] || '#F97316';
     };
     
@@ -209,19 +191,21 @@
         this.extensionState.packages = [
             { id: 'starter', name: 'Starter', tagline: 'Pre začiatok', price: 149, icon: '🚀', color: '#3B82F6', description: 'Ideálne pre živnostníkov', limits: { platforms: 1, campaigns: 1, visuals: 2 } },
             { id: 'pro', name: 'Pro', tagline: 'Najobľúbenejšie', price: 249, icon: '⭐', color: '#F97316', popular: true, description: 'Pre rastúce firmy', limits: { platforms: 2, campaigns: 3, visuals: 4 } },
-            { id: 'enterprise', name: 'Enterprise', tagline: 'Pre firmy', price: 399, icon: '💎', color: '#8B5CF6', description: 'Pre e-shopy a väčšie firmy', limits: { platforms: Infinity, campaigns: 5, visuals: 8 } },
-            { id: 'premium', name: 'Premium', tagline: 'VIP', price: 799, priceFrom: true, icon: '👑', color: '#F59E0B', description: 'Individuálna cena', limits: { platforms: Infinity, campaigns: Infinity, visuals: Infinity } }
+            { id: 'enterprise', name: 'Enterprise', tagline: 'Pre firmy', price: 399, icon: '💎', color: '#8B5CF6', description: 'Pre e-shopy a väčšie firmy', limits: { platforms: 999, campaigns: 5, visuals: 8 } },
+            { id: 'premium', name: 'Premium', tagline: 'VIP', price: 799, priceFrom: true, icon: '👑', color: '#F59E0B', description: 'Individuálna cena', limits: { platforms: 999, campaigns: 999, visuals: 999 } }
         ];
         this.extensionState.selectedPackage = 'pro';
+        console.log('📦 Using default packages');
     };
     
     OnboardingModule.useDefaultPlatforms = function() {
         this.extensionState.platforms = [
-            { id: 'google_ads', name: 'Google Ads', color: '#4285F4', shortDesc: 'Search, Display, YouTube, Shopping', description: 'Najväčšia reklamná sieť na svete.', features: [{name:'Search',desc:'Textové reklamy'},{name:'Display',desc:'Bannerové reklamy'},{name:'YouTube',desc:'Video reklamy'},{name:'Shopping',desc:'Produktové reklamy'}], bestFor: ['E-shopy','Lokálne služby','B2B'], recommended: ['local_business','ecommerce','b2b'] },
-            { id: 'meta_ads', name: 'Meta Ads', subtitle: 'Facebook + Instagram', color: '#0081FB', shortDesc: 'Facebook, Instagram - Feed, Stories, Reels', description: 'Facebook a Instagram reklamy.', features: [{name:'Facebook Feed',desc:'Reklamy vo feede'},{name:'Instagram',desc:'IG Feed a Stories'},{name:'Stories',desc:'Fullscreen formát'},{name:'Reels',desc:'Krátke video'}], bestFor: ['E-shopy','Lokálne služby','Gastro'], recommended: ['local_business','ecommerce','startup'] },
+            { id: 'google_ads', name: 'Google Ads', color: '#4285F4', shortDesc: 'Search, Display, YouTube, Shopping', description: 'Najväčšia reklamná sieť.', features: [{name:'Search',desc:'Textové reklamy'},{name:'Display',desc:'Bannerové reklamy'},{name:'YouTube',desc:'Video reklamy'},{name:'Shopping',desc:'Produktové reklamy'}], bestFor: ['E-shopy','Lokálne služby','B2B'], recommended: ['local_business','ecommerce','b2b'] },
+            { id: 'meta_ads', name: 'Meta Ads', subtitle: 'Facebook + Instagram', color: '#0081FB', shortDesc: 'Feed, Stories, Reels', description: 'Facebook a Instagram reklamy.', features: [{name:'Facebook Feed',desc:'Reklamy vo feede'},{name:'Instagram',desc:'IG Feed a Stories'},{name:'Stories',desc:'Fullscreen formát'},{name:'Reels',desc:'Krátke video'}], bestFor: ['E-shopy','Lokálne služby','Gastro'], recommended: ['local_business','ecommerce','startup'] },
             { id: 'linkedin_ads', name: 'LinkedIn Ads', color: '#0A66C2', shortDesc: 'B2B reklamy pre profesionálov', description: 'Najlepšia platforma pre B2B.', features: [{name:'Sponsored Content',desc:'Natívne príspevky'},{name:'InMail',desc:'Priame správy'},{name:'Lead Gen',desc:'Formuláre'},{name:'Text Ads',desc:'Textové reklamy'}], bestFor: ['B2B služby','IT firmy','SaaS'], recommended: ['b2b'] },
             { id: 'tiktok_ads', name: 'TikTok Ads', color: '#000000', shortDesc: 'Video reklamy pre mladšiu cieľovku', description: 'Najrýchlejšie rastúca sieť.', features: [{name:'In-Feed',desc:'Video vo feede'},{name:'TopView',desc:'Premium umiestnenie'},{name:'Spark Ads',desc:'Boost obsahu'},{name:'Effects',desc:'Branded filtre'}], bestFor: ['Móda','Kozmetika','F&B'], recommended: ['ecommerce','startup'] }
         ];
+        console.log('📱 Using default platforms');
     };
     
     OnboardingModule.useDefaultRecommendations = function() {
@@ -255,7 +239,7 @@
     };
     
     // ==========================================
-    // SEKCIE
+    // PREPÍSANÉ SEKCIE
     // ==========================================
     
     OnboardingModule.EXTENDED_SECTIONS = [
@@ -276,16 +260,27 @@
     OnboardingModule.totalSteps = OnboardingModule.EXTENDED_SECTIONS.length;
     
     // ==========================================
-    // RENDER
+    // OVERRIDE RENDER (načítame dáta pred renderom)
     // ==========================================
     
-    OnboardingModule.renderCurrentSection = async function() {
+    OnboardingModule.render = async function(container, params = {}) {
+        // Najprv načítame extension data
+        await this.loadExtensionData();
+        // Potom zavoláme pôvodný render
+        return originalRender.call(this, container, params);
+    };
+    
+    OnboardingModule.renderPublic = async function(container, token) {
+        await this.loadExtensionData();
+        return originalRenderPublic.call(this, container, token);
+    };
+    
+    // ==========================================
+    // RENDER CURRENT SECTION (synchronna!)
+    // ==========================================
+    
+    OnboardingModule.renderCurrentSection = function() {
         const section = this.SECTIONS[this.currentStep - 1];
-        
-        // Načítaj dáta ak treba
-        if (section?.isNew && !this.extensionState.dataLoaded) {
-            await this.loadExtensionData();
-        }
         
         if (section?.isNew) {
             switch (section.key) {
@@ -295,8 +290,10 @@
             }
         }
         
+        // Mapovanie na pôvodné sekcie
         const originalStepMapping = { 1: 1, 2: 2, 3: 3, 6: 4, 7: 5, 8: 6, 10: 8, 11: 9 };
         const originalStep = originalStepMapping[this.currentStep];
+        
         if (originalStep) {
             const currentBackup = this.currentStep;
             this.currentStep = originalStep;
@@ -309,7 +306,7 @@
     };
     
     // ==========================================
-    // SEKCIA: BALÍKY (Z DB)
+    // SEKCIA: BALÍKY
     // ==========================================
     
     OnboardingModule.renderPackageSection = function() {
@@ -323,9 +320,7 @@
         return `
             <div class="package-section">
                 <div class="mb-5">
-                    <p class="text-gray-600 text-sm">
-                        Vyberte balík služieb podľa vašich potrieb. Kliknutím na "Detaily" zobrazíte viac informácií.
-                    </p>
+                    <p class="text-gray-600 text-sm">Vyberte balík služieb podľa vašich potrieb. Kliknutím na "Detaily" zobrazíte viac informácií.</p>
                 </div>
                 
                 <div class="grid grid-cols-2 lg:grid-cols-${Math.min(packages.length, 4)} gap-3">
@@ -337,7 +332,7 @@
     
     OnboardingModule.renderPackageCard = function(pkg, selected) {
         const isSelected = selected === pkg.id;
-        const limitText = pkg.limits.platforms === Infinity ? 'Všetky platformy' : `${pkg.limits.platforms} platforma`;
+        const limitText = pkg.limits.platforms >= 999 ? 'Všetky platformy' : `${pkg.limits.platforms} platforma`;
         
         return `
             <div class="relative p-4 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg
@@ -358,11 +353,8 @@
                 </div>
                 
                 <div class="flex items-center justify-between">
-                    <button type="button" 
-                        onclick="event.stopPropagation(); OnboardingModule.showPackageModal('${pkg.id}')"
-                        class="text-xs ${pkg.popular ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700'} underline">
-                        Detaily
-                    </button>
+                    <button type="button" onclick="event.stopPropagation(); OnboardingModule.showPackageModal('${pkg.id}')"
+                        class="text-xs ${pkg.popular ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700'} underline">Detaily</button>
                     <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center
                         ${isSelected ? 'bg-orange-500 border-orange-500' : (pkg.popular ? 'border-gray-500' : 'border-gray-300')}">
                         ${isSelected ? '<span class="text-white text-xs">✓</span>' : ''}
@@ -377,13 +369,11 @@
         this.formData.selected_package = packageId;
         
         const pkg = this.getPackage(packageId);
-        if (pkg) {
-            this.formData.package_price = pkg.price;
-        }
+        if (pkg) this.formData.package_price = pkg.price;
         
-        // Reset platformy ak prekračujú nový limit
+        // Reset platformy ak prekračujú limit
         const newLimit = pkg?.limits?.platforms || 1;
-        if (this.extensionState.selectedPlatforms.length > newLimit && newLimit !== Infinity) {
+        if (this.extensionState.selectedPlatforms.length > newLimit && newLimit < 999) {
             this.extensionState.selectedPlatforms = this.extensionState.selectedPlatforms.slice(0, newLimit);
             this.formData.selected_platforms = this.extensionState.selectedPlatforms;
         }
@@ -392,85 +382,14 @@
     };
     
     // ==========================================
-    // MODAL: DETAIL BALÍKA
-    // ==========================================
-    
-    OnboardingModule.showPackageModal = function(packageId) {
-        const pkg = this.getPackage(packageId);
-        if (!pkg) return;
-        
-        const isSelected = this.extensionState.selectedPackage === packageId;
-        
-        const modalHtml = `
-            <div class="adlify-modal-overlay" id="packageModal" onclick="OnboardingModule.closePackageModal(event)">
-                <div class="adlify-modal adlify-modal--lg" onclick="event.stopPropagation()">
-                    <div class="adlify-modal__header" style="background: ${pkg.popular ? 'linear-gradient(135deg, #1e1e2f, #2d2d44)' : pkg.color}">
-                        <button class="adlify-modal__close" onclick="OnboardingModule.closePackageModal()">✕</button>
-                        <div class="text-center py-4">
-                            <span class="text-5xl mb-2 block">${pkg.icon}</span>
-                            <h2 class="text-2xl font-bold text-white">${pkg.name}</h2>
-                            ${pkg.tagline ? `<p class="text-white/70 text-sm">${pkg.tagline}</p>` : ''}
-                            <div class="mt-4">
-                                <span class="text-4xl font-bold text-white">${pkg.priceFrom ? 'od ' : ''}${pkg.price}€</span>
-                                <span class="text-white/70">/mesačne</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="adlify-modal__body">
-                        <p class="text-gray-600 mb-6">${pkg.description}</p>
-                        
-                        <div class="grid grid-cols-3 gap-3 mb-6">
-                            <div class="text-center p-3 bg-gray-50 rounded-xl">
-                                <p class="text-2xl font-bold text-gray-800">${pkg.limits.platforms === Infinity ? '∞' : pkg.limits.platforms}</p>
-                                <p class="text-xs text-gray-500">Platformy</p>
-                            </div>
-                            <div class="text-center p-3 bg-gray-50 rounded-xl">
-                                <p class="text-2xl font-bold text-gray-800">${pkg.limits.campaigns === Infinity ? '∞' : pkg.limits.campaigns}</p>
-                                <p class="text-xs text-gray-500">Kampane</p>
-                            </div>
-                            <div class="text-center p-3 bg-gray-50 rounded-xl">
-                                <p class="text-2xl font-bold text-gray-800">${pkg.limits.visuals === Infinity ? '∞' : pkg.limits.visuals}</p>
-                                <p class="text-xs text-gray-500">Vizuály</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="adlify-modal__footer">
-                        <button class="adlify-btn ${isSelected ? 'adlify-btn--success' : 'adlify-btn--primary'} w-full"
-                            onclick="OnboardingModule.selectPackage('${pkg.id}'); OnboardingModule.closePackageModal()">
-                            ${isSelected ? '✓ Vybraný balík' : 'Vybrať tento balík'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        document.body.style.overflow = 'hidden';
-        requestAnimationFrame(() => {
-            document.getElementById('packageModal')?.classList.add('adlify-modal-overlay--visible');
-        });
-    };
-    
-    OnboardingModule.closePackageModal = function(event) {
-        if (event && event.target !== event.currentTarget) return;
-        const modal = document.getElementById('packageModal');
-        if (modal) {
-            modal.classList.remove('adlify-modal-overlay--visible');
-            setTimeout(() => { modal.remove(); document.body.style.overflow = ''; }, 200);
-        }
-    };
-    
-    // ==========================================
-    // SEKCIA: PLATFORMY (Z DB)
+    // SEKCIA: PLATFORMY
     // ==========================================
     
     OnboardingModule.renderPlatformsSection = function() {
         const platforms = this.extensionState.platforms;
         const selectedPkg = this.getPackage(this.extensionState.selectedPackage);
         const platformLimit = selectedPkg?.limits?.platforms || 1;
-        const platformLimitText = platformLimit === Infinity ? 'neobmedzený počet' : platformLimit;
+        const platformLimitText = platformLimit >= 999 ? 'neobmedzený počet' : platformLimit;
         const clientType = this.detectClientType();
         const recommendation = this.extensionState.recommendations[clientType] || this.extensionState.recommendations.local_business;
         const selected = this.extensionState.selectedPlatforms || [];
@@ -480,8 +399,7 @@
                 <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl">
                     <p class="text-blue-800 text-sm flex items-center gap-2">
                         <span>💡</span>
-                        <span>Váš balík <strong>${selectedPkg?.name || 'Pro'}</strong> 
-                        umožňuje <strong>${platformLimitText}</strong> platforiem.</span>
+                        <span>Váš balík <strong>${selectedPkg?.name || 'Pro'}</strong> umožňuje <strong>${platformLimitText}</strong> platforiem.</span>
                     </p>
                 </div>
                 
@@ -493,9 +411,7 @@
                                 <span>${recommendation.message}</span>
                             </p>
                             <button type="button" onclick="OnboardingModule.applyRecommendation()"
-                                class="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700">
-                                Použiť
-                            </button>
+                                class="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700">Použiť</button>
                         </div>
                     </div>
                 ` : ''}
@@ -511,12 +427,11 @@
     
     OnboardingModule.renderPlatformCard = function(platform, selected, limit) {
         const isSelected = selected.includes(platform.id);
-        const isAtLimit = selected.length >= limit && limit !== Infinity;
+        const isAtLimit = selected.length >= limit && limit < 999;
         
         return `
             <div class="platform-card relative border-2 rounded-xl transition-all overflow-hidden
-                ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}
-                cursor-pointer"
+                ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'} cursor-pointer"
                 onclick="OnboardingModule.handlePlatformClick('${platform.id}', ${isSelected}, ${isAtLimit})">
                 
                 <div class="p-4">
@@ -533,8 +448,7 @@
                             ${platform.subtitle ? `<p class="text-xs text-blue-600">${platform.subtitle}</p>` : ''}
                             <p class="text-xs text-gray-500 truncate">${platform.shortDesc}</p>
                         </div>
-                        <button type="button" 
-                            onclick="event.stopPropagation(); OnboardingModule.showPlatformModal('${platform.id}')"
+                        <button type="button" onclick="event.stopPropagation(); OnboardingModule.showPlatformModal('${platform.id}')"
                             class="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
@@ -554,13 +468,13 @@
             </div>`;
         }
         
+        const limitDisplay = limit >= 999 ? '∞' : limit;
+        
         return `
             <div class="p-4 bg-gray-50 rounded-xl border">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-sm font-medium text-gray-600">Vybrané platformy</span>
-                    <span class="text-sm font-bold ${selected.length > limit && limit !== Infinity ? 'text-red-600' : 'text-gray-800'}">
-                        ${selected.length}/${limit === Infinity ? '∞' : limit}
-                    </span>
+                    <span class="text-sm font-bold ${selected.length > limit && limit < 999 ? 'text-red-600' : 'text-gray-800'}">${selected.length}/${limitDisplay}</span>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     ${selected.map(id => {
@@ -616,7 +530,7 @@
         const limit = this.getPlatformLimit();
         
         let platforms = [...(recommendation?.platforms || [])];
-        if (limit !== Infinity && platforms.length > limit) {
+        if (limit < 999 && platforms.length > limit) {
             platforms = platforms.slice(0, limit);
         }
         
@@ -624,7 +538,7 @@
         this.formData.selected_platforms = platforms;
         this.rerender();
         
-        Utils?.toast?.('Odporúčanie bolo aplikované', 'success');
+        Utils?.toast?.('Odporúčanie aplikované', 'success');
     };
     
     OnboardingModule.detectClientType = function() {
@@ -644,7 +558,6 @@
         const wantedPlatform = this.getPlatform(wantedPlatformId);
         const currentLimit = currentPkg?.limits?.platforms || 1;
         
-        // Nájdi vyššie balíky
         const currentIndex = this.extensionState.packages.findIndex(p => p.id === this.extensionState.selectedPackage);
         const higherPackages = this.extensionState.packages.slice(currentIndex + 1);
         
@@ -661,10 +574,7 @@
                     
                     <div class="adlify-modal__body">
                         <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
-                            <p class="text-amber-800 text-sm">
-                                Váš balík <strong>${currentPkg?.name}</strong> umožňuje iba 
-                                <strong>${currentLimit} ${currentLimit === 1 ? 'platformu' : 'platformy'}</strong>.
-                            </p>
+                            <p class="text-amber-800 text-sm">Váš balík <strong>${currentPkg?.name}</strong> umožňuje iba <strong>${currentLimit} ${currentLimit === 1 ? 'platformu' : 'platformy'}</strong>.</p>
                             ${wantedPlatform ? `<p class="text-amber-700 text-sm mt-2">Pre pridanie <strong>${wantedPlatform.name}</strong> potrebujete vyšší balík.</p>` : ''}
                         </div>
                         
@@ -679,7 +589,7 @@
                                             <span class="text-2xl">${pkg.icon}</span>
                                             <div>
                                                 <h5 class="font-bold text-gray-800">${pkg.name}</h5>
-                                                <p class="text-sm text-gray-500">${pkg.limits.platforms === Infinity ? 'Všetky platformy' : pkg.limits.platforms + ' platformy'}</p>
+                                                <p class="text-sm text-gray-500">${pkg.limits.platforms >= 999 ? 'Všetky platformy' : pkg.limits.platforms + ' platformy'}</p>
                                             </div>
                                         </div>
                                         <div class="text-right">
@@ -693,9 +603,7 @@
                     </div>
                     
                     <div class="adlify-modal__footer">
-                        <button class="adlify-btn adlify-btn--secondary w-full" onclick="OnboardingModule.closeUpgradeModal()">
-                            Zostať na ${currentPkg?.name}
-                        </button>
+                        <button class="adlify-btn adlify-btn--secondary w-full" onclick="OnboardingModule.closeUpgradeModal()">Zostať na ${currentPkg?.name}</button>
                     </div>
                 </div>
             </div>
@@ -703,9 +611,7 @@
         
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         document.body.style.overflow = 'hidden';
-        requestAnimationFrame(() => {
-            document.getElementById('upgradeModal')?.classList.add('adlify-modal-overlay--visible');
-        });
+        requestAnimationFrame(() => document.getElementById('upgradeModal')?.classList.add('adlify-modal-overlay--visible'));
     };
     
     OnboardingModule.upgradeToPackage = function(packageId, platformId) {
@@ -725,7 +631,76 @@
     };
     
     // ==========================================
-    // MODAL: DETAIL PLATFORMY
+    // MODAL: PACKAGE DETAIL
+    // ==========================================
+    
+    OnboardingModule.showPackageModal = function(packageId) {
+        const pkg = this.getPackage(packageId);
+        if (!pkg) return;
+        
+        const isSelected = this.extensionState.selectedPackage === packageId;
+        
+        const modalHtml = `
+            <div class="adlify-modal-overlay" id="packageModal" onclick="OnboardingModule.closePackageModal(event)">
+                <div class="adlify-modal adlify-modal--lg" onclick="event.stopPropagation()">
+                    <div class="adlify-modal__header" style="background: ${pkg.popular ? 'linear-gradient(135deg, #1e1e2f, #2d2d44)' : pkg.color}">
+                        <button class="adlify-modal__close" onclick="OnboardingModule.closePackageModal()">✕</button>
+                        <div class="text-center py-4">
+                            <span class="text-5xl mb-2 block">${pkg.icon}</span>
+                            <h2 class="text-2xl font-bold text-white">${pkg.name}</h2>
+                            ${pkg.tagline ? `<p class="text-white/70 text-sm">${pkg.tagline}</p>` : ''}
+                            <div class="mt-4">
+                                <span class="text-4xl font-bold text-white">${pkg.priceFrom ? 'od ' : ''}${pkg.price}€</span>
+                                <span class="text-white/70">/mesačne</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="adlify-modal__body">
+                        <p class="text-gray-600 mb-6">${pkg.description}</p>
+                        
+                        <div class="grid grid-cols-3 gap-3 mb-6">
+                            <div class="text-center p-3 bg-gray-50 rounded-xl">
+                                <p class="text-2xl font-bold text-gray-800">${pkg.limits.platforms >= 999 ? '∞' : pkg.limits.platforms}</p>
+                                <p class="text-xs text-gray-500">Platformy</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-xl">
+                                <p class="text-2xl font-bold text-gray-800">${pkg.limits.campaigns >= 999 ? '∞' : pkg.limits.campaigns}</p>
+                                <p class="text-xs text-gray-500">Kampane</p>
+                            </div>
+                            <div class="text-center p-3 bg-gray-50 rounded-xl">
+                                <p class="text-2xl font-bold text-gray-800">${pkg.limits.visuals >= 999 ? '∞' : pkg.limits.visuals}</p>
+                                <p class="text-xs text-gray-500">Vizuály</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="adlify-modal__footer">
+                        <button class="adlify-btn ${isSelected ? 'adlify-btn--success' : 'adlify-btn--primary'} w-full"
+                            onclick="OnboardingModule.selectPackage('${pkg.id}'); OnboardingModule.closePackageModal()">
+                            ${isSelected ? '✓ Vybraný balík' : 'Vybrať tento balík'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(() => document.getElementById('packageModal')?.classList.add('adlify-modal-overlay--visible'));
+    };
+    
+    OnboardingModule.closePackageModal = function(event) {
+        if (event && event.target !== event.currentTarget) return;
+        const modal = document.getElementById('packageModal');
+        if (modal) {
+            modal.classList.remove('adlify-modal-overlay--visible');
+            setTimeout(() => { modal.remove(); document.body.style.overflow = ''; }, 200);
+        }
+    };
+    
+    // ==========================================
+    // MODAL: PLATFORM DETAIL
     // ==========================================
     
     OnboardingModule.showPlatformModal = function(platformId) {
@@ -734,7 +709,7 @@
         
         const isSelected = this.extensionState.selectedPlatforms.includes(platformId);
         const limit = this.getPlatformLimit();
-        const canSelect = isSelected || this.extensionState.selectedPlatforms.length < limit || limit === Infinity;
+        const canSelect = isSelected || this.extensionState.selectedPlatforms.length < limit || limit >= 999;
         
         const modalHtml = `
             <div class="adlify-modal-overlay" id="platformModal" onclick="OnboardingModule.closePlatformModal(event)">
@@ -789,9 +764,7 @@
         
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         document.body.style.overflow = 'hidden';
-        requestAnimationFrame(() => {
-            document.getElementById('platformModal')?.classList.add('adlify-modal-overlay--visible');
-        });
+        requestAnimationFrame(() => document.getElementById('platformModal')?.classList.add('adlify-modal-overlay--visible'));
     };
     
     OnboardingModule.closePlatformModal = function(event) {
@@ -814,8 +787,7 @@
         return `
             <div class="technical-section space-y-5">
                 <p class="text-gray-600 text-sm">
-                    Tieto informácie nám pomôžu pripraviť sa na spoluprácu. 
-                    <strong>Nemusíte teraz nič nastavovať</strong> - všetko vyriešime spoločne.
+                    Tieto informácie nám pomôžu pripraviť sa na spoluprácu. <strong>Nemusíte teraz nič nastavovať</strong> - všetko vyriešime spoločne.
                 </p>
                 
                 <div class="p-4 bg-white border rounded-xl">
@@ -859,9 +831,7 @@
                 </div>
                 
                 <div class="p-3 bg-green-50 border border-green-200 rounded-xl">
-                    <p class="text-sm text-green-800">
-                        <strong>💡 Tip:</strong> Po vyplnení dotazníka vám pošleme email s návodmi.
-                    </p>
+                    <p class="text-sm text-green-800"><strong>💡 Tip:</strong> Po vyplnení dotazníka vám pošleme email s návodmi.</p>
                 </div>
             </div>
         `;
@@ -891,6 +861,17 @@
     };
     
     // ==========================================
+    // RERENDER HELPER
+    // ==========================================
+    
+    OnboardingModule.rerender = function() {
+        const form = document.getElementById('onboarding-form');
+        if (form) {
+            form.innerHTML = this.renderCurrentSection();
+        }
+    };
+    
+    // ==========================================
     // OVERRIDES
     // ==========================================
     
@@ -908,16 +889,14 @@
         
         if (section?.isNew) {
             switch (section.key) {
-                case 'package':
-                    return true; // Balík je vždy vybraný
+                case 'package': return true;
                 case 'platforms':
                     if (!this.extensionState.selectedPlatforms || this.extensionState.selectedPlatforms.length === 0) {
                         Utils?.toast?.('Vyberte aspoň jednu platformu', 'warning');
                         return false;
                     }
                     return true;
-                case 'technical_simple':
-                    return true;
+                case 'technical_simple': return true;
             }
         }
         
@@ -958,13 +937,5 @@
     
     OnboardingModule.injectExtensionStyles();
     
-    // Init
-    const originalInit = OnboardingModule.init;
-    OnboardingModule.init = async function() {
-        if (originalInit) originalInit.call(this);
-        await this.loadExtensionData();
-        console.log('📋 Onboarding module v3.0 initialized');
-    };
-    
-    console.log('✅ Onboarding Extension v3.0 loaded!');
+    console.log('✅ Onboarding Extension v3.1 loaded!');
 })();
