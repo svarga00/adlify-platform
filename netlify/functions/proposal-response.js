@@ -264,7 +264,7 @@ exports.handler = async (event, context) => {
       );
 
       // 8. Send ONBOARDING EMAIL to client
-      const onboardingUrl = `${baseUrl}/onboarding.html?t=${onboardingToken}`;
+      const onboardingUrl = `${baseUrl}/portal/register.html?t=${onboardingToken}`;
       
       if (contactEmail) {
         await sendEmail(
@@ -288,22 +288,22 @@ exports.handler = async (event, context) => {
               <div style="background: linear-gradient(135deg, #fef3e7, #fce7f3); padding: 20px; border-radius: 12px; margin: 25px 0;">
                 <h3 style="color: #1e293b; margin: 0 0 15px 0;">📋 Čo bude nasledovať?</h3>
                 <ol style="color: #475569; margin: 0; padding-left: 20px; line-height: 2;">
-                  <li><strong>Vyplníte krátky dotazník</strong> (5 minút)</li>
+                  <li><strong>Vytvoríte si účet</strong> v klientskom portáli</li>
+                  <li>Vyplníte krátky dotazník (5 minút)</li>
                   <li>Pripravíme vám zálohovú faktúru</li>
                   <li>Po úhrade začneme na kampani</li>
-                  <li>Pošleme vám návrh na schválenie</li>
                   <li>Spustíme kampaň!</li>
                 </ol>
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${onboardingUrl}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #f97316, #ea580c); color: white; text-decoration: none; border-radius: 30px; font-weight: 600; font-size: 18px; box-shadow: 0 4px 15px rgba(249,115,22,0.3);">
-                  Vyplniť dotazník →
+                  Vytvoriť účet →
                 </a>
               </div>
               
               <p style="color: #64748b; font-size: 14px; text-align: center;">
-                Dotazník vám zaberie približne 5 minút
+                Registrácia vám zaberie menej ako 2 minúty
               </p>
             </div>
             
