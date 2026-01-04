@@ -330,7 +330,7 @@ const Auth = {
     }
     
     if (this.isClient()) {
-      return '/client-portal.html';
+      return '/portal/';
     }
     return '/admin/index.html';
   },
