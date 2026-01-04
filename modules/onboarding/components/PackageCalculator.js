@@ -1,6 +1,6 @@
 /**
- * Adlify - Package Calculator Component v2.0
- * Aktualizované podľa reálnych Adlify cenníkov
+ * Adlify - Package Calculator Component v2.1
+ * S celkovou sumou pri 6/12 mesačných platbách
  */
 
 const PackageCalculator = {
@@ -11,9 +11,9 @@ const PackageCalculator = {
             name: 'Starter',
             tagline: 'Pre začiatok',
             price: 149,
-            price6m: Math.round(149 * 0.9), // -10%
-            price12m: Math.round(149 * 0.8), // -20%
-            color: '#3B82F6', // blue
+            price6m: Math.round(149 * 0.9), // 134€
+            price12m: Math.round(149 * 0.8), // 119€
+            color: '#3B82F6',
             icon: '🚀',
             description: 'Ideálne pre živnostníkov, ktorí chcú vyskúšať online reklamu',
             limits: {
@@ -41,10 +41,10 @@ const PackageCalculator = {
             name: 'Pro',
             tagline: 'Najobľúbenejšie',
             price: 249,
-            price6m: Math.round(249 * 0.9),
-            price12m: Math.round(249 * 0.8),
-            color: '#F97316', // orange (gradient start)
-            colorEnd: '#EC4899', // pink (gradient end)
+            price6m: Math.round(249 * 0.9), // 224€
+            price12m: Math.round(249 * 0.8), // 199€
+            color: '#F97316',
+            colorEnd: '#EC4899',
             icon: '⭐',
             popular: true,
             description: 'Pre firmy, ktoré chcú rásť na viacerých platformách',
@@ -73,9 +73,9 @@ const PackageCalculator = {
             name: 'Enterprise',
             tagline: 'Pre firmy',
             price: 399,
-            price6m: Math.round(399 * 0.9),
-            price12m: Math.round(399 * 0.8),
-            color: '#8B5CF6', // purple
+            price6m: Math.round(399 * 0.9), // 359€
+            price12m: Math.round(399 * 0.8), // 319€
+            color: '#8B5CF6',
             icon: '💎',
             description: 'Pre e-shopy a firmy s vyšším rozpočtom na reklamu',
             limits: {
@@ -103,10 +103,10 @@ const PackageCalculator = {
             name: 'Premium',
             tagline: 'VIP',
             price: 799,
-            priceFrom: true, // "od 799€"
-            price6m: Math.round(799 * 0.9),
-            price12m: Math.round(799 * 0.8),
-            color: '#F59E0B', // amber/gold
+            priceFrom: true,
+            price6m: Math.round(799 * 0.9), // 719€
+            price12m: Math.round(799 * 0.8), // 639€
+            color: '#F59E0B',
             icon: '👑',
             description: 'Individuálna cena podľa rozsahu a potrieb vášho projektu',
             limits: {
@@ -131,11 +131,11 @@ const PackageCalculator = {
         }
     },
 
-    // Billing cycles
+    // Billing cycles s počtom mesiacov
     billingCycles: {
-        monthly: { id: 'monthly', label: 'Mesačne', discount: 0, badge: null },
-        '6months': { id: '6months', label: '6 mesiacov', discount: 10, badge: '-10%' },
-        '12months': { id: '12months', label: '12 mesiacov', discount: 20, badge: '-20%' }
+        monthly: { id: 'monthly', label: 'Mesačne', discount: 0, months: 1, badge: null },
+        '6months': { id: '6months', label: '6 mesiacov', discount: 10, months: 6, badge: '-10%' },
+        '12months': { id: '12months', label: '12 mesiacov', discount: 20, months: 12, badge: '-20%' }
     },
 
     // Porovnávacia tabuľka
@@ -196,7 +196,6 @@ const PackageCalculator = {
 
         this.state.selectedPlatforms = this.options.platforms;
         
-        // Auto-select recommended package
         if (!this.state.selectedPackage) {
             this.state.selectedPackage = this.options.defaultPackage || 'pro';
         }
@@ -206,18 +205,41 @@ const PackageCalculator = {
     },
 
     /**
-     * Získanie ceny podľa billing cycle
+     * Získanie mesačnej ceny podľa billing cycle
      */
-    getPrice(pkg, cycle = 'monthly') {
+    getMonthlyPrice(pkg, cycle = 'monthly') {
         if (cycle === '6months') return pkg.price6m;
         if (cycle === '12months') return pkg.price12m;
         return pkg.price;
     },
 
     /**
+     * Získanie celkovej ceny (suma za celé obdobie)
+     */
+    getTotalPrice(pkg, cycle = 'monthly') {
+        const monthlyPrice = this.getMonthlyPrice(pkg, cycle);
+        const months = this.billingCycles[cycle]?.months || 1;
+        return monthlyPrice * months;
+    },
+
+    /**
+     * Získanie úspory oproti mesačnej platbe
+     */
+    getSavings(pkg, cycle = 'monthly') {
+        if (cycle === 'monthly') return 0;
+        const months = this.billingCycles[cycle]?.months || 1;
+        const fullPrice = pkg.price * months;
+        const discountedTotal = this.getTotalPrice(pkg, cycle);
+        return fullPrice - discountedTotal;
+    },
+
+    /**
      * Hlavný render
      */
     render() {
+        const cycle = this.billingCycles[this.state.billingCycle];
+        const showTotalInfo = this.state.billingCycle !== 'monthly';
+        
         const html = `
             <div class="package-calculator">
                 <div class="package-calculator__header">
@@ -232,14 +254,22 @@ const PackageCalculator = {
 
                 <!-- Billing Toggle -->
                 <div class="package-calculator__toggle">
-                    ${Object.values(this.billingCycles).map(cycle => `
-                        <button class="package-toggle__btn ${this.state.billingCycle === cycle.id ? 'package-toggle__btn--active' : ''}" 
-                                data-action="set-billing" data-cycle="${cycle.id}">
-                            ${cycle.label}
-                            ${cycle.badge ? `<span class="package-toggle__badge">${cycle.badge}</span>` : ''}
+                    ${Object.values(this.billingCycles).map(c => `
+                        <button class="package-toggle__btn ${this.state.billingCycle === c.id ? 'package-toggle__btn--active' : ''}" 
+                                data-action="set-billing" data-cycle="${c.id}">
+                            ${c.label}
+                            ${c.badge ? `<span class="package-toggle__badge">${c.badge}</span>` : ''}
                         </button>
                     `).join('')}
                 </div>
+
+                <!-- Info o platbe vopred -->
+                ${showTotalInfo ? `
+                    <div class="package-calculator__billing-info">
+                        <span class="package-calculator__billing-info-icon">💡</span>
+                        <span>Pri ${cycle.months}-mesačnej platbe platíte celú sumu vopred a ušetríte ${cycle.discount}%</span>
+                    </div>
+                ` : ''}
 
                 <!-- Package Cards -->
                 <div class="package-calculator__grid">
@@ -262,13 +292,13 @@ const PackageCalculator = {
      */
     renderPackageCard(pkg) {
         const isSelected = this.state.selectedPackage === pkg.id;
-        const price = this.getPrice(pkg, this.state.billingCycle);
+        const cycle = this.state.billingCycle;
+        const monthlyPrice = this.getMonthlyPrice(pkg, cycle);
+        const totalPrice = this.getTotalPrice(pkg, cycle);
+        const savings = this.getSavings(pkg, cycle);
         const originalPrice = pkg.price;
-        const hasDiscount = this.state.billingCycle !== 'monthly';
-        
-        // Check if current selection fits
-        const platformCount = this.state.selectedPlatforms.length;
-        const fits = platformCount <= pkg.limits.platforms;
+        const hasDiscount = cycle !== 'monthly';
+        const months = this.billingCycles[cycle]?.months || 1;
 
         return `
             <div class="package-card ${isSelected ? 'package-card--selected' : ''} 
@@ -286,13 +316,25 @@ const PackageCalculator = {
                 
                 <div class="package-card__price">
                     ${pkg.priceFrom ? '<span class="package-card__price-from">od </span>' : ''}
-                    <span class="package-card__amount">${price}€</span>
+                    <span class="package-card__amount">${monthlyPrice}€</span>
                     <span class="package-card__period">/mes</span>
                 </div>
                 
                 ${hasDiscount && !pkg.priceFrom ? `
                     <div class="package-card__original-price">
                         <s>${originalPrice}€/mes</s>
+                    </div>
+                ` : ''}
+                
+                <!-- Celková suma pri viacmesačnej platbe -->
+                ${hasDiscount && !pkg.priceFrom ? `
+                    <div class="package-card__total">
+                        <div class="package-card__total-amount">
+                            Celkom: <strong>${totalPrice}€</strong> za ${months} mesiacov
+                        </div>
+                        <div class="package-card__savings">
+                            Ušetríte ${savings}€
+                        </div>
                     </div>
                 ` : ''}
                 
@@ -322,6 +364,10 @@ const PackageCalculator = {
      * Render porovnávacej tabuľky
      */
     renderComparisonTable() {
+        const cycle = this.state.billingCycle;
+        const months = this.billingCycles[cycle]?.months || 1;
+        const showTotal = cycle !== 'monthly';
+        
         return `
             <div class="package-comparison">
                 <h3 class="package-comparison__title">Čo obsahuje každý balík</h3>
@@ -349,13 +395,24 @@ const PackageCalculator = {
                                 </tr>
                             `).join('')}
                             <tr class="package-comparison__price-row">
-                                <td class="package-comparison__feature-name"><strong>Cena</strong></td>
+                                <td class="package-comparison__feature-name"><strong>Mesačná cena</strong></td>
                                 ${Object.values(this.packages).map(p => `
                                     <td class="package-comparison__price-cell">
-                                        <strong>${p.priceFrom ? 'od ' : ''}${this.getPrice(p, this.state.billingCycle)}€/mes</strong>
+                                        <strong>${p.priceFrom ? 'od ' : ''}${this.getMonthlyPrice(p, cycle)}€/mes</strong>
                                     </td>
                                 `).join('')}
                             </tr>
+                            ${showTotal ? `
+                                <tr class="package-comparison__total-row">
+                                    <td class="package-comparison__feature-name"><strong>Celkom (${months} mes.)</strong></td>
+                                    ${Object.values(this.packages).map(p => `
+                                        <td class="package-comparison__total-cell">
+                                            <strong>${p.priceFrom ? 'od ' : ''}${this.getTotalPrice(p, cycle)}€</strong>
+                                            ${!p.priceFrom ? `<br><span class="package-comparison__savings">-${this.getSavings(p, cycle)}€</span>` : ''}
+                                        </td>
+                                    `).join('')}
+                                </tr>
+                            ` : ''}
                         </tbody>
                     </table>
                 </div>
@@ -397,7 +454,14 @@ const PackageCalculator = {
         this.attachEventListeners();
         
         if (this.callbacks.onPackageChange) {
-            this.callbacks.onPackageChange(this.packages[packageId]);
+            const pkg = this.packages[packageId];
+            this.callbacks.onPackageChange({
+                ...pkg,
+                billingCycle: this.state.billingCycle,
+                monthlyPrice: this.getMonthlyPrice(pkg, this.state.billingCycle),
+                totalPrice: this.getTotalPrice(pkg, this.state.billingCycle),
+                savings: this.getSavings(pkg, this.state.billingCycle)
+            });
         }
     },
 
@@ -408,13 +472,24 @@ const PackageCalculator = {
         this.state.billingCycle = cycle;
         this.render();
         this.attachEventListeners();
+        
+        // Trigger callback s aktualizovanými cenami
+        if (this.state.selectedPackage && this.callbacks.onPackageChange) {
+            const pkg = this.packages[this.state.selectedPackage];
+            this.callbacks.onPackageChange({
+                ...pkg,
+                billingCycle: cycle,
+                monthlyPrice: this.getMonthlyPrice(pkg, cycle),
+                totalPrice: this.getTotalPrice(pkg, cycle),
+                savings: this.getSavings(pkg, cycle)
+            });
+        }
     },
 
     /**
      * Kontakt pre Premium
      */
     contactForPremium() {
-        // Môžeš prispôsobiť podľa potreby
         if (typeof Utils !== 'undefined' && Utils.toast) {
             Utils.toast('Pre Premium balík nás kontaktujte na info@adlify.eu', 'info');
         } else {
@@ -435,14 +510,23 @@ const PackageCalculator = {
      * Získanie aktuálneho balíka
      */
     getSelectedPackage() {
-        return this.packages[this.state.selectedPackage];
+        const pkg = this.packages[this.state.selectedPackage];
+        if (!pkg) return null;
+        
+        return {
+            ...pkg,
+            billingCycle: this.state.billingCycle,
+            monthlyPrice: this.getMonthlyPrice(pkg, this.state.billingCycle),
+            totalPrice: this.getTotalPrice(pkg, this.state.billingCycle),
+            savings: this.getSavings(pkg, this.state.billingCycle)
+        };
     },
 
     /**
      * Získanie limitu platforiem pre aktuálny balík
      */
     getPlatformLimit() {
-        const pkg = this.getSelectedPackage();
+        const pkg = this.packages[this.state.selectedPackage];
         return pkg ? pkg.limits.platforms : 1;
     },
 
@@ -459,6 +543,13 @@ const PackageCalculator = {
             }
             return;
         }
+
+        const cycle = this.state.billingCycle;
+        const currentMonthly = this.getMonthlyPrice(current, cycle);
+        const nextMonthly = this.getMonthlyPrice(next, cycle);
+        const currentTotal = this.getTotalPrice(current, cycle);
+        const nextTotal = this.getTotalPrice(next, cycle);
+        const months = this.billingCycles[cycle]?.months || 1;
 
         const modalHtml = `
             <div class="upgrade-modal" id="upgradeModal">
@@ -482,7 +573,8 @@ const PackageCalculator = {
                             <div class="upgrade-modal__package upgrade-modal__package--current">
                                 <span class="upgrade-modal__package-label">Aktuálne</span>
                                 <h3>${current.icon} ${current.name}</h3>
-                                <p class="upgrade-modal__package-price">${current.price}€/mes</p>
+                                <p class="upgrade-modal__package-price">${currentMonthly}€/mes</p>
+                                ${months > 1 ? `<p class="upgrade-modal__package-total">${currentTotal}€ celkom</p>` : ''}
                             </div>
                             
                             <div class="upgrade-modal__arrow">→</div>
@@ -490,7 +582,8 @@ const PackageCalculator = {
                             <div class="upgrade-modal__package upgrade-modal__package--new">
                                 <span class="upgrade-modal__package-label">Odporúčané</span>
                                 <h3>${next.icon} ${next.name}</h3>
-                                <p class="upgrade-modal__package-price">${next.price}€/mes</p>
+                                <p class="upgrade-modal__package-price">${nextMonthly}€/mes</p>
+                                ${months > 1 ? `<p class="upgrade-modal__package-total">${nextTotal}€ celkom</p>` : ''}
                             </div>
                         </div>
                         
