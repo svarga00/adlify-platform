@@ -1,30 +1,26 @@
 /**
- * ADLIFY PLATFORM - Onboarding Extension v2.0
+ * ADLIFY PLATFORM - Onboarding Extension v2.1
  * 
  * Rozšírenie existujúceho OnboardingModule o:
  * - Výber balíka (PackageCalculator) - KROK 4
  * - Výber reklamných platforiem (PlatformSelector) - KROK 5
- * - Kontrolu stavu účtov (AccountHealthCheck) - KROK 10
+ * - Technické možnosti (zjednodušený krok) - KROK 9
  * 
- * POUŽITIE:
- * 1. Načítaj tento súbor PO onboarding.js
- * 2. Komponenty sa automaticky integrujú
+ * Prepojenie účtov je riešené separátne v profile klienta.
  */
 
 (function() {
     'use strict';
     
-    // Počkaj kým sa načíta základný OnboardingModule
     if (!window.OnboardingModule) {
         console.error('❌ OnboardingExtension: OnboardingModule nie je načítaný!');
         return;
     }
     
-    console.log('🔌 Onboarding Extension v2.0 loading...');
+    console.log('🔌 Onboarding Extension v2.1 loading...');
     
     // Uložíme pôvodné metódy
     const originalRenderCurrentSection = OnboardingModule.renderCurrentSection;
-    const originalRenderProgress = OnboardingModule.renderProgress;
     const originalCollectFormData = OnboardingModule.collectFormData;
     const originalValidateCurrentStep = OnboardingModule.validateCurrentStep;
     
@@ -33,15 +29,18 @@
     // ==========================================
     
     OnboardingModule.extensionState = {
-        selectedPackage: 'pro', // default
+        selectedPackage: 'pro',
         selectedPlatforms: [],
-        accountStatuses: {},
+        technicalInfo: {
+            hasExistingAccounts: null,
+            canAddTrackingCodes: null,
+            websiteManager: null
+        },
         componentsInitialized: false
     };
     
     // ==========================================
-    // ROZŠÍRENÉ SEKCIE - Nové poradie
-    // Balík (krok 4) je PRED platformami (krok 5)
+    // ROZŠÍRENÉ SEKCIE
     // ==========================================
     
     OnboardingModule.EXTENDED_SECTIONS = [
@@ -53,17 +52,16 @@
         { id: 6, title: 'Aktuálny marketing', icon: '📊', key: 'marketing' },
         { id: 7, title: 'Ciele a očakávania', icon: '🚀', key: 'goals' },
         { id: 8, title: 'Obsah a kreatíva', icon: '🎨', key: 'creative' },
-        { id: 9, title: 'Prepojenie účtov', icon: '🔗', key: 'connections', isNew: true },
+        { id: 9, title: 'Technické možnosti', icon: '⚙️', key: 'technical_simple', isNew: true },
         { id: 10, title: 'Kontaktné údaje', icon: '👤', key: 'contact' },
         { id: 11, title: 'Dodatočné info', icon: '📝', key: 'additional' }
     ];
     
-    // Prepísanie SECTIONS
     OnboardingModule.SECTIONS = OnboardingModule.EXTENDED_SECTIONS;
     OnboardingModule.totalSteps = OnboardingModule.EXTENDED_SECTIONS.length;
     
     // ==========================================
-    // MAPOVANIE BALÍKOV NA LIMITY PLATFORIEM
+    // MAPOVANIE BALÍKOV NA LIMITY
     // ==========================================
     
     OnboardingModule.PACKAGE_PLATFORM_LIMITS = {
@@ -80,28 +78,22 @@
     OnboardingModule.renderCurrentSection = function() {
         const section = this.SECTIONS[this.currentStep - 1];
         
-        // Ak je to nová sekcia, použijeme nové renderovanie
         if (section?.isNew) {
             switch (section.key) {
                 case 'package':
                     return this.renderPackageSection();
                 case 'platforms':
                     return this.renderPlatformsSection();
-                case 'connections':
-                    return this.renderConnectionsSection();
+                case 'technical_simple':
+                    return this.renderTechnicalSimpleSection();
             }
         }
         
-        // Inak použijeme pôvodné sekcie s upraveným mapovaním
+        // Mapovanie na pôvodné sekcie
         const originalStepMapping = {
-            1: 1,   // Základné info
-            2: 2,   // Produkty
-            3: 3,   // Cieľová skupina
-            6: 4,   // Aktuálny marketing (pôvodne 4)
-            7: 5,   // Ciele (pôvodne 5)
-            8: 6,   // Obsah (pôvodne 6)
-            10: 8,  // Kontakt (pôvodne 8)
-            11: 9   // Dodatočné (pôvodne 9)
+            1: 1, 2: 2, 3: 3,
+            6: 4, 7: 5, 8: 6,
+            10: 8, 11: 9
         };
         
         const originalStep = originalStepMapping[this.currentStep];
@@ -117,7 +109,7 @@
     };
     
     // ==========================================
-    // SEKCIA: VÝBER BALÍKA (KROK 4)
+    // SEKCIA: VÝBER BALÍKA
     // ==========================================
     
     OnboardingModule.renderPackageSection = function() {
@@ -130,10 +122,8 @@
                     </p>
                 </div>
                 
-                <!-- Container pre PackageCalculator -->
                 <div id="onboarding-package-calculator"></div>
                 
-                <!-- Fallback ak komponenty nie sú načítané -->
                 <div id="package-fallback" class="hidden">
                     ${this.renderPackageCardsFallback()}
                 </div>
@@ -144,41 +134,23 @@
     OnboardingModule.renderPackageCardsFallback = function() {
         const packages = [
             { 
-                id: 'starter', 
-                name: 'Starter', 
-                price: 149, 
-                platforms: 1, 
-                icon: '🚀', 
-                color: '#3B82F6',
+                id: 'starter', name: 'Starter', price: 149, platforms: 1, 
+                icon: '🚀', color: '#3B82F6',
                 features: ['1 platforma', '1 kampaň', '2 vizuály', 'Mesačný report']
             },
             { 
-                id: 'pro', 
-                name: 'Pro', 
-                price: 249, 
-                platforms: 2, 
-                icon: '⭐', 
-                color: '#F97316', 
-                popular: true,
+                id: 'pro', name: 'Pro', price: 249, platforms: 2, 
+                icon: '⭐', color: '#F97316', popular: true,
                 features: ['2 platformy', '3 kampane', '4 vizuály', 'A/B testovanie']
             },
             { 
-                id: 'enterprise', 
-                name: 'Enterprise', 
-                price: 399, 
-                platforms: 'Všetky', 
-                icon: '💎', 
-                color: '#8B5CF6',
+                id: 'enterprise', name: 'Enterprise', price: 399, platforms: 'Všetky', 
+                icon: '💎', color: '#8B5CF6',
                 features: ['Všetky platformy', '5 kampaní', '8 vizuálov', 'Remarketing']
             },
             { 
-                id: 'premium', 
-                name: 'Premium', 
-                price: 799, 
-                platforms: 'Všetky', 
-                icon: '👑', 
-                color: '#F59E0B', 
-                priceFrom: true,
+                id: 'premium', name: 'Premium', price: 799, platforms: 'Všetky', 
+                icon: '👑', color: '#F59E0B', priceFrom: true,
                 features: ['Všetky platformy', 'Neobmedzené', 'Dedikovaný manager', '24/7 podpora']
             }
         ];
@@ -203,7 +175,7 @@
                         <ul class="space-y-2 mb-4">
                             ${pkg.features.map(f => `
                                 <li class="flex items-center gap-2 text-sm ${pkg.popular ? 'text-gray-300' : 'text-gray-600'}">
-                                    <span class="text-green-500">✓</span> ${f}
+                                    <span class="${pkg.popular ? 'text-orange-400' : 'text-green-500'}">✓</span> ${f}
                                 </li>
                             `).join('')}
                         </ul>
@@ -224,18 +196,11 @@
     OnboardingModule.selectPackageFallback = function(packageId) {
         this.extensionState.selectedPackage = packageId;
         this.formData.selected_package = packageId;
-        
-        // Update platform limit
-        const limit = this.PACKAGE_PLATFORM_LIMITS[packageId] || 1;
-        
-        // Ak má menej platforiem ako limit, necháme
-        // Ak má viac, upozorníme pri validácii
-        
         this.rerender();
     };
     
     // ==========================================
-    // SEKCIA: PLATFORMY (KROK 5)
+    // SEKCIA: PLATFORMY
     // ==========================================
     
     OnboardingModule.renderPlatformsSection = function() {
@@ -258,10 +223,8 @@
                     </div>
                 </div>
                 
-                <!-- Container pre PlatformSelector -->
                 <div id="onboarding-platform-selector"></div>
                 
-                <!-- Fallback ak komponenty nie sú načítané -->
                 <div id="platforms-fallback" class="hidden">
                     ${this.renderPlatformsFallback()}
                 </div>
@@ -272,9 +235,9 @@
     OnboardingModule.renderPlatformsFallback = function() {
         const platforms = [
             { id: 'google_ads', name: 'Google Ads', icon: '🔍', desc: 'Search, Display, YouTube' },
-            { id: 'facebook', name: 'Meta (Facebook/IG)', icon: '📘', desc: 'Feed, Stories, Reels' },
-            { id: 'linkedin', name: 'LinkedIn Ads', icon: '💼', desc: 'B2B reklamy' },
-            { id: 'tiktok', name: 'TikTok Ads', icon: '🎵', desc: 'Video reklamy' }
+            { id: 'meta_ads', name: 'Meta (Facebook/IG)', icon: '📘', desc: 'Feed, Stories, Reels' },
+            { id: 'linkedin_ads', name: 'LinkedIn Ads', icon: '💼', desc: 'B2B reklamy' },
+            { id: 'tiktok_ads', name: 'TikTok Ads', icon: '🎵', desc: 'Video reklamy' }
         ];
         
         const selected = this.extensionState.selectedPlatforms || [];
@@ -298,7 +261,7 @@
                 `).join('')}
             </div>
             <p class="text-sm text-gray-500 mt-3">
-                Vybrané: ${selected.length}/${limit === Infinity ? '∞' : limit}
+                Vybrané: <strong>${selected.length}</strong> / ${limit === Infinity ? '∞' : limit}
             </p>
         `;
     };
@@ -314,8 +277,6 @@
             if (platforms.length >= limit && limit !== Infinity) {
                 if (typeof Utils !== 'undefined') {
                     Utils.toast(`Váš balík umožňuje max. ${limit} platformy`, 'warning');
-                } else {
-                    alert(`Váš balík umožňuje max. ${limit} platformy`);
                 }
                 return;
             }
@@ -328,159 +289,124 @@
     };
     
     // ==========================================
-    // SEKCIA: PREPOJENIE ÚČTOV (KROK 9)
+    // SEKCIA: TECHNICKÉ MOŽNOSTI (ZJEDNODUŠENÁ)
     // ==========================================
     
-    OnboardingModule.renderConnectionsSection = function() {
+    OnboardingModule.renderTechnicalSimpleSection = function() {
+        const tech = this.extensionState.technicalInfo || {};
         const platforms = this.extensionState.selectedPlatforms || [];
-        const accountsNeeded = this.getRequiredAccounts(platforms);
         
         return `
-            <div class="connections-section">
-                <div class="mb-6">
+            <div class="technical-section space-y-6">
+                <div class="mb-4">
                     <p class="text-gray-600">
-                        Pre správne fungovanie kampaní potrebujeme prístup k vašim účtom.
-                        Ak účty ešte nemáte, pomôžeme vám ich vytvoriť.
+                        Tieto informácie nám pomôžu pripraviť sa na spoluprácu. 
+                        <strong>Nemusíte teraz nič nastavovať</strong> - všetko vyriešime spoločne.
                     </p>
                 </div>
                 
-                <!-- Container pre AccountHealthCheck -->
-                <div id="onboarding-health-check"></div>
-                
-                <!-- Fallback -->
-                <div id="connections-fallback" class="hidden">
-                    <div class="space-y-4">
-                        ${accountsNeeded.length > 0 
-                            ? accountsNeeded.map(acc => this.renderAccountConnectionCard(acc)).join('') 
-                            : '<p class="text-gray-500 text-center py-4">Najprv vyberte platformy v predchádzajúcom kroku.</p>'
-                        }
+                <!-- Otázka 1: Existujúce účty -->
+                <div class="p-5 bg-white border rounded-2xl">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                        Máte už vytvorené reklamné účty?
+                    </h3>
+                    <p class="text-sm text-gray-500 mb-4">
+                        ${this.getTechnicalAccountsHint(platforms)}
+                    </p>
+                    <div class="flex flex-wrap gap-3">
+                        ${this.renderTechOption('hasExistingAccounts', 'yes', 'Áno, mám účty', tech.hasExistingAccounts)}
+                        ${this.renderTechOption('hasExistingAccounts', 'some', 'Mám niektoré', tech.hasExistingAccounts)}
+                        ${this.renderTechOption('hasExistingAccounts', 'no', 'Nie, nemám', tech.hasExistingAccounts)}
+                        ${this.renderTechOption('hasExistingAccounts', 'unknown', 'Neviem / Nie som si istý', tech.hasExistingAccounts)}
                     </div>
-                    
-                    ${accountsNeeded.length > 0 ? `
-                        <div class="mt-6 p-4 bg-blue-50 rounded-xl">
-                            <p class="text-sm text-blue-800">
-                                💡 <strong>Tip:</strong> Ak potrebujete pomoc s nastavením účtov, 
-                                náš tím vám rád pomôže po dokončení onboardingu.
+                </div>
+                
+                <!-- Otázka 2: Prístup k webu -->
+                <div class="p-5 bg-white border rounded-2xl">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                        Viete pridať sledovacie kódy na váš web?
+                    </h3>
+                    <p class="text-sm text-gray-500 mb-4">
+                        Pre meranie konverzií potrebujeme pridať kódy (pixely) na vašu stránku.
+                    </p>
+                    <div class="flex flex-wrap gap-3">
+                        ${this.renderTechOption('canAddTrackingCodes', 'yes', 'Áno, viem to spraviť', tech.canAddTrackingCodes)}
+                        ${this.renderTechOption('canAddTrackingCodes', 'gtm', 'Mám Google Tag Manager', tech.canAddTrackingCodes)}
+                        ${this.renderTechOption('canAddTrackingCodes', 'help', 'Budem potrebovať pomoc', tech.canAddTrackingCodes)}
+                        ${this.renderTechOption('canAddTrackingCodes', 'no', 'Nie, neviem', tech.canAddTrackingCodes)}
+                    </div>
+                </div>
+                
+                <!-- Otázka 3: Kto spravuje web -->
+                <div class="p-5 bg-white border rounded-2xl">
+                    <h3 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                        Kto spravuje váš web?
+                    </h3>
+                    <p class="text-sm text-gray-500 mb-4">
+                        Ak nemáte prístup, budeme potrebovať kontakt na správcu.
+                    </p>
+                    <div class="flex flex-wrap gap-3">
+                        ${this.renderTechOption('websiteManager', 'self', 'Ja sám/sama', tech.websiteManager)}
+                        ${this.renderTechOption('websiteManager', 'internal', 'Náš tím / IT oddelenie', tech.websiteManager)}
+                        ${this.renderTechOption('websiteManager', 'agency', 'Externá agentúra / Freelancer', tech.websiteManager)}
+                        ${this.renderTechOption('websiteManager', 'platform', 'Platforma (Shopify, Wix...)', tech.websiteManager)}
+                    </div>
+                </div>
+                
+                <!-- Info box -->
+                <div class="p-4 bg-green-50 border border-green-200 rounded-xl">
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl">💡</span>
+                        <div>
+                            <p class="font-medium text-green-800">Nemusíte sa báť!</p>
+                            <p class="text-sm text-green-700 mt-1">
+                                Po vyplnení dotazníka vám pošleme email s podrobnými návodmi 
+                                a naši špecialisti vám pomôžu so všetkým technickým nastavením.
                             </p>
                         </div>
-                    ` : ''}
+                    </div>
                 </div>
             </div>
         `;
     };
     
-    OnboardingModule.getRequiredAccounts = function(platforms) {
-        const accountMap = {
-            google_ads: [
-                { id: 'google_ads', name: 'Google Ads', icon: '🔍' },
-                { id: 'google_analytics', name: 'Google Analytics 4', icon: '📊' },
-                { id: 'gtm', name: 'Google Tag Manager', icon: '🏷️' }
-            ],
-            facebook: [
-                { id: 'meta_business', name: 'Meta Business Manager', icon: '📘' },
-                { id: 'meta_pixel', name: 'Meta Pixel', icon: '📍' }
-            ],
-            instagram: [
-                { id: 'meta_business', name: 'Meta Business Manager', icon: '📘' }
-            ],
-            linkedin: [
-                { id: 'linkedin_ads', name: 'LinkedIn Ads', icon: '💼' }
-            ],
-            tiktok: [
-                { id: 'tiktok_ads', name: 'TikTok Ads Manager', icon: '🎵' }
-            ]
+    OnboardingModule.getTechnicalAccountsHint = function(platforms) {
+        const hints = {
+            google_ads: 'Google Ads',
+            meta_ads: 'Meta Business Manager',
+            linkedin_ads: 'LinkedIn Campaign Manager',
+            tiktok_ads: 'TikTok Ads Manager'
         };
         
-        const accounts = new Map();
-        platforms.forEach(p => {
-            (accountMap[p] || []).forEach(acc => {
-                if (!accounts.has(acc.id)) {
-                    accounts.set(acc.id, acc);
-                }
-            });
-        });
-        
-        return Array.from(accounts.values());
-    };
-    
-    OnboardingModule.renderAccountConnectionCard = function(account) {
-        const status = this.formData[`has_${account.id}`] || 'unknown';
-        const statusLabels = {
-            'yes': { icon: '✅', label: 'Mám účet', class: 'bg-green-100 text-green-800' },
-            'no': { icon: '❌', label: 'Nemám účet', class: 'bg-red-100 text-red-800' },
-            'unknown': { icon: '❓', label: 'Neviem', class: 'bg-gray-100 text-gray-800' }
-        };
-        
-        const s = statusLabels[status] || statusLabels.unknown;
-        
-        return `
-            <div class="p-4 border rounded-xl">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <span class="text-2xl">${account.icon}</span>
-                        <div>
-                            <h4 class="font-medium">${account.name}</h4>
-                            <span class="text-xs px-2 py-1 rounded-full ${s.class}">${s.icon} ${s.label}</span>
-                        </div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="OnboardingModule.setAccountStatus('${account.id}', 'yes')"
-                            class="px-3 py-1 text-sm rounded-lg ${status === 'yes' ? 'bg-green-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}">
-                            Mám
-                        </button>
-                        <button type="button" onclick="OnboardingModule.setAccountStatus('${account.id}', 'no')"
-                            class="px-3 py-1 text-sm rounded-lg ${status === 'no' ? 'bg-red-500 text-white' : 'bg-gray-100 hover:bg-gray-200'}">
-                            Nemám
-                        </button>
-                    </div>
-                </div>
-                
-                ${status === 'yes' ? `
-                    <div class="mt-3 pt-3 border-t">
-                        <label class="block text-sm text-gray-600 mb-1">ID účtu (voliteľné):</label>
-                        <input type="text" name="${account.id}_account_id" 
-                            value="${this.formData[`${account.id}_account_id`] || ''}"
-                            class="w-full p-2 text-sm border rounded-lg"
-                            placeholder="Napr. 123-456-7890">
-                    </div>
-                ` : ''}
-                
-                ${status === 'no' ? `
-                    <div class="mt-3 pt-3 border-t">
-                        <a href="#" class="text-sm text-orange-600 hover:underline" 
-                            onclick="OnboardingModule.showSetupGuide('${account.id}'); return false;">
-                            📖 Zobraziť návod na vytvorenie účtu
-                        </a>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    };
-    
-    OnboardingModule.setAccountStatus = function(accountId, status) {
-        this.formData[`has_${accountId}`] = status;
-        this.rerender();
-    };
-    
-    OnboardingModule.showSetupGuide = function(accountId) {
-        const guides = {
-            google_ads: 'https://support.google.com/google-ads/answer/6366720',
-            google_analytics: 'https://support.google.com/analytics/answer/9304153',
-            gtm: 'https://support.google.com/tagmanager/answer/6103696',
-            meta_business: 'https://www.facebook.com/business/help/1710077379203657',
-            meta_pixel: 'https://www.facebook.com/business/help/952192354843755',
-            linkedin_ads: 'https://www.linkedin.com/help/lms/answer/a426102',
-            tiktok_ads: 'https://ads.tiktok.com/help/article?aid=9678'
-        };
-        
-        const url = guides[accountId];
-        if (url) {
-            window.open(url, '_blank');
-        } else {
-            if (typeof Utils !== 'undefined') {
-                Utils.toast('Návod bude čoskoro dostupný', 'info');
-            }
+        if (platforms.length === 0) {
+            return 'Napr. Google Ads, Meta Business Manager a pod.';
         }
+        
+        const names = platforms.map(p => hints[p] || p).filter(Boolean);
+        return `Pre vaše platformy: <strong>${names.join(', ')}</strong>`;
+    };
+    
+    OnboardingModule.renderTechOption = function(field, value, label, currentValue) {
+        const isSelected = currentValue === value;
+        return `
+            <button type="button" 
+                class="px-4 py-2 rounded-xl text-sm font-medium transition-all
+                    ${isSelected 
+                        ? 'bg-orange-500 text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+                onclick="OnboardingModule.setTechnicalOption('${field}', '${value}')">
+                ${isSelected ? '✓ ' : ''}${label}
+            </button>
+        `;
+    };
+    
+    OnboardingModule.setTechnicalOption = function(field, value) {
+        this.extensionState.technicalInfo[field] = value;
+        this.formData[field] = value;
+        this.rerender();
     };
     
     // ==========================================
@@ -490,15 +416,8 @@
     OnboardingModule.initExtensionComponents = function() {
         const hasPlatformSelector = typeof window.PlatformSelector !== 'undefined';
         const hasPackageCalculator = typeof window.PackageCalculator !== 'undefined';
-        const hasHealthCheck = typeof window.AccountHealthCheck !== 'undefined';
         
-        console.log('📦 Extension components:', {
-            PlatformSelector: hasPlatformSelector,
-            PackageCalculator: hasPackageCalculator,
-            AccountHealthCheck: hasHealthCheck
-        });
-        
-        // Inicializuj PackageCalculator
+        // PackageCalculator
         if (hasPackageCalculator && document.getElementById('onboarding-package-calculator')) {
             document.getElementById('package-fallback')?.classList.add('hidden');
             
@@ -511,7 +430,6 @@
                     this.formData.selected_package = pkg.id;
                     this.formData.package_price = pkg.price;
                     
-                    // Update platform limit v PlatformSelector
                     if (hasPlatformSelector && PlatformSelector.container) {
                         PlatformSelector.setMaxPlatforms(pkg.limits.platforms);
                     }
@@ -521,7 +439,7 @@
             document.getElementById('package-fallback')?.classList.remove('hidden');
         }
         
-        // Inicializuj PlatformSelector
+        // PlatformSelector
         if (hasPlatformSelector && document.getElementById('onboarding-platform-selector')) {
             document.getElementById('platforms-fallback')?.classList.add('hidden');
             
@@ -539,8 +457,6 @@
                 onLimitExceeded: (platforms, limit) => {
                     if (hasPackageCalculator) {
                         PackageCalculator.showUpgradeModal(this.extensionState.selectedPackage);
-                    } else if (typeof Utils !== 'undefined') {
-                        Utils.toast(`Váš balík podporuje max. ${limit} platformy. Zvážte upgrade.`, 'warning');
                     }
                 }
             });
@@ -548,142 +464,83 @@
             document.getElementById('platforms-fallback')?.classList.remove('hidden');
         }
         
-        // Inicializuj AccountHealthCheck
-        if (hasHealthCheck && document.getElementById('onboarding-health-check')) {
-            document.getElementById('connections-fallback')?.classList.add('hidden');
-            
-            const requiredAccounts = this.getRequiredAccounts(this.extensionState.selectedPlatforms || []);
-            
-            if (requiredAccounts.length > 0) {
-                AccountHealthCheck.init('onboarding-health-check', {
-                    accounts: requiredAccounts.map(a => a.id),
-                    showDetails: true,
-                    autoCheck: false,
-                    onStatusChange: (accId, status) => {
-                        this.extensionState.accountStatuses[accId] = status;
-                    }
-                });
-            }
-        } else if (document.getElementById('connections-fallback')) {
-            document.getElementById('connections-fallback')?.classList.remove('hidden');
-        }
-        
         this.extensionState.componentsInitialized = true;
     };
     
     OnboardingModule.detectClientType = function() {
         const industry = this.formData.company_industry || '';
-        
-        if (industry.includes('E-commerce') || industry.includes('Maloobchod')) {
-            return 'ecommerce';
-        }
-        if (industry.includes('B2B') || industry.includes('IT')) {
-            return 'b2b';
-        }
+        if (industry.includes('E-commerce') || industry.includes('Maloobchod')) return 'ecommerce';
+        if (industry.includes('B2B') || industry.includes('IT')) return 'b2b';
         return 'local_business';
     };
     
     // ==========================================
-    // OVERRIDE RERENDER
+    // OVERRIDES
     // ==========================================
     
     const originalRerender = OnboardingModule.rerender;
-    
     OnboardingModule.rerender = function() {
         originalRerender.call(this);
-        
-        setTimeout(() => {
-            this.initExtensionComponents();
-        }, 100);
+        setTimeout(() => this.initExtensionComponents(), 100);
     };
     
-    // ==========================================
-    // OVERRIDE COLLECT FORM DATA
-    // ==========================================
-    
     OnboardingModule.collectFormData = function() {
-        if (originalCollectFormData) {
-            originalCollectFormData.call(this);
-        }
+        if (originalCollectFormData) originalCollectFormData.call(this);
         
-        // Pridaj dáta z nových komponentov
         this.formData.selected_package = this.extensionState.selectedPackage || 'pro';
         this.formData.selected_platforms = this.extensionState.selectedPlatforms || [];
+        this.formData.has_existing_accounts = this.extensionState.technicalInfo.hasExistingAccounts;
+        this.formData.can_add_tracking_codes = this.extensionState.technicalInfo.canAddTrackingCodes;
+        this.formData.website_manager = this.extensionState.technicalInfo.websiteManager;
         
-        // Zozbieraj údaje z formulárov
         const form = document.getElementById('onboarding-form');
         if (form) {
             const formData = new FormData(form);
             
-            // Balík (fallback)
             if (formData.get('selected_package')) {
                 this.formData.selected_package = formData.get('selected_package');
                 this.extensionState.selectedPackage = formData.get('selected_package');
             }
             
-            // Platformy (fallback)
             if (!this.formData.selected_platforms.length) {
                 const platforms = [];
-                ['google_ads', 'facebook', 'instagram', 'linkedin', 'tiktok'].forEach(p => {
-                    if (formData.has(`platform_${p}`)) {
-                        platforms.push(p);
-                    }
+                ['google_ads', 'meta_ads', 'linkedin_ads', 'tiktok_ads'].forEach(p => {
+                    if (formData.has(`platform_${p}`)) platforms.push(p);
                 });
                 if (platforms.length > 0) {
                     this.formData.selected_platforms = platforms;
                     this.extensionState.selectedPlatforms = platforms;
                 }
             }
-            
-            // Účty
-            ['google_ads', 'google_analytics', 'gtm', 'meta_business', 'meta_pixel', 'linkedin_ads', 'tiktok_ads'].forEach(acc => {
-                const accountId = formData.get(`${acc}_account_id`);
-                if (accountId) {
-                    this.formData[`${acc}_account_id`] = accountId;
-                }
-            });
         }
     };
-    
-    // ==========================================
-    // OVERRIDE VALIDATE
-    // ==========================================
     
     OnboardingModule.validateCurrentStep = function() {
         const section = this.SECTIONS[this.currentStep - 1];
         
-        // Validácia pre nové sekcie
         if (section?.isNew) {
             switch (section.key) {
                 case 'package':
                     if (!this.extensionState.selectedPackage) {
-                        if (typeof Utils !== 'undefined') {
-                            Utils.toast('Vyberte balík služieb', 'warning');
-                        }
+                        Utils?.toast?.('Vyberte balík služieb', 'warning');
                         return false;
                     }
                     return true;
                     
                 case 'platforms':
                     if (!this.extensionState.selectedPlatforms?.length) {
-                        if (typeof Utils !== 'undefined') {
-                            Utils.toast('Vyberte aspoň jednu platformu', 'warning');
-                        }
+                        Utils?.toast?.('Vyberte aspoň jednu platformu', 'warning');
                         return false;
                     }
-                    
-                    // Skontroluj limit
                     const limit = this.PACKAGE_PLATFORM_LIMITS[this.extensionState.selectedPackage];
                     if (this.extensionState.selectedPlatforms.length > limit && limit !== Infinity) {
-                        if (typeof Utils !== 'undefined') {
-                            Utils.toast(`Váš balík umožňuje max. ${limit} platformy`, 'warning');
-                        }
+                        Utils?.toast?.(`Váš balík umožňuje max. ${limit} platformy`, 'warning');
                         return false;
                     }
                     return true;
                     
-                case 'connections':
-                    // Voliteľné
+                case 'technical_simple':
+                    // Technický krok je voliteľný
                     return true;
             }
         }
@@ -692,7 +549,7 @@
     };
     
     // ==========================================
-    // CSS INJECTION
+    // CSS
     // ==========================================
     
     OnboardingModule.injectExtensionStyles = function() {
@@ -701,31 +558,23 @@
         const style = document.createElement('style');
         style.id = 'onboarding-extension-styles';
         style.textContent = `
-            /* Platform Selector Integration */
-            .platforms-section .platform-selector {
-                margin: 0 -24px;
-            }
-            
-            /* Package Calculator Integration */
+            .platforms-section .platform-selector,
             .package-section .package-calculator {
                 margin: 0 -24px;
             }
             
-            /* Health Check Integration */
-            .connections-section .health-check {
-                margin: 0 -24px;
-            }
-            
-            /* Responsive adjustments */
             @media (max-width: 768px) {
                 .platforms-section .platform-selector,
-                .package-section .package-calculator,
-                .connections-section .health-check {
+                .package-section .package-calculator {
                     margin: 0 -16px;
                 }
             }
+            
+            .technical-section button:focus {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3);
+            }
         `;
-        
         document.head.appendChild(style);
     };
     
@@ -738,10 +587,10 @@
     const originalInit = OnboardingModule.init;
     OnboardingModule.init = function() {
         if (originalInit) originalInit.call(this);
-        console.log('📋 Onboarding module v2.0 (extended) initialized');
+        console.log('📋 Onboarding module v2.1 (extended) initialized');
     };
     
-    console.log('✅ Onboarding Extension v2.0 loaded successfully!');
-    console.log('📊 Extended sections:', OnboardingModule.SECTIONS.length);
+    console.log('✅ Onboarding Extension v2.1 loaded!');
+    console.log('📊 Sections:', OnboardingModule.SECTIONS.length);
     
 })();
