@@ -56,7 +56,7 @@ const App = {
       
       if (options.requireTeam && !Auth.isTeamMember()) {
         console.log('❌ Not a team member, redirecting to portal');
-        window.location.href = '/client-portal.html';
+        window.location.href = '/portal/';
         return false;
       }
       
