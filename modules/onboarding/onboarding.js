@@ -1569,6 +1569,9 @@ const OnboardingModule = {
       onboarding_completed_at: new Date().toISOString()
     });
     
+    // Automaticky vytvor projekt a spusti AI generovanie
+    const projectId = await this.createProjectAndGenerate();
+    
     if (this.isPublic) {
       // Show thank you page
       const container = document.getElementById('app');
@@ -1576,6 +1579,157 @@ const OnboardingModule = {
     } else {
       Utils.toast('Onboarding dokončený! 🎉', 'success');
       Router.navigate('clients', { id: this.clientId });
+    }
+  },
+  
+  /**
+   * Vytvorí projekt a spustí AI generovanie kampaní
+   */
+  async createProjectAndGenerate() {
+    try {
+      // 1. Načítaj klienta
+      const client = await Database.select('clients', {
+        filters: { id: this.clientId },
+        single: true
+      });
+      
+      if (!client) {
+        console.error('Client not found');
+        return null;
+      }
+      
+      // 2. Vypočítaj rozpočet
+      const adBudget = this.formData.monthly_budget_max || this.formData.monthly_budget_min || 300;
+      const managementFee = this.formData.package_price || 249;
+      
+      // 3. Vytvor projekt
+      const projectData = {
+        client_id: this.clientId,
+        onboarding_id: this.onboardingId,
+        name: `Kampaň - ${client.company_name}`,
+        description: `Automaticky vytvorený projekt z onboardingu`,
+        status: 'generating',
+        ad_spend_budget: adBudget,
+        management_fee: managementFee,
+        total_monthly_budget: adBudget + managementFee,
+        created_at: new Date().toISOString()
+      };
+      
+      const { data: project, error: projectError } = await Database.client
+        .from('campaign_projects')
+        .insert(projectData)
+        .select()
+        .single();
+      
+      if (projectError) {
+        console.error('Project creation error:', projectError);
+        return null;
+      }
+      
+      console.log('✅ Project created:', project.id);
+      
+      // 3. Vytvor notifikáciu pre admina
+      await this.createNotification({
+        type: 'onboarding_completed',
+        title: '📋 Nový onboarding dokončený',
+        message: `${client.company_name} dokončil onboarding. AI generuje návrh kampaní.`,
+        link: `#projects?id=${project.id}`,
+        project_id: project.id
+      });
+      
+      // 4. Spusti AI generovanie (async - nečakáme na výsledok)
+      this.triggerAIGeneration(project.id, this.onboardingId);
+      
+      return project.id;
+      
+    } catch (error) {
+      console.error('Create project error:', error);
+      return null;
+    }
+  },
+  
+  /**
+   * Spustí AI generovanie kampaní
+   */
+  async triggerAIGeneration(projectId, onboardingId) {
+    try {
+      // Mapuj platformy z onboardingu na formát pre Edge Function
+      const platformMap = {
+        'google_ads': 'google_search',
+        'meta_ads': 'meta_facebook',
+        'linkedin_ads': 'linkedin',
+        'tiktok_ads': 'tiktok'
+      };
+      
+      const platforms = (this.formData.selected_platforms || ['google_ads', 'meta_ads'])
+        .map(p => platformMap[p] || p);
+      
+      const { data: { session } } = await Database.client.auth.getSession();
+      const token = session?.access_token || Config?.SUPABASE_ANON_KEY;
+      
+      const response = await fetch(
+        `${Config?.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co'}/functions/v1/generate-campaigns`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            project_id: projectId,
+            onboarding_id: onboardingId,
+            platforms: platforms
+          })
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log(`✅ AI vygenerovalo ${result.campaigns_generated} kampaní`);
+        
+        // Vytvor notifikáciu o dokončení generovania
+        await this.createNotification({
+          type: 'campaigns_generated',
+          title: '🤖 Kampane vygenerované',
+          message: `AI vytvorilo ${result.campaigns_generated} kampaní. Skontrolujte a schváľte návrh.`,
+          link: `/admin/index.html#projects?id=${projectId}`,
+          project_id: projectId
+        });
+      } else {
+        console.error('AI generation failed:', result.error);
+        
+        // Update project status na error
+        await Database.client
+          .from('campaign_projects')
+          .update({ status: 'draft', notes: `AI error: ${result.error}` })
+          .eq('id', projectId);
+      }
+      
+    } catch (error) {
+      console.error('AI generation trigger error:', error);
+    }
+  },
+  
+  /**
+   * Vytvorí notifikáciu
+   */
+  async createNotification(data) {
+    try {
+      await Database.client
+        .from('notifications')
+        .insert({
+          type: data.type || 'info',
+          title: data.title,
+          message: data.message,
+          action_url: data.link || null,
+          entity_type: data.client_id ? 'client' : (data.project_id ? 'project' : null),
+          entity_id: data.project_id || data.client_id || null,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Create notification error:', error);
     }
   },
   
