@@ -785,12 +785,275 @@ const CampaignProjectsModule = {
           `}
         </div>
         
+        <!-- Deployment Checklist (pre approved a active projekty) -->
+        ${['approved', 'deploying', 'active'].includes(project.status) ? this.renderDeploymentChecklist(project, campaigns) : ''}
+        
         <!-- Actions -->
         <div class="flex flex-wrap gap-3 pt-4 border-t">
           ${this.renderDetailActions(project)}
         </div>
       </div>
     `;
+  },
+  
+  // Deployment checklist definition
+  DEPLOYMENT_CHECKLIST: {
+    google: {
+      name: 'Google Ads',
+      icon: '🔍',
+      items: [
+        { id: 'google_access', label: 'Získať prístup ku Google Ads účtu klienta' },
+        { id: 'google_billing', label: 'Nastaviť fakturačné údaje' },
+        { id: 'google_ga4', label: 'Prepojiť s Google Analytics 4' },
+        { id: 'google_tag', label: 'Nainštalovať Google Tag na web' },
+        { id: 'google_conversions', label: 'Nastaviť konverzné akcie' },
+        { id: 'google_campaign', label: 'Vytvoriť kampaň podľa návrhu' },
+        { id: 'google_keywords', label: 'Pridať kľúčové slová + negatívne' },
+        { id: 'google_ads', label: 'Vytvoriť responsive search ads' },
+        { id: 'google_extensions', label: 'Pridať rozšírenia (sitelinks, callouts)' },
+        { id: 'google_launch', label: 'Spustiť kampaň' },
+        { id: 'google_id', label: 'Uložiť Campaign ID do Adlify' }
+      ]
+    },
+    meta: {
+      name: 'Meta Ads',
+      icon: '📘',
+      items: [
+        { id: 'meta_access', label: 'Získať prístup k Business Manager' },
+        { id: 'meta_domain', label: 'Overiť doménu klienta' },
+        { id: 'meta_pixel', label: 'Nainštalovať Meta Pixel' },
+        { id: 'meta_capi', label: 'Nastaviť Conversions API (voliteľné)' },
+        { id: 'meta_audience', label: 'Vytvoriť Custom Audiences' },
+        { id: 'meta_campaign', label: 'Vytvoriť kampaň podľa návrhu' },
+        { id: 'meta_targeting', label: 'Nastaviť targeting a placements' },
+        { id: 'meta_creatives', label: 'Vytvoriť ads (image/video/carousel)' },
+        { id: 'meta_utm', label: 'Pridať UTM parametre' },
+        { id: 'meta_launch', label: 'Publikovať kampaň' },
+        { id: 'meta_id', label: 'Uložiť Campaign ID do Adlify' }
+      ]
+    },
+    linkedin: {
+      name: 'LinkedIn Ads',
+      icon: '💼',
+      items: [
+        { id: 'linkedin_access', label: 'Získať prístup ku Campaign Manager' },
+        { id: 'linkedin_insight', label: 'Nainštalovať LinkedIn Insight Tag' },
+        { id: 'linkedin_campaign', label: 'Vytvoriť kampaň podľa návrhu' },
+        { id: 'linkedin_targeting', label: 'Nastaviť B2B targeting' },
+        { id: 'linkedin_ads', label: 'Vytvoriť sponsored content' },
+        { id: 'linkedin_launch', label: 'Spustiť kampaň' },
+        { id: 'linkedin_id', label: 'Uložiť Campaign ID do Adlify' }
+      ]
+    },
+    tiktok: {
+      name: 'TikTok Ads',
+      icon: '🎵',
+      items: [
+        { id: 'tiktok_access', label: 'Vytvoriť TikTok Business účet' },
+        { id: 'tiktok_pixel', label: 'Nainštalovať TikTok Pixel' },
+        { id: 'tiktok_campaign', label: 'Vytvoriť kampaň podľa návrhu' },
+        { id: 'tiktok_targeting', label: 'Nastaviť targeting' },
+        { id: 'tiktok_creatives', label: 'Vytvoriť video ads' },
+        { id: 'tiktok_launch', label: 'Spustiť kampaň' },
+        { id: 'tiktok_id', label: 'Uložiť Campaign ID do Adlify' }
+      ]
+    }
+  },
+  
+  renderDeploymentChecklist(project, campaigns) {
+    const checklist = project.deployment_checklist || {};
+    
+    // Zisti ktoré platformy sú v kampaniach
+    const platforms = [...new Set(campaigns.map(c => {
+      if (c.platform?.includes('google')) return 'google';
+      if (c.platform?.includes('meta')) return 'meta';
+      if (c.platform?.includes('linkedin')) return 'linkedin';
+      if (c.platform?.includes('tiktok')) return 'tiktok';
+      return null;
+    }).filter(Boolean))];
+    
+    if (platforms.length === 0) return '';
+    
+    // Spočítaj progress
+    let totalItems = 0;
+    let completedItems = 0;
+    platforms.forEach(p => {
+      const items = this.DEPLOYMENT_CHECKLIST[p]?.items || [];
+      totalItems += items.length;
+      completedItems += items.filter(i => checklist[i.id]).length;
+    });
+    
+    const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+    
+    return `
+      <div class="card p-4 mt-4 border-2 ${progress === 100 ? 'border-green-300 bg-green-50' : 'border-orange-200 bg-orange-50'}">
+        <div class="flex items-center justify-between mb-4">
+          <h4 class="font-semibold flex items-center gap-2">
+            📋 Deployment Checklist
+            <span class="text-sm font-normal text-gray-500">(${completedItems}/${totalItems})</span>
+          </h4>
+          <div class="flex items-center gap-3">
+            <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div class="h-full ${progress === 100 ? 'bg-green-500' : 'bg-orange-500'} transition-all" 
+                style="width: ${progress}%"></div>
+            </div>
+            <span class="text-sm font-bold ${progress === 100 ? 'text-green-600' : 'text-orange-600'}">${progress}%</span>
+          </div>
+        </div>
+        
+        <div class="space-y-4">
+          ${platforms.map(platform => {
+            const config = this.DEPLOYMENT_CHECKLIST[platform];
+            if (!config) return '';
+            
+            const platformCompleted = config.items.filter(i => checklist[i.id]).length;
+            const platformTotal = config.items.length;
+            
+            return `
+              <div class="bg-white rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                  <h5 class="font-medium flex items-center gap-2">
+                    <span class="text-xl">${config.icon}</span>
+                    ${config.name}
+                  </h5>
+                  <span class="text-xs px-2 py-1 rounded-full ${platformCompleted === platformTotal ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+                    ${platformCompleted}/${platformTotal}
+                  </span>
+                </div>
+                <div class="space-y-2">
+                  ${config.items.map(item => `
+                    <label class="flex items-center gap-3 p-2 rounded hover:bg-gray-50 cursor-pointer group">
+                      <input type="checkbox" 
+                        ${checklist[item.id] ? 'checked' : ''} 
+                        onchange="CampaignProjectsModule.toggleChecklistItem('${project.id}', '${item.id}', this.checked)"
+                        class="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                      <span class="${checklist[item.id] ? 'line-through text-gray-400' : 'text-gray-700'}">${item.label}</span>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        
+        ${project.deployment_notes ? `
+          <div class="mt-4 p-3 bg-white rounded-lg">
+            <h5 class="font-medium text-sm text-gray-600 mb-1">📝 Poznámky</h5>
+            <p class="text-gray-700">${project.deployment_notes}</p>
+          </div>
+        ` : ''}
+        
+        <div class="mt-4 flex gap-2">
+          <button onclick="CampaignProjectsModule.addDeploymentNote('${project.id}')"
+            class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+            📝 Pridať poznámku
+          </button>
+          ${progress === 100 ? `
+            <button onclick="CampaignProjectsModule.markAsDeployed('${project.id}')"
+              class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
+              ✅ Označiť ako nasadené
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  },
+  
+  async toggleChecklistItem(projectId, itemId, checked) {
+    try {
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project) return;
+      
+      const checklist = { ...project.deployment_checklist } || {};
+      checklist[itemId] = checked;
+      
+      const { error } = await Database.client
+        .from('campaign_projects')
+        .update({ deployment_checklist: checklist })
+        .eq('id', projectId);
+      
+      if (error) throw error;
+      
+      // Update local data
+      project.deployment_checklist = checklist;
+      
+      // Refresh checklist display
+      if (this.selectedProject?.id === projectId) {
+        this.selectedProject.deployment_checklist = checklist;
+        const { data: campaigns } = await Database.client
+          .from('campaigns')
+          .select('*')
+          .eq('project_id', projectId);
+        
+        const checklistContainer = document.querySelector('.card.border-2');
+        if (checklistContainer) {
+          checklistContainer.outerHTML = this.renderDeploymentChecklist(project, campaigns || []);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Toggle checklist error:', error);
+      Utils.toast('Chyba pri ukladaní', 'error');
+    }
+  },
+  
+  async addDeploymentNote(projectId) {
+    const project = this.projects.find(p => p.id === projectId);
+    const currentNote = project?.deployment_notes || '';
+    
+    const note = prompt('Poznámka k nasadeniu:', currentNote);
+    if (note === null) return;
+    
+    try {
+      const { error } = await Database.client
+        .from('campaign_projects')
+        .update({ deployment_notes: note })
+        .eq('id', projectId);
+      
+      if (error) throw error;
+      
+      project.deployment_notes = note;
+      if (this.selectedProject?.id === projectId) {
+        this.selectedProject.deployment_notes = note;
+        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+      }
+      
+      Utils.toast('Poznámka uložená', 'success');
+    } catch (error) {
+      console.error('Add note error:', error);
+      Utils.toast('Chyba pri ukladaní', 'error');
+    }
+  },
+  
+  async markAsDeployed(projectId) {
+    if (!confirm('Označiť projekt ako nasadený a spustiť kampane?')) return;
+    
+    try {
+      const { error } = await Database.client
+        .from('campaign_projects')
+        .update({ 
+          status: 'active',
+          actual_start_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', projectId);
+      
+      if (error) throw error;
+      
+      // Update local
+      const project = this.projects.find(p => p.id === projectId);
+      if (project) {
+        project.status = 'active';
+      }
+      
+      Utils.toast('🚀 Projekt nasadený a aktívny!', 'success');
+      this.closeDetailModal();
+      await this.loadData();
+      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      
+    } catch (error) {
+      console.error('Mark deployed error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
   },
   
   toggleOnboardingDetail() {
@@ -1351,14 +1614,15 @@ const CampaignProjectsModule = {
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
             🔗 ${project.client_portal_token ? 'Kopírovať odkaz' : 'Generovať odkaz pre klienta'}
           </button>
+          <button onclick="CampaignProjectsModule.sendProposalToClient('${project.id}')" 
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            ${!project.client_portal_token ? 'disabled title="Najprv vygenerujte odkaz"' : ''}>
+            📧 Poslať klientovi email
+          </button>
           <button onclick="CampaignProjectsModule.previewAsClient('${project.id}')" 
             class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
             ${!project.client_portal_token ? 'disabled title="Najprv vygenerujte odkaz"' : ''}>
             👁️ Náhľad portálu
-          </button>
-          <button onclick="CampaignProjectsModule.simulateClientApproval('${project.id}')" 
-            class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
-            ✅ Simulovať schválenie klientom
           </button>
         `);
         break;
@@ -1690,10 +1954,10 @@ const CampaignProjectsModule = {
   },
   
   previewAsClient(projectId) {
-    // Open client portal in new tab
+    // Open client portal proposal in new tab
     const project = this.projects.find(p => p.id === projectId);
     if (project?.client_portal_token) {
-      window.open(`/client-portal.html?token=${project.client_portal_token}`, '_blank');
+      window.open(`/portal/proposal.html?t=${project.client_portal_token}`, '_blank');
     } else {
       Utils.toast('Najprv vygenerujte odkaz pre klienta', 'warning');
     }
@@ -1743,6 +2007,159 @@ const CampaignProjectsModule = {
     const url = `${window.location.origin}/client-portal.html?token=${project.client_portal_token}`;
     await navigator.clipboard.writeText(url);
     Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
+  },
+  
+  async sendProposalToClient(projectId) {
+    const project = this.projects.find(p => p.id === projectId);
+    if (!project) return;
+    
+    // Generuj token ak neexistuje
+    if (!project.client_portal_token) {
+      await this.generateClientLink(projectId);
+    }
+    
+    // Načítaj klienta
+    const { data: client, error: clientError } = await Database.client
+      .from('clients')
+      .select('*')
+      .eq('id', project.client_id)
+      .single();
+    
+    if (clientError || !client) {
+      Utils.toast('Klient nenájdený', 'error');
+      return;
+    }
+    
+    if (!client.contact_email) {
+      Utils.toast('Klient nemá email', 'error');
+      return;
+    }
+    
+    const proposalUrl = `${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}`;
+    
+    // HTML email
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .logo { font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #f97316, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .card { background: #f8fafc; border-radius: 16px; padding: 30px; margin: 30px 0; }
+    h1 { font-size: 24px; color: #1e293b; margin-bottom: 10px; }
+    .subtitle { color: #64748b; font-size: 16px; }
+    .highlight { background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 20px 30px; border-radius: 12px; text-align: center; margin: 30px 0; }
+    .highlight h2 { margin: 0 0 10px 0; font-size: 20px; }
+    .btn { display: inline-block; background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 16px 40px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; }
+    .btn:hover { opacity: 0.9; }
+    .features { margin: 30px 0; }
+    .feature { display: flex; align-items: center; margin: 15px 0; }
+    .feature-icon { font-size: 24px; margin-right: 15px; }
+    .footer { text-align: center; color: #94a3b8; font-size: 14px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">Adlify</div>
+    </div>
+    
+    <h1>Dobrý deň ${client.contact_person || client.company_name},</h1>
+    <p class="subtitle">Pripravili sme pre vás návrh marketingovej kampane!</p>
+    
+    <div class="card">
+      <h2 style="margin-top: 0;">📊 ${project.name}</h2>
+      <p>Na základe informácií, ktoré ste nám poskytli, sme pre vás pripravili personalizovanú stratégiu online marketingu.</p>
+      
+      <div class="features">
+        <div class="feature">
+          <span class="feature-icon">🎯</span>
+          <span>Cielené kampane pre váš biznis</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📈</span>
+          <span>Očakávané výsledky a metriky</span>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">💰</span>
+          <span>Optimalizovaný rozpočet</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="highlight">
+      <h2>Pozrite si váš návrh</h2>
+      <p style="margin: 10px 0 20px 0; opacity: 0.9;">Kliknite na tlačidlo nižšie pre zobrazenie kompletného návrhu</p>
+      <a href="${proposalUrl}" class="btn">Zobraziť návrh kampane →</a>
+    </div>
+    
+    <p>Po prezretí návrhu môžete:</p>
+    <ul>
+      <li>✅ <strong>Schváliť návrh</strong> - a my začneme s realizáciou</li>
+      <li>✏️ <strong>Požiadať o úpravu</strong> - ak máte pripomienky</li>
+    </ul>
+    
+    <p style="margin-top: 30px;">V prípade otázok nás neváhajte kontaktovať.</p>
+    
+    <p>S pozdravom,<br><strong>Tím Adlify</strong></p>
+    
+    <div class="footer">
+      <p>Adlify - Váš partner pre online marketing</p>
+      <p>info@adlify.eu | www.adlify.eu</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+    
+    try {
+      // Pošli email cez Netlify function
+      const response = await fetch('/.netlify/functions/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: client.contact_email,
+          toName: client.contact_person || client.company_name,
+          subject: `📊 Návrh kampane pre ${client.company_name} - Adlify`,
+          htmlBody: htmlBody
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Ulož dátum odoslania
+        await Database.client
+          .from('campaign_projects')
+          .update({ 
+            proposal_sent_at: new Date().toISOString(),
+            proposal_sent_to: client.contact_email
+          })
+          .eq('id', projectId);
+        
+        Utils.toast(`📧 Email odoslaný na ${client.contact_email}`, 'success');
+        
+        // Vytvor notifikáciu
+        await Database.client.from('notifications').insert({
+          type: 'proposal_sent',
+          title: '📧 Návrh odoslaný klientovi',
+          message: `Návrh pre ${client.company_name} bol odoslaný na ${client.contact_email}`,
+          action_url: `#projects?id=${projectId}`,
+          entity_type: 'project',
+          entity_id: projectId
+        });
+        
+      } else {
+        throw new Error(result.error || 'Email sa nepodarilo odoslať');
+      }
+      
+    } catch (error) {
+      console.error('Send proposal error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
   },
 
   viewReport(projectId) {
