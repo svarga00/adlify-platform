@@ -477,7 +477,7 @@
 
             try {
                 // Load project by client_portal_token
-                const { data: projectData, error: projectError } = await supabase
+                const { data: projectData, error: projectError } = await db
                     .from('campaign_projects')
                     .select(`
                         *,
@@ -498,7 +498,7 @@
                 document.getElementById('client-name').textContent = client?.company_name || 'Klient';
 
                 // Load campaigns
-                const { data: campaignsData } = await supabase
+                const { data: campaignsData } = await db
                     .from('campaigns')
                     .select(`
                         *,
@@ -753,7 +753,7 @@
             if (!confirm('Naozaj chcete schváliť tento návrh?')) return;
 
             try {
-                const { error } = await supabase
+                const { error } = await db
                     .from('campaign_projects')
                     .update({
                         status: 'approved',
@@ -791,7 +791,7 @@
             }
 
             try {
-                const { error } = await supabase
+                const { error } = await db
                     .from('campaign_projects')
                     .update({
                         status: 'revision',
