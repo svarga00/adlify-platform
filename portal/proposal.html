@@ -476,40 +476,63 @@
             }
 
             try {
-                // Load project by client_portal_token
+                // Load project by client_portal_token (bez JOIN)
                 const { data: projectData, error: projectError } = await db
                     .from('campaign_projects')
-                    .select(`
-                        *,
-                        clients (id, company_name, contact_person)
-                    `)
+                    .select('*')
                     .eq('client_portal_token', token)
                     .single();
 
                 if (projectError || !projectData) {
+                    console.error('Project error:', projectError);
                     showError('Návrh nebol nájdený');
                     return;
                 }
 
                 project = projectData;
-                client = projectData.clients;
+                
+                // Load client separately
+                const { data: clientData } = await db
+                    .from('clients')
+                    .select('id, company_name, contact_person')
+                    .eq('id', project.client_id)
+                    .single();
+                
+                client = clientData;
 
                 // Update client name in header
                 document.getElementById('client-name').textContent = client?.company_name || 'Klient';
 
                 // Load campaigns
-                const { data: campaignsData } = await db
+                const { data: campaignsData, error: campaignsError } = await db
                     .from('campaigns')
-                    .select(`
-                        *,
-                        ad_groups (
-                            *,
-                            ads (*)
-                        )
-                    `)
+                    .select('*')
                     .eq('project_id', project.id);
 
+                if (campaignsError) {
+                    console.error('Campaigns error:', campaignsError);
+                }
+
                 campaigns = campaignsData || [];
+                
+                // Load ad_groups and ads for each campaign
+                for (let campaign of campaigns) {
+                    const { data: adGroupsData } = await db
+                        .from('ad_groups')
+                        .select('*')
+                        .eq('campaign_id', campaign.id);
+                    
+                    campaign.ad_groups = adGroupsData || [];
+                    
+                    for (let adGroup of campaign.ad_groups) {
+                        const { data: adsData } = await db
+                            .from('ads')
+                            .select('*')
+                            .eq('ad_group_id', adGroup.id);
+                        
+                        adGroup.ads = adsData || [];
+                    }
+                }
 
                 // Render
                 render();
