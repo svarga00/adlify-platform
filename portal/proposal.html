@@ -459,7 +459,7 @@
         const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQyNjcyMjQsImV4cCI6MjA0OTg0MzIyNH0.DNPXL_OHXzo1rveFkzPMBOQvMwH0Es_P-yNnXhsTgGU';
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         let project = null;
         let campaigns = [];
@@ -764,7 +764,7 @@
                 if (error) throw error;
 
                 // Create notification for admin
-                await supabase.from('notifications').insert({
+                await db.from('notifications').insert({
                     type: 'client_approved',
                     title: '✅ Klient schválil návrh',
                     message: `${client?.company_name} schválil návrh kampane "${project.name}"`,
@@ -803,7 +803,7 @@
                 if (error) throw error;
 
                 // Create notification for admin
-                await supabase.from('notifications').insert({
+                await db.from('notifications').insert({
                     type: 'client_revision',
                     title: '✏️ Klient požiadal o úpravu',
                     message: `${client?.company_name} požiadal o úpravu návrhu: "${comment.substring(0, 100)}..."`,
