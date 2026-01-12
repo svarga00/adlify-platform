@@ -1256,7 +1256,113 @@ const ClientsModule = {
   },
   
   async sendOnboarding(clientId) {
-    Utils.toast('Odosielanie onboarding emailu - pripravuje sa', 'info');
+    try {
+      // Get client
+      const client = this.clients.find(c => c.id === clientId);
+      if (!client) {
+        Utils.toast('Klient nebol nájdený', 'error');
+        return;
+      }
+
+      // Check email
+      if (!client.email) {
+        Utils.toast('Klient nemá zadaný email', 'error');
+        return;
+      }
+
+      // Confirm
+      const confirmed = await Utils.confirm(
+        'Poslať onboarding?',
+        `Pošle sa email na ${client.email} s odkazom na vyplnenie onboarding dotazníka.${client.onboarding_status === 'completed' ? '\n\n⚠️ Tento klient už má onboarding dokončený. Pokračovaním sa resetuje a môže ho vyplniť znova.' : ''}`
+      );
+      
+      if (!confirmed) return;
+
+      Utils.toast('Odosielam...', 'info');
+
+      // Generate new token
+      const newToken = this.generateToken();
+
+      // Update client in DB
+      const { error: updateError } = await Database.client
+        .from('clients')
+        .update({
+          onboarding_token: newToken,
+          onboarding_status: 'sent',
+          onboarding_sent_at: new Date().toISOString()
+        })
+        .eq('id', clientId);
+
+      if (updateError) {
+        console.error('Update error:', updateError);
+        Utils.toast('Chyba pri aktualizácii klienta', 'error');
+        return;
+      }
+
+      // Build onboarding URL
+      const onboardingUrl = `${window.location.origin}/portal/onboarding.html?t=${newToken}`;
+
+      // Send email
+      const emailResponse = await fetch('/.netlify/functions/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: client.email,
+          subject: `Onboarding dotazník - ${client.company_name || 'Adlify'}`,
+          htmlBody: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+                <h1 style="margin: 0; font-size: 24px;">📋 Onboarding dotazník</h1>
+              </div>
+              <div style="padding: 30px; background: #f8fafc; border-radius: 0 0 10px 10px;">
+                <p style="font-size: 16px; color: #1e293b;">Dobrý deň${client.contact_person ? ' ' + client.contact_person : ''},</p>
+                <p style="color: #475569;">Pre prípravu vašej marketingovej kampane potrebujeme získať niekoľko informácií o vašom biznise. Prosím, vyplňte krátky dotazník kliknutím na tlačidlo nižšie:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${onboardingUrl}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #f97316, #ec4899); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
+                    Vyplniť dotazník →
+                  </a>
+                </div>
+                
+                <p style="color: #64748b; font-size: 14px;">Alebo skopírujte tento odkaz:</p>
+                <p style="color: #f97316; word-break: break-all; font-size: 14px;">${onboardingUrl}</p>
+                
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
+                
+                <p style="color: #64748b; font-size: 14px; margin-bottom: 0;">
+                  S pozdravom,<br>
+                  <strong>Tím Adlify</strong><br>
+                  📧 info@adlify.eu | 🌐 adlify.eu
+                </p>
+              </div>
+            </div>
+          `
+        })
+      });
+
+      const emailResult = await emailResponse.json();
+
+      if (emailResult.success) {
+        Utils.toast('Onboarding email bol odoslaný!', 'success');
+        
+        // Update local data
+        client.onboarding_token = newToken;
+        client.onboarding_status = 'sent';
+        
+        // Refresh view
+        await this.load();
+        if (this.currentClient?.id === clientId) {
+          this.renderClientDetail(document.getElementById('client-detail'), clientId);
+        }
+      } else {
+        console.error('Email error:', emailResult);
+        Utils.toast('Chyba pri odosielaní emailu: ' + (emailResult.error || 'Neznáma chyba'), 'error');
+      }
+
+    } catch (error) {
+      console.error('sendOnboarding error:', error);
+      Utils.toast('Nastala chyba', 'error');
+    }
   },
   
   fillOnboarding(clientId) {
