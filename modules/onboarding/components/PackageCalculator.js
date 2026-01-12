@@ -1,170 +1,34 @@
 /**
- * Adlify - Package Calculator Component v2.1
- * S celkovou sumou pri 6/12 mesačných platbách
+ * Adlify - Package Calculator Component v3.0
+ * Dynamické načítavanie balíkov z databázy
  */
 
 const PackageCalculator = {
-    // Definícia balíkov podľa Adlify cenníka
-    packages: {
-        starter: {
-            id: 'starter',
-            name: 'Starter',
-            tagline: 'Pre začiatok',
-            price: 149,
-            price6m: Math.round(149 * 0.9), // 134€
-            price12m: Math.round(149 * 0.8), // 119€
-            color: '#3B82F6',
-            icon: '🚀',
-            description: 'Ideálne pre živnostníkov, ktorí chcú vyskúšať online reklamu',
-            limits: {
-                platforms: 1,
-                campaigns: 1,
-                visuals: 2,
-                abTesting: false,
-                remarketing: false,
-                optimization: 'monthly',
-                accountManager: false,
-                support: 'email'
-            },
-            features: [
-                '1 reklamná platforma',
-                '1 kampaň',
-                '2 reklamné vizuály',
-                'Reklamné texty (copy)',
-                'Základná optimalizácia',
-                'Mesačný report',
-                'Email podpora'
-            ]
-        },
-        pro: {
-            id: 'pro',
-            name: 'Pro',
-            tagline: 'Najobľúbenejšie',
-            price: 249,
-            price6m: Math.round(249 * 0.9), // 224€
-            price12m: Math.round(249 * 0.8), // 199€
-            color: '#F97316',
-            colorEnd: '#EC4899',
-            icon: '⭐',
-            popular: true,
-            description: 'Pre firmy, ktoré chcú rásť na viacerých platformách',
-            limits: {
-                platforms: 2,
-                campaigns: 3,
-                visuals: 4,
-                abTesting: true,
-                remarketing: false,
-                optimization: 'biweekly',
-                accountManager: false,
-                support: 'email_phone'
-            },
-            features: [
-                '2 platformy (FB/IG + Google)',
-                'Až 3 kampane súčasne',
-                '4 reklamné vizuály',
-                'A/B testovanie',
-                'Optimalizácia každé 2 týždne',
-                'Detailný report',
-                'Email + telefón podpora'
-            ]
-        },
-        enterprise: {
-            id: 'enterprise',
-            name: 'Enterprise',
-            tagline: 'Pre firmy',
-            price: 399,
-            price6m: Math.round(399 * 0.9), // 359€
-            price12m: Math.round(399 * 0.8), // 319€
-            color: '#8B5CF6',
-            icon: '💎',
-            description: 'Pre e-shopy a firmy s vyšším rozpočtom na reklamu',
-            limits: {
-                platforms: Infinity,
-                campaigns: 5,
-                visuals: 8,
-                abTesting: 'advanced',
-                remarketing: true,
-                optimization: 'weekly',
-                accountManager: false,
-                support: 'priority_whatsapp'
-            },
-            features: [
-                'Všetky platformy + remarketing',
-                'Až 5 kampaní súčasne',
-                '8 reklamných vizuálov',
-                'Pokročilé A/B testovanie',
-                'Týždenná optimalizácia',
-                'Strategické konzultácie',
-                'Prioritná podpora + WhatsApp'
-            ]
-        },
-        premium: {
-            id: 'premium',
-            name: 'Premium',
-            tagline: 'VIP',
-            price: 799,
-            priceFrom: true,
-            price6m: Math.round(799 * 0.9), // 719€
-            price12m: Math.round(799 * 0.8), // 639€
-            color: '#F59E0B',
-            icon: '👑',
-            description: 'Individuálna cena podľa rozsahu a potrieb vášho projektu',
-            limits: {
-                platforms: Infinity,
-                campaigns: Infinity,
-                visuals: Infinity,
-                abTesting: 'advanced',
-                remarketing: true,
-                optimization: 'daily',
-                accountManager: true,
-                support: 'vip_24_7'
-            },
-            features: [
-                'Všetky platformy + remarketing',
-                'Neobmedzený počet kampaní',
-                'Neobmedzené vizuály',
-                'Dedikovaný account manager',
-                'Denná optimalizácia',
-                'Mesačné strategické stretnutia',
-                '24/7 VIP podpora'
-            ]
-        }
+    // Balíky sa načítajú z DB, toto je fallback
+    packages: {},
+    
+    // Ikony pre balíky (Lucide SVG)
+    icons: {
+        rocket: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>`,
+        star: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+        crown: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>`,
+        gem: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>`,
+        trophy: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`
     },
 
-    // Billing cycles s počtom mesiacov
+    // Billing cycles
     billingCycles: {
-        monthly: { id: 'monthly', label: 'Mesačne', discount: 0, months: 1, badge: null },
-        '6months': { id: '6months', label: '6 mesiacov', discount: 10, months: 6, badge: '-10%' },
-        '12months': { id: '12months', label: '12 mesiacov', discount: 20, months: 12, badge: '-20%' }
+        monthly: { id: 'monthly', label: 'Mesačne', discount: 0, badge: null },
+        '6months': { id: '6months', label: '6 mesiacov', discount: 10, badge: '-10%' },
+        '12months': { id: '12months', label: '12 mesiacov', discount: 20, badge: '-20%' }
     },
-
-    // Porovnávacia tabuľka
-    comparisonFeatures: [
-        { key: 'platforms', label: 'Platformy', format: v => v === Infinity ? 'Všetky' : v },
-        { key: 'campaigns', label: 'Počet kampaní', format: v => v === Infinity ? 'Neobmedzene' : v },
-        { key: 'visuals', label: 'Reklamné vizuály', format: v => v === Infinity ? 'Neobmedzene' : v },
-        { key: 'abTesting', label: 'A/B testovanie', format: v => v === 'advanced' ? '✓ Pokročilé' : (v ? '✓' : '—') },
-        { key: 'remarketing', label: 'Remarketing', format: v => v ? '✓' : '—' },
-        { key: 'optimization', label: 'Frekvencia optimalizácie', format: v => ({
-            'monthly': 'Mesačne',
-            'biweekly': 'Každé 2 týždne',
-            'weekly': 'Týždenne',
-            'daily': 'Denne'
-        }[v] || v) },
-        { key: 'accountManager', label: 'Account manager', format: v => v ? '✓ Dedikovaný' : '—' },
-        { key: 'support', label: 'Podpora', format: v => ({
-            'email': 'Email',
-            'email_phone': 'Email + Telefón',
-            'priority_whatsapp': 'Prioritná + WhatsApp',
-            'vip_24_7': '24/7 VIP'
-        }[v] || v) }
-    ],
 
     // Stav
     state: {
         selectedPackage: null,
         billingCycle: 'monthly',
-        selectedPlatforms: []
+        selectedPlatforms: [],
+        loading: true
     },
 
     // Callbacks
@@ -174,9 +38,125 @@ const PackageCalculator = {
     },
 
     /**
+     * Načítanie balíkov z databázy
+     */
+    async loadPackagesFromDB() {
+        try {
+            if (typeof Database === 'undefined' || !Database.client) {
+                console.warn('PackageCalculator: Database not available, using fallback');
+                return false;
+            }
+
+            const { data, error } = await Database.client
+                .from('packages')
+                .select('*')
+                .eq('is_active', true)
+                .order('sort_order');
+
+            if (error) {
+                console.error('PackageCalculator: DB error', error);
+                return false;
+            }
+
+            if (data && data.length > 0) {
+                this.packages = {};
+                data.forEach(pkg => {
+                    // Parse JSON fields
+                    let features = [];
+                    let limits = {};
+                    
+                    try {
+                        features = typeof pkg.features === 'string' ? JSON.parse(pkg.features) : (pkg.features || []);
+                    } catch (e) { features = []; }
+                    
+                    try {
+                        limits = typeof pkg.limits === 'string' ? JSON.parse(pkg.limits) : (pkg.limits || {});
+                    } catch (e) { limits = {}; }
+
+                    this.packages[pkg.slug] = {
+                        id: pkg.slug,
+                        dbId: pkg.id,
+                        name: pkg.name,
+                        tagline: pkg.tagline || pkg.badge || '',
+                        price: parseFloat(pkg.price) || 0,
+                        price6m: Math.round(parseFloat(pkg.price) * 0.9),
+                        price12m: Math.round(parseFloat(pkg.price) * 0.8),
+                        color: pkg.color || '#6366f1',
+                        icon: pkg.icon || 'star',
+                        description: pkg.description || '',
+                        popular: pkg.is_featured || false,
+                        priceFrom: pkg.price_type === 'from',
+                        limits: {
+                            platforms: pkg.max_platforms || limits.platforms || 1,
+                            campaigns: pkg.max_campaigns || limits.campaigns || 1,
+                            visuals: pkg.max_visuals || limits.visuals || 2,
+                            ...limits
+                        },
+                        features: features
+                    };
+                });
+                console.log('PackageCalculator: Loaded', Object.keys(this.packages).length, 'packages from DB');
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error('PackageCalculator: Error loading from DB', e);
+            return false;
+        }
+    },
+
+    /**
+     * Fallback balíky ak DB nie je dostupná
+     */
+    loadFallbackPackages() {
+        this.packages = {
+            starter: {
+                id: 'starter',
+                name: 'Starter',
+                tagline: 'Pre začiatok',
+                price: 149,
+                price6m: 134,
+                price12m: 119,
+                color: '#3B82F6',
+                icon: 'rocket',
+                description: 'Ideálne pre živnostníkov, ktorí chcú vyskúšať online reklamu',
+                limits: { platforms: 1, campaigns: 1, visuals: 2 },
+                features: ['1 reklamná platforma', '1 kampaň', '2 reklamné vizuály', 'Mesačný report', 'Email podpora']
+            },
+            pro: {
+                id: 'pro',
+                name: 'Pro',
+                tagline: 'Najobľúbenejšie',
+                price: 249,
+                price6m: 224,
+                price12m: 199,
+                color: '#F97316',
+                icon: 'star',
+                popular: true,
+                description: 'Pre firmy, ktoré chcú rásť na viacerých platformách',
+                limits: { platforms: 2, campaigns: 3, visuals: 4, abTesting: true },
+                features: ['2 platformy', '3 kampane', '4 vizuály', 'A/B testovanie', 'Detailný report']
+            },
+            enterprise: {
+                id: 'enterprise',
+                name: 'Enterprise',
+                tagline: 'Pre firmy',
+                price: 399,
+                price6m: 359,
+                price12m: 319,
+                color: '#8B5CF6',
+                icon: 'crown',
+                description: 'Pre e-shopy a firmy s vyšším rozpočtom',
+                limits: { platforms: 99, campaigns: 5, visuals: 8, abTesting: true, remarketing: true },
+                features: ['Všetky platformy', '5 kampaní', '8 vizuálov', 'Remarketing', 'WhatsApp podpora']
+            }
+        };
+    },
+
+    /**
      * Inicializácia
      */
-    init(containerId, options = {}) {
+    async init(containerId, options = {}) {
         this.container = document.getElementById(containerId);
         if (!this.container) {
             console.error('PackageCalculator: Container not found');
@@ -195,9 +175,24 @@ const PackageCalculator = {
         if (options.onUpgrade) this.callbacks.onUpgrade = options.onUpgrade;
 
         this.state.selectedPlatforms = this.options.platforms;
+        this.state.loading = true;
         
+        // Zobraz loading
+        this.renderLoading();
+        
+        // Načítaj balíky z DB
+        const loaded = await this.loadPackagesFromDB();
+        if (!loaded) {
+            this.loadFallbackPackages();
+        }
+        
+        this.state.loading = false;
+        
+        // Auto-select recommended package
         if (!this.state.selectedPackage) {
-            this.state.selectedPackage = this.options.defaultPackage || 'pro';
+            // Preferuj 'pro' alebo prvý dostupný
+            this.state.selectedPackage = this.options.defaultPackage || 
+                (this.packages.pro ? 'pro' : Object.keys(this.packages)[0]);
         }
         
         this.render();
@@ -205,81 +200,71 @@ const PackageCalculator = {
     },
 
     /**
-     * Získanie mesačnej ceny podľa billing cycle
+     * Render loading state
      */
-    getMonthlyPrice(pkg, cycle = 'monthly') {
+    renderLoading() {
+        this.container.innerHTML = `
+            <div class="flex items-center justify-center py-12">
+                <div class="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
+                <span class="ml-3 text-gray-500">Načítavam balíky...</span>
+            </div>
+        `;
+    },
+
+    /**
+     * Získanie ceny podľa billing cycle
+     */
+    getPrice(pkg, cycle = 'monthly') {
         if (cycle === '6months') return pkg.price6m;
         if (cycle === '12months') return pkg.price12m;
         return pkg.price;
     },
 
     /**
-     * Získanie celkovej ceny (suma za celé obdobie)
+     * Získanie ikony
      */
-    getTotalPrice(pkg, cycle = 'monthly') {
-        const monthlyPrice = this.getMonthlyPrice(pkg, cycle);
-        const months = this.billingCycles[cycle]?.months || 1;
-        return monthlyPrice * months;
-    },
-
-    /**
-     * Získanie úspory oproti mesačnej platbe
-     */
-    getSavings(pkg, cycle = 'monthly') {
-        if (cycle === 'monthly') return 0;
-        const months = this.billingCycles[cycle]?.months || 1;
-        const fullPrice = pkg.price * months;
-        const discountedTotal = this.getTotalPrice(pkg, cycle);
-        return fullPrice - discountedTotal;
+    getIcon(iconName) {
+        return this.icons[iconName] || this.icons.star;
     },
 
     /**
      * Hlavný render
      */
     render() {
-        const cycle = this.billingCycles[this.state.billingCycle];
-        const showTotalInfo = this.state.billingCycle !== 'monthly';
-        
+        if (Object.keys(this.packages).length === 0) {
+            this.container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <p>Žiadne balíky nie sú dostupné.</p>
+                </div>
+            `;
+            return;
+        }
+
         const html = `
             <div class="package-calculator">
-                <div class="package-calculator__header">
-                    <h2 class="package-calculator__title">
-                        <span class="package-calculator__icon">💎</span>
-                        Vyberte si balík
-                    </h2>
-                    <p class="package-calculator__subtitle">
-                        Vyberte balík, ktorý najlepšie vyhovuje vašim potrebám
-                    </p>
-                </div>
-
                 <!-- Billing Toggle -->
-                <div class="package-calculator__toggle">
-                    ${Object.values(this.billingCycles).map(c => `
-                        <button class="package-toggle__btn ${this.state.billingCycle === c.id ? 'package-toggle__btn--active' : ''}" 
-                                data-action="set-billing" data-cycle="${c.id}">
-                            ${c.label}
-                            ${c.badge ? `<span class="package-toggle__badge">${c.badge}</span>` : ''}
-                        </button>
-                    `).join('')}
-                </div>
-
-                <!-- Info o platbe vopred -->
-                ${showTotalInfo ? `
-                    <div class="package-calculator__billing-info">
-                        <span class="package-calculator__billing-info-icon">💡</span>
-                        <span>Pri ${cycle.months}-mesačnej platbe platíte celú sumu vopred a ušetríte ${cycle.discount}%</span>
+                <div class="flex justify-center mb-8">
+                    <div class="inline-flex bg-gray-100 rounded-xl p-1">
+                        ${Object.values(this.billingCycles).map(cycle => `
+                            <button class="px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                this.state.billingCycle === cycle.id 
+                                    ? 'bg-white shadow text-gray-900' 
+                                    : 'text-gray-600 hover:text-gray-900'
+                            }" data-action="set-billing" data-cycle="${cycle.id}">
+                                ${cycle.label}
+                                ${cycle.badge ? `<span class="ml-1 text-xs text-green-600 font-semibold">${cycle.badge}</span>` : ''}
+                            </button>
+                        `).join('')}
                     </div>
-                ` : ''}
+                </div>
 
                 <!-- Package Cards -->
-                <div class="package-calculator__grid">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${Math.min(Object.keys(this.packages).length, 4)} gap-6">
                     ${Object.values(this.packages).map(pkg => this.renderPackageCard(pkg)).join('')}
                 </div>
-
-                ${this.options.showComparison ? this.renderComparisonTable() : ''}
                 
-                <p class="package-calculator__note">
-                    * Ceny sú bez DPH. Reklamný rozpočet (budget na reklamy) nie je zahrnutý.
+                <p class="text-center text-sm text-gray-500 mt-6">
+                    * Ceny sú bez DPH. Reklamný rozpočet nie je zahrnutý.
                 </p>
             </div>
         `;
@@ -292,130 +277,71 @@ const PackageCalculator = {
      */
     renderPackageCard(pkg) {
         const isSelected = this.state.selectedPackage === pkg.id;
-        const cycle = this.state.billingCycle;
-        const monthlyPrice = this.getMonthlyPrice(pkg, cycle);
-        const totalPrice = this.getTotalPrice(pkg, cycle);
-        const savings = this.getSavings(pkg, cycle);
+        const price = this.getPrice(pkg, this.state.billingCycle);
         const originalPrice = pkg.price;
-        const hasDiscount = cycle !== 'monthly';
-        const months = this.billingCycles[cycle]?.months || 1;
+        const hasDiscount = this.state.billingCycle !== 'monthly';
+        
+        const borderClass = isSelected 
+            ? 'ring-2 ring-orange-500 border-orange-500' 
+            : 'border-gray-200 hover:border-gray-300';
+        
+        const popularBadge = pkg.popular 
+            ? `<div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-semibold rounded-full shadow">Najobľúbenejší</div>`
+            : '';
 
         return `
-            <div class="package-card ${isSelected ? 'package-card--selected' : ''} 
-                        ${pkg.popular ? 'package-card--popular' : ''}
-                        ${pkg.id === 'premium' ? 'package-card--premium' : ''}"
-                 data-package="${pkg.id}"
-                 style="--package-color: ${pkg.color}; ${pkg.colorEnd ? `--package-color-end: ${pkg.colorEnd}` : ''}">
+            <div class="relative bg-white rounded-2xl border-2 ${borderClass} p-6 transition-all cursor-pointer hover:shadow-lg"
+                 data-package="${pkg.id}" data-action="select-package">
                 
-                ${pkg.tagline ? `<div class="package-card__badge ${pkg.popular ? '' : 'package-card__badge--subtle'}">${pkg.tagline}</div>` : ''}
+                ${popularBadge}
                 
-                <div class="package-card__header">
-                    <span class="package-card__icon">${pkg.icon}</span>
-                    <h3 class="package-card__name">${pkg.name}</h3>
+                <!-- Header -->
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white" 
+                         style="background: ${pkg.color}">
+                        ${this.getIcon(pkg.icon)}
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">${pkg.name}</h3>
+                        ${pkg.tagline ? `<span class="text-xs text-gray-500">${pkg.tagline}</span>` : ''}
+                    </div>
                 </div>
                 
-                <div class="package-card__price">
-                    ${pkg.priceFrom ? '<span class="package-card__price-from">od </span>' : ''}
-                    <span class="package-card__amount">${monthlyPrice}€</span>
-                    <span class="package-card__period">/mes</span>
+                <!-- Price -->
+                <div class="mb-4">
+                    <div class="flex items-baseline gap-1">
+                        ${pkg.priceFrom ? '<span class="text-sm text-gray-500">od </span>' : ''}
+                        <span class="text-3xl font-bold text-gray-900">${price}€</span>
+                        <span class="text-gray-500">/mes</span>
+                    </div>
+                    ${hasDiscount && !pkg.priceFrom ? `
+                        <div class="text-sm text-gray-400 line-through">${originalPrice}€/mes</div>
+                    ` : ''}
                 </div>
                 
-                ${hasDiscount && !pkg.priceFrom ? `
-                    <div class="package-card__original-price">
-                        <s>${originalPrice}€/mes</s>
-                    </div>
-                ` : ''}
+                <!-- Description -->
+                <p class="text-sm text-gray-600 mb-4">${pkg.description}</p>
                 
-                <!-- Celková suma pri viacmesačnej platbe -->
-                ${hasDiscount && !pkg.priceFrom ? `
-                    <div class="package-card__total">
-                        <div class="package-card__total-amount">
-                            Celkom: <strong>${totalPrice}€</strong> za ${months} mesiacov
-                        </div>
-                        <div class="package-card__savings">
-                            Ušetríte ${savings}€
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <p class="package-card__description">${pkg.description}</p>
-                
-                <ul class="package-card__features">
+                <!-- Features -->
+                <ul class="space-y-2 mb-6">
                     ${pkg.features.map(f => `
-                        <li class="package-card__feature">
-                            <span class="package-card__feature-check">✓</span>
-                            ${f}
+                        <li class="flex items-start gap-2 text-sm">
+                            <svg class="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <span class="text-gray-700">${f}</span>
                         </li>
                     `).join('')}
                 </ul>
                 
-                <button class="package-card__btn ${isSelected ? 'package-card__btn--selected' : ''}"
-                        data-action="${pkg.id === 'premium' && this.options.showContactForPremium ? 'contact-premium' : 'select-package'}"
-                        data-package="${pkg.id}">
-                    ${pkg.id === 'premium' && this.options.showContactForPremium 
-                        ? 'Kontaktujte nás' 
-                        : (isSelected ? '✓ Vybraný' : `Vybrať ${pkg.name}`)}
+                <!-- Button -->
+                <button class="w-full py-3 px-4 rounded-xl font-semibold transition-all ${
+                    isSelected 
+                        ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }" data-action="select-package" data-package="${pkg.id}">
+                    ${isSelected ? '✓ Vybraný' : `Vybrať ${pkg.name}`}
                 </button>
-            </div>
-        `;
-    },
-
-    /**
-     * Render porovnávacej tabuľky
-     */
-    renderComparisonTable() {
-        const cycle = this.state.billingCycle;
-        const months = this.billingCycles[cycle]?.months || 1;
-        const showTotal = cycle !== 'monthly';
-        
-        return `
-            <div class="package-comparison">
-                <h3 class="package-comparison__title">Čo obsahuje každý balík</h3>
-                <div class="package-comparison__table-wrap">
-                    <table class="package-comparison__table">
-                        <thead>
-                            <tr>
-                                <th class="package-comparison__feature-header">Funkcia</th>
-                                ${Object.values(this.packages).map(p => `
-                                    <th class="package-comparison__pkg-header" style="--pkg-color: ${p.color}">
-                                        ${p.name}
-                                    </th>
-                                `).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.comparisonFeatures.map(f => `
-                                <tr>
-                                    <td class="package-comparison__feature-name">${f.label}</td>
-                                    ${Object.values(this.packages).map(p => `
-                                        <td class="package-comparison__feature-value">
-                                            ${f.format(p.limits[f.key])}
-                                        </td>
-                                    `).join('')}
-                                </tr>
-                            `).join('')}
-                            <tr class="package-comparison__price-row">
-                                <td class="package-comparison__feature-name"><strong>Mesačná cena</strong></td>
-                                ${Object.values(this.packages).map(p => `
-                                    <td class="package-comparison__price-cell">
-                                        <strong>${p.priceFrom ? 'od ' : ''}${this.getMonthlyPrice(p, cycle)}€/mes</strong>
-                                    </td>
-                                `).join('')}
-                            </tr>
-                            ${showTotal ? `
-                                <tr class="package-comparison__total-row">
-                                    <td class="package-comparison__feature-name"><strong>Celkom (${months} mes.)</strong></td>
-                                    ${Object.values(this.packages).map(p => `
-                                        <td class="package-comparison__total-cell">
-                                            <strong>${p.priceFrom ? 'od ' : ''}${this.getTotalPrice(p, cycle)}€</strong>
-                                            ${!p.priceFrom ? `<br><span class="package-comparison__savings">-${this.getSavings(p, cycle)}€</span>` : ''}
-                                        </td>
-                                    `).join('')}
-                                </tr>
-                            ` : ''}
-                        </tbody>
-                    </table>
-                </div>
             </div>
         `;
     },
@@ -425,285 +351,62 @@ const PackageCalculator = {
      */
     attachEventListeners() {
         this.container.addEventListener('click', (e) => {
-            const action = e.target.closest('[data-action]')?.dataset.action;
-            
-            switch (action) {
-                case 'select-package':
-                    const packageId = e.target.closest('[data-package]')?.dataset.package;
-                    this.selectPackage(packageId);
-                    break;
-                case 'set-billing':
-                    const cycle = e.target.dataset.cycle;
-                    this.setBillingCycle(cycle);
-                    break;
-                case 'contact-premium':
-                    this.contactForPremium();
-                    break;
+            const action = e.target.closest('[data-action]');
+            if (!action) return;
+
+            const actionType = action.dataset.action;
+
+            if (actionType === 'set-billing') {
+                this.state.billingCycle = action.dataset.cycle;
+                this.render();
+                this.attachEventListeners();
             }
-        });
-    },
 
-    /**
-     * Výber balíka
-     */
-    selectPackage(packageId) {
-        if (!this.packages[packageId]) return;
-        
-        this.state.selectedPackage = packageId;
-        this.render();
-        this.attachEventListeners();
-        
-        if (this.callbacks.onPackageChange) {
-            const pkg = this.packages[packageId];
-            this.callbacks.onPackageChange({
-                ...pkg,
-                billingCycle: this.state.billingCycle,
-                monthlyPrice: this.getMonthlyPrice(pkg, this.state.billingCycle),
-                totalPrice: this.getTotalPrice(pkg, this.state.billingCycle),
-                savings: this.getSavings(pkg, this.state.billingCycle)
-            });
-        }
-    },
-
-    /**
-     * Nastavenie fakturačného cyklu
-     */
-    setBillingCycle(cycle) {
-        this.state.billingCycle = cycle;
-        this.render();
-        this.attachEventListeners();
-        
-        // Trigger callback s aktualizovanými cenami
-        if (this.state.selectedPackage && this.callbacks.onPackageChange) {
-            const pkg = this.packages[this.state.selectedPackage];
-            this.callbacks.onPackageChange({
-                ...pkg,
-                billingCycle: cycle,
-                monthlyPrice: this.getMonthlyPrice(pkg, cycle),
-                totalPrice: this.getTotalPrice(pkg, cycle),
-                savings: this.getSavings(pkg, cycle)
-            });
-        }
-    },
-
-    /**
-     * Kontakt pre Premium
-     */
-    contactForPremium() {
-        if (typeof Utils !== 'undefined' && Utils.toast) {
-            Utils.toast('Pre Premium balík nás kontaktujte na info@adlify.eu', 'info');
-        } else {
-            alert('Pre Premium balík nás kontaktujte na info@adlify.eu');
-        }
-    },
-
-    /**
-     * Update platforiem z vonku
-     */
-    updatePlatforms(platforms) {
-        this.state.selectedPlatforms = platforms;
-        this.render();
-        this.attachEventListeners();
-    },
-
-    /**
-     * Získanie aktuálneho balíka
-     */
-    getSelectedPackage() {
-        const pkg = this.packages[this.state.selectedPackage];
-        if (!pkg) return null;
-        
-        return {
-            ...pkg,
-            billingCycle: this.state.billingCycle,
-            monthlyPrice: this.getMonthlyPrice(pkg, this.state.billingCycle),
-            totalPrice: this.getTotalPrice(pkg, this.state.billingCycle),
-            savings: this.getSavings(pkg, this.state.billingCycle)
-        };
-    },
-
-    /**
-     * Získanie limitu platforiem pre aktuálny balík
-     */
-    getPlatformLimit() {
-        const pkg = this.packages[this.state.selectedPackage];
-        return pkg ? pkg.limits.platforms : 1;
-    },
-
-    /**
-     * Zobrazenie upgrade modalu
-     */
-    showUpgradeModal(currentPackageId = null) {
-        const current = this.packages[currentPackageId || this.state.selectedPackage];
-        const next = this.getNextPackage(currentPackageId || this.state.selectedPackage);
-        
-        if (!next) {
-            if (typeof Utils !== 'undefined') {
-                Utils.toast('Už máte najvyšší balík', 'info');
-            }
-            return;
-        }
-
-        const cycle = this.state.billingCycle;
-        const currentMonthly = this.getMonthlyPrice(current, cycle);
-        const nextMonthly = this.getMonthlyPrice(next, cycle);
-        const currentTotal = this.getTotalPrice(current, cycle);
-        const nextTotal = this.getTotalPrice(next, cycle);
-        const months = this.billingCycles[cycle]?.months || 1;
-
-        const modalHtml = `
-            <div class="upgrade-modal" id="upgradeModal">
-                <div class="upgrade-modal__backdrop" data-action="close-upgrade"></div>
-                <div class="upgrade-modal__content">
-                    <button class="upgrade-modal__close" data-action="close-upgrade">×</button>
+            if (actionType === 'select-package') {
+                const pkgId = action.dataset.package;
+                if (pkgId && this.packages[pkgId]) {
+                    this.state.selectedPackage = pkgId;
+                    this.render();
+                    this.attachEventListeners();
                     
-                    <div class="upgrade-modal__header">
-                        <span class="upgrade-modal__icon">🚀</span>
-                        <h2>Upgrade pre viac možností</h2>
-                    </div>
-                    
-                    <div class="upgrade-modal__body">
-                        <p class="upgrade-modal__reason">
-                            Váš aktuálny balík <strong>${current.name}</strong> má limit 
-                            ${current.limits.platforms === Infinity ? 'neobmedzených' : current.limits.platforms} 
-                            platfor${current.limits.platforms === 1 ? 'mu' : 'iem'}.
-                        </p>
-                        
-                        <div class="upgrade-modal__comparison">
-                            <div class="upgrade-modal__package upgrade-modal__package--current">
-                                <span class="upgrade-modal__package-label">Aktuálne</span>
-                                <h3>${current.icon} ${current.name}</h3>
-                                <p class="upgrade-modal__package-price">${currentMonthly}€/mes</p>
-                                ${months > 1 ? `<p class="upgrade-modal__package-total">${currentTotal}€ celkom</p>` : ''}
-                            </div>
-                            
-                            <div class="upgrade-modal__arrow">→</div>
-                            
-                            <div class="upgrade-modal__package upgrade-modal__package--new">
-                                <span class="upgrade-modal__package-label">Odporúčané</span>
-                                <h3>${next.icon} ${next.name}</h3>
-                                <p class="upgrade-modal__package-price">${nextMonthly}€/mes</p>
-                                ${months > 1 ? `<p class="upgrade-modal__package-total">${nextTotal}€ celkom</p>` : ''}
-                            </div>
-                        </div>
-                        
-                        <div class="upgrade-modal__benefits">
-                            <h4>Čo získate navyše:</h4>
-                            <ul>
-                                ${this.getUpgradeBenefits(current, next).map(b => `
-                                    <li>✓ ${b}</li>
-                                `).join('')}
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="upgrade-modal__footer">
-                        <button class="upgrade-modal__btn upgrade-modal__btn--secondary" 
-                                data-action="close-upgrade">
-                            Zostať na ${current.name}
-                        </button>
-                        <button class="upgrade-modal__btn upgrade-modal__btn--primary"
-                                data-action="confirm-upgrade"
-                                data-package="${next.id}">
-                            Prejsť na ${next.name}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        document.body.style.overflow = 'hidden';
-
-        const modal = document.getElementById('upgradeModal');
-        
-        modal.addEventListener('click', (e) => {
-            const action = e.target.closest('[data-action]')?.dataset.action;
-            if (action === 'close-upgrade') {
-                this.closeUpgradeModal();
-            } else if (action === 'confirm-upgrade') {
-                const newPackage = e.target.dataset.package;
-                this.selectPackage(newPackage);
-                this.closeUpgradeModal();
-                if (this.callbacks.onUpgrade) {
-                    this.callbacks.onUpgrade(this.packages[newPackage]);
+                    if (this.callbacks.onPackageChange) {
+                        this.callbacks.onPackageChange(this.packages[pkgId]);
+                    }
                 }
             }
         });
-
-        requestAnimationFrame(() => {
-            modal.classList.add('upgrade-modal--visible');
-        });
     },
 
     /**
-     * Zatvorenie upgrade modalu
+     * Getters
      */
-    closeUpgradeModal() {
-        const modal = document.getElementById('upgradeModal');
-        if (modal) {
-            modal.classList.remove('upgrade-modal--visible');
-            setTimeout(() => {
-                modal.remove();
-                document.body.style.overflow = '';
-            }, 300);
-        }
+    getSelectedPackage() {
+        return this.packages[this.state.selectedPackage] || null;
+    },
+
+    getSelectedPackageId() {
+        const pkg = this.getSelectedPackage();
+        return pkg?.dbId || pkg?.id || null;
+    },
+
+    getPlatformLimit() {
+        const pkg = this.getSelectedPackage();
+        return pkg?.limits?.platforms || 1;
     },
 
     /**
-     * Získanie nasledujúceho balíka
+     * Setters
      */
-    getNextPackage(currentId) {
-        const order = ['starter', 'pro', 'enterprise', 'premium'];
-        const currentIndex = order.indexOf(currentId);
-        if (currentIndex < order.length - 1) {
-            return this.packages[order[currentIndex + 1]];
+    setSelectedPackage(pkgId) {
+        if (this.packages[pkgId]) {
+            this.state.selectedPackage = pkgId;
+            this.render();
+            this.attachEventListeners();
         }
-        return null;
-    },
-
-    /**
-     * Benefity upgrade
-     */
-    getUpgradeBenefits(currentPkg, nextPkg) {
-        const benefits = [];
-        
-        if (nextPkg.limits.platforms > currentPkg.limits.platforms) {
-            const diff = nextPkg.limits.platforms === Infinity 
-                ? 'Všetky platformy' 
-                : `${nextPkg.limits.platforms} platformy`;
-            benefits.push(diff);
-        }
-        
-        if (nextPkg.limits.campaigns > currentPkg.limits.campaigns) {
-            const diff = nextPkg.limits.campaigns === Infinity 
-                ? 'Neobmedzené kampane' 
-                : `${nextPkg.limits.campaigns} kampaní`;
-            benefits.push(diff);
-        }
-        
-        if (nextPkg.limits.visuals > currentPkg.limits.visuals) {
-            const diff = nextPkg.limits.visuals === Infinity 
-                ? 'Neobmedzené vizuály' 
-                : `${nextPkg.limits.visuals} vizuálov`;
-            benefits.push(diff);
-        }
-        
-        if (nextPkg.limits.remarketing && !currentPkg.limits.remarketing) {
-            benefits.push('Remarketing');
-        }
-        
-        if (nextPkg.limits.accountManager && !currentPkg.limits.accountManager) {
-            benefits.push('Dedikovaný account manager');
-        }
-
-        return benefits;
     }
 };
 
-// Export
+// Export pre použitie ako modul
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = PackageCalculator;
-} else {
-    window.PackageCalculator = PackageCalculator;
 }
