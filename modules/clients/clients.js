@@ -1350,7 +1350,7 @@ const ClientsModule = {
         client.onboarding_status = 'sent';
         
         // Refresh view
-        await this.load();
+        await this.loadClients();
         if (this.currentClient?.id === clientId) {
           this.renderClientDetail(document.getElementById('client-detail'), clientId);
         }
