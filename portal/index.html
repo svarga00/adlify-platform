@@ -439,6 +439,7 @@
                         <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">💰 Faktúry</button>
                         <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">📄 Dokumenty</button>
                         <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">💬 Podpora</button>
+                        <button class="nav-tab ${currentTab === 'account' ? 'active' : ''}" onclick="switchTab('account')">👤 Môj účet</button>
                     </div>
                 </nav>
 
@@ -460,6 +461,7 @@
                 case 'invoices': return renderInvoices();
                 case 'documents': return renderDocuments();
                 case 'support': return renderSupport();
+                case 'account': return renderAccount();
                 default: return renderDashboard();
             }
         }
@@ -645,6 +647,174 @@
                     </div>
                 </div>
             `;
+        }
+
+        function renderAccount() {
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>👤 Môj účet</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="account-form" onsubmit="saveAccount(event)">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                                <!-- Firemné údaje -->
+                                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">🏢 Firemné údaje</h3>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Názov firmy</label>
+                                        <input type="text" id="acc-company" value="${client?.company_name || ''}" 
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">IČO</label>
+                                        <input type="text" id="acc-ico" value="${client?.ico || ''}" 
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">DIČ</label>
+                                        <input type="text" id="acc-dic" value="${client?.dic || ''}" 
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">IČ DPH</label>
+                                        <input type="text" id="acc-ic-dph" value="${client?.ic_dph || ''}" placeholder="SK1234567890"
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                    
+                                    <div>
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Web</label>
+                                        <input type="url" id="acc-web" value="${client?.domain || ''}" placeholder="https://www.firma.sk"
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                </div>
+
+                                <!-- Kontaktné údaje -->
+                                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">👤 Kontaktné údaje</h3>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Kontaktná osoba</label>
+                                        <input type="text" id="acc-contact" value="${client?.contact_person || ''}" 
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Email</label>
+                                        <input type="email" id="acc-email" value="${client?.email || ''}" 
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                    
+                                    <div>
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Telefón</label>
+                                        <input type="tel" id="acc-phone" value="${client?.phone || ''}" placeholder="+421 9XX XXX XXX"
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                </div>
+
+                                <!-- Fakturačná adresa -->
+                                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">📍 Fakturačná adresa</h3>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Ulica a číslo</label>
+                                        <input type="text" id="acc-street" value="${client?.billing_street || ''}" 
+                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                    </div>
+                                    
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem; margin-bottom: 1rem;">
+                                        <div>
+                                            <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">PSČ</label>
+                                            <input type="text" id="acc-zip" value="${client?.billing_zip || ''}" 
+                                                style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                        </div>
+                                        <div>
+                                            <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Mesto</label>
+                                            <input type="text" id="acc-city" value="${client?.billing_city || ''}" 
+                                                style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Krajina</label>
+                                        <select id="acc-country" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; background: white;">
+                                            <option value="SK" ${(client?.billing_country || 'SK') === 'SK' ? 'selected' : ''}>Slovensko</option>
+                                            <option value="CZ" ${client?.billing_country === 'CZ' ? 'selected' : ''}>Česko</option>
+                                            <option value="HU" ${client?.billing_country === 'HU' ? 'selected' : ''}>Maďarsko</option>
+                                            <option value="AT" ${client?.billing_country === 'AT' ? 'selected' : ''}>Rakúsko</option>
+                                            <option value="PL" ${client?.billing_country === 'PL' ? 'selected' : ''}>Poľsko</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="account-message" style="margin-top: 1.5rem;"></div>
+                            
+                            <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                                <button type="submit" class="btn btn-primary" id="save-account-btn">
+                                    💾 Uložiť zmeny
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveAccount(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('save-account-btn');
+            const msg = document.getElementById('account-message');
+            
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Ukladám...';
+            msg.innerHTML = '';
+            
+            try {
+                const updateData = {
+                    company_name: document.getElementById('acc-company').value.trim(),
+                    ico: document.getElementById('acc-ico').value.trim(),
+                    dic: document.getElementById('acc-dic').value.trim(),
+                    ic_dph: document.getElementById('acc-ic-dph').value.trim(),
+                    domain: document.getElementById('acc-web').value.trim(),
+                    contact_person: document.getElementById('acc-contact').value.trim(),
+                    email: document.getElementById('acc-email').value.trim(),
+                    phone: document.getElementById('acc-phone').value.trim(),
+                    billing_street: document.getElementById('acc-street').value.trim(),
+                    billing_zip: document.getElementById('acc-zip').value.trim(),
+                    billing_city: document.getElementById('acc-city').value.trim(),
+                    billing_country: document.getElementById('acc-country').value
+                };
+                
+                const { error } = await db
+                    .from('clients')
+                    .update(updateData)
+                    .eq('id', client.id);
+                
+                if (error) throw error;
+                
+                // Update local client object
+                Object.assign(client, updateData);
+                
+                msg.innerHTML = '<div style="padding: 1rem; background: #dcfce7; color: #166534; border-radius: 8px;">✅ Údaje boli uložené</div>';
+                btn.innerHTML = '✓ Uložené';
+                
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '💾 Uložiť zmeny';
+                }, 2000);
+                
+            } catch (err) {
+                console.error('Save error:', err);
+                msg.innerHTML = '<div style="padding: 1rem; background: #fef2f2; color: #dc2626; border-radius: 8px;">❌ Chyba pri ukladaní: ' + err.message + '</div>';
+                btn.disabled = false;
+                btn.innerHTML = '💾 Uložiť zmeny';
+            }
         }
 
         function formatDate(dateStr) {
