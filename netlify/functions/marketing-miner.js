@@ -142,10 +142,29 @@ async function testConnection(apiKey) {
   }
   
   const data = await response.json();
+  
+  // MM API môže vrátiť rôzne formáty - ošetríme všetky
+  let keywords = [];
+  
+  if (Array.isArray(data)) {
+    keywords = data;
+  } else if (data && typeof data === 'object') {
+    // Skúsiť nájsť pole v odpovedi
+    if (Array.isArray(data.data)) {
+      keywords = data.data;
+    } else if (Array.isArray(data.keywords)) {
+      keywords = data.keywords;
+    } else if (Array.isArray(data.results)) {
+      keywords = data.results;
+    } else if (Array.isArray(data.items)) {
+      keywords = data.items;
+    }
+  }
+  
   return { 
     connected: true, 
     message: 'Pripojenie úspešné',
-    sample: data.slice(0, 2) // Ukážka prvých 2 výsledkov
+    sample: keywords.slice(0, 2) // Ukážka prvých 2 výsledkov
   };
 }
 
@@ -172,12 +191,29 @@ async function getKeywordsSuggestions(apiKey, params) {
   
   const data = await response.json();
   
+  // MM API môže vrátiť rôzne formáty
+  let keywords = [];
+  
+  if (Array.isArray(data)) {
+    keywords = data;
+  } else if (data && typeof data === 'object') {
+    if (Array.isArray(data.data)) {
+      keywords = data.data;
+    } else if (Array.isArray(data.keywords)) {
+      keywords = data.keywords;
+    } else if (Array.isArray(data.results)) {
+      keywords = data.results;
+    } else if (Array.isArray(data.items)) {
+      keywords = data.items;
+    }
+  }
+  
   // Transformovať dáta do nášho formátu
-  return data.map(item => ({
-    keyword: item.keyword,
-    searchVolume: item.search_volume || item.searchVolume || 0,
-    cpc: item.cpc || 0,
-    difficulty: item.difficulty || item.competition || 0,
+  return keywords.map(item => ({
+    keyword: item.keyword || item.term || item.query || '',
+    searchVolume: item.search_volume || item.searchVolume || item.volume || 0,
+    cpc: item.cpc || item.avg_cpc || 0,
+    difficulty: item.difficulty || item.competition || item.kd || 0,
     yoyChange: item.yoy_change || item.yoyChange || null,
     trend: item.trend || null
   }));
@@ -208,9 +244,24 @@ async function getSearchVolume(apiKey, params) {
   
   const data = await response.json();
   
-  return data.map(item => ({
-    keyword: item.keyword,
-    searchVolume: item.search_volume || 0,
+  // MM API môže vrátiť rôzne formáty
+  let keywordsData = [];
+  
+  if (Array.isArray(data)) {
+    keywordsData = data;
+  } else if (data && typeof data === 'object') {
+    if (Array.isArray(data.data)) {
+      keywordsData = data.data;
+    } else if (Array.isArray(data.keywords)) {
+      keywordsData = data.keywords;
+    } else if (Array.isArray(data.results)) {
+      keywordsData = data.results;
+    }
+  }
+  
+  return keywordsData.map(item => ({
+    keyword: item.keyword || item.term || '',
+    searchVolume: item.search_volume || item.searchVolume || 0,
     cpc: item.cpc || 0,
     difficulty: item.difficulty || 0,
     trend: item.trend || null
@@ -241,14 +292,31 @@ async function getDomainStats(apiKey, params) {
     throw new Error(`MM API error: ${response.status} - ${text}`);
   }
   
-  const data = await response.json();
+  const rawData = await response.json();
+  
+  // MM API môže vrátiť dáta v rôznych formátoch
+  const data = rawData?.data || rawData || {};
+  
+  // Získať top keywords - môžu byť v rôznych formátoch
+  let topKeywords = [];
+  if (Array.isArray(data.top_keywords)) {
+    topKeywords = data.top_keywords;
+  } else if (Array.isArray(data.topKeywords)) {
+    topKeywords = data.topKeywords;
+  } else if (Array.isArray(data.keywords)) {
+    topKeywords = data.keywords;
+  }
   
   return {
     domain: cleanDomain,
-    visibility: data.visibility || 0,
-    estimatedTraffic: data.estimated_traffic || data.estimatedTraffic || 0,
-    keywords: data.keywords || 0,
-    topKeywords: data.top_keywords || data.topKeywords || [],
+    visibility: data.visibility || data.organic_visibility || 0,
+    estimatedTraffic: data.estimated_traffic || data.estimatedTraffic || data.traffic || 0,
+    keywords: data.keywords_count || data.keywords || data.organic_keywords || 0,
+    topKeywords: topKeywords.slice(0, 10).map(kw => ({
+      keyword: kw.keyword || kw.term || kw.query || '',
+      position: kw.position || kw.rank || 0,
+      searchVolume: kw.search_volume || kw.searchVolume || kw.volume || 0
+    })),
     organicShare: data.organic_share || 0,
     paidShare: data.paid_share || 0
   };
