@@ -956,20 +956,27 @@ const LeadsModule = {
       
       // Pripraviť seed keyword z názvu firmy alebo domény
       const seedKeyword = this.extractSeedKeyword(lead);
+      console.log('🔑 Seed keyword pre MM API:', seedKeyword);
       
       if (seedKeyword) {
         try {
           // Volanie MM API pre keywords
+          console.log('📡 Volám MM API keywords_suggestions...');
           realKeywordsData = await this.getKeywordsSuggestions(seedKeyword, 'sk');
+          console.log('✅ MM Keywords result:', realKeywordsData ? `${realKeywordsData.length} keywords` : 'null');
           
           // Volanie MM API pre domain stats
           if (lead.domain) {
+            console.log('📡 Volám MM API domain_stats pre:', lead.domain);
             realDomainStats = await this.getDomainStats(lead.domain, 'sk');
+            console.log('✅ MM Domain stats result:', realDomainStats);
           }
         } catch (mmError) {
-          console.warn('Marketing Miner API nedostupné:', mmError);
+          console.warn('❌ Marketing Miner API error:', mmError);
           // Pokračujeme bez reálnych dát
         }
+      } else {
+        console.warn('⚠️ Seed keyword je prázdny, MM API sa nepoužije');
       }
       
       // KROK 2: Základná technická analýza webu
@@ -3658,6 +3665,7 @@ ${r.projection ? `
    */
   async getKeywordsSuggestions(keyword, lang = 'sk') {
     try {
+      console.log('🔄 getKeywordsSuggestions - volám s keyword:', keyword);
       const response = await fetch('/.netlify/functions/marketing-miner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3667,13 +3675,16 @@ ${r.projection ? `
         })
       });
       
+      console.log('🔄 MM API response status:', response.status);
       const result = await response.json();
+      console.log('🔄 MM API result:', result);
       
       if (!result.success) {
         console.warn('MM API error:', result.error);
         return null;
       }
       
+      console.log('✅ MM API returned', result.data?.length || 0, 'keywords');
       return result.data;
     } catch (error) {
       console.error('MM API call failed:', error);
