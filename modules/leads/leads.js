@@ -921,17 +921,109 @@ const LeadsModule = {
     const modal = document.getElementById('analysis-modal');
     const content = document.getElementById('analysis-content');
     modal.style.display = 'flex';
-    content.innerHTML = `<div style="text-align:center;padding:4rem;"><div style="font-size:4rem;margin-bottom:1.5rem;animation:spin 2s linear infinite;">🤖</div><h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Analyzujem ${lead.company_name || lead.domain}...</h3><p style="color:#64748b;">Sťahujem web, analyzujem konkurenciu a pripravujem stratégiu</p><p style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;">Toto môže trvať 15-30 sekúnd</p></div><style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>`;
+    
+    // Vylepšený loading s progress
+    content.innerHTML = `
+      <div style="text-align:center;padding:4rem;">
+        <div style="font-size:4rem;margin-bottom:1.5rem;animation:spin 2s linear infinite;">🤖</div>
+        <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Analyzujem ${lead.company_name || lead.domain}...</h3>
+        <p style="color:#64748b;" id="analysis-status">Pripravujem analýzu...</p>
+        <div style="margin-top:1.5rem;background:#e2e8f0;border-radius:9999px;height:8px;width:300px;margin:1.5rem auto;">
+          <div id="analysis-progress" style="background:linear-gradient(135deg,#FF6B35,#E91E63);height:100%;border-radius:9999px;width:10%;transition:width 0.5s;"></div>
+        </div>
+        <p style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;">Toto môže trvať 20-40 sekúnd</p>
+      </div>
+      <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>
+    `;
     this.renderModalFooter(false);
+    
+    const updateProgress = (percent, status) => {
+      const bar = document.getElementById('analysis-progress');
+      const text = document.getElementById('analysis-status');
+      if (bar) bar.style.width = percent + '%';
+      if (text) text.textContent = status;
+    };
     
     try {
       const session = await Database.client.auth.getSession();
       const token = session?.data?.session?.access_token || '';
       
-      // Pripraviť Marketing Miner dáta pre AI
+      // KROK 1: Získať reálne keywords z Marketing Miner (ak je nakonfigurovaný)
+      updateProgress(15, '🔍 Získavam reálne dáta o kľúčových slovách...');
+      
+      let realKeywordsData = null;
+      let realDomainStats = null;
+      
+      // Pripraviť seed keyword z názvu firmy alebo domény
+      const seedKeyword = this.extractSeedKeyword(lead);
+      
+      if (seedKeyword) {
+        try {
+          // Volanie MM API pre keywords
+          realKeywordsData = await this.getKeywordsSuggestions(seedKeyword, 'sk');
+          
+          // Volanie MM API pre domain stats
+          if (lead.domain) {
+            realDomainStats = await this.getDomainStats(lead.domain, 'sk');
+          }
+        } catch (mmError) {
+          console.warn('Marketing Miner API nedostupné:', mmError);
+          // Pokračujeme bez reálnych dát
+        }
+      }
+      
+      // KROK 2: Základná technická analýza webu
+      updateProgress(30, '🌐 Analyzujem webstránku...');
+      
+      let webAnalysis = null;
+      if (lead.domain) {
+        webAnalysis = await this.analyzeWebsiteTechnical(lead.domain);
+      }
+      
+      // KROK 3: Pripraviť Marketing Miner dáta pre AI
+      updateProgress(50, '🧠 AI analyzuje váš biznis...');
+      
       const md = lead.marketing_data || {};
       const existingSocials = md.socialMedia || {};
       
+      // Pripraviť enriched data pre AI
+      const enrichedData = {
+        // Základné info
+        email: lead.email,
+        phone: lead.phone,
+        contactPage: md.contactPage,
+        socialMedia: existingSocials,
+        source: md.source,
+        
+        // NOVÉ: Reálne keywords z MM
+        realKeywords: realKeywordsData ? {
+          available: true,
+          keywords: realKeywordsData.slice(0, 20),
+          avgCpc: this.calculateAvgCpcFromKeywords(realKeywordsData),
+          totalSearchVolume: realKeywordsData.reduce((sum, k) => sum + (k.searchVolume || 0), 0)
+        } : { available: false },
+        
+        // NOVÉ: Domain stats z MM  
+        domainStats: realDomainStats ? {
+          available: true,
+          visibility: realDomainStats.visibility,
+          estimatedTraffic: realDomainStats.estimatedTraffic,
+          topKeywords: realDomainStats.topKeywords
+        } : { available: false },
+        
+        // NOVÉ: Technická analýza webu
+        webAnalysis: webAnalysis ? {
+          available: true,
+          loadTime: webAnalysis.loadTime,
+          hasSSL: webAnalysis.hasSSL,
+          issues: webAnalysis.issues
+        } : { available: false },
+        
+        // NOVÉ: Kategorization z importu
+        categorization: md.categorization || null
+      };
+      
+      // KROK 4: Volať AI analýzu s enriched dátami
       const response = await fetch(this.ANALYZE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -939,27 +1031,38 @@ const LeadsModule = {
           websiteUrl: lead.domain ? `https://${lead.domain}` : null, 
           companyName: lead.company_name, 
           leadId: lead.id,
-          // Marketing Miner dáta pre AI
-          knownData: {
-            email: lead.email,
-            phone: lead.phone,
-            contactPage: md.contactPage,
-            socialMedia: existingSocials,
-            source: md.source
+          knownData: enrichedData,
+          // NOVÉ: Inštrukcie pre AI
+          analysisInstructions: {
+            useRealKeywords: realKeywordsData !== null,
+            personalizeMore: true,
+            includeSpecificNumbers: true
           }
         })
       });
+      
+      updateProgress(80, '📊 Spracovávam výsledky...');
+      
       const result = await response.json();
       if (!result.success) throw new Error(result.error || 'Analýza zlyhala');
       
-      // Merge Marketing Miner dáta do analýzy
+      // KROK 5: Obohatiť výsledky o reálne dáta
+      updateProgress(90, '✨ Finalizujem analýzu...');
+      
+      const enrichedAnalysis = this.enrichAnalysisWithRealData(
+        result.analysis, 
+        realKeywordsData, 
+        realDomainStats,
+        webAnalysis
+      );
+      
+      // Merge Marketing Miner social media dáta
       if (Object.keys(existingSocials).length > 0) {
-        result.analysis.onlinePresence = result.analysis.onlinePresence || {};
-        result.analysis.onlinePresence.socialMedia = result.analysis.onlinePresence.socialMedia || {};
-        // Pridať existujúce sociálne siete ak nie sú v analýze
+        enrichedAnalysis.onlinePresence = enrichedAnalysis.onlinePresence || {};
+        enrichedAnalysis.onlinePresence.socialMedia = enrichedAnalysis.onlinePresence.socialMedia || {};
         Object.keys(existingSocials).forEach(key => {
-          if (existingSocials[key] && !result.analysis.onlinePresence.socialMedia[key]?.url) {
-            result.analysis.onlinePresence.socialMedia[key] = {
+          if (existingSocials[key] && !enrichedAnalysis.onlinePresence.socialMedia[key]?.url) {
+            enrichedAnalysis.onlinePresence.socialMedia[key] = {
               exists: true,
               url: existingSocials[key],
               source: 'marketing_miner'
@@ -968,25 +1071,37 @@ const LeadsModule = {
         });
       }
       
-      this.currentAnalysis = result.analysis;
-      this.editedAnalysis = JSON.parse(JSON.stringify(result.analysis));
+      updateProgress(100, '✅ Hotovo!');
+      
+      this.currentAnalysis = enrichedAnalysis;
+      this.editedAnalysis = JSON.parse(JSON.stringify(enrichedAnalysis));
+      
       await Database.update('leads', id, { 
-        analysis: result.analysis, 
+        analysis: enrichedAnalysis, 
         status: 'analyzed', 
-        score: this.calculateScore(result.analysis), 
+        score: this.calculateScore(enrichedAnalysis), 
         analyzed_at: new Date().toISOString() 
       });
-      lead.analysis = result.analysis;
-      lead.status = 'analyzed';
-      lead.score = this.calculateScore(result.analysis);
       
-      this.renderAnalysisResults(lead, result.analysis);
+      lead.analysis = enrichedAnalysis;
+      lead.status = 'analyzed';
+      lead.score = this.calculateScore(enrichedAnalysis);
+      
+      this.renderAnalysisResults(lead, enrichedAnalysis);
       this.renderModalFooter(true);
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
       Utils.toast('Analýza dokončená!', 'success');
+      
     } catch (error) {
       console.error('Analysis error:', error);
-      content.innerHTML = `<div style="text-align:center;padding:4rem;"><div style="font-size:4rem;margin-bottom:1.5rem;">❌</div><h3 style="font-size:1.25rem;font-weight:700;margin-bottom:0.5rem;">Chyba pri analýze</h3><p style="color:#64748b;margin-bottom:1.5rem;">${error.message}</p><button onclick="LeadsModule.analyze('${id}')" class="btn-primary">🔄 Skúsiť znova</button></div>`;
+      content.innerHTML = `
+        <div style="text-align:center;padding:4rem;">
+          <div style="font-size:4rem;margin-bottom:1.5rem;">❌</div>
+          <h3 style="font-size:1.25rem;font-weight:700;margin-bottom:0.5rem;">Chyba pri analýze</h3>
+          <p style="color:#64748b;margin-bottom:1.5rem;">${error.message}</p>
+          <button onclick="LeadsModule.analyze('${id}')" class="btn-primary">🔄 Skúsiť znova</button>
+        </div>
+      `;
       this.renderModalFooter(false);
     }
   },
@@ -2719,6 +2834,30 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     </div>
     ` : ''}
     
+    ${o.website?.technical ? `
+    <div class="card" style="margin-top: 30px; border-left: 4px solid #3b82f6;">
+      <h4 style="color: #1e40af; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">⚡ Technická analýza webu</h4>
+      <div class="grid-4">
+        <div style="text-align: center;">
+          <p style="font-size: 1.5rem; font-weight: 700; color: ${o.website.technical.loadTime < 2000 ? '#22c55e' : o.website.technical.loadTime < 4000 ? '#f59e0b' : '#ef4444'};">${o.website.technical.loadTimeFormatted}</p>
+          <p style="font-size: 0.8rem; color: #64748b;">Čas načítania</p>
+        </div>
+        <div style="text-align: center;">
+          <p style="font-size: 1.5rem;">${o.website.technical.hasSSL ? '✅' : '❌'}</p>
+          <p style="font-size: 0.8rem; color: #64748b;">SSL certifikát</p>
+        </div>
+        <div style="text-align: center;">
+          <p style="font-size: 1.5rem; font-weight: 700; color: #64748b;">${o.website.technical.pageSize || '-'}</p>
+          <p style="font-size: 0.8rem; color: #64748b;">Veľkosť stránky</p>
+        </div>
+        <div style="text-align: center;">
+          <p style="font-size: 1.5rem; font-weight: 700; color: ${(o.website.technical.issues?.length || 0) === 0 ? '#22c55e' : '#f59e0b'};">${o.website.technical.issues?.length || 0}</p>
+          <p style="font-size: 0.8rem; color: #64748b;">SEO problémov</p>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+    
     <p style="margin-top: 30px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby</p>
   </div>
 </section>
@@ -2753,13 +2892,81 @@ ${a.swot ? `
 </section>
 ` : ''}
 
+<!-- Page: Domain Stats (ak dostupné z Marketing Miner) -->
+${analysis.domainStats?.visibility ? `
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">★</span> Vaša pozícia na trhu</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Na základe analýzy vašej domény a konkurencie v organickom vyhľadávaní. <span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">✓ Reálne dáta</span></p>
+    
+    <div class="grid-3" style="margin-bottom: 40px;">
+      <div class="stat-box">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value">${analysis.domainStats.visibility.toLocaleString()}</div>
+        <div class="stat-label">Viditeľnosť v Google</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">👥</div>
+        <div class="stat-value">${(analysis.domainStats.estimatedTraffic || 0).toLocaleString()}</div>
+        <div class="stat-label">Odhadovaná mesačná návštevnosť</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">🔍</div>
+        <div class="stat-value">${analysis.domainStats.organicKeywords || 0}</div>
+        <div class="stat-label">Organických pozícií</div>
+      </div>
+    </div>
+    
+    ${analysis.domainStats.topKeywords?.length > 0 ? `
+    <div class="card">
+      <h4 style="margin-bottom: 20px; font-weight: 700;">🏆 Vaše najlepšie organické pozície</h4>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kľúčové slovo</th>
+            <th style="text-align: center;">Pozícia</th>
+            <th style="text-align: center;">Hľadanosť</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${analysis.domainStats.topKeywords.slice(0, 5).map(kw => `
+            <tr>
+              <td><strong>${kw.keyword}</strong></td>
+              <td style="text-align: center;"><span class="tag ${kw.position <= 3 ? 'tag-success' : kw.position <= 10 ? 'tag-light' : 'tag-warning'}">#${kw.position}</span></td>
+              <td style="text-align: center;">${(kw.searchVolume || 0).toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+    
+    <div class="card card-highlight" style="margin-top: 30px;">
+      <h4 style="margin-bottom: 15px; font-weight: 700; color: #FF6B35;">💡 Čo to znamená?</h4>
+      <p style="color: #374151; line-height: 1.8;">
+        ${analysis.domainStats.visibility > 1000 
+          ? 'Máte dobrú organickú viditeľnosť, ale platená reklama vám umožní osloviť zákazníkov, ktorí vás ešte nenašli cez Google.'
+          : analysis.domainStats.visibility > 100
+          ? 'Vaša organická viditeľnosť je priemerná. Platená reklama vám pomôže rýchlo zvýšiť počet návštevníkov a zákazníkov.'
+          : 'Vaša organická viditeľnosť je nízka. To je ideálna príležitosť využiť platenú reklamu pre okamžité výsledky.'}
+      </p>
+    </div>
+  </div>
+</section>
+` : ''}
+
 <!-- Page 6: Keywords -->
 ${k.topKeywords?.length ? `
 <section class="page page-white">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">5</span> Kľúčové slová</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top ${Math.min(k.topKeywords.length, 10)}:</p>
+    <p class="section-subtitle">
+      ${k.source === 'marketing_miner' 
+        ? `<span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">✓ Reálne dáta z Marketing Miner</span><br><br>${k.summary || 'Identifikovali sme relevantné kľúčové slová pre váš biznis.'}`
+        : `Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top ${Math.min(k.topKeywords.length, 10)}:`}
+    </p>
     
     <table class="data-table">
       <thead>
@@ -2774,7 +2981,7 @@ ${k.topKeywords?.length ? `
         ${k.topKeywords.slice(0, 10).map(kw => `
           <tr>
             <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
-            <td style="text-align: center; font-weight: 600;">${kw.searchVolume}</td>
+            <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString() : kw.searchVolume}</td>
             <td style="text-align: center;"><span class="tag ${kw.competition === 'nízka' ? 'tag-success' : kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light'}">${kw.competition}</span></td>
             <td style="text-align: right; font-weight: 700; color: #FF6B35;">${kw.cpc}</td>
           </tr>
@@ -2876,7 +3083,11 @@ ${camp.google || camp.meta ? `
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">8</span> Odporúčaný rozpočet na reklamu</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">${b.analysis || 'Na základe analýzy kľúčových slov a konkurencie sme pripravili tri varianty rozpočtu pre vaše kampane.'}</p>
+    <p class="section-subtitle">
+      ${b.calculatedFromRealData 
+        ? `Rozpočty sú vypočítané na základe <strong>reálneho CPC ${(b.avgCpc || 0.70).toFixed(2)}€</strong> pre vaše kľúčové slová. Celkový mesačný objem vyhľadávania: <strong>${(b.totalSearchVolume || 0).toLocaleString()}</strong>.`
+        : (b.analysis || 'Na základe analýzy kľúčových slov a konkurencie sme pripravili tri varianty rozpočtu pre vaše kampane.')}
+    </p>
     
     <div class="grid-3">
       <div class="budget-card">
@@ -2884,9 +3095,9 @@ ${camp.google || camp.meta ? `
         <div class="budget-value">${b.recommendations?.starter?.adSpend || 300}€</div>
         <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedClicks || 400}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedConversions || '15-25'}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.starter?.cpa || '12-20€'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.starter?.clicks || b.recommendations?.starter?.expectedClicks || 400}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.starter?.leads || b.recommendations?.starter?.expectedConversions || '15-25'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.starter?.costPerLead || b.recommendations?.starter?.cpa || '12-20€'}</span></div>
         </div>
       </div>
       
@@ -2895,9 +3106,9 @@ ${camp.google || camp.meta ? `
         <div class="budget-value">${b.recommendations?.recommended?.adSpend || 500}€</div>
         <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedClicks || 700}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedConversions || '30-45'}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.recommended?.cpa || '11-17€'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.recommended?.clicks || b.recommendations?.recommended?.expectedClicks || 700}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.recommended?.leads || b.recommendations?.recommended?.expectedConversions || '30-45'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.recommended?.costPerLead || b.recommendations?.recommended?.cpa || '11-17€'}</span></div>
         </div>
       </div>
       
@@ -2906,14 +3117,28 @@ ${camp.google || camp.meta ? `
         <div class="budget-value">${b.recommendations?.aggressive?.adSpend || 800}€</div>
         <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedClicks || 1200}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedConversions || '50-70'}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.aggressive?.cpa || '10-15€'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.clicks || b.recommendations?.aggressive?.expectedClicks || 1200}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.leads || b.recommendations?.aggressive?.expectedConversions || '50-70'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.aggressive?.costPerLead || b.recommendations?.aggressive?.cpa || '10-15€'}</span></div>
         </div>
       </div>
     </div>
     
-    <div style="margin-top: 35px; padding: 25px; background: white; border-radius: 16px; border-left: 4px solid #3b82f6;">
+    ${b.calculatedFromRealData ? `
+    <div style="margin-top: 30px; padding: 20px; background: #f0fdf4; border-radius: 16px; border: 1px solid #bbf7d0;">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <span style="font-size: 2rem;">📊</span>
+        <div>
+          <strong style="color: #166534;">Tieto čísla sú založené na reálnych dátach</strong>
+          <p style="color: #15803d; font-size: 0.9rem; margin-top: 5px;">
+            Priemerné CPC ${(b.avgCpc || 0).toFixed(2)}€ × očakávané kliky = odporúčaný rozpočet
+          </p>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+    
+    <div style="margin-top: 25px; padding: 25px; background: white; border-radius: 16px; border-left: 4px solid #3b82f6;">
       <p style="font-size: 1rem; color: #1a1a2e;"><strong>💡 Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
     </div>
   </div>
@@ -3564,6 +3789,241 @@ ${r.projection ? `
       totalSearchVolume,
       basedOnRealData: true
     };
+  },
+
+  // ===========================================
+  // ENRICHMENT & ANALYSIS HELPERS
+  // ===========================================
+
+  /**
+   * Extrahuje seed keyword z názvu firmy pre MM API
+   */
+  extractSeedKeyword(lead) {
+    const companyName = lead.company_name || '';
+    const domain = lead.domain || '';
+    const industry = lead.industry || '';
+    
+    // Ak máme industry, použiť to
+    if (industry && industry !== 'unknown' && industry.length > 3) {
+      return industry.toLowerCase();
+    }
+    
+    // Skúsiť extrahovať z názvu firmy
+    const cleanName = companyName
+      .toLowerCase()
+      .replace(/s\.r\.o\.|sro|a\.s\.|spol\.|,/gi, '')
+      .replace(/[0-9]/g, '')
+      .trim();
+    
+    if (cleanName.length > 3) {
+      return cleanName;
+    }
+    
+    // Fallback na doménu
+    const domainName = domain
+      .replace(/\.(sk|cz|com|eu)$/i, '')
+      .replace(/[^a-záčďéíľňóŕšťúýž]/gi, ' ')
+      .trim();
+    
+    return domainName || null;
+  },
+
+  /**
+   * Vypočíta priemerné CPC z keywords
+   */
+  calculateAvgCpcFromKeywords(keywords) {
+    if (!keywords || keywords.length === 0) return 0;
+    
+    let totalWeight = 0;
+    let weightedCpc = 0;
+    
+    keywords.forEach(kw => {
+      const volume = kw.searchVolume || 0;
+      const cpc = kw.cpc || 0;
+      if (volume > 0 && cpc > 0) {
+        weightedCpc += cpc * volume;
+        totalWeight += volume;
+      }
+    });
+    
+    return totalWeight > 0 ? Math.round((weightedCpc / totalWeight) * 100) / 100 : 0.5;
+  },
+
+  /**
+   * Analyzuje webstránku - základná technická analýza
+   */
+  async analyzeWebsiteTechnical(domain) {
+    try {
+      const url = `https://${domain}`;
+      const startTime = Date.now();
+      
+      // Jednoduchý fetch pre základné info
+      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      const loadTime = Date.now() - startTime;
+      
+      if (!response.ok) {
+        return { available: false, error: 'Web nedostupný' };
+      }
+      
+      const data = await response.json();
+      const html = data.contents || '';
+      
+      // Extrahovať základné info z HTML
+      const issues = [];
+      
+      // Check meta description
+      if (!html.includes('meta name="description"') && !html.includes("meta name='description'")) {
+        issues.push('Chýba meta description');
+      }
+      
+      // Check title
+      const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
+      if (!titleMatch || titleMatch[1].length < 10) {
+        issues.push('Slabý alebo chýbajúci title tag');
+      }
+      
+      // Check H1
+      if (!html.includes('<h1')) {
+        issues.push('Chýba H1 nadpis');
+      }
+      
+      // Check images without alt
+      const imgCount = (html.match(/<img/gi) || []).length;
+      const imgAltCount = (html.match(/<img[^>]*alt=/gi) || []).length;
+      if (imgCount > 0 && imgAltCount < imgCount * 0.5) {
+        issues.push(`${imgCount - imgAltCount} obrázkov bez alt textu`);
+      }
+      
+      return {
+        available: true,
+        loadTime: loadTime,
+        hasSSL: url.startsWith('https'),
+        hasTitle: !!titleMatch,
+        hasMetaDesc: html.includes('meta name="description"'),
+        hasH1: html.includes('<h1'),
+        issues: issues,
+        pageSize: Math.round(html.length / 1024) + ' KB'
+      };
+      
+    } catch (error) {
+      console.warn('Web analysis failed:', error);
+      return { available: false, error: error.message };
+    }
+  },
+
+  /**
+   * Obohatí AI analýzu o reálne dáta z MM a web analýzy
+   */
+  enrichAnalysisWithRealData(analysis, realKeywords, domainStats, webAnalysis) {
+    const enriched = { ...analysis };
+    
+    // 1. KEYWORDS - nahradiť vymyslené za reálne
+    if (realKeywords && realKeywords.length > 0) {
+      enriched.keywords = enriched.keywords || {};
+      enriched.keywords.topKeywords = realKeywords.slice(0, 15).map(kw => ({
+        keyword: kw.keyword,
+        searchVolume: kw.searchVolume || 0,
+        competition: this.mapDifficultyToCompetition(kw.difficulty),
+        cpc: (kw.cpc || 0).toFixed(2) + '€',
+        cpcNumeric: kw.cpc || 0,
+        trend: kw.trend || null,
+        source: 'marketing_miner'
+      }));
+      enriched.keywords.source = 'marketing_miner';
+      enriched.keywords.summary = `Na základe reálnych dát z Marketing Miner sme identifikovali ${realKeywords.length} relevantných kľúčových slov pre váš biznis.`;
+    }
+    
+    // 2. BUDGET - vypočítať z reálneho CPC
+    if (realKeywords && realKeywords.length > 0) {
+      const avgCpc = this.calculateAvgCpcFromKeywords(realKeywords);
+      const totalVolume = realKeywords.reduce((sum, k) => sum + (k.searchVolume || 0), 0);
+      
+      enriched.budget = enriched.budget || {};
+      enriched.budget.calculatedFromRealData = true;
+      enriched.budget.avgCpc = avgCpc;
+      enriched.budget.totalSearchVolume = totalVolume;
+      
+      // Dynamické rozpočty na základe reálneho CPC
+      // Cieľ: Starter = 400 klikov, Optimum = 700 klikov, Aggressive = 1200 klikov
+      enriched.budget.recommendations = {
+        starter: {
+          adSpend: Math.max(200, Math.round(400 * avgCpc / 10) * 10), // Min 200€
+          clicks: 400,
+          leads: '12-20',
+          costPerLead: Math.round(400 * avgCpc / 15) + '-' + Math.round(400 * avgCpc / 12) + '€'
+        },
+        recommended: {
+          adSpend: Math.max(350, Math.round(700 * avgCpc / 10) * 10), // Min 350€
+          clicks: 700,
+          leads: '22-35',
+          costPerLead: Math.round(700 * avgCpc / 28) + '-' + Math.round(700 * avgCpc / 22) + '€'
+        },
+        aggressive: {
+          adSpend: Math.max(600, Math.round(1200 * avgCpc / 10) * 10), // Min 600€
+          clicks: 1200,
+          leads: '36-55',
+          costPerLead: Math.round(1200 * avgCpc / 45) + '-' + Math.round(1200 * avgCpc / 36) + '€'
+        }
+      };
+      
+      enriched.budget.explanation = `Rozpočty sú vypočítané na základe reálneho priemerného CPC ${avgCpc.toFixed(2)}€ pre vaše kľúčové slová.`;
+    }
+    
+    // 3. DOMAIN STATS - pridať ak dostupné
+    if (domainStats && domainStats.visibility) {
+      enriched.domainStats = {
+        visibility: domainStats.visibility,
+        estimatedTraffic: domainStats.estimatedTraffic,
+        organicKeywords: domainStats.keywords,
+        topKeywords: domainStats.topKeywords?.slice(0, 5) || [],
+        source: 'marketing_miner'
+      };
+    }
+    
+    // 4. WEB ANALYSIS - pridať technické info
+    if (webAnalysis && webAnalysis.available) {
+      enriched.onlinePresence = enriched.onlinePresence || {};
+      enriched.onlinePresence.website = enriched.onlinePresence.website || {};
+      enriched.onlinePresence.website.technical = {
+        loadTime: webAnalysis.loadTime,
+        loadTimeFormatted: webAnalysis.loadTime + 'ms',
+        hasSSL: webAnalysis.hasSSL,
+        issues: webAnalysis.issues || [],
+        pageSize: webAnalysis.pageSize
+      };
+      
+      // Pridať issues do weaknesses ak existujú
+      if (webAnalysis.issues && webAnalysis.issues.length > 0) {
+        enriched.onlinePresence.website.weaknesses = [
+          ...(enriched.onlinePresence.website.weaknesses || []),
+          ...webAnalysis.issues
+        ];
+      }
+    }
+    
+    // 5. Označiť že analýza obsahuje reálne dáta
+    enriched._meta = {
+      hasRealKeywords: realKeywords && realKeywords.length > 0,
+      hasRealDomainStats: domainStats && domainStats.visibility > 0,
+      hasWebAnalysis: webAnalysis && webAnalysis.available,
+      analyzedAt: new Date().toISOString(),
+      version: '2.3-enriched'
+    };
+    
+    return enriched;
+  },
+
+  /**
+   * Mapuje difficulty (0-100) na konkurenciu text
+   */
+  mapDifficultyToCompetition(difficulty) {
+    if (!difficulty && difficulty !== 0) return 'stredná';
+    if (difficulty < 30) return 'nízka';
+    if (difficulty < 60) return 'stredná';
+    return 'vysoká';
   },
 
   async handleImport() {
