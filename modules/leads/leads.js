@@ -3170,7 +3170,7 @@ ${r.projection ? `
       const getIdx = (names) => headers.findIndex(h => names.some(n => h.includes(n)));
       
       const inputIdx = getIdx(['input', 'domain', 'url']);
-      const emailIdx = getIdx(['email', 'mail']);
+      const emailIdx = getIdx(['email', 'mail', 'contact email']);
       const contactPageIdx = getIdx(['contact page', 'kontakt']);
       const fbIdx = getIdx(['facebook']);
       const igIdx = getIdx(['instagram']);
@@ -3181,6 +3181,8 @@ ${r.projection ? `
       const ipIdx = getIdx(['ip address', 'ip']);
       const mxIdx = getIdx(['mx']);
       const txtIdx = getIdx(['txt']);
+      const categorizationIdx = getIdx(['categorization', 'kategória', 'category', 'typ']);
+      const domainAvailIdx = getIdx(['domain availability', 'dostupnosť']);
       
       let leads = [];
       
@@ -3191,35 +3193,70 @@ ${r.projection ? `
         const domain = this.cleanDomain(row[inputIdx]);
         if (!domain) continue;
         
-        // Parse email (format: "email@test.com (90%); email2@test.com (80%)")
-        let email = null;
+        // Parse emails with confidence (format: "email@test.com (90%); email2@test.com (80%)")
+        let primaryEmail = null;
         let allEmails = [];
         if (emailIdx >= 0 && row[emailIdx]) {
           const emailStr = row[emailIdx].toString();
-          const matches = emailStr.match(/([^\s;(]+@[^\s;(]+)/g);
-          if (matches) {
-            allEmails = matches.map(e => e.trim());
-            email = allEmails[0];
+          // Match email and optional confidence
+          const emailMatches = emailStr.matchAll(/([^\s;(]+@[^\s;(]+)\s*(?:\((\d+)%?\))?/g);
+          for (const match of emailMatches) {
+            const email = match[1].trim();
+            const confidence = match[2] ? parseInt(match[2]) : 50;
+            if (email.includes('@') && email.includes('.')) {
+              allEmails.push({ email, confidence });
+            }
+          }
+          // Zoradiť podľa confidence a vybrať najlepší
+          allEmails.sort((a, b) => b.confidence - a.confidence);
+          primaryEmail = allEmails[0]?.email || null;
+        }
+        
+        // Parse categorization (format: "Blog; Company" or "E-shop")
+        let categories = [];
+        let businessType = 'unknown';
+        if (categorizationIdx >= 0 && row[categorizationIdx]) {
+          const catStr = row[categorizationIdx].toString();
+          categories = catStr.split(/[;,]/).map(c => c.trim().toLowerCase()).filter(Boolean);
+          
+          // Determine business type
+          if (categories.some(c => c.includes('shop') || c.includes('e-commerce') || c.includes('eshop'))) {
+            businessType = 'eshop';
+          } else if (categories.some(c => c.includes('company') || c.includes('firma') || c.includes('business'))) {
+            businessType = 'company';
+          } else if (categories.some(c => c.includes('blog'))) {
+            businessType = 'blog';
+          } else if (categories.some(c => c.includes('microsite') || c.includes('landing'))) {
+            businessType = 'microsite';
+          } else if (categories.some(c => c.includes('service') || c.includes('služb'))) {
+            businessType = 'service';
           }
         }
         
         // Collect all Marketing Miner data
         const marketingData = {
           contactPage: contactPageIdx >= 0 ? row[contactPageIdx] : null,
-          emails: allEmails,
+          emails: allEmails, // Všetky emaily s confidence
+          primaryEmailConfidence: allEmails[0]?.confidence || 0,
           socialMedia: {
-            facebook: fbIdx >= 0 ? row[fbIdx] : null,
-            instagram: igIdx >= 0 ? row[igIdx] : null,
-            linkedin: liIdx >= 0 ? row[liIdx] : null,
-            twitter: twIdx >= 0 ? row[twIdx] : null,
-            youtube: ytIdx >= 0 ? row[ytIdx] : null,
-            tiktok: tiktokIdx >= 0 ? row[tiktokIdx] : null
+            facebook: fbIdx >= 0 && row[fbIdx] ? this.cleanSocialUrl(row[fbIdx]) : null,
+            instagram: igIdx >= 0 && row[igIdx] ? this.cleanSocialUrl(row[igIdx]) : null,
+            linkedin: liIdx >= 0 && row[liIdx] ? this.cleanSocialUrl(row[liIdx]) : null,
+            twitter: twIdx >= 0 && row[twIdx] ? this.cleanSocialUrl(row[twIdx]) : null,
+            youtube: ytIdx >= 0 && row[ytIdx] ? this.cleanSocialUrl(row[ytIdx]) : null,
+            tiktok: tiktokIdx >= 0 && row[tiktokIdx] ? this.cleanSocialUrl(row[tiktokIdx]) : null
           },
           technical: {
             ip: ipIdx >= 0 ? row[ipIdx] : null,
             mx: mxIdx >= 0 ? row[mxIdx] : null,
             txt: txtIdx >= 0 ? row[txtIdx] : null
           },
+          categorization: {
+            categories: categories,
+            businessType: businessType,
+            raw: categorizationIdx >= 0 ? row[categorizationIdx] : null
+          },
+          domainAvailable: domainAvailIdx >= 0 ? row[domainAvailIdx] === 'available' : false,
           importedAt: new Date().toISOString(),
           source: 'marketing_miner'
         };
@@ -3229,17 +3266,16 @@ ${r.projection ? `
           if (!marketingData.socialMedia[k]) delete marketingData.socialMedia[k];
         });
         
-        // Count social presence
-        const socialCount = Object.keys(marketingData.socialMedia).length;
-        const hasEmail = email ? 1 : 0;
-        const baseScore = 30 + (socialCount * 10) + (hasEmail * 20);
+        // Calculate advanced score
+        const score = this.calculateImportScore(primaryEmail, allEmails, marketingData);
         
         leads.push({
           domain,
           company_name: this.formatCompanyName(domain),
-          email,
+          email: primaryEmail,
+          industry: this.mapBusinessTypeToIndustry(businessType, categories),
           status: 'new',
-          score: Math.min(baseScore, 80),
+          score: score,
           marketing_data: marketingData
         });
       }
@@ -3250,12 +3286,17 @@ ${r.projection ? `
         try {
           const existing = await Database.select('leads', { filters: { domain: lead.domain }, limit: 1 });
           if (existing?.length > 0) {
-            // Update existing with new marketing data if missing
+            // Update existing with new marketing data
             const ex = existing[0];
-            if (!ex.marketing_data && lead.marketing_data) {
+            const shouldUpdate = !ex.marketing_data || 
+                                 (lead.score > (ex.score || 0)) || 
+                                 (lead.email && !ex.email);
+            
+            if (shouldUpdate) {
               await Database.update('leads', ex.id, { 
                 marketing_data: lead.marketing_data,
                 email: lead.email || ex.email,
+                industry: lead.industry || ex.industry,
                 score: Math.max(lead.score, ex.score || 0)
               });
               updated++;
@@ -3269,7 +3310,7 @@ ${r.projection ? `
         } catch (e) { console.error('Import error:', e); }
       }
       
-      Utils.toast(`Pridané: ${added}, Aktualizované: ${updated}, Preskočené: ${skipped}`, 'success');
+      Utils.toast(`✅ Pridané: ${added}, 🔄 Aktualizované: ${updated}, ⏭️ Preskočené: ${skipped}`, 'success');
       await this.loadLeads();
       this.showTab('list');
       
@@ -3277,6 +3318,83 @@ ${r.projection ? `
       console.error('Excel parse error:', error);
       Utils.toast('Chyba pri čítaní súboru', 'error');
     }
+  },
+  
+  // Vyčistiť URL sociálnej siete (prvá ak je viacero)
+  cleanSocialUrl(value) {
+    if (!value) return null;
+    const str = value.toString().trim();
+    // Ak je viacero (oddelené ;), vezmi prvú
+    const first = str.split(';')[0].trim();
+    // Odstráň trailing slashes
+    return first.replace(/\/+$/, '') || null;
+  },
+  
+  // Vypočítať skóre pri importe
+  calculateImportScore(primaryEmail, allEmails, marketingData) {
+    let score = 30; // Základ
+    
+    // Email scoring
+    if (primaryEmail) {
+      score += 15;
+      const confidence = allEmails[0]?.confidence || 0;
+      if (confidence >= 90) score += 10;
+      else if (confidence >= 70) score += 5;
+      
+      // Bonus za viacero emailov
+      if (allEmails.length > 1) score += 5;
+    }
+    
+    // Social media scoring
+    const socials = marketingData.socialMedia || {};
+    const socialCount = Object.keys(socials).length;
+    score += socialCount * 5; // 5 bodov za každú sieť
+    
+    // Bonus za špecifické siete
+    if (socials.facebook) score += 3;
+    if (socials.instagram) score += 3;
+    if (socials.linkedin) score += 5; // LinkedIn je cennejší pre B2B
+    
+    // Business type scoring
+    const bizType = marketingData.categorization?.businessType;
+    if (bizType === 'company') score += 10;
+    else if (bizType === 'eshop') score += 8;
+    else if (bizType === 'service') score += 8;
+    else if (bizType === 'blog') score += 2;
+    
+    // Contact page bonus
+    if (marketingData.contactPage) score += 3;
+    
+    // Cap at 100
+    return Math.min(Math.round(score), 100);
+  },
+  
+  // Mapovať business type na industry
+  mapBusinessTypeToIndustry(businessType, categories) {
+    // Skúsiť nájsť industry z categories
+    const catStr = categories.join(' ').toLowerCase();
+    
+    if (catStr.includes('shop') || catStr.includes('e-commerce')) return 'E-commerce';
+    if (catStr.includes('restaurant') || catStr.includes('gastro') || catStr.includes('food')) return 'Gastronómia';
+    if (catStr.includes('beauty') || catStr.includes('salon') || catStr.includes('kozmet')) return 'Krása & Wellness';
+    if (catStr.includes('auto') || catStr.includes('car') || catStr.includes('servis')) return 'Autoservisy';
+    if (catStr.includes('health') || catStr.includes('medic') || catStr.includes('zdrav')) return 'Zdravotníctvo';
+    if (catStr.includes('real estate') || catStr.includes('reality')) return 'Reality';
+    if (catStr.includes('education') || catStr.includes('škol') || catStr.includes('kurz')) return 'Vzdelávanie';
+    if (catStr.includes('tech') || catStr.includes('it') || catStr.includes('software')) return 'IT & Technológie';
+    if (catStr.includes('travel') || catStr.includes('tourism') || catStr.includes('hotel')) return 'Cestovný ruch';
+    if (catStr.includes('fitness') || catStr.includes('gym') || catStr.includes('sport')) return 'Fitness & Šport';
+    
+    // Fallback podľa business type
+    const typeMap = {
+      'eshop': 'E-commerce',
+      'company': 'B2B Služby',
+      'service': 'Služby',
+      'blog': 'Blog/Médiá',
+      'microsite': 'Microsite'
+    };
+    
+    return typeMap[businessType] || null;
   },
 
   formatCompanyName(domain) {
@@ -3301,6 +3419,151 @@ ${r.projection ? `
       script.onerror = reject;
       document.head.appendChild(script);
     });
+  },
+  
+  // ===========================================
+  // MARKETING MINER API HELPERS
+  // ===========================================
+  
+  /**
+   * Získať keywords suggestions z MM API
+   * @param {string} keyword - Základné kľúčové slovo
+   * @param {string} lang - Jazyk (sk, cs, pl, gb, us)
+   * @returns {Promise<Array>} - Pole keywords s search volume, CPC, difficulty
+   */
+  async getKeywordsSuggestions(keyword, lang = 'sk') {
+    try {
+      const response = await fetch('/.netlify/functions/marketing-miner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'keywords_suggestions',
+          params: { keyword, lang }
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.warn('MM API error:', result.error);
+        return null;
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('MM API call failed:', error);
+      return null;
+    }
+  },
+  
+  /**
+   * Získať search volume pre konkrétne keywords
+   * @param {Array<string>} keywords - Pole keywords
+   * @param {string} lang - Jazyk
+   * @returns {Promise<Array>}
+   */
+  async getSearchVolume(keywords, lang = 'sk') {
+    try {
+      const response = await fetch('/.netlify/functions/marketing-miner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'search_volume',
+          params: { keywords, lang }
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.warn('MM API error:', result.error);
+        return null;
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('MM API call failed:', error);
+      return null;
+    }
+  },
+  
+  /**
+   * Získať štatistiky domény
+   * @param {string} domain - Doména
+   * @param {string} lang - Jazyk
+   * @returns {Promise<Object>}
+   */
+  async getDomainStats(domain, lang = 'sk') {
+    try {
+      const response = await fetch('/.netlify/functions/marketing-miner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'domain_stats',
+          params: { domain, lang }
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.warn('MM API error:', result.error);
+        return null;
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('MM API call failed:', error);
+      return null;
+    }
+  },
+  
+  /**
+   * Vypočítať reálny rozpočet na základe MM dát
+   * @param {Array} keywords - Keywords z MM API
+   * @param {number} targetClicks - Cieľový počet klikov/mesiac
+   * @returns {Object} - { minBudget, recommendedBudget, maxBudget, estimatedClicks }
+   */
+  calculateRealBudget(keywords, targetClicks = 500) {
+    if (!keywords || keywords.length === 0) {
+      return {
+        minBudget: 300,
+        recommendedBudget: 500,
+        maxBudget: 1000,
+        estimatedClicks: targetClicks,
+        basedOnRealData: false
+      };
+    }
+    
+    // Priemer CPC z top keywords (vážený podľa search volume)
+    let totalWeight = 0;
+    let weightedCpc = 0;
+    let totalSearchVolume = 0;
+    
+    keywords.slice(0, 20).forEach(kw => {
+      const volume = kw.searchVolume || 0;
+      const cpc = kw.cpc || 0.5;
+      totalSearchVolume += volume;
+      weightedCpc += cpc * volume;
+      totalWeight += volume;
+    });
+    
+    const avgCpc = totalWeight > 0 ? weightedCpc / totalWeight : 0.5;
+    
+    // Výpočet rozpočtu
+    // Predpoklad: 2-5% CTR, teda potrebujeme 20-50x viac impresií ako klikov
+    const minClicks = Math.round(targetClicks * 0.5);
+    const maxClicks = Math.round(targetClicks * 2);
+    
+    return {
+      minBudget: Math.round(minClicks * avgCpc),
+      recommendedBudget: Math.round(targetClicks * avgCpc),
+      maxBudget: Math.round(maxClicks * avgCpc),
+      estimatedClicks: targetClicks,
+      avgCpc: Math.round(avgCpc * 100) / 100,
+      totalSearchVolume,
+      basedOnRealData: true
+    };
   },
 
   async handleImport() {
