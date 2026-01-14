@@ -571,7 +571,15 @@ const IntegrationsModule = {
                 body: JSON.stringify({ action: 'test_connection' })
             });
             
+            // Skontrolovať HTTP status
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('MM API HTTP error:', response.status, errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
             const result = await response.json();
+            console.log('MM test result:', result);
             
             if (result.success && result.data?.connected) {
                 resultDiv.innerHTML = `
@@ -582,9 +590,9 @@ const IntegrationsModule = {
                         ${result.data.sample?.length > 0 ? `
                             <div class="mt-2 text-xs text-green-600">
                                 Ukážka: "${result.data.sample[0]?.keyword || 'test'}" 
-                                (${result.data.sample[0]?.searchVolume || 0} hľadaní/mes)
+                                (${result.data.sample[0]?.searchVolume || result.data.sample[0]?.search_volume || 0} hľadaní/mes)
                             </div>
-                        ` : ''}
+                        ` : '<div class="mt-2 text-xs text-green-600">API pripojené</div>'}
                     </div>
                 `;
             } else {
