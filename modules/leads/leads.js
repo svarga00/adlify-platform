@@ -3813,30 +3813,191 @@ ${r.projection ? `
     const companyName = lead.company_name || '';
     const domain = lead.domain || '';
     const industry = lead.industry || '';
+    const marketingData = lead.marketing_data || {};
     
-    // Ak máme industry, použiť to
+    // 1. Ak máme categorization z importu, použiť to
+    if (marketingData.categorization) {
+      const cat = marketingData.categorization;
+      // Skúsiť extrahovať hlavnú kategóriu
+      const catKeyword = this.extractCategoryKeyword(cat);
+      if (catKeyword) {
+        console.log('🎯 Seed keyword z categorization:', catKeyword);
+        return catKeyword;
+      }
+    }
+    
+    // 2. Ak máme industry, mapovať na relevantné keywords
     if (industry && industry !== 'unknown' && industry.length > 3) {
-      return industry.toLowerCase();
+      const industryKeyword = this.mapIndustryToKeyword(industry);
+      if (industryKeyword) {
+        console.log('🎯 Seed keyword z industry:', industryKeyword);
+        return industryKeyword;
+      }
     }
     
-    // Skúsiť extrahovať z názvu firmy
-    const cleanName = companyName
-      .toLowerCase()
-      .replace(/s\.r\.o\.|sro|a\.s\.|spol\.|,/gi, '')
-      .replace(/[0-9]/g, '')
-      .trim();
-    
-    if (cleanName.length > 3) {
-      return cleanName;
+    // 3. Skúsiť rozpoznať biznis typ z názvu firmy
+    const businessKeyword = this.detectBusinessFromName(companyName, domain);
+    if (businessKeyword) {
+      console.log('🎯 Seed keyword z názvu firmy:', businessKeyword);
+      return businessKeyword;
     }
     
-    // Fallback na doménu
-    const domainName = domain
-      .replace(/\.(sk|cz|com|eu)$/i, '')
-      .replace(/[^a-záčďéíľňóŕšťúýž]/gi, ' ')
-      .trim();
+    // 4. Fallback - vrátiť null a nechať AI vygenerovať keywords
+    console.warn('⚠️ Nepodarilo sa extrahovať seed keyword, použijú sa AI odhady');
+    return null;
+  },
+
+  /**
+   * Extrahuje keyword z MM categorization stringu
+   */
+  extractCategoryKeyword(categorization) {
+    if (!categorization) return null;
     
-    return domainName || null;
+    const catLower = categorization.toLowerCase();
+    
+    // Mapovania pre bežné kategórie
+    const categoryMap = {
+      'florist': 'kvetinárstvo',
+      'plant': 'rastliny',
+      'flower': 'kvety',
+      'garden': 'záhradníctvo',
+      'interior': 'interiérová zeleň',
+      'green': 'zeleň',
+      'landscape': 'záhradná architektúra',
+      'nursery': 'pestovanie rastlín',
+      'restaurant': 'reštaurácia',
+      'cafe': 'kaviareň',
+      'hotel': 'hotel',
+      'fitness': 'fitness',
+      'beauty': 'kozmetika',
+      'auto': 'autoservis',
+      'repair': 'opravy',
+      'shop': 'obchod',
+      'store': 'predajňa',
+      'service': 'služby',
+      'consulting': 'poradenstvo',
+      'legal': 'právne služby',
+      'medical': 'zdravotníctvo',
+      'dental': 'zubná ambulancia',
+      'construction': 'stavebníctvo',
+      'electric': 'elektrikár',
+      'plumb': 'inštalatér',
+      'clean': 'upratovanie',
+      'transport': 'doprava',
+      'real estate': 'reality',
+      'insurance': 'poistenie',
+      'accounting': 'účtovníctvo'
+    };
+    
+    for (const [key, value] of Object.entries(categoryMap)) {
+      if (catLower.includes(key)) {
+        return value;
+      }
+    }
+    
+    return null;
+  },
+
+  /**
+   * Mapuje industry na relevantné search keywords
+   */
+  mapIndustryToKeyword(industry) {
+    const industryLower = industry.toLowerCase();
+    
+    const industryKeywords = {
+      'e-commerce': 'eshop',
+      'gastronómia': 'reštaurácia',
+      'krása': 'kozmetika',
+      'wellness': 'wellness',
+      'autoservisy': 'autoservis',
+      'zdravotníctvo': 'lekár',
+      'reality': 'reality',
+      'vzdelávanie': 'kurzy',
+      'it': 'softvér',
+      'technológie': 'IT služby',
+      'cestovný ruch': 'dovolenka',
+      'fitness': 'fitness',
+      'šport': 'šport',
+      'stavebníctvo': 'stavebná firma',
+      'právne služby': 'advokát',
+      'účtovníctvo': 'účtovník',
+      'marketing': 'marketing',
+      'reklama': 'reklama'
+    };
+    
+    for (const [key, value] of Object.entries(industryKeywords)) {
+      if (industryLower.includes(key)) {
+        return value;
+      }
+    }
+    
+    // Ak je industry dostatočne špecifické, použiť priamo
+    if (industryLower.length > 5 && industryLower.length < 30) {
+      return industryLower;
+    }
+    
+    return null;
+  },
+
+  /**
+   * Detekuje biznis typ z názvu firmy alebo domény
+   */
+  detectBusinessFromName(companyName, domain) {
+    const combined = (companyName + ' ' + domain).toLowerCase();
+    
+    // Kľúčové slová indikujúce typ biznisu
+    const businessIndicators = {
+      'flora': 'interiérová zeleň',
+      'plant': 'rastliny',
+      'green': 'zeleň',
+      'kvet': 'kvetinárstvo',
+      'záhrad': 'záhradníctvo',
+      'gastro': 'reštaurácia',
+      'food': 'jedlo',
+      'resto': 'reštaurácia',
+      'cafe': 'kaviareň',
+      'hotel': 'hotel',
+      'auto': 'autoservis',
+      'car': 'autoservis',
+      'beauty': 'kozmetika',
+      'salon': 'salón',
+      'kozmet': 'kozmetika',
+      'fit': 'fitness',
+      'gym': 'fitness',
+      'sport': 'športové potreby',
+      'tech': 'IT služby',
+      'soft': 'softvér',
+      'dev': 'vývoj softvéru',
+      'build': 'stavebníctvo',
+      'stav': 'stavebníctvo',
+      'elektr': 'elektrikár',
+      'instal': 'inštalatér',
+      'clean': 'upratovanie',
+      'uprat': 'upratovacie služby',
+      'reality': 'reality',
+      'legal': 'právne služby',
+      'práv': 'advokát',
+      'účt': 'účtovníctvo',
+      'dent': 'zubná ambulancia',
+      'medic': 'zdravotníctvo',
+      'zdrav': 'zdravotníctvo',
+      'škol': 'vzdelávanie',
+      'edu': 'vzdelávanie',
+      'travel': 'cestovná kancelária',
+      'tour': 'turistika',
+      'transport': 'doprava',
+      'dopr': 'doprava',
+      'market': 'marketing',
+      'reklam': 'reklama'
+    };
+    
+    for (const [indicator, keyword] of Object.entries(businessIndicators)) {
+      if (combined.includes(indicator)) {
+        return keyword;
+      }
+    }
+    
+    return null;
   },
 
   /**
