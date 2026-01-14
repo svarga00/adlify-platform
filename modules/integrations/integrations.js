@@ -261,18 +261,77 @@ const IntegrationsModule = {
             case 'marketing_miner':
                 fieldsHtml = `
                     <div class="space-y-4">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                            <div class="flex items-start gap-3">
+                                <span class="text-2xl">💡</span>
+                                <div class="text-sm text-blue-800">
+                                    <strong>Marketing Miner API</strong> umožňuje automaticky získavať:
+                                    <ul class="mt-2 ml-4 list-disc space-y-1">
+                                        <li>Návrhy kľúčových slov + search volume</li>
+                                        <li>CPC (cena za klik) pre reálne rozpočty</li>
+                                        <li>Viditeľnosť domény v Google</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div>
                             <label class="block text-sm font-medium mb-1">API kľúč *</label>
                             <input type="password" name="api_key" value="${creds.api_key || ''}" 
-                                   class="w-full p-3 border rounded-xl font-mono">
+                                   id="mm-api-key"
+                                   class="w-full p-3 border rounded-xl font-mono"
+                                   placeholder="69e05bc1d9d131fc5d8e7b22f68229a4...">
                             <p class="text-xs text-gray-500 mt-1">
-                                Nájdete v Marketing Miner → Nastavenia → API
+                                Nájdete v Marketing Miner → 
+                                <a href="https://www.marketingminer.com/sk/profile" target="_blank" class="text-orange-500 underline">Profil → API kľúče</a>
                             </p>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Denný limit požiadaviek</label>
-                            <input type="number" name="daily_limit" value="${sets.daily_limit || 1000}" 
-                                   class="w-full p-3 border rounded-xl">
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Predvolený jazyk</label>
+                                <select name="default_lang" class="w-full p-3 border rounded-xl">
+                                    <option value="sk" ${(sets.default_lang || 'sk') === 'sk' ? 'selected' : ''}>🇸🇰 Slovensko</option>
+                                    <option value="cs" ${sets.default_lang === 'cs' ? 'selected' : ''}>🇨🇿 Česko</option>
+                                    <option value="pl" ${sets.default_lang === 'pl' ? 'selected' : ''}>🇵🇱 Poľsko</option>
+                                    <option value="gb" ${sets.default_lang === 'gb' ? 'selected' : ''}>🇬🇧 UK</option>
+                                    <option value="us" ${sets.default_lang === 'us' ? 'selected' : ''}>🇺🇸 USA</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Denný limit kreditov</label>
+                                <input type="number" name="daily_limit" value="${sets.daily_limit || 5000}" 
+                                       class="w-full p-3 border rounded-xl"
+                                       min="100" max="100000">
+                                <p class="text-xs text-gray-500 mt-1">Ochrana pred prekročením</p>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <h4 class="font-medium mb-3">🧪 Test pripojenia</h4>
+                            <div class="flex gap-3">
+                                <button type="button" onclick="IntegrationsModule.testMarketingMiner()" 
+                                        class="btn-secondary flex-1" id="mm-test-btn">
+                                    🔄 Otestovať API
+                                </button>
+                            </div>
+                            <div id="mm-test-result" class="mt-3 text-sm hidden"></div>
+                        </div>
+                        
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                            <div class="flex items-start gap-3">
+                                <span class="text-xl">💰</span>
+                                <div class="text-sm text-amber-800">
+                                    <strong>Ceny API:</strong>
+                                    <ul class="mt-1 space-y-0.5">
+                                        <li>• Keyword suggestions: kredity/keyword</li>
+                                        <li>• Search volume: 3 kredity/keyword</li>
+                                        <li>• Domain stats: 10 kreditov/doména</li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -346,7 +405,8 @@ const IntegrationsModule = {
                 
             case 'marketing_miner':
                 credentials.api_key = formData.get('api_key');
-                settings.daily_limit = parseInt(formData.get('daily_limit')) || 1000;
+                settings.daily_limit = parseInt(formData.get('daily_limit')) || 5000;
+                settings.default_lang = formData.get('default_lang') || 'sk';
                 break;
         }
         
@@ -464,6 +524,90 @@ const IntegrationsModule = {
     
     closeModal() {
         document.getElementById('integration-modal').classList.add('hidden');
+    },
+    
+    // ===========================================
+    // MARKETING MINER TEST
+    // ===========================================
+    
+    async testMarketingMiner() {
+        const apiKeyInput = document.getElementById('mm-api-key');
+        const testBtn = document.getElementById('mm-test-btn');
+        const resultDiv = document.getElementById('mm-test-result');
+        
+        const apiKey = apiKeyInput?.value?.trim();
+        
+        if (!apiKey) {
+            resultDiv.innerHTML = '<span class="text-red-600">❌ Zadajte API kľúč</span>';
+            resultDiv.classList.remove('hidden');
+            return;
+        }
+        
+        // UI loading state
+        testBtn.disabled = true;
+        testBtn.innerHTML = '⏳ Testujem...';
+        resultDiv.classList.add('hidden');
+        
+        try {
+            // Najprv uložiť API kľúč do DB (dočasne)
+            const tempConfig = {
+                is_enabled: true,
+                credentials: { api_key: apiKey },
+                settings: { daily_limit: 5000 }
+            };
+            
+            await Database.client
+                .from('settings')
+                .upsert({
+                    key: 'integration_marketing_miner',
+                    value: tempConfig,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'key' });
+            
+            // Zavolať test endpoint
+            const response = await fetch('/.netlify/functions/marketing-miner', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'test_connection' })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.data?.connected) {
+                resultDiv.innerHTML = `
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div class="flex items-center gap-2 text-green-700 font-medium">
+                            ✅ ${result.data.message || 'Pripojenie úspešné!'}
+                        </div>
+                        ${result.data.sample?.length > 0 ? `
+                            <div class="mt-2 text-xs text-green-600">
+                                Ukážka: "${result.data.sample[0]?.keyword || 'test'}" 
+                                (${result.data.sample[0]?.searchVolume || 0} hľadaní/mes)
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                throw new Error(result.error || 'Test zlyhal');
+            }
+            
+        } catch (error) {
+            console.error('MM test error:', error);
+            resultDiv.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div class="flex items-center gap-2 text-red-700 font-medium">
+                        ❌ Chyba pripojenia
+                    </div>
+                    <div class="mt-1 text-xs text-red-600">
+                        ${error.message || 'Nepodarilo sa pripojiť k Marketing Miner API'}
+                    </div>
+                </div>
+            `;
+        } finally {
+            testBtn.disabled = false;
+            testBtn.innerHTML = '🔄 Otestovať API';
+            resultDiv.classList.remove('hidden');
+        }
     },
     
     // ===========================================
