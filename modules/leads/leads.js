@@ -436,6 +436,7 @@ const LeadsModule = {
           <div class="form-group"><label>Telefón</label><input type="text" id="add-phone" placeholder="+421..."></div>
           <div class="form-group"><label>Odvetvie</label><input type="text" id="add-industry" placeholder="E-commerce"></div>
           <div class="form-group"><label>Mesto</label><input type="text" id="add-city" placeholder="Bratislava"></div>
+          <div class="form-group" style="grid-column: span 2;"><label>🖼️ Logo URL (voliteľné)</label><input type="url" id="add-logo" placeholder="https://firma.sk/logo.png"><small style="color: #64748b; font-size: 0.8rem;">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
         </div>
         <div class="form-actions">
           <button onclick="LeadsModule.handleAdd()" class="btn-primary">➕ Pridať lead</button>
@@ -1448,6 +1449,7 @@ const LeadsModule = {
           <div><label class="block text-sm font-medium mb-1">Odvetvie</label><input type="text" id="edit-lead-industry" value="${lead.industry || ''}" class="w-full p-3 border rounded-xl"></div>
           <div><label class="block text-sm font-medium mb-1">Mesto</label><input type="text" id="edit-lead-city" value="${lead.city || ''}" class="w-full p-3 border rounded-xl"></div>
         </div>
+        <div class="mb-4"><label class="block text-sm font-medium mb-1">🖼️ Logo URL</label><input type="url" id="edit-lead-logo" value="${lead.logo_url || ''}" class="w-full p-3 border rounded-xl" placeholder="https://firma.sk/logo.png"><small class="text-gray-500 text-xs">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
         <div class="mb-4"><label class="block text-sm font-medium mb-1">Poznámky</label><textarea id="edit-lead-notes" rows="3" class="w-full p-3 border rounded-xl">${lead.notes || ''}</textarea></div>
         <div class="flex gap-3">
           <button onclick="LeadsModule.showLeadDetail('${leadId}')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">← Späť</button>
@@ -1465,6 +1467,7 @@ const LeadsModule = {
       phone: document.getElementById('edit-lead-phone').value.trim() || null,
       industry: document.getElementById('edit-lead-industry').value.trim() || null,
       city: document.getElementById('edit-lead-city').value.trim() || null,
+      logo_url: document.getElementById('edit-lead-logo')?.value.trim() || null,
       notes: document.getElementById('edit-lead-notes').value.trim() || null
     };
     
@@ -2702,6 +2705,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   <div class="header-right">
     <div class="header-client">
       <span style="color: #94a3b8; font-size: 0.85rem;">Pripravené pre</span>
+      ${lead.logo_url ? `<img src="${lead.logo_url}" alt="${c.name || lead.company_name}" style="height: 32px; max-width: 120px; object-fit: contain; margin-left: 10px; border-radius: 4px;" onerror="this.style.display='none'">` : (lead.domain ? `<img src="https://www.google.com/s2/favicons?domain=${lead.domain}&sz=128" alt="" style="height: 24px; width: 24px; margin-left: 10px; border-radius: 4px;" onerror="this.style.display='none'">` : '')}
       <strong style="color: #1a1a2e; font-size: 1rem; margin-left: 8px;">${c.name || lead.company_name}</strong>
     </div>
   </div>
@@ -4123,17 +4127,19 @@ ${r.projection ? `
     const phone = document.getElementById('add-phone').value.trim();
     const industry = document.getElementById('add-industry').value.trim();
     const city = document.getElementById('add-city').value.trim();
+    const logoUrl = document.getElementById('add-logo')?.value.trim() || null;
     await Database.insert('leads', { 
       domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`, 
       company_name: name, 
       email: email || null,
       phone: phone || null,
+      logo_url: logoUrl,
       status: 'new', 
       score: 50, 
       analysis: { company: { industry, location: city } } 
     });
     Utils.toast('Lead pridaný!', 'success');
-    ['add-name', 'add-domain', 'add-email', 'add-phone', 'add-industry', 'add-city'].forEach(id => document.getElementById(id).value = '');
+    ['add-name', 'add-domain', 'add-email', 'add-phone', 'add-industry', 'add-city', 'add-logo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     await this.loadLeads();
     this.showTab('list');
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
