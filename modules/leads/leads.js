@@ -2333,8 +2333,8 @@ Odkaz je platný 30 dní.
     Utils.toast('Ponuka otvorená', 'success');
   },
   
-  // PDF ponuka - otvorí v novom okne s print dialogom
-  generateProposalPDF() {
+  // PDF ponuka - priamy export cez html2pdf.js
+  async generateProposalPDF() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
     
@@ -2342,71 +2342,76 @@ Odkaz je platný 30 dní.
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
     if (notes) analysisToUse.customNote = notes;
     
-    // Použiť rovnaký HTML ako prezentácia
-    const html = this.buildProposalHTML(lead, analysisToUse);
+    Utils.toast('Generujem PDF...', 'info');
     
-    // Otvoriť v novom okne
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(html);
-    printWindow.document.close();
-    
-    // Počkať na načítanie a pridať print controls
-    printWindow.onload = () => {
-      // Pridať floating print button
-      const controls = printWindow.document.createElement('div');
-      controls.id = 'print-controls';
-      controls.innerHTML = `
-        <style>
-          #print-controls {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            gap: 10px;
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-          }
-          #print-controls button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          #print-controls .btn-print {
-            background: linear-gradient(135deg, #f97316, #ea580c);
-            color: white;
-          }
-          #print-controls .btn-print:hover {
-            box-shadow: 0 4px 12px rgba(249,115,22,0.4);
-          }
-          #print-controls .btn-close {
-            background: #f1f5f9;
-            color: #64748b;
-          }
-          @media print {
-            #print-controls { display: none !important; }
-          }
-        </style>
-        <button class="btn-print" onclick="window.print()">
-          📄 Uložiť ako PDF
-        </button>
-        <button class="btn-close" onclick="window.close()">
-          ✕ Zavrieť
-        </button>
-      `;
-      printWindow.document.body.appendChild(controls);
-    };
-    
-    this.closeProposalModal();
-    Utils.toast('V novom okne klikni "Uložiť ako PDF" → v dialogu vyber "Uložiť ako PDF"', 'info');
+    try {
+      // Načítaj html2pdf.js ak nie je
+      if (!window.html2pdf) {
+        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+      }
+      
+      // Vytvor HTML
+      const html = this.buildProposalHTML(lead, analysisToUse);
+      
+      // Vytvor container
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '1200px';
+      
+      // Pridaj pdf-mode class na body element v HTML
+      const bodyEl = container.querySelector('body');
+      if (bodyEl) bodyEl.classList.add('pdf-mode');
+      
+      document.body.appendChild(container);
+      
+      // Počkaj na načítanie fontov a obrázkov
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const filename = `Ponuka-${lead.company_name?.replace(/[^a-zA-Z0-9]/g, '-') || 'lead'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Konfigurácia PDF
+      const opt = {
+        margin: 0,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          letterRendering: true,
+          scrollY: 0
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.page',
+          after: '.page',
+          avoid: ['.card', '.stat-box', '.package-card', '.benefit-card', '.swot-box', '.timeline-item']
+        }
+      };
+      
+      // Generuj PDF
+      await html2pdf().set(opt).from(container).save();
+      
+      // Cleanup
+      document.body.removeChild(container);
+      
+      this.closeProposalModal();
+      Utils.toast(`PDF "${filename}" stiahnuté!`, 'success');
+      
+    } catch (error) {
+      console.error('PDF error:', error);
+      Utils.toast('Chyba pri generovaní PDF: ' + error.message, 'error');
+    }
   },
   
   // Poslať emailom - otvoriť compose modal z Messages modulu
@@ -2690,11 +2695,53 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   .swot-grid { grid-template-columns: 1fr; }
 }
 
+/* PDF/Print optimalizácia */
 @media print {
-  .header { position: relative; }
-  .page { min-height: auto; page-break-inside: avoid; }
-  .package-card, .benefit-card, .stat-box { break-inside: avoid; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { -webkit-print-color-adjust: exact; }
+  
+  .header { position: relative !important; box-shadow: none !important; border-bottom: 2px solid #e2e8f0; }
+  
+  .page { 
+    min-height: auto !important; 
+    padding: 40px 50px !important;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+  .page:last-of-type { page-break-after: avoid; }
+  
+  .hero-section {
+    min-height: auto !important;
+    padding: 60px 40px !important;
+    page-break-after: always;
+  }
+  
+  .card, .stat-box, .package-card, .benefit-card, .swot-box, .timeline-item, .budget-card, .ad-preview {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  
+  .grid-2, .grid-3, .grid-4 { gap: 16px !important; }
+  
+  .section-title { page-break-after: avoid; }
+  
+  .cta-section { 
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  
+  .footer { 
+    page-break-before: avoid;
+    margin-top: 40px;
+  }
+  
+  /* Skry interaktívne prvky */
+  a[href^="mailto"], a[href^="tel"] { text-decoration: none !important; color: inherit !important; }
 }
+
+/* PDF specific - pre html2pdf.js */
+.pdf-mode .header { position: relative !important; }
+.pdf-mode .page { min-height: auto !important; page-break-after: always; }
 </style>
 </head>
 <body>
