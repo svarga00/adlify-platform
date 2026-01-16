@@ -2406,7 +2406,7 @@ Odkaz je platný 30 dní.
     Utils.toast('Ponuka otvorená', 'success');
   },
   
-  // PDF ponuka - priamy export cez html2pdf.js
+  // PDF ponuka - otvorí v novom okne s print dialogom
   async generateProposalPDF() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
@@ -2415,83 +2415,98 @@ Odkaz je platný 30 dní.
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
     if (notes) analysisToUse.customNote = notes;
     
-    Utils.toast('Generujem PDF... (môže trvať niekoľko sekúnd)', 'info');
+    // Vytvor HTML s print-optimalizovanými štýlmi
+    const html = this.buildProposalHTML(lead, analysisToUse);
     
-    try {
-      // Načítaj html2pdf.js ak nie je
-      if (!window.html2pdf) {
-        await this.loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
-      }
-      
-      // Vytvor HTML
-      const html = this.buildProposalHTML(lead, analysisToUse);
-      
-      // Vytvor iframe pre správne renderovanie HTML
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.left = '-9999px';
-      iframe.style.top = '0';
-      iframe.style.width = '1200px';
-      iframe.style.height = '800px';
-      iframe.style.border = 'none';
-      document.body.appendChild(iframe);
-      
-      // Vlož HTML do iframe
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDoc.open();
-      iframeDoc.write(html);
-      iframeDoc.close();
-      
-      // Počkaj na načítanie fontov a obrázkov
-      await new Promise(resolve => {
-        iframe.onload = resolve;
-        setTimeout(resolve, 2000); // Fallback timeout
-      });
-      
-      // Ešte chvíľu počkaj na renderovanie
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const filename = `Ponuka-${lead.company_name?.replace(/[^a-zA-Z0-9]/g, '-') || 'lead'}-${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      // Konfigurácia PDF
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          letterRendering: true,
-          scrollY: 0,
-          windowWidth: 1200
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait',
-          compress: true
-        },
-        pagebreak: { 
-          mode: ['avoid-all', 'css', 'legacy'],
-          avoid: ['.card', '.stat-box', '.package-card', '.benefit-card', '.swot-box', '.timeline-item', '.hero-section']
-        }
-      };
-      
-      // Generuj PDF z iframe body
-      await html2pdf().set(opt).from(iframeDoc.body).save();
-      
-      // Cleanup
-      document.body.removeChild(iframe);
-      
-      this.closeProposalModal();
-      Utils.toast(`PDF "${filename}" stiahnuté!`, 'success');
-      
-    } catch (error) {
-      console.error('PDF error:', error);
-      Utils.toast('Chyba pri generovaní PDF: ' + error.message, 'error');
+    // Otvoriť v novom okne
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+    if (!printWindow) {
+      Utils.toast('Povoľte pop-up okná pre túto stránku', 'warning');
+      return;
     }
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    // Počkať na načítanie
+    printWindow.onload = () => {
+      // Pridať floating print button
+      const controls = printWindow.document.createElement('div');
+      controls.id = 'pdf-controls';
+      controls.innerHTML = `
+        <style>
+          #pdf-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            font-family: 'Poppins', sans-serif;
+          }
+          #pdf-controls button {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+          }
+          #pdf-controls .btn-print {
+            background: linear-gradient(135deg, #FF6B35, #E91E63);
+            color: white;
+          }
+          #pdf-controls .btn-print:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255,107,53,0.4);
+          }
+          #pdf-controls .btn-close {
+            background: #f1f5f9;
+            color: #64748b;
+          }
+          #pdf-controls .btn-close:hover {
+            background: #e2e8f0;
+          }
+          #pdf-controls .hint {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 10px;
+            text-align: center;
+          }
+          @media print {
+            #pdf-controls { display: none !important; }
+          }
+        </style>
+        <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;gap:10px;">
+            <button class="btn-print" onclick="window.print()">
+              📄 Uložiť ako PDF
+            </button>
+            <button class="btn-close" onclick="window.close()">
+              ✕ Zavrieť
+            </button>
+          </div>
+          <div class="hint">V tlačovom dialógu vyberte "Uložiť ako PDF"</div>
+        </div>
+      `;
+      printWindow.document.body.appendChild(controls);
+      
+      // Auto-otvor print dialog po 500ms
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    };
+    
+    this.closeProposalModal();
+    Utils.toast('Otvorené v novom okne - klikni "Uložiť ako PDF"', 'info');
   },
   
   // Poslať emailom - otvoriť compose modal z Messages modulu
@@ -2777,14 +2792,33 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 
 /* PDF/Print optimalizácia */
 @media print {
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  body { -webkit-print-color-adjust: exact; }
+  * { 
+    -webkit-print-color-adjust: exact !important; 
+    print-color-adjust: exact !important; 
+    color-adjust: exact !important;
+  }
   
-  .header { position: relative !important; box-shadow: none !important; border-bottom: 2px solid #e2e8f0; }
+  html, body { 
+    width: 210mm;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  body { 
+    -webkit-print-color-adjust: exact;
+    background: white !important;
+  }
+  
+  .header { 
+    position: relative !important; 
+    box-shadow: none !important; 
+    border-bottom: 2px solid #e2e8f0;
+    padding: 15px 30px !important;
+  }
   
   .page { 
     min-height: auto !important; 
-    padding: 40px 50px !important;
+    padding: 30px !important;
     page-break-after: always;
     page-break-inside: avoid;
   }
@@ -2792,18 +2826,27 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   
   .hero-section {
     min-height: auto !important;
-    padding: 60px 40px !important;
+    padding: 50px 30px !important;
     page-break-after: always;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    -webkit-print-color-adjust: exact !important;
   }
   
   .card, .stat-box, .package-card, .benefit-card, .swot-box, .timeline-item, .budget-card, .ad-preview {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
   }
   
-  .grid-2, .grid-3, .grid-4 { gap: 16px !important; }
+  .grid-2, .grid-3, .grid-4 { 
+    gap: 12px !important; 
+  }
   
-  .section-title { page-break-after: avoid; }
+  .section-title { 
+    page-break-after: avoid; 
+    font-size: 1.5rem !important;
+  }
   
   .cta-section { 
     page-break-inside: avoid !important;
@@ -2812,16 +2855,21 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   
   .footer { 
     page-break-before: avoid;
-    margin-top: 40px;
+    margin-top: 30px;
+    padding: 30px !important;
   }
   
-  /* Skry interaktívne prvky */
-  a[href^="mailto"], a[href^="tel"] { text-decoration: none !important; color: inherit !important; }
+  /* Zachovaj farby pozadia */
+  .swot-strengths, .swot-weaknesses, .swot-opportunities, .swot-threats,
+  .budget-card, .stat-box, .package-card, .benefit-card {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Linky */
+  a { text-decoration: none !important; }
+  a[href^="mailto"], a[href^="tel"] { color: inherit !important; }
 }
-
-/* PDF specific - pre html2pdf.js */
-.pdf-mode .header { position: relative !important; }
-.pdf-mode .page { min-height: auto !important; page-break-after: always; }
 </style>
 </head>
 <body>
