@@ -1140,10 +1140,45 @@ const LeadsModule = {
     
     content.innerHTML = `
       <div class="bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl p-6 mb-6">
-        <h2 class="text-3xl font-bold mb-2">${c.name || lead.company_name || 'Firma'}</h2>
-        <p class="opacity-90 text-lg">${c.description || ''}</p>
-        ${c.location ? `<p class="mt-3 opacity-75">📍 ${c.location}</p>` : ''}
+        <div class="flex justify-between items-start">
+          <div>
+            <h2 class="text-3xl font-bold mb-2">${c.name || lead.company_name || 'Firma'}</h2>
+            <p class="opacity-90 text-lg">${c.description || ''}</p>
+            ${c.location || lead.city ? `<p class="mt-3 opacity-75">📍 ${c.location || lead.city}</p>` : ''}
+          </div>
+          <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+            ✏️ Upraviť údaje
+          </button>
+        </div>
       </div>
+      
+      <!-- Kontaktné údaje - vždy viditeľné -->
+      <div class="analysis-section mb-4" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+        <div class="flex justify-between items-center mb-3">
+          <h3 style="margin-bottom: 0;">📋 Kontaktné údaje</h3>
+          <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="text-sm text-orange-500 hover:text-orange-600 font-medium">✏️ Upraviť</button>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span class="text-gray-500 block">Email</span>
+            <span class="font-medium">${lead.email ? `<a href="mailto:${lead.email}" class="text-orange-500">${lead.email}</a>` : '<em class="text-gray-400">nezadaný</em>'}</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block">Telefón</span>
+            <span class="font-medium">${lead.phone ? `<a href="tel:${lead.phone}" class="text-orange-500">${lead.phone}</a>` : '<em class="text-gray-400">nezadaný</em>'}</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block">Odvetvie</span>
+            <span class="font-medium">${lead.industry || c.industry || '<em class="text-gray-400">nezadané</em>'}</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block">Mesto</span>
+            <span class="font-medium">${lead.city || c.location || '<em class="text-gray-400">nezadané</em>'}</span>
+          </div>
+        </div>
+        ${lead.logo_url ? `<div class="mt-3 pt-3 border-t"><span class="text-gray-500 text-sm">Logo:</span> <img src="${lead.logo_url}" alt="Logo" style="height: 32px; display: inline-block; margin-left: 8px; vertical-align: middle;"></div>` : ''}
+      </div>
+
       ${a.humanWrittenIntro ? `<div class="analysis-section border-l-4 border-orange-500"><h3>💡 Naše zistenia</h3><p class="text-gray-700 leading-relaxed">${a.humanWrittenIntro}</p></div>` : ''}
       ${c.services?.length ? `<div class="analysis-section"><h3>🛠️ Služby</h3><div class="flex flex-wrap gap-2">${c.services.map(s => `<span class="tag tag-blue">${s}</span>`).join('')}</div></div>` : ''}
       ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
@@ -1200,24 +1235,23 @@ const LeadsModule = {
     const a = lead.analysis || {};
     const md = lead.marketing_data || {};
     const hasAnalysis = a.company || a.analysis;
+    const c = a.company || {};
+    
+    if (hasAnalysis) {
+      this.currentAnalysis = lead.analysis;
+      this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
+    }
     
     const modal = document.getElementById('analysis-modal');
     const content = document.getElementById('analysis-content');
     
-    // Ak má analýzu, zobrazí ju cez renderAnalysisResults
-    if (hasAnalysis) {
-      this.currentAnalysis = lead.analysis;
-      this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
-      modal.style.display = 'flex';
-      this.renderAnalysisResults(lead, lead.analysis);
-      this.renderModalFooter(true);
-      return;
-    }
-    
-    // Modal bez analýzy - lepší štýl
     const statusConfig = {
       'new': { label: 'Nový', class: 'blue' },
+      'analyzing': { label: 'Analyzuje sa', class: 'yellow' },
+      'ready': { label: 'Pripravený', class: 'green' },
       'contacted': { label: 'Kontaktovaný', class: 'yellow' },
+      'negotiating': { label: 'Vyjednáva sa', class: 'orange' },
+      'converted': { label: 'Konvertovaný', class: 'green' },
       'won': { label: 'Vyhraný', class: 'green' },
       'lost': { label: 'Prehraný', class: 'red' }
     };
@@ -1241,13 +1275,14 @@ const LeadsModule = {
         
         <!-- Tabs -->
         <div class="lead-detail-tabs">
-          <button class="lead-tab active" onclick="LeadsModule.switchDetailTab('info', this)">📋 Info</button>
+          <button class="lead-tab ${!hasAnalysis ? 'active' : ''}" onclick="LeadsModule.switchDetailTab('info', this)">📋 Info</button>
+          ${hasAnalysis ? `<button class="lead-tab active" onclick="LeadsModule.switchDetailTab('analysis', this)">🤖 Analýza</button>` : ''}
           ${hasSocials ? `<button class="lead-tab" onclick="LeadsModule.switchDetailTab('social', this)">📱 Sociálne siete</button>` : ''}
           <button class="lead-tab" onclick="LeadsModule.switchDetailTab('history', this)">📜 História</button>
         </div>
         
-        <!-- Tab Content -->
-        <div id="detail-tab-info" class="detail-tab-content">
+        <!-- Info Tab -->
+        <div id="detail-tab-info" class="detail-tab-content" style="display: ${hasAnalysis ? 'none' : 'block'};">
           <div class="detail-grid">
             <!-- Kontakt -->
             <div class="detail-card">
@@ -1266,12 +1301,18 @@ const LeadsModule = {
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Odvetvie</span>
-                  <span class="detail-value">${lead.industry || '<em class="empty">nezadané</em>'}</span>
+                  <span class="detail-value">${lead.industry || c.industry || '<em class="empty">nezadané</em>'}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Mesto</span>
-                  <span class="detail-value">${lead.city || '<em class="empty">nezadané</em>'}</span>
+                  <span class="detail-value">${lead.city || c.location || '<em class="empty">nezadané</em>'}</span>
                 </div>
+                ${lead.logo_url ? `
+                <div class="detail-row">
+                  <span class="detail-label">Logo</span>
+                  <span class="detail-value"><img src="${lead.logo_url}" alt="Logo" style="height: 32px;"></span>
+                </div>
+                ` : ''}
               </div>
             </div>
             
@@ -1290,10 +1331,10 @@ const LeadsModule = {
                   <span class="detail-label">Vytvorený</span>
                   <span class="detail-value">${new Date(lead.created_at).toLocaleDateString('sk-SK')}</span>
                 </div>
-                ${md.importedAt ? `
+                ${lead.source ? `
                 <div class="detail-row">
                   <span class="detail-label">Zdroj</span>
-                  <span class="detail-value"><span class="source-badge">Marketing Miner</span></span>
+                  <span class="detail-value"><span class="source-badge">${lead.source}</span></span>
                 </div>
                 ` : ''}
                 
@@ -1310,7 +1351,17 @@ const LeadsModule = {
             </div>
           </div>
           
-          <!-- CTA -->
+          <!-- CTA - Analyzovať alebo Generovať ponuku -->
+          ${hasAnalysis ? `
+          <div class="detail-cta" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #bbf7d0;">
+            <div class="cta-icon">✅</div>
+            <div class="cta-content">
+              <h3 style="color: #166534;">Analýza dokončená</h3>
+              <p style="color: #15803d;">Lead bol analyzovaný. Prejdite na tab "Analýza" pre zobrazenie výsledkov alebo generujte ponuku.</p>
+            </div>
+            <button onclick="LeadsModule.generateProposal()" class="btn-primary">📄 Generovať ponuku</button>
+          </div>
+          ` : `
           <div class="detail-cta">
             <div class="cta-icon">🤖</div>
             <div class="cta-content">
@@ -1319,7 +1370,15 @@ const LeadsModule = {
             </div>
             <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-primary">🤖 Analyzovať</button>
           </div>
+          `}
         </div>
+        
+        <!-- Analysis Tab -->
+        ${hasAnalysis ? `
+        <div id="detail-tab-analysis" class="detail-tab-content">
+          ${this.renderAnalysisContent(lead, a)}
+        </div>
+        ` : ''}
         
         <!-- Social Tab -->
         ${hasSocials ? `
@@ -1355,33 +1414,7 @@ const LeadsModule = {
               <span class="social-card-arrow">↗</span>
             </a>
             ` : ''}
-            ${socials.youtube ? `
-            <a href="${socials.youtube}" target="_blank" class="social-card youtube">
-              <div class="social-card-icon">▶️</div>
-              <div class="social-card-info">
-                <strong>YouTube</strong>
-                <span>Kanál nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
-            ${socials.tiktok ? `
-            <a href="${socials.tiktok}" target="_blank" class="social-card tiktok">
-              <div class="social-card-icon">🎵</div>
-              <div class="social-card-info">
-                <strong>TikTok</strong>
-                <span>Profil nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
           </div>
-          ${md.contactPage ? `
-          <div class="contact-page-info">
-            <span>📄 Kontaktná stránka:</span>
-            <a href="${md.contactPage}" target="_blank">${md.contactPage}</a>
-          </div>
-          ` : ''}
         </div>
         ` : ''}
         
@@ -1404,20 +1437,60 @@ const LeadsModule = {
               </div>
             </div>
             ` : ''}
+            ${hasAnalysis ? `
+            <div class="history-item">
+              <div class="history-dot green"></div>
+              <div class="history-content">
+                <strong>AI analýza dokončená</strong>
+                <span>${lead.updated_at ? new Date(lead.updated_at).toLocaleString('sk-SK') : 'Nedávno'}</span>
+              </div>
+            </div>
+            ` : ''}
+            ${lead.proposal_sent_at ? `
+            <div class="history-item">
+              <div class="history-dot orange"></div>
+              <div class="history-content">
+                <strong>Ponuka odoslaná</strong>
+                <span>${new Date(lead.proposal_sent_at).toLocaleString('sk-SK')}${lead.proposal_sent_to ? ` na ${lead.proposal_sent_to}` : ''}</span>
+              </div>
+            </div>
+            ` : ''}
           </div>
         </div>
       </div>
     `;
     
     modal.style.display = 'flex';
-    this.renderModalFooter(false);
+    this.renderModalFooter(hasAnalysis);
   },
   
+  // Render analysis content pre tab
+  renderAnalysisContent(lead, analysis) {
+    const c = analysis.company || {};
+    const o = analysis.onlinePresence || {};
+    const a = analysis.analysis || {};
+    const k = analysis.keywords || {};
+    const b = analysis.budget || {};
+    const r = analysis.roi || {};
+    
+    return `
+      ${a.humanWrittenIntro ? `<div class="analysis-section border-l-4 border-orange-500"><h3>💡 Naše zistenia</h3><p class="text-gray-700 leading-relaxed">${a.humanWrittenIntro}</p></div>` : ''}
+      ${c.services?.length ? `<div class="analysis-section"><h3>🛠️ Služby</h3><div class="flex flex-wrap gap-2">${c.services.map(s => `<span class="tag tag-blue">${s}</span>`).join('')}</div></div>` : ''}
+      ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
+      ${a.swot ? `<div class="analysis-section"><h3>📊 SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">⚠️ Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">🚀 Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">⚡ Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
+      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      ${b.recommendations ? `<div class="analysis-section"><h3>💰 Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">⭐ Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
+      ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
+      <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>🎯 Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
+    `;
+  },
+
   switchDetailTab(tab, btn) {
     document.querySelectorAll('.lead-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
     document.querySelectorAll('.detail-tab-content').forEach(c => c.style.display = 'none');
-    document.getElementById(`detail-tab-${tab}`).style.display = 'block';
+    const tabEl = document.getElementById(`detail-tab-${tab}`);
+    if (tabEl) tabEl.style.display = 'block';
   },
 
   async updateStatus(leadId, newStatus) {
@@ -2342,7 +2415,7 @@ Odkaz je platný 30 dní.
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
     if (notes) analysisToUse.customNote = notes;
     
-    Utils.toast('Generujem PDF...', 'info');
+    Utils.toast('Generujem PDF... (môže trvať niekoľko sekúnd)', 'info');
     
     try {
       // Načítaj html2pdf.js ak nie je
@@ -2353,37 +2426,46 @@ Odkaz je platný 30 dní.
       // Vytvor HTML
       const html = this.buildProposalHTML(lead, analysisToUse);
       
-      // Vytvor container
-      const container = document.createElement('div');
-      container.innerHTML = html;
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      container.style.width = '1200px';
+      // Vytvor iframe pre správne renderovanie HTML
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = '1200px';
+      iframe.style.height = '800px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
       
-      // Pridaj pdf-mode class na body element v HTML
-      const bodyEl = container.querySelector('body');
-      if (bodyEl) bodyEl.classList.add('pdf-mode');
-      
-      document.body.appendChild(container);
+      // Vlož HTML do iframe
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
       
       // Počkaj na načítanie fontov a obrázkov
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => {
+        iframe.onload = resolve;
+        setTimeout(resolve, 2000); // Fallback timeout
+      });
+      
+      // Ešte chvíľu počkaj na renderovanie
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       const filename = `Ponuka-${lead.company_name?.replace(/[^a-zA-Z0-9]/g, '-') || 'lead'}-${new Date().toISOString().split('T')[0]}.pdf`;
       
       // Konfigurácia PDF
       const opt = {
-        margin: 0,
+        margin: [10, 10, 10, 10],
         filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { 
           scale: 2,
           useCORS: true,
           allowTaint: true,
           logging: false,
           letterRendering: true,
-          scrollY: 0
+          scrollY: 0,
+          windowWidth: 1200
         },
         jsPDF: { 
           unit: 'mm', 
@@ -2393,17 +2475,15 @@ Odkaz je platný 30 dní.
         },
         pagebreak: { 
           mode: ['avoid-all', 'css', 'legacy'],
-          before: '.page',
-          after: '.page',
-          avoid: ['.card', '.stat-box', '.package-card', '.benefit-card', '.swot-box', '.timeline-item']
+          avoid: ['.card', '.stat-box', '.package-card', '.benefit-card', '.swot-box', '.timeline-item', '.hero-section']
         }
       };
       
-      // Generuj PDF
-      await html2pdf().set(opt).from(container).save();
+      // Generuj PDF z iframe body
+      await html2pdf().set(opt).from(iframeDoc.body).save();
       
       // Cleanup
-      document.body.removeChild(container);
+      document.body.removeChild(iframe);
       
       this.closeProposalModal();
       Utils.toast(`PDF "${filename}" stiahnuté!`, 'success');
