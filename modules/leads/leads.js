@@ -2702,7 +2702,6 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   <div class="header-right">
     <div class="header-client">
       <span style="color: #94a3b8; font-size: 0.85rem;">Pripravené pre</span>
-      ${clientLogo ? `<img src="${clientLogo}" alt="${c.name || lead.company_name}" style="height: 32px; border-radius: 6px; margin-left: 8px;" onerror="this.outerHTML='<strong style=\\'color:#1a1a2e;font-size:1rem;margin-left:8px;\\'>${c.name || lead.company_name}</strong>'">` : ''}
       <strong style="color: #1a1a2e; font-size: 1rem; margin-left: 8px;">${c.name || lead.company_name}</strong>
     </div>
   </div>
