@@ -1,6 +1,10 @@
 /**
- * ADLIFY PLATFORM - Leads Module v2.2
- * Professional AI Analysis & Proposal Generation - Light Theme
+ * ADLIFY PLATFORM - Leads Module v2.3
+ * Professional AI Analysis & Proposal Generation
+ * Updated: January 2026
+ * - Vylepšená buildProposalHTML s 13 sekciami
+ * - Moderný responsive dizajn
+ * - Dynamické rozpočty z AI analýzy
  */
 
 const LeadsModule = {
@@ -2451,20 +2455,21 @@ Odkaz je platný 30 dní.
     `;
   },
 
-  buildProposalHTML(lead, analysis) {
-    const c = analysis.company || {};
-    const a = analysis.analysis || {};
-    const o = analysis.onlinePresence || {};
-    const k = analysis.keywords || {};
-    const s = analysis.strategy || {};
-    const b = analysis.budget || {};
-    const r = analysis.roi || {};
-    const camp = analysis.proposedCampaigns || {};
-    const timeline = analysis.timeline || {};
-    const recPkg = (analysis.recommendedPackage || 'pro').toLowerCase();
-    const clientLogo = lead.domain ? `https://logo.clearbit.com/${lead.domain}` : null;
+buildProposalHTML(lead, analysis) {
+  const c = analysis.company || {};
+  const a = analysis.analysis || {};
+  const o = analysis.onlinePresence || {};
+  const k = analysis.keywords || {};
+  const s = analysis.strategy || {};
+  const b = analysis.budget || {};
+  const r = analysis.roi || {};
+  const camp = analysis.proposedCampaigns || {};
+  const timeline = analysis.timeline || {};
+  const comp = analysis.competition || {};
+  const recPkg = (analysis.recommendedPackage || 'pro').toLowerCase();
+  const clientLogo = lead.domain ? `https://logo.clearbit.com/${lead.domain}` : null;
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="sk">
 <head>
 <meta charset="UTF-8">
@@ -2488,16 +2493,28 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .page-white { background: #ffffff; }
 .page-gray { background: #f8fafc; }
 
+/* Hero Section */
+.hero-section { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: linear-gradient(135deg, #fff7ed 0%, #fef2f2 50%, #fdf2f8 100%); padding: 60px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 12px 28px; border-radius: 50px; font-size: 0.9rem; font-weight: 600; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(255,107,53,0.3); }
+.hero-title { font-size: 2.8rem; font-weight: 300; color: #1a1a2e; margin-bottom: 15px; }
+.hero-title span { font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-subtitle { font-size: 1.1rem; color: #64748b; max-width: 700px; margin: 0 auto 50px; line-height: 1.8; }
+.hero-company-box { background: white; padding: 25px 60px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); border: 2px solid #e2e8f0; }
+.hero-company-name { font-size: 1.8rem; font-weight: 700; color: #FF6B35; }
+.hero-info { margin-top: 60px; font-size: 0.95rem; color: #94a3b8; max-width: 600px; }
+
 /* Typography */
 .gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.section-badge { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border-radius: 50%; font-weight: 700; font-size: 1rem; margin-right: 15px; flex-shrink: 0; }
-.section-title { font-size: 2rem; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; color: #1a1a2e; }
-.section-subtitle { font-size: 1.05rem; color: #64748b; margin-bottom: 35px; line-height: 1.8; }
+.section-badge { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border-radius: 50%; font-weight: 700; font-size: 1.1rem; margin-right: 18px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
+.section-title { font-size: 2.2rem; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; color: #1a1a2e; }
+.section-subtitle { font-size: 1.05rem; color: #64748b; margin-bottom: 40px; line-height: 1.8; }
 .section-divider { width: 80px; height: 4px; background: linear-gradient(135deg, #FF6B35, #E91E63); border-radius: 2px; margin-bottom: 30px; }
 
 /* Cards */
-.card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 25px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+.card { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 4px 25px rgba(0,0,0,0.06); margin-bottom: 24px; border: 1px solid #e2e8f0; transition: all 0.3s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 35px rgba(0,0,0,0.1); }
 .card-highlight { border-left: 4px solid #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); }
+.card-title { font-size: 1.2rem; font-weight: 700; color: #1a1a2e; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
 
 /* Grid */
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
@@ -2505,10 +2522,11 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: stretch; }
 
 /* Stats */
-.stat-box { text-align: center; padding: 28px; background: white; border-radius: 16px; box-shadow: 0 2px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-.stat-icon { font-size: 2.5rem; margin-bottom: 12px; }
-.stat-value { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.stat-label { font-size: 0.85rem; color: #64748b; margin-top: 8px; }
+.stat-box { text-align: center; padding: 32px 24px; background: white; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: all 0.3s; }
+.stat-box:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+.stat-icon { font-size: 2.8rem; margin-bottom: 15px; }
+.stat-value { font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.stat-label { font-size: 0.9rem; color: #64748b; margin-top: 10px; font-weight: 500; }
 
 /* Tags */
 .tag { display: inline-block; padding: 8px 18px; border-radius: 25px; font-size: 0.85rem; font-weight: 500; margin: 4px; }
@@ -2517,183 +2535,162 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .tag-success { background: #dcfce7; color: #166534; }
 .tag-warning { background: #fef3c7; color: #92400e; }
 
+/* Services Grid */
+.services-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.service-tag { background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 1px solid #e2e8f0; padding: 12px 22px; border-radius: 12px; font-size: 0.95rem; font-weight: 500; color: #374151; transition: all 0.3s; }
+.service-tag:hover { border-color: #FF6B35; color: #FF6B35; transform: translateY(-2px); }
+
 /* SWOT */
 .swot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-.swot-box { padding: 24px; border-radius: 16px; }
-.swot-box h4 { font-size: 1rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+.swot-box { padding: 28px; border-radius: 20px; }
+.swot-box h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
 .swot-box ul { list-style: none; }
-.swot-box li { padding: 8px 0; font-size: 0.9rem; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.swot-box li { padding: 10px 0; font-size: 0.95rem; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; align-items: flex-start; gap: 10px; }
 .swot-box li:last-child { border-bottom: none; }
-.swot-strengths { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.swot-box li::before { content: "•"; font-weight: bold; flex-shrink: 0; }
+.swot-strengths { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #bbf7d0; }
 .swot-strengths h4 { color: #166534; }
-.swot-weaknesses { background: #fef3c7; border: 1px solid #fde68a; }
+.swot-strengths li::before { color: #22c55e; }
+.swot-weaknesses { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; }
 .swot-weaknesses h4 { color: #92400e; }
-.swot-opportunities { background: #dbeafe; border: 1px solid #93c5fd; }
+.swot-weaknesses li::before { color: #f59e0b; }
+.swot-opportunities { background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; }
 .swot-opportunities h4 { color: #1e40af; }
-.swot-threats { background: #fee2e2; border: 1px solid #fecaca; }
+.swot-opportunities li::before { color: #3b82f6; }
+.swot-threats { background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fecaca; }
 .swot-threats h4 { color: #991b1b; }
+.swot-threats li::before { color: #ef4444; }
 
 /* Table */
-.data-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-.data-table th { background: #f8fafc; padding: 16px; text-align: left; font-weight: 600; color: #475569; font-size: 0.85rem; border-bottom: 2px solid #e2e8f0; }
-.data-table td { padding: 16px; border-bottom: 1px solid #e2e8f0; }
+.data-table { width: 100%; border-collapse: collapse; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+.data-table th { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 18px 20px; text-align: left; font-weight: 600; color: #475569; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
+.data-table td { padding: 18px 20px; border-bottom: 1px solid #e2e8f0; }
 .data-table tr:hover { background: #f8fafc; }
 .data-table tr:last-child td { border-bottom: none; }
 
 /* Packages */
-.package-card { background: white; border: 2px solid #e2e8f0; border-radius: 20px; padding: 35px 28px; text-align: center; transition: all 0.3s; position: relative; display: flex; flex-direction: column; height: 100%; }
-.package-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
-.package-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); }
-.package-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
-.package-icon { font-size: 3rem; margin-bottom: 15px; }
-.package-name { font-size: 1.5rem; font-weight: 700; margin-bottom: 5px; color: #1a1a2e; }
-.package-price { font-size: 3rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.package-period { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
-.package-desc { color: #64748b; font-size: 0.85rem; margin-bottom: 25px; min-height: 45px; }
+.package-card { background: white; border: 2px solid #e2e8f0; border-radius: 24px; padding: 40px 30px; text-align: center; transition: all 0.3s; position: relative; display: flex; flex-direction: column; height: 100%; }
+.package-card:hover { transform: translateY(-8px); box-shadow: 0 20px 50px rgba(0,0,0,0.12); }
+.package-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); box-shadow: 0 10px 40px rgba(255,107,53,0.15); }
+.package-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 8px 24px; border-radius: 25px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 15px rgba(255,107,53,0.4); }
+.package-icon { font-size: 3.5rem; margin-bottom: 18px; }
+.package-name { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; color: #1a1a2e; }
+.package-price { font-size: 3.2rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.package-period { color: #64748b; font-size: 0.95rem; margin-bottom: 20px; }
+.package-desc { color: #64748b; font-size: 0.9rem; margin-bottom: 28px; min-height: 50px; line-height: 1.6; }
 .package-features { list-style: none; text-align: left; margin-bottom: 30px; flex-grow: 1; }
-.package-features li { padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; }
-.package-features li::before { content: "✓"; color: #22c55e; font-weight: bold; font-size: 1.1rem; }
-.package-btn { display: block; width: 100%; padding: 16px; border-radius: 12px; font-weight: 600; text-decoration: none; transition: all 0.3s; font-size: 1rem; margin-top: auto; }
+.package-features li { padding: 14px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; display: flex; align-items: center; gap: 12px; }
+.package-features li::before { content: "✓"; color: #22c55e; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
+.package-btn { display: block; width: 100%; padding: 18px; border-radius: 14px; font-weight: 600; text-decoration: none; transition: all 0.3s; font-size: 1rem; margin-top: auto; cursor: pointer; }
 .package-btn-outline { border: 2px solid #e2e8f0; color: #475569; background: white; }
 .package-btn-outline:hover { border-color: #FF6B35; color: #FF6B35; }
-.package-btn-gradient { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border: none; }
-.package-btn-gradient:hover { transform: scale(1.02); box-shadow: 0 5px 20px rgba(255,107,53,0.4); }
+.package-btn-gradient { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border: none; box-shadow: 0 4px 15px rgba(255,107,53,0.3); }
+.package-btn-gradient:hover { transform: scale(1.02); box-shadow: 0 8px 25px rgba(255,107,53,0.4); }
 
-/* Timeline - Light style */
-.timeline { position: relative; padding-left: 50px; margin-top: 40px; }
-.timeline::before { content: ''; position: absolute; left: 15px; top: 20px; bottom: 20px; width: 3px; background: linear-gradient(180deg, #FF6B35, #E91E63, #9C27B0, #7c3aed, #3b82f6); border-radius: 3px; }
-.timeline-item { position: relative; margin-bottom: 25px; }
-.timeline-item::before { content: ''; position: absolute; left: -42px; top: 20px; width: 18px; height: 18px; background: #FF6B35; border-radius: 50%; box-shadow: 0 0 0 4px rgba(255,107,53,0.2); }
-.timeline-item:nth-child(2)::before { background: #E91E63; box-shadow: 0 0 0 4px rgba(233,30,99,0.2); }
-.timeline-item:nth-child(3)::before { background: #9C27B0; box-shadow: 0 0 0 4px rgba(156,39,176,0.2); }
-.timeline-item:nth-child(4)::before { background: #7c3aed; box-shadow: 0 0 0 4px rgba(124,58,237,0.2); }
-.timeline-item:nth-child(5)::before { background: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,0.2); }
-.timeline-card { background: #f8fafc; border-radius: 16px; padding: 25px 30px; border: 1px solid #e2e8f0; }
-.timeline-title { font-weight: 700; margin-bottom: 10px; font-size: 1.1rem; }
+/* Timeline */
+.timeline { position: relative; padding-left: 60px; margin-top: 40px; }
+.timeline::before { content: ''; position: absolute; left: 20px; top: 25px; bottom: 25px; width: 4px; background: linear-gradient(180deg, #FF6B35 0%, #E91E63 25%, #9C27B0 50%, #7c3aed 75%, #3b82f6 100%); border-radius: 4px; }
+.timeline-item { position: relative; margin-bottom: 30px; }
+.timeline-item::before { content: ''; position: absolute; left: -48px; top: 25px; width: 22px; height: 22px; background: #FF6B35; border-radius: 50%; box-shadow: 0 0 0 5px rgba(255,107,53,0.2); }
+.timeline-item:nth-child(2)::before { background: #E91E63; box-shadow: 0 0 0 5px rgba(233,30,99,0.2); }
+.timeline-item:nth-child(3)::before { background: #9C27B0; box-shadow: 0 0 0 5px rgba(156,39,176,0.2); }
+.timeline-item:nth-child(4)::before { background: #7c3aed; box-shadow: 0 0 0 5px rgba(124,58,237,0.2); }
+.timeline-item:nth-child(5)::before { background: #3b82f6; box-shadow: 0 0 0 5px rgba(59,130,246,0.2); }
+.timeline-card { background: white; border-radius: 20px; padding: 28px 35px; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
+.timeline-title { font-weight: 700; margin-bottom: 12px; font-size: 1.15rem; }
 .timeline-item:nth-child(1) .timeline-title { color: #FF6B35; }
 .timeline-item:nth-child(2) .timeline-title { color: #E91E63; }
 .timeline-item:nth-child(3) .timeline-title { color: #9C27B0; }
 .timeline-item:nth-child(4) .timeline-title { color: #7c3aed; }
 .timeline-item:nth-child(5) .timeline-title { color: #3b82f6; }
-.timeline-desc { color: #64748b; font-size: 0.95rem; line-height: 1.7; }
+.timeline-desc { color: #64748b; font-size: 0.95rem; line-height: 1.8; }
 
 /* Benefits */
-.benefit-card { background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: all 0.3s; }
-.benefit-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
-.benefit-icon { width: 60px; height: 60px; background: linear-gradient(135deg, #fff7ed, #fef2f2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 20px; }
-.benefit-title { font-weight: 700; margin-bottom: 10px; font-size: 1.1rem; color: #1a1a2e; }
-.benefit-desc { color: #64748b; font-size: 0.95rem; line-height: 1.6; }
+.benefit-card { background: white; border-radius: 20px; padding: 35px; box-shadow: 0 4px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; transition: all 0.3s; text-align: center; }
+.benefit-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+.benefit-icon { font-size: 3rem; margin-bottom: 20px; }
+.benefit-title { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; }
+.benefit-desc { color: #64748b; font-size: 0.95rem; line-height: 1.7; }
 
 /* CTA Section */
-.cta-section { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); border-radius: 24px; padding: 70px; text-align: center; color: white; }
-.cta-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 20px; }
-.cta-subtitle { font-size: 1.15rem; opacity: 0.95; margin-bottom: 40px; max-width: 550px; margin-left: auto; margin-right: auto; line-height: 1.7; }
-.cta-buttons { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 35px; }
-.cta-btn { padding: 18px 40px; border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 1.05rem; transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px; }
-.cta-btn-white { background: white; color: #FF6B35; }
-.cta-btn-white:hover { transform: scale(1.05); box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-.cta-btn-outline { background: transparent; color: white; border: 2px solid white; }
-.cta-btn-outline:hover { background: white; color: #FF6B35; }
-.cta-contact { margin-top: 25px; font-size: 1rem; }
-.cta-contact p { margin: 10px 0; }
+.cta-section { text-align: center; background: linear-gradient(135deg, #FF6B35, #E91E63); padding: 80px 60px; border-radius: 30px; color: white; margin-top: 40px; }
+.cta-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 15px; }
+.cta-subtitle { font-size: 1.15rem; opacity: 0.95; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto; }
+.cta-buttons { display: flex; justify-content: center; gap: 20px; margin-bottom: 40px; flex-wrap: wrap; }
+.cta-btn { padding: 18px 40px; border-radius: 14px; font-weight: 600; text-decoration: none; font-size: 1.05rem; transition: all 0.3s; }
+.cta-btn-white { background: white; color: #FF6B35; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.cta-btn-white:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+.cta-btn-outline { border: 2px solid white; color: white; background: transparent; }
+.cta-btn-outline:hover { background: rgba(255,255,255,0.1); }
+.cta-contact { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }
+.cta-contact p { font-size: 1rem; opacity: 0.95; }
 .cta-contact a { color: white; text-decoration: none; font-weight: 500; }
 .cta-contact a:hover { text-decoration: underline; }
 
 /* Footer */
-.footer { text-align: center; padding: 50px; background: #f8fafc; color: #64748b; font-size: 0.9rem; }
-.footer-logo { height: 35px; margin-bottom: 20px; }
+.footer { text-align: center; padding: 60px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+.footer-logo { height: 40px; margin-bottom: 25px; }
 
-/* Hero */
-.hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 60px; }
-.hero-content { max-width: 850px; }
-.hero-logo { height: 55px; margin-bottom: 45px; }
-.hero-badge { display: inline-block; padding: 10px 25px; background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border-radius: 30px; font-size: 0.9rem; font-weight: 600; margin-bottom: 30px; }
-.hero-title { font-size: 3.2rem; font-weight: 800; margin-bottom: 25px; color: #1a1a2e; line-height: 1.2; }
-.hero-subtitle { font-size: 1.25rem; color: #64748b; margin-bottom: 45px; line-height: 1.7; }
-.hero-client { display: inline-flex; align-items: center; gap: 20px; padding: 25px 50px; background: white; border-radius: 20px; box-shadow: 0 15px 50px rgba(0,0,0,0.1); }
-.hero-client img { height: 50px; border-radius: 10px; }
-.hero-client-name { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.hero-info { margin-top: 55px; color: #94a3b8; font-size: 0.95rem; line-height: 1.7; }
-
-/* Ad Previews */
-.ad-preview { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-.ad-preview-google { border-left: 4px solid #4285f4; }
-.ad-preview-meta { border-left: 4px solid #1877f2; }
-.ad-preview-label { font-size: 0.8rem; color: #64748b; margin-bottom: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+/* Ad Preview Cards */
+.ad-preview { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0; overflow: hidden; }
+.ad-preview-header { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 15px 20px; border-bottom: 1px solid #e2e8f0; font-weight: 600; font-size: 0.9rem; color: #475569; }
+.ad-preview-content { padding: 25px; }
+.google-ad { border-left: 4px solid #4285f4; }
+.google-ad .ad-label { color: #1a0dab; font-size: 0.75rem; font-weight: 600; }
+.google-ad .ad-title { color: #1a0dab; font-size: 1.1rem; font-weight: 600; margin: 8px 0; }
+.google-ad .ad-url { color: #006621; font-size: 0.85rem; }
+.google-ad .ad-desc { color: #545454; font-size: 0.9rem; margin-top: 8px; line-height: 1.6; }
+.meta-ad { border-left: 4px solid #1877f2; }
+.meta-ad .ad-text { color: #1a1a2e; font-size: 0.95rem; line-height: 1.7; margin-bottom: 15px; }
+.meta-ad .ad-headline { font-weight: 700; font-size: 1.1rem; color: #1a1a2e; margin-bottom: 8px; }
+.meta-ad .ad-cta { display: inline-block; background: #1877f2; color: white; padding: 10px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; }
 
 /* Budget Cards */
-.budget-card { background: white; border-radius: 20px; padding: 35px; text-align: center; border: 2px solid #e2e8f0; transition: all 0.3s; }
-.budget-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
-.budget-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); transform: scale(1.05); position: relative; }
-.budget-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 20px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-.budget-label { color: #64748b; font-size: 0.9rem; margin-bottom: 8px; }
-.budget-value { font-size: 3rem; font-weight: 800; color: #1a1a2e; }
-.budget-card.featured .budget-value { background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.budget-period { color: #94a3b8; font-size: 0.85rem; margin-bottom: 25px; }
-.budget-stats { border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: left; }
-.budget-stat { display: flex; justify-content: space-between; padding: 10px 0; }
+.budget-card { background: white; border: 2px solid #e2e8f0; border-radius: 20px; padding: 35px; text-align: center; transition: all 0.3s; }
+.budget-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
+.budget-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); }
+.budget-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+.budget-label { font-size: 1rem; color: #64748b; margin-bottom: 10px; }
+.budget-value { font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.budget-period { color: #94a3b8; font-size: 0.9rem; margin-bottom: 25px; }
+.budget-stats { text-align: left; }
+.budget-stat { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+.budget-stat:last-child { border-bottom: none; }
 .budget-stat-label { color: #64748b; }
-.budget-stat-value { font-weight: 600; }
+.budget-stat-value { font-weight: 600; color: #1a1a2e; }
 
+/* Info Box */
+.info-box { background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; border-radius: 16px; padding: 25px 30px; margin-top: 30px; }
+.info-box p { color: #1e40af; font-size: 0.95rem; line-height: 1.7; }
+.info-box strong { color: #1e3a8a; }
+
+/* Note Box */
+.note-box { background: #f8fafc; border-radius: 16px; padding: 25px 30px; margin-top: 30px; text-align: center; }
+.note-box p { color: #64748b; font-size: 0.9rem; }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .page { padding: 100px 40px 60px; }
+}
 @media (max-width: 768px) {
-  .page { padding: 100px 25px 60px; }
-  .header { padding: 12px 20px; }
-  .grid-2, .grid-3, .grid-4, .swot-grid { grid-template-columns: 1fr; }
-  .hero { padding: 40px 20px; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .page { padding: 100px 20px 40px; }
+  .header { padding: 15px 20px; }
+  .hero-section { padding: 40px 20px; }
   .hero-title { font-size: 2rem; }
-  .hero-client { padding: 20px 30px; flex-direction: column; text-align: center; }
-  .section-title { font-size: 1.5rem; }
-  .cta-section { padding: 40px 25px; }
+  .section-title { font-size: 1.6rem; }
+  .cta-section { padding: 50px 30px; border-radius: 20px; }
   .cta-title { font-size: 1.8rem; }
-  .package-card.featured { transform: none; }
-  .budget-card.featured { transform: none; }
+  .cta-buttons { flex-direction: column; }
+  .cta-contact { flex-direction: column; gap: 15px; }
+  .swot-grid { grid-template-columns: 1fr; }
 }
 
 @media print {
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-  body { font-size: 10pt; }
-  .header { display: none !important; }
-  .hero { min-height: auto !important; padding: 30px !important; page-break-after: always; }
-  .hero-title { font-size: 2rem !important; }
-  .hero-subtitle { font-size: 1rem !important; }
-  .hero-client { padding: 15px 25px !important; }
-  .page { min-height: auto !important; padding: 25px !important; page-break-inside: avoid; }
-  .page-content { max-width: 100% !important; }
-  .section-title { font-size: 1.3rem !important; }
-  .grid-2 { grid-template-columns: repeat(2, 1fr) !important; gap: 15px !important; }
-  .grid-3 { grid-template-columns: repeat(3, 1fr) !important; gap: 12px !important; }
-  .grid-4 { grid-template-columns: repeat(4, 1fr) !important; gap: 10px !important; }
-  .swot-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-  .swot-box { padding: 15px !important; }
-  .swot-box h4 { font-size: 0.9rem !important; }
-  .swot-box li { font-size: 0.8rem !important; padding: 5px 0 !important; }
-  .card { padding: 18px !important; margin-bottom: 12px !important; box-shadow: none !important; border: 1px solid #ddd !important; }
-  .stat-box { padding: 15px !important; }
-  .stat-value { font-size: 1.5rem !important; }
-  .stat-label { font-size: 0.75rem !important; }
-  .data-table th, .data-table td { padding: 10px !important; font-size: 0.85rem !important; }
-  .package-card { padding: 20px 15px !important; }
-  .package-card.featured { transform: none !important; }
-  .package-card.featured::before { font-size: 0.65rem !important; padding: 4px 12px !important; }
-  .package-name { font-size: 1.1rem !important; }
-  .package-price { font-size: 2rem !important; }
-  .package-features li { padding: 8px 0 !important; font-size: 0.8rem !important; }
-  .package-btn { padding: 10px !important; font-size: 0.85rem !important; }
-  .timeline { padding-left: 35px !important; margin-top: 20px !important; }
-  .timeline-card { padding: 15px !important; }
-  .timeline-title { font-size: 0.95rem !important; }
-  .timeline-desc { font-size: 0.85rem !important; }
-  .cta-section { padding: 30px !important; page-break-inside: avoid; }
-  .cta-title { font-size: 1.5rem !important; }
-  .cta-subtitle { font-size: 0.95rem !important; }
-  .cta-btn { padding: 12px 25px !important; font-size: 0.9rem !important; }
-  .footer { padding: 25px !important; page-break-inside: avoid; }
-  .benefit-card { padding: 18px !important; }
-  .benefit-icon { width: 45px !important; height: 45px !important; font-size: 1.3rem !important; }
-  .budget-card { padding: 20px !important; }
-  .budget-card.featured { transform: none !important; }
-  .budget-value { font-size: 2rem !important; }
-  .tag { padding: 5px 12px !important; font-size: 0.75rem !important; }
+  .header { position: relative; }
+  .page { min-height: auto; page-break-inside: avoid; }
+  .package-card, .benefit-card, .stat-box { break-inside: avoid; }
 }
 </style>
 </head>
@@ -2701,72 +2698,59 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 
 <!-- Fixed Header -->
 <header class="header">
-  <img src="${this.LOGO}" alt="Adlify" class="header-logo" onerror="this.outerHTML='<span style=\\'font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#FF6B35,#E91E63);-webkit-background-clip:text;-webkit-text-fill-color:transparent;\\'>ADLIFY</span>'">
+  <img src="${this.LOGO}" alt="Adlify" class="header-logo" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#FF6B35,#E91E63);-webkit-background-clip:text;-webkit-text-fill-color:transparent;\\'>ADLIFY</div>'">
   <div class="header-right">
-    <div class="header-client">
-      ${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
-      <span>Pripravené pre ${c.name || lead.company_name}</span>
-    </div>
+    ${clientLogo ? `<div class="header-client"><span>Pripravené pre</span><img src="${clientLogo}" alt="${c.name}" onerror="this.style.display='none'"></div>` : `<div class="header-client"><span>Pripravené pre ${c.name || lead.company_name}</span></div>`}
   </div>
 </header>
 
-<!-- Page 1: Hero -->
-<section class="hero">
-  <div class="hero-content">
-    <img src="${this.LOGO}" alt="Adlify" class="hero-logo" onerror="this.outerHTML='<div style=\\'font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#FF6B35,#E91E63);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:40px;\\'>ADLIFY</div>'">
-    <div class="hero-badge">📊 Personalizovaná analýza & stratégia</div>
-    <h1 class="hero-title">Návrh <span class="gradient-text">marketingovej stratégie</span></h1>
-    <p class="hero-subtitle">Komplexná analýza vašej online prítomnosti, identifikácia príležitostí a konkrétne odporúčania pre rast vášho podnikania prostredníctvom online reklamy</p>
-    <div class="hero-client">
-      ${clientLogo ? `<img src="${clientLogo}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
-      <span class="hero-client-name">${c.name || lead.company_name || lead.domain}</span>
-    </div>
-    <p class="hero-info">V tejto prezentácii nájdete detailnú analýzu vášho podnikania, zhodnotenie aktuálnej online prítomnosti, identifikované príležitosti a konkrétny akčný plán ako získať viac zákazníkov cez online reklamu.</p>
+<!-- Hero Section -->
+<section class="hero-section">
+  <div class="hero-badge">📊 Personalizovaná analýza & stratégia</div>
+  <h1 class="hero-title">Návrh <span>marketingovej stratégie</span></h1>
+  <p class="hero-subtitle">Komplexná analýza vašej online prítomnosti, identifikácia príležitostí a konkrétne odporúčania pre rast vášho podnikania prostredníctvom online reklamy</p>
+  
+  <div class="hero-company-box">
+    <div class="hero-company-name">${c.name || lead.company_name}</div>
   </div>
+  
+  <p class="hero-info">V tejto prezentácii nájdete detailnú analýzu vášho podnikania, zhodnotenie aktuálnej online prítomnosti, identifikované príležitosti a konkrétny akčný plán ako získať viac zákazníkov cez online reklamu.</p>
 </section>
 
-<!-- Page 2: About Company -->
+<!-- Page 1: O firme -->
 <section class="page page-white">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">1</span> O vašej firme</h2>
     <div class="section-divider"></div>
+    <p class="section-subtitle">${c.description || 'Spoločnosť pôsobí na slovenskom trhu a ponúka svoje služby zákazníkom.'}</p>
     
-    <div class="card card-highlight">
-      <p style="font-size: 1.15rem; line-height: 1.9; color: #374151;">${c.description || 'Váš popis firmy bude doplnený na základe analýzy.'}</p>
+    <div class="card">
+      <h3 class="card-title">🛠 Vaše služby a produkty</h3>
+      <div class="services-grid">
+        ${(c.services || ['Služba 1', 'Služba 2', 'Služba 3']).map(s => `<span class="service-tag">${s}</span>`).join('')}
+      </div>
     </div>
     
-    ${c.services?.length ? `
-    <h3 style="margin: 40px 0 20px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">🛠️ Vaše služby a produkty</h3>
-    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-      ${c.services.map(s => `<span class="tag tag-gradient">${s}</span>`).join('')}
+    <div class="card" style="margin-top: 30px;">
+      <h3 class="card-title">👥 Vaši ideálni zákazníci</h3>
+      <p style="color: #64748b; font-size: 1rem; line-height: 1.8;">${c.targetCustomers || 'Firmy a jednotlivci hľadajúci kvalitné služby'}</p>
     </div>
-    ` : ''}
-    
-    ${c.targetCustomers ? `
-    <h3 style="margin: 40px 0 20px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">👥 Vaši ideálni zákazníci</h3>
-    <p style="color: #64748b; font-size: 1.05rem; line-height: 1.8;">${c.targetCustomers}</p>
-    ` : ''}
   </div>
 </section>
 
-<!-- Page 3: Our Findings -->
+<!-- Page 2: Čo sme zistili -->
 <section class="page page-gray">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">2</span> Čo sme zistili</h2>
     <div class="section-divider"></div>
-    
-    ${a.humanWrittenIntro ? `
-    <div class="card card-highlight" style="margin-bottom: 40px;">
-      <p style="font-size: 1.1rem; line-height: 1.9; color: #374151;">${a.humanWrittenIntro}</p>
-    </div>
-    ` : ''}
+    <p class="section-subtitle">${a.humanWrittenIntro || o.summary || 'Na základe našej analýzy sme identifikovali silné stránky aj príležitosti na zlepšenie.'}</p>
     
     ${a.strengths?.length ? `
     <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">✅ Vaše silné stránky</h3>
     <div class="grid-2" style="margin-bottom: 40px;">
       ${a.strengths.map(str => `
         <div class="card">
-          <h4 style="color: #166534; margin-bottom: 12px; font-weight: 700; font-size: 1.1rem;">${str.title || str}</h4>
+          <h4 style="color: #166534; font-weight: 700; font-size: 1.1rem; margin-bottom: 12px;">${str.title || str}</h4>
           ${str.description ? `<p style="color: #64748b; font-size: 0.95rem; line-height: 1.7;">${str.description}</p>` : ''}
         </div>
       `).join('')}
@@ -2790,7 +2774,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   </div>
 </section>
 
-<!-- Page 4: Online Presence -->
+<!-- Page 3: Online Presence -->
 <section class="page page-white">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">3</span> Vaša online prítomnosť</h2>
@@ -2799,9 +2783,9 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     
     <div class="grid-4" style="margin-bottom: 40px;">
       <div class="stat-box">
-        <div class="stat-icon">${o.website?.exists ? '✅' : '❌'}</div>
+        <div class="stat-icon">${o.website?.exists !== false ? '✅' : '❌'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Webstránka</div>
-        <div class="stat-label">${o.website?.quality || (o.website?.exists ? 'Aktívna' : 'Chýba')}</div>
+        <div class="stat-label">${o.website?.quality || (o.website?.exists !== false ? 'priemerná' : 'Chýba')}</div>
       </div>
       <div class="stat-box">
         <div class="stat-icon">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div>
@@ -2841,35 +2825,13 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     </div>
     ` : ''}
     
-    ${o.website?.technical ? `
-    <div class="card" style="margin-top: 30px; border-left: 4px solid #3b82f6;">
-      <h4 style="color: #1e40af; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">⚡ Technická analýza webu</h4>
-      <div class="grid-4">
-        <div style="text-align: center;">
-          <p style="font-size: 1.5rem; font-weight: 700; color: ${o.website.technical.loadTime < 2000 ? '#22c55e' : o.website.technical.loadTime < 4000 ? '#f59e0b' : '#ef4444'};">${o.website.technical.loadTimeFormatted}</p>
-          <p style="font-size: 0.8rem; color: #64748b;">Čas načítania</p>
-        </div>
-        <div style="text-align: center;">
-          <p style="font-size: 1.5rem;">${o.website.technical.hasSSL ? '✅' : '❌'}</p>
-          <p style="font-size: 0.8rem; color: #64748b;">SSL certifikát</p>
-        </div>
-        <div style="text-align: center;">
-          <p style="font-size: 1.5rem; font-weight: 700; color: #64748b;">${o.website.technical.pageSize || '-'}</p>
-          <p style="font-size: 0.8rem; color: #64748b;">Veľkosť stránky</p>
-        </div>
-        <div style="text-align: center;">
-          <p style="font-size: 1.5rem; font-weight: 700; color: ${(o.website.technical.issues?.length || 0) === 0 ? '#22c55e' : '#f59e0b'};">${o.website.technical.issues?.length || 0}</p>
-          <p style="font-size: 0.8rem; color: #64748b;">SEO problémov</p>
-        </div>
-      </div>
+    <div class="note-box">
+      <p>📌 Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby</p>
     </div>
-    ` : ''}
-    
-    <p style="margin-top: 30px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby</p>
   </div>
 </section>
 
-<!-- Page 5: SWOT -->
+<!-- Page 4: SWOT -->
 ${a.swot ? `
 <section class="page page-gray">
   <div class="page-content">
@@ -2880,108 +2842,40 @@ ${a.swot ? `
     <div class="swot-grid">
       <div class="swot-box swot-strengths">
         <h4>💪 Silné stránky</h4>
-        <ul>${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+        <ul>${a.swot.strengths?.map(s => `<li>${s}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-weaknesses">
         <h4>⚠️ Slabé stránky</h4>
-        <ul>${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+        <ul>${a.swot.weaknesses?.map(w => `<li>${w}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-opportunities">
         <h4>🚀 Príležitosti</h4>
-        <ul>${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+        <ul>${a.swot.opportunities?.map(o => `<li>${o}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-threats">
         <h4>⚡ Hrozby</h4>
-        <ul>${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+        <ul>${a.swot.threats?.map(t => `<li>${t}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
     </div>
   </div>
 </section>
 ` : ''}
 
-<!-- Page: Domain Stats (ak dostupné z Marketing Miner) -->
-${analysis.domainStats?.visibility ? `
-<section class="page page-white">
-  <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">★</span> Vaša pozícia na trhu</h2>
-    <div class="section-divider"></div>
-    <p class="section-subtitle">Na základe analýzy vašej domény a konkurencie v organickom vyhľadávaní. <span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">✓ Reálne dáta</span></p>
-    
-    <div class="grid-3" style="margin-bottom: 40px;">
-      <div class="stat-box">
-        <div class="stat-icon">📊</div>
-        <div class="stat-value">${analysis.domainStats.visibility.toLocaleString()}</div>
-        <div class="stat-label">Viditeľnosť v Google</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-icon">👥</div>
-        <div class="stat-value">${(analysis.domainStats.estimatedTraffic || 0).toLocaleString()}</div>
-        <div class="stat-label">Odhadovaná mesačná návštevnosť</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-icon">🔍</div>
-        <div class="stat-value">${analysis.domainStats.organicKeywords || 0}</div>
-        <div class="stat-label">Organických pozícií</div>
-      </div>
-    </div>
-    
-    ${analysis.domainStats.topKeywords?.length > 0 ? `
-    <div class="card">
-      <h4 style="margin-bottom: 20px; font-weight: 700;">🏆 Vaše najlepšie organické pozície</h4>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Kľúčové slovo</th>
-            <th style="text-align: center;">Pozícia</th>
-            <th style="text-align: center;">Hľadanosť</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${analysis.domainStats.topKeywords.slice(0, 5).map(kw => `
-            <tr>
-              <td><strong>${kw.keyword}</strong></td>
-              <td style="text-align: center;"><span class="tag ${kw.position <= 3 ? 'tag-success' : kw.position <= 10 ? 'tag-light' : 'tag-warning'}">#${kw.position}</span></td>
-              <td style="text-align: center;">${(kw.searchVolume || 0).toLocaleString()}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-    ` : ''}
-    
-    <div class="card card-highlight" style="margin-top: 30px;">
-      <h4 style="margin-bottom: 15px; font-weight: 700; color: #FF6B35;">💡 Čo to znamená?</h4>
-      <p style="color: #374151; line-height: 1.8;">
-        ${analysis.domainStats.visibility > 1000 
-          ? 'Máte dobrú organickú viditeľnosť, ale platená reklama vám umožní osloviť zákazníkov, ktorí vás ešte nenašli cez Google.'
-          : analysis.domainStats.visibility > 100
-          ? 'Vaša organická viditeľnosť je priemerná. Platená reklama vám pomôže rýchlo zvýšiť počet návštevníkov a zákazníkov.'
-          : 'Vaša organická viditeľnosť je nízka. To je ideálna príležitosť využiť platenú reklamu pre okamžité výsledky.'}
-      </p>
-    </div>
-  </div>
-</section>
-` : ''}
-
-<!-- Page 6: Keywords -->
+<!-- Page 5: Keywords -->
 ${k.topKeywords?.length ? `
 <section class="page page-white">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">5</span> Kľúčové slová</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">
-      ${k.source === 'marketing_miner' 
-        ? `<span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">✓ Reálne dáta z Marketing Miner</span><br><br>${k.summary || 'Identifikovali sme relevantné kľúčové slová pre váš biznis.'}`
-        : `Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top ${Math.min(k.topKeywords.length, 10)}:`}
-    </p>
+    <p class="section-subtitle">${k.summary || 'Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top 10:'}</p>
     
     <table class="data-table">
       <thead>
         <tr>
-          <th style="border-radius: 12px 0 0 0;">Kľúčové slovo</th>
+          <th>Kľúčové slovo</th>
           <th style="text-align: center;">Mesačná hľadanosť</th>
           <th style="text-align: center;">Konkurencia</th>
-          <th style="text-align: right; border-radius: 0 12px 0 0;">Cena za klik</th>
+          <th style="text-align: right;">Cena za klik</th>
         </tr>
       </thead>
       <tbody>
@@ -2996,12 +2890,14 @@ ${k.topKeywords?.length ? `
       </tbody>
     </table>
     
-    ${k.topKeywords.length > 10 ? `<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>${Math.max(k.topKeywords.length - 10, 30)}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>` : `<p style="margin-top: 25px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Máme pripravených ďalších <strong>30+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>`}
+    <div class="note-box">
+      <p>📌 Máme pripravených ďalších <strong>${Math.max((k.totalFound || k.topKeywords?.length || 10) - 10, 30)}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>
+    </div>
   </div>
 </section>
 ` : ''}
 
-<!-- Page 7: Strategy -->
+<!-- Page 6: Strategy -->
 <section class="page page-gray">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">6</span> Navrhovaná stratégia</h2>
@@ -3009,31 +2905,31 @@ ${k.topKeywords?.length ? `
     
     <div class="grid-2" style="margin-bottom: 35px;">
       <div class="card">
-        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">📱 Odporúčané platformy</h4>
+        <h4 class="card-title">📱 Odporúčané platformy</h4>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-gradient">${p}</span>`).join('')}
         </div>
       </div>
       <div class="card">
-        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">🎯 Hlavný cieľ</h4>
+        <h4 class="card-title">🎯 Hlavný cieľ</h4>
         <p style="color: #64748b; font-size: 1.05rem; line-height: 1.7;">${s.primaryGoal || 'Generovanie kvalifikovaných dopytov a zvýšenie povedomia o značke'}</p>
       </div>
     </div>
     
     ${s.targetAudience ? `
     <div class="card">
-      <h4 style="margin-bottom: 25px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">👥 Cieľová skupina</h4>
+      <h4 class="card-title">👥 Cieľová skupina</h4>
       <div class="grid-3">
         <div>
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Demografia</p>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Demografia</p>
           <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.demographics || 'Bude upresnené'}</p>
         </div>
         <div>
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Záujmy</p>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Záujmy</p>
           <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.interests?.join(', ') || 'Bude upresnené'}</p>
         </div>
         <div>
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Správanie</p>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Správanie</p>
           <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.behaviors?.join(', ') || 'Bude upresnené'}</p>
         </div>
       </div>
@@ -3042,7 +2938,7 @@ ${k.topKeywords?.length ? `
   </div>
 </section>
 
-<!-- Page 8: Ad Examples -->
+<!-- Page 7: Ad Examples -->
 ${camp.google || camp.meta ? `
 <section class="page page-white">
   <div class="page-content">
@@ -3053,105 +2949,94 @@ ${camp.google || camp.meta ? `
     <div class="grid-2">
       ${camp.google?.searchCampaign ? `
       <div>
-        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #4285f4;">🔍 Google Ads - Vyhľadávanie</h4>
-        <div class="ad-preview ad-preview-google">
-          <div class="ad-preview-label">Náhľad reklamy vo vyhľadávaní</div>
-          <p style="color: #1a0dab; font-size: 1.2rem; margin-bottom: 8px; font-weight: 600;">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines?.[0] || 'Váš Headline'}</p>
-          <p style="color: #006621; font-size: 0.9rem; margin-bottom: 12px;">Ad · www.${lead.domain || 'example.sk'}</p>
-          <p style="color: #545454; font-size: 0.95rem; line-height: 1.6;">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions?.[0] || 'Váš popis reklamy bude tu.'}</p>
+        <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700; color: #1a1a2e;">🔍 Google Ads - Vyhľadávanie</h3>
+        <div class="ad-preview google-ad">
+          <div class="ad-preview-header">NÁHĽAD REKLAMY VO VYHĽADÁVANÍ</div>
+          <div class="ad-preview-content">
+            <div class="ad-label">Ad</div>
+            <div class="ad-title">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines?.[0] || 'Headline reklamy'}</div>
+            <div class="ad-url">· www.${lead.domain || 'example.sk'}</div>
+            <div class="ad-desc">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions?.[0] || 'Popis reklamy'}</div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+              <p style="font-size: 0.8rem; color: #94a3b8;"><strong>Keywords:</strong> ${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 3).join(', ') || 'kľúčové slová'}</p>
+            </div>
+          </div>
         </div>
-        <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 15px;">Keywords: ${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 3).join(', ') || 'Budú doplnené'}</p>
       </div>
       ` : ''}
       
       ${camp.meta?.campaign ? `
       <div>
-        <h4 style="margin-bottom: 20px; font-weight: 700; font-size: 1.1rem; color: #1877f2;">📘 Facebook / Instagram</h4>
-        <div class="ad-preview ad-preview-meta">
-          <div class="ad-preview-label">Náhľad reklamy</div>
-          <p style="font-size: 0.95rem; margin-bottom: 20px; color: #1a1a2e; line-height: 1.6;">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Text vašej reklamy bude tu.'}</p>
-          <div style="background: #f0f2f5; padding: 20px; border-radius: 12px; margin-bottom: 15px;">
-            <p style="font-weight: 700; margin-bottom: 5px; font-size: 1.05rem;">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || 'Váš Headline'}</p>
-            <p style="font-size: 0.9rem; color: #64748b;">${camp.meta.campaign.adSets?.[0]?.adCopy?.description || 'Váš popis'}</p>
+        <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700; color: #1a1a2e;">📘 Facebook / Instagram</h3>
+        <div class="ad-preview meta-ad">
+          <div class="ad-preview-header">NÁHĽAD REKLAMY</div>
+          <div class="ad-preview-content">
+            <div class="ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Text reklamy'}</div>
+            <div class="ad-headline">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || 'Headline'}</div>
+            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">${camp.meta.campaign.adSets?.[0]?.adCopy?.description || ''}</p>
+            <span class="meta-ad .ad-cta">${camp.meta.campaign.adSets?.[0]?.adCopy?.cta || 'Zistiť viac'}</span>
           </div>
-          <span class="tag tag-gradient">${camp.meta.campaign.adSets?.[0]?.adCopy?.cta || 'Zistiť viac'}</span>
         </div>
       </div>
       ` : ''}
     </div>
     
-    <p style="margin-top: 30px; font-size: 0.9rem; color: #94a3b8; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px;">📌 Toto sú ukážkové reklamy. Finálne verzie vrátane profesionálnych vizuálov vytvoríme na mieru po objednaní.</p>
+    <div class="note-box">
+      <p>📌 Toto sú ukážkové reklamy. Finálne verzie vrátane profesionálnych vizuálov vytvoríme na mieru po objednaní.</p>
+    </div>
   </div>
 </section>
 ` : ''}
 
-<!-- Page 9: Budget -->
+<!-- Page 8: Budget -->
 <section class="page page-gray">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">8</span> Odporúčaný rozpočet na reklamu</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">
-      ${b.calculatedFromRealData 
-        ? `Rozpočty sú vypočítané na základe <strong>reálneho CPC ${(b.avgCpc || 0.70).toFixed(2)}€</strong> pre vaše kľúčové slová. Celkový mesačný objem vyhľadávania: <strong>${(b.totalSearchVolume || 0).toLocaleString()}</strong>.`
-        : (b.analysis || 'Na základe analýzy kľúčových slov a konkurencie sme pripravili tri varianty rozpočtu pre vaše kampane.')}
-    </p>
+    <p class="section-subtitle">${b.analysis || 'Na základe analýzy kľúčových slov a konkurencie odhadujeme optimálny rozpočet pre vaše kampane.'}</p>
     
     <div class="grid-3">
       <div class="budget-card">
         <div class="budget-label">Štart</div>
-        <div class="budget-value">${b.recommendations?.starter?.adSpend || 300}€</div>
+        <div class="budget-value">${b.recommendations?.starter?.adSpend || 350}€</div>
         <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.starter?.clicks || b.recommendations?.starter?.expectedClicks || 400}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.starter?.leads || b.recommendations?.starter?.expectedConversions || '15-25'}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.starter?.costPerLead || b.recommendations?.starter?.cpa || '12-20€'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedClicks || 420}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedLeads || '12-18'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.starter?.cpa || '19-29€'}</span></div>
         </div>
       </div>
       
-      <div class="budget-card featured">
-        <div class="budget-label" style="color: #FF6B35;">Optimum</div>
-        <div class="budget-value">${b.recommendations?.recommended?.adSpend || 500}€</div>
+      <div class="budget-card featured" style="position: relative;">
+        <div class="budget-label">Optimum</div>
+        <div class="budget-value">${b.recommendations?.recommended?.adSpend || 600}€</div>
         <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.recommended?.clicks || b.recommendations?.recommended?.expectedClicks || 700}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.recommended?.leads || b.recommendations?.recommended?.expectedConversions || '30-45'}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.recommended?.costPerLead || b.recommendations?.recommended?.cpa || '11-17€'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedClicks || 720}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedLeads || '22-32'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.recommended?.cpa || '18-27€'}</span></div>
         </div>
       </div>
       
       <div class="budget-card">
         <div class="budget-label">Agresívny rast</div>
-        <div class="budget-value">${b.recommendations?.aggressive?.adSpend || 800}€</div>
+        <div class="budget-value">${b.recommendations?.aggressive?.adSpend || 1000}€</div>
         <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.clicks || b.recommendations?.aggressive?.expectedClicks || 1200}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.leads || b.recommendations?.aggressive?.expectedConversions || '50-70'}</span></div>
-          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.aggressive?.costPerLead || b.recommendations?.aggressive?.cpa || '10-15€'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedClicks || 1200}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedLeads || '36-54'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.aggressive?.cpa || '17-26€'}</span></div>
         </div>
       </div>
     </div>
     
-    ${b.calculatedFromRealData ? `
-    <div style="margin-top: 30px; padding: 20px; background: #f0fdf4; border-radius: 16px; border: 1px solid #bbf7d0;">
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 2rem;">📊</span>
-        <div>
-          <strong style="color: #166534;">Tieto čísla sú založené na reálnych dátach</strong>
-          <p style="color: #15803d; font-size: 0.9rem; margin-top: 5px;">
-            Priemerné CPC ${(b.avgCpc || 0).toFixed(2)}€ × očakávané kliky = odporúčaný rozpočet
-          </p>
-        </div>
-      </div>
-    </div>
-    ` : ''}
-    
-    <div style="margin-top: 25px; padding: 25px; background: white; border-radius: 16px; border-left: 4px solid #3b82f6;">
-      <p style="font-size: 1rem; color: #1a1a2e;"><strong>💡 Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
+    <div class="info-box">
+      <p>💡 <strong>Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
     </div>
   </div>
 </section>
 
-<!-- Page 10: ROI -->
+<!-- Page 9: ROI -->
 ${r.projection ? `
 <section class="page page-white">
   <div class="page-content">
@@ -3175,19 +3060,19 @@ ${r.projection ? `
     </div>
     
     <div class="card">
-      <h4 style="margin-bottom: 25px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">📊 Predpoklady výpočtu</h4>
+      <h4 class="card-title">📊 Predpoklady výpočtu</h4>
       <div class="grid-3">
-        <div style="text-align: center; padding: 20px;">
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">Priemerná hodnota objednávky</p>
-          <p style="font-size: 1.8rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.averageOrderValue || 'N/A'}€</p>
+        <div style="text-align: center; padding: 25px;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Priemerná hodnota objednávky</p>
+          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.averageOrderValue || 'N/A'}€</p>
         </div>
-        <div style="text-align: center; padding: 20px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">Konverzný pomer</p>
-          <p style="font-size: 1.8rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.conversionRate || 'N/A'}</p>
+        <div style="text-align: center; padding: 25px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Konverzný pomer</p>
+          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.conversionRate || 'N/A'}</p>
         </div>
-        <div style="text-align: center; padding: 20px;">
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">Hodnota zákazníka (LTV)</p>
-          <p style="font-size: 1.8rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.customerLifetimeValue || 'N/A'}€</p>
+        <div style="text-align: center; padding: 25px;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Hodnota zákazníka (LTV)</p>
+          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.customerLifetimeValue || 'N/A'}€</p>
         </div>
       </div>
     </div>
@@ -3195,7 +3080,7 @@ ${r.projection ? `
 </section>
 ` : ''}
 
-<!-- Page 11: Timeline -->
+<!-- Page 10: Timeline -->
 <section class="page page-gray">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">10</span> Časový plán</h2>
@@ -3205,38 +3090,38 @@ ${r.projection ? `
       <div class="timeline-item">
         <div class="timeline-card">
           <div class="timeline-title">Týždeň 1</div>
-          <div class="timeline-desc">${timeline.week1 || 'Audit existujúcej web stránky, nastavenie Google Ads a Meta Ads účtov, tracking implementácia'}</div>
+          <div class="timeline-desc">${timeline.week1 || 'Nastavenie Google Ads a LinkedIn kampaní, tracking, SEO audit a optimalizácia'}</div>
         </div>
       </div>
       <div class="timeline-item">
         <div class="timeline-card">
           <div class="timeline-title">Týždeň 2</div>
-          <div class="timeline-desc">${timeline.week2 || 'Spustenie search kampaní, prvé A/B testy ad copy, optimalizácia landing pages'}</div>
+          <div class="timeline-desc">${timeline.week2 || 'Spustenie search kampaní, prvé A/B testy ad copy'}</div>
         </div>
       </div>
       <div class="timeline-item">
         <div class="timeline-card">
           <div class="timeline-title">Týždeň 3-4</div>
-          <div class="timeline-desc">${timeline.week3_4 || 'Rozšírenie o display kampane, remarketing nastavenie, testovanie rôznych audience'}</div>
+          <div class="timeline-desc">${timeline.week3_4 || 'Optimalizácia na základe dát, rozšírenie keyword listu'}</div>
         </div>
       </div>
       <div class="timeline-item">
         <div class="timeline-card">
           <div class="timeline-title">Mesiac 2</div>
-          <div class="timeline-desc">${timeline.month2 || 'Rozšírenie keyword listu, škálovanie úspešných kampaní, case studies tvorba'}</div>
+          <div class="timeline-desc">${timeline.month2 || 'LinkedIn kampane, remarketing, landing page optimalizácia'}</div>
         </div>
       </div>
       <div class="timeline-item">
         <div class="timeline-card">
           <div class="timeline-title">Mesiac 3+</div>
-          <div class="timeline-desc">${timeline.month3 || 'Plná optimalizácia na základe dát, scaling successful campaigns, SEO odporúčania'}</div>
+          <div class="timeline-desc">${timeline.month3 || 'Škálovanie výkonných kampaní, mesačný report, strategické odporúčania'}</div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Page 12: Benefits -->
+<!-- Page 11: Benefits -->
 <section class="page page-white">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">11</span> Čo vám spolupráca prinesie</h2>
@@ -3267,7 +3152,7 @@ ${r.projection ? `
   </div>
 </section>
 
-<!-- Page 13: Packages -->
+<!-- Page 12: Packages -->
 <section class="page page-gray">
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">12</span> Naše balíčky</h2>
@@ -3326,7 +3211,7 @@ ${r.projection ? `
   </div>
 </section>
 
-<!-- Page 14: CTA -->
+<!-- Page 13: CTA -->
 <section class="page page-white">
   <div class="page-content">
     <div class="cta-section">
@@ -3357,7 +3242,7 @@ ${r.projection ? `
 <!-- Footer -->
 <footer class="footer">
   <img src="${this.LOGO}" alt="Adlify" class="footer-logo" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;color:#94a3b8;margin-bottom:20px;\\'>ADLIFY</div>'">
-  <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ❤️ pre <strong>${c.name || lead.company_name}</strong></p>
+  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ❤️ pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
   <p style="font-size: 0.85rem; color: #94a3b8;">Táto prezentácia je dôverná a je určená výhradne pre ${c.name || lead.company_name}</p>
 </footer>
 
