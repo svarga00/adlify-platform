@@ -2415,8 +2415,8 @@ Odkaz je platný 30 dní.
     let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
     if (notes) analysisToUse.customNote = notes;
     
-    // Vytvor HTML s print-optimalizovanými štýlmi
-    const html = this.buildProposalHTML(lead, analysisToUse);
+    // Použijem jednoduchú PDF šablónu (bez fancy efektov)
+    const html = this.buildSimplePDF(lead, analysisToUse);
     
     // Otvoriť v novom okne
     const printWindow = window.open('', '_blank', 'width=1200,height=800');
@@ -3425,6 +3425,304 @@ ${r.projection ? `
 </body>
 </html>`;
 },
+
+  // Jednoduchá PDF šablóna - optimalizovaná pre tlač
+  buildSimplePDF(lead, analysis) {
+    const c = analysis.company || {};
+    const a = analysis.analysis || {};
+    const o = analysis.onlinePresence || {};
+    const k = analysis.keywords || {};
+    const s = analysis.strategy || {};
+    const b = analysis.budget || {};
+    const r = analysis.roi || {};
+    const camp = analysis.proposedCampaigns || {};
+    const recPkg = (analysis.recommendedPackage || 'pro').toLowerCase();
+    
+    return `<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<title>Marketingová stratégia - ${c.name || lead.company_name}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; line-height: 1.5; color: #333; padding: 40px; max-width: 800px; margin: 0 auto; }
+  
+  h1 { font-size: 22pt; color: #FF6B35; margin-bottom: 5px; }
+  h2 { font-size: 14pt; color: #FF6B35; margin: 25px 0 15px; padding-bottom: 8px; border-bottom: 2px solid #FF6B35; }
+  h3 { font-size: 12pt; color: #333; margin: 15px 0 10px; }
+  
+  .header { text-align: center; padding-bottom: 20px; border-bottom: 3px solid #FF6B35; margin-bottom: 30px; }
+  .header .company { font-size: 16pt; color: #333; margin-top: 5px; }
+  .header .subtitle { font-size: 10pt; color: #666; margin-top: 10px; }
+  
+  .section { margin-bottom: 25px; page-break-inside: avoid; }
+  
+  .grid { display: flex; gap: 15px; flex-wrap: wrap; }
+  .grid-2 > div { flex: 1; min-width: 45%; }
+  .grid-3 > div { flex: 1; min-width: 30%; }
+  .grid-4 > div { flex: 1; min-width: 22%; }
+  
+  .box { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
+  .box-highlight { border-left: 4px solid #FF6B35; }
+  
+  .stat { text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px; }
+  .stat-value { font-size: 18pt; font-weight: bold; color: #FF6B35; }
+  .stat-label { font-size: 9pt; color: #666; margin-top: 5px; }
+  
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 10pt; }
+  th { background: #FF6B35; color: white; padding: 10px; text-align: left; }
+  td { padding: 8px 10px; border-bottom: 1px solid #e0e0e0; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  
+  .tag { display: inline-block; background: #e8e8e8; padding: 4px 10px; border-radius: 12px; font-size: 9pt; margin: 2px; }
+  .tag-orange { background: #FF6B35; color: white; }
+  .tag-green { background: #22c55e; color: white; }
+  
+  .swot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .swot-box { padding: 12px; border-radius: 8px; font-size: 10pt; }
+  .swot-box h4 { margin-bottom: 8px; font-size: 11pt; }
+  .swot-box ul { margin-left: 15px; }
+  .swot-box li { margin-bottom: 4px; }
+  .swot-s { background: #dcfce7; border: 1px solid #86efac; }
+  .swot-w { background: #fef3c7; border: 1px solid #fcd34d; }
+  .swot-o { background: #dbeafe; border: 1px solid #93c5fd; }
+  .swot-t { background: #fee2e2; border: 1px solid #fca5a5; }
+  
+  .package { border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px; text-align: center; }
+  .package-featured { border-color: #FF6B35; background: #fff7ed; }
+  .package-name { font-size: 14pt; font-weight: bold; }
+  .package-price { font-size: 20pt; color: #FF6B35; font-weight: bold; }
+  .package ul { text-align: left; font-size: 9pt; margin: 10px 0; padding-left: 20px; }
+  
+  .cta { background: #FF6B35; color: white; padding: 25px; border-radius: 8px; text-align: center; margin: 30px 0; }
+  .cta h2 { color: white; border: none; margin: 0 0 10px; }
+  .cta p { margin: 5px 0; }
+  
+  .footer { text-align: center; font-size: 9pt; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+  
+  .note { background: #fff7ed; border-left: 4px solid #FF6B35; padding: 10px 15px; font-size: 10pt; margin: 15px 0; }
+  
+  @media print {
+    body { padding: 20px; }
+    .section { page-break-inside: avoid; }
+    h2 { page-break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Návrh marketingovej stratégie</h1>
+  <div class="company">${c.name || lead.company_name}</div>
+  <div class="subtitle">Pripravené: ${new Date().toLocaleDateString('sk-SK')} | adlify.eu</div>
+</div>
+
+<!-- O firme -->
+<div class="section">
+  <h2>1. O vašej firme</h2>
+  <p>${c.description || 'Spoločnosť pôsobí na slovenskom trhu.'}</p>
+  
+  <h3>Služby a produkty</h3>
+  <div style="margin: 10px 0;">
+    ${(c.services || ['Služba 1', 'Služba 2']).map(s => `<span class="tag">${s}</span>`).join(' ')}
+  </div>
+  
+  ${c.targetCustomers ? `<h3>Cieľoví zákazníci</h3><p>${c.targetCustomers}</p>` : ''}
+</div>
+
+<!-- Online prítomnosť -->
+<div class="section">
+  <h2>2. Online prítomnosť</h2>
+  <div class="grid grid-4">
+    <div class="stat">
+      <div class="stat-value">${o.website?.exists !== false ? '✓' : '✗'}</div>
+      <div class="stat-label">Web</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${o.socialMedia?.facebook?.exists ? '✓' : '✗'}</div>
+      <div class="stat-label">Facebook</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${o.socialMedia?.instagram?.exists ? '✓' : '✗'}</div>
+      <div class="stat-label">Instagram</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${o.paidAds?.detected ? '✓' : '✗'}</div>
+      <div class="stat-label">Reklama</div>
+    </div>
+  </div>
+</div>
+
+<!-- SWOT -->
+${a.swot ? `
+<div class="section">
+  <h2>3. SWOT Analýza</h2>
+  <div class="swot">
+    <div class="swot-box swot-s">
+      <h4>💪 Silné stránky</h4>
+      <ul>${a.swot.strengths?.slice(0,4).map(s => `<li>${s}</li>`).join('') || '<li>-</li>'}</ul>
+    </div>
+    <div class="swot-box swot-w">
+      <h4>⚠️ Slabé stránky</h4>
+      <ul>${a.swot.weaknesses?.slice(0,4).map(w => `<li>${w}</li>`).join('') || '<li>-</li>'}</ul>
+    </div>
+    <div class="swot-box swot-o">
+      <h4>🚀 Príležitosti</h4>
+      <ul>${a.swot.opportunities?.slice(0,4).map(o => `<li>${o}</li>`).join('') || '<li>-</li>'}</ul>
+    </div>
+    <div class="swot-box swot-t">
+      <h4>⚡ Hrozby</h4>
+      <ul>${a.swot.threats?.slice(0,4).map(t => `<li>${t}</li>`).join('') || '<li>-</li>'}</ul>
+    </div>
+  </div>
+</div>
+` : ''}
+
+<!-- Kľúčové slová -->
+${k.topKeywords?.length ? `
+<div class="section">
+  <h2>4. Kľúčové slová</h2>
+  <table>
+    <thead>
+      <tr><th>Kľúčové slovo</th><th>Hľadanosť</th><th>Konkurencia</th><th>CPC</th></tr>
+    </thead>
+    <tbody>
+      ${k.topKeywords.slice(0,8).map(kw => `
+        <tr>
+          <td><strong>${kw.keyword}</strong></td>
+          <td>${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString() : kw.searchVolume}</td>
+          <td>${kw.competition}</td>
+          <td style="color: #FF6B35; font-weight: bold;">${kw.cpc}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+  <div class="note">📌 Kompletný zoznam ${Math.max((k.totalFound || 50) - 8, 30)}+ kľúčových slov dostanete po objednaní.</div>
+</div>
+` : ''}
+
+<!-- Stratégia -->
+<div class="section">
+  <h2>5. Navrhovaná stratégia</h2>
+  <div class="grid grid-2">
+    <div class="box">
+      <h3>📱 Odporúčané platformy</h3>
+      ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-orange">${p}</span>`).join(' ')}
+    </div>
+    <div class="box">
+      <h3>🎯 Hlavný cieľ</h3>
+      <p>${s.primaryGoal || 'Generovanie kvalifikovaných dopytov'}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Rozpočet -->
+<div class="section">
+  <h2>6. Odporúčaný rozpočet na reklamu</h2>
+  <div class="grid grid-3">
+    <div class="box" style="text-align: center;">
+      <div style="font-size: 10pt; color: #666;">ŠTART</div>
+      <div style="font-size: 24pt; font-weight: bold; color: #FF6B35;">${b.recommendations?.starter?.adSpend || 350}€</div>
+      <div style="font-size: 9pt; color: #666;">mesačne</div>
+      <div style="margin-top: 10px; font-size: 10pt;">~${b.recommendations?.starter?.expectedLeads || '12-18'} dopytov</div>
+    </div>
+    <div class="box box-highlight" style="text-align: center;">
+      <div style="font-size: 10pt; color: #FF6B35; font-weight: bold;">⭐ ODPORÚČANÉ</div>
+      <div style="font-size: 24pt; font-weight: bold; color: #FF6B35;">${b.recommendations?.recommended?.adSpend || 600}€</div>
+      <div style="font-size: 9pt; color: #666;">mesačne</div>
+      <div style="margin-top: 10px; font-size: 10pt;">~${b.recommendations?.recommended?.expectedLeads || '22-32'} dopytov</div>
+    </div>
+    <div class="box" style="text-align: center;">
+      <div style="font-size: 10pt; color: #666;">AGRESÍVNY</div>
+      <div style="font-size: 24pt; font-weight: bold; color: #FF6B35;">${b.recommendations?.aggressive?.adSpend || 1000}€</div>
+      <div style="font-size: 9pt; color: #666;">mesačne</div>
+      <div style="margin-top: 10px; font-size: 10pt;">~${b.recommendations?.aggressive?.expectedLeads || '36-54'} dopytov</div>
+    </div>
+  </div>
+  <div class="note">💡 Reklamný rozpočet platíte priamo Google/Meta. Nie je súčasťou ceny za správu kampaní.</div>
+</div>
+
+<!-- ROI -->
+${r.projection ? `
+<div class="section">
+  <h2>7. Predpokladaná návratnosť (ROI)</h2>
+  <div class="grid grid-3">
+    <div class="stat">
+      <div class="stat-value">${r.projection.monthlyLeads}</div>
+      <div class="stat-label">Mesačných dopytov</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${r.projection.monthlyRevenue}</div>
+      <div class="stat-label">Potenciálny obrat</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${r.projection.roi}</div>
+      <div class="stat-label">ROI</div>
+    </div>
+  </div>
+</div>
+` : ''}
+
+<!-- Balíčky -->
+<div class="section">
+  <h2>8. Naše balíčky</h2>
+  <div class="grid grid-3">
+    <div class="package ${recPkg === 'starter' ? 'package-featured' : ''}">
+      <div class="package-name">Starter</div>
+      <div class="package-price">149€</div>
+      <div style="font-size: 9pt; color: #666;">/mesiac</div>
+      <ul>
+        <li>1 platforma</li>
+        <li>Základná optimalizácia</li>
+        <li>Mesačný report</li>
+      </ul>
+    </div>
+    <div class="package ${recPkg === 'pro' ? 'package-featured' : ''}">
+      <div class="package-name">Pro</div>
+      <div class="package-price">249€</div>
+      <div style="font-size: 9pt; color: #666;">/mesiac</div>
+      <ul>
+        <li>2 platformy</li>
+        <li>A/B testovanie</li>
+        <li>Remarketing</li>
+        <li>Týždenný report</li>
+      </ul>
+    </div>
+    <div class="package ${recPkg === 'enterprise' ? 'package-featured' : ''}">
+      <div class="package-name">Enterprise</div>
+      <div class="package-price">399€</div>
+      <div style="font-size: 9pt; color: #666;">/mesiac</div>
+      <ul>
+        <li>Všetky platformy</li>
+        <li>Landing pages</li>
+        <li>Dedikovaný manažér</li>
+        <li>Priority podpora</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta">
+  <h2>Začnime spoluprácu 🚀</h2>
+  <p><strong>📧 ${this.CONTACT.email}</strong></p>
+  <p>📞 ${this.CONTACT.phone} | 🌐 ${this.CONTACT.web}</p>
+</div>
+
+${analysis.customNote ? `
+<div class="box box-highlight">
+  <h3>💬 Osobná poznámka</h3>
+  <p style="font-style: italic;">${analysis.customNote}</p>
+</div>
+` : ''}
+
+<div class="footer">
+  © ${new Date().getFullYear()} Adlify.eu | Táto ponuka je pripravená pre ${c.name || lead.company_name}
+</div>
+
+</body>
+</html>`;
+  },
 
   // Excel file handlers
   handleFileDrop(event) {
