@@ -3443,9 +3443,10 @@ ${r.projection ? `
 <head>
 <meta charset="UTF-8">
 <title>Marketingová stratégia - ${c.name || lead.company_name}</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; line-height: 1.5; color: #333; padding: 40px; max-width: 800px; margin: 0 auto; }
+  body { font-family: 'Poppins', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #333; padding: 40px; max-width: 800px; margin: 0 auto; }
   
   h1 { font-size: 22pt; color: #FF6B35; margin-bottom: 5px; }
   h2 { font-size: 14pt; color: #FF6B35; margin: 25px 0 15px; padding-bottom: 8px; border-bottom: 2px solid #FF6B35; }
