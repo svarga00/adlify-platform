@@ -2735,18 +2735,92 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .footer-logo { height: 40px; margin-bottom: 25px; }
 
 /* Ad Preview Cards */
-.ad-preview { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0; overflow: hidden; }
-.ad-preview-header { background: linear-gradient(135deg, #f8fafc, #f1f5f9); padding: 15px 20px; border-bottom: 1px solid #e2e8f0; font-weight: 600; font-size: 0.9rem; color: #475569; }
-.ad-preview-content { padding: 25px; }
-.google-ad { border-left: 4px solid #4285f4; }
-.google-ad .ad-label { color: #1a0dab; font-size: 0.75rem; font-weight: 600; }
-.google-ad .ad-title { color: #1a0dab; font-size: 1.1rem; font-weight: 600; margin: 8px 0; }
-.google-ad .ad-url { color: #006621; font-size: 0.85rem; }
-.google-ad .ad-desc { color: #545454; font-size: 0.9rem; margin-top: 8px; line-height: 1.6; }
-.meta-ad { border-left: 4px solid #1877f2; }
-.meta-ad .ad-text { color: #1a1a2e; font-size: 0.95rem; line-height: 1.7; margin-bottom: 15px; }
-.meta-ad .ad-headline { font-weight: 700; font-size: 1.1rem; color: #1a1a2e; margin-bottom: 8px; }
-.meta-ad .ad-cta { display: inline-block; background: #1877f2; color: white; padding: 10px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; }
+.ad-preview { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+
+/* Google Search Ad */
+.google-ad { border: 1px solid #dfe1e5; border-radius: 8px; }
+.google-ad .ad-sponsored { font-size: 0.75rem; color: #202124; margin-bottom: 4px; }
+.google-ad .ad-sponsored span { background: #fff; border: 1px solid #dadce0; border-radius: 3px; padding: 1px 5px; font-size: 0.7rem; color: #202124; margin-right: 6px; }
+.google-ad .ad-url-line { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.google-ad .ad-favicon { width: 18px; height: 18px; border-radius: 50%; background: #f1f3f4; }
+.google-ad .ad-url { color: #202124; font-size: 0.85rem; }
+.google-ad .ad-breadcrumb { color: #5f6368; font-size: 0.75rem; }
+.google-ad .ad-title { color: #1a0dab; font-size: 1.25rem; font-weight: 400; margin: 8px 0; line-height: 1.3; cursor: pointer; }
+.google-ad .ad-title:hover { text-decoration: underline; }
+.google-ad .ad-desc { color: #4d5156; font-size: 0.9rem; line-height: 1.5; }
+.google-ad .ad-content { padding: 16px; }
+
+/* Facebook/Instagram Ad */
+.meta-ad { border: 1px solid #dddfe2; }
+.meta-ad-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+.meta-ad-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #FF6B35, #E91E63); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1rem; }
+.meta-ad-header-text { flex: 1; }
+.meta-ad-page-name { font-weight: 600; font-size: 0.95rem; color: #050505; }
+.meta-ad-sponsored { font-size: 0.8rem; color: #65676b; display: flex; align-items: center; gap: 4px; }
+.meta-ad-image { width: 100%; height: 250px; background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.meta-ad-image-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; padding: 20px; }
+.meta-ad-image-text { font-size: 1.4rem; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+.meta-ad-image-subtext { font-size: 0.95rem; margin-top: 8px; opacity: 0.9; }
+.meta-ad-body { padding: 12px 16px; }
+.meta-ad-text { color: #050505; font-size: 0.95rem; line-height: 1.5; margin-bottom: 12px; }
+.meta-ad-link-preview { background: #f0f2f5; border-radius: 0; margin: 0 -16px; padding: 12px 16px; }
+.meta-ad-link-domain { font-size: 0.8rem; color: #65676b; text-transform: uppercase; margin-bottom: 4px; }
+.meta-ad-link-title { font-size: 1rem; font-weight: 600; color: #050505; margin-bottom: 4px; }
+.meta-ad-link-desc { font-size: 0.85rem; color: #65676b; }
+.meta-ad-cta { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #dddfe2; }
+.meta-ad-cta-btn { background: #e4e6eb; color: #050505; padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.meta-ad-cta-btn:hover { background: #d8dadf; }
+.meta-ad-engagement { display: flex; gap: 4px; padding: 8px 16px; border-top: 1px solid #dddfe2; }
+.meta-ad-engagement span { color: #65676b; font-size: 0.9rem; padding: 8px 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.meta-ad-engagement span:hover { background: #f0f2f5; }
+
+/* Instagram Stories Ad */
+.ig-story { width: 280px; height: 500px; border-radius: 16px; background: linear-gradient(180deg, #1a1a2e 0%, #2d2d44 100%); position: relative; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+.ig-story-header { position: absolute; top: 0; left: 0; right: 0; padding: 16px; z-index: 10; }
+.ig-story-progress { display: flex; gap: 4px; margin-bottom: 12px; }
+.ig-story-progress-bar { flex: 1; height: 2px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+.ig-story-progress-bar.active { background: white; }
+.ig-story-user { display: flex; align-items: center; gap: 10px; }
+.ig-story-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #FF6B35, #E91E63); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.8rem; }
+.ig-story-username { color: white; font-weight: 600; font-size: 0.85rem; }
+.ig-story-time { color: rgba(255,255,255,0.7); font-size: 0.75rem; }
+.ig-story-sponsored { color: rgba(255,255,255,0.7); font-size: 0.7rem; margin-left: auto; }
+.ig-story-content { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px 100px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); }
+.ig-story-headline { color: white; font-size: 1.6rem; font-weight: 700; line-height: 1.3; margin-bottom: 12px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.ig-story-subtext { color: rgba(255,255,255,0.9); font-size: 1rem; line-height: 1.5; }
+.ig-story-cta { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%); }
+.ig-story-cta-btn { display: flex; align-items: center; justify-content: center; gap: 8px; background: white; color: #1a1a2e; padding: 14px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; }
+.ig-story-cta-arrow { font-size: 1.2rem; }
+
+/* Google Display Banner */
+.display-banner { width: 100%; max-width: 336px; height: 280px; border-radius: 8px; background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); position: relative; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.display-banner-content { position: absolute; inset: 0; padding: 24px; display: flex; flex-direction: column; color: white; }
+.display-banner-logo { font-size: 0.85rem; font-weight: 700; margin-bottom: auto; opacity: 0.9; }
+.display-banner-headline { font-size: 1.5rem; font-weight: 700; line-height: 1.2; margin-bottom: 8px; }
+.display-banner-subtext { font-size: 0.9rem; opacity: 0.9; margin-bottom: 16px; }
+.display-banner-cta { display: inline-block; background: white; color: #FF6B35; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; align-self: flex-start; }
+.display-banner-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.3); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; }
+
+/* LinkedIn Ad */
+.linkedin-ad { border: 1px solid #e0e0e0; border-radius: 8px; background: white; }
+.linkedin-ad-header { display: flex; align-items: flex-start; gap: 12px; padding: 16px; }
+.linkedin-ad-avatar { width: 48px; height: 48px; border-radius: 4px; background: linear-gradient(135deg, #FF6B35, #E91E63); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1.1rem; }
+.linkedin-ad-header-text { flex: 1; }
+.linkedin-ad-company { font-weight: 600; font-size: 0.95rem; color: #000000e6; }
+.linkedin-ad-followers { font-size: 0.8rem; color: #00000099; }
+.linkedin-ad-promoted { font-size: 0.75rem; color: #00000099; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+.linkedin-ad-body { padding: 0 16px 12px; }
+.linkedin-ad-text { font-size: 0.9rem; color: #000000e6; line-height: 1.5; }
+.linkedin-ad-image { width: 100%; height: 200px; background: linear-gradient(135deg, #0077b5 0%, #00a0dc 100%); display: flex; align-items: center; justify-content: center; position: relative; }
+.linkedin-ad-image-content { text-align: center; color: white; padding: 20px; }
+.linkedin-ad-image-headline { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+.linkedin-ad-image-subtext { font-size: 0.9rem; opacity: 0.9; }
+.linkedin-ad-link { padding: 12px 16px; background: #f3f6f8; border-top: 1px solid #e0e0e0; }
+.linkedin-ad-link-title { font-weight: 600; font-size: 0.9rem; color: #000000e6; margin-bottom: 4px; }
+.linkedin-ad-link-domain { font-size: 0.8rem; color: #00000099; }
+.linkedin-ad-actions { display: flex; gap: 4px; padding: 8px 16px; border-top: 1px solid #e0e0e0; }
+.linkedin-ad-actions span { font-size: 0.85rem; color: #00000099; padding: 8px 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.linkedin-ad-actions span:hover { background: #f3f6f8; color: #000000e6; }
 
 /* Budget Cards */
 .budget-card { background: white; border: 2px solid #e2e8f0; border-radius: 20px; padding: 35px; text-align: center; transition: all 0.3s; }
@@ -3120,45 +3194,162 @@ ${camp.google || camp.meta ? `
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">7</span> Návrhy reklám</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám.</p>
+    <p class="section-subtitle">Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám a obsahovať profesionálne vizuály.</p>
     
-    <div class="grid-2">
+    <!-- Row 1: Google Search + Facebook Feed -->
+    <div class="grid-2" style="margin-bottom: 40px;">
       ${camp.google?.searchCampaign ? `
       <div>
         <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700; color: #1a1a2e;">🔍 Google Ads - Vyhľadávanie</h3>
         <div class="ad-preview google-ad">
-          <div class="ad-preview-header">NÁHĽAD REKLAMY VO VYHĽADÁVANÍ</div>
-          <div class="ad-preview-content">
-            <div class="ad-label">Ad</div>
-            <div class="ad-title">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines?.[0] || 'Headline reklamy'}</div>
-            <div class="ad-url">· www.${lead.domain || 'example.sk'}</div>
-            <div class="ad-desc">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions?.[0] || 'Popis reklamy'}</div>
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-              <p style="font-size: 0.8rem; color: #94a3b8;"><strong>Keywords:</strong> ${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 3).join(', ') || 'kľúčové slová'}</p>
+          <div class="ad-content">
+            <div class="ad-sponsored"><span>Sponzorované</span></div>
+            <div class="ad-url-line">
+              <div class="ad-favicon" style="background: url('https://www.google.com/s2/favicons?domain=${lead.domain || 'example.sk'}&sz=32') center/cover no-repeat, #f1f3f4;"></div>
+              <div>
+                <div class="ad-url">${c.name || lead.company_name}</div>
+                <div class="ad-breadcrumb">www.${lead.domain || 'example.sk'}</div>
+              </div>
             </div>
+            <div class="ad-title">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines?.[0] || 'Profesionálne služby pre vašu firmu'}</div>
+            <div class="ad-desc">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions?.[0] || 'Kvalitné služby s dlhoročnými skúsenosťami. Kontaktujte nás pre nezáväznú ponuku.'}</div>
           </div>
+        </div>
+        <div style="margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+          <p style="font-size: 0.85rem; color: #64748b;"><strong style="color: #1a1a2e;">Cielené kľúčové slová:</strong><br>${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 4).join(', ') || 'relevantné kľúčové slová pre váš biznis'}</p>
         </div>
       </div>
       ` : ''}
       
       ${camp.meta?.campaign ? `
       <div>
-        <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700; color: #1a1a2e;">📘 Facebook / Instagram</h3>
+        <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700; color: #1a1a2e;">📘 Facebook Feed</h3>
         <div class="ad-preview meta-ad">
-          <div class="ad-preview-header">NÁHĽAD REKLAMY</div>
-          <div class="ad-preview-content">
-            <div class="ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Text reklamy'}</div>
-            <div class="ad-headline">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || 'Headline'}</div>
-            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">${camp.meta.campaign.adSets?.[0]?.adCopy?.description || ''}</p>
-            <span class="meta-ad .ad-cta">${camp.meta.campaign.adSets?.[0]?.adCopy?.cta || 'Zistiť viac'}</span>
+          <div class="meta-ad-header">
+            <div class="meta-ad-avatar">${(c.name || lead.company_name || 'F').charAt(0).toUpperCase()}</div>
+            <div class="meta-ad-header-text">
+              <div class="meta-ad-page-name">${c.name || lead.company_name}</div>
+              <div class="meta-ad-sponsored">Sponzorované · <span>🌐</span></div>
+            </div>
+            <span style="color: #65676b; font-size: 1.2rem; cursor: pointer;">···</span>
+          </div>
+          <div class="meta-ad-body">
+            <div class="meta-ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Hľadáte spoľahlivého partnera? ✅ Viac ako 10 rokov skúseností. Kontaktujte nás ešte dnes!'}</div>
+          </div>
+          <div class="meta-ad-image">
+            <div class="meta-ad-image-overlay">
+              <div class="meta-ad-image-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || c.name || lead.company_name}</div>
+              <div class="meta-ad-image-subtext">${(c.services || ['Profesionálne služby'])[0]}</div>
+            </div>
+          </div>
+          <div class="meta-ad-link-preview">
+            <div class="meta-ad-link-domain">${lead.domain || 'example.sk'}</div>
+            <div class="meta-ad-link-title">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || 'Kontaktujte nás'}</div>
+            <div class="meta-ad-link-desc">${camp.meta.campaign.adSets?.[0]?.adCopy?.description || 'Získajte nezáväznú ponuku'}</div>
+          </div>
+          <div class="meta-ad-cta">
+            <div></div>
+            <div class="meta-ad-cta-btn">${camp.meta.campaign.adSets?.[0]?.adCopy?.cta || 'Zistiť viac'}</div>
+          </div>
+          <div class="meta-ad-engagement">
+            <span>👍 Páči sa mi</span>
+            <span>💬 Komentár</span>
+            <span>↗️ Zdieľať</span>
           </div>
         </div>
       </div>
       ` : ''}
     </div>
     
-    <div class="note-box">
-      <p>📌 Toto sú ukážkové reklamy. Finálne verzie vrátane profesionálnych vizuálov vytvoríme na mieru po objednaní.</p>
+    <!-- Row 2: Instagram Story + Display Banner + LinkedIn -->
+    <h3 style="margin-bottom: 25px; font-size: 1.2rem; font-weight: 700; color: #1a1a2e; border-top: 1px solid #e2e8f0; padding-top: 40px;">📱 Ďalšie formáty reklám</h3>
+    
+    <div style="display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; align-items: flex-start;">
+      
+      <!-- Instagram Story -->
+      <div style="text-align: center;">
+        <p style="font-size: 0.9rem; font-weight: 600; color: #64748b; margin-bottom: 15px;">📸 Instagram Story</p>
+        <div class="ig-story">
+          <div class="ig-story-header">
+            <div class="ig-story-progress">
+              <div class="ig-story-progress-bar active"></div>
+              <div class="ig-story-progress-bar"></div>
+              <div class="ig-story-progress-bar"></div>
+            </div>
+            <div class="ig-story-user">
+              <div class="ig-story-avatar">${(c.name || lead.company_name || 'F').charAt(0).toUpperCase()}</div>
+              <div>
+                <div class="ig-story-username">${(c.name || lead.company_name || '').toLowerCase().replace(/\s+/g, '_').substring(0, 15) || 'firma'}</div>
+                <div class="ig-story-time">Sponzorované</div>
+              </div>
+            </div>
+          </div>
+          <div class="ig-story-content">
+            <div class="ig-story-headline">${camp.meta?.campaign?.adSets?.[0]?.adCopy?.headline || (c.services || ['Profesionálne služby'])[0]}</div>
+            <div class="ig-story-subtext">${camp.meta?.campaign?.adSets?.[0]?.adCopy?.description || 'Kontaktujte nás pre nezáväznú ponuku'}</div>
+          </div>
+          <div class="ig-story-cta">
+            <div class="ig-story-cta-btn">
+              <span>Zistiť viac</span>
+              <span class="ig-story-cta-arrow">›</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Google Display Banner -->
+      <div style="text-align: center;">
+        <p style="font-size: 0.9rem; font-weight: 600; color: #64748b; margin-bottom: 15px;">🖼️ Google Display (336x280)</p>
+        <div class="display-banner">
+          <div class="display-banner-badge">Reklama</div>
+          <div class="display-banner-content">
+            <div class="display-banner-logo">${c.name || lead.company_name}</div>
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+              <div class="display-banner-headline">${camp.google?.searchCampaign?.adGroups?.[0]?.adCopy?.headlines?.[0]?.substring(0, 30) || 'Profesionálne služby'}</div>
+              <div class="display-banner-subtext">${(c.services || ['Kvalitné riešenia'])[0]}</div>
+            </div>
+            <div class="display-banner-cta">Zistiť viac →</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- LinkedIn -->
+      <div style="text-align: center; min-width: 320px;">
+        <p style="font-size: 0.9rem; font-weight: 600; color: #64748b; margin-bottom: 15px;">💼 LinkedIn</p>
+        <div class="ad-preview linkedin-ad">
+          <div class="linkedin-ad-header">
+            <div class="linkedin-ad-avatar">${(c.name || lead.company_name || 'F').charAt(0).toUpperCase()}</div>
+            <div class="linkedin-ad-header-text">
+              <div class="linkedin-ad-company">${c.name || lead.company_name}</div>
+              <div class="linkedin-ad-followers">${Math.floor(Math.random() * 5000 + 500).toLocaleString()} sledujúcich</div>
+              <div class="linkedin-ad-promoted">Propagované</div>
+            </div>
+          </div>
+          <div class="linkedin-ad-body">
+            <div class="linkedin-ad-text">${camp.meta?.campaign?.adSets?.[0]?.adCopy?.primaryText?.substring(0, 120) || 'Hľadáte profesionálneho partnera pre váš biznis? Máme viac ako 10 rokov skúseností.'}...</div>
+          </div>
+          <div class="linkedin-ad-image">
+            <div class="linkedin-ad-image-content">
+              <div class="linkedin-ad-image-headline">${c.name || lead.company_name}</div>
+              <div class="linkedin-ad-image-subtext">${(c.services || ['B2B Riešenia'])[0]}</div>
+            </div>
+          </div>
+          <div class="linkedin-ad-link">
+            <div class="linkedin-ad-link-title">${camp.meta?.campaign?.adSets?.[0]?.adCopy?.headline || 'Kontaktujte nás'}</div>
+            <div class="linkedin-ad-link-domain">${lead.domain || 'example.sk'}</div>
+          </div>
+          <div class="linkedin-ad-actions">
+            <span>👍 Páči sa mi</span>
+            <span>💬 Komentár</span>
+            <span>↗️ Zdieľať</span>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+    
+    <div class="note-box" style="margin-top: 40px;">
+      <p>📌 Toto sú ukážkové reklamy s placeholder grafikou. Finálne verzie budú obsahovať profesionálne vizuály vytvorené na mieru pre váš biznis.</p>
     </div>
   </div>
 </section>
