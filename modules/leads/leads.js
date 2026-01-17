@@ -2790,85 +2790,79 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   .swot-grid { grid-template-columns: 1fr; }
 }
 
-/* PDF/Print optimalizácia */
 @media print {
   * { 
     -webkit-print-color-adjust: exact !important; 
-    print-color-adjust: exact !important; 
+    print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
   
-  html, body { 
-    width: 210mm;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
   body { 
-    -webkit-print-color-adjust: exact;
     background: white !important;
+    font-size: 11pt;
   }
   
   .header { 
     position: relative !important; 
-    box-shadow: none !important; 
+    box-shadow: none !important;
+    padding: 15px 40px !important;
     border-bottom: 2px solid #e2e8f0;
-    padding: 15px 30px !important;
   }
   
+  /* Sekcie - plynulé, nie každá na novej strane */
   .page { 
     min-height: auto !important; 
-    padding: 30px !important;
-    page-break-after: always;
-    page-break-inside: avoid;
+    padding: 30px 40px !important;
+    page-break-inside: auto;
   }
-  .page:last-of-type { page-break-after: avoid; }
   
   .hero-section {
     min-height: auto !important;
-    padding: 50px 30px !important;
+    padding: 40px !important;
     page-break-after: always;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    -webkit-print-color-adjust: exact !important;
   }
   
-  .card, .stat-box, .package-card, .benefit-card, .swot-box, .timeline-item, .budget-card, .ad-preview {
+  /* Tieto elementy sa nesmú rozdeliť */
+  .card, .stat-box, .package-card, .benefit-card, .swot-box, 
+  .timeline-item, .budget-card, .ad-preview, .data-table {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
-    box-shadow: none !important;
-    border: 1px solid #e2e8f0 !important;
   }
   
-  .grid-2, .grid-3, .grid-4 { 
-    gap: 12px !important; 
+  /* Nadpisy držať s obsahom */
+  .section-title, h2, h3, h4 {
+    page-break-after: avoid !important;
   }
   
-  .section-title { 
-    page-break-after: avoid; 
-    font-size: 1.5rem !important;
+  /* Gridy - menšie medzery */
+  .grid-2, .grid-3, .grid-4 { gap: 15px !important; }
+  
+  /* Packages a Budget - page break pred nimi */
+  .page:has(.package-card),
+  .page:has(.budget-card) {
+    page-break-before: always;
   }
   
-  .cta-section { 
+  /* CTA sekcia - page break pred */
+  .cta-section {
+    page-break-before: always;
     page-break-inside: avoid !important;
-    break-inside: avoid !important;
   }
   
+  /* Footer */
   .footer { 
     page-break-before: avoid;
-    margin-top: 30px;
-    padding: 30px !important;
+    padding: 20px 40px !important;
   }
   
-  /* Zachovaj farby pozadia */
-  .swot-strengths, .swot-weaknesses, .swot-opportunities, .swot-threats,
-  .budget-card, .stat-box, .package-card, .benefit-card {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  
-  /* Linky */
+  /* Skry interaktívne prvky */
   a { text-decoration: none !important; }
-  a[href^="mailto"], a[href^="tel"] { color: inherit !important; }
+  
+  /* Zachovaj pozadia */
+  .swot-strengths, .swot-weaknesses, .swot-opportunities, .swot-threats,
+  .budget-card, .stat-box, .package-card.featured {
+    -webkit-print-color-adjust: exact !important;
+  }
 }
 </style>
 </head>
@@ -2886,295 +2880,551 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   </div>
 </header>
 
-<!-- PAGE 1: Hero + O firme -->
-<section class="hero-section" style="min-height: auto; padding: 100px 60px 60px;">
+<!-- Hero Section -->
+<section class="hero-section">
   <div class="hero-badge">📊 Personalizovaná analýza & stratégia</div>
   <h1 class="hero-title">Návrh <span>marketingovej stratégie</span></h1>
-  <p class="hero-subtitle" style="margin-bottom: 30px;">${c.description || 'Komplexná analýza vašej online prítomnosti a konkrétne odporúčania pre rast podnikania.'}</p>
+  <p class="hero-subtitle">Komplexná analýza vašej online prítomnosti, identifikácia príležitostí a konkrétne odporúčania pre rast vášho podnikania prostredníctvom online reklamy</p>
   
   <div class="hero-company-box">
     <div class="hero-company-name">${c.name || lead.company_name}</div>
   </div>
   
-  <div style="margin-top: 50px; max-width: 800px;">
-    <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; color: #1a1a2e;">🛠 Vaše služby</h3>
-    <div class="services-grid" style="justify-content: center;">
-      ${(c.services || ['Služba 1', 'Služba 2', 'Služba 3']).slice(0, 6).map(s => `<span class="service-tag">${s}</span>`).join('')}
-    </div>
-    ${c.targetCustomers ? `<p style="margin-top: 25px; color: #64748b; font-size: 0.95rem;">👥 <strong>Cieľoví zákazníci:</strong> ${c.targetCustomers}</p>` : ''}
-  </div>
+  <p class="hero-info">V tejto prezentácii nájdete detailnú analýzu vášho podnikania, zhodnotenie aktuálnej online prítomnosti, identifikované príležitosti a konkrétny akčný plán ako získať viac zákazníkov cez online reklamu.</p>
 </section>
 
-<!-- PAGE 2: Online prítomnosť + SWOT -->
+<!-- Page 1: O firme -->
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">1</span> Online prítomnosť & SWOT</h2>
+    <h2 class="section-title"><span class="section-badge">1</span> O vašej firme</h2>
     <div class="section-divider"></div>
+    <p class="section-subtitle">${c.description || 'Spoločnosť pôsobí na slovenskom trhu a ponúka svoje služby zákazníkom.'}</p>
     
-    <div class="grid-4" style="margin-bottom: 30px;">
-      <div class="stat-box" style="padding: 20px;">
-        <div class="stat-icon" style="font-size: 2rem; margin-bottom: 8px;">${o.website?.exists !== false ? '✅' : '❌'}</div>
-        <div style="font-weight: 700; font-size: 1rem;">Web</div>
-        <div class="stat-label" style="font-size: 0.8rem;">${o.website?.quality || (o.website?.exists !== false ? 'OK' : 'Chýba')}</div>
-      </div>
-      <div class="stat-box" style="padding: 20px;">
-        <div class="stat-icon" style="font-size: 2rem; margin-bottom: 8px;">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div>
-        <div style="font-weight: 700; font-size: 1rem;">Facebook</div>
-        <div class="stat-label" style="font-size: 0.8rem;">${o.socialMedia?.facebook?.exists ? 'Aktívny' : 'Neaktívny'}</div>
-      </div>
-      <div class="stat-box" style="padding: 20px;">
-        <div class="stat-icon" style="font-size: 2rem; margin-bottom: 8px;">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div>
-        <div style="font-weight: 700; font-size: 1rem;">Instagram</div>
-        <div class="stat-label" style="font-size: 0.8rem;">${o.socialMedia?.instagram?.exists ? 'Aktívny' : 'Neaktívny'}</div>
-      </div>
-      <div class="stat-box" style="padding: 20px;">
-        <div class="stat-icon" style="font-size: 2rem; margin-bottom: 8px;">${o.paidAds?.detected ? '✅' : '❌'}</div>
-        <div style="font-weight: 700; font-size: 1rem;">Reklama</div>
-        <div class="stat-label" style="font-size: 0.8rem;">${o.paidAds?.detected ? 'Využíva' : 'Nevyužíva'}</div>
+    <div class="card">
+      <h3 class="card-title">🛠 Vaše služby a produkty</h3>
+      <div class="services-grid">
+        ${(c.services || ['Služba 1', 'Služba 2', 'Služba 3']).map(s => `<span class="service-tag">${s}</span>`).join('')}
       </div>
     </div>
     
-    ${a.swot ? `
-    <div class="swot-grid">
-      <div class="swot-box swot-strengths">
-        <h4>💪 Silné stránky</h4>
-        <ul>${a.swot.strengths?.slice(0, 4).map(s => `<li>${s}</li>`).join('') || '<li>-</li>'}</ul>
-      </div>
-      <div class="swot-box swot-weaknesses">
-        <h4>⚠️ Slabé stránky</h4>
-        <ul>${a.swot.weaknesses?.slice(0, 4).map(w => `<li>${w}</li>`).join('') || '<li>-</li>'}</ul>
-      </div>
-      <div class="swot-box swot-opportunities">
-        <h4>🚀 Príležitosti</h4>
-        <ul>${a.swot.opportunities?.slice(0, 4).map(o => `<li>${o}</li>`).join('') || '<li>-</li>'}</ul>
-      </div>
-      <div class="swot-box swot-threats">
-        <h4>⚡ Hrozby</h4>
-        <ul>${a.swot.threats?.slice(0, 4).map(t => `<li>${t}</li>`).join('') || '<li>-</li>'}</ul>
-      </div>
+    <div class="card" style="margin-top: 30px;">
+      <h3 class="card-title">👥 Vaši ideálni zákazníci</h3>
+      <p style="color: #64748b; font-size: 1rem; line-height: 1.8;">${c.targetCustomers || 'Firmy a jednotlivci hľadajúci kvalitné služby'}</p>
     </div>
-    ` : `<p style="color: #64748b;">${o.summary || 'Podrobná analýza online prítomnosti.'}</p>`}
   </div>
 </section>
 
-<!-- PAGE 3: Zistenia + Keywords -->
+<!-- Page 2: Čo sme zistili -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">2</span> Naše zistenia & kľúčové slová</h2>
+    <h2 class="section-title"><span class="section-badge">2</span> Čo sme zistili</h2>
     <div class="section-divider"></div>
+    <p class="section-subtitle">${a.humanWrittenIntro || o.summary || 'Na základe našej analýzy sme identifikovali silné stránky aj príležitosti na zlepšenie.'}</p>
     
-    ${a.humanWrittenIntro ? `
-    <div class="card card-highlight" style="margin-bottom: 30px;">
-      <p style="color: #374151; line-height: 1.8; font-size: 1rem;">${a.humanWrittenIntro}</p>
+    ${a.strengths?.length ? `
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">✅ Vaše silné stránky</h3>
+    <div class="grid-2" style="margin-bottom: 40px;">
+      ${a.strengths.map(str => `
+        <div class="card">
+          <h4 style="color: #166534; font-weight: 700; font-size: 1.1rem; margin-bottom: 12px;">${str.title || str}</h4>
+          ${str.description ? `<p style="color: #64748b; font-size: 0.95rem; line-height: 1.7;">${str.description}</p>` : ''}
+        </div>
+      `).join('')}
     </div>
     ` : ''}
     
-    ${k.topKeywords?.length ? `
-    <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700;">🔍 Top kľúčové slová pre vaše podnikanie</h3>
+    ${a.opportunities?.length ? `
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">🚀 Príležitosti na zlepšenie</h3>
+    <div class="grid-2">
+      ${a.opportunities.map(opp => `
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="color: #FF6B35; font-weight: 700; font-size: 1.1rem;">${opp.title || opp}</h4>
+            ${opp.priority ? `<span class="tag ${opp.priority === 'vysoká' ? 'tag-warning' : 'tag-light'}" style="font-size: 0.75rem;">${opp.priority}</span>` : ''}
+          </div>
+          ${opp.description ? `<p style="color: #64748b; font-size: 0.95rem; line-height: 1.7;">${opp.description}</p>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+  </div>
+</section>
+
+<!-- Page 3: Online Presence -->
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">3</span> Vaša online prítomnosť</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${o.summary || 'Zhodnotenie vašej aktuálnej prítomnosti na webe a sociálnych sieťach.'}</p>
+    
+    <div class="grid-4" style="margin-bottom: 40px;">
+      <div class="stat-box">
+        <div class="stat-icon">${o.website?.exists !== false ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Webstránka</div>
+        <div class="stat-label">${o.website?.quality || (o.website?.exists !== false ? 'priemerná' : 'Chýba')}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Facebook</div>
+        <div class="stat-label">${o.socialMedia?.facebook?.exists ? 'Aktívny' : 'Neaktívny'}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Instagram</div>
+        <div class="stat-label">${o.socialMedia?.instagram?.exists ? 'Aktívny' : 'Neaktívny'}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-icon">${o.paidAds?.detected ? '✅' : '❌'}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Platená reklama</div>
+        <div class="stat-label">${o.paidAds?.detected ? 'Využíva' : 'Nevyužíva'}</div>
+      </div>
+    </div>
+    
+    ${o.website?.strengths?.length || o.website?.weaknesses?.length ? `
+    <div class="grid-2">
+      ${o.website?.strengths?.length ? `
+      <div class="card" style="border-left: 4px solid #22c55e;">
+        <h4 style="color: #166534; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">💪 Čo funguje dobre</h4>
+        <ul style="list-style: none;">
+          ${o.website.strengths.map(s => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #22c55e; font-size: 1.2rem;">✓</span> ${s}</li>`).join('')}
+        </ul>
+      </div>
+      ` : ''}
+      ${o.website?.weaknesses?.length ? `
+      <div class="card" style="border-left: 4px solid #f59e0b;">
+        <h4 style="color: #92400e; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">⚠️ Čo treba zlepšiť</h4>
+        <ul style="list-style: none;">
+          ${o.website.weaknesses.map(w => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #f59e0b; font-size: 1.2rem;">!</span> ${w}</li>`).join('')}
+        </ul>
+      </div>
+      ` : ''}
+    </div>
+    ` : ''}
+    
+    <div class="note-box">
+      <p>📌 Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby</p>
+    </div>
+  </div>
+</section>
+
+<!-- Page 4: SWOT -->
+${a.swot ? `
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">4</span> SWOT Analýza</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Strategická analýza silných a slabých stránok, príležitostí a hrozieb pre vaše podnikanie.</p>
+    
+    <div class="swot-grid">
+      <div class="swot-box swot-strengths">
+        <h4>💪 Silné stránky</h4>
+        <ul>${a.swot.strengths?.map(s => `<li>${s}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+      <div class="swot-box swot-weaknesses">
+        <h4>⚠️ Slabé stránky</h4>
+        <ul>${a.swot.weaknesses?.map(w => `<li>${w}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+      <div class="swot-box swot-opportunities">
+        <h4>🚀 Príležitosti</h4>
+        <ul>${a.swot.opportunities?.map(o => `<li>${o}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+      <div class="swot-box swot-threats">
+        <h4>⚡ Hrozby</h4>
+        <ul>${a.swot.threats?.map(t => `<li>${t}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
+      </div>
+    </div>
+  </div>
+</section>
+` : ''}
+
+<!-- Page 5: Keywords -->
+${k.topKeywords?.length ? `
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">5</span> Kľúčové slová</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${k.summary || 'Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top 10:'}</p>
+    
     <table class="data-table">
       <thead>
         <tr>
           <th>Kľúčové slovo</th>
-          <th style="text-align: center;">Hľadanosť/mes.</th>
+          <th style="text-align: center;">Mesačná hľadanosť</th>
           <th style="text-align: center;">Konkurencia</th>
-          <th style="text-align: right;">CPC</th>
+          <th style="text-align: right;">Cena za klik</th>
         </tr>
       </thead>
       <tbody>
-        ${k.topKeywords.slice(0, 7).map(kw => `
+        ${k.topKeywords.slice(0, 10).map(kw => `
           <tr>
-            <td><strong>${kw.keyword}</strong></td>
-            <td style="text-align: center;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString() : kw.searchVolume}</td>
+            <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
+            <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString() : kw.searchVolume}</td>
             <td style="text-align: center;"><span class="tag ${kw.competition === 'nízka' ? 'tag-success' : kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light'}">${kw.competition}</span></td>
             <td style="text-align: right; font-weight: 700; color: #FF6B35;">${kw.cpc}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
-    <p style="margin-top: 15px; font-size: 0.85rem; color: #94a3b8;">📌 Máme pripravených ďalších <strong>${Math.max((k.totalFound || 50) - 7, 30)}+</strong> kľúčových slov. Kompletný zoznam po objednaní.</p>
-    ` : ''}
+    
+    <div class="note-box">
+      <p>📌 Máme pripravených ďalších <strong>${Math.max((k.totalFound || k.topKeywords?.length || 10) - 10, 30)}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>
+    </div>
   </div>
 </section>
+` : ''}
 
-<!-- PAGE 4: Stratégia + Ukážky reklám -->
-<section class="page page-white">
+<!-- Page 6: Strategy -->
+<section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">3</span> Navrhovaná stratégia</h2>
+    <h2 class="section-title"><span class="section-badge">6</span> Navrhovaná stratégia</h2>
     <div class="section-divider"></div>
     
-    <div class="grid-2" style="margin-bottom: 30px;">
+    <div class="grid-2" style="margin-bottom: 35px;">
       <div class="card">
         <h4 class="card-title">📱 Odporúčané platformy</h4>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-gradient">${p}</span>`).join('')}
         </div>
       </div>
       <div class="card">
-        <h4 class="card-title">🎯 Cieľ kampane</h4>
-        <p style="color: #64748b; font-size: 0.95rem;">${s.primaryGoal || 'Generovanie kvalifikovaných dopytov a zvýšenie povedomia'}</p>
+        <h4 class="card-title">🎯 Hlavný cieľ</h4>
+        <p style="color: #64748b; font-size: 1.05rem; line-height: 1.7;">${s.primaryGoal || 'Generovanie kvalifikovaných dopytov a zvýšenie povedomia o značke'}</p>
       </div>
     </div>
     
-    ${camp.google || camp.meta ? `
-    <h3 style="margin: 30px 0 20px; font-size: 1.1rem; font-weight: 700;">📝 Ukážky reklám</h3>
-    <div class="grid-2">
-      ${camp.google?.searchCampaign ? `
-      <div class="ad-preview google-ad">
-        <div class="ad-preview-header">GOOGLE ADS</div>
-        <div class="ad-preview-content">
-          <div class="ad-label">Ad</div>
-          <div class="ad-title">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines?.[0] || 'Headline reklamy'}</div>
-          <div class="ad-url">· www.${lead.domain || 'example.sk'}</div>
-          <div class="ad-desc">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions?.[0] || 'Popis reklamy'}</div>
+    ${s.targetAudience ? `
+    <div class="card">
+      <h4 class="card-title">👥 Cieľová skupina</h4>
+      <div class="grid-3">
+        <div>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Demografia</p>
+          <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.demographics || 'Bude upresnené'}</p>
+        </div>
+        <div>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Záujmy</p>
+          <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.interests?.join(', ') || 'Bude upresnené'}</p>
+        </div>
+        <div>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Správanie</p>
+          <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.behaviors?.join(', ') || 'Bude upresnené'}</p>
         </div>
       </div>
-      ` : ''}
-      ${camp.meta?.campaign ? `
-      <div class="ad-preview meta-ad">
-        <div class="ad-preview-header">META (FB/IG)</div>
-        <div class="ad-preview-content">
-          <div class="ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText?.substring(0, 100) || 'Text reklamy'}...</div>
-          <div class="ad-headline">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || 'Headline'}</div>
-        </div>
-      </div>
-      ` : ''}
     </div>
     ` : ''}
   </div>
 </section>
 
-<!-- PAGE 5: Budget + ROI -->
+<!-- Page 7: Ad Examples -->
+${camp.google || camp.meta ? `
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">7</span> Návrhy reklám</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám.</p>
+    
+    <div class="grid-2">
+      ${camp.google?.searchCampaign ? `
+      <div>
+        <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700; color: #1a1a2e;">🔍 Google Ads - Vyhľadávanie</h3>
+        <div class="ad-preview google-ad">
+          <div class="ad-preview-header">NÁHĽAD REKLAMY VO VYHĽADÁVANÍ</div>
+          <div class="ad-preview-content">
+            <div class="ad-label">Ad</div>
+            <div class="ad-title">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines?.[0] || 'Headline reklamy'}</div>
+            <div class="ad-url">· www.${lead.domain || 'example.sk'}</div>
+            <div class="ad-desc">${camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions?.[0] || 'Popis reklamy'}</div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+              <p style="font-size: 0.8rem; color: #94a3b8;"><strong>Keywords:</strong> ${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 3).join(', ') || 'kľúčové slová'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      ` : ''}
+      
+      ${camp.meta?.campaign ? `
+      <div>
+        <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700; color: #1a1a2e;">📘 Facebook / Instagram</h3>
+        <div class="ad-preview meta-ad">
+          <div class="ad-preview-header">NÁHĽAD REKLAMY</div>
+          <div class="ad-preview-content">
+            <div class="ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Text reklamy'}</div>
+            <div class="ad-headline">${camp.meta.campaign.adSets?.[0]?.adCopy?.headline || 'Headline'}</div>
+            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">${camp.meta.campaign.adSets?.[0]?.adCopy?.description || ''}</p>
+            <span class="meta-ad .ad-cta">${camp.meta.campaign.adSets?.[0]?.adCopy?.cta || 'Zistiť viac'}</span>
+          </div>
+        </div>
+      </div>
+      ` : ''}
+    </div>
+    
+    <div class="note-box">
+      <p>📌 Toto sú ukážkové reklamy. Finálne verzie vrátane profesionálnych vizuálov vytvoríme na mieru po objednaní.</p>
+    </div>
+  </div>
+</section>
+` : ''}
+
+<!-- Page 8: Budget -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">4</span> Rozpočet & návratnosť</h2>
+    <h2 class="section-title"><span class="section-badge">8</span> Odporúčaný rozpočet na reklamu</h2>
     <div class="section-divider"></div>
+    <p class="section-subtitle">${b.analysis || 'Na základe analýzy kľúčových slov a konkurencie odhadujeme optimálny rozpočet pre vaše kampane.'}</p>
     
-    <div class="grid-3" style="margin-bottom: 30px;">
+    <div class="grid-3">
       <div class="budget-card">
         <div class="budget-label">Štart</div>
         <div class="budget-value">${b.recommendations?.starter?.adSpend || 350}€</div>
-        <div class="budget-period">mesačne</div>
+        <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Dopyty</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedLeads || '12-18'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedClicks || 420}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.starter?.expectedLeads || '12-18'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.starter?.cpa || '19-29€'}</span></div>
         </div>
       </div>
-      <div class="budget-card featured">
-        <div class="budget-label">⭐ Odporúčané</div>
+      
+      <div class="budget-card featured" style="position: relative;">
+        <div class="budget-label">Optimum</div>
         <div class="budget-value">${b.recommendations?.recommended?.adSpend || 600}€</div>
-        <div class="budget-period">mesačne</div>
+        <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Dopyty</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedLeads || '22-32'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedClicks || 720}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.recommended?.expectedLeads || '22-32'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.recommended?.cpa || '18-27€'}</span></div>
         </div>
       </div>
+      
       <div class="budget-card">
-        <div class="budget-label">Agresívny</div>
+        <div class="budget-label">Agresívny rast</div>
         <div class="budget-value">${b.recommendations?.aggressive?.adSpend || 1000}€</div>
-        <div class="budget-period">mesačne</div>
+        <div class="budget-period">mesačne na reklamu</div>
         <div class="budget-stats">
-          <div class="budget-stat"><span class="budget-stat-label">Dopyty</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedLeads || '36-54'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané kliky</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedClicks || 1200}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Očakávané dopyty</span><span class="budget-stat-value">~${b.recommendations?.aggressive?.expectedLeads || '36-54'}</span></div>
+          <div class="budget-stat"><span class="budget-stat-label">Cena za dopyt</span><span class="budget-stat-value">${b.recommendations?.aggressive?.cpa || '17-26€'}</span></div>
         </div>
       </div>
     </div>
     
-    ${r.projection ? `
-    <div class="card" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #bbf7d0;">
-      <h4 style="margin-bottom: 20px; font-weight: 700; color: #166534;">📈 Predpokladaná návratnosť (ROI)</h4>
-      <div class="grid-3" style="text-align: center;">
-        <div>
-          <p style="font-size: 2rem; font-weight: 800; color: #166534;">${r.projection.monthlyLeads}</p>
-          <p style="font-size: 0.85rem; color: #166534;">Mesačných dopytov</p>
-        </div>
-        <div>
-          <p style="font-size: 2rem; font-weight: 800; color: #166534;">${r.projection.monthlyRevenue}</p>
-          <p style="font-size: 0.85rem; color: #166534;">Potenciálny obrat</p>
-        </div>
-        <div>
-          <p style="font-size: 2rem; font-weight: 800; color: #166534;">${r.projection.roi}</p>
-          <p style="font-size: 0.85rem; color: #166534;">ROI</p>
-        </div>
-      </div>
+    <div class="info-box">
+      <p>💡 <strong>Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
     </div>
-    ` : ''}
-    
-    <p style="margin-top: 20px; font-size: 0.85rem; color: #64748b;">💡 Reklamný rozpočet platíte priamo Google/Meta. Nie je súčasťou ceny za správu.</p>
   </div>
 </section>
 
-<!-- PAGE 6: Balíčky + CTA -->
+<!-- Page 9: ROI -->
+${r.projection ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">5</span> Naše balíčky</h2>
+    <h2 class="section-title"><span class="section-badge">9</span> Predpokladaná návratnosť (ROI)</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">Na základe analýzy odporúčame balíček <strong style="color: #FF6B35;">${analysis.recommendedPackage || 'Pro'}</strong></p>
+    <p class="section-subtitle">${r.explanation || 'Na základe odhadov návštevnosti, konverzného pomeru a priemernej hodnoty objednávky sme vypočítali potenciálnu návratnosť vašej investície.'}</p>
     
     <div class="grid-3" style="margin-bottom: 40px;">
-      <div class="package-card ${recPkg === 'starter' ? 'featured' : ''}">
-        <div class="package-name">Starter</div>
-        <div class="package-price">149€</div>
-        <div class="package-period">/mesiac</div>
-        <ul class="package-features">
-          <li>1 platforma (Google alebo Meta)</li>
-          <li>Základná optimalizácia</li>
-          <li>Mesačný report</li>
-        </ul>
+      <div class="stat-box">
+        <div class="stat-value">${r.projection.monthlyLeads}</div>
+        <div class="stat-label">Mesačných dopytov</div>
       </div>
-      <div class="package-card ${recPkg === 'pro' ? 'featured' : ''}">
-        <div class="package-name">Pro</div>
-        <div class="package-price">249€</div>
-        <div class="package-period">/mesiac</div>
-        <ul class="package-features">
-          <li>2 platformy</li>
-          <li>A/B testovanie</li>
-          <li>Remarketing</li>
-          <li>Týždenný report</li>
-        </ul>
+      <div class="stat-box">
+        <div class="stat-value">${r.projection.monthlyRevenue}</div>
+        <div class="stat-label">Potenciálny mesačný obrat</div>
       </div>
-      <div class="package-card ${recPkg === 'enterprise' ? 'featured' : ''}">
-        <div class="package-name">Enterprise</div>
-        <div class="package-price">399€</div>
-        <div class="package-period">/mesiac</div>
-        <ul class="package-features">
-          <li>Všetky platformy</li>
-          <li>Landing pages</li>
-          <li>Dedikovaný manažér</li>
-          <li>Priority podpora</li>
-        </ul>
+      <div class="stat-box">
+        <div class="stat-value">${r.projection.roi}</div>
+        <div class="stat-label">Návratnosť investície</div>
       </div>
     </div>
     
-    <div class="cta-section" style="padding: 40px;">
-      <h2 class="cta-title" style="font-size: 1.8rem;">Začnime spoluprácu 🚀</h2>
-      <p class="cta-subtitle" style="font-size: 1rem;">Dohodnite si nezáväznú konzultáciu</p>
+    <div class="card">
+      <h4 class="card-title">📊 Predpoklady výpočtu</h4>
+      <div class="grid-3">
+        <div style="text-align: center; padding: 25px;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Priemerná hodnota objednávky</p>
+          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.averageOrderValue || 'N/A'}€</p>
+        </div>
+        <div style="text-align: center; padding: 25px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Konverzný pomer</p>
+          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.conversionRate || 'N/A'}</p>
+        </div>
+        <div style="text-align: center; padding: 25px;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Hodnota zákazníka (LTV)</p>
+          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.customerLifetimeValue || 'N/A'}€</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+` : ''}
+
+<!-- Page 10: Timeline -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">10</span> Časový plán</h2>
+    <div class="section-divider"></div>
+    
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <div class="timeline-title">Týždeň 1</div>
+          <div class="timeline-desc">${timeline.week1 || 'Nastavenie Google Ads a LinkedIn kampaní, tracking, SEO audit a optimalizácia'}</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <div class="timeline-title">Týždeň 2</div>
+          <div class="timeline-desc">${timeline.week2 || 'Spustenie search kampaní, prvé A/B testy ad copy'}</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <div class="timeline-title">Týždeň 3-4</div>
+          <div class="timeline-desc">${timeline.week3_4 || 'Optimalizácia na základe dát, rozšírenie keyword listu'}</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <div class="timeline-title">Mesiac 2</div>
+          <div class="timeline-desc">${timeline.month2 || 'LinkedIn kampane, remarketing, landing page optimalizácia'}</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <div class="timeline-title">Mesiac 3+</div>
+          <div class="timeline-desc">${timeline.month3 || 'Škálovanie výkonných kampaní, mesačný report, strategické odporúčania'}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Page 11: Benefits -->
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">11</span> Čo vám spolupráca prinesie</h2>
+    <div class="section-divider"></div>
+    
+    <div class="grid-2">
+      <div class="benefit-card">
+        <div class="benefit-icon">🎯</div>
+        <div class="benefit-title">Zákazníci s urgentnou potrebou</div>
+        <div class="benefit-desc">Oslovíte ľudí, ktorí PRÁVE TERAZ aktívne hľadajú vaše služby alebo produkty. Žiadne čakanie - okamžité výsledky.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📊</div>
+        <div class="benefit-title">100% merateľné výsledky</div>
+        <div class="benefit-desc">Presne viete, koľko ľudí videlo reklamu, kliklo, zavolalo alebo vyplnilo formulár. Každé euro je merateľné.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🏆</div>
+        <div class="benefit-title">Konkurenčná výhoda</div>
+        <div class="benefit-desc">Zatiaľ čo vaša konkurencia čaká na zákazníkov, vy ich aktívne oslovujete presne v momente, keď hľadajú riešenie.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">📈</div>
+        <div class="benefit-title">Flexibilita a kontrola</div>
+        <div class="benefit-desc">Rozpočet môžete kedykoľvek navýšiť pred sezónou alebo znížiť. Máte plnú kontrolu nad svojimi investíciami.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Page 12: Packages -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">12</span> Naše balíčky</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Na základe analýzy vám odporúčame balíček <strong style="color: #FF6B35;">${analysis.recommendedPackage || 'Pro'}</strong> pre optimálny pomer ceny a výkonu.</p>
+    
+    <div class="grid-4">
+      <div class="package-card ${recPkg === 'starter' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.starter.icon}</div>
+        <div class="package-name">Starter</div>
+        <div class="package-price">149€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.starter.description}</div>
+        <ul class="package-features">
+          ${this.packages.starter.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Starter balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'starter' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Starter</a>
+      </div>
       
-      <div class="cta-buttons" style="margin: 25px 0;">
+      <div class="package-card ${recPkg === 'pro' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.pro.icon}</div>
+        <div class="package-name">Pro</div>
+        <div class="package-price">249€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.pro.description}</div>
+        <ul class="package-features">
+          ${this.packages.pro.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Pro balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'pro' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Pro</a>
+      </div>
+      
+      <div class="package-card ${recPkg === 'enterprise' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.enterprise.icon}</div>
+        <div class="package-name">Enterprise</div>
+        <div class="package-price">399€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.enterprise.description}</div>
+        <ul class="package-features">
+          ${this.packages.enterprise.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Enterprise balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'enterprise' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Enterprise</a>
+      </div>
+      
+      <div class="package-card ${recPkg === 'premium' ? 'featured' : ''}">
+        <div class="package-icon">${this.packages.premium.icon}</div>
+        <div class="package-name" style="color: #FF6B35;">Premium</div>
+        <div class="package-price">od 799€</div>
+        <div class="package-period">/mesiac</div>
+        <div class="package-desc">${this.packages.premium.description}</div>
+        <ul class="package-features">
+          ${this.packages.premium.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Premium balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'premium' ? 'package-btn-gradient' : 'package-btn-outline'}">Kontaktujte nás</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Page 13: CTA -->
+<section class="page page-white">
+  <div class="page-content">
+    <div class="cta-section">
+      <h2 class="cta-title">Začnime spoluprácu 🚀</h2>
+      <p class="cta-subtitle">Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov cez online reklamu.</p>
+      
+      <div class="cta-buttons">
         <a href="mailto:${this.CONTACT.email}?subject=Mám záujem o spoluprácu - ${c.name || lead.company_name}" class="cta-btn cta-btn-white">✓ Mám záujem</a>
         <a href="mailto:${this.CONTACT.email}?subject=Otázky k ponuke - ${c.name || lead.company_name}" class="cta-btn cta-btn-outline">Mám otázky</a>
       </div>
       
-      <div style="display: flex; justify-content: center; gap: 30px; font-size: 0.9rem;">
-        <span>📧 ${this.CONTACT.email}</span>
-        <span>📞 ${this.CONTACT.phone}</span>
-        <span>🌐 ${this.CONTACT.web}</span>
+      <div class="cta-contact">
+        <p>📧 <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
+        <p>📞 <a href="tel:${this.CONTACT.phone.replace(/\s/g, '')}">${this.CONTACT.phone}</a></p>
+        <p>🌐 <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
       </div>
     </div>
     
     ${analysis.customNote ? `
-    <div class="card card-highlight" style="margin-top: 30px;">
-      <h4 style="margin-bottom: 10px; font-weight: 700;">💬 Osobná poznámka</h4>
-      <p style="color: #64748b; font-style: italic;">${analysis.customNote}</p>
+    <div class="card card-highlight" style="margin-top: 50px;">
+      <h4 style="margin-bottom: 15px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">💬 Osobná poznámka od nás</h4>
+      <p style="color: #64748b; font-style: italic; font-size: 1.05rem; line-height: 1.8;">${analysis.customNote}</p>
     </div>
     ` : ''}
   </div>
 </section>
 
 <!-- Footer -->
-<footer class="footer" style="padding: 30px 60px;">
-  <p style="color: #64748b; font-size: 0.9rem;">© ${new Date().getFullYear()} <strong>Adlify.eu</strong> | Vytvorené pre <strong style="color: #FF6B35;">${c.name || lead.company_name}</strong></p>
+<footer class="footer">
+  <img src="${this.LOGO}" alt="Adlify" class="footer-logo" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;color:#94a3b8;margin-bottom:20px;\\'>ADLIFY</div>'">
+  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ❤️ pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
+  <p style="font-size: 0.85rem; color: #94a3b8;">Táto prezentácia je dôverná a je určená výhradne pre ${c.name || lead.company_name}</p>
 </footer>
 
 </body>
 </html>`;
-  },
+},
 
   // Excel file handlers
   handleFileDrop(event) {
