@@ -27,7 +27,13 @@ const LeadsModule = {
   ANALYZE_URL: 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/analyze-lead',
   
   // Správne logo URL
-  LOGO: 'https://adlify.eu/wp/wp-content/uploads/2025/10/ADLIFY-LOGO.webp',
+  // Logo - ťahá sa z nastavení alebo fallback
+  get LOGO() {
+    return window.App?.settings?.brand_logo_url || 'https://adlify.eu/wp/wp-content/uploads/2025/10/ADLIFY-LOGO.webp';
+  },
+  get LOGO_DARK() {
+    return window.App?.settings?.brand_logo_dark_url || this.LOGO;
+  },
   
   CONTACT: {
     phone: '+421 944 184 045',
