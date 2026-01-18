@@ -2572,11 +2572,144 @@ buildProposalHTML(lead, analysis) {
   const recPkg = (analysis.recommendedPackage || 'pro').toLowerCase();
   const clientLogo = lead.domain ? `https://logo.clearbit.com/${lead.domain}` : null;
   
-  // Helper: Získaj obrázok podľa industry/služieb
+  // Helper: Získaj relevantný obrázok podľa industry/služieb
   const getIndustryImage = (industry, services, width = 800, height = 600) => {
-    // Picsum s seed pre konzistentné obrázky podľa domény
-    const seed = (lead.domain || lead.company_name || 'business').replace(/[^a-z0-9]/gi, '');
-    return 'https://picsum.photos/seed/' + seed + '/' + width + '/' + height;
+    // Predpripravené Unsplash obrázky pre každé odvetvie
+    const industryImages = {
+      // Rastliny, zeleň, kvety
+      'rastlin': 'photo-1459411552884-841db9b3cc2a',
+      'zeleň': 'photo-1459411552884-841db9b3cc2a',
+      'kvet': 'photo-1487530811176-3780de880c2d',
+      'záhrad': 'photo-1416879595882-3373a0480b5b',
+      'florist': 'photo-1487530811176-3780de880c2d',
+      
+      // Stavebníctvo, reality
+      'stavb': 'photo-1504307651254-35680f356dfd',
+      'stav': 'photo-1504307651254-35680f356dfd',
+      'realit': 'photo-1560518883-ce09059eeffa',
+      'nehnut': 'photo-1560518883-ce09059eeffa',
+      'architekt': 'photo-1503387762-592deb58ef4e',
+      
+      // Gastro, jedlo
+      'gastro': 'photo-1517248135467-4c7edcad34c4',
+      'reštau': 'photo-1517248135467-4c7edcad34c4',
+      'jedl': 'photo-1556909114-f6e7ad7d3136',
+      'kaviareň': 'photo-1501339847302-ac426a4a7cbb',
+      'cater': 'photo-1555244162-803834f70033',
+      
+      // IT, technológie
+      'it': 'photo-1518770660439-4636190af475',
+      'soft': 'photo-1461749280684-dccba630e2f6',
+      'web': 'photo-1547658719-da2b51169166',
+      'program': 'photo-1461749280684-dccba630e2f6',
+      'digital': 'photo-1518770660439-4636190af475',
+      
+      // Marketing, reklama
+      'market': 'photo-1533750349088-cd871a92f312',
+      'reklam': 'photo-1533750349088-cd871a92f312',
+      'brand': 'photo-1493612276216-ee3925520721',
+      
+      // Auto, servis
+      'auto': 'photo-1492144534655-ae79c964c9d7',
+      'servis': 'photo-1486262715619-67b85e0b08d3',
+      'pneu': 'photo-1558618666-fcd25c85cd64',
+      'mechanik': 'photo-1486262715619-67b85e0b08d3',
+      
+      // Beauty, wellness
+      'beauty': 'photo-1560066984-138dadb4c035',
+      'kader': 'photo-1560066984-138dadb4c035',
+      'kozmet': 'photo-1596755389378-c31d21fd1273',
+      'salon': 'photo-1560066984-138dadb4c035',
+      'spa': 'photo-1544161515-4ab6ce6db874',
+      'masáž': 'photo-1544161515-4ab6ce6db874',
+      
+      // Zdravie, lekári
+      'zdrav': 'photo-1519494026892-80bbd2d6fd0d',
+      'lekár': 'photo-1579684385127-1ef15d508118',
+      'klinik': 'photo-1519494026892-80bbd2d6fd0d',
+      'zub': 'photo-1588776814546-1ffcf47267a5',
+      'fyzio': 'photo-1571019613454-1cb2f99b2d8b',
+      
+      // Fitness, šport
+      'fitness': 'photo-1534438327276-14e5300c3a48',
+      'šport': 'photo-1534438327276-14e5300c3a48',
+      'gym': 'photo-1534438327276-14e5300c3a48',
+      'tréner': 'photo-1571019613454-1cb2f99b2d8b',
+      
+      // Právne, účtovníctvo
+      'práv': 'photo-1589829545856-d10d557cf95f',
+      'advok': 'photo-1589829545856-d10d557cf95f',
+      'účt': 'photo-1554224155-6726b3ff858f',
+      'dane': 'photo-1554224155-6726b3ff858f',
+      'financ': 'photo-1554224155-6726b3ff858f',
+      
+      // Vzdelávanie
+      'vzdel': 'photo-1503676260728-1c00da094a0b',
+      'škol': 'photo-1503676260728-1c00da094a0b',
+      'kurz': 'photo-1524178232363-1fb2b075b655',
+      'jazyk': 'photo-1546410531-bb4caa6b424d',
+      
+      // Foto, video
+      'foto': 'photo-1542038784456-1ea8e935640e',
+      'video': 'photo-1492691527719-9d1e07e534b4',
+      'produk': 'photo-1492691527719-9d1e07e534b4',
+      
+      // Elektro, inštalatér
+      'elektr': 'photo-1621905251189-08b45d6a269e',
+      'inštal': 'photo-1504328345606-18bbc8c9d7d1',
+      'kúren': 'photo-1504328345606-18bbc8c9d7d1',
+      'klimat': 'photo-1631545806609-3c480b5c0a69',
+      
+      // Upratovanie, čistenie
+      'uprat': 'photo-1581578731548-c64695cc6952',
+      'čist': 'photo-1581578731548-c64695cc6952',
+      'hygien': 'photo-1581578731548-c64695cc6952',
+      
+      // Logistika, doprava
+      'logist': 'photo-1586528116311-ad8dd3c8310d',
+      'doprav': 'photo-1519003722824-194d4455a60c',
+      'sťahov': 'photo-1600518464441-9154a4dea21b',
+      
+      // Bezpečnosť
+      'bezpeč': 'photo-1558002038-1055907df827',
+      'strážn': 'photo-1558002038-1055907df827',
+      'alarm': 'photo-1558002038-1055907df827',
+      
+      // Hotel, turistika
+      'hotel': 'photo-1566073771259-6a8506099945',
+      'turiz': 'photo-1469854523086-cc02fe5d8800',
+      'ubytov': 'photo-1566073771259-6a8506099945',
+      
+      // Eventy, svadby
+      'event': 'photo-1511795409834-ef04bbd61622',
+      'svadob': 'photo-1519741497674-611481863552',
+      'party': 'photo-1511795409834-ef04bbd61622',
+      
+      // E-commerce, obchod
+      'eshop': 'photo-1556742049-0cfed4f6a45d',
+      'obchod': 'photo-1441986300917-64674bd600d8',
+      'predaj': 'photo-1556742049-0cfed4f6a45d',
+      
+      // Výroba, priemysel
+      'výrob': 'photo-1504917595217-d4dc5ebe6122',
+      'priem': 'photo-1504917595217-d4dc5ebe6122',
+      'stroj': 'photo-1565793298595-6a879b1d9492',
+      'kov': 'photo-1504917595217-d4dc5ebe6122'
+    };
+    
+    // Hľadaj match v industry alebo službách
+    const searchText = ((industry || '') + ' ' + (services || []).join(' ')).toLowerCase();
+    let photoId = 'photo-1497366216548-37526070297c'; // Default: moderný office
+    
+    for (const [key, value] of Object.entries(industryImages)) {
+      if (searchText.includes(key)) {
+        photoId = value;
+        break;
+      }
+    }
+    
+    // Unsplash direct URL s resize parametrami
+    return 'https://images.unsplash.com/' + photoId + '?w=' + width + '&h=' + height + '&fit=crop&auto=format&q=80';
   };
   
   // Získaj obrázok pre reklamy
