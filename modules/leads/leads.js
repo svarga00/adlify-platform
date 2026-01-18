@@ -2572,88 +2572,17 @@ buildProposalHTML(lead, analysis) {
   const recPkg = (analysis.recommendedPackage || 'pro').toLowerCase();
   const clientLogo = lead.domain ? `https://logo.clearbit.com/${lead.domain}` : null;
   
-  // Helper: Získaj Unsplash obrázok podľa industry/služieb
-  const getUnsplashImage = (industry, services, width = 800, height = 600) => {
-    const industryKeywords = {
-      'rastlin': 'office-plants,green-interior,botanical',
-      'zeleň': 'plants,nature,green-office',
-      'kvet': 'flowers,florist,botanical',
-      'záhrad': 'garden,landscaping,outdoor',
-      'elektr': 'electrical,technology,industrial',
-      'stavb': 'construction,building,architecture',
-      'stav': 'construction,building,renovation',
-      'gastro': 'restaurant,food,kitchen',
-      'reštau': 'restaurant,dining,food',
-      'jedl': 'food,cooking,catering',
-      'it': 'technology,computer,software',
-      'soft': 'software,technology,digital',
-      'web': 'website,digital,technology',
-      'market': 'marketing,business,creative',
-      'auto': 'automotive,car,vehicle',
-      'servis': 'service,repair,workshop',
-      'beauty': 'beauty,salon,cosmetics',
-      'kader': 'hairdresser,salon,beauty',
-      'kozmet': 'cosmetics,beauty,skincare',
-      'zdrav': 'healthcare,medical,clinic',
-      'lekár': 'medical,doctor,healthcare',
-      'fitness': 'fitness,gym,training',
-      'šport': 'sport,fitness,athletics',
-      'realit': 'real-estate,property,house',
-      'nehnut': 'real-estate,apartment,home',
-      'práv': 'legal,law,office',
-      'advok': 'lawyer,legal,office',
-      'účt': 'accounting,finance,office',
-      'financ': 'finance,banking,business',
-      'vzdel': 'education,learning,school',
-      'škol': 'school,education,classroom',
-      'foto': 'photography,camera,studio',
-      'video': 'video,film,production',
-      'dizajn': 'design,creative,studio',
-      'architekt': 'architecture,design,building',
-      'logist': 'logistics,warehouse,shipping',
-      'doprav': 'transport,truck,logistics',
-      'uprat': 'cleaning,service,office',
-      'čist': 'cleaning,hygiene,service',
-      'klimat': 'hvac,airconditioning,technical',
-      'kúren': 'heating,plumbing,technical',
-      'inštal': 'plumbing,installation,technical',
-      'bezpeč': 'security,protection,safety',
-      'strážn': 'security,guard,protection',
-      'tlač': 'printing,press,paper',
-      'obal': 'packaging,box,shipping',
-      'plast': 'plastic,manufacturing,industry',
-      'kov': 'metal,steel,manufacturing',
-      'stroj': 'machinery,engineering,industrial',
-      'poľnohosp': 'agriculture,farm,rural',
-      'farm': 'farming,agriculture,countryside',
-      'víno': 'wine,vineyard,winery',
-      'pivo': 'beer,brewery,craft',
-      'hotel': 'hotel,hospitality,travel',
-      'turiz': 'tourism,travel,vacation',
-      'event': 'event,party,celebration',
-      'svadob': 'wedding,celebration,event'
-    };
-    
-    const searchText = ((industry || '') + ' ' + (services || []).join(' ')).toLowerCase();
-    let keywords = 'business,professional,office';
-    
-    for (const [key, value] of Object.entries(industryKeywords)) {
-      if (searchText.includes(key)) {
-        keywords = value;
-        break;
-      }
-    }
-    
-    // Unsplash Source API pre konzistentné obrázky
-    const keywordArray = keywords.split(',');
-    const mainKeyword = keywordArray[0].trim();
-    return 'https://source.unsplash.com/' + width + 'x' + height + '/?' + encodeURIComponent(mainKeyword);
+  // Helper: Získaj obrázok podľa industry/služieb
+  const getIndustryImage = (industry, services, width = 800, height = 600) => {
+    // Picsum s seed pre konzistentné obrázky podľa domény
+    const seed = (lead.domain || lead.company_name || 'business').replace(/[^a-z0-9]/gi, '');
+    return 'https://picsum.photos/seed/' + seed + '/' + width + '/' + height;
   };
   
   // Získaj obrázok pre reklamy
-  const adImageUrl = getUnsplashImage(lead.industry, c.services, 800, 600);
-  const storyImageUrl = getUnsplashImage(lead.industry, c.services, 400, 700);
-  const bannerImageUrl = getUnsplashImage(lead.industry, c.services, 600, 400);
+  const adImageUrl = getIndustryImage(lead.industry, c.services, 800, 600);
+  const storyImageUrl = getIndustryImage(lead.industry, c.services, 400, 700);
+  const bannerImageUrl = getIndustryImage(lead.industry, c.services, 600, 400);
 
   return `<!DOCTYPE html>
 <html lang="sk">
