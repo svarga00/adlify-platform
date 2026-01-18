@@ -1,6 +1,6 @@
 // =====================================================
-// ADLIFY - Messages Module v2.0
-// Kompletný Email Client s IMAP/SMTP
+// ADLIFY - Messages Module v2.1
+// Kompletný Email Client s IMAP/SMTP (Netlify Functions)
 // =====================================================
 
 const MessagesModule = {
@@ -197,7 +197,6 @@ const MessagesModule = {
     
     async updateUnreadBadges() {
         try {
-            // Celkový počet neprečítaných
             let query = Database.client
                 .from('emails')
                 .select('id', { count: 'exact', head: true })
@@ -225,7 +224,7 @@ const MessagesModule = {
     },
     
     // ===========================================
-    // SYNC
+    // SYNC - NETLIFY FUNCTION
     // ===========================================
     
     async syncEmails() {
@@ -249,22 +248,23 @@ const MessagesModule = {
                 
                 Utils.toast(`Synchronizujem ${account.email}...`, 'info');
                 
-                // Zavolaj Supabase Edge Function
-                const { data, error } = await Database.client.functions.invoke('email-sync', {
-                    body: {
+                // Zavolaj Netlify Function
+                const response = await fetch('/.netlify/functions/email-sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         accountId: account.id,
                         folder: this.selectedFolder,
                         limit: 100
-                    }
+                    })
                 });
                 
-                if (error) {
-                    console.error('Sync error:', error);
-                    Utils.toast(`${account.email}: Chyba synchronizácie`, 'error');
-                } else if (data?.success) {
-                    Utils.toast(`${account.email}: ${data.new} nových správ`, 'success');
+                const data = await response.json();
+                
+                if (data.success) {
+                    Utils.toast(`${account.email}: ${data.new || 0} nových správ`, 'success');
                 } else {
-                    Utils.toast(`${account.email}: ${data?.error || 'Neznáma chyba'}`, 'error');
+                    Utils.toast(`${account.email}: ${data.error || 'Chyba'}`, 'error');
                 }
             }
             
@@ -275,7 +275,7 @@ const MessagesModule = {
             
         } catch (err) {
             console.error('Sync failed:', err);
-            Utils.toast('Synchronizácia zlyhala', 'error');
+            Utils.toast('Synchronizácia zlyhala: ' + err.message, 'error');
         } finally {
             this.isSyncing = false;
             if (syncBtn) {
@@ -356,7 +356,7 @@ const MessagesModule = {
                             </span>
                         </div>
                     `).join('')}
-                    ${this.accounts.length === 0 ? '<p class="no-accounts">Žiadne schránky.<br><a href="#" onclick="App.navigate(\'settings\')">Nastaviť</a></p>' : ''}
+                    ${this.accounts.length === 0 ? '<p class="no-accounts">Žiadne schránky.<br><a href="#" onclick="Router.navigate(\'settings\')">Nastaviť</a></p>' : ''}
                 </div>
             </div>
         `;
@@ -756,6 +756,10 @@ const MessagesModule = {
         document.querySelector('select[name="signature"]').value = '';
     },
     
+    // ===========================================
+    // SEND EMAIL - NETLIFY FUNCTION
+    // ===========================================
+    
     async sendEmail(e) {
         e.preventDefault();
         
@@ -770,9 +774,11 @@ const MessagesModule = {
             const htmlBody = this.quillEditor?.root.innerHTML || '';
             const textBody = this.quillEditor?.getText() || '';
             
-            // Zavolaj Edge Function
-            const { data, error } = await Database.client.functions.invoke('send-email', {
-                body: {
+            // Zavolaj Netlify Function
+            const response = await fetch('/.netlify/functions/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     accountId: formData.get('accountId'),
                     to: formData.get('to'),
                     cc: formData.get('cc') || undefined,
@@ -780,12 +786,12 @@ const MessagesModule = {
                     htmlBody: htmlBody,
                     textBody: textBody,
                     inReplyToId: formData.get('inReplyToId') || undefined
-                }
+                })
             });
             
-            if (error) throw error;
+            const data = await response.json();
             
-            if (data?.success) {
+            if (data.success) {
                 Utils.toast('Email odoslaný! ✅', 'success');
                 this.closeDetail();
                 
@@ -794,7 +800,7 @@ const MessagesModule = {
                     await this.loadEmails();
                 }
             } else {
-                throw new Error(data?.error || 'Odoslanie zlyhalo');
+                throw new Error(data.error || 'Odoslanie zlyhalo');
             }
             
         } catch (err) {
@@ -954,12 +960,12 @@ const MessagesModule = {
         .messages-module { display: flex; flex-direction: column; height: calc(100vh - 80px); background: #f8fafc; }
         
         /* Header */
-        .messages-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: white; border-bottom: 1px solid #e2e8f0; }
+        .messages-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: white; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; gap: 12px; }
         .messages-header h1 { font-size: 24px; font-weight: 700; margin: 0; }
-        .messages-header-left, .messages-header-right { display: flex; align-items: center; gap: 12px; }
+        .messages-header-left, .messages-header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         
         .search-box { position: relative; }
-        .search-box input { width: 250px; padding: 8px 12px 8px 36px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+        .search-box input { width: 200px; padding: 8px 12px 8px 36px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
         .search-box .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; }
         
         .account-filter { padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; background: white; }
@@ -1008,7 +1014,7 @@ const MessagesModule = {
         /* Email List */
         .messages-list { background: white; overflow-y: auto; display: flex; flex-direction: column; }
         
-        .email-list-toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #fafafa; }
+        .email-list-toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #fafafa; flex-wrap: wrap; }
         .select-all { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; cursor: pointer; }
         .toolbar-actions { display: flex; gap: 4px; }
         .email-count { margin-left: auto; font-size: 13px; color: #94a3b8; }
@@ -1023,14 +1029,14 @@ const MessagesModule = {
         
         .email-row-checkbox { flex-shrink: 0; }
         .email-row-star { flex-shrink: 0; cursor: pointer; font-size: 16px; }
-        .email-row-sender { width: 180px; flex-shrink: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .email-row-content { flex: 1; min-width: 0; display: flex; align-items: baseline; }
+        .email-row-sender { width: 150px; flex-shrink: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .email-row-content { flex: 1; min-width: 0; display: flex; align-items: baseline; overflow: hidden; }
         .email-subject { font-size: 14px; white-space: nowrap; }
         .email-snippet { font-size: 13px; color: #94a3b8; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .email-row-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
         .attachment-icon { font-size: 14px; }
         .account-badge { width: 20px; height: 20px; border-radius: 50%; background: #e2e8f0; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
-        .email-date { font-size: 12px; color: #94a3b8; }
+        .email-date { font-size: 12px; color: #94a3b8; white-space: nowrap; }
         
         /* Detail Panel */
         .messages-detail { background: white; border-left: 1px solid #e2e8f0; overflow-y: auto; display: flex; flex-direction: column; }
@@ -1041,12 +1047,12 @@ const MessagesModule = {
         .email-detail { display: flex; flex-direction: column; height: 100%; }
         .email-detail-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #fafafa; }
         .back-btn { display: none; }
-        .detail-actions { display: flex; gap: 8px; }
+        .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         
         .email-detail-content { flex: 1; padding: 20px; overflow-y: auto; }
         .detail-subject { font-size: 20px; font-weight: 600; margin-bottom: 16px; line-height: 1.3; }
         
-        .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+        .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
         .detail-from { display: flex; gap: 12px; }
         .avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #f97316, #ea580c); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; flex-shrink: 0; }
         .from-info { }
@@ -1065,8 +1071,8 @@ const MessagesModule = {
         .attachment-list { display: flex; flex-wrap: wrap; gap: 8px; }
         .attachment-chip { display: inline-block; padding: 6px 12px; background: #f1f5f9; border-radius: 16px; font-size: 12px; }
         
-        .detail-body { font-size: 14px; line-height: 1.6; color: #334155; }
-        .detail-body img { max-width: 100%; }
+        .detail-body { font-size: 14px; line-height: 1.6; color: #334155; word-wrap: break-word; overflow-wrap: break-word; }
+        .detail-body img { max-width: 100%; height: auto; }
         .detail-body blockquote { border-left: 3px solid #e2e8f0; padding-left: 12px; margin-left: 0; color: #64748b; }
         
         /* Compose */
@@ -1077,16 +1083,16 @@ const MessagesModule = {
         .compose-form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
         .compose-field { display: flex; align-items: center; padding: 8px 16px; border-bottom: 1px solid #f1f5f9; }
         .compose-field label { width: 60px; font-size: 13px; color: #64748b; flex-shrink: 0; }
-        .compose-input, .compose-select { flex: 1; border: none; outline: none; font-size: 14px; padding: 6px; }
+        .compose-input, .compose-select { flex: 1; border: none; outline: none; font-size: 14px; padding: 6px; min-width: 0; }
         .compose-select { background: transparent; }
         
         .compose-editor-container { flex: 1; display: flex; flex-direction: column; min-height: 200px; }
         #compose-editor { flex: 1; }
         #compose-editor .ql-container { border: none; font-size: 14px; }
         #compose-editor .ql-editor { min-height: 150px; }
-        #compose-editor .ql-toolbar { border: none; border-bottom: 1px solid #e2e8f0; }
+        #compose-editor .ql-toolbar { border: none; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
         
-        .compose-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #fafafa; }
+        .compose-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #fafafa; flex-wrap: wrap; gap: 12px; }
         .compose-footer-left, .compose-footer-right { display: flex; gap: 8px; }
         .signature-picker { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; }
         
@@ -1120,12 +1126,22 @@ const MessagesModule = {
         
         /* Mobile */
         @media (max-width: 1024px) {
-            .messages-layout { grid-template-columns: 1fr; }
-            .messages-layout.detail-open { grid-template-columns: 1fr; }
+            .messages-layout { grid-template-columns: 1fr !important; }
             .messages-layout.detail-open .messages-sidebar,
             .messages-layout.detail-open .messages-list { display: none; }
             .messages-sidebar { display: none; }
-            .back-btn { display: flex; }
+            .back-btn { display: flex !important; }
+            .email-row-sender { width: 120px; }
+        }
+        
+        @media (max-width: 768px) {
+            .messages-header { padding: 12px 16px; }
+            .messages-header h1 { font-size: 20px; }
+            .search-box input { width: 150px; }
+            .email-row { padding: 10px 12px; gap: 8px; }
+            .email-row-sender { width: 100px; }
+            .detail-actions { gap: 4px; }
+            .detail-actions .btn-secondary { padding: 6px 10px; font-size: 12px; }
         }
         </style>`;
     }
