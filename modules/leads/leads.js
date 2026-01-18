@@ -4798,6 +4798,11 @@ ${analysis.customNote ? `
         issues.push(`${imgCount - imgAltCount} obrázkov bez alt textu`);
       }
       
+      // ============================================
+      // DETEKCIA PLATENEJ REKLAMY
+      // ============================================
+      const adsDetection = this.detectPaidAds(html, domain);
+      
       return {
         available: true,
         loadTime: loadTime,
@@ -4806,13 +4811,142 @@ ${analysis.customNote ? `
         hasMetaDesc: html.includes('meta name="description"'),
         hasH1: html.includes('<h1'),
         issues: issues,
-        pageSize: Math.round(html.length / 1024) + ' KB'
+        pageSize: Math.round(html.length / 1024) + ' KB',
+        // NOVÉ: Detekcia reklám
+        paidAds: adsDetection
       };
       
     } catch (error) {
       console.warn('Web analysis failed:', error);
       return { available: false, error: error.message };
     }
+  },
+
+  /**
+   * Detekcia platenej reklamy na základe tracking kódov
+   */
+  detectPaidAds(html, domain) {
+    const result = {
+      detected: false,
+      google: { detected: false, signals: [] },
+      facebook: { detected: false, signals: [] },
+      other: { detected: false, signals: [] }
+    };
+    
+    // ============================================
+    // GOOGLE ADS DETEKCIA
+    // ============================================
+    
+    // Google Ads Conversion Tracking
+    if (html.includes('googleadservices.com')) {
+      result.google.detected = true;
+      result.google.signals.push('Google Ads Conversion Tracking');
+    }
+    
+    // Google Ads Remarketing
+    if (html.includes('googlesyndication.com') || html.includes('doubleclick.net')) {
+      result.google.detected = true;
+      result.google.signals.push('Google Remarketing/Display');
+    }
+    
+    // Google Ads gtag s AW- ID
+    const awMatch = html.match(/AW-\d+/g);
+    if (awMatch) {
+      result.google.detected = true;
+      result.google.signals.push(`Google Ads ID: ${awMatch[0]}`);
+    }
+    
+    // gtag config pre ads
+    if (html.includes("gtag('config', 'AW-") || html.includes('gtag("config", "AW-')) {
+      result.google.detected = true;
+      result.google.signals.push('Google Ads gtag konfigurácia');
+    }
+    
+    // Google conversion linker
+    if (html.includes('conversion_linker') || html.includes('google_conversion')) {
+      result.google.detected = true;
+      result.google.signals.push('Google Conversion Linker');
+    }
+    
+    // ============================================
+    // FACEBOOK/META ADS DETEKCIA
+    // ============================================
+    
+    // Facebook Pixel
+    if (html.includes('fbq(') || html.includes('facebook.com/tr')) {
+      result.facebook.detected = true;
+      result.facebook.signals.push('Facebook Pixel');
+    }
+    
+    // Facebook Pixel ID
+    const fbPixelMatch = html.match(/fbq\s*\(\s*['"]init['"]\s*,\s*['"](\d+)['"]/);
+    if (fbPixelMatch) {
+      result.facebook.detected = true;
+      result.facebook.signals.push(`Facebook Pixel ID: ${fbPixelMatch[1]}`);
+    }
+    
+    // Meta Pixel (nový názov)
+    if (html.includes('connect.facebook.net') && html.includes('fbevents.js')) {
+      result.facebook.detected = true;
+      result.facebook.signals.push('Meta Pixel script');
+    }
+    
+    // Facebook conversion API
+    if (html.includes('facebook.com/tr?')) {
+      result.facebook.detected = true;
+      result.facebook.signals.push('Facebook Tracking Pixel');
+    }
+    
+    // ============================================
+    // INÉ PLATFORMY
+    // ============================================
+    
+    // LinkedIn Insight Tag
+    if (html.includes('snap.licdn.com') || html.includes('linkedin.com/px')) {
+      result.other.detected = true;
+      result.other.signals.push('LinkedIn Insight Tag');
+    }
+    
+    // TikTok Pixel
+    if (html.includes('analytics.tiktok.com') || html.includes('tiktok.com/i18n')) {
+      result.other.detected = true;
+      result.other.signals.push('TikTok Pixel');
+    }
+    
+    // Microsoft/Bing Ads
+    if (html.includes('bat.bing.com') || html.includes('UET tag')) {
+      result.other.detected = true;
+      result.other.signals.push('Microsoft/Bing Ads');
+    }
+    
+    // Sklik (Seznam)
+    if (html.includes('c.imedia.cz') || html.includes('sklik')) {
+      result.other.detected = true;
+      result.other.signals.push('Sklik (Seznam.cz)');
+    }
+    
+    // ============================================
+    // SÚHRN
+    // ============================================
+    result.detected = result.google.detected || result.facebook.detected || result.other.detected;
+    
+    // Vytvor prehľadný súhrn
+    const allSignals = [
+      ...result.google.signals,
+      ...result.facebook.signals,
+      ...result.other.signals
+    ];
+    
+    result.summary = result.detected 
+      ? `Detekované: ${allSignals.join(', ')}`
+      : 'Žiadne reklamné pixely neboli detekované';
+    
+    result.platforms = [];
+    if (result.google.detected) result.platforms.push('Google Ads');
+    if (result.facebook.detected) result.platforms.push('Facebook/Instagram Ads');
+    if (result.other.detected) result.platforms.push(...result.other.signals.map(s => s.split(' ')[0]));
+    
+    return result;
   },
 
   /**
@@ -4903,6 +5037,19 @@ ${analysis.customNote ? `
           ...webAnalysis.issues
         ];
       }
+      
+      // NOVÉ: Pridať detekciu platenej reklamy
+      if (webAnalysis.paidAds) {
+        enriched.onlinePresence.paidAds = {
+          detected: webAnalysis.paidAds.detected,
+          google: webAnalysis.paidAds.google,
+          facebook: webAnalysis.paidAds.facebook,
+          other: webAnalysis.paidAds.other,
+          platforms: webAnalysis.paidAds.platforms || [],
+          summary: webAnalysis.paidAds.summary,
+          source: 'web_analysis'
+        };
+      }
     }
     
     // 5. Označiť že analýza obsahuje reálne dáta
@@ -4910,8 +5057,9 @@ ${analysis.customNote ? `
       hasRealKeywords: realKeywords && realKeywords.length > 0,
       hasRealDomainStats: domainStats && domainStats.visibility > 0,
       hasWebAnalysis: webAnalysis && webAnalysis.available,
+      hasPaidAdsDetection: webAnalysis?.paidAds?.detected !== undefined,
       analyzedAt: new Date().toISOString(),
-      version: '2.3-enriched'
+      version: '2.4-enriched'
     };
     
     return enriched;
