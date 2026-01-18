@@ -3094,8 +3094,10 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   <div class="header-right">
     <div class="header-client">
       <span style="color: #94a3b8; font-size: 0.85rem;">Pripravené pre</span>
-      ${lead.logo_url ? `<img src="${lead.logo_url}" alt="${c.name || lead.company_name}" style="height: 32px; max-width: 120px; object-fit: contain; margin-left: 10px; border-radius: 4px;" onerror="this.style.display='none'">` : (lead.domain ? `<img src="https://www.google.com/s2/favicons?domain=${lead.domain}&sz=128" alt="" style="height: 24px; width: 24px; margin-left: 10px; border-radius: 4px;" onerror="this.style.display='none'">` : '')}
-      <strong style="color: #1a1a2e; font-size: 1rem; margin-left: 8px;">${c.name || lead.company_name}</strong>
+      ${lead.logo_url 
+        ? `<img src="${lead.logo_url}" alt="${c.name || lead.company_name}" style="height: 36px; max-width: 140px; object-fit: contain; margin-left: 10px;" onerror="this.outerHTML='<strong style=\\'color:#1a1a2e;font-size:1rem;margin-left:8px;\\'>${c.name || lead.company_name}</strong>'">`
+        : `${lead.domain ? `<img src="https://www.google.com/s2/favicons?domain=${lead.domain}&sz=128" alt="" style="height: 24px; width: 24px; margin-left: 10px; border-radius: 4px;" onerror="this.style.display='none'">` : ''}<strong style="color: #1a1a2e; font-size: 1rem; margin-left: 8px;">${c.name || lead.company_name}</strong>`
+      }
     </div>
   </div>
 </header>
@@ -3780,7 +3782,7 @@ ${r.projection ? `
 <!-- Footer -->
 <footer class="footer">
   <img src="${this.LOGO}" alt="Adlify" class="footer-logo" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;color:#94a3b8;margin-bottom:20px;\\'>ADLIFY</div>'">
-  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
+  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ❤️ pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
   <p style="font-size: 0.85rem; color: #94a3b8;">Táto prezentácia je dôverná a je určená výhradne pre ${c.name || lead.company_name}</p>
 </footer>
 
