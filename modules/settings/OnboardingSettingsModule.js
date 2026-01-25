@@ -10,7 +10,7 @@
 const OnboardingSettingsModule = {
     id: 'onboarding-settings',
     name: 'Nastavenia onboardingu',
-    icon: Icons.settings,
+    icon: '⚙️',
     title: 'Nastavenia onboardingu',
     subtitle: 'Platformy, balíky a kroky dotazníka',
     
@@ -27,7 +27,7 @@ const OnboardingSettingsModule = {
     },
     
     init() {
-        console.log('Onboarding Settings Module v2.0 initialized');
+        console.log('⚙️ Onboarding Settings Module v2.0 initialized');
     },
     
     // ==========================================
@@ -118,10 +118,10 @@ const OnboardingSettingsModule = {
     
     getDefaultRecommendations() {
         return {
-            local_business: { platforms: ['google_ads', 'meta_ads'], message: 'Pre lokálne služby odporúčame Google Ads + Meta Ads', name: 'Lokálne služby', icon: Icons.store },
-            ecommerce: { platforms: ['google_ads', 'meta_ads'], message: 'Pre e-shop odporúčame Google Ads + Meta Ads', name: 'E-commerce', icon: Icons.shoppingCart },
-            b2b: { platforms: ['google_ads', 'linkedin_ads'], message: 'Pre B2B odporúčame Google Ads + LinkedIn Ads', name: 'B2B', icon: Icons.building },
-            startup: { platforms: ['meta_ads', 'tiktok_ads'], message: 'Pre startup odporúčame Meta Ads + TikTok Ads', name: 'Startup', icon: Icons.rocket }
+            local_business: { platforms: ['google_ads', 'meta_ads'], message: 'Pre lokálne služby odporúčame Google Ads + Meta Ads', name: 'Lokálne služby', icon: '🏪' },
+            ecommerce: { platforms: ['google_ads', 'meta_ads'], message: 'Pre e-shop odporúčame Google Ads + Meta Ads', name: 'E-commerce', icon: '🛒' },
+            b2b: { platforms: ['google_ads', 'linkedin_ads'], message: 'Pre B2B odporúčame Google Ads + LinkedIn Ads', name: 'B2B', icon: '🏢' },
+            startup: { platforms: ['meta_ads', 'tiktok_ads'], message: 'Pre startup odporúčame Meta Ads + TikTok Ads', name: 'Startup', icon: '🚀' }
         };
     },
     
@@ -156,9 +156,9 @@ const OnboardingSettingsModule = {
     
     renderTabs() {
         const tabs = [
-            { id: 'platforms', label: 'Platformy', icon: Icons.smartphone, count: this.state.platforms.length },
-            { id: 'packages', label: 'Limity balíkov', icon: Icons.diamond, count: this.state.packages.length },
-            { id: 'recommendations', label: 'Odporúčania', icon: Icons.target }
+            { id: 'platforms', label: 'Platformy', icon: '📱', count: this.state.platforms.length },
+            { id: 'packages', label: 'Limity balíkov', icon: '💎', count: this.state.packages.length },
+            { id: 'recommendations', label: 'Odporúčania', icon: '🎯' }
         ];
         
         return tabs.map(tab => `
@@ -266,9 +266,9 @@ const OnboardingSettingsModule = {
                 </td>
                 <td class="px-4 py-4 text-right">
                     <button onclick="OnboardingSettingsModule.showPlatformModal('${platform.id}')"
-                        class="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg">${Icons.edit}</button>
+                        class="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg">✏️</button>
                     <button onclick="OnboardingSettingsModule.deletePlatform('${platform.id}')"
-                        class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">${Icons.trash}</button>
+                        class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">🗑️</button>
                 </td>
             </tr>
         `;
@@ -288,13 +288,13 @@ const OnboardingSettingsModule = {
                     </div>
                     <a href="#" onclick="Router?.navigate?.('services')" 
                         class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200">
-                        ${Icons.package} Spravovať balíky →
+                        📦 Spravovať balíky →
                     </a>
                 </div>
                 
                 ${this.state.packages.length === 0 ? `
                     <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                        <span class="text-3xl mb-3 block">${Icons.package}</span>
+                        <span class="text-3xl mb-3 block">📦</span>
                         <h3 class="font-semibold text-amber-800 mb-2">Žiadne balíky</h3>
                         <p class="text-sm text-amber-700">Vytvorte balíky v sekcii "Služby & Balíčky"</p>
                     </div>
@@ -332,10 +332,10 @@ const OnboardingSettingsModule = {
             <tr class="hover:bg-gray-50" data-package-id="${pkg.id}">
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
-                        <span class="text-2xl">${pkg.icon || ''}</span>
+                        <span class="text-2xl">${pkg.icon || '📦'}</span>
                         <div>
                             <p class="font-medium">${pkg.name}</p>
-                            ${pkg.is_featured ? '<span class="text-xs text-orange-600">${Icons.star} Zvýraznený</span>' : ''}
+                            ${pkg.is_featured ? '<span class="text-xs text-orange-600">⭐ Zvýraznený</span>' : ''}
                         </div>
                     </div>
                 </td>
@@ -385,7 +385,7 @@ const OnboardingSettingsModule = {
                 if (error) throw error;
             }
             
-            Utils?.toast?.('Limity uložené!', 'success');
+            Utils?.toast?.('Limity uložené! ✅', 'success');
             await this.loadPackages();
         } catch (error) {
             console.error('Error saving limits:', error);
@@ -399,10 +399,10 @@ const OnboardingSettingsModule = {
     
     renderRecommendationsTab() {
         const clientTypes = [
-            { id: 'local_business', name: 'Lokálne služby', icon: Icons.store },
-            { id: 'ecommerce', name: 'E-commerce', icon: Icons.shoppingCart },
-            { id: 'b2b', name: 'B2B', icon: Icons.building },
-            { id: 'startup', name: 'Startup', icon: Icons.rocket }
+            { id: 'local_business', name: 'Lokálne služby', icon: '🏪' },
+            { id: 'ecommerce', name: 'E-commerce', icon: '🛒' },
+            { id: 'b2b', name: 'B2B', icon: '🏢' },
+            { id: 'startup', name: 'Startup', icon: '🚀' }
         ];
         
         return `
@@ -489,7 +489,7 @@ const OnboardingSettingsModule = {
                 if (error) throw error;
             }
             
-            Utils?.toast?.('Odporúčania uložené!', 'success');
+            Utils?.toast?.('Odporúčania uložené! ✅', 'success');
             await this.loadRecommendations();
         } catch (error) {
             console.error('Error saving recommendations:', error);
@@ -509,7 +509,7 @@ const OnboardingSettingsModule = {
             <div id="platform-settings-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
                     <div class="p-6 border-b flex items-center justify-between">
-                        <h2 class="text-xl font-bold">${isEdit ? 'Upraviť platformu' : '➕ Nová platforma'}</h2>
+                        <h2 class="text-xl font-bold">${isEdit ? '✏️ Upraviť platformu' : '➕ Nová platforma'}</h2>
                         <button onclick="OnboardingSettingsModule.closePlatformModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
                     </div>
                     
@@ -608,7 +608,7 @@ const OnboardingSettingsModule = {
             
             if (error) throw error;
             
-            Utils?.toast?.('Platforma uložená!', 'success');
+            Utils?.toast?.('Platforma uložená! ✅', 'success');
             this.closePlatformModal();
             await this.loadPlatforms();
             this.setActiveTab('platforms');

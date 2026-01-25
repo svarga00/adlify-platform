@@ -5,7 +5,7 @@
 const TeamModule = {
     id: 'team',
     name: 'Tím',
-    icon: Icons.users,
+    icon: '👥',
     title: 'Tím',
     menu: { section: 'settings', order: 20 },
     permissions: [],
@@ -56,7 +56,7 @@ const TeamModule = {
                     <div class="team-tabs">
                         <button class="tab-btn ${this.currentTab === 'members' ? 'active' : ''}" 
                                 onclick="TeamModule.switchTab('members')">
-                            <span class="tab-icon">${Icons.users}</span>
+                            <span class="tab-icon">👥</span>
                             <span class="tab-label">Členovia</span>
                             <span class="tab-count">${this.members.length}</span>
                         </button>
@@ -67,7 +67,7 @@ const TeamModule = {
                         </button>
                         <button class="tab-btn ${this.currentTab === 'activity' ? 'active' : ''}" 
                                 onclick="TeamModule.switchTab('activity')">
-                            <span class="tab-icon">${Icons.clipboard}</span>
+                            <span class="tab-icon">📋</span>
                             <span class="tab-label">Aktivita</span>
                         </button>
                     </div>
@@ -195,7 +195,7 @@ const TeamModule = {
         if (this.members.length === 0) {
             return `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.users}</div>
+                    <div class="empty-icon">👥</div>
                     <h3>Žiadni členovia tímu</h3>
                     <p>Začnite pozvaním prvého člena do vášho tímu</p>
                     <button class="btn-primary" onclick="TeamModule.showInviteModal()">
@@ -293,7 +293,7 @@ const TeamModule = {
                 id: 'owner',
                 name: 'Owner',
                 label: 'Vlastník',
-                icon: Icons.crown,
+                icon: '👑',
                 color: '#f59e0b',
                 bg: '#fef3c7',
                 description: 'Plný prístup ku všetkému, vrátane billing a správy účtu'
@@ -302,7 +302,7 @@ const TeamModule = {
                 id: 'admin',
                 name: 'Admin',
                 label: 'Administrátor',
-                icon: Icons.settings,
+                icon: '⚙️',
                 color: '#8b5cf6',
                 bg: '#f3e8ff',
                 description: 'Plný prístup okrem billing účtu a mazania owner'
@@ -311,7 +311,7 @@ const TeamModule = {
                 id: 'manager',
                 name: 'Manager',
                 label: 'Manažér',
-                icon: Icons.dashboard,
+                icon: '📊',
                 color: '#3b82f6',
                 bg: '#dbeafe',
                 description: 'Správa klientov, projektov a tímu'
@@ -320,7 +320,7 @@ const TeamModule = {
                 id: 'sales',
                 name: 'Sales',
                 label: 'Obchodník',
-                icon: Icons.briefcase,
+                icon: '💼',
                 color: '#10b981',
                 bg: '#d1fae5',
                 description: 'Práca s leadmi a predaj'
@@ -329,7 +329,7 @@ const TeamModule = {
                 id: 'support',
                 name: 'Support',
                 label: 'Podpora',
-                icon: Icons.headphones,
+                icon: '🎧',
                 color: '#6366f1',
                 bg: '#e0e7ff',
                 description: 'Zákaznícka podpora a komunikácia'
@@ -403,16 +403,16 @@ const TeamModule = {
 
     getModuleName(module) {
         const names = {
-            dashboard: 'Dashboard',
-            leads: 'Leady',
-            clients: 'Klienti',
-            projects: 'Projekty',
-            tasks: 'Úlohy',
-            messages: 'Správy',
-            billing: 'Fakturácia',
-            team: 'Tím',
-            settings: 'Nastavenia',
-            integrations: 'Integrácie'
+            dashboard: '📊 Dashboard',
+            leads: '🎯 Leady',
+            clients: '🏢 Klienti',
+            projects: '📁 Projekty',
+            tasks: '✅ Úlohy',
+            messages: '📧 Správy',
+            billing: '📄 Fakturácia',
+            team: '👥 Tím',
+            settings: '⚙️ Nastavenia',
+            integrations: '🔗 Integrácie'
         };
         return names[module] || module;
     },
@@ -421,7 +421,7 @@ const TeamModule = {
         if (this.activityLog.length === 0) {
             return `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.clipboard}</div>
+                    <div class="empty-icon">📋</div>
                     <h3>Žiadna aktivita</h3>
                     <p>História aktivít sa zobrazí tu</p>
                 </div>
@@ -451,11 +451,11 @@ const TeamModule = {
     getActionIcon(action) {
         const icons = {
             create: '➕',
-            update: '',
-            delete: '',
+            update: '✏️',
+            delete: '🗑️',
             login: '🔑',
-            export: '',
-            send: ''
+            export: '📤',
+            send: '📧'
         };
         return icons[action] || '📌';
     },
@@ -484,13 +484,13 @@ const TeamModule = {
 
     getRoleInfo(role) {
         const roles = {
-            owner: { label: 'Vlastník', icon: Icons.crown, color: '#b45309', bg: '#fef3c7', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
-            admin: { label: 'Admin', icon: Icons.settings, color: '#7c3aed', bg: '#f3e8ff', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' },
-            manager: { label: 'Manažér', icon: Icons.dashboard, color: '#2563eb', bg: '#dbeafe', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
-            sales: { label: 'Obchodník', icon: Icons.briefcase, color: '#059669', bg: '#d1fae5', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
-            support: { label: 'Podpora', icon: Icons.headphones, color: '#4f46e5', bg: '#e0e7ff', gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }
+            owner: { label: 'Vlastník', icon: '👑', color: '#b45309', bg: '#fef3c7', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+            admin: { label: 'Admin', icon: '⚙️', color: '#7c3aed', bg: '#f3e8ff', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' },
+            manager: { label: 'Manažér', icon: '📊', color: '#2563eb', bg: '#dbeafe', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
+            sales: { label: 'Obchodník', icon: '💼', color: '#059669', bg: '#d1fae5', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+            support: { label: 'Podpora', icon: '🎧', color: '#4f46e5', bg: '#e0e7ff', gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }
         };
-        return roles[role] || { label: role, icon: Icons.user, color: '#64748b', bg: '#f1f5f9', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)' };
+        return roles[role] || { label: role, icon: '👤', color: '#64748b', bg: '#f1f5f9', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)' };
     },
 
     getStatusInfo(status) {
@@ -574,7 +574,7 @@ const TeamModule = {
                                 <label class="role-option">
                                     <input type="radio" name="role" value="admin">
                                     <div class="role-box">
-                                        <span class="role-icon">${Icons.settings}</span>
+                                        <span class="role-icon">⚙️</span>
                                         <span class="role-name">Admin</span>
                                         <span class="role-desc">Plný prístup</span>
                                     </div>
@@ -582,7 +582,7 @@ const TeamModule = {
                                 <label class="role-option">
                                     <input type="radio" name="role" value="manager">
                                     <div class="role-box">
-                                        <span class="role-icon">${Icons.dashboard}</span>
+                                        <span class="role-icon">📊</span>
                                         <span class="role-name">Manažér</span>
                                         <span class="role-desc">Klienti & Projekty</span>
                                     </div>
@@ -590,7 +590,7 @@ const TeamModule = {
                                 <label class="role-option">
                                     <input type="radio" name="role" value="sales" checked>
                                     <div class="role-box">
-                                        <span class="role-icon">${Icons.briefcase}</span>
+                                        <span class="role-icon">💼</span>
                                         <span class="role-name">Obchodník</span>
                                         <span class="role-desc">Leady & Predaj</span>
                                     </div>
@@ -598,7 +598,7 @@ const TeamModule = {
                                 <label class="role-option">
                                     <input type="radio" name="role" value="support">
                                     <div class="role-box">
-                                        <span class="role-icon">${Icons.headphones}</span>
+                                        <span class="role-icon">🎧</span>
                                         <span class="role-name">Podpora</span>
                                         <span class="role-desc">Komunikácia</span>
                                     </div>
@@ -743,7 +743,7 @@ const TeamModule = {
             <div class="modal" style="max-width: 500px;">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.alertTriangle}</span>
+                        <span class="modal-icon">⚠️</span>
                         <div>
                             <h2>Email sa nepodarilo odoslať</h2>
                             <p class="modal-subtitle">Člen bol vytvorený, pošlite link manuálne</p>
@@ -758,7 +758,7 @@ const TeamModule = {
                                style="flex: 1; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem;">
                         <button onclick="navigator.clipboard.writeText('${inviteUrl}'); Utils.toast('Link skopírovaný!', 'success');" 
                                 class="btn-primary" style="white-space: nowrap;">
-                            ${Icons.clipboard} Kopírovať
+                            📋 Kopírovať
                         </button>
                     </div>
                 </div>
@@ -912,7 +912,7 @@ const TeamModule = {
             <div class="modal team-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.edit}</span>
+                        <span class="modal-icon">✏️</span>
                         <div>
                             <h2>Upraviť člena</h2>
                             <p class="modal-subtitle">${member.first_name} ${member.last_name}</p>
@@ -1776,16 +1776,16 @@ const TeamModule = {
         
         // Definícia modulov a akcií
         const modules = [
-            { id: 'dashboard', name: 'Dashboard', icon: Icons.dashboard },
-            { id: 'leads', name: 'Leady', icon: Icons.target },
-            { id: 'clients', name: 'Klienti', icon: Icons.users },
-            { id: 'projects', name: 'Projekty', icon: Icons.projects },
-            { id: 'messages', name: 'Správy', icon: Icons.messageCircle },
-            { id: 'billing', name: 'Fakturácia', icon: Icons.billing },
-            { id: 'tasks', name: 'Úlohy', icon: Icons.checkCircle },
-            { id: 'team', name: 'Tím', icon: Icons.user },
-            { id: 'settings', name: 'Nastavenia', icon: Icons.settings },
-            { id: 'integrations', name: 'Integrácie', icon: Icons.integrations }
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'leads', name: 'Leady', icon: '🎯' },
+            { id: 'clients', name: 'Klienti', icon: '👥' },
+            { id: 'projects', name: 'Projekty', icon: '📁' },
+            { id: 'messages', name: 'Správy', icon: '💬' },
+            { id: 'billing', name: 'Fakturácia', icon: '💰' },
+            { id: 'tasks', name: 'Úlohy', icon: '✅' },
+            { id: 'team', name: 'Tím', icon: '👤' },
+            { id: 'settings', name: 'Nastavenia', icon: '⚙️' },
+            { id: 'integrations', name: 'Integrácie', icon: '🔌' }
         ];
         
         const actions = [

@@ -6,7 +6,7 @@
 const MessagesModule = {
     id: 'messages',
     name: 'Správy',
-    icon: Icons.mail,
+    icon: '📧',
     title: 'Správy',
     menu: { section: 'main', order: 3 },
     permissions: ['owner', 'admin', 'user'],
@@ -37,10 +37,10 @@ const MessagesModule = {
     
     // Folders
     folders: [
-        { id: 'INBOX', name: 'Doručené', icon: Icons.inbox, color: '#3b82f6' },
-        { id: 'Sent', name: 'Odoslané', icon: Icons.sent, color: '#10b981' },
-        { id: 'Drafts', name: 'Koncepty', icon: Icons.edit, color: '#f59e0b' },
-        { id: 'Trash', name: 'Kôš', icon: Icons.trash, color: '#ef4444' }
+        { id: 'INBOX', name: 'Doručené', icon: '📥', color: '#3b82f6' },
+        { id: 'Sent', name: 'Odoslané', icon: '📤', color: '#10b981' },
+        { id: 'Drafts', name: 'Koncepty', icon: '📝', color: '#f59e0b' },
+        { id: 'Trash', name: 'Kôš', icon: '🗑️', color: '#ef4444' }
     ],
     
     // ===========================================
@@ -378,7 +378,7 @@ const MessagesModule = {
         
         sidebarEl.innerHTML = `
             <div class="sidebar-header">
-                <h2>${Icons.mail} Správy</h2>
+                <h2>📧 Správy</h2>
             </div>
             
             <div class="sidebar-folders">
@@ -444,7 +444,7 @@ const MessagesModule = {
     renderErrorState(message) {
         return `
             <div class="msg-empty">
-                <div class="empty-icon">${Icons.xCircle}</div>
+                <div class="empty-icon">❌</div>
                 <h3>Chyba</h3>
                 <p>${message}</p>
                 <button onclick="MessagesModule.loadEmails()" class="btn-secondary">Skúsiť znova</button>
@@ -459,7 +459,7 @@ const MessagesModule = {
         if (this.emails.length === 0) {
             listEl.innerHTML = `
                 <div class="msg-empty">
-                    <div class="empty-icon">${Icons.emptyInbox}</div>
+                    <div class="empty-icon">📭</div>
                     <h3>Žiadne správy</h3>
                     <p>${this.searchQuery ? 'Žiadne výsledky' : 'Táto zložka je prázdna'}</p>
                     ${!this.searchQuery ? `<button onclick="MessagesModule.syncEmails()" class="btn-secondary">Synchronizovať</button>` : ''}
@@ -547,7 +547,7 @@ const MessagesModule = {
                     <input type="checkbox" class="email-cb" data-id="${email.id}">
                 </div>
                 <div class="email-star" onclick="event.stopPropagation(); MessagesModule.toggleStar('${email.id}')">
-                    ${email.is_starred ? '' : ''}
+                    ${email.is_starred ? '★' : '☆'}
                 </div>
                 <div class="email-avatar" style="background: ${this.brandSettings.brand_gradient}">
                     ${(email.from_name || email.from_address || '?')[0].toUpperCase()}
@@ -560,7 +560,7 @@ const MessagesModule = {
                     <div class="email-subject">${safeSubject}</div>
                     <div class="email-preview">${safeSnippet}</div>
                 </div>
-                ${email.has_attachments ? '<div class="email-attachment">${Icons.attachment}</div>' : ''}
+                ${email.has_attachments ? '<div class="email-attachment">📎</div>' : ''}
             </div>
         `;
     },
@@ -705,7 +705,7 @@ const MessagesModule = {
                             
                             ${attachments.length > 0 ? `
                                 <div class="email-attachments">
-                                    <span class="label">${Icons.attachment} Prílohy:</span>
+                                    <span class="label">📎 Prílohy:</span>
                                     <div class="attachment-chips">
                                         ${attachments.map(a => `<span class="chip">${a.filename}</span>`).join('')}
                                     </div>
@@ -973,7 +973,7 @@ const MessagesModule = {
                                 <div class="forwarded-attachments">
                                     ${attachments.map(a => `
                                         <span class="attachment-chip">
-                                            ${Icons.attachment} ${a.filename}
+                                            📎 ${a.filename}
                                             <small>(${Math.round((a.size || 0) / 1024)}KB)</small>
                                         </span>
                                     `).join('')}
@@ -1121,7 +1121,7 @@ const MessagesModule = {
             const data = await response.json();
             
             if (data.success) {
-                Utils.toast('Email odoslaný!', 'success');
+                Utils.toast('Email odoslaný! ✅', 'success');
                 this.closeComposeModal();
                 
                 if (this.selectedFolder === 'Sent') {

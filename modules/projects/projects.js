@@ -6,7 +6,7 @@
 const CampaignProjectsModule = {
   id: 'projects',
   name: 'Projekty',
-  icon: Icons.projects,
+  icon: '📁',
   title: 'Kampaňové projekty',
   subtitle: 'Správa a workflow kampaní',
   
@@ -21,39 +21,39 @@ const CampaignProjectsModule = {
   
   // Workflow statusy
   STATUSES: {
-    draft: { label: 'Rozpracované', color: 'gray', icon: Icons.edit },
-    generating: { label: 'Generuje AI', color: 'purple', icon: Icons.robot },
-    internal_review: { label: 'Interná kontrola', color: 'yellow', icon: Icons.eye },
-    client_review: { label: 'Čaká na klienta', color: 'blue', icon: Icons.user },
-    revision: { label: 'Revízia', color: 'orange', icon: Icons.edit },
-    approved: { label: 'Schválené', color: 'green', icon: Icons.checkCircle },
-    deploying: { label: 'Nasadzovanie', color: 'indigo', icon: Icons.rocket },
-    active: { label: 'Aktívne', color: 'emerald', icon: Icons.play },
-    paused: { label: 'Pozastavené', color: 'gray', icon: Icons.pause },
-    ended: { label: 'Ukončené', color: 'slate', icon: Icons.stop }
+    draft: { label: 'Rozpracované', color: 'gray', icon: '📝' },
+    generating: { label: 'Generuje AI', color: 'purple', icon: '🤖' },
+    internal_review: { label: 'Interná kontrola', color: 'yellow', icon: '👁️' },
+    client_review: { label: 'Čaká na klienta', color: 'blue', icon: '👤' },
+    revision: { label: 'Revízia', color: 'orange', icon: '✏️' },
+    approved: { label: 'Schválené', color: 'green', icon: '✅' },
+    deploying: { label: 'Nasadzovanie', color: 'indigo', icon: '🚀' },
+    active: { label: 'Aktívne', color: 'emerald', icon: '▶️' },
+    paused: { label: 'Pozastavené', color: 'gray', icon: '⏸️' },
+    ended: { label: 'Ukončené', color: 'slate', icon: '⏹️' }
   },
   
   // Platformy
   PLATFORMS: {
-    google_search: { name: 'Google Search', icon: Icons.search, color: 'blue' },
-    google_display: { name: 'Google Display', icon: Icons.image, color: 'green' },
-    google_shopping: { name: 'Google Shopping', icon: Icons.shoppingCart, color: 'yellow' },
-    google_pmax: { name: 'Performance Max', icon: Icons.zap, color: 'purple' },
-    meta_facebook: { name: 'Facebook', icon: Icons.facebook, color: 'blue' },
-    meta_instagram: { name: 'Instagram', icon: Icons.instagram, color: 'pink' },
-    tiktok: { name: 'TikTok', icon: Icons.tiktok, color: 'slate' },
-    linkedin: { name: 'LinkedIn', icon: Icons.briefcase, color: 'blue' }
+    google_search: { name: 'Google Search', icon: '🔍', color: 'blue' },
+    google_display: { name: 'Google Display', icon: '🖼️', color: 'green' },
+    google_shopping: { name: 'Google Shopping', icon: '🛒', color: 'yellow' },
+    google_pmax: { name: 'Performance Max', icon: '⚡', color: 'purple' },
+    meta_facebook: { name: 'Facebook', icon: '📘', color: 'blue' },
+    meta_instagram: { name: 'Instagram', icon: '📸', color: 'pink' },
+    tiktok: { name: 'TikTok', icon: '🎵', color: 'slate' },
+    linkedin: { name: 'LinkedIn', icon: '💼', color: 'blue' }
   },
 
   init() { 
-    console.log('Campaign Projects module v1.0 initialized'); 
+    console.log('📁 Campaign Projects module v1.0 initialized'); 
   },
   
   async render(container, params = {}) {
     if (params.status) this.filters.status = params.status;
     if (params.client) this.filters.client = params.client;
     
-    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">${Icons.hourglass}</div></div>';
+    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     
     try {
       await this.loadData();
@@ -61,7 +61,7 @@ const CampaignProjectsModule = {
       this.setupEventListeners();
     } catch (error) {
       console.error('Projects error:', error);
-      Utils.showEmpty(container, error.message, '');
+      Utils.showEmpty(container, error.message, '❌');
     }
   },
   
@@ -113,7 +113,7 @@ const CampaignProjectsModule = {
       <!-- Filtre -->
       <div class="card p-4 mb-6">
         <div class="flex flex-wrap gap-4 items-center">
-          <input type="text" id="filter-search" placeholder="${Icons.search} Hľadať projekt..." 
+          <input type="text" id="filter-search" placeholder="🔍 Hľadať projekt..." 
             value="${this.filters.search}" 
             class="flex-1 min-w-[200px] p-2 border rounded-lg">
           <select id="filter-client" class="p-2 border rounded-lg min-w-[200px]" onchange="CampaignProjectsModule.onClientChange(this.value)">
@@ -226,7 +226,7 @@ const CampaignProjectsModule = {
     if (this.projects.length === 0) {
       return `
         <div class="col-span-full text-center py-16 text-gray-400">
-          <div class="text-6xl mb-4">${Icons.projects}</div>
+          <div class="text-6xl mb-4">📁</div>
           <h3 class="text-xl font-semibold mb-2">Žiadne projekty</h3>
           <p>Vytvorte prvý kampaňový projekt</p>
         </div>
@@ -280,18 +280,18 @@ const CampaignProjectsModule = {
         <div class="flex gap-2 pt-3 border-t">
           <button onclick="event.stopPropagation(); CampaignProjectsModule.showDetail('${project.id}')" 
             class="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200">
-            ${Icons.eye} Detail
+            👁️ Detail
           </button>
           ${project.status === 'draft' ? `
             <button onclick="event.stopPropagation(); CampaignProjectsModule.startGeneration('${project.id}')" 
               class="flex-1 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200">
-              ${Icons.robot} Generovať
+              🤖 Generovať
             </button>
           ` : ''}
           ${project.status === 'internal_review' ? `
             <button onclick="event.stopPropagation(); CampaignProjectsModule.approveInternal('${project.id}')" 
               class="flex-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">
-              ${Icons.checkCircle} Schváliť
+              ✅ Schváliť
             </button>
           ` : ''}
         </div>
@@ -509,12 +509,12 @@ const CampaignProjectsModule = {
         <div class="card p-4 bg-blue-50 border border-blue-200">
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="font-semibold text-blue-800">${Icons.link} Odkaz pre klienta</h4>
+              <h4 class="font-semibold text-blue-800">🔗 Odkaz pre klienta</h4>
               <p class="text-sm text-blue-600 truncate max-w-md">${window.location.origin}/client-portal.html?token=${project.client_portal_token}</p>
             </div>
             <button onclick="CampaignProjectsModule.copyClientLink('${project.id}')" 
               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              ${Icons.clipboard} Kopírovať
+              📋 Kopírovať
             </button>
           </div>
         </div>
@@ -523,7 +523,7 @@ const CampaignProjectsModule = {
         <!-- Client Feedback (if exists) -->
         ${project.client_feedback ? `
         <div class="card p-4 bg-orange-50 border border-orange-200">
-          <h4 class="font-semibold text-orange-800 mb-2">${Icons.messageCircle} Spätná väzba od klienta</h4>
+          <h4 class="font-semibold text-orange-800 mb-2">💬 Spätná väzba od klienta</h4>
           <p class="text-orange-700">${project.client_feedback}</p>
         </div>
         ` : ''}
@@ -531,7 +531,7 @@ const CampaignProjectsModule = {
         <!-- Info Grid -->
         <div class="grid md:grid-cols-2 gap-4">
           <div class="card p-4">
-            <h4 class="font-semibold mb-3">${Icons.dashboard} Základné info</h4>
+            <h4 class="font-semibold mb-3">📊 Základné info</h4>
             <div class="space-y-2 text-sm">
               <div class="flex justify-between">
                 <span class="text-gray-500">Klient</span>
@@ -553,7 +553,7 @@ const CampaignProjectsModule = {
           </div>
           
           <div class="card p-4">
-            <h4 class="font-semibold mb-3">${Icons.calendar} Termíny</h4>
+            <h4 class="font-semibold mb-3">📅 Termíny</h4>
             <div class="space-y-2 text-sm">
               <div class="flex justify-between">
                 <span class="text-gray-500">Plánovaný štart</span>
@@ -575,14 +575,14 @@ const CampaignProjectsModule = {
         
         ${project.description ? `
         <div class="card p-4">
-          <h4 class="font-semibold mb-2">${Icons.edit} Popis</h4>
+          <h4 class="font-semibold mb-2">📝 Popis</h4>
           <p class="text-gray-600">${project.description}</p>
         </div>
         ` : ''}
         
         ${project.strategy_summary ? `
         <div class="card p-4 bg-purple-50">
-          <h4 class="font-semibold mb-2 text-purple-800">${Icons.target} Stratégia</h4>
+          <h4 class="font-semibold mb-2 text-purple-800">🎯 Stratégia</h4>
           <p class="text-purple-700">${project.strategy_summary}</p>
         </div>
         ` : ''}
@@ -591,7 +591,7 @@ const CampaignProjectsModule = {
         ${onboarding ? `
         <div class="card p-4">
           <div class="flex items-center justify-between mb-4">
-            <h4 class="font-semibold">${Icons.clipboard} Onboarding dáta klienta</h4>
+            <h4 class="font-semibold">📋 Onboarding dáta klienta</h4>
             <button onclick="CampaignProjectsModule.toggleOnboardingDetail()" 
               class="text-sm text-blue-600 hover:underline">
               Zobraziť/Skryť detaily
@@ -622,7 +622,7 @@ const CampaignProjectsModule = {
           <div id="onboarding-detail" class="hidden space-y-4 pt-4 border-t">
             <!-- Company Info -->
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.building} O firme</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🏢 O firme</h5>
               <div class="bg-gray-50 rounded-lg p-3 text-sm">
                 <p><strong>Názov:</strong> ${onboarding.company_name || '-'}</p>
                 <p><strong>Web:</strong> ${onboarding.company_website ? `<a href="${onboarding.company_website}" target="_blank" class="text-blue-600">${onboarding.company_website}</a>` : '-'}</p>
@@ -634,7 +634,7 @@ const CampaignProjectsModule = {
             <!-- Products -->
             ${onboarding.products_services?.length ? `
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.package} Produkty/Služby</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">📦 Produkty/Služby</h5>
               <div class="space-y-2">
                 ${onboarding.products_services.map(p => `
                   <div class="bg-gray-50 rounded-lg p-3 text-sm">
@@ -650,7 +650,7 @@ const CampaignProjectsModule = {
             <!-- USPs -->
             ${onboarding.unique_selling_points?.length ? `
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.star} USP (Unikátne predajné argumenty)</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">⭐ USP (Unikátne predajné argumenty)</h5>
               <div class="flex flex-wrap gap-2">
                 ${onboarding.unique_selling_points.map(u => `<span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">${u}</span>`).join('')}
               </div>
@@ -659,7 +659,7 @@ const CampaignProjectsModule = {
             
             <!-- Target Audience -->
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.target} Cieľová skupina</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🎯 Cieľová skupina</h5>
               <div class="bg-gray-50 rounded-lg p-3 text-sm">
                 <p><strong>Typ:</strong> ${onboarding.target_audience?.b2b ? 'B2B' : ''} ${onboarding.target_audience?.b2c ? 'B2C' : ''}</p>
                 <p><strong>Vek:</strong> ${onboarding.target_audience?.demographics?.age_from || 18} - ${onboarding.target_audience?.demographics?.age_to || 65} rokov</p>
@@ -671,7 +671,7 @@ const CampaignProjectsModule = {
             <!-- Goals -->
             ${onboarding.primary_goals?.length ? `
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.rocket} Hlavné ciele</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🚀 Hlavné ciele</h5>
               <div class="flex flex-wrap gap-2">
                 ${onboarding.primary_goals.map(g => {
                   const goalLabels = {
@@ -692,7 +692,7 @@ const CampaignProjectsModule = {
             <!-- Marketing Channels -->
             ${onboarding.current_marketing_channels?.length ? `
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.dashboard} Aktuálne marketingové kanály</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">📊 Aktuálne marketingové kanály</h5>
               <div class="flex flex-wrap gap-2">
                 ${onboarding.current_marketing_channels.map(c => `<span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">${c}</span>`).join('')}
               </div>
@@ -713,14 +713,14 @@ const CampaignProjectsModule = {
             
             <!-- Brand -->
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.palette} Brand</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">🎨 Brand</h5>
               <div class="bg-gray-50 rounded-lg p-3 text-sm">
                 <p><strong>Tón komunikácie:</strong> ${onboarding.brand_tone_of_voice || '-'}</p>
                 <p><strong>Brand guidelines:</strong> ${onboarding.has_brand_guidelines ? 'Áno' : 'Nie'}</p>
                 <p><strong>Materiály:</strong> 
                   ${onboarding.existing_assets?.has_photos ? '📷 Fotky' : ''} 
-                  ${onboarding.existing_assets?.has_videos ? 'Videá' : ''} 
-                  ${onboarding.existing_assets?.has_logo ? 'Logo' : ''}
+                  ${onboarding.existing_assets?.has_videos ? '🎬 Videá' : ''} 
+                  ${onboarding.existing_assets?.has_logo ? '🎨 Logo' : ''}
                   ${!onboarding.existing_assets?.has_photos && !onboarding.existing_assets?.has_videos && !onboarding.existing_assets?.has_logo ? 'Žiadne' : ''}
                 </p>
               </div>
@@ -728,12 +728,12 @@ const CampaignProjectsModule = {
             
             <!-- Technical -->
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.settings} Technické</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">⚙️ Technické</h5>
               <div class="flex flex-wrap gap-2">
-                ${onboarding.has_google_analytics ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">${Icons.checkCircle} Google Analytics</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">${Icons.xCircle} Google Analytics</span>'}
-                ${onboarding.has_facebook_pixel ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">${Icons.checkCircle} Meta Pixel</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">${Icons.xCircle} Meta Pixel</span>'}
-                ${onboarding.has_google_ads_account ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">${Icons.checkCircle} Google Ads účet</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">${Icons.xCircle} Google Ads účet</span>'}
-                ${onboarding.has_meta_business ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">${Icons.checkCircle} Meta Business</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">${Icons.xCircle} Meta Business</span>'}
+                ${onboarding.has_google_analytics ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Google Analytics</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Google Analytics</span>'}
+                ${onboarding.has_facebook_pixel ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Meta Pixel</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Meta Pixel</span>'}
+                ${onboarding.has_google_ads_account ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Google Ads účet</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Google Ads účet</span>'}
+                ${onboarding.has_meta_business ? '<span class="px-3 py-1 bg-gray-100 rounded-full text-sm">✅ Meta Business</span>' : '<span class="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm">❌ Meta Business</span>'}
               </div>
               <p class="mt-2 text-sm text-gray-500">Platforma webu: ${onboarding.website_platform || 'Neuvedené'}</p>
             </div>
@@ -741,7 +741,7 @@ const CampaignProjectsModule = {
             <!-- Special Notes -->
             ${onboarding.special_requirements || onboarding.questions_for_us ? `
             <div>
-              <h5 class="font-medium text-sm text-gray-700 mb-2">${Icons.edit} Poznámky</h5>
+              <h5 class="font-medium text-sm text-gray-700 mb-2">📝 Poznámky</h5>
               <div class="bg-gray-50 rounded-lg p-3 text-sm">
                 ${onboarding.special_requirements ? `<p><strong>Špeciálne požiadavky:</strong> ${onboarding.special_requirements}</p>` : ''}
                 ${onboarding.questions_for_us ? `<p><strong>Otázky od klienta:</strong> ${onboarding.questions_for_us}</p>` : ''}
@@ -753,7 +753,7 @@ const CampaignProjectsModule = {
         ` : `
         <div class="card p-4 bg-yellow-50 border border-yellow-200">
           <div class="flex items-center gap-3">
-            <span class="text-2xl">${Icons.alertTriangle}</span>
+            <span class="text-2xl">⚠️</span>
             <div>
               <h4 class="font-semibold text-yellow-800">Chýba onboarding</h4>
               <p class="text-sm text-yellow-700">Klient ešte nevyplnil onboarding dotazník. <a href="#onboarding?client_id=${project.client_id}" class="underline">Vyplniť teraz</a></p>
@@ -800,7 +800,7 @@ const CampaignProjectsModule = {
   DEPLOYMENT_CHECKLIST: {
     google: {
       name: 'Google Ads',
-      icon: Icons.search,
+      icon: '🔍',
       items: [
         { id: 'google_access', label: 'Získať prístup ku Google Ads účtu klienta' },
         { id: 'google_billing', label: 'Nastaviť fakturačné údaje' },
@@ -817,7 +817,7 @@ const CampaignProjectsModule = {
     },
     meta: {
       name: 'Meta Ads',
-      icon: Icons.facebook,
+      icon: '📘',
       items: [
         { id: 'meta_access', label: 'Získať prístup k Business Manager' },
         { id: 'meta_domain', label: 'Overiť doménu klienta' },
@@ -834,7 +834,7 @@ const CampaignProjectsModule = {
     },
     linkedin: {
       name: 'LinkedIn Ads',
-      icon: Icons.briefcase,
+      icon: '💼',
       items: [
         { id: 'linkedin_access', label: 'Získať prístup ku Campaign Manager' },
         { id: 'linkedin_insight', label: 'Nainštalovať LinkedIn Insight Tag' },
@@ -847,7 +847,7 @@ const CampaignProjectsModule = {
     },
     tiktok: {
       name: 'TikTok Ads',
-      icon: Icons.tiktok,
+      icon: '🎵',
       items: [
         { id: 'tiktok_access', label: 'Vytvoriť TikTok Business účet' },
         { id: 'tiktok_pixel', label: 'Nainštalovať TikTok Pixel' },
@@ -889,7 +889,7 @@ const CampaignProjectsModule = {
       <div class="card p-4 mt-4 border-2 ${progress === 100 ? 'border-green-300 bg-green-50' : 'border-orange-200 bg-orange-50'}">
         <div class="flex items-center justify-between mb-4">
           <h4 class="font-semibold flex items-center gap-2">
-            ${Icons.clipboard} Deployment Checklist
+            📋 Deployment Checklist
             <span class="text-sm font-normal text-gray-500">(${completedItems}/${totalItems})</span>
           </h4>
           <div class="flex items-center gap-3">
@@ -938,7 +938,7 @@ const CampaignProjectsModule = {
         
         ${project.deployment_notes ? `
           <div class="mt-4 p-3 bg-white rounded-lg">
-            <h5 class="font-medium text-sm text-gray-600 mb-1">${Icons.edit} Poznámky</h5>
+            <h5 class="font-medium text-sm text-gray-600 mb-1">📝 Poznámky</h5>
             <p class="text-gray-700">${project.deployment_notes}</p>
           </div>
         ` : ''}
@@ -946,12 +946,12 @@ const CampaignProjectsModule = {
         <div class="mt-4 flex gap-2">
           <button onclick="CampaignProjectsModule.addDeploymentNote('${project.id}')"
             class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-            ${Icons.edit} Pridať poznámku
+            📝 Pridať poznámku
           </button>
           ${progress === 100 ? `
             <button onclick="CampaignProjectsModule.markAsDeployed('${project.id}')"
               class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
-              ${Icons.checkCircle} Označiť ako nasadené
+              ✅ Označiť ako nasadené
             </button>
           ` : ''}
         </div>
@@ -1045,7 +1045,7 @@ const CampaignProjectsModule = {
         project.status = 'active';
       }
       
-      Utils.toast('Projekt nasadený a aktívny!', 'success');
+      Utils.toast('🚀 Projekt nasadený a aktívny!', 'success');
       this.closeDetailModal();
       await this.loadData();
       document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
@@ -1071,28 +1071,28 @@ const CampaignProjectsModule = {
     const platformConfig = {
       'google': { 
         name: 'Google Ads', 
-        icon: Icons.search, 
+        icon: '🔍', 
         color: 'blue',
         gradient: 'from-blue-500 to-blue-600',
         types: ['Search', 'Display', 'Shopping', 'Performance Max', 'Video']
       },
       'meta': { 
         name: 'Meta Ads', 
-        icon: Icons.facebook, 
+        icon: '📘', 
         color: 'indigo',
         gradient: 'from-blue-600 to-purple-600',
         types: ['Traffic', 'Conversions', 'Lead Generation', 'Awareness', 'Engagement']
       },
       'tiktok': { 
         name: 'TikTok Ads', 
-        icon: Icons.tiktok, 
+        icon: '🎵', 
         color: 'slate',
         gradient: 'from-slate-700 to-slate-900',
         types: ['In-Feed', 'TopView', 'Branded Hashtag']
       },
       'linkedin': { 
         name: 'LinkedIn Ads', 
-        icon: Icons.briefcase, 
+        icon: '💼', 
         color: 'sky',
         gradient: 'from-sky-600 to-sky-700',
         types: ['Sponsored Content', 'Message Ads', 'Text Ads']
@@ -1115,7 +1115,7 @@ const CampaignProjectsModule = {
       .map(platform => {
         const config = platformConfig[platform] || { 
           name: 'Ostatné', 
-          icon: Icons.campaigns, 
+          icon: '📣', 
           color: 'gray',
           gradient: 'from-gray-500 to-gray-600'
         };
@@ -1160,9 +1160,9 @@ const CampaignProjectsModule = {
                 <span class="px-2 py-0.5 rounded text-xs bg-white/20">${campaign.campaign_type || 'Kampaň'}</span>
               </div>
               <div class="flex items-center gap-4 mt-1 text-sm text-white/80">
-                <span>${Icons.billing} ${campaign.budget_daily || 0}€/deň</span>
-                <span>${Icons.target} ${campaign.objective || 'conversions'}</span>
-                ${campaign.ai_generated ? '<span>${Icons.robot} AI</span>' : ''}
+                <span>💰 ${campaign.budget_daily || 0}€/deň</span>
+                <span>🎯 ${campaign.objective || 'conversions'}</span>
+                ${campaign.ai_generated ? '<span>🤖 AI</span>' : ''}
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -1178,13 +1178,13 @@ const CampaignProjectsModule = {
           <div class="p-4 bg-gray-50 border-b grid grid-cols-2 md:grid-cols-4 gap-3">
             ${targeting.locations?.length ? `
               <div class="text-center">
-                <div class="text-xs text-gray-500">${Icons.target} Lokality</div>
+                <div class="text-xs text-gray-500">📍 Lokality</div>
                 <div class="font-medium text-sm">${targeting.locations.slice(0,2).join(', ')}${targeting.locations.length > 2 ? '...' : ''}</div>
               </div>
             ` : ''}
             ${targeting.age_range ? `
               <div class="text-center">
-                <div class="text-xs text-gray-500">${Icons.users} Vek</div>
+                <div class="text-xs text-gray-500">👥 Vek</div>
                 <div class="font-medium text-sm">${targeting.age_range.min}-${targeting.age_range.max}</div>
               </div>
             ` : ''}
@@ -1230,7 +1230,7 @@ const CampaignProjectsModule = {
           <!-- Ad Groups & Ads -->
           <div class="p-4" id="adgroups-container-${campaign.id}">
             <div class="text-center py-4 text-gray-400">
-              <div class="animate-spin inline-block">${Icons.hourglass}</div> Načítavam reklamné skupiny...
+              <div class="animate-spin inline-block">⏳</div> Načítavam reklamné skupiny...
             </div>
           </div>
           
@@ -1238,7 +1238,7 @@ const CampaignProjectsModule = {
           <div class="p-3 bg-gray-50 border-t flex gap-2 flex-wrap">
             <button onclick="event.stopPropagation(); CampaignProjectsModule.editCampaign('${campaign.id}')" 
               class="px-3 py-1.5 bg-white border rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1">
-              ${Icons.edit} Upraviť
+              ✏️ Upraviť
             </button>
             <button onclick="event.stopPropagation(); CampaignProjectsModule.addAdGroup('${campaign.id}')" 
               class="px-3 py-1.5 bg-white border rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1">
@@ -1246,11 +1246,11 @@ const CampaignProjectsModule = {
             </button>
             <button onclick="event.stopPropagation(); CampaignProjectsModule.duplicateCampaign('${campaign.id}')" 
               class="px-3 py-1.5 bg-white border rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1">
-              ${Icons.clipboard} Duplikovať
+              📋 Duplikovať
             </button>
             <button onclick="event.stopPropagation(); CampaignProjectsModule.deleteCampaign('${campaign.id}')" 
               class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-100 flex items-center gap-1 ml-auto">
-              ${Icons.trash} Zmazať
+              🗑️ Zmazať
             </button>
           </div>
         </div>
@@ -1288,7 +1288,7 @@ const CampaignProjectsModule = {
       if (!adGroups || adGroups.length === 0) {
         container.innerHTML = `
           <div class="text-center py-6 text-gray-400">
-            <div class="text-3xl mb-2">${Icons.projects}</div>
+            <div class="text-3xl mb-2">📁</div>
             <p class="text-sm">Žiadne reklamné skupiny</p>
             <button onclick="CampaignProjectsModule.addAdGroup('${campaignId}')" 
               class="mt-2 px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200">
@@ -1324,7 +1324,7 @@ const CampaignProjectsModule = {
       console.error('Load ad groups error:', error);
       container.innerHTML = `
         <div class="text-center py-4 text-red-500">
-          <p>${Icons.xCircle} Chyba pri načítaní: ${error.message}</p>
+          <p>❌ Chyba pri načítaní: ${error.message}</p>
         </div>
       `;
     }
@@ -1332,10 +1332,10 @@ const CampaignProjectsModule = {
   
   renderAdGroupWithAds(adGroup, ads, campaignId) {
     const adTypeIcons = {
-      'responsive': '',
-      'text': '',
-      'image': '',
-      'video': '',
+      'responsive': '📝',
+      'text': '📝',
+      'image': '🖼️',
+      'video': '🎬',
       'carousel': '🎠'
     };
     
@@ -1344,7 +1344,7 @@ const CampaignProjectsModule = {
         <!-- Ad Group Header -->
         <div class="p-3 bg-purple-50 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-lg">${Icons.projects}</span>
+            <span class="text-lg">📁</span>
             <div>
               <span class="font-medium">${adGroup.name}</span>
               <span class="text-xs text-gray-500 ml-2">${ads.length} reklám</span>
@@ -1352,11 +1352,11 @@ const CampaignProjectsModule = {
           </div>
           <div class="flex items-center gap-1">
             <button onclick="event.stopPropagation(); CampaignProjectsModule.editAdGroup('${adGroup.id}')" 
-              class="p-1.5 hover:bg-purple-100 rounded" title="Upraviť">${Icons.edit}</button>
+              class="p-1.5 hover:bg-purple-100 rounded" title="Upraviť">✏️</button>
             <button onclick="event.stopPropagation(); CampaignProjectsModule.addAd('${adGroup.id}')" 
               class="p-1.5 hover:bg-purple-100 rounded" title="Pridať reklamu">➕</button>
             <button onclick="event.stopPropagation(); CampaignProjectsModule.deleteAdGroup('${adGroup.id}')" 
-              class="p-1.5 hover:bg-red-100 rounded text-red-500" title="Zmazať">${Icons.trash}</button>
+              class="p-1.5 hover:bg-red-100 rounded text-red-500" title="Zmazať">🗑️</button>
           </div>
         </div>
         
@@ -1388,11 +1388,11 @@ const CampaignProjectsModule = {
   
   renderAdItem(ad) {
     const typeConfig = {
-      'responsive': { icon: Icons.edit, label: 'Responsive', color: 'blue' },
-      'text': { icon: Icons.edit, label: 'Textová', color: 'gray' },
-      'image': { icon: Icons.image, label: 'Obrázková', color: 'green' },
-      'video': { icon: Icons.video, label: 'Video', color: 'red' },
-      'carousel': { icon: Icons.layers, label: 'Carousel', color: 'purple' }
+      'responsive': { icon: '📝', label: 'Responsive', color: 'blue' },
+      'text': { icon: '📝', label: 'Textová', color: 'gray' },
+      'image': { icon: '🖼️', label: 'Obrázková', color: 'green' },
+      'video': { icon: '🎬', label: 'Video', color: 'red' },
+      'carousel': { icon: '🎠', label: 'Carousel', color: 'purple' }
     };
     
     const config = typeConfig[ad.ad_type] || typeConfig.text;
@@ -1428,18 +1428,18 @@ const CampaignProjectsModule = {
             <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
               <span class="px-1.5 py-0.5 bg-${config.color}-50 text-${config.color}-600 rounded">${config.label}</span>
               ${ad.call_to_action ? `<span>CTA: ${ad.call_to_action}</span>` : ''}
-              ${ad.landing_page ? `<span class="truncate max-w-[150px]">${Icons.link} ${new URL(ad.landing_page).hostname}</span>` : ''}
+              ${ad.landing_page ? `<span class="truncate max-w-[150px]">🔗 ${new URL(ad.landing_page).hostname}</span>` : ''}
             </div>
           </div>
           
           <!-- Actions -->
           <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button onclick="event.stopPropagation(); CampaignProjectsModule.editAd('${ad.id}')" 
-              class="p-1.5 hover:bg-gray-200 rounded" title="Upraviť">${Icons.edit}</button>
+              class="p-1.5 hover:bg-gray-200 rounded" title="Upraviť">✏️</button>
             <button onclick="event.stopPropagation(); CampaignProjectsModule.duplicateAd('${ad.id}')" 
-              class="p-1.5 hover:bg-gray-200 rounded" title="Duplikovať">${Icons.clipboard}</button>
+              class="p-1.5 hover:bg-gray-200 rounded" title="Duplikovať">📋</button>
             <button onclick="event.stopPropagation(); CampaignProjectsModule.deleteAd('${ad.id}')" 
-              class="p-1.5 hover:bg-red-100 rounded text-red-500" title="Zmazať">${Icons.trash}</button>
+              class="p-1.5 hover:bg-red-100 rounded text-red-500" title="Zmazať">🗑️</button>
           </div>
         </div>
         
@@ -1508,7 +1508,7 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      Utils.toast('Kampaň duplikovaná!', 'success');
+      Utils.toast('Kampaň duplikovaná! ✅', 'success');
       
       // Refresh project detail
       if (this.selectedProject) {
@@ -1580,7 +1580,7 @@ const CampaignProjectsModule = {
     actions.push(`
       <button onclick="CampaignProjectsModule.editProject('${project.id}')" 
         class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">
-        ${Icons.edit} Upraviť
+        ✏️ Upraviť
       </button>
     `);
     
@@ -1590,7 +1590,7 @@ const CampaignProjectsModule = {
         actions.push(`
           <button onclick="CampaignProjectsModule.startGeneration('${project.id}')" 
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
-            ${Icons.robot} Spustiť AI generovanie
+            🤖 Spustiť AI generovanie
           </button>
         `);
         break;
@@ -1599,11 +1599,11 @@ const CampaignProjectsModule = {
         actions.push(`
           <button onclick="CampaignProjectsModule.requestRevision('${project.id}')" 
             class="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200">
-            ${Icons.edit} Požiadať o revíziu
+            ✏️ Požiadať o revíziu
           </button>
           <button onclick="CampaignProjectsModule.approveInternal('${project.id}')" 
             class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
-            ${Icons.checkCircle} Schváliť pre klienta
+            ✅ Schváliť pre klienta
           </button>
         `);
         break;
@@ -1612,17 +1612,17 @@ const CampaignProjectsModule = {
         actions.push(`
           <button onclick="CampaignProjectsModule.generateClientLink('${project.id}')" 
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
-            ${Icons.link} ${project.client_portal_token ? 'Kopírovať odkaz' : 'Generovať odkaz pre klienta'}
+            🔗 ${project.client_portal_token ? 'Kopírovať odkaz' : 'Generovať odkaz pre klienta'}
           </button>
           <button onclick="CampaignProjectsModule.sendProposalToClient('${project.id}')" 
             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             ${!project.client_portal_token ? 'disabled title="Najprv vygenerujte odkaz"' : ''}>
-            ${Icons.mail} Poslať klientovi email
+            📧 Poslať klientovi email
           </button>
           <button onclick="CampaignProjectsModule.previewAsClient('${project.id}')" 
             class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
             ${!project.client_portal_token ? 'disabled title="Najprv vygenerujte odkaz"' : ''}>
-            ${Icons.eye} Náhľad portálu
+            👁️ Náhľad portálu
           </button>
         `);
         break;
@@ -1631,7 +1631,7 @@ const CampaignProjectsModule = {
         actions.push(`
           <button onclick="CampaignProjectsModule.deployProject('${project.id}')" 
             class="px-4 py-2 gradient-bg text-white rounded-lg hover:opacity-90">
-            ${Icons.rocket} Nasadiť kampane
+            🚀 Nasadiť kampane
           </button>
         `);
         break;
@@ -1640,11 +1640,11 @@ const CampaignProjectsModule = {
         actions.push(`
           <button onclick="CampaignProjectsModule.pauseProject('${project.id}')" 
             class="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200">
-            ${Icons.pause} Pozastaviť
+            ⏸️ Pozastaviť
           </button>
           <button onclick="CampaignProjectsModule.viewReport('${project.id}')" 
             class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">
-            ${Icons.dashboard} Report
+            📊 Report
           </button>
         `);
         break;
@@ -1653,7 +1653,7 @@ const CampaignProjectsModule = {
         actions.push(`
           <button onclick="CampaignProjectsModule.resumeProject('${project.id}')" 
             class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
-            ${Icons.play} Obnoviť
+            ▶️ Obnoviť
           </button>
         `);
         break;
@@ -1663,7 +1663,7 @@ const CampaignProjectsModule = {
     actions.push(`
       <button onclick="CampaignProjectsModule.deleteProject('${project.id}')" 
         class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 ml-auto">
-        ${Icons.trash} Zmazať
+        🗑️ Zmazať
       </button>
     `);
     
@@ -1849,7 +1849,7 @@ const CampaignProjectsModule = {
         const result = await response.json();
         
         if (result.success) {
-          Utils.toast(`AI vygenerovalo ${result.campaigns_generated} kampaní! ${Icons.partyPopper}`, 'success');
+          Utils.toast(`AI vygenerovalo ${result.campaigns_generated} kampaní! 🎉`, 'success');
           
           // Refresh data
           await this.loadData();
@@ -1979,7 +1979,7 @@ const CampaignProjectsModule = {
       // Copy to clipboard
       await navigator.clipboard.writeText(url);
       
-      Utils.toast('Odkaz skopírovaný do schránky!', 'success');
+      Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
       
       // Update local data
       const project = this.projects.find(p => p.id === projectId);
@@ -2006,7 +2006,7 @@ const CampaignProjectsModule = {
     
     const url = `${window.location.origin}/client-portal.html?token=${project.client_portal_token}`;
     await navigator.clipboard.writeText(url);
-    Utils.toast('Odkaz skopírovaný do schránky!', 'success');
+    Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
   },
   
   async sendProposalToClient(projectId) {
@@ -2071,12 +2071,12 @@ const CampaignProjectsModule = {
     <p class="subtitle">Pripravili sme pre vás návrh marketingovej kampane!</p>
     
     <div class="card">
-      <h2 style="margin-top: 0;">${Icons.dashboard} ${project.name}</h2>
+      <h2 style="margin-top: 0;">📊 ${project.name}</h2>
       <p>Na základe informácií, ktoré ste nám poskytli, sme pre vás pripravili personalizovanú stratégiu online marketingu.</p>
       
       <div class="features">
         <div class="feature">
-          <span class="feature-icon">${Icons.target}</span>
+          <span class="feature-icon">🎯</span>
           <span>Cielené kampane pre váš biznis</span>
         </div>
         <div class="feature">
@@ -2084,7 +2084,7 @@ const CampaignProjectsModule = {
           <span>Očakávané výsledky a metriky</span>
         </div>
         <div class="feature">
-          <span class="feature-icon">${Icons.billing}</span>
+          <span class="feature-icon">💰</span>
           <span>Optimalizovaný rozpočet</span>
         </div>
       </div>
@@ -2098,8 +2098,8 @@ const CampaignProjectsModule = {
     
     <p>Po prezretí návrhu môžete:</p>
     <ul>
-      <li>${Icons.checkCircle} <strong>Schváliť návrh</strong> - a my začneme s realizáciou</li>
-      <li>${Icons.edit} <strong>Požiadať o úpravu</strong> - ak máte pripomienky</li>
+      <li>✅ <strong>Schváliť návrh</strong> - a my začneme s realizáciou</li>
+      <li>✏️ <strong>Požiadať o úpravu</strong> - ak máte pripomienky</li>
     </ul>
     
     <p style="margin-top: 30px;">V prípade otázok nás neváhajte kontaktovať.</p>
@@ -2123,7 +2123,7 @@ const CampaignProjectsModule = {
         body: JSON.stringify({
           to: client.contact_email,
           toName: client.contact_person || client.company_name,
-          subject: `${Icons.dashboard} Návrh kampane pre ${client.company_name} - Adlify`,
+          subject: `📊 Návrh kampane pre ${client.company_name} - Adlify`,
           htmlBody: htmlBody
         })
       });
@@ -2140,12 +2140,12 @@ const CampaignProjectsModule = {
           })
           .eq('id', projectId);
         
-        Utils.toast(`${Icons.mail} Email odoslaný na ${client.contact_email}`, 'success');
+        Utils.toast(`📧 Email odoslaný na ${client.contact_email}`, 'success');
         
         // Vytvor notifikáciu
         await Database.client.from('notifications').insert({
           type: 'proposal_sent',
-          title: 'Návrh odoslaný klientovi',
+          title: '📧 Návrh odoslaný klientovi',
           message: `Návrh pre ${client.company_name} bol odoslaný na ${client.contact_email}`,
           action_url: `#projects?id=${projectId}`,
           entity_type: 'project',
@@ -2201,14 +2201,14 @@ const CampaignProjectsModule = {
       <div id="campaign-edit-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
         <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col">
           <div class="p-4 border-b flex items-center justify-between gradient-bg text-white">
-            <h2 class="text-xl font-bold">${Icons.edit} Upraviť kampaň</h2>
+            <h2 class="text-xl font-bold">✏️ Upraviť kampaň</h2>
             <button onclick="CampaignProjectsModule.closeCampaignEditModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
           </div>
           
           <div class="p-6 overflow-y-auto flex-1 space-y-6">
             <!-- Basic Info -->
             <div>
-              <h3 class="font-semibold text-gray-700 mb-3">${Icons.dashboard} Základné info</h3>
+              <h3 class="font-semibold text-gray-700 mb-3">📊 Základné info</h3>
               <div class="grid md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-600 mb-1">Názov kampane</label>
@@ -2243,7 +2243,7 @@ const CampaignProjectsModule = {
             
             <!-- Budget -->
             <div>
-              <h3 class="font-semibold text-gray-700 mb-3">${Icons.billing} Rozpočet</h3>
+              <h3 class="font-semibold text-gray-700 mb-3">💰 Rozpočet</h3>
               <div class="grid md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-600 mb-1">Denný rozpočet (€)</label>
@@ -2263,7 +2263,7 @@ const CampaignProjectsModule = {
             
             <!-- Targeting -->
             <div>
-              <h3 class="font-semibold text-gray-700 mb-3">${Icons.target} Cielenie</h3>
+              <h3 class="font-semibold text-gray-700 mb-3">🎯 Cielenie</h3>
               <div class="space-y-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-600 mb-1">Lokality (oddelené čiarkou)</label>
@@ -2406,7 +2406,7 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      Utils.toast('Kampaň uložená!', 'success');
+      Utils.toast('Kampaň uložená! ✅', 'success');
       this.closeCampaignEditModal();
       
       // Refresh project detail
@@ -2444,7 +2444,7 @@ const CampaignProjectsModule = {
       <div id="adgroup-edit-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           <div class="p-4 border-b flex items-center justify-between bg-purple-600 text-white">
-            <h2 class="text-xl font-bold">${Icons.edit} Upraviť reklamnú skupinu</h2>
+            <h2 class="text-xl font-bold">✏️ Upraviť reklamnú skupinu</h2>
             <button onclick="CampaignProjectsModule.closeAdGroupEditModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
           </div>
           
@@ -2530,7 +2530,7 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      Utils.toast('Ad group uložená!', 'success');
+      Utils.toast('Ad group uložená! ✅', 'success');
       this.closeAdGroupEditModal();
       
       // Refresh project detail
@@ -2572,7 +2572,7 @@ const CampaignProjectsModule = {
       <div id="ad-edit-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           <div class="p-4 border-b flex items-center justify-between bg-blue-600 text-white">
-            <h2 class="text-xl font-bold">${isNew ? '➕ Nová reklama' : 'Upraviť reklamu'}</h2>
+            <h2 class="text-xl font-bold">${isNew ? '➕ Nová reklama' : '✏️ Upraviť reklamu'}</h2>
             <button onclick="CampaignProjectsModule.closeAdEditModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
           </div>
           
@@ -2581,7 +2581,7 @@ const CampaignProjectsModule = {
             <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
               <div class="flex items-center justify-between">
                 <div>
-                  <h4 class="font-semibold text-purple-800">${Icons.robot} AI Generovanie</h4>
+                  <h4 class="font-semibold text-purple-800">🤖 AI Generovanie</h4>
                   <p class="text-sm text-purple-600">Nechaj AI vygenerovať texty na základe onboardingu</p>
                 </div>
                 <button onclick="CampaignProjectsModule.generateAdContent('${ad.id}')" 
@@ -2642,7 +2642,7 @@ const CampaignProjectsModule = {
             
             <!-- Preview -->
             <div class="bg-gray-50 rounded-xl p-4">
-              <h4 class="text-sm font-medium text-gray-500 mb-2">${Icons.smartphone} Náhľad Google Ads</h4>
+              <h4 class="text-sm font-medium text-gray-500 mb-2">📱 Náhľad Google Ads</h4>
               <div class="bg-white border rounded-lg p-4">
                 <div class="text-blue-600 font-medium text-lg" id="preview-headline">${this.escapeHtml(headlines[0]) || 'Nadpis reklamy'}</div>
                 <div class="text-green-700 text-sm">${ad.landing_page ? new URL(ad.landing_page).hostname : 'www.example.com'}</div>
@@ -2654,7 +2654,7 @@ const CampaignProjectsModule = {
           <div class="p-4 border-t flex justify-between gap-3 bg-gray-50">
             <button onclick="CampaignProjectsModule.deleteAdAndClose('${ad.id}')" 
               class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl ${isNew ? '' : ''}">
-              ${Icons.trash} Zmazať
+              🗑️ Zmazať
             </button>
             <div class="flex gap-3">
               <button onclick="CampaignProjectsModule.closeAdEditModal()" 
@@ -2692,7 +2692,7 @@ const CampaignProjectsModule = {
   async generateAdContent(adId) {
     const btn = document.getElementById('ai-generate-btn');
     btn.disabled = true;
-    btn.innerHTML = 'Generujem...';
+    btn.innerHTML = '⏳ Generujem...';
     
     try {
       // Get ad's ad_group to find campaign and project
@@ -2882,7 +2882,7 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      Utils.toast('Reklama uložená!', 'success');
+      Utils.toast('Reklama uložená! ✅', 'success');
       this.closeAdEditModal();
       
       // Refresh project detail
@@ -2918,7 +2918,7 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      Utils.toast('Ad Group vytvorená!', 'success');
+      Utils.toast('Ad Group vytvorená! ✅', 'success');
       
       // Refresh
       await this.loadAdGroupsWithAds(campaignId);
@@ -3028,7 +3028,7 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      Utils.toast('Reklama duplikovaná!', 'success');
+      Utils.toast('Reklama duplikovaná! ✅', 'success');
       
       // Refresh project detail
       if (this.selectedProject) {

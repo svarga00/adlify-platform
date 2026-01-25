@@ -6,7 +6,7 @@
 const CalendarModule = {
     id: 'calendar',
     name: 'Kalendár',
-    icon: Icons.calendar,
+    icon: '📅',
     title: 'Kalendár',
     menu: { section: 'tools', order: 56 },
     permissions: ['calendar', 'view'],
@@ -17,7 +17,7 @@ const CalendarModule = {
     view: 'month', // month, week, list
 
     async init() {
-        console.log('Calendar module initialized');
+        console.log('📅 Calendar module initialized');
     },
 
     async render(container) {
@@ -191,7 +191,7 @@ const CalendarModule = {
                     <div class="week-day-events">
                         ${dayEvents.length > 0 ? dayEvents.map(e => `
                             <div class="week-event ${e.type} ${e.priority}" onclick="CalendarModule.openEvent('${e.type}', '${e.id}')">
-                                <span class="event-icon">${e.type === 'task' ? '' : ''}</span>
+                                <span class="event-icon">${e.type === 'task' ? '✅' : '🎫'}</span>
                                 <span class="event-title">${e.title}</span>
                             </div>
                         `).join('') : '<div class="no-events">Žiadne udalosti</div>'}
@@ -213,7 +213,7 @@ const CalendarModule = {
         if (upcomingEvents.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.calendar}</div>
+                    <div class="empty-icon">📅</div>
                     <h3>Žiadne nadchádzajúce udalosti</h3>
                     <p>Všetky úlohy a tickety s termínom sa zobrazia tu</p>
                 </div>
@@ -246,7 +246,7 @@ const CalendarModule = {
                     <div class="list-events">
                         ${events.map(e => `
                             <div class="list-event ${e.priority}" onclick="CalendarModule.openEvent('${e.type}', '${e.id}')">
-                                <span class="event-type-icon">${e.type === 'task' ? '' : ''}</span>
+                                <span class="event-type-icon">${e.type === 'task' ? '✅' : '🎫'}</span>
                                 <div class="event-info">
                                     <span class="event-title">${e.title}</span>
                                     <span class="event-meta">${e.type === 'task' ? 'Úloha' : 'Ticket'} · ${e.status}</span>
@@ -338,7 +338,7 @@ const CalendarModule = {
                     <div class="day-events-list">
                         ${events.map(e => `
                             <div class="day-event-item ${e.priority}" onclick="CalendarModule.openEvent('${e.type}', '${e.id}'); this.closest('.modal-overlay').remove();">
-                                <span class="event-icon">${e.type === 'task' ? '' : ''}</span>
+                                <span class="event-icon">${e.type === 'task' ? '✅' : '🎫'}</span>
                                 <div class="event-details">
                                     <span class="event-title">${e.title}</span>
                                     <span class="event-meta">${e.type === 'task' ? 'Úloha' : 'Ticket'}</span>

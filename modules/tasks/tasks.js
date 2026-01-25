@@ -6,7 +6,7 @@
 const TasksModule = {
     id: 'tasks',
     name: 'Úlohy',
-    icon: Icons.checkCircle,
+    icon: '✅',
     title: 'Úlohy',
     menu: { section: 'main', order: 45 },
     permissions: ['tasks', 'view'],
@@ -19,7 +19,7 @@ const TasksModule = {
     selectedTask: null,
 
     async init() {
-        console.log('Tasks module initialized');
+        console.log('✅ Tasks module initialized');
     },
 
     async render(container) {
@@ -67,13 +67,13 @@ const TasksModule = {
                             Moje
                         </button>
                         <button class="filter-tab ${this.currentFilter === 'todo' ? 'active' : ''}" onclick="TasksModule.setFilter('todo')">
-                            ${Icons.clipboard} To Do
+                            📋 To Do
                         </button>
                         <button class="filter-tab ${this.currentFilter === 'in_progress' ? 'active' : ''}" onclick="TasksModule.setFilter('in_progress')">
-                            ${Icons.sync} In Progress
+                            🔄 In Progress
                         </button>
                         <button class="filter-tab ${this.currentFilter === 'done' ? 'active' : ''}" onclick="TasksModule.setFilter('done')">
-                            ${Icons.checkCircle} Hotové
+                            ✅ Hotové
                         </button>
                     </div>
                     <div class="filter-search">
@@ -136,7 +136,7 @@ const TasksModule = {
         if (filteredTasks.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.clipboard}</div>
+                    <div class="empty-icon">📋</div>
                     <h3>Žiadne úlohy</h3>
                     <p>Vytvor prvú úlohu kliknutím na tlačidlo "Nová úloha"</p>
                 </div>
@@ -153,10 +153,10 @@ const TasksModule = {
 
     renderKanban(container) {
         const columns = [
-            { id: 'todo', name: 'To Do', icon: Icons.clipboard, color: '#6366f1' },
-            { id: 'in_progress', name: 'In Progress', icon: Icons.sync, color: '#f59e0b' },
-            { id: 'review', name: 'Review', icon: Icons.eye, color: '#8b5cf6' },
-            { id: 'done', name: 'Hotové', icon: Icons.checkCircle, color: '#10b981' }
+            { id: 'todo', name: 'To Do', icon: '📋', color: '#6366f1' },
+            { id: 'in_progress', name: 'In Progress', icon: '🔄', color: '#f59e0b' },
+            { id: 'review', name: 'Review', icon: '👁️', color: '#8b5cf6' },
+            { id: 'done', name: 'Hotové', icon: '✅', color: '#10b981' }
         ];
 
         container.innerHTML = `
@@ -373,7 +373,7 @@ const TasksModule = {
             <div class="modal task-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.checkCircle}</span>
+                        <span class="modal-icon">✅</span>
                         <h2>Nová úloha</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -404,9 +404,9 @@ const TasksModule = {
                             <div class="form-group">
                                 <label>Status</label>
                                 <select name="status">
-                                    <option value="todo" selected>${Icons.clipboard} To Do</option>
-                                    <option value="in_progress">${Icons.sync} In Progress</option>
-                                    <option value="review">${Icons.eye} Review</option>
+                                    <option value="todo" selected>📋 To Do</option>
+                                    <option value="in_progress">🔄 In Progress</option>
+                                    <option value="review">👁️ Review</option>
                                 </select>
                             </div>
                         </div>
@@ -574,11 +574,11 @@ const TasksModule = {
                             <div class="sidebar-item">
                                 <label>Status</label>
                                 <select id="task-status" onchange="TasksModule.updateTaskField('status', this.value)">
-                                    <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>${Icons.clipboard} To Do</option>
-                                    <option value="in_progress" ${task.status === 'in_progress' ? 'selected' : ''}>${Icons.sync} In Progress</option>
-                                    <option value="review" ${task.status === 'review' ? 'selected' : ''}>${Icons.eye} Review</option>
-                                    <option value="done" ${task.status === 'done' ? 'selected' : ''}>${Icons.checkCircle} Hotové</option>
-                                    <option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>${Icons.xCircle} Zrušené</option>
+                                    <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>📋 To Do</option>
+                                    <option value="in_progress" ${task.status === 'in_progress' ? 'selected' : ''}>🔄 In Progress</option>
+                                    <option value="review" ${task.status === 'review' ? 'selected' : ''}>👁️ Review</option>
+                                    <option value="done" ${task.status === 'done' ? 'selected' : ''}>✅ Hotové</option>
+                                    <option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>❌ Zrušené</option>
                                 </select>
                             </div>
                             

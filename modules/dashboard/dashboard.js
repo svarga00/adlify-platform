@@ -6,7 +6,7 @@
 const DashboardModule = {
   id: 'dashboard',
   name: 'Dashboard',
-  icon: Icons.dashboard,
+  icon: '📊',
   title: 'Dashboard',
   subtitle: 'Prehľad vašej aktivity',
   
@@ -23,7 +23,7 @@ const DashboardModule = {
    * Initialize module
    */
   init() {
-    console.log('Dashboard module initialized');
+    console.log('📊 Dashboard module initialized');
   },
   
   /**
@@ -31,7 +31,7 @@ const DashboardModule = {
    */
   async render(container) {
     // Show loading
-    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">${Icons.hourglass}</div></div>';
+    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     
     try {
       // Fetch data
@@ -59,7 +59,7 @@ const DashboardModule = {
       console.error('Dashboard error:', error);
       container.innerHTML = `
         <div class="flex flex-col items-center justify-center h-64">
-          <div class="text-4xl mb-4">${Icons.xCircle}</div>
+          <div class="text-4xl mb-4">❌</div>
           <p class="text-gray-500">${error.message}</p>
         </div>
       `;
@@ -138,7 +138,7 @@ const DashboardModule = {
       <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <a href="#leads" class="card p-5 hover:ring-2 hover:ring-blue-300 transition cursor-pointer">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">${Icons.users}</span>
+            <span class="text-2xl">👥</span>
             <span class="text-xs text-gray-400">Celkom</span>
           </div>
           <div class="text-3xl font-bold">${stats.leads.total}</div>
@@ -165,7 +165,7 @@ const DashboardModule = {
         
         <a href="#clients" class="card p-5 hover:ring-2 hover:ring-green-300 transition cursor-pointer">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">${Icons.building}</span>
+            <span class="text-2xl">🏢</span>
             <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Aktívni</span>
           </div>
           <div class="text-3xl font-bold text-green-600">${stats.clients.active}</div>
@@ -174,7 +174,7 @@ const DashboardModule = {
         
         <div class="card p-5 bg-gradient-to-br from-orange-500 to-pink-500 text-white">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">${Icons.billing}</span>
+            <span class="text-2xl">💰</span>
             <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full">MRR</span>
           </div>
           <div class="text-3xl font-bold">${Utils.formatCurrency(stats.clients.mrr)}</div>
@@ -185,7 +185,7 @@ const DashboardModule = {
       <!-- Charts Row -->
       <div class="grid lg:grid-cols-2 gap-6 mb-6">
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">${Icons.dashboard} Pipeline</h3>
+          <h3 class="font-semibold mb-4">📊 Pipeline</h3>
           <div class="h-64">
             <canvas id="chart-pipeline"></canvas>
           </div>
@@ -203,17 +203,17 @@ const DashboardModule = {
       <div class="grid lg:grid-cols-3 gap-6">
         <!-- Quick Actions -->
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">${Icons.zap} Rýchle akcie</h3>
+          <h3 class="font-semibold mb-4">⚡ Rýchle akcie</h3>
           <div class="space-y-3">
             <a href="#leads?tab=import" class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 cursor-pointer">
-              <span class="text-xl">${Icons.inbox}</span>
+              <span class="text-xl">📥</span>
               <div>
                 <div class="font-medium">Import leadov</div>
                 <div class="text-xs text-gray-400">Hromadný import domén</div>
               </div>
             </a>
             <a href="#leads?action=analyze-all" class="flex items-center gap-3 p-3 bg-purple-50 rounded-xl hover:bg-purple-100 cursor-pointer">
-              <span class="text-xl">${Icons.robot}</span>
+              <span class="text-xl">🤖</span>
               <div>
                 <div class="font-medium text-purple-700">Analyzovať všetky nové</div>
                 <div class="text-xs text-purple-400">AI + Marketing Miner</div>
@@ -250,7 +250,7 @@ const DashboardModule = {
         
         <!-- Performance Metrics -->
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">${Icons.dashboard} Metriky</h3>
+          <h3 class="font-semibold mb-4">📊 Metriky</h3>
           <div class="space-y-4">
             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <span class="text-gray-600">Konverzný pomer</span>

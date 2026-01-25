@@ -6,7 +6,7 @@
 const ClientsModule = {
   id: 'clients',
   name: 'Klienti',
-  icon: Icons.building,
+  icon: '🏢',
   title: 'Klienti',
   subtitle: 'Správa klientov a služieb',
   
@@ -20,10 +20,10 @@ const ClientsModule = {
   
   // Packages definition
   PACKAGES: {
-    starter: { name: 'Starter', price: 149, icon: Icons.rocket },
-    pro: { name: 'Pro', price: 249, icon: Icons.star },
-    enterprise: { name: 'Enterprise', price: 399, icon: Icons.diamond },
-    premium: { name: 'Premium', price: 799, icon: Icons.trophy }
+    starter: { name: 'Starter', price: 149, icon: '🚀' },
+    pro: { name: 'Pro', price: 249, icon: '⭐' },
+    enterprise: { name: 'Enterprise', price: 399, icon: '💎' },
+    premium: { name: 'Premium', price: 799, icon: '🏆' }
   },
   
   // Status definitions
@@ -36,14 +36,14 @@ const ClientsModule = {
   
   // Onboarding statuses
   ONBOARDING_STATUSES: {
-    pending: { label: 'Čaká', color: 'gray', icon: Icons.hourglass },
-    sent: { label: 'Odoslaný', color: 'blue', icon: Icons.mail },
-    in_progress: { label: 'Vypĺňa', color: 'yellow', icon: Icons.edit },
-    completed: { label: 'Dokončený', color: 'green', icon: Icons.checkCircle }
+    pending: { label: 'Čaká', color: 'gray', icon: '⏳' },
+    sent: { label: 'Odoslaný', color: 'blue', icon: '📧' },
+    in_progress: { label: 'Vypĺňa', color: 'yellow', icon: '✏️' },
+    completed: { label: 'Dokončený', color: 'green', icon: '✅' }
   },
 
   init() {
-    console.log('Clients module v2.0 initialized');
+    console.log('🏢 Clients module v2.0 initialized');
   },
   
   async render(container, params = {}) {
@@ -52,7 +52,7 @@ const ClientsModule = {
       return;
     }
     
-    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">${Icons.hourglass}</div></div>';
+    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     
     try {
       await this.loadClients();
@@ -60,7 +60,7 @@ const ClientsModule = {
       this.setupEventListeners();
     } catch (error) {
       console.error('Clients error:', error);
-      Utils.showEmpty(container, error.message, '');
+      Utils.showEmpty(container, error.message, '❌');
     }
   },
   
@@ -122,7 +122,7 @@ const ClientsModule = {
       <div class="card p-4 mb-6">
         <div class="flex flex-wrap gap-4 items-center justify-between">
           <div class="flex gap-4 items-center flex-1">
-            <input type="text" id="filter-search" placeholder="${Icons.search} Hľadať klienta..." 
+            <input type="text" id="filter-search" placeholder="🔍 Hľadať klienta..." 
               value="${this.filters.search}" class="p-2 border rounded-lg w-64">
             <select id="filter-status" class="p-2 border rounded-lg" onchange="ClientsModule.onStatusFilter(this.value)">
               <option value="">Všetky stavy</option>
@@ -159,7 +159,7 @@ const ClientsModule = {
     if (this.clients.length === 0) {
       return `
         <div class="col-span-full text-center py-16 text-gray-400">
-          <div class="text-6xl mb-4">${Icons.building}</div>
+          <div class="text-6xl mb-4">🏢</div>
           <h3 class="text-xl font-semibold mb-2">Žiadni klienti</h3>
           <p>Pridajte prvého klienta</p>
         </div>
@@ -209,7 +209,7 @@ const ClientsModule = {
         <div class="flex gap-2 pt-3 border-t">
           ${client.email ? `
             <a href="mailto:${client.email}" onclick="event.stopPropagation()" 
-              class="p-2 hover:bg-gray-100 rounded-lg" title="${client.email}">${Icons.mail}</a>
+              class="p-2 hover:bg-gray-100 rounded-lg" title="${client.email}">📧</a>
           ` : ''}
           ${client.phone ? `
             <a href="tel:${client.phone}" onclick="event.stopPropagation()" 
@@ -218,13 +218,13 @@ const ClientsModule = {
           ${client.website ? `
             <a href="${client.website.startsWith('http') ? client.website : 'https://' + client.website}" 
               target="_blank" onclick="event.stopPropagation()" 
-              class="p-2 hover:bg-gray-100 rounded-lg" title="${client.website}">${Icons.globe}</a>
+              class="p-2 hover:bg-gray-100 rounded-lg" title="${client.website}">🌐</a>
           ` : ''}
           <div class="flex-1"></div>
           <button onclick="event.stopPropagation(); ClientsModule.editClient('${client.id}')" 
-            class="p-2 hover:bg-blue-100 rounded-lg" title="Upraviť">${Icons.edit}</button>
+            class="p-2 hover:bg-blue-100 rounded-lg" title="Upraviť">✏️</button>
           <button onclick="event.stopPropagation(); ClientsModule.deleteClient('${client.id}')" 
-            class="p-2 hover:bg-red-100 rounded-lg" title="Zmazať">${Icons.trash}</button>
+            class="p-2 hover:bg-red-100 rounded-lg" title="Zmazať">🗑️</button>
         </div>
       </div>
     `;
@@ -332,7 +332,7 @@ const ClientsModule = {
       <form id="client-form" class="space-y-6" onsubmit="event.preventDefault(); ClientsModule.saveClient(); return false;">
         <!-- Základné info -->
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">${Icons.building} Základné informácie</h3>
+          <h3 class="font-semibold mb-3 text-gray-700">🏢 Základné informácie</h3>
           <div class="grid md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Názov firmy *</label>
@@ -376,7 +376,7 @@ const ClientsModule = {
         
         <!-- Adresa -->
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">${Icons.target} Adresa</h3>
+          <h3 class="font-semibold mb-3 text-gray-700">📍 Adresa</h3>
           <div class="grid md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Ulica</label>
@@ -425,7 +425,7 @@ const ClientsModule = {
         
         <!-- Služby -->
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">${Icons.briefcase} Služby a platby</h3>
+          <h3 class="font-semibold mb-3 text-gray-700">💼 Služby a platby</h3>
           <div class="grid md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium mb-1">Balík</label>
@@ -459,7 +459,7 @@ const ClientsModule = {
         
         <!-- Poznámky -->
         <div>
-          <label class="block text-sm font-medium mb-1">${Icons.edit} Poznámky</label>
+          <label class="block text-sm font-medium mb-1">📝 Poznámky</label>
           <textarea name="notes" rows="3" class="w-full p-3 border rounded-xl" 
             placeholder="Interné poznámky o klientovi...">${client.notes || ''}</textarea>
         </div>
@@ -569,7 +569,7 @@ const ClientsModule = {
   // ==========================================
   
   async renderClientDetail(container, clientId) {
-    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">${Icons.hourglass}</div></div>';
+    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     
     try {
       // Get client
@@ -579,7 +579,7 @@ const ClientsModule = {
       });
       
       if (!client) {
-        Utils.showEmpty(container, 'Klient nenájdený', '');
+        Utils.showEmpty(container, 'Klient nenájdený', '🔍');
         return;
       }
       
@@ -648,7 +648,7 @@ const ClientsModule = {
       
     } catch (error) {
       console.error('Client detail error:', error);
-      Utils.showEmpty(container, error.message, '');
+      Utils.showEmpty(container, error.message, '❌');
     }
   },
   
@@ -675,13 +675,13 @@ const ClientsModule = {
         </div>
         <div class="flex gap-2">
           <button onclick="ClientsModule.copyPortalLink('${c.id}')" class="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200" title="Kopírovať link na klientský portál">
-            ${Icons.link} Portál
+            🔗 Portál
           </button>
           <button onclick="ClientsModule.editClient('${c.id}')" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-gray-200">
-            ${Icons.edit} Upraviť
+            ✏️ Upraviť
           </button>
           <button onclick="ClientsModule.sendOnboarding('${c.id}')" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200">
-            ${Icons.clipboard} Onboarding
+            📋 Onboarding
           </button>
           <button onclick="ClientsModule.createProject('${c.id}')" class="gradient-bg text-white px-4 py-2 rounded-xl">
             ➕ Nový projekt
@@ -711,11 +711,11 @@ const ClientsModule = {
       
       <!-- Tabs -->
       <div class="flex gap-2 mb-6 flex-wrap">
-        <button onclick="ClientsModule.showTab('info')" class="tab-btn active" data-tab="info">${Icons.clipboard} Info</button>
-        <button onclick="ClientsModule.showTab('subscription')" class="tab-btn" data-tab="subscription">${Icons.package} Predplatné</button>
-        <button onclick="ClientsModule.showTab('projects')" class="tab-btn" data-tab="projects">${Icons.projects} Projekty</button>
-        <button onclick="ClientsModule.showTab('onboarding')" class="tab-btn" data-tab="onboarding">${Icons.edit} Onboarding</button>
-        <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices">${Icons.billing} Faktúry</button>
+        <button onclick="ClientsModule.showTab('info')" class="tab-btn active" data-tab="info">📋 Info</button>
+        <button onclick="ClientsModule.showTab('subscription')" class="tab-btn" data-tab="subscription">📦 Predplatné</button>
+        <button onclick="ClientsModule.showTab('projects')" class="tab-btn" data-tab="projects">📁 Projekty</button>
+        <button onclick="ClientsModule.showTab('onboarding')" class="tab-btn" data-tab="onboarding">📝 Onboarding</button>
+        <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices">💰 Faktúry</button>
       </div>
       
       <!-- Tab Content -->
@@ -749,7 +749,7 @@ const ClientsModule = {
     return `
       <div class="grid md:grid-cols-2 gap-6">
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">${Icons.building} Firemné údaje</h3>
+          <h3 class="font-semibold mb-4">🏢 Firemné údaje</h3>
           <div class="space-y-3 text-sm">
             <div class="flex justify-between"><span class="text-gray-500">IČO</span><span>${c.ico || '-'}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">DIČ</span><span>${c.dic || '-'}</span></div>
@@ -761,7 +761,7 @@ const ClientsModule = {
         </div>
         
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">${Icons.user} Kontakt</h3>
+          <h3 class="font-semibold mb-4">👤 Kontakt</h3>
           <div class="space-y-3 text-sm">
             <div class="flex justify-between"><span class="text-gray-500">Kontaktná osoba</span><span>${c.contact_person || '-'}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">Email</span>
@@ -774,7 +774,7 @@ const ClientsModule = {
         </div>
         
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">${Icons.target} Adresa</h3>
+          <h3 class="font-semibold mb-4">📍 Adresa</h3>
           <div class="text-sm space-y-1">
             <div>${c.street || '-'}</div>
             <div>${c.zip || ''} ${c.city || ''}</div>
@@ -783,7 +783,7 @@ const ClientsModule = {
         </div>
         
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">${Icons.edit} Poznámky</h3>
+          <h3 class="font-semibold mb-4">📝 Poznámky</h3>
           <p class="text-sm text-gray-600">${c.notes || 'Žiadne poznámky'}</p>
         </div>
       </div>
@@ -799,10 +799,10 @@ const ClientsModule = {
         <!-- Current Subscription -->
         <div class="card p-6">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold">${Icons.package} Aktuálne predplatné</h3>
+            <h3 class="font-semibold">📦 Aktuálne predplatné</h3>
             <button onclick="ClientsModule.showSubscriptionModal()" 
               class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-sm">
-              ${subscription ? 'Upraviť' : '➕ Priradiť balíček'}
+              ${subscription ? '✏️ Upraviť' : '➕ Priradiť balíček'}
             </button>
           </div>
           
@@ -810,7 +810,7 @@ const ClientsModule = {
             <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
               <div class="flex items-start justify-between">
                 <div>
-                  <div class="text-3xl mb-2">${subscription.package_icon || ''}</div>
+                  <div class="text-3xl mb-2">${subscription.package_icon || '📦'}</div>
                   <h4 class="text-xl font-bold">${subscription.package_name || 'Vlastný balíček'}</h4>
                   <p class="text-gray-500">${subscription.custom_name || ''}</p>
                 </div>
@@ -839,7 +839,7 @@ const ClientsModule = {
             </div>
           ` : `
             <div class="text-center py-8 bg-gray-50 rounded-xl">
-              <div class="text-4xl mb-4">${Icons.package}</div>
+              <div class="text-4xl mb-4">📦</div>
               <h4 class="text-lg font-medium text-gray-600">Žiadne predplatné</h4>
               <p class="text-gray-500 mb-4">Klient nemá priradený žiadny balíček</p>
               <button onclick="ClientsModule.showSubscriptionModal()" 
@@ -884,7 +884,7 @@ const ClientsModule = {
         ${services.map(svc => `
           <div class="py-3 flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <span class="text-xl">${svc.icon || ''}</span>
+              <span class="text-xl">${svc.icon || '📋'}</span>
               <div>
                 <div class="font-medium">${svc.name}</div>
                 <div class="text-xs text-gray-500">${svc.is_extra ? 'Extra k balíčku' : 'À la carte'}</div>
@@ -921,7 +921,7 @@ const ClientsModule = {
       <div id="subscription-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
-            <h2 class="text-xl font-bold">${Icons.package} Predplatné klienta</h2>
+            <h2 class="text-xl font-bold">📦 Predplatné klienta</h2>
             <button onclick="ClientsModule.closeSubscriptionModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
           </div>
           
@@ -932,7 +932,7 @@ const ClientsModule = {
                 <option value="">-- Vlastný (bez balíčka) --</option>
                 ${packages.map(p => `
                   <option value="${p.id}" data-price="${p.price}" ${subscription.package_id === p.id ? 'selected' : ''}>
-                    ${p.icon || ''} ${p.name} (${p.price}€/mes)
+                    ${p.icon || '📦'} ${p.name} (${p.price}€/mes)
                   </option>
                 `).join('')}
               </select>
@@ -985,7 +985,7 @@ const ClientsModule = {
             ${subscription.id ? `
               <button onclick="ClientsModule.deleteSubscription('${subscription.id}')" 
                 class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl">
-                ${Icons.trash} Zmazať
+                🗑️ Zmazať
               </button>
             ` : '<div></div>'}
             <div class="flex gap-3">
@@ -1064,7 +1064,7 @@ const ClientsModule = {
         .update({ monthly_fee: data.monthly_price })
         .eq('id', this.currentClient.id);
       
-      Utils.toast('Predplatné uložené!', 'success');
+      Utils.toast('Predplatné uložené! ✅', 'success');
       this.closeSubscriptionModal();
       
       // Reload client detail
@@ -1112,7 +1112,7 @@ const ClientsModule = {
     return `
       <div class="card overflow-hidden">
         <div class="p-4 border-b flex justify-between items-center">
-          <h3 class="font-semibold">${Icons.projects} Projekty (${projects.length})</h3>
+          <h3 class="font-semibold">📁 Projekty (${projects.length})</h3>
           <button onclick="ClientsModule.createProject('${this.currentClient.id}')" 
             class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">
             ➕ Nový projekt
@@ -1141,7 +1141,7 @@ const ClientsModule = {
           </div>
         ` : `
           <div class="p-8 text-center text-gray-400">
-            <div class="text-4xl mb-2">${Icons.projects}</div>
+            <div class="text-4xl mb-2">📁</div>
             <p>Žiadne projekty</p>
             <button onclick="ClientsModule.createProject('${this.currentClient.id}')" 
               class="mt-4 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm">
@@ -1161,7 +1161,7 @@ const ClientsModule = {
     return `
       <div class="card p-6">
         <div class="flex items-center justify-between mb-6">
-          <h3 class="font-semibold">${Icons.edit} Onboarding formulár</h3>
+          <h3 class="font-semibold">📝 Onboarding formulár</h3>
           <span class="px-3 py-1 rounded-full text-sm bg-${onboarding.color}-100 text-${onboarding.color}-700">
             ${onboarding.icon} ${onboarding.label}
           </span>
@@ -1174,7 +1174,7 @@ const ClientsModule = {
               <input type="text" readonly value="${onboardingUrl}" 
                 class="flex-1 p-2 border rounded-lg bg-white text-sm" id="onboarding-url">
               <button onclick="ClientsModule.copyOnboardingUrl()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                ${Icons.clipboard} Kopírovať
+                📋 Kopírovať
               </button>
             </div>
           </div>
@@ -1183,16 +1183,16 @@ const ClientsModule = {
         <div class="flex gap-3">
           <button onclick="ClientsModule.sendOnboarding('${c.id}')" 
             class="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200">
-            ${Icons.mail} Odoslať link emailom
+            📧 Odoslať link emailom
           </button>
           <button onclick="ClientsModule.fillOnboarding('${c.id}')" 
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200">
-            ${Icons.edit} Vyplniť za klienta
+            ✏️ Vyplniť za klienta
           </button>
           ${c.onboarding_status === 'completed' ? `
             <button onclick="ClientsModule.viewOnboarding('${c.id}')" 
               class="px-4 py-2 bg-green-100 text-green-700 rounded-xl hover:bg-green-200">
-              ${Icons.eye} Zobraziť odpovede
+              👁️ Zobraziť odpovede
             </button>
           ` : ''}
         </div>
@@ -1204,11 +1204,11 @@ const ClientsModule = {
     return `
       <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold">${Icons.billing} Faktúry</h3>
+          <h3 class="font-semibold">💰 Faktúry</h3>
           <button class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm">➕ Nová faktúra</button>
         </div>
         <div class="text-center py-8 text-gray-400">
-          <div class="text-4xl mb-2">${Icons.billing}</div>
+          <div class="text-4xl mb-2">💰</div>
           <p>Modul faktúr - pripravuje sa</p>
         </div>
       </div>
@@ -1273,7 +1273,7 @@ const ClientsModule = {
       // Confirm
       const confirmed = await Utils.confirm(
         'Poslať onboarding?',
-        `Pošle sa email na ${client.email} s odkazom na vyplnenie onboarding dotazníka.${client.onboarding_status === 'completed' ? '\n\n${Icons.alertTriangle} Tento klient už má onboarding dokončený. Pokračovaním sa resetuje a môže ho vyplniť znova.' : ''}`
+        `Pošle sa email na ${client.email} s odkazom na vyplnenie onboarding dotazníka.${client.onboarding_status === 'completed' ? '\n\n⚠️ Tento klient už má onboarding dokončený. Pokračovaním sa resetuje a môže ho vyplniť znova.' : ''}`
       );
       
       if (!confirmed) return;
@@ -1312,7 +1312,7 @@ const ClientsModule = {
           htmlBody: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-                <h1 style="margin: 0; font-size: 24px;">${Icons.clipboard} Onboarding dotazník</h1>
+                <h1 style="margin: 0; font-size: 24px;">📋 Onboarding dotazník</h1>
               </div>
               <div style="padding: 30px; background: #f8fafc; border-radius: 0 0 10px 10px;">
                 <p style="font-size: 16px; color: #1e293b;">Dobrý deň${client.contact_person ? ' ' + client.contact_person : ''},</p>
@@ -1332,7 +1332,7 @@ const ClientsModule = {
                 <p style="color: #64748b; font-size: 14px; margin-bottom: 0;">
                   S pozdravom,<br>
                   <strong>Tím Adlify</strong><br>
-                  ${Icons.mail} info@adlify.eu | ${Icons.globe} adlify.eu
+                  📧 info@adlify.eu | 🌐 adlify.eu
                 </p>
               </div>
             </div>

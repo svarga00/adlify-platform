@@ -6,7 +6,7 @@
 const KeywordResearchModule = {
     id: 'keywords',
     name: 'Keywords',
-    icon: Icons.search,
+    icon: '🔍',
     title: 'Keyword Research',
     menu: { section: 'tools', order: 59 },
     permissions: ['keywords', 'view'],
@@ -17,7 +17,7 @@ const KeywordResearchModule = {
     clients: [],
 
     async init() {
-        console.log('Keyword Research module initialized');
+        console.log('🔍 Keyword Research module initialized');
     },
 
     async render(container) {
@@ -30,7 +30,7 @@ const KeywordResearchModule = {
                     </div>
                     <div class="header-right">
                         <button class="btn-primary" onclick="KeywordResearchModule.showNewSearch()">
-                            <span>${Icons.search}</span> Nový výskum
+                            <span>🔍</span> Nový výskum
                         </button>
                     </div>
                 </div>
@@ -56,17 +56,17 @@ const KeywordResearchModule = {
                 <!-- Results Area -->
                 <div class="keywords-content" id="keywords-content">
                     <div class="keywords-placeholder">
-                        <div class="placeholder-icon">${Icons.search}</div>
+                        <div class="placeholder-icon">🔍</div>
                         <h3>Začni výskum kľúčových slov</h3>
                         <p>Zadaj seed keyword a získaj návrhy s objemom vyhľadávania, CPC a konkurenciou</p>
                         
                         <div class="features-grid">
                             <div class="feature">
-                                <span class="feature-icon">${Icons.dashboard}</span>
+                                <span class="feature-icon">📊</span>
                                 <span>Search Volume</span>
                             </div>
                             <div class="feature">
-                                <span class="feature-icon">${Icons.billing}</span>
+                                <span class="feature-icon">💰</span>
                                 <span>CPC odhad</span>
                             </div>
                             <div class="feature">
@@ -160,7 +160,7 @@ const KeywordResearchModule = {
             <div class="modal keyword-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.search}</span>
+                        <span class="modal-icon">🔍</span>
                         <h2>Nový keyword výskum</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -207,7 +207,7 @@ const KeywordResearchModule = {
                 <div class="modal-footer">
                     <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
                     <button class="btn-primary" onclick="KeywordResearchModule.startSearch()">
-                        ${Icons.search} Spustiť výskum
+                        🔍 Spustiť výskum
                     </button>
                 </div>
             </div>
@@ -264,7 +264,7 @@ const KeywordResearchModule = {
             console.error('Search error:', error);
             content.innerHTML = `
                 <div class="error-state">
-                    <div class="error-icon">${Icons.alertTriangle}</div>
+                    <div class="error-icon">⚠️</div>
                     <h3>Chyba pri vyhľadávaní</h3>
                     <p>${error.message || 'Skúste to znova neskôr'}</p>
                     <button class="btn-secondary" onclick="KeywordResearchModule.render(document.getElementById('module-content'))">
@@ -339,10 +339,10 @@ const KeywordResearchModule = {
                 </div>
                 <div class="results-actions">
                     <button class="btn-secondary" onclick="KeywordResearchModule.exportResults()">
-                        ${Icons.inbox} Export CSV
+                        📥 Export CSV
                     </button>
                     <button class="btn-secondary" onclick="KeywordResearchModule.saveToProject()">
-                        ${Icons.projects} Uložiť do projektu
+                        📁 Uložiť do projektu
                     </button>
                 </div>
             </div>
@@ -379,7 +379,7 @@ const KeywordResearchModule = {
                                 </td>
                                 <td>
                                     <button class="btn-icon-small" onclick="KeywordResearchModule.copyKeyword('${r.keyword}')" title="Kopírovať">
-                                        ${Icons.clipboard}
+                                        📋
                                     </button>
                                 </td>
                             </tr>

@@ -5,7 +5,7 @@
 const IntegrationsModule = {
     id: 'integrations',
     name: 'Integrácie',
-    icon: Icons.link,
+    icon: '🔗',
     title: 'Integrácie',
     menu: { section: 'settings', order: 20 },
     permissions: ['owner', 'admin'],
@@ -55,7 +55,7 @@ const IntegrationsModule = {
             <div class="integrations-module">
                 <div class="flex items-center justify-between mb-6">
                     <div>
-                        <h1 class="text-2xl font-bold">${Icons.link} Integrácie</h1>
+                        <h1 class="text-2xl font-bold">🔗 Integrácie</h1>
                         <p class="text-gray-500">Prepojenia s externými službami</p>
                     </div>
                 </div>
@@ -148,12 +148,12 @@ const IntegrationsModule = {
         const { id, name, provider, is_enabled, last_sync_at, sync_status } = integration;
         
         const icons = {
-            superfaktura: '',
-            marketing_miner: '',
-            google_ads: '',
-            meta_ads: '',
-            google_calendar: '',
-            slack: ''
+            superfaktura: '📄',
+            marketing_miner: '🔍',
+            google_ads: '📊',
+            meta_ads: '📘',
+            google_calendar: '📅',
+            slack: '💬'
         };
         
         const descriptions = {
@@ -166,12 +166,12 @@ const IntegrationsModule = {
         };
         
         const statusClass = is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
-        const statusText = is_enabled ? 'Aktívne' : '⭕ Neaktívne';
+        const statusText = is_enabled ? '✅ Aktívne' : '⭕ Neaktívne';
         
         return `
             <div class="integration-card ${is_enabled ? 'enabled' : ''}" data-id="${id}">
                 <div class="flex items-start gap-4">
-                    <div class="text-4xl">${icons[provider] || ''}</div>
+                    <div class="text-4xl">${icons[provider] || '🔗'}</div>
                     <div class="flex-1">
                         <div class="flex items-center gap-3 mb-1">
                             <h3 class="text-lg font-semibold">${name}</h3>
@@ -182,19 +182,19 @@ const IntegrationsModule = {
                         ${last_sync_at ? `
                             <div class="text-xs text-gray-400">
                                 Posledná sync: ${this.formatDate(last_sync_at)}
-                                ${sync_status === 'failed' ? '<span class="text-red-500 ml-2">${Icons.alertTriangle} Chyba</span>' : ''}
+                                ${sync_status === 'failed' ? '<span class="text-red-500 ml-2">⚠️ Chyba</span>' : ''}
                             </div>
                         ` : ''}
                     </div>
                     <div class="flex gap-2">
                         <button onclick="IntegrationsModule.configure('${provider}')" 
                                 class="btn-secondary">
-                            ${Icons.settings} Nastaviť
+                            ⚙️ Nastaviť
                         </button>
                         ${is_enabled && provider === 'superfaktura' ? `
                             <button onclick="IntegrationsModule.testConnection('${provider}')" 
                                     class="btn-secondary">
-                                ${Icons.sync} Test
+                                🔄 Test
                             </button>
                         ` : ''}
                     </div>
@@ -211,7 +211,7 @@ const IntegrationsModule = {
         const integration = this.integrations.find(i => i.id === integrationId || i.provider === integrationId);
         if (!integration) return;
         
-        document.getElementById('modal-title').textContent = `${Icons.settings} ${integration.name}`;
+        document.getElementById('modal-title').textContent = `⚙️ ${integration.name}`;
         document.getElementById('modal-body').innerHTML = this.getConfigForm(integration);
         document.getElementById('integration-modal').classList.remove('hidden');
     },
@@ -314,7 +314,7 @@ const IntegrationsModule = {
                             <div class="flex gap-3">
                                 <button type="button" onclick="IntegrationsModule.testMarketingMiner()" 
                                         class="btn-secondary flex-1" id="mm-test-btn">
-                                    ${Icons.sync} Otestovať API
+                                    🔄 Otestovať API
                                 </button>
                             </div>
                             <div id="mm-test-result" class="mt-3 text-sm hidden"></div>
@@ -322,7 +322,7 @@ const IntegrationsModule = {
                         
                         <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
                             <div class="flex items-start gap-3">
-                                <span class="text-xl">${Icons.billing}</span>
+                                <span class="text-xl">💰</span>
                                 <div class="text-sm text-amber-800">
                                     <strong>Ceny API:</strong>
                                     <ul class="mt-1 space-y-0.5">
@@ -438,7 +438,7 @@ const IntegrationsModule = {
             integration.credentials = credentials;
             integration.settings = settings;
             
-            Utils.toast('Integrácia uložená!', 'success');
+            Utils.toast('Integrácia uložená! ✅', 'success');
             this.closeModal();
             this.renderList();
             
@@ -459,7 +459,7 @@ const IntegrationsModule = {
                 const result = await this.testSuperFaktura(integration.credentials);
                 
                 if (result.success) {
-                    Utils.toast('Pripojenie funguje!', 'success');
+                    Utils.toast('✅ Pripojenie funguje!', 'success');
                     
                     // Update sync status in settings
                     const configKey = `integration_${integration.provider}`;
@@ -482,7 +482,7 @@ const IntegrationsModule = {
                         
                     integration.last_sync_at = config.last_sync_at;
                 } else {
-                    Utils.toast('' + result.error, 'error');
+                    Utils.toast('❌ ' + result.error, 'error');
                 }
                 
                 this.renderList();
@@ -538,14 +538,14 @@ const IntegrationsModule = {
         const apiKey = apiKeyInput?.value?.trim();
         
         if (!apiKey) {
-            resultDiv.innerHTML = '<span class="text-red-600">${Icons.xCircle} Zadajte API kľúč</span>';
+            resultDiv.innerHTML = '<span class="text-red-600">❌ Zadajte API kľúč</span>';
             resultDiv.classList.remove('hidden');
             return;
         }
         
         // UI loading state
         testBtn.disabled = true;
-        testBtn.innerHTML = 'Testujem...';
+        testBtn.innerHTML = '⏳ Testujem...';
         resultDiv.classList.add('hidden');
         
         try {
@@ -585,7 +585,7 @@ const IntegrationsModule = {
                 resultDiv.innerHTML = `
                     <div class="bg-green-50 border border-green-200 rounded-lg p-3">
                         <div class="flex items-center gap-2 text-green-700 font-medium">
-                            ${Icons.checkCircle} ${result.data.message || 'Pripojenie úspešné!'}
+                            ✅ ${result.data.message || 'Pripojenie úspešné!'}
                         </div>
                         ${result.data.sample?.length > 0 ? `
                             <div class="mt-2 text-xs text-green-600">
@@ -604,7 +604,7 @@ const IntegrationsModule = {
             resultDiv.innerHTML = `
                 <div class="bg-red-50 border border-red-200 rounded-lg p-3">
                     <div class="flex items-center gap-2 text-red-700 font-medium">
-                        ${Icons.xCircle} Chyba pripojenia
+                        ❌ Chyba pripojenia
                     </div>
                     <div class="mt-1 text-xs text-red-600">
                         ${error.message || 'Nepodarilo sa pripojiť k Marketing Miner API'}
@@ -613,7 +613,7 @@ const IntegrationsModule = {
             `;
         } finally {
             testBtn.disabled = false;
-            testBtn.innerHTML = 'Otestovať API';
+            testBtn.innerHTML = '🔄 Otestovať API';
             resultDiv.classList.remove('hidden');
         }
     },

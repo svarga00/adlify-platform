@@ -6,7 +6,7 @@
 const SettingsModule = {
     id: 'settings',
     name: 'Nastavenia',
-    icon: Icons.settings,
+    icon: '⚙️',
     title: 'Nastavenia',
     menu: { section: 'settings', order: 10 },
     permissions: ['owner', 'admin'],
@@ -36,7 +36,7 @@ const SettingsModule = {
         container.innerHTML = `
             <div class="settings-module">
                 <div class="flex items-center justify-between mb-6">
-                    <h1 class="text-2xl font-bold">${Icons.settings} Nastavenia</h1>
+                    <h1 class="text-2xl font-bold">⚙️ Nastavenia</h1>
                 </div>
                 
                 <!-- Tabs -->
@@ -44,15 +44,15 @@ const SettingsModule = {
                     <div class="flex gap-1 border-b overflow-x-auto">
                         <button class="tab-btn ${this.currentTab === 'brand' ? 'active' : ''}" 
                                 onclick="SettingsModule.switchTab('brand')">
-                            ${Icons.palette} Brand
+                            🎨 Brand
                         </button>
                         <button class="tab-btn ${this.currentTab === 'company' ? 'active' : ''}" 
                                 onclick="SettingsModule.switchTab('company')">
-                            ${Icons.building} Firma
+                            🏢 Firma
                         </button>
                         <button class="tab-btn ${this.currentTab === 'email-accounts' ? 'active' : ''}" 
                                 onclick="SettingsModule.switchTab('email-accounts')">
-                            ${Icons.mailOpen} Schránky
+                            📬 Schránky
                         </button>
                         <button class="tab-btn ${this.currentTab === 'signatures' ? 'active' : ''}" 
                                 onclick="SettingsModule.switchTab('signatures')">
@@ -60,7 +60,7 @@ const SettingsModule = {
                         </button>
                         <button class="tab-btn ${this.currentTab === 'templates' ? 'active' : ''}" 
                                 onclick="SettingsModule.switchTab('templates')">
-                            ${Icons.edit} Šablóny
+                            📝 Šablóny
                         </button>
                         <button class="tab-btn ${this.currentTab === 'banking' ? 'active' : ''}" 
                                 onclick="SettingsModule.switchTab('banking')">
@@ -68,7 +68,7 @@ const SettingsModule = {
                         </button>
                         <button class="tab-btn ${this.currentTab === 'invoicing' ? 'active' : ''}" 
                                 onclick="SettingsModule.switchTab('invoicing')">
-                            ${Icons.documents} Fakturácia
+                            📄 Fakturácia
                         </button>
                     </div>
                 </div>
@@ -247,7 +247,7 @@ const SettingsModule = {
         
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">${Icons.palette} Brand & Logo</h2>
+                <h2 class="text-lg font-semibold mb-4">🎨 Brand & Logo</h2>
                 <p class="text-sm text-gray-500 mb-6">Nastavte logá a farby, ktoré sa použijú v celej aplikácii, emailoch a dokumentoch.</p>
                 
                 <form id="brand-form" onsubmit="SettingsModule.saveBrandSettings(event)" class="space-y-6">
@@ -264,7 +264,7 @@ const SettingsModule = {
                                    placeholder="https://..." class="w-full p-2 border rounded-lg text-sm mt-2"
                                    onchange="SettingsModule.previewLogo(this, 'preview-logo')">
                             <button type="button" onclick="SettingsModule.uploadLogo('brand_logo_url')" 
-                                    class="btn-secondary text-xs mt-2 w-full">${Icons.sent} Nahrať</button>
+                                    class="btn-secondary text-xs mt-2 w-full">📤 Nahrať</button>
                         </div>
                         
                         <!-- Logo tmavé -->
@@ -277,7 +277,7 @@ const SettingsModule = {
                                    placeholder="https://..." class="w-full p-2 border rounded-lg text-sm mt-2"
                                    onchange="SettingsModule.previewLogo(this, 'preview-logo-dark')">
                             <button type="button" onclick="SettingsModule.uploadLogo('brand_logo_dark_url')" 
-                                    class="btn-secondary text-xs mt-2 w-full">${Icons.sent} Nahrať</button>
+                                    class="btn-secondary text-xs mt-2 w-full">📤 Nahrať</button>
                         </div>
                         
                         <!-- Ikona -->
@@ -290,14 +290,14 @@ const SettingsModule = {
                                    placeholder="https://..." class="w-full p-2 border rounded-lg text-sm mt-2"
                                    onchange="SettingsModule.previewLogo(this, 'preview-icon')">
                             <button type="button" onclick="SettingsModule.uploadLogo('brand_logo_icon_url')" 
-                                    class="btn-secondary text-xs mt-2 w-full">${Icons.sent} Nahrať</button>
+                                    class="btn-secondary text-xs mt-2 w-full">📤 Nahrať</button>
                         </div>
                     </div>
                     
                     <hr class="my-6">
                     
                     <!-- Farby -->
-                    <h3 class="font-medium mb-4">${Icons.palette} Brand farby</h3>
+                    <h3 class="font-medium mb-4">🎨 Brand farby</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium mb-2">Primárna farba</label>
@@ -383,7 +383,7 @@ const SettingsModule = {
                 App.settings = { ...App.settings, ...this.settings };
             }
             
-            Utils.toast('Brand nastavenia uložené!', 'success');
+            Utils.toast('Brand nastavenia uložené! ✅', 'success');
             
         } catch (err) {
             console.error('Error saving brand settings:', err);
@@ -400,7 +400,7 @@ const SettingsModule = {
             <div class="settings-card">
                 <div class="flex justify-between items-center mb-4">
                     <div>
-                        <h2 class="text-lg font-semibold">${Icons.mailOpen} Emailové schránky</h2>
+                        <h2 class="text-lg font-semibold">📬 Emailové schránky</h2>
                         <p class="text-sm text-gray-500">Spravujte emailové účty pre odosielanie a príjem správ.</p>
                     </div>
                     <button onclick="SettingsModule.showAddAccountModal()" class="btn-primary">
@@ -411,7 +411,7 @@ const SettingsModule = {
                 <div class="space-y-4" id="email-accounts-list">
                     ${this.emailAccounts.length === 0 ? `
                         <div class="text-center py-8 text-gray-500">
-                            <div class="text-4xl mb-2">${Icons.emptyInbox}</div>
+                            <div class="text-4xl mb-2">📭</div>
                             <p>Žiadne emailové schránky</p>
                             <button onclick="SettingsModule.showAddAccountModal()" class="btn-secondary mt-4">
                                 ➕ Pridať prvú schránku
@@ -444,17 +444,17 @@ const SettingsModule = {
             'never': 'text-gray-400'
         };
         const statusIcons = {
-            'success': '',
-            'error': '',
-            'syncing': '',
-            'never': ''
+            'success': '✅',
+            'error': '❌',
+            'syncing': '🔄',
+            'never': '⏸️'
         };
         
         return `
             <div class="email-account-card ${account.is_default ? 'default' : ''} ${!account.is_active ? 'inactive' : ''}">
                 <div class="flex items-start gap-4">
                     <div class="account-icon ${account.account_type === 'shared' ? 'shared' : 'personal'}">
-                        ${account.account_type === 'shared' ? '' : ''}
+                        ${account.account_type === 'shared' ? '👥' : '👤'}
                     </div>
                     <div class="flex-1">
                         <div class="flex items-center gap-2">
@@ -464,23 +464,23 @@ const SettingsModule = {
                         </div>
                         <p class="text-sm text-gray-600">${account.email}</p>
                         <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                            <span title="SMTP">${account.smtp_host ? '' + account.smtp_host : 'Nenastavené'}</span>
-                            <span title="IMAP">${account.imap_host ? '' + account.imap_host : 'Nenastavené'}</span>
+                            <span title="SMTP">${account.smtp_host ? '📤 ' + account.smtp_host : '📤 Nenastavené'}</span>
+                            <span title="IMAP">${account.imap_host ? '📥 ' + account.imap_host : '📥 Nenastavené'}</span>
                             <span class="${statusColors[account.sync_status] || 'text-gray-400'}">
-                                ${statusIcons[account.sync_status] || ''} 
+                                ${statusIcons[account.sync_status] || '⏸️'} 
                                 ${account.last_sync_at ? 'Sync: ' + new Date(account.last_sync_at).toLocaleString('sk') : 'Nikdy synchronizované'}
                             </span>
                         </div>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="SettingsModule.testAccount('${account.id}')" class="btn-icon" title="Test pripojenia">
-                            ${Icons.integrations}
+                            🔌
                         </button>
                         <button onclick="SettingsModule.editAccount('${account.id}')" class="btn-icon" title="Upraviť">
-                            ${Icons.edit}
+                            ✏️
                         </button>
                         <button onclick="SettingsModule.deleteAccount('${account.id}')" class="btn-icon text-red-500" title="Zmazať">
-                            ${Icons.trash}
+                            🗑️
                         </button>
                     </div>
                 </div>
@@ -526,15 +526,15 @@ const SettingsModule = {
                     <div>
                         <label class="block text-sm font-medium mb-1">Typ</label>
                         <select name="account_type" class="w-full p-3 border rounded-xl">
-                            <option value="shared" ${account?.account_type === 'shared' ? 'selected' : ''}>${Icons.users} Zdieľaná (pre všetkých)</option>
-                            <option value="personal" ${account?.account_type === 'personal' ? 'selected' : ''}>${Icons.user} Osobná</option>
+                            <option value="shared" ${account?.account_type === 'shared' ? 'selected' : ''}>👥 Zdieľaná (pre všetkých)</option>
+                            <option value="personal" ${account?.account_type === 'personal' ? 'selected' : ''}>👤 Osobná</option>
                         </select>
                     </div>
                 </div>
                 
                 <hr class="my-4">
                 
-                <h4 class="font-medium">${Icons.sent} SMTP (odosielanie)</h4>
+                <h4 class="font-medium">📤 SMTP (odosielanie)</h4>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-1">Server</label>
@@ -563,7 +563,7 @@ const SettingsModule = {
                 
                 <hr class="my-4">
                 
-                <h4 class="font-medium">${Icons.inbox} IMAP (príjem) <span class="text-gray-400 text-sm">- voliteľné</span></h4>
+                <h4 class="font-medium">📥 IMAP (príjem) <span class="text-gray-400 text-sm">- voliteľné</span></h4>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-1">Server</label>
@@ -666,7 +666,7 @@ const SettingsModule = {
                     .eq('id', id);
                 
                 if (error) throw error;
-                Utils.toast('Schránka aktualizovaná!', 'success');
+                Utils.toast('Schránka aktualizovaná! ✅', 'success');
             } else {
                 // Insert
                 data.owner_id = data.account_type === 'personal' ? this.currentUser?.id : null;
@@ -676,7 +676,7 @@ const SettingsModule = {
                     .insert(data);
                 
                 if (error) throw error;
-                Utils.toast('Schránka pridaná!', 'success');
+                Utils.toast('Schránka pridaná! ✅', 'success');
             }
             
             this.closeAccountModal();
@@ -782,7 +782,7 @@ const SettingsModule = {
                                 <div class="flex justify-between pt-4">
                                     <button type="button" onclick="SettingsModule.deleteSignature('${currentSig.id}')" 
                                             class="btn-secondary text-red-500">
-                                        ${Icons.trash} Zmazať
+                                        🗑️ Zmazať
                                     </button>
                                     <button type="submit" class="btn-primary">
                                         💾 Uložiť podpis
@@ -923,7 +923,7 @@ const SettingsModule = {
             
             await this.loadSignatures();
             this.renderContent();
-            Utils.toast('Podpis uložený!', 'success');
+            Utils.toast('Podpis uložený! ✅', 'success');
             
         } catch (err) {
             console.error('Error saving signature:', err);
@@ -959,7 +959,7 @@ const SettingsModule = {
     renderTemplates() {
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">${Icons.edit} Email šablóny</h2>
+                <h2 class="text-lg font-semibold mb-4">📝 Email šablóny</h2>
                 <p class="text-sm text-gray-500 mb-6">Predpripravené šablóny pre rôzne typy emailov.</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -972,10 +972,10 @@ const SettingsModule = {
                             <p class="text-sm text-gray-500 mb-3">${tpl.description || tpl.subject}</p>
                             <div class="flex gap-2">
                                 <button onclick="SettingsModule.editTemplate('${tpl.id}')" class="btn-secondary text-xs flex-1">
-                                    ${Icons.edit} Upraviť
+                                    ✏️ Upraviť
                                 </button>
                                 <button onclick="SettingsModule.previewTemplate('${tpl.id}')" class="btn-secondary text-xs">
-                                    ${Icons.eye}
+                                    👁️
                                 </button>
                             </div>
                         </div>
@@ -1016,7 +1016,7 @@ const SettingsModule = {
         const s = this.settings;
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">${Icons.building} Firemné údaje</h2>
+                <h2 class="text-lg font-semibold mb-4">🏢 Firemné údaje</h2>
                 <p class="text-sm text-gray-500 mb-6">Tieto údaje sa použijú na faktúrach a v komunikácii.</p>
                 
                 <form id="company-form" onsubmit="SettingsModule.saveForm(event, 'company-form')" class="space-y-4">
@@ -1139,7 +1139,7 @@ const SettingsModule = {
     renderInvoicingSettings() {
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">${Icons.documents} Nastavenia fakturácie</h2>
+                <h2 class="text-lg font-semibold mb-4">📄 Nastavenia fakturácie</h2>
                 <p class="text-sm text-gray-500 mb-6">Predvolené hodnoty pre nové faktúry.</p>
                 
                 <form id="invoicing-form" onsubmit="SettingsModule.saveForm(event, 'invoicing-form')" class="space-y-4">
@@ -1206,7 +1206,7 @@ const SettingsModule = {
                 App.settings = { ...App.settings, ...this.settings };
             }
             
-            Utils.toast('Uložené!', 'success');
+            Utils.toast('Uložené! ✅', 'success');
             
         } catch (err) {
             console.error('Error saving:', err);

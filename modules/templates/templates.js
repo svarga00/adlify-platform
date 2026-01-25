@@ -6,7 +6,7 @@
 const TemplatesModule = {
     id: 'templates',
     name: 'Šablóny',
-    icon: Icons.edit,
+    icon: '📝',
     title: 'Šablóny',
     menu: { section: 'tools', order: 57 },
     permissions: ['templates', 'view'],
@@ -26,7 +26,7 @@ const TemplatesModule = {
     },
 
     async init() {
-        console.log('Templates module initialized');
+        console.log('📝 Templates module initialized');
     },
 
     async render(container) {
@@ -50,16 +50,16 @@ const TemplatesModule = {
                         Všetky
                     </button>
                     <button class="type-btn ${this.currentType === 'email' ? 'active' : ''}" onclick="TemplatesModule.setType('email')">
-                        ${Icons.mail} Emaily
+                        📧 Emaily
                     </button>
                     <button class="type-btn ${this.currentType === 'ad_text' ? 'active' : ''}" onclick="TemplatesModule.setType('ad_text')">
-                        ${Icons.campaigns} Reklamy
+                        📢 Reklamy
                     </button>
                     <button class="type-btn ${this.currentType === 'proposal' ? 'active' : ''}" onclick="TemplatesModule.setType('proposal')">
-                        ${Icons.documents} Ponuky
+                        📄 Ponuky
                     </button>
                     <button class="type-btn ${this.currentType === 'other' ? 'active' : ''}" onclick="TemplatesModule.setType('other')">
-                        ${Icons.clipboard} Ostatné
+                        📋 Ostatné
                     </button>
                 </div>
 
@@ -101,7 +101,7 @@ const TemplatesModule = {
         if (filtered.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.edit}</div>
+                    <div class="empty-icon">📝</div>
                     <h3>Žiadne šablóny</h3>
                     <p>Vytvor prvú šablónu pre rýchlejšiu prácu</p>
                 </div>
@@ -134,18 +134,18 @@ const TemplatesModule = {
 
     renderTemplateCard(template) {
         const typeIcons = {
-            email: '',
-            sms: '',
-            ad_text: '',
-            report: '',
-            proposal: '',
-            other: ''
+            email: '📧',
+            sms: '💬',
+            ad_text: '📢',
+            report: '📊',
+            proposal: '📄',
+            other: '📋'
         };
 
         return `
             <div class="template-card" onclick="TemplatesModule.openTemplate('${template.id}')">
                 <div class="template-header">
-                    <span class="template-icon">${typeIcons[template.type] || ''}</span>
+                    <span class="template-icon">${typeIcons[template.type] || '📄'}</span>
                     <span class="template-type">${this.getTypeName(template.type)}</span>
                     ${template.is_default ? '<span class="default-badge">Default</span>' : ''}
                 </div>
@@ -156,10 +156,10 @@ const TemplatesModule = {
                     <span class="usage-count">Použité ${template.usage_count}×</span>
                     <div class="template-actions">
                         <button class="btn-icon" onclick="event.stopPropagation(); TemplatesModule.useTemplate('${template.id}')" title="Použiť">
-                            ${Icons.play}
+                            ▶️
                         </button>
                         <button class="btn-icon" onclick="event.stopPropagation(); TemplatesModule.duplicateTemplate('${template.id}')" title="Duplikovať">
-                            ${Icons.clipboard}
+                            📋
                         </button>
                     </div>
                 </div>
@@ -183,7 +183,7 @@ const TemplatesModule = {
             <div class="modal template-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.edit}</span>
+                        <span class="modal-icon">📝</span>
                         <h2>${isEdit ? 'Upraviť šablónu' : 'Nová šablóna'}</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -201,11 +201,11 @@ const TemplatesModule = {
                             <div class="form-group">
                                 <label>Typ *</label>
                                 <select name="type" required onchange="TemplatesModule.toggleSubject(this.value)">
-                                    <option value="email" ${template?.type === 'email' ? 'selected' : ''}>${Icons.mail} Email</option>
-                                    <option value="ad_text" ${template?.type === 'ad_text' ? 'selected' : ''}>${Icons.campaigns} Text reklamy</option>
-                                    <option value="proposal" ${template?.type === 'proposal' ? 'selected' : ''}>${Icons.documents} Ponuka</option>
-                                    <option value="sms" ${template?.type === 'sms' ? 'selected' : ''}>${Icons.messageCircle} SMS</option>
-                                    <option value="other" ${template?.type === 'other' ? 'selected' : ''}>${Icons.clipboard} Iné</option>
+                                    <option value="email" ${template?.type === 'email' ? 'selected' : ''}>📧 Email</option>
+                                    <option value="ad_text" ${template?.type === 'ad_text' ? 'selected' : ''}>📢 Text reklamy</option>
+                                    <option value="proposal" ${template?.type === 'proposal' ? 'selected' : ''}>📄 Ponuka</option>
+                                    <option value="sms" ${template?.type === 'sms' ? 'selected' : ''}>💬 SMS</option>
+                                    <option value="other" ${template?.type === 'other' ? 'selected' : ''}>📋 Iné</option>
                                 </select>
                             </div>
                         </div>
@@ -365,7 +365,7 @@ const TemplatesModule = {
             <div class="modal template-modal use-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.play}</span>
+                        <span class="modal-icon">▶️</span>
                         <h2>Použiť šablónu</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -396,7 +396,7 @@ const TemplatesModule = {
                 <div class="modal-footer">
                     <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
                     <button class="btn-secondary" onclick="TemplatesModule.updatePreview('${id}')">Aktualizovať náhľad</button>
-                    <button class="btn-primary" onclick="TemplatesModule.copyToClipboard()">${Icons.clipboard} Kopírovať</button>
+                    <button class="btn-primary" onclick="TemplatesModule.copyToClipboard()">📋 Kopírovať</button>
                 </div>
             </div>
         `;
@@ -521,13 +521,13 @@ const TemplatesModule = {
 
     getCategoryName(category) {
         const names = {
-            sales: 'Sales',
-            onboarding: 'Onboarding',
-            billing: 'Fakturácia',
-            support: 'Support',
-            google_ads: 'Google Ads',
-            meta_ads: 'Meta Ads',
-            'Bez kategórie': 'Bez kategórie'
+            sales: '💼 Sales',
+            onboarding: '🚀 Onboarding',
+            billing: '💰 Fakturácia',
+            support: '🎧 Support',
+            google_ads: '🔍 Google Ads',
+            meta_ads: '📱 Meta Ads',
+            'Bez kategórie': '📁 Bez kategórie'
         };
         return names[category] || category;
     },

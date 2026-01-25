@@ -6,7 +6,7 @@
 const ServicesModule = {
   id: 'services',
   name: 'Služby & Balíčky',
-  icon: Icons.package,
+  icon: '📦',
   title: 'Služby & Balíčky',
   subtitle: 'Správa produktov a cenníka',
   
@@ -22,11 +22,11 @@ const ServicesModule = {
   
   // Categories
   SERVICE_CATEGORIES: [
-    { value: 'ads', label: 'Reklamné platformy', icon: Icons.campaigns },
-    { value: 'creative', label: 'Kreatíva', icon: Icons.palette },
-    { value: 'seo', label: 'SEO', icon: Icons.search },
-    { value: 'support', label: 'Podpora & Reporty', icon: Icons.dashboard },
-    { value: 'other', label: 'Ostatné', icon: Icons.clipboard }
+    { value: 'ads', label: 'Reklamné platformy', icon: '📢' },
+    { value: 'creative', label: 'Kreatíva', icon: '🎨' },
+    { value: 'seo', label: 'SEO', icon: '🔍' },
+    { value: 'support', label: 'Podpora & Reporty', icon: '📊' },
+    { value: 'other', label: 'Ostatné', icon: '📋' }
   ],
   
   // Badge colors
@@ -40,7 +40,7 @@ const ServicesModule = {
   ],
   
   init() {
-    console.log('Services module v1.0 initialized');
+    console.log('📦 Services module v1.0 initialized');
   },
   
   async loadData() {
@@ -106,7 +106,7 @@ const ServicesModule = {
         <div class="flex gap-2 border-b">
           <button onclick="ServicesModule.switchTab('packages')" 
             class="px-6 py-3 font-medium ${this.activeTab === 'packages' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700'}">
-            ${Icons.clipboard} Balíčky (${this.packages.length})
+            📋 Balíčky (${this.packages.length})
           </button>
           <button onclick="ServicesModule.switchTab('services')" 
             class="px-6 py-3 font-medium ${this.activeTab === 'services' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700'}">
@@ -136,7 +136,7 @@ const ServicesModule = {
     if (this.packages.length === 0) {
       return `
         <div class="text-center py-12 bg-gray-50 rounded-xl">
-          <div class="text-4xl mb-4">${Icons.package}</div>
+          <div class="text-4xl mb-4">📦</div>
           <h3 class="text-lg font-medium text-gray-600">Žiadne balíčky</h3>
           <p class="text-gray-500 mb-4">Vytvorte svoj prvý cenový balíček</p>
           <button onclick="ServicesModule.showPackageModal()" class="px-6 py-2 bg-purple-600 text-white rounded-xl">
@@ -167,7 +167,7 @@ const ServicesModule = {
         
         <div class="p-6">
           <!-- Header -->
-          <div class="text-3xl mb-2">${pkg.icon || ''}</div>
+          <div class="text-3xl mb-2">${pkg.icon || '📦'}</div>
           <h3 class="text-xl font-bold ${pkg.is_featured ? 'text-orange-600' : ''}">${pkg.name}</h3>
           
           <!-- Price -->
@@ -200,11 +200,11 @@ const ServicesModule = {
           <div class="flex gap-2">
             <button onclick="ServicesModule.editPackage('${pkg.id}')" 
               class="flex-1 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-              ${Icons.edit} Upraviť
+              ✏️ Upraviť
             </button>
             <button onclick="ServicesModule.deletePackage('${pkg.id}')" 
               class="px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm">
-              ${Icons.trash}
+              🗑️
             </button>
           </div>
         </div>
@@ -273,7 +273,7 @@ const ServicesModule = {
     return `
       <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
         <div class="flex items-center gap-4">
-          <span class="text-2xl">${service.icon || ''}</span>
+          <span class="text-2xl">${service.icon || '📋'}</span>
           <div>
             <h4 class="font-medium">${service.name}</h4>
             <p class="text-sm text-gray-500">${service.description || 'Bez popisu'}</p>
@@ -288,11 +288,11 @@ const ServicesModule = {
           <div class="flex gap-1">
             <button onclick="ServicesModule.editService('${service.id}')" 
               class="p-2 hover:bg-gray-200 rounded-lg" title="Upraviť">
-              ${Icons.edit}
+              ✏️
             </button>
             <button onclick="ServicesModule.deleteService('${service.id}')" 
               class="p-2 hover:bg-red-100 rounded-lg text-red-500" title="Zmazať">
-              ${Icons.trash}
+              🗑️
             </button>
           </div>
         </div>
@@ -311,7 +311,7 @@ const ServicesModule = {
       <div id="service-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
-            <h2 class="text-xl font-bold">${service ? 'Upraviť službu' : '➕ Nová služba'}</h2>
+            <h2 class="text-xl font-bold">${service ? '✏️ Upraviť službu' : '➕ Nová služba'}</h2>
             <button onclick="ServicesModule.closeServiceModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
           </div>
           
@@ -342,7 +342,7 @@ const ServicesModule = {
               <div>
                 <label class="block text-sm font-medium mb-1">Ikona (emoji)</label>
                 <input type="text" name="icon" value="${service?.icon || ''}" 
-                  class="w-full p-3 border rounded-xl" placeholder="${Icons.campaigns}">
+                  class="w-full p-3 border rounded-xl" placeholder="📢">
               </div>
             </div>
             
@@ -425,13 +425,13 @@ const ServicesModule = {
           .update(data)
           .eq('id', this.editingService.id);
         if (error) throw error;
-        Utils.toast('Služba upravená!', 'success');
+        Utils.toast('Služba upravená! ✅', 'success');
       } else {
         const { error } = await Database.client
           .from('services')
           .insert(data);
         if (error) throw error;
-        Utils.toast('Služba vytvorená!', 'success');
+        Utils.toast('Služba vytvorená! ✅', 'success');
       }
       
       this.closeServiceModal();
@@ -484,7 +484,7 @@ const ServicesModule = {
       <div id="package-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           <div class="p-6 border-b flex items-center justify-between">
-            <h2 class="text-xl font-bold">${pkg ? 'Upraviť balíček' : '➕ Nový balíček'}</h2>
+            <h2 class="text-xl font-bold">${pkg ? '✏️ Upraviť balíček' : '➕ Nový balíček'}</h2>
             <button onclick="ServicesModule.closePackageModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
           </div>
           
@@ -524,7 +524,7 @@ const ServicesModule = {
               <div>
                 <label class="block text-sm font-medium mb-1">Ikona (emoji)</label>
                 <input type="text" id="pkg-icon" value="${pkg?.icon || ''}" 
-                  class="w-full p-3 border rounded-xl" placeholder="${Icons.star}">
+                  class="w-full p-3 border rounded-xl" placeholder="⭐">
               </div>
             </div>
             
@@ -573,7 +573,7 @@ const ServicesModule = {
                     <input type="checkbox" name="service_${svc.id}" value="${svc.id}" 
                       ${includedServiceIds.includes(svc.id) ? 'checked' : ''} 
                       class="package-service-checkbox rounded">
-                    <span class="text-xl">${svc.icon || ''}</span>
+                    <span class="text-xl">${svc.icon || '📋'}</span>
                     <div class="flex-1">
                       <div class="font-medium">${svc.name}</div>
                       <div class="text-xs text-gray-500">${svc.category}</div>
@@ -679,7 +679,7 @@ const ServicesModule = {
         if (servicesError) throw servicesError;
       }
       
-      Utils.toast(this.editingPackage ? 'Balíček upravený!' : 'Balíček vytvorený! ${Icons.checkCircle}', 'success');
+      Utils.toast(this.editingPackage ? 'Balíček upravený! ✅' : 'Balíček vytvorený! ✅', 'success');
       this.closePackageModal();
       await this.loadData();
       this.render(document.getElementById('main-content'));

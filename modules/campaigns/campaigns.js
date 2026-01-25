@@ -6,7 +6,7 @@
 const CampaignsModule = {
     id: 'campaigns',
     name: 'Kampane',
-    icon: Icons.campaigns,
+    icon: '📢',
     title: 'Kampane',
     menu: { section: 'main', order: 35 },
     permissions: ['campaigns', 'view'],
@@ -18,7 +18,7 @@ const CampaignsModule = {
     currentPlatform: 'all',
 
     async init() {
-        console.log('Campaigns module initialized');
+        console.log('📢 Campaigns module initialized');
     },
 
     async render(container) {
@@ -39,28 +39,28 @@ const CampaignsModule = {
                 <!-- Stats -->
                 <div class="campaigns-stats">
                     <div class="stat-card">
-                        <div class="stat-icon active">${Icons.rocket}</div>
+                        <div class="stat-icon active">🚀</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-active">-</span>
                             <span class="stat-label">Aktívne</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon paused">${Icons.pause}</div>
+                        <div class="stat-icon paused">⏸️</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-paused">-</span>
                             <span class="stat-label">Pozastavené</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon budget">${Icons.billing}</div>
+                        <div class="stat-icon budget">💰</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-budget">-</span>
                             <span class="stat-label">Celkový budget</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon clients">${Icons.users}</div>
+                        <div class="stat-icon clients">👥</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-clients">-</span>
                             <span class="stat-label">Klientov s kampaňami</span>
@@ -76,19 +76,19 @@ const CampaignsModule = {
                                 Všetky
                             </button>
                             <button class="platform-btn google ${this.currentPlatform === 'google' ? 'active' : ''}" onclick="CampaignsModule.setPlatform('google')">
-                                ${Icons.search} Google
+                                🔍 Google
                             </button>
                             <button class="platform-btn meta ${this.currentPlatform === 'meta' ? 'active' : ''}" onclick="CampaignsModule.setPlatform('meta')">
-                                ${Icons.smartphone} Meta
+                                📱 Meta
                             </button>
                         </div>
                         <div class="status-filter">
                             <select onchange="CampaignsModule.setFilter(this.value)">
                                 <option value="all">Všetky statusy</option>
-                                <option value="active">${Icons.rocket} Aktívne</option>
-                                <option value="paused">${Icons.pause} Pozastavené</option>
-                                <option value="draft">${Icons.edit} Návrhy</option>
-                                <option value="ended">${Icons.checkCircle} Ukončené</option>
+                                <option value="active">🚀 Aktívne</option>
+                                <option value="paused">⏸️ Pozastavené</option>
+                                <option value="draft">📝 Návrhy</option>
+                                <option value="ended">✅ Ukončené</option>
                             </select>
                         </div>
                     </div>
@@ -156,7 +156,7 @@ const CampaignsModule = {
         if (filtered.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.campaigns}</div>
+                    <div class="empty-icon">📢</div>
                     <h3>Žiadne kampane</h3>
                     <p>Vytvor prvú kampaň pre klienta</p>
                     <button class="btn-primary" onclick="CampaignsModule.showCreateModal()" style="margin-top: 1rem;">
@@ -180,7 +180,7 @@ const CampaignsModule = {
             html += `
                 <div class="client-group">
                     <div class="client-header">
-                        <span class="client-name">${Icons.user} ${clientName}</span>
+                        <span class="client-name">👤 ${clientName}</span>
                         <span class="client-count">${campaigns.length} kampaní</span>
                     </div>
                     <div class="campaigns-grid">
@@ -195,18 +195,18 @@ const CampaignsModule = {
 
     renderCampaignCard(campaign) {
         const platformConfig = {
-            google: { icon: Icons.search, label: 'Google Ads', class: 'google' },
-            meta: { icon: Icons.smartphone, label: 'Meta Ads', class: 'meta' },
-            both: { icon: Icons.globe, label: 'Multi-platform', class: 'both' }
+            google: { icon: '🔍', label: 'Google Ads', class: 'google' },
+            meta: { icon: '📱', label: 'Meta Ads', class: 'meta' },
+            both: { icon: '🌐', label: 'Multi-platform', class: 'both' }
         };
 
         const statusConfig = {
-            draft: { icon: Icons.edit, label: 'Návrh', class: 'draft' },
-            pending: { icon: Icons.hourglass, label: 'Čaká', class: 'pending' },
-            active: { icon: Icons.rocket, label: 'Aktívna', class: 'active' },
-            paused: { icon: Icons.pause, label: 'Pozastavená', class: 'paused' },
-            ended: { icon: Icons.checkCircle, label: 'Ukončená', class: 'ended' },
-            rejected: { icon: Icons.xCircle, label: 'Zamietnutá', class: 'rejected' }
+            draft: { icon: '📝', label: 'Návrh', class: 'draft' },
+            pending: { icon: '⏳', label: 'Čaká', class: 'pending' },
+            active: { icon: '🚀', label: 'Aktívna', class: 'active' },
+            paused: { icon: '⏸️', label: 'Pozastavená', class: 'paused' },
+            ended: { icon: '✅', label: 'Ukončená', class: 'ended' },
+            rejected: { icon: '❌', label: 'Zamietnutá', class: 'rejected' }
         };
 
         const platform = platformConfig[campaign.platform] || platformConfig.google;
@@ -254,11 +254,11 @@ const CampaignsModule = {
                     <span class="campaign-date">${this.formatDate(campaign.created_at)}</span>
                     <div class="campaign-actions">
                         ${campaign.status === 'active' ? `
-                            <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.pauseCampaign('${campaign.id}')" title="Pozastaviť">${Icons.pause}</button>
+                            <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.pauseCampaign('${campaign.id}')" title="Pozastaviť">⏸️</button>
                         ` : campaign.status === 'paused' ? `
-                            <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.activateCampaign('${campaign.id}')" title="Aktivovať">${Icons.play}</button>
+                            <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.activateCampaign('${campaign.id}')" title="Aktivovať">▶️</button>
                         ` : ''}
-                        <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.editCampaign('${campaign.id}')" title="Upraviť">${Icons.edit}</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.editCampaign('${campaign.id}')" title="Upraviť">✏️</button>
                     </div>
                 </div>
             </div>
@@ -313,7 +313,7 @@ const CampaignsModule = {
             <div class="modal campaign-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.campaigns}</span>
+                        <span class="modal-icon">📢</span>
                         <h2>Nová kampaň</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -337,9 +337,9 @@ const CampaignsModule = {
                             <div class="form-group">
                                 <label>Platforma *</label>
                                 <select name="platform" required>
-                                    <option value="google">${Icons.search} Google Ads</option>
-                                    <option value="meta">${Icons.smartphone} Meta Ads</option>
-                                    <option value="both">${Icons.globe} Oboje</option>
+                                    <option value="google">🔍 Google Ads</option>
+                                    <option value="meta">📱 Meta Ads</option>
+                                    <option value="both">🌐 Oboje</option>
                                 </select>
                             </div>
                         </div>
@@ -361,9 +361,9 @@ const CampaignsModule = {
                             <div class="form-group">
                                 <label>Status</label>
                                 <select name="status">
-                                    <option value="draft">${Icons.edit} Návrh</option>
-                                    <option value="active">${Icons.rocket} Aktívna</option>
-                                    <option value="paused">${Icons.pause} Pozastavená</option>
+                                    <option value="draft">📝 Návrh</option>
+                                    <option value="active">🚀 Aktívna</option>
+                                    <option value="paused">⏸️ Pozastavená</option>
                                 </select>
                             </div>
                         </div>
@@ -461,13 +461,13 @@ const CampaignsModule = {
             .select('*, ads(*)')
             .eq('campaign_id', id);
 
-        const platform = { google: 'Google', meta: 'Meta', both: 'Multi' }[campaign.platform];
+        const platform = { google: '🔍 Google', meta: '📱 Meta', both: '🌐 Multi' }[campaign.platform];
         const status = {
-            draft: 'Návrh',
-            pending: 'Čaká',
-            active: 'Aktívna',
-            paused: 'Pozastavená',
-            ended: 'Ukončená'
+            draft: '📝 Návrh',
+            pending: '⏳ Čaká',
+            active: '🚀 Aktívna',
+            paused: '⏸️ Pozastavená',
+            ended: '✅ Ukončená'
         }[campaign.status] || campaign.status;
 
         const modal = document.createElement('div');
@@ -476,7 +476,7 @@ const CampaignsModule = {
             <div class="modal campaign-modal campaign-detail-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.campaigns}</span>
+                        <span class="modal-icon">📢</span>
                         <h2>${campaign.name}</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -580,10 +580,10 @@ const CampaignsModule = {
                 </div>
                 
                 <div class="modal-footer">
-                    <button class="btn-danger" onclick="CampaignsModule.deleteCampaign('${campaign.id}')">${Icons.trash} Zmazať</button>
+                    <button class="btn-danger" onclick="CampaignsModule.deleteCampaign('${campaign.id}')">🗑️ Zmazať</button>
                     <div class="footer-right">
                         <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
-                        <button class="btn-primary" onclick="CampaignsModule.editCampaign('${campaign.id}')">${Icons.edit} Upraviť</button>
+                        <button class="btn-primary" onclick="CampaignsModule.editCampaign('${campaign.id}')">✏️ Upraviť</button>
                     </div>
                 </div>
             </div>

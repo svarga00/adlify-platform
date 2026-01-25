@@ -5,7 +5,7 @@
 const BillingModule = {
     id: 'billing',
     name: 'Fakturácia',
-    icon: Icons.documents,
+    icon: '📄',
     title: 'Fakturácia',
     menu: { section: 'main', order: 40 },
     permissions: [],
@@ -147,25 +147,25 @@ const BillingModule = {
                     <div class="billing-tabs-new">
                         <button class="tab-btn-new ${this.currentTab === 'invoices' ? 'active' : ''}" 
                                 onclick="BillingModule.switchTab('invoices')">
-                            <span class="tab-icon">${Icons.documents}</span>
+                            <span class="tab-icon">📄</span>
                             <span class="tab-label">Faktúry</span>
                             <span class="tab-count">${invoices.length}</span>
                         </button>
                         <button class="tab-btn-new ${this.currentTab === 'proformas' ? 'active' : ''}" 
                                 onclick="BillingModule.switchTab('proformas')">
-                            <span class="tab-icon">${Icons.clipboard}</span>
+                            <span class="tab-icon">📋</span>
                             <span class="tab-label">Zálohové</span>
                             <span class="tab-count">${proformas.length}</span>
                         </button>
                         <button class="tab-btn-new ${this.currentTab === 'quotes' ? 'active' : ''}" 
                                 onclick="BillingModule.switchTab('quotes')">
-                            <span class="tab-icon">${Icons.edit}</span>
+                            <span class="tab-icon">📝</span>
                             <span class="tab-label">Ponuky</span>
                             <span class="tab-count">${this.quotes.length}</span>
                         </button>
                         <button class="tab-btn-new ${this.currentTab === 'orders' ? 'active' : ''}" 
                                 onclick="BillingModule.switchTab('orders')">
-                            <span class="tab-icon">${Icons.shoppingCart}</span>
+                            <span class="tab-icon">🛒</span>
                             <span class="tab-label">Objednávky</span>
                             <span class="tab-count">${this.orders.length}</span>
                         </button>
@@ -341,7 +341,7 @@ const BillingModule = {
         if (invoices.length === 0) {
             return `
                 <div class="empty-state">
-                    <div class="empty-icon">${type === 'invoice' ? '' : ''}</div>
+                    <div class="empty-icon">${type === 'invoice' ? '📄' : '📋'}</div>
                     <h3>Žiadne ${typeLabel}</h3>
                     <p>Vytvorte prvú ${type === 'invoice' ? 'faktúru' : 'zálohovú faktúru'}</p>
                     <button class="btn btn-primary" onclick="BillingModule.${type === 'invoice' ? 'createInvoice' : 'createProforma'}()">
@@ -404,8 +404,8 @@ const BillingModule = {
                                 <td>${this.renderInvoiceStatus(inv.computed_status || inv.status)}</td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button class="btn-icon" title="Detail" onclick="BillingModule.showInvoiceDetail('${inv.id}')">${Icons.eye}</button>
-                                        <button class="btn-icon" title="PDF" onclick="BillingModule.downloadPDF('${inv.id}')">${Icons.inbox}</button>
+                                        <button class="btn-icon" title="Detail" onclick="BillingModule.showInvoiceDetail('${inv.id}')">👁️</button>
+                                        <button class="btn-icon" title="PDF" onclick="BillingModule.downloadPDF('${inv.id}')">📥</button>
                                         ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `
                                             <button class="btn-icon" title="Pridať platbu" onclick="BillingModule.addPayment('${inv.id}')">💳</button>
                                         ` : ''}
@@ -424,7 +424,7 @@ const BillingModule = {
         if (this.quotes.length === 0) {
             return `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.edit}</div>
+                    <div class="empty-icon">📝</div>
                     <h3>Žiadne ponuky</h3>
                     <p>Vytvorte prvú cenovú ponuku</p>
                     <button class="btn btn-primary" onclick="BillingModule.createQuote()">
@@ -483,12 +483,12 @@ const BillingModule = {
                                 <td>${this.renderQuoteStatus(q.status)}</td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button class="btn-icon" title="Detail" onclick="BillingModule.showQuoteDetail('${q.id}')">${Icons.eye}</button>
+                                        <button class="btn-icon" title="Detail" onclick="BillingModule.showQuoteDetail('${q.id}')">👁️</button>
                                         ${q.status === 'sent' || q.status === 'accepted' ? `
-                                            <button class="btn-icon" title="Vytvoriť objednávku" onclick="BillingModule.createOrderFromQuote('${q.id}')">${Icons.shoppingCart}</button>
+                                            <button class="btn-icon" title="Vytvoriť objednávku" onclick="BillingModule.createOrderFromQuote('${q.id}')">🛒</button>
                                         ` : ''}
                                         ${q.status === 'accepted' ? `
-                                            <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromQuote('${q.id}')">${Icons.documents}</button>
+                                            <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromQuote('${q.id}')">📄</button>
                                         ` : ''}
                                         <button class="btn-icon" title="Viac" onclick="BillingModule.showQuoteMenu('${q.id}', event)">⋮</button>
                                     </div>
@@ -505,7 +505,7 @@ const BillingModule = {
         if (this.orders.length === 0) {
             return `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.shoppingCart}</div>
+                    <div class="empty-icon">🛒</div>
                     <h3>Žiadne objednávky</h3>
                     <p>Vytvorte novú objednávku alebo ju vytvorte z ponuky</p>
                     <button class="btn btn-primary" onclick="BillingModule.createOrder()">
@@ -557,8 +557,8 @@ const BillingModule = {
                                 <td>${this.renderOrderStatus(o.status)}</td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button class="btn-icon" title="Vytvoriť zálohovku" onclick="BillingModule.createProformaFromOrder('${o.id}')">${Icons.clipboard}</button>
-                                        <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromOrder('${o.id}')">${Icons.documents}</button>
+                                        <button class="btn-icon" title="Vytvoriť zálohovku" onclick="BillingModule.createProformaFromOrder('${o.id}')">📋</button>
+                                        <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromOrder('${o.id}')">📄</button>
                                     </div>
                                 </td>
                             </tr>
@@ -572,7 +572,7 @@ const BillingModule = {
     renderPaymentsTab() {
         return `
             <div class="payments-overview">
-                <h3>${Icons.billing} Prehľad platieb</h3>
+                <h3>💰 Prehľad platieb</h3>
                 <p>Tu bude zoznam všetkých prijatých platieb...</p>
                 
                 <div class="coming-soon">
@@ -633,7 +633,7 @@ const BillingModule = {
                 <!-- Header -->
                 <div class="invoice-modal-header">
                     <div class="header-left">
-                        <span class="header-icon">${Icons.documents}</span>
+                        <span class="header-icon">📄</span>
                         <div>
                             <h2>Nová faktúra</h2>
                             <p class="header-subtitle">Vytvorte novú faktúru pre klienta</p>
@@ -656,7 +656,7 @@ const BillingModule = {
                                 <!-- Klient karta -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.user}</span>
+                                        <span class="card-icon">👤</span>
                                         <h3>Odberateľ</h3>
                                     </div>
                                     <div class="card-body">
@@ -667,7 +667,7 @@ const BillingModule = {
                                 <!-- Položky karta -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.package}</span>
+                                        <span class="card-icon">📦</span>
                                         <h3>Položky faktúry</h3>
                                     </div>
                                     <div class="card-body">
@@ -698,7 +698,7 @@ const BillingModule = {
                                             
                                             <div class="service-dropdown">
                                                 <select id="quick-service" onchange="BillingModule.addServiceItem(this.value)">
-                                                    <option value="">${Icons.package} Pridať zo služieb...</option>
+                                                    <option value="">📦 Pridať zo služieb...</option>
                                                     ${this.services.map(s => `
                                                         <option value="${s.id}">${s.name} — ${this.formatMoney(s.base_price)}</option>
                                                     `).join('')}
@@ -711,7 +711,7 @@ const BillingModule = {
                                 <!-- Poznámka -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.edit}</span>
+                                        <span class="card-icon">📝</span>
                                         <h3>Poznámka</h3>
                                     </div>
                                     <div class="card-body">
@@ -725,7 +725,7 @@ const BillingModule = {
                                 <!-- Dátumy karta -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.calendar}</span>
+                                        <span class="card-icon">📅</span>
                                         <h3>Dátumy</h3>
                                     </div>
                                     <div class="card-body">
@@ -757,7 +757,7 @@ const BillingModule = {
                                                 <option value="bank_transfer">🏦 Bankový prevod</option>
                                                 <option value="cash">💵 Hotovosť</option>
                                                 <option value="card">💳 Platobná karta</option>
-                                                <option value="cod">${Icons.package} Dobierka</option>
+                                                <option value="cod">📦 Dobierka</option>
                                                 <option value="paypal">🅿️ PayPal</option>
                                                 <option value="crypto">₿ Kryptomeny</option>
                                             </select>
@@ -768,7 +768,7 @@ const BillingModule = {
                                 <!-- Súhrn karta -->
                                 <div class="form-card summary-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.billing}</span>
+                                        <span class="card-icon">💰</span>
                                         <h3>Súhrn</h3>
                                     </div>
                                     <div class="card-body">
@@ -851,7 +851,7 @@ const BillingModule = {
             header.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)';
             header.querySelector('h2').textContent = 'Nová zálohová faktúra';
             header.querySelector('.header-subtitle').textContent = 'Vytvorte zálohovú faktúru pre klienta';
-            header.querySelector('.header-icon').textContent = '';
+            header.querySelector('.header-icon').textContent = '📋';
         }
         // Zmeniť uloženie na proforma typ
         const saveBtn = document.querySelector('.btn-primary-action');
@@ -1015,7 +1015,7 @@ const BillingModule = {
                 <!-- Header -->
                 <div class="invoice-modal-header" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);">
                     <div class="header-left">
-                        <span class="header-icon">${Icons.edit}</span>
+                        <span class="header-icon">📝</span>
                         <div>
                             <h2>Nová ponuka</h2>
                             <p class="header-subtitle">Vytvorte cenovú ponuku pre klienta</p>
@@ -1038,7 +1038,7 @@ const BillingModule = {
                                 <!-- Príjemca karta -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.user}</span>
+                                        <span class="card-icon">👤</span>
                                         <h3>Príjemca</h3>
                                     </div>
                                     <div class="card-body">
@@ -1049,7 +1049,7 @@ const BillingModule = {
                                 <!-- Detaily ponuky -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.clipboard}</span>
+                                        <span class="card-icon">📋</span>
                                         <h3>Detaily ponuky</h3>
                                     </div>
                                     <div class="card-body">
@@ -1067,7 +1067,7 @@ const BillingModule = {
                                 <!-- Položky karta -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.package}</span>
+                                        <span class="card-icon">📦</span>
                                         <h3>Položky ponuky</h3>
                                     </div>
                                     <div class="card-body">
@@ -1095,7 +1095,7 @@ const BillingModule = {
                                             
                                             <div class="service-dropdown">
                                                 <select id="quick-service-quote" onchange="BillingModule.addServiceItemQuote(this.value)">
-                                                    <option value="">${Icons.package} Pridať zo služieb...</option>
+                                                    <option value="">📦 Pridať zo služieb...</option>
                                                     ${this.services.map(s => `
                                                         <option value="${s.id}">${s.name} — ${this.formatMoney(s.base_price)}</option>
                                                     `).join('')}
@@ -1122,7 +1122,7 @@ const BillingModule = {
                                 <!-- Platnosť -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.calendar}</span>
+                                        <span class="card-icon">📅</span>
                                         <h3>Platnosť</h3>
                                     </div>
                                     <div class="card-body">
@@ -1140,7 +1140,7 @@ const BillingModule = {
                                 <!-- Súhrn karta -->
                                 <div class="form-card summary-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.billing}</span>
+                                        <span class="card-icon">💰</span>
                                         <h3>Súhrn</h3>
                                     </div>
                                     <div class="card-body">
@@ -1222,7 +1222,7 @@ const BillingModule = {
                 <!-- Header -->
                 <div class="invoice-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
                     <div class="header-left">
-                        <span class="header-icon">${Icons.shoppingCart}</span>
+                        <span class="header-icon">🛒</span>
                         <div>
                             <h2>Nová objednávka</h2>
                             <p class="header-subtitle">${fromQuote ? 'Vytvorené z ponuky' : 'Vytvorte novú objednávku'}</p>
@@ -1245,7 +1245,7 @@ const BillingModule = {
                                 <!-- Odberateľ karta -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.user}</span>
+                                        <span class="card-icon">👤</span>
                                         <h3>Odberateľ</h3>
                                     </div>
                                     <div class="card-body">
@@ -1256,7 +1256,7 @@ const BillingModule = {
                                 <!-- Položky karta -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.package}</span>
+                                        <span class="card-icon">📦</span>
                                         <h3>Položky objednávky</h3>
                                     </div>
                                     <div class="card-body">
@@ -1284,7 +1284,7 @@ const BillingModule = {
                                             
                                             <div class="service-dropdown">
                                                 <select id="quick-service-order" onchange="BillingModule.addServiceItemOrder(this.value)">
-                                                    <option value="">${Icons.package} Pridať zo služieb...</option>
+                                                    <option value="">📦 Pridať zo služieb...</option>
                                                     ${this.services.map(s => `
                                                         <option value="${s.id}">${s.name} — ${this.formatMoney(s.base_price)}</option>
                                                     `).join('')}
@@ -1297,7 +1297,7 @@ const BillingModule = {
                                 <!-- Poznámka -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.edit}</span>
+                                        <span class="card-icon">📝</span>
                                         <h3>Poznámka</h3>
                                     </div>
                                     <div class="card-body">
@@ -1311,7 +1311,7 @@ const BillingModule = {
                                 <!-- Dátumy -->
                                 <div class="form-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.calendar}</span>
+                                        <span class="card-icon">📅</span>
                                         <h3>Dátumy</h3>
                                     </div>
                                     <div class="card-body">
@@ -1331,7 +1331,7 @@ const BillingModule = {
                                 <!-- Súhrn karta -->
                                 <div class="form-card summary-card">
                                     <div class="card-header">
-                                        <span class="card-icon">${Icons.billing}</span>
+                                        <span class="card-icon">💰</span>
                                         <h3>Súhrn</h3>
                                     </div>
                                     <div class="card-body">
@@ -1397,10 +1397,10 @@ const BillingModule = {
         return `
             <div class="recipient-tabs">
                 <button type="button" class="recipient-tab active" onclick="BillingModule.switchRecipientTab('client', this)">
-                    ${Icons.building} Klient
+                    🏢 Klient
                 </button>
                 <button type="button" class="recipient-tab" onclick="BillingModule.switchRecipientTab('lead', this)">
-                    ${Icons.target} Lead
+                    🎯 Lead
                 </button>
                 <button type="button" class="recipient-tab" onclick="BillingModule.switchRecipientTab('new', this)">
                     ➕ Nový
@@ -1507,7 +1507,7 @@ const BillingModule = {
                     <div class="client-ids">
                         ${data.ico ? '<span>IČO: ' + data.ico + '</span>' : ''}
                         ${data.dic ? '<span>DIČ: ' + data.dic + '</span>' : ''}
-                        ${data.email ? '<span>${Icons.mail} ' + data.email + '</span>' : ''}
+                        ${data.email ? '<span>📧 ' + data.email + '</span>' : ''}
                     </div>
                 </div>
             `;
@@ -1583,7 +1583,7 @@ const BillingModule = {
                     <div class="form-group item-total">
                         <span id="item-total-${index}">0,00 €</span>
                     </div>
-                    <button type="button" class="btn-icon btn-remove" onclick="BillingModule.removeItemRow(${index})">${Icons.trash}</button>
+                    <button type="button" class="btn-icon btn-remove" onclick="BillingModule.removeItemRow(${index})">🗑️</button>
                 </div>
             </div>
         `;
@@ -2144,7 +2144,7 @@ const BillingModule = {
         modal.innerHTML = `
             <div class="modal modal-large">
                 <div class="modal-header">
-                    <h2>${Icons.documents} Faktúra ${invoice.invoice_number}</h2>
+                    <h2>📄 Faktúra ${invoice.invoice_number}</h2>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
                 </div>
                 <div class="modal-body">
@@ -2152,7 +2152,7 @@ const BillingModule = {
                     <div class="invoice-status-bar">
                         ${this.renderInvoiceStatus(invoice.computed_status || invoice.status)}
                         ${invoice.computed_status === 'overdue' ? 
-                            `<span class="overdue-info">${Icons.alertTriangle} ${Math.abs(invoice.days_until_due)} dní po splatnosti</span>` : ''}
+                            `<span class="overdue-info">⚠️ ${Math.abs(invoice.days_until_due)} dní po splatnosti</span>` : ''}
                     </div>
                     
                     <!-- Hlavička -->
@@ -2227,7 +2227,7 @@ const BillingModule = {
                     <!-- Platby -->
                     ${payments && payments.length > 0 ? `
                         <div class="invoice-payments">
-                            <h4>${Icons.billing} Prijaté platby</h4>
+                            <h4>💰 Prijaté platby</h4>
                             <table class="payments-table">
                                 <thead>
                                     <tr>
@@ -2260,7 +2260,7 @@ const BillingModule = {
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
-                    <button class="btn btn-secondary" onclick="BillingModule.downloadPDF('${invoiceId}')">${Icons.inbox} Stiahnuť PDF</button>
+                    <button class="btn btn-secondary" onclick="BillingModule.downloadPDF('${invoiceId}')">📥 Stiahnuť PDF</button>
                     ${invoice.status !== 'paid' && invoice.status !== 'cancelled' ? `
                         <button class="btn btn-primary" onclick="BillingModule.addPayment('${invoiceId}')">💳 Pridať platbu</button>
                     ` : ''}
@@ -2285,7 +2285,7 @@ const BillingModule = {
         modal.innerHTML = `
             <div class="modal modal-large">
                 <div class="modal-header">
-                    <h2>${Icons.edit} Ponuka ${quote.quote_number}</h2>
+                    <h2>📝 Ponuka ${quote.quote_number}</h2>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
                 </div>
                 <div class="modal-body">
@@ -2343,11 +2343,11 @@ const BillingModule = {
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
                     ${quote.status === 'sent' || quote.status === 'viewed' ? `
-                        <button class="btn btn-danger" onclick="BillingModule.updateQuoteStatus('${quoteId}', 'rejected')">${Icons.xCircle} Odmietnutá</button>
-                        <button class="btn btn-success" onclick="BillingModule.updateQuoteStatus('${quoteId}', 'accepted')">${Icons.checkCircle} Akceptovaná</button>
+                        <button class="btn btn-danger" onclick="BillingModule.updateQuoteStatus('${quoteId}', 'rejected')">❌ Odmietnutá</button>
+                        <button class="btn btn-success" onclick="BillingModule.updateQuoteStatus('${quoteId}', 'accepted')">✅ Akceptovaná</button>
                     ` : ''}
                     ${quote.status === 'accepted' ? `
-                        <button class="btn btn-primary" onclick="BillingModule.createInvoiceFromQuote('${quoteId}')">${Icons.documents} Vytvoriť faktúru</button>
+                        <button class="btn btn-primary" onclick="BillingModule.createInvoiceFromQuote('${quoteId}')">📄 Vytvoriť faktúru</button>
                     ` : ''}
                 </div>
             </div>
@@ -2686,7 +2686,7 @@ const BillingModule = {
         modal.innerHTML = `
             <div class="modal modal-large">
                 <div class="modal-header">
-                    <h2>${Icons.shoppingCart} Objednávka ${order.order_number}</h2>
+                    <h2>🛒 Objednávka ${order.order_number}</h2>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
                 </div>
                 <div class="modal-body">
@@ -2734,8 +2734,8 @@ const BillingModule = {
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
-                    <button class="btn btn-secondary" onclick="BillingModule.createProformaFromOrder('${orderId}')">${Icons.clipboard} Zálohovka</button>
-                    <button class="btn btn-primary" onclick="BillingModule.createInvoiceFromOrder('${orderId}')">${Icons.documents} Faktúra</button>
+                    <button class="btn btn-secondary" onclick="BillingModule.createProformaFromOrder('${orderId}')">📋 Zálohovka</button>
+                    <button class="btn btn-primary" onclick="BillingModule.createInvoiceFromOrder('${orderId}')">📄 Faktúra</button>
                 </div>
             </div>
         `;
@@ -2748,7 +2748,7 @@ const BillingModule = {
         modal.innerHTML = `
             <div class="modal modal-large">
                 <div class="modal-header">
-                    <h2>${Icons.settings} Nastavenia fakturácie</h2>
+                    <h2>⚙️ Nastavenia fakturácie</h2>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
                 </div>
                 <div class="modal-body">

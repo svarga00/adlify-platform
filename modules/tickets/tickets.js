@@ -6,7 +6,7 @@
 const TicketsModule = {
     id: 'tickets',
     name: 'Tickety',
-    icon: Icons.tickets,
+    icon: '🎫',
     title: 'Tickety',
     menu: { section: 'main', order: 47 },
     permissions: ['tickets', 'view'],
@@ -19,7 +19,7 @@ const TicketsModule = {
     selectedTicket: null,
 
     async init() {
-        console.log('Tickets module initialized');
+        console.log('🎫 Tickets module initialized');
     },
 
     async render(container) {
@@ -41,28 +41,28 @@ const TicketsModule = {
                 <!-- Stats -->
                 <div class="tickets-stats" id="tickets-stats">
                     <div class="stat-card">
-                        <div class="stat-icon open">${Icons.mailOpen}</div>
+                        <div class="stat-icon open">📬</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-open">-</span>
                             <span class="stat-label">Otvorené</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon progress">${Icons.sync}</div>
+                        <div class="stat-icon progress">🔄</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-progress">-</span>
                             <span class="stat-label">V riešení</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon waiting">${Icons.hourglass}</div>
+                        <div class="stat-icon waiting">⏳</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-waiting">-</span>
                             <span class="stat-label">Čaká na odpoveď</span>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon resolved">${Icons.checkCircle}</div>
+                        <div class="stat-icon resolved">✅</div>
                         <div class="stat-info">
                             <span class="stat-value" id="stat-resolved">-</span>
                             <span class="stat-label">Vyriešené</span>
@@ -74,19 +74,19 @@ const TicketsModule = {
                 <div class="filters-bar">
                     <div class="filter-tabs">
                         <button class="filter-tab ${this.currentFilter === 'open' ? 'active' : ''}" onclick="TicketsModule.setFilter('open')">
-                            ${Icons.mailOpen} Otvorené
+                            📬 Otvorené
                         </button>
                         <button class="filter-tab ${this.currentFilter === 'in_progress' ? 'active' : ''}" onclick="TicketsModule.setFilter('in_progress')">
-                            ${Icons.sync} V riešení
+                            🔄 V riešení
                         </button>
                         <button class="filter-tab ${this.currentFilter === 'waiting' ? 'active' : ''}" onclick="TicketsModule.setFilter('waiting')">
-                            ${Icons.hourglass} Čakajúce
+                            ⏳ Čakajúce
                         </button>
                         <button class="filter-tab ${this.currentFilter === 'all' ? 'active' : ''}" onclick="TicketsModule.setFilter('all')">
                             Všetky
                         </button>
                         <button class="filter-tab ${this.currentFilter === 'my' ? 'active' : ''}" onclick="TicketsModule.setFilter('my')">
-                            ${Icons.user} Moje
+                            👤 Moje
                         </button>
                     </div>
                     <div class="filter-search">
@@ -162,7 +162,7 @@ const TicketsModule = {
         if (filtered.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.tickets}</div>
+                    <div class="empty-icon">🎫</div>
                     <h3>Žiadne tickety</h3>
                     <p>Zatiaľ nemáte žiadne tickety v tejto kategórii</p>
                 </div>
@@ -179,11 +179,11 @@ const TicketsModule = {
 
     renderTicketRow(ticket) {
         const statusConfig = {
-            open: { icon: Icons.mailOpen, label: 'Otvorený', class: 'status-open' },
-            in_progress: { icon: Icons.sync, label: 'V riešení', class: 'status-progress' },
-            waiting: { icon: Icons.hourglass, label: 'Čaká', class: 'status-waiting' },
-            resolved: { icon: Icons.checkCircle, label: 'Vyriešený', class: 'status-resolved' },
-            closed: { icon: Icons.lock, label: 'Uzavretý', class: 'status-closed' }
+            open: { icon: '📬', label: 'Otvorený', class: 'status-open' },
+            in_progress: { icon: '🔄', label: 'V riešení', class: 'status-progress' },
+            waiting: { icon: '⏳', label: 'Čaká', class: 'status-waiting' },
+            resolved: { icon: '✅', label: 'Vyriešený', class: 'status-resolved' },
+            closed: { icon: '🔒', label: 'Uzavretý', class: 'status-closed' }
         };
 
         const priorityConfig = {
@@ -282,7 +282,7 @@ const TicketsModule = {
             <div class="modal ticket-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.tickets}</span>
+                        <span class="modal-icon">🎫</span>
                         <h2>Nový ticket</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -408,11 +408,11 @@ const TicketsModule = {
             .order('created_at', { ascending: true });
 
         const statusConfig = {
-            open: { icon: Icons.mailOpen, label: 'Otvorený' },
-            in_progress: { icon: Icons.sync, label: 'V riešení' },
-            waiting: { icon: Icons.hourglass, label: 'Čaká na odpoveď' },
-            resolved: { icon: Icons.checkCircle, label: 'Vyriešený' },
-            closed: { icon: Icons.lock, label: 'Uzavretý' }
+            open: { icon: '📬', label: 'Otvorený' },
+            in_progress: { icon: '🔄', label: 'V riešení' },
+            waiting: { icon: '⏳', label: 'Čaká na odpoveď' },
+            resolved: { icon: '✅', label: 'Vyriešený' },
+            closed: { icon: '🔒', label: 'Uzavretý' }
         };
 
         const categoryConfig = {
@@ -487,11 +487,11 @@ const TicketsModule = {
                             <div class="sidebar-item">
                                 <label>Status</label>
                                 <select id="ticket-status" onchange="TicketsModule.updateTicketField('status', this.value)">
-                                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>${Icons.mailOpen} Otvorený</option>
-                                    <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>${Icons.sync} V riešení</option>
-                                    <option value="waiting" ${ticket.status === 'waiting' ? 'selected' : ''}>${Icons.hourglass} Čaká na odpoveď</option>
-                                    <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>${Icons.checkCircle} Vyriešený</option>
-                                    <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>${Icons.lock} Uzavretý</option>
+                                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>📬 Otvorený</option>
+                                    <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>🔄 V riešení</option>
+                                    <option value="waiting" ${ticket.status === 'waiting' ? 'selected' : ''}>⏳ Čaká na odpoveď</option>
+                                    <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>✅ Vyriešený</option>
+                                    <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>🔒 Uzavretý</option>
                                 </select>
                             </div>
                             

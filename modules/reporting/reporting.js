@@ -6,7 +6,7 @@
 const ReportingModule = {
     id: 'reporting',
     name: 'Reporty',
-    icon: Icons.dashboard,
+    icon: '📊',
     title: 'Reporty',
     menu: { section: 'tools', order: 55 },
     permissions: ['reporting', 'view'],
@@ -16,7 +16,7 @@ const ReportingModule = {
     data: null,
 
     async init() {
-        console.log('Reporting module initialized');
+        console.log('📊 Reporting module initialized');
     },
 
     async render(container) {
@@ -37,7 +37,7 @@ const ReportingModule = {
                             <option value="all">Celkovo</option>
                         </select>
                         <button class="btn-secondary" onclick="ReportingModule.exportReport()">
-                            ${Icons.inbox} Exportovať
+                            📥 Exportovať
                         </button>
                     </div>
                 </div>
@@ -107,7 +107,7 @@ const ReportingModule = {
             <!-- Summary Cards -->
             <div class="summary-cards">
                 <div class="summary-card">
-                    <div class="card-icon leads">${Icons.target}</div>
+                    <div class="card-icon leads">🎯</div>
                     <div class="card-content">
                         <span class="card-value">${stats.leads.total}</span>
                         <span class="card-label">Nových leadov</span>
@@ -116,7 +116,7 @@ const ReportingModule = {
                 </div>
                 
                 <div class="summary-card">
-                    <div class="card-icon clients">${Icons.users}</div>
+                    <div class="card-icon clients">👥</div>
                     <div class="card-content">
                         <span class="card-value">${stats.clients.active}</span>
                         <span class="card-label">Aktívnych klientov</span>
@@ -125,7 +125,7 @@ const ReportingModule = {
                 </div>
                 
                 <div class="summary-card">
-                    <div class="card-icon revenue">${Icons.billing}</div>
+                    <div class="card-icon revenue">💰</div>
                     <div class="card-content">
                         <span class="card-value">${this.formatCurrency(stats.revenue.total)}</span>
                         <span class="card-label">Tržby</span>
@@ -134,7 +134,7 @@ const ReportingModule = {
                 </div>
                 
                 <div class="summary-card">
-                    <div class="card-icon tasks">${Icons.checkCircle}</div>
+                    <div class="card-icon tasks">✅</div>
                     <div class="card-content">
                         <span class="card-value">${stats.tasks.completed}</span>
                         <span class="card-label">Dokončených úloh</span>
@@ -163,14 +163,14 @@ const ReportingModule = {
             <!-- Details Tables -->
             <div class="details-row">
                 <div class="detail-card">
-                    <h3>${Icons.target} Top leady</h3>
+                    <h3>🎯 Top leady</h3>
                     <div class="detail-table">
                         ${this.renderTopLeads()}
                     </div>
                 </div>
                 
                 <div class="detail-card">
-                    <h3>${Icons.tickets} Tickety podľa statusu</h3>
+                    <h3>🎫 Tickety podľa statusu</h3>
                     <div class="tickets-stats">
                         ${this.renderTicketStats(stats.tickets)}
                     </div>

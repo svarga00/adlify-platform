@@ -9,7 +9,7 @@ const AccountHealthCheck = {
         google_ads: {
             id: 'google_ads',
             name: 'Google Ads',
-            icon: Icons.search,
+            icon: '🔍',
             color: '#4285F4',
             checkEndpoint: '/api/health/google-ads',
             setupUrl: '/onboarding/google-ads',
@@ -23,7 +23,7 @@ const AccountHealthCheck = {
         google_analytics: {
             id: 'google_analytics',
             name: 'Google Analytics 4',
-            icon: Icons.dashboard,
+            icon: '📊',
             color: '#E37400',
             checkEndpoint: '/api/health/google-analytics',
             setupUrl: '/onboarding/google-analytics',
@@ -37,7 +37,7 @@ const AccountHealthCheck = {
         gtm: {
             id: 'gtm',
             name: 'Google Tag Manager',
-            icon: Icons.tag,
+            icon: '🏷️',
             color: '#4285F4',
             checkEndpoint: '/api/health/gtm',
             setupUrl: '/onboarding/gtm',
@@ -51,7 +51,7 @@ const AccountHealthCheck = {
         meta_ads: {
             id: 'meta_ads',
             name: 'Meta Ads',
-            icon: Icons.facebook,
+            icon: '📘',
             color: '#1877F2',
             checkEndpoint: '/api/health/meta-ads',
             setupUrl: '/onboarding/meta-ads',
@@ -65,7 +65,7 @@ const AccountHealthCheck = {
         meta_pixel: {
             id: 'meta_pixel',
             name: 'Meta Pixel',
-            icon: '',
+            icon: '📍',
             color: '#1877F2',
             checkEndpoint: '/api/health/meta-pixel',
             setupUrl: '/onboarding/meta-pixel',
@@ -79,7 +79,7 @@ const AccountHealthCheck = {
         linkedin_ads: {
             id: 'linkedin_ads',
             name: 'LinkedIn Ads',
-            icon: Icons.briefcase,
+            icon: '💼',
             color: '#0A66C2',
             checkEndpoint: '/api/health/linkedin-ads',
             setupUrl: '/onboarding/linkedin-ads',
@@ -92,7 +92,7 @@ const AccountHealthCheck = {
         tiktok_ads: {
             id: 'tiktok_ads',
             name: 'TikTok Ads',
-            icon: Icons.tiktok,
+            icon: '🎵',
             color: '#000000',
             checkEndpoint: '/api/health/tiktok-ads',
             setupUrl: '/onboarding/tiktok-ads',
@@ -166,7 +166,7 @@ const AccountHealthCheck = {
                 <div class="health-check__header">
                     <div class="health-check__title-wrap">
                         <h3 class="health-check__title">
-                            <span class="health-check__icon">${Icons.bell}</span>
+                            <span class="health-check__icon">🔔</span>
                             Stav prepojení
                         </h3>
                         ${this.state.lastCheck ? `
@@ -276,7 +276,7 @@ const AccountHealthCheck = {
                         📖 Návod na nastavenie
                     </a>
                     <button class="health-details__check-btn" data-action="check-single" data-account="${accountId}">
-                        ${Icons.sync} Skontrolovať znova
+                        🔄 Skontrolovať znova
                     </button>
                 </div>
             </div>
@@ -295,7 +295,7 @@ const AccountHealthCheck = {
         if (accounts.length === 0) return '';
 
         let summaryClass = 'health-summary--ok';
-        let summaryIcon = '';
+        let summaryIcon = '✅';
         let summaryText = 'Všetky účty sú správne prepojené';
 
         if (errors > 0) {
@@ -304,7 +304,7 @@ const AccountHealthCheck = {
             summaryText = `${errors} účet${errors > 1 ? 'y' : ''} vyžaduj${errors > 1 ? 'ú' : 'e'} pozornosť`;
         } else if (warnings > 0) {
             summaryClass = 'health-summary--warning';
-            summaryIcon = '';
+            summaryIcon = '⚠️';
             summaryText = `${warnings} upozorneni${warnings > 1 ? 'a' : 'e'}`;
         }
 
@@ -314,8 +314,8 @@ const AccountHealthCheck = {
                 <span class="health-summary__text">${summaryText}</span>
                 <div class="health-summary__stats">
                     <span class="health-summary__stat health-summary__stat--connected">${connected} OK</span>
-                    ${warnings > 0 ? `<span class="health-summary__stat health-summary__stat--warning">${warnings} ${Icons.alertTriangle}</span>` : ''}
-                    ${errors > 0 ? `<span class="health-summary__stat health-summary__stat--error">${errors} ${Icons.xCircle}</span>` : ''}
+                    ${warnings > 0 ? `<span class="health-summary__stat health-summary__stat--warning">${warnings} ⚠️</span>` : ''}
+                    ${errors > 0 ? `<span class="health-summary__stat health-summary__stat--error">${errors} ❌</span>` : ''}
                 </div>
             </div>
         `;
@@ -493,22 +493,22 @@ const AccountHealthCheck = {
      */
     getStatusInfo(status) {
         const statuses = {
-            connected: { icon: Icons.checkCircle, label: 'Prepojené', class: 'connected' },
-            checking: { icon: Icons.sync, label: 'Kontrolujem...', class: 'checking' },
-            warning: { icon: Icons.alertTriangle, label: 'Upozornenie', class: 'warning' },
-            error: { icon: Icons.xCircle, label: 'Chyba', class: 'error' },
-            disconnected: { icon: Icons.integrations, label: 'Odpojené', class: 'disconnected' },
-            unknown: { icon: '', label: 'Neznáme', class: 'unknown' }
+            connected: { icon: '✅', label: 'Prepojené', class: 'connected' },
+            checking: { icon: '🔄', label: 'Kontrolujem...', class: 'checking' },
+            warning: { icon: '⚠️', label: 'Upozornenie', class: 'warning' },
+            error: { icon: '❌', label: 'Chyba', class: 'error' },
+            disconnected: { icon: '🔌', label: 'Odpojené', class: 'disconnected' },
+            unknown: { icon: '❓', label: 'Neznáme', class: 'unknown' }
         };
         return statuses[status] || statuses.unknown;
     },
 
     getCheckStatusInfo(status) {
         const statuses = {
-            passed: { icon: Icons.checkCircle },
-            warning: { icon: Icons.alertTriangle },
-            failed: { icon: Icons.xCircle },
-            pending: { icon: Icons.hourglass }
+            passed: { icon: '✅' },
+            warning: { icon: '⚠️' },
+            failed: { icon: '❌' },
+            pending: { icon: '⏳' }
         };
         return statuses[status] || statuses.pending;
     },

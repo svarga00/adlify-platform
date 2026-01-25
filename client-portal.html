@@ -233,7 +233,7 @@
           <!-- What's Next -->
           <section class="card p-8 mb-8 fade-in">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-              <span class="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center text-white">${Icons.rocket}</span>
+              <span class="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center text-white">🚀</span>
               Čo bude nasledovať?
             </h2>
             
@@ -274,7 +274,7 @@
                   ✏️ Mám pripomienky
                 </button>
                 <button onclick="approveProposal()" class="px-8 py-3 gradient-bg text-white rounded-xl font-semibold hover:opacity-90 transition-all shadow-lg">
-                  ${Icons.checkCircle} Schvaľujem návrh
+                  ✅ Schvaľujem návrh
                 </button>
               </div>
             </div>
@@ -282,7 +282,7 @@
           ` : isApproved ? `
           <section class="card p-8 border-2 border-green-300 bg-green-50 fade-in">
             <div class="text-center">
-              <div class="text-5xl mb-4">${Icons.checkCircle}</div>
+              <div class="text-5xl mb-4">✅</div>
               <h2 class="text-2xl font-bold text-green-700 mb-2">Návrh bol schválený</h2>
               <p class="text-green-600">Ďakujeme! Pracujeme na nasadení vašich kampaní.</p>
               <p class="text-sm text-gray-500 mt-2">Schválené: ${new Date(project.client_approved_at).toLocaleDateString('sk')}</p>

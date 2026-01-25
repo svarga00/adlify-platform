@@ -6,7 +6,7 @@
 const DocumentsModule = {
     id: 'documents',
     name: 'Dokumenty',
-    icon: Icons.projects,
+    icon: '📁',
     title: 'Dokumenty',
     menu: { section: 'tools', order: 58 },
     permissions: ['documents', 'view'],
@@ -18,7 +18,7 @@ const DocumentsModule = {
     projects: [],
 
     async init() {
-        console.log('Documents module initialized');
+        console.log('📁 Documents module initialized');
     },
 
     async render(container) {
@@ -31,7 +31,7 @@ const DocumentsModule = {
                     </div>
                     <div class="header-right">
                         <button class="btn-primary" onclick="DocumentsModule.showUploadModal()">
-                            <span>${Icons.sent}</span> Nahrať súbor
+                            <span>📤</span> Nahrať súbor
                         </button>
                     </div>
                 </div>
@@ -39,22 +39,22 @@ const DocumentsModule = {
                 <!-- Stats -->
                 <div class="docs-stats">
                     <div class="stat-item">
-                        <span class="stat-icon">${Icons.documents}</span>
+                        <span class="stat-icon">📄</span>
                         <span class="stat-value" id="stat-total">0</span>
                         <span class="stat-label">Celkom</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-icon">${Icons.edit}</span>
+                        <span class="stat-icon">📝</span>
                         <span class="stat-value" id="stat-contracts">0</span>
                         <span class="stat-label">Zmluvy</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-icon">${Icons.billing}</span>
+                        <span class="stat-icon">💰</span>
                         <span class="stat-value" id="stat-invoices">0</span>
                         <span class="stat-label">Faktúry</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-icon">${Icons.image}</span>
+                        <span class="stat-icon">🖼️</span>
                         <span class="stat-value" id="stat-images">0</span>
                         <span class="stat-label">Obrázky</span>
                     </div>
@@ -64,11 +64,11 @@ const DocumentsModule = {
                 <div class="filters-bar">
                     <div class="category-filter">
                         <button class="cat-btn ${this.currentCategory === 'all' ? 'active' : ''}" onclick="DocumentsModule.setCategory('all')">Všetky</button>
-                        <button class="cat-btn ${this.currentCategory === 'contract' ? 'active' : ''}" onclick="DocumentsModule.setCategory('contract')">${Icons.edit} Zmluvy</button>
-                        <button class="cat-btn ${this.currentCategory === 'invoice' ? 'active' : ''}" onclick="DocumentsModule.setCategory('invoice')">${Icons.billing} Faktúry</button>
-                        <button class="cat-btn ${this.currentCategory === 'proposal' ? 'active' : ''}" onclick="DocumentsModule.setCategory('proposal')">${Icons.documents} Ponuky</button>
-                        <button class="cat-btn ${this.currentCategory === 'image' ? 'active' : ''}" onclick="DocumentsModule.setCategory('image')">${Icons.image} Obrázky</button>
-                        <button class="cat-btn ${this.currentCategory === 'other' ? 'active' : ''}" onclick="DocumentsModule.setCategory('other')">${Icons.projects} Ostatné</button>
+                        <button class="cat-btn ${this.currentCategory === 'contract' ? 'active' : ''}" onclick="DocumentsModule.setCategory('contract')">📝 Zmluvy</button>
+                        <button class="cat-btn ${this.currentCategory === 'invoice' ? 'active' : ''}" onclick="DocumentsModule.setCategory('invoice')">💰 Faktúry</button>
+                        <button class="cat-btn ${this.currentCategory === 'proposal' ? 'active' : ''}" onclick="DocumentsModule.setCategory('proposal')">📄 Ponuky</button>
+                        <button class="cat-btn ${this.currentCategory === 'image' ? 'active' : ''}" onclick="DocumentsModule.setCategory('image')">🖼️ Obrázky</button>
+                        <button class="cat-btn ${this.currentCategory === 'other' ? 'active' : ''}" onclick="DocumentsModule.setCategory('other')">📁 Ostatné</button>
                     </div>
                     <div class="search-box">
                         <input type="text" id="doc-search" placeholder="Hľadať dokumenty..." oninput="DocumentsModule.handleSearch()">
@@ -134,7 +134,7 @@ const DocumentsModule = {
         if (filtered.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.projects}</div>
+                    <div class="empty-icon">📁</div>
                     <h3>Žiadne dokumenty</h3>
                     <p>Nahraj prvý dokument kliknutím na tlačidlo "Nahrať súbor"</p>
                 </div>
@@ -151,16 +151,16 @@ const DocumentsModule = {
 
     renderDocumentCard(doc) {
         const icons = {
-            contract: '',
-            invoice: '',
-            proposal: '',
-            report: '',
-            image: '',
-            video: '',
-            other: ''
+            contract: '📝',
+            invoice: '💰',
+            proposal: '📄',
+            report: '📊',
+            image: '🖼️',
+            video: '🎬',
+            other: '📁'
         };
 
-        const icon = icons[doc.category] || '';
+        const icon = icons[doc.category] || '📄';
         const uploaderName = doc.uploader ? `${doc.uploader.first_name} ${doc.uploader.last_name}` : 'Neznámy';
         const fileSize = this.formatFileSize(doc.file_size);
         const isImage = doc.file_type?.startsWith('image/');
@@ -186,10 +186,10 @@ const DocumentsModule = {
                 </div>
                 <div class="doc-actions">
                     <a href="${doc.file_url}" target="_blank" class="btn-icon" onclick="event.stopPropagation()" title="Stiahnuť">
-                        ${Icons.inbox}
+                        📥
                     </a>
                     <button class="btn-icon" onclick="event.stopPropagation(); DocumentsModule.deleteDocument('${doc.id}')" title="Zmazať">
-                        ${Icons.trash}
+                        🗑️
                     </button>
                 </div>
             </div>
@@ -235,7 +235,7 @@ const DocumentsModule = {
             <div class="modal upload-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.sent}</span>
+                        <span class="modal-icon">📤</span>
                         <h2>Nahrať dokument</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -245,14 +245,14 @@ const DocumentsModule = {
                     <form id="upload-form">
                         <!-- Drop zone -->
                         <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-                            <div class="drop-icon">${Icons.projects}</div>
+                            <div class="drop-icon">📁</div>
                             <p>Pretiahni súbor sem alebo klikni pre výber</p>
                             <span class="drop-hint">PDF, DOC, XLS, JPG, PNG do 10MB</span>
                             <input type="file" id="file-input" hidden onchange="DocumentsModule.handleFileSelect(this)">
                         </div>
                         
                         <div id="file-preview" class="file-preview" style="display:none">
-                            <span class="file-icon">${Icons.documents}</span>
+                            <span class="file-icon">📄</span>
                             <span class="file-name" id="selected-file-name"></span>
                             <button type="button" class="btn-remove" onclick="DocumentsModule.removeFile()">×</button>
                         </div>
@@ -266,13 +266,13 @@ const DocumentsModule = {
                             <div class="form-group">
                                 <label>Kategória</label>
                                 <select name="category">
-                                    <option value="other">${Icons.projects} Ostatné</option>
-                                    <option value="contract">${Icons.edit} Zmluva</option>
-                                    <option value="invoice">${Icons.billing} Faktúra</option>
-                                    <option value="proposal">${Icons.documents} Ponuka</option>
-                                    <option value="report">${Icons.dashboard} Report</option>
-                                    <option value="image">${Icons.image} Obrázok</option>
-                                    <option value="video">${Icons.video} Video</option>
+                                    <option value="other">📁 Ostatné</option>
+                                    <option value="contract">📝 Zmluva</option>
+                                    <option value="invoice">💰 Faktúra</option>
+                                    <option value="proposal">📄 Ponuka</option>
+                                    <option value="report">📊 Report</option>
+                                    <option value="image">🖼️ Obrázok</option>
+                                    <option value="video">🎬 Video</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -301,7 +301,7 @@ const DocumentsModule = {
                 <div class="modal-footer">
                     <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
                     <button class="btn-primary" onclick="DocumentsModule.uploadDocument()" id="upload-btn" disabled>
-                        ${Icons.sent} Nahrať
+                        📤 Nahrať
                     </button>
                 </div>
             </div>
@@ -446,7 +446,7 @@ const DocumentsModule = {
             console.error('Upload error:', error);
             Utils.showNotification('Chyba pri nahrávaní: ' + error.message, 'error');
             uploadBtn.disabled = false;
-            uploadBtn.textContent = 'Nahrať';
+            uploadBtn.textContent = '📤 Nahrať';
         }
     },
 
@@ -512,10 +512,10 @@ const DocumentsModule = {
                 </div>
                 
                 <div class="modal-footer">
-                    <button class="btn-danger" onclick="DocumentsModule.deleteDocument('${doc.id}')">${Icons.trash} Zmazať</button>
+                    <button class="btn-danger" onclick="DocumentsModule.deleteDocument('${doc.id}')">🗑️ Zmazať</button>
                     <div class="footer-right">
                         <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
-                        <a href="${doc.file_url}" target="_blank" class="btn-primary">${Icons.inbox} Stiahnuť</a>
+                        <a href="${doc.file_url}" target="_blank" class="btn-primary">📥 Stiahnuť</a>
                     </div>
                 </div>
             </div>
@@ -547,15 +547,15 @@ const DocumentsModule = {
 
     getCategoryIcon(category) {
         const icons = {
-            contract: '',
-            invoice: '',
-            proposal: '',
-            report: '',
-            image: '',
-            video: '',
-            other: ''
+            contract: '📝',
+            invoice: '💰',
+            proposal: '📄',
+            report: '📊',
+            image: '🖼️',
+            video: '🎬',
+            other: '📁'
         };
-        return icons[category] || '';
+        return icons[category] || '📄';
     },
 
     getCategoryName(category) {

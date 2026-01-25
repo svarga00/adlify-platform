@@ -6,7 +6,7 @@
 const AutomationsModule = {
     id: 'automations',
     name: 'Automatizácie',
-    icon: Icons.zap,
+    icon: '⚡',
     title: 'Automatizácie',
     menu: { section: 'tools', order: 60 },
     permissions: ['automations', 'view'],
@@ -16,31 +16,31 @@ const AutomationsModule = {
 
     // Definície triggerov
     triggers: {
-        lead_created: { label: 'Lead vytvorený', icon: Icons.user, entity: 'lead' },
-        lead_status_changed: { label: 'Lead zmenil status', icon: Icons.sync, entity: 'lead' },
-        lead_no_activity: { label: 'Lead bez aktivity X dní', icon: Icons.clock, entity: 'lead' },
-        client_created: { label: 'Klient vytvorený', icon: Icons.building, entity: 'client' },
-        invoice_created: { label: 'Faktúra vytvorená', icon: Icons.documents, entity: 'invoice' },
-        invoice_overdue: { label: 'Faktúra po splatnosti', icon: Icons.alertTriangle, entity: 'invoice' },
-        invoice_paid: { label: 'Faktúra uhradená', icon: Icons.checkCircle, entity: 'invoice' },
-        task_assigned: { label: 'Úloha priradená', icon: Icons.clipboard, entity: 'task' },
-        task_due: { label: 'Úloha pred termínom', icon: Icons.bell, entity: 'task' },
-        scheduled: { label: 'Naplánované (cron)', icon: Icons.calendar, entity: null }
+        lead_created: { label: 'Lead vytvorený', icon: '👤', entity: 'lead' },
+        lead_status_changed: { label: 'Lead zmenil status', icon: '🔄', entity: 'lead' },
+        lead_no_activity: { label: 'Lead bez aktivity X dní', icon: '⏰', entity: 'lead' },
+        client_created: { label: 'Klient vytvorený', icon: '🏢', entity: 'client' },
+        invoice_created: { label: 'Faktúra vytvorená', icon: '📄', entity: 'invoice' },
+        invoice_overdue: { label: 'Faktúra po splatnosti', icon: '⚠️', entity: 'invoice' },
+        invoice_paid: { label: 'Faktúra uhradená', icon: '✅', entity: 'invoice' },
+        task_assigned: { label: 'Úloha priradená', icon: '📋', entity: 'task' },
+        task_due: { label: 'Úloha pred termínom', icon: '🔔', entity: 'task' },
+        scheduled: { label: 'Naplánované (cron)', icon: '📅', entity: null }
     },
 
     // Definície akcií
     actions: {
-        send_email: { label: 'Poslať email', icon: Icons.mail },
-        create_task: { label: 'Vytvoriť úlohu', icon: Icons.checkCircle },
-        create_notification: { label: 'Notifikácia', icon: Icons.bell },
-        update_status: { label: 'Zmeniť status', icon: Icons.sync },
-        add_tag: { label: 'Pridať tag', icon: Icons.tag },
-        webhook: { label: 'Zavolať webhook', icon: Icons.link },
-        slack_message: { label: 'Slack správa', icon: Icons.messageCircle }
+        send_email: { label: 'Poslať email', icon: '📧' },
+        create_task: { label: 'Vytvoriť úlohu', icon: '✅' },
+        create_notification: { label: 'Notifikácia', icon: '🔔' },
+        update_status: { label: 'Zmeniť status', icon: '🔄' },
+        add_tag: { label: 'Pridať tag', icon: '🏷️' },
+        webhook: { label: 'Zavolať webhook', icon: '🔗' },
+        slack_message: { label: 'Slack správa', icon: '💬' }
     },
 
     async init() {
-        console.log('Automations module initialized');
+        console.log('⚡ Automations module initialized');
     },
 
     async render(container) {
@@ -61,17 +61,17 @@ const AutomationsModule = {
                 <!-- Stats -->
                 <div class="auto-stats">
                     <div class="stat-card">
-                        <span class="stat-icon">${Icons.zap}</span>
+                        <span class="stat-icon">⚡</span>
                         <span class="stat-value" id="stat-active">0</span>
                         <span class="stat-label">Aktívne</span>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-icon">${Icons.pause}</span>
+                        <span class="stat-icon">⏸️</span>
                         <span class="stat-value" id="stat-paused">0</span>
                         <span class="stat-label">Pozastavené</span>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-icon">${Icons.sync}</span>
+                        <span class="stat-icon">🔄</span>
                         <span class="stat-value" id="stat-runs">0</span>
                         <span class="stat-label">Spustení (30d)</span>
                     </div>
@@ -84,7 +84,7 @@ const AutomationsModule = {
 
                 <!-- Templates -->
                 <div class="templates-section">
-                    <h3>${Icons.package} Šablóny automatizácií</h3>
+                    <h3>📦 Šablóny automatizácií</h3>
                     <div class="templates-grid">
                         ${this.renderTemplates()}
                     </div>
@@ -132,7 +132,7 @@ const AutomationsModule = {
         if (this.automations.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">${Icons.zap}</div>
+                    <div class="empty-icon">⚡</div>
                     <h3>Žiadne automatizácie</h3>
                     <p>Vytvor prvú automatizáciu alebo použi šablónu nižšie</p>
                 </div>
@@ -148,8 +148,8 @@ const AutomationsModule = {
     },
 
     renderAutomationCard(automation) {
-        const trigger = this.triggers[automation.trigger_type] || { label: automation.trigger_type, icon: Icons.settings };
-        const action = this.actions[automation.action_type] || { label: automation.action_type, icon: Icons.play };
+        const trigger = this.triggers[automation.trigger_type] || { label: automation.trigger_type, icon: '⚙️' };
+        const action = this.actions[automation.action_type] || { label: automation.action_type, icon: '▶️' };
 
         return `
             <div class="automation-card ${automation.is_active ? 'active' : 'paused'}">
@@ -166,8 +166,8 @@ const AutomationsModule = {
                         ${automation.description ? `<p class="auto-desc">${automation.description}</p>` : ''}
                     </div>
                     <div class="auto-actions">
-                        <button class="btn-icon" onclick="AutomationsModule.editAutomation('${automation.id}')" title="Upraviť">${Icons.edit}</button>
-                        <button class="btn-icon" onclick="AutomationsModule.deleteAutomation('${automation.id}')" title="Zmazať">${Icons.trash}</button>
+                        <button class="btn-icon" onclick="AutomationsModule.editAutomation('${automation.id}')" title="Upraviť">✏️</button>
+                        <button class="btn-icon" onclick="AutomationsModule.deleteAutomation('${automation.id}')" title="Zmazať">🗑️</button>
                     </div>
                 </div>
                 
@@ -186,7 +186,7 @@ const AutomationsModule = {
                 </div>
                 
                 <div class="auto-footer">
-                    <span class="auto-runs">${Icons.sync} ${automation.run_count || 0} spustení</span>
+                    <span class="auto-runs">🔄 ${automation.run_count || 0} spustení</span>
                     ${automation.last_run_at ? `<span class="auto-last">Posledné: ${this.formatDate(automation.last_run_at)}</span>` : ''}
                 </div>
             </div>
@@ -224,9 +224,9 @@ const AutomationsModule = {
         return templates.map(t => `
             <div class="template-card" onclick="AutomationsModule.useTemplate('${t.name}')">
                 <div class="template-icons">
-                    <span>${this.triggers[t.trigger]?.icon || ''}</span>
+                    <span>${this.triggers[t.trigger]?.icon || '⚙️'}</span>
                     <span class="template-arrow">→</span>
-                    <span>${this.actions[t.action]?.icon || ''}</span>
+                    <span>${this.actions[t.action]?.icon || '▶️'}</span>
                 </div>
                 <h4>${t.name}</h4>
                 <p>${t.description}</p>
@@ -241,7 +241,7 @@ const AutomationsModule = {
             <div class="modal automation-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">${Icons.zap}</span>
+                        <span class="modal-icon">⚡</span>
                         <h2>${prefill ? 'Použiť šablónu' : 'Nová automatizácia'}</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -261,7 +261,7 @@ const AutomationsModule = {
                         
                         <!-- Trigger -->
                         <div class="form-section">
-                            <h4>${Icons.target} Keď (Trigger)</h4>
+                            <h4>🎯 Keď (Trigger)</h4>
                             <div class="form-group">
                                 <label>Spustiť keď...</label>
                                 <select name="trigger_type" onchange="AutomationsModule.updateTriggerOptions(this.value)">
@@ -277,7 +277,7 @@ const AutomationsModule = {
                         
                         <!-- Action -->
                         <div class="form-section">
-                            <h4>${Icons.play} Potom (Akcia)</h4>
+                            <h4>▶️ Potom (Akcia)</h4>
                             <div class="form-group">
                                 <label>Vykonať...</label>
                                 <select name="action_type" onchange="AutomationsModule.updateActionOptions(this.value)">
@@ -303,7 +303,7 @@ const AutomationsModule = {
                 <div class="modal-footer">
                     <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
                     <button class="btn-primary" onclick="AutomationsModule.saveAutomation()">
-                        ${Icons.zap} Vytvoriť automatizáciu
+                        ⚡ Vytvoriť automatizáciu
                     </button>
                 </div>
             </div>

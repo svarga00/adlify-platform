@@ -10,7 +10,7 @@
 const LeadsModule = {
   id: 'leads',
   name: 'Leady',
-  icon: Icons.users,
+  icon: '👥',
   title: 'Leady',
   subtitle: 'Správa potenciálnych klientov',
   
@@ -45,7 +45,7 @@ const LeadsModule = {
     starter: { 
       name: 'Starter', 
       price: 149, 
-      icon: Icons.rocket,
+      icon: '🚀',
       badge: 'Pre začiatok',
       description: 'Ideálne pre živnostníkov, ktorí chcú vyskúšať online reklamu',
       features: ['1 reklamná platforma', '1 kampaň', '2 reklamné vizuály', 'Reklamné texty (copy)', 'Základná optimalizácia', 'Mesačný report', 'Email podpora'] 
@@ -53,7 +53,7 @@ const LeadsModule = {
     pro: { 
       name: 'Pro', 
       price: 249, 
-      icon: Icons.star,
+      icon: '⭐',
       badge: 'Najobľúbenejšie',
       description: 'Pre firmy, ktoré chcú rásť na viacerých platformách',
       features: ['2 platformy (FB/IG + Google)', 'Až 3 kampane súčasne', '4 reklamné vizuály', 'A/B testovanie', 'Optimalizácia každé 2 týždne', 'Detailný report', 'Email + telefón podpora'] 
@@ -61,7 +61,7 @@ const LeadsModule = {
     enterprise: { 
       name: 'Enterprise', 
       price: 399, 
-      icon: Icons.diamond,
+      icon: '💎',
       badge: 'Pre firmy',
       description: 'Pre e-shopy a firmy s vyšším rozpočtom na reklamu',
       features: ['Všetky platformy + remarketing', 'Až 5 kampaní súčasne', '8 reklamných vizuálov', 'Pokročilé A/B testovanie', 'Týždenná optimalizácia', 'Strategické konzultácie', 'Prioritná podpora + WhatsApp'] 
@@ -69,25 +69,25 @@ const LeadsModule = {
     premium: { 
       name: 'Premium', 
       price: 799, 
-      icon: Icons.trophy,
+      icon: '🏆',
       badge: 'VIP',
       description: 'Individuálna cena podľa rozsahu a potrieb vášho projektu',
       features: ['Všetky platformy + remarketing', 'Neobmedzený počet kampaní', 'Neobmedzené vizuály', 'Dedikovaný account manager', 'Denná optimalizácia', 'Mesačné strategické stretnutia', '24/7 VIP podpora'] 
     }
   },
 
-  init() { console.log('Leads module v2.2 initialized'); },
+  init() { console.log('👥 Leads module v2.2 initialized'); },
   
   async render(container, params = {}) {
     if (params.status) this.filters.status = params.status;
-    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">${Icons.hourglass}</div></div>';
+    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     try {
       await this.loadLeads();
       container.innerHTML = this.template();
       this.setupEventListeners();
     } catch (error) {
       console.error('Leads error:', error);
-      Utils.showEmpty(container, error.message, '');
+      Utils.showEmpty(container, error.message, '❌');
     }
   },
   
@@ -129,7 +129,7 @@ const LeadsModule = {
             </div>
             <div class="header-actions">
               <button class="btn-header-secondary" onclick="LeadsModule.showTab('import')">
-                ${Icons.inbox} Import
+                📥 Import
               </button>
               <button class="btn-new-document" onclick="LeadsModule.showTab('add')">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -145,7 +145,7 @@ const LeadsModule = {
         <!-- Štatistiky -->
         <div class="billing-stats-grid">
           <div class="stat-card-new">
-            <div class="stat-card-icon blue">${Icons.users}</div>
+            <div class="stat-card-icon blue">👥</div>
             <div class="stat-card-content">
               <span class="stat-card-value">${stats.total}</span>
               <span class="stat-card-label">Celkom</span>
@@ -159,14 +159,14 @@ const LeadsModule = {
             </div>
           </div>
           <div class="stat-card-new">
-            <div class="stat-card-icon purple">${Icons.robot}</div>
+            <div class="stat-card-icon purple">🤖</div>
             <div class="stat-card-content">
               <span class="stat-card-value">${stats.analyzed}</span>
               <span class="stat-card-label">Analyzované</span>
             </div>
           </div>
           <div class="stat-card-new success">
-            <div class="stat-card-icon orange">${Icons.mail}</div>
+            <div class="stat-card-icon orange">📧</div>
             <div class="stat-card-content">
               <span class="stat-card-value">${stats.contacted}</span>
               <span class="stat-card-label">Kontaktované</span>
@@ -178,16 +178,16 @@ const LeadsModule = {
         <div class="billing-tabs-container">
           <div class="billing-tabs-new">
             <button class="tab-btn-new active" data-tab="list" onclick="LeadsModule.showTab('list')">
-              <span class="tab-icon">${Icons.clipboard}</span>
+              <span class="tab-icon">📋</span>
               Zoznam
               <span class="tab-badge">${stats.total}</span>
             </button>
             <button class="tab-btn-new" data-tab="import" onclick="LeadsModule.showTab('import')">
-              <span class="tab-icon">${Icons.inbox}</span>
+              <span class="tab-icon">📥</span>
               Import
             </button>
             <button class="tab-btn-new" data-tab="add" onclick="LeadsModule.showTab('add')">
-              <span class="tab-icon">${Icons.edit}</span>
+              <span class="tab-icon">✏️</span>
               Pridať
             </button>
           </div>
@@ -214,7 +214,7 @@ const LeadsModule = {
       <!-- Edit Modal -->
       <div id="edit-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-large">
-          <div class="modal-header"><h2>${Icons.edit} Upraviť analýzu</h2><button onclick="LeadsModule.closeEditModal()" class="modal-close-dark">✕</button></div>
+          <div class="modal-header"><h2>✏️ Upraviť analýzu</h2><button onclick="LeadsModule.closeEditModal()" class="modal-close-dark">✕</button></div>
           <div id="edit-content" class="modal-body"></div>
           <div class="modal-footer">
             <button onclick="LeadsModule.closeEditModal()" class="btn-secondary">Zrušiť</button>
@@ -227,14 +227,14 @@ const LeadsModule = {
       <div id="proposal-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-medium">
           <div class="modal-header-gradient">
-            <h2>${Icons.documents} Generovať ponuku</h2>
+            <h2>📄 Generovať ponuku</h2>
             <button onclick="LeadsModule.closeProposalModal()" class="modal-close">✕</button>
           </div>
           <div class="modal-body">
             <p class="modal-desc">Pridajte poznámky a vyberte formát ponuky.</p>
             
             <div class="form-group">
-              <label>${Icons.edit} Poznámky pre ponuku (voliteľné)</label>
+              <label>📝 Poznámky pre ponuku (voliteľné)</label>
               <textarea id="proposal-notes" rows="4" placeholder="Napr.: Zameraj sa na lokálnych zákazníkov, odporúčam Pro balík..."></textarea>
             </div>
             
@@ -242,7 +242,7 @@ const LeadsModule = {
               <label>Vyberte akciu:</label>
               <div class="proposal-buttons">
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
-                  <span class="option-icon">${Icons.globe}</span>
+                  <span class="option-icon">🌐</span>
                   <span class="option-text">
                     <strong>Otvoriť ako HTML</strong>
                     <small>Náhľad v prehliadači</small>
@@ -256,7 +256,7 @@ const LeadsModule = {
                   </span>
                 </button>
                 <button onclick="LeadsModule.openEmailModal()" class="proposal-option-btn primary" id="btn-send-email">
-                  <span class="option-icon">${Icons.mail}</span>
+                  <span class="option-icon">📧</span>
                   <span class="option-text">
                     <strong>Poslať emailom</strong>
                     <small id="proposal-email-target">-</small>
@@ -277,7 +277,7 @@ const LeadsModule = {
       <div id="email-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-large">
           <div class="modal-header-gradient">
-            <h2>${Icons.mail} Odoslať ponuku emailom</h2>
+            <h2>📧 Odoslať ponuku emailom</h2>
             <button onclick="LeadsModule.closeEmailModal()" class="modal-close">✕</button>
           </div>
           <div class="modal-body" id="email-modal-body">
@@ -285,7 +285,7 @@ const LeadsModule = {
           </div>
           <div class="modal-footer">
             <button onclick="LeadsModule.closeEmailModal()" class="btn-secondary">Zrušiť</button>
-            <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">${Icons.sent} Odoslať email</button>
+            <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">📤 Odoslať email</button>
           </div>
         </div>
       </div>
@@ -344,9 +344,9 @@ const LeadsModule = {
         <select class="filter-select" id="filter-status" onchange="LeadsModule.onStatusChange(this.value)">
           <option value="">Všetky stavy</option>
           <option value="new" ${this.filters.status === 'new' ? 'selected' : ''}>🆕 Nové</option>
-          <option value="contacted" ${this.filters.status === 'contacted' ? 'selected' : ''}>${Icons.mail} Kontaktované</option>
-          <option value="won" ${this.filters.status === 'won' ? 'selected' : ''}>${Icons.checkCircle} Vyhraní</option>
-          <option value="lost" ${this.filters.status === 'lost' ? 'selected' : ''}>${Icons.xCircle} Prehraní</option>
+          <option value="contacted" ${this.filters.status === 'contacted' ? 'selected' : ''}>📧 Kontaktované</option>
+          <option value="won" ${this.filters.status === 'won' ? 'selected' : ''}>✅ Vyhraní</option>
+          <option value="lost" ${this.filters.status === 'lost' ? 'selected' : ''}>❌ Prehraní</option>
         </select>
         <select class="filter-select" id="filter-industry" onchange="LeadsModule.onIndustryChange(this.value)">
           <option value="">Všetky typy</option>
@@ -354,17 +354,17 @@ const LeadsModule = {
         </select>
         <select class="filter-select" id="filter-date" onchange="LeadsModule.onDateChange(this.value)">
           <option value="">Všetky dátumy</option>
-          <option value="today" ${this.filters.dateRange === 'today' ? 'selected' : ''}>${Icons.calendar} Dnes</option>
-          <option value="yesterday" ${this.filters.dateRange === 'yesterday' ? 'selected' : ''}>${Icons.calendar} Včera</option>
-          <option value="week" ${this.filters.dateRange === 'week' ? 'selected' : ''}>${Icons.calendar} Tento týždeň</option>
-          <option value="month" ${this.filters.dateRange === 'month' ? 'selected' : ''}>${Icons.calendar} Tento mesiac</option>
-          <option value="older" ${this.filters.dateRange === 'older' ? 'selected' : ''}>${Icons.calendar} Staršie</option>
+          <option value="today" ${this.filters.dateRange === 'today' ? 'selected' : ''}>📅 Dnes</option>
+          <option value="yesterday" ${this.filters.dateRange === 'yesterday' ? 'selected' : ''}>📅 Včera</option>
+          <option value="week" ${this.filters.dateRange === 'week' ? 'selected' : ''}>📅 Tento týždeň</option>
+          <option value="month" ${this.filters.dateRange === 'month' ? 'selected' : ''}>📅 Tento mesiac</option>
+          <option value="older" ${this.filters.dateRange === 'older' ? 'selected' : ''}>📅 Staršie</option>
         </select>
         <div class="filter-actions">
           <button onclick="LeadsModule.selectAll()" class="btn-filter">☑️ Všetky</button>
-          <button onclick="LeadsModule.analyzeSelected()" class="btn-filter purple">${Icons.robot} Analyzovať</button>
-          <button onclick="LeadsModule.sendBulkProposals()" class="btn-filter orange">${Icons.mail} Ponuky</button>
-          <button onclick="LeadsModule.deleteSelected()" class="btn-filter red">${Icons.trash}</button>
+          <button onclick="LeadsModule.analyzeSelected()" class="btn-filter purple">🤖 Analyzovať</button>
+          <button onclick="LeadsModule.sendBulkProposals()" class="btn-filter orange">📧 Ponuky</button>
+          <button onclick="LeadsModule.deleteSelected()" class="btn-filter red">🗑️</button>
         </div>
       </div>
       
@@ -393,13 +393,13 @@ const LeadsModule = {
   renderImportTab() {
     return `
       <div class="form-card">
-        <h2>${Icons.inbox} Import leadov</h2>
+        <h2>📥 Import leadov</h2>
         <p class="form-desc">Nahrajte Excel z Marketing Miner alebo vložte domény manuálne</p>
         
         <!-- Excel Upload -->
         <div id="excel-dropzone" class="dropzone" ondrop="LeadsModule.handleFileDrop(event)" ondragover="event.preventDefault()" ondragenter="this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')">
           <div class="dropzone-content">
-            <div class="dropzone-icon">${Icons.dashboard}</div>
+            <div class="dropzone-icon">📊</div>
             <p><strong>Pretiahni Excel súbor sem</strong></p>
             <p class="text-sm">alebo klikni pre výber súboru</p>
             <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" onchange="LeadsModule.handleFileSelect(event)" style="display:none;">
@@ -414,7 +414,7 @@ const LeadsModule = {
         <textarea id="import-domains" rows="6" placeholder="firma1.sk&#10;firma2.sk&#10;firma3.sk" class="form-textarea"></textarea>
         
         <div class="form-actions">
-          <button onclick="LeadsModule.handleImport()" class="btn-primary">${Icons.inbox} Importovať</button>
+          <button onclick="LeadsModule.handleImport()" class="btn-primary">📥 Importovať</button>
           <button onclick="LeadsModule.showTab('list')" class="btn-secondary">← Späť</button>
         </div>
       </div>
@@ -434,7 +434,7 @@ const LeadsModule = {
   renderAddTab() {
     return `
       <div class="form-card">
-        <h2>${Icons.edit} Pridať nový lead</h2>
+        <h2>✏️ Pridať nový lead</h2>
         <div class="form-grid">
           <div class="form-group"><label>Názov firmy *</label><input type="text" id="add-name" placeholder="Zadajte názov"></div>
           <div class="form-group"><label>Doména</label><input type="text" id="add-domain" placeholder="firma.sk"></div>
@@ -442,7 +442,7 @@ const LeadsModule = {
           <div class="form-group"><label>Telefón</label><input type="text" id="add-phone" placeholder="+421..."></div>
           <div class="form-group"><label>Odvetvie</label><input type="text" id="add-industry" placeholder="E-commerce"></div>
           <div class="form-group"><label>Mesto</label><input type="text" id="add-city" placeholder="Bratislava"></div>
-          <div class="form-group" style="grid-column: span 2;"><label>${Icons.image} Logo URL (voliteľné)</label><input type="url" id="add-logo" placeholder="https://firma.sk/logo.png"><small style="color: #64748b; font-size: 0.8rem;">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
+          <div class="form-group" style="grid-column: span 2;"><label>🖼️ Logo URL (voliteľné)</label><input type="url" id="add-logo" placeholder="https://firma.sk/logo.png"><small style="color: #64748b; font-size: 0.8rem;">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
         </div>
         <div class="form-actions">
           <button onclick="LeadsModule.handleAdd()" class="btn-primary">➕ Pridať lead</button>
@@ -718,7 +718,7 @@ const LeadsModule = {
         <tr>
           <td colspan="8">
             <div class="empty-state">
-              <div class="empty-icon">${Icons.users}</div>
+              <div class="empty-icon">👥</div>
               <h3>Žiadne leady</h3>
               <p>Pridajte prvý lead alebo importujte domény</p>
               <button class="btn-primary" onclick="LeadsModule.showTab('add')">+ Nový lead</button>
@@ -777,7 +777,7 @@ const LeadsModule = {
           </td>
           <td>
             <div class="lead-contact">
-              ${lead.email ? `<a href="mailto:${lead.email}" class="contact-email">${Icons.mail} ${lead.email}</a>` : ''}
+              ${lead.email ? `<a href="mailto:${lead.email}" class="contact-email">📧 ${lead.email}</a>` : ''}
               ${lead.phone ? `<a href="tel:${lead.phone}" class="contact-phone">📞 ${lead.phone}</a>` : ''}
               ${!lead.email && !lead.phone ? '<span style="color:#94a3b8">-</span>' : ''}
             </div>
@@ -786,7 +786,7 @@ const LeadsModule = {
           <td>
             <span class="status-badge ${status.class}">${status.label}</span>
             ${hasAnalysis ? '<span class="analysis-badge">✓ AI</span>' : ''}
-            ${hasSocials && !hasAnalysis ? '<span class="analysis-badge" style="background:#dbeafe;color:#1d4ed8;">${Icons.dashboard} MM</span>' : ''}
+            ${hasSocials && !hasAnalysis ? '<span class="analysis-badge" style="background:#dbeafe;color:#1d4ed8;">📊 MM</span>' : ''}
           </td>
           <td>
             <span class="date-cell" title="${createdAt ? createdAt.toLocaleString('sk-SK') : ''}">${dateStr}</span>
@@ -800,8 +800,8 @@ const LeadsModule = {
           <td>
             <div class="action-buttons">
               <button class="btn-detail" onclick="LeadsModule.showLeadDetail('${lead.id}')">Detail</button>
-              <button class="btn-icon" onclick="LeadsModule.analyze('${lead.id}')" title="AI Analýza">${Icons.robot}</button>
-              ${hasAnalysis ? `<button class="btn-icon" onclick="LeadsModule.showProposalModal('${lead.id}')" title="Ponuka">${Icons.documents}</button>` : ''}
+              <button class="btn-icon" onclick="LeadsModule.analyze('${lead.id}')" title="AI Analýza">🤖</button>
+              ${hasAnalysis ? `<button class="btn-icon" onclick="LeadsModule.showProposalModal('${lead.id}')" title="Ponuka">📄</button>` : ''}
             </div>
           </td>
         </tr>
@@ -830,10 +830,10 @@ const LeadsModule = {
   getProposalBadge(status, sentAt) {
     const badges = {
       'not_sent': '',
-      'sent': `<span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="${sentAt ? 'Odoslané: ' + Utils.formatDate(sentAt) : ''}">${Icons.mail} Odoslané</span>`,
-      'opened': `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">${Icons.eye} Otvorené</span>`,
-      'responded': `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">${Icons.messageCircle} Odpovedal</span>`,
-      'converted': `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">${Icons.partyPopper} Konvertovaný</span>`
+      'sent': `<span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="${sentAt ? 'Odoslané: ' + Utils.formatDate(sentAt) : ''}">📧 Odoslané</span>`,
+      'opened': `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">👁️ Otvorené</span>`,
+      'responded': `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">💬 Odpovedal</span>`,
+      'converted': `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">🎉 Konvertovaný</span>`
     };
     return badges[status] || '';
   },
@@ -936,7 +936,7 @@ const LeadsModule = {
     // Vylepšený loading s progress
     content.innerHTML = `
       <div style="text-align:center;padding:4rem;">
-        <div style="font-size:4rem;margin-bottom:1.5rem;animation:spin 2s linear infinite;">${Icons.robot}</div>
+        <div style="font-size:4rem;margin-bottom:1.5rem;animation:spin 2s linear infinite;">🤖</div>
         <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Analyzujem ${lead.company_name || lead.domain}...</h3>
         <p style="color:#64748b;" id="analysis-status">Pripravujem analýzu...</p>
         <div style="margin-top:1.5rem;background:#e2e8f0;border-radius:9999px;height:8px;width:300px;margin:1.5rem auto;">
@@ -960,7 +960,7 @@ const LeadsModule = {
       const token = session?.data?.session?.access_token || '';
       
       // KROK 1: Získať reálne keywords z Marketing Miner (ak je nakonfigurovaný)
-      updateProgress(15, 'Získavam reálne dáta o kľúčových slovách...');
+      updateProgress(15, '🔍 Získavam reálne dáta o kľúčových slovách...');
       
       let realKeywordsData = null;
       let realDomainStats = null;
@@ -974,24 +974,24 @@ const LeadsModule = {
           // Volanie MM API pre keywords
           console.log('📡 Volám MM API keywords_suggestions...');
           realKeywordsData = await this.getKeywordsSuggestions(seedKeyword, 'sk');
-          console.log('MM Keywords result:', realKeywordsData ? `${realKeywordsData.length} keywords` : 'null');
+          console.log('✅ MM Keywords result:', realKeywordsData ? `${realKeywordsData.length} keywords` : 'null');
           
           // Volanie MM API pre domain stats
           if (lead.domain) {
             console.log('📡 Volám MM API domain_stats pre:', lead.domain);
             realDomainStats = await this.getDomainStats(lead.domain, 'sk');
-            console.log('MM Domain stats result:', realDomainStats);
+            console.log('✅ MM Domain stats result:', realDomainStats);
           }
         } catch (mmError) {
-          console.warn('Marketing Miner API error:', mmError);
+          console.warn('❌ Marketing Miner API error:', mmError);
           // Pokračujeme bez reálnych dát
         }
       } else {
-        console.warn('Seed keyword je prázdny, MM API sa nepoužije');
+        console.warn('⚠️ Seed keyword je prázdny, MM API sa nepoužije');
       }
       
       // KROK 2: Základná technická analýza webu
-      updateProgress(30, 'Analyzujem webstránku...');
+      updateProgress(30, '🌐 Analyzujem webstránku...');
       
       let webAnalysis = null;
       if (lead.domain) {
@@ -1059,7 +1059,7 @@ const LeadsModule = {
         })
       });
       
-      updateProgress(80, 'Spracovávam výsledky...');
+      updateProgress(80, '📊 Spracovávam výsledky...');
       
       const result = await response.json();
       if (!result.success) throw new Error(result.error || 'Analýza zlyhala');
@@ -1089,7 +1089,7 @@ const LeadsModule = {
         });
       }
       
-      updateProgress(100, 'Hotovo!');
+      updateProgress(100, '✅ Hotovo!');
       
       this.currentAnalysis = enrichedAnalysis;
       this.editedAnalysis = JSON.parse(JSON.stringify(enrichedAnalysis));
@@ -1114,10 +1114,10 @@ const LeadsModule = {
       console.error('Analysis error:', error);
       content.innerHTML = `
         <div style="text-align:center;padding:4rem;">
-          <div style="font-size:4rem;margin-bottom:1.5rem;">${Icons.xCircle}</div>
+          <div style="font-size:4rem;margin-bottom:1.5rem;">❌</div>
           <h3 style="font-size:1.25rem;font-weight:700;margin-bottom:0.5rem;">Chyba pri analýze</h3>
           <p style="color:#64748b;margin-bottom:1.5rem;">${error.message}</p>
-          <button onclick="LeadsModule.analyze('${id}')" class="btn-primary">${Icons.sync} Skúsiť znova</button>
+          <button onclick="LeadsModule.analyze('${id}')" class="btn-primary">🔄 Skúsiť znova</button>
         </div>
       `;
       this.renderModalFooter(false);
@@ -1150,10 +1150,10 @@ const LeadsModule = {
           <div>
             <h2 class="text-3xl font-bold mb-2">${c.name || lead.company_name || 'Firma'}</h2>
             <p class="opacity-90 text-lg">${c.description || ''}</p>
-            ${c.location || lead.city ? `<p class="mt-3 opacity-75">${Icons.target} ${c.location || lead.city}</p>` : ''}
+            ${c.location || lead.city ? `<p class="mt-3 opacity-75">📍 ${c.location || lead.city}</p>` : ''}
           </div>
           <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-            ${Icons.edit} Upraviť údaje
+            ✏️ Upraviť údaje
           </button>
         </div>
       </div>
@@ -1161,8 +1161,8 @@ const LeadsModule = {
       <!-- Kontaktné údaje - vždy viditeľné -->
       <div class="analysis-section mb-4" style="background: #f8fafc; border: 1px solid #e2e8f0;">
         <div class="flex justify-between items-center mb-3">
-          <h3 style="margin-bottom: 0;">${Icons.clipboard} Kontaktné údaje</h3>
-          <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="text-sm text-orange-500 hover:text-orange-600 font-medium">${Icons.edit} Upraviť</button>
+          <h3 style="margin-bottom: 0;">📋 Kontaktné údaje</h3>
+          <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="text-sm text-orange-500 hover:text-orange-600 font-medium">✏️ Upraviť</button>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
@@ -1187,13 +1187,13 @@ const LeadsModule = {
 
       ${a.humanWrittenIntro ? `<div class="analysis-section border-l-4 border-orange-500"><h3>💡 Naše zistenia</h3><p class="text-gray-700 leading-relaxed">${a.humanWrittenIntro}</p></div>` : ''}
       ${c.services?.length ? `<div class="analysis-section"><h3>🛠️ Služby</h3><div class="flex flex-wrap gap-2">${c.services.map(s => `<span class="tag tag-blue">${s}</span>`).join('')}</div></div>` : ''}
-      ${o.summary ? `<div class="analysis-section"><h3>${Icons.globe} Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '' : ''}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '' : ''}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '' : ''}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '' : ''}</div><div class="label">Reklama</div></div></div></div>` : ''}
-      ${a.swot ? `<div class="analysis-section"><h3>${Icons.dashboard} SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">${Icons.alertTriangle} Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">${Icons.rocket} Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">${Icons.zap} Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
-      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>${Icons.search} Kľúčové slová</h3><p class="text-sm text-gray-500 mb-3">${k.summary || ''}</p><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
-      ${b.recommendations ? `<div class="analysis-section"><h3>${Icons.billing} Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">${Icons.star} Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
+      ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
+      ${a.swot ? `<div class="analysis-section"><h3>📊 SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">⚠️ Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">🚀 Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">⚡ Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
+      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><p class="text-sm text-gray-500 mb-3">${k.summary || ''}</p><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      ${b.recommendations ? `<div class="analysis-section"><h3>💰 Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">⭐ Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
       ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
-      ${analysis.customNote ? `<div class="analysis-section border-l-4 border-purple-500 bg-purple-50"><h3>${Icons.messageCircle} Osobná poznámka</h3><p class="text-gray-700 italic">${analysis.customNote}</p></div>` : ''}
-      <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>${Icons.target} Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
+      ${analysis.customNote ? `<div class="analysis-section border-l-4 border-purple-500 bg-purple-50"><h3>💬 Osobná poznámka</h3><p class="text-gray-700 italic">${analysis.customNote}</p></div>` : ''}
+      <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>🎯 Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
     `;
   },
 
@@ -1217,16 +1217,16 @@ const LeadsModule = {
       footer.innerHTML = `
         <button onclick="LeadsModule.closeModal()" class="btn-secondary">Zavrieť</button>
         <div style="display:flex;gap:0.5rem;">
-          <button onclick="LeadsModule.editAnalysis()" class="btn-secondary">${Icons.edit} Upraviť</button>
-          <button onclick="LeadsModule.generateProposal()" class="btn-primary">${Icons.documents} Generovať ponuku</button>
+          <button onclick="LeadsModule.editAnalysis()" class="btn-secondary">✏️ Upraviť</button>
+          <button onclick="LeadsModule.generateProposal()" class="btn-primary">📄 Generovať ponuku</button>
         </div>
       `;
     } else {
       footer.innerHTML = `
         <button onclick="LeadsModule.closeModal()" class="btn-secondary">Zavrieť</button>
         <div style="display:flex;gap:0.5rem;">
-          <button onclick="LeadsModule.editLeadBasicInfo('${this.currentLeadId}')" class="btn-secondary">${Icons.edit} Upraviť</button>
-          <button onclick="LeadsModule.convertToClient('${this.currentLeadId}')" class="btn-primary">${Icons.target} Konvertovať</button>
+          <button onclick="LeadsModule.editLeadBasicInfo('${this.currentLeadId}')" class="btn-secondary">✏️ Upraviť</button>
+          <button onclick="LeadsModule.convertToClient('${this.currentLeadId}')" class="btn-primary">🎯 Konvertovať</button>
         </div>
       `;
     }
@@ -1281,9 +1281,9 @@ const LeadsModule = {
         
         <!-- Tabs -->
         <div class="lead-detail-tabs">
-          <button class="lead-tab ${!hasAnalysis ? 'active' : ''}" onclick="LeadsModule.switchDetailTab('info', this)">${Icons.clipboard} Info</button>
-          ${hasAnalysis ? `<button class="lead-tab active" onclick="LeadsModule.switchDetailTab('analysis', this)">${Icons.robot} Analýza</button>` : ''}
-          ${hasSocials ? `<button class="lead-tab" onclick="LeadsModule.switchDetailTab('social', this)">${Icons.smartphone} Sociálne siete</button>` : ''}
+          <button class="lead-tab ${!hasAnalysis ? 'active' : ''}" onclick="LeadsModule.switchDetailTab('info', this)">📋 Info</button>
+          ${hasAnalysis ? `<button class="lead-tab active" onclick="LeadsModule.switchDetailTab('analysis', this)">🤖 Analýza</button>` : ''}
+          ${hasSocials ? `<button class="lead-tab" onclick="LeadsModule.switchDetailTab('social', this)">📱 Sociálne siete</button>` : ''}
           <button class="lead-tab" onclick="LeadsModule.switchDetailTab('history', this)">📜 História</button>
         </div>
         
@@ -1293,7 +1293,7 @@ const LeadsModule = {
             <!-- Kontakt -->
             <div class="detail-card">
               <div class="detail-card-header">
-                <span class="detail-card-icon">${Icons.mail}</span>
+                <span class="detail-card-icon">📧</span>
                 <h3>Kontaktné údaje</h3>
               </div>
               <div class="detail-card-body">
@@ -1325,7 +1325,7 @@ const LeadsModule = {
             <!-- Status -->
             <div class="detail-card">
               <div class="detail-card-header">
-                <span class="detail-card-icon">${Icons.dashboard}</span>
+                <span class="detail-card-icon">📊</span>
                 <h3>Status</h3>
               </div>
               <div class="detail-card-body">
@@ -1348,7 +1348,7 @@ const LeadsModule = {
                   <label>Zmeniť status:</label>
                   <div class="status-btn-group">
                     ${['new', 'contacted', 'won', 'lost'].map(s => {
-                      const labels = { new: '🆕', contacted: '📞', won: '', lost: '' };
+                      const labels = { new: '🆕', contacted: '📞', won: '✅', lost: '❌' };
                       return `<button onclick="LeadsModule.updateStatus('${lead.id}', '${s}')" class="status-btn ${lead.status === s ? 'active' : ''}" title="${statusConfig[s]?.label || s}">${labels[s]}</button>`;
                     }).join('')}
                   </div>
@@ -1360,21 +1360,21 @@ const LeadsModule = {
           <!-- CTA - Analyzovať alebo Generovať ponuku -->
           ${hasAnalysis ? `
           <div class="detail-cta" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #bbf7d0;">
-            <div class="cta-icon">${Icons.checkCircle}</div>
+            <div class="cta-icon">✅</div>
             <div class="cta-content">
               <h3 style="color: #166534;">Analýza dokončená</h3>
               <p style="color: #15803d;">Lead bol analyzovaný. Prejdite na tab "Analýza" pre zobrazenie výsledkov alebo generujte ponuku.</p>
             </div>
-            <button onclick="LeadsModule.generateProposal()" class="btn-primary">${Icons.documents} Generovať ponuku</button>
+            <button onclick="LeadsModule.generateProposal()" class="btn-primary">📄 Generovať ponuku</button>
           </div>
           ` : `
           <div class="detail-cta">
-            <div class="cta-icon">${Icons.robot}</div>
+            <div class="cta-icon">🤖</div>
             <div class="cta-content">
               <h3>Spustiť AI analýzu</h3>
               <p>Získajte marketingovú stratégiu, odporúčania a generujte personalizovanú ponuku.</p>
             </div>
-            <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-primary">${Icons.robot} Analyzovať</button>
+            <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-primary">🤖 Analyzovať</button>
           </div>
           `}
         </div>
@@ -1392,7 +1392,7 @@ const LeadsModule = {
           <div class="social-grid">
             ${socials.facebook ? `
             <a href="${socials.facebook}" target="_blank" class="social-card facebook">
-              <div class="social-card-icon">${Icons.facebook}</div>
+              <div class="social-card-icon">📘</div>
               <div class="social-card-info">
                 <strong>Facebook</strong>
                 <span>Profil nájdený</span>
@@ -1412,7 +1412,7 @@ const LeadsModule = {
             ` : ''}
             ${socials.linkedin ? `
             <a href="${socials.linkedin}" target="_blank" class="social-card linkedin">
-              <div class="social-card-icon">${Icons.briefcase}</div>
+              <div class="social-card-icon">💼</div>
               <div class="social-card-info">
                 <strong>LinkedIn</strong>
                 <span>Profil nájdený</span>
@@ -1482,12 +1482,12 @@ const LeadsModule = {
     return `
       ${a.humanWrittenIntro ? `<div class="analysis-section border-l-4 border-orange-500"><h3>💡 Naše zistenia</h3><p class="text-gray-700 leading-relaxed">${a.humanWrittenIntro}</p></div>` : ''}
       ${c.services?.length ? `<div class="analysis-section"><h3>🛠️ Služby</h3><div class="flex flex-wrap gap-2">${c.services.map(s => `<span class="tag tag-blue">${s}</span>`).join('')}</div></div>` : ''}
-      ${o.summary ? `<div class="analysis-section"><h3>${Icons.globe} Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '' : ''}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '' : ''}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '' : ''}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '' : ''}</div><div class="label">Reklama</div></div></div></div>` : ''}
-      ${a.swot ? `<div class="analysis-section"><h3>${Icons.dashboard} SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">${Icons.alertTriangle} Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">${Icons.rocket} Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">${Icons.zap} Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
-      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>${Icons.search} Kľúčové slová</h3><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
-      ${b.recommendations ? `<div class="analysis-section"><h3>${Icons.billing} Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">${Icons.star} Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
+      ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
+      ${a.swot ? `<div class="analysis-section"><h3>📊 SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">⚠️ Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">🚀 Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">⚡ Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
+      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      ${b.recommendations ? `<div class="analysis-section"><h3>💰 Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">⭐ Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
       ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
-      <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>${Icons.target} Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
+      <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>🎯 Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
     `;
   },
 
@@ -1519,7 +1519,7 @@ const LeadsModule = {
     const content = document.getElementById('analysis-content');
     content.innerHTML = `
       <div class="edit-lead-form">
-        <h2 class="text-xl font-bold mb-6">${Icons.edit} Upraviť lead</h2>
+        <h2 class="text-xl font-bold mb-6">✏️ Upraviť lead</h2>
         <div class="grid md:grid-cols-2 gap-4 mb-4">
           <div><label class="block text-sm font-medium mb-1">Názov firmy</label><input type="text" id="edit-lead-name" value="${lead.company_name || ''}" class="w-full p-3 border rounded-xl"></div>
           <div><label class="block text-sm font-medium mb-1">Doména</label><input type="text" id="edit-lead-domain" value="${lead.domain || ''}" class="w-full p-3 border rounded-xl"></div>
@@ -1528,7 +1528,7 @@ const LeadsModule = {
           <div><label class="block text-sm font-medium mb-1">Odvetvie</label><input type="text" id="edit-lead-industry" value="${lead.industry || ''}" class="w-full p-3 border rounded-xl"></div>
           <div><label class="block text-sm font-medium mb-1">Mesto</label><input type="text" id="edit-lead-city" value="${lead.city || ''}" class="w-full p-3 border rounded-xl"></div>
         </div>
-        <div class="mb-4"><label class="block text-sm font-medium mb-1">${Icons.image} Logo URL</label><input type="url" id="edit-lead-logo" value="${lead.logo_url || ''}" class="w-full p-3 border rounded-xl" placeholder="https://firma.sk/logo.png"><small class="text-gray-500 text-xs">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
+        <div class="mb-4"><label class="block text-sm font-medium mb-1">🖼️ Logo URL</label><input type="url" id="edit-lead-logo" value="${lead.logo_url || ''}" class="w-full p-3 border rounded-xl" placeholder="https://firma.sk/logo.png"><small class="text-gray-500 text-xs">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
         <div class="mb-4"><label class="block text-sm font-medium mb-1">Poznámky</label><textarea id="edit-lead-notes" rows="3" class="w-full p-3 border rounded-xl">${lead.notes || ''}</textarea></div>
         <div class="flex gap-3">
           <button onclick="LeadsModule.showLeadDetail('${leadId}')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">← Späť</button>
@@ -1568,7 +1568,7 @@ const LeadsModule = {
       
       const lead = this.leads.find(l => l.id === leadId);
       if (lead) Object.assign(lead, updates);
-      Utils.toast('Uložené!', 'success');
+      Utils.toast('Uložené! ✅', 'success');
       this.showLeadDetail(leadId);
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
     } catch (error) {
@@ -1636,7 +1636,7 @@ const LeadsModule = {
       lead.status = 'won';
       lead.proposal_status = 'converted';
       
-      Utils.toast(`${Icons.partyPopper} Klient "${newClient.company_name}" vytvorený!`, 'success');
+      Utils.toast(`🎉 Klient "${newClient.company_name}" vytvorený!`, 'success');
       
       this.closeModal();
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
@@ -1669,7 +1669,7 @@ const LeadsModule = {
         <div class="form-group"><label>Odporúčaný balíček</label><select id="edit-package"><option value="Starter" ${a.recommendedPackage === 'Starter' ? 'selected' : ''}>Starter (149€)</option><option value="Pro" ${a.recommendedPackage === 'Pro' ? 'selected' : ''}>Pro (249€)</option><option value="Enterprise" ${a.recommendedPackage === 'Enterprise' ? 'selected' : ''}>Enterprise (399€)</option><option value="Premium" ${a.recommendedPackage === 'Premium' ? 'selected' : ''}>Premium (799€)</option></select></div>
       </div>
       <div class="analysis-section" style="margin-bottom:1rem;">
-        <h3 style="margin:0 0 1rem;">${Icons.mail} Kontaktné údaje</h3>
+        <h3 style="margin:0 0 1rem;">📧 Kontaktné údaje</h3>
         <div class="form-grid">
           <div class="form-group"><label>Email</label><input type="email" id="edit-email" value="${lead.email || ''}" placeholder="email@firma.sk"></div>
           <div class="form-group"><label>Telefón</label><input type="text" id="edit-phone" value="${lead.phone || ''}" placeholder="+421..."></div>
@@ -1758,7 +1758,7 @@ const LeadsModule = {
     {
       id: 'formal',
       slug: 'proposal-formal',
-      name: 'Formálna',
+      name: '📋 Formálna',
       subject: 'Marketingová ponuka pre {{company}} - Adlify',
       body_html: `Vážený pán / Vážená pani,
 
@@ -1778,14 +1778,14 @@ S úctou,
 Adlify tím
 
 ---
-${Icons.mail} info@adlify.eu
-${Icons.globe} www.adlify.eu`
+📧 info@adlify.eu
+🌐 www.adlify.eu`
     },
     {
       id: 'friendly',
       slug: 'proposal-friendly',
       name: '😊 Priateľská',
-      subject: 'Máme pre {{company}} niečo zaujímavé!',
+      subject: 'Máme pre {{company}} niečo zaujímavé! 🚀',
       body_html: `Dobrý deň,
 
 volám sa [Vaše meno] z Adlify a rád by som Vám predstavil niečo, čo by mohlo pomôcť {{company}} získať viac zákazníkov.
@@ -1793,10 +1793,10 @@ volám sa [Vaše meno] z Adlify a rád by som Vám predstavil niečo, čo by moh
 Pozreli sme sa na Vašu online prítomnosť a pripravili sme pre Vás pár tipov a odporúčaní, ako by ste mohli osloviť viac ľudí cez internet.
 
 Čo sme pre Vás pripravili:
-${Icons.checkCircle} Zhodnotenie Vašej aktuálnej situácie
-${Icons.checkCircle} Návrh stratégie pre Google a Facebook/Instagram
-${Icons.checkCircle} Odhad koľko nových dopytov by ste mohli získať
-${Icons.checkCircle} Transparentný rozpočet bez skrytých poplatkov
+✅ Zhodnotenie Vašej aktuálnej situácie
+✅ Návrh stratégie pre Google a Facebook/Instagram
+✅ Odhad koľko nových dopytov by ste mohli získať
+✅ Transparentný rozpočet bez skrytých poplatkov
 
 Máte 15 minút na krátky hovor tento týždeň? Rád Vám všetko vysvetlím a odpoviem na otázky.
 
@@ -1810,7 +1810,7 @@ Adlify tím`
     {
       id: 'short',
       slug: 'proposal-short',
-      name: 'Stručná',
+      name: '⚡ Stručná',
       subject: 'Ponuka pre {{company}}',
       body_html: `Dobrý deň,
 
@@ -1827,7 +1827,7 @@ info@adlify.eu`
     {
       id: 'followup',
       slug: 'proposal-followup', 
-      name: 'Follow-up',
+      name: '🔄 Follow-up',
       subject: 'Pripomíname sa - ponuka pre {{company}}',
       body_html: `Dobrý deň,
 
@@ -1866,7 +1866,7 @@ Adlify tím`
       this.emailTemplates.push({
         id: 'custom',
         slug: 'custom',
-        name: 'Vlastná správa',
+        name: '✏️ Vlastná správa',
         subject: '',
         body_html: ''
       });
@@ -1876,7 +1876,7 @@ Adlify tím`
       this.emailTemplates = [...this.defaultEmailTemplates, {
         id: 'custom',
         slug: 'custom',
-        name: 'Vlastná správa',
+        name: '✏️ Vlastná správa',
         subject: '',
         body_html: ''
       }];
@@ -1919,7 +1919,7 @@ Adlify tím`
         </div>
         
         <div class="email-field">
-          <label>${Icons.clipboard} Vybrať šablónu</label>
+          <label>📋 Vybrať šablónu</label>
           <div class="template-selector">
             ${this.emailTemplates.map(t => `
               <button type="button" class="template-btn ${(t.id || t.slug) === this.selectedTemplateId ? 'active' : ''}" 
@@ -1932,17 +1932,17 @@ Adlify tím`
         
         <div class="email-row">
           <div class="email-field">
-            <label>${Icons.mail} Komu</label>
+            <label>📧 Komu</label>
             <input type="email" id="email-to" value="${lead.email}" readonly style="background:#f8fafc;">
           </div>
           <div class="email-field">
-            <label>${Icons.user} Meno príjemcu</label>
+            <label>👤 Meno príjemcu</label>
             <input type="text" id="email-to-name" value="${companyName}" placeholder="Názov firmy alebo meno">
           </div>
         </div>
         
         <div class="email-field">
-          <label>${Icons.edit} Predmet</label>
+          <label>📝 Predmet</label>
           <input type="text" id="email-subject" value="${subject}" placeholder="Predmet emailu">
         </div>
         
@@ -1955,7 +1955,7 @@ Adlify tím`
         
         <div class="email-actions">
           <button type="button" class="btn-link" onclick="LeadsModule.openTemplateManager()">
-            ${Icons.settings} Spravovať šablóny
+            ⚙️ Spravovať šablóny
           </button>
         </div>
       </div>
@@ -2013,7 +2013,7 @@ Adlify tím`
     
     return `
       <div class="template-manager">
-        <h3 style="margin-bottom: 1rem;">${Icons.settings} Správa email šablón</h3>
+        <h3 style="margin-bottom: 1rem;">⚙️ Správa email šablón</h3>
         
         <div class="template-list">
           ${templates.map(t => `
@@ -2023,8 +2023,8 @@ Adlify tím`
                 <small>${t.subject || 'Bez predmetu'}</small>
               </div>
               <div class="template-item-actions">
-                <button onclick="LeadsModule.editTemplate('${t.id || t.slug}')" class="btn-icon" title="Upraviť">${Icons.edit}</button>
-                <button onclick="LeadsModule.deleteTemplate('${t.id || t.slug}')" class="btn-icon red" title="Zmazať">${Icons.trash}</button>
+                <button onclick="LeadsModule.editTemplate('${t.id || t.slug}')" class="btn-icon" title="Upraviť">✏️</button>
+                <button onclick="LeadsModule.deleteTemplate('${t.id || t.slug}')" class="btn-icon red" title="Zmazať">🗑️</button>
               </div>
             </div>
           `).join('')}
@@ -2058,7 +2058,7 @@ Adlify tím`
       const footer = modal.querySelector('.modal-footer');
       footer.innerHTML = `
         <button onclick="LeadsModule.closeEmailModal()" class="btn-secondary">Zrušiť</button>
-        <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">${Icons.sent} Odoslať email</button>
+        <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">📤 Odoslať email</button>
       `;
     }
   },
@@ -2093,7 +2093,7 @@ Adlify tím`
   renderTemplateForm(template = null) {
     return `
       <div class="template-form">
-        <h3 style="margin-bottom: 1rem;">${template ? 'Upraviť šablónu' : '➕ Nová šablóna'}</h3>
+        <h3 style="margin-bottom: 1rem;">${template ? '✏️ Upraviť šablónu' : '➕ Nová šablóna'}</h3>
         
         <div class="variables-info">
           💡 <strong>Premenné:</strong> <code>{{company}}</code>, <code>{{email}}</code>, <code>{{domain}}</code>, <code>{{phone}}</code>
@@ -2264,12 +2264,12 @@ Adlify tím`
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${Icons.dashboard} VAŠA PERSONALIZOVANÁ PONUKA
+📊 VAŠA PERSONALIZOVANÁ PONUKA
 
 Pripravili sme pre Vás detailnú marketingovú ponuku.
 Kliknite na odkaz nižšie pre jej zobrazenie:
 
-${Icons.link} ${proposalUrl}
+🔗 ${proposalUrl}
 
 V ponuke nájdete:
 ✓ Analýzu Vašej online prítomnosti
@@ -2358,9 +2358,9 @@ Odkaz je platný 30 dní.
       ${plainText.split('\n\n').map(p => {
         if (p.includes('━━━')) return '';
         if (p.includes('VAŠA PERSONALIZOVANÁ PONUKA')) {
-          return `<h2 style="color:#f97316;font-size:18px;margin:20px 0;">${Icons.dashboard} Vaša personalizovaná ponuka</h2>`;
+          return `<h2 style="color:#f97316;font-size:18px;margin:20px 0;">📊 Vaša personalizovaná ponuka</h2>`;
         }
-        if (p.includes('')) {
+        if (p.includes('🔗')) {
           return '';
         }
         if (p.includes('✓')) {
@@ -2373,7 +2373,7 @@ Odkaz je platný 30 dní.
       <!-- CTA Button -->
       <div style="text-align:center;margin:30px 0;">
         <a href="${proposalUrl}" style="display:inline-block;background:linear-gradient(135deg,#f97316,#ea580c);color:white;padding:15px 40px;border-radius:30px;text-decoration:none;font-weight:600;font-size:16px;">
-          ${Icons.documents} Zobraziť ponuku
+          📄 Zobraziť ponuku
         </a>
       </div>
       
@@ -2494,7 +2494,7 @@ Odkaz je platný 30 dní.
         <div style="display:flex;flex-direction:column;">
           <div style="display:flex;gap:10px;">
             <button class="btn-print" onclick="window.print()">
-              ${Icons.documents} Uložiť ako PDF
+              📄 Uložiť ako PDF
             </button>
             <button class="btn-close" onclick="window.close()">
               ✕ Zavrieť
@@ -2827,7 +2827,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .package-card { background: white; border: 2px solid #e2e8f0; border-radius: 24px; padding: 40px 30px; text-align: center; transition: all 0.3s; position: relative; display: flex; flex-direction: column; height: 100%; }
 .package-card:hover { transform: translateY(-8px); box-shadow: 0 20px 50px rgba(0,0,0,0.12); }
 .package-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); box-shadow: 0 10px 40px rgba(255,107,53,0.15); }
-.package-card.featured::before { content: "${Icons.star} Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 8px 24px; border-radius: 25px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 15px rgba(255,107,53,0.4); }
+.package-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 8px 24px; border-radius: 25px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 15px rgba(255,107,53,0.4); }
 .package-icon { font-size: 3.5rem; margin-bottom: 18px; }
 .package-name { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; color: #1a1a2e; }
 .package-price { font-size: 3.2rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
@@ -2978,7 +2978,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .budget-card { background: white; border: 2px solid #e2e8f0; border-radius: 20px; padding: 35px; text-align: center; transition: all 0.3s; }
 .budget-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
 .budget-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); }
-.budget-card.featured::before { content: "${Icons.star} Odporúčame"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+.budget-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
 .budget-label { font-size: 1rem; color: #64748b; margin-bottom: 10px; }
 .budget-value { font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .budget-period { color: #94a3b8; font-size: 0.9rem; margin-bottom: 25px; }
@@ -3110,7 +3110,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 
 <!-- Hero Section -->
 <section class="hero-section">
-  <div class="hero-badge">${Icons.dashboard} Personalizovaná analýza & stratégia</div>
+  <div class="hero-badge">📊 Personalizovaná analýza & stratégia</div>
   <h1 class="hero-title">Návrh <span>marketingovej stratégie</span></h1>
   <p class="hero-subtitle">Komplexná analýza vašej online prítomnosti, identifikácia príležitostí a konkrétne odporúčania pre rast vášho podnikania prostredníctvom online reklamy</p>
   
@@ -3136,7 +3136,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     </div>
     
     <div class="card" style="margin-top: 30px;">
-      <h3 class="card-title">${Icons.users} Vaši ideálni zákazníci</h3>
+      <h3 class="card-title">👥 Vaši ideálni zákazníci</h3>
       <p style="color: #64748b; font-size: 1rem; line-height: 1.8;">${c.targetCustomers || 'Firmy a jednotlivci hľadajúci kvalitné služby'}</p>
     </div>
   </div>
@@ -3150,7 +3150,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     <p class="section-subtitle">${a.humanWrittenIntro || o.summary || 'Na základe našej analýzy sme identifikovali silné stránky aj príležitosti na zlepšenie.'}</p>
     
     ${a.strengths?.length ? `
-    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">${Icons.checkCircle} Vaše silné stránky</h3>
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">✅ Vaše silné stránky</h3>
     <div class="grid-2" style="margin-bottom: 40px;">
       ${a.strengths.map(str => `
         <div class="card">
@@ -3162,7 +3162,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     ` : ''}
     
     ${a.opportunities?.length ? `
-    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">${Icons.rocket} Príležitosti na zlepšenie</h3>
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">🚀 Príležitosti na zlepšenie</h3>
     <div class="grid-2">
       ${a.opportunities.map(opp => `
         <div class="card">
@@ -3187,22 +3187,22 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     
     <div class="grid-4" style="margin-bottom: 40px;">
       <div class="stat-box">
-        <div class="stat-icon">${o.website?.exists !== false ? '' : ''}</div>
+        <div class="stat-icon">${o.website?.exists !== false ? '✅' : '❌'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Webstránka</div>
         <div class="stat-label">${o.website?.quality || (o.website?.exists !== false ? 'priemerná' : 'Chýba')}</div>
       </div>
       <div class="stat-box">
-        <div class="stat-icon">${o.socialMedia?.facebook?.exists ? '' : ''}</div>
+        <div class="stat-icon">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Facebook</div>
         <div class="stat-label">${o.socialMedia?.facebook?.exists ? 'Aktívny' : 'Neaktívny'}</div>
       </div>
       <div class="stat-box">
-        <div class="stat-icon">${o.socialMedia?.instagram?.exists ? '' : ''}</div>
+        <div class="stat-icon">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Instagram</div>
         <div class="stat-label">${o.socialMedia?.instagram?.exists ? 'Aktívny' : 'Neaktívny'}</div>
       </div>
       <div class="stat-box">
-        <div class="stat-icon">${o.paidAds?.detected ? '' : ''}</div>
+        <div class="stat-icon">${o.paidAds?.detected ? '✅' : '❌'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Platená reklama</div>
         <div class="stat-label">${o.paidAds?.detected ? 'Využíva' : 'Nevyužíva'}</div>
       </div>
@@ -3220,7 +3220,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
       ` : ''}
       ${o.website?.weaknesses?.length ? `
       <div class="card" style="border-left: 4px solid #f59e0b;">
-        <h4 style="color: #92400e; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">${Icons.alertTriangle} Čo treba zlepšiť</h4>
+        <h4 style="color: #92400e; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">⚠️ Čo treba zlepšiť</h4>
         <ul style="list-style: none;">
           ${o.website.weaknesses.map(w => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #f59e0b; font-size: 1.2rem;">!</span> ${w}</li>`).join('')}
         </ul>
@@ -3249,15 +3249,15 @@ ${a.swot ? `
         <ul>${a.swot.strengths?.map(s => `<li>${s}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-weaknesses">
-        <h4>${Icons.alertTriangle} Slabé stránky</h4>
+        <h4>⚠️ Slabé stránky</h4>
         <ul>${a.swot.weaknesses?.map(w => `<li>${w}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-opportunities">
-        <h4>${Icons.rocket} Príležitosti</h4>
+        <h4>🚀 Príležitosti</h4>
         <ul>${a.swot.opportunities?.map(o => `<li>${o}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-threats">
-        <h4>${Icons.zap} Hrozby</h4>
+        <h4>⚡ Hrozby</h4>
         <ul>${a.swot.threats?.map(t => `<li>${t}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
     </div>
@@ -3309,20 +3309,20 @@ ${k.topKeywords?.length ? `
     
     <div class="grid-2" style="margin-bottom: 35px;">
       <div class="card">
-        <h4 class="card-title">${Icons.smartphone} Odporúčané platformy</h4>
+        <h4 class="card-title">📱 Odporúčané platformy</h4>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-gradient">${p}</span>`).join('')}
         </div>
       </div>
       <div class="card">
-        <h4 class="card-title">${Icons.target} Hlavný cieľ</h4>
+        <h4 class="card-title">🎯 Hlavný cieľ</h4>
         <p style="color: #64748b; font-size: 1.05rem; line-height: 1.7;">${s.primaryGoal || 'Generovanie kvalifikovaných dopytov a zvýšenie povedomia o značke'}</p>
       </div>
     </div>
     
     ${s.targetAudience ? `
     <div class="card">
-      <h4 class="card-title">${Icons.users} Cieľová skupina</h4>
+      <h4 class="card-title">👥 Cieľová skupina</h4>
       <div class="grid-3">
         <div>
           <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Demografia</p>
@@ -3394,7 +3394,7 @@ ${camp.google || camp.meta ? `
             <span style="color: #65676b; font-size: 1.2rem; cursor: pointer;">···</span>
           </div>
           <div class="meta-ad-body">
-            <div class="meta-ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Hľadáte spoľahlivého partnera? ${Icons.checkCircle} Viac ako 10 rokov skúseností. Kontaktujte nás ešte dnes!'}</div>
+            <div class="meta-ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Hľadáte spoľahlivého partnera? ✅ Viac ako 10 rokov skúseností. Kontaktujte nás ešte dnes!'}</div>
           </div>
           <div class="meta-ad-image" style="background: url('${adImageUrl}') center/cover no-repeat;">
             <div class="meta-ad-image-overlay">
@@ -3606,7 +3606,7 @@ ${r.projection ? `
     </div>
     
     <div class="card">
-      <h4 class="card-title">${Icons.dashboard} Predpoklady výpočtu</h4>
+      <h4 class="card-title">📊 Predpoklady výpočtu</h4>
       <div class="grid-3">
         <div style="text-align: center; padding: 25px;">
           <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Priemerná hodnota objednávky</p>
@@ -3675,17 +3675,17 @@ ${r.projection ? `
     
     <div class="grid-2">
       <div class="benefit-card">
-        <div class="benefit-icon">${Icons.target}</div>
+        <div class="benefit-icon">🎯</div>
         <div class="benefit-title">Zákazníci s urgentnou potrebou</div>
         <div class="benefit-desc">Oslovíte ľudí, ktorí PRÁVE TERAZ aktívne hľadajú vaše služby alebo produkty. Žiadne čakanie - okamžité výsledky.</div>
       </div>
       <div class="benefit-card">
-        <div class="benefit-icon">${Icons.dashboard}</div>
+        <div class="benefit-icon">📊</div>
         <div class="benefit-title">100% merateľné výsledky</div>
         <div class="benefit-desc">Presne viete, koľko ľudí videlo reklamu, kliklo, zavolalo alebo vyplnilo formulár. Každé euro je merateľné.</div>
       </div>
       <div class="benefit-card">
-        <div class="benefit-icon">${Icons.trophy}</div>
+        <div class="benefit-icon">🏆</div>
         <div class="benefit-title">Konkurenčná výhoda</div>
         <div class="benefit-desc">Zatiaľ čo vaša konkurencia čaká na zákazníkov, vy ich aktívne oslovujete presne v momente, keď hľadajú riešenie.</div>
       </div>
@@ -3761,7 +3761,7 @@ ${r.projection ? `
 <section class="page page-white">
   <div class="page-content">
     <div class="cta-section">
-      <h2 class="cta-title">Začnime spoluprácu ${Icons.rocket}</h2>
+      <h2 class="cta-title">Začnime spoluprácu 🚀</h2>
       <p class="cta-subtitle">Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov cez online reklamu.</p>
       
       <div class="cta-buttons">
@@ -3770,15 +3770,15 @@ ${r.projection ? `
       </div>
       
       <div class="cta-contact">
-        <p>${Icons.mail} <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
+        <p>📧 <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
         <p>📞 <a href="tel:${this.CONTACT.phone.replace(/\s/g, '')}">${this.CONTACT.phone}</a></p>
-        <p>${Icons.globe} <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
+        <p>🌐 <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
       </div>
     </div>
     
     ${analysis.customNote ? `
     <div class="card card-highlight" style="margin-top: 50px;">
-      <h4 style="margin-bottom: 15px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">${Icons.messageCircle} Osobná poznámka od nás</h4>
+      <h4 style="margin-bottom: 15px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">💬 Osobná poznámka od nás</h4>
       <p style="color: #64748b; font-style: italic; font-size: 1.05rem; line-height: 1.8;">${analysis.customNote}</p>
     </div>
     ` : ''}
@@ -3939,15 +3939,15 @@ ${a.swot ? `
       <ul>${a.swot.strengths?.slice(0,4).map(s => `<li>${s}</li>`).join('') || '<li>-</li>'}</ul>
     </div>
     <div class="swot-box swot-w">
-      <h4>${Icons.alertTriangle} Slabé stránky</h4>
+      <h4>⚠️ Slabé stránky</h4>
       <ul>${a.swot.weaknesses?.slice(0,4).map(w => `<li>${w}</li>`).join('') || '<li>-</li>'}</ul>
     </div>
     <div class="swot-box swot-o">
-      <h4>${Icons.rocket} Príležitosti</h4>
+      <h4>🚀 Príležitosti</h4>
       <ul>${a.swot.opportunities?.slice(0,4).map(o => `<li>${o}</li>`).join('') || '<li>-</li>'}</ul>
     </div>
     <div class="swot-box swot-t">
-      <h4>${Icons.zap} Hrozby</h4>
+      <h4>⚡ Hrozby</h4>
       <ul>${a.swot.threats?.slice(0,4).map(t => `<li>${t}</li>`).join('') || '<li>-</li>'}</ul>
     </div>
   </div>
@@ -3982,11 +3982,11 @@ ${k.topKeywords?.length ? `
   <h2>5. Navrhovaná stratégia</h2>
   <div class="grid grid-2">
     <div class="box">
-      <h3>${Icons.smartphone} Odporúčané platformy</h3>
+      <h3>📱 Odporúčané platformy</h3>
       ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-orange">${p}</span>`).join(' ')}
     </div>
     <div class="box">
-      <h3>${Icons.target} Hlavný cieľ</h3>
+      <h3>🎯 Hlavný cieľ</h3>
       <p>${s.primaryGoal || 'Generovanie kvalifikovaných dopytov'}</p>
     </div>
   </div>
@@ -4003,7 +4003,7 @@ ${k.topKeywords?.length ? `
       <div style="margin-top: 10px; font-size: 10pt;">~${b.recommendations?.starter?.expectedLeads || '12-18'} dopytov</div>
     </div>
     <div class="box box-highlight" style="text-align: center;">
-      <div style="font-size: 10pt; color: #FF6B35; font-weight: bold;">${Icons.star} ODPORÚČANÉ</div>
+      <div style="font-size: 10pt; color: #FF6B35; font-weight: bold;">⭐ ODPORÚČANÉ</div>
       <div style="font-size: 24pt; font-weight: bold; color: #FF6B35;">${b.recommendations?.recommended?.adSpend || 600}€</div>
       <div style="font-size: 9pt; color: #666;">mesačne</div>
       <div style="margin-top: 10px; font-size: 10pt;">~${b.recommendations?.recommended?.expectedLeads || '22-32'} dopytov</div>
@@ -4080,14 +4080,14 @@ ${r.projection ? `
 
 <!-- CTA -->
 <div class="cta">
-  <h2>Začnime spoluprácu ${Icons.rocket}</h2>
-  <p><strong>${Icons.mail} ${this.CONTACT.email}</strong></p>
-  <p>📞 ${this.CONTACT.phone} | ${Icons.globe} ${this.CONTACT.web}</p>
+  <h2>Začnime spoluprácu 🚀</h2>
+  <p><strong>📧 ${this.CONTACT.email}</strong></p>
+  <p>📞 ${this.CONTACT.phone} | 🌐 ${this.CONTACT.web}</p>
 </div>
 
 ${analysis.customNote ? `
 <div class="box box-highlight">
-  <h3>${Icons.messageCircle} Osobná poznámka</h3>
+  <h3>💬 Osobná poznámka</h3>
   <p style="font-style: italic;">${analysis.customNote}</p>
 </div>
 ` : ''}
@@ -4277,7 +4277,7 @@ ${analysis.customNote ? `
         } catch (e) { console.error('Import error:', e); }
       }
       
-      Utils.toast(`${Icons.checkCircle} Pridané: ${added}, ${Icons.sync} Aktualizované: ${updated}, ⏭️ Preskočené: ${skipped}`, 'success');
+      Utils.toast(`✅ Pridané: ${added}, 🔄 Aktualizované: ${updated}, ⏭️ Preskočené: ${skipped}`, 'success');
       await this.loadLeads();
       this.showTab('list');
       
@@ -4400,7 +4400,7 @@ ${analysis.customNote ? `
    */
   async getKeywordsSuggestions(keyword, lang = 'sk') {
     try {
-      console.log('getKeywordsSuggestions - volám s keyword:', keyword);
+      console.log('🔄 getKeywordsSuggestions - volám s keyword:', keyword);
       const response = await fetch('/.netlify/functions/marketing-miner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4410,16 +4410,16 @@ ${analysis.customNote ? `
         })
       });
       
-      console.log('MM API response status:', response.status);
+      console.log('🔄 MM API response status:', response.status);
       const result = await response.json();
-      console.log('MM API result:', result);
+      console.log('🔄 MM API result:', result);
       
       if (!result.success) {
         console.warn('MM API error:', result.error);
         return null;
       }
       
-      console.log('MM API returned', result.data?.length || 0, 'keywords');
+      console.log('✅ MM API returned', result.data?.length || 0, 'keywords');
       return result.data;
     } catch (error) {
       console.error('MM API call failed:', error);
@@ -4556,7 +4556,7 @@ ${analysis.customNote ? `
       // Skúsiť extrahovať hlavnú kategóriu
       const catKeyword = this.extractCategoryKeyword(cat);
       if (catKeyword) {
-        console.log('Seed keyword z categorization:', catKeyword);
+        console.log('🎯 Seed keyword z categorization:', catKeyword);
         return catKeyword;
       }
     }
@@ -4565,7 +4565,7 @@ ${analysis.customNote ? `
     if (industry && industry !== 'unknown' && industry.length > 3) {
       const industryKeyword = this.mapIndustryToKeyword(industry);
       if (industryKeyword) {
-        console.log('Seed keyword z industry:', industryKeyword);
+        console.log('🎯 Seed keyword z industry:', industryKeyword);
         return industryKeyword;
       }
     }
@@ -4573,12 +4573,12 @@ ${analysis.customNote ? `
     // 3. Skúsiť rozpoznať biznis typ z názvu firmy
     const businessKeyword = this.detectBusinessFromName(companyName, domain);
     if (businessKeyword) {
-      console.log('Seed keyword z názvu firmy:', businessKeyword);
+      console.log('🎯 Seed keyword z názvu firmy:', businessKeyword);
       return businessKeyword;
     }
     
     // 4. Fallback - vrátiť null a nechať AI vygenerovať keywords
-    console.warn('Nepodarilo sa extrahovať seed keyword, použijú sa AI odhady');
+    console.warn('⚠️ Nepodarilo sa extrahovať seed keyword, použijú sa AI odhady');
     return null;
   },
 
@@ -5173,7 +5173,7 @@ ${analysis.customNote ? `
     modal.innerHTML = `
       <div class="modal-box-new modal-large">
         <div class="modal-header-gradient">
-          <h2>${Icons.mail} Hromadné odoslanie ponúk</h2>
+          <h2>📧 Hromadné odoslanie ponúk</h2>
           <button onclick="LeadsModule.closeBulkSendModal()" class="modal-close">✕</button>
         </div>
         <div class="modal-body">
@@ -5209,7 +5209,7 @@ ${analysis.customNote ? `
           </div>
           
           <div class="form-group">
-            <label>${Icons.clipboard} Vybrať šablónu emailu</label>
+            <label>📋 Vybrať šablónu emailu</label>
             <div class="template-selector" id="bulk-template-selector">
               ${(this.emailTemplates || this.defaultEmailTemplates).filter(t => t.slug !== 'custom').map(t => `
                 <button type="button" class="template-btn ${t.slug === 'proposal-formal' ? 'active' : ''}" 
@@ -5221,7 +5221,7 @@ ${analysis.customNote ? `
           </div>
           
           <div class="form-group">
-            <label>${Icons.edit} Predmet emailu</label>
+            <label>📝 Predmet emailu</label>
             <input type="text" id="bulk-subject" value="Marketingová ponuka pre {{company}} - Adlify" class="form-input">
             <small class="form-hint">Použite {{company}} pre názov firmy</small>
           </div>
@@ -5247,7 +5247,7 @@ ${analysis.customNote ? `
         <div class="modal-footer">
           <button onclick="LeadsModule.closeBulkSendModal()" class="btn-secondary">Zrušiť</button>
           <button onclick="LeadsModule.executeBulkSend()" class="btn-primary" id="bulk-send-btn">
-            ${Icons.mail} Odoslať ${validLeads.length} ponúk
+            📧 Odoslať ${validLeads.length} ponúk
           </button>
         </div>
       </div>
@@ -5310,7 +5310,7 @@ ${analysis.customNote ? `
     // Disable button
     const btn = document.getElementById('bulk-send-btn');
     btn.disabled = true;
-    btn.textContent = 'Odosielam...';
+    btn.textContent = '⏳ Odosielam...';
     
     // Show progress
     document.getElementById('bulk-progress').style.display = 'block';
@@ -5344,7 +5344,7 @@ ${analysis.customNote ? `
     
     // Done
     progressText.textContent = `Hotovo! Odoslaných: ${sent}, Zlyhalo: ${failed}`;
-    btn.textContent = 'Dokončené';
+    btn.textContent = '✅ Dokončené';
     
     // Clear selection
     this.selectedIds.clear();
@@ -5395,10 +5395,10 @@ ${analysis.customNote ? `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${Icons.dashboard} VAŠA PERSONALIZOVANÁ PONUKA
+📊 VAŠA PERSONALIZOVANÁ PONUKA
 
 Kliknite na odkaz nižšie pre jej zobrazenie:
-${Icons.link} ${proposalUrl}
+🔗 ${proposalUrl}
 
 Odkaz je platný 30 dní.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;

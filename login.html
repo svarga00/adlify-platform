@@ -1,521 +1,269 @@
 <!DOCTYPE html>
 <html lang="sk">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Prihlásenie | Adlify Klientský portál</title>
-  <link rel="icon" href="/admin/favicon.ico">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Inter', -apple-system, sans-serif;
-      min-height: 100vh;
-      display: flex;
-    }
-    
-    /* Left side - branding */
-    .branding {
-      flex: 1;
-      background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 3rem;
-      color: white;
-    }
-    
-    .branding-content { max-width: 450px; }
-    
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-    
-    .logo-icon {
-      width: 60px;
-      height: 60px;
-      background: rgba(255,255,255,0.2);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.75rem;
-      font-weight: 700;
-    }
-    
-    .logo-text { font-size: 2rem; font-weight: 700; }
-    
-    .branding h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-      line-height: 1.2;
-    }
-    
-    .branding p {
-      font-size: 1.1rem;
-      opacity: 0.9;
-      margin-bottom: 2rem;
-      line-height: 1.6;
-    }
-    
-    .features {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    
-    .feature {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-size: 1rem;
-    }
-    
-    .feature-icon {
-      width: 24px;
-      height: 24px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.85rem;
-    }
-    
-    /* Right side - form */
-    .form-side {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      background: #f8fafc;
-    }
-    
-    .form-container {
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    .form-header {
-      margin-bottom: 2rem;
-      text-align: center;
-    }
-    
-    .form-header .mobile-logo {
-      display: none;
-      width: 60px;
-      height: 60px;
-      background: linear-gradient(135deg, #f97316, #ec4899);
-      border-radius: 16px;
-      margin: 0 auto 1.5rem;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
-    
-    .form-header h2 {
-      font-size: 1.75rem;
-      color: #1e293b;
-      margin-bottom: 0.5rem;
-    }
-    
-    .form-header p {
-      color: #64748b;
-    }
-    
-    .form-group {
-      margin-bottom: 1.25rem;
-    }
-    
-    .form-group label {
-      display: block;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-      color: #334155;
-    }
-    
-    .form-group input {
-      width: 100%;
-      padding: 0.875rem 1rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      font-size: 1rem;
-      transition: all 0.2s;
-      background: white;
-    }
-    
-    .form-group input:focus {
-      outline: none;
-      border-color: #f97316;
-      box-shadow: 0 0 0 3px rgba(249,115,22,0.1);
-    }
-    
-    .form-options {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-    
-    .remember-me {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      cursor: pointer;
-    }
-    
-    .remember-me input {
-      width: auto;
-    }
-    
-    .remember-me span {
-      font-size: 0.9rem;
-      color: #64748b;
-    }
-    
-    .forgot-link {
-      font-size: 0.9rem;
-      color: #f97316;
-      text-decoration: none;
-    }
-    
-    .forgot-link:hover { text-decoration: underline; }
-    
-    .btn {
-      width: 100%;
-      padding: 1rem;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    
-    .btn-primary {
-      background: linear-gradient(135deg, #f97316, #ec4899);
-      color: white;
-    }
-    
-    .btn-primary:hover {
-      box-shadow: 0 4px 15px rgba(249,115,22,0.3);
-      transform: translateY(-2px);
-    }
-    
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin: 1.5rem 0;
-      color: #94a3b8;
-      font-size: 0.85rem;
-    }
-    
-    .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: #e2e8f0;
-    }
-    
-    .register-link {
-      text-align: center;
-      color: #64748b;
-    }
-    
-    .register-link a {
-      color: #f97316;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    
-    .register-link a:hover { text-decoration: underline; }
-    
-    /* Messages */
-    .message {
-      padding: 1rem;
-      border-radius: 12px;
-      margin-bottom: 1.5rem;
-      font-size: 0.9rem;
-    }
-    
-    .message-error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #dc2626;
-    }
-    
-    .message-success {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: #16a34a;
-    }
-    
-    /* Footer */
-    .footer {
-      margin-top: 2rem;
-      text-align: center;
-      font-size: 0.85rem;
-      color: #94a3b8;
-    }
-    
-    .footer a {
-      color: #f97316;
-      text-decoration: none;
-    }
-    
-    /* Spinner */
-    .spinner {
-      width: 20px;
-      height: 20px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin { to { transform: rotate(360deg); } }
-    
-    /* Responsive */
-    @media (max-width: 900px) {
-      body { flex-direction: column; }
-      .branding { display: none; }
-      .form-side { padding: 2rem 1rem; min-height: 100vh; }
-      .form-header .mobile-logo { display: flex; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prihlásenie | Adlify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#FF6B35',
+                        'secondary': '#E91E63'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
+    </style>
 </head>
-<body>
-  <!-- Left side - Branding -->
-  <div class="branding">
-    <div class="branding-content">
-      <div class="logo">
-        <div class="logo-icon">A</div>
-        <span class="logo-text">ADLIFY</span>
-      </div>
-      <h1>Klientský portál</h1>
-      <p>
-        Sledujte výkonnosť kampaní, prezerajte si faktúry a komunikujte 
-        s naším tímom - všetko na jednom mieste.
-      </p>
-      <div class="features">
-        <div class="feature">
-          <span class="feature-icon">${Icons.dashboard}</span>
-          <span>Výsledky kampaní v reálnom čase</span>
+<body class="min-h-screen bg-gray-100">
+    <div id="app" class="min-h-screen flex">
+        <!-- Left side - Branding -->
+        <div class="hidden lg:flex lg:w-1/2 gradient-bg items-center justify-center p-12">
+            <div class="text-white max-w-md">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-14 h-14 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-2xl font-bold">A</div>
+                    <span class="text-3xl font-bold">ADLIFY</span>
+                </div>
+                <h1 class="text-4xl font-bold mb-4">Automatizovaná marketingová agentúra</h1>
+                <p class="text-lg text-white/80 mb-8">
+                    Spravujte leady, klientov a kampane na jednom mieste. 
+                    AI-powered analýza a automatizácia.
+                </p>
+                <div class="flex gap-6 text-white/60 text-sm">
+                    <div class="flex items-center gap-2"><span>✓</span> Leady & Klienti</div>
+                    <div class="flex items-center gap-2"><span>✓</span> Google & Meta Ads</div>
+                    <div class="flex items-center gap-2"><span>✓</span> AI Analýza</div>
+                </div>
+            </div>
         </div>
-        <div class="feature">
-          <span class="feature-icon">💳</span>
-          <span>Prehľad faktúr a platieb</span>
+        
+        <!-- Right side - Login Form -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-8">
+            <div class="w-full max-w-md">
+                <!-- Mobile logo -->
+                <div class="lg:hidden text-center mb-8">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">A</div>
+                    <h1 class="text-2xl font-bold">ADLIFY</h1>
+                </div>
+                
+                <!-- Login Form -->
+                <div id="login-form-container">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Prihlásenie</h2>
+                    <p class="text-gray-500 mb-8">Zadaj svoje prihlasovacie údaje</p>
+                    
+                    <form id="login-form" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="email" required placeholder="vas@email.sk"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Heslo</label>
+                            <input type="password" id="password" required placeholder="••••••••"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="remember" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary">
+                                <span class="text-sm text-gray-600">Zapamätať si ma</span>
+                            </label>
+                            <a href="#" onclick="showForgotPassword(); return false;" class="text-sm text-primary hover:underline">Zabudnuté heslo?</a>
+                        </div>
+                        
+                        <div id="error-message" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"></div>
+                        
+                        <button type="submit" id="login-btn"
+                            class="w-full py-3 gradient-bg text-white font-semibold rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2">
+                            <span>Prihlásiť sa</span>
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Forgot Password Form -->
+                <div id="forgot-form-container" class="hidden">
+                    <button onclick="showLogin()" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6">
+                        <span>←</span> Späť na prihlásenie
+                    </button>
+                    
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Obnovenie hesla</h2>
+                    <p class="text-gray-500 mb-8">Zadaj email a pošleme ti odkaz na obnovenie hesla</p>
+                    
+                    <form id="forgot-form" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="forgot-email" required placeholder="vas@email.sk"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                        </div>
+                        
+                        <div id="forgot-message" class="hidden p-3 rounded-xl text-sm"></div>
+                        
+                        <button type="submit" class="w-full py-3 gradient-bg text-white font-semibold rounded-xl hover:opacity-90 transition">
+                            Odoslať odkaz
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Footer -->
+                <div class="mt-8 text-center text-sm text-gray-400">
+                    © 2024 Adlify.eu | Všetky práva vyhradené
+                </div>
+            </div>
         </div>
-        <div class="feature">
-          <span class="feature-icon">💬</span>
-          <span>Priama komunikácia s tímom</span>
-        </div>
-      </div>
     </div>
-  </div>
-  
-  <!-- Right side - Form -->
-  <div class="form-side">
-    <div class="form-container">
-      <div class="form-header">
-        <div class="mobile-logo">A</div>
-        <h2>Prihlásenie</h2>
-        <p>Vitajte späť v klientskom portáli</p>
-      </div>
-      
-      <div id="message"></div>
-      
-      <form id="login-form">
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="email" required placeholder="vas@email.sk" autocomplete="email">
-        </div>
-        
-        <div class="form-group">
-          <label>Heslo</label>
-          <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password">
-        </div>
-        
-        <div class="form-options">
-          <label class="remember-me">
-            <input type="checkbox" id="remember">
-            <span>Zapamätať si ma</span>
-          </label>
-          <a href="#" class="forgot-link" onclick="showForgotPassword(); return false;">Zabudnuté heslo?</a>
-        </div>
-        
-        <button type="submit" class="btn btn-primary" id="submit-btn">
-          Prihlásiť sa
-        </button>
-      </form>
-      
-      <div class="divider">potrebujete pomoc?</div>
-      
-      <p class="register-link">
-        Kontaktujte nás na <a href="mailto:info@adlify.eu">info@adlify.eu</a>
-      </p>
-      
-      <div class="footer">
-        © 2025 <a href="https://adlify.eu">Adlify.eu</a>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Forgot Password Modal -->
-  <div id="forgot-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-    <div style="background:white; border-radius:20px; max-width:400px; width:90%; padding:2rem;">
-      <h3 style="font-size:1.25rem; margin-bottom:0.5rem;">Obnovenie hesla</h3>
-      <p style="color:#64748b; margin-bottom:1.5rem; font-size:0.9rem;">Zadajte email a pošleme vám odkaz na obnovenie hesla.</p>
-      
-      <div id="forgot-message"></div>
-      
-      <form id="forgot-form">
-        <div class="form-group">
-          <input type="email" id="forgot-email" required placeholder="vas@email.sk">
-        </div>
-        <button type="submit" class="btn btn-primary">Odoslať odkaz</button>
-      </form>
-      
-      <button onclick="hideForgotPassword()" style="width:100%; margin-top:1rem; padding:0.75rem; border:1px solid #e2e8f0; border-radius:12px; background:white; cursor:pointer;">
-        Zrušiť
-      </button>
-    </div>
-  </div>
-
-  <script>
-    // Config
-    const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    // Check if already logged in
-    (async () => {
-      const { data: { session } } = await db.auth.getSession();
-      if (session) {
-        // Check if client user
-        const { data: clientUser } = await db
-          .from('client_users')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        if (clientUser) {
-          window.location.href = '/portal/';
-        }
-      }
-    })();
+    <!-- Scripts -->
+    <script src="shared/js/core/config.js"></script>
+    <script src="shared/js/core/database.js"></script>
+    <script src="shared/js/core/auth.js"></script>
     
-    // Login form
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const btn = document.getElementById('submit-btn');
-      const message = document.getElementById('message');
-      
-      btn.disabled = true;
-      btn.innerHTML = '<div class="spinner"></div> Prihlasujem...';
-      message.innerHTML = '';
-      
-      try {
-        // Sign in
-        const { data, error } = await db.auth.signInWithPassword({
-          email: email,
-          password: password
-        });
+    <script>
+        // Initialize app
+        (async () => {
+            // Check if Supabase is configured
+            if (!Config.isSupabaseConfigured()) {
+                showSetup();
+                return; // Stop here - don't setup event listeners
+            }
+            
+            // Setup event listeners only if not showing setup
+            setupEventListeners();
+            
+            // Initialize database
+            Database.init();
+            
+            // Check if already logged in
+            try {
+                const { data: { session } } = await Database.client.auth.getSession();
+                if (session) {
+                    await Auth.init();
+                    window.location.href = Auth.getRedirectUrl();
+                }
+            } catch (error) {
+                console.error('Session check error:', error);
+            }
+        })();
         
-        if (error) throw error;
-        
-        // Check if client user
-        const { data: clientUser, error: clientError } = await db
-          .from('client_users')
-          .select('*, clients(*)')
-          .eq('user_id', data.user.id)
-          .single();
-        
-        if (clientError || !clientUser) {
-          // Not a client - sign out and show error
-          await db.auth.signOut();
-          throw new Error('Tento účet nie je prepojený so žiadnou firmou. Kontaktujte podporu.');
+        function setupEventListeners() {
+            // Login form handler
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const email = document.getElementById('email').value.trim();
+                    const password = document.getElementById('password').value;
+                    const btn = document.getElementById('login-btn');
+                    const errorEl = document.getElementById('error-message');
+                    
+                    errorEl.classList.add('hidden');
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="animate-spin">⏳</span> Prihlasujem...';
+                    
+                    try {
+                        await Auth.login(email, password);
+                        window.location.href = Auth.getRedirectUrl();
+                    } catch (error) {
+                        console.error('Login error:', error);
+                        errorEl.textContent = getErrorMessage(error);
+                        errorEl.classList.remove('hidden');
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>Prihlásiť sa</span>';
+                    }
+                });
+            }
+            
+            // Forgot password form handler
+            const forgotForm = document.getElementById('forgot-form');
+            if (forgotForm) {
+                forgotForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const email = document.getElementById('forgot-email').value.trim();
+                    const messageEl = document.getElementById('forgot-message');
+                    
+                    try {
+                        await Auth.resetPassword(email);
+                        messageEl.className = 'p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm';
+                        messageEl.textContent = 'Email s odkazom na obnovenie hesla bol odoslaný.';
+                        messageEl.classList.remove('hidden');
+                    } catch (error) {
+                        messageEl.className = 'p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm';
+                        messageEl.textContent = getErrorMessage(error);
+                        messageEl.classList.remove('hidden');
+                    }
+                });
+            }
         }
         
-        // Success - redirect to portal
-        message.innerHTML = '<div class="message message-success">${Icons.checkCircle} Prihlásenie úspešné! Presmerovávam...</div>';
-        
-        setTimeout(() => {
-          window.location.href = '/portal/';
-        }, 1000);
-        
-      } catch (err) {
-        console.error('Login error:', err);
-        
-        let errorMsg = 'Nepodarilo sa prihlásiť. Skúste to znova.';
-        if (err.message.includes('Invalid login')) {
-          errorMsg = 'Nesprávny email alebo heslo.';
-        } else if (err.message.includes('nie je prepojený')) {
-          errorMsg = err.message;
+        function showForgotPassword() {
+            document.getElementById('login-form-container').classList.add('hidden');
+            document.getElementById('forgot-form-container').classList.remove('hidden');
         }
         
-        message.innerHTML = `<div class="message message-error">${errorMsg}</div>`;
-        btn.disabled = false;
-        btn.innerHTML = 'Prihlásiť sa';
-      }
-    });
-    
-    // Forgot password
-    function showForgotPassword() {
-      document.getElementById('forgot-modal').style.display = 'flex';
-    }
-    
-    function hideForgotPassword() {
-      document.getElementById('forgot-modal').style.display = 'none';
-      document.getElementById('forgot-message').innerHTML = '';
-    }
-    
-    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const email = document.getElementById('forgot-email').value.trim();
-      const message = document.getElementById('forgot-message');
-      
-      try {
-        const { error } = await db.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + '/portal/reset-password.html'
-        });
+        function showLogin() {
+            document.getElementById('forgot-form-container').classList.add('hidden');
+            document.getElementById('login-form-container').classList.remove('hidden');
+        }
         
-        if (error) throw error;
+        function showSetup() {
+            document.getElementById('app').innerHTML = `
+                <div class="w-full flex items-center justify-center p-8">
+                    <div class="w-full max-w-md">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">A</div>
+                            <h1 class="text-2xl font-bold">Prvé spustenie</h1>
+                            <p class="text-gray-500 mt-2">Nastav pripojenie k Supabase</p>
+                        </div>
+                        
+                        <form id="setup-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Supabase URL</label>
+                                <input type="url" id="setup-url" required placeholder="https://xxx.supabase.co" class="w-full p-3 border rounded-xl">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Supabase Anon Key</label>
+                                <input type="password" id="setup-key" required placeholder="eyJhbGc..." class="w-full p-3 border rounded-xl">
+                            </div>
+                            <button type="submit" class="w-full py-3 gradient-bg text-white font-semibold rounded-xl">
+                                Uložiť a pokračovať
+                            </button>
+                        </form>
+                        
+                        <p class="text-xs text-gray-400 text-center mt-4">
+                            Údaje nájdeš v Supabase Dashboard → Settings → API
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('setup-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                Config.set('supabase_url', document.getElementById('setup-url').value.trim());
+                Config.set('supabase_key', document.getElementById('setup-key').value.trim());
+                location.reload();
+            });
+        }
         
-        message.innerHTML = '<div class="message message-success">${Icons.checkCircle} Odkaz na obnovenie hesla bol odoslaný na váš email.</div>';
-        
-      } catch (err) {
-        message.innerHTML = `<div class="message message-error">Nepodarilo sa odoslať email. Skúste to znova.</div>`;
-      }
-    });
-    
-    // Close modal on outside click
-    document.getElementById('forgot-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'forgot-modal') hideForgotPassword();
-    });
-  </script>
+        function getErrorMessage(error) {
+            const messages = {
+                'Invalid login credentials': 'Nesprávny email alebo heslo',
+                'Email not confirmed': 'Email nie je potvrdený. Skontroluj svoju schránku.',
+                'User not found': 'Používateľ neexistuje',
+                'Too many requests': 'Príliš veľa pokusov. Skús to neskôr.'
+            };
+            return messages[error.message] || error.message || 'Nastala chyba. Skús to znova.';
+        }
+    </script>
 </body>
 </html>

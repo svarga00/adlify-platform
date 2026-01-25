@@ -10,11 +10,11 @@
     'use strict';
     
     if (!window.OnboardingModule) {
-        console.error('OnboardingExtension: OnboardingModule nie je načítaný!');
+        console.error('❌ OnboardingExtension: OnboardingModule nie je načítaný!');
         return;
     }
     
-    console.log('Onboarding Extension v3.0 loading...');
+    console.log('🔌 Onboarding Extension v3.0 loading...');
     
     // Uložíme pôvodné metódy
     const originalRenderCurrentSection = OnboardingModule.renderCurrentSection;
@@ -78,7 +78,7 @@
             name: 'Starter',
             badge: 'Pre začiatok',
             badgeColor: 'orange',
-            icon: Icons.rocket,
+            icon: '🚀',
             price: { monthly: 149, '6m': 134, '12m': 119 },
             description: 'Ideálne pre živnostníkov, ktorí chcú vyskúšať online reklamu',
             features: [
@@ -97,7 +97,7 @@
             name: 'Pro',
             badge: 'Najobľúbenejšie',
             badgeColor: 'gradient',
-            icon: Icons.star,
+            icon: '⭐',
             popular: true,
             price: { monthly: 249, '6m': 224, '12m': 199 },
             description: 'Pre firmy, ktoré chcú rásť na viacerých platformách',
@@ -117,7 +117,7 @@
             name: 'Enterprise',
             badge: 'Pre firmy',
             badgeColor: 'gray',
-            icon: Icons.diamond,
+            icon: '💎',
             price: { monthly: 399, '6m': 359, '12m': 319 },
             description: 'Pre e-shopy a firmy s vyšším rozpočtom na reklamu',
             features: [
@@ -136,7 +136,7 @@
             name: 'Premium',
             badge: 'VIP',
             badgeColor: 'gold',
-            icon: Icons.crown,
+            icon: '👑',
             isPremium: true,
             priceFrom: true,
             price: { monthly: 799, '6m': 719, '12m': 639 },
@@ -234,17 +234,17 @@
     // ==========================================
     
     OnboardingModule.EXTENDED_SECTIONS = [
-        { id: 1, title: 'Základné informácie', icon: Icons.building, key: 'company' },
-        { id: 2, title: 'Produkty a služby', icon: Icons.package, key: 'products' },
-        { id: 3, title: 'Cieľová skupina', icon: Icons.target, key: 'audience' },
-        { id: 4, title: 'Výber balíka', icon: Icons.diamond, key: 'package', isNew: true },
-        { id: 5, title: 'Reklamné platformy', icon: Icons.smartphone, key: 'platforms', isNew: true },
-        { id: 6, title: 'Aktuálny marketing', icon: Icons.dashboard, key: 'marketing' },
-        { id: 7, title: 'Ciele a očakávania', icon: Icons.rocket, key: 'goals' },
-        { id: 8, title: 'Obsah a kreatíva', icon: Icons.palette, key: 'creative' },
-        { id: 9, title: 'Technické možnosti', icon: Icons.settings, key: 'technical_simple', isNew: true },
-        { id: 10, title: 'Kontaktné údaje', icon: Icons.user, key: 'contact' },
-        { id: 11, title: 'Dodatočné info', icon: Icons.edit, key: 'additional' }
+        { id: 1, title: 'Základné informácie', icon: '🏢', key: 'company' },
+        { id: 2, title: 'Produkty a služby', icon: '📦', key: 'products' },
+        { id: 3, title: 'Cieľová skupina', icon: '🎯', key: 'audience' },
+        { id: 4, title: 'Výber balíka', icon: '💎', key: 'package', isNew: true },
+        { id: 5, title: 'Reklamné platformy', icon: '📱', key: 'platforms', isNew: true },
+        { id: 6, title: 'Aktuálny marketing', icon: '📊', key: 'marketing' },
+        { id: 7, title: 'Ciele a očakávania', icon: '🚀', key: 'goals' },
+        { id: 8, title: 'Obsah a kreatíva', icon: '🎨', key: 'creative' },
+        { id: 9, title: 'Technické možnosti', icon: '⚙️', key: 'technical_simple', isNew: true },
+        { id: 10, title: 'Kontaktné údaje', icon: '👤', key: 'contact' },
+        { id: 11, title: 'Dodatočné info', icon: '📝', key: 'additional' }
     ];
     
     OnboardingModule.SECTIONS = OnboardingModule.EXTENDED_SECTIONS;
@@ -686,7 +686,7 @@
                     <div class="adlify-modal__header" style="background: linear-gradient(135deg, #F97316, #EC4899)">
                         <button class="adlify-modal__close" onclick="OnboardingModule.closeUpgradeModal()">✕</button>
                         <div class="text-center py-4">
-                            <span class="text-4xl mb-2 block">${Icons.rocket}</span>
+                            <span class="text-4xl mb-2 block">🚀</span>
                             <h2 class="text-xl font-bold text-white">Navýšte si balík</h2>
                         </div>
                     </div>
@@ -1018,5 +1018,5 @@
     
     OnboardingModule.injectExtensionStyles();
     
-    console.log('Onboarding Extension v3.0 loaded!');
+    console.log('✅ Onboarding Extension v3.0 loaded!');
 })();

@@ -6,7 +6,7 @@
 const OnboardingModule = {
   id: 'onboarding',
   name: 'Onboarding',
-  icon: Icons.clipboard,
+  icon: '📋',
   title: 'Onboarding',
   subtitle: 'Dotazník pre klientov',
   
@@ -24,15 +24,15 @@ const OnboardingModule = {
   
   // Sections definition
   SECTIONS: [
-    { id: 1, title: 'Základné informácie', icon: Icons.building, key: 'company' },
-    { id: 2, title: 'Produkty a služby', icon: Icons.package, key: 'products' },
-    { id: 3, title: 'Cieľová skupina', icon: Icons.target, key: 'audience' },
-    { id: 4, title: 'Aktuálny marketing', icon: Icons.dashboard, key: 'marketing' },
-    { id: 5, title: 'Ciele a očakávania', icon: Icons.rocket, key: 'goals' },
-    { id: 6, title: 'Obsah a kreatíva', icon: Icons.palette, key: 'creative' },
-    { id: 7, title: 'Technické', icon: Icons.settings, key: 'technical' },
-    { id: 8, title: 'Kontaktné údaje', icon: Icons.user, key: 'contact' },
-    { id: 9, title: 'Dodatočné info', icon: Icons.edit, key: 'additional' }
+    { id: 1, title: 'Základné informácie', icon: '🏢', key: 'company' },
+    { id: 2, title: 'Produkty a služby', icon: '📦', key: 'products' },
+    { id: 3, title: 'Cieľová skupina', icon: '🎯', key: 'audience' },
+    { id: 4, title: 'Aktuálny marketing', icon: '📊', key: 'marketing' },
+    { id: 5, title: 'Ciele a očakávania', icon: '🚀', key: 'goals' },
+    { id: 6, title: 'Obsah a kreatíva', icon: '🎨', key: 'creative' },
+    { id: 7, title: 'Technické', icon: '⚙️', key: 'technical' },
+    { id: 8, title: 'Kontaktné údaje', icon: '👤', key: 'contact' },
+    { id: 9, title: 'Dodatočné info', icon: '📝', key: 'additional' }
   ],
   
   // Options for selects
@@ -85,7 +85,7 @@ const OnboardingModule = {
   ],
 
   init() {
-    console.log('Onboarding module v1.0 initialized');
+    console.log('📋 Onboarding module v1.0 initialized');
   },
   
   /**
@@ -101,7 +101,7 @@ const OnboardingModule = {
       return;
     }
     
-    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">${Icons.hourglass}</div></div>';
+    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     
     try {
       await this.loadOnboardingData();
@@ -109,7 +109,7 @@ const OnboardingModule = {
       this.setupEventListeners();
     } catch (error) {
       console.error('Onboarding error:', error);
-      Utils.showEmpty(container, error.message, '');
+      Utils.showEmpty(container, error.message, '❌');
     }
   },
   
@@ -119,7 +119,7 @@ const OnboardingModule = {
   async renderPublic(container, token) {
     this.isPublic = true;
     
-    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">${Icons.hourglass}</div></div>';
+    container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     
     try {
       // Find client by token
@@ -304,7 +304,7 @@ const OnboardingModule = {
               ` : `
                 <button type="button" onclick="OnboardingModule.submitForm()" 
                   class="px-8 py-3 gradient-bg text-white rounded-xl font-semibold hover:opacity-90">
-                  ${Icons.checkCircle} Odoslať dotazník
+                  ✅ Odoslať dotazník
                 </button>
               `}
             </div>
@@ -355,7 +355,7 @@ const OnboardingModule = {
                 ` : `
                   <button type="button" onclick="OnboardingModule.submitForm()" 
                     class="px-8 py-3 gradient-bg text-white rounded-xl font-semibold hover:opacity-90">
-                    ${Icons.checkCircle} Odoslať
+                    ✅ Odoslať
                   </button>
                 `}
               </div>
@@ -620,7 +620,7 @@ const OnboardingModule = {
     
     const btn = document.getElementById('keyword-suggest-btn');
     btn.disabled = true;
-    btn.innerHTML = 'Generujem...';
+    btn.innerHTML = '⏳ Generujem...';
     
     try {
       // Get product names as seed keywords
@@ -949,11 +949,11 @@ const OnboardingModule = {
             </label>
             <label class="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
               <input type="checkbox" name="assets_videos" ${assets.has_videos ? 'checked' : ''}>
-              <span>${Icons.video} Videá</span>
+              <span>🎬 Videá</span>
             </label>
             <label class="flex items-center gap-2 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
               <input type="checkbox" name="assets_logo" ${assets.has_logo ? 'checked' : ''}>
-              <span>${Icons.palette} Logo vo vysokom rozlíšení</span>
+              <span>🎨 Logo vo vysokom rozlíšení</span>
             </label>
           </div>
         </div>
@@ -1184,7 +1184,7 @@ const OnboardingModule = {
         </div>
         
         <div class="bg-green-50 rounded-xl p-4 border border-green-200">
-          <h4 class="font-semibold text-green-800 mb-2">${Icons.partyPopper} Ste na konci!</h4>
+          <h4 class="font-semibold text-green-800 mb-2">🎉 Ste na konci!</h4>
           <p class="text-sm text-green-700">Ďakujeme za vyplnenie dotazníka. Po odoslaní vám pripravíme návrh marketingovej stratégie na mieru.</p>
         </div>
       </div>
@@ -1203,7 +1203,7 @@ const OnboardingModule = {
     return `
       <div class="max-w-2xl mx-auto">
         <div class="card p-6">
-          <h2 class="text-xl font-bold mb-4">${Icons.clipboard} Vyplniť onboarding za klienta</h2>
+          <h2 class="text-xl font-bold mb-4">📋 Vyplniť onboarding za klienta</h2>
           <p class="text-gray-500 mb-6">Vyberte klienta, pre ktorého chcete vyplniť onboarding dotazník</p>
           
           <div class="space-y-2">
@@ -1219,9 +1219,9 @@ const OnboardingModule = {
                   c.onboarding_status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
                   'bg-gray-100 text-gray-700'
                 }">
-                  ${c.onboarding_status === 'completed' ? 'Dokončený' :
-                    c.onboarding_status === 'in_progress' ? 'Rozpracovaný' : 
-                    'Čaká'}
+                  ${c.onboarding_status === 'completed' ? '✅ Dokončený' :
+                    c.onboarding_status === 'in_progress' ? '✏️ Rozpracovaný' : 
+                    '⏳ Čaká'}
                 </span>
               </a>
             `).join('')}
@@ -1244,7 +1244,7 @@ const OnboardingModule = {
     return `
       <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div class="text-6xl mb-4">${Icons.link}</div>
+          <div class="text-6xl mb-4">🔗</div>
           <h1 class="text-2xl font-bold">Neplatný odkaz</h1>
           <p class="text-gray-500 mt-2">Tento odkaz je neplatný alebo expiroval. Kontaktujte nás pre nový odkaz.</p>
           <a href="https://adlify.eu" class="mt-6 inline-block px-6 py-3 gradient-bg text-white rounded-xl">
@@ -1259,7 +1259,7 @@ const OnboardingModule = {
     return `
       <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div class="text-6xl mb-4">${Icons.xCircle}</div>
+          <div class="text-6xl mb-4">❌</div>
           <h1 class="text-2xl font-bold">Chyba</h1>
           <p class="text-gray-500 mt-2">${message}</p>
         </div>
@@ -1577,7 +1577,7 @@ const OnboardingModule = {
       const container = document.getElementById('app');
       container.innerHTML = this.renderThankYou();
     } else {
-      Utils.toast('Onboarding dokončený!', 'success');
+      Utils.toast('Onboarding dokončený! 🎉', 'success');
       Router.navigate('clients', { id: this.clientId });
     }
   },
@@ -1626,12 +1626,12 @@ const OnboardingModule = {
         return null;
       }
       
-      console.log('Project created:', project.id);
+      console.log('✅ Project created:', project.id);
       
       // 3. Vytvor notifikáciu pre admina
       await this.createNotification({
         type: 'onboarding_completed',
-        title: 'Nový onboarding dokončený',
+        title: '📋 Nový onboarding dokončený',
         message: `${client.company_name} dokončil onboarding. AI generuje návrh kampaní.`,
         link: `#projects?id=${project.id}`,
         project_id: project.id
@@ -1686,12 +1686,12 @@ const OnboardingModule = {
       const result = await response.json();
       
       if (result.success) {
-        console.log(`${Icons.checkCircle} AI vygenerovalo ${result.campaigns_generated} kampaní`);
+        console.log(`✅ AI vygenerovalo ${result.campaigns_generated} kampaní`);
         
         // Vytvor notifikáciu o dokončení generovania
         await this.createNotification({
           type: 'campaigns_generated',
-          title: 'Kampane vygenerované',
+          title: '🤖 Kampane vygenerované',
           message: `AI vytvorilo ${result.campaigns_generated} kampaní. Skontrolujte a schváľte návrh.`,
           link: `/admin/index.html#projects?id=${projectId}`,
           project_id: projectId
@@ -1782,7 +1782,7 @@ const OnboardingModule = {
     return `
       <div class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div class="text-6xl mb-4">${Icons.partyPopper}</div>
+          <div class="text-6xl mb-4">🎉</div>
           <h1 class="text-3xl font-bold text-gray-800">Ďakujeme!</h1>
           <p class="text-gray-500 mt-4">
             Váš dotazník bol úspešne odoslaný. Na základe vašich odpovedí vám pripravíme návrh marketingovej stratégie.
