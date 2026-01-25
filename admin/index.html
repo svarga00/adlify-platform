@@ -56,10 +56,6 @@
         .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
         .gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63, #9C27B0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        .sidebar-item { transition: all 0.2s; }
-        .sidebar-item:hover { background: #2d2d44; }
-        .sidebar-item.active { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); }
-        
         .card { background: white; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -73,11 +69,393 @@
         }
         
         /* =====================================================
-           SIDEBAR - Desktop default
+           NEW SIDEBAR - Icon Rail + Expanded Panel
            ===================================================== */
-        #sidebar {
-            width: var(--sidebar-width);
+        .sidebar-container {
+            display: flex;
+            height: 100vh;
             transition: transform 0.3s ease;
+        }
+        
+        /* Icon Rail */
+        .icon-rail {
+            width: 72px;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+            padding: 16px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-right: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0;
+        }
+        
+        .rail-logo {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+        }
+        
+        .rail-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding: 0 12px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .rail-item {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .rail-item:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .rail-item.active {
+            background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+        }
+        
+        .rail-item svg {
+            width: 22px;
+            height: 22px;
+        }
+        
+        .rail-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            min-width: 18px;
+            height: 18px;
+            background: #ef4444;
+            border-radius: 9px;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #1a1a2e;
+            padding: 0 4px;
+        }
+        
+        .rail-badge.show {
+            display: flex;
+        }
+        
+        /* Tooltip */
+        .rail-item .tooltip {
+            position: absolute;
+            left: 60px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(-10px);
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            z-index: 1000;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .rail-item .tooltip::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 6px solid transparent;
+            border-right-color: #1a1a2e;
+        }
+        
+        .rail-item:hover .tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(0);
+        }
+        
+        .tooltip-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .tooltip-desc {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        
+        .rail-divider {
+            width: 32px;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin: 12px 0;
+            flex-shrink: 0;
+        }
+        
+        .rail-bottom {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .rail-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .status-wrapper {
+            position: relative;
+        }
+        
+        .status-dot {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 12px;
+            height: 12px;
+            background: #fbbf24;
+            border-radius: 50%;
+            border: 2px solid #1a1a2e;
+        }
+        
+        .status-dot.connected {
+            background: #10b981;
+        }
+        
+        /* Expanded Panel */
+        .expanded-panel {
+            width: 240px;
+            background: #fafafa;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            padding: 20px 16px 16px;
+            background: white;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .panel-header h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 2px;
+        }
+        
+        .panel-header p {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 8px;
+        }
+        
+        .menu-group {
+            margin-bottom: 16px;
+        }
+        
+        .menu-group:empty,
+        .menu-group:has([data-menu-section]:empty) {
+            display: none;
+        }
+        
+        .menu-group-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 12px 6px;
+        }
+        
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            color: #4b5563;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+            position: relative;
+            text-decoration: none;
+        }
+        
+        .sidebar-item:hover {
+            background: white;
+            color: #111827;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        
+        .sidebar-item.active {
+            background: white;
+            color: #f97316;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        
+        .sidebar-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 20px;
+            background: linear-gradient(180deg, #f97316 0%, #ec4899 100%);
+            border-radius: 0 3px 3px 0;
+        }
+        
+        .sidebar-item svg {
+            width: 18px;
+            height: 18px;
+            opacity: 0.7;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-item.active svg {
+            opacity: 1;
+        }
+        
+        .menu-badge {
+            margin-left: auto;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        
+        .menu-badge.green {
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+        
+        .menu-badge.blue {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+        
+        .menu-badge.orange {
+            background: #fff7ed;
+            color: #ea580c;
+        }
+        
+        /* User section */
+        .panel-user {
+            padding: 12px;
+            background: white;
+            border-top: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .panel-user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .panel-user-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .panel-user-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #111827;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .panel-user-status {
+            font-size: 11px;
+            color: #6b7280;
+        }
+        
+        .panel-user-status.connected {
+            color: #10b981;
+        }
+        
+        .panel-user-action {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: none;
+            border: none;
+        }
+        
+        .panel-user-action:hover {
+            background: #f3f4f6;
+            color: #4b5563;
         }
         
         /* =====================================================
@@ -164,9 +542,33 @@
                 transform: translateX(0);
             }
             
+            /* Hide expanded panel on mobile, show only icon rail */
+            .expanded-panel {
+                display: none;
+            }
+            
+            #sidebar.open .expanded-panel {
+                display: flex;
+            }
+            
             /* Header spacing */
             header {
                 padding-left: 8px !important;
+            }
+        }
+        
+        /* Small screens - only show expanded panel */
+        @media (max-width: 767px) {
+            .icon-rail {
+                display: none;
+            }
+            
+            #sidebar.open .icon-rail {
+                display: none;
+            }
+            
+            #sidebar.open .expanded-panel {
+                width: 280px;
             }
         }
         
@@ -352,55 +754,166 @@
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
     
     <div id="app" class="flex h-screen">
-        <!-- SIDEBAR -->
-        <aside id="sidebar" class="w-64 bg-sidebar text-white flex flex-col flex-shrink-0">
-            <!-- Logo -->
-            <div class="p-6 border-b border-white/10">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center font-bold text-lg">A</div>
-                    <div>
-                        <span class="text-xl font-bold">ADLIFY</span>
-                        <span class="text-xs text-gray-400 block">CRM Platform</span>
+        <!-- SIDEBAR - Icon Rail + Expanded Panel -->
+        <aside id="sidebar" class="sidebar-container flex flex-shrink-0">
+            <!-- Icon Rail -->
+            <div class="icon-rail">
+                <div class="rail-logo">A</div>
+                
+                <div class="rail-section">
+                    <!-- Dashboard -->
+                    <div class="rail-item active" data-category="dashboard" title="Dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                        <div class="tooltip">
+                            <div class="tooltip-title">Dashboard</div>
+                            <div class="tooltip-desc">Prehľad a štatistiky</div>
+                        </div>
+                    </div>
+                    
+                    <!-- CRM -->
+                    <div class="rail-item" data-category="crm" title="CRM">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <span class="rail-badge" id="badge-crm"></span>
+                        <div class="tooltip">
+                            <div class="tooltip-title">CRM</div>
+                            <div class="tooltip-desc">Leady, Klienti, Projekty</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Marketing -->
+                    <div class="rail-item" data-category="marketing" title="Marketing">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+                        <div class="tooltip">
+                            <div class="tooltip-title">Marketing</div>
+                            <div class="tooltip-desc">Kampane, Onboarding</div>
+                        </div>
+                    </div>
+                    
+                    <div class="rail-divider"></div>
+                    
+                    <!-- Komunikácia -->
+                    <div class="rail-item" data-category="communication" title="Komunikácia">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        <span class="rail-badge" id="badge-communication"></span>
+                        <div class="tooltip">
+                            <div class="tooltip-title">Komunikácia</div>
+                            <div class="tooltip-desc">Správy, Tickety</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Produktivita -->
+                    <div class="rail-item" data-category="productivity" title="Produktivita">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        <span class="rail-badge" id="badge-productivity"></span>
+                        <div class="tooltip">
+                            <div class="tooltip-title">Produktivita</div>
+                            <div class="tooltip-desc">Úlohy, Kalendár</div>
+                        </div>
+                    </div>
+                    
+                    <div class="rail-divider"></div>
+                    
+                    <!-- Financie -->
+                    <div class="rail-item" data-category="finance" title="Financie">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <div class="tooltip">
+                            <div class="tooltip-title">Financie</div>
+                            <div class="tooltip-desc">Fakturácia, Reporty</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Konfigurácia -->
+                    <div class="rail-item" data-category="config" title="Konfigurácia">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        <div class="tooltip">
+                            <div class="tooltip-title">Konfigurácia</div>
+                            <div class="tooltip-desc">Služby, Balíčky, Šablóny</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="rail-bottom">
+                    <div class="rail-item" data-category="settings" title="Nastavenia">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        <div class="tooltip">
+                            <div class="tooltip-title">Nastavenia</div>
+                            <div class="tooltip-desc">Systém, Tím, Integrácie</div>
+                        </div>
+                    </div>
+                    
+                    <div class="status-wrapper">
+                        <div id="user-avatar" class="rail-avatar">U</div>
+                        <div class="status-dot" id="connection-dot"></div>
                     </div>
                 </div>
             </div>
             
-            <!-- Navigation -->
-            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
-                <!-- Main Section -->
-                <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Hlavné</p>
-                <div data-menu-section="main">
-                    <!-- Menu items will be added dynamically -->
+            <!-- Expanded Panel -->
+            <div class="expanded-panel">
+                <div class="panel-header">
+                    <h2 id="panel-title">Dashboard</h2>
+                    <p id="panel-subtitle">Prehľad vašej aktivity</p>
                 </div>
                 
-                <!-- Tools Section -->
-                <div class="pt-4 mt-4 border-t border-white/10">
-                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Nástroje</p>
-                </div>
-                <div data-menu-section="tools"></div>
-                
-                <!-- Settings Section -->
-                <div class="pt-4 mt-4 border-t border-white/10">
-                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Systém</p>
-                </div>
-                <div data-menu-section="settings"></div>
-            </nav>
-            
-            <!-- User & Status -->
-            <div class="p-4 border-t border-white/10">
-                <div class="flex items-center gap-3 mb-4">
-                    <div id="user-avatar" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-sm font-medium">U</div>
-                    <div class="flex-1 min-w-0">
-                        <div id="user-name" class="font-medium truncate">Načítavam...</div>
-                        <div id="user-role" class="text-xs text-gray-400">-</div>
+                <div class="panel-content">
+                    <!-- Prehľad -->
+                    <div class="menu-group" data-menu-category="dashboard">
+                        <div class="menu-group-title">Prehľad</div>
+                        <div data-menu-section="dashboard"></div>
                     </div>
-                    <button data-action="logout" class="p-2 hover:bg-white/10 rounded-lg" title="Odhlásiť">
-                        🚪
-                    </button>
+                    
+                    <!-- CRM -->
+                    <div class="menu-group" data-menu-category="crm">
+                        <div class="menu-group-title">CRM</div>
+                        <div data-menu-section="crm"></div>
+                    </div>
+                    
+                    <!-- Marketing -->
+                    <div class="menu-group" data-menu-category="marketing">
+                        <div class="menu-group-title">Marketing</div>
+                        <div data-menu-section="marketing"></div>
+                    </div>
+                    
+                    <!-- Komunikácia -->
+                    <div class="menu-group" data-menu-category="communication">
+                        <div class="menu-group-title">Komunikácia</div>
+                        <div data-menu-section="communication"></div>
+                    </div>
+                    
+                    <!-- Produktivita -->
+                    <div class="menu-group" data-menu-category="productivity">
+                        <div class="menu-group-title">Produktivita</div>
+                        <div data-menu-section="productivity"></div>
+                    </div>
+                    
+                    <!-- Financie -->
+                    <div class="menu-group" data-menu-category="finance">
+                        <div class="menu-group-title">Financie</div>
+                        <div data-menu-section="finance"></div>
+                    </div>
+                    
+                    <!-- Konfigurácia -->
+                    <div class="menu-group" data-menu-category="config">
+                        <div class="menu-group-title">Konfigurácia</div>
+                        <div data-menu-section="config"></div>
+                    </div>
+                    
+                    <!-- Nastavenia -->
+                    <div class="menu-group" data-menu-category="settings">
+                        <div class="menu-group-title">Systém</div>
+                        <div data-menu-section="settings"></div>
+                    </div>
                 </div>
-                <div id="connection-status" class="flex items-center gap-2 text-sm text-gray-400">
-                    <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
-                    Pripájam...
+                
+                <div class="panel-user">
+                    <div class="panel-user-avatar" id="user-avatar-panel">U</div>
+                    <div class="panel-user-info">
+                        <h4 id="user-name">Načítavam...</h4>
+                        <span id="connection-status" class="panel-user-status">Pripájam...</span>
+                    </div>
+                    <button data-action="logout" class="panel-user-action" title="Odhlásiť">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
                 </div>
             </div>
         </aside>

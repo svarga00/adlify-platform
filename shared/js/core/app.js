@@ -154,29 +154,28 @@ const App = {
   },
   
   /**
-   * Initialize UI elements
+   * Initialize UI elements - New Icon Rail design
    */
   initUI() {
     // Update user info
-    const userNameEl = document.getElementById('user-name');
-    const userAvatarEl = document.getElementById('user-avatar');
-    const userRoleEl = document.getElementById('user-role');
+    const userName = Auth.profile?.full_name || Auth.user?.email || 'User';
+    const userInitial = userName.charAt(0).toUpperCase();
     
+    // User name in panel
+    const userNameEl = document.getElementById('user-name');
     if (userNameEl) {
-      userNameEl.textContent = Auth.profile?.full_name || Auth.user?.email;
+      userNameEl.textContent = userName;
     }
+    
+    // Avatars (rail + panel)
+    const userAvatarEl = document.getElementById('user-avatar');
+    const userAvatarPanelEl = document.getElementById('user-avatar-panel');
     
     if (userAvatarEl) {
-      if (Auth.profile?.avatar_url) {
-        userAvatarEl.src = Auth.profile.avatar_url;
-      } else {
-        userAvatarEl.textContent = (Auth.profile?.full_name || Auth.user?.email || 'U').charAt(0).toUpperCase();
-      }
+      userAvatarEl.textContent = userInitial;
     }
-    
-    if (userRoleEl) {
-      const roles = { owner: 'Vlastník', admin: 'Admin', employee: 'Zamestnanec', client: 'Klient' };
-      userRoleEl.textContent = roles[Auth.getRole()] || Auth.getRole();
+    if (userAvatarPanelEl) {
+      userAvatarPanelEl.textContent = userInitial;
     }
     
     // Setup logout
@@ -184,24 +183,74 @@ const App = {
       el.addEventListener('click', () => Auth.logout());
     });
     
-    // Setup sidebar toggle
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    const sidebar = document.getElementById('sidebar');
-    if (sidebarToggle && sidebar) {
-      sidebarToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
+    // Setup rail item click handlers
+    document.querySelectorAll('.rail-item[data-category]').forEach(item => {
+      item.addEventListener('click', () => {
+        // Remove active from all rail items
+        document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
+        // Add active to clicked
+        item.classList.add('active');
+        
+        // Update panel header
+        const title = item.querySelector('.tooltip-title')?.textContent || '';
+        const desc = item.querySelector('.tooltip-desc')?.textContent || '';
+        const panelTitle = document.getElementById('panel-title');
+        const panelSubtitle = document.getElementById('panel-subtitle');
+        if (panelTitle) panelTitle.textContent = title;
+        if (panelSubtitle) panelSubtitle.textContent = desc;
       });
-    }
+    });
   },
   
   /**
-   * Add menu item
+   * Add menu item - New Icon Rail + Panel design
    */
   addMenuItem(module) {
-    const section = module.menu.section || 'main';
+    // Map modules to new categories by ID
+    const moduleCategories = {
+      // Dashboard
+      'dashboard': 'dashboard',
+      // CRM
+      'leads': 'crm',
+      'clients': 'crm',
+      'projects': 'crm',
+      // Marketing
+      'campaigns': 'marketing',
+      'onboarding': 'marketing',
+      // Communication
+      'messages': 'communication',
+      'tickets': 'communication',
+      // Productivity
+      'tasks': 'productivity',
+      'calendar': 'productivity',
+      // Finance
+      'billing': 'finance',
+      'reporting': 'finance',
+      // Config
+      'services': 'config',
+      'templates': 'config',
+      'documents': 'config',
+      'keywords': 'config',
+      'automations': 'config',
+      // Settings
+      'settings': 'settings',
+      'integrations': 'settings',
+      'team': 'settings'
+    };
+    
+    // Get section from mapping or fallback
+    let section = moduleCategories[module.id] || module.menu.section || 'config';
+    
+    // Fallback mapping for old sections
+    if (section === 'main') section = 'crm';
+    if (section === 'tools') section = 'config';
+    
     const menuContainer = document.querySelector(`[data-menu-section="${section}"]`);
     
-    if (!menuContainer) return;
+    if (!menuContainer) {
+      console.warn(`Menu section not found: ${section} for module ${module.id}`);
+      return;
+    }
     
     // Check permission
     if (module.permissions) {
@@ -209,31 +258,85 @@ const App = {
       if (!Auth.can(resource, action)) return;
     }
     
+    // SVG icons mapping
+    const iconSVGs = {
+      // Dashboard
+      '📊': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+      // CRM
+      '🎯': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+      '👥': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      '📁': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+      // Marketing
+      '📢': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
+      '🚀': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+      '📋': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
+      // Communication
+      '📧': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+      '🎫': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+      // Productivity
+      '✅': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+      '📅': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      // Finance
+      '💰': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+      '📄': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+      '📈': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+      // Config
+      '📦': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+      '📝': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+      '📑': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+      '🔑': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+      '⚡': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+      // Settings
+      '⚙️': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+      '🔌': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>',
+      '👤': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    };
+    
+    const icon = module.icon || '📋';
+    const svgIcon = iconSVGs[icon] || iconSVGs['📋'];
+    
     const item = document.createElement('a');
     item.href = `#${module.id}`;
-    item.className = 'sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-300 hover:text-white cursor-pointer';
+    item.className = 'sidebar-item';
     item.dataset.route = module.id;
+    
+    let badgeHtml = '';
+    if (module.badge) {
+      const badgeClass = module.badgeColor || '';
+      badgeHtml = `<span class="menu-badge ${badgeClass}">${module.badge}</span>`;
+    }
+    
     item.innerHTML = `
-      <span class="text-xl">${module.icon || '📋'}</span>
+      ${svgIcon}
       <span>${module.name}</span>
-      ${module.badge ? `<span class="ml-auto badge">${module.badge}</span>` : ''}
+      ${badgeHtml}
     `;
     
     menuContainer.appendChild(item);
   },
   
   /**
-   * Update connection status
+   * Update connection status - New design
    */
   updateConnectionStatus(connected) {
     const statusEl = document.getElementById('connection-status');
+    const statusDot = document.getElementById('connection-dot');
+    
     if (statusEl) {
       if (connected) {
-        statusEl.innerHTML = '<span class="w-2 h-2 bg-green-500 rounded-full"></span> Pripojené';
-        statusEl.className = 'flex items-center gap-2 text-sm text-green-400';
+        statusEl.textContent = 'Pripojené';
+        statusEl.className = 'panel-user-status connected';
       } else {
-        statusEl.innerHTML = '<span class="w-2 h-2 bg-red-500 rounded-full"></span> Offline';
-        statusEl.className = 'flex items-center gap-2 text-sm text-red-400';
+        statusEl.textContent = 'Offline';
+        statusEl.className = 'panel-user-status';
+      }
+    }
+    
+    if (statusDot) {
+      if (connected) {
+        statusDot.classList.add('connected');
+      } else {
+        statusDot.classList.remove('connected');
       }
     }
   },
