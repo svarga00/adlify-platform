@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Návrh kampane | Adlify</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #fef3e2 0%, #fce7f3 50%, #ede9fe 100%);
+            min-height: 100vh;
+            color: #1e293b;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #f97316, #ec4899);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .logo-text { font-weight: 700; font-size: 1.25rem; }
+
+        .header-right { display: flex; align-items: center; gap: 1rem; }
+        .client-name { font-weight: 600; }
+        
+        .back-link {
+            color: #64748b;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .back-link:hover { color: #1e293b; }
+
+        .main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Hero section */
+        .hero {
+            background: linear-gradient(135deg, #f97316, #ec4899);
+            color: white;
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .hero p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .status-client_review { background: rgba(255,255,255,0.2); }
+        .status-approved { background: #10b981; }
+        .status-revision { background: #f59e0b; }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-body { padding: 1.5rem; }
+
+        /* Summary grid */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .summary-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .summary-value { font-size: 1.5rem; font-weight: 700; color: #1e293b; }
+        .summary-label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+
+        /* Campaign card */
+        .campaign-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .campaign-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .campaign-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .campaign-title h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .platform-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .platform-google { background: #dbeafe; color: #1d4ed8; }
+        .platform-meta { background: #e0e7ff; color: #4338ca; }
+
+        .campaign-budget {
+            font-weight: 600;
+            color: #059669;
+        }
+
+        .campaign-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .detail-group {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-value {
+            font-size: 0.9rem;
+        }
+
+        /* Ad preview */
+        .ad-preview {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .ad-preview-header {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+        }
+
+        .ad-headline {
+            color: #1a0dab;
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            text-decoration: underline;
+        }
+
+        .ad-url {
+            color: #006621;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .ad-description {
+            color: #4d5156;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Estimated results */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .result-item {
+            background: white;
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .result-value {
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .result-label {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        /* Action buttons */
+        .action-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            margin-top: 2rem;
+        }
+
+        .action-section h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-section p {
+            color: #64748b;
+            margin-bottom: 1.5rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.875rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-approve {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .btn-approve:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-revision {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .btn-revision:hover {
+            background: #e2e8f0;
+        }
+
+        /* Comment modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            padding: 2rem;
+        }
+
+        .modal h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: vertical;
+            margin-bottom: 1rem;
+        }
+
+        .modal textarea:focus {
+            outline: none;
+            border-color: #f97316;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+
+        .btn-cancel {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #f97316, #ec4899);
+            color: white;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 60vh;
+            font-size: 2rem;
+        }
+
+        /* Success message */
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .success-message h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .summary-grid { grid-template-columns: 1fr; }
+            .campaign-details { grid-template-columns: 1fr; }
+            .results-grid { grid-template-columns: repeat(2, 1fr); }
+            .action-buttons { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">A</div>
+            <span class="logo-text">Adlify</span>
+        </div>
+        <div class="header-right">
+            <a href="index.html" class="back-link">← Späť na portál</a>
+            <span class="client-name" id="client-name">Načítavam...</span>
+        </div>
+    </header>
+
+    <main class="main" id="main-content">
+        <div class="loading">⏳</div>
+    </main>
+
+    <!-- Revision modal -->
+    <div class="modal-overlay" id="revision-modal">
+        <div class="modal">
+            <h3>✏️ Požiadavka na úpravu</h3>
+            <p style="color: #64748b; margin-bottom: 1rem;">Popíšte čo by ste chceli zmeniť:</p>
+            <textarea id="revision-comment" placeholder="Napr. Prosím upravte headline na kratší, zmeňte cieľovú skupinu na mladších..."></textarea>
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="closeModal()">Zrušiť</button>
+                <button class="btn btn-submit" onclick="submitRevision()">Odoslať požiadavku</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
+        
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let project = null;
+        let campaigns = [];
+        let client = null;
+
+        async function init() {
+            // Get token from URL
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('t');
+
+            if (!token) {
+                showError('Chýba prístupový token');
+                return;
+            }
+
+            try {
+                // Load project by client_portal_token (bez JOIN)
+                const { data: projectData, error: projectError } = await db
+                    .from('campaign_projects')
+                    .select('*')
+                    .eq('client_portal_token', token)
+                    .single();
+
+                if (projectError || !projectData) {
+                    console.error('Project error:', projectError);
+                    showError('Návrh nebol nájdený');
+                    return;
+                }
+
+                project = projectData;
+                
+                // Load client separately
+                const { data: clientData } = await db
+                    .from('clients')
+                    .select('id, company_name, contact_person')
+                    .eq('id', project.client_id)
+                    .single();
+                
+                client = clientData;
+
+                // Update client name in header
+                document.getElementById('client-name').textContent = client?.company_name || 'Klient';
+
+                // Load campaigns
+                const { data: campaignsData, error: campaignsError } = await db
+                    .from('campaigns')
+                    .select('*')
+                    .eq('project_id', project.id);
+
+                if (campaignsError) {
+                    console.error('Campaigns error:', campaignsError);
+                }
+
+                campaigns = campaignsData || [];
+                
+                // Load ad_groups and ads for each campaign
+                for (let campaign of campaigns) {
+                    const { data: adGroupsData } = await db
+                        .from('ad_groups')
+                        .select('*')
+                        .eq('campaign_id', campaign.id);
+                    
+                    campaign.ad_groups = adGroupsData || [];
+                    
+                    for (let adGroup of campaign.ad_groups) {
+                        const { data: adsData } = await db
+                            .from('ads')
+                            .select('*')
+                            .eq('ad_group_id', adGroup.id);
+                        
+                        adGroup.ads = adsData || [];
+                    }
+                }
+
+                // Render
+                render();
+
+            } catch (error) {
+                console.error('Init error:', error);
+                showError('Nastala chyba pri načítaní');
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('main-content').innerHTML = `
+                <div style="text-align: center; padding: 4rem 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">😕</div>
+                    <h2>${message}</h2>
+                    <p style="color: #64748b; margin-top: 0.5rem;">Skontrolujte odkaz alebo kontaktujte podporu.</p>
+                </div>
+            `;
+        }
+
+        function render() {
+            const statusLabels = {
+                'client_review': '⏳ Čaká na vaše schválenie',
+                'approved': '${Icons.checkCircle} Schválené',
+                'revision': '✏️ Požiadaná úprava',
+                'internal_review': '🔍 Pripravujeme návrh',
+                'active': '${Icons.rocket} Aktívne'
+            };
+
+            const isEditable = project.status === 'client_review';
+            const totalBudget = campaigns.reduce((sum, c) => sum + (c.budget_daily || 0) * 30, 0);
+            const totalAds = campaigns.reduce((sum, c) => 
+                sum + (c.ad_groups || []).reduce((s, g) => s + (g.ads?.length || 0), 0), 0);
+
+            document.getElementById('main-content').innerHTML = `
+                <!-- Hero -->
+                <div class="hero">
+                    <h1>🎯 Návrh marketingovej kampane</h1>
+                    <p>Pre ${client?.company_name || 'vašu firmu'}</p>
+                    <div class="status-badge status-${project.status}">
+                        ${statusLabels[project.status] || project.status}
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-icon">${Icons.dashboard}</div>
+                        <div class="summary-value">${campaigns.length}</div>
+                        <div class="summary-label">Kampaní</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📝</div>
+                        <div class="summary-value">${totalAds}</div>
+                        <div class="summary-label">Reklám</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">💰</div>
+                        <div class="summary-value">${formatCurrency(totalBudget)}</div>
+                        <div class="summary-label">Mesačný rozpočet</div>
+                    </div>
+                </div>
+
+                ${project.strategy_summary ? `
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>📋 Stratégia</h2>
+                        </div>
+                        <div class="card-body">
+                            <p style="line-height: 1.6;">${project.strategy_summary}</p>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Campaigns -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📢 Navrhované kampane</h2>
+                    </div>
+                    <div class="card-body">
+                        ${campaigns.map(c => renderCampaign(c)).join('')}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                ${isEditable ? `
+                    <div class="action-section">
+                        <h3>Čo si myslíte?</h3>
+                        <p>Prezrite si návrh a dajte nám vedieť.</p>
+                        <div class="action-buttons">
+                            <button class="btn btn-revision" onclick="openRevisionModal()">
+                                ✏️ Požiadať o úpravu
+                            </button>
+                            <button class="btn btn-approve" onclick="approveProposal()">
+                                ${Icons.checkCircle} Schváliť návrh
+                            </button>
+                        </div>
+                    </div>
+                ` : project.status === 'approved' ? `
+                    <div class="success-message">
+                        <h3>${Icons.checkCircle} Návrh bol schválený</h3>
+                        <p>Ďakujeme! Vaše kampane budú čoskoro spustené.</p>
+                    </div>
+                ` : project.status === 'revision' ? `
+                    <div class="action-section" style="background: #fef3c7;">
+                        <h3>✏️ Pracujeme na úpravách</h3>
+                        <p>Váš feedback sme dostali a pracujeme na úpravách. Čoskoro vám pošleme aktualizovaný návrh.</p>
+                        ${project.client_feedback ? `
+                            <div style="margin-top: 1rem; padding: 1rem; background: white; border-radius: 8px; text-align: left;">
+                                <strong>Vaša požiadavka:</strong><br>
+                                <span style="color: #64748b;">${project.client_feedback}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        function renderCampaign(campaign) {
+            const platformLabels = {
+                'google': 'Google Ads',
+                'meta': 'Meta Ads',
+                'google_search': 'Google Search',
+                'meta_facebook': 'Facebook Ads'
+            };
+
+            const estimated = campaign.metrics?.estimated || {};
+
+            return `
+                <div class="campaign-card">
+                    <div class="campaign-header">
+                        <div class="campaign-title">
+                            <span style="font-size: 1.5rem;">${campaign.platform?.includes('google') ? '🔍' : '📱'}</span>
+                            <div>
+                                <h3>${campaign.name}</h3>
+                                <span class="platform-badge platform-${campaign.platform?.includes('google') ? 'google' : 'meta'}">
+                                    ${platformLabels[campaign.platform] || campaign.platform}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="campaign-budget">
+                            ${formatCurrency(campaign.budget_daily || 0)}/deň
+                        </div>
+                    </div>
+
+                    <div class="campaign-details">
+                        <div class="detail-group">
+                            <div class="detail-label">Cieľ</div>
+                            <div class="detail-value">${campaign.objective || 'Konverzie'}</div>
+                        </div>
+                        <div class="detail-group">
+                            <div class="detail-label">Cielenie</div>
+                            <div class="detail-value">
+                                ${campaign.targeting?.locations?.join(', ') || 'Slovensko'}<br>
+                                <span style="color: #64748b; font-size: 0.85rem;">
+                                    Vek: ${campaign.targeting?.age_from || 18} - ${campaign.targeting?.age_to || 65}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${campaign.targeting?.keywords?.length > 0 ? `
+                        <div style="margin-top: 1rem;">
+                            <div class="detail-label">Kľúčové slová</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                                ${campaign.targeting.keywords.slice(0, 10).map(kw => `
+                                    <span style="background: #e0e7ff; color: #4338ca; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.8rem;">${kw}</span>
+                                `).join('')}
+                                ${campaign.targeting.keywords.length > 10 ? `<span style="color: #64748b; font-size: 0.8rem;">+${campaign.targeting.keywords.length - 10} ďalších</span>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${(campaign.ad_groups || []).length > 0 ? `
+                        ${campaign.ad_groups.slice(0, 2).map(group => `
+                            ${(group.ads || []).slice(0, 1).map(ad => `
+                                <div class="ad-preview">
+                                    <div class="ad-preview-header">📝 Ukážka reklamy - ${group.name}</div>
+                                    <div class="ad-headline">${(ad.headlines || [])[0] || 'Nadpis reklamy'}</div>
+                                    <div class="ad-url">adlify.eu › ${client?.company_name?.toLowerCase().replace(/\s+/g, '-') || 'firma'}</div>
+                                    <div class="ad-description">${(ad.descriptions || [])[0] || 'Popis reklamy'}</div>
+                                </div>
+                            `).join('')}
+                        `).join('')}
+                    ` : ''}
+
+                    ${Object.keys(estimated).length > 0 ? `
+                        <div class="results-grid">
+                            ${estimated.impressions ? `
+                                <div class="result-item">
+                                    <div class="result-value">${formatNumber(estimated.impressions)}</div>
+                                    <div class="result-label">Zobrazení</div>
+                                </div>
+                            ` : ''}
+                            ${estimated.clicks ? `
+                                <div class="result-item">
+                                    <div class="result-value">${formatNumber(estimated.clicks)}</div>
+                                    <div class="result-label">Kliknutí</div>
+                                </div>
+                            ` : ''}
+                            ${estimated.conversions ? `
+                                <div class="result-item">
+                                    <div class="result-value">${formatNumber(estimated.conversions)}</div>
+                                    <div class="result-label">Konverzií</div>
+                                </div>
+                            ` : ''}
+                            ${estimated.cpa ? `
+                                <div class="result-item">
+                                    <div class="result-value">${estimated.cpa}</div>
+                                    <div class="result-label">CPA</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('sk-SK', { 
+                style: 'currency', 
+                currency: 'EUR', 
+                minimumFractionDigits: 0 
+            }).format(amount || 0);
+        }
+
+        function formatNumber(num) {
+            if (typeof num === 'string') return num;
+            return new Intl.NumberFormat('sk-SK').format(num || 0);
+        }
+
+        function openRevisionModal() {
+            document.getElementById('revision-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('revision-modal').classList.remove('active');
+        }
+
+        async function approveProposal() {
+            if (!confirm('Naozaj chcete schváliť tento návrh?')) return;
+
+            try {
+                const { error } = await db
+                    .from('campaign_projects')
+                    .update({
+                        status: 'approved',
+                        client_approved_at: new Date().toISOString()
+                    })
+                    .eq('id', project.id);
+
+                if (error) throw error;
+
+                // Create notification for admin
+                await db.from('notifications').insert({
+                    type: 'client_approved',
+                    title: '${Icons.checkCircle} Klient schválil návrh',
+                    message: `${client?.company_name} schválil návrh kampane "${project.name}"`,
+                    action_url: `#projects?id=${project.id}`,
+                    entity_type: 'project',
+                    entity_id: project.id
+                });
+
+                project.status = 'approved';
+                render();
+
+            } catch (error) {
+                console.error('Approve error:', error);
+                alert('Nastala chyba. Skúste to znova.');
+            }
+        }
+
+        async function submitRevision() {
+            const comment = document.getElementById('revision-comment').value.trim();
+            
+            if (!comment) {
+                alert('Prosím napíšte čo by ste chceli zmeniť.');
+                return;
+            }
+
+            try {
+                const { error } = await db
+                    .from('campaign_projects')
+                    .update({
+                        status: 'revision',
+                        client_feedback: comment,
+                        revision_count: (project.revision_count || 0) + 1
+                    })
+                    .eq('id', project.id);
+
+                if (error) throw error;
+
+                // Create notification for admin
+                await db.from('notifications').insert({
+                    type: 'client_revision',
+                    title: '✏️ Klient požiadal o úpravu',
+                    message: `${client?.company_name} požiadal o úpravu návrhu: "${comment.substring(0, 100)}..."`,
+                    action_url: `#projects?id=${project.id}`,
+                    entity_type: 'project',
+                    entity_id: project.id
+                });
+
+                project.status = 'revision';
+                project.client_feedback = comment;
+                closeModal();
+                render();
+
+            } catch (error) {
+                console.error('Revision error:', error);
+                alert('Nastala chyba. Skúste to znova.');
+            }
+        }
+
+        // Close modal on outside click
+        document.getElementById('revision-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'revision-modal') closeModal();
+        });
+
+        init();
+    </script>
+</body>
+</html>

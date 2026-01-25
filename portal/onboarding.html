@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Onboarding | Adlify</title>
+  <link rel="icon" href="/admin/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: 'Inter', -apple-system, sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
+    .gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    /* Loading */
+    .loading-screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #FFF5F0 0%, #FFF0F5 100%);
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #f97316;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Error */
+    .error-screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      background: linear-gradient(135deg, #FFF5F0 0%, #FFF0F5 100%);
+    }
+    
+    .error-screen .icon { font-size: 4rem; margin-bottom: 1rem; }
+    .error-screen h1 { font-size: 1.5rem; color: #1e293b; margin-bottom: 0.5rem; }
+    .error-screen p { color: #64748b; margin-bottom: 1.5rem; }
+    .error-screen a {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #f97316, #ec4899);
+      color: white;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading-screen">
+      <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl font-bold mb-4">A</div>
+      <div class="spinner"></div>
+      <p class="mt-4 text-gray-500">Načítavam dotazník...</p>
+    </div>
+  </div>
+
+  <!-- Core scripts -->
+  <script src="/shared/js/core/config.js"></script>
+  <script src="/shared/js/core/database.js"></script>
+  <script src="/shared/js/core/utils.js"></script>
+  
+  <!-- Onboarding module -->
+  <script src="/modules/onboarding/onboarding.js"></script>
+  <script src="/modules/onboarding/onboarding-extension.js"></script>
+
+  <script>
+    (async function() {
+      const app = document.getElementById('app');
+      
+      // Helper functions
+      function showError(title, message, linkText = 'Kontaktovať podporu', linkHref = 'mailto:info@adlify.eu') {
+        app.innerHTML = `
+          <div class="error-screen">
+            <div class="icon">😕</div>
+            <h1>${title}</h1>
+            <p>${message}</p>
+            <a href="${linkHref}">${linkText}</a>
+          </div>
+        `;
+      }
+      
+      function showLoading(text = 'Načítavam...') {
+        app.innerHTML = `
+          <div class="loading-screen">
+            <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl font-bold mb-4">A</div>
+            <div class="spinner"></div>
+            <p class="mt-4 text-gray-500">${text}</p>
+          </div>
+        `;
+      }
+      
+      try {
+        // Wait for Database to be ready
+        if (typeof Database !== 'undefined' && Database.init) {
+          await Database.init();
+        }
+        
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('t') || urlParams.get('token');
+        
+        let token = urlToken;
+        
+        // If no token in URL, check if user is logged in and get their client's token
+        if (!token && typeof Database !== 'undefined' && Database.client) {
+          const { data: { session } } = await Database.client.auth.getSession();
+          
+          if (session) {
+            // User is logged in, find their client
+            const { data: clientUser, error: clientError } = await Database.client
+              .from('client_users')
+              .select('client_id, clients(id, onboarding_token, onboarding_status)')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            if (clientError || !clientUser) {
+              showError('Účet nie je prepojený', 'Váš účet nie je prepojený so žiadnou firmou.', 'Kontaktovať podporu', 'mailto:info@adlify.eu');
+              return;
+            }
+            
+            // Check if onboarding already completed
+            if (clientUser.clients?.onboarding_status === 'completed') {
+              window.location.href = '/portal/';
+              return;
+            }
+            
+            token = clientUser.clients?.onboarding_token;
+          }
+        }
+        
+        // If still no token, show error
+        if (!token) {
+          showError(
+            'Chýba prístupový token', 
+            'Pre prístup k dotazníku potrebujete platný odkaz z emailu alebo sa prihláste.',
+            'Prihlásiť sa',
+            '/portal/login.html'
+          );
+          return;
+        }
+        
+        // Check if OnboardingModule is loaded
+        if (typeof OnboardingModule === 'undefined') {
+          throw new Error('OnboardingModule sa nepodarilo načítať');
+        }
+        
+        // Initialize OnboardingModule
+        if (OnboardingModule.init) {
+          OnboardingModule.init();
+        }
+        
+        // Render public onboarding
+        showLoading('Pripravujem dotazník...');
+        await OnboardingModule.renderPublic(app, token);
+        
+      } catch (error) {
+        console.error('Onboarding error:', error);
+        showError(
+          'Niečo sa pokazilo',
+          `Nepodarilo sa načítať dotazník. Skúste obnoviť stránku. (${error.message})`,
+          'Obnoviť stránku',
+          'javascript:location.reload()'
+        );
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,2144 @@
+// =====================================================
+// ADLIFY - Team Module (Používatelia a role)
+// =====================================================
+
+const TeamModule = {
+    id: 'team',
+    name: 'Tím',
+    icon: Icons.users,
+    title: 'Tím',
+    menu: { section: 'settings', order: 20 },
+    permissions: [],
+    
+    // Cache dát
+    members: [],
+    permissions: [],
+    activityLog: [],
+    currentTab: 'members',
+
+    async init() {
+        console.log('TeamModule initialized');
+    },
+
+    async render(container, params = {}) {
+        await this.loadData();
+        
+        container.innerHTML = `
+            <div class="team-module">
+                <!-- Header -->
+                <div class="team-header">
+                    <div class="header-content">
+                        <div class="header-title">
+                            <h1>Tím</h1>
+                            <p class="header-subtitle">Správa členov tímu a oprávnení</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn-invite" onclick="TeamModule.showInviteModal()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="8.5" cy="7" r="4"></circle>
+                                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                                    <line x1="17" y1="11" x2="23" y2="11"></line>
+                                </svg>
+                                Pozvať člena
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Stats -->
+                <div class="team-stats-grid">
+                    ${this.renderStats()}
+                </div>
+                
+                <!-- Tabs -->
+                <div class="team-tabs-container">
+                    <div class="team-tabs">
+                        <button class="tab-btn ${this.currentTab === 'members' ? 'active' : ''}" 
+                                onclick="TeamModule.switchTab('members')">
+                            <span class="tab-icon">${Icons.users}</span>
+                            <span class="tab-label">Členovia</span>
+                            <span class="tab-count">${this.members.length}</span>
+                        </button>
+                        <button class="tab-btn ${this.currentTab === 'roles' ? 'active' : ''}" 
+                                onclick="TeamModule.switchTab('roles')">
+                            <span class="tab-icon">🔐</span>
+                            <span class="tab-label">Role a oprávnenia</span>
+                        </button>
+                        <button class="tab-btn ${this.currentTab === 'activity' ? 'active' : ''}" 
+                                onclick="TeamModule.switchTab('activity')">
+                            <span class="tab-icon">${Icons.clipboard}</span>
+                            <span class="tab-label">Aktivita</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div class="team-content" id="team-content">
+                    ${this.renderTabContent()}
+                </div>
+            </div>
+            
+            ${this.renderStyles()}
+        `;
+    },
+
+    async loadData() {
+        try {
+            const [membersRes, permissionsRes, activityRes] = await Promise.all([
+                Database.client.from('team_members').select('*').order('created_at', { ascending: false }),
+                Database.client.from('permissions').select('*'),
+                Database.client.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50)
+            ]);
+            
+            this.members = membersRes.data || [];
+            this.permissions = permissionsRes.data || [];
+            this.activityLog = activityRes.data || [];
+            
+            console.log('Team data loaded:', {
+                members: this.members.length,
+                permissions: this.permissions.length,
+                activity: this.activityLog.length
+            });
+        } catch (error) {
+            console.error('Error loading team data:', error);
+        }
+    },
+
+    renderStats() {
+        const active = this.members.filter(m => m.status === 'active').length;
+        const invited = this.members.filter(m => m.status === 'invited').length;
+        const owners = this.members.filter(m => m.role === 'owner').length;
+        const admins = this.members.filter(m => m.role === 'admin').length;
+        
+        return `
+            <div class="stat-card">
+                <div class="stat-icon green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">${active}</span>
+                    <span class="stat-label">Aktívni členovia</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon orange">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">${invited}</span>
+                    <span class="stat-label">Čakajúce pozvánky</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon purple">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">${owners + admins}</span>
+                    <span class="stat-label">Administrátori</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-value">5</span>
+                    <span class="stat-label">Definované role</span>
+                </div>
+            </div>
+        `;
+    },
+
+    switchTab(tab) {
+        this.currentTab = tab;
+        document.querySelectorAll('.team-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+        const tabs = ['members', 'roles', 'activity'];
+        const index = tabs.indexOf(tab);
+        if (index >= 0) {
+            document.querySelectorAll('.team-tabs .tab-btn')[index]?.classList.add('active');
+        }
+        document.getElementById('team-content').innerHTML = this.renderTabContent();
+    },
+
+    renderTabContent() {
+        switch (this.currentTab) {
+            case 'members':
+                return this.renderMembersTab();
+            case 'roles':
+                return this.renderRolesTab();
+            case 'activity':
+                return this.renderActivityTab();
+            default:
+                return '';
+        }
+    },
+
+    renderMembersTab() {
+        if (this.members.length === 0) {
+            return `
+                <div class="empty-state">
+                    <div class="empty-icon">${Icons.users}</div>
+                    <h3>Žiadni členovia tímu</h3>
+                    <p>Začnite pozvaním prvého člena do vášho tímu</p>
+                    <button class="btn-primary" onclick="TeamModule.showInviteModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Pozvať člena
+                    </button>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="members-grid">
+                ${this.members.map(member => this.renderMemberCard(member)).join('')}
+            </div>
+        `;
+    },
+
+    renderMemberCard(member) {
+        const initials = `${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`.toUpperCase();
+        const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim();
+        const roleInfo = this.getRoleInfo(member.role);
+        const statusInfo = this.getStatusInfo(member.status);
+        
+        return `
+            <div class="member-card">
+                <div class="member-header">
+                    <div class="member-avatar" style="background: ${roleInfo.gradient}">
+                        ${member.avatar_url 
+                            ? `<img src="${member.avatar_url}" alt="${fullName}">` 
+                            : initials}
+                    </div>
+                    <div class="member-status ${statusInfo.class}"></div>
+                </div>
+                
+                <div class="member-body">
+                    <h3 class="member-name">${fullName || 'Bez mena'}</h3>
+                    <p class="member-position">${member.position || member.email}</p>
+                    
+                    <div class="member-role-badge" style="background: ${roleInfo.bg}; color: ${roleInfo.color}">
+                        ${roleInfo.icon} ${roleInfo.label}
+                    </div>
+                </div>
+                
+                <div class="member-footer">
+                    <div class="member-meta">
+                        ${member.last_login_at 
+                            ? `<span title="Posledné prihlásenie">🕐 ${this.formatDate(member.last_login_at)}</span>`
+                            : member.status === 'invited'
+                                ? `<span class="text-muted">Čaká na prijatie</span>`
+                                : `<span class="text-muted">Ešte sa neprihlásil</span>`
+                        }
+                    </div>
+                    <div class="member-actions">
+                        ${member.status === 'invited' ? `
+                            <button class="btn-icon btn-resend" onclick="TeamModule.resendInvite('${member.id}')" title="Znovu odoslať pozvánku">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                                </svg>
+                            </button>
+                        ` : ''}
+                        <button class="btn-icon" onclick="TeamModule.editMember('${member.id}')" title="Upraviť">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                        ${member.role !== 'owner' ? `
+                            <button class="btn-icon btn-permissions" onclick="TeamModule.editPermissions('${member.id}')" title="Oprávnenia">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                            </button>
+                        ` : ''}
+                        ${member.role !== 'owner' ? `
+                            <button class="btn-icon btn-danger" onclick="TeamModule.deleteMember('${member.id}')" title="Odstrániť">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    renderRolesTab() {
+        const roles = [
+            {
+                id: 'owner',
+                name: 'Owner',
+                label: 'Vlastník',
+                icon: Icons.crown,
+                color: '#f59e0b',
+                bg: '#fef3c7',
+                description: 'Plný prístup ku všetkému, vrátane billing a správy účtu'
+            },
+            {
+                id: 'admin',
+                name: 'Admin',
+                label: 'Administrátor',
+                icon: Icons.settings,
+                color: '#8b5cf6',
+                bg: '#f3e8ff',
+                description: 'Plný prístup okrem billing účtu a mazania owner'
+            },
+            {
+                id: 'manager',
+                name: 'Manager',
+                label: 'Manažér',
+                icon: Icons.dashboard,
+                color: '#3b82f6',
+                bg: '#dbeafe',
+                description: 'Správa klientov, projektov a tímu'
+            },
+            {
+                id: 'sales',
+                name: 'Sales',
+                label: 'Obchodník',
+                icon: Icons.briefcase,
+                color: '#10b981',
+                bg: '#d1fae5',
+                description: 'Práca s leadmi a predaj'
+            },
+            {
+                id: 'support',
+                name: 'Support',
+                label: 'Podpora',
+                icon: Icons.headphones,
+                color: '#6366f1',
+                bg: '#e0e7ff',
+                description: 'Zákaznícka podpora a komunikácia'
+            }
+        ];
+
+        const modules = ['dashboard', 'leads', 'clients', 'projects', 'tasks', 'messages', 'billing', 'team', 'settings', 'integrations'];
+        
+        return `
+            <div class="roles-section">
+                <div class="roles-cards">
+                    ${roles.map(role => {
+                        const count = this.members.filter(m => m.role === role.id).length;
+                        return `
+                            <div class="role-card">
+                                <div class="role-header">
+                                    <div class="role-icon" style="background: ${role.bg}; color: ${role.color}">
+                                        ${role.icon}
+                                    </div>
+                                    <div class="role-info">
+                                        <h3>${role.label}</h3>
+                                        <p>${role.description}</p>
+                                    </div>
+                                    <div class="role-count">${count}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                <div class="permissions-matrix">
+                    <h3>Matica oprávnení</h3>
+                    <div class="matrix-table-wrapper">
+                        <table class="matrix-table">
+                            <thead>
+                                <tr>
+                                    <th>Modul</th>
+                                    ${roles.map(r => `<th><span style="color: ${r.color}">${r.icon}</span> ${r.label}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${modules.map(module => `
+                                    <tr>
+                                        <td class="module-name">${this.getModuleName(module)}</td>
+                                        ${roles.map(role => {
+                                            const perm = this.permissions.find(p => p.role === role.id && p.module === module);
+                                            return `<td>${this.renderPermissionBadge(perm)}</td>`;
+                                        }).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    renderPermissionBadge(perm) {
+        if (!perm) return '<span class="perm-badge none">—</span>';
+        
+        const all = perm.can_view && perm.can_create && perm.can_edit && perm.can_delete;
+        const partial = perm.can_view && (perm.can_create || perm.can_edit);
+        const viewOnly = perm.can_view && !perm.can_create && !perm.can_edit && !perm.can_delete;
+        
+        if (all) return '<span class="perm-badge full">Plný</span>';
+        if (partial) return '<span class="perm-badge partial">Čiastočný</span>';
+        if (viewOnly) return '<span class="perm-badge view">Zobrazenie</span>';
+        return '<span class="perm-badge none">—</span>';
+    },
+
+    getModuleName(module) {
+        const names = {
+            dashboard: 'Dashboard',
+            leads: 'Leady',
+            clients: 'Klienti',
+            projects: 'Projekty',
+            tasks: 'Úlohy',
+            messages: 'Správy',
+            billing: 'Fakturácia',
+            team: 'Tím',
+            settings: 'Nastavenia',
+            integrations: 'Integrácie'
+        };
+        return names[module] || module;
+    },
+
+    renderActivityTab() {
+        if (this.activityLog.length === 0) {
+            return `
+                <div class="empty-state">
+                    <div class="empty-icon">${Icons.clipboard}</div>
+                    <h3>Žiadna aktivita</h3>
+                    <p>História aktivít sa zobrazí tu</p>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="activity-list">
+                ${this.activityLog.map(log => `
+                    <div class="activity-item">
+                        <div class="activity-icon ${this.getActionClass(log.action)}">
+                            ${this.getActionIcon(log.action)}
+                        </div>
+                        <div class="activity-content">
+                            <p class="activity-text">
+                                <strong>${log.user_name || 'Systém'}</strong>
+                                ${this.getActionText(log)}
+                            </p>
+                            <span class="activity-time">${this.formatDateTime(log.created_at)}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    },
+
+    getActionIcon(action) {
+        const icons = {
+            create: '➕',
+            update: '',
+            delete: '',
+            login: '🔑',
+            export: '',
+            send: ''
+        };
+        return icons[action] || '📌';
+    },
+
+    getActionClass(action) {
+        const classes = {
+            create: 'action-create',
+            update: 'action-update',
+            delete: 'action-delete',
+            login: 'action-login'
+        };
+        return classes[action] || '';
+    },
+
+    getActionText(log) {
+        const actions = {
+            create: `vytvoril/a ${log.entity_type || 'záznam'}`,
+            update: `upravil/a ${log.entity_type || 'záznam'}`,
+            delete: `zmazal/a ${log.entity_type || 'záznam'}`,
+            login: 'sa prihlásil/a',
+            export: `exportoval/a ${log.entity_type || 'dáta'}`,
+            send: `odoslal/a ${log.entity_type || 'správu'}`
+        };
+        return actions[log.action] || log.description || log.action;
+    },
+
+    getRoleInfo(role) {
+        const roles = {
+            owner: { label: 'Vlastník', icon: Icons.crown, color: '#b45309', bg: '#fef3c7', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+            admin: { label: 'Admin', icon: Icons.settings, color: '#7c3aed', bg: '#f3e8ff', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' },
+            manager: { label: 'Manažér', icon: Icons.dashboard, color: '#2563eb', bg: '#dbeafe', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
+            sales: { label: 'Obchodník', icon: Icons.briefcase, color: '#059669', bg: '#d1fae5', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+            support: { label: 'Podpora', icon: Icons.headphones, color: '#4f46e5', bg: '#e0e7ff', gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }
+        };
+        return roles[role] || { label: role, icon: Icons.user, color: '#64748b', bg: '#f1f5f9', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)' };
+    },
+
+    getStatusInfo(status) {
+        const statuses = {
+            active: { label: 'Aktívny', class: 'status-active' },
+            invited: { label: 'Pozvaný', class: 'status-invited' },
+            inactive: { label: 'Neaktívny', class: 'status-inactive' }
+        };
+        return statuses[status] || { label: status, class: '' };
+    },
+
+    formatDate(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('sk-SK');
+    },
+
+    formatDateTime(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now - date;
+        
+        if (diff < 60000) return 'Práve teraz';
+        if (diff < 3600000) return `Pred ${Math.floor(diff / 60000)} min`;
+        if (diff < 86400000) return `Pred ${Math.floor(diff / 3600000)} hod`;
+        
+        return date.toLocaleDateString('sk-SK') + ' ' + date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    // === MODÁLY ===
+
+    showInviteModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal team-modal">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <span class="modal-icon">✉️</span>
+                        <div>
+                            <h2>Pozvať člena tímu</h2>
+                            <p class="modal-subtitle">Pošlite pozvánku novému členovi</p>
+                        </div>
+                    </div>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                </div>
+                
+                <div class="modal-body">
+                    <form id="invite-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Meno <span class="required">*</span></label>
+                                <input type="text" name="first_name" required placeholder="Ján">
+                            </div>
+                            <div class="form-group">
+                                <label>Priezvisko <span class="required">*</span></label>
+                                <input type="text" name="last_name" required placeholder="Novák">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email <span class="required">*</span></label>
+                            <input type="email" name="email" required placeholder="jan.novak@firma.sk">
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Telefón</label>
+                                <input type="tel" name="phone" placeholder="+421 900 123 456">
+                            </div>
+                            <div class="form-group">
+                                <label>Pozícia</label>
+                                <input type="text" name="position" placeholder="Marketing Manager">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Rola <span class="required">*</span></label>
+                            <div class="role-selector">
+                                <label class="role-option">
+                                    <input type="radio" name="role" value="admin">
+                                    <div class="role-box">
+                                        <span class="role-icon">${Icons.settings}</span>
+                                        <span class="role-name">Admin</span>
+                                        <span class="role-desc">Plný prístup</span>
+                                    </div>
+                                </label>
+                                <label class="role-option">
+                                    <input type="radio" name="role" value="manager">
+                                    <div class="role-box">
+                                        <span class="role-icon">${Icons.dashboard}</span>
+                                        <span class="role-name">Manažér</span>
+                                        <span class="role-desc">Klienti & Projekty</span>
+                                    </div>
+                                </label>
+                                <label class="role-option">
+                                    <input type="radio" name="role" value="sales" checked>
+                                    <div class="role-box">
+                                        <span class="role-icon">${Icons.briefcase}</span>
+                                        <span class="role-name">Obchodník</span>
+                                        <span class="role-desc">Leady & Predaj</span>
+                                    </div>
+                                </label>
+                                <label class="role-option">
+                                    <input type="radio" name="role" value="support">
+                                    <div class="role-box">
+                                        <span class="role-icon">${Icons.headphones}</span>
+                                        <span class="role-name">Podpora</span>
+                                        <span class="role-desc">Komunikácia</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
+                    <button class="btn-primary" onclick="TeamModule.sendInvite()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                        Odoslať pozvánku
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    },
+
+    // URL pre Edge Function - berie z configu
+    getSendEmailUrl() {
+        const supabaseUrl = Config.get('supabase_url');
+        return `${supabaseUrl}/functions/v1/send-email`;
+    },
+    
+    // Base URL pre pozvánky - TODO: zmeniť na ostrú doménu
+    getBaseUrl() {
+        // Ak sme na localhost, použijeme produkčnú URL
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'https://adlify-platform.vercel.app';
+        }
+        return window.location.origin;
+    },
+    
+    // Generovať náhodný token
+    generateToken() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    },
+
+    async sendInvite() {
+        const form = document.getElementById('invite-form');
+        const formData = new FormData(form);
+        
+        const firstName = formData.get('first_name');
+        const lastName = formData.get('last_name');
+        const email = formData.get('email');
+        const role = formData.get('role');
+        
+        if (!firstName || !lastName || !email || !role) {
+            Utils.toast('Vyplňte všetky povinné polia', 'warning');
+            return;
+        }
+        
+        Utils.toast('Odosielam pozvánku...', 'info');
+        
+        try {
+            // 1. Vytvoriť člena tímu
+            const { data: member, error } = await Database.client
+                .from('team_members')
+                .insert({
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: email,
+                    phone: formData.get('phone') || null,
+                    position: formData.get('position') || null,
+                    role: role,
+                    status: 'invited',
+                    invited_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            // 2. Generovať invitation token
+            const token = this.generateToken();
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7); // 7 dní platnosť
+            
+            const { error: tokenError } = await Database.client
+                .from('invitation_tokens')
+                .insert({
+                    team_member_id: member.id,
+                    token: token,
+                    expires_at: expiresAt.toISOString()
+                });
+            
+            if (tokenError) throw tokenError;
+            
+            // 3. Odoslať email
+            const inviteUrl = `${this.getBaseUrl()}/invite.html?token=${token}`;
+            const roleInfo = this.getRoleInfo(role);
+            
+            let emailSent = false;
+            try {
+                await this.sendInviteEmail({
+                    to: email,
+                    toName: `${firstName} ${lastName}`,
+                    firstName,
+                    role: roleInfo.label,
+                    inviteUrl,
+                    expiresAt
+                });
+                emailSent = true;
+            } catch (emailError) {
+                console.error('Email error:', emailError);
+                // Email zlyhalo, ale člen bol vytvorený - ukážeme link
+            }
+            
+            document.querySelector('.modal-overlay').remove();
+            await this.loadData();
+            document.getElementById('team-content').innerHTML = this.renderTabContent();
+            
+            if (emailSent) {
+                Utils.toast(`Pozvánka odoslaná na ${email}! ✉️`, 'success');
+            } else {
+                // Ukáž modal s linkom
+                this.showInviteLinkModal(inviteUrl, email);
+            }
+            
+        } catch (error) {
+            console.error('Error sending invite:', error);
+            Utils.toast('Chyba: ' + error.message, 'error');
+        }
+    },
+    
+    showInviteLinkModal(inviteUrl, email) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <span class="modal-icon">${Icons.alertTriangle}</span>
+                        <div>
+                            <h2>Email sa nepodarilo odoslať</h2>
+                            <p class="modal-subtitle">Člen bol vytvorený, pošlite link manuálne</p>
+                        </div>
+                    </div>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 1rem;">Skopírujte tento link a pošlite ho na <strong>${email}</strong>:</p>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="invite-link-input" value="${inviteUrl}" readonly 
+                               style="flex: 1; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem;">
+                        <button onclick="navigator.clipboard.writeText('${inviteUrl}'); Utils.toast('Link skopírovaný!', 'success');" 
+                                class="btn-primary" style="white-space: nowrap;">
+                            ${Icons.clipboard} Kopírovať
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zavrieť</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    async sendInviteEmail({ to, toName, firstName, role, inviteUrl, expiresAt }) {
+        const session = await Database.client.auth.getSession();
+        const token = session?.data?.session?.access_token || '';
+        
+        const htmlBody = `
+            <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">A</div>
+                    <h1 style="margin: 20px 0 10px; color: #1e1e2f; font-size: 24px;">Pozvánka do tímu Adlify</h1>
+                </div>
+                
+                <div style="background: #f8fafc; border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                        Ahoj <strong>${firstName}</strong>,
+                    </p>
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                        Bol/a si pozvaný/á do tímu <strong>Adlify</strong> s rolou <strong>${role}</strong>.
+                    </p>
+                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0;">
+                        Klikni na tlačidlo nižšie pre vytvorenie účtu a pripojenie sa k tímu.
+                    </p>
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px;">
+                        Prijať pozvánku
+                    </a>
+                </div>
+                
+                <div style="text-align: center; color: #94a3b8; font-size: 14px;">
+                    <p style="margin: 0 0 10px;">Pozvánka je platná do ${new Date(expiresAt).toLocaleDateString('sk-SK')}</p>
+                    <p style="margin: 0; font-size: 12px;">Ak si túto pozvánku nečakal/a, môžeš tento email ignorovať.</p>
+                </div>
+            </div>
+        `;
+        
+        const emailUrl = this.getSendEmailUrl();
+        console.log('Sending invite email to:', to, 'via:', emailUrl);
+        
+        try {
+            const response = await fetch(emailUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    to,
+                    toName,
+                    subject: 'Pozvánka do tímu Adlify',
+                    htmlBody,
+                    textBody: `Ahoj ${firstName}, bol/a si pozvaný/á do tímu Adlify s rolou ${role}. Prijmi pozvánku tu: ${inviteUrl}`
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Email API error:', response.status, errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log('Email result:', result);
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Nepodarilo sa odoslať email');
+            }
+        } catch (fetchError) {
+            console.error('Fetch error:', fetchError);
+            // Ak zlyhá email, aspoň informujeme že člen bol vytvorený
+            throw new Error(`Email sa nepodarilo odoslať: ${fetchError.message}. Člen bol vytvorený, môžete skopírovať link manuálne.`);
+        }
+    },
+
+    async resendInvite(memberId) {
+        const member = this.members.find(m => m.id === memberId);
+        if (!member || member.status !== 'invited') return;
+        
+        Utils.toast('Odosielam pozvánku...', 'info');
+        
+        try {
+            // Zmazať starý token
+            await Database.client
+                .from('invitation_tokens')
+                .delete()
+                .eq('team_member_id', memberId);
+            
+            // Generovať nový token
+            const token = this.generateToken();
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7);
+            
+            const { error: tokenError } = await Database.client
+                .from('invitation_tokens')
+                .insert({
+                    team_member_id: memberId,
+                    token: token,
+                    expires_at: expiresAt.toISOString()
+                });
+            
+            if (tokenError) throw tokenError;
+            
+            // Odoslať email
+            const inviteUrl = `${this.getBaseUrl()}/invite.html?token=${token}`;
+            const roleInfo = this.getRoleInfo(member.role);
+            
+            await this.sendInviteEmail({
+                to: member.email,
+                toName: `${member.first_name} ${member.last_name}`,
+                firstName: member.first_name,
+                role: roleInfo.label,
+                inviteUrl,
+                expiresAt
+            });
+            
+            // Aktualizovať invited_at
+            await Database.client
+                .from('team_members')
+                .update({ invited_at: new Date().toISOString() })
+                .eq('id', memberId);
+            
+            await this.loadData();
+            document.getElementById('team-content').innerHTML = this.renderTabContent();
+            
+            Utils.toast(`Pozvánka znovu odoslaná! ✉️`, 'success');
+            
+        } catch (error) {
+            console.error('Error resending invite:', error);
+            Utils.toast('Chyba: ' + error.message, 'error');
+        }
+    },
+
+    async editMember(memberId) {
+        const member = this.members.find(m => m.id === memberId);
+        if (!member) return;
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal team-modal">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <span class="modal-icon">${Icons.edit}</span>
+                        <div>
+                            <h2>Upraviť člena</h2>
+                            <p class="modal-subtitle">${member.first_name} ${member.last_name}</p>
+                        </div>
+                    </div>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                </div>
+                
+                <div class="modal-body">
+                    <form id="edit-form">
+                        <input type="hidden" name="id" value="${member.id}">
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Meno</label>
+                                <input type="text" name="first_name" value="${member.first_name || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Priezvisko</label>
+                                <input type="text" name="last_name" value="${member.last_name || ''}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" name="email" value="${member.email}" required>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Telefón</label>
+                                <input type="tel" name="phone" value="${member.phone || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label>Pozícia</label>
+                                <input type="text" name="position" value="${member.position || ''}">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Rola</label>
+                                <select name="role" ${member.role === 'owner' ? 'disabled' : ''}>
+                                    <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                    <option value="manager" ${member.role === 'manager' ? 'selected' : ''}>Manažér</option>
+                                    <option value="sales" ${member.role === 'sales' ? 'selected' : ''}>Obchodník</option>
+                                    <option value="support" ${member.role === 'support' ? 'selected' : ''}>Podpora</option>
+                                    ${member.role === 'owner' ? '<option value="owner" selected>Vlastník</option>' : ''}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select name="status">
+                                    <option value="active" ${member.status === 'active' ? 'selected' : ''}>Aktívny</option>
+                                    <option value="inactive" ${member.status === 'inactive' ? 'selected' : ''}>Neaktívny</option>
+                                    <option value="invited" ${member.status === 'invited' ? 'selected' : ''}>Pozvaný</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
+                    <button class="btn-primary" onclick="TeamModule.saveMember()">
+                        Uložiť zmeny
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    },
+
+    async saveMember() {
+        const form = document.getElementById('edit-form');
+        const formData = new FormData(form);
+        const id = formData.get('id');
+        
+        try {
+            const { error } = await Database.client
+                .from('team_members')
+                .update({
+                    first_name: formData.get('first_name'),
+                    last_name: formData.get('last_name'),
+                    email: formData.get('email'),
+                    phone: formData.get('phone') || null,
+                    position: formData.get('position') || null,
+                    role: formData.get('role'),
+                    status: formData.get('status')
+                })
+                .eq('id', id);
+            
+            if (error) throw error;
+            
+            document.querySelector('.modal-overlay').remove();
+            await this.loadData();
+            document.getElementById('team-content').innerHTML = this.renderTabContent();
+            
+        } catch (error) {
+            console.error('Error saving member:', error);
+            alert('Chyba pri ukladaní: ' + error.message);
+        }
+    },
+
+    async deleteMember(memberId) {
+        const member = this.members.find(m => m.id === memberId);
+        if (!member) return;
+        
+        if (member.role === 'owner') {
+            alert('Vlastníka nie je možné odstrániť');
+            return;
+        }
+        
+        if (!confirm(`Naozaj chcete odstrániť ${member.first_name} ${member.last_name}?`)) {
+            return;
+        }
+        
+        try {
+            const { error } = await Database.client
+                .from('team_members')
+                .delete()
+                .eq('id', memberId);
+            
+            if (error) throw error;
+            
+            await this.loadData();
+            document.getElementById('team-content').innerHTML = this.renderTabContent();
+            
+        } catch (error) {
+            console.error('Error deleting member:', error);
+            alert('Chyba pri mazaní: ' + error.message);
+        }
+    },
+
+    renderStyles() {
+        return `
+            <style>
+                .team-module {
+                    max-width: 1400px;
+                    margin: 0 auto;
+                }
+                
+                /* Header */
+                .team-header {
+                    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+                    border-radius: 16px;
+                    padding: 2rem;
+                    margin-bottom: 1.5rem;
+                    color: white;
+                }
+                
+                .header-content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                
+                .header-title h1 {
+                    margin: 0;
+                    font-size: 1.75rem;
+                    font-weight: 700;
+                }
+                
+                .header-subtitle {
+                    margin: 0.25rem 0 0;
+                    opacity: 0.9;
+                }
+                
+                .btn-invite {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1.5rem;
+                    background: rgba(255,255,255,0.2);
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .btn-invite:hover {
+                    background: rgba(255,255,255,0.3);
+                    transform: translateY(-1px);
+                }
+                
+                /* Stats */
+                .team-stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 1rem;
+                    margin-bottom: 1.5rem;
+                }
+                
+                @media (max-width: 1000px) {
+                    .team-stats-grid { grid-template-columns: repeat(2, 1fr); }
+                }
+                
+                .stat-card {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 1.25rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+                    border: 1px solid #f1f5f9;
+                }
+                
+                .stat-icon {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                .stat-icon.green { background: #dcfce7; color: #16a34a; }
+                .stat-icon.orange { background: #ffedd5; color: #ea580c; }
+                .stat-icon.purple { background: #f3e8ff; color: #9333ea; }
+                .stat-icon.blue { background: #dbeafe; color: #2563eb; }
+                
+                .stat-value {
+                    display: block;
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    color: #0f172a;
+                }
+                
+                .stat-label {
+                    display: block;
+                    font-size: 0.85rem;
+                    color: #64748b;
+                }
+                
+                /* Tabs */
+                .team-tabs-container {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 0.5rem;
+                    margin-bottom: 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+                    border: 1px solid #f1f5f9;
+                }
+                
+                .team-tabs {
+                    display: flex;
+                    gap: 0.5rem;
+                }
+                
+                .team-tabs .tab-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.875rem 1.25rem;
+                    border: none;
+                    background: transparent;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    color: #64748b;
+                    transition: all 0.2s;
+                }
+                
+                .team-tabs .tab-btn:hover {
+                    background: #f8fafc;
+                    color: #334155;
+                }
+                
+                .team-tabs .tab-btn.active {
+                    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                    color: white;
+                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+                }
+                
+                .tab-count {
+                    background: rgba(255,255,255,0.2);
+                    padding: 0.15rem 0.5rem;
+                    border-radius: 20px;
+                    font-size: 0.75rem;
+                }
+                
+                .tab-btn:not(.active) .tab-count {
+                    background: #f1f5f9;
+                }
+                
+                /* Content */
+                .team-content {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 1.5rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+                    border: 1px solid #f1f5f9;
+                }
+                
+                /* Members Grid */
+                .members-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                    gap: 1rem;
+                }
+                
+                .member-card {
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 16px;
+                    overflow: hidden;
+                    transition: all 0.2s;
+                }
+                
+                .member-card:hover {
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                    transform: translateY(-2px);
+                }
+                
+                .member-header {
+                    position: relative;
+                    padding: 1.5rem;
+                    display: flex;
+                    justify-content: center;
+                }
+                
+                .member-avatar {
+                    width: 72px;
+                    height: 72px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                    color: white;
+                    border: 3px solid white;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                }
+                
+                .member-avatar img {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 50%;
+                    object-fit: cover;
+                }
+                
+                .member-status {
+                    position: absolute;
+                    top: 1.5rem;
+                    right: 1.5rem;
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 50%;
+                    border: 2px solid white;
+                }
+                
+                .member-status.status-active { background: #22c55e; }
+                .member-status.status-invited { background: #f59e0b; }
+                .member-status.status-inactive { background: #94a3b8; }
+                
+                .member-body {
+                    padding: 0 1.5rem 1rem;
+                    text-align: center;
+                }
+                
+                .member-name {
+                    margin: 0 0 0.25rem;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    color: #0f172a;
+                }
+                
+                .member-position {
+                    margin: 0 0 0.75rem;
+                    font-size: 0.85rem;
+                    color: #64748b;
+                }
+                
+                .member-role-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 20px;
+                    font-size: 0.8rem;
+                    font-weight: 500;
+                }
+                
+                .member-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1rem 1.5rem;
+                    background: white;
+                    border-top: 1px solid #e2e8f0;
+                }
+                
+                .member-meta {
+                    font-size: 0.8rem;
+                    color: #94a3b8;
+                }
+                
+                .member-actions {
+                    display: flex;
+                    gap: 0.25rem;
+                }
+                
+                .btn-icon {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: transparent;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    color: #64748b;
+                    transition: all 0.15s;
+                }
+                
+                .btn-icon:hover {
+                    background: #e2e8f0;
+                    color: #334155;
+                }
+                
+                .btn-icon.btn-danger:hover {
+                    background: #fee2e2;
+                    color: #dc2626;
+                }
+                
+                .btn-icon.btn-resend {
+                    color: #f59e0b;
+                }
+                
+                .btn-icon.btn-resend:hover {
+                    background: #fef3c7;
+                    color: #d97706;
+                }
+                
+                .btn-icon.btn-permissions {
+                    color: #6366f1;
+                }
+                
+                .btn-icon.btn-permissions:hover {
+                    background: #eef2ff;
+                    color: #4f46e5;
+                }
+                
+                /* Roles Tab */
+                .roles-section {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 2rem;
+                }
+                
+                .roles-cards {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                    gap: 1rem;
+                }
+                
+                .role-card {
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    padding: 1rem;
+                }
+                
+                .role-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                }
+                
+                .role-icon {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.5rem;
+                }
+                
+                .role-info {
+                    flex: 1;
+                }
+                
+                .role-info h3 {
+                    margin: 0 0 0.25rem;
+                    font-size: 1rem;
+                }
+                
+                .role-info p {
+                    margin: 0;
+                    font-size: 0.8rem;
+                    color: #64748b;
+                }
+                
+                .role-count {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: white;
+                    border-radius: 50%;
+                    font-weight: 600;
+                    font-size: 0.9rem;
+                    color: #6366f1;
+                }
+                
+                /* Permissions Matrix */
+                .permissions-matrix h3 {
+                    margin: 0 0 1rem;
+                    font-size: 1.1rem;
+                }
+                
+                .matrix-table-wrapper {
+                    overflow-x: auto;
+                }
+                
+                .matrix-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                
+                .matrix-table th,
+                .matrix-table td {
+                    padding: 0.75rem;
+                    text-align: center;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                
+                .matrix-table th {
+                    background: #f8fafc;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                }
+                
+                .matrix-table .module-name {
+                    text-align: left;
+                    font-weight: 500;
+                }
+                
+                .perm-badge {
+                    display: inline-block;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 6px;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                }
+                
+                .perm-badge.full { background: #dcfce7; color: #16a34a; }
+                .perm-badge.partial { background: #fef3c7; color: #b45309; }
+                .perm-badge.view { background: #dbeafe; color: #2563eb; }
+                .perm-badge.none { color: #cbd5e1; }
+                
+                /* Activity Tab */
+                .activity-list {
+                    display: flex;
+                    flex-direction: column;
+                }
+                
+                .activity-item {
+                    display: flex;
+                    gap: 1rem;
+                    padding: 1rem 0;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+                
+                .activity-item:last-child {
+                    border-bottom: none;
+                }
+                
+                .activity-icon {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 10px;
+                    background: #f1f5f9;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.1rem;
+                    flex-shrink: 0;
+                }
+                
+                .activity-icon.action-create { background: #dcfce7; }
+                .activity-icon.action-update { background: #dbeafe; }
+                .activity-icon.action-delete { background: #fee2e2; }
+                .activity-icon.action-login { background: #f3e8ff; }
+                
+                .activity-content {
+                    flex: 1;
+                }
+                
+                .activity-text {
+                    margin: 0 0 0.25rem;
+                    font-size: 0.9rem;
+                }
+                
+                .activity-time {
+                    font-size: 0.8rem;
+                    color: #94a3b8;
+                }
+                
+                /* Empty State */
+                .empty-state {
+                    text-align: center;
+                    padding: 4rem 2rem;
+                }
+                
+                .empty-icon {
+                    font-size: 4rem;
+                    margin-bottom: 1rem;
+                    opacity: 0.5;
+                }
+                
+                .empty-state h3 {
+                    margin: 0 0 0.5rem;
+                }
+                
+                .empty-state p {
+                    color: #64748b;
+                    margin-bottom: 1.5rem;
+                }
+                
+                /* Modal */
+                .modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(15, 23, 42, 0.6);
+                    backdrop-filter: blur(4px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                    padding: 1rem;
+                }
+                
+                .modal {
+                    background: white;
+                    border-radius: 16px;
+                    width: 100%;
+                    max-width: 600px;
+                    max-height: 90vh;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+                    animation: modalSlideIn 0.3s ease;
+                }
+                
+                @keyframes modalSlideIn {
+                    from { opacity: 0; transform: scale(0.95) translateY(-20px); }
+                    to { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    padding: 1.5rem;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                
+                .modal-title {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 1rem;
+                }
+                
+                .modal-icon {
+                    font-size: 2rem;
+                }
+                
+                .modal-title h2 {
+                    margin: 0;
+                    font-size: 1.25rem;
+                }
+                
+                .modal-subtitle {
+                    margin: 0.25rem 0 0;
+                    color: #64748b;
+                    font-size: 0.9rem;
+                }
+                
+                .modal-close {
+                    width: 36px;
+                    height: 36px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #f1f5f9;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 1.5rem;
+                    color: #64748b;
+                    cursor: pointer;
+                }
+                
+                .modal-close:hover {
+                    background: #e2e8f0;
+                }
+                
+                .modal-body {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 1.5rem;
+                }
+                
+                .modal-footer {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 0.75rem;
+                    padding: 1rem 1.5rem;
+                    border-top: 1px solid #e2e8f0;
+                    background: #f8fafc;
+                }
+                
+                /* Form */
+                .form-group {
+                    margin-bottom: 1rem;
+                }
+                
+                .form-group label {
+                    display: block;
+                    margin-bottom: 0.5rem;
+                    font-weight: 500;
+                    font-size: 0.9rem;
+                    color: #334155;
+                }
+                
+                .form-group input,
+                .form-group select {
+                    width: 100%;
+                    padding: 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    font-size: 0.9rem;
+                }
+                
+                .form-group input:focus,
+                .form-group select:focus {
+                    outline: none;
+                    border-color: #6366f1;
+                    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+                }
+                
+                .form-row {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1rem;
+                }
+                
+                .required { color: #ef4444; }
+                
+                /* Role Selector */
+                .role-selector {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 0.75rem;
+                }
+                
+                .role-option {
+                    cursor: pointer;
+                }
+                
+                .role-option input {
+                    display: none;
+                }
+                
+                .role-box {
+                    padding: 1rem;
+                    border: 2px solid #e2e8f0;
+                    border-radius: 12px;
+                    text-align: center;
+                    transition: all 0.2s;
+                }
+                
+                .role-option input:checked + .role-box {
+                    border-color: #6366f1;
+                    background: #f5f3ff;
+                }
+                
+                .role-box:hover {
+                    border-color: #a5b4fc;
+                }
+                
+                .role-box .role-icon {
+                    display: block;
+                    font-size: 1.5rem;
+                    margin-bottom: 0.25rem;
+                }
+                
+                .role-box .role-name {
+                    display: block;
+                    font-weight: 600;
+                    color: #0f172a;
+                }
+                
+                .role-box .role-desc {
+                    display: block;
+                    font-size: 0.75rem;
+                    color: #64748b;
+                }
+                
+                /* Buttons */
+                .btn-primary {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1.5rem;
+                    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .btn-primary:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+                }
+                
+                .btn-secondary {
+                    padding: 0.75rem 1.5rem;
+                    background: white;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
+                    border-radius: 8px;
+                    font-weight: 500;
+                    cursor: pointer;
+                }
+                
+                .btn-secondary:hover {
+                    background: #f8fafc;
+                }
+            </style>
+        `;
+    },
+
+    // ===================================================
+    // CUSTOM PERMISSIONS
+    // ===================================================
+    
+    async editPermissions(memberId) {
+        const member = this.members.find(m => m.id === memberId);
+        if (!member) return;
+        
+        // Definícia modulov a akcií
+        const modules = [
+            { id: 'dashboard', name: 'Dashboard', icon: Icons.dashboard },
+            { id: 'leads', name: 'Leady', icon: Icons.target },
+            { id: 'clients', name: 'Klienti', icon: Icons.users },
+            { id: 'projects', name: 'Projekty', icon: Icons.projects },
+            { id: 'messages', name: 'Správy', icon: Icons.messageCircle },
+            { id: 'billing', name: 'Fakturácia', icon: Icons.billing },
+            { id: 'tasks', name: 'Úlohy', icon: Icons.checkCircle },
+            { id: 'team', name: 'Tím', icon: Icons.user },
+            { id: 'settings', name: 'Nastavenia', icon: Icons.settings },
+            { id: 'integrations', name: 'Integrácie', icon: Icons.integrations }
+        ];
+        
+        const actions = [
+            { id: 'view', name: 'Zobraziť' },
+            { id: 'create', name: 'Vytvoriť' },
+            { id: 'edit', name: 'Upraviť' },
+            { id: 'delete', name: 'Zmazať' }
+        ];
+        
+        // Aktuálne custom permissions alebo prázdne
+        const customPerms = member.custom_permissions || {};
+        
+        // Defaultné permissions podľa role
+        const roleDefaults = this.getRoleDefaults(member.role);
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal permissions-modal">
+                <div class="modal-header">
+                    <div class="modal-title">
+                        <span class="modal-icon">🔐</span>
+                        <div>
+                            <h2>Oprávnenia</h2>
+                            <p class="modal-subtitle">${member.first_name} ${member.last_name} (${this.getRoleName(member.role)})</p>
+                        </div>
+                    </div>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="permissions-info">
+                        <span class="info-icon">ℹ️</span>
+                        <span>Zaškrtnuté = povolené. Nezaškrtnuté = zakázané. Šedé = podľa role.</span>
+                    </div>
+                    
+                    <div class="permissions-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="use-custom-perms" ${Object.keys(customPerms).length > 0 ? 'checked' : ''} onchange="TeamModule.toggleCustomPermissions()">
+                            <span>Použiť vlastné oprávnenia (inak platia podľa role)</span>
+                        </label>
+                    </div>
+                    
+                    <input type="hidden" id="perm-member-id" value="${member.id}">
+                    
+                    <div class="permissions-table-wrapper" id="permissions-wrapper" style="${Object.keys(customPerms).length > 0 ? '' : 'opacity: 0.5; pointer-events: none;'}">
+                        <table class="permissions-table">
+                            <thead>
+                                <tr>
+                                    <th>Modul</th>
+                                    ${actions.map(a => `<th>${a.name}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${modules.map(mod => `
+                                    <tr>
+                                        <td class="module-cell">
+                                            <span class="module-icon">${mod.icon}</span>
+                                            <span>${mod.name}</span>
+                                        </td>
+                                        ${actions.map(act => {
+                                            const customVal = customPerms[mod.id]?.[act.id];
+                                            const defaultVal = roleDefaults[mod.id]?.[act.id] || false;
+                                            const isChecked = customVal !== undefined ? customVal : defaultVal;
+                                            return `
+                                                <td class="action-cell">
+                                                    <input type="checkbox" 
+                                                        class="perm-checkbox"
+                                                        data-module="${mod.id}" 
+                                                        data-action="${act.id}"
+                                                        ${isChecked ? 'checked' : ''}>
+                                                </td>
+                                            `;
+                                        }).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="TeamModule.resetToRoleDefaults('${member.id}')">
+                        Resetovať na defaultné
+                    </button>
+                    <div class="footer-right">
+                        <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
+                        <button class="btn-primary" onclick="TeamModule.savePermissions()">
+                            Uložiť oprávnenia
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <style>
+                .permissions-modal {
+                    max-width: 800px;
+                    width: 95%;
+                }
+                
+                .permissions-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px 16px;
+                    background: #f0f9ff;
+                    border-radius: 8px;
+                    color: #0369a1;
+                    font-size: 14px;
+                    margin-bottom: 16px;
+                }
+                
+                .permissions-toggle {
+                    margin-bottom: 20px;
+                }
+                
+                .toggle-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    cursor: pointer;
+                    font-weight: 500;
+                }
+                
+                .toggle-label input {
+                    width: 18px;
+                    height: 18px;
+                    cursor: pointer;
+                }
+                
+                .permissions-table-wrapper {
+                    overflow-x: auto;
+                    transition: opacity 0.3s;
+                }
+                
+                .permissions-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 14px;
+                }
+                
+                .permissions-table th {
+                    text-align: center;
+                    padding: 12px 8px;
+                    background: #f8fafc;
+                    border-bottom: 2px solid #e2e8f0;
+                    font-weight: 600;
+                    color: #475569;
+                }
+                
+                .permissions-table th:first-child {
+                    text-align: left;
+                    padding-left: 16px;
+                }
+                
+                .permissions-table td {
+                    padding: 10px 8px;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+                
+                .module-cell {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding-left: 16px !important;
+                    font-weight: 500;
+                }
+                
+                .module-icon {
+                    font-size: 18px;
+                }
+                
+                .action-cell {
+                    text-align: center;
+                }
+                
+                .perm-checkbox {
+                    width: 20px;
+                    height: 20px;
+                    cursor: pointer;
+                    accent-color: #6366f1;
+                }
+                
+                .permissions-table tr:hover {
+                    background: #fafafa;
+                }
+                
+                .modal-footer {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                
+                .footer-right {
+                    display: flex;
+                    gap: 12px;
+                }
+            </style>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    },
+    
+    toggleCustomPermissions() {
+        const checkbox = document.getElementById('use-custom-perms');
+        const wrapper = document.getElementById('permissions-wrapper');
+        
+        if (checkbox.checked) {
+            wrapper.style.opacity = '1';
+            wrapper.style.pointerEvents = 'auto';
+        } else {
+            wrapper.style.opacity = '0.5';
+            wrapper.style.pointerEvents = 'none';
+        }
+    },
+    
+    getRoleDefaults(role) {
+        const defaults = {
+            admin: {
+                dashboard: { view: true, create: true, edit: true, delete: true },
+                leads: { view: true, create: true, edit: true, delete: true },
+                clients: { view: true, create: true, edit: true, delete: true },
+                projects: { view: true, create: true, edit: true, delete: true },
+                messages: { view: true, create: true, edit: true, delete: true },
+                billing: { view: true, create: true, edit: true, delete: true },
+                tasks: { view: true, create: true, edit: true, delete: true },
+                team: { view: true, create: true, edit: true, delete: false },
+                settings: { view: true, create: true, edit: true, delete: false },
+                integrations: { view: true, create: true, edit: true, delete: true }
+            },
+            manager: {
+                dashboard: { view: true, create: false, edit: false, delete: false },
+                leads: { view: true, create: true, edit: true, delete: true },
+                clients: { view: true, create: true, edit: true, delete: false },
+                projects: { view: true, create: true, edit: true, delete: false },
+                messages: { view: true, create: true, edit: true, delete: true },
+                billing: { view: true, create: false, edit: false, delete: false },
+                tasks: { view: true, create: true, edit: true, delete: true },
+                team: { view: true, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false },
+                integrations: { view: false, create: false, edit: false, delete: false }
+            },
+            sales: {
+                dashboard: { view: true, create: false, edit: false, delete: false },
+                leads: { view: true, create: true, edit: true, delete: false },
+                clients: { view: true, create: false, edit: false, delete: false },
+                projects: { view: true, create: false, edit: false, delete: false },
+                messages: { view: true, create: true, edit: true, delete: false },
+                billing: { view: true, create: false, edit: false, delete: false },
+                tasks: { view: true, create: true, edit: true, delete: false },
+                team: { view: true, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false },
+                integrations: { view: false, create: false, edit: false, delete: false }
+            },
+            support: {
+                dashboard: { view: true, create: false, edit: false, delete: false },
+                leads: { view: true, create: false, edit: false, delete: false },
+                clients: { view: true, create: false, edit: false, delete: false },
+                projects: { view: true, create: false, edit: false, delete: false },
+                messages: { view: true, create: true, edit: true, delete: false },
+                billing: { view: false, create: false, edit: false, delete: false },
+                tasks: { view: true, create: true, edit: true, delete: false },
+                team: { view: true, create: false, edit: false, delete: false },
+                settings: { view: false, create: false, edit: false, delete: false },
+                integrations: { view: false, create: false, edit: false, delete: false }
+            }
+        };
+        
+        return defaults[role] || defaults.support;
+    },
+    
+    getRoleName(role) {
+        const names = {
+            owner: 'Vlastník',
+            admin: 'Admin',
+            manager: 'Manažér',
+            sales: 'Obchodník',
+            support: 'Podpora'
+        };
+        return names[role] || role;
+    },
+    
+    async savePermissions() {
+        const memberId = document.getElementById('perm-member-id').value;
+        const useCustom = document.getElementById('use-custom-perms').checked;
+        
+        let customPermissions = null;
+        
+        if (useCustom) {
+            customPermissions = {};
+            const checkboxes = document.querySelectorAll('.perm-checkbox');
+            
+            checkboxes.forEach(cb => {
+                const module = cb.dataset.module;
+                const action = cb.dataset.action;
+                
+                if (!customPermissions[module]) {
+                    customPermissions[module] = {};
+                }
+                customPermissions[module][action] = cb.checked;
+            });
+        }
+        
+        try {
+            const { error } = await Database.client
+                .from('team_members')
+                .update({ custom_permissions: customPermissions })
+                .eq('id', memberId);
+            
+            if (error) throw error;
+            
+            // Zavrieť modal
+            document.querySelector('.modal-overlay').remove();
+            
+            // Reload members
+            await this.loadMembers();
+            this.renderMembersTab();
+            
+            Utils.showNotification('Oprávnenia boli uložené', 'success');
+            
+        } catch (error) {
+            console.error('Save permissions error:', error);
+            Utils.showNotification('Chyba pri ukladaní oprávnení', 'error');
+        }
+    },
+    
+    async resetToRoleDefaults(memberId) {
+        if (!confirm('Naozaj chceš resetovať oprávnenia na defaultné podľa role?')) return;
+        
+        try {
+            const { error } = await Database.client
+                .from('team_members')
+                .update({ custom_permissions: null })
+                .eq('id', memberId);
+            
+            if (error) throw error;
+            
+            document.querySelector('.modal-overlay').remove();
+            await this.loadMembers();
+            this.renderMembersTab();
+            
+            Utils.showNotification('Oprávnenia resetované', 'success');
+            
+        } catch (error) {
+            console.error('Reset permissions error:', error);
+            Utils.showNotification('Chyba pri resetovaní', 'error');
+        }
+    }
+};
+
+// Export pre globálny prístup
+window.TeamModule = TeamModule;

@@ -1,0 +1,49 @@
+# Admin redirecty
+[[redirects]]
+  from = "/"
+  to = "/admin/index.html"
+  status = 200
+[[redirects]]
+  from = "/admin"
+  to = "/admin/index.html"
+  status = 200
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
+# Portal - špecifické stránky (MUSIA byť PRED wildcardom!)
+[[redirects]]
+  from = "/portal/login.html"
+  to = "/portal/login.html"
+  status = 200
+[[redirects]]
+  from = "/portal/register.html"
+  to = "/portal/register.html"
+  status = 200
+[[redirects]]
+  from = "/portal/onboarding.html"
+  to = "/portal/onboarding.html"
+  status = 200
+[[redirects]]
+  from = "/portal/proposal.html"
+  to = "/portal/proposal.html"
+  status = 200
+
+# Portal - SPA fallback pre dashboard
+[[redirects]]
+  from = "/portal"
+  to = "/portal/index.html"
+  status = 200
+[[redirects]]
+  from = "/portal/"
+  to = "/portal/index.html"
+  status = 200
+
+# Funkcie
+[functions]
+  directory = "netlify/functions"
+
+# Plugin pre inštaláciu dependencies vo functions
+[[plugins]]
+  package = "@netlify/plugin-functions-install-core"

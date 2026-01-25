@@ -1,0 +1,813 @@
+/**
+ * Adlify - Package Calculator Styles v2.1
+ * S celkovou sumou pri viacmesačných platbách
+ */
+
+/* ============================================
+   CSS Variables
+   ============================================ */
+:root {
+    --pkg-starter: #3B82F6;
+    --pkg-pro-start: #F97316;
+    --pkg-pro-end: #EC4899;
+    --pkg-enterprise: #8B5CF6;
+    --pkg-premium: #F59E0B;
+}
+
+/* ============================================
+   Package Calculator Container
+   ============================================ */
+.package-calculator {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.package-calculator__header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.package-calculator__title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.package-calculator__subtitle {
+    font-size: 16px;
+    color: #64748b;
+    margin: 0;
+}
+
+/* ============================================
+   Billing Toggle
+   ============================================ */
+.package-calculator__toggle {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: 6px;
+    background: #f1f5f9;
+    border-radius: 50px;
+    margin: 0 auto 16px;
+    width: fit-content;
+}
+
+.package-toggle__btn {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.package-toggle__btn:hover {
+    color: #1e293b;
+}
+
+.package-toggle__btn--active {
+    background: white;
+    color: #1e293b;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.package-toggle__badge {
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* ============================================
+   Billing Info Banner
+   ============================================ */
+.package-calculator__billing-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #6ee7b7;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: #065f46;
+}
+
+.package-calculator__billing-info-icon {
+    font-size: 20px;
+}
+
+/* ============================================
+   Package Grid
+   ============================================ */
+.package-calculator__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 48px;
+}
+
+/* ============================================
+   Package Card - Base
+   ============================================ */
+.package-card {
+    position: relative;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+.package-card:hover {
+    border-color: var(--package-color, #e2e8f0);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+}
+
+.package-card--selected {
+    border-color: var(--package-color);
+    box-shadow: 0 0 0 4px rgba(var(--package-color), 0.15);
+}
+
+/* Pro card - tmavé pozadie */
+.package-card--popular {
+    background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
+    border-color: transparent;
+    color: white;
+}
+
+.package-card--popular .package-card__description,
+.package-card--popular .package-card__feature,
+.package-card--popular .package-card__period {
+    color: rgba(255,255,255,0.7);
+}
+
+.package-card--popular .package-card__feature-check {
+    color: #F97316;
+}
+
+/* Premium card */
+.package-card--premium {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+    border-color: #F59E0B;
+}
+
+/* ============================================
+   Package Card - Badge
+   ============================================ */
+.package-card__badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 16px;
+    background: linear-gradient(135deg, #F97316, #EC4899);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.package-card__badge--subtle {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.package-card--premium .package-card__badge {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+}
+
+/* ============================================
+   Package Card - Header
+   ============================================ */
+.package-card__header {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.package-card__icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.package-card__name {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--package-color);
+    margin: 0;
+}
+
+.package-card--popular .package-card__name {
+    background: linear-gradient(135deg, #F97316, #EC4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.package-card--premium .package-card__name {
+    color: #F59E0B;
+}
+
+/* ============================================
+   Package Card - Price
+   ============================================ */
+.package-card__price {
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.package-card__price-from {
+    font-size: 16px;
+    color: #64748b;
+}
+
+.package-card--popular .package-card__price-from {
+    color: rgba(255,255,255,0.7);
+}
+
+.package-card__amount {
+    font-size: 48px;
+    font-weight: 800;
+    color: #1e293b;
+    line-height: 1;
+}
+
+.package-card--popular .package-card__amount {
+    color: white;
+}
+
+.package-card__period {
+    font-size: 16px;
+    color: #64748b;
+}
+
+.package-card__original-price {
+    text-align: center;
+    font-size: 14px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.package-card--popular .package-card__original-price {
+    color: rgba(255,255,255,0.5);
+}
+
+/* ============================================
+   Package Card - Total (NEW)
+   ============================================ */
+.package-card__total {
+    text-align: center;
+    padding: 12px;
+    margin: 8px 0 16px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 1px solid #86efac;
+    border-radius: 12px;
+}
+
+.package-card--popular .package-card__total {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.package-card__total-amount {
+    font-size: 14px;
+    color: #166534;
+}
+
+.package-card--popular .package-card__total-amount {
+    color: #6ee7b7;
+}
+
+.package-card__total-amount strong {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.package-card__savings {
+    font-size: 13px;
+    font-weight: 600;
+    color: #15803d;
+    margin-top: 4px;
+}
+
+.package-card--popular .package-card__savings {
+    color: #34d399;
+}
+
+/* ============================================
+   Package Card - Description
+   ============================================ */
+.package-card__description {
+    text-align: center;
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+/* ============================================
+   Package Card - Features
+   ============================================ */
+.package-card__features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 24px;
+    flex: 1;
+}
+
+.package-card__feature {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    font-size: 14px;
+    color: #475569;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.package-card--popular .package-card__feature {
+    border-bottom-color: rgba(255,255,255,0.1);
+}
+
+.package-card__feature:last-child {
+    border-bottom: none;
+}
+
+.package-card__feature-check {
+    color: #10b981;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   Package Card - Button
+   ============================================ */
+.package-card__btn {
+    width: 100%;
+    padding: 16px;
+    background: transparent;
+    border: 2px solid var(--package-color, #e2e8f0);
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--package-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.package-card__btn:hover {
+    background: var(--package-color);
+    color: white;
+}
+
+.package-card__btn--selected {
+    background: var(--package-color);
+    color: white;
+}
+
+/* Pro button - gradient */
+.package-card--popular .package-card__btn {
+    background: transparent;
+    border: 2px solid rgba(255,255,255,0.3);
+    color: white;
+}
+
+.package-card--popular .package-card__btn:hover,
+.package-card--popular .package-card__btn--selected {
+    background: linear-gradient(135deg, #F97316, #EC4899);
+    border-color: transparent;
+}
+
+/* Premium button */
+.package-card--premium .package-card__btn {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    border: none;
+    color: white;
+}
+
+.package-card--premium .package-card__btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+/* ============================================
+   Comparison Table
+   ============================================ */
+.package-comparison {
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 24px;
+}
+
+.package-comparison__title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 24px;
+    text-align: center;
+}
+
+.package-comparison__table-wrap {
+    overflow-x: auto;
+}
+
+.package-comparison__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.package-comparison__table th,
+.package-comparison__table td {
+    padding: 16px;
+    text-align: center;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.package-comparison__feature-header {
+    text-align: left !important;
+    font-weight: 600;
+    color: #64748b;
+    background: #f8fafc;
+    border-radius: 12px 0 0 0;
+}
+
+.package-comparison__pkg-header {
+    font-weight: 700;
+    font-size: 14px;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Individuálne farby pre hlavičky */
+.package-comparison__table th:nth-child(2) { background: var(--pkg-starter); }
+.package-comparison__table th:nth-child(3) { background: linear-gradient(135deg, #F97316, #EC4899); }
+.package-comparison__table th:nth-child(4) { background: var(--pkg-enterprise); }
+.package-comparison__table th:nth-child(5) { background: linear-gradient(135deg, #F59E0B, #D97706); border-radius: 0 12px 0 0; }
+
+.package-comparison__feature-name {
+    text-align: left !important;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.package-comparison__feature-value {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.package-comparison__price-row {
+    background: #f8fafc;
+}
+
+.package-comparison__price-row td {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.package-comparison__price-cell {
+    font-size: 16px !important;
+    color: #1e293b !important;
+}
+
+/* Total row (NEW) */
+.package-comparison__total-row {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.package-comparison__total-row td {
+    border-bottom: none;
+}
+
+.package-comparison__total-cell {
+    font-size: 16px !important;
+    color: #166534 !important;
+}
+
+.package-comparison__savings {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    background: #10b981;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+}
+
+/* ============================================
+   Note
+   ============================================ */
+.package-calculator__note {
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0;
+}
+
+/* ============================================
+   Upgrade Modal
+   ============================================ */
+.upgrade-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.upgrade-modal--visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.upgrade-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.upgrade-modal__content {
+    position: relative;
+    width: 90%;
+    max-width: 560px;
+    max-height: 90vh;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transform: scale(0.9) translateY(30px);
+    transition: all 0.3s ease;
+}
+
+.upgrade-modal--visible .upgrade-modal__content {
+    transform: scale(1) translateY(0);
+}
+
+.upgrade-modal__close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: #f1f5f9;
+    border-radius: 50%;
+    font-size: 24px;
+    color: #64748b;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.upgrade-modal__header {
+    padding: 32px 32px 24px;
+    text-align: center;
+    background: linear-gradient(135deg, #F97316 0%, #EC4899 100%);
+    color: white;
+}
+
+.upgrade-modal__icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.upgrade-modal__header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.upgrade-modal__body {
+    padding: 24px 32px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.upgrade-modal__reason {
+    font-size: 16px;
+    color: #475569;
+    text-align: center;
+    margin: 0 0 24px;
+    padding: 16px;
+    background: #fef3c7;
+    border-radius: 12px;
+}
+
+.upgrade-modal__comparison {
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.upgrade-modal__package {
+    flex: 1;
+    padding: 20px;
+    border-radius: 12px;
+    background: #f8fafc;
+    text-align: center;
+}
+
+.upgrade-modal__package--new {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border: 2px solid #6366f1;
+}
+
+.upgrade-modal__package-label {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #64748b;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.upgrade-modal__package--new .upgrade-modal__package-label {
+    background: linear-gradient(135deg, #F97316, #EC4899);
+}
+
+.upgrade-modal__package h3 {
+    font-size: 18px;
+    color: #1e293b;
+    margin: 0 0 8px;
+}
+
+.upgrade-modal__package-price {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.upgrade-modal__package-total {
+    font-size: 14px;
+    color: #64748b;
+    margin: 4px 0 0;
+}
+
+.upgrade-modal__arrow {
+    display: flex;
+    align-items: center;
+    font-size: 24px;
+    color: #F97316;
+}
+
+.upgrade-modal__benefits {
+    padding: 20px;
+    background: #ecfdf5;
+    border-radius: 12px;
+}
+
+.upgrade-modal__benefits h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 12px;
+}
+
+.upgrade-modal__benefits ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.upgrade-modal__benefits li {
+    font-size: 14px;
+    color: #059669;
+    padding: 4px 0;
+}
+
+.upgrade-modal__footer {
+    display: flex;
+    gap: 12px;
+    padding: 20px 32px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.upgrade-modal__btn {
+    flex: 1;
+    padding: 16px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.upgrade-modal__btn--secondary {
+    background: white;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.upgrade-modal__btn--primary {
+    background: linear-gradient(135deg, #F97316 0%, #EC4899 100%);
+    color: white;
+}
+
+.upgrade-modal__btn--primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 1200px) {
+    .package-calculator__grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .package-calculator__grid {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .package-calculator__toggle {
+        flex-wrap: wrap;
+    }
+    
+    .package-toggle__btn {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    
+    .package-comparison {
+        padding: 16px;
+    }
+    
+    .package-calculator__billing-info {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .upgrade-modal__comparison {
+        flex-direction: column;
+    }
+    
+    .upgrade-modal__arrow {
+        transform: rotate(90deg);
+        justify-content: center;
+        padding: 8px;
+    }
+    
+    .upgrade-modal__footer {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .package-calculator {
+        padding: 16px;
+    }
+    
+    .package-calculator__title {
+        font-size: 22px;
+    }
+    
+    .package-card {
+        padding: 24px 16px;
+    }
+    
+    .package-card__amount {
+        font-size: 40px;
+    }
+}
