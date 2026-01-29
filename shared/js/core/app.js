@@ -452,6 +452,75 @@ const App = {
       });
     }
     return this;
+  },
+  
+  /**
+   * Update sidebar badges
+   */
+  async updateBadges() {
+    try {
+      // Update deals badge
+      const { data: deals } = await Database.query('deals')
+        .select('id')
+        .not('stage', 'in', '("won","lost")');
+      
+      if (!deals) {
+        // Fallback to leads
+        const { data: leads } = await Database.query('leads')
+          .select('id')
+          .not('status', 'in', '("converted","lost")');
+        
+        const count = leads?.length || 0;
+        const badge = document.getElementById('badge-deals');
+        if (badge) {
+          badge.textContent = count;
+          badge.style.display = count > 0 ? '' : 'none';
+        }
+      } else {
+        const count = deals?.length || 0;
+        const badge = document.getElementById('badge-deals');
+        if (badge) {
+          badge.textContent = count;
+          badge.style.display = count > 0 ? '' : 'none';
+        }
+      }
+      
+      // Update chat badge
+      const { data: convs } = await Database.query('conversations')
+        .select('unread_count')
+        .gt('unread_count', 0);
+      
+      let unread = 0;
+      if (convs) {
+        unread = convs.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+      } else {
+        // Fallback to messages
+        const { data: messages } = await Database.query('messages')
+          .select('id')
+          .eq('read', false)
+          .eq('direction', 'incoming');
+        unread = messages?.length || 0;
+      }
+      
+      const chatBadge = document.getElementById('badge-chat');
+      if (chatBadge) {
+        chatBadge.textContent = unread;
+        chatBadge.style.display = unread > 0 ? '' : 'none';
+      }
+      
+    } catch (e) {
+      console.log('Badge update skipped:', e.message);
+    }
+  },
+  
+  /**
+   * Open global search
+   */
+  openSearch() {
+    // TODO: Implement global search modal
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast('Globálne vyhľadávanie - pripravujeme', 'info');
+    }
   }
 };
 

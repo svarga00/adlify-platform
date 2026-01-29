@@ -63,17 +63,35 @@ const Router = {
    * Handle route change
    */
   async handleRoute() {
-    const hash = window.location.hash.slice(1) || 'dashboard';
+    const hash = window.location.hash.slice(1) || 'desk';
     const [path, queryString] = hash.split('?');
     const params = new URLSearchParams(queryString || '');
     
     // Find matching route
     let module = this.routes.get(path);
     
-    // Try parent path
+    // Try parent path (for nested routes like crm/pipeline)
     if (!module) {
       const parentPath = path.split('/')[0];
       module = this.routes.get(parentPath);
+    }
+    
+    // Route aliases for backward compatibility
+    const routeAliases = {
+      'dashboard': 'desk',
+      'leads': 'crm',
+      'clients': 'crm',
+      'pipeline': 'crm',
+      'contacts': 'crm',
+      'companies': 'crm',
+      'engagements': 'crm',
+      'messages': 'chat',
+      'tickets': 'chat',
+      'inbox': 'chat'
+    };
+    
+    if (!module && routeAliases[path]) {
+      module = this.routes.get(routeAliases[path]);
     }
     
     if (!module) {
@@ -102,7 +120,7 @@ const Router = {
     // Render module
     try {
       if (this.container) {
-        this.container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
+        this.container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
       }
       
       await module.render(this.container, Object.fromEntries(params));
@@ -114,60 +132,62 @@ const Router = {
   },
   
   /**
-   * Update active menu item - supports new Icon Rail design
+   * Update active menu item - New sidebar design
    */
   updateActiveMenu(path) {
-    // Update sidebar items
-    document.querySelectorAll('.sidebar-item[data-route]').forEach(el => {
-      el.classList.remove('active');
-      if (el.dataset.route === path || path.startsWith(el.dataset.route + '/')) {
-        el.classList.add('active');
-      }
-    });
+    const basePath = path.split('/')[0];
+    const fullPath = path;
     
-    // Update rail items based on which category the route belongs to
-    const moduleCategories = {
-      'dashboard': 'dashboard',
+    // Route mapping to sidebar items
+    const routeToNav = {
+      'desk': 'desk',
+      'dashboard': 'desk',
+      'crm': 'crm',
       'leads': 'crm',
+      'pipeline': 'crm',
+      'contacts': 'crm',
+      'companies': 'crm',
+      'engagements': 'crm',
       'clients': 'crm',
-      'projects': 'crm',
-      'campaigns': 'marketing',
-      'onboarding': 'marketing',
-      'messages': 'communication',
-      'tickets': 'communication',
-      'tasks': 'productivity',
-      'calendar': 'productivity',
-      'billing': 'finance',
-      'reporting': 'finance',
-      'services': 'config',
-      'templates': 'config',
-      'documents': 'config',
-      'keywords': 'config',
-      'automations': 'config',
+      'campaigns': 'campaigns',
+      'onboarding': 'onboarding',
+      'chat': 'chat',
+      'messages': 'chat',
+      'tickets': 'chat',
+      'inbox': 'chat',
       'settings': 'settings',
+      'services': 'settings',
+      'templates': 'settings',
+      'billing': 'settings',
+      'team': 'settings',
       'integrations': 'settings',
-      'team': 'settings'
+      'automations': 'settings',
+      'reporting': 'settings',
+      'reports': 'settings'
     };
     
-    const basePath = path.split('/')[0];
-    const category = moduleCategories[basePath];
+    const navTarget = routeToNav[basePath] || basePath;
     
-    if (category) {
-      document.querySelectorAll('.rail-item[data-category]').forEach(el => {
-        el.classList.remove('active');
-        if (el.dataset.category === category) {
-          el.classList.add('active');
-          
-          // Update panel header
-          const title = el.querySelector('.tooltip-title')?.textContent || '';
-          const desc = el.querySelector('.tooltip-desc')?.textContent || '';
-          const panelTitle = document.getElementById('panel-title');
-          const panelSubtitle = document.getElementById('panel-subtitle');
-          if (panelTitle) panelTitle.textContent = title;
-          if (panelSubtitle) panelSubtitle.textContent = desc;
+    // Update main nav items
+    document.querySelectorAll('.nav-item[data-route]').forEach(el => {
+      el.classList.remove('active');
+      const route = el.dataset.route;
+      
+      // Check if this nav item should be active
+      if (route === navTarget || 
+          route === fullPath || 
+          fullPath.startsWith(route + '/') ||
+          (route === 'crm' && ['crm', 'leads', 'pipeline', 'contacts', 'companies', 'engagements', 'clients'].includes(basePath))) {
+        el.classList.add('active');
+        
+        // Expand parent submenu if needed
+        const expandable = el.closest('.nav-submenu')?.previousElementSibling;
+        if (expandable?.dataset.expand) {
+          expandable.classList.add('expanded');
+          document.getElementById('submenu-' + expandable.dataset.expand).style.display = 'block';
         }
-      });
-    }
+      }
+    });
   },
   
   /**
