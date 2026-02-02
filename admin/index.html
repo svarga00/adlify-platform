@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1e1e2f">
+    <meta name="theme-color" content="#1e1b4b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Adlify CRM</title>
+    <title>Adlify</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
     
     <!-- Onboarding Components Styles -->
     <link rel="stylesheet" href="../modules/onboarding/components/PlatformSelector.css">
@@ -22,89 +24,220 @@
             theme: {
                 extend: {
                     colors: {
-                        'primary': '#FF6B35',
-                        'secondary': '#E91E63',
-                        'accent': '#9C27B0',
-                        'sidebar': '#1e1e2f',
-                        'sidebar-hover': '#2d2d44'
-                    },
-                    screens: {
-                        'xs': '480px',
-                        'sm': '640px',
-                        'md': '768px',
-                        'lg': '1024px',
-                        'xl': '1280px',
+                        'primary': '#f97316',
+                        'primary-dark': '#ea580c',
                     }
                 }
             }
         }
     </script>
     <style>
-        /* =====================================================
-           BASE STYLES
-           ===================================================== */
         :root {
             --vh: 1vh;
-            --sidebar-width: 256px;
         }
         
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: 'Inter', sans-serif; 
+            background: #f8fafc;
             overscroll-behavior-y: contain;
         }
         
-        .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
-        .gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63, #9C27B0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        
-        .sidebar-item { transition: all 0.2s; }
-        .sidebar-item:hover { background: #2d2d44; }
-        .sidebar-item.active { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); }
-        
-        .card { background: white; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-        
-        /* Full height fix for mobile browsers */
-        #app {
+        /* =====================================================
+           APP LAYOUT
+           ===================================================== */
+        .app {
+            display: flex;
             height: 100vh;
             height: calc(var(--vh, 1vh) * 100);
+            overflow: hidden;
         }
         
         /* =====================================================
-           SIDEBAR - Desktop default
+           SIDEBAR
            ===================================================== */
-        #sidebar {
-            width: var(--sidebar-width);
+        .sidebar {
+            width: 250px;
+            background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
             transition: transform 0.3s ease;
+            z-index: 50;
+        }
+        
+        .sidebar-logo {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .logo-icon svg {
+            width: 20px;
+            height: 20px;
+            color: white;
+        }
+        
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 8px 12px;
+            overflow-y: auto;
+        }
+        
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        
+        .nav-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #6366f1;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 12px 12px 8px;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            border: 1px solid transparent;
+            margin-bottom: 2px;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(135deg, rgba(249,115,22,0.2), rgba(236,72,153,0.1));
+            color: #fff;
+            border-color: rgba(249,115,22,0.3);
+        }
+        
+        .nav-item.active svg {
+            color: #f97316;
+        }
+        
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        
+        .nav-item-text {
+            flex: 1;
+        }
+        
+        .nav-badge {
+            margin-left: auto;
+            background: linear-gradient(135deg, #f97316, #ec4899);
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        
+        .sidebar-footer {
+            padding: 16px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .sidebar-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+        }
+        
+        .status-dot.disconnected {
+            background: #ef4444;
         }
         
         /* =====================================================
-           MOBILE MENU BUTTON
+           MAIN AREA
            ===================================================== */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* =====================================================
+           HEADER
+           ===================================================== */
+        .header {
+            height: 64px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+        
         .mobile-menu-btn {
             display: none;
-            width: 44px;
-            height: 44px;
-            padding: 10px;
+            width: 40px;
+            height: 40px;
             border: none;
             background: transparent;
             cursor: pointer;
             border-radius: 8px;
+            padding: 8px;
             flex-shrink: 0;
         }
         
-        .mobile-menu-btn:hover { background: rgba(0,0,0,0.05); }
+        .mobile-menu-btn:hover {
+            background: #f1f5f9;
+        }
         
         .mobile-menu-btn span {
             display: block;
-            width: 22px;
+            width: 20px;
             height: 2px;
-            background: #333;
+            background: #64748b;
             margin: 5px auto;
-            transition: all 0.3s;
             border-radius: 2px;
+            transition: all 0.3s;
         }
         
         .mobile-menu-btn.active span:nth-child(1) {
@@ -115,6 +248,165 @@
         }
         .mobile-menu-btn.active span:nth-child(3) {
             transform: rotate(-45deg) translate(5px, -5px);
+        }
+        
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+        
+        .header-search {
+            flex: 1;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .search-box:hover {
+            background: #e2e8f0;
+        }
+        
+        .search-box svg {
+            width: 18px;
+            height: 18px;
+            color: #94a3b8;
+        }
+        
+        .search-box span {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        
+        .search-box kbd {
+            margin-left: auto;
+            padding: 3px 8px;
+            background: white;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #94a3b8;
+            font-family: inherit;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .header-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            position: relative;
+            transition: all 0.15s;
+        }
+        
+        .header-btn:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        
+        .header-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .header-btn .badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .header-divider {
+            width: 1px;
+            height: 32px;
+            background: #e2e8f0;
+            margin: 0 8px;
+        }
+        
+        .header-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 12px 6px 6px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .header-profile:hover {
+            background: #f1f5f9;
+        }
+        
+        .profile-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .profile-info {
+            text-align: left;
+        }
+        
+        .profile-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .profile-role {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .profile-chevron {
+            color: #94a3b8;
+        }
+        
+        .profile-chevron svg {
+            width: 16px;
+            height: 16px;
+        }
+        
+        /* =====================================================
+           CONTENT
+           ===================================================== */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #f8fafc;
         }
         
         /* =====================================================
@@ -131,317 +423,356 @@
         }
         
         .sidebar-overlay.active {
+            display: block;
             opacity: 1;
         }
         
         /* =====================================================
-           RESPONSIVE - Tablet & Mobile
+           RESPONSIVE
            ===================================================== */
         @media (max-width: 1023px) {
             .mobile-menu-btn {
-                display: block;
+                display: flex;
             }
             
-            .sidebar-overlay {
-                display: block;
-                pointer-events: none;
-            }
-            
-            .sidebar-overlay.active {
-                pointer-events: auto;
-            }
-            
-            #sidebar {
+            .sidebar {
                 position: fixed;
                 left: 0;
                 top: 0;
                 bottom: 0;
-                z-index: 50;
                 transform: translateX(-100%);
             }
             
-            #sidebar.open {
+            .sidebar.open {
                 transform: translateX(0);
             }
             
-            /* Header spacing */
-            header {
-                padding-left: 8px !important;
-            }
-        }
-        
-        /* =====================================================
-           RESPONSIVE - Mobile specific
-           ===================================================== */
-        @media (max-width: 767px) {
-            /* Smaller header */
-            header h1 { font-size: 1.25rem !important; }
-            header p { font-size: 0.75rem !important; }
-            
-            /* Stack header buttons */
-            #header-right {
-                gap: 8px !important;
-            }
-            
-            #header-right button {
-                padding: 8px !important;
-                font-size: 14px !important;
-            }
-            
-            #header-right button span.hide-mobile {
+            .header-search {
                 display: none;
             }
             
-            /* Smaller padding on main content */
-            #main-content {
-                padding: 12px !important;
-            }
-            
-            /* Cards full width */
-            .card {
-                border-radius: 12px;
-            }
-            
-            /* Touch-friendly buttons */
-            button, a.btn, .btn {
-                min-height: 44px;
-            }
-            
-            /* Prevent zoom on input focus */
-            input, select, textarea {
-                font-size: 16px !important;
-            }
-        }
-        
-        /* =====================================================
-           RESPONSIVE - Small mobile
-           ===================================================== */
-        @media (max-width: 479px) {
-            header {
-                flex-wrap: wrap;
-                gap: 8px;
-            }
-            
-            #header-right {
-                width: 100%;
-                justify-content: flex-end;
-            }
-        }
-        
-        /* =====================================================
-           RESPONSIVE TABLES (auto-apply)
-           ===================================================== */
-        @media (max-width: 767px) {
-            table.responsive-table {
-                display: block;
-            }
-            
-            table.responsive-table thead {
+            .profile-info {
                 display: none;
             }
             
-            table.responsive-table tbody {
-                display: flex;
-                flex-direction: column;
-                gap: 12px;
+            .header-divider {
+                display: none;
             }
             
-            table.responsive-table tr {
-                display: block;
-                background: white;
-                border-radius: 12px;
+            .header {
+                padding: 0 16px;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .content {
                 padding: 16px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             }
             
-            table.responsive-table td {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 8px 0;
-                border: none !important;
-                border-bottom: 1px solid #f1f5f9 !important;
-            }
-            
-            table.responsive-table td:last-child {
-                border-bottom: none !important;
-            }
-            
-            table.responsive-table td::before {
-                content: attr(data-label);
-                font-weight: 600;
-                color: #64748b;
-                flex-shrink: 0;
-                margin-right: 12px;
+            .header-title {
+                font-size: 16px;
             }
         }
         
         /* =====================================================
-           RESPONSIVE MODALS
+           UTILITIES
            ===================================================== */
-        @media (max-width: 767px) {
-            .modal-content,
-            [class*="modal"] > div {
-                width: 100% !important;
-                max-width: 100% !important;
-                height: 100% !important;
-                max-height: 100% !important;
-                border-radius: 0 !important;
-                margin: 0 !important;
-            }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
         
-        /* =====================================================
-           RESPONSIVE GRIDS
-           ===================================================== */
-        @media (max-width: 767px) {
-            .grid-cols-2,
-            .grid-cols-3,
-            .grid-cols-4,
-            .md\:grid-cols-2,
-            .md\:grid-cols-3,
-            .md\:grid-cols-4,
-            .lg\:grid-cols-2,
-            .lg\:grid-cols-3,
-            .lg\:grid-cols-4 {
-                grid-template-columns: 1fr !important;
-            }
-            
-            /* Stats can be 2 columns */
-            .stats-grid,
-            .grid.gap-4:has(> :nth-child(4)) {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         
-        /* =====================================================
-           UTILITY CLASSES
-           ===================================================== */
-        .hide-mobile { display: block; }
-        .show-mobile { display: none; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
         
-        @media (max-width: 767px) {
-            .hide-mobile { display: none !important; }
-            .show-mobile { display: block !important; }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
         
-        /* Safe area padding for notch devices */
+        /* Safe area for notch devices */
         @supports (padding: max(0px)) {
-            #sidebar {
+            .sidebar {
                 padding-top: max(0px, env(safe-area-inset-top));
                 padding-bottom: max(0px, env(safe-area-inset-bottom));
             }
         }
         
-        /* Smooth transitions */
-        * {
-            -webkit-tap-highlight-color: transparent;
-        }
+        /* Touch friendly */
+        * { -webkit-tap-highlight-color: transparent; }
         
-        /* Loading spinner */
-        .spinner {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        /* Responsive tables */
+        @media (max-width: 767px) {
+            table.responsive-table { display: block; }
+            table.responsive-table thead { display: none; }
+            table.responsive-table tbody { display: flex; flex-direction: column; gap: 12px; }
+            table.responsive-table tr { display: block; background: white; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+            table.responsive-table td { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border: none !important; border-bottom: 1px solid #f1f5f9 !important; }
+            table.responsive-table td:last-child { border-bottom: none !important; }
+            table.responsive-table td::before { content: attr(data-label); font-weight: 600; color: #64748b; flex-shrink: 0; margin-right: 12px; }
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <!-- Sidebar Overlay -->
-    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+<body>
+    <!-- Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
     
-    <div id="app" class="flex h-screen">
+    <div class="app" id="app">
         <!-- SIDEBAR -->
-        <aside id="sidebar" class="w-64 bg-sidebar text-white flex flex-col flex-shrink-0">
-            <!-- Logo -->
-            <div class="p-6 border-b border-white/10">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center font-bold text-lg">A</div>
-                    <div>
-                        <span class="text-xl font-bold">ADLIFY</span>
-                        <span class="text-xs text-gray-400 block">CRM Platform</span>
-                    </div>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
                 </div>
+                <span class="logo-text">Adlify</span>
             </div>
             
-            <!-- Navigation -->
-            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
-                <!-- Main Section -->
-                <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Hlavné</p>
-                <div data-menu-section="main">
-                    <!-- Menu items will be added dynamically -->
+            <nav class="sidebar-nav">
+                <!-- HLAVNÉ -->
+                <div class="nav-section">
+                    <div class="nav-label">Hlavné</div>
+                    
+                    <a class="nav-item active" href="#dashboard" data-route="dashboard">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+                        </svg>
+                        <span class="nav-item-text">Dashboard</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#leads" data-route="leads">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                        </svg>
+                        <span class="nav-item-text">Leady</span>
+                        <span class="nav-badge" id="badge-leads" style="display:none;"></span>
+                    </a>
+                    
+                    <a class="nav-item" href="#clients" data-route="clients">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4M5 21V10.85M19 21V10.85"/>
+                        </svg>
+                        <span class="nav-item-text">Klienti</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#projects" data-route="projects">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <span class="nav-item-text">Projekty</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#campaigns" data-route="campaigns">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+                        </svg>
+                        <span class="nav-item-text">Kampane</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#messages" data-route="messages">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                            <polyline points="22,6 12,13 2,6"/>
+                        </svg>
+                        <span class="nav-item-text">Správy</span>
+                        <span class="nav-badge" id="badge-messages" style="display:none;"></span>
+                    </a>
+                    
+                    <a class="nav-item" href="#tasks" data-route="tasks">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        <span class="nav-item-text">Úlohy</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#tickets" data-route="tickets">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M2 12h5M17 12h5M12 2v5M12 17v5M4.93 4.93l3.54 3.54M15.54 15.54l3.54 3.54M4.93 19.07l3.54-3.54M15.54 8.46l3.54-3.54"/>
+                        </svg>
+                        <span class="nav-item-text">Tickety</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#billing" data-route="billing">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                        </svg>
+                        <span class="nav-item-text">Fakturácia</span>
+                    </a>
                 </div>
                 
-                <!-- Tools Section -->
-                <div class="pt-4 mt-4 border-t border-white/10">
-                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Nástroje</p>
+                <!-- NÁSTROJE -->
+                <div class="nav-section">
+                    <div class="nav-label">Nástroje</div>
+                    
+                    <a class="nav-item" href="#onboarding" data-route="onboarding">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                            <rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>
+                        </svg>
+                        <span class="nav-item-text">Onboarding</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#services" data-route="services">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 7h-9M14 17H5M17 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM7 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
+                        </svg>
+                        <span class="nav-item-text">Služby & Balíčky</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#reporting" data-route="reporting">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+                        </svg>
+                        <span class="nav-item-text">Reporty</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#calendar" data-route="calendar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        <span class="nav-item-text">Kalendár</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#templates" data-route="templates">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                        <span class="nav-item-text">Šablóny</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#documents" data-route="documents">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            <line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/>
+                        </svg>
+                        <span class="nav-item-text">Dokumenty</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#keywords" data-route="keywords">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                        </svg>
+                        <span class="nav-item-text">Keywords</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#automations" data-route="automations">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                        <span class="nav-item-text">Automatizácie</span>
+                    </a>
                 </div>
-                <div data-menu-section="tools"></div>
                 
-                <!-- Settings Section -->
-                <div class="pt-4 mt-4 border-t border-white/10">
-                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Systém</p>
+                <!-- SYSTÉM -->
+                <div class="nav-section">
+                    <div class="nav-label">Systém</div>
+                    
+                    <a class="nav-item" href="#settings" data-route="settings">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                        <span class="nav-item-text">Nastavenia</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#integrations" data-route="integrations">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                        <span class="nav-item-text">Integrácie</span>
+                    </a>
+                    
+                    <a class="nav-item" href="#team" data-route="team">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        <span class="nav-item-text">Tím</span>
+                    </a>
                 </div>
-                <div data-menu-section="settings"></div>
             </nav>
             
-            <!-- User & Status -->
-            <div class="p-4 border-t border-white/10">
-                <div class="flex items-center gap-3 mb-4">
-                    <div id="user-avatar" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-sm font-medium">U</div>
-                    <div class="flex-1 min-w-0">
-                        <div id="user-name" class="font-medium truncate">Načítavam...</div>
-                        <div id="user-role" class="text-xs text-gray-400">-</div>
-                    </div>
-                    <button data-action="logout" class="p-2 hover:bg-white/10 rounded-lg" title="Odhlásiť">
-                        🚪
-                    </button>
-                </div>
-                <div id="connection-status" class="flex items-center gap-2 text-sm text-gray-400">
-                    <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+            <div class="sidebar-footer">
+                <div class="sidebar-status" id="connection-status">
+                    <span class="status-dot"></span>
                     Pripájam...
                 </div>
             </div>
         </aside>
-
-        <!-- MAIN CONTENT -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- TOP BAR -->
-            <header class="bg-white border-b px-4 lg:px-6 py-3 lg:py-4 flex items-center justify-between flex-shrink-0 gap-2">
-                <!-- Mobile menu button + Title -->
-                <div class="flex items-center gap-2 min-w-0">
-                    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu" aria-expanded="false">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </button>
-                    <div class="min-w-0">
-                        <h1 id="page-title" class="text-xl lg:text-2xl font-bold text-gray-800 truncate">Dashboard</h1>
-                        <p id="page-subtitle" class="text-xs lg:text-sm text-gray-500 truncate">Prehľad</p>
+        
+        <!-- MAIN -->
+        <div class="main">
+            <!-- HEADER -->
+            <header class="header">
+                <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Menu">
+                    <span></span><span></span><span></span>
+                </button>
+                
+                <h1 class="header-title" id="page-title">Dashboard</h1>
+                
+                <div class="header-search">
+                    <div class="search-box" onclick="App.openSearch && App.openSearch()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                        </svg>
+                        <span>Hľadať...</span>
+                        <kbd>⌘K</kbd>
                     </div>
                 </div>
                 
-                <!-- Actions -->
-                <div class="flex items-center gap-2 lg:gap-3 flex-shrink-0" id="header-right">
-                    <button onclick="location.reload()" class="p-2 lg:px-4 lg:py-2 bg-gray-100 rounded-xl hover:bg-gray-200 text-sm font-medium" title="Obnoviť">
-                        🔄 <span class="hide-mobile">Obnoviť</span>
+                <div class="header-actions">
+                    <button class="header-btn" title="Notifikácie" id="notifications-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span class="badge" id="notifications-badge" style="display:none;"></span>
                     </button>
-                    <button onclick="Router.navigate('settings')" class="p-2 lg:px-4 lg:py-2 bg-gray-100 rounded-xl hover:bg-gray-200 text-sm font-medium" title="Nastavenia">
-                        ⚙️
+                    
+                    <button class="header-btn" title="Obnoviť" onclick="location.reload()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                        </svg>
                     </button>
-                    <!-- Notifications bell will be inserted here -->
+                </div>
+                
+                <div class="header-divider"></div>
+                
+                <div class="header-profile" onclick="Router.navigate && Router.navigate('settings')">
+                    <div class="profile-avatar" id="user-avatar">?</div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="user-name">Načítavam...</div>
+                        <div class="profile-role" id="user-role">-</div>
+                    </div>
+                    <div class="profile-chevron">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                    </div>
                 </div>
             </header>
-
-            <!-- PAGE CONTENT -->
-            <main id="main-content" class="flex-1 overflow-y-auto p-4 lg:p-6">
-                <div class="flex items-center justify-center h-64">
-                    <div class="animate-spin text-4xl">⏳</div>
+            
+            <!-- CONTENT -->
+            <main class="content" id="main-content">
+                <div style="display:flex;align-items:center;justify-content:center;height:200px;color:#64748b;">
+                    <svg class="animate-spin" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    </svg>
                 </div>
             </main>
         </div>
     </div>
+    
+    <div id="modals"></div>
     
     <!-- Core Scripts -->
     <script src="../shared/js/core/config.js"></script>
@@ -467,7 +798,7 @@
     <script src="../modules/onboarding/components/PackageCalculator.js"></script>
     <script src="../modules/onboarding/components/AccountHealthCheck.js"></script>
     
-    <!-- Onboarding Extension (must be after base module and components) -->
+    <!-- Onboarding Extension -->
     <script src="../modules/onboarding/onboarding-extension.js"></script>
     <script src="../modules/services/services.js"></script>
     <script src="../modules/billing/billing.js"></script>
@@ -483,17 +814,16 @@
     <script src="../modules/keywords/keywords.js"></script>
     <script src="../modules/automations/automations.js"></script>
     
-    <!-- Mobile Menu Handler -->
+    <!-- Mobile Menu & UI -->
     <script>
     (function() {
         'use strict';
         
-        // Elements
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
         const menuBtn = document.getElementById('mobile-menu-btn');
         
-        // Fix viewport height for mobile browsers
+        // Fix viewport height for mobile
         function setVH() {
             const vh = window.innerHeight * 0.01;
             document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -502,66 +832,51 @@
         window.addEventListener('resize', setVH);
         window.addEventListener('orientationchange', () => setTimeout(setVH, 100));
         
-        // Toggle menu
         function toggleMenu() {
             const isOpen = sidebar.classList.toggle('open');
             overlay.classList.toggle('active', isOpen);
             menuBtn.classList.toggle('active', isOpen);
-            menuBtn.setAttribute('aria-expanded', isOpen);
             document.body.style.overflow = isOpen ? 'hidden' : '';
         }
         
-        // Close menu
         function closeMenu() {
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
             menuBtn.classList.remove('active');
-            menuBtn.setAttribute('aria-expanded', 'false');
             document.body.style.overflow = '';
         }
         
-        // Event listeners
         menuBtn.addEventListener('click', toggleMenu);
         overlay.addEventListener('click', closeMenu);
         
-        // Close on menu item click
+        // Close on menu item click (mobile)
         sidebar.addEventListener('click', (e) => {
-            if (e.target.closest('.sidebar-item') && window.innerWidth < 1024) {
+            if (e.target.closest('.nav-item') && window.innerWidth < 1024) {
                 closeMenu();
             }
         });
         
-        // Close on Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeMenu();
         });
         
-        // Close on resize to desktop
         window.addEventListener('resize', () => {
             if (window.innerWidth >= 1024) closeMenu();
         });
         
-        // Swipe to open/close
+        // Swipe gestures
         let touchStartX = 0;
         document.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
         }, { passive: true });
         
         document.addEventListener('touchend', (e) => {
-            const touchEndX = e.changedTouches[0].clientX;
-            const deltaX = touchEndX - touchStartX;
-            
-            // Swipe right from edge to open
-            if (deltaX > 50 && touchStartX < 30 && !sidebar.classList.contains('open')) {
-                toggleMenu();
-            }
-            // Swipe left to close
-            if (deltaX < -50 && sidebar.classList.contains('open')) {
-                closeMenu();
-            }
+            const deltaX = e.changedTouches[0].clientX - touchStartX;
+            if (deltaX > 50 && touchStartX < 30 && !sidebar.classList.contains('open')) toggleMenu();
+            if (deltaX < -50 && sidebar.classList.contains('open')) closeMenu();
         }, { passive: true });
         
-        // Make tables responsive dynamically
+        // Responsive tables
         const observer = new MutationObserver(() => {
             document.querySelectorAll('table:not(.responsive-table)').forEach(table => {
                 table.classList.add('responsive-table');
@@ -575,7 +890,32 @@
         });
         observer.observe(document.getElementById('main-content'), { childList: true, subtree: true });
         
-        console.log('📱 Mobile ready');
+        // Update active menu item on route change
+        window.addEventListener('hashchange', updateActiveMenu);
+        updateActiveMenu();
+        
+        function updateActiveMenu() {
+            const hash = window.location.hash.slice(1) || 'dashboard';
+            const route = hash.split('?')[0].split('/')[0];
+            
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.route === route) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Update page title
+            const activeItem = document.querySelector(`.nav-item[data-route="${route}"]`);
+            if (activeItem) {
+                const titleEl = document.getElementById('page-title');
+                if (titleEl) {
+                    titleEl.textContent = activeItem.querySelector('.nav-item-text')?.textContent || 'Dashboard';
+                }
+            }
+        }
+        
+        console.log('📱 UI ready');
     })();
     </script>
     
@@ -585,6 +925,19 @@
             const success = await App.init({ requireTeam: true });
             
             if (success) {
+                // Update UI with user info
+                const userName = Auth.profile?.full_name || Auth.user?.email || 'User';
+                const userInitial = userName.charAt(0).toUpperCase();
+                const roles = { owner: 'Vlastník', admin: 'Admin', employee: 'Zamestnanec' };
+                
+                document.getElementById('user-name').textContent = userName;
+                document.getElementById('user-avatar').textContent = userInitial;
+                document.getElementById('user-role').textContent = roles[Auth.getRole()] || Auth.getRole();
+                
+                // Update connection status
+                const statusEl = document.getElementById('connection-status');
+                statusEl.innerHTML = '<span class="status-dot"></span> Pripojené';
+                
                 // Initialize Notifications
                 if (typeof Notifications !== 'undefined') {
                     Notifications.init();
@@ -616,10 +969,8 @@
                 App.register(IntegrationsModule);
                 App.register(TeamModule);
                 
-                // Navigate to default or current route
-                if (!window.location.hash) {
-                    Router.navigate('dashboard');
-                }
+                // START the router
+                App.start();
             }
         })();
     </script>
