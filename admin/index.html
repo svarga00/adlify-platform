@@ -569,12 +569,12 @@
         });
     });
     
-    // Init
+    // Init - FIXED ORDER: init app, register modules, THEN start router
     (async () => {
         const success = await App.init({ requireTeam: true });
         
         if (success) {
-            // Register modules
+            // Register ALL modules FIRST
             if (typeof DeskModule !== 'undefined') App.register(DeskModule);
             if (typeof PipelineModule !== 'undefined') App.register(PipelineModule);
             if (typeof ContactsModule !== 'undefined') App.register(ContactsModule);
@@ -592,7 +592,9 @@
             if (typeof AutomationsModule !== 'undefined') App.register(AutomationsModule);
             if (typeof SettingsModule !== 'undefined') App.register(SettingsModule);
             
-            if (!window.location.hash) Router.navigate('desk');
+            // NOW start the router (after modules are registered)
+            App.start();
+            
             if (typeof Notifications !== 'undefined') Notifications.init();
         }
     })();
