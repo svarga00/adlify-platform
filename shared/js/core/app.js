@@ -51,10 +51,12 @@ const App = {
       }
       
       this.initUI();
-      Router.init('main-content');
+      
+      // IMPORTANT: Don't init router yet - wait for modules to register
+      // Router will be initialized after modules are registered via App.start()
       
       this.isReady = true;
-      console.log('✅ App ready');
+      console.log('✅ App ready - waiting for modules');
       return true;
       
     } catch (error) {
@@ -65,10 +67,22 @@ const App = {
   },
   
   /**
+   * Start the app after modules are registered
+   */
+  start() {
+    console.log('🎬 Starting router with', this.modules.size, 'modules');
+    Router.init('main-content');
+    
+    // Navigate to default route if no hash
+    if (!window.location.hash) {
+      Router.navigate('desk');
+    }
+  },
+  
+  /**
    * Register module - accepts both 'id' and 'name'
    */
   register(module) {
-    // Support both 'id' and 'name' for module identification
     const moduleId = module.id || module.name;
     
     if (!moduleId) {
@@ -76,18 +90,16 @@ const App = {
       return this;
     }
     
-    // Normalize - set both id and name
     module.id = moduleId;
     module.name = module.name || moduleId;
     
     this.modules.set(moduleId, module);
     
-    // Register route
+    // Pre-register route (Router will use it when initialized)
     if (module.route !== false) {
       Router.register(moduleId, module);
     }
     
-    // Initialize module
     if (typeof module.init === 'function') {
       module.init();
     }
