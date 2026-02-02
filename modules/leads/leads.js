@@ -4554,7 +4554,7 @@ ${analysis.customNote ? `
     if (marketingData.categorization) {
       const cat = marketingData.categorization;
       // Skúsiť extrahovať hlavnú kategóriu
-      const catKeyword = this.extractCategoryKeyword(cat);
+      const catKeyword = this.extractCategoryKeyword(typeof cat === 'string' ? cat : String(cat || ''));
       if (catKeyword) {
         console.log('🎯 Seed keyword z categorization:', catKeyword);
         return catKeyword;
