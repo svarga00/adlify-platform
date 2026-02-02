@@ -19,7 +19,7 @@ async function sendNotificationEmail(to, subject, htmlBody) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'Adlify <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM || 'Adlify <info@adlify.eu>',
         to: to,
         subject: subject,
         html: htmlBody
@@ -79,6 +79,18 @@ exports.handler = async (event, context) => {
     const companyName = proposal.company_name || 'Neznámy';
     const notifyEmail = 'info@adlify.eu';
 
+    // Získať organization_id z leadu pre RLS
+    let organizationId = null;
+    if (leadId) {
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('organization_id')
+        .eq('id', leadId)
+        .single();
+      organizationId = lead?.organization_id;
+      console.log('📍 Organization ID from lead:', organizationId);
+    }
+
     if (action === 'interested') {
       // ===== MÁM ZÁUJEM - Konvertovať na klienta =====
       
@@ -108,6 +120,7 @@ exports.handler = async (event, context) => {
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
         .insert({
+          organization_id: organizationId,
           company_name: companyName,
           domain: proposal.domain,
           email: contactEmail || null,
@@ -127,10 +140,11 @@ exports.handler = async (event, context) => {
         console.error('Client creation error:', clientError);
       }
 
-      // 4. Vytvoriť notifikáciu/ticket
-      await supabase
+      // 5. Vytvoriť ticket
+      const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
+          organization_id: organizationId,
           title: `🎉 Nový klient: ${companyName}`,
           description: `Firma ${companyName} prejavila záujem o spoluprácu!\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'high',
@@ -138,13 +152,20 @@ exports.handler = async (event, context) => {
           category: 'conversion',
           lead_id: leadId,
           client_id: newClient?.id
-        });
+        })
+        .select()
+        .single();
 
-      // 4b. Vytvoriť notifikáciu v DB (systémová - pre všetkých)
-      await supabase
+      if (ticketError) {
+        console.error('Ticket creation error:', ticketError);
+      }
+
+      // 6. Vytvoriť notifikáciu v DB
+      const { error: notifError } = await supabase
         .from('notifications')
         .insert({
-          user_id: null, // systémová notifikácia
+          organization_id: organizationId,
+          user_id: null,
           type: 'conversion',
           title: `🎉 Nový klient: ${companyName}`,
           message: `${contactName || 'Niekto'} z firmy ${companyName} má záujem o spoluprácu!`,
@@ -153,7 +174,11 @@ exports.handler = async (event, context) => {
           action_url: '#clients'
         });
 
-      // 5. Poslať email notifikáciu
+      if (notifError) {
+        console.error('Notification creation error:', notifError);
+      }
+
+      // 7. Poslať email notifikáciu
       await sendNotificationEmail(
         notifyEmail,
         `🎉 NOVÝ KLIENT: ${companyName}`,
@@ -200,7 +225,7 @@ exports.handler = async (event, context) => {
         `
       );
 
-      // 6. Poslať email KLIENTOVI s registračným linkom
+      // 8. Poslať email KLIENTOVI s registračným linkom
       const registerUrl = `https://adlify-app.netlify.app/portal/register.html?t=${onboardingToken}`;
       
       if (contactEmail) {
@@ -213,11 +238,12 @@ exports.handler = async (event, context) => {
               <h1 style="margin: 0; font-size: 28px;">Vitajte v Adlify! 🚀</h1>
             </div>
             <div style="padding: 30px; background: #f8fafc; border-radius: 0 0 10px 10px;">
-              <p style="font-size: 16px; color: #1e293b;">Dobrý deň ${contactName || ''},</p>
-              <p style="color: #475569;">Ďakujeme za váš záujem o spoluprácu! Pre dokončenie registrácie a nastavenie vašej marketingovej kampane kliknite na tlačidlo nižšie:</p>
+              <p style="color: #334155; font-size: 16px; line-height: 1.6;">
+                Ďakujeme za váš záujem o naše služby. Pre dokončenie registrácie a spustenie spolupráce kliknite na tlačidlo nižšie:
+              </p>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${registerUrl}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #f97316, #ec4899); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
+                <a href="${registerUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #f97316, #ea580c); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 18px;">
                   Dokončiť registráciu →
                 </a>
               </div>
@@ -265,6 +291,7 @@ exports.handler = async (event, context) => {
       const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
+          organization_id: organizationId,
           title: `❓ Otázka od: ${companyName}`,
           description: `Firma ${companyName} má otázky k ponuke.\n\n📝 Správa:\n${message || '(bez správy)'}\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'medium',
@@ -287,11 +314,12 @@ exports.handler = async (event, context) => {
           .eq('id', leadId);
       }
 
-      // 3b. Vytvoriť notifikáciu v DB (systémová - pre všetkých)
-      await supabase
+      // 4. Vytvoriť notifikáciu v DB
+      const { error: notifError } = await supabase
         .from('notifications')
         .insert({
-          user_id: null, // systémová notifikácia
+          organization_id: organizationId,
+          user_id: null,
           type: 'question',
           title: `❓ Otázka od: ${companyName}`,
           message: message ? (message.length > 100 ? message.substring(0, 100) + '...' : message) : 'Nová otázka k ponuke',
@@ -300,7 +328,11 @@ exports.handler = async (event, context) => {
           action_url: '#tickets'
         });
 
-      // 4. Poslať email notifikáciu
+      if (notifError) {
+        console.error('Notification creation error:', notifError);
+      }
+
+      // 5. Poslať email notifikáciu
       await sendNotificationEmail(
         notifyEmail,
         `❓ Otázka od: ${companyName}`,
@@ -383,9 +415,10 @@ exports.handler = async (event, context) => {
         ? `⏰ ${companyName} - osloviť neskôr`
         : `🚫 ${companyName} - nemá záujem`;
       
-      await supabase
+      const { error: notifError } = await supabase
         .from('notifications')
         .insert({
+          organization_id: organizationId,
           user_id: null,
           type: 'rejection',
           title: notifTitle,
@@ -395,11 +428,16 @@ exports.handler = async (event, context) => {
           action_url: '#leads'
         });
 
+      if (notifError) {
+        console.error('Notification creation error:', notifError);
+      }
+
       // 4. Ak je to "neskôr", vytvor ticket pre follow-up
       if (subType === 'later') {
-        await supabase
+        const { error: ticketError } = await supabase
           .from('tickets')
           .insert({
+            organization_id: organizationId,
             title: `⏰ Follow-up: ${companyName}`,
             description: `Klient požiadal o kontakt neskôr.\n\nDôvod: ${reason || '(neuvedený)'}\n\nOdporúčanie: Kontaktovať o 1-2 mesiace.`,
             priority: 'low',
@@ -407,7 +445,40 @@ exports.handler = async (event, context) => {
             category: 'followup',
             lead_id: leadId
           });
+
+        if (ticketError) {
+          console.error('Follow-up ticket creation error:', ticketError);
+        }
       }
+
+      // 5. Poslať email notifikáciu
+      await sendNotificationEmail(
+        notifyEmail,
+        notifTitle,
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: ${subType === 'later' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #64748b, #475569)'}; color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0;">${notifTitle}</h1>
+          </div>
+          <div style="padding: 20px; background: #f8fafc; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #1e293b; margin-top: 0;">${companyName}</h2>
+            
+            ${reason ? `
+            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #64748b; margin-bottom: 20px;">
+              <strong>📝 Dôvod:</strong>
+              <p style="margin: 10px 0 0 0; color: #334155;">${reason}</p>
+            </div>
+            ` : ''}
+            
+            <div style="margin-top: 20px;">
+              <a href="https://adlify-app.netlify.app/admin#leads" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f97316, #ea580c); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+                Otvoriť v Adlify →
+              </a>
+            </div>
+          </div>
+        </div>
+        `
+      );
 
       console.log('✅ Not interested processed for:', companyName, subType);
 
