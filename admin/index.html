@@ -3,601 +3,625 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#1e1e2f">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Adlify</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Adlify CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Onboarding Components Styles -->
+    <link rel="stylesheet" href="../modules/onboarding/components/PlatformSelector.css">
+    <link rel="stylesheet" href="../modules/onboarding/components/PackageCalculator.css">
+    <link rel="stylesheet" href="../modules/onboarding/components/AccountHealthCheck.css">
     
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'primary': '#f97316',
-                        'primary-dark': '#ea580c',
-                        'sidebar': '#0f172a',
-                        'sidebar-hover': '#1e293b',
+                        'primary': '#FF6B35',
+                        'secondary': '#E91E63',
+                        'accent': '#9C27B0',
+                        'sidebar': '#1e1e2f',
+                        'sidebar-hover': '#2d2d44'
+                    },
+                    screens: {
+                        'xs': '480px',
+                        'sm': '640px',
+                        'md': '768px',
+                        'lg': '1024px',
+                        'xl': '1280px',
                     }
                 }
             }
         }
     </script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: #f1f5f9; }
+        /* =====================================================
+           BASE STYLES
+           ===================================================== */
+        :root {
+            --vh: 1vh;
+            --sidebar-width: 256px;
+        }
         
-        /* APP LAYOUT */
-        .app {
-            display: flex;
+        body { 
+            font-family: 'Inter', sans-serif; 
+            overscroll-behavior-y: contain;
+        }
+        
+        .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
+        .gradient-text { background: linear-gradient(135deg, #FF6B35, #E91E63, #9C27B0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .sidebar-item { transition: all 0.2s; }
+        .sidebar-item:hover { background: #2d2d44; }
+        .sidebar-item.active { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); }
+        
+        .card { background: white; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        
+        /* Full height fix for mobile browsers */
+        #app {
             height: 100vh;
-            overflow: hidden;
+            height: calc(var(--vh, 1vh) * 100);
         }
         
-        /* SIDEBAR */
-        .sidebar {
-            width: 260px;
-            background: #0f172a;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            z-index: 50;
+        /* =====================================================
+           SIDEBAR - Desktop default
+           ===================================================== */
+        #sidebar {
+            width: var(--sidebar-width);
+            transition: transform 0.3s ease;
         }
         
-        .sidebar-header {
-            padding: 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-        }
-        
-        .sidebar-logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 18px;
-            color: white;
-        }
-        
-        .logo-text {
-            font-size: 22px;
-            font-weight: 700;
-            color: white;
-        }
-        
-        .sidebar-nav {
-            flex: 1;
-            padding: 16px 12px;
-            overflow-y: auto;
-        }
-        
-        .nav-section {
-            margin-bottom: 8px;
-        }
-        
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 14px;
-            border-radius: 10px;
-            color: #94a3b8;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.15s;
-            margin-bottom: 4px;
-        }
-        
-        .nav-item:hover {
-            background: rgba(255,255,255,0.06);
-            color: #e2e8f0;
-        }
-        
-        .nav-item.active {
-            background: rgba(249, 115, 22, 0.15);
-            color: #f97316;
-        }
-        
-        .nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
-        .nav-item-text { flex: 1; }
-        
-        .nav-badge {
-            background: #ef4444;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 7px;
-            border-radius: 10px;
-            min-width: 20px;
-            text-align: center;
-        }
-        
-        .nav-badge.orange { background: #f97316; }
-        .nav-badge.green { background: #22c55e; }
-        .nav-badge.blue { background: #3b82f6; }
-        
-        /* Sub navigation */
-        .nav-subitems {
-            margin-left: 32px;
-            border-left: 2px solid rgba(255,255,255,0.1);
-            padding-left: 12px;
-            margin-top: 4px;
-            display: none;
-        }
-        
-        .nav-subitems.open { display: block; }
-        
-        .nav-subitem {
-            display: flex;
-            align-items: center;
-            padding: 8px 12px;
-            color: #64748b;
-            font-size: 13px;
-            border-radius: 6px;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.15s;
-        }
-        
-        .nav-subitem:hover { color: #e2e8f0; background: rgba(255,255,255,0.05); }
-        .nav-subitem.active { color: #f97316; }
-        
-        .nav-divider {
-            height: 1px;
-            background: rgba(255,255,255,0.08);
-            margin: 16px 0;
-        }
-        
-        /* Sidebar footer */
-        .sidebar-footer {
-            padding: 16px;
-            border-top: 1px solid rgba(255,255,255,0.08);
-        }
-        
-        .user-card { display: flex; align-items: center; gap: 12px; }
-        
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        
-        .user-info { flex: 1; min-width: 0; }
-        
-        .user-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: white;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .user-status {
-            font-size: 12px;
-            color: #22c55e;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .user-status::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            background: currentColor;
-            border-radius: 50%;
-        }
-        
-        .btn-logout {
-            padding: 8px;
-            background: transparent;
-            border: none;
-            color: #64748b;
-            cursor: pointer;
-            border-radius: 8px;
-        }
-        
-        .btn-logout:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-        
-        /* MAIN */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: #f1f5f9;
-        }
-        
-        .topbar {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 0 24px;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-        }
-        
-        .topbar-left { display: flex; align-items: center; gap: 16px; }
-        .topbar-title { font-size: 18px; font-weight: 700; color: #0f172a; }
-        .topbar-right { display: flex; align-items: center; gap: 12px; }
-        
-        .search-box {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            background: #f1f5f9;
-            border-radius: 8px;
-            color: #64748b;
-            cursor: pointer;
-        }
-        
-        .search-box:hover { background: #e2e8f0; }
-        
-        .search-box kbd {
-            background: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 11px;
-            color: #94a3b8;
-        }
-        
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-            color: white;
-        }
-        
-        .btn-primary:hover { opacity: 0.9; }
-        
-        .content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-        }
-        
-        /* MOBILE */
+        /* =====================================================
+           MOBILE MENU BUTTON
+           ===================================================== */
         .mobile-menu-btn {
             display: none;
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             padding: 10px;
             border: none;
             background: transparent;
             cursor: pointer;
             border-radius: 8px;
+            flex-shrink: 0;
         }
+        
+        .mobile-menu-btn:hover { background: rgba(0,0,0,0.05); }
         
         .mobile-menu-btn span {
             display: block;
-            width: 20px;
+            width: 22px;
             height: 2px;
-            background: #475569;
-            margin: 4px auto;
+            background: #333;
+            margin: 5px auto;
+            transition: all 0.3s;
+            border-radius: 2px;
         }
         
+        .mobile-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        .mobile-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+        .mobile-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+        
+        /* =====================================================
+           OVERLAY
+           ===================================================== */
         .sidebar-overlay {
             display: none;
             position: fixed;
             inset: 0;
             background: rgba(0,0,0,0.5);
             z-index: 40;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
         
+        .sidebar-overlay.active {
+            opacity: 1;
+        }
+        
+        /* =====================================================
+           RESPONSIVE - Tablet & Mobile
+           ===================================================== */
         @media (max-width: 1023px) {
-            .mobile-menu-btn { display: block; }
-            .sidebar-overlay.active { display: block; }
-            .sidebar {
+            .mobile-menu-btn {
+                display: block;
+            }
+            
+            .sidebar-overlay {
+                display: block;
+                pointer-events: none;
+            }
+            
+            .sidebar-overlay.active {
+                pointer-events: auto;
+            }
+            
+            #sidebar {
                 position: fixed;
                 left: 0;
                 top: 0;
                 bottom: 0;
+                z-index: 50;
                 transform: translateX(-100%);
-                transition: transform 0.3s;
             }
-            .sidebar.open { transform: translateX(0); }
+            
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            
+            /* Header spacing */
+            header {
+                padding-left: 8px !important;
+            }
         }
         
-        /* UTILS */
-        .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        /* =====================================================
+           RESPONSIVE - Mobile specific
+           ===================================================== */
+        @media (max-width: 767px) {
+            /* Smaller header */
+            header h1 { font-size: 1.25rem !important; }
+            header p { font-size: 0.75rem !important; }
+            
+            /* Stack header buttons */
+            #header-right {
+                gap: 8px !important;
+            }
+            
+            #header-right button {
+                padding: 8px !important;
+                font-size: 14px !important;
+            }
+            
+            #header-right button span.hide-mobile {
+                display: none;
+            }
+            
+            /* Smaller padding on main content */
+            #main-content {
+                padding: 12px !important;
+            }
+            
+            /* Cards full width */
+            .card {
+                border-radius: 12px;
+            }
+            
+            /* Touch-friendly buttons */
+            button, a.btn, .btn {
+                min-height: 44px;
+            }
+            
+            /* Prevent zoom on input focus */
+            input, select, textarea {
+                font-size: 16px !important;
+            }
         }
         
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        /* =====================================================
+           RESPONSIVE - Small mobile
+           ===================================================== */
+        @media (max-width: 479px) {
+            header {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            #header-right {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
         
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
+        /* =====================================================
+           RESPONSIVE TABLES (auto-apply)
+           ===================================================== */
+        @media (max-width: 767px) {
+            table.responsive-table {
+                display: block;
+            }
+            
+            table.responsive-table thead {
+                display: none;
+            }
+            
+            table.responsive-table tbody {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            table.responsive-table tr {
+                display: block;
+                background: white;
+                border-radius: 12px;
+                padding: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+            
+            table.responsive-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border: none !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+            }
+            
+            table.responsive-table td:last-child {
+                border-bottom: none !important;
+            }
+            
+            table.responsive-table td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #64748b;
+                flex-shrink: 0;
+                margin-right: 12px;
+            }
+        }
+        
+        /* =====================================================
+           RESPONSIVE MODALS
+           ===================================================== */
+        @media (max-width: 767px) {
+            .modal-content,
+            [class*="modal"] > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                max-height: 100% !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+            }
+        }
+        
+        /* =====================================================
+           RESPONSIVE GRIDS
+           ===================================================== */
+        @media (max-width: 767px) {
+            .grid-cols-2,
+            .grid-cols-3,
+            .grid-cols-4,
+            .md\:grid-cols-2,
+            .md\:grid-cols-3,
+            .md\:grid-cols-4,
+            .lg\:grid-cols-2,
+            .lg\:grid-cols-3,
+            .lg\:grid-cols-4 {
+                grid-template-columns: 1fr !important;
+            }
+            
+            /* Stats can be 2 columns */
+            .stats-grid,
+            .grid.gap-4:has(> :nth-child(4)) {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+        
+        /* =====================================================
+           UTILITY CLASSES
+           ===================================================== */
+        .hide-mobile { display: block; }
+        .show-mobile { display: none; }
+        
+        @media (max-width: 767px) {
+            .hide-mobile { display: none !important; }
+            .show-mobile { display: block !important; }
+        }
+        
+        /* Safe area padding for notch devices */
+        @supports (padding: max(0px)) {
+            #sidebar {
+                padding-top: max(0px, env(safe-area-inset-top));
+                padding-bottom: max(0px, env(safe-area-inset-bottom));
+            }
+        }
+        
+        /* Smooth transitions */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Loading spinner */
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
-<body>
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+<body class="bg-gray-100">
+    <!-- Sidebar Overlay -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
     
-    <div class="app" id="app">
+    <div id="app" class="flex h-screen">
         <!-- SIDEBAR -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <div class="logo-icon">A</div>
-                    <span class="logo-text">Adlify</span>
+        <aside id="sidebar" class="w-64 bg-sidebar text-white flex flex-col flex-shrink-0">
+            <!-- Logo -->
+            <div class="p-6 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center font-bold text-lg">A</div>
+                    <div>
+                        <span class="text-xl font-bold">ADLIFY</span>
+                        <span class="text-xs text-gray-400 block">CRM Platform</span>
+                    </div>
                 </div>
             </div>
             
-            <nav class="sidebar-nav">
-                <!-- DESK -->
-                <div class="nav-section">
-                    <a class="nav-item active" href="#desk" data-route="desk">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-                        </svg>
-                        <span class="nav-item-text">Desk</span>
-                        <span class="nav-badge" id="badge-desk" style="display:none;"></span>
-                    </a>
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+                <!-- Main Section -->
+                <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Hlavné</p>
+                <div data-menu-section="main">
+                    <!-- Menu items will be added dynamically -->
                 </div>
                 
-                <!-- CRM -->
-                <div class="nav-section">
-                    <a class="nav-item" href="#crm" data-route="crm" data-expand="crm-subitems">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                        <span class="nav-item-text">CRM</span>
-                        <span class="nav-badge orange" id="badge-crm" style="display:none;"></span>
-                    </a>
-                    <div class="nav-subitems" id="crm-subitems">
-                        <a class="nav-subitem" href="#pipeline" data-route="pipeline">Pipeline</a>
-                        <a class="nav-subitem" href="#contacts" data-route="contacts">Kontakty</a>
-                        <a class="nav-subitem" href="#companies" data-route="companies">Firmy</a>
-                        <a class="nav-subitem" href="#engagements" data-route="engagements">Klienti</a>
-                    </div>
+                <!-- Tools Section -->
+                <div class="pt-4 mt-4 border-t border-white/10">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Nástroje</p>
                 </div>
+                <div data-menu-section="tools"></div>
                 
-                <!-- KAMPANE -->
-                <div class="nav-section">
-                    <a class="nav-item" href="#campaigns" data-route="campaigns">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
-                        </svg>
-                        <span class="nav-item-text">Kampane</span>
-                    </a>
+                <!-- Settings Section -->
+                <div class="pt-4 mt-4 border-t border-white/10">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider px-4 mb-2">Systém</p>
                 </div>
-                
-                <!-- ONBOARDING -->
-                <div class="nav-section">
-                    <a class="nav-item" href="#onboarding" data-route="onboarding">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                            <rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>
-                        </svg>
-                        <span class="nav-item-text">Onboarding</span>
-                    </a>
-                </div>
-                
-                <!-- CHAT -->
-                <div class="nav-section">
-                    <a class="nav-item" href="#chat" data-route="chat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                        </svg>
-                        <span class="nav-item-text">Chat</span>
-                        <span class="nav-badge" id="badge-chat" style="display:none;"></span>
-                    </a>
-                </div>
-                
-                <div class="nav-divider"></div>
-                
-                <!-- NASTAVENIA -->
-                <div class="nav-section">
-                    <a class="nav-item" href="#settings" data-route="settings" data-expand="settings-subitems">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                        </svg>
-                        <span class="nav-item-text">Nastavenia</span>
-                    </a>
-                    <div class="nav-subitems" id="settings-subitems">
-                        <a class="nav-subitem" href="#services" data-route="services">Služby & Balíčky</a>
-                        <a class="nav-subitem" href="#templates" data-route="templates">Šablóny</a>
-                        <a class="nav-subitem" href="#billing" data-route="billing">Fakturácia</a>
-                        <a class="nav-subitem" href="#reporting" data-route="reporting">Reporty</a>
-                        <a class="nav-subitem" href="#team" data-route="team">Tím</a>
-                        <a class="nav-subitem" href="#integrations" data-route="integrations">Integrácie</a>
-                        <a class="nav-subitem" href="#automations" data-route="automations">Automatizácie</a>
-                        <a class="nav-subitem" href="#system" data-route="system">Systém</a>
-                    </div>
-                </div>
+                <div data-menu-section="settings"></div>
             </nav>
             
-            <div class="sidebar-footer">
-                <div class="user-card">
-                    <div class="user-avatar" id="user-avatar">?</div>
-                    <div class="user-info">
-                        <div class="user-name" id="user-name">Načítavam...</div>
-                        <div class="user-status">Online</div>
+            <!-- User & Status -->
+            <div class="p-4 border-t border-white/10">
+                <div class="flex items-center gap-3 mb-4">
+                    <div id="user-avatar" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-sm font-medium">U</div>
+                    <div class="flex-1 min-w-0">
+                        <div id="user-name" class="font-medium truncate">Načítavam...</div>
+                        <div id="user-role" class="text-xs text-gray-400">-</div>
                     </div>
-                    <button class="btn-logout" onclick="Auth.logout()" title="Odhlásiť">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                            <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-                        </svg>
+                    <button data-action="logout" class="p-2 hover:bg-white/10 rounded-lg" title="Odhlásiť">
+                        🚪
                     </button>
+                </div>
+                <div id="connection-status" class="flex items-center gap-2 text-sm text-gray-400">
+                    <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                    Pripájam...
                 </div>
             </div>
         </aside>
-        
-        <!-- MAIN -->
-        <div class="main">
-            <header class="topbar">
-                <div class="topbar-left">
-                    <button class="mobile-menu-btn" id="mobile-menu-btn">
-                        <span></span><span></span><span></span>
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- TOP BAR -->
+            <header class="bg-white border-b px-4 lg:px-6 py-3 lg:py-4 flex items-center justify-between flex-shrink-0 gap-2">
+                <!-- Mobile menu button + Title -->
+                <div class="flex items-center gap-2 min-w-0">
+                    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu" aria-expanded="false">
+                        <span></span>
+                        <span></span>
+                        <span></span>
                     </button>
-                    <h1 class="topbar-title" id="page-title">Desk</h1>
-                </div>
-                <div class="topbar-right">
-                    <div class="search-box" onclick="App.openSearch()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        </svg>
-                        <span>Hľadať...</span>
-                        <kbd>⌘K</kbd>
+                    <div class="min-w-0">
+                        <h1 id="page-title" class="text-xl lg:text-2xl font-bold text-gray-800 truncate">Dashboard</h1>
+                        <p id="page-subtitle" class="text-xs lg:text-sm text-gray-500 truncate">Prehľad</p>
                     </div>
-                    <button class="btn btn-primary" onclick="App.quickAdd()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                        Nový
+                </div>
+                
+                <!-- Actions -->
+                <div class="flex items-center gap-2 lg:gap-3 flex-shrink-0" id="header-right">
+                    <button onclick="location.reload()" class="p-2 lg:px-4 lg:py-2 bg-gray-100 rounded-xl hover:bg-gray-200 text-sm font-medium" title="Obnoviť">
+                        🔄 <span class="hide-mobile">Obnoviť</span>
                     </button>
+                    <button onclick="Router.navigate('settings')" class="p-2 lg:px-4 lg:py-2 bg-gray-100 rounded-xl hover:bg-gray-200 text-sm font-medium" title="Nastavenia">
+                        ⚙️
+                    </button>
+                    <!-- Notifications bell will be inserted here -->
                 </div>
             </header>
-            
-            <main class="content" id="main-content">
-                <div style="display:flex;align-items:center;justify-content:center;height:200px;color:#64748b;">
-                    <svg class="animate-spin" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                    </svg>
+
+            <!-- PAGE CONTENT -->
+            <main id="main-content" class="flex-1 overflow-y-auto p-4 lg:p-6">
+                <div class="flex items-center justify-center h-64">
+                    <div class="animate-spin text-4xl">⏳</div>
                 </div>
             </main>
         </div>
     </div>
     
-    <div id="modals"></div>
-    
-    <!-- Core -->
+    <!-- Core Scripts -->
     <script src="../shared/js/core/config.js"></script>
     <script src="../shared/js/core/database.js"></script>
     <script src="../shared/js/core/auth.js"></script>
     <script src="../shared/js/core/router.js"></script>
     <script src="../shared/js/core/utils.js"></script>
+    <script src="../shared/js/utils/pdf-generator.js"></script>
     <script src="../shared/js/core/app.js"></script>
     <script src="../shared/js/components/notifications.js"></script>
     
-    <!-- V2 Modules -->
-    <script src="../modules/desk/desk.js"></script>
-    <script src="../modules/crm/pipeline.js"></script>
-    <script src="../modules/crm/contacts.js"></script>
-    <script src="../modules/crm/companies.js"></script>
-    <script src="../modules/crm/engagements.js"></script>
-    <script src="../modules/chat/chat.js"></script>
+    <!-- Module Scripts -->
+    <script src="../modules/dashboard/dashboard.js"></script>
+    <script src="../modules/leads/leads.js"></script>
+    <script src="../modules/clients/clients.js"></script>
+    <script src="../modules/messages/messages.js"></script>
+    <script src="../modules/projects/projects.js"></script>
     <script src="../modules/campaigns/campaigns.js"></script>
     <script src="../modules/onboarding/onboarding.js"></script>
+    
+    <!-- Onboarding Components -->
     <script src="../modules/onboarding/components/PlatformSelector.js"></script>
     <script src="../modules/onboarding/components/PackageCalculator.js"></script>
+    <script src="../modules/onboarding/components/AccountHealthCheck.js"></script>
+    
+    <!-- Onboarding Extension (must be after base module and components) -->
+    <script src="../modules/onboarding/onboarding-extension.js"></script>
     <script src="../modules/services/services.js"></script>
     <script src="../modules/billing/billing.js"></script>
-    <script src="../modules/templates/templates.js"></script>
-    <script src="../modules/reporting/reporting.js"></script>
-    <script src="../modules/team/team.js"></script>
-    <script src="../modules/integrations/integrations.js"></script>
-    <script src="../modules/automations/automations.js"></script>
     <script src="../modules/settings/settings.js"></script>
+    <script src="../modules/integrations/integrations.js"></script>
+    <script src="../modules/team/team.js"></script>
+    <script src="../modules/tasks/tasks.js"></script>
+    <script src="../modules/tickets/tickets.js"></script>
+    <script src="../modules/reporting/reporting.js"></script>
+    <script src="../modules/calendar/calendar.js"></script>
+    <script src="../modules/templates/templates.js"></script>
+    <script src="../modules/documents/documents.js"></script>
+    <script src="../modules/keywords/keywords.js"></script>
+    <script src="../modules/automations/automations.js"></script>
     
+    <!-- Mobile Menu Handler -->
     <script>
-    // Mobile menu
     (function() {
+        'use strict';
+        
+        // Elements
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebar-overlay');
         const menuBtn = document.getElementById('mobile-menu-btn');
         
-        menuBtn?.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('active');
-        });
+        // Fix viewport height for mobile browsers
+        function setVH() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        setVH();
+        window.addEventListener('resize', setVH);
+        window.addEventListener('orientationchange', () => setTimeout(setVH, 100));
         
-        overlay?.addEventListener('click', () => {
+        // Toggle menu
+        function toggleMenu() {
+            const isOpen = sidebar.classList.toggle('open');
+            overlay.classList.toggle('active', isOpen);
+            menuBtn.classList.toggle('active', isOpen);
+            menuBtn.setAttribute('aria-expanded', isOpen);
+            document.body.style.overflow = isOpen ? 'hidden' : '';
+        }
+        
+        // Close menu
+        function closeMenu() {
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
-        });
-        
-        sidebar?.addEventListener('click', (e) => {
-            if (e.target.closest('.nav-item, .nav-subitem') && window.innerWidth < 1024) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
-            }
-        });
-    })();
-    
-    // Expandable nav
-    document.querySelectorAll('.nav-item[data-expand]').forEach(item => {
-        item.addEventListener('click', (e) => {
-            const subitemsId = item.dataset.expand;
-            const subitems = document.getElementById(subitemsId);
-            if (subitems) {
-                e.preventDefault();
-                subitems.classList.toggle('open');
-            }
-        });
-    });
-    
-    // Init - FIXED ORDER: init app, register modules, THEN start router
-    (async () => {
-        const success = await App.init({ requireTeam: true });
-        
-        if (success) {
-            // Register ALL modules FIRST
-            if (typeof DeskModule !== 'undefined') App.register(DeskModule);
-            if (typeof PipelineModule !== 'undefined') App.register(PipelineModule);
-            if (typeof ContactsModule !== 'undefined') App.register(ContactsModule);
-            if (typeof CompaniesModule !== 'undefined') App.register(CompaniesModule);
-            if (typeof EngagementsModule !== 'undefined') App.register(EngagementsModule);
-            if (typeof ChatModule !== 'undefined') App.register(ChatModule);
-            if (typeof CampaignsModule !== 'undefined') App.register(CampaignsModule);
-            if (typeof OnboardingModule !== 'undefined') App.register(OnboardingModule);
-            if (typeof ServicesModule !== 'undefined') App.register(ServicesModule);
-            if (typeof BillingModule !== 'undefined') App.register(BillingModule);
-            if (typeof TemplatesModule !== 'undefined') App.register(TemplatesModule);
-            if (typeof ReportingModule !== 'undefined') App.register(ReportingModule);
-            if (typeof TeamModule !== 'undefined') App.register(TeamModule);
-            if (typeof IntegrationsModule !== 'undefined') App.register(IntegrationsModule);
-            if (typeof AutomationsModule !== 'undefined') App.register(AutomationsModule);
-            if (typeof SettingsModule !== 'undefined') App.register(SettingsModule);
-            
-            // NOW start the router (after modules are registered)
-            App.start();
-            
-            if (typeof Notifications !== 'undefined') Notifications.init();
+            menuBtn.classList.remove('active');
+            menuBtn.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
         }
+        
+        // Event listeners
+        menuBtn.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', closeMenu);
+        
+        // Close on menu item click
+        sidebar.addEventListener('click', (e) => {
+            if (e.target.closest('.sidebar-item') && window.innerWidth < 1024) {
+                closeMenu();
+            }
+        });
+        
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeMenu();
+        });
+        
+        // Close on resize to desktop
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) closeMenu();
+        });
+        
+        // Swipe to open/close
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+        
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const deltaX = touchEndX - touchStartX;
+            
+            // Swipe right from edge to open
+            if (deltaX > 50 && touchStartX < 30 && !sidebar.classList.contains('open')) {
+                toggleMenu();
+            }
+            // Swipe left to close
+            if (deltaX < -50 && sidebar.classList.contains('open')) {
+                closeMenu();
+            }
+        }, { passive: true });
+        
+        // Make tables responsive dynamically
+        const observer = new MutationObserver(() => {
+            document.querySelectorAll('table:not(.responsive-table)').forEach(table => {
+                table.classList.add('responsive-table');
+                const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+                table.querySelectorAll('tbody tr').forEach(row => {
+                    row.querySelectorAll('td').forEach((cell, i) => {
+                        if (headers[i]) cell.setAttribute('data-label', headers[i]);
+                    });
+                });
+            });
+        });
+        observer.observe(document.getElementById('main-content'), { childList: true, subtree: true });
+        
+        console.log('📱 Mobile ready');
     })();
+    </script>
+    
+    <!-- Initialize App -->
+    <script>
+        (async () => {
+            const success = await App.init({ requireTeam: true });
+            
+            if (success) {
+                // Initialize Notifications
+                if (typeof Notifications !== 'undefined') {
+                    Notifications.init();
+                }
+                
+                // Register modules - HLAVNÉ
+                App.register(DashboardModule);
+                App.register(LeadsModule);
+                App.register(ClientsModule);
+                App.register(CampaignProjectsModule);
+                App.register(CampaignsModule);
+                App.register(MessagesModule);
+                App.register(TasksModule);
+                App.register(TicketsModule);
+                App.register(BillingModule);
+                
+                // Register modules - NÁSTROJE
+                App.register(OnboardingModule);
+                App.register(ServicesModule);
+                App.register(ReportingModule);
+                App.register(CalendarModule);
+                App.register(TemplatesModule);
+                App.register(DocumentsModule);
+                App.register(KeywordResearchModule);
+                App.register(AutomationsModule);
+                
+                // Register modules - SYSTÉM
+                App.register(SettingsModule);
+                App.register(IntegrationsModule);
+                App.register(TeamModule);
+                
+                // Navigate to default or current route
+                if (!window.location.hash) {
+                    Router.navigate('dashboard');
+                }
+            }
+        })();
     </script>
 </body>
 </html>
