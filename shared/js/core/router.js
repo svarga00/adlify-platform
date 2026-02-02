@@ -1,6 +1,6 @@
 /**
- * ADLIFY PLATFORM - Router
- * @version 1.0.0
+ * ADLIFY PLATFORM - Router V2
+ * @version 2.0.0
  * 
  * Handles navigation and module loading
  */
@@ -32,6 +32,7 @@ const Router = {
    */
   register(path, module) {
     this.routes.set(path, module);
+    console.log(`📍 Route registered: ${path}`);
     return this;
   },
   
@@ -67,35 +68,31 @@ const Router = {
     const [path, queryString] = hash.split('?');
     const params = new URLSearchParams(queryString || '');
     
-    // Find matching route
-    let module = this.routes.get(path);
-    
-    // Try parent path (for nested routes like crm/pipeline)
-    if (!module) {
-      const parentPath = path.split('/')[0];
-      module = this.routes.get(parentPath);
-    }
-    
-    // Route aliases for backward compatibility
+    // Route aliases - only for backward compatibility redirects
     const routeAliases = {
       'dashboard': 'desk',
-      'leads': 'crm',
-      'clients': 'crm',
-      'pipeline': 'crm',
-      'contacts': 'crm',
-      'companies': 'crm',
-      'engagements': 'crm',
+      'leads': 'pipeline',
+      'clients': 'engagements',
       'messages': 'chat',
       'tickets': 'chat',
       'inbox': 'chat'
     };
     
-    if (!module && routeAliases[path]) {
-      module = this.routes.get(routeAliases[path]);
+    // Get actual path (apply alias if exists)
+    const actualPath = routeAliases[path] || path;
+    
+    // Find matching route
+    let module = this.routes.get(actualPath);
+    
+    // Try parent path (for nested routes like settings/team)
+    if (!module) {
+      const parentPath = actualPath.split('/')[0];
+      module = this.routes.get(parentPath);
     }
     
     if (!module) {
-      console.warn('⚠️ Route not found:', path);
+      console.warn('⚠️ Route not found:', actualPath);
+      console.log('📋 Available routes:', Array.from(this.routes.keys()));
       this.render404();
       return;
     }
@@ -110,17 +107,17 @@ const Router = {
     }
     
     // Update current state
-    this.currentRoute = path;
+    this.currentRoute = actualPath;
     this.currentModule = module;
     
     // Update UI
-    this.updateActiveMenu(path);
-    this.updateBreadcrumb(module);
+    this.updateActiveMenu(actualPath);
+    this.updatePageTitle(module);
     
     // Render module
     try {
       if (this.container) {
-        this.container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+        this.container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#64748b;"><svg class="animate-spin" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></div>';
       }
       
       await module.render(this.container, Object.fromEntries(params));
@@ -132,73 +129,46 @@ const Router = {
   },
   
   /**
-   * Update active menu item - New sidebar design
+   * Update active menu item - V2 sidebar design
    */
   updateActiveMenu(path) {
     const basePath = path.split('/')[0];
-    const fullPath = path;
     
-    // Route mapping to sidebar items
-    const routeToNav = {
-      'desk': 'desk',
-      'dashboard': 'desk',
-      'crm': 'crm',
-      'leads': 'crm',
-      'pipeline': 'crm',
-      'contacts': 'crm',
-      'companies': 'crm',
-      'engagements': 'crm',
-      'clients': 'crm',
-      'campaigns': 'campaigns',
-      'onboarding': 'onboarding',
-      'chat': 'chat',
-      'messages': 'chat',
-      'tickets': 'chat',
-      'inbox': 'chat',
-      'settings': 'settings',
-      'services': 'settings',
-      'templates': 'settings',
-      'billing': 'settings',
-      'team': 'settings',
-      'integrations': 'settings',
-      'automations': 'settings',
-      'reporting': 'settings',
-      'reports': 'settings'
-    };
+    // CRM sub-routes
+    const crmRoutes = ['pipeline', 'contacts', 'companies', 'engagements'];
+    const isCrmRoute = crmRoutes.includes(basePath);
     
-    const navTarget = routeToNav[basePath] || basePath;
+    // Settings sub-routes
+    const settingsRoutes = ['services', 'templates', 'billing', 'reporting', 'team', 'integrations', 'automations', 'system'];
+    const isSettingsRoute = settingsRoutes.includes(basePath);
     
-    // Update main nav items
-    document.querySelectorAll('.nav-item[data-route]').forEach(el => {
-      el.classList.remove('active');
-      const route = el.dataset.route;
-      
-      // Check if this nav item should be active
-      if (route === navTarget || 
-          route === fullPath || 
-          fullPath.startsWith(route + '/') ||
-          (route === 'crm' && ['crm', 'leads', 'pipeline', 'contacts', 'companies', 'engagements', 'clients'].includes(basePath))) {
-        el.classList.add('active');
-        
-        // Expand parent submenu if needed
-        const expandable = el.closest('.nav-submenu')?.previousElementSibling;
-        if (expandable?.dataset.expand) {
-          expandable.classList.add('expanded');
-          document.getElementById('submenu-' + expandable.dataset.expand).style.display = 'block';
-        }
-      }
-    });
+    // Remove all active states
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-subitem').forEach(el => el.classList.remove('active'));
+    
+    // Set active main nav item
+    if (isCrmRoute) {
+      document.querySelector('.nav-item[data-route="crm"]')?.classList.add('active');
+      document.getElementById('crm-subitems')?.classList.add('open');
+    } else if (isSettingsRoute) {
+      document.querySelector('.nav-item[data-route="settings"]')?.classList.add('active');
+      document.getElementById('settings-subitems')?.classList.add('open');
+    } else {
+      document.querySelector(`.nav-item[data-route="${basePath}"]`)?.classList.add('active');
+    }
+    
+    // Set active sub-item
+    document.querySelector(`.nav-subitem[data-route="${basePath}"]`)?.classList.add('active');
   },
   
   /**
-   * Update breadcrumb
+   * Update page title
    */
-  updateBreadcrumb(module) {
+  updatePageTitle(module) {
     const titleEl = document.getElementById('page-title');
-    const subtitleEl = document.getElementById('page-subtitle');
-    
-    if (titleEl) titleEl.textContent = module.title || module.name;
-    if (subtitleEl) subtitleEl.textContent = module.subtitle || '';
+    if (titleEl) {
+      titleEl.textContent = module.title || module.name || 'Adlify';
+    }
   },
   
   /**
@@ -207,11 +177,11 @@ const Router = {
   render404() {
     if (this.container) {
       this.container.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-64 text-center">
-          <div class="text-6xl mb-4">🔍</div>
-          <h2 class="text-2xl font-bold text-gray-700">Stránka nenájdená</h2>
-          <p class="text-gray-500 mt-2">Táto stránka neexistuje.</p>
-          <a href="#dashboard" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Späť na dashboard</a>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;text-align:center;">
+          <div style="font-size:64px;margin-bottom:16px;">🔍</div>
+          <h2 style="font-size:24px;font-weight:700;color:#374151;margin-bottom:8px;">Stránka nenájdená</h2>
+          <p style="color:#6b7280;margin-bottom:24px;">Táto stránka neexistuje.</p>
+          <a href="#desk" style="padding:10px 20px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border-radius:8px;text-decoration:none;font-weight:500;">Späť na dashboard</a>
         </div>
       `;
     }
@@ -223,11 +193,11 @@ const Router = {
   render403() {
     if (this.container) {
       this.container.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-64 text-center">
-          <div class="text-6xl mb-4">🔒</div>
-          <h2 class="text-2xl font-bold text-gray-700">Prístup zamietnutý</h2>
-          <p class="text-gray-500 mt-2">Nemáš oprávnenie na zobrazenie tejto stránky.</p>
-          <a href="#dashboard" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Späť na dashboard</a>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;text-align:center;">
+          <div style="font-size:64px;margin-bottom:16px;">🔒</div>
+          <h2 style="font-size:24px;font-weight:700;color:#374151;margin-bottom:8px;">Prístup zamietnutý</h2>
+          <p style="color:#6b7280;margin-bottom:24px;">Nemáš oprávnenie na zobrazenie tejto stránky.</p>
+          <a href="#desk" style="padding:10px 20px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border-radius:8px;text-decoration:none;font-weight:500;">Späť na dashboard</a>
         </div>
       `;
     }
@@ -239,11 +209,11 @@ const Router = {
   renderError(error) {
     if (this.container) {
       this.container.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-64 text-center">
-          <div class="text-6xl mb-4">❌</div>
-          <h2 class="text-2xl font-bold text-gray-700">Chyba</h2>
-          <p class="text-gray-500 mt-2">${error.message || 'Nastala neočakávaná chyba.'}</p>
-          <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-primary text-white rounded-lg">Obnoviť stránku</button>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;text-align:center;">
+          <div style="font-size:64px;margin-bottom:16px;">❌</div>
+          <h2 style="font-size:24px;font-weight:700;color:#374151;margin-bottom:8px;">Chyba</h2>
+          <p style="color:#6b7280;margin-bottom:24px;">${error.message || 'Nastala neočakávaná chyba.'}</p>
+          <button onclick="location.reload()" style="padding:10px 20px;background:linear-gradient(135deg,#f97316,#ea580c);color:white;border-radius:8px;border:none;cursor:pointer;font-weight:500;">Obnoviť stránku</button>
         </div>
       `;
     }
