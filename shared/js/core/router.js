@@ -1,8 +1,6 @@
 /**
  * ADLIFY PLATFORM - Router V2
  * @version 2.0.0
- * 
- * Handles navigation and module loading
  */
 
 const Router = {
@@ -10,6 +8,7 @@ const Router = {
   currentModule: null,
   routes: new Map(),
   container: null,
+  initialized: false,
   
   /**
    * Initialize router
@@ -20,29 +19,20 @@ const Router = {
     // Listen for hash changes
     window.addEventListener('hashchange', () => this.handleRoute());
     
+    this.initialized = true;
+    console.log('🧭 Router initialized with', this.routes.size, 'routes');
+    
     // Handle initial route
     this.handleRoute();
     
-    console.log('🧭 Router initialized');
     return this;
   },
   
   /**
-   * Register route
+   * Register route (can be called before init)
    */
   register(path, module) {
     this.routes.set(path, module);
-    console.log(`📍 Route registered: ${path}`);
-    return this;
-  },
-  
-  /**
-   * Register multiple routes
-   */
-  registerAll(routes) {
-    Object.entries(routes).forEach(([path, module]) => {
-      this.register(path, module);
-    });
     return this;
   },
   
@@ -50,13 +40,11 @@ const Router = {
    * Navigate to route
    */
   navigate(path, params = {}) {
-    // Build URL with params
     let url = path;
     if (Object.keys(params).length > 0) {
       const searchParams = new URLSearchParams(params);
       url += '?' + searchParams.toString();
     }
-    
     window.location.hash = url;
   },
   
@@ -64,11 +52,13 @@ const Router = {
    * Handle route change
    */
   async handleRoute() {
+    if (!this.initialized) return;
+    
     const hash = window.location.hash.slice(1) || 'desk';
     const [path, queryString] = hash.split('?');
     const params = new URLSearchParams(queryString || '');
     
-    // Route aliases - only for backward compatibility redirects
+    // Route aliases for backward compatibility
     const routeAliases = {
       'dashboard': 'desk',
       'leads': 'pipeline',
@@ -78,13 +68,10 @@ const Router = {
       'inbox': 'chat'
     };
     
-    // Get actual path (apply alias if exists)
     const actualPath = routeAliases[path] || path;
-    
-    // Find matching route
     let module = this.routes.get(actualPath);
     
-    // Try parent path (for nested routes like settings/team)
+    // Try parent path for nested routes
     if (!module) {
       const parentPath = actualPath.split('/')[0];
       module = this.routes.get(parentPath);
@@ -106,11 +93,9 @@ const Router = {
       }
     }
     
-    // Update current state
     this.currentRoute = actualPath;
     this.currentModule = module;
     
-    // Update UI
     this.updateActiveMenu(actualPath);
     this.updatePageTitle(module);
     
@@ -129,16 +114,14 @@ const Router = {
   },
   
   /**
-   * Update active menu item - V2 sidebar design
+   * Update active menu item
    */
   updateActiveMenu(path) {
     const basePath = path.split('/')[0];
     
-    // CRM sub-routes
     const crmRoutes = ['pipeline', 'contacts', 'companies', 'engagements'];
     const isCrmRoute = crmRoutes.includes(basePath);
     
-    // Settings sub-routes
     const settingsRoutes = ['services', 'templates', 'billing', 'reporting', 'team', 'integrations', 'automations', 'system'];
     const isSettingsRoute = settingsRoutes.includes(basePath);
     
@@ -171,9 +154,6 @@ const Router = {
     }
   },
   
-  /**
-   * Render 404 page
-   */
   render404() {
     if (this.container) {
       this.container.innerHTML = `
@@ -187,9 +167,6 @@ const Router = {
     }
   },
   
-  /**
-   * Render 403 page
-   */
   render403() {
     if (this.container) {
       this.container.innerHTML = `
@@ -203,9 +180,6 @@ const Router = {
     }
   },
   
-  /**
-   * Render error page
-   */
   renderError(error) {
     if (this.container) {
       this.container.innerHTML = `
@@ -219,22 +193,15 @@ const Router = {
     }
   },
   
-  /**
-   * Get current params
-   */
   getParams() {
     const hash = window.location.hash.slice(1);
     const [, queryString] = hash.split('?');
     return Object.fromEntries(new URLSearchParams(queryString || ''));
   },
   
-  /**
-   * Get param value
-   */
   getParam(key) {
     return this.getParams()[key];
   }
 };
 
-// Export
 window.Router = Router;
