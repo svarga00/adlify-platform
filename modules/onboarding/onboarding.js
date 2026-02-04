@@ -1,7 +1,13 @@
 /**
- * ADLIFY PLATFORM - Onboarding Module v2.1
+ * ADLIFY PLATFORM - Onboarding Module v2.2
  * Multi-step onboarding form for clients
  * Modern design with SVG icons
+ * 
+ * v2.2 Changes:
+ * - Fixed email sending (correct params for send-email function)
+ * - Added header row with column descriptions
+ * - Client click opens modal with options
+ * - Logo priority: client.logo_url > favicon > initials
  */
 
 const OnboardingModule = {
@@ -381,7 +387,16 @@ const OnboardingModule = {
             </div>
           </div>
           
-          <div id="onboarding-list" class="divide-y max-h-[calc(100vh-320px)] overflow-y-auto">
+          <!-- Column Headers -->
+          <div class="flex items-center px-4 py-2 bg-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+            <div class="w-12 mr-4 flex-shrink-0">Logo</div>
+            <div class="flex-1">Firma</div>
+            <div class="w-28 mx-4 text-center flex-shrink-0">Status</div>
+            <div class="w-28 text-right flex-shrink-0 mr-2">Vytvorené</div>
+            <div class="w-36 text-center flex-shrink-0">Akcie</div>
+          </div>
+          
+          <div id="onboarding-list" class="divide-y max-h-[calc(100vh-380px)] overflow-y-auto">
             ${clients.length > 0 ? clients.map(c => this.renderClientRow(c, onboardingMap[c.id])).join('') : `
               <div class="p-8 text-center text-gray-400">
                 <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -407,14 +422,26 @@ const OnboardingModule = {
     };
     const s = statusConfig[status] || statusConfig.pending;
     
-    // Favicon z domény
-    let faviconUrl = null;
-    try {
-      if (client.website) {
+    // Logo: priorita client.logo_url > favicon z domény > prvé písmeno
+    let logoHtml = '';
+    if (client.logo_url) {
+      // Custom logo
+      logoHtml = `<img src="${client.logo_url}" alt="" class="w-8 h-8 object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <span class="w-full h-full items-center justify-center text-lg font-semibold text-gray-400 hidden">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>`;
+    } else if (client.website) {
+      // Favicon from domain
+      try {
         const domain = new URL(client.website.startsWith('http') ? client.website : 'https://' + client.website).hostname;
-        faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+        const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+        logoHtml = `<img src="${faviconUrl}" alt="" class="w-8 h-8" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <span class="w-full h-full items-center justify-center text-lg font-semibold text-gray-400 hidden">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>`;
+      } catch (e) {
+        logoHtml = `<span class="text-lg font-semibold text-gray-400">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>`;
       }
-    } catch (e) {}
+    } else {
+      // Fallback to initials
+      logoHtml = `<span class="text-lg font-semibold text-gray-400">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>`;
+    }
     
     // Dátumy
     const createdAt = client.created_at ? new Date(client.created_at).toLocaleDateString('sk-SK') : '-';
@@ -423,14 +450,10 @@ const OnboardingModule = {
     return `
       <div class="flex items-center p-4 hover:bg-gray-50 group cursor-pointer" 
            data-client-name="${client.company_name?.toLowerCase() || ''}"
-           onclick="OnboardingModule.viewOnboarding('${client.id}')">
+           onclick="OnboardingModule.showClientModal('${client.id}')">
         <!-- Logo/Favicon -->
         <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden mr-4 flex-shrink-0">
-          ${faviconUrl ? 
-            `<img src="${faviconUrl}" alt="" class="w-8 h-8" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-             <span class="w-full h-full items-center justify-center text-lg font-semibold text-gray-400 hidden">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>` :
-            `<span class="text-lg font-semibold text-gray-400">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>`
-          }
+          ${logoHtml}
         </div>
         
         <!-- Info -->
@@ -486,6 +509,92 @@ const OnboardingModule = {
   
   viewOnboarding(clientId) {
     Router.navigate('onboarding', { client_id: clientId });
+  },
+  
+  // ==========================================
+  // CLIENT DETAIL MODAL (on click)
+  // ==========================================
+  
+  async showClientModal(clientId) {
+    const client = await Database.select('clients', { filters: { id: clientId }, single: true });
+    if (!client) return;
+    
+    const status = client.onboarding_status || 'pending';
+    const statusConfig = {
+      completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Dokončený' },
+      in_progress: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Rozpracovaný' },
+      pending: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Čaká na vyplnenie' },
+      sent: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Email odoslaný' }
+    };
+    const s = statusConfig[status] || statusConfig.pending;
+    
+    // Logo
+    let logoHtml = '';
+    if (client.logo_url) {
+      logoHtml = `<img src="${client.logo_url}" alt="" class="w-14 h-14 object-contain">`;
+    } else if (client.website) {
+      try {
+        const domain = new URL(client.website.startsWith('http') ? client.website : 'https://' + client.website).hostname;
+        const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        logoHtml = `<img src="${faviconUrl}" alt="" class="w-14 h-14" onerror="this.outerHTML='<span class=\\'text-2xl font-bold text-gray-400\\'>${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>'">`;
+      } catch (e) {
+        logoHtml = `<span class="text-2xl font-bold text-gray-400">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>`;
+      }
+    } else {
+      logoHtml = `<span class="text-2xl font-bold text-gray-400">${client.company_name?.charAt(0)?.toUpperCase() || '?'}</span>`;
+    }
+    
+    // Dates
+    const createdAt = client.created_at ? new Date(client.created_at).toLocaleDateString('sk-SK') : '-';
+    
+    const content = `
+      <div class="text-center mb-6">
+        <div class="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4 overflow-hidden">
+          ${logoHtml}
+        </div>
+        <h3 class="text-xl font-bold">${client.company_name || 'Bez názvu'}</h3>
+        <p class="text-gray-500 text-sm mt-1">${client.email || ''}</p>
+        ${client.website ? `<p class="text-gray-400 text-xs">${client.website}</p>` : ''}
+        <div class="mt-3">
+          <span class="px-3 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}">${s.label}</span>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">Vytvorené: ${createdAt}</p>
+      </div>
+      
+      <div class="space-y-2">
+        <button onclick="OnboardingModule.closeModal(); OnboardingModule.viewOnboarding('${clientId}')" 
+          class="w-full p-3 gradient-bg text-white rounded-xl font-medium hover:opacity-90 flex items-center justify-center gap-2">
+          ${this.icon('edit', 'w-5 h-5')}
+          ${status === 'completed' ? 'Zobraziť onboarding' : 'Vyplniť onboarding'}
+        </button>
+        
+        <button onclick="OnboardingModule.closeModal(); OnboardingModule.showHistory('${clientId}')" 
+          class="w-full p-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium flex items-center justify-center gap-2">
+          ${this.icon('history', 'w-5 h-5 text-gray-600')}
+          História aktivít
+        </button>
+        
+        <button onclick="OnboardingModule.closeModal(); OnboardingModule.confirmResendEmail('${clientId}')" 
+          class="w-full p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl font-medium flex items-center justify-center gap-2">
+          ${this.icon('mail', 'w-5 h-5')}
+          Odoslať onboarding email
+        </button>
+        
+        <button onclick="OnboardingModule.closeModal(); Router.navigate('clients', { id: '${clientId}' })" 
+          class="w-full p-3 border border-gray-200 hover:bg-gray-50 rounded-xl font-medium flex items-center justify-center gap-2 text-gray-600">
+          ${this.icon('user', 'w-5 h-5')}
+          Detail klienta
+        </button>
+      </div>
+    `;
+    
+    this.showModal({
+      title: '',
+      content: content,
+      showCancel: false,
+      confirmText: 'Zavrieť',
+      confirmClass: 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+    });
   },
   
   // ==========================================
@@ -582,6 +691,7 @@ const OnboardingModule = {
     try {
       const client = await Database.select('clients', { filters: { id: clientId }, single: true });
       if (!client) throw new Error('Klient nenájdený');
+      if (!client.email) throw new Error('Klient nemá email');
       
       let token = client.onboarding_token;
       if (!token) {
@@ -589,24 +699,82 @@ const OnboardingModule = {
         await Database.update('clients', clientId, { onboarding_token: token });
       }
       
+      const onboardingUrl = `${window.location.origin}/onboarding/?token=${token}`;
+      
+      // Build email HTML
+      const htmlBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #f97316, #ec4899, #8b5cf6); padding: 12px 24px; border-radius: 12px;">
+              <span style="color: white; font-weight: bold; font-size: 24px;">Adlify</span>
+            </div>
+          </div>
+          
+          <h1 style="font-size: 24px; color: #1f2937; margin-bottom: 20px;">Dobrý deň${client.contact_person ? ', ' + client.contact_person.split(' ')[0] : ''}!</h1>
+          
+          <p style="margin-bottom: 20px;">
+            Ďakujeme za váš záujem o spoluprácu s Adlify. Pre prípravu vašej marketingovej stratégie 
+            potrebujeme od vás vyplniť krátky onboarding dotazník.
+          </p>
+          
+          <p style="margin-bottom: 30px;">
+            Dotazník obsahuje otázky o vašom biznise, cieľovej skupine a marketingových cieľoch. 
+            Vyplnenie trvá približne 10-15 minút.
+          </p>
+          
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="${onboardingUrl}" style="display: inline-block; background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px;">
+              Vyplniť dotazník →
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px;">
+            Ak tlačidlo nefunguje, skopírujte tento odkaz do prehliadača:<br>
+            <a href="${onboardingUrl}" style="color: #f97316; word-break: break-all;">${onboardingUrl}</a>
+          </p>
+          
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 40px 0 20px;">
+          
+          <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+            © ${new Date().getFullYear()} Adlify | AI-powered marketing automation<br>
+            <a href="https://adlify.eu" style="color: #9ca3af;">adlify.eu</a>
+          </p>
+        </body>
+        </html>
+      `;
+      
       const response = await fetch('/.netlify/functions/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'onboarding',
           to: client.email,
-          data: {
-            company_name: client.company_name,
-            onboarding_url: `${window.location.origin}/onboarding/?token=${token}`
-          }
+          subject: `Onboarding dotazník - ${client.company_name || 'Adlify'}`,
+          htmlBody: htmlBody,
+          clientId: clientId
         })
       });
       
-      if (!response.ok) throw new Error('Email sa nepodarilo odoslať');
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Email sa nepodarilo odoslať');
+      }
+      
+      // Update client status
+      await Database.update('clients', clientId, { onboarding_status: 'sent' });
       
       await this.logActivity('onboarding_email_sent', { email: client.email }, clientId);
       
       Utils.toast('Email odoslaný!', 'success');
+      
+      // Refresh list
+      Router.navigate('onboarding');
     } catch (error) {
       console.error('Resend email error:', error);
       Utils.toast('Chyba: ' + error.message, 'error');
