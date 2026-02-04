@@ -79,16 +79,16 @@ exports.handler = async (event, context) => {
     const companyName = proposal.company_name || 'Neznámy';
     const notifyEmail = 'info@adlify.eu';
 
-    // Získať organization_id z leadu pre RLS
-    let organizationId = null;
+    // Získať org_id z leadu pre RLS
+    let orgId = null;
     if (leadId) {
       const { data: lead } = await supabase
         .from('leads')
-        .select('organization_id')
+        .select('org_id')
         .eq('id', leadId)
         .single();
-      organizationId = lead?.organization_id;
-      console.log('📍 Organization ID from lead:', organizationId);
+      orgId = lead?.org_id;
+      console.log('📍 Org ID from lead:', orgId);
     }
 
     if (action === 'interested') {
@@ -120,7 +120,7 @@ exports.handler = async (event, context) => {
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
         .insert({
-          organization_id: organizationId,
+          org_id: orgId,
           company_name: companyName,
           domain: proposal.domain,
           email: contactEmail || null,
@@ -144,8 +144,8 @@ exports.handler = async (event, context) => {
       const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
-          organization_id: organizationId,
-          title: `🎉 Nový klient: ${companyName}`,
+          org_id: orgId,
+          subject: `🎉 Nový klient: ${companyName}`,
           description: `Firma ${companyName} prejavila záujem o spoluprácu!\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'high',
           status: 'open',
@@ -164,7 +164,7 @@ exports.handler = async (event, context) => {
       const { error: notifError } = await supabase
         .from('notifications')
         .insert({
-          organization_id: organizationId,
+          org_id: orgId,
           user_id: null,
           type: 'conversion',
           title: `🎉 Nový klient: ${companyName}`,
@@ -291,8 +291,8 @@ exports.handler = async (event, context) => {
       const { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert({
-          organization_id: organizationId,
-          title: `❓ Otázka od: ${companyName}`,
+          org_id: orgId,
+          subject: `❓ Otázka od: ${companyName}`,
           description: `Firma ${companyName} má otázky k ponuke.\n\n📝 Správa:\n${message || '(bez správy)'}\n\nKontakt: ${contactName || '-'}\nEmail: ${contactEmail || '-'}\nTelefón: ${contactPhone || '-'}`,
           priority: 'medium',
           status: 'open',
@@ -318,7 +318,7 @@ exports.handler = async (event, context) => {
       const { error: notifError } = await supabase
         .from('notifications')
         .insert({
-          organization_id: organizationId,
+          org_id: orgId,
           user_id: null,
           type: 'question',
           title: `❓ Otázka od: ${companyName}`,
@@ -364,8 +364,8 @@ exports.handler = async (event, context) => {
               </tr>
             </table>
             
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
-              <a href="mailto:${contactEmail}?subject=Re: Otázka k ponuke - ${companyName}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f97316, #ea580c); color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">
+            <div style="margin-top: 20px;">
+              <a href="mailto:${contactEmail}?subject=Re: Otázka k ponuke - ${companyName}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #f97316, #ea580c); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; margin-right: 10px;">
                 📧 Odpovedať
               </a>
               <a href="https://adlify-app.netlify.app/admin#tickets" style="display: inline-block; padding: 12px 24px; background: #e2e8f0; color: #475569; text-decoration: none; border-radius: 8px; font-weight: 600;">
@@ -418,7 +418,7 @@ exports.handler = async (event, context) => {
       const { error: notifError } = await supabase
         .from('notifications')
         .insert({
-          organization_id: organizationId,
+          org_id: orgId,
           user_id: null,
           type: 'rejection',
           title: notifTitle,
@@ -437,8 +437,8 @@ exports.handler = async (event, context) => {
         const { error: ticketError } = await supabase
           .from('tickets')
           .insert({
-            organization_id: organizationId,
-            title: `⏰ Follow-up: ${companyName}`,
+            org_id: orgId,
+            subject: `⏰ Follow-up: ${companyName}`,
             description: `Klient požiadal o kontakt neskôr.\n\nDôvod: ${reason || '(neuvedený)'}\n\nOdporúčanie: Kontaktovať o 1-2 mesiace.`,
             priority: 'low',
             status: 'open',
