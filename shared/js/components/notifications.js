@@ -9,13 +9,17 @@ const Notifications = {
     isOpen: false,
 
     async init() {
-        console.log('🔔 Notifications initialized');
+    console.log('🔔 Notifications initialized');
+    await this.load();
+    this.render();
+    this.updateBadge();
+    
+    // Refresh every 30 seconds
+    setInterval(async () => {
         await this.load();
-        this.render();
-        
-        // Refresh every 30 seconds
-        setInterval(() => this.load(), 30000);
-    },
+        this.updateBadge();
+    }, 30000);
+},
 
     async load() {
         try {
