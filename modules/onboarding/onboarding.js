@@ -1,5 +1,5 @@
 /**
- * ADLIFY PLATFORM - Onboarding Module v2.0
+ * ADLIFY PLATFORM - Onboarding Module v2.1
  * Multi-step onboarding form for clients
  * Modern design with SVG icons
  */
@@ -57,7 +57,9 @@ const OnboardingModule = {
     ban: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
     pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
     bot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
-    admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+    admin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    alertTriangle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
   },
   
   // Sections definition
@@ -128,7 +130,7 @@ const OnboardingModule = {
   },
 
   init() {
-    console.log('Onboarding module v2.0 initialized');
+    console.log('Onboarding module v2.1 initialized');
   },
   
   /**
@@ -311,7 +313,7 @@ const OnboardingModule = {
     
     const { data: onboardings } = await Database.client
       .from('onboarding_responses')
-      .select('client_id, status, updated_at, submitted_at');
+      .select('client_id, status, updated_at, submitted_at, created_at');
     
     const onboardingMap = {};
     onboardings?.forEach(o => { onboardingMap[o.client_id] = o; });
@@ -325,23 +327,6 @@ const OnboardingModule = {
     
     return `
       <div class="max-w-5xl mx-auto">
-        <!-- Header -->
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h1 class="text-2xl font-bold flex items-center gap-3">
-              ${this.icon('clipboard', 'w-7 h-7 text-orange-500')}
-              Onboarding
-            </h1>
-            <p class="text-gray-500 mt-1">Prehľad onboarding dotazníkov</p>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="OnboardingModule.exportData()" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2 text-sm">
-              ${this.icon('barChart', 'w-4 h-4')}
-              Export
-            </button>
-          </div>
-        </div>
-        
         <!-- Stats Cards -->
         <div class="grid grid-cols-4 gap-4 mb-6">
           <div class="bg-white rounded-xl p-4 border">
@@ -396,7 +381,7 @@ const OnboardingModule = {
             </div>
           </div>
           
-          <div id="onboarding-list" class="divide-y">
+          <div id="onboarding-list" class="divide-y max-h-[calc(100vh-320px)] overflow-y-auto">
             ${clients.length > 0 ? clients.map(c => this.renderClientRow(c, onboardingMap[c.id])).join('') : `
               <div class="p-8 text-center text-gray-400">
                 <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -431,7 +416,9 @@ const OnboardingModule = {
       }
     } catch (e) {}
     
-    const updatedAt = onboarding?.updated_at ? new Date(onboarding.updated_at).toLocaleDateString('sk-SK') : '-';
+    // Dátumy
+    const createdAt = client.created_at ? new Date(client.created_at).toLocaleDateString('sk-SK') : '-';
+    const updatedAt = onboarding?.updated_at ? new Date(onboarding.updated_at).toLocaleDateString('sk-SK') : null;
     
     return `
       <div class="flex items-center p-4 hover:bg-gray-50 group cursor-pointer" 
@@ -460,13 +447,14 @@ const OnboardingModule = {
           </span>
         </div>
         
-        <!-- Last Update -->
-        <div class="text-sm text-gray-400 w-24 text-right flex-shrink-0">
-          ${updatedAt}
+        <!-- Dates -->
+        <div class="text-sm text-right flex-shrink-0 w-28 mr-2">
+          <div class="text-gray-600">${createdAt}</div>
+          ${updatedAt && updatedAt !== createdAt ? `<div class="text-xs text-gray-400">Upravené: ${updatedAt}</div>` : ''}
         </div>
         
         <!-- Actions -->
-        <div class="flex items-center gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button onclick="event.stopPropagation(); OnboardingModule.viewOnboarding('${client.id}')" 
             class="p-2 hover:bg-gray-200 rounded-lg transition-colors" title="Zobraziť/Vyplniť">
             ${this.icon('edit', 'w-4 h-4 text-gray-600')}
@@ -475,11 +463,11 @@ const OnboardingModule = {
             class="p-2 hover:bg-gray-200 rounded-lg transition-colors" title="História">
             ${this.icon('history', 'w-4 h-4 text-gray-600')}
           </button>
-          <button onclick="event.stopPropagation(); OnboardingModule.resendEmail('${client.id}')" 
+          <button onclick="event.stopPropagation(); OnboardingModule.confirmResendEmail('${client.id}')" 
             class="p-2 hover:bg-blue-100 rounded-lg transition-colors" title="Poslať email">
             ${this.icon('mail', 'w-4 h-4 text-blue-600')}
           </button>
-          <button onclick="event.stopPropagation(); OnboardingModule.deleteOnboarding('${client.id}')" 
+          <button onclick="event.stopPropagation(); OnboardingModule.confirmDelete('${client.id}')" 
             class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Zmazať">
             ${this.icon('trash', 'w-4 h-4 text-red-500')}
           </button>
@@ -500,6 +488,10 @@ const OnboardingModule = {
     Router.navigate('onboarding', { client_id: clientId });
   },
   
+  // ==========================================
+  // MODALS
+  // ==========================================
+  
   async showHistory(clientId) {
     const { data: logs } = await Database.client
       .from('activity_log')
@@ -519,7 +511,7 @@ const OnboardingModule = {
     };
     
     const content = logs?.length > 0 ? `
-      <div class="space-y-1">
+      <div class="space-y-1 max-h-96 overflow-y-auto">
         ${logs.map(log => `
           <div class="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50">
             <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -544,10 +536,12 @@ const OnboardingModule = {
       </div>
     `;
     
-    Utils.modal({
+    this.showModal({
       title: `História - ${client?.company_name || 'Klient'}`,
-      content: `<div class="max-h-96 overflow-y-auto -m-4 p-4">${content}</div>`,
-      size: 'md'
+      content: content,
+      size: 'md',
+      showCancel: false,
+      confirmText: 'Zavrieť'
     });
   },
   
@@ -564,9 +558,27 @@ const OnboardingModule = {
     return labels[action] || action;
   },
   
+  confirmResendEmail(clientId) {
+    this.showModal({
+      title: 'Poslať onboarding email',
+      content: `
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            ${this.icon('mail', 'w-6 h-6 text-blue-600')}
+          </div>
+          <div>
+            <p class="text-gray-700">Naozaj chcete poslať onboarding email znova?</p>
+            <p class="text-sm text-gray-500 mt-2">Klient dostane email s odkazom na vyplnenie onboarding dotazníka.</p>
+          </div>
+        </div>
+      `,
+      confirmText: 'Poslať email',
+      confirmClass: 'bg-blue-600 hover:bg-blue-700',
+      onConfirm: () => this.resendEmail(clientId)
+    });
+  },
+  
   async resendEmail(clientId) {
-    if (!confirm('Poslať onboarding email znova?')) return;
-    
     try {
       const client = await Database.select('clients', { filters: { id: clientId }, single: true });
       if (!client) throw new Error('Klient nenájdený');
@@ -601,9 +613,27 @@ const OnboardingModule = {
     }
   },
   
+  confirmDelete(clientId) {
+    this.showModal({
+      title: 'Zmazať onboarding',
+      content: `
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            ${this.icon('alertTriangle', 'w-6 h-6 text-red-600')}
+          </div>
+          <div>
+            <p class="text-gray-700 font-medium">Naozaj chcete zmazať onboarding?</p>
+            <p class="text-sm text-gray-500 mt-2">Všetky vyplnené údaje budú stratené. Táto akcia sa nedá vrátiť späť.</p>
+          </div>
+        </div>
+      `,
+      confirmText: 'Zmazať',
+      confirmClass: 'bg-red-600 hover:bg-red-700',
+      onConfirm: () => this.deleteOnboarding(clientId)
+    });
+  },
+  
   async deleteOnboarding(clientId) {
-    if (!confirm('Naozaj chcete zmazať onboarding pre tohto klienta? Všetky vyplnené údaje budú stratené.')) return;
-    
     try {
       await Database.client
         .from('onboarding_responses')
@@ -623,6 +653,68 @@ const OnboardingModule = {
       console.error('Delete error:', error);
       Utils.toast('Chyba: ' + error.message, 'error');
     }
+  },
+  
+  /**
+   * Universal modal helper
+   */
+  showModal(options) {
+    const {
+      title = '',
+      content = '',
+      confirmText = 'Potvrdiť',
+      cancelText = 'Zrušiť',
+      confirmClass = 'gradient-bg',
+      showCancel = true,
+      onConfirm = null,
+      onCancel = null
+    } = options;
+    
+    // Remove existing modal
+    document.getElementById('onboarding-modal')?.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'onboarding-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-black/50" onclick="OnboardingModule.closeModal()"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+        <div class="p-6">
+          ${title ? `<h3 class="text-lg font-bold mb-4">${title}</h3>` : ''}
+          <div>${content}</div>
+        </div>
+        <div class="flex gap-3 p-4 border-t bg-gray-50 rounded-b-2xl">
+          ${showCancel ? `
+            <button onclick="OnboardingModule.closeModal()" class="flex-1 px-4 py-2.5 bg-gray-200 rounded-xl hover:bg-gray-300 font-medium transition-colors">
+              ${cancelText}
+            </button>
+          ` : ''}
+          <button id="modal-confirm-btn" class="flex-1 px-4 py-2.5 ${confirmClass} text-white rounded-xl font-medium transition-colors">
+            ${confirmText}
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add confirm handler
+    document.getElementById('modal-confirm-btn').onclick = () => {
+      this.closeModal();
+      if (onConfirm) onConfirm();
+    };
+    
+    // Focus trap & escape key
+    modal.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.closeModal();
+        if (onCancel) onCancel();
+      }
+    });
+  },
+  
+  closeModal() {
+    document.getElementById('onboarding-modal')?.remove();
   },
   
   exportData() {
