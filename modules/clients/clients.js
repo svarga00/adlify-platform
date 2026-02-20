@@ -1280,7 +1280,7 @@ const ClientsModule = {
   templateTabOnboarding() {
     const c = this.currentClient;
     const onboarding = this.ONBOARDING_STATUSES[c.onboarding_status] || this.ONBOARDING_STATUSES.pending;
-    const onboardingUrl = c.onboarding_token ? `${window.location.origin}/onboarding/${c.onboarding_token}` : null;
+    const onboardingUrl = c.onboarding_token ? `${window.location.origin}/portal/onboarding.html?t=${c.onboarding_token}` : null;
     
     return `
       <div class="card p-6">
@@ -1650,9 +1650,13 @@ const ClientsModule = {
   copyOnboardingUrl() {
     const input = document.getElementById('onboarding-url');
     if (input) {
-      input.select();
-      document.execCommand('copy');
-      Utils.toast('Link skopírovaný!', 'success');
+      navigator.clipboard.writeText(input.value).then(() => {
+        Utils.toast('Link skopírovaný!', 'success');
+      }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        Utils.toast('Link skopírovaný!', 'success');
+      });
     }
   },
   
