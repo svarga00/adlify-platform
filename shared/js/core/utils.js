@@ -323,37 +323,124 @@ const Utils = {
   },
   
   /**
-   * Confirm dialog
+   * Confirm dialog - pekné vyskakovacie okno
+   * @param {string} message - Text správy
+   * @param {object|string} options - Konfigurácia alebo title string (spätná kompatibilita)
+   * @param {string} options.title - Nadpis
+   * @param {string} options.type - 'danger' | 'warning' | 'success' | 'info' (default: 'danger')
+   * @param {string} options.confirmText - Text tlačidla (default: 'Potvrdiť')
+   * @param {string} options.cancelText - Text zrušenia (default: 'Zrušiť')
    */
-  async confirm(message, title = 'Potvrdiť') {
+  async confirm(message, options = {}) {
+    if (typeof options === 'string') options = { title: options };
+    
+    const {
+      title = 'Potvrdiť',
+      type = 'danger',
+      confirmText = 'Potvrdiť',
+      cancelText = 'Zrušiť'
+    } = options;
+
+    const themes = {
+      danger: {
+        icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+        iconBg: '#fef2f2', iconBorder: '#fecaca',
+        btnBg: '#dc2626', btnHover: '#b91c1c'
+      },
+      warning: {
+        icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+        iconBg: '#fffbeb', iconBorder: '#fde68a',
+        btnBg: '#f59e0b', btnHover: '#d97706'
+      },
+      success: {
+        icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+        iconBg: '#f0fdf4', iconBorder: '#bbf7d0',
+        btnBg: '#22c55e', btnHover: '#16a34a'
+      },
+      info: {
+        icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+        iconBg: '#eef2ff', iconBorder: '#c7d2fe',
+        btnBg: '#6366f1', btnHover: '#4f46e5'
+      }
+    };
+
+    const t = themes[type] || themes.danger;
+
     return new Promise((resolve) => {
-      // Odstrániť existujúci confirm ak existuje
       const existing = document.getElementById('utils-confirm-modal');
-      if (existing) { existing.remove(); resolve(false); return; }
-      
-      const modal = document.createElement('div');
-      modal.id = 'utils-confirm-modal';
-      modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center';
-      modal.style.zIndex = '9999';
-      modal.innerHTML = `
-        <div class="bg-white rounded-xl p-6 max-w-sm mx-4">
-          <h3 class="font-bold text-lg mb-2">${title}</h3>
-          <p class="text-gray-600 mb-6">${message}</p>
-          <div class="flex gap-3">
-            <button class="flex-1 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200" data-action="cancel">Zrušiť</button>
-            <button class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" data-action="confirm">Potvrdiť</button>
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'utils-confirm-modal';
+      Object.assign(overlay.style, {
+        position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: '9999', padding: '1rem', backdropFilter: 'blur(4px)',
+        opacity: '0', transition: 'opacity 0.15s ease'
+      });
+
+      overlay.innerHTML = `
+        <div id="utils-confirm-box" style="
+          background: white; border-radius: 16px; width: 100%; max-width: 400px;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+          transform: scale(0.95) translateY(10px);
+          transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+          overflow: hidden;
+        ">
+          <div style="padding: 1.5rem 1.5rem 1rem; text-align: center;">
+            <div style="
+              width: 56px; height: 56px; border-radius: 50%;
+              background: ${t.iconBg}; border: 2px solid ${t.iconBorder};
+              display: flex; align-items: center; justify-content: center;
+              margin: 0 auto 1rem;
+            ">${t.icon}</div>
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #1e293b; margin: 0 0 0.5rem;">${title}</h3>
+            <p style="font-size: 0.9rem; color: #64748b; margin: 0; line-height: 1.5;">${message}</p>
+          </div>
+          <div style="padding: 1rem 1.5rem 1.5rem; display: flex; gap: 0.75rem;">
+            <button data-action="cancel" style="
+              flex: 1; padding: 0.625rem 1rem; border-radius: 10px;
+              border: 1px solid #e2e8f0; background: white; color: #475569;
+              font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.15s;
+            ">${cancelText}</button>
+            <button data-action="confirm" style="
+              flex: 1; padding: 0.625rem 1rem; border-radius: 10px;
+              border: none; background: ${t.btnBg}; color: white;
+              font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+            ">${confirmText}</button>
           </div>
         </div>
       `;
-      
-      modal.addEventListener('click', (e) => {
+
+      const confirmBtn = overlay.querySelector('[data-action="confirm"]');
+      const cancelBtn = overlay.querySelector('[data-action="cancel"]');
+      confirmBtn.onmouseenter = () => confirmBtn.style.background = t.btnHover;
+      confirmBtn.onmouseleave = () => confirmBtn.style.background = t.btnBg;
+      cancelBtn.onmouseenter = () => { cancelBtn.style.background = '#f8fafc'; cancelBtn.style.borderColor = '#cbd5e1'; };
+      cancelBtn.onmouseleave = () => { cancelBtn.style.background = 'white'; cancelBtn.style.borderColor = '#e2e8f0'; };
+
+      const close = (result) => {
+        const box = document.getElementById('utils-confirm-box');
+        overlay.style.opacity = '0';
+        if (box) box.style.transform = 'scale(0.95) translateY(10px)';
+        setTimeout(() => { overlay.remove(); resolve(result); }, 150);
+      };
+
+      overlay.addEventListener('click', (e) => {
         const action = e.target.dataset.action;
-        if (action === 'confirm') resolve(true);
-        if (action === 'cancel' || e.target === modal) resolve(false);
-        modal.remove();
+        if (action === 'confirm') close(true);
+        else if (action === 'cancel' || e.target === overlay) close(false);
       });
-      
-      document.body.appendChild(modal);
+
+      const onKey = (e) => { if (e.key === 'Escape') { close(false); document.removeEventListener('keydown', onKey); } };
+      document.addEventListener('keydown', onKey);
+
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        const box = document.getElementById('utils-confirm-box');
+        if (box) box.style.transform = 'scale(1) translateY(0)';
+      });
     });
   },
   
