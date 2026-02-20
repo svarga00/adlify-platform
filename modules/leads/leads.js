@@ -1596,10 +1596,13 @@ const LeadsModule = {
   },
 
   async convertToClient(leadId) {
+    if (this._converting) return;
     const lead = this.leads.find(l => l.id === leadId);
     if (!lead) return Utils.toast('Lead nenájdený', 'error');
     
     if (!await Utils.confirm(`Konvertovať "${lead.company_name || lead.domain}" na klienta?`)) return;
+    
+    this._converting = true;
     
     const analysis = lead.analysis || {};
     const company = analysis.company || {};
@@ -1653,6 +1656,8 @@ const LeadsModule = {
     } catch (error) {
       console.error('Convert error:', error);
       Utils.toast('Chyba: ' + error.message, 'error');
+    } finally {
+      this._converting = false;
     }
   },
 
