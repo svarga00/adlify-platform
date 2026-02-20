@@ -1418,31 +1418,48 @@ const ClientsModule = {
   },
 
   openBillingInvoice() {
-    // Ak BillingModule existuje, použi ho s predvyplneným klientom
-    if (window.BillingModule) {
-      // Uisti sa že billing má načítané dáta
-      const doCreate = async () => {
-        if (!BillingModule.clients || BillingModule.clients.length === 0) {
-          await BillingModule.loadData();
-        }
-        await BillingModule.createInvoice();
-        // Predvyplň klienta
-        setTimeout(() => {
-          const clientSelect = document.querySelector('select[name="client_id"]');
-          if (clientSelect && this.currentClient?.id) {
-            clientSelect.value = this.currentClient.id;
-            BillingModule.onRecipientSelect('client', this.currentClient.id);
-          }
-        }, 150);
-      };
-      doCreate();
-    } else {
+    if (!window.BillingModule) {
       Utils.toast('Modul Fakturácia nie je načítaný', 'error');
+      return;
     }
+    
+    const doCreate = async () => {
+      // Načítaj dáta ak treba
+      if (!BillingModule.clients || BillingModule.clients.length === 0) {
+        await BillingModule.loadData();
+      }
+      
+      // Injektuj billing CSS ak ešte nie je na stránke
+      if (!document.getElementById('billing-styles')) {
+        const styleTag = document.createElement('div');
+        styleTag.id = 'billing-styles';
+        styleTag.innerHTML = BillingModule.renderStyles();
+        document.body.appendChild(styleTag);
+      }
+      
+      // Otvor modal
+      await BillingModule.createInvoice();
+      
+      // Predvyplň klienta
+      setTimeout(() => {
+        const clientSelect = document.querySelector('select[name="client_id"]');
+        if (clientSelect && this.currentClient?.id) {
+          clientSelect.value = this.currentClient.id;
+          BillingModule.onRecipientSelect('client', this.currentClient.id);
+        }
+      }, 150);
+    };
+    doCreate();
   },
 
   openInvoiceDetail(invoiceId) {
     if (window.BillingModule) {
+      if (!document.getElementById('billing-styles')) {
+        const styleTag = document.createElement('div');
+        styleTag.id = 'billing-styles';
+        styleTag.innerHTML = BillingModule.renderStyles();
+        document.body.appendChild(styleTag);
+      }
       BillingModule.showInvoiceDetail(invoiceId);
     } else {
       Utils.toast('Modul Fakturácia nie je načítaný', 'error');
