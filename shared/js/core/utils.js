@@ -310,7 +310,8 @@ const Utils = {
     };
     
     const toast = document.createElement('div');
-    toast.className = `fixed bottom-4 right-4 ${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-slide-up`;
+    toast.className = `fixed bottom-4 right-4 ${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up`;
+    toast.style.zIndex = '10000';
     toast.innerHTML = `<span>${icons[type]}</span><span>${message}</span>`;
     
     document.body.appendChild(toast);
@@ -326,8 +327,14 @@ const Utils = {
    */
   async confirm(message, title = 'Potvrdiť') {
     return new Promise((resolve) => {
+      // Odstrániť existujúci confirm ak existuje
+      const existing = document.getElementById('utils-confirm-modal');
+      if (existing) { existing.remove(); resolve(false); return; }
+      
       const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+      modal.id = 'utils-confirm-modal';
+      modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center';
+      modal.style.zIndex = '9999';
       modal.innerHTML = `
         <div class="bg-white rounded-xl p-6 max-w-sm mx-4">
           <h3 class="font-bold text-lg mb-2">${title}</h3>
