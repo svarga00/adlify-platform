@@ -1330,7 +1330,10 @@ const ClientsModule = {
       <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-semibold">💰 Faktúry</h3>
-          <button onclick="ClientsModule.showInvoiceModal()" class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">➕ Nová faktúra</button>
+          <div class="flex gap-2">
+            <button onclick="ClientsModule.openBillingInvoice()" class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">➕ Nová faktúra</button>
+            <button onclick="Router.navigate('billing')" class="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">📊 Fakturácia</button>
+          </div>
         </div>
         <div id="invoices-list">
           <div class="text-center py-4 text-gray-400 text-sm">Načítavam...</div>
@@ -1344,49 +1347,68 @@ const ClientsModule = {
     if (!container) return;
     
     try {
-      const { data: invoices, error } = await Database.client
-        .from('invoices')
-        .select('*')
-        .eq('client_id', this.currentClient.id)
-        .order('issue_date', { ascending: false });
-      
-      if (error) throw error;
+      // Používame invoices_overview pre konzistenciu s billing modulom
+      let invoices;
+      try {
+        const { data, error } = await Database.client
+          .from('invoices_overview')
+          .select('*')
+          .eq('client_id', this.currentClient.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        invoices = data;
+      } catch (e) {
+        // Fallback na priamu tabuľku ak view neexistuje
+        const { data, error } = await Database.client
+          .from('invoices')
+          .select('*')
+          .eq('client_id', this.currentClient.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        invoices = data;
+      }
       
       if (!invoices || invoices.length === 0) {
         container.innerHTML = `
           <div class="text-center py-8 text-gray-400">
             <div class="text-4xl mb-2">💰</div>
             <p>Žiadne faktúry</p>
+            <button onclick="ClientsModule.openBillingInvoice()" class="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">➕ Vystaviť prvú faktúru</button>
           </div>
         `;
         return;
       }
       
-      const statusColors = { draft: 'gray', sent: 'blue', paid: 'green', overdue: 'red', cancelled: 'gray' };
-      const statusLabels = { draft: 'Koncept', sent: 'Odoslaná', paid: 'Zaplatená', overdue: 'Po splatnosti', cancelled: 'Zrušená' };
+      const statusColors = { draft: 'gray', issued: 'blue', sent: 'blue', paid: 'green', partially_paid: 'yellow', overdue: 'red', cancelled: 'gray', credited: 'gray' };
+      const statusLabels = { draft: 'Koncept', issued: 'Vystavená', sent: 'Odoslaná', paid: 'Zaplatená', partially_paid: 'Čiast. uhradená', overdue: 'Po splatnosti', cancelled: 'Zrušená', credited: 'Dobropisovaná' };
       
       container.innerHTML = `
         <div class="divide-y">
-          ${invoices.map(inv => `
+          ${invoices.map(inv => {
+            const status = inv.computed_status || inv.status;
+            const color = statusColors[status] || 'gray';
+            return `
             <div class="py-3 flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <div>
                   <div class="font-medium">${inv.invoice_number}</div>
                   <div class="text-xs text-gray-500">
-                    ${new Date(inv.issue_date).toLocaleDateString('sk-SK')} • Splatnosť: ${new Date(inv.due_date).toLocaleDateString('sk-SK')}
+                    ${inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('sk-SK') : ''} 
+                    ${inv.due_date ? '• Splatnosť: ' + new Date(inv.due_date).toLocaleDateString('sk-SK') : ''}
                   </div>
                 </div>
               </div>
               <div class="flex items-center gap-3">
-                <span class="px-2 py-0.5 rounded-full text-xs bg-${statusColors[inv.status] || 'gray'}-100 text-${statusColors[inv.status] || 'gray'}-700">${statusLabels[inv.status] || inv.status}</span>
-                <span class="font-bold">${inv.total}€</span>
+                <span class="px-2 py-0.5 rounded-full text-xs bg-${color}-100 text-${color}-700">${statusLabels[status] || status}</span>
+                <span class="font-bold">${parseFloat(inv.total || 0).toFixed(2)}€</span>
                 <div class="flex gap-1">
-                  ${inv.status === 'sent' || inv.status === 'overdue' ? `<button onclick="ClientsModule.markInvoicePaid('${inv.id}')" class="p-1 hover:bg-green-100 rounded text-green-600 text-sm" title="Označiť ako zaplatenú">✅</button>` : ''}
+                  <button onclick="ClientsModule.openInvoiceDetail('${inv.id}')" class="p-1 hover:bg-blue-100 rounded text-blue-600 text-sm" title="Detail">👁️</button>
+                  ${['issued', 'sent', 'overdue', 'partially_paid'].includes(status) ? `<button onclick="ClientsModule.markInvoicePaid('${inv.id}')" class="p-1 hover:bg-green-100 rounded text-green-600 text-sm" title="Označiť ako zaplatenú">✅</button>` : ''}
                   <button onclick="ClientsModule.deleteInvoice('${inv.id}')" class="p-1 hover:bg-red-100 rounded text-red-500 text-sm" title="Zmazať">🗑️</button>
                 </div>
               </div>
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
       `;
     } catch (error) {
@@ -1395,215 +1417,35 @@ const ClientsModule = {
     }
   },
 
-  async showInvoiceModal() {
-    const c = this.currentClient;
-    
-    // Načítaj nastavenia
-    const settings = window.App?.settings || {};
-    const prefix = settings.invoice_prefix || 'FA';
-    const dueDays = parseInt(settings.invoice_due_days) || 14;
-    const taxRate = parseInt(settings.invoice_tax_rate ?? 20);
-    
-    // Generuj číslo faktúry z nastavení
-    let nextNum = parseInt(settings.invoice_next_number) || 1;
-    // Ak nie je v nastaveniach, skús z DB
-    if (!settings.invoice_next_number) {
-      try {
-        const { data } = await Database.client.from('invoices').select('id', { count: 'exact', head: true });
-        const { count } = await Database.client.from('invoices').select('*', { count: 'exact', head: true });
-        nextNum = (count || 0) + 1;
-      } catch (e) {}
+  openBillingInvoice() {
+    // Ak BillingModule existuje, použi ho s predvyplneným klientom
+    if (window.BillingModule) {
+      // Uisti sa že billing má načítané dáta
+      const doCreate = async () => {
+        if (!BillingModule.clients || BillingModule.clients.length === 0) {
+          await BillingModule.loadData();
+        }
+        await BillingModule.createInvoice();
+        // Predvyplň klienta
+        setTimeout(() => {
+          const clientSelect = document.querySelector('select[name="client_id"]');
+          if (clientSelect && this.currentClient?.id) {
+            clientSelect.value = this.currentClient.id;
+            BillingModule.onRecipientSelect('client', this.currentClient.id);
+          }
+        }, 150);
+      };
+      doCreate();
+    } else {
+      Utils.toast('Modul Fakturácia nie je načítaný', 'error');
     }
-    
-    const year = new Date().getFullYear();
-    const invoiceNum = `${prefix}${year}${String(nextNum).padStart(4, '0')}`;
-    const today = new Date().toISOString().split('T')[0];
-    const dueDate = new Date(Date.now() + dueDays * 86400000).toISOString().split('T')[0];
-    
-    // Položky z predplatného
-    const sub = c.subscription;
-    const defaultItems = [];
-    if (sub) {
-      defaultItems.push({ desc: `${sub.package_name || 'Balíček'} - mesačný poplatok`, qty: 1, price: sub.monthly_price || 0 });
-    }
-    if (c.services && c.services.length > 0) {
-      c.services.forEach(s => {
-        if (s.price > 0) defaultItems.push({ desc: `${s.name} - extra služba`, qty: 1, price: s.price });
-      });
-    }
-    if (defaultItems.length === 0) {
-      defaultItems.push({ desc: 'Správa online reklamy', qty: 1, price: c.monthly_fee || 0 });
-    }
-    
-    const modal = document.createElement('div');
-    modal.id = 'invoice-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:1rem;';
-    
-    modal.innerHTML = `
-      <div style="background:white;border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
-        <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
-          <h2 style="font-size:1.125rem;font-weight:600;margin:0;">💰 Nová faktúra</h2>
-          <button onclick="document.getElementById('invoice-modal').remove()" style="background:#f1f5f9;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:1.25rem;">✕</button>
-        </div>
-        <div style="padding:1.5rem;overflow-y:auto;flex:1;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-            <div>
-              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Číslo faktúry</label>
-              <input type="text" id="inv-number" value="${invoiceNum}" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
-            </div>
-            <div>
-              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">DPH sadzba</label>
-              <select id="inv-tax" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" onchange="ClientsModule.updateInvoiceTotal()">
-                <option value="0" ${taxRate === 0 ? 'selected' : ''}>0% - Neplatiteľ DPH</option>
-                <option value="10" ${taxRate === 10 ? 'selected' : ''}>10% - Znížená</option>
-                <option value="20" ${taxRate === 20 ? 'selected' : ''}>20% - Základná</option>
-                <option value="23" ${taxRate === 23 ? 'selected' : ''}>23% - Nová (2025)</option>
-              </select>
-            </div>
-            <div>
-              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Dátum vystavenia</label>
-              <input type="date" id="inv-issue" value="${today}" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
-            </div>
-            <div>
-              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Dátum splatnosti</label>
-              <input type="date" id="inv-due" value="${dueDate}" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
-            </div>
-          </div>
-          
-          <div style="margin-bottom:1rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-              <label style="font-size:0.875rem;font-weight:600;">Položky</label>
-              <button onclick="ClientsModule.addInvoiceItem()" style="font-size:0.75rem;padding:0.25rem 0.75rem;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;">+ Pridať</button>
-            </div>
-            <div id="inv-items" style="display:flex;flex-direction:column;gap:0.5rem;">
-              ${defaultItems.map((item, i) => `
-                <div class="inv-item" style="display:grid;grid-template-columns:1fr 60px 80px 30px;gap:0.5rem;align-items:center;">
-                  <input type="text" value="${item.desc}" placeholder="Popis" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;" />
-                  <input type="number" value="${item.qty}" placeholder="Ks" min="1" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:center;" />
-                  <input type="number" value="${item.price}" placeholder="€" step="0.01" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:right;" />
-                  <button onclick="this.parentElement.remove();ClientsModule.updateInvoiceTotal()" style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:1rem;">✕</button>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-          
-          <div style="background:#f8fafc;border-radius:10px;padding:1rem;margin-bottom:1rem;" id="inv-totals">
-            <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;"><span style="color:#64748b;">Základ:</span><span id="inv-subtotal">0€</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;"><span style="color:#64748b;">DPH:</span><span id="inv-tax-amount">0€</span></div>
-            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.125rem;padding-top:0.5rem;border-top:1px solid #e2e8f0;"><span>Celkom:</span><span id="inv-total">0€</span></div>
-          </div>
-          
-          <div>
-            <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Poznámka</label>
-            <textarea id="inv-notes" rows="2" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" placeholder="${settings.invoice_note || 'Ďakujeme za spoluprácu.'}">${settings.invoice_note || ''}</textarea>
-          </div>
-        </div>
-        <div style="padding:1rem 1.5rem;border-top:1px solid #e2e8f0;display:flex;gap:0.75rem;background:#f8fafc;">
-          <button onclick="document.getElementById('invoice-modal').remove()" style="flex:1;padding:0.625rem;border-radius:10px;border:1px solid #e2e8f0;background:white;cursor:pointer;">Zrušiť</button>
-          <button onclick="ClientsModule.saveInvoice('draft')" style="flex:1;padding:0.625rem;border-radius:10px;border:1px solid #e2e8f0;background:white;cursor:pointer;">💾 Uložiť koncept</button>
-          <button onclick="ClientsModule.saveInvoice('sent')" style="flex:1;padding:0.625rem;border-radius:10px;border:none;background:#22c55e;color:white;cursor:pointer;font-weight:600;">📧 Vystaviť</button>
-        </div>
-      </div>
-    `;
-    
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-    document.body.appendChild(modal);
-    
-    // Počítaj sumy
-    this.updateInvoiceTotal();
-    // Listener na zmeny
-    modal.addEventListener('input', () => this.updateInvoiceTotal());
   },
 
-  addInvoiceItem() {
-    const container = document.getElementById('inv-items');
-    if (!container) return;
-    const div = document.createElement('div');
-    div.className = 'inv-item';
-    div.style.cssText = 'display:grid;grid-template-columns:1fr 60px 80px 30px;gap:0.5rem;align-items:center;';
-    div.innerHTML = `
-      <input type="text" value="" placeholder="Popis" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;" />
-      <input type="number" value="1" placeholder="Ks" min="1" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:center;" />
-      <input type="number" value="0" placeholder="€" step="0.01" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:right;" />
-      <button onclick="this.parentElement.remove();ClientsModule.updateInvoiceTotal()" style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:1rem;">✕</button>
-    `;
-    container.appendChild(div);
-  },
-
-  updateInvoiceTotal() {
-    const items = document.querySelectorAll('.inv-item');
-    let subtotal = 0;
-    items.forEach(item => {
-      const inputs = item.querySelectorAll('input[type="number"]');
-      const qty = parseFloat(inputs[0]?.value) || 0;
-      const price = parseFloat(inputs[1]?.value) || 0;
-      subtotal += qty * price;
-    });
-    const taxRate = parseFloat(document.getElementById('inv-tax')?.value) || 0;
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
-    
-    const fmt = (n) => n.toFixed(2) + '€';
-    const el = (id) => document.getElementById(id);
-    if (el('inv-subtotal')) el('inv-subtotal').textContent = fmt(subtotal);
-    if (el('inv-tax-amount')) el('inv-tax-amount').textContent = `${fmt(taxAmount)} (${taxRate}%)`;
-    if (el('inv-total')) el('inv-total').textContent = fmt(total);
-  },
-
-  async saveInvoice(status = 'draft') {
-    const items = [];
-    document.querySelectorAll('.inv-item').forEach(item => {
-      const textInput = item.querySelector('input[type="text"]');
-      const numInputs = item.querySelectorAll('input[type="number"]');
-      const desc = textInput?.value || '';
-      const qty = parseFloat(numInputs[0]?.value) || 0;
-      const price = parseFloat(numInputs[1]?.value) || 0;
-      if (desc && price > 0) items.push({ description: desc, quantity: qty, unit_price: price, total: qty * price });
-    });
-    
-    if (items.length === 0) {
-      Utils.toast('Pridaj aspoň jednu položku', 'warning');
-      return;
-    }
-    
-    const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-    const taxRate = parseFloat(document.getElementById('inv-tax')?.value) || 0;
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
-    
-    const data = {
-      client_id: this.currentClient.id,
-      invoice_number: document.getElementById('inv-number')?.value || '',
-      issue_date: document.getElementById('inv-issue')?.value,
-      due_date: document.getElementById('inv-due')?.value,
-      subtotal: subtotal.toFixed(2),
-      tax_rate: taxRate,
-      tax_amount: taxAmount.toFixed(2),
-      total: total.toFixed(2),
-      items: items,
-      notes: document.getElementById('inv-notes')?.value || null,
-      status: status
-    };
-    
-    try {
-      const { error } = await Database.client.from('invoices').insert(data);
-      if (error) throw error;
-      
-      // Auto-increment čísla v nastaveniach
-      const settings = window.App?.settings || {};
-      const currentNum = parseInt(settings.invoice_next_number) || 1;
-      try {
-        await Database.client.from('settings').upsert({ key: 'invoice_next_number', value: String(currentNum + 1) }, { onConflict: 'key' });
-        if (window.App) App.settings.invoice_next_number = currentNum + 1;
-      } catch (e) { console.warn('Auto-increment failed:', e); }
-      
-      document.getElementById('invoice-modal')?.remove();
-      Utils.toast(status === 'sent' ? 'Faktúra vystavená!' : 'Koncept uložený!', 'success');
-      this.loadInvoices();
-      
-    } catch (error) {
-      console.error('Save invoice error:', error);
-      Utils.toast('Chyba: ' + error.message, 'error');
+  openInvoiceDetail(invoiceId) {
+    if (window.BillingModule) {
+      BillingModule.showInvoiceDetail(invoiceId);
+    } else {
+      Utils.toast('Modul Fakturácia nie je načítaný', 'error');
     }
   },
 
@@ -1611,7 +1453,7 @@ const ClientsModule = {
     if (!await Utils.confirm('Označiť faktúru ako zaplatenú?', { title: 'Platba prijatá', type: 'success', confirmText: 'Označiť', cancelText: 'Zrušiť' })) return;
     
     try {
-      const { error } = await Database.client.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', invoiceId);
+      const { error } = await Database.client.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString(), remaining_amount: 0 }).eq('id', invoiceId);
       if (error) throw error;
       Utils.toast('Faktúra označená ako zaplatená', 'success');
       this.loadInvoices();
@@ -1624,6 +1466,8 @@ const ClientsModule = {
     if (!await Utils.confirm('Zmazať túto faktúru?', { title: 'Zmazať faktúru', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
+      // Zmaž aj položky
+      await Database.client.from('invoice_items').delete().eq('invoice_id', invoiceId);
       const { error } = await Database.client.from('invoices').delete().eq('id', invoiceId);
       if (error) throw error;
       Utils.toast('Faktúra zmazaná', 'success');
