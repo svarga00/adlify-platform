@@ -1398,20 +1398,27 @@ const ClientsModule = {
   async showInvoiceModal() {
     const c = this.currentClient;
     
-    // Generuj číslo faktúry
-    let nextNum = 1;
-    try {
-      const { data } = await Database.client.from('invoices').select('invoice_number').order('created_at', { ascending: false }).limit(1);
-      if (data && data.length > 0) {
-        const match = data[0].invoice_number.match(/(\d+)$/);
-        if (match) nextNum = parseInt(match[1]) + 1;
-      }
-    } catch (e) {}
+    // Načítaj nastavenia
+    const settings = window.App?.settings || {};
+    const prefix = settings.invoice_prefix || 'FA';
+    const dueDays = parseInt(settings.invoice_due_days) || 14;
+    const taxRate = parseInt(settings.invoice_tax_rate ?? 20);
+    
+    // Generuj číslo faktúry z nastavení
+    let nextNum = parseInt(settings.invoice_next_number) || 1;
+    // Ak nie je v nastaveniach, skús z DB
+    if (!settings.invoice_next_number) {
+      try {
+        const { data } = await Database.client.from('invoices').select('id', { count: 'exact', head: true });
+        const { count } = await Database.client.from('invoices').select('*', { count: 'exact', head: true });
+        nextNum = (count || 0) + 1;
+      } catch (e) {}
+    }
     
     const year = new Date().getFullYear();
-    const invoiceNum = `FA${year}${String(nextNum).padStart(4, '0')}`;
+    const invoiceNum = `${prefix}${year}${String(nextNum).padStart(4, '0')}`;
     const today = new Date().toISOString().split('T')[0];
-    const dueDate = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+    const dueDate = new Date(Date.now() + dueDays * 86400000).toISOString().split('T')[0];
     
     // Položky z predplatného
     const sub = c.subscription;
@@ -1445,8 +1452,13 @@ const ClientsModule = {
               <input type="text" id="inv-number" value="${invoiceNum}" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
             </div>
             <div>
-              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">DPH (%)</label>
-              <input type="number" id="inv-tax" value="20" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
+              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">DPH sadzba</label>
+              <select id="inv-tax" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" onchange="ClientsModule.updateInvoiceTotal()">
+                <option value="0" ${taxRate === 0 ? 'selected' : ''}>0% - Neplatiteľ DPH</option>
+                <option value="10" ${taxRate === 10 ? 'selected' : ''}>10% - Znížená</option>
+                <option value="20" ${taxRate === 20 ? 'selected' : ''}>20% - Základná</option>
+                <option value="23" ${taxRate === 23 ? 'selected' : ''}>23% - Nová (2025)</option>
+              </select>
             </div>
             <div>
               <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Dátum vystavenia</label>
@@ -1483,7 +1495,7 @@ const ClientsModule = {
           
           <div>
             <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Poznámka</label>
-            <textarea id="inv-notes" rows="2" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" placeholder="Voliteľná poznámka na faktúru..."></textarea>
+            <textarea id="inv-notes" rows="2" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" placeholder="${settings.invoice_note || 'Ďakujeme za spoluprácu.'}">${settings.invoice_note || ''}</textarea>
           </div>
         </div>
         <div style="padding:1rem 1.5rem;border-top:1px solid #e2e8f0;display:flex;gap:0.75rem;background:#f8fafc;">
@@ -1534,7 +1546,7 @@ const ClientsModule = {
     const fmt = (n) => n.toFixed(2) + '€';
     const el = (id) => document.getElementById(id);
     if (el('inv-subtotal')) el('inv-subtotal').textContent = fmt(subtotal);
-    if (el('inv-tax-amount')) el('inv-tax-amount').textContent = fmt(taxAmount);
+    if (el('inv-tax-amount')) el('inv-tax-amount').textContent = `${fmt(taxAmount)} (${taxRate}%)`;
     if (el('inv-total')) el('inv-total').textContent = fmt(total);
   },
 
@@ -1576,6 +1588,14 @@ const ClientsModule = {
     try {
       const { error } = await Database.client.from('invoices').insert(data);
       if (error) throw error;
+      
+      // Auto-increment čísla v nastaveniach
+      const settings = window.App?.settings || {};
+      const currentNum = parseInt(settings.invoice_next_number) || 1;
+      try {
+        await Database.client.from('settings').upsert({ key: 'invoice_next_number', value: String(currentNum + 1) }, { onConflict: 'key' });
+        if (window.App) App.settings.invoice_next_number = currentNum + 1;
+      } catch (e) { console.warn('Auto-increment failed:', e); }
       
       document.getElementById('invoice-modal')?.remove();
       Utils.toast(status === 'sent' ? 'Faktúra vystavená!' : 'Koncept uložený!', 'success');
