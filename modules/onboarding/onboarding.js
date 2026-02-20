@@ -236,7 +236,9 @@ const OnboardingModule = {
     }
   },
   
-  parseExistingData(data) {
+  parseExistingData(row) {
+    // Dáta sú uložené v JSONB stĺpci 'data'
+    const data = row.data || row;
     return {
       company_name: data.company_name,
       company_website: data.company_website,
@@ -896,11 +898,12 @@ const OnboardingModule = {
   
   async logActivity(action, details = {}, entityId = null) {
     try {
+      const hasAuth = typeof Auth !== 'undefined' && Auth;
       await Database.client.from('activity_log').insert({
-        org_id: Auth.teamMember?.org_id || null,
+        org_id: hasAuth ? Auth.teamMember?.org_id : null,
         actor_type: this.isPublic ? 'client' : 'admin',
-        actor_id: this.isPublic ? this.clientId : Auth.user?.id,
-        actor_name: this.isPublic ? this.formData.contact_person : (Auth.profile?.full_name || Auth.user?.email),
+        actor_id: this.isPublic ? this.clientId : (hasAuth ? Auth.user?.id : null),
+        actor_name: this.isPublic ? (this.formData.contact_person || 'Klient') : (hasAuth ? (Auth.profile?.full_name || Auth.user?.email) : 'Admin'),
         action: action,
         entity_type: 'onboarding',
         entity_id: entityId || this.clientId,
@@ -2044,10 +2047,10 @@ const OnboardingModule = {
     
     await this.saveToDatabase('submitted');
     
-    await Database.update('clients', this.clientId, {
+    await Database.client.from('clients').update({
       onboarding_status: 'completed',
       onboarding_completed_at: new Date().toISOString()
-    });
+    }).eq('id', this.clientId);
     
     // Log activity
     this.logActivity('onboarding_submitted', {});
@@ -2211,26 +2214,28 @@ const OnboardingModule = {
       }
     });
     
-    const data = {
+    const row = {
       client_id: this.clientId,
       status: status,
-      ...cleanData,
+      data: cleanData,
       submitted_at: status === 'submitted' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString()
     };
     
     try {
       if (this.onboardingId) {
-        await Database.update('onboarding_responses', this.onboardingId, data);
+        await Database.update('onboarding_responses', this.onboardingId, row);
       } else {
-        data.access_token = 'obr_' + Math.random().toString(36).substring(2, 15);
-        const result = await Database.insert('onboarding_responses', data);
+        row.access_token = 'obr_' + Math.random().toString(36).substring(2, 15);
+        const result = await Database.insert('onboarding_responses', row);
         this.onboardingId = result[0]?.id;
       }
       
-      await Database.update('clients', this.clientId, {
-        onboarding_status: status === 'submitted' ? 'completed' : 'in_progress'
-      });
+      // Uložiť aj do clients.onboarding_data pre rýchly prístup
+      await Database.client.from('clients').update({
+        onboarding_status: status === 'submitted' ? 'completed' : 'in_progress',
+        onboarding_data: cleanData
+      }).eq('id', this.clientId);
       
     } catch (error) {
       console.error('Save error:', error);
