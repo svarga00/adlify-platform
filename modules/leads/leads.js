@@ -747,6 +747,7 @@ const LeadsModule = {
       
       const statusConfig = {
         'new': { label: 'Nový', class: 'blue' },
+        'analyzed': { label: 'Analyzovaný', class: 'indigo' },
         'contacted': { label: 'Kontaktovaný', class: 'yellow' },
         'proposal_sent': { label: 'Ponuka', class: 'purple' },
         'won': { label: 'Vyhraný', class: 'green' },
@@ -1219,6 +1220,7 @@ const LeadsModule = {
         <div style="display:flex;gap:0.5rem;">
           <button onclick="LeadsModule.editAnalysis()" class="btn-secondary">✏️ Upraviť</button>
           <button onclick="LeadsModule.generateProposal()" class="btn-primary">📄 Generovať ponuku</button>
+          <button onclick="LeadsModule.convertToClient('${this.currentLeadId}')" class="btn-primary" style="background:#22c55e;">🎯 Konvertovať</button>
         </div>
       `;
     } else {
@@ -1254,8 +1256,10 @@ const LeadsModule = {
     const statusConfig = {
       'new': { label: 'Nový', class: 'blue' },
       'analyzing': { label: 'Analyzuje sa', class: 'yellow' },
+      'analyzed': { label: 'Analyzovaný', class: 'indigo' },
       'ready': { label: 'Pripravený', class: 'green' },
       'contacted': { label: 'Kontaktovaný', class: 'yellow' },
+      'proposal_sent': { label: 'Ponuka odoslaná', class: 'purple' },
       'negotiating': { label: 'Vyjednáva sa', class: 'orange' },
       'converted': { label: 'Konvertovaný', class: 'green' },
       'won': { label: 'Vyhraný', class: 'green' },
@@ -1607,13 +1611,14 @@ const LeadsModule = {
         email: lead.email || '',
         phone: lead.phone || '',
         website: lead.domain ? `https://${lead.domain}` : '',
+        domain: lead.domain || '',
         city: lead.city || company.location || '',
         industry: lead.industry || company.industry || '',
-        source_lead_id: lead.id,
+        lead_id: lead.id,
+        source: 'lead_conversion',
         status: 'active',
         onboarding_status: 'pending',
-        notes: lead.notes || '',
-        portal_token: crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+        notes: lead.notes || ''
       };
       
       const { data: newClient, error } = await Database.client
@@ -1628,7 +1633,7 @@ const LeadsModule = {
       await Database.update('leads', leadId, { 
         status: 'won',
         proposal_status: 'converted',
-        converted_client_id: newClient.id,
+        converted_to_client_id: newClient.id,
         converted_at: new Date().toISOString()
       });
       
