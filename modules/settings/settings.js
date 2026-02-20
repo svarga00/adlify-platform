@@ -690,7 +690,7 @@ const SettingsModule = {
     },
     
     async deleteAccount(id) {
-        if (!confirm('Naozaj chcete zmazať túto emailovú schránku?')) return;
+        if (!await Utils.confirm('Zmazať túto emailovú schránku?', { title: 'Zmazať schránku', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
         
         try {
             const { error } = await Database.client
@@ -932,7 +932,7 @@ const SettingsModule = {
     },
     
     async deleteSignature(id) {
-        if (!confirm('Naozaj chcete zmazať tento podpis?')) return;
+        if (!await Utils.confirm('Zmazať tento emailový podpis?', { title: 'Zmazať podpis', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
         
         try {
             const { error } = await Database.client
@@ -1143,16 +1143,39 @@ const SettingsModule = {
                 <p class="text-sm text-gray-500 mb-6">Predvolené hodnoty pre nové faktúry.</p>
                 
                 <form id="invoicing-form" onsubmit="SettingsModule.saveForm(event, 'invoicing-form')" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-sm font-medium mb-1">Prefix faktúr</label>
                             <input type="text" name="invoice_prefix" value="${this.getValue('invoice_prefix', 'FA')}" 
-                                   class="w-full p-3 border rounded-xl">
+                                   class="w-full p-3 border rounded-xl" placeholder="FA">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Ďalšie číslo</label>
+                            <input type="number" name="invoice_next_number" value="${this.getValue('invoice_next_number', '1')}" 
+                                   class="w-full p-3 border rounded-xl" min="1">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Splatnosť (dni)</label>
                             <input type="number" name="invoice_due_days" value="${this.getValue('invoice_due_days', '14')}" 
                                    class="w-full p-3 border rounded-xl">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">DPH sadzba</label>
+                            <select name="invoice_tax_rate" class="w-full p-3 border rounded-xl">
+                                <option value="0" ${this.getValue('invoice_tax_rate', '20') == '0' ? 'selected' : ''}>0% - Neplatiteľ DPH</option>
+                                <option value="10" ${this.getValue('invoice_tax_rate', '20') == '10' ? 'selected' : ''}>10% - Znížená sadzba</option>
+                                <option value="20" ${this.getValue('invoice_tax_rate', '20') == '20' ? 'selected' : ''}>20% - Základná sadzba</option>
+                                <option value="23" ${this.getValue('invoice_tax_rate', '20') == '23' ? 'selected' : ''}>23% - Nová sadzba (od 2025)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Formát čísla</label>
+                            <div class="p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
+                                Ukážka: <strong>${this.getValue('invoice_prefix', 'FA')}${new Date().getFullYear()}${String(parseInt(this.getValue('invoice_next_number', '1'))).padStart(4, '0')}</strong>
+                            </div>
                         </div>
                     </div>
                     
