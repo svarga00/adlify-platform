@@ -539,7 +539,7 @@ const ClientsModule = {
   },
   
   async deleteClient(clientId) {
-    if (!confirm('Naozaj chcete zmazať tohto klienta?')) return;
+    if (!await Utils.confirm('Zmazať tohto klienta vrátane všetkých jeho dát?', { title: 'Zmazať klienta', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
       await Database.delete('clients', clientId);
@@ -901,6 +901,130 @@ const ClientsModule = {
     `;
   },
   
+  async showAddServiceModal() {
+    // Načítaj dostupné služby z DB
+    let services = [];
+    try {
+      const { data } = await Database.client.from('services').select('*').eq('is_active', true).order('sort_order');
+      services = data || [];
+    } catch (e) {
+      console.error('Load services error:', e);
+    }
+    
+    // Filtruj už priradené
+    const existingIds = (this.currentClient.services || []).map(s => s.service_id);
+    const available = services.filter(s => !existingIds.includes(s.id));
+    
+    if (available.length === 0 && services.length > 0) {
+      Utils.toast('Všetky služby sú už priradené', 'info');
+      return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'add-service-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:1rem;';
+    
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+          <h2 style="font-size:1.125rem;font-weight:600;margin:0;">🔧 Pridať extra službu</h2>
+          <button onclick="document.getElementById('add-service-modal').remove()" style="background:#f1f5f9;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:1.25rem;">✕</button>
+        </div>
+        <div style="padding:1.5rem;">
+          ${available.length > 0 ? `
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.5rem;">Služba</label>
+              <select id="add-service-select" style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
+                ${available.map(s => `<option value="${s.id}" data-price="${s.price || 0}" data-name="${s.name}">${s.icon || '📋'} ${s.name} ${s.price ? '(' + s.price + '€)' : ''}</option>`).join('')}
+              </select>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.5rem;">Cena (€/mesiac)</label>
+              <input type="number" id="add-service-price" value="${available[0]?.price || 0}" style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;" />
+            </div>
+            <div style="display:flex;gap:0.75rem;">
+              <button onclick="document.getElementById('add-service-modal').remove()" style="flex:1;padding:0.625rem;border-radius:10px;border:1px solid #e2e8f0;background:white;cursor:pointer;">Zrušiť</button>
+              <button onclick="ClientsModule.addClientService()" style="flex:1;padding:0.625rem;border-radius:10px;border:none;background:#8b5cf6;color:white;cursor:pointer;font-weight:600;">Pridať</button>
+            </div>
+          ` : `
+            <div style="text-align:center;padding:2rem;color:#64748b;">
+              <div style="font-size:2rem;margin-bottom:0.5rem;">📋</div>
+              <p>Žiadne dostupné služby. Najprv ich vytvorte v module Služby.</p>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+    
+    // Update ceny pri zmene výberu
+    const select = modal.querySelector('#add-service-select');
+    if (select) {
+      select.addEventListener('change', () => {
+        const opt = select.selectedOptions[0];
+        const priceInput = document.getElementById('add-service-price');
+        if (priceInput && opt) priceInput.value = opt.dataset.price || 0;
+      });
+    }
+    
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+  },
+  
+  async addClientService() {
+    const select = document.getElementById('add-service-select');
+    const priceInput = document.getElementById('add-service-price');
+    if (!select) return;
+    
+    const opt = select.selectedOptions[0];
+    const serviceId = select.value;
+    const price = parseFloat(priceInput?.value) || 0;
+    const serviceName = opt?.dataset.name || '';
+    
+    try {
+      const { error } = await Database.client.from('client_services').insert({
+        client_id: this.currentClient.id,
+        service_id: serviceId,
+        service_type: 'other',
+        name: serviceName,
+        monthly_fee: price,
+        price: price,
+        is_extra: true,
+        status: 'active',
+        start_date: new Date().toISOString().split('T')[0]
+      });
+      
+      if (error) throw error;
+      
+      document.getElementById('add-service-modal')?.remove();
+      Utils.toast('Služba pridaná!', 'success');
+      
+      // Refresh detail
+      await this.renderClientDetail(document.getElementById('main-content'), this.currentClient.id);
+      this.showTab('subscription');
+      
+    } catch (error) {
+      console.error('Add service error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+  
+  async removeClientService(serviceId) {
+    if (!await Utils.confirm('Odstrániť túto službu od klienta?', { title: 'Odstrániť službu', type: 'warning', confirmText: 'Odstrániť', cancelText: 'Ponechať' })) return;
+    
+    try {
+      const { error } = await Database.client.from('client_services').delete().eq('id', serviceId);
+      if (error) throw error;
+      
+      Utils.toast('Služba odstránená', 'success');
+      await this.renderClientDetail(document.getElementById('main-content'), this.currentClient.id);
+      this.showTab('subscription');
+      
+    } catch (error) {
+      console.error('Remove service error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+
   async showSubscriptionModal() {
     // Load packages from DB
     let packages = [];
@@ -1077,7 +1201,7 @@ const ClientsModule = {
   },
   
   async deleteSubscription(subscriptionId) {
-    if (!confirm('Naozaj chcete zmazať predplatné?')) return;
+    if (!await Utils.confirm('Naozaj chcete zmazať toto predplatné?', { title: 'Zmazať predplatné', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
       const { error } = await Database.client
@@ -1201,18 +1325,292 @@ const ClientsModule = {
   },
   
   templateTabInvoices() {
+    const c = this.currentClient;
     return `
       <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-semibold">💰 Faktúry</h3>
-          <button class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm">➕ Nová faktúra</button>
+          <button onclick="ClientsModule.showInvoiceModal()" class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">➕ Nová faktúra</button>
         </div>
-        <div class="text-center py-8 text-gray-400">
-          <div class="text-4xl mb-2">💰</div>
-          <p>Modul faktúr - pripravuje sa</p>
+        <div id="invoices-list">
+          <div class="text-center py-4 text-gray-400 text-sm">Načítavam...</div>
         </div>
       </div>
     `;
+  },
+
+  async loadInvoices() {
+    const container = document.getElementById('invoices-list');
+    if (!container) return;
+    
+    try {
+      const { data: invoices, error } = await Database.client
+        .from('invoices')
+        .select('*')
+        .eq('client_id', this.currentClient.id)
+        .order('issue_date', { ascending: false });
+      
+      if (error) throw error;
+      
+      if (!invoices || invoices.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-gray-400">
+            <div class="text-4xl mb-2">💰</div>
+            <p>Žiadne faktúry</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const statusColors = { draft: 'gray', sent: 'blue', paid: 'green', overdue: 'red', cancelled: 'gray' };
+      const statusLabels = { draft: 'Koncept', sent: 'Odoslaná', paid: 'Zaplatená', overdue: 'Po splatnosti', cancelled: 'Zrušená' };
+      
+      container.innerHTML = `
+        <div class="divide-y">
+          ${invoices.map(inv => `
+            <div class="py-3 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div>
+                  <div class="font-medium">${inv.invoice_number}</div>
+                  <div class="text-xs text-gray-500">
+                    ${new Date(inv.issue_date).toLocaleDateString('sk-SK')} • Splatnosť: ${new Date(inv.due_date).toLocaleDateString('sk-SK')}
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="px-2 py-0.5 rounded-full text-xs bg-${statusColors[inv.status] || 'gray'}-100 text-${statusColors[inv.status] || 'gray'}-700">${statusLabels[inv.status] || inv.status}</span>
+                <span class="font-bold">${inv.total}€</span>
+                <div class="flex gap-1">
+                  ${inv.status === 'sent' || inv.status === 'overdue' ? `<button onclick="ClientsModule.markInvoicePaid('${inv.id}')" class="p-1 hover:bg-green-100 rounded text-green-600 text-sm" title="Označiť ako zaplatenú">✅</button>` : ''}
+                  <button onclick="ClientsModule.deleteInvoice('${inv.id}')" class="p-1 hover:bg-red-100 rounded text-red-500 text-sm" title="Zmazať">🗑️</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (error) {
+      console.error('Load invoices error:', error);
+      container.innerHTML = '<div class="text-center py-4 text-red-500">Chyba pri načítaní faktúr</div>';
+    }
+  },
+
+  async showInvoiceModal() {
+    const c = this.currentClient;
+    
+    // Generuj číslo faktúry
+    let nextNum = 1;
+    try {
+      const { data } = await Database.client.from('invoices').select('invoice_number').order('created_at', { ascending: false }).limit(1);
+      if (data && data.length > 0) {
+        const match = data[0].invoice_number.match(/(\d+)$/);
+        if (match) nextNum = parseInt(match[1]) + 1;
+      }
+    } catch (e) {}
+    
+    const year = new Date().getFullYear();
+    const invoiceNum = `FA${year}${String(nextNum).padStart(4, '0')}`;
+    const today = new Date().toISOString().split('T')[0];
+    const dueDate = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+    
+    // Položky z predplatného
+    const sub = c.subscription;
+    const defaultItems = [];
+    if (sub) {
+      defaultItems.push({ desc: `${sub.package_name || 'Balíček'} - mesačný poplatok`, qty: 1, price: sub.monthly_price || 0 });
+    }
+    if (c.services && c.services.length > 0) {
+      c.services.forEach(s => {
+        if (s.price > 0) defaultItems.push({ desc: `${s.name} - extra služba`, qty: 1, price: s.price });
+      });
+    }
+    if (defaultItems.length === 0) {
+      defaultItems.push({ desc: 'Správa online reklamy', qty: 1, price: c.monthly_fee || 0 });
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'invoice-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:1rem;';
+    
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+          <h2 style="font-size:1.125rem;font-weight:600;margin:0;">💰 Nová faktúra</h2>
+          <button onclick="document.getElementById('invoice-modal').remove()" style="background:#f1f5f9;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:1.25rem;">✕</button>
+        </div>
+        <div style="padding:1.5rem;overflow-y:auto;flex:1;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Číslo faktúry</label>
+              <input type="text" id="inv-number" value="${invoiceNum}" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">DPH (%)</label>
+              <input type="number" id="inv-tax" value="20" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Dátum vystavenia</label>
+              <input type="date" id="inv-issue" value="${today}" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Dátum splatnosti</label>
+              <input type="date" id="inv-due" value="${dueDate}" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" />
+            </div>
+          </div>
+          
+          <div style="margin-bottom:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+              <label style="font-size:0.875rem;font-weight:600;">Položky</label>
+              <button onclick="ClientsModule.addInvoiceItem()" style="font-size:0.75rem;padding:0.25rem 0.75rem;border:1px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;">+ Pridať</button>
+            </div>
+            <div id="inv-items" style="display:flex;flex-direction:column;gap:0.5rem;">
+              ${defaultItems.map((item, i) => `
+                <div class="inv-item" style="display:grid;grid-template-columns:1fr 60px 80px 30px;gap:0.5rem;align-items:center;">
+                  <input type="text" value="${item.desc}" placeholder="Popis" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;" />
+                  <input type="number" value="${item.qty}" placeholder="Ks" min="1" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:center;" />
+                  <input type="number" value="${item.price}" placeholder="€" step="0.01" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:right;" />
+                  <button onclick="this.parentElement.remove();ClientsModule.updateInvoiceTotal()" style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:1rem;">✕</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div style="background:#f8fafc;border-radius:10px;padding:1rem;margin-bottom:1rem;" id="inv-totals">
+            <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;"><span style="color:#64748b;">Základ:</span><span id="inv-subtotal">0€</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem;"><span style="color:#64748b;">DPH:</span><span id="inv-tax-amount">0€</span></div>
+            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.125rem;padding-top:0.5rem;border-top:1px solid #e2e8f0;"><span>Celkom:</span><span id="inv-total">0€</span></div>
+          </div>
+          
+          <div>
+            <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.25rem;">Poznámka</label>
+            <textarea id="inv-notes" rows="2" style="width:100%;padding:0.625rem;border:1px solid #e2e8f0;border-radius:10px;" placeholder="Voliteľná poznámka na faktúru..."></textarea>
+          </div>
+        </div>
+        <div style="padding:1rem 1.5rem;border-top:1px solid #e2e8f0;display:flex;gap:0.75rem;background:#f8fafc;">
+          <button onclick="document.getElementById('invoice-modal').remove()" style="flex:1;padding:0.625rem;border-radius:10px;border:1px solid #e2e8f0;background:white;cursor:pointer;">Zrušiť</button>
+          <button onclick="ClientsModule.saveInvoice('draft')" style="flex:1;padding:0.625rem;border-radius:10px;border:1px solid #e2e8f0;background:white;cursor:pointer;">💾 Uložiť koncept</button>
+          <button onclick="ClientsModule.saveInvoice('sent')" style="flex:1;padding:0.625rem;border-radius:10px;border:none;background:#22c55e;color:white;cursor:pointer;font-weight:600;">📧 Vystaviť</button>
+        </div>
+      </div>
+    `;
+    
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    
+    // Počítaj sumy
+    this.updateInvoiceTotal();
+    // Listener na zmeny
+    modal.addEventListener('input', () => this.updateInvoiceTotal());
+  },
+
+  addInvoiceItem() {
+    const container = document.getElementById('inv-items');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = 'inv-item';
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 60px 80px 30px;gap:0.5rem;align-items:center;';
+    div.innerHTML = `
+      <input type="text" value="" placeholder="Popis" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;" />
+      <input type="number" value="1" placeholder="Ks" min="1" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:center;" />
+      <input type="number" value="0" placeholder="€" step="0.01" style="padding:0.5rem;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;text-align:right;" />
+      <button onclick="this.parentElement.remove();ClientsModule.updateInvoiceTotal()" style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:1rem;">✕</button>
+    `;
+    container.appendChild(div);
+  },
+
+  updateInvoiceTotal() {
+    const items = document.querySelectorAll('.inv-item');
+    let subtotal = 0;
+    items.forEach(item => {
+      const inputs = item.querySelectorAll('input[type="number"]');
+      const qty = parseFloat(inputs[0]?.value) || 0;
+      const price = parseFloat(inputs[1]?.value) || 0;
+      subtotal += qty * price;
+    });
+    const taxRate = parseFloat(document.getElementById('inv-tax')?.value) || 0;
+    const taxAmount = subtotal * (taxRate / 100);
+    const total = subtotal + taxAmount;
+    
+    const fmt = (n) => n.toFixed(2) + '€';
+    const el = (id) => document.getElementById(id);
+    if (el('inv-subtotal')) el('inv-subtotal').textContent = fmt(subtotal);
+    if (el('inv-tax-amount')) el('inv-tax-amount').textContent = fmt(taxAmount);
+    if (el('inv-total')) el('inv-total').textContent = fmt(total);
+  },
+
+  async saveInvoice(status = 'draft') {
+    const items = [];
+    document.querySelectorAll('.inv-item').forEach(item => {
+      const textInput = item.querySelector('input[type="text"]');
+      const numInputs = item.querySelectorAll('input[type="number"]');
+      const desc = textInput?.value || '';
+      const qty = parseFloat(numInputs[0]?.value) || 0;
+      const price = parseFloat(numInputs[1]?.value) || 0;
+      if (desc && price > 0) items.push({ description: desc, quantity: qty, unit_price: price, total: qty * price });
+    });
+    
+    if (items.length === 0) {
+      Utils.toast('Pridaj aspoň jednu položku', 'warning');
+      return;
+    }
+    
+    const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+    const taxRate = parseFloat(document.getElementById('inv-tax')?.value) || 0;
+    const taxAmount = subtotal * (taxRate / 100);
+    const total = subtotal + taxAmount;
+    
+    const data = {
+      client_id: this.currentClient.id,
+      invoice_number: document.getElementById('inv-number')?.value || '',
+      issue_date: document.getElementById('inv-issue')?.value,
+      due_date: document.getElementById('inv-due')?.value,
+      subtotal: subtotal.toFixed(2),
+      tax_rate: taxRate,
+      tax_amount: taxAmount.toFixed(2),
+      total: total.toFixed(2),
+      items: items,
+      notes: document.getElementById('inv-notes')?.value || null,
+      status: status
+    };
+    
+    try {
+      const { error } = await Database.client.from('invoices').insert(data);
+      if (error) throw error;
+      
+      document.getElementById('invoice-modal')?.remove();
+      Utils.toast(status === 'sent' ? 'Faktúra vystavená!' : 'Koncept uložený!', 'success');
+      this.loadInvoices();
+      
+    } catch (error) {
+      console.error('Save invoice error:', error);
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+
+  async markInvoicePaid(invoiceId) {
+    if (!await Utils.confirm('Označiť faktúru ako zaplatenú?', { title: 'Platba prijatá', type: 'success', confirmText: 'Označiť', cancelText: 'Zrušiť' })) return;
+    
+    try {
+      const { error } = await Database.client.from('invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', invoiceId);
+      if (error) throw error;
+      Utils.toast('Faktúra označená ako zaplatená', 'success');
+      this.loadInvoices();
+    } catch (error) {
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
+  },
+
+  async deleteInvoice(invoiceId) {
+    if (!await Utils.confirm('Zmazať túto faktúru?', { title: 'Zmazať faktúru', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
+    
+    try {
+      const { error } = await Database.client.from('invoices').delete().eq('id', invoiceId);
+      if (error) throw error;
+      Utils.toast('Faktúra zmazaná', 'success');
+      this.loadInvoices();
+    } catch (error) {
+      Utils.toast('Chyba: ' + error.message, 'error');
+    }
   },
   
   // ==========================================
@@ -1225,6 +1623,9 @@ const ClientsModule = {
     
     document.getElementById('tab-' + tab)?.classList.remove('hidden');
     document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
+    
+    // Lazy-load faktúr
+    if (tab === 'invoices') this.loadInvoices();
   },
   
   // ==========================================
@@ -1272,8 +1673,8 @@ const ClientsModule = {
 
       // Confirm
       const confirmed = await Utils.confirm(
-        'Poslať onboarding?',
-        `Pošle sa email na ${client.email} s odkazom na vyplnenie onboarding dotazníka.${client.onboarding_status === 'completed' ? '\n\n⚠️ Tento klient už má onboarding dokončený. Pokračovaním sa resetuje a môže ho vyplniť znova.' : ''}`
+        `Pošle sa email na ${client.email} s odkazom na vyplnenie onboarding dotazníka.${client.onboarding_status === 'completed' ? '\n\n⚠️ Tento klient už má onboarding dokončený. Pokračovaním sa resetuje.' : ''}`,
+        { title: 'Poslať onboarding?', type: client.onboarding_status === 'completed' ? 'warning' : 'info', confirmText: 'Odoslať', cancelText: 'Zrušiť' }
       );
       
       if (!confirmed) return;
@@ -1352,7 +1753,7 @@ const ClientsModule = {
         // Refresh view
         await this.loadClients();
         if (this.currentClient?.id === clientId) {
-          this.renderClientDetail(document.getElementById('client-detail'), clientId);
+          this.renderClientDetail(document.getElementById('main-content'), clientId);
         }
       } else {
         console.error('Email error:', emailResult);
@@ -1366,11 +1767,82 @@ const ClientsModule = {
   },
   
   fillOnboarding(clientId) {
-    Utils.toast('Vyplnenie onboardingu - pripravuje sa', 'info');
+    const client = this.clients.find(c => c.id === clientId) || this.currentClient;
+    if (!client) return;
+    
+    // Ak nemá token, vygeneruj
+    if (!client.onboarding_token) {
+      const token = this.generateToken();
+      Database.client.from('clients').update({ onboarding_token: token, onboarding_status: 'sent' }).eq('id', clientId).then(() => {
+        client.onboarding_token = token;
+        const url = `${window.location.origin}/portal/onboarding.html?t=${token}`;
+        window.open(url, '_blank');
+        Utils.toast('Onboarding formulár otvorený v novom okne', 'info');
+      });
+    } else {
+      const url = `${window.location.origin}/portal/onboarding.html?t=${client.onboarding_token}`;
+      window.open(url, '_blank');
+      Utils.toast('Onboarding formulár otvorený v novom okne', 'info');
+    }
   },
   
-  viewOnboarding(clientId) {
-    Utils.toast('Zobrazenie odpovedí - pripravuje sa', 'info');
+  async viewOnboarding(clientId) {
+    const client = this.clients.find(c => c.id === clientId) || this.currentClient;
+    if (!client) return;
+    
+    // Načítaj aktuálne dáta z DB
+    try {
+      const { data } = await Database.client.from('clients').select('onboarding_data').eq('id', clientId).single();
+      const od = data?.onboarding_data || {};
+      
+      if (!od || Object.keys(od).length === 0) {
+        Utils.toast('Onboarding ešte nebol vyplnený', 'warning');
+        return;
+      }
+      
+      // Zobraz modal s odpoveďami
+      const modal = document.createElement('div');
+      modal.id = 'onboarding-view-modal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:1rem;';
+      
+      const formatValue = (val) => {
+        if (Array.isArray(val)) return val.join(', ');
+        if (typeof val === 'object' && val !== null) return JSON.stringify(val, null, 2);
+        return val || '-';
+      };
+      
+      const sections = [];
+      for (const [key, value] of Object.entries(od)) {
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          let rows = '';
+          for (const [k, v] of Object.entries(value)) {
+            rows += `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #f1f5f9;"><span style="color:#64748b;font-size:0.875rem;">${k}</span><span style="font-weight:500;max-width:60%;text-align:right;">${formatValue(v)}</span></div>`;
+          }
+          sections.push(`<div style="margin-bottom:1rem;"><h4 style="font-weight:600;margin-bottom:0.5rem;text-transform:capitalize;">${key.replace(/_/g, ' ')}</h4>${rows}</div>`);
+        } else {
+          sections.push(`<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #f1f5f9;"><span style="color:#64748b;">${key.replace(/_/g, ' ')}</span><span style="font-weight:500;">${formatValue(value)}</span></div>`);
+        }
+      }
+      
+      modal.innerHTML = `
+        <div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+          <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#f97316,#ec4899);color:white;">
+            <h2 style="font-size:1.25rem;font-weight:600;margin:0;">📋 Onboarding odpovede</h2>
+            <button onclick="document.getElementById('onboarding-view-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;color:white;font-size:1.25rem;">✕</button>
+          </div>
+          <div style="padding:1.5rem;overflow-y:auto;flex:1;">
+            ${sections.join('')}
+          </div>
+        </div>
+      `;
+      
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+      document.body.appendChild(modal);
+      
+    } catch (error) {
+      console.error('viewOnboarding error:', error);
+      Utils.toast('Chyba pri načítaní onboardingu', 'error');
+    }
   }
 };
 
