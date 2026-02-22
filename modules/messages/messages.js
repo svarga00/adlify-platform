@@ -47,8 +47,15 @@ const MessagesModule = {
     // LIFECYCLE
     // ===========================================
     
+    // Auto-refresh
+    _refreshTimer: null,
+    _refreshInterval: 60000, // 60s
+    
     async render(container) {
         this.container = container;
+        
+        // Obnoviť stav z localStorage
+        this._restoreState();
         
         // Load brand settings first
         await this.loadBrandSettings();
@@ -59,11 +66,63 @@ const MessagesModule = {
             </div>
             <div id="compose-modal-container"></div>
             <div id="detail-modal-container"></div>
+            <div id="link-modal-container"></div>
             ${this.getStyles()}
         `;
         
         await this.loadQuillEditor();
         await this.loadData();
+        
+        // Spustiť auto-refresh
+        this._startAutoRefresh();
+    },
+    
+    destroy() {
+        this._stopAutoRefresh();
+    },
+    
+    _startAutoRefresh() {
+        this._stopAutoRefresh();
+        this._refreshTimer = setInterval(() => this._silentRefresh(), this._refreshInterval);
+    },
+    
+    _stopAutoRefresh() {
+        if (this._refreshTimer) {
+            clearInterval(this._refreshTimer);
+            this._refreshTimer = null;
+        }
+    },
+    
+    async _silentRefresh() {
+        // Tichý refresh — bez toastov, len aktualizuj zoznam a badges
+        if (this.isSyncing || this.detailModalOpen || this.composeModalOpen) return;
+        
+        try {
+            await this.loadEmails();
+        } catch(e) {
+            // Ticho ignoruj chyby pri auto-refresh
+        }
+    },
+    
+    _saveState() {
+        try {
+            localStorage.setItem('adlify_msg_account', this.selectedAccountId || '');
+            localStorage.setItem('adlify_msg_folder', this.selectedFolder || 'INBOX');
+            localStorage.setItem('adlify_msg_page', String(this.page || 1));
+        } catch(e) {}
+    },
+    
+    _restoreState() {
+        try {
+            const acc = localStorage.getItem('adlify_msg_account');
+            const folder = localStorage.getItem('adlify_msg_folder');
+            const page = localStorage.getItem('adlify_msg_page');
+            
+            if (acc) this.selectedAccountId = acc;
+            const validFolders = this.folders.map(f => f.id);
+            if (folder && validFolders.includes(folder)) this.selectedFolder = folder;
+            if (page) this.page = parseInt(page) || 1;
+        } catch(e) {}
     },
     
     async loadBrandSettings() {
@@ -142,9 +201,15 @@ const MessagesModule = {
             if (error) throw error;
             this.accounts = data || [];
             
+            // Validuj uložený account - ak neexistuje, vyber default
+            if (this.selectedAccountId && !this.accounts.find(a => a.id === this.selectedAccountId)) {
+                this.selectedAccountId = null;
+            }
+            
             if (!this.selectedAccountId && this.accounts.length > 0) {
                 const defaultAcc = this.accounts.find(a => a.is_default);
                 this.selectedAccountId = defaultAcc?.id || this.accounts[0].id;
+                this._saveState();
             }
             
         } catch (err) {
@@ -651,6 +716,9 @@ const MessagesModule = {
         requestAnimationFrame(() => {
             container.querySelector('.modal-overlay').classList.add('open');
         });
+        
+        // Načítaj prepojenia async
+        this._loadEmailLinks(id);
     },
     
     renderDetailModal(email) {
@@ -727,12 +795,17 @@ const MessagesModule = {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 014-4h12"/></svg>
                             Preposlať
                         </button>
+                        <button onclick="MessagesModule.showLinkMenu('${email.id}')" class="btn-secondary" title="Prepojiť alebo vytvoriť">
+                            🔗 Prepojiť
+                        </button>
                         <div class="spacer"></div>
                         <button onclick="MessagesModule.moveToTrash('${email.id}')" class="btn-danger">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                             Vymazať
                         </button>
                     </div>
+                    
+                    <div id="email-links-section"></div>
                 </div>
             </div>
         `;
@@ -751,6 +824,294 @@ const MessagesModule = {
         
         this.detailModalOpen = false;
         this.selectedEmail = null;
+    },
+    
+    // ===========================================
+    // EMAIL LINKS (Prepojenia)
+    // ===========================================
+    
+    async _loadEmailLinks(emailId) {
+        const section = document.getElementById('email-links-section');
+        if (!section) return;
+        
+        try {
+            const { data: links } = await Database.client
+                .from('email_links')
+                .select('*')
+                .eq('email_id', emailId)
+                .order('created_at', { ascending: false });
+            
+            if (!links || links.length === 0) {
+                section.innerHTML = '';
+                return;
+            }
+            
+            // Načítaj detaily pre každý link
+            const enriched = [];
+            for (const link of links) {
+                let name = '';
+                let icon = '🔗';
+                try {
+                    if (link.entity_type === 'client') {
+                        const { data } = await Database.client.from('clients').select('company_name').eq('id', link.entity_id).maybeSingle();
+                        name = data?.company_name || 'Klient';
+                        icon = '🏢';
+                    } else if (link.entity_type === 'lead') {
+                        const { data } = await Database.client.from('leads').select('company_name,domain').eq('id', link.entity_id).maybeSingle();
+                        name = data?.company_name || data?.domain || 'Lead';
+                        icon = '🎯';
+                    } else if (link.entity_type === 'ticket') {
+                        const { data } = await Database.client.from('tickets').select('title').eq('id', link.entity_id).maybeSingle();
+                        name = data?.title || 'Ticket';
+                        icon = '🎫';
+                    } else if (link.entity_type === 'task') {
+                        const { data } = await Database.client.from('tasks').select('title').eq('id', link.entity_id).maybeSingle();
+                        name = data?.title || 'Úloha';
+                        icon = '✅';
+                    }
+                } catch(e) {}
+                enriched.push({ ...link, name, icon });
+            }
+            
+            section.innerHTML = `
+                <div style="padding:12px 24px 16px;border-top:1px solid #eee;background:#fafafa;">
+                    <div style="font-size:12px;color:#888;margin-bottom:8px;font-weight:600;">🔗 PREPOJENIA</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        ${enriched.map(l => `
+                            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">
+                                ${l.icon} ${l.name}
+                                <button onclick="MessagesModule.removeLink('${l.id}','${emailId}')" style="background:none;border:none;cursor:pointer;color:#ccc;font-size:14px;" title="Odstrániť">×</button>
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } catch(e) {
+            console.warn('Error loading email links:', e);
+        }
+    },
+    
+    showLinkMenu(emailId) {
+        document.getElementById('link-menu-popup')?.remove();
+        
+        const popup = document.createElement('div');
+        popup.id = 'link-menu-popup';
+        popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:10001;';
+        popup.innerHTML = `
+            <div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+                <h3 style="margin:0 0 16px;font-size:16px;">🔗 Prepojiť email</h3>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                    <button onclick="MessagesModule.linkToEntity('${emailId}','client')" style="padding:16px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;text-align:center;font-size:14px;transition:all 0.15s;" onmouseover="this.style.borderColor='#FF6B35';this.style.background='#fff7f0'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='#fff'">
+                        🏢<br><span style="font-weight:600;">Klient</span>
+                    </button>
+                    <button onclick="MessagesModule.linkToEntity('${emailId}','lead')" style="padding:16px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;text-align:center;font-size:14px;transition:all 0.15s;" onmouseover="this.style.borderColor='#FF6B35';this.style.background='#fff7f0'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='#fff'">
+                        🎯<br><span style="font-weight:600;">Lead</span>
+                    </button>
+                    <button onclick="MessagesModule.linkToEntity('${emailId}','ticket')" style="padding:16px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;text-align:center;font-size:14px;transition:all 0.15s;" onmouseover="this.style.borderColor='#FF6B35';this.style.background='#fff7f0'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='#fff'">
+                        🎫<br><span style="font-weight:600;">Ticket</span>
+                    </button>
+                    <button onclick="MessagesModule.linkToEntity('${emailId}','task')" style="padding:16px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;text-align:center;font-size:14px;transition:all 0.15s;" onmouseover="this.style.borderColor='#FF6B35';this.style.background='#fff7f0'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='#fff'">
+                        ✅<br><span style="font-weight:600;">Úloha</span>
+                    </button>
+                </div>
+                
+                <div style="border-top:1px solid #eee;padding-top:16px;margin-bottom:8px;">
+                    <p style="font-size:12px;color:#888;margin:0 0 10px;font-weight:600;">VYTVORIŤ Z EMAILU</p>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="MessagesModule.createFromEmail('${emailId}','ticket')" style="flex:1;padding:10px;border:1px dashed #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">🎫 Nový ticket</button>
+                        <button onclick="MessagesModule.createFromEmail('${emailId}','task')" style="flex:1;padding:10px;border:1px dashed #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">✅ Nová úloha</button>
+                    </div>
+                </div>
+                
+                <div style="text-align:right;margin-top:16px;">
+                    <button onclick="document.getElementById('link-menu-popup').remove()" style="padding:8px 16px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">Zavrieť</button>
+                </div>
+            </div>
+        `;
+        popup.addEventListener('click', (e) => { if (e.target === popup) popup.remove(); });
+        document.body.appendChild(popup);
+    },
+    
+    async linkToEntity(emailId, entityType) {
+        document.getElementById('link-menu-popup')?.remove();
+        
+        // Načítaj zoznam entít
+        let items = [];
+        let title = '';
+        
+        try {
+            if (entityType === 'client') {
+                title = 'Vyber klienta';
+                const { data } = await Database.client.from('clients').select('id, company_name').order('company_name');
+                items = (data || []).map(c => ({ id: c.id, name: c.company_name }));
+            } else if (entityType === 'lead') {
+                title = 'Vyber lead';
+                const { data } = await Database.client.from('leads').select('id, company_name, domain').order('created_at', { ascending: false }).limit(50);
+                items = (data || []).map(l => ({ id: l.id, name: l.company_name || l.domain }));
+            } else if (entityType === 'ticket') {
+                title = 'Vyber ticket';
+                const { data } = await Database.client.from('tickets').select('id, title').order('created_at', { ascending: false }).limit(50);
+                items = (data || []).map(t => ({ id: t.id, name: t.title }));
+            } else if (entityType === 'task') {
+                title = 'Vyber úlohu';
+                const { data } = await Database.client.from('tasks').select('id, title').order('created_at', { ascending: false }).limit(50);
+                items = (data || []).map(t => ({ id: t.id, name: t.title }));
+            }
+        } catch(e) {
+            Utils.toast('Chyba pri načítaní', 'error');
+            return;
+        }
+        
+        if (items.length === 0) {
+            Utils.toast('Žiadne záznamy na prepojenie', 'info');
+            return;
+        }
+        
+        const icons = { client: '🏢', lead: '🎯', ticket: '🎫', task: '✅' };
+        
+        const popup = document.createElement('div');
+        popup.id = 'link-menu-popup';
+        popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:10001;';
+        popup.innerHTML = `
+            <div style="background:#fff;border-radius:12px;max-width:420px;width:90%;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+                <div style="padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;font-size:15px;">${icons[entityType]} ${title}</h3>
+                    <button onclick="document.getElementById('link-menu-popup').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#999;">✕</button>
+                </div>
+                <div style="padding:12px 20px 8px;">
+                    <input type="text" id="link-search-input" placeholder="Hľadať..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;" oninput="MessagesModule._filterLinkItems(this.value)">
+                </div>
+                <div id="link-items-list" style="overflow-y:auto;padding:8px 12px 16px;max-height:400px;">
+                    ${items.map(item => `
+                        <button class="link-item-btn" data-name="${(item.name || '').toLowerCase()}" onclick="MessagesModule._saveLink('${emailId}','${entityType}','${item.id}')" 
+                                style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:#fff;cursor:pointer;font-size:14px;border-radius:6px;margin-bottom:2px;transition:background 0.1s;"
+                                onmouseover="this.style.background='#f7f7f7'" onmouseout="this.style.background='#fff'">
+                            ${item.name || '(bez názvu)'}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        popup.addEventListener('click', (e) => { if (e.target === popup) popup.remove(); });
+        document.body.appendChild(popup);
+        document.getElementById('link-search-input')?.focus();
+    },
+    
+    _filterLinkItems(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('.link-item-btn').forEach(btn => {
+            const name = btn.dataset.name || '';
+            btn.style.display = name.includes(q) ? 'block' : 'none';
+        });
+    },
+    
+    async _saveLink(emailId, entityType, entityId) {
+        document.getElementById('link-menu-popup')?.remove();
+        
+        try {
+            const { data: { user } } = await Database.client.auth.getUser();
+            
+            // Check duplicates
+            const { data: existing } = await Database.client
+                .from('email_links')
+                .select('id')
+                .eq('email_id', emailId)
+                .eq('entity_type', entityType)
+                .eq('entity_id', entityId)
+                .maybeSingle();
+            
+            if (existing) {
+                Utils.toast('Toto prepojenie už existuje', 'info');
+                return;
+            }
+            
+            await Database.client.from('email_links').insert({
+                email_id: emailId,
+                entity_type: entityType,
+                entity_id: entityId,
+                created_by: user?.id
+            });
+            
+            Utils.toast('Prepojenie vytvorené ✅', 'success');
+            this._loadEmailLinks(emailId);
+            
+        } catch(e) {
+            console.error('Link error:', e);
+            Utils.toast('Chyba pri prepájaní', 'error');
+        }
+    },
+    
+    async removeLink(linkId, emailId) {
+        try {
+            await Database.client.from('email_links').delete().eq('id', linkId);
+            Utils.toast('Prepojenie odstránené', 'success');
+            this._loadEmailLinks(emailId);
+        } catch(e) {
+            Utils.toast('Chyba', 'error');
+        }
+    },
+    
+    async createFromEmail(emailId, type) {
+        document.getElementById('link-menu-popup')?.remove();
+        
+        const email = this.emails.find(e => e.id === emailId) || this.selectedEmail;
+        if (!email) return;
+        
+        try {
+            const { data: { user } } = await Database.client.auth.getUser();
+            
+            if (type === 'ticket') {
+                const { data, error } = await Database.client.from('tickets').insert({
+                    title: email.subject || 'Ticket z emailu',
+                    description: email.snippet || email.body_text?.substring(0, 500) || '',
+                    status: 'open',
+                    priority: 'normal',
+                    source: 'email',
+                    contact_email: email.from_address,
+                    contact_name: email.from_name,
+                    created_by: user?.id
+                }).select().single();
+                
+                if (error) throw error;
+                
+                // Prepoj email s ticketom
+                await Database.client.from('email_links').insert({
+                    email_id: emailId,
+                    entity_type: 'ticket',
+                    entity_id: data.id,
+                    created_by: user?.id
+                });
+                
+                Utils.toast('Ticket vytvorený a prepojený ✅', 'success');
+                this._loadEmailLinks(emailId);
+                
+            } else if (type === 'task') {
+                const { data, error } = await Database.client.from('tasks').insert({
+                    title: email.subject || 'Úloha z emailu',
+                    description: email.snippet || email.body_text?.substring(0, 500) || '',
+                    status: 'todo',
+                    priority: 'normal',
+                    created_by: user?.id
+                }).select().single();
+                
+                if (error) throw error;
+                
+                await Database.client.from('email_links').insert({
+                    email_id: emailId,
+                    entity_type: 'task',
+                    entity_id: data.id,
+                    created_by: user?.id
+                });
+                
+                Utils.toast('Úloha vytvorená a prepojená ✅', 'success');
+                this._loadEmailLinks(emailId);
+            }
+            
+        } catch(e) {
+            console.error('Create from email error:', e);
+            Utils.toast('Chyba pri vytváraní: ' + (e.message || ''), 'error');
+        }
     },
     
     // ===========================================
@@ -1148,6 +1509,7 @@ const MessagesModule = {
         this.selectedFolder = folder;
         this.page = 1;
         this.searchQuery = '';
+        this._saveState();
         const searchInput = document.getElementById('email-search');
         if (searchInput) searchInput.value = '';
         
@@ -1160,6 +1522,7 @@ const MessagesModule = {
     selectAccount(accountId) {
         this.selectedAccountId = accountId;
         this.page = 1;
+        this._saveState();
         
         document.querySelectorAll('.account-item').forEach(el => el.classList.remove('active'));
         document.querySelector(`.account-item[onclick*="'${accountId}'"]`)?.classList.add('active');
@@ -1178,6 +1541,7 @@ const MessagesModule = {
     goToPage(page) {
         if (page < 1 || page > Math.ceil(this.totalCount / this.perPage)) return;
         this.page = page;
+        this._saveState();
         this.loadEmails();
     },
     
@@ -1232,7 +1596,7 @@ const MessagesModule = {
             return;
         }
         
-        if (!confirm(`Vymazať ${ids.length} správ?`)) return;
+        if (!await Utils.confirm(`Vymazať ${ids.length} správ?`, { title: 'Hromadné mazanie', type: 'danger', confirmText: 'Vymazať', cancelText: 'Ponechať' })) return;
         
         await Database.client
             .from('emails')
