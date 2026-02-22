@@ -771,6 +771,7 @@ const TeamModule = {
     },
 
     async sendInviteEmail({ to, toName, firstName, role, inviteUrl, expiresAt }) {
+        if (window.EmailTemplates) await EmailTemplates.ensureSettings();
         const htmlBody = window.EmailTemplates 
             ? EmailTemplates.teamInvite({ firstName, role, inviteUrl, expiresAt })
             : '<p>Ahoj ' + firstName + ', bol/a si pozvaný/á do tímu Adlify. <a href="' + inviteUrl + '">Prijať pozvánku</a></p>';
