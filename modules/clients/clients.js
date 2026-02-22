@@ -1589,40 +1589,17 @@ const ClientsModule = {
       const onboardingUrl = `${window.location.origin}/portal/onboarding.html?t=${newToken}`;
 
       // Send email
+      const onboardingHtml = window.EmailTemplates
+        ? EmailTemplates.onboarding({ contactName: client.contact_person, companyName: client.company_name, onboardingUrl })
+        : '<p>Vyplňte dotazník: <a href="' + onboardingUrl + '">' + onboardingUrl + '</a></p>';
+      
       const emailResponse = await fetch('/.netlify/functions/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: client.email,
           subject: `Onboarding dotazník - ${client.company_name || 'Adlify'}`,
-          htmlBody: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <div style="background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-                <h1 style="margin: 0; font-size: 24px;">📋 Onboarding dotazník</h1>
-              </div>
-              <div style="padding: 30px; background: #f8fafc; border-radius: 0 0 10px 10px;">
-                <p style="font-size: 16px; color: #1e293b;">Dobrý deň${client.contact_person ? ' ' + client.contact_person : ''},</p>
-                <p style="color: #475569;">Pre prípravu vašej marketingovej kampane potrebujeme získať niekoľko informácií o vašom biznise. Prosím, vyplňte krátky dotazník kliknutím na tlačidlo nižšie:</p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${onboardingUrl}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #f97316, #ec4899); color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 16px;">
-                    Vyplniť dotazník →
-                  </a>
-                </div>
-                
-                <p style="color: #64748b; font-size: 14px;">Alebo skopírujte tento odkaz:</p>
-                <p style="color: #f97316; word-break: break-all; font-size: 14px;">${onboardingUrl}</p>
-                
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;">
-                
-                <p style="color: #64748b; font-size: 14px; margin-bottom: 0;">
-                  S pozdravom,<br>
-                  <strong>Tím Adlify</strong><br>
-                  📧 info@adlify.eu | 🌐 adlify.eu
-                </p>
-              </div>
-            </div>
-          `
+          htmlBody: onboardingHtml
         })
       });
 
