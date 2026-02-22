@@ -1026,7 +1026,7 @@ const CampaignProjectsModule = {
   },
   
   async markAsDeployed(projectId) {
-    if (!confirm('Označiť projekt ako nasadený a spustiť kampane?')) return;
+    if (!await Utils.confirm('Projekt bude označený ako nasadený a kampane sa spustia.', { title: 'Nasadiť projekt', type: 'success', confirmText: 'Nasadiť', cancelText: 'Zrušiť' })) return;
     
     try {
       const { error } = await Database.client
@@ -1522,7 +1522,7 @@ const CampaignProjectsModule = {
   },
   
   async deleteCampaign(campaignId) {
-    if (!confirm('Naozaj chcete zmazať túto kampaň? Zmažú sa aj všetky reklamné skupiny a reklamy.')) return;
+    if (!await Utils.confirm('Zmažú sa aj všetky reklamné skupiny a reklamy v tejto kampani.', { title: 'Zmazať kampaň', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
       // Delete all ads in all ad groups of this campaign
@@ -1748,7 +1748,7 @@ const CampaignProjectsModule = {
   },
   
   async deleteProject(projectId) {
-    if (!await Utils.confirm('Naozaj chcete zmazať tento projekt? Táto akcia je nevratná.')) {
+    if (!await Utils.confirm('Naozaj chcete zmazať tento projekt? Všetky kampane a dáta budú stratené.', { title: 'Zmazať projekt', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) {
       return;
     }
     
@@ -2038,82 +2038,9 @@ const CampaignProjectsModule = {
     const proposalUrl = `${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}`;
     
     // HTML email
-    const htmlBody = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
-    .header { text-align: center; margin-bottom: 40px; }
-    .logo { font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #f97316, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .card { background: #f8fafc; border-radius: 16px; padding: 30px; margin: 30px 0; }
-    h1 { font-size: 24px; color: #1e293b; margin-bottom: 10px; }
-    .subtitle { color: #64748b; font-size: 16px; }
-    .highlight { background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 20px 30px; border-radius: 12px; text-align: center; margin: 30px 0; }
-    .highlight h2 { margin: 0 0 10px 0; font-size: 20px; }
-    .btn { display: inline-block; background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 16px 40px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; }
-    .btn:hover { opacity: 0.9; }
-    .features { margin: 30px 0; }
-    .feature { display: flex; align-items: center; margin: 15px 0; }
-    .feature-icon { font-size: 24px; margin-right: 15px; }
-    .footer { text-align: center; color: #94a3b8; font-size: 14px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="logo">Adlify</div>
-    </div>
-    
-    <h1>Dobrý deň ${client.contact_person || client.company_name},</h1>
-    <p class="subtitle">Pripravili sme pre vás návrh marketingovej kampane!</p>
-    
-    <div class="card">
-      <h2 style="margin-top: 0;">📊 ${project.name}</h2>
-      <p>Na základe informácií, ktoré ste nám poskytli, sme pre vás pripravili personalizovanú stratégiu online marketingu.</p>
-      
-      <div class="features">
-        <div class="feature">
-          <span class="feature-icon">🎯</span>
-          <span>Cielené kampane pre váš biznis</span>
-        </div>
-        <div class="feature">
-          <span class="feature-icon">📈</span>
-          <span>Očakávané výsledky a metriky</span>
-        </div>
-        <div class="feature">
-          <span class="feature-icon">💰</span>
-          <span>Optimalizovaný rozpočet</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="highlight">
-      <h2>Pozrite si váš návrh</h2>
-      <p style="margin: 10px 0 20px 0; opacity: 0.9;">Kliknite na tlačidlo nižšie pre zobrazenie kompletného návrhu</p>
-      <a href="${proposalUrl}" class="btn">Zobraziť návrh kampane →</a>
-    </div>
-    
-    <p>Po prezretí návrhu môžete:</p>
-    <ul>
-      <li>✅ <strong>Schváliť návrh</strong> - a my začneme s realizáciou</li>
-      <li>✏️ <strong>Požiadať o úpravu</strong> - ak máte pripomienky</li>
-    </ul>
-    
-    <p style="margin-top: 30px;">V prípade otázok nás neváhajte kontaktovať.</p>
-    
-    <p>S pozdravom,<br><strong>Tím Adlify</strong></p>
-    
-    <div class="footer">
-      <p>Adlify - Váš partner pre online marketing</p>
-      <p>info@adlify.eu | www.adlify.eu</p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
+    const htmlBody = window.EmailTemplates
+      ? EmailTemplates.campaignProposal({ contactName: client.contact_person, companyName: client.company_name, projectName: project.name, proposalUrl })
+      : '<p>Pozrite si návrh kampane: <a href="' + proposalUrl + '">' + proposalUrl + '</a></p>';
     
     try {
       // Pošli email cez Netlify function
@@ -2796,7 +2723,7 @@ const CampaignProjectsModule = {
   },
   
   async deleteAdAndClose(adId) {
-    if (!confirm('Naozaj chcete zmazať túto reklamu?')) return;
+    if (!await Utils.confirm('Zmazať túto reklamu?', { title: 'Zmazať reklamu', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
       const { error } = await Database.client.from('ads').delete().eq('id', adId);
@@ -2930,7 +2857,7 @@ const CampaignProjectsModule = {
   },
   
   async deleteAdGroup(adGroupId) {
-    if (!confirm('Naozaj chcete zmazať túto reklamnú skupinu? Zmažú sa aj všetky reklamy v nej.')) return;
+    if (!await Utils.confirm('Zmažú sa aj všetky reklamy v tejto skupine.', { title: 'Zmazať reklamnú skupinu', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
       // First delete all ads in this ad group
@@ -2984,7 +2911,7 @@ const CampaignProjectsModule = {
   },
   
   async deleteAd(adId) {
-    if (!confirm('Naozaj chcete zmazať túto reklamu?')) return;
+    if (!await Utils.confirm('Zmazať túto reklamu?', { title: 'Zmazať reklamu', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
       const { error } = await Database.client.from('ads').delete().eq('id', adId);
