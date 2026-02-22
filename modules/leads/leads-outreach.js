@@ -1040,6 +1040,13 @@
       /* Base */
       .outreach-section { padding: 0; }
       
+      /* Fix tabs overflow with 8 tabs */
+      .billing-tabs-new { flex-wrap: wrap; }
+      @media (max-width: 1200px) { .billing-tabs-new { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .billing-tabs-new::-webkit-scrollbar { display: none; }
+        .billing-tabs-new .tab-btn-new { white-space: nowrap; flex-shrink: 0; }
+      }
+      
       /* KPI Grid */
       .outreach-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
       .outreach-kpi { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; }
@@ -1198,14 +1205,15 @@
   const _originalShowTab = LM.showTab.bind(LM);
   
   LM.showTab = function(tab) {
-    // Najprv skúsiť naše nové taby
     const outreachTabs = ['segmenty', 'checklist', 'plan', 'nastroje', 'postup'];
     
     if (outreachTabs.includes(tab)) {
-      // Update všetkých tabov
+      // Deaktivovať všetky tab buttony
       document.querySelectorAll('.tab-btn-new').forEach(btn => btn.classList.remove('active'));
+      // Aktivovať kliknutý
       document.querySelector(`.tab-btn-new[data-tab="${tab}"]`)?.classList.add('active');
       
+      // Renderovať obsah do leads-tab-content
       const contentEl = document.getElementById('leads-tab-content');
       if (!contentEl) return;
       
@@ -1217,7 +1225,7 @@
         case 'postup': contentEl.innerHTML = this.renderPostupTab(); break;
       }
     } else {
-      // Pôvodné taby
+      // Pôvodné taby (list, import, add)
       _originalShowTab(tab);
     }
   };
@@ -1231,31 +1239,49 @@
   LM.template = function() {
     let html = _originalTemplate();
     
-    // Vložiť nové tab buttony pred uzatvárací </div> billing-tabs-new
+    // 5 nových tab buttonov
     const newTabs = `
-      <button class="tab-btn-new" data-tab="segmenty" onclick="LeadsModule.showTab('segmenty')">
-        <span class="tab-icon">🎯</span> Segmenty
-      </button>
-      <button class="tab-btn-new" data-tab="checklist" onclick="LeadsModule.showTab('checklist')">
-        <span class="tab-icon">✅</span> Checklist
-      </button>
-      <button class="tab-btn-new" data-tab="plan" onclick="LeadsModule.showTab('plan')">
-        <span class="tab-icon">📅</span> 12M Plán
-      </button>
-      <button class="tab-btn-new" data-tab="nastroje" onclick="LeadsModule.showTab('nastroje')">
-        <span class="tab-icon">🧰</span> Nástroje
-      </button>
-      <button class="tab-btn-new" data-tab="postup" onclick="LeadsModule.showTab('postup')">
-        <span class="tab-icon">📖</span> Postup
-      </button>
-    `;
+            <button class="tab-btn-new" data-tab="segmenty" onclick="LeadsModule.showTab('segmenty')">
+              <span class="tab-icon">🎯</span> Segmenty
+            </button>
+            <button class="tab-btn-new" data-tab="checklist" onclick="LeadsModule.showTab('checklist')">
+              <span class="tab-icon">✅</span> Checklist
+            </button>
+            <button class="tab-btn-new" data-tab="plan" onclick="LeadsModule.showTab('plan')">
+              <span class="tab-icon">📅</span> 12M Plán
+            </button>
+            <button class="tab-btn-new" data-tab="nastroje" onclick="LeadsModule.showTab('nastroje')">
+              <span class="tab-icon">🧰</span> Nástroje
+            </button>
+            <button class="tab-btn-new" data-tab="postup" onclick="LeadsModule.showTab('postup')">
+              <span class="tab-icon">📖</span> Postup
+            </button>`;
     
-    // Hľadáme miesto pred </div> billing-tabs-new
-    // Injection point: pred posledný </div> v billing-tabs-new
+    // Injection: Nájdi posledný "Pridať" tab button a vlož nové taby za neho
+    // Hľadáme uzatváraciu </div> billing-tabs-new sekcie
     html = html.replace(
-      '</div>\n        </div>\n        \n        <!-- Content -->',
-      newTabs + '\n          </div>\n        </div>\n        \n        <!-- Content -->'
+      /(<button[^>]*data-tab="add"[^>]*>[\s\S]*?<\/button>)\s*(<\/div>\s*<\/div>\s*<!--\s*Content\s*-->)/,
+      '$1' + newTabs + '\n          $2'
     );
+    
+    // Fallback: ak regex nezaberieme, skúsime jednoduchší pattern
+    if (!html.includes('data-tab="segmenty"')) {
+      // Vložiť pred uzatváraciu </div> billing-tabs-new
+      html = html.replace(
+        '</div>\n        </div>\n        \n        <!-- Content -->',
+        newTabs + '\n          </div>\n        </div>\n        \n        <!-- Content -->'
+      );
+    }
+    
+    // Fallback 2: ak stále nie, injektujeme cez DOM po renderovaní
+    if (!html.includes('data-tab="segmenty"')) {
+      setTimeout(() => {
+        const tabsContainer = document.querySelector('.billing-tabs-new');
+        if (tabsContainer && !tabsContainer.querySelector('[data-tab="segmenty"]')) {
+          tabsContainer.insertAdjacentHTML('beforeend', newTabs);
+        }
+      }, 100);
+    }
     
     return html;
   };
