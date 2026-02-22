@@ -1,265 +1,199 @@
 // =====================================================
-// ADLIFY - Centrálny Email Template Systém
-// Všetky emaily na jednom mieste, konzistentný branding
+// ADLIFY - Email Template System
+// Číta brand nastavenia z App.settings
 // =====================================================
 
 window.EmailTemplates = {
 
-  // ==========================================
-  // KONFIGURÁCIA
-  // ==========================================
-  
-  config: {
-    logo: 'https://adlify.eu/logo.png',
-    brandName: 'Adlify',
-    website: 'www.adlify.eu',
-    email: 'info@adlify.eu',
-    colors: {
-      primary: '#FF6B35',
-      secondary: '#E91E63',
-      accent: '#9C27B0',
-      text: '#334155',
-      muted: '#94a3b8',
-      bg: '#f8fafc',
-      cardBg: '#ffffff',
-      border: '#e2e8f0'
-    }
+  // Dynamicky čítaj z App.settings (brand tab)
+  getConfig: function() {
+    var s = (window.App && App.settings) || {};
+    return {
+      brandName: s.company_name || 'Adlify',
+      logoUrl: s.brand_logo_url || '',
+      primaryColor: s.brand_primary_color || '#FF6B35',
+      secondaryColor: s.brand_secondary_color || '#E91E63',
+      website: s.email_website || 'www.adlify.eu',
+      email: s.email_contact || 'info@adlify.eu',
+      footerText: s.email_footer_text || '',
+      tagline: s.email_tagline || ''
+    };
   },
 
-  // ==========================================
-  // BASE LAYOUT
-  // ==========================================
+  // === BASE LAYOUT ===
+  _baseLayout: function(content) {
+    var c = this.getConfig();
+    var year = new Date().getFullYear();
+    var footer = c.footerText || ('S pozdravom, <strong>T\u00edm ' + c.brandName + '</strong>');
 
-  _baseLayout(content, options = {}) {
-    const c = this.config.colors;
-    const year = new Date().getFullYear();
-    const footerText = options.footerText || 'S pozdravom, <strong>Adlify tím</strong>';
-    
+    // Logo: obrázok ak existuje, inak text
+    var logoHtml;
+    if (c.logoUrl) {
+      logoHtml = '<img src="' + c.logoUrl + '" alt="' + c.brandName + '" style="max-height:40px;max-width:200px;display:block;" onerror="this.outerHTML=\'<span style=font-size:24px;font-weight:700;color:' + c.primaryColor + ';>' + c.brandName + '</span>\'">';
+    } else {
+      logoHtml = '<span style="font-size:24px;font-weight:700;color:' + c.primaryColor + ';letter-spacing:-0.3px;">' + c.brandName + '</span>';
+    }
+
     return [
       '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>',
-      '<body style="margin:0;padding:0;font-family:Inter,Arial,Helvetica,sans-serif;background:' + c.bg + ';color:' + c.text + ';">',
-      '<div style="max-width:600px;margin:0 auto;padding:40px 20px;">',
-      
+      '<body style="margin:0;padding:0;font-family:Helvetica,Arial,sans-serif;background:#f5f5f5;color:#333333;">',
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;"><tr><td align="center" style="padding:32px 16px;">',
+      '<table role="presentation" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">',
+
       // Header
-      '<div style="text-align:center;margin-bottom:32px;">',
-      '<div style="background:linear-gradient(135deg,' + c.primary + ' 0%,' + c.secondary + ' 50%,' + c.accent + ' 100%);border-radius:16px;padding:24px 40px;display:inline-block;">',
-      '<img src="' + this.config.logo + '" alt="Adlify" style="height:36px;display:block;" onerror="this.outerHTML=\'<span style=color:white;font-size:24px;font-weight:bold;letter-spacing:1px;>ADLIFY</span>\'">',
-      '</div></div>',
-      
+      '<tr><td style="padding:28px 32px 20px;">',
+      logoHtml,
+      '<div style="margin-top:16px;height:3px;border-radius:3px;background:linear-gradient(90deg,' + c.primaryColor + ',' + c.secondaryColor + ');"></div>',
+      '</td></tr>',
+
       // Content
-      '<div style="background:' + c.cardBg + ';border-radius:16px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.06);">',
+      '<tr><td style="padding:8px 32px 28px;">',
       content,
-      '</div>',
-      
+      '</td></tr>',
+
       // Footer
-      '<div style="text-align:center;padding:32px 0 16px;color:' + c.muted + ';font-size:13px;">',
-      '<p style="margin:0 0 8px;">' + footerText + '</p>',
-      '<p style="margin:0 0 4px;">',
-      '<a href="mailto:' + this.config.email + '" style="color:' + c.primary + ';text-decoration:none;">' + this.config.email + '</a>',
-      ' &middot; ',
-      '<a href="https://' + this.config.website + '" style="color:' + c.primary + ';text-decoration:none;">' + this.config.website + '</a>',
-      '</p>',
-      '<p style="margin:0;font-size:11px;color:#cbd5e1;">&copy; ' + year + ' ' + this.config.brandName + ' &middot; AI-powered marketing</p>',
-      '</div>',
-      
-      '</div></body></html>'
+      '<tr><td style="padding:20px 32px 24px;background:#fafafa;border-top:1px solid #eee;">',
+      '<p style="margin:0 0 12px;font-size:14px;color:#555;">' + footer + '</p>',
+      '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
+      '<td style="padding-right:16px;"><a href="mailto:' + c.email + '" style="color:' + c.primaryColor + ';text-decoration:none;font-size:13px;">' + c.email + '</a></td>',
+      '<td><a href="https://' + c.website + '" style="color:' + c.primaryColor + ';text-decoration:none;font-size:13px;">' + c.website + '</a></td>',
+      '</tr></table>',
+      (c.tagline ? '<p style="margin:12px 0 0;font-size:12px;color:#aaa;">' + c.tagline + '</p>' : ''),
+      '</td></tr>',
+
+      '</table>',
+      '<p style="margin:16px 0 0;font-size:11px;color:#ccc;text-align:center;">\u00a9 ' + year + ' ' + c.brandName + '</p>',
+      '</td></tr></table></body></html>'
     ].join('');
   },
 
-  // Helper pre paragraf
-  _p(text, extra = '') {
-    return '<p style="color:#334155;font-size:16px;line-height:1.7;margin:0 0 16px;' + extra + '">' + text + '</p>';
+  // === HELPERS ===
+  _p: function(text, opts) {
+    opts = opts || {};
+    return '<p style="margin:0 0 16px;font-size:' + (opts.size || '15px') + ';line-height:1.65;color:' + (opts.color || '#555') + ';' + (opts.style || '') + '">' + text + '</p>';
+  },
+  _heading: function(text) {
+    return '<h1 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#222;line-height:1.3;">' + text + '</h1>';
+  },
+  _button: function(text, url) {
+    var c = this.getConfig();
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 0;"><a href="' + url + '" style="display:inline-block;background:' + c.primaryColor + ';color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:600;font-size:15px;">' + text + '</a></td></tr></table>';
+  },
+  _card: function(content) {
+    return '<div style="background:#f9fafb;border-radius:8px;padding:20px;margin:16px 0;border:1px solid #eee;">' + content + '</div>';
+  },
+  _note: function(text) {
+    return '<p style="margin:16px 0 0;font-size:12px;color:#aaa;text-align:center;">' + text + '</p>';
   },
 
-  // Helper pre CTA button
-  _button(text, url, style = 'primary') {
-    const c = this.config.colors;
-    const bg = style === 'primary' 
-      ? 'background:linear-gradient(135deg,' + c.primary + ' 0%,' + c.secondary + ' 100%)' 
-      : 'background:' + c.primary;
+  // === SAMPLE DATA pre preview ===
+  getSampleData: function() {
+    var c = this.getConfig();
+    return {
+      teamInvite: { firstName: 'Michal', role: 'Obchodn\u00edk', inviteUrl: '#', expiresAt: new Date(Date.now() + 7*86400000).toISOString() },
+      onboarding: { contactName: 'J\u00e1n Nov\u00e1k', companyName: 'AutoServis Nov\u00e1k', onboardingUrl: '#' },
+      campaignProposal: { contactName: 'Peter Horv\u00e1th', companyName: 'Kader. Style', projectName: 'Google Ads Q1 2026', proposalUrl: '#' },
+      leadProposal: { body: 'Dobr\u00fd de\u0148,\n\nna z\u00e1klade anal\u00fdzy va\u0161ej webstr\u00e1nky sme pre v\u00e1s pripravili ponuku.\n\n\u2713 Google Ads kampa\u0148\n\u2713 Meta Ads kampa\u0148\n\u2713 Mesa\u010dn\u00fd reporting', proposalUrl: '#', companyName: 'Test s.r.o.' },
+      generic: { title: 'D\u00f4le\u017eit\u00e1 inform\u00e1cia', body: 'Dobr\u00fd de\u0148,\n\nchceli by sme v\u00e1s informova\u0165 o novink\u00e1ch.', buttonText: 'Pozrie\u0165 v\u00fdsledky', buttonUrl: '#' }
+    };
+  },
+
+  // Template zoznam pre UI
+  getTemplateList: function() {
     return [
-      '<div style="text-align:center;margin:32px 0;">',
-      '<a href="' + url + '" style="display:inline-block;' + bg + ';color:white;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">',
-      text,
-      '</a></div>'
+      { id: 'teamInvite', name: 'Pozv\u00e1nka do t\u00edmu', desc: 'Email pre nov\u00fdch \u010dlenov t\u00edmu', icon: '\ud83d\udc65' },
+      { id: 'onboarding', name: 'Onboarding dotazn\u00edk', desc: 'V\u00fdzva na vyplnenie dotazn\u00edka', icon: '\ud83d\udccb' },
+      { id: 'campaignProposal', name: 'N\u00e1vrh kampane', desc: 'Odoslanie n\u00e1vrhu klientovi', icon: '\ud83d\udcca' },
+      { id: 'leadProposal', name: 'Ponuka pre lead', desc: 'Email s ponukou pre nov\u00fd lead', icon: '\ud83d\udce7' },
+      { id: 'generic', name: 'Univerz\u00e1lny email', desc: 'Vlastn\u00fd obsah a tla\u010didlo', icon: '\u2709\ufe0f' }
+    ];
+  },
+
+  // === TEMPLATES ===
+  teamInvite: function(data) {
+    var content = [
+      this._heading('Pozv\u00e1nka do t\u00edmu'),
+      this._p('Ahoj <strong>' + data.firstName + '</strong>,'),
+      this._p('pozv\u00e1me \u0165a do t\u00edmu <strong>' + this.getConfig().brandName + '</strong> s rolou <strong>' + data.role + '</strong>. Pre vytvorenie \u00fa\u010dtu klikni na tla\u010didlo ni\u017e\u0161ie.'),
+      this._button('Prija\u0165 pozv\u00e1nku', data.inviteUrl),
+      this._note('Pozv\u00e1nka je platn\u00e1 do ' + new Date(data.expiresAt).toLocaleDateString('sk-SK') + '.')
     ].join('');
-  },
-
-  // Helper pre info card
-  _card(content) {
-    return '<div style="background:#f1f5f9;border-radius:12px;padding:24px;margin:20px 0;">' + content + '</div>';
-  },
-
-  // Helper pre heading
-  _h1(text) {
-    return '<h1 style="font-size:24px;color:#1e293b;margin:0 0 8px;font-weight:700;">' + text + '</h1>';
-  },
-
-  _h2(text) {
-    return '<h2 style="font-size:18px;color:#1e293b;margin:20px 0 12px;font-weight:600;">' + text + '</h2>';
-  },
-
-  // ==========================================
-  // ŠABLÓNY
-  // ==========================================
-
-  /**
-   * Pozvánka do tímu
-   */
-  teamInvite({ firstName, role, inviteUrl, expiresAt }) {
-    const expiryDate = new Date(expiresAt).toLocaleDateString('sk-SK');
-    
-    const content = [
-      this._h1('Pozvánka do tímu'),
-      this._p('Ahoj <strong>' + firstName + '</strong>,'),
-      this._p('Bol/a si pozvaný/á do tímu <strong>Adlify</strong> s rolou <strong>' + role + '</strong>.'),
-      this._p('Klikni na tlačidlo nižšie pre vytvorenie účtu a pripojenie sa k tímu.'),
-      this._button('Prijať pozvánku', inviteUrl),
-      '<p style="text-align:center;color:#94a3b8;font-size:13px;margin:0;">Pozvánka platná do ' + expiryDate + '</p>'
-    ].join('');
-    
     return this._baseLayout(content);
   },
 
-  /**
-   * Onboarding dotazník
-   */
-  onboarding({ contactName, companyName, onboardingUrl }) {
-    const greeting = contactName ? contactName.split(' ')[0] : '';
-    
-    const content = [
-      this._h1('Dobrý deň' + (greeting ? ', ' + greeting : '') + '!'),
-      this._p('Ďakujeme za váš záujem o spoluprácu s Adlify. Pre prípravu vašej marketingovej stratégie potrebujeme od vás vyplniť krátky onboarding dotazník.'),
+  onboarding: function(data) {
+    var greeting = data.contactName ? data.contactName.split(' ')[0] : '';
+    var content = [
+      this._heading('Vitajte v spolupr\u00e1ci!'),
+      this._p('Dobr\u00fd de\u0148' + (greeting ? ' <strong>' + greeting + '</strong>' : '') + ','),
+      this._p('\u010eakujeme za v\u00e1\u0161 z\u00e1ujem o spolupr\u00e1cu. Pre pr\u00edpravu va\u0161ej marketingovej strat\u00e9gie potrebujeme vyplni\u0165 kr\u00e1tky dotazn\u00edk.'),
       this._card(
-        '<p style="margin:0 0 8px;font-weight:600;color:#334155;">📋 Čo vás čaká:</p>' +
-        '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.8;">' +
-        '✓ Otázky o vašom biznise a cieľoch<br>' +
-        '✓ Cieľová skupina a rozpočet<br>' +
-        '✓ Výber platforiem a balíčka<br>' +
-        '⏱ Trvanie: cca 10-15 minút</p>'
+        '<p style="margin:0 0 10px;font-weight:600;color:#333;">\u010co v\u00e1s \u010dak\u00e1:</p>' +
+        '<p style="margin:0;color:#777;font-size:14px;line-height:2;">' +
+        '\u2713 Inform\u00e1cie o va\u0161om podnikan\u00ed<br>\u2713 Cie\u013eov\u00e1 skupina a rozpo\u010det<br>\u2713 V\u00fdber platformy a bal\u00ed\u010dka<br>\u23f1 Cca 10 min\u00fat</p>'
       ),
-      this._button('Vyplniť dotazník →', onboardingUrl),
-      '<p style="color:#94a3b8;font-size:13px;text-align:center;margin:0;">Ak tlačidlo nefunguje: <a href="' + onboardingUrl + '" style="color:#FF6B35;word-break:break-all;">' + onboardingUrl + '</a></p>'
+      this._button('Vyplni\u0165 dotazn\u00edk', data.onboardingUrl),
+      this._note('Ak tla\u010didlo nefunguje: <a href="' + data.onboardingUrl + '" style="color:' + this.getConfig().primaryColor + ';word-break:break-all;">' + data.onboardingUrl + '</a>')
     ].join('');
-    
     return this._baseLayout(content);
   },
 
-  /**
-   * Návrh kampane / proposal
-   */
-  campaignProposal({ contactName, companyName, projectName, proposalUrl }) {
-    const content = [
-      this._h1('Návrh kampane je pripravený!'),
-      this._p('Dobrý deň ' + (contactName || companyName) + ','),
-      this._p('Pripravili sme pre vás personalizovaný návrh marketingovej kampane.'),
-      this._card(
-        '<p style="margin:0 0 12px;font-weight:600;color:#334155;">📊 ' + (projectName || 'Marketingová kampaň') + '</p>' +
-        '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.8;">' +
-        '🎯 Cielené kampane pre váš biznis<br>' +
-        '📈 Očakávané výsledky a metriky<br>' +
-        '💰 Optimalizovaný rozpočet</p>'
-      ),
-      this._button('Zobraziť návrh kampane →', proposalUrl),
-      this._p('Po prezretí návrhu môžete:', 'font-size:14px;'),
-      '<p style="color:#64748b;font-size:14px;line-height:2;margin:0 0 16px;">' +
-        '✅ <strong>Schváliť návrh</strong> — začneme s realizáciou<br>' +
-        '✏️ <strong>Požiadať o úpravu</strong> — ak máte pripomienky</p>',
-      this._p('V prípade otázok nás neváhajte kontaktovať.', 'font-size:14px;')
+  campaignProposal: function(data) {
+    var name = data.contactName || data.companyName || '';
+    var content = [
+      this._heading('V\u00e1\u0161 n\u00e1vrh kampane je pripraven\u00fd'),
+      this._p('Dobr\u00fd de\u0148' + (name ? ' <strong>' + name + '</strong>' : '') + ','),
+      this._p('na z\u00e1klade inform\u00e1ci\u00ed, ktor\u00e9 ste n\u00e1m poskytli, sme pre v\u00e1s pripravili n\u00e1vrh marketingovej kampane.'),
+      data.projectName ? this._card(
+        '<p style="margin:0 0 8px;font-weight:600;color:#333;">' + data.projectName + '</p>' +
+        '<p style="margin:0;color:#777;font-size:14px;line-height:1.8;">\u2022 Cielen\u00e9 kampane pre v\u00e1\u0161 biznis<br>\u2022 O\u010dak\u00e1van\u00e9 v\u00fdsledky a metriky<br>\u2022 Optimalizovan\u00fd rozpo\u010det</p>'
+      ) : '',
+      this._button('Zobrazi\u0165 n\u00e1vrh', data.proposalUrl),
+      this._p('V pr\u00edpade ot\u00e1zok n\u00e1s nev\u00e1hajte kontaktova\u0165.', {size:'14px',color:'#999'})
     ].join('');
-    
     return this._baseLayout(content);
   },
 
-  /**
-   * Lead - ponuka s textom
-   */
-  leadProposal({ body, proposalUrl, companyName }) {
-    // Konvertuj plain text na HTML paragrafy
-    const paragraphs = body.split('\n\n').map(p => {
-      if (!p.trim() || p.includes('━━━')) return '';
-      if (p.includes('VAŠA PERSONALIZOVANÁ PONUKA')) {
-        return this._h2('📊 Vaša personalizovaná ponuka');
+  leadProposal: function(data) {
+    var self = this;
+    var body = data.body || '';
+    var paragraphs = body.split('\n\n').map(function(p) {
+      if (!p.trim() || p.indexOf('\u2501') >= 0 || p.indexOf('\ud83d\udd17') >= 0) return '';
+      if (p.indexOf('\u2713') >= 0) {
+        var items = p.split('\n').filter(function(l) { return l.indexOf('\u2713') >= 0; });
+        return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0;">' +
+          items.map(function(i) { return '<tr><td style="padding:4px 8px 4px 0;color:#48bb78;">\u2713</td><td style="padding:4px 0;font-size:14px;color:#555;">' + i.replace('\u2713','').trim() + '</td></tr>'; }).join('') + '</table>';
       }
-      if (p.includes('🔗')) return '';
-      if (p.includes('✓')) {
-        const items = p.split('\n').filter(l => l.includes('✓'));
-        return '<ul style="list-style:none;padding:0;margin:12px 0;">' + items.map(i => '<li style="padding:4px 0;color:#475569;">✓ ' + i.replace('✓', '').trim() + '</li>').join('') + '</ul>';
-      }
-      return this._p(p.replace(/\n/g, '<br>'));
+      return self._p(p.replace(/\n/g, '<br>'));
     }).join('');
-    
-    const content = [
-      paragraphs,
-      proposalUrl ? this._button('📄 Zobraziť ponuku', proposalUrl) : '',
-      proposalUrl ? '<p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">Odkaz je platný 30 dní.</p>' : ''
-    ].join('');
-    
+    var content = [paragraphs, data.proposalUrl ? this._button('Zobrazi\u0165 ponuku', data.proposalUrl) : '', data.proposalUrl ? this._note('Odkaz je platn\u00fd 30 dn\u00ed.') : ''].join('');
     return this._baseLayout(content);
   },
 
-  /**
-   * Onboarding link pre klienta (z clients modulu)
-   */
-  clientOnboardingLink({ contactName, companyName, onboardingUrl }) {
-    return this.onboarding({ contactName, companyName, onboardingUrl });
-  },
+  clientOnboardingLink: function(data) { return this.onboarding(data); },
 
-  /**
-   * Generický email s vlastným obsahom
-   */
-  generic({ title, body, buttonText, buttonUrl }) {
-    const content = [
-      title ? this._h1(title) : '',
-      this._p(body.replace(/\n/g, '<br>')),
-      buttonText && buttonUrl ? this._button(buttonText, buttonUrl) : ''
+  generic: function(data) {
+    var content = [
+      data.title ? this._heading(data.title) : '',
+      this._p(data.body.replace(/\n/g, '<br>')),
+      data.buttonText && data.buttonUrl ? this._button(data.buttonText, data.buttonUrl) : ''
     ].join('');
-    
     return this._baseLayout(content);
   },
 
-  // ==========================================
-  // UTILITY
-  // ==========================================
-
-  /**
-   * Odošli email cez Netlify function
-   */
-  async send({ to, toName, subject, template, templateData, htmlBody }) {
-    const html = htmlBody || this[template](templateData);
-    
-    const session = await Database.client.auth.getSession();
-    const token = session?.data?.session?.access_token || '';
-    
-    const response = await fetch('/.netlify/functions/send-email', {
+  // === SEND ===
+  send: async function(opts) {
+    var html = opts.htmlBody || this[opts.template](opts.templateData);
+    var session = await Database.client.auth.getSession();
+    var token = session && session.data && session.data.session ? session.data.session.access_token : '';
+    var response = await fetch('/.netlify/functions/send-email', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify({
-        to,
-        toName,
-        subject,
-        htmlBody: html,
-        textBody: this._stripHtml(html)
-      })
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ to: opts.to, toName: opts.toName, subject: opts.subject, htmlBody: html, textBody: html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 500) })
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error('HTTP ' + response.status + ': ' + errorText);
-    }
-    
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error || 'Nepodarilo sa odoslať email');
-    }
-    
+    if (!response.ok) { var e = await response.text(); throw new Error('HTTP ' + response.status + ': ' + e); }
+    var result = await response.json();
+    if (!result.success) throw new Error(result.error || 'Email sa nepodarilo odoslat');
     return result;
-  },
-
-  _stripHtml(html) {
-    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 500);
   }
 };
