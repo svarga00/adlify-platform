@@ -1063,14 +1063,12 @@ const MessagesModule = {
             
             if (type === 'ticket') {
                 const { data, error } = await Database.client.from('tickets').insert({
-                    title: email.subject || 'Ticket z emailu',
-                    description: email.snippet || email.body_text?.substring(0, 500) || '',
+                    subject: email.subject || 'Ticket z emailu',
+                    description: (email.from_name ? 'Od: ' + email.from_name + ' <' + email.from_address + '>\n\n' : '') + (email.snippet || email.body_text?.substring(0, 500) || ''),
                     status: 'open',
-                    priority: 'normal',
-                    source: 'email',
-                    contact_email: email.from_address,
-                    contact_name: email.from_name,
-                    created_by: user?.id
+                    priority: 'medium',
+                    category: 'email',
+                    created_by_team: (await Database.client.from('team_members').select('id').eq('user_id', user?.id).maybeSingle())?.data?.id || null
                 }).select().single();
                 
                 if (error) throw error;
@@ -1087,12 +1085,14 @@ const MessagesModule = {
                 this._loadEmailLinks(emailId);
                 
             } else if (type === 'task') {
+                const teamMemberId = (await Database.client.from('team_members').select('id').eq('user_id', user?.id).maybeSingle())?.data?.id || null;
+                
                 const { data, error } = await Database.client.from('tasks').insert({
                     title: email.subject || 'Úloha z emailu',
-                    description: email.snippet || email.body_text?.substring(0, 500) || '',
+                    description: (email.from_name ? 'Od: ' + email.from_name + ' <' + email.from_address + '>\n\n' : '') + (email.snippet || email.body_text?.substring(0, 500) || ''),
                     status: 'todo',
-                    priority: 'normal',
-                    created_by: user?.id
+                    priority: 'medium',
+                    created_by: teamMemberId
                 }).select().single();
                 
                 if (error) throw error;
