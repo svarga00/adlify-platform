@@ -2038,6 +2038,7 @@ const CampaignProjectsModule = {
     const proposalUrl = `${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}`;
     
     // HTML email
+    if (window.EmailTemplates) await EmailTemplates.ensureSettings();
     const htmlBody = window.EmailTemplates
       ? EmailTemplates.campaignProposal({ contactName: client.contact_person, companyName: client.company_name, projectName: project.name, proposalUrl })
       : '<p>Pozrite si návrh kampane: <a href="' + proposalUrl + '">' + proposalUrl + '</a></p>';
