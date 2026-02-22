@@ -774,37 +774,28 @@ const TeamModule = {
         const session = await Database.client.auth.getSession();
         const token = session?.data?.session?.access_token || '';
         
-        const htmlBody = `
-            <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-                <div style="text-align: center; margin-bottom: 40px;">
-                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">A</div>
-                    <h1 style="margin: 20px 0 10px; color: #1e1e2f; font-size: 24px;">Pozvánka do tímu Adlify</h1>
-                </div>
-                
-                <div style="background: #f8fafc; border-radius: 16px; padding: 30px; margin-bottom: 30px;">
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                        Ahoj <strong>${firstName}</strong>,
-                    </p>
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                        Bol/a si pozvaný/á do tímu <strong>Adlify</strong> s rolou <strong>${role}</strong>.
-                    </p>
-                    <p style="color: #334155; font-size: 16px; line-height: 1.6; margin: 0;">
-                        Klikni na tlačidlo nižšie pre vytvorenie účtu a pripojenie sa k tímu.
-                    </p>
-                </div>
-                
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #FF6B35 0%, #E91E63 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px;">
-                        Prijať pozvánku
-                    </a>
-                </div>
-                
-                <div style="text-align: center; color: #94a3b8; font-size: 14px;">
-                    <p style="margin: 0 0 10px;">Pozvánka je platná do ${new Date(expiresAt).toLocaleDateString('sk-SK')}</p>
-                    <p style="margin: 0; font-size: 12px;">Ak si túto pozvánku nečakal/a, môžeš tento email ignorovať.</p>
-                </div>
-            </div>
-        `;
+        const expiryDate = new Date(expiresAt).toLocaleDateString('sk-SK');
+        
+        const htmlBody = [
+            '<div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">',
+            '<div style="text-align:center;margin-bottom:40px;">',
+            '<div style="width:60px;height:60px;background:linear-gradient(135deg,#FF6B35 0%,#E91E63 50%,#9C27B0 100%);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:24px;font-weight:bold;">A</div>',
+            '<h1 style="margin:20px 0 10px;color:#1e1e2f;font-size:24px;">Pozvánka do tímu Adlify</h1>',
+            '</div>',
+            '<div style="background:#f8fafc;border-radius:16px;padding:30px;margin-bottom:30px;">',
+            '<p style="color:#334155;font-size:16px;line-height:1.6;margin:0 0 20px;">Ahoj <strong>' + firstName + '</strong>,</p>',
+            '<p style="color:#334155;font-size:16px;line-height:1.6;margin:0 0 20px;">Bol/a si pozvaný/á do tímu <strong>Adlify</strong> s rolou <strong>' + role + '</strong>.</p>',
+            '<p style="color:#334155;font-size:16px;line-height:1.6;margin:0;">Klikni na tlačidlo nižšie pre vytvorenie účtu a pripojenie sa k tímu.</p>',
+            '</div>',
+            '<div style="text-align:center;margin-bottom:30px;">',
+            '<a href="' + inviteUrl + '" style="display:inline-block;background:linear-gradient(135deg,#FF6B35 0%,#E91E63 100%);color:white;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">Prijať pozvánku</a>',
+            '</div>',
+            '<div style="text-align:center;color:#94a3b8;font-size:14px;">',
+            '<p style="margin:0 0 10px;">Pozvánka je platná do ' + expiryDate + '</p>',
+            '<p style="margin:0;font-size:12px;">Ak si túto pozvánku nečakal/a, môžeš tento email ignorovať.</p>',
+            '</div>',
+            '</div>'
+        ].join('');
         
         const emailUrl = this.getSendEmailUrl();
         console.log('Sending invite email to:', to, 'via:', emailUrl);
@@ -1030,7 +1021,7 @@ const TeamModule = {
             return;
         }
         
-        if (!confirm(`Naozaj chcete odstrániť ${member.first_name} ${member.last_name}?`)) {
+        if (!await Utils.confirm(`Odstrániť ${member.first_name} ${member.last_name} z tímu?`, { title: 'Odstrániť člena', type: 'danger', confirmText: 'Odstrániť', cancelText: 'Ponechať' })) {
             return;
         }
         
@@ -2117,7 +2108,7 @@ const TeamModule = {
     },
     
     async resetToRoleDefaults(memberId) {
-        if (!confirm('Naozaj chceš resetovať oprávnenia na defaultné podľa role?')) return;
+        if (!await Utils.confirm('Oprávnenia sa nastavia na predvolené hodnoty podľa role.', { title: 'Resetovať oprávnenia', type: 'warning', confirmText: 'Resetovať', cancelText: 'Zrušiť' })) return;
         
         try {
             const { error } = await Database.client
