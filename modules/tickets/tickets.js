@@ -444,7 +444,7 @@ const TicketsModule = {
                             ${ticket.description ? `
                                 <div class="ticket-description">
                                     <h4>Popis</h4>
-                                    <p>${ticket.description}</p>
+                                    <p style="white-space:pre-line;line-height:1.6;">${ticket.description}</p>
                                 </div>
                             ` : ''}
                             
@@ -647,7 +647,7 @@ const TicketsModule = {
     },
 
     async deleteTicket(ticketId) {
-        if (!confirm('Naozaj chceš zmazať tento ticket?')) return;
+        if (!await Utils.confirm('Zmazať tento ticket?', { title: 'Zmazať ticket', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
 
         try {
             const { error } = await Database.client
