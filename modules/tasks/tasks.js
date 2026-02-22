@@ -545,7 +545,7 @@ const TasksModule = {
                             ${task.description ? `
                                 <div class="detail-section">
                                     <h4>Popis</h4>
-                                    <p>${task.description}</p>
+                                    <p style="white-space:pre-line;line-height:1.6;">${task.description}</p>
                                 </div>
                             ` : ''}
                             
@@ -735,7 +735,7 @@ const TasksModule = {
     },
 
     async deleteTask(taskId) {
-        if (!confirm('Naozaj chceš zmazať túto úlohu?')) return;
+        if (!await Utils.confirm('Zmazať túto úlohu?', { title: 'Zmazať úlohu', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
 
         try {
             const { error } = await Database.client
