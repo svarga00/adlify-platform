@@ -215,8 +215,9 @@
             
             try {
                 const member = inviteData.team_member;
+                let userId = null;
                 
-                // 1. Create auth user
+                // 1. Try create auth user
                 const { data: authData, error: authError } = await db.auth.signUp({
                     email: member.email,
                     password: password,
@@ -227,13 +228,33 @@
                     }
                 });
                 
-                if (authError) throw authError;
+                if (authError) {
+                    // If already registered, try to sign in with new password
+                    if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
+                        const { data: signInData, error: signInError } = await db.auth.signInWithPassword({
+                            email: member.email,
+                            password: password
+                        });
+                        
+                        if (signInError) {
+                            // Can't sign in - show helpful message
+                            showFormError('Tento email je už registrovaný s iným heslom. Použi pôvodné heslo alebo choď na prihlásenie a obnov heslo.');
+                            return;
+                        }
+                        
+                        userId = signInData.user.id;
+                    } else {
+                        throw authError;
+                    }
+                } else {
+                    userId = authData.user.id;
+                }
                 
                 // 2. Update team_member with user_id
                 const { error: updateError } = await db
                     .from('team_members')
                     .update({
-                        user_id: authData.user.id,
+                        user_id: userId,
                         status: 'active',
                         joined_at: new Date().toISOString()
                     })
@@ -247,7 +268,17 @@
                     .update({ used_at: new Date().toISOString() })
                     .eq('id', inviteData.id);
                 
-                // 4. Show success
+                // 4. Create user profile if missing
+                try {
+                    await db.from('user_profiles').upsert({
+                        id: userId,
+                        full_name: `${member.first_name} ${member.last_name}`,
+                        email: member.email,
+                        role: member.role || 'member'
+                    }, { onConflict: 'id' });
+                } catch (e) { console.warn('Profile upsert:', e); }
+                
+                // 5. Show success
                 showView('success');
                 
             } catch (error) {
