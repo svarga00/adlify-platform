@@ -86,6 +86,12 @@ const Auth = {
         .from('user_profiles')
         .update({ last_login: new Date().toISOString() })
         .eq('id', this.user.id);
+      
+      // Update team_members last_login_at
+      await Database.client
+        .from('team_members')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('user_id', this.user.id);
     }
     
     return this.profile;
