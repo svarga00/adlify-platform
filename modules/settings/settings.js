@@ -355,8 +355,87 @@ const SettingsModule = {
     },
     
     async uploadLogo(fieldName) {
-        // TODO: Implementovať upload do Supabase Storage
-        Utils.toast('Upload bude dostupný čoskoro. Zatiaľ použite URL.', 'info');
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/png,image/jpeg,image/svg+xml,image/webp';
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (file.size > 2 * 1024 * 1024) {
+                Utils.toast('Súbor je príliš veľký (max 2MB)', 'warning');
+                return;
+            }
+            
+            Utils.toast('Nahrávam...', 'info');
+            
+            try {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const fileName = fieldName.replace('brand_', '') + '_' + Date.now() + '.' + ext;
+                const filePath = 'brand/' + fileName;
+                
+                // Upload do Supabase Storage
+                const { data, error } = await Database.client.storage
+                    .from('assets')
+                    .upload(filePath, file, { 
+                        cacheControl: '3600',
+                        upsert: true 
+                    });
+                
+                if (error) throw error;
+                
+                // Získaj verejnú URL
+                const { data: urlData } = Database.client.storage
+                    .from('assets')
+                    .getPublicUrl(filePath);
+                
+                const publicUrl = urlData.publicUrl;
+                
+                // Nastav URL do inputu a preview
+                const urlInput = document.querySelector('input[name="' + fieldName + '"]');
+                if (urlInput) {
+                    urlInput.value = publicUrl;
+                    urlInput.dispatchEvent(new Event('change'));
+                }
+                
+                // Ulož do settings
+                await Database.client
+                    .from('settings')
+                    .upsert({ 
+                        key: fieldName, 
+                        value: JSON.stringify(publicUrl),
+                        category: 'brand',
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'key' });
+                
+                this.settings[fieldName] = publicUrl;
+                if (window.App) App.settings = { ...App.settings, ...this.settings };
+                
+                // Refresh preview
+                const previewMap = {
+                    'brand_logo_url': 'preview-logo',
+                    'brand_logo_dark_url': 'preview-logo-dark',
+                    'brand_logo_icon_url': 'preview-icon'
+                };
+                const previewEl = document.getElementById(previewMap[fieldName]);
+                if (previewEl) {
+                    previewEl.innerHTML = '<img src="' + publicUrl + '" alt="Logo">';
+                }
+                
+                Utils.toast('Logo nahrané ✅', 'success');
+                
+            } catch (err) {
+                console.error('Upload error:', err);
+                if (err.message && err.message.includes('Bucket not found')) {
+                    Utils.toast('Storage bucket "assets" neexistuje. Vytvorte ho v Supabase Dashboard → Storage.', 'error');
+                } else {
+                    Utils.toast('Chyba: ' + (err.message || 'Upload zlyhal'), 'error');
+                }
+            }
+        };
+        
+        input.click();
     },
     
     async saveBrandSettings(e) {
