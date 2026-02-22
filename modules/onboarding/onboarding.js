@@ -705,6 +705,7 @@ const OnboardingModule = {
       const onboardingUrl = `${window.location.origin}/onboarding/?token=${token}`;
       
       // Build email HTML
+      if (window.EmailTemplates) await EmailTemplates.ensureSettings();
       const htmlBody = window.EmailTemplates
         ? EmailTemplates.onboarding({ contactName: client.contact_person, companyName: client.company_name, onboardingUrl })
         : '<p>Vyplňte dotazník: <a href="' + onboardingUrl + '">' + onboardingUrl + '</a></p>';
