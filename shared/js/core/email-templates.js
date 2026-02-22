@@ -132,47 +132,144 @@ window.EmailTemplates = {
     ];
   },
 
+  // Vráti default editovateľné polia pre danú šablónu
+  getEditableFields: function(templateId) {
+    var defaults = {
+      teamInvite: {
+        heading: 'Pozv\u00e1nka do t\u00edmu',
+        greeting: 'Ahoj {firstName},',
+        bodyText: 'pozv\u00e1me \u0165a do t\u00edmu {brandName} s rolou {role}. Pre vytvorenie \u00fa\u010dtu klikni na tla\u010didlo ni\u017e\u0161ie.',
+        buttonText: 'Prija\u0165 pozv\u00e1nku',
+        noteText: 'Pozv\u00e1nka je platn\u00e1 do {expiresAt}.'
+      },
+      onboarding: {
+        heading: 'Vitajte v spolupr\u00e1ci!',
+        greeting: 'Dobr\u00fd de\u0148 {contactName},',
+        bodyText: '\u010eakujeme za v\u00e1\u0161 z\u00e1ujem o spolupr\u00e1cu. Pre pr\u00edpravu va\u0161ej marketingovej strat\u00e9gie potrebujeme vyplni\u0165 kr\u00e1tky dotazn\u00edk.',
+        buttonText: 'Vyplni\u0165 dotazn\u00edk',
+        noteText: ''
+      },
+      campaignProposal: {
+        heading: 'V\u00e1\u0161 n\u00e1vrh kampane je pripraven\u00fd',
+        greeting: 'Dobr\u00fd de\u0148 {contactName},',
+        bodyText: 'na z\u00e1klade inform\u00e1ci\u00ed, ktor\u00e9 ste n\u00e1m poskytli, sme pre v\u00e1s pripravili n\u00e1vrh marketingovej kampane.',
+        buttonText: 'Zobrazi\u0165 n\u00e1vrh',
+        noteText: 'V pr\u00edpade ot\u00e1zok n\u00e1s nev\u00e1hajte kontaktova\u0165.'
+      },
+      leadProposal: {
+        heading: '',
+        greeting: '',
+        bodyText: '',
+        buttonText: 'Zobrazi\u0165 ponuku',
+        noteText: 'Odkaz je platn\u00fd 30 dn\u00ed.'
+      },
+      generic: {
+        heading: '',
+        greeting: '',
+        bodyText: '',
+        buttonText: '',
+        noteText: ''
+      }
+    };
+    return defaults[templateId] || {};
+  },
+
+  // Získaj override z App.settings
+  _getOverride: function(templateId) {
+    var s = (window.App && App.settings) || {};
+    var raw = s['tpl_override_' + templateId];
+    if (!raw) return null;
+    try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) { return null; }
+  },
+
+  // Pomocná: nahraď {premenné} v texte
+  _replaceVars: function(text, vars) {
+    if (!text) return text;
+    for (var k in vars) {
+      if (vars.hasOwnProperty(k)) {
+        text = text.split('{' + k + '}').join(vars[k] || '');
+      }
+    }
+    return text;
+  },
+
   // === TEMPLATES ===
   teamInvite: function(data) {
+    var c = this.getConfig();
+    var o = this._getOverride('teamInvite') || {};
+    var vars = { firstName: data.firstName, role: data.role, brandName: c.brandName, expiresAt: new Date(data.expiresAt).toLocaleDateString('sk-SK') };
+    
+    var heading = this._replaceVars(o.heading || 'Pozv\u00e1nka do t\u00edmu', vars);
+    var greeting = this._replaceVars(o.greeting || 'Ahoj <strong>' + data.firstName + '</strong>,', vars);
+    var body = this._replaceVars(o.bodyText || 'pozv\u00e1me \u0165a do t\u00edmu <strong>' + c.brandName + '</strong> s rolou <strong>' + data.role + '</strong>. Pre vytvorenie \u00fa\u010dtu klikni na tla\u010didlo ni\u017e\u0161ie.', vars);
+    var btn = this._replaceVars(o.buttonText || 'Prija\u0165 pozv\u00e1nku', vars);
+    var note = this._replaceVars(o.noteText || 'Pozv\u00e1nka je platn\u00e1 do ' + vars.expiresAt + '.', vars);
+
+    // Ak je override greeting, zabalíme bold na meno
+    if (o.greeting) greeting = greeting.replace(data.firstName, '<strong>' + data.firstName + '</strong>');
+    if (o.bodyText) body = body.replace(c.brandName, '<strong>' + c.brandName + '</strong>').replace(data.role, '<strong>' + data.role + '</strong>');
+
     var content = [
-      this._heading('Pozv\u00e1nka do t\u00edmu'),
-      this._p('Ahoj <strong>' + data.firstName + '</strong>,'),
-      this._p('pozv\u00e1me \u0165a do t\u00edmu <strong>' + this.getConfig().brandName + '</strong> s rolou <strong>' + data.role + '</strong>. Pre vytvorenie \u00fa\u010dtu klikni na tla\u010didlo ni\u017e\u0161ie.'),
-      this._button('Prija\u0165 pozv\u00e1nku', data.inviteUrl),
-      this._note('Pozv\u00e1nka je platn\u00e1 do ' + new Date(data.expiresAt).toLocaleDateString('sk-SK') + '.')
+      this._heading(heading),
+      this._p(greeting),
+      this._p(body),
+      this._button(btn, data.inviteUrl),
+      note ? this._note(note) : ''
     ].join('');
     return this._baseLayout(content);
   },
 
   onboarding: function(data) {
+    var o = this._getOverride('onboarding') || {};
     var greeting = data.contactName ? data.contactName.split(' ')[0] : '';
+    var vars = { contactName: greeting, companyName: data.companyName || '' };
+
+    var headingText = this._replaceVars(o.heading || 'Vitajte v spolupr\u00e1ci!', vars);
+    var greetText = this._replaceVars(o.greeting || 'Dobr\u00fd de\u0148' + (greeting ? ' <strong>' + greeting + '</strong>' : '') + ',', vars);
+    var bodyText = this._replaceVars(o.bodyText || '\u010eakujeme za v\u00e1\u0161 z\u00e1ujem o spolupr\u00e1cu. Pre pr\u00edpravu va\u0161ej marketingovej strat\u00e9gie potrebujeme vyplni\u0165 kr\u00e1tky dotazn\u00edk.', vars);
+    var btnText = this._replaceVars(o.buttonText || 'Vyplni\u0165 dotazn\u00edk', vars);
+    var noteText = this._replaceVars(o.noteText || '', vars);
+
+    if (o.greeting && greeting) greetText = greetText.replace(greeting, '<strong>' + greeting + '</strong>');
+
     var content = [
-      this._heading('Vitajte v spolupr\u00e1ci!'),
-      this._p('Dobr\u00fd de\u0148' + (greeting ? ' <strong>' + greeting + '</strong>' : '') + ','),
-      this._p('\u010eakujeme za v\u00e1\u0161 z\u00e1ujem o spolupr\u00e1cu. Pre pr\u00edpravu va\u0161ej marketingovej strat\u00e9gie potrebujeme vyplni\u0165 kr\u00e1tky dotazn\u00edk.'),
+      this._heading(headingText),
+      this._p(greetText),
+      this._p(bodyText),
       this._card(
         '<p style="margin:0 0 10px;font-weight:600;color:#333;">\u010co v\u00e1s \u010dak\u00e1:</p>' +
         '<p style="margin:0;color:#777;font-size:14px;line-height:2;">' +
         '\u2713 Inform\u00e1cie o va\u0161om podnikan\u00ed<br>\u2713 Cie\u013eov\u00e1 skupina a rozpo\u010det<br>\u2713 V\u00fdber platformy a bal\u00ed\u010dka<br>\u23f1 Cca 10 min\u00fat</p>'
       ),
-      this._button('Vyplni\u0165 dotazn\u00edk', data.onboardingUrl),
-      this._note('Ak tla\u010didlo nefunguje: <a href="' + data.onboardingUrl + '" style="color:' + this.getConfig().primaryColor + ';word-break:break-all;">' + data.onboardingUrl + '</a>')
+      this._button(btnText, data.onboardingUrl),
+      noteText ? this._note(noteText) : this._note('Ak tla\u010didlo nefunguje: <a href="' + data.onboardingUrl + '" style="color:' + this.getConfig().primaryColor + ';word-break:break-all;">' + data.onboardingUrl + '</a>')
     ].join('');
     return this._baseLayout(content);
   },
 
   campaignProposal: function(data) {
+    var o = this._getOverride('campaignProposal') || {};
     var name = data.contactName || data.companyName || '';
+    var vars = { contactName: name, companyName: data.companyName || '', projectName: data.projectName || '' };
+
+    var headingText = this._replaceVars(o.heading || 'V\u00e1\u0161 n\u00e1vrh kampane je pripraven\u00fd', vars);
+    var greetText = this._replaceVars(o.greeting || 'Dobr\u00fd de\u0148' + (name ? ' <strong>' + name + '</strong>' : '') + ',', vars);
+    var bodyText = this._replaceVars(o.bodyText || 'na z\u00e1klade inform\u00e1ci\u00ed, ktor\u00e9 ste n\u00e1m poskytli, sme pre v\u00e1s pripravili n\u00e1vrh marketingovej kampane.', vars);
+    var btnText = this._replaceVars(o.buttonText || 'Zobrazi\u0165 n\u00e1vrh', vars);
+    var noteText = this._replaceVars(o.noteText || 'V pr\u00edpade ot\u00e1zok n\u00e1s nev\u00e1hajte kontaktova\u0165.', vars);
+
+    if (o.greeting && name) greetText = greetText.replace(name, '<strong>' + name + '</strong>');
+
     var content = [
-      this._heading('V\u00e1\u0161 n\u00e1vrh kampane je pripraven\u00fd'),
-      this._p('Dobr\u00fd de\u0148' + (name ? ' <strong>' + name + '</strong>' : '') + ','),
-      this._p('na z\u00e1klade inform\u00e1ci\u00ed, ktor\u00e9 ste n\u00e1m poskytli, sme pre v\u00e1s pripravili n\u00e1vrh marketingovej kampane.'),
+      this._heading(headingText),
+      this._p(greetText),
+      this._p(bodyText),
       data.projectName ? this._card(
         '<p style="margin:0 0 8px;font-weight:600;color:#333;">' + data.projectName + '</p>' +
         '<p style="margin:0;color:#777;font-size:14px;line-height:1.8;">\u2022 Cielen\u00e9 kampane pre v\u00e1\u0161 biznis<br>\u2022 O\u010dak\u00e1van\u00e9 v\u00fdsledky a metriky<br>\u2022 Optimalizovan\u00fd rozpo\u010det</p>'
       ) : '',
-      this._button('Zobrazi\u0165 n\u00e1vrh', data.proposalUrl),
-      this._p('V pr\u00edpade ot\u00e1zok n\u00e1s nev\u00e1hajte kontaktova\u0165.', {size:'14px',color:'#999'})
+      this._button(btnText, data.proposalUrl),
+      noteText ? this._p(noteText, {size:'14px',color:'#999'}) : ''
     ].join('');
     return this._baseLayout(content);
   },
