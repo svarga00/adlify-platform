@@ -705,52 +705,9 @@ const OnboardingModule = {
       const onboardingUrl = `${window.location.origin}/onboarding/?token=${token}`;
       
       // Build email HTML
-      const htmlBody = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <div style="display: inline-block; background: linear-gradient(135deg, #f97316, #ec4899, #8b5cf6); padding: 12px 24px; border-radius: 12px;">
-              <span style="color: white; font-weight: bold; font-size: 24px;">Adlify</span>
-            </div>
-          </div>
-          
-          <h1 style="font-size: 24px; color: #1f2937; margin-bottom: 20px;">Dobrý deň${client.contact_person ? ', ' + client.contact_person.split(' ')[0] : ''}!</h1>
-          
-          <p style="margin-bottom: 20px;">
-            Ďakujeme za váš záujem o spoluprácu s Adlify. Pre prípravu vašej marketingovej stratégie 
-            potrebujeme od vás vyplniť krátky onboarding dotazník.
-          </p>
-          
-          <p style="margin-bottom: 30px;">
-            Dotazník obsahuje otázky o vašom biznise, cieľovej skupine a marketingových cieľoch. 
-            Vyplnenie trvá približne 10-15 minút.
-          </p>
-          
-          <div style="text-align: center; margin: 40px 0;">
-            <a href="${onboardingUrl}" style="display: inline-block; background: linear-gradient(135deg, #f97316, #ec4899); color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px;">
-              Vyplniť dotazník →
-            </a>
-          </div>
-          
-          <p style="color: #6b7280; font-size: 14px;">
-            Ak tlačidlo nefunguje, skopírujte tento odkaz do prehliadača:<br>
-            <a href="${onboardingUrl}" style="color: #f97316; word-break: break-all;">${onboardingUrl}</a>
-          </p>
-          
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 40px 0 20px;">
-          
-          <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-            © ${new Date().getFullYear()} Adlify | AI-powered marketing automation<br>
-            <a href="https://adlify.eu" style="color: #9ca3af;">adlify.eu</a>
-          </p>
-        </body>
-        </html>
-      `;
+      const htmlBody = window.EmailTemplates
+        ? EmailTemplates.onboarding({ contactName: client.contact_person, companyName: client.company_name, onboardingUrl })
+        : '<p>Vyplňte dotazník: <a href="' + onboardingUrl + '">' + onboardingUrl + '</a></p>';
       
       const response = await fetch('/.netlify/functions/send-email', {
         method: 'POST',
