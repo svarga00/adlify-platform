@@ -224,6 +224,7 @@ const SettingsModule = {
                 break;
             case 'templates':
                 content.innerHTML = this.renderTemplates();
+                setTimeout(() => this.refreshTemplatePreviews(), 100);
                 break;
             case 'banking':
                 content.innerHTML = this.renderBankingSettings();
@@ -957,55 +958,175 @@ const SettingsModule = {
     // ===========================================
     
     renderTemplates() {
+        if (!window.EmailTemplates) {
+            return '<div class="settings-card"><p class="text-gray-500">EmailTemplates modul nie je načítaný.</p></div>';
+        }
+
+        const templates = EmailTemplates.getTemplateList();
+        const emailWebsite = this.getValue('email_website', 'www.adlify.eu');
+        const emailContact = this.getValue('email_contact', 'info@adlify.eu');
+        const emailFooter = this.getValue('email_footer_text', '');
+        const emailTagline = this.getValue('email_tagline', '');
+
         return `
-            <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">📝 Email šablóny</h2>
-                <p class="text-sm text-gray-500 mb-6">Predpripravené šablóny pre rôzne typy emailov.</p>
+            <div class="settings-card mb-6">
+                <h2 class="text-lg font-semibold mb-1">📧 Nastavenia emailov</h2>
+                <p class="text-sm text-gray-500 mb-5">Tieto údaje sa zobrazia v päte každého odoslaného emailu. Logo a farby sa preberajú z Brand nastavení.</p>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    ${this.templates.map(tpl => `
-                        <div class="template-card">
-                            <div class="flex items-start justify-between mb-2">
-                                <h4 class="font-semibold">${tpl.name}</h4>
-                                ${tpl.is_system ? '<span class="badge badge-gray text-xs">Systémová</span>' : ''}
+                <form id="email-settings-form" onsubmit="SettingsModule.saveEmailSettings(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Kontaktný email</label>
+                            <input type="email" name="email_contact" value="${emailContact}" 
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="info@adlify.eu">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Web stránka</label>
+                            <input type="text" name="email_website" value="${emailWebsite}" 
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="www.adlify.eu">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Text päty <span class="text-gray-400 font-normal">(nepovinné)</span></label>
+                        <input type="text" name="email_footer_text" value="${emailFooter}" 
+                               class="w-full p-2.5 border rounded-lg text-sm" placeholder="S pozdravom, Tím Adlify">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tagline <span class="text-gray-400 font-normal">(nepovinné)</span></label>
+                        <input type="text" name="email_tagline" value="${emailTagline}" 
+                               class="w-full p-2.5 border rounded-lg text-sm" placeholder="Online marketing, ktorý funguje.">
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="btn-primary">💾 Uložiť</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="settings-card">
+                <div class="flex justify-between items-center mb-5">
+                    <div>
+                        <h2 class="text-lg font-semibold mb-1">📝 Šablóny emailov</h2>
+                        <p class="text-sm text-gray-500">Náhľad systémových šablón. Farby a logo sa menia v Brand nastaveniach.</p>
+                    </div>
+                    <button onclick="SettingsModule.refreshTemplatePreviews()" class="btn-secondary text-xs">🔄 Obnoviť</button>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="email-templates-grid">
+                    ${templates.map(tpl => `
+                        <div class="email-tpl-card">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl">${tpl.icon}</span>
+                                    <div>
+                                        <h4 class="font-semibold text-sm">${tpl.name}</h4>
+                                        <p class="text-xs text-gray-400">${tpl.desc}</p>
+                                    </div>
+                                </div>
+                                <button onclick="SettingsModule.previewEmailTemplate('${tpl.id}')" 
+                                        class="btn-secondary text-xs" title="Otvoriť náhľad">
+                                    🔍 Náhľad
+                                </button>
                             </div>
-                            <p class="text-sm text-gray-500 mb-3">${tpl.description || tpl.subject}</p>
-                            <div class="flex gap-2">
-                                <button onclick="SettingsModule.editTemplate('${tpl.id}')" class="btn-secondary text-xs flex-1">
-                                    ✏️ Upraviť
-                                </button>
-                                <button onclick="SettingsModule.previewTemplate('${tpl.id}')" class="btn-secondary text-xs">
-                                    👁️
-                                </button>
+                            <div class="email-tpl-preview">
+                                <iframe id="tpl-frame-${tpl.id}" 
+                                        style="width:200%;height:200%;transform:scale(0.5);transform-origin:top left;border:none;pointer-events:none;"
+                                        sandbox="allow-same-origin"></iframe>
                             </div>
                         </div>
                     `).join('')}
                 </div>
             </div>
+            
+            <style>
+                .email-tpl-card {
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    padding: 16px;
+                    background: #fff;
+                    transition: box-shadow 0.2s;
+                }
+                .email-tpl-card:hover {
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                }
+                .email-tpl-preview {
+                    width: 100%;
+                    height: 260px;
+                    overflow: hidden;
+                    border-radius: 8px;
+                    border: 1px solid #edf2f7;
+                    background: #f5f5f5;
+                    position: relative;
+                }
+            </style>
         `;
     },
-    
-    editTemplate(id) {
-        Utils.toast('Editor šablón bude dostupný čoskoro', 'info');
-    },
-    
-    previewTemplate(id) {
-        const tpl = this.templates.find(t => t.id === id);
-        if (!tpl) return;
+
+    async saveEmailSettings(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
         
-        const preview = window.open('', '_blank', 'width=600,height=500');
-        preview.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Náhľad: ${tpl.name}</title></head>
-            <body style="font-family: Arial, sans-serif; padding: 20px;">
-                <h2 style="color: #333; border-bottom: 2px solid #f97316; padding-bottom: 10px;">${tpl.subject}</h2>
-                <div style="margin-top: 20px;">${tpl.html_content}</div>
-                <hr style="margin-top: 30px;">
-                <p style="font-size: 12px; color: #999;">Premenné: ${tpl.variables?.map(v => '{' + v.name + '}').join(', ') || 'žiadne'}</p>
-            </body>
-            </html>
-        `);
+        try {
+            for (const [key, value] of formData.entries()) {
+                await Database.client
+                    .from('settings')
+                    .upsert({ 
+                        key: key, 
+                        value: JSON.stringify(value),
+                        category: 'email',
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'key' });
+                
+                this.settings[key] = value;
+            }
+            
+            if (window.App) App.settings = { ...App.settings, ...this.settings };
+            
+            Utils.toast('Email nastavenia uložené ✅', 'success');
+            
+            // Refresh previews
+            setTimeout(() => this.refreshTemplatePreviews(), 300);
+            
+        } catch (err) {
+            console.error('Error saving email settings:', err);
+            Utils.toast('Chyba pri ukladaní', 'error');
+        }
+    },
+
+    refreshTemplatePreviews() {
+        if (!window.EmailTemplates) return;
+        
+        const templates = EmailTemplates.getTemplateList();
+        const samples = EmailTemplates.getSampleData();
+        
+        templates.forEach(tpl => {
+            const frame = document.getElementById('tpl-frame-' + tpl.id);
+            if (!frame) return;
+            
+            try {
+                const html = EmailTemplates[tpl.id](samples[tpl.id]);
+                frame.srcdoc = html;
+            } catch (err) {
+                console.warn('Preview error for', tpl.id, err);
+            }
+        });
+    },
+
+    previewEmailTemplate(templateId) {
+        if (!window.EmailTemplates) return;
+        
+        const samples = EmailTemplates.getSampleData();
+        const data = samples[templateId];
+        if (!data) return;
+        
+        try {
+            const html = EmailTemplates[templateId](data);
+            const preview = window.open('', '_blank', 'width=640,height=700');
+            preview.document.write(html);
+            preview.document.close();
+        } catch (err) {
+            Utils.toast('Chyba pri generovaní náhľadu', 'error');
+        }
     },
     
     // ===========================================
