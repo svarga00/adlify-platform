@@ -1060,7 +1060,17 @@ const MessagesModule = {
         
         const fromInfo = email.from_name ? email.from_name + ' <' + email.from_address + '>' : email.from_address;
         const defaultTitle = email.subject || (type === 'ticket' ? 'Nový ticket' : 'Nová úloha');
-        const defaultDesc = 'Od: ' + fromInfo + '\n\n' + (email.body_text?.substring(0, 800) || email.snippet || '');
+        
+        // Vyčisti email text - odstráň dlhé pomlčky a naformátuj
+        let rawText = email.body_text || email.snippet || '';
+        rawText = rawText
+            .replace(/-{3,}/g, '')           // odstráň dlhé pomlčky
+            .replace(/_{3,}/g, '')           // odstráň dlhé podčiarkovníky
+            .replace(/\s{3,}/g, '\n')        // viac medzier → nový riadok
+            .replace(/\n{3,}/g, '\n\n')      // max 2 prázdne riadky
+            .trim();
+        
+        const defaultDesc = 'Od: ' + fromInfo + '\n\n' + rawText.substring(0, 800);
         
         // Načítaj team members pre priradenie
         let teamOptions = '';
