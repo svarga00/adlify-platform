@@ -2299,6 +2299,7 @@ Adlify | info@adlify.eu`
   },
   
   async sendEmailFromModal() {
+    if (window.EmailTemplates) await EmailTemplates.ensureSettings();
     const to = document.getElementById('email-to').value.trim();
     const toName = document.getElementById('email-to-name').value.trim();
     let subject = document.getElementById('email-subject').value.trim();
