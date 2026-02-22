@@ -5,6 +5,29 @@
 
 window.EmailTemplates = {
 
+  _settingsLoaded: false,
+
+  // Načítaj settings z DB (jednorazovo)
+  ensureSettings: async function() {
+    if (this._settingsLoaded) return;
+    if (window.App && App.settings && App.settings.brand_logo_url) { this._settingsLoaded = true; return; }
+    
+    try {
+      var db = window.Database && Database.client;
+      if (!db) return;
+      
+      var resp = await db.from('settings').select('key, value');
+      if (resp.data && resp.data.length > 0) {
+        if (!window.App) window.App = {};
+        if (!App.settings) App.settings = {};
+        resp.data.forEach(function(s) {
+          try { App.settings[s.key] = JSON.parse(s.value); } catch(e) { App.settings[s.key] = s.value; }
+        });
+        this._settingsLoaded = true;
+      }
+    } catch(e) { console.warn('EmailTemplates: settings load failed', e); }
+  },
+
   // Dynamicky čítaj z App.settings (brand tab)
   getConfig: function() {
     var s = (window.App && App.settings) || {};
@@ -183,6 +206,7 @@ window.EmailTemplates = {
 
   // === SEND ===
   send: async function(opts) {
+    await this.ensureSettings();
     var html = opts.htmlBody || this[opts.template](opts.templateData);
     var session = await Database.client.auth.getSession();
     var token = session && session.data && session.data.session ? session.data.session.access_token : '';
@@ -197,3 +221,16 @@ window.EmailTemplates = {
     return result;
   }
 };
+
+// Auto-load settings keď je DB pripravená
+(function() {
+  var attempts = 0;
+  var timer = setInterval(function() {
+    attempts++;
+    if (attempts > 20) { clearInterval(timer); return; }
+    if (window.Database && Database.client) {
+      clearInterval(timer);
+      EmailTemplates.ensureSettings();
+    }
+  }, 500);
+})();
