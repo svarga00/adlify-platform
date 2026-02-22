@@ -92,8 +92,14 @@ const Router = {
     }
     
     // Update current state
+    const prevModule = this.currentModule;
     this.currentRoute = path;
     this.currentModule = module;
+    
+    // Destroy predchádzajúci modul (ak má destroy)
+    if (prevModule && prevModule !== module && typeof prevModule.destroy === 'function') {
+        try { prevModule.destroy(); } catch(e) { console.warn('Module destroy error:', e); }
+    }
     
     // Update UI
     this.updateActiveMenu(path);
