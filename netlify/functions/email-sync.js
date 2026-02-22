@@ -295,6 +295,7 @@ function syncImap(account, remoteFolder, localFolder, limit) {
                 fetch.on('message', (msg, seqno) => {
                     pending++;
                     let buffer = '';
+                    let msgFlags = [];
 
                     msg.on('body', (stream) => {
                         stream.on('data', (chunk) => {
@@ -302,9 +303,15 @@ function syncImap(account, remoteFolder, localFolder, limit) {
                         });
                     });
 
+                    msg.on('attributes', (attrs) => {
+                        msgFlags = attrs.flags || [];
+                    });
+
                     msg.once('end', async () => {
                         try {
                             const parsed = await simpleParser(buffer);
+                            const isSeen = msgFlags.some(f => f === '\\Seen' || f === '\\seen');
+                            const isFlagged = msgFlags.some(f => f === '\\Flagged' || f === '\\flagged');
                             
                             emails.push({
                                 account_id: account.id,
@@ -326,9 +333,9 @@ function syncImap(account, remoteFolder, localFolder, limit) {
                                     contentType: a.contentType,
                                     size: a.size
                                 })),
-                                is_read: false,
-                                is_starred: false,
-                                is_deleted: false  // VŽDY false pri sync!
+                                is_read: isSeen,
+                                is_starred: isFlagged,
+                                is_deleted: false
                             });
                         } catch (parseErr) {
                             console.error('Parse error:', parseErr.message);
@@ -347,14 +354,40 @@ function syncImap(account, remoteFolder, localFolder, limit) {
                             let newCount = 0;
                             for (const email of emails) {
                                 try {
-                                    // Upsert s explicitným resetom is_deleted na false
-                                    const { error } = await supabase
+                                    // Skontroluj či email už existuje
+                                    const { data: existing } = await supabase
                                         .from('emails')
-                                        .upsert(email, { 
-                                            onConflict: 'account_id,message_id'
-                                        });
-                                    if (!error) newCount++;
-                                } catch (e) {}
+                                        .select('id, is_read, is_starred')
+                                        .eq('account_id', email.account_id)
+                                        .eq('message_id', email.message_id)
+                                        .maybeSingle();
+                                    
+                                    if (existing) {
+                                        // Update len obsah, ZACHOVAJ lokálny is_read/is_starred ak boli zmenené
+                                        const { error } = await supabase
+                                            .from('emails')
+                                            .update({
+                                                folder: email.folder,
+                                                subject: email.subject,
+                                                body_text: email.body_text,
+                                                body_html: email.body_html,
+                                                snippet: email.snippet,
+                                                has_attachments: email.has_attachments,
+                                                attachments: email.attachments,
+                                                is_deleted: false
+                                            })
+                                            .eq('id', existing.id);
+                                        if (!error) newCount++;
+                                    } else {
+                                        // Nový email - vlož všetko
+                                        const { error } = await supabase
+                                            .from('emails')
+                                            .insert(email);
+                                        if (!error) newCount++;
+                                    }
+                                } catch (e) {
+                                    console.error('Save error:', e.message);
+                                }
                             }
                             
                             console.log(`${localFolder}: saved ${newCount}/${emails.length}`);
