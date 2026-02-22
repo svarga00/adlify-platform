@@ -1091,20 +1091,29 @@ const SettingsModule = {
                 </div>
                 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="email-templates-grid">
-                    ${templates.map(tpl => `
+                    ${templates.map(tpl => {
+                        const override = this.getTemplateOverride(tpl.id);
+                        const hasOverride = override && override.heading;
+                        return `
                         <div class="email-tpl-card">
                             <div class="flex items-center justify-between mb-3">
                                 <div class="flex items-center gap-2">
                                     <span class="text-xl">${tpl.icon}</span>
                                     <div>
                                         <h4 class="font-semibold text-sm">${tpl.name}</h4>
-                                        <p class="text-xs text-gray-400">${tpl.desc}</p>
+                                        <p class="text-xs text-gray-400">${tpl.desc}${hasOverride ? ' <span style="color:#FF6B35;">● upravená</span>' : ''}</p>
                                     </div>
                                 </div>
-                                <button onclick="SettingsModule.previewEmailTemplate('${tpl.id}')" 
-                                        class="btn-secondary text-xs" title="Otvoriť náhľad">
-                                    🔍 Náhľad
-                                </button>
+                                <div class="flex gap-2">
+                                    <button onclick="SettingsModule.editEmailTemplate('${tpl.id}')" 
+                                            class="btn-secondary text-xs" title="Upraviť texty">
+                                        ✏️ Upraviť
+                                    </button>
+                                    <button onclick="SettingsModule.previewEmailTemplate('${tpl.id}')" 
+                                            class="btn-secondary text-xs" title="Otvoriť náhľad">
+                                        🔍
+                                    </button>
+                                </div>
                             </div>
                             <div class="email-tpl-preview">
                                 <iframe id="tpl-frame-${tpl.id}" 
@@ -1112,7 +1121,7 @@ const SettingsModule = {
                                         sandbox="allow-same-origin"></iframe>
                             </div>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>
             </div>
             
@@ -1205,6 +1214,180 @@ const SettingsModule = {
             preview.document.close();
         } catch (err) {
             Utils.toast('Chyba pri generovaní náhľadu', 'error');
+        }
+    },
+
+    getTemplateOverride(templateId) {
+        const raw = this.getValue('tpl_override_' + templateId, '');
+        if (!raw) return null;
+        try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) { return null; }
+    },
+
+    editEmailTemplate(templateId) {
+        if (!window.EmailTemplates) return;
+        
+        const tplList = EmailTemplates.getTemplateList();
+        const tpl = tplList.find(t => t.id === templateId);
+        if (!tpl) return;
+
+        const defaults = EmailTemplates.getEditableFields ? EmailTemplates.getEditableFields(templateId) : {};
+        const override = this.getTemplateOverride(templateId) || {};
+
+        const heading = override.heading || defaults.heading || '';
+        const greeting = override.greeting || defaults.greeting || '';
+        const bodyText = override.bodyText || defaults.bodyText || '';
+        const buttonText = override.buttonText || defaults.buttonText || '';
+        const noteText = override.noteText || defaults.noteText || '';
+        const hasOverride = override && override.heading;
+
+        // Remove existing
+        document.getElementById('tpl-edit-modal')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'tpl-edit-modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <div style="padding:20px 24px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;font-size:17px;">✏️ ${tpl.name}</h3>
+                    <button onclick="document.getElementById('tpl-edit-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">✕</button>
+                </div>
+                <div style="padding:24px;">
+                    <p style="font-size:13px;color:#888;margin:0 0 20px;">Premenné: <code>{firstName}</code> <code>{contactName}</code> <code>{companyName}</code> <code>{role}</code> <code>{brandName}</code></p>
+                    
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Nadpis</label>
+                        <input type="text" id="tpl-edit-heading" value="${this._escAttr(heading)}" 
+                               style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Oslovenie</label>
+                        <input type="text" id="tpl-edit-greeting" value="${this._escAttr(greeting)}" 
+                               style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Text správy</label>
+                        <textarea id="tpl-edit-body" rows="5" 
+                                  style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;resize:vertical;">${this._escHtml(bodyText)}</textarea>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Text tlačidla</label>
+                        <input type="text" id="tpl-edit-button" value="${this._escAttr(buttonText)}" 
+                               style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Poznámka <span style="color:#aaa;font-weight:400;">(nepovinné)</span></label>
+                        <input type="text" id="tpl-edit-note" value="${this._escAttr(noteText)}" 
+                               style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        ${hasOverride ? `<button onclick="SettingsModule.resetTemplateOverride('${templateId}')" style="background:none;border:1px solid #fee;color:#e53e3e;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">🔄 Pôvodné</button>` : '<div></div>'}
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="SettingsModule.previewTemplateEdit('${templateId}')" 
+                                    style="background:#f7f7f7;border:1px solid #ddd;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">👁️ Náhľad</button>
+                            <button onclick="SettingsModule.saveTemplateOverride('${templateId}')" 
+                                    style="background:#FF6B35;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">💾 Uložiť</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Klik na overlay zavrieť
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        document.body.appendChild(overlay);
+    },
+
+    _escAttr(str) {
+        return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    },
+    _escHtml(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    },
+
+    _getEditFormValues() {
+        return {
+            heading: document.getElementById('tpl-edit-heading')?.value?.trim() || '',
+            greeting: document.getElementById('tpl-edit-greeting')?.value?.trim() || '',
+            bodyText: document.getElementById('tpl-edit-body')?.value?.trim() || '',
+            buttonText: document.getElementById('tpl-edit-button')?.value?.trim() || '',
+            noteText: document.getElementById('tpl-edit-note')?.value?.trim() || ''
+        };
+    },
+
+    previewTemplateEdit(templateId) {
+        if (!window.EmailTemplates) return;
+        const vals = this._getEditFormValues();
+        
+        // Dočasne nastav override
+        const key = 'tpl_override_' + templateId;
+        const prev = this.settings[key];
+        this.settings[key] = JSON.stringify(vals);
+        if (window.App) App.settings[key] = JSON.stringify(vals);
+        
+        try {
+            const samples = EmailTemplates.getSampleData();
+            const html = EmailTemplates[templateId](samples[templateId]);
+            const preview = window.open('', '_blank', 'width=640,height=700');
+            preview.document.write(html);
+            preview.document.close();
+        } catch(e) {
+            Utils.toast('Chyba pri náhľade', 'error');
+        }
+        
+        // Vráť späť
+        this.settings[key] = prev;
+        if (window.App) App.settings[key] = prev;
+    },
+
+    async saveTemplateOverride(templateId) {
+        const vals = this._getEditFormValues();
+        const key = 'tpl_override_' + templateId;
+        
+        try {
+            await Database.client
+                .from('settings')
+                .upsert({ 
+                    key: key, 
+                    value: JSON.stringify(vals),
+                    category: 'email_templates',
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'key' });
+            
+            this.settings[key] = JSON.stringify(vals);
+            if (window.App) App.settings[key] = JSON.stringify(vals);
+            
+            Utils.toast('Šablóna uložená ✅', 'success');
+            document.getElementById('tpl-edit-modal')?.remove();
+            
+            this.renderContent();
+            setTimeout(() => this.refreshTemplatePreviews(), 200);
+            
+        } catch(err) {
+            console.error('Error saving template override:', err);
+            Utils.toast('Chyba pri ukladaní', 'error');
+        }
+    },
+
+    async resetTemplateOverride(templateId) {
+        const ok = await Utils.confirm('Obnoviť pôvodné texty šablóny?', 'Áno, obnoviť');
+        if (!ok) return;
+        
+        const key = 'tpl_override_' + templateId;
+        
+        try {
+            await Database.client.from('settings').delete().eq('key', key);
+            delete this.settings[key];
+            if (window.App) delete App.settings[key];
+            
+            Utils.toast('Šablóna obnovená na predvolené', 'success');
+            document.getElementById('tpl-edit-modal')?.remove();
+            
+            this.renderContent();
+            setTimeout(() => this.refreshTemplatePreviews(), 200);
+        } catch(err) {
+            Utils.toast('Chyba', 'error');
         }
     },
     
