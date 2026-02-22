@@ -1582,7 +1582,7 @@ const LeadsModule = {
   },
 
   async deleteLead(leadId) {
-    if (!await Utils.confirm('Naozaj chcete zmazať tento lead?')) return;
+    if (!await Utils.confirm('Naozaj chcete zmazať tento lead? Táto akcia je nevratná.', { title: 'Zmazať lead', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     try {
       await Database.delete('leads', leadId);
       this.leads = this.leads.filter(l => l.id !== leadId);
@@ -1600,7 +1600,7 @@ const LeadsModule = {
     const lead = this.leads.find(l => l.id === leadId);
     if (!lead) return Utils.toast('Lead nenájdený', 'error');
     
-    if (!await Utils.confirm(`Konvertovať "${lead.company_name || lead.domain}" na klienta?`)) return;
+    if (!await Utils.confirm(`Konvertovať "${lead.company_name || lead.domain}" na klienta?`, { title: 'Konvertovať na klienta', type: 'success', confirmText: 'Konvertovať', cancelText: 'Zrušiť' })) return;
     
     this._converting = true;
     
@@ -1649,7 +1649,7 @@ const LeadsModule = {
       this.closeModal();
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
       
-      if (await Utils.confirm('Otvoriť detail klienta?')) {
+      if (await Utils.confirm('Chcete otvoriť detail nového klienta?', { title: 'Klient vytvorený', type: 'success', confirmText: 'Otvoriť', cancelText: 'Zostať' })) {
         Router.navigate('clients', { id: newClient.id });
       }
       
@@ -2181,7 +2181,7 @@ Adlify tím`
   },
   
   async deleteTemplate(templateId) {
-    if (!confirm('Naozaj chceš zmazať túto šablónu?')) return;
+    if (!await Utils.confirm('Zmazať túto emailovú šablónu?', { title: 'Zmazať šablónu', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
     
     try {
       const template = this.emailTemplates.find(t => (t.id || t.slug) === templateId);
@@ -2348,62 +2348,11 @@ Odkaz je platný 30 dní.
   
   // Vytvoriť pekné HTML telo emailu
   buildEmailHtmlBody(plainText, proposalUrl, companyName) {
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;">
-  <div style="max-width:600px;margin:0 auto;padding:20px;">
-    
-    <!-- Header -->
-    <div style="text-align:center;padding:20px 0;">
-      <img src="https://adlify.eu/logo.png" alt="Adlify" style="height:40px;" onerror="this.outerHTML='<span style=font-size:24px;font-weight:bold;color:#f97316;>ADLIFY</span>'">
-    </div>
-    
-    <!-- Content -->
-    <div style="background:white;border-radius:12px;padding:30px;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
-      ${plainText.split('\n\n').map(p => {
-        if (p.includes('━━━')) return '';
-        if (p.includes('VAŠA PERSONALIZOVANÁ PONUKA')) {
-          return `<h2 style="color:#f97316;font-size:18px;margin:20px 0;">📊 Vaša personalizovaná ponuka</h2>`;
-        }
-        if (p.includes('🔗')) {
-          return '';
-        }
-        if (p.includes('✓')) {
-          const items = p.split('\n').filter(l => l.includes('✓'));
-          return `<ul style="list-style:none;padding:0;margin:15px 0;">${items.map(i => `<li style="padding:5px 0;color:#475569;">✓ ${i.replace('✓', '').trim()}</li>`).join('')}</ul>`;
-        }
-        return `<p style="color:#475569;line-height:1.6;margin:15px 0;">${p.replace(/\n/g, '<br>')}</p>`;
-      }).join('')}
-      
-      <!-- CTA Button -->
-      <div style="text-align:center;margin:30px 0;">
-        <a href="${proposalUrl}" style="display:inline-block;background:linear-gradient(135deg,#f97316,#ea580c);color:white;padding:15px 40px;border-radius:30px;text-decoration:none;font-weight:600;font-size:16px;">
-          📄 Zobraziť ponuku
-        </a>
-      </div>
-      
-      <p style="color:#94a3b8;font-size:13px;text-align:center;margin-top:20px;">
-        Odkaz je platný 30 dní. Po kliknutí sa otvorí interaktívna ponuka s možnosťou stiahnutia PDF.
-      </p>
-    </div>
-    
-    <!-- Footer -->
-    <div style="text-align:center;padding:30px 0;color:#94a3b8;font-size:13px;">
-      <p style="margin:5px 0;">S pozdravom, <strong>Adlify tím</strong></p>
-      <p style="margin:5px 0;">
-        <a href="mailto:info@adlify.eu" style="color:#f97316;text-decoration:none;">info@adlify.eu</a> | 
-        <a href="https://adlify.eu" style="color:#f97316;text-decoration:none;">www.adlify.eu</a>
-      </p>
-    </div>
-    
-  </div>
-</body>
-</html>`;
+    if (window.EmailTemplates) {
+      return EmailTemplates.leadProposal({ body: plainText, proposalUrl, companyName });
+    }
+    // Fallback
+    return '<p>' + plainText.replace(/\n/g, '<br>') + '</p>' + (proposalUrl ? '<p><a href="' + proposalUrl + '">Zobraziť ponuku</a></p>' : '');
   },
   
   // HTML ponuka - otvorí v novom okne
@@ -5450,7 +5399,7 @@ Odkaz je platný 30 dní.
 
   async deleteSelected() {
     if (this.selectedIds.size === 0) return Utils.toast('Označ leady', 'warning');
-    if (!await Utils.confirm(`Vymazať ${this.selectedIds.size} leadov?`)) return;
+    if (!await Utils.confirm(`Vymazať ${this.selectedIds.size} leadov? Táto akcia je nevratná.`, { title: 'Hromadné mazanie', type: 'danger', confirmText: `Zmazať ${this.selectedIds.size}`, cancelText: 'Zrušiť' })) return;
     for (const id of this.selectedIds) await Database.delete('leads', id);
     this.selectedIds.clear();
     Utils.toast('Vymazané', 'success');
