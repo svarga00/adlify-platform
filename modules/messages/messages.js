@@ -1058,59 +1058,197 @@ const MessagesModule = {
         const email = this.emails.find(e => e.id === emailId) || this.selectedEmail;
         if (!email) return;
         
+        const fromInfo = email.from_name ? email.from_name + ' <' + email.from_address + '>' : email.from_address;
+        const defaultTitle = email.subject || (type === 'ticket' ? 'Nový ticket' : 'Nová úloha');
+        const defaultDesc = 'Od: ' + fromInfo + '\n\n' + (email.body_text?.substring(0, 800) || email.snippet || '');
+        
+        // Načítaj team members pre priradenie
+        let teamOptions = '';
+        try {
+            const { data: members } = await Database.client.from('team_members').select('id, first_name, last_name').eq('status', 'active');
+            teamOptions = (members || []).map(m => `<option value="${m.id}">${m.first_name} ${m.last_name}</option>`).join('');
+        } catch(e) {}
+        
+        // Načítaj klientov pre ticket
+        let clientOptions = '';
+        if (type === 'ticket') {
+            try {
+                const { data: clients } = await Database.client.from('clients').select('id, company_name').order('company_name');
+                clientOptions = (clients || []).map(c => `<option value="${c.id}">${c.company_name}</option>`).join('');
+            } catch(e) {}
+        }
+        
+        const isTicket = type === 'ticket';
+        const icon = isTicket ? '🎫' : '✅';
+        const title = isTicket ? 'Nový ticket z emailu' : 'Nová úloha z emailu';
+        
+        document.getElementById('create-from-email-modal')?.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'create-from-email-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:10002;padding:20px;';
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:14px;max-width:540px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);" onclick="event.stopPropagation()">
+                <div style="padding:18px 24px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+                    <h3 style="margin:0;font-size:17px;">${icon} ${title}</h3>
+                    <button onclick="document.getElementById('create-from-email-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">✕</button>
+                </div>
+                <div style="padding:20px 24px;">
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#64748b;">
+                        📧 <strong>${email.from_name || email.from_address}</strong>: ${(email.subject || '(bez predmetu)').substring(0, 80)}
+                    </div>
+                    
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">${isTicket ? 'Predmet' : 'Názov'} *</label>
+                        <input type="text" id="cfe-title" value="${defaultTitle.replace(/"/g, '&quot;')}" 
+                               style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    </div>
+                    
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Popis</label>
+                        <textarea id="cfe-desc" rows="6" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;line-height:1.5;">${defaultDesc.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Priorita</label>
+                            <select id="cfe-priority" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                <option value="low">🟢 Nízka</option>
+                                <option value="medium" selected>🟡 Stredná</option>
+                                <option value="high">🟠 Vysoká</option>
+                                <option value="urgent">🔴 Urgentná</option>
+                            </select>
+                        </div>
+                        ${isTicket ? `
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Kategória</label>
+                            <select id="cfe-category" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                <option value="general">Všeobecné</option>
+                                <option value="billing">Fakturácia</option>
+                                <option value="technical">Technické</option>
+                                <option value="campaign">Kampane</option>
+                                <option value="other">Iné</option>
+                            </select>
+                        </div>
+                        ` : `
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Termín</label>
+                            <input type="date" id="cfe-due" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                        </div>
+                        `}
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Priradiť</label>
+                            <select id="cfe-assign" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                <option value="">— Nepriradené —</option>
+                                ${teamOptions}
+                            </select>
+                        </div>
+                        ${isTicket && clientOptions ? `
+                        <div>
+                            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Klient</label>
+                            <select id="cfe-client" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;">
+                                <option value="">— Bez klienta —</option>
+                                ${clientOptions}
+                            </select>
+                        </div>
+                        ` : '<div></div>'}
+                    </div>
+                    
+                    <div style="margin-bottom:18px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;">Komentár <span style="color:#aaa;font-weight:400;">(nepovinné)</span></label>
+                        <textarea id="cfe-comment" rows="2" placeholder="Interná poznámka k tomuto ${isTicket ? 'ticketu' : 'úlohe'}..." 
+                                  style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;"></textarea>
+                    </div>
+                    
+                    <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;">
+                        <button onclick="document.getElementById('create-from-email-modal').remove()" 
+                                style="padding:10px 20px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">Zrušiť</button>
+                        <button onclick="MessagesModule._submitCreateFromEmail('${emailId}','${type}')" 
+                                style="padding:10px 24px;border:none;border-radius:8px;background:#FF6B35;color:#fff;cursor:pointer;font-size:14px;font-weight:600;">${icon} Vytvoriť</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+        document.getElementById('cfe-title')?.focus();
+    },
+    
+    async _submitCreateFromEmail(emailId, type) {
+        const title = document.getElementById('cfe-title')?.value?.trim();
+        const desc = document.getElementById('cfe-desc')?.value?.trim();
+        const priority = document.getElementById('cfe-priority')?.value || 'medium';
+        const assignTo = document.getElementById('cfe-assign')?.value || null;
+        const comment = document.getElementById('cfe-comment')?.value?.trim();
+        
+        if (!title) {
+            Utils.toast('Vyplň názov', 'warning');
+            return;
+        }
+        
         try {
             const { data: { user } } = await Database.client.auth.getUser();
+            const teamMemberId = (await Database.client.from('team_members').select('id').eq('user_id', user?.id).maybeSingle())?.data?.id || null;
+            
+            let entityId = null;
             
             if (type === 'ticket') {
+                const category = document.getElementById('cfe-category')?.value || 'general';
+                const clientId = document.getElementById('cfe-client')?.value || null;
+                
                 const { data, error } = await Database.client.from('tickets').insert({
-                    subject: email.subject || 'Ticket z emailu',
-                    description: (email.from_name ? 'Od: ' + email.from_name + ' <' + email.from_address + '>\n\n' : '') + (email.snippet || email.body_text?.substring(0, 500) || ''),
+                    subject: title,
+                    description: desc || null,
                     status: 'open',
-                    priority: 'medium',
-                    category: 'general',
-                    created_by_team: (await Database.client.from('team_members').select('id').eq('user_id', user?.id).maybeSingle())?.data?.id || null
+                    priority: priority,
+                    category: category,
+                    assigned_to: assignTo || null,
+                    client_id: clientId || null,
+                    created_by_team: teamMemberId
                 }).select().single();
                 
                 if (error) throw error;
-                
-                // Prepoj email s ticketom
-                await Database.client.from('email_links').insert({
-                    email_id: emailId,
-                    entity_type: 'ticket',
-                    entity_id: data.id,
-                    created_by: user?.id
-                });
-                
-                Utils.toast('Ticket vytvorený a prepojený ✅', 'success');
-                this._loadEmailLinks(emailId);
+                entityId = data.id;
                 
             } else if (type === 'task') {
-                const teamMemberId = (await Database.client.from('team_members').select('id').eq('user_id', user?.id).maybeSingle())?.data?.id || null;
+                const dueDate = document.getElementById('cfe-due')?.value || null;
                 
                 const { data, error } = await Database.client.from('tasks').insert({
-                    title: email.subject || 'Úloha z emailu',
-                    description: (email.from_name ? 'Od: ' + email.from_name + ' <' + email.from_address + '>\n\n' : '') + (email.snippet || email.body_text?.substring(0, 500) || ''),
+                    title: title,
+                    description: desc || null,
                     status: 'todo',
-                    priority: 'medium',
+                    priority: priority,
+                    assigned_to: assignTo || null,
+                    due_date: dueDate || null,
                     created_by: teamMemberId
                 }).select().single();
                 
                 if (error) throw error;
-                
+                entityId = data.id;
+            }
+            
+            // Prepoj email
+            if (entityId) {
                 await Database.client.from('email_links').insert({
                     email_id: emailId,
-                    entity_type: 'task',
-                    entity_id: data.id,
+                    entity_type: type,
+                    entity_id: entityId,
                     created_by: user?.id
                 });
-                
-                Utils.toast('Úloha vytvorená a prepojená ✅', 'success');
-                this._loadEmailLinks(emailId);
             }
+            
+            document.getElementById('create-from-email-modal')?.remove();
+            
+            const label = type === 'ticket' ? 'Ticket' : 'Úloha';
+            Utils.toast(label + ' vytvorený/á a prepojený/á ✅', 'success');
+            this._loadEmailLinks(emailId);
             
         } catch(e) {
             console.error('Create from email error:', e);
-            Utils.toast('Chyba pri vytváraní: ' + (e.message || ''), 'error');
+            Utils.toast('Chyba: ' + (e.message || ''), 'error');
         }
     },
     
