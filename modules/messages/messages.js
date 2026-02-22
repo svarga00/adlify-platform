@@ -1067,7 +1067,7 @@ const MessagesModule = {
                     description: (email.from_name ? 'Od: ' + email.from_name + ' <' + email.from_address + '>\n\n' : '') + (email.snippet || email.body_text?.substring(0, 500) || ''),
                     status: 'open',
                     priority: 'medium',
-                    category: 'email',
+                    category: 'general',
                     created_by_team: (await Database.client.from('team_members').select('id').eq('user_id', user?.id).maybeSingle())?.data?.id || null
                 }).select().single();
                 
