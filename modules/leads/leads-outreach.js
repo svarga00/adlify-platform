@@ -1201,19 +1201,15 @@
   // PATCH: Inject new tabs into LeadsModule
   // ============================================================
   
-  // Uložiť pôvodnú showTab funkciu
   const _originalShowTab = LM.showTab.bind(LM);
   
   LM.showTab = function(tab) {
     const outreachTabs = ['segmenty', 'checklist', 'plan', 'nastroje', 'postup'];
     
     if (outreachTabs.includes(tab)) {
-      // Deaktivovať všetky tab buttony
       document.querySelectorAll('.tab-btn-new').forEach(btn => btn.classList.remove('active'));
-      // Aktivovať kliknutý
       document.querySelector(`.tab-btn-new[data-tab="${tab}"]`)?.classList.add('active');
       
-      // Renderovať obsah do leads-tab-content
       const contentEl = document.getElementById('leads-tab-content');
       if (!contentEl) return;
       
@@ -1225,32 +1221,38 @@
         case 'postup': contentEl.innerHTML = this.renderPostupTab(); break;
       }
     } else {
-      // Pôvodné taby (list, import, add)
       _originalShowTab(tab);
     }
   };
 
   // ============================================================
-  // PATCH: Inject tab buttons via DOM after render
+  // PATCH: Inject tab buttons via MutationObserver (safe, no recursion)
   // ============================================================
   
-  const _originalRender = LM.render.bind(LM);
+  function injectOutreachTabs() {
+    const tabsContainer = document.querySelector('.billing-tabs-new');
+    if (tabsContainer && !tabsContainer.querySelector('[data-tab="segmenty"]')) {
+      tabsContainer.insertAdjacentHTML('beforeend',
+        '<button class="tab-btn-new" data-tab="segmenty" onclick="LeadsModule.showTab(\'segmenty\')"><span class="tab-icon">🎯</span> Segmenty</button>' +
+        '<button class="tab-btn-new" data-tab="checklist" onclick="LeadsModule.showTab(\'checklist\')"><span class="tab-icon">✅</span> Checklist</button>' +
+        '<button class="tab-btn-new" data-tab="plan" onclick="LeadsModule.showTab(\'plan\')"><span class="tab-icon">📅</span> 12M Plán</button>' +
+        '<button class="tab-btn-new" data-tab="nastroje" onclick="LeadsModule.showTab(\'nastroje\')"><span class="tab-icon">🧰</span> Nástroje</button>' +
+        '<button class="tab-btn-new" data-tab="postup" onclick="LeadsModule.showTab(\'postup\')"><span class="tab-icon">📖</span> Postup</button>'
+      );
+    }
+  }
+
+  // Sleduj zmeny v main-content a injektuj taby keď sa Leady renderujú
+  const mainContent = document.getElementById('main-content');
+  if (mainContent) {
+    const observer = new MutationObserver(() => {
+      injectOutreachTabs();
+    });
+    observer.observe(mainContent, { childList: true, subtree: true });
+  }
   
-  LM.render = function() {
-    const result = _originalRender();
-    
-    // Inject taby po renderovaní do DOM
-    setTimeout(() => {
-      const tabsContainer = document.querySelector('.billing-tabs-new');
-      // Kontrola: nepridávaj ak už existujú
-      if (tabsContainer && !tabsContainer.querySelector('[data-tab="segmenty"]')) {
-        const newTabs = `<button class="tab-btn-new" data-tab="segmenty" onclick="LeadsModule.showTab('segmenty')"><span class="tab-icon">🎯</span> Segmenty</button><button class="tab-btn-new" data-tab="checklist" onclick="LeadsModule.showTab('checklist')"><span class="tab-icon">✅</span> Checklist</button><button class="tab-btn-new" data-tab="plan" onclick="LeadsModule.showTab('plan')"><span class="tab-icon">📅</span> 12M Plán</button><button class="tab-btn-new" data-tab="nastroje" onclick="LeadsModule.showTab('nastroje')"><span class="tab-icon">🧰</span> Nástroje</button><button class="tab-btn-new" data-tab="postup" onclick="LeadsModule.showTab('postup')"><span class="tab-icon">📖</span> Postup</button>`;
-        tabsContainer.insertAdjacentHTML('beforeend', newTabs);
-      }
-    }, 50);
-    
-    return result;
-  };
+  // Skúsiť injektovať aj hneď (pre prípad že Leady sú už renderované)
+  injectOutreachTabs();
 
   console.log('✅ Leads Outreach Extension v1.0 loaded - 5 nových tabov');
 
