@@ -1231,59 +1231,25 @@
   };
 
   // ============================================================
-  // PATCH: Inject new tab buttons into template
+  // PATCH: Inject tab buttons via DOM after render
   // ============================================================
   
-  const _originalTemplate = LM.template.bind(LM);
+  const _originalRender = LM.render.bind(LM);
   
-  LM.template = function() {
-    let html = _originalTemplate();
+  LM.render = function() {
+    const result = _originalRender();
     
-    // 5 nových tab buttonov
-    const newTabs = `
-            <button class="tab-btn-new" data-tab="segmenty" onclick="LeadsModule.showTab('segmenty')">
-              <span class="tab-icon">🎯</span> Segmenty
-            </button>
-            <button class="tab-btn-new" data-tab="checklist" onclick="LeadsModule.showTab('checklist')">
-              <span class="tab-icon">✅</span> Checklist
-            </button>
-            <button class="tab-btn-new" data-tab="plan" onclick="LeadsModule.showTab('plan')">
-              <span class="tab-icon">📅</span> 12M Plán
-            </button>
-            <button class="tab-btn-new" data-tab="nastroje" onclick="LeadsModule.showTab('nastroje')">
-              <span class="tab-icon">🧰</span> Nástroje
-            </button>
-            <button class="tab-btn-new" data-tab="postup" onclick="LeadsModule.showTab('postup')">
-              <span class="tab-icon">📖</span> Postup
-            </button>`;
+    // Inject taby po renderovaní do DOM
+    setTimeout(() => {
+      const tabsContainer = document.querySelector('.billing-tabs-new');
+      // Kontrola: nepridávaj ak už existujú
+      if (tabsContainer && !tabsContainer.querySelector('[data-tab="segmenty"]')) {
+        const newTabs = `<button class="tab-btn-new" data-tab="segmenty" onclick="LeadsModule.showTab('segmenty')"><span class="tab-icon">🎯</span> Segmenty</button><button class="tab-btn-new" data-tab="checklist" onclick="LeadsModule.showTab('checklist')"><span class="tab-icon">✅</span> Checklist</button><button class="tab-btn-new" data-tab="plan" onclick="LeadsModule.showTab('plan')"><span class="tab-icon">📅</span> 12M Plán</button><button class="tab-btn-new" data-tab="nastroje" onclick="LeadsModule.showTab('nastroje')"><span class="tab-icon">🧰</span> Nástroje</button><button class="tab-btn-new" data-tab="postup" onclick="LeadsModule.showTab('postup')"><span class="tab-icon">📖</span> Postup</button>`;
+        tabsContainer.insertAdjacentHTML('beforeend', newTabs);
+      }
+    }, 50);
     
-    // Injection: Nájdi posledný "Pridať" tab button a vlož nové taby za neho
-    // Hľadáme uzatváraciu </div> billing-tabs-new sekcie
-    html = html.replace(
-      /(<button[^>]*data-tab="add"[^>]*>[\s\S]*?<\/button>)\s*(<\/div>\s*<\/div>\s*<!--\s*Content\s*-->)/,
-      '$1' + newTabs + '\n          $2'
-    );
-    
-    // Fallback: ak regex nezaberieme, skúsime jednoduchší pattern
-    if (!html.includes('data-tab="segmenty"')) {
-      // Vložiť pred uzatváraciu </div> billing-tabs-new
-      html = html.replace(
-        '</div>\n        </div>\n        \n        <!-- Content -->',
-        newTabs + '\n          </div>\n        </div>\n        \n        <!-- Content -->'
-      );
-    }
-    
-    // Fallback 2: ak stále nie, injektujeme cez DOM po renderovaní
-    if (!html.includes('data-tab="segmenty"')) {
-      setTimeout(() => {
-        const tabsContainer = document.querySelector('.billing-tabs-new');
-        if (tabsContainer && !tabsContainer.querySelector('[data-tab="segmenty"]')) {
-          tabsContainer.insertAdjacentHTML('beforeend', newTabs);
-        }
-      }, 100);
-    }
-    
-    return html;
+    return result;
   };
 
   console.log('✅ Leads Outreach Extension v1.0 loaded - 5 nových tabov');
