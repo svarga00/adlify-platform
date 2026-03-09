@@ -736,48 +736,82 @@
   // ============================================================
   
   LM.renderChecklistTab = function() {
+    // Celkový progress
+    const totalTasks = this.outreachSegments.reduce((sum, seg) => sum + (this.outreachChecklists[seg.id]?.length || 0), 0);
+    const totalDone = this.outreachSegments.reduce((sum, seg) => {
+      const tasks = this.outreachChecklists[seg.id] || [];
+      return sum + tasks.filter(t => this.outreachState.isChecked(seg.id, t.id)).length;
+    }, 0);
+    const totalPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
+
     return `
-      <div class="outreach-section">
-        <div class="outreach-checklist-overview">
+      <div class="outreach-section" id="checklist-container">
+        <!-- Celkový progress -->
+        <div class="cl-total-progress">
+          <div class="cl-total-left">
+            <div class="cl-total-ring" style="--pct: ${totalPct}">
+              <svg viewBox="0 0 36 36">
+                <defs><linearGradient id="cl-grad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ec4899"/></linearGradient></defs>
+                <path class="cl-ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                <path class="cl-ring-fill" stroke-dasharray="${totalPct}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              </svg>
+              <span class="cl-ring-text">${totalPct}%</span>
+            </div>
+            <div>
+              <strong class="cl-total-title">Celkový progres</strong>
+              <span class="cl-total-sub">${totalDone} z ${totalTasks} úloh dokončených</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick nav -->
+        <div class="cl-nav">
           ${this.outreachSegments.map(seg => {
             const progress = this.outreachState.getProgress(seg.id);
             const tasks = this.outreachChecklists[seg.id] || [];
             const done = tasks.filter(t => this.outreachState.isChecked(seg.id, t.id)).length;
             return `
-              <div class="checklist-segment-btn ${progress === 100 ? 'completed' : ''}" onclick="LeadsModule.scrollToChecklist('${seg.id}')">
-                <span>${seg.icon}</span>
-                <strong>${seg.name}</strong>
-                <div class="mini-progress"><div class="mini-fill" style="width:${progress}%"></div></div>
-                <small>${done}/${tasks.length}</small>
-              </div>
+              <button class="cl-nav-btn ${progress === 100 ? 'done' : ''}" onclick="LeadsModule.scrollToChecklist('${seg.id}')">
+                <span class="cl-nav-icon">${seg.icon}</span>
+                <span class="cl-nav-name">${seg.name}</span>
+                <span class="cl-nav-count">${done}/${tasks.length}</span>
+                <div class="cl-nav-bar"><div class="cl-nav-fill" style="width:${progress}%"></div></div>
+              </button>
             `;
           }).join('')}
         </div>
 
+        <!-- Segment blocks -->
         ${this.outreachSegments.map(seg => {
           const tasks = this.outreachChecklists[seg.id] || [];
           const progress = this.outreachState.getProgress(seg.id);
+          const done = tasks.filter(t => this.outreachState.isChecked(seg.id, t.id)).length;
           return `
-            <div class="checklist-block" id="checklist-${seg.id}">
-              <div class="checklist-block-header">
-                <div class="checklist-block-title">
-                  <span>${seg.icon}</span>
-                  <strong>${seg.name}</strong>
-                  <span class="tier-badge tier-${seg.tier}">Tier ${seg.tier}</span>
+            <div class="cl-block" id="checklist-${seg.id}">
+              <div class="cl-block-head">
+                <div class="cl-block-info">
+                  <span class="cl-block-icon">${seg.icon}</span>
+                  <div>
+                    <strong>${seg.name}</strong>
+                    <span class="cl-block-meta">${seg.count} firiem · Tier ${seg.tier} · ${done}/${tasks.length} hotovo</span>
+                  </div>
                 </div>
-                <div class="checklist-progress-wrap">
-                  <div class="checklist-progress-bar"><div class="checklist-progress-fill" style="width:${progress}%"></div></div>
-                  <span class="checklist-progress-text">${progress}%</span>
+                <div class="cl-block-progress">
+                  <div class="cl-pbar"><div class="cl-pfill" style="width:${progress}%"></div></div>
+                  <span class="cl-ptext">${progress}%</span>
                 </div>
               </div>
-              <div class="checklist-tasks">
-                ${tasks.map(task => {
+              <div class="cl-tasks">
+                ${tasks.map((task, i) => {
                   const checked = this.outreachState.isChecked(seg.id, task.id);
                   return `
-                    <label class="checklist-task ${checked ? 'done' : ''}" onclick="LeadsModule.toggleChecklistTask('${seg.id}', '${task.id}', this)">
-                      <input type="checkbox" ${checked ? 'checked' : ''}>
-                      <span class="task-text">${task.text}</span>
-                    </label>
+                    <div class="cl-task ${checked ? 'checked' : ''}" data-seg="${seg.id}" data-task="${task.id}">
+                      <div class="cl-checkbox ${checked ? 'on' : ''}">
+                        <svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg>
+                      </div>
+                      <span class="cl-task-num">${i + 1}.</span>
+                      <span class="cl-task-text">${task.text}</span>
+                    </div>
                   `;
                 }).join('')}
               </div>
@@ -787,22 +821,62 @@
       </div>
       ${this.getOutreachStyles()}
     `;
-  };
-
-  LM.toggleChecklistTask = function(segId, taskId, el) {
-    this.outreachState.toggleCheck(segId, taskId);
-    const checked = this.outreachState.isChecked(segId, taskId);
-    el.classList.toggle('done', checked);
     
-    // Update progress bar
-    const progress = this.outreachState.getProgress(segId);
-    const block = document.getElementById(`checklist-${segId}`);
-    if (block) {
-      const fill = block.querySelector('.checklist-progress-fill');
-      const text = block.querySelector('.checklist-progress-text');
-      if (fill) fill.style.width = progress + '%';
-      if (text) text.textContent = progress + '%';
-    }
+    // Event delegation po renderovaní
+    setTimeout(() => {
+      const container = document.getElementById('checklist-container');
+      if (container && !container._clBound) {
+        container._clBound = true;
+        container.addEventListener('click', (e) => {
+          const taskEl = e.target.closest('.cl-task');
+          if (!taskEl) return;
+          const segId = taskEl.dataset.seg;
+          const taskId = taskEl.dataset.task;
+          if (!segId || !taskId) return;
+          
+          LM.outreachState.toggleCheck(segId, taskId);
+          const isChecked = LM.outreachState.isChecked(segId, taskId);
+          
+          // Toggle vizuál
+          taskEl.classList.toggle('checked', isChecked);
+          const cb = taskEl.querySelector('.cl-checkbox');
+          if (cb) cb.classList.toggle('on', isChecked);
+          
+          // Update progress bar v bloku
+          const progress = LM.outreachState.getProgress(segId);
+          const block = document.getElementById('checklist-' + segId);
+          if (block) {
+            const fill = block.querySelector('.cl-pfill');
+            const text = block.querySelector('.cl-ptext');
+            if (fill) fill.style.width = progress + '%';
+            if (text) text.textContent = progress + '%';
+            
+            // Update meta text
+            const tasks = LM.outreachChecklists[segId] || [];
+            const done = tasks.filter(t => LM.outreachState.isChecked(segId, t.id)).length;
+            const meta = block.querySelector('.cl-block-meta');
+            if (meta) {
+              const seg = LM.outreachSegments.find(s => s.id === segId);
+              meta.textContent = seg.count + ' firiem · Tier ' + seg.tier + ' · ' + done + '/' + tasks.length + ' hotovo';
+            }
+          }
+          
+          // Update celkový ring
+          const totalTasks = LM.outreachSegments.reduce((s, seg) => s + (LM.outreachChecklists[seg.id]?.length || 0), 0);
+          const totalDone = LM.outreachSegments.reduce((s, seg) => {
+            const t = LM.outreachChecklists[seg.id] || [];
+            return s + t.filter(tk => LM.outreachState.isChecked(seg.id, tk.id)).length;
+          }, 0);
+          const totalPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
+          const ringFill = document.querySelector('.cl-ring-fill');
+          const ringText = document.querySelector('.cl-ring-text');
+          const totalSub = document.querySelector('.cl-total-sub');
+          if (ringFill) ringFill.setAttribute('stroke-dasharray', totalPct + ', 100');
+          if (ringText) ringText.textContent = totalPct + '%';
+          if (totalSub) totalSub.textContent = totalDone + ' z ' + totalTasks + ' úloh dokončených';
+        });
+      }
+    }, 60);
   };
 
   LM.scrollToChecklist = function(segId) {
@@ -1089,36 +1163,73 @@
       
       .seg-footer { display: flex; gap: 24px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #f1f5f9; font-size: 0.85rem; color: #64748b; }
       
-      /* Checklist */
-      .outreach-checklist-overview { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; padding: 16px; background: #f8fafc; border-radius: 12px; }
-      .checklist-segment-btn { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.15s; font-size: 0.85rem; }
-      .checklist-segment-btn:hover { border-color: #f97316; }
-      .checklist-segment-btn.completed { background: #f0fdf4; border-color: #86efac; }
-      .mini-progress { width: 40px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
-      .mini-fill { height: 100%; background: #f97316; border-radius: 2px; transition: width 0.3s; }
+      /* Checklist - Total Progress */
+      .cl-total-progress { display: flex; align-items: center; justify-content: space-between; background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+      .cl-total-left { display: flex; align-items: center; gap: 20px; }
+      .cl-total-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+      .cl-total-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+      .cl-ring-bg { fill: none; stroke: #e2e8f0; stroke-width: 3; }
+      .cl-ring-fill { fill: none; stroke: url(#cl-grad); stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+      .cl-ring-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; color: #1e293b; }
+      .cl-total-title { display: block; font-size: 1rem; font-weight: 700; color: #0f172a; }
+      .cl-total-sub { font-size: 0.85rem; color: #64748b; }
       
-      .checklist-block { background: white; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
-      .checklist-block-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
-      .checklist-block-title { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+      /* Checklist - Quick Nav */
+      .cl-nav { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+      @media (max-width: 900px) { .cl-nav { grid-template-columns: repeat(3, 1fr); } }
+      @media (max-width: 600px) { .cl-nav { grid-template-columns: repeat(2, 1fr); } }
+      .cl-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; font-size: inherit; }
+      .cl-nav-btn:hover { border-color: #f97316; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(249,115,22,0.1); }
+      .cl-nav-btn.done { background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-color: #86efac; }
+      .cl-nav-icon { font-size: 1.4rem; }
+      .cl-nav-name { font-size: 0.75rem; font-weight: 600; color: #334155; text-align: center; }
+      .cl-nav-count { font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
+      .cl-nav-bar { width: 100%; height: 3px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+      .cl-nav-fill { height: 100%; background: linear-gradient(90deg, #f97316, #ec4899); border-radius: 2px; transition: width 0.4s ease; }
+      
+      /* Checklist - Blocks */
+      .cl-block { background: white; border: 1px solid #e2e8f0; border-radius: 16px; margin-bottom: 16px; overflow: hidden; transition: box-shadow 0.2s; }
+      .cl-block:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+      .cl-block-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #f1f5f9; }
+      .cl-block-info { display: flex; align-items: center; gap: 14px; }
+      .cl-block-icon { font-size: 1.6rem; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border-radius: 12px; flex-shrink: 0; }
+      .cl-block-info strong { display: block; font-size: 1rem; color: #0f172a; }
+      .cl-block-meta { font-size: 0.8rem; color: #94a3b8; }
+      .cl-block-progress { display: flex; align-items: center; gap: 10px; }
+      .cl-pbar { width: 120px; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
+      .cl-pfill { height: 100%; background: linear-gradient(90deg, #f97316, #ec4899); border-radius: 3px; transition: width 0.4s ease; }
+      .cl-ptext { font-weight: 700; font-size: 0.85rem; color: #334155; min-width: 36px; text-align: right; }
+      
+      /* Checklist - Tasks */
+      .cl-tasks { padding: 8px 12px; }
+      .cl-task { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; cursor: pointer; transition: all 0.15s; user-select: none; }
+      .cl-task:hover { background: #f8fafc; }
+      .cl-task.checked { opacity: 0.55; }
+      .cl-task.checked .cl-task-text { text-decoration: line-through; }
+      
+      /* Custom Checkbox */
+      .cl-checkbox { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #d1d5db; background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+      .cl-checkbox svg { width: 12px; height: 12px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity 0.15s; }
+      .cl-checkbox.on { background: linear-gradient(135deg, #f97316, #ec4899); border-color: transparent; transform: scale(1.05); }
+      .cl-checkbox.on svg { opacity: 1; }
+      
+      .cl-task-num { font-size: 0.75rem; color: #94a3b8; font-weight: 600; min-width: 20px; }
+      .cl-task-text { font-size: 0.9rem; color: #334155; line-height: 1.4; }
+      
+      /* Plan */
+      .mini-progress { width: 60px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; margin: 6px auto; }
+      .mini-fill { height: 100%; background: #f97316; border-radius: 2px; transition: width 0.3s; }
+      .checklist-progress-bar { width: 120px; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
+      .checklist-progress-fill { height: 100%; background: linear-gradient(90deg, #f97316, #ec4899); border-radius: 3px; transition: width 0.4s; }
+      .checklist-task { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; cursor: pointer; transition: all 0.15s; user-select: none; }
+      .checklist-task:hover { background: #f8fafc; }
+      .checklist-task.done .task-text { text-decoration: line-through; color: #94a3b8; }
+      .checklist-task input[type="checkbox"] { accent-color: #f97316; width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+      .task-text { font-size: 0.9rem; color: #334155; line-height: 1.4; }
       .tier-badge { padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; }
       .tier-badge.tier-1 { background: #dcfce7; color: #166534; }
       .tier-badge.tier-2 { background: #fef3c7; color: #92400e; }
       .tier-badge.tier-3 { background: #f1f5f9; color: #64748b; }
-      
-      .checklist-progress-wrap { display: flex; align-items: center; gap: 8px; }
-      .checklist-progress-bar { width: 100px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
-      .checklist-progress-fill { height: 100%; background: linear-gradient(90deg, #f97316, #ec4899); border-radius: 4px; transition: width 0.3s; }
-      .checklist-progress-text { font-weight: 700; font-size: 0.85rem; min-width: 36px; text-align: right; }
-      
-      .checklist-tasks { padding: 8px 16px; }
-      .checklist-task { display: flex; align-items: flex-start; gap: 10px; padding: 10px 8px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s; border-radius: 6px; }
-      .checklist-task:hover { background: #f8fafc; }
-      .checklist-task:last-child { border-bottom: none; }
-      .checklist-task input[type="checkbox"] { margin-top: 3px; accent-color: #f97316; width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
-      .checklist-task .task-text { font-size: 0.9rem; color: #334155; line-height: 1.5; }
-      .checklist-task.done .task-text { text-decoration: line-through; color: #94a3b8; }
-      
-      /* Plan */
       .plan-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
       .plan-phase-summary { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; text-align: center; }
       .plan-phase-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: white; font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; }
@@ -1192,7 +1303,9 @@
         .seg-score-col { display: none; }
         .seg-detail-grid { grid-template-columns: 1fr; }
         .tools-grid, .sop-tips-grid, .kpi-targets-grid { grid-template-columns: 1fr; }
-        .outreach-checklist-overview { flex-direction: column; }
+        .cl-nav { grid-template-columns: repeat(2, 1fr); }
+        .cl-block-head { flex-direction: column; gap: 12px; align-items: flex-start; }
+        .cl-total-progress { flex-direction: column; gap: 12px; }
       }
     </style>`;
   };
