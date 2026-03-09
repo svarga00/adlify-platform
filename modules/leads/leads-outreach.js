@@ -1352,22 +1352,27 @@
         '<button class="tab-btn-new" data-tab="nastroje" onclick="LeadsModule.showTab(\'nastroje\')"><span class="tab-icon">🧰</span> Nástroje</button>' +
         '<button class="tab-btn-new" data-tab="postup" onclick="LeadsModule.showTab(\'postup\')"><span class="tab-icon">📖</span> Postup</button>'
       );
+      return true;
     }
+    return !!tabsContainer?.querySelector('[data-tab="segmenty"]');
   }
 
-  // Injektuj keď sa zmení route na leads
-  function checkAndInject() {
+  // Polling — čaká kým sa .billing-tabs-new objaví v DOM (max 5s)
+  function waitForLeadsTabs() {
     const hash = window.location.hash.replace('#', '').split('?')[0].split('/')[0];
-    if (hash === 'leads') {
-      // Počkaj kým sa DOM renderuje
-      setTimeout(injectOutreachTabs, 150);
-    }
+    if (hash !== 'leads') return;
+    
+    let attempts = 0;
+    const interval = setInterval(() => {
+      if (injectOutreachTabs() || attempts > 50) {
+        clearInterval(interval);
+      }
+      attempts++;
+    }, 100);
   }
 
-  window.addEventListener('hashchange', checkAndInject);
-  
-  // Aj pri prvom načítaní ak sme už na leads
-  checkAndInject();
+  window.addEventListener('hashchange', waitForLeadsTabs);
+  waitForLeadsTabs();
 
   console.log('✅ Leads Outreach Extension v1.0 loaded - 5 nových tabov');
 
