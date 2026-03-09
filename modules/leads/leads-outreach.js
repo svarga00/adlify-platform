@@ -1107,10 +1107,15 @@
   // ============================================================
   
   LM.getOutreachStyles = function() {
-    // Vráť prázdny ak styly sú už injektované
-    if (document.getElementById('outreach-styles')) return '';
-    
-    return `<style id="outreach-styles">
+    // Styles are injected into <head> at init, return empty
+    return '';
+  };
+
+  // Inject styles into <head> immediately (once)
+  if (!document.getElementById('outreach-styles')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'outreach-styles';
+    styleEl.textContent = `
       /* Base */
       .outreach-section { padding: 0; }
       
@@ -1307,8 +1312,9 @@
         .cl-block-head { flex-direction: column; gap: 12px; align-items: flex-start; }
         .cl-total-progress { flex-direction: column; gap: 12px; }
       }
-    </style>`;
-  };
+    `;
+    document.head.appendChild(styleEl);
+  }
 
   // ============================================================
   // PATCH: Inject new tabs into LeadsModule
