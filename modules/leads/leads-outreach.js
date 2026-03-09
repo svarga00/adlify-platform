@@ -1339,7 +1339,7 @@
   };
 
   // ============================================================
-  // PATCH: Inject tab buttons via MutationObserver (safe, no recursion)
+  // PATCH: Inject tab buttons when navigating to Leads
   // ============================================================
   
   function injectOutreachTabs() {
@@ -1355,17 +1355,19 @@
     }
   }
 
-  // Sleduj zmeny v main-content a injektuj taby keď sa Leady renderujú
-  const mainContent = document.getElementById('main-content');
-  if (mainContent) {
-    const observer = new MutationObserver(() => {
-      injectOutreachTabs();
-    });
-    observer.observe(mainContent, { childList: true, subtree: true });
+  // Injektuj keď sa zmení route na leads
+  function checkAndInject() {
+    const hash = window.location.hash.replace('#', '').split('?')[0].split('/')[0];
+    if (hash === 'leads') {
+      // Počkaj kým sa DOM renderuje
+      setTimeout(injectOutreachTabs, 150);
+    }
   }
+
+  window.addEventListener('hashchange', checkAndInject);
   
-  // Skúsiť injektovať aj hneď (pre prípad že Leady sú už renderované)
-  injectOutreachTabs();
+  // Aj pri prvom načítaní ak sme už na leads
+  checkAndInject();
 
   console.log('✅ Leads Outreach Extension v1.0 loaded - 5 nových tabov');
 
