@@ -821,67 +821,64 @@
       </div>
       ${this.getOutreachStyles()}
     `;
-    
-    // Event delegation po renderovaní
-    setTimeout(() => {
-      const container = document.getElementById('checklist-container');
-      if (container && !container._clBound) {
-        container._clBound = true;
-        container.addEventListener('click', (e) => {
-          const taskEl = e.target.closest('.cl-task');
-          if (!taskEl) return;
-          const segId = taskEl.dataset.seg;
-          const taskId = taskEl.dataset.task;
-          if (!segId || !taskId) return;
-          
-          LM.outreachState.toggleCheck(segId, taskId);
-          const isChecked = LM.outreachState.isChecked(segId, taskId);
-          
-          // Toggle vizuál
-          taskEl.classList.toggle('checked', isChecked);
-          const cb = taskEl.querySelector('.cl-checkbox');
-          if (cb) cb.classList.toggle('on', isChecked);
-          
-          // Update progress bar v bloku
-          const progress = LM.outreachState.getProgress(segId);
-          const block = document.getElementById('checklist-' + segId);
-          if (block) {
-            const fill = block.querySelector('.cl-pfill');
-            const text = block.querySelector('.cl-ptext');
-            if (fill) fill.style.width = progress + '%';
-            if (text) text.textContent = progress + '%';
-            
-            // Update meta text
-            const tasks = LM.outreachChecklists[segId] || [];
-            const done = tasks.filter(t => LM.outreachState.isChecked(segId, t.id)).length;
-            const meta = block.querySelector('.cl-block-meta');
-            if (meta) {
-              const seg = LM.outreachSegments.find(s => s.id === segId);
-              meta.textContent = seg.count + ' firiem · Tier ' + seg.tier + ' · ' + done + '/' + tasks.length + ' hotovo';
-            }
-          }
-          
-          // Update celkový ring
-          const totalTasks = LM.outreachSegments.reduce((s, seg) => s + (LM.outreachChecklists[seg.id]?.length || 0), 0);
-          const totalDone = LM.outreachSegments.reduce((s, seg) => {
-            const t = LM.outreachChecklists[seg.id] || [];
-            return s + t.filter(tk => LM.outreachState.isChecked(seg.id, tk.id)).length;
-          }, 0);
-          const totalPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
-          const ringFill = document.querySelector('.cl-ring-fill');
-          const ringText = document.querySelector('.cl-ring-text');
-          const totalSub = document.querySelector('.cl-total-sub');
-          if (ringFill) ringFill.setAttribute('stroke-dasharray', totalPct + ', 100');
-          if (ringText) ringText.textContent = totalPct + '%';
-          if (totalSub) totalSub.textContent = totalDone + ' z ' + totalTasks + ' úloh dokončených';
-        });
-      }
-    }, 60);
   };
 
   LM.scrollToChecklist = function(segId) {
     const el = document.getElementById(`checklist-${segId}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  LM.bindChecklistEvents = function() {
+    const container = document.getElementById('checklist-container');
+    if (!container) return;
+    
+    container.addEventListener('click', (e) => {
+      const taskEl = e.target.closest('.cl-task');
+      if (!taskEl) return;
+      const segId = taskEl.dataset.seg;
+      const taskId = taskEl.dataset.task;
+      if (!segId || !taskId) return;
+      
+      LM.outreachState.toggleCheck(segId, taskId);
+      const isChecked = LM.outreachState.isChecked(segId, taskId);
+      
+      // Toggle vizuál
+      taskEl.classList.toggle('checked', isChecked);
+      const cb = taskEl.querySelector('.cl-checkbox');
+      if (cb) cb.classList.toggle('on', isChecked);
+      
+      // Update progress bar v bloku
+      const progress = LM.outreachState.getProgress(segId);
+      const block = document.getElementById('checklist-' + segId);
+      if (block) {
+        const fill = block.querySelector('.cl-pfill');
+        const text = block.querySelector('.cl-ptext');
+        if (fill) fill.style.width = progress + '%';
+        if (text) text.textContent = progress + '%';
+        
+        const tasks = LM.outreachChecklists[segId] || [];
+        const done = tasks.filter(t => LM.outreachState.isChecked(segId, t.id)).length;
+        const meta = block.querySelector('.cl-block-meta');
+        if (meta) {
+          const seg = LM.outreachSegments.find(s => s.id === segId);
+          meta.textContent = seg.count + ' firiem · Tier ' + seg.tier + ' · ' + done + '/' + tasks.length + ' hotovo';
+        }
+      }
+      
+      // Update celkový ring
+      const totalTasks = LM.outreachSegments.reduce((s, seg) => s + (LM.outreachChecklists[seg.id]?.length || 0), 0);
+      const totalDone = LM.outreachSegments.reduce((s, seg) => {
+        const t = LM.outreachChecklists[seg.id] || [];
+        return s + t.filter(tk => LM.outreachState.isChecked(seg.id, tk.id)).length;
+      }, 0);
+      const totalPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
+      const ringFill = document.querySelector('.cl-ring-fill');
+      const ringText = document.querySelector('.cl-ring-text');
+      const totalSub = document.querySelector('.cl-total-sub');
+      if (ringFill) ringFill.setAttribute('stroke-dasharray', totalPct + ', 100');
+      if (ringText) ringText.textContent = totalPct + '%';
+      if (totalSub) totalSub.textContent = totalDone + ' z ' + totalTasks + ' úloh dokončených';
+    });
   };
 
   // ============================================================
@@ -1334,7 +1331,10 @@
       
       switch(tab) {
         case 'segmenty': contentEl.innerHTML = this.renderSegmentyTab(); break;
-        case 'checklist': contentEl.innerHTML = this.renderChecklistTab(); break;
+        case 'checklist':
+          contentEl.innerHTML = this.renderChecklistTab();
+          this.bindChecklistEvents();
+          break;
         case 'plan': contentEl.innerHTML = this.renderPlanTab(); break;
         case 'nastroje': contentEl.innerHTML = this.renderNastrojeTab(); break;
         case 'postup': contentEl.innerHTML = this.renderPostupTab(); break;
