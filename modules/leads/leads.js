@@ -1944,11 +1944,12 @@ info@adlify.eu | www.adlify.eu`
       // Použi DB šablóny len ak majú obsah (body_html)
       const validDbTemplates = dbTemplates.filter(t => t.body_html && t.body_html.trim().length > 10);
       
+      // Vždy začni s predvolenými šablónami
+      this.emailTemplates = [...this.defaultEmailTemplates];
+      
+      // Pridaj DB šablóny na koniec (ak existujú)
       if (validDbTemplates.length > 0) {
-        this.emailTemplates = validDbTemplates;
-      } else {
-        // Fallback na predvolené
-        this.emailTemplates = [...this.defaultEmailTemplates];
+        this.emailTemplates.push(...validDbTemplates);
       }
       
       // Pridať "Vlastná" možnosť
