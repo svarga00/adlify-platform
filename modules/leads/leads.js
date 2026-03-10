@@ -1979,7 +1979,6 @@ info@adlify.eu | www.adlify.eu`
     
     this.closeProposalModal();
     
-    // Načítať šablóny z DB
     await this.loadEmailTemplates();
     this.selectedTemplateId = this.emailTemplates[0]?.id || this.emailTemplates[0]?.slug;
     
@@ -1987,8 +1986,17 @@ info@adlify.eu | www.adlify.eu`
     const body = document.getElementById('email-modal-body');
     
     body.innerHTML = this.renderEmailForm(lead);
+    
+    // Reset footer na odosielanie
+    const footer = modal.querySelector('.modal-footer');
+    footer.innerHTML = `
+      <button onclick="LeadsModule.closeEmailModal()" class="btn-secondary">Zrušiť</button>
+      <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">📤 Odoslať email</button>
+    `;
+    
     modal.style.display = 'flex';
   },
+
   
   closeEmailModal() {
     document.getElementById('email-modal').style.display = 'none';
