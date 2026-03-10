@@ -1772,7 +1772,7 @@ const LeadsModule = {
       subject: 'Krátky marketingový návrh pre {{company}}',
       body_html: `Dobrý deň,
 
-dovoľujem si Vás osloviť v mene marketingovej agentúry Adlify.
+dovoľujeme si Vás osloviť v mene marketingovej agentúry Adlify.
 
 Pozreli sme sa na online prítomnosť spoločnosti {{company}} a pripravili sme pre Vás stručný marketingový návrh — nájdete ho v odkaze nižšie.
 
