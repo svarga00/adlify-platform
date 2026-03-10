@@ -1764,7 +1764,7 @@ const LeadsModule = {
   // ========== EMAIL MODAL S ŠABLÓNAMI ==========
   
   // Fallback šablóny ak DB je prázdna
-  defaultEmailTemplates: [defaultEmailTemplates: [
+  defaultEmailTemplates: [
     {
       id: 'intro',
       slug: 'proposal-intro',
