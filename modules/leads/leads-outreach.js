@@ -1504,6 +1504,105 @@
   window.addEventListener('hashchange', setupTrackingBadgeInjection);
   setupTrackingBadgeInjection();
 
+  // ============================================================
+  // PATCH: Tracking história v detaile leadu
+  // ============================================================
+  
+  const _origShowLeadDetail = LM.showLeadDetail.bind(LM);
+  
+  LM.showLeadDetail = function(id) {
+    _origShowLeadDetail(id);
+    
+    // Počkaj kým sa modal renderuje, potom injektuj tracking do histórie
+    setTimeout(() => {
+      const lead = this.leads.find(l => l.id === id);
+      if (!lead) return;
+      
+      const timeline = document.querySelector('#detail-tab-history .history-timeline');
+      if (!timeline) return;
+      
+      // Ak už sú tracking items injektované, preskočiť
+      if (timeline.querySelector('.tracking-history-item')) return;
+      
+      let trackingHtml = '';
+      
+      // Email odoslaný
+      if (lead.proposal_sent_at) {
+        const date = new Date(lead.proposal_sent_at).toLocaleString('sk-SK');
+        const to = lead.proposal_sent_to || lead.email || '';
+        trackingHtml += `
+          <div class="history-item tracking-history-item">
+            <div class="history-dot" style="background: #f97316;"></div>
+            <div class="history-content">
+              <strong>📧 Ponuka odoslaná emailom</strong>
+              <span>${date}${to ? ' na ' + to : ''}</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Email otvorený
+      if (lead.proposal_email_opened_at) {
+        const date = new Date(lead.proposal_email_opened_at).toLocaleString('sk-SK');
+        trackingHtml += `
+          <div class="history-item tracking-history-item">
+            <div class="history-dot" style="background: #3b82f6;"></div>
+            <div class="history-content">
+              <strong>📬 Email otvorený klientom</strong>
+              <span>${date}</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Ponuka otvorená (klikol na link)
+      if (lead.proposal_opened_at) {
+        const date = new Date(lead.proposal_opened_at).toLocaleString('sk-SK');
+        const count = lead.proposal_open_count || 1;
+        trackingHtml += `
+          <div class="history-item tracking-history-item">
+            <div class="history-dot" style="background: #22c55e;"></div>
+            <div class="history-content">
+              <strong>👁️ Ponuka otvorená klientom</strong>
+              <span>${date}${count > 1 ? ' · Zobrazená ' + count + '×' : ''}</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Reakcia klienta
+      if (lead.proposal_status === 'responded' || lead.proposal_status === 'interested') {
+        trackingHtml += `
+          <div class="history-item tracking-history-item">
+            <div class="history-dot" style="background: #8b5cf6;"></div>
+            <div class="history-content">
+              <strong>🎯 Klient prejavil záujem!</strong>
+              <span>Cez formulár v ponuke</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      // Konvertovaný
+      if (lead.proposal_status === 'converted' || lead.status === 'won') {
+        const date = lead.converted_at ? new Date(lead.converted_at).toLocaleString('sk-SK') : '';
+        trackingHtml += `
+          <div class="history-item tracking-history-item">
+            <div class="history-dot" style="background: #10b981;"></div>
+            <div class="history-content">
+              <strong>🎉 Konvertovaný na klienta</strong>
+              <span>${date || 'Lead sa stal klientom'}</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      if (trackingHtml) {
+        timeline.insertAdjacentHTML('beforeend', trackingHtml);
+      }
+    }, 150);
+  };
+
   console.log('✅ Leads Outreach Extension v1.0 loaded - 5 nových tabov');
 
 })();
