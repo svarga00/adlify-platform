@@ -1299,6 +1299,15 @@
       .script-card h4 { font-size: 0.9rem; margin: 0 0 12px; color: #f97316; }
       .script-text { background: #f8fafc; border-radius: 8px; padding: 16px; font-size: 0.9rem; color: #334155; line-height: 1.7; font-style: italic; }
       
+      /* Tracking Badges */
+      .tracking-badges-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+      .tracking-badge { display: inline-flex; align-items: center; gap: 2px; padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 600; white-space: nowrap; }
+      .tracking-badge.sent { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+      .tracking-badge.email-opened { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+      .tracking-badge.opened { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+      .tracking-badge.responded { background: #faf5ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+      .tracking-badge.converted { background: #ecfdf5; color: #047857; border: 1px solid #6ee7b7; }
+
       /* Responsive */
       @media (max-width: 768px) {
         .outreach-kpi-grid, .plan-overview { grid-template-columns: repeat(2, 1fr); }
@@ -1379,6 +1388,121 @@
 
   window.addEventListener('hashchange', waitForLeadsTabs);
   waitForLeadsTabs();
+
+  // ============================================================
+  // PATCH: Proposal Tracking Badges v zozname leadov
+  // ============================================================
+  
+  // PATCH: Pridať tracking pixel do emailov
+  const _origBuildEmailHtmlBody = LM.buildEmailHtmlBody?.bind(LM);
+  if (_origBuildEmailHtmlBody) {
+    LM.buildEmailHtmlBody = function(plainText, proposalUrl, companyName) {
+      let html = _origBuildEmailHtmlBody(plainText, proposalUrl, companyName);
+      
+      // Pridať tracking pixel ak máme proposal URL
+      if (proposalUrl) {
+        try {
+          const url = new URL(proposalUrl);
+          const token = url.searchParams.get('t');
+          if (token) {
+            html += '<img src="' + window.location.origin + '/.netlify/functions/track-open?t=' + token + '" width="1" height="1" style="display:none;border:0;" alt="">';
+          }
+        } catch (e) { /* non-critical */ }
+      }
+      
+      return html;
+    };
+  }
+  
+  // Generovať tracking badge HTML
+  LM.getTrackingBadge = function(lead) {
+    const ps = lead.proposal_status;
+    const sentAt = lead.proposal_sent_at;
+    const openedAt = lead.proposal_opened_at;
+    const emailOpenedAt = lead.proposal_email_opened_at;
+    const openCount = lead.proposal_open_count || 0;
+    
+    if (!sentAt && ps !== 'sent' && ps !== 'opened' && ps !== 'responded' && ps !== 'converted') return '';
+    
+    let badges = [];
+    
+    // Email odoslaný
+    if (sentAt || ps === 'sent') {
+      const date = sentAt ? new Date(sentAt).toLocaleDateString('sk-SK') : '';
+      badges.push(`<span class="tracking-badge sent" title="Ponuka odoslaná ${date}">📧 Odoslané</span>`);
+    }
+    
+    // Email otvorený
+    if (emailOpenedAt) {
+      const date = new Date(emailOpenedAt).toLocaleDateString('sk-SK');
+      badges.push(`<span class="tracking-badge email-opened" title="Email otvorený ${date}">📬 Email</span>`);
+    }
+    
+    // Ponuka otvorená (klikol na link)
+    if (openedAt || ps === 'opened') {
+      const date = openedAt ? new Date(openedAt).toLocaleDateString('sk-SK') : '';
+      const countText = openCount > 1 ? ` (${openCount}×)` : '';
+      badges.push(`<span class="tracking-badge opened" title="Ponuka otvorená ${date}${countText}">👁️ Otvorené${countText}</span>`);
+    }
+    
+    // Odpovedal (záujem/otázka)
+    if (ps === 'responded' || ps === 'interested') {
+      badges.push(`<span class="tracking-badge responded" title="Klient prejavil záujem">🎯 Záujem!</span>`);
+    }
+    
+    // Konvertovaný
+    if (ps === 'converted') {
+      badges.push(`<span class="tracking-badge converted" title="Konvertovaný na klienta">🎉 Konvertovaný</span>`);
+    }
+    
+    return badges.join('');
+  };
+  
+  // Inject tracking badges cez DOM po renderovaní (spoľahlivejšie než string replace)
+  LM._injectTrackingBadges = function() {
+    const rows = document.querySelectorAll('#leads-list tr[data-status]');
+    rows.forEach(row => {
+      // Nájdi lead ID z Detail button onclick
+      const detailBtn = row.querySelector('.btn-detail');
+      if (!detailBtn) return;
+      const onclickStr = detailBtn.getAttribute('onclick') || '';
+      const idMatch = onclickStr.match(/'([^']+)'/);
+      if (!idMatch) return;
+      const leadId = idMatch[1];
+      
+      const lead = this.leads.find(l => l.id === leadId);
+      if (!lead) return;
+      
+      const badge = this.getTrackingBadge(lead);
+      if (!badge) return;
+      
+      // Nájdi stĺpec so statusom (5. td) a pridaj badge
+      const statusTd = row.querySelectorAll('td')[4]; // 0-indexed: checkbox, firma, typ, kontakt, stav
+      if (statusTd && !statusTd.querySelector('.tracking-badge')) {
+        statusTd.insertAdjacentHTML('beforeend', '<div class="tracking-badges-row">' + badge + '</div>');
+      }
+    });
+  };
+  
+  // Po každom renderovaní leads listu injektuj badges
+  const _origShowTabForTracking = LM.showTab;
+  LM.showTab = function(tab) {
+    _origShowTabForTracking.call(this, tab);
+    if (tab === 'list') {
+      setTimeout(() => this._injectTrackingBadges(), 100);
+    }
+  };
+  
+  // Hookni na každú zmenu v leads zozname
+  function setupTrackingBadgeInjection() {
+    const hash = window.location.hash.replace('#', '').split('?')[0].split('/')[0];
+    if (hash === 'leads') {
+      setTimeout(() => LM._injectTrackingBadges(), 500);
+    }
+  }
+  
+  window.addEventListener('hashchange', setupTrackingBadgeInjection);
+  setupTrackingBadgeInjection();
 
   console.log('✅ Leads Outreach Extension v1.0 loaded - 5 nových tabov');
 
