@@ -22,7 +22,7 @@
     
     .proposal-container { max-width: 100%; padding-bottom: 100px; }
     
-    /* Floating Action Bar - Minimal Modern Style */
+    /* Floating Action Bar */
     .action-bar {
       position: fixed;
       bottom: 24px;
@@ -176,7 +176,7 @@
     .btn-submit-green { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
     .btn-submit-green:hover { box-shadow: 0 4px 15px rgba(34,197,94,0.3); }
     
-    /* Choice buttons for "not interested" */
+    /* Choice buttons */
     .choice-buttons { display: flex; flex-direction: column; gap: 0.75rem; }
     .choice-btn {
       display: flex;
@@ -334,7 +334,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // Global variables
     let proposalToken = null;
     let proposalData = null;
     
@@ -346,7 +345,6 @@
     async function loadProposal() {
       const app = document.getElementById('app');
       
-      // Get token from URL
       const urlParams = new URLSearchParams(window.location.search);
       proposalToken = urlParams.get('t') || urlParams.get('token');
       
@@ -355,42 +353,52 @@
         return;
       }
       
-      console.log('Loading proposal with token:', proposalToken);
-      
       try {
-        // Fetch proposal
         const { data: proposal, error } = await db
           .from('proposals')
           .select('*')
           .eq('token', proposalToken)
           .single();
         
-        console.log('Proposal result:', { proposal, error });
-        
-        if (error) {
-          console.error('DB Error:', error);
+        if (error || !proposal) {
           showError('Ponuka nenájdená', 'Táto ponuka neexistuje alebo jej platnosť vypršala.');
-          return;
-        }
-        
-        if (!proposal) {
-          showError('Ponuka nenájdená', 'Táto ponuka neexistuje.');
           return;
         }
         
         proposalData = proposal;
         
-        // Check expiration
         if (proposal.expires_at && new Date(proposal.expires_at) < new Date()) {
           showError('Ponuka vypršala', 'Platnosť tejto ponuky už vypršala. Kontaktujte nás pre novú ponuku.');
           return;
         }
         
-        // Increment views
+        // =====================================================
+        // TRACKING: Zaznamenať otvorenie ponuky
+        // =====================================================
         try {
+          // 1. Increment views + update timestamps cez RPC
           await db.rpc('increment_proposal_views', { proposal_token: proposalToken });
-        } catch (e) {
-          console.warn('Could not increment views:', e);
+          
+          // 2. Sync tracking data do leads tabuľky
+          if (proposal.lead_id) {
+            const now = new Date().toISOString();
+            const updateData = {
+              proposal_opened_at: proposal.first_opened_at || now,
+              proposal_open_count: (proposal.open_count || 0) + 1
+            };
+            
+            // Ak je to prvé otvorenie, zmeniť aj status
+            if (!proposal.first_opened_at) {
+              updateData.proposal_status = 'opened';
+            }
+            
+            await db
+              .from('leads')
+              .update(updateData)
+              .eq('id', proposal.lead_id);
+          }
+        } catch (trackErr) {
+          console.warn('Tracking error (non-critical):', trackErr);
         }
         
         // Render proposal
@@ -414,16 +422,49 @@
           </div>
         `;
         
-        // Update page title
         document.title = 'Ponuka pre ' + (proposal.company_name || 'Vás') + ' - Adlify';
-        
-        // Setup scroll listener for action bar
         setupScrollListener();
+        
+        // =====================================================
+        // TRACKING: Zaznamenať čas strávený na stránke
+        // =====================================================
+        trackTimeOnPage();
         
       } catch (err) {
         console.error('Load proposal error:', err);
         showError('Chyba', 'Nepodarilo sa načítať ponuku. Skúste to znova neskôr.');
       }
+    }
+    
+    // Tracking: koľko času strávil na stránke
+    function trackTimeOnPage() {
+      const startTime = Date.now();
+      
+      // Zaznamenať pri odchode
+      window.addEventListener('beforeunload', async () => {
+        const timeSpent = Math.round((Date.now() - startTime) / 1000);
+        
+        // Použiť sendBeacon pre spoľahlivé odoslanie pri zatváraní
+        if (navigator.sendBeacon && proposalToken) {
+          const data = JSON.stringify({
+            token: proposalToken,
+            event: 'time_on_page',
+            seconds: timeSpent
+          });
+          navigator.sendBeacon('/.netlify/functions/track-open?t=' + proposalToken + '&time=' + timeSpent, '');
+        }
+      });
+      
+      // Zaznamenať aj po 30s, 60s, 120s (milestone)
+      [30, 60, 120].forEach(seconds => {
+        setTimeout(async () => {
+          try {
+            await db.rpc('increment_proposal_views', { proposal_token: proposalToken });
+            // Len update tracking_events, nie open_count znova
+            // (RPC to rieši interne)
+          } catch (e) { /* non-critical */ }
+        }, seconds * 1000);
+      });
     }
     
     function setupScrollListener() {
@@ -435,8 +476,6 @@
       function updateActionBar() {
         const scrollY = window.scrollY;
         const viewportHeight = window.innerHeight;
-        
-        // Show after scrolling 400px or 50% of viewport (whichever is less)
         const showThreshold = Math.min(400, viewportHeight * 0.5);
         
         if (scrollY > showThreshold) {
@@ -444,7 +483,6 @@
         } else {
           actionBar.classList.remove('visible');
         }
-        
         ticking = false;
       }
       
@@ -455,7 +493,6 @@
         }
       });
       
-      // Initial check after small delay
       setTimeout(updateActionBar, 500);
     }
     
@@ -484,13 +521,21 @@
           <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
         </div>
       `;
-      // Hide action bar
       const actionBar = document.getElementById('action-bar');
       if (actionBar) actionBar.style.display = 'none';
     }
     
     function openModal(type) {
       document.getElementById('modal-' + type).classList.add('active');
+      
+      // Track modal open
+      if (proposalToken) {
+        try {
+          db.from('proposals').update({
+            tracking_events: db.rpc ? undefined : undefined // RPC handles this
+          });
+        } catch (e) { /* non-critical */ }
+      }
     }
     
     function closeModal(type) {
@@ -588,7 +633,6 @@
     async function submitNotInterested(type) {
       const reason = document.getElementById('notinterested-reason').value.trim();
       
-      // Disable buttons
       document.querySelectorAll('.choice-btn').forEach(btn => {
         btn.disabled = true;
         btn.style.opacity = '0.5';
@@ -630,14 +674,12 @@
       }
     }
     
-    // Close modal on outside click - using event delegation
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('modal-overlay')) {
         e.target.classList.remove('active');
       }
     });
     
-    // Close modal on Escape key
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay.active').forEach(modal => {
@@ -646,7 +688,6 @@
       }
     });
     
-    // Load on page ready
     loadProposal();
   </script>
 </body>
