@@ -2228,8 +2228,8 @@ info@adlify.eu | www.adlify.eu`
       .replace(/^-|-$/g, '');
     
     try {
-      if (this.editingTemplateId) {
-        // Update
+      if (this.editingTemplateId && String(this.editingTemplateId).includes('-')) {
+        // Update existujúcej DB šablóny
         await Database.update('email_templates', this.editingTemplateId, {
           name,
           subject,
@@ -2264,7 +2264,8 @@ info@adlify.eu | www.adlify.eu`
     
     try {
       const template = this.emailTemplates.find(t => (t.id || t.slug) === templateId);
-      if (template?.id) {
+      // Len DB šablóny majú UUID (obsahujú pomlčky)
+      if (template?.id && String(template.id).includes('-')) {
         await Database.update('email_templates', template.id, { is_active: false });
       }
       
