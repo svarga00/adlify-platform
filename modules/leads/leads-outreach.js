@@ -1461,8 +1461,9 @@
   // Inject tracking badges cez DOM po renderovaní (spoľahlivejšie než string replace)
   LM._injectTrackingBadges = function() {
     const rows = document.querySelectorAll('#leads-list tr[data-status]');
+    let injected = 0;
+    
     rows.forEach(row => {
-      // Nájdi lead ID z Detail button onclick
       const detailBtn = row.querySelector('.btn-detail');
       if (!detailBtn) return;
       const onclickStr = detailBtn.getAttribute('onclick') || '';
@@ -1477,11 +1478,16 @@
       if (!badge) return;
       
       // Nájdi stĺpec so statusom (5. td) a pridaj badge
-      const statusTd = row.querySelectorAll('td')[4]; // 0-indexed: checkbox, firma, typ, kontakt, stav
+      const statusTd = row.querySelectorAll('td')[4];
       if (statusTd && !statusTd.querySelector('.tracking-badge')) {
         statusTd.insertAdjacentHTML('beforeend', '<div class="tracking-badges-row">' + badge + '</div>');
+        injected++;
       }
     });
+    
+    if (injected > 0) {
+      console.log(`✅ Tracking badges injected: ${injected}`);
+    }
   };
   
   // Po každom renderovaní leads listu injektuj badges
@@ -1489,15 +1495,29 @@
   LM.showTab = function(tab) {
     _origShowTabForTracking.call(this, tab);
     if (tab === 'list') {
-      setTimeout(() => this._injectTrackingBadges(), 100);
+      pollForTrackingBadges();
     }
   };
   
   // Hookni na každú zmenu v leads zozname
+  function pollForTrackingBadges() {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      const rows = document.querySelectorAll('#leads-list tr[data-status]');
+      if (rows.length > 0 || attempts > 30) {
+        clearInterval(interval);
+        if (rows.length > 0) {
+          LM._injectTrackingBadges();
+        }
+      }
+      attempts++;
+    }, 200);
+  }
+  
   function setupTrackingBadgeInjection() {
     const hash = window.location.hash.replace('#', '').split('?')[0].split('/')[0];
     if (hash === 'leads') {
-      setTimeout(() => LM._injectTrackingBadges(), 500);
+      pollForTrackingBadges();
     }
   }
   
