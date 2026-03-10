@@ -1764,179 +1764,169 @@ const LeadsModule = {
   // ========== EMAIL MODAL S ŠABLÓNAMI ==========
   
   // Fallback šablóny ak DB je prázdna
-  defaultEmailTemplates: [
+  defaultEmailTemplates: [defaultEmailTemplates: [
+    {
+      id: 'intro',
+      slug: 'proposal-intro',
+      name: '👋 Úvodná ponuka',
+      subject: 'Krátky marketingový návrh pre {{company}}',
+      body_html: `Dobrý deň,
+
+dovoľujem si Vás osloviť v mene marketingovej agentúry Adlify.
+
+Pozreli sme sa na online prítomnosť spoločnosti {{company}} a pripravili sme pre Vás stručný marketingový návrh — nájdete ho v odkaze nižšie.
+
+Ide o rýchly prehľad toho, kde vidíme potenciál pre Vaše podnikanie v online priestore. Obsahuje základnú analýzu, odporúčané kľúčové slová a odhad rozpočtu.
+
+Ak Vás návrh zaujme, radi pre Vás pripravíme detailnú stratégiu a konkrétny akčný plán na mieru — to je už súčasťou samotnej spolupráce.
+
+Žiadne záväzky, žiadny tlak. Jednoducho si pozrite, čo sme pre Vás pripravili, a ak budete mať otázky, stačí odpovedať na tento email.
+
+S pozdravom,
+Tím Adlify
+info@adlify.eu | www.adlify.eu`
+    },
     {
       id: 'short',
       slug: 'proposal-short',
       name: '⚡ Stručná',
-      subject: 'Ponuka pre {{company}}',
+      subject: 'Návrh online stratégie pre {{company}}',
       body_html: `Dobrý deň,
 
-pripravili sme pre {{company}} marketingovú ponuku na základe analýzy vašej online prítomnosti.
+pripravili sme pre {{company}} stručný marketingový návrh na základe analýzy Vašej online prítomnosti.
 
-Zahŕňa konkrétne odporúčania pre reklamu na Google a sociálnych sieťach vrátane odhadu rozpočtu a výsledkov.
+V návrhu nájdete prehľad aktuálnej situácie, identifikované príležitosti a odporúčaný rozpočet.
 
-Máte záujem o krátku prezentáciu? Stačí odpovedať na tento email.
+Jedná sa o úvodný náčrt — kompletná stratégia a detailný plán sú súčasťou spolupráce, ku ktorej sa môžete rozhodnúť kedykoľvek a bez záväzkov.
+
+Ak budete mať akékoľvek otázky, radi odpovieme.
 
 S pozdravom,
-Adlify tím
+Tím Adlify
 info@adlify.eu`
-    },
-    {
-      id: 'cold',
-      slug: 'proposal-cold',
-      name: '🧊 Studený kontakt',
-      subject: 'Online marketing pre {{company}} — Adlify',
-      body_html: `Dobrý deň,
-
-volám sa [Vaše meno] z agentúry Adlify a rád by som Vám predstavil možnosti online marketingu pre {{company}}.
-
-Špecializujeme sa na reklamu v Google a na sociálnych sieťach pre firmy ako je tá Vaša. Pozreli sme sa na Vašu webstránku a vidíme priestor na výrazné zlepšenie online viditeľnosti.
-
-Čo Vám vieme ponúknuť:
-• Bezplatnú analýzu vašej aktuálnej online prítomnosti
-• Návrh stratégie pre Google Ads a Meta (Facebook/Instagram)
-• Transparentný rozpočet bez skrytých poplatkov
-• Mesačný reporting s jasnými výsledkami
-
-Máte 15 minút na krátky hovor alebo videohovor? Rád Vám vysvetlím detaily.
-
-S pozdravom,
-[Vaše meno]
-Adlify | info@adlify.eu | www.adlify.eu`
     },
     {
       id: 'formal',
       slug: 'proposal-formal',
       name: '📋 Formálna',
-      subject: 'Marketingová ponuka pre {{company}} — Adlify',
+      subject: 'Marketingový návrh pre {{company}} — Adlify',
       body_html: `Vážený pán / Vážená pani,
 
-dovoľujeme si Vás osloviť s ponukou marketingových služieb pre spoločnosť {{company}}.
+dovoľujeme si Vám zaslať úvodný marketingový návrh pre spoločnosť {{company}}.
 
-Na základe analýzy Vašej online prítomnosti sme pripravili personalizovanú marketingovú stratégiu, ktorá by mohla významne prispieť k rastu Vášho podnikania.
+Na základe verejne dostupných informácií sme zanalyzovali Vašu online prítomnosť a pripravili stručné zhrnutie — vrátane SWOT analýzy, návrhu kľúčových slov a odhadu reklamného rozpočtu.
 
-Naša ponuka zahŕňa:
-• Komplexnú analýzu aktuálnej online prítomnosti
-• Odporúčanú stratégiu pre Google a Meta platformy
-• Návrh rozpočtu s predpokladanou návratnosťou investície
-• Konkrétne kroky pre zvýšenie viditeľnosti a získanie nových zákazníkov
+Tento materiál slúži ako rýchly prehľad možností. Detailnú stratégiu, konkrétny mediálny plán a nastavenie kampaní pripravujeme až v rámci samotnej spolupráce, kedy sa hlbšie venujeme špecifikám Vášho podnikania.
 
-Radi Vám ponuku predstavíme osobne alebo prostredníctvom videohovoru. Pre dohodnutie termínu nás prosím kontaktujte odpoveďou na tento email.
+K návrhu sa neviažu žiadne záväzky. Ak Vás zaujme, jednoducho nám napíšte a dohodneme sa na ďalšom postupe.
 
 S úctou,
-Adlify tím
+Tím Adlify
 info@adlify.eu | www.adlify.eu`
-    },
-    {
-      id: 'reminder',
-      slug: 'proposal-reminder',
-      name: '🔔 Druhá pripomienka',
-      subject: 'Stále platí naša ponuka pre {{company}}',
-      body_html: `Dobrý deň,
-
-pred niekoľkými dňami sme Vám poslali ponuku marketingových služieb pre {{company}}.
-
-Rozumiem, že máte plný program, preto sa len krátko pripomínam. Ponuka stále platí a rád zodpoviem akékoľvek otázky.
-
-Kľúčové body našej ponuky:
-• Google Ads kampaň prispôsobená vášmu biznisu
-• Reklama na sociálnych sieťach (Facebook, Instagram)
-• Žiadne viazanie zmluvou — mesačná spolupráca
-• Prvý mesiac bez záväzkov — ak nebudete spokojný, nič neplatíte
-
-Stačí odpovedať na tento email a dohodneme si nezáväzný hovor.
-
-S pozdravom,
-Adlify tím`
-    },
-    {
-      id: 'followup',
-      slug: 'proposal-followup',
-      name: '🔄 Follow-up',
-      subject: 'Pripomíname sa — ponuka pre {{company}}',
-      body_html: `Dobrý deň,
-
-pred niekoľkými dňami sme Vám poslali marketingovú ponuku pre {{company}}.
-
-Chcel by som sa uistiť, že ste email dostali a či nemáte nejaké otázky.
-
-Radi Vám ponuku predstavíme osobne — stačí 15-20 minút Vášho času.
-
-Kedy by Vám vyhovovalo?
-
-S pozdravom,
-Adlify tím`
     },
     {
       id: 'friendly',
       slug: 'proposal-friendly',
       name: '😊 Priateľská',
-      subject: 'Máme pre {{company}} niečo zaujímavé!',
+      subject: 'Pozreli sme sa na {{company}} — máme pár tipov',
       body_html: `Dobrý deň,
 
-som [Vaše meno] z Adlify a rád by som Vám ukázal, ako by {{company}} mohla získať viac zákazníkov cez internet.
+som z agentúry Adlify a rád by som Vám ukázal, čo sme zistili o online viditeľnosti {{company}}.
 
-Pozreli sme sa na vašu online prítomnosť a pripravili pár tipov a odporúčaní:
-✅ Zhodnotenie vašej aktuálnej situácie
-✅ Návrh stratégie pre Google a Facebook/Instagram
-✅ Odhad koľko nových dopytov by ste mohli získať
-✅ Transparentný rozpočet bez skrytých poplatkov
+Pripravili sme krátky návrh, v ktorom nájdete:
+• Zhodnotenie aktuálnej online prítomnosti
+• Príležitosti, ktoré sme identifikovali
+• Odporúčané kľúčové slová a odhad rozpočtu
 
-Máte 15 minút na krátky hovor tento týždeň? Rád Vám všetko vysvetlím.
+Berieme to ako úvod do témy — ak Vás zaujme, detailný plán a nastavenie kampaní sú už súčasťou spolupráce, ku ktorej nie je žiadny záväzok.
 
-Stačí odpovedať na tento email alebo zavolať na [telefón].
+Jednoducho si pozrite a ak budete mať otázky, napíšte nám.
 
-Ďakujem a teším sa na spoluprácu!
+S pozdravom,
+Tím Adlify
+info@adlify.eu | www.adlify.eu`
+    },
+    {
+      id: 'followup',
+      slug: 'proposal-followup',
+      name: '🔄 Follow-up',
+      subject: 'Návrh pre {{company}} — mali ste možnosť pozrieť?',
+      body_html: `Dobrý deň,
 
-[Vaše meno]
-Adlify tím`
+pred niekoľkými dňami sme Vám posielali marketingový návrh pre {{company}}.
+
+Chcel by som sa len uistiť, že email dorazil v poriadku. Ak ste návrh ešte nemali možnosť otvoriť, odkaz nájdete nižšie.
+
+V prípade akýchkoľvek otázok alebo záujmu o detailnejšiu analýzu som k dispozícii.
+
+S pozdravom,
+Tím Adlify
+info@adlify.eu`
+    },
+    {
+      id: 'reminder',
+      slug: 'proposal-reminder',
+      name: '🔔 Druhá pripomienka',
+      subject: 'Stále platí návrh pre {{company}}',
+      body_html: `Dobrý deň,
+
+vraciam sa k marketingovému návrhu, ktorý sme pripravili pre {{company}}.
+
+Rozumiem, že sa k tomu možno ešte nedostal/a — nechcem Vás zahlcovať, len sa krátko pripomínam.
+
+Kľúčové body návrhu:
+• Analýza Vašej aktuálnej online viditeľnosti
+• Identifikované príležitosti pre reklamu
+• Odhad rozpočtu a návratnosti
+
+Ak to pre Vás momentálne nie je aktuálne, pokojne tento email ignorujte. Ak by ste sa k tomu chceli vrátiť neskôr, návrh zostáva aktívny.
+
+S pozdravom,
+Tím Adlify
+info@adlify.eu`
+    },
+    {
+      id: 'cold',
+      slug: 'proposal-cold',
+      name: '🧊 Prvý kontakt',
+      subject: 'Online viditeľnosť {{company}} — krátky prehľad',
+      body_html: `Dobrý deň,
+
+pracujem v agentúre Adlify, kde sa venujeme online reklame pre malé a stredné firmy na Slovensku.
+
+Pripravili sme pre {{company}} krátky prehľad Vašej online prítomnosti a vidíme priestor na zlepšenie — hlavne v oblasti platenej reklamy na Google a sociálnych sieťach.
+
+V prílohe nájdete stručný návrh s konkrétnymi číslami. Berieme to ako ukážku toho, čo je možné — nie ako záväzok z Vašej strany.
+
+Ak Vás návrh zaujme, ďalšie kroky sú jednoduché:
+1. Dohodneme sa na rozsahu spolupráce
+2. Pripravíme detailnú stratégiu a mediálny plán
+3. Nastavíme a spustíme kampane
+
+Všetko bez dlhodobých zmlúv — pracujeme na mesačnej báze.
+
+S pozdravom,
+Tím Adlify
+info@adlify.eu | www.adlify.eu`
     },
     {
       id: 'thankyou',
       slug: 'proposal-thankyou',
-      name: '🙏 Ďakujeme za spoluprácu',
-      subject: 'Ďakujeme za dôveru — {{company}}',
+      name: '🙏 Ďakujeme za záujem',
+      subject: 'Ďakujeme za záujem — {{company}}',
       body_html: `Dobrý deň,
 
-ďakujeme za Vašu dôveru a záujem o spoluprácu s Adlify.
+ďakujeme za Váš záujem o spoluprácu s Adlify.
 
-V najbližších dňoch pre Vás pripravíme detailný návrh kampane a budeme Vás kontaktovať s ďalšími krokmi.
+V najbližších dňoch pre Vás pripravíme detailnú marketingovú stratégiu a konkrétny plán kampaní na mieru pre {{company}}. Budeme Vás informovať o ďalšom postupe.
 
-Ak máte medzitým akékoľvek otázky, neváhajte nám napísať.
+Ak medzitým budete mať akékoľvek otázky, neváhajte sa ozvať.
 
-Tešíme sa na úspešnú spoluprácu!
+Tešíme sa na spoluprácu.
 
 S pozdravom,
-Adlify tím
+Tím Adlify
 info@adlify.eu | www.adlify.eu`
-    },
-    {
-      id: 'intro',
-      slug: 'proposal-intro',
-      name: '👋 Úvodná ponuka',
-      subject: 'Zvýšte online viditeľnosť {{company}} — Adlify',
-      body_html: `Dobrý deň,
-
-moje meno je [Vaše meno] a pracujem v marketingovej agentúre Adlify. Pomáhame firmám ako {{company}} získať viac zákazníkov cez online reklamu.
-
-Prečo nás oslovia firmy ako Vy:
-• Nemáte čas riešiť reklamu sami
-• Chcete vedieť, čo presne za vaše peniaze dostanete
-• Potrebujete výsledky, nie sľuby
-
-Ako to funguje:
-1. Bezplatne zanalyzujeme vašu online prítomnosť
-2. Navrhneme stratégiu šitú na mieru
-3. Spustíme kampane a reportujeme výsledky každý mesiac
-
-Všetko bez dlhodobých zmlúv — platíte mesačne a kedykoľvek môžete skončiť.
-
-Chcete sa dozvedieť viac? Stačí odpovedať na tento email.
-
-S pozdravom,
-[Vaše meno]
-Adlify | info@adlify.eu`
     }
   ],
   
