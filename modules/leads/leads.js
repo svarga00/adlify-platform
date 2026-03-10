@@ -2226,7 +2226,8 @@ info@adlify.eu | www.adlify.eu`
     const slug = name.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+      .replace(/^-|-$/g, '')
+      + '-' + Date.now();
     
     try {
       if (this.editingTemplateId && String(this.editingTemplateId).includes('-')) {
