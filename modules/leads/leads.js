@@ -1692,6 +1692,19 @@ const LeadsModule = {
       <div class="form-group" style="margin-bottom:1rem;"><label>Popis firmy</label><textarea id="edit-company-desc" rows="3">${a.company?.description || ''}</textarea></div>
       <div class="form-group" style="margin-bottom:1rem;"><label>Úvodný text analýzy</label><textarea id="edit-intro" rows="4">${a.analysis?.humanWrittenIntro || ''}</textarea></div>
       <div class="form-group"><label>Poznámka pre klienta</label><textarea id="edit-custom-note" rows="3">${a.customNote || ''}</textarea></div>
+      <div class="analysis-section" style="margin-bottom:1rem;">
+        <h3 style="margin:0 0 1rem;">💰 Rozpočet na reklamu (mesačne)</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Štart (€)</label><input type="number" id="edit-budget-starter" value="${a.budget?.recommendations?.starter?.adSpend || 300}"></div>
+          <div class="form-group"><label>Odporúčaný (€)</label><input type="number" id="edit-budget-recommended" value="${a.budget?.recommendations?.recommended?.adSpend || 500}"></div>
+          <div class="form-group"><label>Agresívny (€)</label><input type="number" id="edit-budget-aggressive" value="${a.budget?.recommendations?.aggressive?.adSpend || 800}"></div>
+        </div>
+      </div>
+      <div class="analysis-section" style="margin-bottom:1rem;">
+        <h3 style="margin:0 0 1rem;">🖼️ Obrázok v ponuke</h3>
+        <div class="form-group"><label>URL obrázka</label><input type="url" id="edit-ad-image" value="${a.customAdImage || ''}" placeholder="https://images.unsplash.com/photo-..."></div>
+        <small style="color:#64748b;font-size:0.8rem;">Nájdi na <a href="https://unsplash.com" target="_blank" style="color:#f97316;">unsplash.com</a> a vlož URL</small>
+      </div>
     `;
   },
 
@@ -1706,6 +1719,17 @@ const LeadsModule = {
     this.editedAnalysis.analysis.humanWrittenIntro = document.getElementById('edit-intro').value;
     this.editedAnalysis.customNote = document.getElementById('edit-custom-note').value;
     this.editedAnalysis.recommendedPackage = document.getElementById('edit-package').value;
+    // Budget
+    this.editedAnalysis.budget = this.editedAnalysis.budget || {};
+    this.editedAnalysis.budget.recommendations = this.editedAnalysis.budget.recommendations || {};
+    this.editedAnalysis.budget.recommendations.starter = { ...(this.editedAnalysis.budget.recommendations.starter || {}), adSpend: parseInt(document.getElementById('edit-budget-starter').value) || 300 };
+    this.editedAnalysis.budget.recommendations.recommended = { ...(this.editedAnalysis.budget.recommendations.recommended || {}), adSpend: parseInt(document.getElementById('edit-budget-recommended').value) || 500 };
+    this.editedAnalysis.budget.recommendations.aggressive = { ...(this.editedAnalysis.budget.recommendations.aggressive || {}), adSpend: parseInt(document.getElementById('edit-budget-aggressive').value) || 800 };
+    
+    // Custom ad image
+    const customImg = document.getElementById('edit-ad-image')?.value.trim();
+    if (customImg) this.editedAnalysis.customAdImage = customImg;
+    else delete this.editedAnalysis.customAdImage;
     
     // Ulož aj kontaktné údaje k leadu
     const email = document.getElementById('edit-email').value.trim();
