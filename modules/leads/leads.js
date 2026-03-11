@@ -1683,6 +1683,10 @@ const LeadsModule = {
         <div class="form-grid">
           <div class="form-group"><label>Email</label><input type="email" id="edit-email" value="${lead.email || ''}" placeholder="email@firma.sk"></div>
           <div class="form-group"><label>Telefón</label><input type="text" id="edit-phone" value="${lead.phone || ''}" placeholder="+421..."></div>
+          <div class="form-group" style="grid-column: span 2;">
+          <label>🖼️ Logo URL</label>
+          <input type="url" id="edit-logo" value="${lead.logo_url || ''}" placeholder="https://firma.sk/logo.png">
+          <small style="color:#64748b;font-size:0.8rem;">Ak nevyplníte, použije sa favicon z domény</small>
         </div>
       </div>
       <div class="form-group" style="margin-bottom:1rem;"><label>Popis firmy</label><textarea id="edit-company-desc" rows="3">${a.company?.description || ''}</textarea></div>
@@ -1706,11 +1710,13 @@ const LeadsModule = {
     // Ulož aj kontaktné údaje k leadu
     const email = document.getElementById('edit-email').value.trim();
     const phone = document.getElementById('edit-phone').value.trim();
+    const logo_url = document.getElementById('edit-logo')?.value.trim() || null;
     
     await Database.update('leads', this.currentLeadId, { 
       analysis: this.editedAnalysis,
       email: email || null,
-      phone: phone || null
+      phone: phone || null,
+      logo_url: logo_url
     });
     
     this.currentAnalysis = this.editedAnalysis;
@@ -1719,6 +1725,7 @@ const LeadsModule = {
       lead.analysis = this.editedAnalysis;
       lead.email = email || null;
       lead.phone = phone || null;
+      lead.logo_url = logo_url;
     }
     this.renderAnalysisResults(lead, this.editedAnalysis);
     this.closeEditModal();
