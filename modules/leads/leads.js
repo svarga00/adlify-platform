@@ -1720,12 +1720,33 @@ const LeadsModule = {
     this.editedAnalysis.analysis.humanWrittenIntro = document.getElementById('edit-intro').value;
     this.editedAnalysis.customNote = document.getElementById('edit-custom-note').value;
     this.editedAnalysis.recommendedPackage = document.getElementById('edit-package').value;
-    // Budget
+    // Budget - prepočítať všetko
     this.editedAnalysis.budget = this.editedAnalysis.budget || {};
     this.editedAnalysis.budget.recommendations = this.editedAnalysis.budget.recommendations || {};
-    this.editedAnalysis.budget.recommendations.starter = { ...(this.editedAnalysis.budget.recommendations.starter || {}), adSpend: parseInt(document.getElementById('edit-budget-starter').value) || 300 };
-    this.editedAnalysis.budget.recommendations.recommended = { ...(this.editedAnalysis.budget.recommendations.recommended || {}), adSpend: parseInt(document.getElementById('edit-budget-recommended').value) || 500 };
-    this.editedAnalysis.budget.recommendations.aggressive = { ...(this.editedAnalysis.budget.recommendations.aggressive || {}), adSpend: parseInt(document.getElementById('edit-budget-aggressive').value) || 800 };
+    const avgCpc = this.editedAnalysis.budget.avgCpc || this.calculateAvgCpcFromKeywords(this.editedAnalysis.keywords?.topKeywords || []) || 0.50;
+    
+    const starterSpend = parseInt(document.getElementById('edit-budget-starter').value) || 300;
+    const recommendedSpend = parseInt(document.getElementById('edit-budget-recommended').value) || 500;
+    const aggressiveSpend = parseInt(document.getElementById('edit-budget-aggressive').value) || 800;
+    
+    const calcBudget = (spend) => {
+      const clicks = Math.round(spend / avgCpc);
+      const leadsMin = Math.round(clicks * 0.03);
+      const leadsMax = Math.round(clicks * 0.05);
+      const cpaMin = leadsMax > 0 ? Math.round(spend / leadsMax) : 0;
+      const cpaMax = leadsMin > 0 ? Math.round(spend / leadsMin) : 0;
+      return {
+        adSpend: spend,
+        expectedClicks: clicks,
+        expectedLeads: `${leadsMin}-${leadsMax}`,
+        cpa: `${cpaMin}-${cpaMax}€`
+      };
+    };
+    
+    this.editedAnalysis.budget.recommendations.starter = calcBudget(starterSpend);
+    this.editedAnalysis.budget.recommendations.recommended = calcBudget(recommendedSpend);
+    this.editedAnalysis.budget.recommendations.aggressive = calcBudget(aggressiveSpend);
+    this.editedAnalysis.budget.avgCpc = avgCpc;
     
     // Custom ad image
     const customImg = document.getElementById('edit-ad-image')?.value.trim();
