@@ -2800,9 +2800,9 @@ buildProposalHTML(lead, analysis) {
   };
   
   // Získaj obrázok pre reklamy
-  const adImageUrl = getIndustryImage(lead.industry, c.services, 800, 600);
-  const storyImageUrl = getIndustryImage(lead.industry, c.services, 400, 700);
-  const bannerImageUrl = getIndustryImage(lead.industry, c.services, 600, 400);
+  const adImageUrl = analysis.customAdImage || getIndustryImage(lead.industry, c.services, 800, 600);
+  const storyImageUrl = analysis.customAdImage || getIndustryImage(lead.industry, c.services, 400, 700);
+  const bannerImageUrl = analysis.customAdImage || getIndustryImage(lead.industry, c.services, 600, 400);
 
   return `<!DOCTYPE html>
 <html lang="sk">
