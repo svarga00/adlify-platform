@@ -1,0 +1,141 @@
+/* Adlify Design Tokens — Soft Modern, Orange accent
+ * Zdroj: design bundle (Adlify Design.html)
+ * Používaj cez CSS premenné, napr. var(--brand-500)
+ */
+
+:root {
+  /* Brand — Orange family */
+  --brand-50:  #FFF4EC;
+  --brand-100: #FFE6D3;
+  --brand-200: #FFCBA5;
+  --brand-300: #FFA870;
+  --brand-400: #FF8740;
+  --brand-500: #F97316;   /* primary */
+  --brand-600: #EA5A0B;
+  --brand-700: #C2410C;
+  --brand-800: #9A3412;
+  --brand-900: #7C2D12;
+
+  /* Neutral — warm off-white */
+  --n-0:   #FFFFFF;
+  --n-25:  #FCFBF9;
+  --n-50:  #F7F5F1;
+  --n-75:  #F1EEE8;
+  --n-100: #EAE6DE;
+  --n-150: #E0DBD1;
+  --n-200: #D3CCC0;
+  --n-300: #B8B0A2;
+  --n-400: #948B7C;
+  --n-500: #6F6758;
+  --n-600: #524C3F;
+  --n-700: #3A352B;
+  --n-800: #24211A;
+  --n-900: #14120E;
+
+  /* Pastel accents */
+  --acc-sky:   #D9EAFB;
+  --acc-sky-ink:#1C4A84;
+  --acc-mint:  #D6EFDE;
+  --acc-mint-ink:#1F6E3D;
+  --acc-lavender:#E4DEF7;
+  --acc-lavender-ink:#4C3E8A;
+  --acc-rose:   #FADCE0;
+  --acc-rose-ink:#9B2B3C;
+  --acc-amber:  #FBE7C0;
+  --acc-amber-ink:#7A4A0E;
+
+  /* Semantic */
+  --ok:    #2F9E5E;
+  --warn:  #D89418;
+  --err:   #DC3C3C;
+  --info:  #2F6BD6;
+
+  /* Surfaces (light) */
+  --bg:       var(--n-50);
+  --bg-sub:   var(--n-75);
+  --surface:  var(--n-0);
+  --surface-2:var(--n-25);
+  --border:   var(--n-100);
+  --border-strong: var(--n-150);
+  --ink:      var(--n-900);
+  --ink-sub:  var(--n-500);
+  --ink-mute: var(--n-400);
+
+  /* Radii */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-full: 999px;
+
+  /* Shadows — very soft */
+  --sh-xs: 0 1px 2px rgba(20,18,14,0.04);
+  --sh-sm: 0 1px 3px rgba(20,18,14,0.05), 0 1px 2px rgba(20,18,14,0.03);
+  --sh-md: 0 4px 12px rgba(20,18,14,0.06), 0 1px 3px rgba(20,18,14,0.04);
+  --sh-lg: 0 12px 32px rgba(20,18,14,0.08), 0 2px 6px rgba(20,18,14,0.04);
+  --sh-float: 0 20px 60px rgba(20,18,14,0.12), 0 4px 12px rgba(20,18,14,0.06);
+
+  /* Type */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+  /* Density */
+  --gap: 16px;
+  --pad: 20px;
+  --row: 44px;
+}
+
+/* Dark mode (pre neskôr — customizer) */
+[data-theme="dark"] {
+  --bg:       #0E0D0A;
+  --bg-sub:   #15130F;
+  --surface:  #1A1814;
+  --surface-2:#221F1A;
+  --border:   #2A261F;
+  --border-strong:#37322A;
+  --ink:      #F5F2EC;
+  --ink-sub:  #A59E8F;
+  --ink-mute: #726B5C;
+
+  --brand-50:  #2B1B0C;
+  --brand-100: #3D2510;
+
+  --acc-sky:   #1A2E4A;
+  --acc-sky-ink:#A8C7F0;
+  --acc-mint:  #1B3A2A;
+  --acc-mint-ink:#A3D6B5;
+  --acc-lavender:#2C2649;
+  --acc-lavender-ink:#C6BDF0;
+  --acc-rose:  #3E1F26;
+  --acc-rose-ink:#F0B5BF;
+  --acc-amber: #3B2A0D;
+  --acc-amber-ink:#EDC887;
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --sh-md: 0 4px 12px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.3);
+  --sh-lg: 0 12px 32px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
+  --sh-float: 0 20px 60px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* Base typography reset pre adl scope */
+.adl {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.45;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+.adl *, .adl *::before, .adl *::after { box-sizing: border-box; }
+.adl button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+.adl input, .adl textarea, .adl select { font: inherit; color: inherit; }
+.adl a { color: inherit; text-decoration: none; }
+.mono { font-family: var(--font-mono); letter-spacing: 0; }
+
+/* Scrollbar */
+.adl ::-webkit-scrollbar { width: 8px; height: 8px; }
+.adl ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+.adl ::-webkit-scrollbar-track { background: transparent; }
