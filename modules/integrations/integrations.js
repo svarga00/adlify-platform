@@ -140,58 +140,47 @@ const IntegrationsModule = {
     
     renderIntegrationCard(integration) {
         const { id, name, provider, is_enabled, last_sync_at, sync_status } = integration;
-        
-        const icons = {
-            superfaktura: '📄',
-            marketing_miner: '🔍',
-            google_ads: '📊',
-            meta_ads: '📘',
-            google_calendar: '📅',
-            slack: '💬'
-        };
-        
+
+        const iconFn = {
+            superfaktura: I.Invoice,
+            marketing_miner: I.Chart,
+            google_ads: I.Google,
+            meta_ads: I.Fb,
+            google_calendar: I.Calendar,
+            slack: I.Mail
+        }[provider] || I.Link;
+
         const descriptions = {
             superfaktura: 'Fakturácia, DPH, účtovníctvo',
             marketing_miner: 'Keyword research, SEO analýza',
             google_ads: 'Import/export kampaní a metrík',
             meta_ads: 'Facebook & Instagram reklamy',
             google_calendar: 'Synchronizácia kalendára',
-            slack: 'Notifikácie a alertyň'
+            slack: 'Notifikácie a alerty'
         };
-        
-        const statusClass = is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
-        const statusText = is_enabled ? '✅ Aktívne' : '⭕ Neaktívne';
-        
+
         return `
-            <div class="integration-card ${is_enabled ? 'enabled' : ''}" data-id="${id}">
-                <div class="flex items-start gap-4">
-                    <div class="text-4xl">${icons[provider] || '🔗'}</div>
-                    <div class="flex-1">
-                        <div class="flex items-center gap-3 mb-1">
-                            <h3 class="text-lg font-semibold">${name}</h3>
-                            <span class="px-2 py-0.5 rounded-full text-xs ${statusClass}">${statusText}</span>
+            <div data-id="${id}" style="background:var(--surface); border:1px solid ${is_enabled ? 'color-mix(in oklab, var(--ok) 30%, var(--border))' : 'var(--border)'}; border-radius:14px; padding:16px; display:flex; align-items:flex-start; gap:14px;">
+                <div style="width:48px; height:48px; border-radius:12px; background:${is_enabled ? 'color-mix(in oklab, var(--brand-500) 10%, var(--n-50))' : 'var(--n-75)'}; color:${is_enabled ? 'var(--brand-600)' : 'var(--ink-sub)'}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    ${iconFn({size:24})}
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <h3 style="font-size:15px; font-weight:600; letter-spacing:-0.2px; margin:0;">${name}</h3>
+                        <span class="adl-chip adl-chip-sm ${is_enabled ? 'adl-chip-ok' : ''}"><span class="dot"></span>${is_enabled ? 'Aktívne' : 'Neaktívne'}</span>
+                    </div>
+                    <p style="font-size:12px; color:var(--ink-sub); margin:4px 0 8px;">${descriptions[provider] || ''}</p>
+                    ${last_sync_at ? `
+                        <div style="font-size:11px; color:var(--ink-mute); display:flex; align-items:center; gap:6px;">
+                            <span style="display:inline-flex;">${I.Clock({size:11})}</span>
+                            Posledná sync: ${this.formatDate(last_sync_at)}
+                            ${sync_status === 'failed' ? `<span class="adl-chip adl-chip-err adl-chip-sm">${I.Warning({size:10})} Chyba</span>` : ''}
                         </div>
-                        <p class="text-gray-500 text-sm mb-3">${descriptions[provider] || ''}</p>
-                        
-                        ${last_sync_at ? `
-                            <div class="text-xs text-gray-400">
-                                Posledná sync: ${this.formatDate(last_sync_at)}
-                                ${sync_status === 'failed' ? '<span class="text-red-500 ml-2">⚠️ Chyba</span>' : ''}
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="IntegrationsModule.configure('${provider}')" 
-                                class="btn-secondary">
-                            ⚙️ Nastaviť
-                        </button>
-                        ${is_enabled && provider === 'superfaktura' ? `
-                            <button onclick="IntegrationsModule.testConnection('${provider}')" 
-                                    class="btn-secondary">
-                                🔄 Test
-                            </button>
-                        ` : ''}
-                    </div>
+                    ` : ''}
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap;">
+                    <button onclick="IntegrationsModule.configure('${provider}')" class="adl-btn adl-btn-soft adl-btn-sm">${I.Settings({size:14})} Nastaviť</button>
+                    ${is_enabled && provider === 'superfaktura' ? `<button onclick="IntegrationsModule.testConnection('${provider}')" class="adl-btn adl-btn-ghost adl-btn-sm">${I.Zap({size:14})} Test</button>` : ''}
                 </div>
             </div>
         `;

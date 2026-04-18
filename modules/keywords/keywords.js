@@ -107,18 +107,23 @@ const KeywordResearchModule = {
         if (!container) return;
 
         if (this.searches.length === 0) {
-            container.innerHTML = '<p class="no-history">Zatiaľ žiadne výskumy</p>';
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ink-mute); font-size:13px;">Zatiaľ žiadne výskumy</div>';
             return;
         }
 
-        container.innerHTML = this.searches.map(s => `
-            <div class="history-item" onclick="KeywordResearchModule.loadSearch('${s.id}')">
-                <div class="history-keyword">${s.seed_keyword}</div>
-                <div class="history-meta">
-                    <span class="history-country">${this.getCountryFlag(s.country)}</span>
-                    <span class="history-count">${s.results_count || 0} výsledkov</span>
-                    <span class="history-date">${this.formatDate(s.created_at)}</span>
+        const countryLabel = { sk: 'SK', cz: 'CZ', hu: 'HU', at: 'AT', de: 'DE' };
+
+        container.innerHTML = this.searches.map((s, i) => `
+            <div onclick="KeywordResearchModule.loadSearch('${s.id}')" style="display:flex; align-items:center; gap:12px; padding:10px 14px; ${i > 0 ? 'border-top:1px solid var(--border);' : ''} cursor:pointer; transition: background .12s;" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='transparent'">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:13px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.seed_keyword}</div>
+                    <div style="display:flex; align-items:center; gap:10px; font-size:11px; color:var(--ink-mute); margin-top:2px;">
+                        <span class="adl-chip adl-chip-sm">${countryLabel[s.country] || s.country}</span>
+                        <span>${s.results_count || 0} výsledkov</span>
+                        <span>${this.formatDate(s.created_at)}</span>
+                    </div>
                 </div>
+                <span style="color:var(--ink-mute); display:inline-flex;">${I.Chevron({size:14})}</span>
             </div>
         `).join('');
     },
@@ -301,73 +306,76 @@ const KeywordResearchModule = {
 
     renderResults(results, keyword) {
         const content = document.getElementById('keywords-content');
-        
+
         if (!results || results.length === 0) {
             content.innerHTML = `
-                <div class="no-results">
-                    <div class="no-results-icon">🤷</div>
-                    <h3>Žiadne výsledky</h3>
-                    <p>Pre "${keyword}" sme nenašli žiadne návrhy</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Search({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne výsledky</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0;">Pre „${keyword}" sme nenašli žiadne návrhy</p>
                 </div>
             `;
             return;
         }
 
+        const maxVol = Math.max(1, ...results.map(r => r.search_volume || 0));
+
         content.innerHTML = `
-            <div class="results-header">
-                <div class="results-info">
-                    <h3>Výsledky pre "${keyword}"</h3>
-                    <span class="results-count">${results.length} kľúčových slov</span>
+            <div class="adl-card">
+                <div class="adl-card-header" style="flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <div class="adl-card-title">Výsledky pre „${keyword}"</div>
+                        <div style="font-size:11px; color:var(--ink-mute); margin-top:2px;">${results.length} kľúčových slov</div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="KeywordResearchModule.exportResults()">${I.Download({size:14})} Export CSV</button>
+                        <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="KeywordResearchModule.saveToProject()">${I.Folder({size:14})} Uložiť do projektu</button>
+                    </div>
                 </div>
-                <div class="results-actions">
-                    <button class="btn-secondary" onclick="KeywordResearchModule.exportResults()">
-                        📥 Export CSV
-                    </button>
-                    <button class="btn-secondary" onclick="KeywordResearchModule.saveToProject()">
-                        📁 Uložiť do projektu
-                    </button>
-                </div>
-            </div>
-            
-            <div class="results-table-wrapper">
-                <table class="results-table">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" onchange="KeywordResearchModule.selectAll(this)"></th>
-                            <th>Kľúčové slovo</th>
-                            <th class="text-right">Objem</th>
-                            <th class="text-right">CPC</th>
-                            <th class="text-right">Konkurencia</th>
-                            <th>Trend</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${results.map((r, i) => `
+                <div style="overflow-x:auto;">
+                    <table class="adl-table">
+                        <thead>
                             <tr>
-                                <td><input type="checkbox" class="kw-checkbox" data-index="${i}"></td>
-                                <td class="keyword-cell">${r.keyword}</td>
-                                <td class="text-right">
-                                    <span class="volume-badge">${this.formatNumber(r.search_volume)}</span>
-                                </td>
-                                <td class="text-right">€${r.cpc}</td>
-                                <td class="text-right">
-                                    <div class="competition-bar">
-                                        <div class="competition-fill" style="width: ${r.competition * 100}%"></div>
-                                    </div>
-                                </td>
-                                <td>
-                                    ${this.getTrendIcon(r.trend)}
-                                </td>
-                                <td>
-                                    <button class="btn-icon-small" onclick="KeywordResearchModule.copyKeyword('${r.keyword}')" title="Kopírovať">
-                                        📋
-                                    </button>
-                                </td>
+                                <th style="width:32px;"><input type="checkbox" onchange="KeywordResearchModule.selectAll(this)"></th>
+                                <th>Kľúčové slovo</th>
+                                <th style="text-align:right;">Hľadanosť/mes</th>
+                                <th style="text-align:right;">CPC</th>
+                                <th>Konkurencia</th>
+                                <th style="width:48px;"></th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${results.map((r, i) => {
+                                const widthPct = Math.round(((r.search_volume || 0) / maxVol) * 100);
+                                const compPct = Math.round((r.competition || 0) * 100);
+                                const compTone = compPct >= 70 ? 'err' : compPct >= 40 ? 'amber' : 'mint';
+                                return `
+                                <tr>
+                                    <td><input type="checkbox" class="kw-checkbox" data-index="${i}"></td>
+                                    <td><strong style="font-size:13px;">${r.keyword}</strong></td>
+                                    <td style="text-align:right;">
+                                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                                            <span style="display:inline-block; height:6px; background:linear-gradient(90deg, var(--brand-500), var(--brand-700)); border-radius:3px; width:${Math.max(10, widthPct * 0.8)}px;"></span>
+                                            <span class="mono">${this.formatNumber(r.search_volume || 0)}</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:right;" class="mono">${(r.cpc || 0).toFixed(2)}&nbsp;€</td>
+                                    <td>
+                                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                                            <div style="width:60px; height:4px; background:var(--n-100); border-radius:99px; overflow:hidden;">
+                                                <div style="width:${compPct}%; height:100%; background:var(--${compTone === 'err' ? 'err' : compTone === 'amber' ? 'warn' : 'ok'});"></div>
+                                            </div>
+                                            <span style="font-size:11px; color:var(--ink-sub);">${compPct}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="KeywordResearchModule.copyKeyword('${r.keyword}')" title="Kopírovať" style="padding:0 8px;">${I.Copy({size:12})}</button>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `;
     },
