@@ -239,7 +239,7 @@
   <div class="modal-overlay" id="modal-interested">
     <div class="modal-box">
       <div class="modal-header">
-        <h2>🎉 Mám záujem o spoluprácu!</h2>
+        <h2>Mám záujem o spoluprácu</h2>
         <p>Vyplňte kontaktné údaje a ozveme sa vám</p>
       </div>
       <div class="modal-body">
@@ -259,7 +259,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-cancel" onclick="closeModal('interested')">Zrušiť</button>
-        <button class="btn btn-submit-green" id="btn-submit-interested" onclick="submitInterested()">✓ Odoslať</button>
+        <button class="btn btn-submit-green" id="btn-submit-interested" onclick="submitInterested()">Odoslať</button>
       </div>
     </div>
   </div>
@@ -268,7 +268,7 @@
   <div class="modal-overlay" id="modal-question">
     <div class="modal-box">
       <div class="modal-header">
-        <h2>❓ Mám otázku</h2>
+        <h2>Mám otázku</h2>
         <p>Napíšte nám a radi odpovieme</p>
       </div>
       <div class="modal-body">
@@ -292,7 +292,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-cancel" onclick="closeModal('question')">Zrušiť</button>
-        <button class="btn btn-submit" id="btn-submit-question" onclick="submitQuestion()">📤 Odoslať</button>
+        <button class="btn btn-submit" id="btn-submit-question" onclick="submitQuestion()">Odoslať</button>
       </div>
     </div>
   </div>
@@ -301,7 +301,7 @@
   <div class="modal-overlay" id="modal-notinterested">
     <div class="modal-box">
       <div class="modal-header" style="background: linear-gradient(135deg, #64748b, #475569);">
-        <h2>🤔 Nemáte záujem?</h2>
+        <h2>Nemáte záujem?</h2>
         <p>Nevadí, rešpektujeme vaše rozhodnutie</p>
       </div>
       <div class="modal-body">
@@ -309,13 +309,13 @@
         
         <div class="choice-buttons">
           <button class="choice-btn choice-later" onclick="submitNotInterested('later')">
-            <span class="choice-icon">⏰</span>
+            <span class="choice-icon"></span>
             <span class="choice-title">Oslovte ma neskôr</span>
             <span class="choice-desc">Teraz to nie je aktuálne, ale v budúcnosti možno</span>
           </button>
           
           <button class="choice-btn choice-never" onclick="submitNotInterested('never')">
-            <span class="choice-icon">🚫</span>
+            <span class="choice-icon"></span>
             <span class="choice-title">Nekontaktujte ma</span>
             <span class="choice-desc">Nemám záujem o tieto služby</span>
           </button>
@@ -408,16 +408,16 @@
           </div>
           <div class="action-bar" id="action-bar">
             <button class="btn-main" onclick="openModal('interested')">
-              ✓ Mám záujem
+              Mám záujem
             </button>
             <button class="btn-secondary" onclick="openModal('question')">
-              ❓ Otázka
+              Otázka
             </button>
             <button class="btn-secondary" onclick="window.print()">
-              📄 PDF
+              PDF
             </button>
             <button class="btn-subtle" onclick="openModal('notinterested')">
-              ✕ Nemám záujem
+              Nemám záujem
             </button>
           </div>
         `;
@@ -499,7 +499,7 @@
     function showError(title, message) {
       document.getElementById('app').innerHTML = `
         <div class="error-page">
-          <h1>😕</h1>
+          
           <h2>${title}</h2>
           <p>${message}</p>
           <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
@@ -510,13 +510,13 @@
     function showSuccess(title, message) {
       document.getElementById('app').innerHTML = `
         <div class="success-page">
-          <h1>🎉</h1>
+          
           <h2>${title}</h2>
           <p>${message}</p>
           <br>
           <p><strong>Adlify tím</strong></p>
-          <p>📧 info@adlify.eu</p>
-          <p>📞 +421 944 184 045</p>
+          <p>info@adlify.eu</p>
+          <p>+421 944 184 045</p>
           <br>
           <a href="https://adlify.eu">Navštíviť adlify.eu →</a>
         </div>
