@@ -110,78 +110,54 @@ const BillingModule = {
     },
 
     async render(container, params = {}) {
-        // Načítanie dát
         await this.loadData();
-        
+
         const invoices = this.invoices.filter(i => i.invoice_type === 'invoice');
         const proformas = this.invoices.filter(i => i.invoice_type === 'proforma');
-        
+        const tab = this.currentTab || 'invoices';
+
         container.innerHTML = `
-            <div class="billing-module-new">
-                <!-- Header s gradientom -->
-                <div class="billing-header">
-                    <div class="header-content">
-                        <div class="header-title">
-                            <h1>Fakturácia</h1>
-                            <p class="header-subtitle">Správa faktúr, ponúk a objednávok</p>
-                        </div>
-                        <div class="header-actions">
-                            <button class="btn-new-document" onclick="BillingModule.showNewDocumentModal()">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                </svg>
-                                Nový doklad
-                            </button>
-                        </div>
+            <div class="adl billing-module-new">
+                <!-- Header -->
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Fakturácia</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Faktúry, ponuky a objednávky</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="BillingModule.showNewDocumentModal()">${I.Plus({size:14})} Nový doklad</button>
                     </div>
                 </div>
-                
-                <!-- Štatistiky -->
+
+                <!-- Stats -->
                 <div class="billing-stats-grid">
                     ${this.renderStats()}
                 </div>
-                
-                <!-- Taby -->
-                <div class="billing-tabs-container">
-                    <div class="billing-tabs-new">
-                        <button class="tab-btn-new ${this.currentTab === 'invoices' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('invoices')">
-                            <span class="tab-icon">📄</span>
-                            <span class="tab-label">Faktúry</span>
-                            <span class="tab-count">${invoices.length}</span>
+
+                <!-- Tabs -->
+                <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin:16px 0; flex-wrap:wrap;" class="adl-billing-tabs">
+                    ${[
+                        ['invoices', 'Faktúry', invoices.length],
+                        ['proformas', 'Zálohové', proformas.length],
+                        ['quotes', 'Ponuky', this.quotes.length],
+                        ['orders', 'Objednávky', this.orders.length]
+                    ].map(([k, l, c]) => `
+                        <button onclick="BillingModule.switchTab('${k}')" class="tab-btn-new ${tab===k?'active':''}" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:${tab===k?'600':'500'}; color:${tab===k?'var(--ink)':'var(--ink-sub)'}; background:${tab===k?'var(--surface)':'transparent'}; box-shadow:${tab===k?'0 1px 2px rgba(0,0,0,.05)':'none'}; border:0; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                            ${l}
+                            <span class="adl-chip adl-chip-sm ${tab===k?'adl-chip-ink':''}">${c}</span>
                         </button>
-                        <button class="tab-btn-new ${this.currentTab === 'proformas' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('proformas')">
-                            <span class="tab-icon">📋</span>
-                            <span class="tab-label">Zálohové</span>
-                            <span class="tab-count">${proformas.length}</span>
-                        </button>
-                        <button class="tab-btn-new ${this.currentTab === 'quotes' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('quotes')">
-                            <span class="tab-icon">📝</span>
-                            <span class="tab-label">Ponuky</span>
-                            <span class="tab-count">${this.quotes.length}</span>
-                        </button>
-                        <button class="tab-btn-new ${this.currentTab === 'orders' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('orders')">
-                            <span class="tab-icon">🛒</span>
-                            <span class="tab-label">Objednávky</span>
-                            <span class="tab-count">${this.orders.length}</span>
-                        </button>
-                    </div>
+                    `).join('')}
                 </div>
-                
+
                 <!-- Content -->
-                <div class="billing-content-area" id="billing-content">
+                <div id="billing-content">
                     ${this.renderTabContent()}
                 </div>
             </div>
-            
+
             ${this.renderStyles()}
         `;
-        
-        // Inicializácia dropdown
+
         this.initDropdowns();
     },
 
