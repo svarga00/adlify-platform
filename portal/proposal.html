@@ -417,12 +417,107 @@
             margin-bottom: 0.5rem;
         }
 
+        /* Section heading */
+        .section-title { font-size: 1.5rem; font-weight: 700; margin: 2.5rem 0 1rem; display: flex; align-items: center; gap: 0.6rem; }
+        .section-subtitle { color: #64748b; margin-bottom: 1rem; font-size: 0.95rem; }
+
+        /* Business analysis */
+        .insight-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem; }
+        .insight-box { padding: 1rem 1.25rem; border-radius: 12px; border: 1px solid #e2e8f0; background: #fafafa; }
+        .insight-box h4 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 0.5rem; }
+        .insight-box ul { list-style: none; padding: 0; }
+        .insight-box li { padding: 0.4rem 0; border-bottom: 1px dashed #e2e8f0; font-size: 0.9rem; }
+        .insight-box li:last-child { border-bottom: none; }
+        .insight-box.positive { background: #ecfdf5; border-color: #a7f3d0; }
+        .insight-box.warning { background: #fef3c7; border-color: #fde68a; }
+
+        /* Research: keywords */
+        .keyword-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .keyword-table th { text-align: left; padding: 0.75rem; background: #f8fafc; color: #64748b; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+        .keyword-table td { padding: 0.65rem 0.75rem; border-top: 1px solid #f1f5f9; }
+        .keyword-table tr:hover td { background: #fafafa; }
+        .kw-volume-bar { display: inline-block; height: 6px; background: linear-gradient(90deg, #f97316, #ec4899); border-radius: 3px; vertical-align: middle; margin-right: 0.5rem; }
+
+        /* Research: competitors */
+        .competitors-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+        .competitor-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.9rem; }
+        .competitor-card .domain { font-weight: 600; color: #1e293b; display: flex; justify-content: space-between; align-items: center; }
+        .competitor-card .paid-badge { background: #fef3c7; color: #92400e; font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 4px; }
+        .competitor-card .title { color: #64748b; font-size: 0.8rem; margin-top: 0.4rem; line-height: 1.35; }
+
+        /* Budget breakdown */
+        .budget-bar { display: flex; height: 28px; border-radius: 8px; overflow: hidden; margin: 1rem 0; }
+        .budget-segment { display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: 600; }
+        .budget-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem; }
+        .budget-legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+        .budget-legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+        .budget-campaigns { margin-top: 1rem; }
+        .budget-campaign-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px dashed #e2e8f0; font-size: 0.9rem; }
+        .budget-campaign-row:last-child { border-bottom: none; }
+
+        /* Expected results timeline */
+        .results-timeline-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+        .results-period { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; text-align: center; }
+        .results-period.day-180 { background: linear-gradient(135deg, #fef3e2, #fce7f3); border: none; }
+        .results-period h4 { font-size: 0.85rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+        .results-period .metric { display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.9rem; border-bottom: 1px dashed #e2e8f0; }
+        .results-period .metric:last-child { border-bottom: none; }
+        .results-period .metric strong { color: #1e293b; }
+
+        /* Timeline phases */
+        .timeline-phases { position: relative; padding-left: 1.5rem; margin-top: 1rem; }
+        .timeline-phases::before { content: ''; position: absolute; left: 0.4rem; top: 0.5rem; bottom: 0.5rem; width: 2px; background: linear-gradient(180deg, #f97316, #ec4899); }
+        .timeline-phase { position: relative; padding-bottom: 1.25rem; }
+        .timeline-phase::before { content: ''; position: absolute; left: -1.4rem; top: 0.4rem; width: 14px; height: 14px; border-radius: 50%; background: white; border: 3px solid #f97316; }
+        .timeline-phase h4 { font-size: 1rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .timeline-phase .duration { color: #64748b; font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .timeline-phase ul { list-style: disc; margin-left: 1.1rem; font-size: 0.9rem; color: #334155; }
+        .timeline-phase ul li { padding: 0.15rem 0; }
+
+        /* Next steps */
+        .next-steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+        .next-step-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; }
+        .next-step-box h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+        .next-step-box ul { list-style: none; padding: 0; }
+        .next-step-box li { padding: 0.4rem 0; font-size: 0.88rem; border-bottom: 1px dashed #e2e8f0; display: flex; gap: 0.5rem; align-items: start; }
+        .next-step-box li:before { content: '✓'; color: #10b981; font-weight: 700; }
+        .next-step-box li:last-child { border-bottom: none; }
+
+        /* Campaign expand/collapse */
+        .campaign-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+        .campaign-meta-item { background: white; border-radius: 8px; padding: 0.75rem; }
+        .campaign-rationale { background: #eff6ff; border-left: 3px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.9rem; margin: 0.75rem 0; color: #1e3a8a; }
+        .campaign-toggle { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.85rem; color: #64748b; margin-top: 0.75rem; font-weight: 500; }
+        .campaign-toggle:hover { background: #f8fafc; }
+        .ad-groups-container { margin-top: 1rem; display: none; }
+        .ad-groups-container.expanded { display: block; }
+        .ad-group-block { background: white; border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; border: 1px solid #e2e8f0; }
+        .ad-group-block h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .ad-group-theme { color: #64748b; font-size: 0.85rem; margin-bottom: 0.6rem; }
+        .ad-group-keywords { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
+        .ad-group-keywords .kw-tag { background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.6rem; border-radius: 50px; font-size: 0.75rem; }
+        .ad-group-keywords .kw-tag.neg { background: #fee2e2; color: #991b1b; }
+
+        /* Ad preview - Meta style */
+        .ad-preview.meta { border-top: 3px solid #1877f2; }
+        .ad-preview.meta .ad-headline { color: #1e293b; text-decoration: none; font-weight: 600; }
+        .ad-preview.meta .ad-url { color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .ad-preview.meta .meta-cta { background: #1877f2; color: white; display: inline-block; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; margin-top: 0.5rem; }
+
+        /* Multi ad headlines display */
+        .ad-multi-headlines { display: flex; flex-direction: column; gap: 0.25rem; }
+        .ad-multi-headlines .variant { padding: 0.3rem 0.5rem; background: #fafafa; border-radius: 4px; font-size: 0.85rem; }
+
         /* Responsive */
         @media (max-width: 768px) {
             .summary-grid { grid-template-columns: 1fr; }
             .campaign-details { grid-template-columns: 1fr; }
             .results-grid { grid-template-columns: repeat(2, 1fr); }
             .action-buttons { flex-direction: column; }
+            .insight-grid { grid-template-columns: 1fr; }
+            .results-timeline-grid { grid-template-columns: 1fr; }
+            .next-steps-grid { grid-template-columns: 1fr; }
+            .main { padding: 1rem; }
         }
     </style>
 </head>
@@ -570,8 +665,8 @@
             document.getElementById('main-content').innerHTML = `
                 <!-- Hero -->
                 <div class="hero">
-                    <h1>🎯 Návrh marketingovej kampane</h1>
-                    <p>Pre ${client?.company_name || 'vašu firmu'}</p>
+                    <h1>Návrh marketingovej kampane</h1>
+                    <p>Pripravili sme pre ${client?.company_name || 'vašu firmu'} obsiahly strategický návrh</p>
                     <div class="status-badge status-${project.status}">
                         ${statusLabels[project.status] || project.status}
                     </div>
@@ -596,26 +691,25 @@
                     </div>
                 </div>
 
-                ${project.strategy_summary ? `
-                    <div class="card">
-                        <div class="card-header">
-                            <h2>📋 Stratégia</h2>
-                        </div>
-                        <div class="card-body">
-                            <p style="line-height: 1.6;">${project.strategy_summary}</p>
-                        </div>
-                    </div>
-                ` : ''}
+                ${renderExecutiveSummary(project)}
+                ${renderBusinessAnalysis(project.business_analysis)}
+                ${renderResearch(project.research_data)}
 
                 <!-- Campaigns -->
                 <div class="card">
                     <div class="card-header">
                         <h2>📢 Navrhované kampane</h2>
+                        <span style="color: #64748b; font-size: 0.85rem;">${campaigns.length} kampaní · ${totalAds} reklám</span>
                     </div>
                     <div class="card-body">
-                        ${campaigns.map(c => renderCampaign(c)).join('')}
+                        ${campaigns.map((c, i) => renderCampaign(c, i)).join('')}
                     </div>
                 </div>
+
+                ${renderBudgetBreakdown(project.budget_breakdown, campaigns)}
+                ${renderExpectedResults(project.expected_results)}
+                ${renderTimeline(project.timeline)}
+                ${renderNextSteps(project.next_steps)}
 
                 <!-- Actions -->
                 ${isEditable ? `
@@ -651,7 +745,341 @@
             `;
         }
 
-        function renderCampaign(campaign) {
+        // ============ NEW RENDER HELPERS ============
+
+        function renderExecutiveSummary(project) {
+            if (!project.strategy_summary) return '';
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🎯 Naša stratégia</h2>
+                    </div>
+                    <div class="card-body">
+                        <p style="line-height: 1.7; font-size: 1rem;">${project.strategy_summary}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBusinessAnalysis(ba) {
+            if (!ba || typeof ba !== 'object') return '';
+            const { summary, key_insights = [], challenges = [], opportunities = [] } = ba;
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💼 Analýza Vášho biznisu</h2>
+                    </div>
+                    <div class="card-body">
+                        ${summary ? `<p style="line-height: 1.6; margin-bottom: 1rem;">${summary}</p>` : ''}
+                        <div class="insight-grid">
+                            ${key_insights.length ? `
+                                <div class="insight-box">
+                                    <h4>🔍 Kľúčové zistenia</h4>
+                                    <ul>${key_insights.map(i => `<li>${i}</li>`).join('')}</ul>
+                                </div>` : ''}
+                            ${opportunities.length ? `
+                                <div class="insight-box positive">
+                                    <h4>🚀 Príležitosti</h4>
+                                    <ul>${opportunities.map(o => `<li>${o}</li>`).join('')}</ul>
+                                </div>` : ''}
+                            ${challenges.length ? `
+                                <div class="insight-box warning">
+                                    <h4>⚠️ Výzvy na vyriešenie</h4>
+                                    <ul>${challenges.map(c => `<li>${c}</li>`).join('')}</ul>
+                                </div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderResearch(rd) {
+            if (!rd || typeof rd !== 'object') return '';
+            const keywords = (rd.keywords || []).slice(0, 20);
+            const competitors = rd.competitors || [];
+            const insights = rd.insights || {};
+            const maxVol = Math.max(1, ...keywords.map(k => k.search_volume || 0));
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🔎 Research a analýza trhu</h2>
+                    </div>
+                    <div class="card-body">
+                        ${insights.market_analysis ? `
+                            <div style="margin-bottom: 1.25rem;">
+                                <div class="detail-label">Analýza trhu</div>
+                                <p style="line-height: 1.6;">${insights.market_analysis}</p>
+                            </div>
+                        ` : ''}
+                        ${insights.competitor_analysis ? `
+                            <div style="margin-bottom: 1.25rem;">
+                                <div class="detail-label">Analýza konkurencie</div>
+                                <p style="line-height: 1.6;">${insights.competitor_analysis}</p>
+                            </div>
+                        ` : ''}
+                        ${insights.keyword_strategy ? `
+                            <div style="margin-bottom: 1.25rem;">
+                                <div class="detail-label">Stratégia kľúčových slov</div>
+                                <p style="line-height: 1.6;">${insights.keyword_strategy}</p>
+                            </div>
+                        ` : ''}
+
+                        ${keywords.length > 0 ? `
+                            <h3 style="font-size: 1rem; margin: 1.5rem 0 0.75rem;">Top kľúčové slová</h3>
+                            <div style="overflow-x: auto;">
+                            <table class="keyword-table">
+                                <thead>
+                                    <tr>
+                                        <th>Kľúčové slovo</th>
+                                        <th>Hľadanosť/mes</th>
+                                        <th>CPC</th>
+                                        <th>Konkurencia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${keywords.map(k => {
+                                        const widthPct = Math.round(((k.search_volume || 0) / maxVol) * 100);
+                                        return `<tr>
+                                            <td><strong>${k.keyword}</strong></td>
+                                            <td><span class="kw-volume-bar" style="width: ${Math.max(10, widthPct)}px;"></span>${formatNumber(k.search_volume || 0)}</td>
+                                            <td>${(k.cpc || 0).toFixed(2)}€</td>
+                                            <td>${k.competition || '—'}</td>
+                                        </tr>`;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                            </div>
+                        ` : ''}
+
+                        ${competitors.length > 0 ? `
+                            <h3 style="font-size: 1rem; margin: 1.5rem 0 0.75rem;">Konkurencia na trhu</h3>
+                            <div class="competitors-grid">
+                                ${competitors.map(c => `
+                                    <div class="competitor-card">
+                                        <div class="domain">
+                                            <span>${c.domain || '—'}</span>
+                                            ${c.is_paid ? '<span class="paid-badge">PPC</span>' : ''}
+                                        </div>
+                                        ${c.titles && c.titles[0] ? `<div class="title">${c.titles[0]}</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+
+                        ${insights.recommended_approach ? `
+                            <div style="margin-top: 1.5rem; padding: 1rem 1.25rem; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 0 8px 8px 0;">
+                                <div class="detail-label" style="color: #1e3a8a;">Náš odporúčaný prístup</div>
+                                <p style="line-height: 1.6; color: #1e3a8a; margin-top: 0.25rem;">${insights.recommended_approach}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBudgetBreakdown(bb, campaigns) {
+            if (!bb && (!campaigns || campaigns.length === 0)) return '';
+            const byPlatform = bb?.by_platform || [];
+            const byCampaign = bb?.by_campaign || campaigns.map(c => ({ campaign_name: c.name, monthly: (c.budget_daily || 0) * 30 }));
+            const total = bb?.total_monthly || byCampaign.reduce((s, c) => s + (c.monthly || 0), 0);
+            const platformColors = { google: '#3b82f6', meta: '#8b5cf6', tiktok: '#ec4899', linkedin: '#0ea5e9' };
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💰 Rozdelenie rozpočtu</h2>
+                        <strong style="color: #059669;">${formatCurrency(total)}/mes</strong>
+                    </div>
+                    <div class="card-body">
+                        ${byPlatform.length > 0 ? `
+                            <div class="budget-bar">
+                                ${byPlatform.map(p => `
+                                    <div class="budget-segment" style="width: ${p.percentage || 0}%; background: ${platformColors[p.platform] || '#64748b'};">
+                                        ${(p.percentage || 0) >= 10 ? `${p.percentage}%` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="budget-legend">
+                                ${byPlatform.map(p => `
+                                    <div class="budget-legend-item">
+                                        <span class="budget-legend-swatch" style="background: ${platformColors[p.platform] || '#64748b'};"></span>
+                                        <strong>${p.platform === 'google' ? 'Google Ads' : p.platform === 'meta' ? 'Meta Ads' : p.platform}</strong>
+                                        · ${formatCurrency(p.monthly)}/mes
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+
+                        <div class="budget-campaigns">
+                            <h3 style="font-size: 0.95rem; margin: 1.25rem 0 0.5rem;">Rozdelenie po kampaniach</h3>
+                            ${byCampaign.map(c => `
+                                <div class="budget-campaign-row">
+                                    <span>${c.campaign_name}</span>
+                                    <strong>${formatCurrency(c.monthly)}/mes</strong>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        ${bb?.reasoning ? `
+                            <div style="margin-top: 1rem; padding: 0.75rem 1rem; background: #f8fafc; border-radius: 8px; font-size: 0.9rem; color: #334155; line-height: 1.5;">
+                                <strong>Prečo takto:</strong> ${bb.reasoning}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderExpectedResults(er) {
+            if (!er || typeof er !== 'object') return '';
+            const periods = [
+                { key: 'day_30', label: 'Po 30 dňoch', data: er.day_30, cls: '' },
+                { key: 'day_90', label: 'Po 90 dňoch', data: er.day_90, cls: '' },
+                { key: 'day_180', label: 'Po 180 dňoch', data: er.day_180, cls: 'day-180' }
+            ].filter(p => p.data && typeof p.data === 'object');
+            if (periods.length === 0) return '';
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📈 Očakávané výsledky</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="results-timeline-grid">
+                            ${periods.map(p => `
+                                <div class="results-period ${p.cls}">
+                                    <h4>${p.label}</h4>
+                                    ${p.data.impressions != null ? `<div class="metric"><span>Zobrazenia</span><strong>${formatNumber(p.data.impressions)}</strong></div>` : ''}
+                                    ${p.data.clicks != null ? `<div class="metric"><span>Kliknutia</span><strong>${formatNumber(p.data.clicks)}</strong></div>` : ''}
+                                    ${p.data.conversions != null ? `<div class="metric"><span>Konverzie</span><strong>${formatNumber(p.data.conversions)}</strong></div>` : ''}
+                                    ${p.data.cpa != null ? `<div class="metric"><span>CPA</span><strong>${formatCurrency(p.data.cpa)}</strong></div>` : ''}
+                                    ${p.data.roas != null ? `<div class="metric"><span>ROAS</span><strong>${p.data.roas}x</strong></div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                        ${er.notes ? `
+                            <p style="margin-top: 1rem; color: #64748b; font-size: 0.9rem; line-height: 1.5;">${er.notes}</p>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTimeline(tl) {
+            if (!tl || !tl.phases || !Array.isArray(tl.phases) || tl.phases.length === 0) return '';
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>⏱️ Časový harmonogram</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="timeline-phases">
+                            ${tl.phases.map(p => `
+                                <div class="timeline-phase">
+                                    <h4>${p.name}</h4>
+                                    <div class="duration">${p.duration_days} dní</div>
+                                    ${p.activities && p.activities.length ? `
+                                        <ul>${p.activities.map(a => `<li>${a}</li>`).join('')}</ul>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderNextSteps(ns) {
+            if (!ns || typeof ns !== 'object') return '';
+            const { client_needs_to_provide = [], our_next_actions = [], launch_readiness = [] } = ns;
+            if (client_needs_to_provide.length === 0 && our_next_actions.length === 0 && launch_readiness.length === 0) return '';
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📋 Ďalšie kroky</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="next-steps-grid">
+                            ${client_needs_to_provide.length ? `
+                                <div class="next-step-box">
+                                    <h4>👤 Potrebujeme od Vás</h4>
+                                    <ul>${client_needs_to_provide.map(i => `<li>${i}</li>`).join('')}</ul>
+                                </div>` : ''}
+                            ${our_next_actions.length ? `
+                                <div class="next-step-box">
+                                    <h4>🎯 My spravíme</h4>
+                                    <ul>${our_next_actions.map(i => `<li>${i}</li>`).join('')}</ul>
+                                </div>` : ''}
+                            ${launch_readiness.length ? `
+                                <div class="next-step-box">
+                                    <h4>🚀 Pred spustením</h4>
+                                    <ul>${launch_readiness.map(i => `<li>${i}</li>`).join('')}</ul>
+                                </div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleCampaignAdGroups(idx) {
+            const el = document.getElementById(`campaign-ads-${idx}`);
+            const btn = document.getElementById(`campaign-toggle-${idx}`);
+            if (!el) return;
+            if (el.classList.contains('expanded')) {
+                el.classList.remove('expanded');
+                if (btn) btn.innerHTML = '▼ Zobraziť všetky reklamné skupiny a reklamy';
+            } else {
+                el.classList.add('expanded');
+                if (btn) btn.innerHTML = '▲ Skryť detail reklamných skupín';
+            }
+        }
+
+        function renderAdPreview(ad, platform, companyName) {
+            const isMeta = platform === 'meta' || (platform && platform.includes('meta'));
+            const allHeadlines = (ad.headlines || []).filter(Boolean);
+            const allDescriptions = (ad.descriptions || []).filter(Boolean);
+            const domain = (companyName || 'firma').toLowerCase().replace(/\s+/g, '-');
+            if (isMeta) {
+                return `
+                    <div class="ad-preview meta">
+                        <div class="ad-preview-header">📱 Meta Ads (Facebook / Instagram)</div>
+                        <div class="ad-url">${companyName || 'Adlify'} · Sponzorované</div>
+                        ${allHeadlines.length ? `
+                            <div class="ad-multi-headlines" style="margin-top: 0.5rem;">
+                                ${allHeadlines.map(h => `<div class="variant"><strong>${h}</strong></div>`).join('')}
+                            </div>` : ''}
+                        ${allDescriptions.length ? `
+                            <div style="margin-top: 0.5rem; color: #4d5156; font-size: 0.9rem; line-height: 1.4;">
+                                ${allDescriptions.map(d => `<div style="padding: 0.2rem 0;">${d}</div>`).join('')}
+                            </div>` : ''}
+                        ${ad.call_to_action ? `<div class="meta-cta">${ad.call_to_action}</div>` : ''}
+                    </div>
+                `;
+            }
+            return `
+                <div class="ad-preview">
+                    <div class="ad-preview-header">🔍 Google Search Ad</div>
+                    ${allHeadlines.length > 0 ? `
+                        <div class="ad-headline">${allHeadlines[0]}</div>
+                        ${allHeadlines.length > 1 ? `
+                            <div class="ad-multi-headlines" style="margin: 0.25rem 0;">
+                                ${allHeadlines.slice(1).map(h => `<div class="variant">${h}</div>`).join('')}
+                            </div>
+                        ` : ''}
+                    ` : ''}
+                    <div class="ad-url">adlify.eu › ${domain}</div>
+                    ${allDescriptions.length > 0 ? `
+                        <div class="ad-description">${allDescriptions[0]}</div>
+                        ${allDescriptions.length > 1 ? `
+                            <div class="ad-multi-headlines" style="margin-top: 0.25rem;">
+                                ${allDescriptions.slice(1).map(d => `<div class="variant">${d}</div>`).join('')}
+                            </div>
+                        ` : ''}
+                    ` : ''}
+                    ${ad.call_to_action ? `<div style="margin-top: 0.5rem; font-size: 0.85rem; color: #1a73e8; font-weight: 500;">${ad.call_to_action}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function renderCampaign(campaign, idx) {
             const platformLabels = {
                 'google': 'Google Ads',
                 'meta': 'Meta Ads',
@@ -660,17 +1088,22 @@
             };
 
             const estimated = campaign.metrics?.estimated || {};
+            const rationale = campaign.metrics?.rationale;
+            const adGroups = campaign.ad_groups || [];
+            const totalAdsInCampaign = adGroups.reduce((s, g) => s + (g.ads?.length || 0), 0);
+            const isMeta = campaign.platform === 'meta' || campaign.platform?.includes('meta');
 
             return `
                 <div class="campaign-card">
                     <div class="campaign-header">
                         <div class="campaign-title">
-                            <span style="font-size: 1.5rem;">${campaign.platform?.includes('google') ? '🔍' : '📱'}</span>
+                            <span style="font-size: 1.5rem;">${isMeta ? '📱' : '🔍'}</span>
                             <div>
                                 <h3>${campaign.name}</h3>
-                                <span class="platform-badge platform-${campaign.platform?.includes('google') ? 'google' : 'meta'}">
+                                <span class="platform-badge platform-${isMeta ? 'meta' : 'google'}">
                                     ${platformLabels[campaign.platform] || campaign.platform}
                                 </span>
+                                ${campaign.campaign_type ? `<span style="color: #64748b; font-size: 0.75rem; margin-left: 0.4rem;">· ${campaign.campaign_type}</span>` : ''}
                             </div>
                         </div>
                         <div class="campaign-budget">
@@ -678,73 +1111,79 @@
                         </div>
                     </div>
 
-                    <div class="campaign-details">
-                        <div class="detail-group">
+                    ${rationale ? `<div class="campaign-rationale">💡 ${rationale}</div>` : ''}
+
+                    <div class="campaign-meta">
+                        <div class="campaign-meta-item">
                             <div class="detail-label">Cieľ</div>
-                            <div class="detail-value">${campaign.objective || 'Konverzie'}</div>
+                            <div class="detail-value"><strong>${campaign.objective || 'Konverzie'}</strong></div>
                         </div>
-                        <div class="detail-group">
-                            <div class="detail-label">Cielenie</div>
-                            <div class="detail-value">
-                                ${campaign.targeting?.locations?.join(', ') || 'Slovensko'}<br>
-                                <span style="color: #64748b; font-size: 0.85rem;">
-                                    Vek: ${campaign.targeting?.age_from || 18} - ${campaign.targeting?.age_to || 65}
-                                </span>
-                            </div>
+                        <div class="campaign-meta-item">
+                            <div class="detail-label">Lokácie</div>
+                            <div class="detail-value">${(campaign.targeting?.locations || ['Slovensko']).join(', ')}</div>
+                        </div>
+                        <div class="campaign-meta-item">
+                            <div class="detail-label">Vek</div>
+                            <div class="detail-value">${campaign.targeting?.age_from || 18} - ${campaign.targeting?.age_to || 65}</div>
+                        </div>
+                        <div class="campaign-meta-item">
+                            <div class="detail-label">Reklamné skupiny</div>
+                            <div class="detail-value"><strong>${adGroups.length}</strong> · ${totalAdsInCampaign} reklám</div>
                         </div>
                     </div>
 
                     ${campaign.targeting?.keywords?.length > 0 ? `
                         <div style="margin-top: 1rem;">
-                            <div class="detail-label">Kľúčové slová</div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
-                                ${campaign.targeting.keywords.slice(0, 10).map(kw => `
-                                    <span style="background: #e0e7ff; color: #4338ca; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.8rem;">${kw}</span>
-                                `).join('')}
-                                ${campaign.targeting.keywords.length > 10 ? `<span style="color: #64748b; font-size: 0.8rem;">+${campaign.targeting.keywords.length - 10} ďalších</span>` : ''}
+                            <div class="detail-label">Kľúčové slová kampane</div>
+                            <div class="ad-group-keywords">
+                                ${campaign.targeting.keywords.slice(0, 12).map(kw => `<span class="kw-tag">${kw}</span>`).join('')}
+                                ${campaign.targeting.keywords.length > 12 ? `<span style="color: #64748b; font-size: 0.8rem; padding: 0.2rem 0.6rem;">+${campaign.targeting.keywords.length - 12}</span>` : ''}
                             </div>
                         </div>
                     ` : ''}
 
-                    ${(campaign.ad_groups || []).length > 0 ? `
-                        ${campaign.ad_groups.slice(0, 2).map(group => `
-                            ${(group.ads || []).slice(0, 1).map(ad => `
-                                <div class="ad-preview">
-                                    <div class="ad-preview-header">📝 Ukážka reklamy - ${group.name}</div>
-                                    <div class="ad-headline">${(ad.headlines || [])[0] || 'Nadpis reklamy'}</div>
-                                    <div class="ad-url">adlify.eu › ${client?.company_name?.toLowerCase().replace(/\s+/g, '-') || 'firma'}</div>
-                                    <div class="ad-description">${(ad.descriptions || [])[0] || 'Popis reklamy'}</div>
-                                </div>
-                            `).join('')}
-                        `).join('')}
+                    ${campaign.targeting?.interests?.length > 0 ? `
+                        <div style="margin-top: 0.75rem;">
+                            <div class="detail-label">Záujmy (Meta)</div>
+                            <div class="ad-group-keywords">
+                                ${campaign.targeting.interests.slice(0, 10).map(i => `<span class="kw-tag" style="background: #fef3c7; color: #92400e;">${i}</span>`).join('')}
+                            </div>
+                        </div>
                     ` : ''}
 
                     ${Object.keys(estimated).length > 0 ? `
-                        <div class="results-grid">
-                            ${estimated.impressions ? `
-                                <div class="result-item">
-                                    <div class="result-value">${formatNumber(estimated.impressions)}</div>
-                                    <div class="result-label">Zobrazení</div>
+                        <div class="results-grid" style="margin-top: 1.25rem;">
+                            ${estimated.impressions ? `<div class="result-item"><div class="result-value">${formatNumber(estimated.impressions)}</div><div class="result-label">Zobrazenia</div></div>` : ''}
+                            ${estimated.clicks ? `<div class="result-item"><div class="result-value">${formatNumber(estimated.clicks)}</div><div class="result-label">Kliknutia</div></div>` : ''}
+                            ${estimated.conversions ? `<div class="result-item"><div class="result-value">${formatNumber(estimated.conversions)}</div><div class="result-label">Konverzie</div></div>` : ''}
+                            ${estimated.cpa ? `<div class="result-item"><div class="result-value">${formatCurrency(estimated.cpa)}</div><div class="result-label">CPA</div></div>` : ''}
+                        </div>
+                    ` : ''}
+
+                    ${adGroups.length > 0 ? `
+                        <button id="campaign-toggle-${idx}" class="campaign-toggle" onclick="toggleCampaignAdGroups(${idx})">
+                            ▼ Zobraziť všetky reklamné skupiny a reklamy
+                        </button>
+                        <div id="campaign-ads-${idx}" class="ad-groups-container">
+                            ${adGroups.map(g => `
+                                <div class="ad-group-block">
+                                    <h4>📁 ${g.name || 'Reklamná skupina'}</h4>
+                                    ${g.theme ? `<div class="ad-group-theme">${g.theme}</div>` : ''}
+                                    ${g.keywords?.length ? `
+                                        <div class="detail-label" style="margin-top: 0.5rem;">Kľúčové slová</div>
+                                        <div class="ad-group-keywords">
+                                            ${g.keywords.map(kw => `<span class="kw-tag">${kw}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
+                                    ${g.negative_keywords?.length ? `
+                                        <div class="detail-label" style="margin-top: 0.5rem;">Negatívne kľúčové slová</div>
+                                        <div class="ad-group-keywords">
+                                            ${g.negative_keywords.map(kw => `<span class="kw-tag neg">${kw}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
+                                    ${(g.ads || []).map(ad => renderAdPreview(ad, campaign.platform, client?.company_name)).join('')}
                                 </div>
-                            ` : ''}
-                            ${estimated.clicks ? `
-                                <div class="result-item">
-                                    <div class="result-value">${formatNumber(estimated.clicks)}</div>
-                                    <div class="result-label">Kliknutí</div>
-                                </div>
-                            ` : ''}
-                            ${estimated.conversions ? `
-                                <div class="result-item">
-                                    <div class="result-value">${formatNumber(estimated.conversions)}</div>
-                                    <div class="result-label">Konverzií</div>
-                                </div>
-                            ` : ''}
-                            ${estimated.cpa ? `
-                                <div class="result-item">
-                                    <div class="result-value">${estimated.cpa}</div>
-                                    <div class="result-label">CPA</div>
-                                </div>
-                            ` : ''}
+                            `).join('')}
                         </div>
                     ` : ''}
                 </div>
