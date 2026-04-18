@@ -222,7 +222,7 @@ const SettingsModule = {
         
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">🎨 Brand & Logo</h2>
+                <h2 class="text-lg font-semibold mb-4">Brand &amp; Logo</h2>
                 <p class="text-sm text-gray-500 mb-6">Nastavte logá a farby, ktoré sa použijú v celej aplikácii, emailoch a dokumentoch.</p>
                 
                 <form id="brand-form" onsubmit="SettingsModule.saveBrandSettings(event)" class="space-y-6">
@@ -272,7 +272,7 @@ const SettingsModule = {
                     <hr class="my-6">
                     
                     <!-- Farby -->
-                    <h3 class="font-medium mb-4">🎨 Brand farby</h3>
+                    <h3 class="font-medium mb-4">Brand farby</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium mb-2">Primárna farba</label>
@@ -308,7 +308,7 @@ const SettingsModule = {
                     
                     <div class="flex justify-end pt-4">
                         <button type="submit" class="btn-primary">
-                            💾 Uložiť zmeny
+                            Uložiť zmeny
                         </button>
                     </div>
                 </form>
@@ -454,11 +454,11 @@ const SettingsModule = {
             <div class="settings-card">
                 <div class="flex justify-between items-center mb-4">
                     <div>
-                        <h2 class="text-lg font-semibold">📬 Emailové schránky</h2>
+                        <h2 class="text-lg font-semibold">Emailové schránky</h2>
                         <p class="text-sm text-gray-500">Spravujte emailové účty pre odosielanie a príjem správ.</p>
                     </div>
                     <button onclick="SettingsModule.showAddAccountModal()" class="btn-primary">
-                        ➕ Pridať schránku
+                        Pridať schránku
                     </button>
                 </div>
                 
@@ -468,7 +468,7 @@ const SettingsModule = {
                             <div class="text-4xl mb-2">📭</div>
                             <p>Žiadne emailové schránky</p>
                             <button onclick="SettingsModule.showAddAccountModal()" class="btn-secondary mt-4">
-                                ➕ Pridať prvú schránku
+                                Pridať prvú schránku
                             </button>
                         </div>
                     ` : this.emailAccounts.map(acc => this.renderAccountCard(acc)).join('')}
@@ -661,7 +661,7 @@ const SettingsModule = {
                         Zrušiť
                     </button>
                     <button type="submit" class="btn-primary">
-                        💾 ${isEdit ? 'Uložiť zmeny' : 'Pridať schránku'}
+                        ${isEdit ? "Uložiť zmeny" : "Pridať schránku"}
                     </button>
                 </div>
             </form>
@@ -784,11 +784,11 @@ const SettingsModule = {
             <div class="settings-card">
                 <div class="flex justify-between items-center mb-4">
                     <div>
-                        <h2 class="text-lg font-semibold">✍️ Email podpisy</h2>
+                        <h2 class="text-lg font-semibold">Email podpisy</h2>
                         <p class="text-sm text-gray-500">Vytvorte si vlastné podpisy pre emaily.</p>
                     </div>
                     <button onclick="SettingsModule.addSignature()" class="btn-primary">
-                        ➕ Nový podpis
+                        Nový podpis
                     </button>
                 </div>
                 
@@ -839,17 +839,15 @@ const SettingsModule = {
                                         🗑️ Zmazať
                                     </button>
                                     <button type="submit" class="btn-primary">
-                                        💾 Uložiť podpis
+                                        Uložiť podpis
                                     </button>
                                 </div>
                             </form>
                         ` : `
-                            <div class="text-center py-12 text-gray-500">
-                                <div class="text-4xl mb-2">✍️</div>
-                                <p>Vytvorte si prvý email podpis</p>
-                                <button onclick="SettingsModule.addSignature()" class="btn-primary mt-4">
-                                    ➕ Vytvoriť podpis
-                                </button>
+                            <div style="padding:48px 24px; text-align:center; color:var(--ink-sub);">
+                                <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Edit({size:22})}</div>
+                                <p style="margin:0 0 12px;">Vytvorte si prvý email podpis</p>
+                                <button onclick="SettingsModule.addSignature()" class="adl-btn adl-btn-primary adl-btn-sm">${I.Plus({size:14})} Vytvoriť podpis</button>
                             </div>
                         `}
                     </div>
@@ -1023,7 +1021,7 @@ const SettingsModule = {
 
         return `
             <div class="settings-card mb-6">
-                <h2 class="text-lg font-semibold mb-1">📧 Nastavenia emailov</h2>
+                <h2 class="text-lg font-semibold mb-1">Nastavenia emailov</h2>
                 <p class="text-sm text-gray-500 mb-5">Tieto údaje sa zobrazia v päte každého odoslaného emailu. Logo a farby sa preberajú z Brand nastavení.</p>
                 
                 <form id="email-settings-form" onsubmit="SettingsModule.saveEmailSettings(event)" class="space-y-4">
@@ -1050,7 +1048,7 @@ const SettingsModule = {
                                class="w-full p-2.5 border rounded-lg text-sm" placeholder="Online marketing, ktorý funguje.">
                     </div>
                     <div class="flex justify-end pt-2">
-                        <button type="submit" class="btn-primary">💾 Uložiť</button>
+                        <button type="submit" class="btn-primary">Uložiť</button>
                     </div>
                 </form>
             </div>
@@ -1058,7 +1056,7 @@ const SettingsModule = {
             <div class="settings-card">
                 <div class="flex justify-between items-center mb-5">
                     <div>
-                        <h2 class="text-lg font-semibold mb-1">📝 Šablóny emailov</h2>
+                        <h2 class="text-lg font-semibold mb-1">Šablóny emailov</h2>
                         <p class="text-sm text-gray-500">Náhľad systémových šablón. Farby a logo sa menia v Brand nastaveniach.</p>
                     </div>
                     <button onclick="SettingsModule.refreshTemplatePreviews()" class="btn-secondary text-xs">🔄 Obnoviť</button>
@@ -1261,7 +1259,7 @@ const SettingsModule = {
                             <button onclick="SettingsModule.previewTemplateEdit('${templateId}')" 
                                     style="background:#f7f7f7;border:1px solid #ddd;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">👁️ Náhľad</button>
                             <button onclick="SettingsModule.saveTemplateOverride('${templateId}')" 
-                                    style="background:#FF6B35;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">💾 Uložiť</button>
+                                    style="background:#FF6B35;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Uložiť</button>
                         </div>
                     </div>
                 </div>
@@ -1373,7 +1371,7 @@ const SettingsModule = {
         const s = this.settings;
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">🏢 Firemné údaje</h2>
+                <h2 class="text-lg font-semibold mb-4">Firemné údaje</h2>
                 <p class="text-sm text-gray-500 mb-6">Tieto údaje sa použijú na faktúrach a v komunikácii.</p>
                 
                 <form id="company-form" onsubmit="SettingsModule.saveForm(event, 'company-form')" class="space-y-4">
@@ -1445,7 +1443,7 @@ const SettingsModule = {
                     </div>
                     
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="btn-primary">💾 Uložiť zmeny</button>
+                        <button type="submit" class="btn-primary">Uložiť zmeny</button>
                     </div>
                 </form>
             </div>
@@ -1455,7 +1453,7 @@ const SettingsModule = {
     renderBankingSettings() {
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">🏦 Bankové údaje</h2>
+                <h2 class="text-lg font-semibold mb-4">Bankové údaje</h2>
                 <p class="text-sm text-gray-500 mb-6">Údaje pre fakturáciu a platby.</p>
                 
                 <form id="banking-form" onsubmit="SettingsModule.saveForm(event, 'banking-form')" class="space-y-4">
@@ -1486,7 +1484,7 @@ const SettingsModule = {
                     </div>
                     
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="btn-primary">💾 Uložiť zmeny</button>
+                        <button type="submit" class="btn-primary">Uložiť zmeny</button>
                     </div>
                 </form>
             </div>
@@ -1496,7 +1494,7 @@ const SettingsModule = {
     renderInvoicingSettings() {
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">📄 Nastavenia fakturácie</h2>
+                <h2 class="text-lg font-semibold mb-4">Nastavenia fakturácie</h2>
                 <p class="text-sm text-gray-500 mb-6">Predvolené hodnoty pre nové faktúry.</p>
                 
                 <form id="invoicing-form" onsubmit="SettingsModule.saveForm(event, 'invoicing-form')" class="space-y-4">
@@ -1543,7 +1541,7 @@ const SettingsModule = {
                     </div>
                     
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="btn-primary">💾 Uložiť zmeny</button>
+                        <button type="submit" class="btn-primary">Uložiť zmeny</button>
                     </div>
                 </form>
             </div>
@@ -1602,31 +1600,61 @@ const SettingsModule = {
         return `
         <style>
         .settings-module { max-width: 1200px; }
-        
-        .tab-btn {
-            padding: 12px 20px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            font-size: 14px;
-            color: #64748b;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .tab-btn:hover { color: #1a1a2e; background: #f8fafc; }
-        .tab-btn.active { 
-            color: #f97316; 
-            border-bottom-color: #f97316; 
-            font-weight: 600;
-        }
-        
+
         .settings-card {
-            background: white;
-            border-radius: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
             padding: 24px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-shadow: var(--sh-sm);
         }
+        .settings-module input[type="text"],
+        .settings-module input[type="email"],
+        .settings-module input[type="url"],
+        .settings-module input[type="tel"],
+        .settings-module input[type="number"],
+        .settings-module input[type="password"],
+        .settings-module textarea,
+        .settings-module select {
+            font-family: inherit;
+            font-size: 13px;
+            border-radius: 10px !important;
+            border: 1px solid var(--border-strong) !important;
+            padding: 10px 12px !important;
+            background: var(--surface);
+            color: var(--ink);
+            transition: border-color .12s, box-shadow .12s;
+        }
+        .settings-module input:focus,
+        .settings-module textarea:focus,
+        .settings-module select:focus {
+            outline: none;
+            border-color: var(--brand-400) !important;
+            box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-500) 14%, transparent);
+        }
+        .settings-module .btn-primary,
+        .settings-module button[type="submit"].btn-primary {
+            background: var(--brand-500) !important;
+            color: #fff !important;
+            border: 1px solid var(--brand-500) !important;
+            padding: 10px 16px !important;
+            border-radius: 10px !important;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .settings-module .btn-primary:hover { background: var(--brand-600) !important; border-color: var(--brand-600) !important; }
+        .settings-module .btn-secondary {
+            background: var(--n-75) !important;
+            color: var(--ink) !important;
+            border: 1px solid transparent !important;
+            padding: 8px 14px !important;
+            border-radius: 9px !important;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .settings-module .btn-secondary:hover { background: var(--n-100) !important; }
         
         /* Logo upload */
         .logo-upload-box { text-align: center; }
