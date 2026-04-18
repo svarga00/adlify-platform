@@ -2346,7 +2346,7 @@ const CampaignProjectsModule = {
       return;
     }
     
-    if (!client.contact_email) {
+    if (!client.email) {
       Utils.toast('Klient nemá email', 'error');
       return;
     }
@@ -2365,7 +2365,7 @@ const CampaignProjectsModule = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: client.contact_email,
+          to: client.email,
           toName: client.contact_person || client.company_name,
           subject: `📊 Návrh kampane pre ${client.company_name} - Adlify`,
           htmlBody: htmlBody
@@ -2380,17 +2380,17 @@ const CampaignProjectsModule = {
           .from('campaign_projects')
           .update({ 
             proposal_sent_at: new Date().toISOString(),
-            proposal_sent_to: client.contact_email
+            proposal_sent_to: client.email
           })
           .eq('id', projectId);
         
-        Utils.toast(`📧 Email odoslaný na ${client.contact_email}`, 'success');
+        Utils.toast(`📧 Email odoslaný na ${client.email}`, 'success');
         
         // Vytvor notifikáciu
         await Database.client.from('notifications').insert({
           type: 'proposal_sent',
           title: '📧 Návrh odoslaný klientovi',
-          message: `Návrh pre ${client.company_name} bol odoslaný na ${client.contact_email}`,
+          message: `Návrh pre ${client.company_name} bol odoslaný na ${client.email}`,
           action_url: `#projects?id=${projectId}`,
           entity_type: 'project',
           entity_id: projectId

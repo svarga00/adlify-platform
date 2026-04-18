@@ -543,22 +543,13 @@
         });
         
         if (authError) throw authError;
-        
+
         console.log('Auth user created:', authData);
-        
-        // 2. Create user profile
-        const { error: profileError } = await db
-          .from('user_profiles')
-          .insert({
-            id: authData.user.id,
-            email: email,
-            full_name: name,
-            role: 'client'
-          });
-        
-        if (profileError) console.warn('Profile error:', profileError);
-        
-        // 3. Link user to client
+
+        // user_profiles sa vytvára automaticky cez on_auth_user_created trigger
+        // (handle_new_user v DB). Ak by sa nejaké pole zmenilo, update urobíme neskôr.
+
+        // Prepoj user na clienta
         const { error: linkError } = await db
           .from('client_users')
           .insert({
@@ -567,7 +558,7 @@
             role: 'owner',
             is_primary: true
           });
-        
+
         if (linkError) console.warn('Link error:', linkError);
         
         // 4. Update client status
