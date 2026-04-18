@@ -30,44 +30,34 @@ const TemplatesModule = {
     },
 
     async render(container) {
+        const type = this.currentType || 'all';
         container.innerHTML = `
-            <div class="templates-module">
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Šablóny</h1>
-                        <p class="subtitle">Email šablóny, texty kampaní a dokumenty</p>
+            <div class="adl templates-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Šablóny</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Email šablóny, texty kampaní a dokumenty</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="TemplatesModule.showCreateModal()">
-                            <span>+</span> Nová šablóna
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TemplatesModule.showCreateModal()">${I.Plus({size:14})} Nová šablóna</button>
                     </div>
                 </div>
 
                 <!-- Type Filter -->
-                <div class="type-filter">
-                    <button class="type-btn ${this.currentType === 'all' ? 'active' : ''}" onclick="TemplatesModule.setType('all')">
-                        Všetky
-                    </button>
-                    <button class="type-btn ${this.currentType === 'email' ? 'active' : ''}" onclick="TemplatesModule.setType('email')">
-                        📧 Emaily
-                    </button>
-                    <button class="type-btn ${this.currentType === 'ad_text' ? 'active' : ''}" onclick="TemplatesModule.setType('ad_text')">
-                        📢 Reklamy
-                    </button>
-                    <button class="type-btn ${this.currentType === 'proposal' ? 'active' : ''}" onclick="TemplatesModule.setType('proposal')">
-                        📄 Ponuky
-                    </button>
-                    <button class="type-btn ${this.currentType === 'other' ? 'active' : ''}" onclick="TemplatesModule.setType('other')">
-                        📋 Ostatné
-                    </button>
+                <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px; margin-bottom:16px; flex-wrap:wrap;">
+                    ${[
+                        ['all', 'Všetky'],
+                        ['email', 'Emaily'],
+                        ['ad_text', 'Reklamy'],
+                        ['proposal', 'Ponuky'],
+                        ['other', 'Ostatné']
+                    ].map(([k,l]) => `<button onclick="TemplatesModule.setType('${k}')" class="adl-btn adl-btn-sm ${type===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">${l}</button>`).join('')}
                 </div>
 
-                <div class="templates-content" id="templates-content">
-                    <div class="loading">Načítavam šablóny...</div>
+                <div id="templates-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam šablóny…</div>
                 </div>
             </div>
-            ${this.getStyles()}
         `;
 
         await this.loadTemplates();

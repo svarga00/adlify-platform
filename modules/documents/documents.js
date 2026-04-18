@@ -22,64 +22,51 @@ const DocumentsModule = {
     },
 
     async render(container) {
+        const cat = this.currentCategory || 'all';
         container.innerHTML = `
-            <div class="documents-module">
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Dokumenty</h1>
-                        <p class="subtitle">Súbory, zmluvy a prílohy</p>
+            <div class="adl documents-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Dokumenty</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Súbory, zmluvy a prílohy</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="DocumentsModule.showUploadModal()">
-                            <span>📤</span> Nahrať súbor
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="DocumentsModule.showUploadModal()">${I.Upload({size:14})} Nahrať súbor</button>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="docs-stats">
-                    <div class="stat-item">
-                        <span class="stat-icon">📄</span>
-                        <span class="stat-value" id="stat-total">0</span>
-                        <span class="stat-label">Celkom</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-icon">📝</span>
-                        <span class="stat-value" id="stat-contracts">0</span>
-                        <span class="stat-label">Zmluvy</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-icon">💰</span>
-                        <span class="stat-value" id="stat-invoices">0</span>
-                        <span class="stat-label">Faktúry</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-icon">🖼️</span>
-                        <span class="stat-value" id="stat-images">0</span>
-                        <span class="stat-label">Obrázky</span>
-                    </div>
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" class="adl-docs-stats">
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Celkom</div><span class="adl-chip adl-chip-sm">súbory</span></div><div class="adl-stat-value" id="stat-total">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Zmluvy</div><span class="adl-chip adl-chip-sm">legal</span></div><div class="adl-stat-value" id="stat-contracts">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Faktúry</div><span class="adl-chip adl-chip-brand adl-chip-sm">invoice</span></div><div class="adl-stat-value" id="stat-invoices">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Obrázky</div><span class="adl-chip adl-chip-lav adl-chip-sm">image</span></div><div class="adl-stat-value" id="stat-images">—</div></div>
                 </div>
 
                 <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="category-filter">
-                        <button class="cat-btn ${this.currentCategory === 'all' ? 'active' : ''}" onclick="DocumentsModule.setCategory('all')">Všetky</button>
-                        <button class="cat-btn ${this.currentCategory === 'contract' ? 'active' : ''}" onclick="DocumentsModule.setCategory('contract')">📝 Zmluvy</button>
-                        <button class="cat-btn ${this.currentCategory === 'invoice' ? 'active' : ''}" onclick="DocumentsModule.setCategory('invoice')">💰 Faktúry</button>
-                        <button class="cat-btn ${this.currentCategory === 'proposal' ? 'active' : ''}" onclick="DocumentsModule.setCategory('proposal')">📄 Ponuky</button>
-                        <button class="cat-btn ${this.currentCategory === 'image' ? 'active' : ''}" onclick="DocumentsModule.setCategory('image')">🖼️ Obrázky</button>
-                        <button class="cat-btn ${this.currentCategory === 'other' ? 'active' : ''}" onclick="DocumentsModule.setCategory('other')">📁 Ostatné</button>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+                    <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px; flex-wrap:wrap;">
+                        ${[
+                            ['all', 'Všetky'],
+                            ['contract', 'Zmluvy'],
+                            ['invoice', 'Faktúry'],
+                            ['proposal', 'Ponuky'],
+                            ['image', 'Obrázky'],
+                            ['other', 'Ostatné']
+                        ].map(([k,l]) => `<button onclick="DocumentsModule.setCategory('${k}')" class="adl-btn adl-btn-sm ${cat===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">${l}</button>`).join('')}
                     </div>
-                    <div class="search-box">
-                        <input type="text" id="doc-search" placeholder="Hľadať dokumenty..." oninput="DocumentsModule.handleSearch()">
+                    <div class="adl-input" style="flex:1; min-width:200px; max-width:340px; margin-left:auto;">
+                        <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                        <input type="text" id="doc-search" placeholder="Hľadať dokumenty…" oninput="DocumentsModule.handleSearch()" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
                     </div>
                 </div>
 
-                <div class="documents-content" id="documents-content">
-                    <div class="loading">Načítavam dokumenty...</div>
+                <div id="documents-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam dokumenty…</div>
                 </div>
+
+                <style>@media (max-width: 900px) { .adl-docs-stats { grid-template-columns: repeat(2, 1fr) !important; } }</style>
             </div>
-            ${this.getStyles()}
         `;
 
         await this.loadData();

@@ -81,42 +81,35 @@ const ServicesModule = {
   
   async render(container, params = {}) {
     await this.loadData();
+    const tab = this.activeTab || 'packages';
     container.innerHTML = `
-      <div class="space-y-6">
-        <!-- Header -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="adl">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
           <div>
-            <h1 class="text-2xl font-bold">${this.title}</h1>
-            <p class="text-gray-500">${this.subtitle}</p>
+            <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">${this.title}</h1>
+            <div style="font-size:13px; color:var(--ink-sub);">${this.subtitle}</div>
           </div>
-          <div class="flex gap-2">
-            ${this.activeTab === 'services' ? `
-              <button onclick="ServicesModule.showServiceModal()" class="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
-                ➕ Nová služba
-              </button>
-            ` : `
-              <button onclick="ServicesModule.showPackageModal()" class="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
-                ➕ Nový balíček
-              </button>
-            `}
+          <div style="display:flex; gap:8px;">
+            ${tab === 'services'
+              ? `<button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ServicesModule.showServiceModal()">${I.Plus({size:14})} Nová služba</button>`
+              : `<button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ServicesModule.showPackageModal()">${I.Plus({size:14})} Nový balíček</button>`
+            }
           </div>
         </div>
-        
+
         <!-- Tabs -->
-        <div class="flex gap-2 border-b">
-          <button onclick="ServicesModule.switchTab('packages')" 
-            class="px-6 py-3 font-medium ${this.activeTab === 'packages' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700'}">
-            📋 Balíčky (${this.packages.length})
+        <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin-bottom:16px; width:fit-content;">
+          <button onclick="ServicesModule.switchTab('packages')" class="adl-btn adl-btn-sm ${tab==='packages'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">
+            Balíčky <span class="adl-chip adl-chip-sm" style="margin-left:4px;">${this.packages.length}</span>
           </button>
-          <button onclick="ServicesModule.switchTab('services')" 
-            class="px-6 py-3 font-medium ${this.activeTab === 'services' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700'}">
-            🔧 Služby (${this.services.length})
+          <button onclick="ServicesModule.switchTab('services')" class="adl-btn adl-btn-sm ${tab==='services'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">
+            Služby <span class="adl-chip adl-chip-sm" style="margin-left:4px;">${this.services.length}</span>
           </button>
         </div>
-        
+
         <!-- Content -->
         <div id="services-content">
-          ${this.activeTab === 'packages' ? this.renderPackages() : this.renderServices()}
+          ${tab === 'packages' ? this.renderPackages() : this.renderServices()}
         </div>
       </div>
     `;
