@@ -25,7 +25,7 @@
     /* Left side - branding */
     .branding {
       flex: 1;
-      background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+      background: linear-gradient(160deg, var(--brand-500), var(--brand-700));
       display: flex;
       align-items: center;
       justify-content: center;
@@ -193,7 +193,7 @@
     }
     
     .btn-primary {
-      background: linear-gradient(135deg, #f97316, #ec4899);
+      background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
       color: white;
     }
     
@@ -329,15 +329,15 @@
       </p>
       <div class="features">
         <div class="feature">
-          <span class="feature-icon">📊</span>
+          <span class="feature-icon" id="feat-icon-1"></span>
           <span>Výsledky kampaní v reálnom čase</span>
         </div>
         <div class="feature">
-          <span class="feature-icon">💳</span>
+          <span class="feature-icon" id="feat-icon-2"></span>
           <span>Prehľad faktúr a platieb</span>
         </div>
         <div class="feature">
-          <span class="feature-icon">💬</span>
+          <span class="feature-icon" id="feat-icon-3"></span>
           <span>Priama komunikácia s tímom</span>
         </div>
         <div class="feature">
@@ -359,6 +359,16 @@
   </div>
 
   <script>
+    // Inject SVG ikony pre feature list po načítaní icons.js
+    document.addEventListener('DOMContentLoaded', () => {
+      const f1 = document.getElementById('feat-icon-1');
+      const f2 = document.getElementById('feat-icon-2');
+      const f3 = document.getElementById('feat-icon-3');
+      if (f1 && window.I) f1.innerHTML = I.Chart({size:14, color:'#fff'});
+      if (f2 && window.I) f2.innerHTML = I.Invoice({size:14, color:'#fff'});
+      if (f3 && window.I) f3.innerHTML = I.Mail({size:14, color:'#fff'});
+    });
+
     // Config
     const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';

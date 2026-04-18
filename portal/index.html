@@ -19,10 +19,10 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: linear-gradient(135deg, #fef3e2 0%, #fce7f3 50%, #ede9fe 100%);
+            font-family: var(--font-sans);
+            background: var(--bg);
             min-height: 100vh;
-            color: #1e293b;
+            color: var(--ink);
         }
 
         .portal-header {
@@ -139,6 +139,14 @@
             gap: 1rem;
             margin-bottom: 2rem;
         }
+        @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 520px) { .stats-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 640px) {
+            .portal-header { padding: 1rem; flex-wrap: wrap; }
+            .portal-nav { padding: 0 0.5rem; overflow-x: auto; }
+            .nav-tabs { flex-wrap: nowrap; white-space: nowrap; }
+            .portal-main { padding: 1rem; }
+        }
 
         .stat-card {
             background: white;
@@ -153,9 +161,16 @@
         .stat-label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
 
         .welcome-card {
-            background: linear-gradient(135deg, #f97316, #ec4899);
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
             color: white;
             border: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-card::before {
+            content: ''; position: absolute; right: -60px; top: -60px;
+            width: 240px; height: 240px;
+            background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
         }
 
         .welcome-card .card-body {
@@ -430,25 +445,25 @@
             
             document.getElementById('app').innerHTML = `
                 <header class="portal-header">
-                    <div class="logo">
-                        <div class="logo-icon">A</div>
-                        <span class="logo-text">Adlify</span>
-                        <span class="client-badge">Klientský portál</span>
+                    <div class="logo" style="display:flex; align-items:center; gap:10px;">
+                        ${I.Logo({size:30, id:'pl'})}
+                        <span class="logo-text" style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">Adlify</span>
+                        <span class="client-badge" style="background:var(--brand-50); color:var(--brand-700); font-weight:600; letter-spacing:0.4px; text-transform:uppercase;">Klient</span>
                     </div>
-                    <div class="header-right">
-                        <span class="client-name">${client.company_name}</span>
-                        <button class="btn-logout" onclick="logout()">Odhlásiť sa</button>
+                    <div class="header-right" style="display:flex; align-items:center; gap:12px;">
+                        <span class="client-name" style="font-size:13px; color:var(--ink-sub);">${client.company_name}</span>
+                        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="logout()">${I.Logout({size:14})} Odhlásiť</button>
                     </div>
                 </header>
 
                 <nav class="portal-nav">
                     <div class="nav-tabs">
-                        <button class="nav-tab ${currentTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">📊 Prehľad</button>
-                        <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">📢 Kampane</button>
-                        <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">💰 Faktúry</button>
-                        <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">📄 Dokumenty</button>
-                        <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">💬 Podpora</button>
-                        <button class="nav-tab ${currentTab === 'account' ? 'active' : ''}" onclick="switchTab('account')">👤 Môj účet</button>
+                        <button class="nav-tab ${currentTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">${I.Dashboard({size:16})} Prehľad</button>
+                        <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">${I.Campaign({size:16})} Kampane</button>
+                        <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">${I.Invoice({size:16})} Faktúry</button>
+                        <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">${I.Docs({size:16})} Dokumenty</button>
+                        <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">${I.Ticket({size:16})} Podpora</button>
+                        <button class="nav-tab ${currentTab === 'account' ? 'active' : ''}" onclick="switchTab('account')">${I.Settings({size:16})} Môj účet</button>
                     </div>
                 </nav>
 
@@ -482,43 +497,26 @@
             
             return `
                 <div class="card welcome-card">
-                    <div class="card-body">
+                    <div class="card-body" style="position:relative; z-index:1;">
                         <div class="welcome-text">
-                            <h1>Ahoj, ${firstName}! 👋</h1>
-                            <p>Vitajte v klientskom portáli Adlify</p>
+                            <h1 style="font-size:28px; letter-spacing:-0.5px; margin-bottom:6px;">Vitajte, ${firstName}</h1>
+                            <p style="opacity:0.9; font-size:14px;">Toto je Váš klientský portál — sledujte výkon kampaní, faktúry a komunikáciu s tímom.</p>
                         </div>
-                        <div class="welcome-icon">🚀</div>
                     </div>
                 </div>
 
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon">📢</div>
-                        <div class="stat-value">${activeCampaigns}</div>
-                        <div class="stat-label">Aktívne kampane</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">📁</div>
-                        <div class="stat-value">${projects.length}</div>
-                        <div class="stat-label">Projekty</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">💰</div>
-                        <div class="stat-value">${unpaidInvoices}</div>
-                        <div class="stat-label">Neuhradené faktúry</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">📄</div>
-                        <div class="stat-value">${documents.length}</div>
-                        <div class="stat-label">Dokumenty</div>
-                    </div>
+                    <div class="stat-card"><div style="color:var(--brand-500); display:inline-flex;">${I.Campaign({size:22})}</div><div class="stat-value">${activeCampaigns}</div><div class="stat-label">Aktívne kampane</div></div>
+                    <div class="stat-card"><div style="color:var(--acc-lavender-ink); display:inline-flex;">${I.Folder({size:22})}</div><div class="stat-value">${projects.length}</div><div class="stat-label">Projekty</div></div>
+                    <div class="stat-card"><div style="color:var(--warn); display:inline-flex;">${I.Invoice({size:22})}</div><div class="stat-value">${unpaidInvoices}</div><div class="stat-label">Neuhradené faktúry</div></div>
+                    <div class="stat-card"><div style="color:var(--acc-sky-ink); display:inline-flex;">${I.Docs({size:22})}</div><div class="stat-value">${documents.length}</div><div class="stat-label">Dokumenty</div></div>
                 </div>
 
                 ${unpaidInvoices > 0 ? `
-                    <div class="card" style="border-color: #fbbf24;">
-                        <div class="card-header" style="background: #fef3c7;">
-                            <h2>⚠️ Neuhradené faktúry (${unpaidInvoices})</h2>
-                            <button class="btn btn-primary" onclick="switchTab('invoices')">Zobraziť</button>
+                    <div class="card" style="border-color: var(--warn);">
+                        <div class="card-header" style="background: color-mix(in oklab, var(--warn) 12%, var(--surface));">
+                            <h2 style="color:var(--warn); display:flex; align-items:center; gap:8px;">${I.Warning({size:18})} Neuhradené faktúry (${unpaidInvoices})</h2>
+                            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="switchTab('invoices')">Zobraziť</button>
                         </div>
                     </div>
                 ` : ''}
@@ -531,14 +529,14 @@
             return `
                 <div class="card">
                     <div class="card-header">
-                        <h2>📁 Aktuálne projekty</h2>
+                        <h2>Aktuálne projekty</h2>
                     </div>
                     <div class="card-body">
                         ${projects.length > 0 ? `
                             <div class="item-list">
                                 ${projects.map(p => `
                                     <div class="item">
-                                        <div class="item-icon project">📁</div>
+                                        <div class="item-icon project" style="color:var(--acc-sky-ink);">${I.Folder({size:18})}</div>
                                         <div class="item-info">
                                             <div class="item-name">${p.name}</div>
                                             <div class="item-meta">${p.description || 'Bez popisu'}</div>
@@ -556,13 +554,13 @@
         function renderCampaigns() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>📢 Vaše kampane</h2></div>
+                    <div class="card-header"><h2>Vaše kampane</h2></div>
                     <div class="card-body">
                         ${campaigns.length > 0 ? `
                             <div class="item-list">
                                 ${campaigns.map(c => `
                                     <div class="item">
-                                        <div class="item-icon campaign">${c.platform === 'meta' ? '📱' : '🔍'}</div>
+                                        <div class="item-icon campaign" style="color:var(--acc-amber-ink);">${c.platform === 'meta' ? I.Fb({size:18}) : I.Google({size:18})}</div>
                                         <div class="item-info">
                                             <div class="item-name">${c.name}</div>
                                             <div class="item-meta">${c.platform === 'meta' ? 'Meta Ads' : 'Google Ads'} • Budget: ${formatCurrency(c.budget || 0)}/mes</div>
@@ -580,13 +578,13 @@
         function renderInvoices() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>💰 Faktúry</h2></div>
+                    <div class="card-header"><h2>Faktúry</h2></div>
                     <div class="card-body">
                         ${invoices.length > 0 ? `
                             <div class="item-list">
                                 ${invoices.map(i => `
                                     <div class="item">
-                                        <div class="item-icon invoice">💰</div>
+                                        <div class="item-icon invoice" style="color:var(--acc-mint-ink);">${I.Invoice({size:18})}</div>
                                         <div class="item-info">
                                             <div class="item-name">${i.invoice_number || 'Faktúra'}</div>
                                             <div class="item-meta">Vystavená: ${formatDate(i.issue_date || i.created_at)} | Splatnosť: ${formatDate(i.due_date)}</div>
@@ -605,7 +603,7 @@
         function renderDocuments() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>📄 Dokumenty</h2></div>
+                    <div class="card-header"><h2>Dokumenty</h2></div>
                     <div class="card-body">
                         ${documents.length > 0 ? `
                             <div class="item-list">
@@ -629,7 +627,7 @@
         function renderSupport() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>💬 Podpora</h2></div>
+                    <div class="card-header"><h2>Podpora</h2></div>
                     <div class="card-body">
                         <p style="margin-bottom: 1.5rem; color: #64748b;">Máte otázky? Kontaktujte nás.</p>
                         
@@ -662,7 +660,7 @@
             return `
                 <div class="card">
                     <div class="card-header">
-                        <h2>👤 Môj účet</h2>
+                        <h2>Môj účet</h2>
                     </div>
                     <div class="card-body">
                         <form id="account-form" onsubmit="saveAccount(event)">
@@ -846,8 +844,14 @@
         }
 
         function getDocIcon(category) {
-            const icons = { contract: '📝', invoice: '💰', proposal: '📄', report: '📊', image: '🖼️' };
-            return icons[category] || '📄';
+            const map = {
+                contract: I.Edit({size:18}),
+                invoice: I.Invoice({size:18}),
+                proposal: I.Docs({size:18}),
+                report: I.Chart({size:18}),
+                image: I.Image({size:18})
+            };
+            return map[category] || I.Docs({size:18});
         }
 
         init();
