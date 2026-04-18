@@ -26,9 +26,9 @@
         }
 
         .portal-header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 1rem 2rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -37,101 +37,78 @@
             z-index: 100;
         }
 
-        .logo { display: flex; align-items: center; gap: 0.75rem; }
-
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #f97316, #ec4899);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 1.25rem;
-        }
-
-        .logo-text { font-weight: 700; font-size: 1.25rem; }
-
+        .logo { display: flex; align-items: center; gap: 10px; }
         .client-badge {
-            font-size: 0.65rem;
-            background: #dbeafe;
-            color: #1d4ed8;
-            padding: 0.25rem 0.5rem;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
             border-radius: 4px;
+            letter-spacing: 0.5px;
         }
-
-        .header-right { display: flex; align-items: center; gap: 1rem; }
-        .client-name { font-weight: 600; color: #64748b; }
-        
-        .btn-logout {
-            padding: 0.5rem 1rem;
-            background: #f1f5f9;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            color: #64748b;
-            transition: all 0.2s;
-        }
-        
-        .btn-logout:hover { background: #e2e8f0; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .client-name { font-weight: 500; color: var(--ink-sub); font-size: 13px; }
 
         .portal-nav {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 0 2rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 28px;
         }
 
-        .nav-tabs { display: flex; gap: 0.5rem; }
+        .nav-tabs { display: flex; gap: 4px; }
 
         .nav-tab {
-            padding: 1rem 1.5rem;
+            padding: 12px 16px;
             border: none;
             background: transparent;
-            font-size: 0.9rem;
+            font-size: 13px;
             font-weight: 500;
-            color: #64748b;
+            color: var(--ink-sub);
             cursor: pointer;
             border-bottom: 2px solid transparent;
-            transition: all 0.2s;
+            transition: color .12s, border-color .12s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
         }
 
-        .nav-tab:hover { color: #1e293b; }
-        .nav-tab.active { color: #f97316; border-bottom-color: #f97316; }
+        .nav-tab:hover { color: var(--ink); }
+        .nav-tab.active { color: var(--brand-600); border-bottom-color: var(--brand-500); font-weight: 600; }
 
         .portal-main {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 24px;
         }
 
         .card {
-            background: white;
-            border-radius: 16px;
-            border: 1px solid #e2e8f0;
+            background: var(--surface);
+            border-radius: 14px;
+            border: 1px solid var(--border);
             overflow: hidden;
-            margin-bottom: 1.5rem;
+            margin-bottom: 18px;
+            box-shadow: var(--sh-sm);
         }
 
         .card-header {
-            padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .card-header h2 {
-            font-size: 1.1rem;
+            font-size: 15px;
             font-weight: 600;
+            letter-spacing: -0.2px;
+            color: var(--ink);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 8px;
         }
 
-        .card-body { padding: 1.5rem; }
+        .card-body { padding: 20px; }
 
         .stats-grid {
             display: grid;
@@ -149,16 +126,18 @@
         }
 
         .stat-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
+            background: var(--surface);
+            border-radius: 14px;
+            padding: 18px;
             text-align: center;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border);
+            box-shadow: var(--sh-sm);
         }
 
-        .stat-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-        .stat-value { font-size: 1.75rem; font-weight: 700; color: #1e293b; }
-        .stat-label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+        .stat-icon { display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; color: var(--brand-500); }
+        .stat-icon svg { width: 22px; height: 22px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: -0.5px; }
+        .stat-label { font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
 
         .welcome-card {
             background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
@@ -188,48 +167,46 @@
         .item {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            background: #f8fafc;
+            gap: 12px;
+            padding: 12px 14px;
+            background: var(--n-50);
             border-radius: 10px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background .12s, transform .12s;
             text-decoration: none;
             color: inherit;
         }
-
-        .item:hover { background: #f1f5f9; }
+        .item:hover { background: var(--n-75); transform: translateX(2px); }
 
         .item-icon {
-            width: 44px;
-            height: 44px;
+            width: 40px;
+            height: 40px;
             border-radius: 10px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
+            flex-shrink: 0;
         }
+        .item-icon.project { background: var(--acc-sky); color: var(--acc-sky-ink); }
+        .item-icon.campaign { background: var(--acc-amber); color: var(--acc-amber-ink); }
+        .item-icon.invoice { background: var(--acc-mint); color: var(--acc-mint-ink); }
+        .item-icon.document { background: var(--acc-lavender); color: var(--acc-lavender-ink); }
 
-        .item-icon.project { background: #dbeafe; }
-        .item-icon.campaign { background: #fef3c7; }
-        .item-icon.invoice { background: #d1fae5; }
-        .item-icon.document { background: #e0e7ff; }
-
-        .item-info { flex: 1; }
-        .item-name { font-weight: 600; margin-bottom: 0.125rem; }
-        .item-meta { font-size: 0.8rem; color: #64748b; }
+        .item-info { flex: 1; min-width: 0; }
+        .item-name { font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: -0.1px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-meta { font-size: 11px; color: var(--ink-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .item-status {
-            padding: 0.25rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
             font-weight: 500;
+            flex-shrink: 0;
         }
-
-        .status-active, .status-paid { background: #d1fae5; color: #059669; }
-        .status-pending, .status-in_progress { background: #fef3c7; color: #d97706; }
-        .status-draft { background: #f1f5f9; color: #64748b; }
-        .status-overdue { background: #fecaca; color: #dc2626; }
+        .status-active, .status-paid { background: var(--acc-mint); color: var(--acc-mint-ink); }
+        .status-pending, .status-in_progress { background: var(--acc-amber); color: var(--acc-amber-ink); }
+        .status-draft { background: var(--n-100); color: var(--ink-sub); }
+        .status-overdue { background: color-mix(in oklab, var(--err) 14%, transparent); color: var(--err); }
 
         .invoice-amount {
             font-weight: 700;
@@ -260,30 +237,24 @@
         .error-screen h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
         .error-screen p { color: #64748b; margin-bottom: 1.5rem; }
 
-        .btn { 
-            padding: 0.75rem 1.5rem; 
-            border-radius: 10px; 
-            font-weight: 600; 
-            cursor: pointer; 
+        .btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            border: none;
-            transition: all 0.2s;
+            gap: 6px;
+            border: 1px solid transparent;
+            transition: background .12s;
+            font-family: inherit;
         }
-        
-        .btn-primary { 
-            background: linear-gradient(135deg, #f97316, #ec4899); 
-            color: white; 
-        }
-        
-        .btn-primary:hover {
-            box-shadow: 0 4px 15px rgba(249,115,22,0.3);
-            transform: translateY(-2px);
-        }
-        
-        .btn-secondary { background: #f1f5f9; color: #475569; }
+        .btn-primary { background: var(--brand-500); color: white; border-color: var(--brand-500); }
+        .btn-primary:hover { background: var(--brand-600); }
+        .btn-secondary { background: var(--n-75); color: var(--ink); border-color: transparent; }
+        .btn-secondary:hover { background: var(--n-100); }
 
         .loading {
             min-height: 80vh;
@@ -291,14 +262,14 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 1rem;
+            gap: 16px;
         }
 
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #e2e8f0;
-            border-top-color: #f97316;
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--n-100);
+            border-top-color: var(--brand-500);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
