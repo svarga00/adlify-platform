@@ -112,43 +112,41 @@ const CalendarModule = {
     renderMonthView(container) {
         const year = this.currentDate.getFullYear();
         const month = this.currentDate.getMonth();
-        
+
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
-        const startDay = firstDay.getDay() || 7; // Monday = 1
+        const startDay = firstDay.getDay() || 7;
         const daysInMonth = lastDay.getDate();
 
         const days = ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'];
         const today = new Date();
+        const priorityDot = { low: 'var(--ok)', medium: 'var(--warn)', high: 'var(--brand-500)', urgent: 'var(--err)' };
 
         let html = `
-            <div class="month-grid">
-                <div class="weekdays">
-                    ${days.map(d => `<div class="weekday">${d}</div>`).join('')}
+            <div class="adl-card">
+                <div style="display:grid; grid-template-columns:repeat(7, 1fr); background:var(--n-50); border-bottom:1px solid var(--border);">
+                    ${days.map(d => `<div style="padding:10px 6px; text-align:center; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-sub);">${d}</div>`).join('')}
                 </div>
-                <div class="days">
+                <div style="display:grid; grid-template-columns:repeat(7, 1fr);">
         `;
 
-        // Empty cells before first day
         for (let i = 1; i < startDay; i++) {
-            html += '<div class="day empty"></div>';
+            html += '<div style="aspect-ratio:1; background:var(--n-25); border-right:1px solid var(--border); border-bottom:1px solid var(--border);"></div>';
         }
 
-        // Days of month
         for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
             const isToday = date.toDateString() === today.toDateString();
             const dayEvents = this.getEventsForDate(date);
+            const isWeekend = [0, 6].includes(date.getDay());
 
             html += `
-                <div class="day ${isToday ? 'today' : ''}" onclick="CalendarModule.showDayDetail('${date.toISOString()}')">
-                    <span class="day-number">${day}</span>
+                <div onclick="CalendarModule.showDayDetail('${date.toISOString()}')" style="aspect-ratio:1; padding:8px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); cursor:pointer; transition: background .12s; background:${isToday ? 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))' : isWeekend ? 'var(--n-25)' : 'var(--surface)'}; display:flex; flex-direction:column; gap:4px;" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='${isToday ? 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))' : isWeekend ? 'var(--n-25)' : 'var(--surface)'}'">
+                    <span style="font-size:13px; font-weight:${isToday ? '700' : '500'}; color:${isToday ? 'var(--brand-600)' : 'var(--ink)'};">${day}</span>
                     ${dayEvents.length > 0 ? `
-                        <div class="day-events">
-                            ${dayEvents.slice(0, 3).map(e => `
-                                <div class="event-dot ${e.type} ${e.priority}"></div>
-                            `).join('')}
-                            ${dayEvents.length > 3 ? `<span class="more-events">+${dayEvents.length - 3}</span>` : ''}
+                        <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+                            ${dayEvents.slice(0, 3).map(e => `<div style="font-size:10px; padding:2px 5px; background:color-mix(in oklab, ${priorityDot[e.priority] || 'var(--ink-mute)'} 15%, var(--surface)); color:${priorityDot[e.priority] || 'var(--ink)'}; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.title}</div>`).join('')}
+                            ${dayEvents.length > 3 ? `<span style="font-size:10px; color:var(--ink-mute);">+${dayEvents.length - 3} ďalších</span>` : ''}
                         </div>
                     ` : ''}
                 </div>
@@ -163,8 +161,9 @@ const CalendarModule = {
         const startOfWeek = this.getStartOfWeek(this.currentDate);
         const days = ['Pondelok', 'Utorok', 'Streda', 'Štvrtok', 'Piatok', 'Sobota', 'Nedeľa'];
         const today = new Date();
+        const priorityTone = { low: 'mint', medium: 'amber', high: 'brand', urgent: 'err' };
 
-        let html = '<div class="week-grid">';
+        let html = '<div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:10px;" class="adl-calendar-week">';
 
         for (let i = 0; i < 7; i++) {
             const date = new Date(startOfWeek);
@@ -173,24 +172,24 @@ const CalendarModule = {
             const dayEvents = this.getEventsForDate(date);
 
             html += `
-                <div class="week-day ${isToday ? 'today' : ''}">
-                    <div class="week-day-header">
-                        <span class="week-day-name">${days[i]}</span>
-                        <span class="week-day-date">${date.getDate()}.${date.getMonth() + 1}.</span>
+                <div style="background:var(--surface); border:1px solid ${isToday ? 'var(--brand-400)' : 'var(--border)'}; border-radius:12px; overflow:hidden; min-height:240px;">
+                    <div style="padding:10px 12px; background:${isToday ? 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))' : 'var(--n-50)'}; border-bottom:1px solid var(--border);">
+                        <div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-sub);">${days[i].slice(0, 3)}</div>
+                        <div style="font-size:18px; font-weight:700; letter-spacing:-0.4px; color:${isToday ? 'var(--brand-600)' : 'var(--ink)'};">${date.getDate()}.${date.getMonth() + 1}.</div>
                     </div>
-                    <div class="week-day-events">
+                    <div style="padding:8px; display:flex; flex-direction:column; gap:6px;">
                         ${dayEvents.length > 0 ? dayEvents.map(e => `
-                            <div class="week-event ${e.type} ${e.priority}" onclick="CalendarModule.openEvent('${e.type}', '${e.id}')">
-                                <span class="event-icon">${e.type === 'task' ? '✅' : '🎫'}</span>
-                                <span class="event-title">${e.title}</span>
+                            <div onclick="CalendarModule.openEvent('${e.type}', '${e.id}')" style="padding:8px 10px; background:var(--n-50); border-radius:8px; cursor:pointer; border-left:3px solid ${priorityTone[e.priority] === 'err' ? 'var(--err)' : priorityTone[e.priority] === 'brand' ? 'var(--brand-500)' : priorityTone[e.priority] === 'amber' ? 'var(--warn)' : 'var(--ok)'};">
+                                <div style="font-size:11px; color:var(--ink-mute); margin-bottom:2px;">${e.type === 'task' ? 'Úloha' : 'Ticket'}</div>
+                                <div style="font-size:12px; font-weight:500; color:var(--ink); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.title}</div>
                             </div>
-                        `).join('') : '<div class="no-events">Žiadne udalosti</div>'}
+                        `).join('') : '<div style="padding:20px 8px; text-align:center; color:var(--ink-mute); font-size:11px;">Žiadne udalosti</div>'}
                     </div>
                 </div>
             `;
         }
 
-        html += '</div>';
+        html += '</div><style>@media (max-width: 900px) { .adl-calendar-week { grid-template-columns: 1fr !important; } .adl-calendar-week > div { min-height: 0 !important; } }</style>';
         container.innerHTML = html;
     },
 
@@ -202,16 +201,15 @@ const CalendarModule = {
 
         if (upcomingEvents.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">📅</div>
-                    <h3>Žiadne nadchádzajúce udalosti</h3>
-                    <p>Všetky úlohy a tickety s termínom sa zobrazia tu</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Calendar({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne nadchádzajúce udalosti</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0;">Všetky úlohy a tickety s termínom sa zobrazia tu</p>
                 </div>
             `;
             return;
         }
 
-        // Group by date
         const grouped = {};
         upcomingEvents.forEach(e => {
             const key = e.date.toDateString();
@@ -219,7 +217,9 @@ const CalendarModule = {
             grouped[key].push(e);
         });
 
-        let html = '<div class="list-view">';
+        const priorityTone = { low: 'mint', medium: 'amber', high: 'brand', urgent: 'err' };
+
+        let html = '<div style="display:flex; flex-direction:column; gap:14px;">';
 
         for (const [dateStr, events] of Object.entries(grouped)) {
             const date = new Date(dateStr);
@@ -227,21 +227,21 @@ const CalendarModule = {
             const isTomorrow = date.toDateString() === new Date(Date.now() + 86400000).toDateString();
 
             let dateLabel = date.toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'long' });
-            if (isToday) dateLabel = 'Dnes - ' + dateLabel;
-            if (isTomorrow) dateLabel = 'Zajtra - ' + dateLabel;
+            if (isToday) dateLabel = 'Dnes — ' + dateLabel;
+            if (isTomorrow) dateLabel = 'Zajtra — ' + dateLabel;
 
             html += `
-                <div class="list-date-group">
-                    <h3 class="list-date ${isToday ? 'today' : ''}">${dateLabel}</h3>
-                    <div class="list-events">
+                <div>
+                    <h3 style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:${isToday ? 'var(--brand-600)' : 'var(--ink-sub)'}; margin:0 0 8px;">${dateLabel}</h3>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
                         ${events.map(e => `
-                            <div class="list-event ${e.priority}" onclick="CalendarModule.openEvent('${e.type}', '${e.id}')">
-                                <span class="event-type-icon">${e.type === 'task' ? '✅' : '🎫'}</span>
-                                <div class="event-info">
-                                    <span class="event-title">${e.title}</span>
-                                    <span class="event-meta">${e.type === 'task' ? 'Úloha' : 'Ticket'} · ${e.status}</span>
+                            <div onclick="CalendarModule.openEvent('${e.type}', '${e.id}')" style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; cursor:pointer; transition: border-color .12s;" onmouseover="this.style.borderColor='var(--border-strong)'" onmouseout="this.style.borderColor='var(--border)'">
+                                <div style="color:${e.type === 'task' ? 'var(--acc-mint-ink)' : 'var(--acc-lavender-ink)'}; display:inline-flex; flex-shrink:0;">${e.type === 'task' ? I.Tasks({size:16}) : I.Ticket({size:16})}</div>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-size:13px; font-weight:500; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.title}</div>
+                                    <div style="font-size:11px; color:var(--ink-mute);">${e.type === 'task' ? 'Úloha' : 'Ticket'} · ${e.status}</div>
                                 </div>
-                                <span class="event-priority priority-${e.priority}">${this.getPriorityLabel(e.priority)}</span>
+                                <span class="adl-chip adl-chip-${priorityTone[e.priority] || 'n'} adl-chip-sm">${this.getPriorityLabel(e.priority)}</span>
                             </div>
                         `).join('')}
                     </div>
