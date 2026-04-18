@@ -132,153 +132,203 @@ const DashboardModule = {
     const recentLeads = leads
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
-    
+
+    const mrrFormatted = Utils.formatCurrency(stats.clients.mrr);
+    const avgPerClient = stats.clients.active > 0 ? Math.round(stats.clients.mrr / stats.clients.active) : 0;
+
+    const pipeline = [
+      { label: 'Nové',         value: stats.leads.new,       color: 'var(--brand-500)' },
+      { label: 'Ready',        value: stats.leads.ready,     color: 'var(--acc-lavender-ink)' },
+      { label: 'Kontaktované', value: stats.leads.contacted, color: 'var(--acc-sky-ink)' },
+      { label: 'Klienti',      value: stats.leads.converted, color: 'var(--acc-mint-ink)' }
+    ];
+    const pipelineTotal = pipeline.reduce((s, p) => s + p.value, 0) || 1;
+
+    const leadStatusChips = {
+      new:       { tone: 'sky',   label: 'Nový' },
+      ready:     { tone: 'lav',   label: 'Ready' },
+      contacted: { tone: 'brand', label: 'Kontaktovaný' },
+      converted: { tone: 'mint',  label: 'Klient' }
+    };
+
+    const quickActions = [
+      { icon: 'Upload',    title: 'Import leadov',       sub: 'Hromadný import domén', href: '#leads?tab=import',   tone: 'sky' },
+      { icon: 'Sparkle',   title: 'Analyzovať všetky nové', sub: 'Marketing Miner + AI', href: '#leads?action=analyze-all', tone: 'lav', highlight: true },
+      { icon: 'Plus',      title: 'Nový klient',         sub: 'Pridať manuálne',       href: '#clients?action=new', tone: 'mint' },
+      { icon: 'Megaphone', title: 'Spustiť kampaň',      sub: 'FB / Google',           href: '#campaigns',          tone: 'amber' }
+    ];
+
     return `
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <a href="#leads" class="card p-5 hover:ring-2 hover:ring-blue-300 transition cursor-pointer">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">👥</span>
-            <span class="text-xs text-gray-400">Celkom</span>
+    <div class="adl">
+      <!-- HERO ROW: MRR + 2 Stats -->
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-bottom:16px;" class="adl-dashboard-hero">
+        <div style="background:linear-gradient(135deg, var(--brand-500), var(--brand-700)); color:#fff; border-radius:16px; padding:24px 28px; position:relative; overflow:hidden;">
+          <div style="position:absolute; right:-40px; top:-40px; width:240px; height:240px; background:radial-gradient(circle, rgba(255,255,255,.18), transparent 70%);"></div>
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:.8; font-weight:600;">Mesačný príjem · MRR</div>
+          <div style="font-size:56px; font-weight:700; letter-spacing:-2px; line-height:1.05; margin-top:6px;">
+            ${mrrFormatted}
           </div>
-          <div class="text-3xl font-bold">${stats.leads.total}</div>
-          <div class="text-sm text-gray-500">Leadov</div>
-        </a>
-        
-        <a href="#leads?status=new" class="card p-5 hover:ring-2 hover:ring-blue-300 transition cursor-pointer">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">🆕</span>
-            <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Nové</span>
+          <div style="display:flex; gap:16px; margin-top:10px; align-items:center; flex-wrap:wrap;">
+            <div class="mono" style="font-size:12px; background:rgba(255,255,255,.18); padding:3px 8px; border-radius:999px;">${stats.clients.active} aktívnych klientov</div>
+            ${avgPerClient > 0 ? `<div style="font-size:12px; opacity:.85;">priemer ${Utils.formatCurrency(avgPerClient)}/klient</div>` : ''}
           </div>
-          <div class="text-3xl font-bold text-blue-600">${stats.leads.new}</div>
-          <div class="text-sm text-gray-500">Na analýzu</div>
-        </a>
-        
-        <a href="#leads?status=ready" class="card p-5 hover:ring-2 hover:ring-purple-300 transition cursor-pointer">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">✨</span>
-            <span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">Ready</span>
+          <div style="margin-top:18px; height:54px; position:relative;">
+            <canvas id="chart-mrr-line"></canvas>
           </div>
-          <div class="text-3xl font-bold text-purple-600">${stats.leads.ready}</div>
-          <div class="text-sm text-gray-500">Na kontakt</div>
-        </a>
-        
-        <a href="#clients" class="card p-5 hover:ring-2 hover:ring-green-300 transition cursor-pointer">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">🏢</span>
-            <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Aktívni</span>
-          </div>
-          <div class="text-3xl font-bold text-green-600">${stats.clients.active}</div>
-          <div class="text-sm text-gray-500">Klienti</div>
-        </a>
-        
-        <div class="card p-5 bg-gradient-to-br from-orange-500 to-pink-500 text-white">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-2xl">💰</span>
-            <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full">MRR</span>
-          </div>
-          <div class="text-3xl font-bold">${Utils.formatCurrency(stats.clients.mrr)}</div>
-          <div class="text-sm text-white/80">Mesačný príjem</div>
+        </div>
+        <div style="display:grid; grid-template-rows: 1fr 1fr; gap:12px;">
+          <a href="#leads" class="adl-stat" style="text-decoration:none;">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Leady celkom</div>
+              <span class="adl-chip adl-chip-brand adl-chip-sm">+${stats.leads.weekly} tento týždeň</span>
+            </div>
+            <div class="adl-stat-value">${stats.leads.total}</div>
+          </a>
+          <a href="#clients" class="adl-stat" style="text-decoration:none;">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Aktívni klienti</div>
+              <span class="adl-chip adl-chip-mint adl-chip-sm">${stats.clients.total - stats.clients.active > 0 ? `${stats.clients.total - stats.clients.active} neaktívni` : 'všetci aktívni'}</span>
+            </div>
+            <div class="adl-stat-value">${stats.clients.active}</div>
+          </a>
         </div>
       </div>
-      
-      <!-- Charts Row -->
-      <div class="grid lg:grid-cols-2 gap-6 mb-6">
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">📊 Pipeline</h3>
-          <div class="h-64">
-            <canvas id="chart-pipeline"></canvas>
+
+      <!-- CHARTS ROW -->
+      <div style="display:grid; grid-template-columns: 1.1fr 1fr; gap:16px; margin-bottom:16px;" class="adl-dashboard-charts">
+        <div class="adl-card">
+          <div class="adl-card-header">
+            <div class="adl-card-title">Pipeline</div>
+            <a href="#leads" class="adl-btn adl-btn-ghost adl-btn-sm">Detail ${I.Chevron({size:12})}</a>
           </div>
-        </div>
-        
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">📈 Aktivita (7 dní)</h3>
-          <div class="h-64">
-            <canvas id="chart-activity"></canvas>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Bottom Row -->
-      <div class="grid lg:grid-cols-3 gap-6">
-        <!-- Quick Actions -->
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">⚡ Rýchle akcie</h3>
-          <div class="space-y-3">
-            <a href="#leads?tab=import" class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 cursor-pointer">
-              <span class="text-xl">📥</span>
-              <div>
-                <div class="font-medium">Import leadov</div>
-                <div class="text-xs text-gray-400">Hromadný import domén</div>
+          <div class="adl-card-body" style="display:flex; gap:24px; align-items:center;">
+            <div style="position:relative; flex-shrink:0;">
+              <div style="width:180px; height:180px;"><canvas id="chart-pipeline"></canvas></div>
+              <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;">
+                <div style="font-size:24px; font-weight:600; letter-spacing:-0.6px;">${stats.leads.total}</div>
+                <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px;">leadov</div>
               </div>
-            </a>
-            <a href="#leads?action=analyze-all" class="flex items-center gap-3 p-3 bg-purple-50 rounded-xl hover:bg-purple-100 cursor-pointer">
-              <span class="text-xl">🤖</span>
-              <div>
-                <div class="font-medium text-purple-700">Analyzovať všetky nové</div>
-                <div class="text-xs text-purple-400">AI + Marketing Miner</div>
-              </div>
-            </a>
-            <a href="#clients?action=new" class="flex items-center gap-3 p-3 bg-green-50 rounded-xl hover:bg-green-100 cursor-pointer">
-              <span class="text-xl">➕</span>
-              <div>
-                <div class="font-medium text-green-700">Nový klient</div>
-                <div class="text-xs text-green-400">Pridať manuálne</div>
-              </div>
-            </a>
-          </div>
-        </div>
-        
-        <!-- Recent Leads -->
-        <div class="card p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold">🕐 Posledné leady</h3>
-            <a href="#leads" class="text-sm text-primary hover:underline">Všetky →</a>
-          </div>
-          <div class="space-y-3">
-            ${recentLeads.length > 0 ? recentLeads.map(lead => `
-              <a href="#leads?id=${lead.id}" class="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 cursor-pointer">
-                <div class="flex items-center gap-3">
-                  ${Utils.statusBadge(lead.status, 'lead')}
-                  <span class="font-medium truncate max-w-[150px]">${lead.company_name || lead.domain || 'Neznámy'}</span>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+              ${pipeline.map(d => `
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--n-50); border-radius:8px;">
+                  <span style="width:8px; height:8px; border-radius:99px; background:${d.color};"></span>
+                  <span style="flex:1; font-size:13px; font-weight:500;">${d.label}</span>
+                  <span class="mono" style="font-size:13px; font-weight:600;">${d.value}</span>
+                  <span style="font-size:11px; color:var(--ink-mute); width:40px; text-align:right;">${Math.round(d.value/pipelineTotal*100)}%</span>
                 </div>
-                <span class="text-xs text-gray-400">${Utils.timeAgo(lead.created_at)}</span>
-              </a>
-            `).join('') : '<div class="text-center text-gray-400 py-4">Žiadne leady</div>'}
+              `).join('')}
+            </div>
           </div>
         </div>
-        
-        <!-- Performance Metrics -->
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">📊 Metriky</h3>
-          <div class="space-y-4">
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">Konverzný pomer</span>
-              <span class="font-bold text-green-600">${stats.metrics.conversionRate}%</span>
+
+        <div class="adl-card">
+          <div class="adl-card-header">
+            <div class="adl-card-title">Aktivita (7 dní)</div>
+            <span class="adl-chip adl-chip-mint adl-chip-sm">Posledný týždeň</span>
+          </div>
+          <div class="adl-card-body">
+            <div style="height:140px; position:relative;">
+              <canvas id="chart-activity"></canvas>
             </div>
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">Priemerné skóre</span>
-              <span class="font-bold">${stats.metrics.avgScore}</span>
-            </div>
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">Nové tento týždeň</span>
-              <span class="font-bold text-blue-600">${stats.leads.weekly}</span>
-            </div>
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">Čakajúce úlohy</span>
-              <span class="font-bold ${stats.tasks.overdue > 0 ? 'text-red-600' : ''}">${stats.tasks.pending}</span>
+            <div style="display:flex; justify-content:space-between; margin-top:12px; font-size:11px; color:var(--ink-mute);">
+              <span>Nových leadov: <strong style="color:var(--ink);">${stats.leads.weekly}</strong></span>
+              <span>Aktívne úlohy: <strong style="color:var(--ink);">${stats.tasks.pending}</strong></span>
+              <span>Konverzný pomer: <strong style="color:var(--ink);">${stats.metrics.conversionRate}%</strong></span>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- BOTTOM ROW: Quick actions + Recent leads + Metrics -->
+      <div style="display:grid; grid-template-columns: 1fr 1.2fr 1fr; gap:16px;" class="adl-dashboard-bottom">
+        <!-- Quick actions -->
+        <div class="adl-card">
+          <div class="adl-card-header">
+            <div class="adl-card-title">Rýchle akcie</div>
+          </div>
+          <div class="adl-card-body" style="padding:12px;">
+            ${quickActions.map(a => `
+              <a href="${a.href}" style="display:flex; gap:12px; padding:10px; border-radius:10px; text-decoration:none; color:inherit; cursor:pointer; margin-bottom:4px; background:${a.highlight ? 'var(--acc-lavender)' : 'transparent'}; transition: background .12s;" onmouseover="this.style.background='${a.highlight ? 'var(--acc-lavender)' : 'var(--n-50)'}'" onmouseout="this.style.background='${a.highlight ? 'var(--acc-lavender)' : 'transparent'}'">
+                <div style="width:36px; height:36px; border-radius:9px; background:var(--acc-${a.tone==='lav'?'lavender':a.tone}); color:var(--acc-${a.tone==='lav'?'lavender':a.tone}-ink); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                  ${I[a.icon]({ size: 16 })}
+                </div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:13px; font-weight:600;">${a.title}</div>
+                  <div style="font-size:11px; color:var(--ink-sub);">${a.sub}</div>
+                </div>
+                <span style="display:flex; align-items:center; color:var(--ink-mute);">${I.Chevron({size:14})}</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Recent leads -->
+        <div class="adl-card">
+          <div class="adl-card-header">
+            <div class="adl-card-title">Posledné leady</div>
+            <a href="#leads" class="adl-btn adl-btn-ghost adl-btn-sm">Všetky ${I.ArrowRight({size:12})}</a>
+          </div>
+          <div>
+            ${recentLeads.length > 0 ? recentLeads.map((lead, i) => {
+              const name = lead.company_name || lead.domain || 'Neznámy';
+              const firstChar = (name[0] || '?').toUpperCase();
+              const chipCfg = leadStatusChips[lead.status] || leadStatusChips.new;
+              return `
+              <a href="#leads?id=${lead.id}" style="display:flex; align-items:center; gap:12px; padding:12px 18px; border-top:${i?'1px solid var(--border)':'none'}; text-decoration:none; color:inherit;">
+                <div style="width:32px; height:32px; border-radius:8px; background:var(--n-75); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--ink-sub);">${firstChar}</div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:13px; font-weight:500; letter-spacing:-0.1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
+                  <div style="font-size:11px; color:var(--ink-mute);">
+                    ${lead.score ? `skóre ${lead.score} · ` : ''}${Utils.timeAgo ? Utils.timeAgo(lead.created_at) : new Date(lead.created_at).toLocaleDateString('sk')}
+                  </div>
+                </div>
+                <span class="adl-chip adl-chip-${chipCfg.tone} adl-chip-sm"><span class="dot"></span>${chipCfg.label}</span>
+              </a>`;
+            }).join('') : `
+              <div style="padding:32px; text-align:center; color:var(--ink-mute); font-size:13px;">Žiadne leady zatiaľ</div>
+            `}
+          </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="adl-card">
+          <div class="adl-card-header">
+            <div class="adl-card-title">Metriky</div>
+          </div>
+          <div class="adl-card-body" style="padding:2px 18px;">
+            ${[
+              ['Konverzný pomer',        `${stats.metrics.conversionRate}%`, stats.metrics.conversionRate >= 5 ? 'ok' : 'n'],
+              ['Priemerné skóre',        `${stats.metrics.avgScore}`,        stats.metrics.avgScore >= 70 ? 'ok' : 'n'],
+              ['Nové tento týždeň',      `${stats.leads.weekly}`,            'n'],
+              ['Čakajúce úlohy',         `${stats.tasks.pending}`,           stats.tasks.overdue > 0 ? 'err' : 'n'],
+              ['Celkový rozpočet klientov', `${Utils.formatCurrency(stats.clients.mrr)}`, 'n']
+            ].map((m, i) => `
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-top:${i?'1px solid var(--border)':'none'};">
+                <span style="font-size:13px; color:var(--ink-sub);">${m[0]}</span>
+                <span class="mono" style="font-size:13px; font-weight:600;">${m[1]}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <style>
+        @media (max-width: 900px) {
+          .adl-dashboard-hero,
+          .adl-dashboard-charts,
+          .adl-dashboard-bottom { grid-template-columns: 1fr !important; }
+        }
+      </style>
+    </div>
     `;
   },
   
   /**
-   * Initialize charts
+   * Initialize charts — používajú design tokens, žiadne chart legendy (používame custom legendy v HTML)
    */
   initCharts(stats) {
-    // Pipeline Chart
+    // Pipeline Donut
     const pipelineCtx = document.getElementById('chart-pipeline')?.getContext('2d');
     if (pipelineCtx) {
       if (this.chartPipeline) this.chartPipeline.destroy();
@@ -288,19 +338,21 @@ const DashboardModule = {
           labels: ['Nové', 'Ready', 'Kontaktované', 'Klienti'],
           datasets: [{
             data: [stats.leads.new, stats.leads.ready, stats.leads.contacted, stats.leads.converted],
-            backgroundColor: ['#3b82f6', '#a855f7', '#f97316', '#22c55e'],
-            borderWidth: 0
+            backgroundColor: ['#F97316', '#4C3E8A', '#1C4A84', '#1F6E3D'],
+            borderWidth: 0,
+            hoverOffset: 4
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom' } }
+          cutout: '72%',
+          plugins: { legend: { display: false }, tooltip: { enabled: true } }
         }
       });
     }
-    
-    // Activity Chart (mock data - would come from activities table)
+
+    // Activity bar chart (mock data — TODO: pripojiť na activities table)
     const activityCtx = document.getElementById('chart-activity')?.getContext('2d');
     if (activityCtx) {
       const days = [];
@@ -309,9 +361,9 @@ const DashboardModule = {
         const d = new Date();
         d.setDate(d.getDate() - i);
         days.push(d.toLocaleDateString('sk-SK', { weekday: 'short' }));
-        counts.push(Math.floor(Math.random() * 10)); // TODO: Real data
+        counts.push(Math.floor(Math.random() * 10)); // TODO: Real data z activities table
       }
-      
+
       if (this.chartActivity) this.chartActivity.destroy();
       this.chartActivity = new Chart(activityCtx, {
         type: 'bar',
@@ -320,15 +372,64 @@ const DashboardModule = {
           datasets: [{
             label: 'Aktivity',
             data: counts,
-            backgroundColor: 'rgba(255, 107, 53, 0.8)',
-            borderRadius: 8
+            backgroundColor: '#F97316',
+            borderRadius: 6,
+            borderSkipped: false,
+            maxBarThickness: 32
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+          plugins: { legend: { display: false }, tooltip: { enabled: true } },
+          scales: {
+            y: { beginAtZero: true, display: false },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#948B7C', font: { family: 'JetBrains Mono', size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    // MRR line chart — trend klientov (zatiaľ mock, neskôr z subscriptions/payments history)
+    const mrrCtx = document.getElementById('chart-mrr-line')?.getContext('2d');
+    if (mrrCtx) {
+      if (this.chartMrr) this.chartMrr.destroy();
+      // Mock historicka data (posledných 9 mesiacov), posledný bod = actual MRR
+      const mrrHistory = [
+        Math.round(stats.clients.mrr * 0.55),
+        Math.round(stats.clients.mrr * 0.62),
+        Math.round(stats.clients.mrr * 0.68),
+        Math.round(stats.clients.mrr * 0.74),
+        Math.round(stats.clients.mrr * 0.80),
+        Math.round(stats.clients.mrr * 0.86),
+        Math.round(stats.clients.mrr * 0.91),
+        Math.round(stats.clients.mrr * 0.96),
+        stats.clients.mrr
+      ];
+      this.chartMrr = new Chart(mrrCtx, {
+        type: 'line',
+        data: {
+          labels: mrrHistory.map((_, i) => `M${i + 1}`),
+          datasets: [{
+            data: mrrHistory,
+            borderColor: '#ffffff',
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: true,
+            tension: 0.35
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: { x: { display: false }, y: { display: false } },
+          elements: { line: { borderJoinStyle: 'round' } }
         }
       });
     }

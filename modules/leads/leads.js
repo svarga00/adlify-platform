@@ -117,87 +117,78 @@ const LeadsModule = {
       analyzed: this.leads.filter(l => l.analysis?.company || l.analysis?.analysis).length,
       contacted: this.leads.filter(l => l.status === 'contacted' || l.proposal_status === 'sent').length
     };
-    
+
     return `
-      <div class="billing-module-new leads-module">
-        <!-- Header s gradientom -->
-        <div class="billing-header">
-          <div class="header-content">
-            <div class="header-title">
-              <h1>Leady</h1>
-              <p class="header-subtitle">Správa potenciálnych klientov</p>
-            </div>
-            <div class="header-actions">
-              <button class="btn-header-secondary" onclick="LeadsModule.showTab('import')">
-                📥 Import
-              </button>
-              <button class="btn-new-document" onclick="LeadsModule.showTab('add')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Nový lead
-              </button>
-            </div>
+      <div class="adl leads-module">
+        <!-- Page header -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Leady</h1>
+            <div style="font-size:13px; color:var(--ink-sub);">Správa potenciálnych klientov</div>
           </div>
-        </div>
-        
-        <!-- Štatistiky -->
-        <div class="billing-stats-grid">
-          <div class="stat-card-new">
-            <div class="stat-card-icon blue">👥</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.total}</span>
-              <span class="stat-card-label">Celkom</span>
-            </div>
-          </div>
-          <div class="stat-card-new">
-            <div class="stat-card-icon green">🆕</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.new}</span>
-              <span class="stat-card-label">Nové</span>
-            </div>
-          </div>
-          <div class="stat-card-new">
-            <div class="stat-card-icon purple">🤖</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.analyzed}</span>
-              <span class="stat-card-label">Analyzované</span>
-            </div>
-          </div>
-          <div class="stat-card-new success">
-            <div class="stat-card-icon orange">📧</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.contacted}</span>
-              <span class="stat-card-label">Kontaktované</span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Taby -->
-        <div class="billing-tabs-container">
-          <div class="billing-tabs-new">
-            <button class="tab-btn-new active" data-tab="list" onclick="LeadsModule.showTab('list')">
-              <span class="tab-icon">📋</span>
-              Zoznam
-              <span class="tab-badge">${stats.total}</span>
+          <div style="display:flex; gap:8px;">
+            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="LeadsModule.showTab('import')">
+              ${I.Upload({size:14})} Import
             </button>
-            <button class="tab-btn-new" data-tab="import" onclick="LeadsModule.showTab('import')">
-              <span class="tab-icon">📥</span>
-              Import
-            </button>
-            <button class="tab-btn-new" data-tab="add" onclick="LeadsModule.showTab('add')">
-              <span class="tab-icon">✏️</span>
-              Pridať
+            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="LeadsModule.showTab('add')">
+              ${I.Plus({size:14})} Nový lead
             </button>
           </div>
         </div>
-        
+
+        <!-- Stats -->
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:18px;" class="adl-leads-stats">
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Celkom</div>
+              <span class="adl-chip adl-chip-sm">${stats.total}</span>
+            </div>
+            <div class="adl-stat-value">${stats.total}</div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Nové</div>
+              <span class="adl-chip adl-chip-sky adl-chip-sm">Na analýzu</span>
+            </div>
+            <div class="adl-stat-value">${stats.new}</div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Analyzované</div>
+              <span class="adl-chip adl-chip-lav adl-chip-sm">Ready</span>
+            </div>
+            <div class="adl-stat-value">${stats.analyzed}</div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Kontaktované</div>
+              <span class="adl-chip adl-chip-brand adl-chip-sm">V jednaní</span>
+            </div>
+            <div class="adl-stat-value">${stats.contacted}</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin-bottom:16px; width:fit-content;" class="adl-tabs">
+          <button class="adl-tab active" data-tab="list" onclick="LeadsModule.showTab('list')">Zoznam <span class="adl-chip adl-chip-ink adl-chip-sm" style="margin-left:4px;">${stats.total}</span></button>
+          <button class="adl-tab" data-tab="import" onclick="LeadsModule.showTab('import')">Import</button>
+          <button class="adl-tab" data-tab="add" onclick="LeadsModule.showTab('add')">Pridať</button>
+        </div>
+
         <!-- Content -->
         <div id="leads-tab-content">
           ${this.renderListTab()}
         </div>
       </div>
+
+      <style>
+        .adl-tab { padding: 8px 14px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--ink-sub); background: transparent; border: 0; cursor: pointer; transition: background .12s, color .12s; }
+        .adl-tab:hover { color: var(--ink); }
+        .adl-tab.active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+        @media (max-width: 900px) {
+          .adl-leads-stats { grid-template-columns: repeat(2, 1fr); }
+        }
+      </style>
       
       <!-- Analysis Modal -->
       <div id="analysis-modal" class="modal-overlay" style="display:none;">
@@ -333,43 +324,44 @@ const LeadsModule = {
   },
   
   renderListTab() {
-    // Získať unikátne typy/odvetvia z leadov
-    const industries = [...new Set(this.leads.map(l => {
-      return l.industry || l.analysis?.company?.industry || null;
-    }).filter(Boolean))];
-    
+    const industries = [...new Set(this.leads.map(l => l.industry || l.analysis?.company?.industry || null).filter(Boolean))];
+
     return `
-      <div class="table-filters">
-        <input type="text" class="filter-search" id="filter-search" placeholder="Hľadať..." value="${this.filters.search}">
-        <select class="filter-select" id="filter-status" onchange="LeadsModule.onStatusChange(this.value)">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px;" class="adl-leads-filters">
+        <div class="adl-input" style="flex:1; min-width:220px; max-width:340px;">
+          <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+          <input type="text" id="filter-search" placeholder="Hľadať firmu alebo doménu…" value="${this.filters.search}" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+        </div>
+        <select class="adl-input" id="filter-status" onchange="LeadsModule.onStatusChange(this.value)" style="width:auto;">
           <option value="">Všetky stavy</option>
-          <option value="new" ${this.filters.status === 'new' ? 'selected' : ''}>🆕 Nové</option>
-          <option value="contacted" ${this.filters.status === 'contacted' ? 'selected' : ''}>📧 Kontaktované</option>
-          <option value="won" ${this.filters.status === 'won' ? 'selected' : ''}>✅ Vyhraní</option>
-          <option value="lost" ${this.filters.status === 'lost' ? 'selected' : ''}>❌ Prehraní</option>
+          <option value="new" ${this.filters.status === 'new' ? 'selected' : ''}>Nové</option>
+          <option value="contacted" ${this.filters.status === 'contacted' ? 'selected' : ''}>Kontaktované</option>
+          <option value="won" ${this.filters.status === 'won' ? 'selected' : ''}>Vyhraní</option>
+          <option value="lost" ${this.filters.status === 'lost' ? 'selected' : ''}>Prehraní</option>
         </select>
-        <select class="filter-select" id="filter-industry" onchange="LeadsModule.onIndustryChange(this.value)">
+        <select class="adl-input" id="filter-industry" onchange="LeadsModule.onIndustryChange(this.value)" style="width:auto;">
           <option value="">Všetky typy</option>
           ${industries.map(i => `<option value="${i}" ${this.filters.industry === i ? 'selected' : ''}>${i}</option>`).join('')}
         </select>
-        <select class="filter-select" id="filter-date" onchange="LeadsModule.onDateChange(this.value)">
+        <select class="adl-input" id="filter-date" onchange="LeadsModule.onDateChange(this.value)" style="width:auto;">
           <option value="">Všetky dátumy</option>
-          <option value="today" ${this.filters.dateRange === 'today' ? 'selected' : ''}>📅 Dnes</option>
-          <option value="yesterday" ${this.filters.dateRange === 'yesterday' ? 'selected' : ''}>📅 Včera</option>
-          <option value="week" ${this.filters.dateRange === 'week' ? 'selected' : ''}>📅 Tento týždeň</option>
-          <option value="month" ${this.filters.dateRange === 'month' ? 'selected' : ''}>📅 Tento mesiac</option>
-          <option value="older" ${this.filters.dateRange === 'older' ? 'selected' : ''}>📅 Staršie</option>
+          <option value="today" ${this.filters.dateRange === 'today' ? 'selected' : ''}>Dnes</option>
+          <option value="yesterday" ${this.filters.dateRange === 'yesterday' ? 'selected' : ''}>Včera</option>
+          <option value="week" ${this.filters.dateRange === 'week' ? 'selected' : ''}>Tento týždeň</option>
+          <option value="month" ${this.filters.dateRange === 'month' ? 'selected' : ''}>Tento mesiac</option>
+          <option value="older" ${this.filters.dateRange === 'older' ? 'selected' : ''}>Staršie</option>
         </select>
-        <div class="filter-actions">
-          <button onclick="LeadsModule.selectAll()" class="btn-filter">☑️ Všetky</button>
-          <button onclick="LeadsModule.analyzeSelected()" class="btn-filter purple">🤖 Analyzovať</button>
-          <button onclick="LeadsModule.sendBulkProposals()" class="btn-filter orange">📧 Ponuky</button>
-          <button onclick="LeadsModule.deleteSelected()" class="btn-filter red">🗑️</button>
+        <div style="flex:1;"></div>
+        <div style="display:flex; gap:6px;">
+          <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.selectAll()" title="Vybrať všetky">${I.Check({size:14})} Vybrať</button>
+          <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="LeadsModule.analyzeSelected()">${I.Sparkle({size:14})} Analyzovať</button>
+          <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="LeadsModule.sendBulkProposals()">${I.Mail({size:14})} Ponuky</button>
+          <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.deleteSelected()" title="Zmazať">${I.Trash({size:14})}</button>
         </div>
       </div>
-      
-      <div class="table-container">
-        <table class="data-table" id="leads-table">
+
+      <div class="adl-table-wrap">
+        <table class="adl-table" id="leads-table">
           <thead>
             <tr>
               <th style="width:40px;"><input type="checkbox" onchange="LeadsModule.toggleAllCheckbox(this.checked)"></th>
@@ -379,7 +371,7 @@ const LeadsModule = {
               <th>Stav</th>
               <th>Dátum</th>
               <th>Skóre</th>
-              <th>Akcie</th>
+              <th style="width:200px;">Akcie</th>
             </tr>
           </thead>
           <tbody id="leads-list">
@@ -717,92 +709,92 @@ const LeadsModule = {
       return `
         <tr>
           <td colspan="8">
-            <div class="empty-state">
-              <div class="empty-icon">👥</div>
-              <h3>Žiadne leady</h3>
-              <p>Pridajte prvý lead alebo importujte domény</p>
-              <button class="btn-primary" onclick="LeadsModule.showTab('add')">+ Nový lead</button>
+            <div style="padding:48px 24px; text-align:center; color:var(--ink-sub);">
+              <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Users({size:22})}</div>
+              <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne leady</h3>
+              <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Pridajte prvý lead alebo importujte domény z Marketing Miner</p>
+              <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="LeadsModule.showTab('add')">${I.Plus({size:14})} Nový lead</button>
             </div>
           </td>
         </tr>
       `;
     }
-    
+
+    const statusConfig = {
+      'new':           { label: 'Nový',         tone: 'sky' },
+      'analyzed':      { label: 'Analyzovaný',  tone: 'lav' },
+      'contacted':     { label: 'Kontaktovaný', tone: 'brand' },
+      'proposal_sent': { label: 'Ponuka',       tone: 'amber' },
+      'won':           { label: 'Vyhraný',      tone: 'mint' },
+      'lost':          { label: 'Prehraný',     tone: 'err' }
+    };
+
     return this.leads.map(lead => {
       const a = lead.analysis || {};
       const md = lead.marketing_data || {};
       const hasAnalysis = a.company || a.analysis;
       const hasSocials = md.socialMedia && Object.keys(md.socialMedia).length > 0;
       const score = lead.score || 0;
-      const scoreClass = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
-      
-      // Typ/Industry - z analysis alebo lead.industry
+      const scoreColor = score >= 70 ? 'var(--ok)' : score >= 40 ? 'var(--warn)' : 'var(--ink-mute)';
+
       const industry = lead.industry || a.company?.industry || a.analysis?.industry || '';
-      const industryShort = industry.length > 20 ? industry.substring(0, 18) + '...' : industry;
-      
-      // Dátum importu
+      const industryShort = industry.length > 24 ? industry.substring(0, 22) + '…' : industry;
+
       const createdAt = lead.created_at ? new Date(lead.created_at) : null;
-      const dateStr = createdAt ? createdAt.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) : '-';
+      const dateStr = createdAt ? createdAt.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) : '—';
       const timeAgo = createdAt ? this.getTimeAgo(createdAt) : '';
-      
-      const statusConfig = {
-        'new': { label: 'Nový', class: 'blue' },
-        'analyzed': { label: 'Analyzovaný', class: 'indigo' },
-        'contacted': { label: 'Kontaktovaný', class: 'yellow' },
-        'proposal_sent': { label: 'Ponuka', class: 'purple' },
-        'won': { label: 'Vyhraný', class: 'green' },
-        'lost': { label: 'Prehraný', class: 'red' }
-      };
-      const status = statusConfig[lead.status] || statusConfig['new'];
-      
-      // Social icons
+
+      const st = statusConfig[lead.status] || statusConfig['new'];
+
       const socials = md.socialMedia || {};
-      const socialIcons = [];
-      if (socials.facebook) socialIcons.push(`<a href="${socials.facebook}" target="_blank" onclick="event.stopPropagation()" class="social-icon fb" title="Facebook">f</a>`);
-      if (socials.instagram) socialIcons.push(`<a href="${socials.instagram}" target="_blank" onclick="event.stopPropagation()" class="social-icon ig" title="Instagram">📷</a>`);
-      if (socials.linkedin) socialIcons.push(`<a href="${socials.linkedin}" target="_blank" onclick="event.stopPropagation()" class="social-icon li" title="LinkedIn">in</a>`);
-      
+      const socialParts = [];
+      if (socials.facebook)  socialParts.push(`<a href="${socials.facebook}" target="_blank" onclick="event.stopPropagation()" title="Facebook" style="display:inline-flex; color:#1877F2;">${I.Fb({size:14})}</a>`);
+      if (socials.instagram) socialParts.push(`<a href="${socials.instagram}" target="_blank" onclick="event.stopPropagation()" title="Instagram" style="display:inline-flex; color:#E1306C;">${I.Instagram({size:14})}</a>`);
+      if (socials.linkedin)  socialParts.push(`<a href="${socials.linkedin}" target="_blank" onclick="event.stopPropagation()" title="LinkedIn" style="display:inline-flex; color:#0A66C2;">${I.Link({size:14})}</a>`);
+
+      const displayName = lead.company_name || lead.domain || 'Neznámy';
+      const firstChar = (displayName[0] || '?').toUpperCase();
+
       return `
         <tr data-status="${lead.status}" data-industry="${industry}">
+          <td><input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="LeadsModule.toggleSelect('${lead.id}')"></td>
           <td>
-            <input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="LeadsModule.toggleSelect('${lead.id}')">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:32px; height:32px; border-radius:8px; background:var(--n-75); display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:var(--ink-sub); flex-shrink:0;">${firstChar}</div>
+              <div style="min-width:0;">
+                <div style="font-weight:600; font-size:13px; color:var(--ink); letter-spacing:-0.1px;">${displayName}</div>
+                ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px; color:var(--ink-sub); display:inline-flex; align-items:center; gap:3px;">${lead.domain} ${I.External({size:10})}</a>` : ''}
+              </div>
+            </div>
           </td>
+          <td>${industry ? `<span class="adl-chip adl-chip-sm" title="${industry}">${industryShort}</span>` : '<span style="color:var(--ink-mute);">—</span>'}</td>
           <td>
-            <div class="lead-company">
-              <strong>${lead.company_name || lead.domain || 'Neznámy'}</strong>
-              ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="lead-domain">${lead.domain} ↗</a>` : ''}
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              ${lead.email ? `<a href="mailto:${lead.email}" style="font-size:12px; color:var(--ink-sub); display:inline-flex; align-items:center; gap:4px;">${I.Mail({size:12})} ${lead.email}</a>` : ''}
+              ${lead.phone ? `<a href="tel:${lead.phone}" style="font-size:12px; color:var(--ink-sub); display:inline-flex; align-items:center; gap:4px;">${I.Phone({size:12})} ${lead.phone}</a>` : ''}
+              ${!lead.email && !lead.phone ? '<span style="color:var(--ink-mute);">—</span>' : ''}
+              ${socialParts.length ? `<div style="display:flex; gap:6px; margin-top:2px;">${socialParts.join('')}</div>` : ''}
             </div>
           </td>
           <td>
-            ${industry ? `<span class="industry-tag" title="${industry}">${industryShort}</span>` : '<span class="text-muted">-</span>'}
-          </td>
-          <td>
-            <div class="lead-contact">
-              ${lead.email ? `<a href="mailto:${lead.email}" class="contact-email">📧 ${lead.email}</a>` : ''}
-              ${lead.phone ? `<a href="tel:${lead.phone}" class="contact-phone">📞 ${lead.phone}</a>` : ''}
-              ${!lead.email && !lead.phone ? '<span style="color:#94a3b8">-</span>' : ''}
-            </div>
-            ${socialIcons.length > 0 ? `<div class="social-icons">${socialIcons.join('')}</div>` : ''}
-          </td>
-          <td>
-            <span class="status-badge ${status.class}">${status.label}</span>
-            ${hasAnalysis ? '<span class="analysis-badge">✓ AI</span>' : ''}
-            ${hasSocials && !hasAnalysis ? '<span class="analysis-badge" style="background:#dbeafe;color:#1d4ed8;">📊 MM</span>' : ''}
-          </td>
-          <td>
-            <span class="date-cell" title="${createdAt ? createdAt.toLocaleString('sk-SK') : ''}">${dateStr}</span>
-            ${timeAgo ? `<small class="time-ago">${timeAgo}</small>` : ''}
-          </td>
-          <td>
-            <div class="score-cell">
-              <span class="score-badge ${scoreClass}">${score}</span>
+            <div style="display:inline-flex; flex-direction:column; gap:3px; align-items:flex-start;">
+              <span class="adl-chip adl-chip-${st.tone} adl-chip-sm"><span class="dot"></span>${st.label}</span>
+              ${hasAnalysis ? `<span class="adl-chip adl-chip-mint adl-chip-sm" title="AI Analysis">${I.Sparkle({size:10})} AI</span>` : ''}
+              ${hasSocials && !hasAnalysis ? `<span class="adl-chip adl-chip-sky adl-chip-sm" title="Marketing Miner data">${I.Chart({size:10})} MM</span>` : ''}
             </div>
           </td>
           <td>
-            <div class="action-buttons">
-              <button class="btn-detail" onclick="LeadsModule.showLeadDetail('${lead.id}')">Detail</button>
-              <button class="btn-icon" onclick="LeadsModule.analyze('${lead.id}')" title="AI Analýza">🤖</button>
-              ${hasAnalysis ? `<button class="btn-icon" onclick="LeadsModule.showProposalModal('${lead.id}')" title="Ponuka">📄</button>` : ''}
+            <span class="mono" style="font-size:12px; color:var(--ink);" title="${createdAt ? createdAt.toLocaleString('sk-SK') : ''}">${dateStr}</span>
+            ${timeAgo ? `<div style="font-size:10px; color:var(--ink-mute);">${timeAgo}</div>` : ''}
+          </td>
+          <td>
+            <div class="mono" style="display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:26px; padding:0 8px; border-radius:6px; background:color-mix(in oklab, ${scoreColor} 14%, transparent); color:${scoreColor}; font-weight:600; font-size:12px;">${score}</div>
+          </td>
+          <td>
+            <div style="display:flex; gap:4px; align-items:center;">
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.showLeadDetail('${lead.id}')">Detail</button>
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.analyze('${lead.id}')" title="AI Analýza" style="padding:0 8px;">${I.Sparkle({size:14})}</button>
+              ${hasAnalysis ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.showProposalModal('${lead.id}')" title="Ponuka" style="padding:0 8px;">${I.Mail({size:14})}</button>` : ''}
             </div>
           </td>
         </tr>
@@ -848,14 +840,14 @@ const LeadsModule = {
   },
 
   showTab(tab) {
-    // Update tabs
-    document.querySelectorAll('.tab-btn-new').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`.tab-btn-new[data-tab="${tab}"]`)?.classList.add('active');
-    
+    // Update tabs (new adl-tab + legacy tab-btn-new)
+    document.querySelectorAll('.adl-tab, .tab-btn-new').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.adl-tab[data-tab="${tab}"], .tab-btn-new[data-tab="${tab}"]`)?.classList.add('active');
+
     // Render content
     const contentEl = document.getElementById('leads-tab-content');
     if (!contentEl) return;
-    
+
     switch(tab) {
       case 'list':
         contentEl.innerHTML = this.renderListTab();
@@ -870,10 +862,14 @@ const LeadsModule = {
     }
   },
 
-  async onSearchChange(value) { this.filters.search = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); document.getElementById('leads-count').textContent = this.leads.length; },
-  async onStatusChange(value) { this.filters.status = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); document.getElementById('leads-count').textContent = this.leads.length; },
-  async onIndustryChange(value) { 
-    this.filters.industry = value; 
+  _updateListCount() {
+    const el = document.getElementById('leads-count');
+    if (el) el.textContent = this.leads.length;
+  },
+  async onSearchChange(value) { this.filters.search = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); this._updateListCount(); },
+  async onStatusChange(value) { this.filters.status = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); this._updateListCount(); },
+  async onIndustryChange(value) {
+    this.filters.industry = value;
     // Filter lokálne (industry nie je v DB)
     if (value) {
       const allLeads = [...this.leads];
@@ -884,8 +880,8 @@ const LeadsModule = {
     } else {
       await this.loadLeads();
     }
-    document.getElementById('leads-list').innerHTML = this.renderLeadsList(); 
-    document.getElementById('leads-count').textContent = this.leads.length; 
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    this._updateListCount(); 
   },
   
   async onDateChange(value) {
@@ -921,7 +917,7 @@ const LeadsModule = {
     }
     
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-    document.getElementById('leads-count').textContent = this.leads.length;
+    this._updateListCount();
   },
   toggleSelect(id) { if (this.selectedIds.has(id)) this.selectedIds.delete(id); else this.selectedIds.add(id); },
   selectAll() { this.leads.forEach(l => this.selectedIds.add(l.id)); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); },
@@ -1589,7 +1585,7 @@ const LeadsModule = {
       Utils.toast('Lead zmazaný', 'success');
       this.closeModal();
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-      document.getElementById('leads-count').textContent = this.leads.length;
+      this._updateListCount();
     } catch (error) {
       Utils.toast('Chyba pri mazaní', 'error');
     }
@@ -5549,7 +5545,7 @@ Odkaz je platný 30 dní.
     Utils.toast('Vymazané', 'success');
     await this.loadLeads();
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-    document.getElementById('leads-count').textContent = this.leads.length;
+    this._updateListCount();
   },
   
   // Odoslanie ponuky emailom
