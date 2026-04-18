@@ -90,10 +90,11 @@ const TemplatesModule = {
 
         if (filtered.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">📝</div>
-                    <h3>Žiadne šablóny</h3>
-                    <p>Vytvor prvú šablónu pre rýchlejšiu prácu</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Template({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne šablóny</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte prvú šablónu pre rýchlejšiu prácu</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TemplatesModule.showCreateModal()">${I.Plus({size:14})} Nová šablóna</button>
                 </div>
             `;
             return;
@@ -110,47 +111,50 @@ const TemplatesModule = {
         let html = '';
         for (const [category, templates] of Object.entries(grouped)) {
             html += `
-                <div class="template-group">
-                    <h3 class="group-title">${this.getCategoryName(category)}</h3>
-                    <div class="templates-grid">
+                <div style="margin-bottom:20px;">
+                    <h3 style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-sub); margin:0 0 10px;">${this.getCategoryName(category)}</h3>
+                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;" class="adl-templates-grid">
                         ${templates.map(t => this.renderTemplateCard(t)).join('')}
                     </div>
                 </div>
             `;
         }
 
+        html += `<style>
+            @media (max-width: 1100px) { .adl-templates-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+            @media (max-width: 640px)  { .adl-templates-grid { grid-template-columns: 1fr !important; } }
+        </style>`;
+
         container.innerHTML = html;
     },
 
     renderTemplateCard(template) {
-        const typeIcons = {
-            email: '📧',
-            sms: '💬',
-            ad_text: '📢',
-            report: '📊',
-            proposal: '📄',
-            other: '📋'
+        const typeMap = {
+            email:    { icon: I.Mail,      label: 'Email',     tone: 'sky' },
+            sms:      { icon: I.Phone,     label: 'SMS',       tone: 'lav' },
+            ad_text:  { icon: I.Megaphone, label: 'Reklama',   tone: 'brand' },
+            report:   { icon: I.Chart,     label: 'Report',    tone: 'mint' },
+            proposal: { icon: I.Docs,      label: 'Ponuka',    tone: 'amber' },
+            other:    { icon: I.Folder,    label: 'Iné',       tone: 'n' }
         };
+        const t = typeMap[template.type] || typeMap.other;
 
         return `
-            <div class="template-card" onclick="TemplatesModule.openTemplate('${template.id}')">
-                <div class="template-header">
-                    <span class="template-icon">${typeIcons[template.type] || '📄'}</span>
-                    <span class="template-type">${this.getTypeName(template.type)}</span>
-                    ${template.is_default ? '<span class="default-badge">Default</span>' : ''}
+            <div onclick="TemplatesModule.openTemplate('${template.id}')" style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition: border-color .12s, box-shadow .12s; display:flex; flex-direction:column; gap:10px;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="adl-chip adl-chip-${t.tone} adl-chip-sm">${t.icon({size:12})} ${t.label}</span>
+                    ${template.is_default ? '<span class="adl-chip adl-chip-brand adl-chip-sm">Default</span>' : ''}
                 </div>
-                <h4 class="template-name">${template.name}</h4>
-                ${template.description ? `<p class="template-desc">${template.description}</p>` : ''}
-                ${template.subject ? `<p class="template-subject">Predmet: ${template.subject}</p>` : ''}
-                <div class="template-footer">
-                    <span class="usage-count">Použité ${template.usage_count}×</span>
-                    <div class="template-actions">
-                        <button class="btn-icon" onclick="event.stopPropagation(); TemplatesModule.useTemplate('${template.id}')" title="Použiť">
-                            ▶️
-                        </button>
-                        <button class="btn-icon" onclick="event.stopPropagation(); TemplatesModule.duplicateTemplate('${template.id}')" title="Duplikovať">
-                            📋
-                        </button>
+                <div>
+                    <div style="font-size:14px; font-weight:600; letter-spacing:-0.1px; color:var(--ink);">${template.name}</div>
+                    ${template.description ? `<div style="font-size:12px; color:var(--ink-sub); margin-top:2px; line-height:1.4;">${template.description}</div>` : ''}
+                </div>
+                ${template.subject ? `<div style="font-size:11px; color:var(--ink-mute); padding:6px 10px; background:var(--n-50); border-radius:6px;"><strong style="color:var(--ink-sub);">Predmet:</strong> ${template.subject}</div>` : ''}
+                <div style="display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border);">
+                    <span style="font-size:11px; color:var(--ink-mute);">Použité ${template.usage_count || 0}×</span>
+                    <div style="display:flex; gap:4px;">
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); TemplatesModule.useTemplate('${template.id}')" title="Použiť" style="padding:0 8px;">${I.Play({size:12})}</button>
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); TemplatesModule.duplicateTemplate('${template.id}')" title="Duplikovať" style="padding:0 8px;">${I.Copy({size:12})}</button>
                     </div>
                 </div>
             </div>

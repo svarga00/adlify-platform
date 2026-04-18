@@ -120,64 +120,58 @@ const DocumentsModule = {
 
         if (filtered.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">📁</div>
-                    <h3>Žiadne dokumenty</h3>
-                    <p>Nahraj prvý dokument kliknutím na tlačidlo "Nahrať súbor"</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Folder({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne dokumenty</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Nahrajte prvý dokument kliknutím na tlačidlo „Nahrať súbor"</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="DocumentsModule.showUploadModal()">${I.Upload({size:14})} Nahrať súbor</button>
                 </div>
             `;
             return;
         }
 
         container.innerHTML = `
-            <div class="documents-grid">
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;" class="adl-docs-grid">
                 ${filtered.map(doc => this.renderDocumentCard(doc)).join('')}
             </div>
+            <style>
+                @media (max-width: 1100px) { .adl-docs-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+                @media (max-width: 640px)  { .adl-docs-grid { grid-template-columns: 1fr !important; } }
+            </style>
         `;
     },
 
     renderDocumentCard(doc) {
-        const icons = {
-            contract: '📝',
-            invoice: '💰',
-            proposal: '📄',
-            report: '📊',
-            image: '🖼️',
-            video: '🎬',
-            other: '📁'
+        const catMap = {
+            contract: { icon: I.Edit,    tone: 'sky'   },
+            invoice:  { icon: I.Invoice, tone: 'mint'  },
+            proposal: { icon: I.Docs,    tone: 'amber' },
+            report:   { icon: I.Chart,   tone: 'lav'   },
+            image:    { icon: I.Image,   tone: 'rose'  },
+            video:    { icon: I.Play,    tone: 'brand' },
+            other:    { icon: I.Folder,  tone: 'n'     }
         };
-
-        const icon = icons[doc.category] || '📄';
+        const c = catMap[doc.category] || catMap.other;
         const uploaderName = doc.uploader ? `${doc.uploader.first_name} ${doc.uploader.last_name}` : 'Neznámy';
         const fileSize = this.formatFileSize(doc.file_size);
         const isImage = doc.file_type?.startsWith('image/');
 
         return `
-            <div class="document-card" onclick="DocumentsModule.openDocument('${doc.id}')">
-                <div class="doc-preview">
-                    ${isImage && doc.file_url ? 
-                        `<img src="${doc.file_url}" alt="${doc.name}">` : 
-                        `<span class="doc-icon">${icon}</span>`
-                    }
+            <div onclick="DocumentsModule.openDocument('${doc.id}')" style="background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; transition: border-color .12s, box-shadow .12s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                <div style="aspect-ratio: 16/9; background:var(--n-75); display:flex; align-items:center; justify-content:center; overflow:hidden; color:var(--ink-mute);">
+                    ${isImage && doc.file_url ? `<img src="${doc.file_url}" alt="${doc.name}" style="width:100%; height:100%; object-fit:cover;">` : c.icon({size:32})}
                 </div>
-                <div class="doc-info">
-                    <h4 class="doc-name">${doc.name}</h4>
-                    <p class="doc-meta">
-                        <span>${this.getCategoryName(doc.category)}</span>
-                        <span>•</span>
-                        <span>${fileSize}</span>
-                    </p>
-                    <p class="doc-date">
-                        ${uploaderName} • ${this.formatDate(doc.created_at)}
-                    </p>
-                </div>
-                <div class="doc-actions">
-                    <a href="${doc.file_url}" target="_blank" class="btn-icon" onclick="event.stopPropagation()" title="Stiahnuť">
-                        📥
-                    </a>
-                    <button class="btn-icon" onclick="event.stopPropagation(); DocumentsModule.deleteDocument('${doc.id}')" title="Zmazať">
-                        🗑️
-                    </button>
+                <div style="padding:14px;">
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                        <span class="adl-chip adl-chip-${c.tone} adl-chip-sm">${this.getCategoryName(doc.category)}</span>
+                        <span style="font-size:11px; color:var(--ink-mute);">${fileSize}</span>
+                    </div>
+                    <div style="font-size:13px; font-weight:600; color:var(--ink); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${doc.name}</div>
+                    <div style="font-size:11px; color:var(--ink-mute); margin-top:4px;">${uploaderName} · ${this.formatDate(doc.created_at)}</div>
+                    <div style="display:flex; gap:4px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+                        <a href="${doc.file_url}" target="_blank" onclick="event.stopPropagation()" class="adl-btn adl-btn-soft adl-btn-sm" style="flex:1; justify-content:center; text-decoration:none;">${I.Download({size:12})} Stiahnuť</a>
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); DocumentsModule.deleteDocument('${doc.id}')" title="Zmazať" style="color:var(--err); padding:0 10px;">${I.Trash({size:12})}</button>
+                    </div>
                 </div>
             </div>
         `;

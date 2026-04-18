@@ -128,132 +128,123 @@ const ServicesModule = {
   renderPackages() {
     if (this.packages.length === 0) {
       return `
-        <div class="text-center py-12 bg-gray-50 rounded-xl">
-          <div class="text-4xl mb-4">📦</div>
-          <h3 class="text-lg font-medium text-gray-600">Žiadne balíčky</h3>
-          <p class="text-gray-500 mb-4">Vytvorte svoj prvý cenový balíček</p>
-          <button onclick="ServicesModule.showPackageModal()" class="px-6 py-2 bg-purple-600 text-white rounded-xl">
-            ➕ Vytvoriť balíček
-          </button>
+        <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Package({size:22})}</div>
+          <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne balíčky</h3>
+          <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte svoj prvý cenový balíček</p>
+          <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ServicesModule.showPackageModal()">${I.Plus({size:14})} Vytvoriť balíček</button>
         </div>
       `;
     }
-    
+
     return `
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:14px;" class="adl-packages-grid">
         ${this.packages.map(pkg => this.renderPackageCard(pkg)).join('')}
       </div>
+      <style>
+        @media (max-width: 1200px) { .adl-packages-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 640px)  { .adl-packages-grid { grid-template-columns: 1fr !important; } }
+      </style>
     `;
   },
-  
+
   renderPackageCard(pkg) {
     const badgeColor = this.BADGE_COLORS.find(b => b.value === pkg.badge_color) || this.BADGE_COLORS[0];
     const includedServices = pkg.package_services || [];
-    
+    const accentBorder = pkg.is_featured ? 'var(--brand-500)' : 'var(--border)';
+    const accentBg = pkg.is_featured ? 'linear-gradient(135deg, color-mix(in oklab, var(--brand-500) 6%, var(--surface)), var(--surface))' : 'var(--surface)';
+
     return `
-      <div class="bg-white rounded-2xl border-2 ${pkg.is_featured ? 'border-orange-400 shadow-lg' : 'border-gray-200'} overflow-hidden relative">
-        ${pkg.badge ? `
-          <div class="absolute top-4 right-4">
-            <span class="px-3 py-1 rounded-full text-xs font-medium ${badgeColor.class}">${pkg.badge}</span>
+      <div style="background:${accentBg}; border:1px solid ${accentBorder}; border-radius:14px; overflow:hidden; position:relative; box-shadow:${pkg.is_featured ? 'var(--sh-md)' : 'var(--sh-sm)'}; display:flex; flex-direction:column;">
+        ${pkg.badge ? `<div style="position:absolute; top:14px; right:14px;"><span class="adl-chip adl-chip-brand adl-chip-sm">${pkg.badge}</span></div>` : ''}
+
+        <div style="padding:20px; flex:1;">
+          <div style="color:${pkg.is_featured ? 'var(--brand-600)' : 'var(--ink-sub)'}; margin-bottom:6px; display:inline-flex;">${I.Package({size:20})}</div>
+          <h3 style="font-size:18px; font-weight:700; letter-spacing:-0.3px; color:${pkg.is_featured ? 'var(--brand-700)' : 'var(--ink)'};">${pkg.name}</h3>
+
+          <div style="margin-top:14px;">
+            <span style="font-size:28px; font-weight:700; letter-spacing:-0.8px;">${pkg.price_type === 'from' ? 'od ' : ''}${pkg.price}&nbsp;€</span>
+            <span style="color:var(--ink-sub); font-size:13px;">/mes</span>
           </div>
-        ` : ''}
-        
-        <div class="p-6">
-          <!-- Header -->
-          <div class="text-3xl mb-2">${pkg.icon || '📦'}</div>
-          <h3 class="text-xl font-bold ${pkg.is_featured ? 'text-orange-600' : ''}">${pkg.name}</h3>
-          
-          <!-- Price -->
-          <div class="mt-4">
-            <span class="text-3xl font-bold">${pkg.price_type === 'from' ? 'od ' : ''}${pkg.price}€</span>
-            <span class="text-gray-500">/mes</span>
-          </div>
-          
-          <!-- Description -->
-          <p class="text-sm text-gray-500 mt-2 mb-4">${pkg.description || ''}</p>
-          
-          <!-- Features -->
-          <div class="space-y-2 mb-6">
+
+          ${pkg.description ? `<p style="font-size:12px; color:var(--ink-sub); margin:10px 0 14px; line-height:1.5;">${pkg.description}</p>` : '<div style="height:14px;"></div>'}
+
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:18px;">
             ${includedServices.slice(0, 6).map(ps => `
-              <div class="flex items-start gap-2 text-sm">
-                <span class="text-green-500 mt-0.5">✓</span>
+              <div style="display:flex; align-items:start; gap:8px; font-size:12px; color:var(--ink);">
+                <span style="color:var(--ok); margin-top:2px; display:inline-flex;">${I.Check({size:12})}</span>
                 <span>
-                  ${ps.limit_value ? `${ps.limit_value === 'unlimited' ? 'Neobmedzené' : ps.limit_value} ` : ''}
+                  ${ps.limit_value ? `<strong>${ps.limit_value === 'unlimited' ? 'Neobmedzené' : ps.limit_value}</strong> ` : ''}
                   ${ps.services?.name || ''}
-                  ${ps.notes ? `<span class="text-gray-400">(${ps.notes})</span>` : ''}
+                  ${ps.notes ? `<span style="color:var(--ink-mute);"> (${ps.notes})</span>` : ''}
                 </span>
               </div>
             `).join('')}
-            ${includedServices.length > 6 ? `
-              <div class="text-sm text-gray-400">+ ${includedServices.length - 6} ďalších...</div>
-            ` : ''}
+            ${includedServices.length > 6 ? `<div style="font-size:12px; color:var(--ink-mute); padding-left:20px;">+ ${includedServices.length - 6} ďalších…</div>` : ''}
           </div>
-          
-          <!-- Actions -->
-          <div class="flex gap-2">
-            <button onclick="ServicesModule.editPackage('${pkg.id}')" 
-              class="flex-1 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-              ✏️ Upraviť
-            </button>
-            <button onclick="ServicesModule.deletePackage('${pkg.id}')" 
-              class="px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm">
-              🗑️
-            </button>
+
+          <div style="display:flex; gap:6px;">
+            <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="ServicesModule.editPackage('${pkg.id}')" style="flex:1; justify-content:center;">${I.Edit({size:14})} Upraviť</button>
+            <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="ServicesModule.deletePackage('${pkg.id}')" style="color:var(--err); padding:0 10px;" title="Zmazať">${I.Trash({size:14})}</button>
           </div>
         </div>
-        
-        <!-- Status -->
-        <div class="px-6 py-3 bg-gray-50 border-t flex items-center justify-between text-xs">
-          <span class="${pkg.is_active ? 'text-green-600' : 'text-gray-400'}">
-            ${pkg.is_active ? '● Aktívny' : '○ Neaktívny'}
-          </span>
-          <span class="text-gray-400">Poradie: ${pkg.sort_order}</span>
+
+        <div style="padding:10px 20px; background:var(--n-50); border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; font-size:11px;">
+          <span class="adl-chip adl-chip-sm ${pkg.is_active ? 'adl-chip-ok' : ''}"><span class="dot"></span>${pkg.is_active ? 'Aktívny' : 'Neaktívny'}</span>
+          <span style="color:var(--ink-mute);">Poradie ${pkg.sort_order}</span>
         </div>
       </div>
     `;
   },
-  
-  // ==========================================
-  // SERVICES
-  // ==========================================
-  
+
   renderServices() {
     if (this.services.length === 0) {
       return `
-        <div class="text-center py-12 bg-gray-50 rounded-xl">
-          <div class="text-4xl mb-4">🔧</div>
-          <h3 class="text-lg font-medium text-gray-600">Žiadne služby</h3>
-          <p class="text-gray-500 mb-4">Vytvorte svoju prvú službu</p>
-          <button onclick="ServicesModule.showServiceModal()" class="px-6 py-2 bg-purple-600 text-white rounded-xl">
-            ➕ Vytvoriť službu
-          </button>
+        <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Folder({size:22})}</div>
+          <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne služby</h3>
+          <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte svoju prvú službu</p>
+          <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ServicesModule.showServiceModal()">${I.Plus({size:14})} Vytvoriť službu</button>
         </div>
       `;
     }
-    
-    // Group by category
+
     const grouped = {};
     this.SERVICE_CATEGORIES.forEach(cat => {
       grouped[cat.value] = this.services.filter(s => s.category === cat.value);
     });
-    
+
     return `
-      <div class="space-y-6">
+      <div style="display:flex; flex-direction:column; gap:14px;">
         ${this.SERVICE_CATEGORIES.map(cat => {
           const services = grouped[cat.value] || [];
           if (services.length === 0) return '';
-          
+
           return `
-            <div class="bg-white rounded-xl border overflow-hidden">
-              <div class="px-6 py-4 bg-gray-50 border-b flex items-center gap-3">
-                <span class="text-2xl">${cat.icon}</span>
-                <div>
-                  <h3 class="font-semibold">${cat.label}</h3>
-                  <p class="text-sm text-gray-500">${services.length} služieb</p>
+            <div class="adl-card">
+              <div class="adl-card-header">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <div class="adl-card-title">${cat.label}</div>
+                  <span class="adl-chip adl-chip-sm">${services.length}</span>
                 </div>
               </div>
-              <div class="divide-y">
-                ${services.map(svc => this.renderServiceRow(svc)).join('')}
+              <div style="display:flex; flex-direction:column;">
+                ${services.map((svc, i) => `
+                  <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; ${i > 0 ? 'border-top:1px solid var(--border);' : ''} transition: background .12s;" onmouseover="this.style.background='var(--n-25)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                      <div style="width:32px; height:32px; border-radius:8px; background:var(--n-75); color:var(--ink-sub); display:inline-flex; align-items:center; justify-content:center;">${I.Folder({size:16})}</div>
+                      <div style="min-width:0;">
+                        <div style="font-size:13px; font-weight:600; color:var(--ink);">${svc.name}</div>
+                        ${svc.description ? `<div style="font-size:11px; color:var(--ink-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:400px;">${svc.description}</div>` : ''}
+                      </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                      <span class="mono" style="font-size:13px; font-weight:600;">${svc.base_price}&nbsp;€<span style="color:var(--ink-mute); font-weight:500;">/${svc.unit || 'ks'}</span></span>
+                      <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="ServicesModule.editService('${svc.id}')" style="padding:0 8px;" title="Upraviť">${I.Edit({size:14})}</button>
+                      <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="ServicesModule.deleteService('${svc.id}')" style="color:var(--err); padding:0 8px;" title="Zmazať">${I.Trash({size:14})}</button>
+                    </div>
+                  </div>
+                `).join('')}
               </div>
             </div>
           `;
