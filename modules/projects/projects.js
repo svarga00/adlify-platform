@@ -477,16 +477,32 @@ const CampaignProjectsModule = {
       .select('*')
       .eq('project_id', project.id)
       .order('created_at');
-    
+
     // Load onboarding data
     const { data: onboarding } = await Database.client
       .from('onboarding_responses')
       .select('*')
       .eq('client_id', project.client_id)
       .single();
-    
+
+    // Load ad groups + ads count
+    let totalAds = 0;
+    if (campaigns?.length) {
+      const campaignIds = campaigns.map(c => c.id);
+      const { data: adGroups } = await Database.client
+        .from('ad_groups').select('id').in('campaign_id', campaignIds);
+      if (adGroups?.length) {
+        const { count } = await Database.client
+          .from('ads').select('*', { count: 'exact', head: true })
+          .in('ad_group_id', adGroups.map(g => g.id));
+        totalAds = count || 0;
+      }
+    }
+
     const status = this.STATUSES[project.status] || this.STATUSES.draft;
-    
+    const totalBudget = (campaigns || []).reduce((s, c) => s + (c.budget_daily || 0) * 30, 0);
+    const expected = project.expected_results?.day_90 || project.expected_results?.day_30 || {};
+
     return `
       <div class="space-y-6">
         <!-- Status & Workflow -->
@@ -497,25 +513,67 @@ const CampaignProjectsModule = {
             </span>
             <span class="text-sm text-gray-500">Vytvorené: ${Utils.formatDate ? Utils.formatDate(project.created_at) : new Date(project.created_at).toLocaleDateString('sk')}</span>
           </div>
-          
+
           <!-- Workflow Progress -->
           <div class="flex items-center justify-between">
             ${this.renderWorkflowProgress(project.status)}
           </div>
         </div>
-        
+
+        <!-- Summary metrics -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${campaigns?.length || 0}</div>
+            <div class="text-xs text-gray-500">Kampaní</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${totalAds}</div>
+            <div class="text-xs text-gray-500">Reklám</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${totalBudget.toFixed(0)}€</div>
+            <div class="text-xs text-gray-500">Rozpočet/mes</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${expected.conversions != null ? expected.conversions : '—'}</div>
+            <div class="text-xs text-gray-500">Konverzie/90d</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${expected.roas != null ? expected.roas + 'x' : '—'}</div>
+            <div class="text-xs text-gray-500">ROAS/90d</div>
+          </div>
+        </div>
+
+        <!-- Tab navigation -->
+        <div class="flex gap-1 border-b overflow-x-auto">
+          <button onclick="CampaignProjectsModule.switchTab('overview')" data-tab-btn="overview" class="px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-700 whitespace-nowrap">📋 Prehľad</button>
+          <button onclick="CampaignProjectsModule.switchTab('strategy')" data-tab-btn="strategy" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">🎯 Stratégia</button>
+          <button onclick="CampaignProjectsModule.switchTab('campaigns')" data-tab-btn="campaigns" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">📢 Kampane</button>
+          <button onclick="CampaignProjectsModule.switchTab('onboarding')" data-tab-btn="onboarding" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">📥 Onboarding</button>
+          <button onclick="CampaignProjectsModule.switchTab('deployment')" data-tab-btn="deployment" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">🚀 Deployment</button>
+        </div>
+
+        <!-- Tab content: OVERVIEW -->
+        <div data-tab-content="overview" class="space-y-6">
+
         <!-- Client Portal Link (if exists) -->
         ${project.client_portal_token ? `
         <div class="card p-4 bg-blue-50 border border-blue-200">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h4 class="font-semibold text-blue-800">🔗 Odkaz pre klienta</h4>
-              <p class="text-sm text-blue-600 truncate max-w-md">${window.location.origin}/client-portal.html?token=${project.client_portal_token}</p>
+              <p class="text-sm text-blue-600 truncate max-w-md">${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}</p>
             </div>
-            <button onclick="CampaignProjectsModule.copyClientLink('${project.id}')" 
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              📋 Kopírovať
-            </button>
+            <div class="flex gap-2">
+              <button onclick="CampaignProjectsModule.previewAsClient('${project.id}')"
+                class="px-4 py-2 bg-white text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50">
+                👁️ Preview ako klient
+              </button>
+              <button onclick="CampaignProjectsModule.copyClientLink('${project.id}')"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                📋 Kopírovať
+              </button>
+            </div>
           </div>
         </div>
         ` : ''}
@@ -580,14 +638,151 @@ const CampaignProjectsModule = {
         </div>
         ` : ''}
         
-        ${project.strategy_summary ? `
-        <div class="card p-4 bg-purple-50">
-          <h4 class="font-semibold mb-2 text-purple-800">🎯 Stratégia</h4>
-          <p class="text-purple-700">${project.strategy_summary}</p>
-        </div>
-        ` : ''}
-        
-        <!-- Onboarding Data -->
+        </div><!-- /tab-overview -->
+
+        <!-- Tab content: STRATEGY -->
+        <div data-tab-content="strategy" class="space-y-6 hidden">
+          ${project.strategy_summary ? `
+          <div class="card p-4 bg-purple-50">
+            <h4 class="font-semibold mb-2 text-purple-800">🎯 Stratégia</h4>
+            <p class="text-purple-700">${project.strategy_summary}</p>
+          </div>
+          ` : '<div class="text-gray-400 text-sm text-center py-8">Stratégia ešte nebola vygenerovaná</div>'}
+
+          ${project.business_analysis ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">💼 Analýza biznisu</h4>
+            ${project.business_analysis.summary ? `<p class="text-sm text-gray-700 mb-3">${project.business_analysis.summary}</p>` : ''}
+            <div class="grid md:grid-cols-2 gap-3">
+              ${project.business_analysis.key_insights?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">🔍 Zistenia</h5>
+                  <ul class="text-sm space-y-1">${project.business_analysis.key_insights.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>
+              ` : ''}
+              ${project.business_analysis.opportunities?.length ? `
+                <div class="bg-green-50 rounded-lg p-3">
+                  <h5 class="text-xs font-semibold text-green-700 uppercase mb-2">🚀 Príležitosti</h5>
+                  <ul class="text-sm space-y-1 text-green-800">${project.business_analysis.opportunities.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>
+              ` : ''}
+              ${project.business_analysis.challenges?.length ? `
+                <div class="bg-amber-50 rounded-lg p-3 md:col-span-2">
+                  <h5 class="text-xs font-semibold text-amber-700 uppercase mb-2">⚠️ Výzvy</h5>
+                  <ul class="text-sm space-y-1 text-amber-900">${project.business_analysis.challenges.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.research_data?.insights ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">🔎 Research insights</h4>
+            <div class="space-y-3 text-sm">
+              ${project.research_data.insights.market_analysis ? `<p><strong>Trh:</strong> ${project.research_data.insights.market_analysis}</p>` : ''}
+              ${project.research_data.insights.competitor_analysis ? `<p><strong>Konkurencia:</strong> ${project.research_data.insights.competitor_analysis}</p>` : ''}
+              ${project.research_data.insights.keyword_strategy ? `<p><strong>Keyword stratégia:</strong> ${project.research_data.insights.keyword_strategy}</p>` : ''}
+              ${project.research_data.insights.recommended_approach ? `<p class="p-3 bg-blue-50 rounded-lg text-blue-900"><strong>Prístup:</strong> ${project.research_data.insights.recommended_approach}</p>` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.research_data?.keywords?.length ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">🔑 Top kľúčové slová (${project.research_data.keywords.length})</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-xs text-gray-500 uppercase border-b"><th class="pb-2">Keyword</th><th class="pb-2">Hľadanosť</th><th class="pb-2">CPC</th></tr></thead>
+                <tbody>
+                  ${project.research_data.keywords.slice(0, 15).map(k => `<tr class="border-b"><td class="py-1.5">${k.keyword}</td><td class="py-1.5">${(k.search_volume || 0).toLocaleString('sk-SK')}</td><td class="py-1.5">${(k.cpc || 0).toFixed(2)}€</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.research_data?.competitors?.length ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">⚔️ Konkurencia (${project.research_data.competitors.length})</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+              ${project.research_data.competitors.map(c => `
+                <div class="bg-gray-50 rounded-lg p-2 text-sm">
+                  <div class="flex justify-between items-center">
+                    <span class="font-medium">${c.domain}</span>
+                    ${c.is_paid ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-1.5 rounded">PPC</span>' : ''}
+                  </div>
+                  ${c.titles?.[0] ? `<div class="text-xs text-gray-500 mt-1 truncate">${c.titles[0]}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.expected_results ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">📈 Očakávané výsledky</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              ${['day_30','day_90','day_180'].map(key => {
+                const r = project.expected_results[key]; if (!r) return '';
+                const label = { day_30: 'Po 30 dňoch', day_90: 'Po 90 dňoch', day_180: 'Po 180 dňoch' }[key];
+                return `<div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">${label}</h5>
+                  ${r.impressions != null ? `<div class="flex justify-between py-0.5"><span>Zobrazenia</span><strong>${(r.impressions||0).toLocaleString('sk-SK')}</strong></div>` : ''}
+                  ${r.clicks != null ? `<div class="flex justify-between py-0.5"><span>Kliknutia</span><strong>${(r.clicks||0).toLocaleString('sk-SK')}</strong></div>` : ''}
+                  ${r.conversions != null ? `<div class="flex justify-between py-0.5"><span>Konverzie</span><strong>${r.conversions}</strong></div>` : ''}
+                  ${r.cpa != null ? `<div class="flex justify-between py-0.5"><span>CPA</span><strong>${r.cpa}€</strong></div>` : ''}
+                  ${r.roas != null ? `<div class="flex justify-between py-0.5"><span>ROAS</span><strong>${r.roas}x</strong></div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>
+            ${project.expected_results.notes ? `<p class="text-xs text-gray-500 mt-3">${project.expected_results.notes}</p>` : ''}
+          </div>
+          ` : ''}
+
+          ${project.timeline?.phases?.length ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">⏱️ Časový harmonogram</h4>
+            <div class="space-y-3">
+              ${project.timeline.phases.map(p => `
+                <div class="flex gap-3">
+                  <div class="flex-shrink-0 w-20 text-xs text-gray-500 pt-0.5">${p.duration_days} dní</div>
+                  <div class="flex-1">
+                    <div class="font-medium text-sm">${p.name}</div>
+                    ${p.activities?.length ? `<ul class="text-xs text-gray-600 mt-1 space-y-0.5">${p.activities.map(a => `<li>• ${a}</li>`).join('')}</ul>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.next_steps ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">📋 Ďalšie kroky</h4>
+            <div class="grid md:grid-cols-3 gap-3">
+              ${project.next_steps.client_needs_to_provide?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">Potrebujeme od klienta</h5>
+                  <ul class="space-y-1">${project.next_steps.client_needs_to_provide.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>` : ''}
+              ${project.next_steps.our_next_actions?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">My spravíme</h5>
+                  <ul class="space-y-1">${project.next_steps.our_next_actions.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>` : ''}
+              ${project.next_steps.launch_readiness?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">Pred spustením</h5>
+                  <ul class="space-y-1">${project.next_steps.launch_readiness.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>` : ''}
+            </div>
+          </div>
+          ` : ''}
+        </div><!-- /tab-strategy -->
+
+        <!-- Tab content: ONBOARDING -->
+        <div data-tab-content="onboarding" class="space-y-6 hidden">
         ${onboarding ? `
         <div class="card p-4">
           <div class="flex items-center justify-between mb-4">
@@ -761,20 +956,23 @@ const CampaignProjectsModule = {
           </div>
         </div>
         `}
-        
+        </div><!-- /tab-onboarding -->
+
+        <!-- Tab content: CAMPAIGNS -->
+        <div data-tab-content="campaigns" class="space-y-6 hidden">
         <!-- Kampane - Hierarchické zobrazenie podľa platforiem -->
         <div class="card p-4">
           <div class="flex items-center justify-between mb-4">
             <h4 class="font-semibold">📣 Kampane (${campaigns?.length || 0})</h4>
             ${project.status === 'draft' || project.status === 'revision' ? `
-            <button onclick="CampaignProjectsModule.addCampaign('${project.id}')" 
+            <button onclick="CampaignProjectsModule.addCampaign('${project.id}')"
               class="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200">
               ➕ Pridať
             </button>
             ` : ''}
           </div>
-          
-          ${campaigns && campaigns.length > 0 ? 
+
+          ${campaigns && campaigns.length > 0 ?
             this.renderCampaignsByPlatform(campaigns, project.id)
           : `
           <div class="text-center py-8 text-gray-400">
@@ -784,16 +982,34 @@ const CampaignProjectsModule = {
           </div>
           `}
         </div>
-        
-        <!-- Deployment Checklist (pre approved a active projekty) -->
-        ${['approved', 'deploying', 'active'].includes(project.status) ? this.renderDeploymentChecklist(project, campaigns) : ''}
-        
+        </div><!-- /tab-campaigns -->
+
+        <!-- Tab content: DEPLOYMENT -->
+        <div data-tab-content="deployment" class="space-y-6 hidden">
+          ${['approved', 'deploying', 'active'].includes(project.status)
+            ? this.renderDeploymentChecklist(project, campaigns)
+            : '<div class="text-gray-400 text-sm text-center py-8">Deployment bude dostupný po schválení klientom</div>'}
+        </div><!-- /tab-deployment -->
+
         <!-- Actions -->
         <div class="flex flex-wrap gap-3 pt-4 border-t">
           ${this.renderDetailActions(project)}
         </div>
       </div>
     `;
+  },
+
+  switchTab(tabName) {
+    document.querySelectorAll('[data-tab-content]').forEach(el => {
+      el.classList.toggle('hidden', el.dataset.tabContent !== tabName);
+    });
+    document.querySelectorAll('[data-tab-btn]').forEach(el => {
+      const active = el.dataset.tabBtn === tabName;
+      el.classList.toggle('border-purple-600', active);
+      el.classList.toggle('text-purple-700', active);
+      el.classList.toggle('border-transparent', !active);
+      el.classList.toggle('text-gray-600', !active);
+    });
   },
   
   // Deployment checklist definition
@@ -1974,11 +2190,11 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      const url = `${window.location.origin}/client-portal.html?token=${token}`;
-      
+      const url = `${window.location.origin}/portal/proposal.html?t=${token}`;
+
       // Copy to clipboard
       await navigator.clipboard.writeText(url);
-      
+
       Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
       
       // Update local data
@@ -2004,7 +2220,7 @@ const CampaignProjectsModule = {
       return;
     }
     
-    const url = `${window.location.origin}/client-portal.html?token=${project.client_portal_token}`;
+    const url = `${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}`;
     await navigator.clipboard.writeText(url);
     Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
   },
