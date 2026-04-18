@@ -162,6 +162,20 @@
             .topbar-profile-info { display: none; }
         }
 
+        /* Pod 900px chrome.css schováva labels (icon-only) — v admin drawer ich naopak potrebujeme */
+        @media (max-width: 900px) {
+            .app .adl-sidebar,
+            .app .adl-sidebar.open { width: 260px; }
+            .app .adl-sidebar .adl-sidebar-brand { padding: 16px 18px; justify-content: flex-start; }
+            .app .adl-sidebar .adl-sidebar-brand-text,
+            .app .adl-sidebar .adl-sidebar-group-label,
+            .app .adl-sidebar .adl-sidebar-item-label,
+            .app .adl-sidebar .adl-sidebar-footer-info { display: inline; }
+            .app .adl-sidebar .adl-sidebar-footer-info { display: block; }
+            .app .adl-sidebar .adl-sidebar-item { padding: 8px 10px; margin: 2px 0; justify-content: flex-start; }
+            .app .adl-sidebar .adl-sidebar-footer { padding: 12px 14px; justify-content: flex-start; }
+        }
+
         @media (max-width: 640px) {
             .app .adl-content { padding: 16px; }
             .adl-topbar-title { font-size: 15px; }
