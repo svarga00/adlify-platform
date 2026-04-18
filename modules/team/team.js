@@ -22,63 +22,37 @@ const TeamModule = {
 
     async render(container, params = {}) {
         await this.loadData();
-        
+        const tab = this.currentTab || 'members';
+
         container.innerHTML = `
-            <div class="team-module">
-                <!-- Header -->
-                <div class="team-header">
-                    <div class="header-content">
-                        <div class="header-title">
-                            <h1>Tím</h1>
-                            <p class="header-subtitle">Správa členov tímu a oprávnení</p>
-                        </div>
-                        <div class="header-actions">
-                            <button class="btn-invite" onclick="TeamModule.showInviteModal()">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="8.5" cy="7" r="4"></circle>
-                                    <line x1="20" y1="8" x2="20" y2="14"></line>
-                                    <line x1="17" y1="11" x2="23" y2="11"></line>
-                                </svg>
-                                Pozvať člena
-                            </button>
-                        </div>
+            <div class="adl team-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Tím</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Správa členov tímu a oprávnení</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TeamModule.showInviteModal()">${I.Plus({size:14})} Pozvať člena</button>
                     </div>
                 </div>
-                
+
                 <!-- Stats -->
                 <div class="team-stats-grid">
                     ${this.renderStats()}
                 </div>
-                
+
                 <!-- Tabs -->
-                <div class="team-tabs-container">
-                    <div class="team-tabs">
-                        <button class="tab-btn ${this.currentTab === 'members' ? 'active' : ''}" 
-                                onclick="TeamModule.switchTab('members')">
-                            <span class="tab-icon">👥</span>
-                            <span class="tab-label">Členovia</span>
-                            <span class="tab-count">${this.members.length}</span>
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'roles' ? 'active' : ''}" 
-                                onclick="TeamModule.switchTab('roles')">
-                            <span class="tab-icon">🔐</span>
-                            <span class="tab-label">Role a oprávnenia</span>
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'activity' ? 'active' : ''}" 
-                                onclick="TeamModule.switchTab('activity')">
-                            <span class="tab-icon">📋</span>
-                            <span class="tab-label">Aktivita</span>
-                        </button>
-                    </div>
+                <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin:16px 0;">
+                    <button onclick="TeamModule.switchTab('members')" class="adl-btn adl-btn-sm ${tab==='members'?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab==='members'?'active':''}" style="border-radius:7px; padding:0 12px;">Členovia <span class="adl-chip adl-chip-sm" style="margin-left:4px;">${this.members.length}</span></button>
+                    <button onclick="TeamModule.switchTab('roles')" class="adl-btn adl-btn-sm ${tab==='roles'?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab==='roles'?'active':''}" style="border-radius:7px; padding:0 12px;">Role a oprávnenia</button>
+                    <button onclick="TeamModule.switchTab('activity')" class="adl-btn adl-btn-sm ${tab==='activity'?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab==='activity'?'active':''}" style="border-radius:7px; padding:0 12px;">Aktivita</button>
                 </div>
-                
-                <!-- Content -->
-                <div class="team-content" id="team-content">
+
+                <div id="team-content">
                     ${this.renderTabContent()}
                 </div>
             </div>
-            
+
             ${this.renderStyles()}
         `;
     },

@@ -45,51 +45,40 @@ const AutomationsModule = {
 
     async render(container) {
         container.innerHTML = `
-            <div class="automations-module">
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Automatizácie</h1>
-                        <p class="subtitle">Automatické workflow a notifikácie</p>
+            <div class="adl automations-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Automatizácie</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Automatické workflow a notifikácie</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="AutomationsModule.showCreateModal()">
-                            <span>+</span> Nová automatizácia
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="AutomationsModule.showCreateModal()">${I.Plus({size:14})} Nová automatizácia</button>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="auto-stats">
-                    <div class="stat-card">
-                        <span class="stat-icon">⚡</span>
-                        <span class="stat-value" id="stat-active">0</span>
-                        <span class="stat-label">Aktívne</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-icon">⏸️</span>
-                        <span class="stat-value" id="stat-paused">0</span>
-                        <span class="stat-label">Pozastavené</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-icon">🔄</span>
-                        <span class="stat-value" id="stat-runs">0</span>
-                        <span class="stat-label">Spustení (30d)</span>
-                    </div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:16px;" class="adl-auto-stats">
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Aktívne</div><span class="adl-chip adl-chip-ok adl-chip-sm">beží</span></div><div class="adl-stat-value" id="stat-active">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Pozastavené</div><span class="adl-chip adl-chip-amber adl-chip-sm">pauza</span></div><div class="adl-stat-value" id="stat-paused">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Spustenia (30d)</div><span class="adl-chip adl-chip-sm">celkom</span></div><div class="adl-stat-value" id="stat-runs">—</div></div>
                 </div>
 
-                <!-- Automations List -->
-                <div class="automations-content" id="automations-content">
-                    <div class="loading">Načítavam automatizácie...</div>
+                <!-- List -->
+                <div id="automations-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam automatizácie…</div>
                 </div>
 
                 <!-- Templates -->
-                <div class="templates-section">
-                    <h3>📦 Šablóny automatizácií</h3>
-                    <div class="templates-grid">
+                <div style="margin-top:24px;">
+                    <h3 style="font-size:14px; font-weight:600; color:var(--ink); margin:0 0 10px; text-transform:uppercase; letter-spacing:0.6px;">Šablóny automatizácií</h3>
+                    <div class="templates-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
                         ${this.renderTemplates()}
                     </div>
                 </div>
+
+                <style>@media (max-width: 900px) { .adl-auto-stats { grid-template-columns: 1fr !important; } .automations-module .templates-grid { grid-template-columns: 1fr !important; } }</style>
             </div>
+
             ${this.getStyles()}
         `;
 

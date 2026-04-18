@@ -52,37 +52,31 @@ const IntegrationsModule = {
     
     async render(container) {
         container.innerHTML = `
-            <div class="integrations-module">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h1 class="text-2xl font-bold">🔗 Integrácie</h1>
-                        <p class="text-gray-500">Prepojenia s externými službami</p>
-                    </div>
+            <div class="adl integrations-module">
+                <div style="margin-bottom:18px;">
+                    <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Integrácie</h1>
+                    <div style="font-size:13px; color:var(--ink-sub);">Prepojenia s externými službami (Google, Meta, Marketing Miner, Resend…)</div>
                 </div>
-                
-                <div id="integrations-list" class="space-y-4">
-                    <div class="text-center py-8 text-gray-500">
-                        Načítavam integrácie...
-                    </div>
+
+                <div id="integrations-list" style="display:flex; flex-direction:column; gap:10px;">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam integrácie…</div>
                 </div>
             </div>
-            
-            <!-- Modal pre nastavenia -->
-            <div id="integration-modal" class="modal-overlay hidden">
-                <div class="modal" style="max-width: 500px;">
-                    <div class="modal-header">
-                        <h2 class="text-xl font-bold" id="modal-title">Nastavenia integrácie</h2>
-                        <button onclick="IntegrationsModule.closeModal()" class="modal-close">×</button>
+
+            <!-- Modal -->
+            <div id="integration-modal" class="modal-overlay hidden" style="position:fixed; inset:0; background:rgba(20,18,14,0.5); display:none; align-items:center; justify-content:center; z-index:50; padding:16px;">
+                <div class="modal" style="background:var(--surface); border-radius:14px; max-width:500px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+                    <div class="modal-header" style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+                        <h2 id="modal-title" style="font-size:16px; font-weight:600; margin:0;">Nastavenia integrácie</h2>
+                        <button onclick="IntegrationsModule.closeModal()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:6px; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
                     </div>
-                    <div class="modal-body" id="modal-body">
-                        <!-- Dynamic content -->
-                    </div>
+                    <div class="modal-body" id="modal-body" style="padding:20px; overflow-y:auto;"></div>
                 </div>
             </div>
-            
+
             ${this.getStyles()}
         `;
-        
+
         await this.loadIntegrations();
     },
     

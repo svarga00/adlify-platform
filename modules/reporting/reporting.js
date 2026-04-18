@@ -21,32 +21,29 @@ const ReportingModule = {
 
     async render(container) {
         container.innerHTML = `
-            <div class="reporting-module">
-                <!-- Header -->
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Reporty</h1>
-                        <p class="subtitle">Štatistiky a prehľady</p>
+            <div class="adl reporting-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Reporty</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Štatistiky a prehľady</div>
                     </div>
-                    <div class="header-right">
-                        <select class="date-range-select" onchange="ReportingModule.setDateRange(this.value)">
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <select class="adl-input" onchange="ReportingModule.setDateRange(this.value)" style="width:auto;">
                             <option value="7days">Posledných 7 dní</option>
                             <option value="30days" selected>Posledných 30 dní</option>
                             <option value="90days">Posledných 90 dní</option>
                             <option value="year">Tento rok</option>
                             <option value="all">Celkovo</option>
                         </select>
-                        <button class="btn-secondary" onclick="ReportingModule.exportReport()">
-                            📥 Exportovať
-                        </button>
+                        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="ReportingModule.exportReport()">${I.Download({size:14})} Exportovať</button>
                     </div>
                 </div>
 
-                <!-- Loading -->
-                <div class="report-content" id="report-content">
-                    <div class="loading">Načítavam dáta...</div>
+                <div id="report-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam dáta…</div>
                 </div>
             </div>
+
             ${this.getStyles()}
         `;
 

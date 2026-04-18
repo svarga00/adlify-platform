@@ -29,65 +29,39 @@ const SettingsModule = {
     // ===========================================
     
     async render(container) {
-        // Načítaj aktuálneho usera
         const { data: { user } } = await Database.client.auth.getUser();
         this.currentUser = user;
-        
+        const tab = this.currentTab || 'brand';
+
         container.innerHTML = `
-            <div class="settings-module">
-                <div class="flex items-center justify-between mb-6">
-                    <h1 class="text-2xl font-bold">⚙️ Nastavenia</h1>
+            <div class="adl settings-module">
+                <div style="margin-bottom:18px;">
+                    <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Nastavenia</h1>
+                    <div style="font-size:13px; color:var(--ink-sub);">Brand, firemné údaje, schránky, podpisy, banka, fakturácia</div>
                 </div>
-                
-                <!-- Tabs -->
-                <div class="tabs-container mb-6">
-                    <div class="flex gap-1 border-b overflow-x-auto">
-                        <button class="tab-btn ${this.currentTab === 'brand' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('brand')">
-                            🎨 Brand
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'company' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('company')">
-                            🏢 Firma
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'email-accounts' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('email-accounts')">
-                            📬 Schránky
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'signatures' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('signatures')">
-                            ✍️ Podpisy
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'templates' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('templates')">
-                            📝 Šablóny
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'banking' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('banking')">
-                            🏦 Banka
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'invoicing' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('invoicing')">
-                            📄 Fakturácia
-                        </button>
-                    </div>
+
+                <!-- Tabs (horizontally scrollable) -->
+                <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin-bottom:16px; overflow-x:auto; max-width:100%;">
+                    ${[
+                        ['brand', 'Brand'],
+                        ['company', 'Firma'],
+                        ['email-accounts', 'Schránky'],
+                        ['signatures', 'Podpisy'],
+                        ['templates', 'Šablóny'],
+                        ['banking', 'Banka'],
+                        ['invoicing', 'Fakturácia']
+                    ].map(([k,l]) => `<button onclick="SettingsModule.switchTab('${k}')" class="adl-btn adl-btn-sm ${tab===k?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab===k?'active':''}" style="border-radius:7px; padding:0 12px; flex-shrink:0;">${l}</button>`).join('')}
                 </div>
-                
-                <!-- Content -->
-                <div id="settings-content" class="settings-content">
-                    <div class="text-center py-8 text-gray-500">
-                        <div class="spinner"></div>
-                        Načítavam nastavenia...
-                    </div>
+
+                <div id="settings-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam nastavenia…</div>
                 </div>
             </div>
-            
+
             ${this.getStyles()}
         `;
-        
-        // Načítaj Quill CSS/JS ak ešte nie je
+
         await this.loadQuill();
-        
         await this.loadAllData();
         this.renderContent();
     },

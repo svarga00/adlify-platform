@@ -21,44 +21,34 @@ const CalendarModule = {
     },
 
     async render(container) {
+        const view = this.view || 'month';
         container.innerHTML = `
-            <div class="calendar-module">
-                <!-- Header -->
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Kalendár</h1>
-                        <p class="subtitle">Termíny a udalosti</p>
+            <div class="adl calendar-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Kalendár</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Termíny a udalosti</div>
                     </div>
-                    <div class="header-right">
-                        <div class="view-toggle">
-                            <button class="view-btn ${this.view === 'month' ? 'active' : ''}" onclick="CalendarModule.setView('month')">Mesiac</button>
-                            <button class="view-btn ${this.view === 'week' ? 'active' : ''}" onclick="CalendarModule.setView('week')">Týždeň</button>
-                            <button class="view-btn ${this.view === 'list' ? 'active' : ''}" onclick="CalendarModule.setView('list')">Zoznam</button>
-                        </div>
+                    <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px;">
+                        <button onclick="CalendarModule.setView('month')" class="adl-btn adl-btn-sm ${view==='month'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Mesiac</button>
+                        <button onclick="CalendarModule.setView('week')" class="adl-btn adl-btn-sm ${view==='week'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Týždeň</button>
+                        <button onclick="CalendarModule.setView('list')" class="adl-btn adl-btn-sm ${view==='list'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Zoznam</button>
                     </div>
                 </div>
 
-                <!-- Calendar Navigation -->
-                <div class="calendar-nav">
-                    <button class="nav-btn" onclick="CalendarModule.prevPeriod()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="15 18 9 12 15 6"></polyline>
-                        </svg>
-                    </button>
-                    <h2 class="current-period" id="current-period">${this.formatPeriod()}</h2>
-                    <button class="nav-btn" onclick="CalendarModule.nextPeriod()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg>
-                    </button>
-                    <button class="today-btn" onclick="CalendarModule.goToday()">Dnes</button>
+                <!-- Navigation -->
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                    <button class="adl-btn adl-btn-icon adl-btn-sm" onclick="CalendarModule.prevPeriod()">${I.ChevronLeft({size:14})}</button>
+                    <h2 id="current-period" style="font-size:16px; font-weight:600; margin:0;">${this.formatPeriod()}</h2>
+                    <button class="adl-btn adl-btn-icon adl-btn-sm" onclick="CalendarModule.nextPeriod()">${I.Chevron({size:14})}</button>
+                    <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="CalendarModule.goToday()">Dnes</button>
                 </div>
 
-                <!-- Calendar Content -->
-                <div class="calendar-content" id="calendar-content">
-                    <div class="loading">Načítavam...</div>
+                <div id="calendar-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam…</div>
                 </div>
             </div>
+
             ${this.getStyles()}
         `;
 
