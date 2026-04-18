@@ -23,83 +23,54 @@ const TicketsModule = {
     },
 
     async render(container) {
+        const filter = this.currentFilter || 'open';
         container.innerHTML = `
-            <div class="tickets-module">
+            <div class="adl tickets-module">
                 <!-- Header -->
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Tickety</h1>
-                        <p class="subtitle">Požiadavky a helpdesk</p>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Tickety</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Požiadavky a helpdesk</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="TicketsModule.showCreateModal()">
-                            <span>+</span> Nový ticket
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TicketsModule.showCreateModal()">${I.Plus({size:14})} Nový ticket</button>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="tickets-stats" id="tickets-stats">
-                    <div class="stat-card">
-                        <div class="stat-icon open">📬</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-open">-</span>
-                            <span class="stat-label">Otvorené</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon progress">🔄</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-progress">-</span>
-                            <span class="stat-label">V riešení</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon waiting">⏳</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-waiting">-</span>
-                            <span class="stat-label">Čaká na odpoveď</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon resolved">✅</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-resolved">-</span>
-                            <span class="stat-label">Vyriešené</span>
-                        </div>
-                    </div>
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" class="adl-tickets-stats">
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Otvorené</div><span class="adl-chip adl-chip-sky adl-chip-sm">nové</span></div><div class="adl-stat-value" id="stat-open">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">V riešení</div><span class="adl-chip adl-chip-amber adl-chip-sm">aktívne</span></div><div class="adl-stat-value" id="stat-progress">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Čaká na odpoveď</div><span class="adl-chip adl-chip-lav adl-chip-sm">pending</span></div><div class="adl-stat-value" id="stat-waiting">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Vyriešené</div><span class="adl-chip adl-chip-ok adl-chip-sm">done</span></div><div class="adl-stat-value" id="stat-resolved">—</div></div>
                 </div>
 
                 <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="filter-tabs">
-                        <button class="filter-tab ${this.currentFilter === 'open' ? 'active' : ''}" onclick="TicketsModule.setFilter('open')">
-                            📬 Otvorené
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'in_progress' ? 'active' : ''}" onclick="TicketsModule.setFilter('in_progress')">
-                            🔄 V riešení
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'waiting' ? 'active' : ''}" onclick="TicketsModule.setFilter('waiting')">
-                            ⏳ Čakajúce
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'all' ? 'active' : ''}" onclick="TicketsModule.setFilter('all')">
-                            Všetky
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'my' ? 'active' : ''}" onclick="TicketsModule.setFilter('my')">
-                            👤 Moje
-                        </button>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;" class="adl-tickets-filters">
+                    <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px; flex-wrap:wrap;">
+                        ${[
+                            ['open', 'Otvorené'],
+                            ['in_progress', 'V riešení'],
+                            ['waiting', 'Čakajúce'],
+                            ['all', 'Všetky'],
+                            ['my', 'Moje']
+                        ].map(([k,l]) => `<button onclick="TicketsModule.setFilter('${k}')" class="adl-btn adl-btn-sm ${filter===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">${l}</button>`).join('')}
                     </div>
-                    <div class="filter-search">
-                        <input type="text" id="ticket-search" placeholder="Hľadať tickety..." oninput="TicketsModule.handleSearch()">
+                    <div class="adl-input" style="flex:1; min-width:200px; max-width:340px; margin-left:auto;">
+                        <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                        <input type="text" id="ticket-search" placeholder="Hľadať tickety…" oninput="TicketsModule.handleSearch()" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
                     </div>
                 </div>
 
                 <!-- Content -->
-                <div class="tickets-content" id="tickets-content">
-                    <div class="loading">Načítavam tickety...</div>
+                <div id="tickets-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam tickety…</div>
                 </div>
+
+                <style>
+                  @media (max-width: 900px) { .adl-tickets-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+                </style>
             </div>
-            ${this.getStyles()}
         `;
 
         await this.loadData();
@@ -161,80 +132,62 @@ const TicketsModule = {
 
         if (filtered.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">🎫</div>
-                    <h3>Žiadne tickety</h3>
-                    <p>Zatiaľ nemáte žiadne tickety v tejto kategórii</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Ticket({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne tickety</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0;">Zatiaľ nemáte žiadne tickety v tejto kategórii</p>
                 </div>
             `;
             return;
         }
 
         container.innerHTML = `
-            <div class="tickets-list">
+            <div style="display:flex; flex-direction:column; gap:8px;">
                 ${filtered.map(ticket => this.renderTicketRow(ticket)).join('')}
             </div>
         `;
     },
 
     renderTicketRow(ticket) {
-        const statusConfig = {
-            open: { icon: '📬', label: 'Otvorený', class: 'status-open' },
-            in_progress: { icon: '🔄', label: 'V riešení', class: 'status-progress' },
-            waiting: { icon: '⏳', label: 'Čaká', class: 'status-waiting' },
-            resolved: { icon: '✅', label: 'Vyriešený', class: 'status-resolved' },
-            closed: { icon: '🔒', label: 'Uzavretý', class: 'status-closed' }
+        const statusMap = {
+            open:        { label: 'Otvorený',   tone: 'sky' },
+            in_progress: { label: 'V riešení',  tone: 'amber' },
+            waiting:     { label: 'Čaká',       tone: 'lav' },
+            resolved:    { label: 'Vyriešený',  tone: 'ok' },
+            closed:      { label: 'Uzavretý',   tone: 'n' }
         };
-
-        const priorityConfig = {
-            low: { label: 'Nízka', class: 'priority-low' },
-            medium: { label: 'Stredná', class: 'priority-medium' },
-            high: { label: 'Vysoká', class: 'priority-high' },
-            urgent: { label: 'Urgentná', class: 'priority-urgent' }
+        const priorityMap = {
+            low: { label: 'Nízka', tone: 'mint' },
+            medium: { label: 'Stredná', tone: 'amber' },
+            high: { label: 'Vysoká', tone: 'brand' },
+            urgent: { label: 'Urgentná', tone: 'err' }
         };
+        const categoryLabel = ({
+            general: 'Všeobecné', billing: 'Fakturácia', technical: 'Technické',
+            campaign: 'Kampane', feature: 'Nová funkcia', bug: 'Chyba', other: 'Iné'
+        })[ticket.category] || ticket.category;
 
-        const categoryConfig = {
-            general: 'Všeobecné',
-            billing: 'Fakturácia',
-            technical: 'Technické',
-            campaign: 'Kampane',
-            feature: 'Nová funkcia',
-            bug: 'Chyba',
-            other: 'Iné'
-        };
-
-        const status = statusConfig[ticket.status] || statusConfig.open;
-        const priority = priorityConfig[ticket.priority] || priorityConfig.medium;
-        const assignedName = ticket.assigned 
-            ? `${ticket.assigned.first_name} ${ticket.assigned.last_name}` 
-            : 'Nepriradené';
-        const assignedInitials = ticket.assigned 
-            ? `${ticket.assigned.first_name[0]}${ticket.assigned.last_name[0]}` 
-            : '?';
-
+        const status = statusMap[ticket.status] || statusMap.open;
+        const priority = priorityMap[ticket.priority] || priorityMap.medium;
+        const assignedName = ticket.assigned ? `${ticket.assigned.first_name} ${ticket.assigned.last_name}` : 'Nepriradené';
+        const assignedInitials = ticket.assigned ? `${ticket.assigned.first_name[0]}${ticket.assigned.last_name[0]}` : '?';
         const timeAgo = this.timeAgo(ticket.created_at);
 
         return `
-            <div class="ticket-row" onclick="TicketsModule.openTicket('${ticket.id}')">
-                <div class="ticket-status ${status.class}">
-                    ${status.icon}
-                </div>
-                
-                <div class="ticket-main">
-                    <div class="ticket-header">
-                        <span class="ticket-id">#${ticket.id.slice(0, 8)}</span>
-                        <span class="ticket-category">${categoryConfig[ticket.category] || ticket.category}</span>
-                        <span class="ticket-priority ${priority.class}">${priority.label}</span>
+            <div onclick="TicketsModule.openTicket('${ticket.id}')" style="display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; cursor:pointer; transition: border-color .12s, box-shadow .12s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px;">
+                        <span class="mono" style="font-size:11px; color:var(--ink-mute);">#${ticket.id.slice(0, 8)}</span>
+                        <span class="adl-chip adl-chip-sm">${categoryLabel}</span>
+                        <span class="adl-chip adl-chip-${priority.tone} adl-chip-sm">${priority.label}</span>
+                        <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
                     </div>
-                    <h3 class="ticket-subject">${ticket.subject}</h3>
-                    ${ticket.description ? `<p class="ticket-preview">${ticket.description.substring(0, 100)}${ticket.description.length > 100 ? '...' : ''}</p>` : ''}
+                    <div style="font-size:14px; font-weight:600; letter-spacing:-0.1px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ticket.subject}</div>
+                    ${ticket.description ? `<div style="font-size:12px; color:var(--ink-sub); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ticket.description.substring(0, 140)}${ticket.description.length > 140 ? '…' : ''}</div>` : ''}
                 </div>
-                
-                <div class="ticket-meta">
-                    <div class="ticket-assignee" title="${assignedName}">
-                        <span class="assignee-avatar">${assignedInitials}</span>
-                    </div>
-                    <div class="ticket-time">${timeAgo}</div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+                    <div class="adl-avatar adl-avatar-sm" title="${assignedName}">${assignedInitials}</div>
+                    <div style="font-size:10px; color:var(--ink-mute);">${timeAgo}</div>
                 </div>
             </div>
         `;
