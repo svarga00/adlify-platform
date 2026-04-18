@@ -427,7 +427,7 @@
         function showError(title, message) {
             document.getElementById('app').innerHTML = `
                 <div class="error-screen">
-                    <div class="error-icon">😕</div>
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Warning({size:22})}</div>
                     <h1>${title}</h1>
                     <p>${message}</p>
                     <button class="btn btn-primary" onclick="logout()">Odhlásiť sa</button>
@@ -545,7 +545,7 @@
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">📁</div><h3>Zatiaľ žiadne projekty</h3></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Folder({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne projekty</div></div>`}
                     </div>
                 </div>
             `;
@@ -569,7 +569,7 @@
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">📢</div><h3>Zatiaľ žiadne kampane</h3><p style="color:#94a3b8;margin-top:0.5rem;">Kampane sa zobrazia po spustení</p></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Campaign({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne kampane</div><div style="font-size:12px; margin-top:4px;">Kampane sa zobrazia po spustení</div></div>`}
                     </div>
                 </div>
             `;
@@ -594,7 +594,7 @@
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">💰</div><h3>Zatiaľ žiadne faktúry</h3></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Invoice({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne faktúry</div></div>`}
                     </div>
                 </div>
             `;
@@ -614,11 +614,11 @@
                                             <div class="item-name">${d.name}</div>
                                             <div class="item-meta">${d.file_name} • ${formatDate(d.created_at)}</div>
                                         </div>
-                                        <span>📥</span>
+                                        <span style="color:var(--ink-mute);">${I.Download({size:16})}</span>
                                     </a>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">📄</div><h3>Zatiaľ žiadne dokumenty</h3></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Docs({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne dokumenty</div></div>`}
                     </div>
                 </div>
             `;
@@ -638,13 +638,13 @@
                                 <p>Váš marketing partner</p>
                             </div>
                             <div class="contact-actions">
-                                <a href="mailto:info@adlify.eu" class="btn btn-secondary">📧 Email</a>
-                                <a href="tel:+421944184045" class="btn btn-primary">📞 Zavolať</a>
+                                <a href="mailto:info@adlify.eu" class="adl-btn adl-btn-outline">${I.Mail({size:14})} Email</a>
+                                <a href="tel:+421944184045" class="adl-btn adl-btn-primary">${I.Phone({size:14})} Zavolať</a>
                             </div>
                         </div>
                         
                         <div style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px;">
-                            <h4 style="margin-bottom: 0.5rem;">📍 Kontaktné údaje</h4>
+                            <h4 style="margin-bottom: 0.5rem;">Kontaktné údaje</h4>
                             <p style="color: #64748b; font-size: 0.9rem;">
                                 Email: info@adlify.eu<br>
                                 Telefón: +421 944 184 045<br>
@@ -667,7 +667,7 @@
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
                                 <!-- Firemné údaje -->
                                 <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">🏢 Firemné údaje</h3>
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Firemné údaje</h3>
                                     
                                     <div style="margin-bottom: 1rem;">
                                         <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Názov firmy</label>
@@ -702,7 +702,7 @@
 
                                 <!-- Kontaktné údaje -->
                                 <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">👤 Kontaktné údaje</h3>
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Kontaktné údaje</h3>
                                     
                                     <div style="margin-bottom: 1rem;">
                                         <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Kontaktná osoba</label>
@@ -725,7 +725,7 @@
 
                                 <!-- Fakturačná adresa -->
                                 <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">📍 Fakturačná adresa</h3>
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Fakturačná adresa</h3>
                                     
                                     <div style="margin-bottom: 1rem;">
                                         <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Ulica a číslo</label>
@@ -763,7 +763,7 @@
                             
                             <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
                                 <button type="submit" class="btn btn-primary" id="save-account-btn">
-                                    💾 Uložiť zmeny
+                                    Uložiť zmeny
                                 </button>
                             </div>
                         </form>
@@ -779,7 +779,7 @@
             const msg = document.getElementById('account-message');
             
             btn.disabled = true;
-            btn.innerHTML = '⏳ Ukladám...';
+            btn.innerHTML = 'Ukladám…';
             msg.innerHTML = '';
             
             try {
@@ -813,14 +813,14 @@
                 
                 setTimeout(() => {
                     btn.disabled = false;
-                    btn.innerHTML = '💾 Uložiť zmeny';
+                    btn.innerHTML = 'Uložiť zmeny';
                 }, 2000);
                 
             } catch (err) {
                 console.error('Save error:', err);
                 msg.innerHTML = '<div style="padding: 1rem; background: #fef2f2; color: #dc2626; border-radius: 8px;">❌ Chyba pri ukladaní: ' + err.message + '</div>';
                 btn.disabled = false;
-                btn.innerHTML = '💾 Uložiť zmeny';
+                btn.innerHTML = 'Uložiť zmeny';
             }
         }
 
