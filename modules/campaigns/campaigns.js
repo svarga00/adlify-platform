@@ -277,104 +277,100 @@ const CampaignsModule = {
 
     showCreateModal() {
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
+        modal.className = 'modal-overlay adl';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(20,18,14,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px;';
         modal.innerHTML = `
-            <div class="modal campaign-modal">
-                <div class="modal-header">
-                    <div class="modal-title">
-                        <span class="modal-icon">📢</span>
-                        <h2>Nová kampaň</h2>
-                    </div>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+            <div style="background:var(--surface); border-radius:14px; max-width:640px; width:100%; max-height:92vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg); border:1px solid var(--border);">
+                <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="font-size:15px; font-weight:600; margin:0;">Nová kampaň</h2>
+                    <button onclick="this.closest('.modal-overlay').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
                 </div>
-                
-                <div class="modal-body">
-                    <form id="campaign-form">
-                        <div class="form-group">
-                            <label>Názov kampane *</label>
-                            <input type="text" name="name" required placeholder="Napr. Brand awareness - Leto 2025">
+
+                <div style="padding:20px; overflow-y:auto; flex:1;">
+                    <form id="campaign-form" style="display:flex; flex-direction:column; gap:14px;">
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Názov kampane *</label>
+                            <input type="text" name="name" required placeholder="Napr. Brand awareness — leto 2026" class="adl-input" style="width:100%; height:38px;">
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Klient *</label>
-                                <select name="client_id" required>
-                                    <option value="">-- Vyber klienta --</option>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Klient *</label>
+                                <select name="client_id" required class="adl-input" style="width:100%; height:38px;">
+                                    <option value="">Vyberte klienta…</option>
                                     ${this.clients.map(c => `<option value="${c.id}">${c.company_name}</option>`).join('')}
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label>Platforma *</label>
-                                <select name="platform" required>
-                                    <option value="google">🔍 Google Ads</option>
-                                    <option value="meta">📱 Meta Ads</option>
-                                    <option value="both">🌐 Oboje</option>
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Platforma *</label>
+                                <select name="platform" required class="adl-input" style="width:100%; height:38px;">
+                                    <option value="google">Google Ads</option>
+                                    <option value="meta">Meta Ads</option>
+                                    <option value="both">Google + Meta</option>
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Typ kampane</label>
-                                <select name="campaign_type">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Typ kampane</label>
+                                <select name="campaign_type" class="adl-input" style="width:100%; height:38px;">
                                     <option value="search">Search</option>
                                     <option value="display">Display</option>
                                     <option value="shopping">Shopping</option>
                                     <option value="video">Video</option>
                                     <option value="performance_max">Performance Max</option>
-                                    <option value="awareness">Brand Awareness</option>
+                                    <option value="awareness">Brand awareness</option>
                                     <option value="traffic">Traffic</option>
                                     <option value="conversions">Conversions</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label>Status</label>
-                                <select name="status">
-                                    <option value="draft">📝 Návrh</option>
-                                    <option value="active">🚀 Aktívna</option>
-                                    <option value="paused">⏸️ Pozastavená</option>
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Stav</label>
+                                <select name="status" class="adl-input" style="width:100%; height:38px;">
+                                    <option value="draft">Návrh</option>
+                                    <option value="active">Aktívna</option>
+                                    <option value="paused">Pozastavená</option>
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Budget (€)</label>
-                                <input type="number" name="budget" step="0.01" placeholder="500">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Rozpočet (€)</label>
+                                <input type="number" name="budget" step="0.01" placeholder="500" class="adl-input" style="width:100%; height:38px;">
                             </div>
-                            <div class="form-group">
-                                <label>Typ budgetu</label>
-                                <select name="budget_type">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Typ rozpočtu</label>
+                                <select name="budget_type" class="adl-input" style="width:100%; height:38px;">
                                     <option value="daily">Denný</option>
                                     <option value="monthly">Mesačný</option>
                                     <option value="total">Celkový</option>
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Začiatok</label>
-                                <input type="date" name="start_date">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Začiatok</label>
+                                <input type="date" name="start_date" class="adl-input" style="width:100%; height:38px;">
                             </div>
-                            <div class="form-group">
-                                <label>Koniec</label>
-                                <input type="date" name="end_date">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Koniec</label>
+                                <input type="date" name="end_date" class="adl-input" style="width:100%; height:38px;">
                             </div>
                         </div>
-                        
-                        <div class="form-group">
-                            <label>Popis</label>
-                            <textarea name="description" rows="3" placeholder="Interné poznámky ku kampani..."></textarea>
+
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Popis (interný)</label>
+                            <textarea name="description" rows="3" placeholder="Poznámky ku kampani…" style="width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:10px; font-size:13px; font-family:inherit; color:var(--ink); background:var(--surface); resize:vertical;"></textarea>
                         </div>
                     </form>
                 </div>
-                
-                <div class="modal-footer">
-                    <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
-                    <button class="btn-primary" onclick="CampaignsModule.saveCampaign()">
-                        Vytvoriť kampaň
-                    </button>
+
+                <div style="padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; background:var(--n-50);">
+                    <button onclick="this.closest('.modal-overlay').remove()" class="adl-btn adl-btn-outline">Zrušiť</button>
+                    <button onclick="CampaignsModule.saveCampaign()" class="adl-btn adl-btn-primary">${I.Plus({size:14})} Vytvoriť kampaň</button>
                 </div>
             </div>
         `;

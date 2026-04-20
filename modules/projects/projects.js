@@ -411,71 +411,61 @@ const CampaignProjectsModule = {
   
   renderCreateForm() {
     return `
-      <div class="space-y-4">
+      <div class="adl" style="display:flex; flex-direction:column; gap:14px;">
         <div>
-          <label class="block text-sm font-medium mb-1">Klient *</label>
-          <select id="create-client" class="w-full p-3 border rounded-xl" required>
-            <option value="">Vyber klienta...</option>
+          <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Klient *</label>
+          <select id="create-client" class="adl-input" style="width:100%; height:38px;" required>
+            <option value="">Vyberte klienta…</option>
             ${this.clients.map(c => `<option value="${c.id}">${c.company_name}</option>`).join('')}
           </select>
         </div>
-        
+
         <div>
-          <label class="block text-sm font-medium mb-1">Názov projektu *</label>
-          <input type="text" id="create-name" placeholder="napr. Letná kampaň 2025" 
-            class="w-full p-3 border rounded-xl" required>
+          <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Názov projektu *</label>
+          <input type="text" id="create-name" placeholder="napr. Letná kampaň 2026" class="adl-input" style="width:100%; height:38px;" required>
         </div>
-        
+
         <div>
-          <label class="block text-sm font-medium mb-1">Popis (voliteľné)</label>
-          <textarea id="create-description" rows="3" placeholder="Stručný popis projektu..." 
-            class="w-full p-3 border rounded-xl"></textarea>
+          <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Popis (voliteľné)</label>
+          <textarea id="create-description" rows="3" placeholder="Stručný popis projektu…" style="width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:10px; font-size:13px; font-family:inherit; color:var(--ink); background:var(--surface); resize:vertical;"></textarea>
         </div>
-        
-        <div class="grid grid-cols-2 gap-4">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div>
-            <label class="block text-sm font-medium mb-1">Rozpočet na reklamu</label>
-            <div class="relative">
-              <input type="number" id="create-ad-budget" placeholder="500" 
-                class="w-full p-3 border rounded-xl pr-12">
-              <span class="absolute right-3 top-3 text-gray-400">€/mes</span>
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Rozpočet na reklamu</label>
+            <div style="position:relative;">
+              <input type="number" id="create-ad-budget" placeholder="500" class="adl-input" style="width:100%; height:38px; padding-right:54px;">
+              <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--ink-mute);">€/mes</span>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">Poplatok za správu</label>
-            <div class="relative">
-              <input type="number" id="create-fee" placeholder="249" 
-                class="w-full p-3 border rounded-xl pr-12">
-              <span class="absolute right-3 top-3 text-gray-400">€/mes</span>
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Poplatok za správu</label>
+            <div style="position:relative;">
+              <input type="number" id="create-fee" placeholder="249" class="adl-input" style="width:100%; height:38px; padding-right:54px;">
+              <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--ink-mute);">€/mes</span>
             </div>
           </div>
         </div>
-        
-        <div class="grid grid-cols-2 gap-4">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div>
-            <label class="block text-sm font-medium mb-1">Plánovaný štart</label>
-            <input type="date" id="create-start-date" class="w-full p-3 border rounded-xl">
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Plánovaný štart</label>
+            <input type="date" id="create-start-date" class="adl-input" style="width:100%; height:38px;">
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">Plánovaný koniec</label>
-            <input type="date" id="create-end-date" class="w-full p-3 border rounded-xl">
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Plánovaný koniec</label>
+            <input type="date" id="create-end-date" class="adl-input" style="width:100%; height:38px;">
           </div>
         </div>
-        
-        <div class="bg-blue-50 rounded-xl p-4">
-          <h4 class="font-semibold text-blue-800 mb-2">💡 Tip</h4>
-          <p class="text-sm text-blue-700">Po vytvorení projektu môžete spustiť AI generovanie, ktoré vytvorí kompletný návrh kampaní na základe údajov z onboardingu klienta.</p>
+
+        <div style="padding:12px 14px; background:color-mix(in oklab, var(--acc-sky) 60%, var(--surface)); border-radius:10px; color:var(--acc-sky-ink); display:flex; gap:10px; align-items:start;">
+          <span style="flex-shrink:0;">${I.Info({size:16})}</span>
+          <div style="font-size:12px; line-height:1.5;">Po vytvorení projektu môžete spustiť generovanie, ktoré pripraví kompletný návrh kampaní z onboardingu klienta.</div>
         </div>
-        
-        <div class="flex gap-3 pt-4">
-          <button onclick="CampaignProjectsModule.closeCreateModal()" 
-            class="flex-1 px-4 py-3 bg-gray-200 rounded-xl hover:bg-gray-300">
-            Zrušiť
-          </button>
-          <button onclick="CampaignProjectsModule.createProject()" 
-            class="flex-1 px-4 py-3 gradient-bg text-white rounded-xl font-semibold hover:opacity-90">
-            ➕ Vytvoriť projekt
-          </button>
+
+        <div style="display:flex; gap:8px; padding-top:6px;">
+          <button onclick="CampaignProjectsModule.closeCreateModal()" class="adl-btn adl-btn-outline" style="flex:1; justify-content:center;">Zrušiť</button>
+          <button onclick="CampaignProjectsModule.createProject()" class="adl-btn adl-btn-primary" style="flex:1; justify-content:center;">${I.Plus({size:14})} Vytvoriť projekt</button>
         </div>
       </div>
     `;

@@ -30,80 +30,41 @@ const BillingModule = {
     // Modal pre výber typu nového dokladu
     showNewDocumentModal() {
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
+        modal.className = 'modal-overlay adl';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(20,18,14,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px;';
+
+        const options = [
+            { fn: 'createInvoice',  title: 'Faktúra',          desc: 'Štandardná faktúra za služby',       icon: I.Invoice, tone: 'brand' },
+            { fn: 'createProforma', title: 'Zálohová faktúra', desc: 'Predfaktúra pre platbu vopred',      icon: I.Docs,    tone: 'sky' },
+            { fn: 'createQuote',    title: 'Cenová ponuka',    desc: 'Ponuka pre potenciálneho klienta',    icon: I.Edit,    tone: 'lav' },
+            { fn: 'createOrder',    title: 'Objednávka',       desc: 'Potvrdená objednávka od klienta',    icon: I.Package, tone: 'mint' }
+        ];
+
         modal.innerHTML = `
-            <div class="document-type-modal">
-                <div class="dtm-header">
-                    <h2>Nový doklad</h2>
-                    <p>Vyberte typ dokladu, ktorý chcete vytvoriť</p>
+            <div style="background:var(--surface); border-radius:14px; max-width:520px; width:100%; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg); border:1px solid var(--border);">
+                <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h2 style="font-size:15px; font-weight:600; margin:0;">Nový doklad</h2>
+                        <p style="font-size:12px; color:var(--ink-sub); margin:2px 0 0;">Vyberte typ dokladu</p>
+                    </div>
+                    <button onclick="this.closest('.modal-overlay').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
                 </div>
-                <div class="dtm-options">
-                    <button class="dtm-option" onclick="BillingModule.createInvoice(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="16" y1="13" x2="8" y2="13"></line>
-                                <line x1="16" y1="17" x2="8" y2="17"></line>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Faktúra</span>
-                            <span class="dtm-desc">Štandardná faktúra za služby</span>
-                        </div>
-                    </button>
-                    
-                    <button class="dtm-option" onclick="BillingModule.createProforma(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="12" y1="18" x2="12" y2="12"></line>
-                                <line x1="9" y1="15" x2="15" y2="15"></line>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Zálohová faktúra</span>
-                            <span class="dtm-desc">Predfaktúra pre platbu vopred</span>
-                        </div>
-                    </button>
-                    
-                    <button class="dtm-option" onclick="BillingModule.createQuote(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="9" y1="15" x2="15" y2="15"></line>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Cenová ponuka</span>
-                            <span class="dtm-desc">Ponuka pre potenciálneho klienta</span>
-                        </div>
-                    </button>
-                    
-                    <button class="dtm-option" onclick="BillingModule.createOrder(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <circle cx="9" cy="21" r="1"></circle>
-                                <circle cx="20" cy="21" r="1"></circle>
-                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Objednávka</span>
-                            <span class="dtm-desc">Potvrdená objednávka od klienta</span>
-                        </div>
-                    </button>
-                </div>
-                <div class="dtm-footer">
-                    <button class="dtm-cancel" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
+                <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
+                    ${options.map(o => `
+                        <button onclick="BillingModule.${o.fn}(); this.closest('.modal-overlay').remove();" style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; cursor:pointer; text-align:left; font-family:inherit; color:var(--ink); transition:border-color .12s, background .12s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.background='var(--n-25)'" onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--surface)'">
+                            <div style="width:40px; height:40px; border-radius:10px; background:var(--acc-${o.tone === 'brand' ? 'amber' : o.tone}); color:var(--acc-${o.tone === 'brand' ? 'amber' : o.tone}-ink); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${o.icon({size:20})}</div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:14px; font-weight:600; color:var(--ink);">${o.title}</div>
+                                <div style="font-size:12px; color:var(--ink-sub);">${o.desc}</div>
+                            </div>
+                            <span style="color:var(--ink-mute); flex-shrink:0;">${I.Chevron({size:14})}</span>
+                        </button>
+                    `).join('')}
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
-        
-        // Zavrieť kliknutím mimo
+
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
