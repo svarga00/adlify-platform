@@ -579,19 +579,17 @@ const LeadsModule = {
       .btn-secondary:hover { background: #e2e8f0; }
       
       /* Modal */
-      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
-      .modal-box-new { background: white; border-radius: 16px; width: 100%; max-width: 540px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-      .modal-box-new.modal-large { max-width: 900px; }
-      .modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-      .modal-header h2 { font-size: 1.25rem; font-weight: 600; margin: 0; }
-      .modal-header-gradient { padding: 1.25rem 1.5rem; background: linear-gradient(135deg, #f97316, #ec4899); color: white; display: flex; justify-content: space-between; align-items: center; }
-      .modal-header-gradient h2 { font-size: 1.25rem; font-weight: 600; margin: 0; }
-      .modal-close { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.2); border: none; border-radius: 8px; cursor: pointer; color: white; font-size: 1.25rem; }
-      .modal-close-dark { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: none; border-radius: 8px; cursor: pointer; color: #64748b; font-size: 1.25rem; }
-      .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
-      .modal-desc { color: #64748b; margin-bottom: 1.5rem; }
-      .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
-      .tip-box { background: #eff6ff; border-radius: 10px; padding: 1rem; font-size: 0.9rem; color: #1e40af; margin-top: 1rem; }
+      .modal-overlay { position: fixed; inset: 0; background: rgba(20,18,14,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+      .modal-box-new { background: var(--surface); border-radius: 14px; width: 100%; max-width: 540px; max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--sh-lg); border: 1px solid var(--border); }
+      .modal-box-new.modal-large { max-width: 960px; }
+      .modal-header, .modal-header-gradient { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface); color: var(--ink); }
+      .modal-header h2, .modal-header-gradient h2 { font-size: 15px; font-weight: 600; margin: 0; color: var(--ink); letter-spacing: -0.2px; }
+      .modal-close, .modal-close-dark { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: var(--ink-sub); font-size: 15px; transition: background .12s; }
+      .modal-close:hover, .modal-close-dark:hover { background: var(--n-75); color: var(--ink); }
+      .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+      .modal-desc { color: var(--ink-sub); margin-bottom: 14px; font-size: 13px; }
+      .modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--n-50); gap: 10px; }
+      .tip-box { background: color-mix(in oklab, var(--acc-sky) 60%, var(--surface)); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--acc-sky-ink); margin-top: 12px; }
       
       /* Empty State */
       .empty-state { text-align: center; padding: 3rem; }
@@ -1234,238 +1232,174 @@ const LeadsModule = {
   showLeadDetail(id) {
     const lead = this.leads.find(l => l.id === id);
     if (!lead) return;
-    
+
     this.currentLeadId = id;
     const a = lead.analysis || {};
     const md = lead.marketing_data || {};
     const hasAnalysis = a.company || a.analysis;
     const c = a.company || {};
-    
+
     if (hasAnalysis) {
       this.currentAnalysis = lead.analysis;
       this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
     }
-    
+
     const modal = document.getElementById('analysis-modal');
     const content = document.getElementById('analysis-content');
-    
+
     const statusConfig = {
-      'new': { label: 'Nový', class: 'blue' },
-      'analyzing': { label: 'Analyzuje sa', class: 'yellow' },
-      'analyzed': { label: 'Analyzovaný', class: 'indigo' },
-      'ready': { label: 'Pripravený', class: 'green' },
-      'contacted': { label: 'Kontaktovaný', class: 'yellow' },
-      'proposal_sent': { label: 'Ponuka odoslaná', class: 'purple' },
-      'negotiating': { label: 'Vyjednáva sa', class: 'orange' },
-      'converted': { label: 'Konvertovaný', class: 'green' },
-      'won': { label: 'Vyhraný', class: 'green' },
-      'lost': { label: 'Prehraný', class: 'red' }
+      'new':           { label: 'Nový',            tone: 'sky' },
+      'analyzing':     { label: 'Analyzuje sa',    tone: 'amber' },
+      'analyzed':      { label: 'Analyzovaný',     tone: 'lav' },
+      'ready':         { label: 'Pripravený',      tone: 'mint' },
+      'contacted':     { label: 'Kontaktovaný',    tone: 'brand' },
+      'proposal_sent': { label: 'Ponuka odoslaná', tone: 'amber' },
+      'negotiating':   { label: 'Vyjednáva sa',    tone: 'brand' },
+      'converted':     { label: 'Konvertovaný',    tone: 'ok' },
+      'won':           { label: 'Vyhraný',         tone: 'ok' },
+      'lost':          { label: 'Prehraný',        tone: 'err' }
     };
     const status = statusConfig[lead.status] || statusConfig['new'];
     const socials = md.socialMedia || {};
     const hasSocials = Object.keys(socials).length > 0;
-    
+
+    const score = lead.score || 0;
+    const scoreColor = score >= 70 ? 'var(--ok)' : score >= 40 ? 'var(--warn)' : 'var(--ink-mute)';
+    const displayName = lead.company_name || lead.domain || 'Neznámy';
+    const firstChar = (displayName[0] || '?').toUpperCase();
+
+    // Build activity timeline
+    const activities = [
+      { when: lead.created_at, label: 'Lead vytvorený', tone: 'sky' },
+      md.importedAt ? { when: md.importedAt, label: 'Import z Marketing Miner', tone: 'lav' } : null,
+      hasAnalysis ? { when: lead.updated_at || lead.created_at, label: 'AI analýza dokončená', tone: 'mint' } : null,
+      lead.proposal_sent_at ? { when: lead.proposal_sent_at, label: `Ponuka odoslaná${lead.proposal_sent_to ? ' · ' + lead.proposal_sent_to : ''}`, tone: 'amber' } : null,
+      lead.status === 'won' ? { when: lead.updated_at, label: 'Konvertovaný na klienta', tone: 'ok' } : null,
+      lead.status === 'lost' ? { when: lead.updated_at, label: 'Označený ako prehraný', tone: 'err' } : null
+    ].filter(Boolean).sort((x, y) => new Date(y.when) - new Date(x.when));
+
     content.innerHTML = `
-      <div class="lead-detail-modal">
-        <!-- Header -->
-        <div class="lead-detail-header">
-          <div class="lead-detail-info">
-            <h2>${lead.company_name || lead.domain || 'Neznámy'}</h2>
-            ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="lead-detail-domain">${lead.domain} ↗</a>` : ''}
+      <div class="adl" style="display:grid; grid-template-columns: 1fr 320px; gap:20px;" id="lead-detail-grid">
+
+        <!-- MAIN COLUMN -->
+        <div>
+          <!-- Header -->
+          <div style="display:flex; align-items:center; gap:14px; padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid var(--border);">
+            <div style="width:48px; height:48px; border-radius:12px; background:var(--brand-50); color:var(--brand-700); display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0;">${firstChar}</div>
+            <div style="flex:1; min-width:0;">
+              <h2 style="font-size:18px; font-weight:700; letter-spacing:-0.3px; margin:0;">${displayName}</h2>
+              ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" style="font-size:12px; color:var(--ink-sub); text-decoration:none; display:inline-flex; align-items:center; gap:3px;">${lead.domain} ${I.External({size:10})}</a>` : ''}
+            </div>
+            <div style="text-align:center;">
+              <div class="mono" style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:color-mix(in oklab, ${scoreColor} 14%, transparent); color:${scoreColor}; font-weight:700; font-size:18px;">${score}</div>
+              <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-top:4px;">Skóre</div>
+            </div>
           </div>
-          <div class="lead-detail-score">
-            <div class="score-big ${(lead.score || 0) >= 70 ? 'high' : (lead.score || 0) >= 40 ? 'medium' : 'low'}">${lead.score || 0}</div>
-            <span>Skóre</span>
+
+          <!-- Tabs -->
+          <div style="display:inline-flex; gap:2px; background:var(--n-75); border-radius:9px; padding:3px; margin-bottom:16px;">
+            <button class="lead-tab ${!hasAnalysis ? 'active' : ''}" data-tab="info" onclick="LeadsModule.switchDetailTab('info', this)" style="padding:8px 14px; border:0; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; background:${!hasAnalysis ? 'var(--surface)' : 'transparent'}; color:${!hasAnalysis ? 'var(--ink)' : 'var(--ink-sub)'}; font-family:inherit;">Kontakt</button>
+            ${hasAnalysis ? `<button class="lead-tab active" data-tab="analysis" onclick="LeadsModule.switchDetailTab('analysis', this)" style="padding:8px 14px; border:0; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; background:var(--surface); color:var(--ink); font-family:inherit;">${I.Sparkle({size:12})} Analýza</button>` : ''}
+            ${hasSocials ? `<button class="lead-tab" data-tab="social" onclick="LeadsModule.switchDetailTab('social', this)" style="padding:8px 14px; border:0; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; background:transparent; color:var(--ink-sub); font-family:inherit;">Sociálne siete</button>` : ''}
+          </div>
+
+          <!-- Kontakt tab -->
+          <div id="detail-tab-info" class="detail-tab-content" style="display:${hasAnalysis ? 'none' : 'block'};">
+            <div class="adl-card">
+              <div class="adl-card-body" style="padding:16px 20px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;" class="lead-contact-grid">
+                  <div><div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px;">Email</div><div style="font-size:13px;">${lead.email ? `<a href="mailto:${lead.email}" style="color:var(--brand-600); text-decoration:none;">${lead.email}</a>` : '<span style="color:var(--ink-mute);">—</span>'}</div></div>
+                  <div><div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px;">Telefón</div><div style="font-size:13px;">${lead.phone ? `<a href="tel:${lead.phone}" style="color:var(--brand-600); text-decoration:none;">${lead.phone}</a>` : '<span style="color:var(--ink-mute);">—</span>'}</div></div>
+                  <div><div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px;">Odvetvie</div><div style="font-size:13px;">${lead.industry || c.industry || '<span style="color:var(--ink-mute);">—</span>'}</div></div>
+                  <div><div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px;">Mesto</div><div style="font-size:13px;">${lead.city || c.location || '<span style="color:var(--ink-mute);">—</span>'}</div></div>
+                  ${lead.source ? `<div><div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px;">Zdroj</div><div style="font-size:13px;"><span class="adl-chip adl-chip-sm">${lead.source}</span></div></div>` : ''}
+                  <div><div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px;">Vytvorený</div><div class="mono" style="font-size:12px;">${new Date(lead.created_at).toLocaleString('sk-SK')}</div></div>
+                </div>
+              </div>
+            </div>
+            ${lead.notes ? `<div class="adl-card" style="margin-top:12px;"><div class="adl-card-header"><div class="adl-card-title">Poznámky</div></div><div class="adl-card-body" style="padding:14px 20px; font-size:13px; line-height:1.5;">${lead.notes}</div></div>` : ''}
+          </div>
+
+          <!-- Analysis tab -->
+          ${hasAnalysis ? `<div id="detail-tab-analysis" class="detail-tab-content" style="display:block;">${this.renderAnalysisContent(lead, this.currentAnalysis)}</div>` : ''}
+
+          <!-- Social tab -->
+          ${hasSocials ? `
+            <div id="detail-tab-social" class="detail-tab-content" style="display:none;">
+              <div class="adl-card"><div class="adl-card-body" style="display:flex; flex-direction:column; gap:10px;">
+                ${socials.facebook ? `<a href="${socials.facebook}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#1877F2;">${I.Fb({size:18})}</span> <span style="flex:1; font-size:13px;">Facebook</span> ${I.External({size:12})}</a>` : ''}
+                ${socials.instagram ? `<a href="${socials.instagram}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#E1306C;">${I.Instagram({size:18})}</span> <span style="flex:1; font-size:13px;">Instagram</span> ${I.External({size:12})}</a>` : ''}
+                ${socials.linkedin ? `<a href="${socials.linkedin}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#0A66C2;">${I.Link({size:18})}</span> <span style="flex:1; font-size:13px;">LinkedIn</span> ${I.External({size:12})}</a>` : ''}
+              </div></div>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- SIDEBAR -->
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <!-- Status card -->
+          <div class="adl-card">
+            <div class="adl-card-body" style="padding:14px 16px;">
+              <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">Stav</div>
+              <div style="margin-bottom:14px;"><span class="adl-chip adl-chip-${status.tone}"><span class="dot"></span>${status.label}</span></div>
+
+              <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">Zmeniť stav</div>
+              <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:6px;">
+                ${[
+                  ['new',       'Nový',         'sky'],
+                  ['contacted', 'Kontakt.',     'brand'],
+                  ['won',       'Vyhraný',      'ok'],
+                  ['lost',      'Prehraný',     'err']
+                ].map(([k, l, tone]) => `
+                  <button onclick="LeadsModule.updateStatus('${lead.id}', '${k}')" class="adl-btn ${lead.status === k ? `adl-btn-primary` : 'adl-btn-soft'} adl-btn-sm" style="justify-content:center; width:100%;">${l}</button>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity Timeline (vždy viditeľná) -->
+          <div class="adl-card">
+            <div class="adl-card-header" style="padding:12px 16px;">
+              <div class="adl-card-title">Aktivita</div>
+            </div>
+            <div class="adl-card-body" style="padding:8px 16px 14px;">
+              ${activities.length === 0 ? '<div style="color:var(--ink-mute); font-size:12px; padding:10px 0;">Žiadna aktivita</div>' :
+              `<div style="position:relative; padding-left:18px;">
+                <div style="position:absolute; left:5px; top:8px; bottom:8px; width:2px; background:var(--border);"></div>
+                ${activities.map((ev, i) => {
+                  const toneColor = { sky: 'var(--acc-sky-ink)', lav: 'var(--acc-lavender-ink)', mint: 'var(--ok)', amber: 'var(--warn)', ok: 'var(--ok)', err: 'var(--err)' }[ev.tone] || 'var(--n-400)';
+                  return `
+                    <div style="position:relative; padding:6px 0;">
+                      <div style="position:absolute; left:-18px; top:10px; width:12px; height:12px; border-radius:50%; background:${toneColor}; border:2px solid var(--surface); box-shadow:0 0 0 2px ${toneColor};"></div>
+                      <div style="font-size:12px; font-weight:500; color:var(--ink); line-height:1.3;">${ev.label}</div>
+                      <div class="mono" style="font-size:10px; color:var(--ink-mute); margin-top:2px;">${new Date(ev.when).toLocaleString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>`}
+            </div>
+          </div>
+
+          <!-- Quick actions -->
+          <div class="adl-card">
+            <div class="adl-card-body" style="padding:12px 16px; display:flex; flex-direction:column; gap:6px;">
+              ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-soft adl-btn-sm" style="justify-content:flex-start;">${I.Mail({size:14})} Napísať email</a>` : ''}
+              ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-soft adl-btn-sm" style="justify-content:flex-start;">${I.Phone({size:14})} Zavolať</a>` : ''}
+              <button onclick="LeadsModule.analyze('${lead.id}')" class="adl-btn adl-btn-soft adl-btn-sm" style="justify-content:flex-start;">${I.Sparkle({size:14})} ${hasAnalysis ? 'Preanalyzovať' : 'Spustiť analýzu'}</button>
+              ${hasAnalysis ? `<button onclick="LeadsModule.showProposalModal('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm" style="justify-content:center; margin-top:6px;">${I.Send({size:14})} Vytvoriť ponuku</button>` : ''}
+            </div>
           </div>
         </div>
-        
-        <!-- Tabs -->
-        <div class="lead-detail-tabs">
-          <button class="lead-tab ${!hasAnalysis ? 'active' : ''}" onclick="LeadsModule.switchDetailTab('info', this)">📋 Info</button>
-          ${hasAnalysis ? `<button class="lead-tab active" onclick="LeadsModule.switchDetailTab('analysis', this)">🤖 Analýza</button>` : ''}
-          ${hasSocials ? `<button class="lead-tab" onclick="LeadsModule.switchDetailTab('social', this)">📱 Sociálne siete</button>` : ''}
-          <button class="lead-tab" onclick="LeadsModule.switchDetailTab('history', this)">📜 História</button>
-        </div>
-        
-        <!-- Info Tab -->
-        <div id="detail-tab-info" class="detail-tab-content" style="display: ${hasAnalysis ? 'none' : 'block'};">
-          <div class="detail-grid">
-            <!-- Kontakt -->
-            <div class="detail-card">
-              <div class="detail-card-header">
-                <span class="detail-card-icon">📧</span>
-                <h3>Kontaktné údaje</h3>
-              </div>
-              <div class="detail-card-body">
-                <div class="detail-row">
-                  <span class="detail-label">Email</span>
-                  <span class="detail-value">${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '<em class="empty">nezadaný</em>'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Telefón</span>
-                  <span class="detail-value">${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '<em class="empty">nezadaný</em>'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Odvetvie</span>
-                  <span class="detail-value">${lead.industry || c.industry || '<em class="empty">nezadané</em>'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Mesto</span>
-                  <span class="detail-value">${lead.city || c.location || '<em class="empty">nezadané</em>'}</span>
-                </div>
-                ${lead.logo_url ? `
-                <div class="detail-row">
-                  <span class="detail-label">Logo</span>
-                  <span class="detail-value"><img src="${lead.logo_url}" alt="Logo" style="height: 32px;"></span>
-                </div>
-                ` : ''}
-              </div>
-            </div>
-            
-            <!-- Status -->
-            <div class="detail-card">
-              <div class="detail-card-header">
-                <span class="detail-card-icon">📊</span>
-                <h3>Status</h3>
-              </div>
-              <div class="detail-card-body">
-                <div class="detail-row">
-                  <span class="detail-label">Stav</span>
-                  <span class="detail-value"><span class="status-badge ${status.class}">${status.label}</span></span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Vytvorený</span>
-                  <span class="detail-value">${new Date(lead.created_at).toLocaleDateString('sk-SK')}</span>
-                </div>
-                ${lead.source ? `
-                <div class="detail-row">
-                  <span class="detail-label">Zdroj</span>
-                  <span class="detail-value"><span class="source-badge">${lead.source}</span></span>
-                </div>
-                ` : ''}
-                
-                <div class="status-buttons">
-                  <label>Zmeniť status:</label>
-                  <div class="status-btn-group">
-                    ${['new', 'contacted', 'won', 'lost'].map(s => {
-                      const labels = { new: '🆕', contacted: '📞', won: '✅', lost: '❌' };
-                      return `<button onclick="LeadsModule.updateStatus('${lead.id}', '${s}')" class="status-btn ${lead.status === s ? 'active' : ''}" title="${statusConfig[s]?.label || s}">${labels[s]}</button>`;
-                    }).join('')}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- CTA - Analyzovať alebo Generovať ponuku -->
-          ${hasAnalysis ? `
-          <div class="detail-cta" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #bbf7d0;">
-            <div class="cta-icon">✅</div>
-            <div class="cta-content">
-              <h3 style="color: #166534;">Analýza dokončená</h3>
-              <p style="color: #15803d;">Lead bol analyzovaný. Prejdite na tab "Analýza" pre zobrazenie výsledkov alebo generujte ponuku.</p>
-            </div>
-            <button onclick="LeadsModule.generateProposal()" class="btn-primary">📄 Generovať ponuku</button>
-          </div>
-          ` : `
-          <div class="detail-cta">
-            <div class="cta-icon">🤖</div>
-            <div class="cta-content">
-              <h3>Spustiť AI analýzu</h3>
-              <p>Získajte marketingovú stratégiu, odporúčania a generujte personalizovanú ponuku.</p>
-            </div>
-            <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-primary">🤖 Analyzovať</button>
-          </div>
-          `}
-        </div>
-        
-        <!-- Analysis Tab -->
-        ${hasAnalysis ? `
-        <div id="detail-tab-analysis" class="detail-tab-content">
-          ${this.renderAnalysisContent(lead, a)}
-        </div>
-        ` : ''}
-        
-        <!-- Social Tab -->
-        ${hasSocials ? `
-        <div id="detail-tab-social" class="detail-tab-content" style="display:none;">
-          <div class="social-grid">
-            ${socials.facebook ? `
-            <a href="${socials.facebook}" target="_blank" class="social-card facebook">
-              <div class="social-card-icon">📘</div>
-              <div class="social-card-info">
-                <strong>Facebook</strong>
-                <span>Profil nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
-            ${socials.instagram ? `
-            <a href="${socials.instagram}" target="_blank" class="social-card instagram">
-              <div class="social-card-icon">📷</div>
-              <div class="social-card-info">
-                <strong>Instagram</strong>
-                <span>Profil nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
-            ${socials.linkedin ? `
-            <a href="${socials.linkedin}" target="_blank" class="social-card linkedin">
-              <div class="social-card-icon">💼</div>
-              <div class="social-card-info">
-                <strong>LinkedIn</strong>
-                <span>Profil nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
-          </div>
-        </div>
-        ` : ''}
-        
-        <!-- History Tab -->
-        <div id="detail-tab-history" class="detail-tab-content" style="display:none;">
-          <div class="history-timeline">
-            <div class="history-item">
-              <div class="history-dot"></div>
-              <div class="history-content">
-                <strong>Lead vytvorený</strong>
-                <span>${new Date(lead.created_at).toLocaleString('sk-SK')}</span>
-              </div>
-            </div>
-            ${md.importedAt ? `
-            <div class="history-item">
-              <div class="history-dot blue"></div>
-              <div class="history-content">
-                <strong>Import z Marketing Miner</strong>
-                <span>${new Date(md.importedAt).toLocaleString('sk-SK')}</span>
-              </div>
-            </div>
-            ` : ''}
-            ${hasAnalysis ? `
-            <div class="history-item">
-              <div class="history-dot green"></div>
-              <div class="history-content">
-                <strong>AI analýza dokončená</strong>
-                <span>${lead.updated_at ? new Date(lead.updated_at).toLocaleString('sk-SK') : 'Nedávno'}</span>
-              </div>
-            </div>
-            ` : ''}
-            ${lead.proposal_sent_at ? `
-            <div class="history-item">
-              <div class="history-dot orange"></div>
-              <div class="history-content">
-                <strong>Ponuka odoslaná</strong>
-                <span>${new Date(lead.proposal_sent_at).toLocaleString('sk-SK')}${lead.proposal_sent_to ? ` na ${lead.proposal_sent_to}` : ''}</span>
-              </div>
-            </div>
-            ` : ''}
-          </div>
-        </div>
+
+        <style>
+          @media (max-width: 900px) {
+            #lead-detail-grid { grid-template-columns: 1fr !important; }
+            .lead-contact-grid { grid-template-columns: 1fr !important; }
+          }
+        </style>
       </div>
     `;
-    
+
     modal.style.display = 'flex';
     this.renderModalFooter(hasAnalysis);
   },
@@ -1492,8 +1426,14 @@ const LeadsModule = {
   },
 
   switchDetailTab(tab, btn) {
-    document.querySelectorAll('.lead-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.lead-tab').forEach(t => {
+      t.classList.remove('active');
+      t.style.background = 'transparent';
+      t.style.color = 'var(--ink-sub)';
+    });
     btn.classList.add('active');
+    btn.style.background = 'var(--surface)';
+    btn.style.color = 'var(--ink)';
     document.querySelectorAll('.detail-tab-content').forEach(c => c.style.display = 'none');
     const tabEl = document.getElementById(`detail-tab-${tab}`);
     if (tabEl) tabEl.style.display = 'block';
