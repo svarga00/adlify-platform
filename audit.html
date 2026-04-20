@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini-audit · Adlify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --brand: #F97316; --brand-dark: #EA580C; --brand-50: #FFF4EC; --brand-100: #FFE6D3;
+    --ink: #14120E; --ink-soft: #3A352B; --muted: #6F6758; --muted-light: #948B7C;
+    --bg: #F7F5F1; --surface: #FFFFFF; --border: #EAE6DE;
+    --ok: #16A34A; --warn: #F59E0B; --err: #DC2626;
+    --ok-bg: #DCFCE7; --warn-bg: #FEF3C7; --err-bg: #FEE2E2;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  .brand-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .brand-mark {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--brand); color: #fff;
+    font-weight: 800; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brand-name { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .date-meta { font-size: 12px; color: var(--muted-light); }
+
+  /* Hero */
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 36px 32px;
+    margin-bottom: 20px;
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--brand-50); color: var(--brand-dark);
+    border: 1px solid var(--brand-100);
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .tag::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok);
+  }
+  h1 { font-size: 32px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.6px; line-height: 1.2; }
+  .subtitle { color: var(--muted); font-size: 15px; margin: 0 0 24px; }
+  .summary {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px;
+    font-size: 15px; color: var(--ink-soft); line-height: 1.6;
+    margin: 16px 0 0;
+  }
+  .summary strong { color: var(--ink); font-weight: 600; }
+
+  /* Scores */
+  .scores {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin: 20px 0;
+  }
+  .score {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px;
+    text-align: center;
+  }
+  .score-value { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 4px; }
+  .score-label { font-size: 11px; color: var(--muted-light); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .score-good { color: var(--ok); }
+  .score-warn { color: var(--warn); }
+  .score-bad { color: var(--err); }
+
+  /* Screenshot preview */
+  .screenshot-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; margin: 16px 0 20px;
+  }
+  .screenshot-box img { display: block; width: 100%; height: auto; }
+  .screenshot-label {
+    padding: 10px 14px; background: var(--bg); border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--muted); display: flex; justify-content: space-between;
+  }
+
+  /* Findings */
+  .section-title {
+    font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 1px; margin: 28px 0 12px; padding: 0 4px;
+  }
+  .finding {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 28px; margin-bottom: 14px;
+  }
+  .finding-head {
+    display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px;
+  }
+  .finding-num {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--brand); color: #fff;
+    font-weight: 700; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .finding-title {
+    font-size: 20px; font-weight: 700; color: var(--ink); margin: 0;
+    line-height: 1.3; letter-spacing: -0.3px;
+  }
+  .severity {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-top: 6px;
+  }
+  .severity-high { background: var(--err-bg); color: var(--err); }
+  .severity-medium { background: var(--warn-bg); color: var(--warn); }
+  .severity-low { background: var(--ok-bg); color: var(--ok); }
+
+  .finding-section {
+    padding: 14px 0; border-top: 1px solid var(--border);
+  }
+  .finding-section:first-of-type { border-top: none; padding-top: 0; }
+  .finding-section-label {
+    font-size: 11px; font-weight: 700; color: var(--muted-light);
+    text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 6px;
+  }
+  .finding-section-text { font-size: 15px; color: var(--ink-soft); line-height: 1.6; margin: 0; }
+
+  .evidence-list { list-style: none; padding: 0; margin: 6px 0 0; }
+  .evidence-list li {
+    font-size: 13px; color: var(--muted); padding: 4px 0;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .evidence-list li::before { content: '›'; color: var(--brand); margin-right: 8px; font-weight: 700; }
+
+  .impact-box {
+    background: linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%);
+    border: 1px solid var(--brand-100);
+    border-radius: 12px; padding: 14px 16px; margin-top: 14px;
+  }
+  .impact-box .label { font-size: 11px; font-weight: 700; color: var(--brand-dark); text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 4px; }
+  .impact-box .value { font-size: 15px; font-weight: 600; color: var(--ink); margin: 0; }
+
+  /* CTA */
+  .cta-card {
+    background: linear-gradient(135deg, #FFF4EC 0%, #FFE6D3 100%);
+    border: 1px solid var(--brand-100);
+    border-radius: 24px; padding: 36px 32px;
+    text-align: center; margin: 32px 0;
+  }
+  .cta-card h2 { font-size: 26px; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.5px; }
+  .cta-card p { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 0 22px; }
+  .btn-primary {
+    display: inline-block; padding: 16px 32px;
+    background: var(--brand); color: #fff;
+    border: none; border-radius: 14px;
+    font-size: 16px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: background .15s; font-family: inherit;
+  }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-secondary {
+    display: inline-block; padding: 14px 24px;
+    background: transparent; color: var(--ink-soft);
+    border: 1.5px solid var(--border); border-radius: 14px;
+    font-size: 15px; font-weight: 500;
+    cursor: pointer; text-decoration: none;
+    transition: border-color .15s; font-family: inherit;
+    margin-left: 8px;
+  }
+  .btn-secondary:hover { border-color: var(--brand); }
+  .cta-sub { margin-top: 14px; font-size: 12px; color: var(--muted-light); }
+
+  /* Footer */
+  .footer {
+    margin-top: 40px; padding: 24px; text-align: center;
+    font-size: 12px; color: var(--muted-light); line-height: 1.6;
+  }
+  .footer a { color: var(--muted); text-decoration: none; }
+
+  .skeleton { text-align: center; padding: 80px 20px; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--brand); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 680px) {
+    .page { padding: 20px 14px 60px; }
+    .hero, .finding, .cta-card { padding: 24px 20px; border-radius: 18px; }
+    h1 { font-size: 24px; }
+    .finding-title { font-size: 17px; }
+    .scores { grid-template-columns: repeat(2, 1fr); }
+    .btn-secondary { margin-left: 0; margin-top: 10px; display: block; }
+    .cta-card .btn-primary, .cta-card .btn-secondary { display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brand-header">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-name">Adlify</div>
+    </div>
+    <div class="date-meta" id="meta-date"></div>
+  </div>
+
+  <div id="app">
+    <div class="skeleton">
+      <div class="spinner"></div>
+      <div>Načítavam audit...</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Audit pripravil Štefan Varga · Adlify · <a href="mailto:info@adlify.eu">info@adlify.eu</a> · <a href="tel:+421944184045">+421 944 184 045</a>
+    <br>
+    <span style="display:inline-block;margin-top:8px;">Dáta z verejne dostupných zdrojov (Google PageSpeed Insights, Marketing Miner, WHOIS, HTML homepage)</span>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let auditToken = null;
+  let lead = null;
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function scoreClass(s) { return s >= 80 ? 'score-good' : s >= 50 ? 'score-warn' : 'score-bad'; }
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    auditToken = params.get('t') || params.get('token');
+    if (!auditToken) return showError('Chýba token auditu');
+
+    try {
+      const { data, error } = await db
+        .from('leads')
+        .select('id, company_name, domain, contact_person, email, industry, city, audit_data, audit_findings, audit_generated_at, audit_delivered_at, audit_view_count, audit_viewed_at, outreach_stage')
+        .eq('audit_token', auditToken)
+        .single();
+
+      if (error || !data) return showError('Audit nenájdený. Kontaktujte info@adlify.eu.');
+      lead = data;
+
+      if (!lead.audit_findings) {
+        return showPending();
+      }
+
+      // Track view
+      try {
+        await db.from('leads').update({
+          audit_viewed_at: lead.audit_viewed_at || new Date().toISOString(),
+          audit_view_count: (lead.audit_view_count || 0) + 1,
+          outreach_stage: lead.outreach_stage === 'audit_delivered' ? 'audit_viewed' : lead.outreach_stage,
+        }).eq('audit_token', auditToken);
+      } catch (e) { /* non-critical */ }
+
+      render();
+    } catch (e) {
+      console.error(e);
+      showError('Chyba pri načítaní auditu.');
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('app').innerHTML = `
+      <div class="hero">
+        <h1>Audit nenájdený</h1>
+        <p class="subtitle">${esc(msg)}</p>
+      </div>
+    `;
+  }
+
+  function showPending() {
+    document.getElementById('app').innerHTML = `
+      <div class="hero">
+        <span class="tag">V príprave</span>
+        <h1>Audit pripravujem</h1>
+        <p class="subtitle">Zbieram dáta o vašom webe, socialoch a konkurencii. Doručím do 48 hodín na <strong>${esc(lead.email || 'váš email')}</strong>.</p>
+      </div>
+    `;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('sk-SK', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function render() {
+    const f = lead.audit_findings || {};
+    const data = lead.audit_data || {};
+    const findings = f.findings || [];
+    const ps = data.pagespeed?.mobile;
+    const tracking = data.html?.tracking || {};
+    const company = lead.company_name || lead.domain;
+    const greeting = lead.contact_person ? `Pán ${lead.contact_person}` : 'Dobrý deň';
+
+    document.getElementById('meta-date').textContent = 'Audit · ' + fmtDate(lead.audit_generated_at);
+    document.title = `Mini-audit pre ${company} · Adlify`;
+
+    const scoresHtml = ps ? `
+      <div class="scores">
+        <div class="score">
+          <div class="score-value ${scoreClass(ps.scores.performance)}">${ps.scores.performance}</div>
+          <div class="score-label">Výkon</div>
+        </div>
+        <div class="score">
+          <div class="score-value ${scoreClass(ps.scores.seo)}">${ps.scores.seo}</div>
+          <div class="score-label">SEO</div>
+        </div>
+        <div class="score">
+          <div class="score-value ${scoreClass(ps.scores.accessibility)}">${ps.scores.accessibility}</div>
+          <div class="score-label">Prístupnosť</div>
+        </div>
+        <div class="score">
+          <div class="score-value ${scoreClass(ps.scores.bestPractices)}">${ps.scores.bestPractices}</div>
+          <div class="score-label">Best practices</div>
+        </div>
+      </div>
+    ` : '';
+
+    const screenshotHtml = data.screenshot_url ? `
+      <div class="screenshot-box">
+        <img src="${esc(data.screenshot_url)}" alt="Screenshot ${esc(lead.domain)}" onerror="this.parentElement.style.display='none'">
+        <div class="screenshot-label">
+          <span>Tak vyzerá váš web na desktope</span>
+          <span>${esc(lead.domain)}</span>
+        </div>
+      </div>
+    ` : '';
+
+    const trackingBadges = `
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;">
+        ${trackBadge('Google Analytics', tracking.googleAnalytics)}
+        ${trackBadge('Google Tag Manager', tracking.googleTagManager)}
+        ${trackBadge('Google Ads', tracking.googleAds)}
+        ${trackBadge('Meta Pixel', tracking.metaPixel)}
+        ${trackBadge('LinkedIn Insight', tracking.linkedinInsight)}
+      </div>
+    `;
+
+    const findingsHtml = findings.map((fn, i) => `
+      <div class="finding">
+        <div class="finding-head">
+          <div class="finding-num">${i + 1}</div>
+          <div style="flex:1;">
+            <h3 class="finding-title">${esc(fn.title)}</h3>
+            <span class="severity severity-${fn.severity || 'medium'}">${severityLabel(fn.severity)}</span>
+          </div>
+        </div>
+        <div class="finding-section">
+          <p class="finding-section-label">Čo sme zistili</p>
+          <p class="finding-section-text">${esc(fn.what || '')}</p>
+        </div>
+        <div class="finding-section">
+          <p class="finding-section-label">Prečo to je dôležité</p>
+          <p class="finding-section-text">${esc(fn.why_it_matters || '')}</p>
+        </div>
+        ${fn.evidence?.length ? `
+        <div class="finding-section">
+          <p class="finding-section-label">Dáta</p>
+          <ul class="evidence-list">${fn.evidence.map(e => `<li>${esc(e)}</li>`).join('')}</ul>
+        </div>` : ''}
+        <div class="finding-section">
+          <p class="finding-section-label">Odporúčanie</p>
+          <p class="finding-section-text">${esc(fn.recommendation || '')}</p>
+        </div>
+        ${fn.estimated_impact ? `
+        <div class="impact-box">
+          <p class="label">Odhadovaný dopad</p>
+          <p class="value">${esc(fn.estimated_impact)}</p>
+        </div>` : ''}
+      </div>
+    `).join('');
+
+    const bookUrl = `/book-call.html?t=${auditToken}`;
+
+    document.getElementById('app').innerHTML = `
+      <div class="hero">
+        <span class="tag">Mini-audit hotový</span>
+        <h1>${esc(greeting)}, tu je audit pre <strong style="color:var(--brand-dark);">${esc(company)}</strong></h1>
+        <p class="subtitle">Pozrel som sa na váš web, tracking, sociálne siete a kľúčové slová v segmente. Nižšie 3 konkrétne body na ktorých by sme mohli hneď zarobiť.</p>
+
+        ${scoresHtml}
+        ${screenshotHtml}
+
+        ${f.summary ? `<div class="summary">${esc(f.summary)}</div>` : ''}
+        ${trackingBadges}
+      </div>
+
+      <p class="section-title">3 kľúčové zistenia</p>
+      ${findingsHtml || '<div class="finding"><p class="finding-section-text">Audit sa ešte pripravuje.</p></div>'}
+
+      <div class="cta-card">
+        <h2>Prejsť si to spolu 15 minút?</h2>
+        <p>Bezplatný hovor — ukážem vám konkrétne ako tieto body riešime a aký by bol odhadovaný efekt v číslach pre vašu firmu. Žiadne prezentácie, žiadny tlak na predaj.</p>
+        <a href="${bookUrl}" class="btn-primary">Rezervovať 15-min call →</a>
+        <a href="mailto:info@adlify.eu?subject=Audit pre ${encodeURIComponent(company)}" class="btn-secondary">Mám otázku</a>
+        <p class="cta-sub">Môžete si termín zvoliť sami · Žiadne nástroje tretích strán</p>
+      </div>
+
+      ${f.next_step_recommendation ? `
+      <div class="hero" style="background:var(--bg);">
+        <p class="section-title" style="margin-top:0;">Čo by som robil najprv</p>
+        <p style="font-size:16px;line-height:1.7;color:var(--ink-soft);margin:0;">${esc(f.next_step_recommendation)}</p>
+      </div>` : ''}
+    `;
+  }
+
+  function trackBadge(label, enabled) {
+    const bg = enabled ? 'var(--ok-bg)' : 'var(--err-bg)';
+    const color = enabled ? 'var(--ok)' : 'var(--err)';
+    const icon = enabled ? '✓' : '✗';
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:${bg};color:${color};font-size:12px;font-weight:600;">${icon} ${label}</span>`;
+  }
+
+  function severityLabel(s) {
+    return s === 'high' ? 'Priorita · vysoká' : s === 'low' ? 'Priorita · nízka' : 'Priorita · stredná';
+  }
+
+  init();
+</script>
+</body>
+</html>
