@@ -1534,7 +1534,6 @@ const OutreachModule = {
   _detailActivity(p) {
     const events = this._detailEvents;
     if (events == null) return `<div style="color:#948B7C;padding:12px;">Načítavam aktivitu…</div>`;
-    if (events.length === 0) return `<div style="color:#948B7C;padding:12px;">Žiadna aktivita zatiaľ.</div>`;
 
     const humanOpens = events.filter(e => e.event_type === 'email_open' && !e.is_bot).length;
     const botOpens = events.filter(e => e.event_type === 'email_open' && e.is_bot).length;
@@ -1542,15 +1541,21 @@ const OutreachModule = {
     const countries = [...new Set(events.filter(e => !e.is_bot && e.geo_country).map(e => e.geo_country))];
 
     return `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;">
+        <div style="font-size:13px;color:#6F6758;">Timeline všetkých udalostí · ${events.length} záznamov</div>
+        <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule._loadDetailEvents('${p.id}')">↻ Obnoviť</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
         ${this._stat('👁 Otvorení', humanOpens, '#8B5CF6', '#EDE9FE')}
         ${this._stat('🖱 Kliky', clicks, '#F97316', '#FFEDD5')}
         ${this._stat('🤖 Botov', botOpens, '#6F6758', '#F7F5F1')}
         ${this._stat('📍 Krajín', countries.length, '#3B82F6', '#DBEAFE')}
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        ${events.map(e => this._renderEvent(e)).join('')}
-      </div>
+      ${events.length === 0 ? `<div style="color:#948B7C;padding:24px;text-align:center;background:#F7F5F1;border-radius:10px;">Žiadna aktivita zatiaľ.</div>` : `
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${events.map(e => this._renderEvent(e)).join('')}
+        </div>
+      `}
     `;
   },
 
@@ -1684,18 +1689,23 @@ const OutreachModule = {
     };
     const t = typeMap[e.event_type] || { icon: '•', label: e.event_type, color: '#6F6758', bg: '#F7F5F1' };
     const geo = [e.geo_city, e.geo_region, e.geo_country].filter(Boolean).join(', ');
+    const hasRich = !!(e.user_agent || geo || e.geo_isp);
+    const botTag = e.is_bot ? ` <span style="font-size:11px;color:#948B7C;font-weight:500;">(bot: ${this.esc(e.bot_vendor || 'unknown')})</span>` : '';
+
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;">
         <div style="flex-shrink:0;width:36px;height:36px;border-radius:9px;background:${t.bg};color:${t.color};display:flex;align-items:center;justify-content:center;font-size:16px;">${t.icon}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-            <strong style="font-size:13px;color:#14120E;">${t.label}${e.is_bot ? ` <span style="font-size:11px;color:#948B7C;font-weight:500;">(bot: ${this.esc(e.bot_vendor || 'unknown')})</span>` : ''}</strong>
+            <strong style="font-size:13px;color:#14120E;">${t.label}${botTag}</strong>
             <span style="font-size:12px;color:#948B7C;">${fmt}</span>
           </div>
           ${e.link_url ? `<div style="font-size:12px;color:#6F6758;margin-top:3px;word-break:break-all;">→ ${this.esc(e.link_url)}</div>` : ''}
-          <div style="font-size:11px;color:#948B7C;margin-top:3px;">
-            ${geo ? `📍 ${this.esc(geo)}` : ''}${geo && e.geo_isp ? ' · ' : ''}${e.geo_isp ? this.esc(e.geo_isp) : ''}${(geo || e.geo_isp) && e.user_agent ? ' · ' : ''}${e.user_agent ? `<span title="${this.esc(e.user_agent)}">${this.esc(this._shortUa(e.user_agent))}</span>` : ''}
-          </div>
+          ${hasRich ? `
+            <div style="font-size:11px;color:#948B7C;margin-top:3px;">
+              ${geo ? `📍 ${this.esc(geo)}` : ''}${geo && e.geo_isp ? ' · ' : ''}${e.geo_isp ? this.esc(e.geo_isp) : ''}${(geo || e.geo_isp) && e.user_agent ? ' · ' : ''}${e.user_agent ? `<span title="${this.esc(e.user_agent)}">${this.esc(this._shortUa(e.user_agent))}</span>` : ''}
+            </div>
+          ` : `<div style="font-size:11px;color:#948B7C;margin-top:3px;font-style:italic;">Staršie dáta (pred upgrade trackingu — UA/geo sa neukladalo)</div>`}
         </div>
       </div>
     `;
