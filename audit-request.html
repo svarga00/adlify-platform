@@ -453,7 +453,7 @@
         console.warn('Edge function trigger failed (will retry from admin):', e);
       }
 
-      // 3. Notifikácia ownerovi (fire-and-forget)
+      // 3. Notifikácia ownerovi + automation rules (fire-and-forget)
       try {
         fetch('/.netlify/functions/notify-outreach-event', {
           method: 'POST',
@@ -464,6 +464,14 @@
             note: note || null,
           }),
         }).catch(e => console.warn('notify failed:', e));
+        fetch('/.netlify/functions/automation-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prospectId: prospectData.id,
+            event: 'audit_requested',
+          }),
+        }).catch(e => console.warn('automation failed:', e));
       } catch (e) { /* non-critical */ }
 
       showInProgress();

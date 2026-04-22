@@ -113,6 +113,8 @@ const OutreachModule = {
     else if (this.currentView === 'campaigns') body = this.renderCampaigns();
     else if (this.currentView === 'analytics') body = this.renderAnalytics();
     else if (this.currentView === 'senders') body = this.renderSenders();
+    else if (this.currentView === 'calendar') body = this.renderCalendar();
+    else if (this.currentView === 'automations') body = this.renderAutomations();
     else if (this.currentView === 'import') body = this.renderImport();
     else body = this.renderOverview(stats);
     const showFunnel = this.currentView === 'overview' || this.currentView === 'compose';
@@ -151,6 +153,8 @@ const OutreachModule = {
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('overview')">← Späť</button>
           ` : `
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAnalytics()">📊 Analytika</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCalendar()">📅 Kalendár</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAutomations()">⚡ Automatizácie</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">🔁 Kampane</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openSenders()">📤 Odosielatelia</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">✉ Šablóny</button>
@@ -1230,9 +1234,10 @@ const OutreachModule = {
             </div>
             <textarea id="tpl-text" rows="18" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-top:0;border-radius:0 0 10px 10px;font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6;resize:vertical;">${this.esc(t.plain_text || t.body_text || '')}</textarea>
           ` : `
-            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (úplný HTML, prepíše brand wrapper)</label>
-            <textarea id="tpl-html" rows="22" placeholder="<!DOCTYPE html>&#10;<html>&#10;  ..." style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;">${this.esc(t.html_content || t.body_html || '')}</textarea>
-            <p style="font-size:12px;color:#948B7C;margin:6px 0 0;">Nechaj prázdne pre auto-generovanie HTML z plain textu s brandom.</p>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (rich editor, prepíše brand wrapper)</label>
+            <div id="tpl-html-editor" style="background:#fff;border:1.5px solid #EAE6DE;border-radius:10px;min-height:360px;"></div>
+            <textarea id="tpl-html" style="display:none;">${this.esc(t.html_content || t.body_html || '')}</textarea>
+            <p style="font-size:12px;color:#948B7C;margin:6px 0 0;">Nechaj prázdne pre auto-generovanie HTML z plain textu s brandom. Pre CTA tlačidlo vlož link na samostatný riadok a pred/za neho <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">[[Text|url]]</code>.</p>
           `}
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px;flex-wrap:wrap;">
@@ -1267,24 +1272,67 @@ const OutreachModule = {
   },
 
   setEditorMode(mode) {
-    // zachovaj súčasné hodnoty pred prepnutím
     const subj = document.getElementById('tpl-subject')?.value;
     const plain = document.getElementById('tpl-text')?.value;
-    const html = document.getElementById('tpl-html')?.value;
+    const html = this._readQuillHtml() ?? document.getElementById('tpl-html')?.value;
     if (this.editingTemplate) {
       if (subj != null) this.editingTemplate.subject = subj;
       if (plain != null) { this.editingTemplate.plain_text = plain; this.editingTemplate.body_text = plain; }
       if (html != null) { this.editingTemplate.html_content = html; this.editingTemplate.body_html = html; }
     }
+    this._quillEditor = null;
     this.editorMode = mode;
     this.rerender();
+    // Po renderi inicializuj Quill pre HTML mode
+    if (mode === 'html') {
+      setTimeout(() => this._initQuillEditor(), 30);
+    }
+  },
+
+  _initQuillEditor() {
+    const host = document.getElementById('tpl-html-editor');
+    if (!host || !window.Quill) return;
+    if (this._quillEditor) return;
+    const initial = document.getElementById('tpl-html')?.value || '';
+    this._quillEditor = new Quill(host, {
+      theme: 'snow',
+      placeholder: 'Začni písať HTML šablónu… alebo vlož celý <!DOCTYPE html> blok',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ color: [] }, { background: [] }],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          [{ align: [] }],
+          ['link', 'image', 'blockquote', 'code-block'],
+          ['clean'],
+        ],
+      },
+    });
+    if (initial) {
+      // Ak obsahuje <html> alebo <!DOCTYPE> — nastavujeme ako innerHTML, inak pasteHTML
+      if (/<html|<!DOCTYPE/i.test(initial)) {
+        this._quillEditor.root.innerHTML = initial;
+      } else {
+        this._quillEditor.clipboard.dangerouslyPasteHTML(initial);
+      }
+    }
+  },
+
+  _readQuillHtml() {
+    if (!this._quillEditor) return null;
+    return this._quillEditor.root.innerHTML;
   },
 
   editTemplate(id) {
     const t = this.templates.find(x => x.id === id);
     if (!t) return;
     this.editingTemplate = { ...t };
+    this._quillEditor = null;
     this.rerender();
+    if (this.editorMode === 'html') {
+      setTimeout(() => this._initQuillEditor(), 30);
+    }
   },
 
   cancelEdit() {
@@ -1309,7 +1357,7 @@ const OutreachModule = {
   async previewEditing() {
     const subject = document.getElementById('tpl-subject')?.value || '';
     const text = document.getElementById('tpl-text')?.value || '';
-    const customHtml = document.getElementById('tpl-html')?.value || '';
+    const customHtml = this._readQuillHtml() ?? document.getElementById('tpl-html')?.value ?? '';
     const sampleVars = this._sampleVars();
     const subj = OutreachTemplates.substitute(subject, sampleVars);
     const brand = await OutreachTemplates.loadBrand();
@@ -1384,7 +1432,7 @@ const OutreachModule = {
     if (!t) return;
     const subject = document.getElementById('tpl-subject')?.value?.trim();
     const text = document.getElementById('tpl-text')?.value ?? t.plain_text ?? t.body_text ?? '';
-    const html = document.getElementById('tpl-html')?.value ?? t.html_content ?? t.body_html ?? '';
+    const html = this._readQuillHtml() ?? document.getElementById('tpl-html')?.value ?? t.html_content ?? t.body_html ?? '';
     if (!subject) return Utils.toast('Predmet je povinný', 'warning');
     if (!text && !html) return Utils.toast('Vyplň aspoň plain text alebo HTML', 'warning');
     const update = { subject, plain_text: text, body_text: text };
@@ -1916,6 +1964,598 @@ const OutreachModule = {
     this.closeModal();
     // reload
     this.render(this._getContainer());
+  },
+
+  // ========== AUTOMATIONS (if-this-then-that) ==========
+
+  _automations: null,
+  _automationEditing: null,
+
+  async openAutomations() {
+    this.currentView = 'automations';
+    this._automations = null;
+    this._automationEditing = null;
+    this.rerender();
+    try {
+      const { data } = await Database.client.from('automation_rules')
+        .select('*').order('created_at', { ascending: false });
+      this._automations = data || [];
+      this.rerender();
+    } catch (e) {
+      this._automations = [];
+      Utils.toast('Chyba: ' + e.message, 'danger');
+      this.rerender();
+    }
+  },
+
+  renderAutomations() {
+    if (this._automationEditing) return this._renderAutomationEditor();
+    const rows = this._automations;
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+        <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">⚡ Automatizácie</h2>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Ak prospekt urobí niečo → automaticky vykonaj akcie. Napr. <em>„Ak audit_requested AND skóre ≥ 70 → vytvor HIGH priority task + pošli notifikáciu"</em>.</p>
+          </div>
+          <button class="adl-btn adl-btn-primary" onclick="OutreachModule.newAutomation()">+ Nové pravidlo</button>
+        </div>
+        ${rows == null ? '<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam…</div>'
+          : rows.length === 0 ? '<div style="padding:40px;text-align:center;color:#6F6758;">Žiadne pravidlá. Vytvor prvé tlačidlom „+ Nové pravidlo".</div>'
+          : rows.map(r => this._renderAutomationRow(r)).join('')}
+      </div>
+    `;
+  },
+
+  _renderAutomationRow(r) {
+    return `
+      <div style="padding:16px 24px;border-top:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+            <strong style="font-size:15px;color:#14120E;">${this.esc(r.name)}</strong>
+            ${r.is_active ? '<span style="font-size:11px;background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:999px;font-weight:600;">Aktívne</span>' : '<span style="font-size:11px;background:#F7F5F1;color:#6F6758;padding:2px 8px;border-radius:999px;font-weight:600;">Vypnuté</span>'}
+          </div>
+          <div style="font-size:13px;color:#6F6758;">
+            Trigger: <code style="background:#F7F5F1;padding:1px 6px;border-radius:3px;">${this.esc(r.trigger_event)}</code>
+            · ${(r.actions || []).length} akcií · ${r.run_count || 0}× spustené
+          </div>
+          ${r.description ? `<div style="font-size:12px;color:#948B7C;margin-top:4px;">${this.esc(r.description)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editAutomation('${r.id}')">Upraviť</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.toggleAutomation('${r.id}')">${r.is_active ? '⏸' : '▶'}</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteAutomation('${r.id}')">✕</button>
+        </div>
+      </div>
+    `;
+  },
+
+  async newAutomation() {
+    const name = await Utils.prompt({ title: '+ Nové pravidlo', placeholder: 'napr. Vysoké skóre → priradiť mne', confirmText: 'Vytvoriť' });
+    if (!name) return;
+    const { data, error } = await Database.client.from('automation_rules').insert({
+      name, trigger_event: 'audit_requested', is_active: true, conditions: {}, actions: [],
+    }).select().single();
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this._automations = [data, ...(this._automations || [])];
+    this._automationEditing = { ...data };
+    this.rerender();
+  },
+
+  editAutomation(id) {
+    const r = (this._automations || []).find(x => x.id === id);
+    if (!r) return;
+    this._automationEditing = JSON.parse(JSON.stringify(r));
+    this.rerender();
+  },
+
+  cancelAutomationEdit() {
+    this._automationEditing = null;
+    this.rerender();
+  },
+
+  _renderAutomationEditor() {
+    const r = this._automationEditing;
+    const triggerOpts = [
+      ['audit_requested', 'Prospekt požiadal o audit'],
+      ['call_booked', 'Prospekt rezervoval hovor'],
+      ['email_replied', 'Prospekt odpovedal'],
+      ['email_opened_n', 'Prospekt viackrát otvoril'],
+      ['stage_changed', 'Zmena fázy'],
+      ['score_above', 'Skóre prešlo prah'],
+    ];
+    const tplOpts = (this.templates || []).filter(t => t.category === 'outreach')
+      .map(t => `<option value="${t.slug}">${this.esc(t.name)}</option>`).join('');
+    const cond = r.conditions || {};
+
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+          <h2 style="font-size:18px;font-weight:700;margin:0;">${this.esc(r.name)}</h2>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.cancelAutomationEdit()">← Späť</button>
+        </div>
+
+        <div style="display:grid;gap:14px;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;">
+            Názov
+            <input id="aut-name" type="text" value="${this.esc(r.name || '')}"
+              style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;">
+            Popis
+            <input id="aut-desc" type="text" value="${this.esc(r.description || '')}"
+              style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+          </label>
+
+          <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:14px 16px;">
+            <h3 style="font-size:13px;font-weight:700;color:#92400E;margin:0 0 10px;">KEĎ (Trigger)</h3>
+            <select id="aut-trigger" onchange="OutreachModule._automationEditing.trigger_event=this.value;"
+              style="width:100%;padding:10px 14px;border:1.5px solid #FED7AA;border-radius:10px;font-size:14px;background:#fff;">
+              ${triggerOpts.map(([v, l]) => `<option value="${v}" ${r.trigger_event === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+          </div>
+
+          <div style="background:#F7F5F1;border:1px solid #EAE6DE;border-radius:12px;padding:14px 16px;">
+            <h3 style="font-size:13px;font-weight:700;color:#6F6758;margin:0 0 10px;">A KEĎ (Podmienky — všetky musia platiť)</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#6F6758;">
+                Odvetvie obsahuje
+                <input id="aut-cond-industry" type="text" value="${this.esc(cond.industry || '')}" placeholder="napr. gastro"
+                  style="padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#6F6758;">
+                Mesto obsahuje
+                <input id="aut-cond-city" type="text" value="${this.esc(cond.city || '')}" placeholder="napr. Bratislava"
+                  style="padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#6F6758;">
+                Skóre min
+                <input id="aut-cond-score-min" type="number" min="0" max="100" value="${cond.score_min ?? ''}"
+                  style="padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#6F6758;">
+                Skóre max
+                <input id="aut-cond-score-max" type="number" min="0" max="100" value="${cond.score_max ?? ''}"
+                  style="padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+              </label>
+            </div>
+          </div>
+
+          <div style="background:#DCFCE7;border:1px solid #BBF7D0;border-radius:12px;padding:14px 16px;">
+            <h3 style="font-size:13px;font-weight:700;color:#166534;margin:0 0 10px;">POTOM VYKONAJ (${(r.actions || []).length} akcie)</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+              ${(r.actions || []).map((a, i) => this._renderActionCard(a, i, tplOpts)).join('')}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule._addAction('create_task')">+ Úloha</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule._addAction('notify_email')">+ Email notif</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule._addAction('set_stage')">+ Zmena fázy</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule._addAction('add_tag')">+ Pridať tag</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule._addAction('add_note')">+ Poznámka</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule._addAction('promote_to_lead')">+ Promote lead</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule._addAction('send_template')">+ Pošli šablónu</button>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.cancelAutomationEdit()">Zrušiť</button>
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.saveAutomation()">Uložiť</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  _renderActionCard(a, i, tplOpts) {
+    const stages = ['pending','email_sent','email_opened','email_clicked','audit_requested','audit_delivered','audit_viewed','call_booked','converted','lost','unsubscribed','bounced'];
+    let body = '';
+    if (a.type === 'create_task') {
+      body = `
+        <input type="text" value="${this.esc(a.title || '')}" placeholder="Názov úlohy (podporuje {{company}}, {{domain}})"
+          onchange="OutreachModule._automationEditing.actions[${i}].title=this.value"
+          style="width:100%;padding:8px 10px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:13px;margin-bottom:6px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <select onchange="OutreachModule._automationEditing.actions[${i}].priority=this.value"
+            style="padding:6px 8px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:12px;background:#fff;">
+            <option value="normal" ${a.priority==='normal'?'selected':''}>Priorita: normal</option>
+            <option value="high" ${a.priority==='high'?'selected':''}>Priorita: high</option>
+            <option value="urgent" ${a.priority==='urgent'?'selected':''}>Priorita: urgent</option>
+            <option value="low" ${a.priority==='low'?'selected':''}>Priorita: low</option>
+          </select>
+          <input type="number" value="${a.due_days ?? 1}" min="0" max="30" placeholder="Termín (dni)"
+            onchange="OutreachModule._automationEditing.actions[${i}].due_days=parseInt(this.value)||0"
+            style="padding:6px 8px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:12px;">
+        </div>
+      `;
+    } else if (a.type === 'notify_email') {
+      body = `<input type="text" value="${this.esc(a.body || '')}" placeholder="Text notifikácie (voliteľné)"
+        onchange="OutreachModule._automationEditing.actions[${i}].body=this.value"
+        style="width:100%;padding:8px 10px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:13px;">`;
+    } else if (a.type === 'set_stage') {
+      body = `<select onchange="OutreachModule._automationEditing.actions[${i}].stage=this.value"
+        style="width:100%;padding:8px 10px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:13px;background:#fff;">
+        ${stages.map(s => `<option value="${s}" ${a.stage===s?'selected':''}>${s}</option>`).join('')}
+      </select>`;
+    } else if (a.type === 'add_tag') {
+      body = `<input type="text" value="${this.esc(a.tag || '')}" placeholder="napr. hot-lead"
+        onchange="OutreachModule._automationEditing.actions[${i}].tag=this.value"
+        style="width:100%;padding:8px 10px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:13px;">`;
+    } else if (a.type === 'add_note') {
+      body = `<textarea rows="2" onchange="OutreachModule._automationEditing.actions[${i}].body=this.value" placeholder="Text poznámky (podporuje {{vars}})"
+        style="width:100%;padding:8px 10px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:13px;font-family:inherit;">${this.esc(a.body || '')}</textarea>`;
+    } else if (a.type === 'promote_to_lead') {
+      body = `<input type="text" value="${this.esc(a.reason || '')}" placeholder="Dôvod konverzie (voliteľné)"
+        onchange="OutreachModule._automationEditing.actions[${i}].reason=this.value"
+        style="width:100%;padding:8px 10px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:13px;">`;
+    } else if (a.type === 'send_template') {
+      body = `<select onchange="OutreachModule._automationEditing.actions[${i}].template_slug=this.value"
+        style="width:100%;padding:8px 10px;border:1.5px solid #BBF7D0;border-radius:6px;font-size:13px;background:#fff;">
+        ${tplOpts.replace(`value="${a.template_slug}"`, `value="${a.template_slug}" selected`)}
+      </select>`;
+    } else {
+      body = `<div style="color:#6F6758;font-size:12px;">Neznámy typ akcie: ${a.type}</div>`;
+    }
+    const labels = {
+      create_task: '📋 Vytvor úlohu',
+      notify_email: '📧 Pošli notifikáciu',
+      set_stage: '🔄 Zmeň fázu',
+      add_tag: '🏷 Pridaj tag',
+      add_note: '📝 Pridaj poznámku',
+      promote_to_lead: '⬆ Promote na lead',
+      send_template: '✉ Pošli šablónu',
+    };
+    return `
+      <div style="background:#fff;border:1px solid #BBF7D0;border-radius:10px;padding:10px 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <strong style="font-size:12px;color:#166534;">${labels[a.type] || a.type}</strong>
+          <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule._removeAction(${i})">✕</button>
+        </div>
+        ${body}
+      </div>
+    `;
+  },
+
+  _addAction(type) {
+    const r = this._automationEditing;
+    if (!r) return;
+    const defaults = {
+      create_task: { type, title: 'Ozvať sa: {{company}}', priority: 'high', due_days: 1 },
+      notify_email: { type, body: '' },
+      set_stage: { type, stage: 'pending' },
+      add_tag: { type, tag: '' },
+      add_note: { type, body: '' },
+      promote_to_lead: { type, reason: 'automation_rule' },
+      send_template: { type, template_slug: (this.templates?.[0]?.slug || 'cold_outreach_audit') },
+    };
+    r.actions = [...(r.actions || []), defaults[type]];
+    this.rerender();
+  },
+
+  _removeAction(i) {
+    const r = this._automationEditing;
+    if (!r?.actions) return;
+    r.actions.splice(i, 1);
+    this.rerender();
+  },
+
+  async saveAutomation() {
+    const r = this._automationEditing;
+    if (!r) return;
+    const name = document.getElementById('aut-name')?.value?.trim() || r.name;
+    const desc = document.getElementById('aut-desc')?.value?.trim() || null;
+    const trigger = document.getElementById('aut-trigger')?.value || r.trigger_event;
+    const cond = {
+      industry: document.getElementById('aut-cond-industry')?.value?.trim() || undefined,
+      city: document.getElementById('aut-cond-city')?.value?.trim() || undefined,
+      score_min: parseInt(document.getElementById('aut-cond-score-min')?.value) || undefined,
+      score_max: parseInt(document.getElementById('aut-cond-score-max')?.value) || undefined,
+    };
+    Object.keys(cond).forEach(k => cond[k] == null && delete cond[k]);
+
+    const { error } = await Database.client.from('automation_rules').update({
+      name, description: desc, trigger_event: trigger,
+      conditions: cond,
+      actions: r.actions || [],
+    }).eq('id', r.id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    Utils.toast('Pravidlo uložené', 'success');
+    this._automationEditing = null;
+    await this.openAutomations();
+  },
+
+  async toggleAutomation(id) {
+    const r = (this._automations || []).find(x => x.id === id);
+    if (!r) return;
+    await Database.client.from('automation_rules').update({ is_active: !r.is_active }).eq('id', id);
+    r.is_active = !r.is_active;
+    this.rerender();
+  },
+
+  async deleteAutomation(id) {
+    const ok = await Utils.confirm('Zmazať pravidlo?', { type: 'danger', confirmText: 'Zmazať' });
+    if (!ok) return;
+    await Database.client.from('automation_rules').delete().eq('id', id);
+    this._automations = this._automations.filter(x => x.id !== id);
+    this.rerender();
+  },
+
+  // ========== CALENDAR (call bookings + working hours) ==========
+
+  _bookings: null,
+  _workingHours: null,
+  _calendarWeekStart: null,
+
+  async openCalendar() {
+    this.currentView = 'calendar';
+    this._bookings = null;
+    this._workingHours = null;
+    const monday = this._mondayOf(new Date());
+    this._calendarWeekStart = monday;
+    this.rerender();
+    await Promise.all([
+      this._loadWorkingHours(),
+      this._loadBookings(),
+    ]);
+    this.rerender();
+  },
+
+  _mondayOf(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d;
+  },
+
+  async _loadWorkingHours() {
+    try {
+      const { data } = await Database.client.from('working_hours')
+        .select('*').is('user_id', null).order('day_of_week', { ascending: true });
+      this._workingHours = data || [];
+    } catch { this._workingHours = []; }
+  },
+
+  async _loadBookings() {
+    const start = this._calendarWeekStart;
+    const end = new Date(start); end.setDate(end.getDate() + 7);
+    try {
+      const { data } = await Database.client.from('call_bookings')
+        .select('id, scheduled_at, duration_minutes, status, contact_name, contact_email, contact_phone, topic, notes, lead_id, prospect_id')
+        .gte('scheduled_at', start.toISOString())
+        .lt('scheduled_at', end.toISOString())
+        .order('scheduled_at', { ascending: true });
+      this._bookings = data || [];
+    } catch { this._bookings = []; }
+  },
+
+  navigateWeek(delta) {
+    const d = new Date(this._calendarWeekStart);
+    d.setDate(d.getDate() + delta * 7);
+    this._calendarWeekStart = d;
+    this._loadBookings().then(() => this.rerender());
+  },
+
+  jumpWeek() {
+    this._calendarWeekStart = this._mondayOf(new Date());
+    this._loadBookings().then(() => this.rerender());
+  },
+
+  renderCalendar() {
+    const ws = this._calendarWeekStart || this._mondayOf(new Date());
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(ws); d.setDate(d.getDate() + i); return d;
+    });
+    const dayNames = ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'];
+    const bookings = this._bookings;
+    const wh = this._workingHours;
+
+    return `
+      <div style="display:grid;gap:16px;">
+        <!-- header -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h2 style="font-size:18px;font-weight:700;margin:0 0 2px;">📅 ${days[0].toLocaleDateString('sk-SK',{day:'numeric',month:'long'})} – ${days[6].toLocaleDateString('sk-SK',{day:'numeric',month:'long',year:'numeric'})}</h2>
+            <div style="font-size:12px;color:#6F6758;">Týždenný prehľad bookingov z /book-call.html</div>
+          </div>
+          <div class="adl-toolbar">
+            <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.navigateWeek(-1)">← Predošlý</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.jumpWeek()">Dnes</button>
+            <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.navigateWeek(1)">Nasledujúci →</button>
+            <span class="adl-toolbar-divider"></span>
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.openWorkingHoursModal()">⚙ Pracovné hodiny</button>
+          </div>
+        </div>
+
+        <!-- week grid -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);">
+            ${days.map((d, i) => {
+              const today = d.toDateString() === new Date().toDateString();
+              const dayBookings = (bookings || []).filter(b => new Date(b.scheduled_at).toDateString() === d.toDateString());
+              const dayWh = (wh || []).find(w => w.day_of_week === d.getDay());
+              return `
+                <div style="border-right:${i < 6 ? '1px solid #EAE6DE' : '0'};padding:12px;min-height:220px;${today ? 'background:#FFF7ED;' : ''}">
+                  <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${dayNames[i]}</div>
+                  <div style="font-size:20px;font-weight:800;color:${today ? '#F97316' : '#14120E'};letter-spacing:-0.5px;">${d.getDate()}</div>
+                  <div style="font-size:11px;color:#948B7C;margin-top:2px;">
+                    ${dayWh ? `${this._minToHHMM(dayWh.start_minute)}–${this._minToHHMM(dayWh.end_minute)}` : 'voľno'}
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px;">
+                    ${dayBookings.length === 0 ? `<div style="font-size:11px;color:#C9C0B0;">—</div>` : dayBookings.map(b => {
+                      const t = new Date(b.scheduled_at);
+                      const time = t.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+                      const cancelled = b.status === 'cancelled';
+                      return `
+                        <button onclick="OutreachModule.openBookingDetail('${b.id}')"
+                          style="text-align:left;border:0;background:${cancelled ? '#F7F5F1' : '#FED7AA'};border-radius:8px;padding:6px 8px;cursor:pointer;${cancelled ? 'opacity:.5;text-decoration:line-through;' : ''}">
+                          <div style="font-size:11px;font-weight:700;color:#92400E;">${time} · ${b.duration_minutes || 15}min</div>
+                          <div style="font-size:12px;color:#14120E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.esc(b.contact_name || b.contact_email || '—')}</div>
+                          ${b.topic ? `<div style="font-size:10px;color:#6F6758;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.esc(b.topic)}</div>` : ''}
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- list all bookings of week -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+          <div style="padding:14px 20px;border-bottom:1px solid #EAE6DE;font-size:14px;font-weight:700;">Všetky bookingy týždňa (${(bookings || []).length})</div>
+          ${!bookings ? '<div style="padding:24px;text-align:center;color:#948B7C;">Načítavam…</div>'
+            : bookings.length === 0 ? '<div style="padding:24px;text-align:center;color:#948B7C;">Žiadne.</div>'
+            : bookings.map(b => this._renderBookingRow(b)).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  _minToHHMM(m) {
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  },
+
+  _renderBookingRow(b) {
+    const t = new Date(b.scheduled_at);
+    const when = t.toLocaleString('sk-SK', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const statusMap = {
+      scheduled: { label: 'Potvrdené', bg: '#DCFCE7', color: '#166534' },
+      completed: { label: 'Hotovo',    bg: '#DBEAFE', color: '#1E3A8A' },
+      cancelled: { label: 'Zrušené',   bg: '#FEE2E2', color: '#991B1B' },
+      no_show:   { label: 'Nedostavil sa', bg: '#F7F5F1', color: '#6F6758' },
+    };
+    const s = statusMap[b.status] || statusMap.scheduled;
+    return `
+      <div style="padding:14px 20px;border-top:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;cursor:pointer;" onclick="OutreachModule.openBookingDetail('${b.id}')">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong style="font-size:14px;color:#14120E;">${this.esc(b.contact_name || b.contact_email || '—')}</strong>
+            <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:${s.bg};color:${s.color};">${s.label}</span>
+          </div>
+          <div style="font-size:12px;color:#6F6758;margin-top:2px;">${when} · ${b.duration_minutes || 15}min ${b.topic ? '· ' + this.esc(b.topic) : ''}</div>
+          <div style="font-size:11px;color:#948B7C;margin-top:2px;">${this.esc(b.contact_email || '')}${b.contact_phone ? ' · ' + this.esc(b.contact_phone) : ''}</div>
+        </div>
+      </div>
+    `;
+  },
+
+  async openBookingDetail(id) {
+    const b = (this._bookings || []).find(x => x.id === id);
+    if (!b) return;
+    const t = new Date(b.scheduled_at).toLocaleString('sk-SK');
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:520px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">📞 Booking detail</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <div style="padding:20px 24px;">
+          <div style="font-size:22px;font-weight:700;color:#F97316;margin-bottom:8px;">${t}</div>
+          <div style="font-size:14px;color:#3A352B;margin-bottom:14px;">Trvanie: ${b.duration_minutes || 15} minút · Status: ${b.status}</div>
+          <div style="background:#F7F5F1;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Kontakt</div>
+            <div style="font-size:14px;font-weight:600;">${this.esc(b.contact_name || '—')}</div>
+            ${b.contact_email ? `<div style="font-size:13px;"><a href="mailto:${this.esc(b.contact_email)}" style="color:#F97316;">${this.esc(b.contact_email)}</a></div>` : ''}
+            ${b.contact_phone ? `<div style="font-size:13px;"><a href="tel:${this.esc(b.contact_phone)}" style="color:#F97316;">${this.esc(b.contact_phone)}</a></div>` : ''}
+          </div>
+          ${b.topic ? `<div style="font-size:13px;color:#6F6758;margin-bottom:6px;"><strong>Téma:</strong> ${this.esc(b.topic)}</div>` : ''}
+          ${b.notes ? `<div style="background:#FFF7ED;border-left:3px solid #F97316;padding:10px 12px;border-radius:6px;font-size:13px;white-space:pre-wrap;">${this.esc(b.notes)}</div>` : ''}
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+            ${b.status !== 'completed' ? `<button class="adl-btn adl-btn-outline" onclick="OutreachModule.markBookingDone('${b.id}')">✓ Dokončené</button>` : ''}
+            ${b.status !== 'cancelled' ? `<button class="adl-btn adl-btn-danger" onclick="OutreachModule.cancelBooking('${b.id}')">✕ Zrušiť</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    this._openModal(modal);
+  },
+
+  async markBookingDone(id) {
+    await Database.client.from('call_bookings').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', id);
+    this.closeModal();
+    await this._loadBookings(); this.rerender();
+  },
+
+  async cancelBooking(id) {
+    const ok = await Utils.confirm('Zrušiť tento booking?', { type: 'danger', confirmText: 'Zrušiť booking' });
+    if (!ok) return;
+    await Database.client.from('call_bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', id);
+    this.closeModal();
+    await this._loadBookings(); this.rerender();
+  },
+
+  openWorkingHoursModal() {
+    const days = ['Nedeľa','Pondelok','Utorok','Streda','Štvrtok','Piatok','Sobota'];
+    const wh = this._workingHours || [];
+    const byDay = Object.fromEntries([0,1,2,3,4,5,6].map(d => [d, wh.find(w => w.day_of_week === d)]));
+
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:560px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">⚙ Pracovné hodiny</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="wh-form" onsubmit="event.preventDefault();OutreachModule.saveWorkingHours();" style="padding:20px 24px;display:flex;flex-direction:column;gap:10px;">
+          ${[1,2,3,4,5,6,0].map(d => {
+            const w = byDay[d];
+            const active = !!w && w.is_active !== false;
+            const startHH = w ? this._minToHHMM(w.start_minute) : '09:00';
+            const endHH   = w ? this._minToHHMM(w.end_minute) : '17:00';
+            return `
+              <div style="display:grid;grid-template-columns:30px 100px 1fr 1fr 100px;gap:10px;align-items:center;">
+                <input type="checkbox" data-day="${d}" name="active_${d}" ${active ? 'checked' : ''}>
+                <span style="font-weight:600;color:#14120E;font-size:13px;">${days[d]}</span>
+                <input type="time" name="start_${d}" value="${startHH}" style="padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+                <input type="time" name="end_${d}" value="${endHH}" style="padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+                <input type="number" min="5" max="120" step="5" name="slot_${d}" value="${w?.slot_duration_minutes || 15}" title="Dĺžka slotu (min)" style="padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+              </div>
+            `;
+          }).join('')}
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">Uložiť</button>
+          </div>
+        </form>
+      </div>
+    `;
+    this._openModal(modal);
+  },
+
+  async saveWorkingHours() {
+    const form = document.getElementById('wh-form');
+    if (!form) return;
+    const rows = [];
+    for (let d = 0; d <= 6; d++) {
+      const active = form.querySelector(`[name=active_${d}]`)?.checked;
+      if (!active) continue;
+      const [sh, sm] = (form.querySelector(`[name=start_${d}]`)?.value || '09:00').split(':').map(Number);
+      const [eh, em] = (form.querySelector(`[name=end_${d}]`)?.value || '17:00').split(':').map(Number);
+      const slot = parseInt(form.querySelector(`[name=slot_${d}]`)?.value) || 15;
+      rows.push({
+        day_of_week: d,
+        start_minute: sh * 60 + sm,
+        end_minute: eh * 60 + em,
+        slot_duration_minutes: slot,
+        is_active: true,
+      });
+    }
+    // Replace: delete + insert (jednoduchšie než upsert bez unique constraint)
+    await Database.client.from('working_hours').delete().is('user_id', null);
+    if (rows.length) {
+      const { error } = await Database.client.from('working_hours').insert(rows);
+      if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    }
+    Utils.toast('Pracovné hodiny uložené', 'success');
+    this.closeModal();
+    await this._loadWorkingHours(); this.rerender();
   },
 
   // ========== SENDERS (rotation + warm-up) ==========
