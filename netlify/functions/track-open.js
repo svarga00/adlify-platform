@@ -1,11 +1,13 @@
 // netlify/functions/track-open.js
-// Tracking pixel pre emaily - vráti 1x1 priehľadný GIF.
+// Tracking pixel. Zapíše open event (IP, UA, bot, geo) do prospect_events
+// a aktualizuje counters + last_opened_at na prospectovi.
 //
-// Podporuje dva tokeny:
-//   ?audit=<prospect.audit_token>  — outreach / prospects flow
-//   ?t=<proposals.token>           — starší proposals flow (legacy)
+// Query:
+//   ?audit=<prospect.audit_token>  — outreach flow
+//   ?t=<proposals.token>           — legacy proposal flow
 
 const { createClient } = require('@supabase/supabase-js');
+const { getClientIp, getUserAgent, detectBot, lookupGeo } = require('./_tracking-helpers');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -22,9 +24,8 @@ const PIXEL_RESPONSE = {
   headers: {
     'Content-Type': 'image/gif',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-    'Access-Control-Allow-Origin': '*'
+    'Pragma': 'no-cache', 'Expires': '0',
+    'Access-Control-Allow-Origin': '*',
   },
   body: PIXEL.toString('base64'),
   isBase64Encoded: true,
@@ -39,26 +40,50 @@ exports.handler = async (event) => {
     try {
       const { data: prospect } = await supabase
         .from('prospects')
-        .select('id, outreach_stage, outreach_email_opened_at, outreach_email_open_count')
+        .select('id, outreach_stage, outreach_email_opened_at, outreach_email_open_count, outreach_email_bot_open_count, outreach_email_human_open')
         .eq('audit_token', auditToken)
         .maybeSingle();
 
-      if (prospect) {
-        const firstOpen = !prospect.outreach_email_opened_at;
-        const patch = {
-          outreach_email_open_count: (prospect.outreach_email_open_count || 0) + 1,
-          outreach_email_opened_at: prospect.outreach_email_opened_at || new Date().toISOString(),
-        };
-        if (firstOpen && prospect.outreach_stage === 'email_sent') {
-          patch.outreach_stage = 'email_opened';
-        }
-        await supabase.from('prospects').update(patch).eq('id', prospect.id);
-        console.log('[track-open] prospect', prospect.id, firstOpen ? '(first open)' : `(open #${patch.outreach_email_open_count})`);
-      } else {
-        console.warn('[track-open] prospect not found for audit token:', auditToken);
+      if (!prospect) {
+        console.warn('[track-open] prospect not found:', auditToken);
+        return PIXEL_RESPONSE;
       }
+
+      const ip = getClientIp(event);
+      const ua = getUserAgent(event);
+      const { isBot, vendor } = detectBot(ua);
+      const geo = await lookupGeo(ip);
+      const now = new Date().toISOString();
+
+      // Event do timeline
+      await supabase.from('prospect_events').insert({
+        prospect_id: prospect.id,
+        event_type: 'email_open',
+        ip,
+        user_agent: ua,
+        is_bot: isBot,
+        bot_vendor: vendor,
+        geo_country: geo.country || null,
+        geo_region: geo.region || null,
+        geo_city: geo.city || null,
+        geo_isp: geo.isp || null,
+      });
+
+      // Prospects counters — rozlíš bot vs human
+      const patch = { outreach_email_last_opened_at: now };
+      if (isBot) {
+        patch.outreach_email_bot_open_count = (prospect.outreach_email_bot_open_count || 0) + 1;
+      } else {
+        patch.outreach_email_open_count = (prospect.outreach_email_open_count || 0) + 1;
+        patch.outreach_email_human_open = true;
+        if (!prospect.outreach_email_opened_at) patch.outreach_email_opened_at = now;
+        if (prospect.outreach_stage === 'email_sent') patch.outreach_stage = 'email_opened';
+      }
+      await supabase.from('prospects').update(patch).eq('id', prospect.id);
+
+      console.log('[track-open]', prospect.id, isBot ? `bot(${vendor})` : 'human', geo.city || '—');
     } catch (err) {
-      console.error('[track-open] prospect tracking error:', err);
+      console.error('[track-open] error:', err);
     }
   } else if (proposalToken) {
     try {
@@ -69,13 +94,12 @@ exports.handler = async (event) => {
         .eq('token', proposalToken)
         .single();
       if (proposal?.lead_id) {
-        await supabase
-          .from('leads')
-          .update({ proposal_email_opened_at: proposal.email_opened_at || new Date().toISOString() })
-          .eq('id', proposal.lead_id);
+        await supabase.from('leads').update({
+          proposal_email_opened_at: proposal.email_opened_at || new Date().toISOString(),
+        }).eq('id', proposal.lead_id);
       }
     } catch (err) {
-      console.error('[track-open] proposal tracking error:', err);
+      console.error('[track-open] proposal error:', err);
     }
   }
 

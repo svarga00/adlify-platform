@@ -307,6 +307,7 @@ const OutreachModule = {
         <td style="padding:14px 16px;"><strong>${prospect.score || 0}</strong></td>
         <td style="padding:14px 16px;display:flex;gap:6px;flex-wrap:wrap;">
           ${canSend ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeSingle('${prospect.id}')">Poslať email</button>` : ''}
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.openActivity('${prospect.id}')" title="Aktivita a tracking">📊</button>
           ${!isConverted ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.promoteToLead('${prospect.id}')" title="Manuálne presunúť do leadov">→ Lead</button>` : ''}
           ${isConverted && prospect.converted_to_lead_id ? `<a class="adl-btn adl-btn-sm adl-btn-soft" href="#/leads?id=${prospect.converted_to_lead_id}">Otvoriť lead</a>` : ''}
           <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteProspect('${prospect.id}')" title="Zmazať">✕</button>
@@ -1245,6 +1246,7 @@ const OutreachModule = {
       html = OutreachTemplates.substitute(customHtml, sampleVars);
     } else {
       const txt = OutreachTemplates.substitute(text, sampleVars);
+      // skipLinkRewrite: preview ukazuje pôvodné linky (netrackované)
       html = OutreachTemplates.wrapTextInBrand(subj, txt, { brand, unsubscribeUrl: brand.unsubscribeUrl });
     }
     const box = document.getElementById('tpl-preview');
@@ -1376,6 +1378,109 @@ const OutreachModule = {
     let s = String(raw).trim().toLowerCase();
     s = s.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     return s || null;
+  },
+
+  // ========== ACTIVITY TIMELINE ==========
+
+  async openActivity(prospectId) {
+    const p = this.prospects.find(x => x.id === prospectId);
+    const label = p?.company_name || p?.domain || 'prospect';
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:720px;">
+        <div class="adl-modal-head">
+          <div>
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Aktivita</div>
+            <h3 style="margin:2px 0 0;font-size:18px;font-weight:700;">${this.esc(label)}</h3>
+          </div>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <div id="activity-body" style="padding:18px 24px 24px;">
+          <div style="color:#948B7C;font-size:14px;">Načítavam…</div>
+        </div>
+      </div>
+    `;
+    this._openModal(modal);
+
+    try {
+      const { data: events, error } = await Database.client
+        .from('prospect_events')
+        .select('event_type, occurred_at, is_bot, bot_vendor, user_agent, geo_country, geo_city, geo_region, geo_isp, link_url, meta')
+        .eq('prospect_id', prospectId)
+        .order('occurred_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+
+      const humanOpens = events.filter(e => e.event_type === 'email_open' && !e.is_bot).length;
+      const botOpens = events.filter(e => e.event_type === 'email_open' && e.is_bot).length;
+      const clicks = events.filter(e => e.event_type === 'email_click' && !e.is_bot).length;
+      const countries = [...new Set(events.filter(e => !e.is_bot && e.geo_country).map(e => e.geo_country))];
+
+      const body = document.getElementById('activity-body');
+      body.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
+          ${this._stat('👁 Otvorení', humanOpens, '#8B5CF6', '#EDE9FE')}
+          ${this._stat('🖱 Kliky', clicks, '#F97316', '#FFEDD5')}
+          ${this._stat('🤖 Botov', botOpens, '#6F6758', '#F7F5F1')}
+          ${this._stat('📍 Krajín', countries.length, '#3B82F6', '#DBEAFE')}
+        </div>
+        ${events.length === 0 ? `<div style="color:#948B7C;padding:24px;text-align:center;">Žiadna aktivita zatiaľ.</div>` : `
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:56vh;overflow-y:auto;">
+            ${events.map(e => this._renderEvent(e)).join('')}
+          </div>
+        `}
+      `;
+    } catch (e) {
+      const body = document.getElementById('activity-body');
+      if (body) body.innerHTML = `<div style="color:#DC2626;padding:12px;background:#FEE2E2;border-radius:10px;">Chyba: ${this.esc(e.message)}</div>`;
+    }
+  },
+
+  _stat(label, value, color, bg) {
+    return `<div style="background:${bg};border-radius:10px;padding:12px 14px;">
+      <div style="font-size:11px;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">${label}</div>
+      <div style="font-size:22px;font-weight:800;color:${color};letter-spacing:-0.5px;">${value}</div>
+    </div>`;
+  },
+
+  _renderEvent(e) {
+    const fmt = new Date(e.occurred_at).toLocaleString('sk-SK');
+    const typeMap = {
+      email_open:       { icon: '👁', label: 'Email otvorený',  color: '#8B5CF6', bg: '#EDE9FE' },
+      email_click:      { icon: '🖱', label: 'Klik na link',     color: '#F97316', bg: '#FFEDD5' },
+      audit_requested:  { icon: '🎯', label: 'Request auditu',   color: '#EA580C', bg: '#FED7AA' },
+      audit_viewed:     { icon: '📖', label: 'Audit videl',      color: '#16A34A', bg: '#DCFCE7' },
+      email_sent:       { icon: '✉',  label: 'Email odoslaný',   color: '#3B82F6', bg: '#DBEAFE' },
+    };
+    const t = typeMap[e.event_type] || { icon: '•', label: e.event_type, color: '#6F6758', bg: '#F7F5F1' };
+    const geo = [e.geo_city, e.geo_region, e.geo_country].filter(Boolean).join(', ');
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;">
+        <div style="flex-shrink:0;width:36px;height:36px;border-radius:9px;background:${t.bg};color:${t.color};display:flex;align-items:center;justify-content:center;font-size:16px;">${t.icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong style="font-size:13px;color:#14120E;">${t.label}${e.is_bot ? ` <span style="font-size:11px;color:#948B7C;font-weight:500;">(bot: ${this.esc(e.bot_vendor || 'unknown')})</span>` : ''}</strong>
+            <span style="font-size:12px;color:#948B7C;">${fmt}</span>
+          </div>
+          ${e.link_url ? `<div style="font-size:12px;color:#6F6758;margin-top:3px;word-break:break-all;">→ ${this.esc(e.link_url)}</div>` : ''}
+          <div style="font-size:11px;color:#948B7C;margin-top:3px;">
+            ${geo ? `📍 ${this.esc(geo)}` : ''}${geo && e.geo_isp ? ' · ' : ''}${e.geo_isp ? this.esc(e.geo_isp) : ''}${(geo || e.geo_isp) && e.user_agent ? ' · ' : ''}${e.user_agent ? `<span title="${this.esc(e.user_agent)}">${this.esc(this._shortUa(e.user_agent))}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  _shortUa(ua) {
+    if (!ua) return '';
+    const s = String(ua);
+    if (/GoogleImageProxy/i.test(s)) return 'Gmail proxy';
+    if (/iPhone/i.test(s)) return 'iPhone';
+    if (/Android/i.test(s)) return 'Android';
+    if (/Macintosh/i.test(s)) return 'macOS';
+    if (/Windows/i.test(s)) return 'Windows';
+    return s.slice(0, 40) + (s.length > 40 ? '…' : '');
   },
 
   // ========== AI GENERATOR ==========

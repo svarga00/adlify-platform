@@ -235,6 +235,32 @@ const OutreachTemplates = {
   },
 
   /**
+   * Zabalí cieľovú URL do track-click redirectu pre daný audit token.
+   * Vynecháva mailto:, tel:, #fragment a unsubscribe URL (nech sa nelogujú ako klik).
+   */
+  trackUrl(url, auditToken, unsubscribeUrl) {
+    if (!auditToken || !url) return url;
+    if (!/^https?:\/\//i.test(url)) return url;
+    if (unsubscribeUrl && url === unsubscribeUrl) return url;
+    return `${this.baseUrl()}/.netlify/functions/track-click?audit=${encodeURIComponent(auditToken)}&to=${encodeURIComponent(url)}`;
+  },
+
+  /**
+   * Prejde hotový HTML a prepíše všetky href="http..." na tracked variant.
+   * Nechá mailto/tel/fragment/unsubscribe nedotknuté.
+   */
+  rewriteHtmlLinks(html, auditToken, unsubscribeUrl) {
+    if (!auditToken) return html;
+    return String(html).replace(/href="(https?:\/\/[^"]+)"/gi, (m, url) => {
+      if (unsubscribeUrl && url === unsubscribeUrl) return m;
+      // Preskoč už-zabalené linky (ochrana pred dvojitým wrap)
+      if (url.includes('/.netlify/functions/track-click')) return m;
+      const tracked = this.trackUrl(url, auditToken, unsubscribeUrl);
+      return `href="${tracked}"`;
+    });
+  },
+
+  /**
    * Univerzálny render: načíta šablónu z DB, substituuje premenné, vráti { subject, html, text }.
    * Ak šablóna v DB neexistuje, vráti null (caller môže padnúť na hardcoded fallback).
    */
@@ -250,14 +276,28 @@ const OutreachTemplates = {
     const subject = this.substitute(tpl.subject, mergedVars);
     const text = this.substitute(tpl.plain_text || tpl.body_text || '', mergedVars);
     const rawHtml = tpl.html_content || tpl.body_html;
-    const html = rawHtml
+    const unsubscribeUrl = opts.unsubscribeUrl || this._buildUnsubUrl(brand, vars);
+    let html = rawHtml
       ? this.substitute(rawHtml, mergedVars)
       : this.wrapTextInBrand(subject, text, {
           trackPixelUrl: opts.trackPixelUrl || null,
           brand,
-          unsubscribeUrl: opts.unsubscribeUrl || this._buildUnsubUrl(brand, vars),
+          unsubscribeUrl,
+          auditToken: opts.skipLinkRewrite ? null : (vars.audit_token || mergedVars.audit_token),
         });
+    // Final pass — prepíše VŠETKY http(s) linky na track-click variant
+    // (aj linky z HTML editora) — okrem preview módu.
+    if (!opts.skipLinkRewrite) {
+      const auditToken = vars.audit_token || mergedVars.audit_token || this._extractAuditTokenFromUrl(vars.audit_request_url || vars.audit_url);
+      if (auditToken) html = this.rewriteHtmlLinks(html, auditToken, unsubscribeUrl);
+    }
     return { subject, html, text };
+  },
+
+  _extractAuditTokenFromUrl(url) {
+    if (!url) return null;
+    const m = String(url).match(/[?&]t=([^&#]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
   },
 
   _buildUnsubUrl(brand, vars) {
@@ -283,6 +323,7 @@ const OutreachTemplates = {
       industry: industry || '',
       industry_hook: this._industryHook(industry, city) ? ` — ${this._industryHook(industry, city)}` : '',
       city: city || '',
+      audit_token: auditToken || '',
       audit_request_url: auditToken ? `${this.baseUrl()}/audit-request.html?t=${auditToken}` : '',
       audit_url: auditToken ? `${this.baseUrl()}/audit.html?t=${auditToken}` : '',
       sender_name: senderName,
