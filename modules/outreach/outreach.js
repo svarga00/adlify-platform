@@ -43,6 +43,9 @@ const OutreachModule = {
   campaigns: [],
   campaignsLoaded: false,
   editingCampaign: null,
+  smartLists: [],
+  smartListsLoaded: false,
+  activeSmartListId: null,
 
   init() {
     console.log('📮 Outreach module initialized');
@@ -193,7 +196,12 @@ const OutreachModule = {
     const to = Math.min(from + pageSize, total);
     const pageRows = filtered.slice(from, to);
 
+    // Smart lists chipy
+    if (!this.smartListsLoaded) this.loadSmartLists();
+
     return `
+      ${this._renderSmartListsBar()}
+
       <!-- Filters -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
         <input type="text" placeholder="Hľadať firmu, doménu..." value="${f.search}" oninput="OutreachModule.setFilter('search', this.value)"
@@ -1387,6 +1395,95 @@ const OutreachModule = {
     let s = String(raw).trim().toLowerCase();
     s = s.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     return s || null;
+  },
+
+  // ========== SMART LISTS ==========
+
+  async loadSmartLists() {
+    this.smartListsLoaded = true;
+    try {
+      const { data } = await Database.client
+        .from('outreach_smart_lists')
+        .select('id, name, description, filters, color, created_at')
+        .order('created_at', { ascending: false });
+      this.smartLists = data || [];
+      this.rerender();
+    } catch {
+      this.smartLists = [];
+    }
+  },
+
+  _renderSmartListsBar() {
+    const lists = this.smartLists || [];
+    return `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+        <span style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Segmenty:</span>
+        <button onclick="OutreachModule.clearSmartList()"
+          style="padding:5px 12px;border:1px solid ${!this.activeSmartListId ? '#F97316' : '#E5E0D7'};background:${!this.activeSmartListId ? '#FFF7ED' : '#fff'};border-radius:999px;font-size:12px;font-weight:600;color:${!this.activeSmartListId ? '#F97316' : '#6F6758'};cursor:pointer;">
+          Všetci (${this.prospects.length})
+        </button>
+        ${lists.map(l => {
+          const active = this.activeSmartListId === l.id;
+          return `
+            <button onclick="OutreachModule.applySmartList('${l.id}')"
+              style="padding:5px 12px;border:1px solid ${active ? (l.color || '#F97316') : '#E5E0D7'};background:${active ? (l.color || '#F97316') + '14' : '#fff'};border-radius:999px;font-size:12px;font-weight:600;color:${active ? (l.color || '#F97316') : '#3A352B'};cursor:pointer;display:inline-flex;align-items:center;gap:6px;"
+              title="${this.esc(l.description || '')}">
+              <span>${this.esc(l.name)}</span>
+              <span onclick="event.stopPropagation();OutreachModule.deleteSmartList('${l.id}')" style="opacity:.5;font-size:10px;" title="Zmazať segment">✕</span>
+            </button>
+          `;
+        }).join('')}
+        <button onclick="OutreachModule.saveSmartList()" title="Uložiť aktuálne filtre ako segment"
+          style="padding:5px 12px;border:1px dashed #CFC7B9;background:transparent;border-radius:999px;font-size:12px;font-weight:600;color:#6F6758;cursor:pointer;">
+          + Uložiť filter
+        </button>
+      </div>
+    `;
+  },
+
+  async applySmartList(id) {
+    const list = (this.smartLists || []).find(x => x.id === id);
+    if (!list) return;
+    this.activeSmartListId = id;
+    this.filters = { ...this.filters, ...(list.filters || {}) };
+    this.page = 1;
+    this.rerender();
+  },
+
+  clearSmartList() {
+    this.activeSmartListId = null;
+    this.filters = { stage: 'pending', segment: 'all', search: '' };
+    this.page = 1;
+    this.rerender();
+  },
+
+  async saveSmartList() {
+    const name = await Utils.prompt({
+      title: '+ Uložiť segment',
+      message: 'Aktuálne filtre sa uložia ako segment.',
+      placeholder: 'napr. Zubári BA pending',
+      confirmText: 'Uložiť',
+    });
+    if (!name) return;
+    const payload = {
+      name,
+      filters: { ...this.filters },
+    };
+    const { data, error } = await Database.client.from('outreach_smart_lists').insert(payload).select().single();
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.smartLists = [data, ...this.smartLists];
+    this.activeSmartListId = data.id;
+    this.rerender();
+    Utils.toast('Segment uložený', 'success');
+  },
+
+  async deleteSmartList(id) {
+    const ok = await Utils.confirm('Zmazať segment?', { type: 'danger', confirmText: 'Zmazať' });
+    if (!ok) return;
+    await Database.client.from('outreach_smart_lists').delete().eq('id', id);
+    this.smartLists = this.smartLists.filter(x => x.id !== id);
+    if (this.activeSmartListId === id) this.activeSmartListId = null;
+    this.rerender();
   },
 
   // ========== ANALYTICS ==========

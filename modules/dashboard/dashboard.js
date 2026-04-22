@@ -35,10 +35,12 @@ const DashboardModule = {
     
     try {
       // Fetch data
-      const [leads, clients, tasksResult] = await Promise.all([
+      const [leads, clients, tasksResult, hotProspectsResult, recentEventsResult] = await Promise.all([
         Database.select('leads', { columns: 'id, status, score, created_at' }),
         Database.select('clients', { columns: 'id, status, monthly_fee' }),
-        Database.client.from('tasks').select('id, status, due_date, assigned_to')
+        Database.client.from('tasks').select('id, status, due_date, assigned_to'),
+        Database.client.from('prospects').select('id, company_name, domain, email, score, outreach_stage, audit_requested_at, audit_viewed_at, outreach_email_opened_at, outreach_email_open_count, outreach_email_replied_at').order('score', { ascending: false, nullsLast: true }).limit(8),
+        Database.client.from('prospect_events').select('prospect_id, event_type, occurred_at, is_bot, geo_city, geo_country, link_url, prospect:prospects(company_name, domain)').eq('is_bot', false).order('occurred_at', { ascending: false }).limit(10),
       ]);
       
       // Filter tasks for current user
@@ -49,8 +51,11 @@ const DashboardModule = {
       // Calculate stats
       const stats = this.calculateStats(leads, clients, tasks);
       
+      const hotProspects = (hotProspectsResult?.data || []).filter(p => (p.score || 0) > 50);
+      const recentEvents = recentEventsResult?.data || [];
+
       // Render
-      container.innerHTML = this.template(stats, leads, clients);
+      container.innerHTML = this.template(stats, leads, clients, hotProspects, recentEvents);
       
       // Initialize charts
       this.initCharts(stats);
@@ -128,7 +133,7 @@ const DashboardModule = {
   /**
    * Dashboard template
    */
-  template(stats, leads, clients) {
+  template(stats, leads, clients, hotProspects = [], recentEvents = []) {
     const recentLeads = leads
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
@@ -260,6 +265,70 @@ const DashboardModule = {
                 <span style="display:flex; align-items:center; color:var(--ink-mute);">${I.Chevron({size:14})}</span>
               </a>
             `).join('')}
+          </div>
+        </div>
+
+        <!-- OUTREACH WIDGETS -->
+        <div class="adl-card" style="grid-column:1 / -1;">
+          <div class="adl-card-header">
+            <div class="adl-card-title">📮 Outreach aktivita</div>
+            <a href="#outreach" class="adl-btn adl-btn-ghost adl-btn-sm">Otvoriť Outreach ${I.ArrowRight({size:12})}</a>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+            <!-- Hot prospects -->
+            <div style="border-right:1px solid var(--border);padding:6px 0;">
+              <div style="padding:8px 18px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-mute);font-weight:600;">🔥 Najteplejší prospecti</div>
+              ${hotProspects.length === 0 ? `<div style="padding:16px 18px;color:var(--ink-mute);font-size:13px;">Zatiaľ žiadni horúci prospecti.</div>` : hotProspects.slice(0, 5).map(p => {
+                const name = p.company_name || p.domain || '—';
+                const badges = [];
+                if (p.audit_requested_at) badges.push('<span style="font-size:10px;background:#FFEDD5;color:#92400E;padding:1px 6px;border-radius:999px;font-weight:600;">🎯 audit</span>');
+                if (p.outreach_email_replied_at) badges.push('<span style="font-size:10px;background:#DBEAFE;color:#1E3A8A;padding:1px 6px;border-radius:999px;font-weight:600;">💬 odpoveď</span>');
+                if ((p.outreach_email_open_count || 0) >= 2) badges.push('<span style="font-size:10px;background:#EDE9FE;color:#5B21B6;padding:1px 6px;border-radius:999px;font-weight:600;">👁 ×' + p.outreach_email_open_count + '</span>');
+                return `
+                  <a href="#outreach" style="display:flex;align-items:center;gap:10px;padding:8px 18px;text-decoration:none;color:inherit;border-top:1px solid var(--border);">
+                    <div style="width:28px;height:28px;border-radius:7px;background:#FFF7ED;color:#F97316;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${(name[0] || '?').toUpperCase()}</div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
+                      <div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;">${badges.join('')}</div>
+                    </div>
+                    <div style="font-size:12px;font-weight:700;color:#F97316;">${p.score || 0}</div>
+                  </a>
+                `;
+              }).join('')}
+            </div>
+            <!-- Recent events -->
+            <div style="padding:6px 0;">
+              <div style="padding:8px 18px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-mute);font-weight:600;">⏱ Nedávna aktivita</div>
+              ${recentEvents.length === 0 ? `<div style="padding:16px 18px;color:var(--ink-mute);font-size:13px;">Zatiaľ žiadna aktivita.</div>` : recentEvents.slice(0, 5).map(e => {
+                const name = e.prospect?.company_name || e.prospect?.domain || '—';
+                const time = (() => {
+                  const diff = Date.now() - new Date(e.occurred_at).getTime();
+                  const m = Math.floor(diff / 60000);
+                  if (m < 1) return 'teraz';
+                  if (m < 60) return `${m} min`;
+                  const h = Math.floor(m / 60);
+                  if (h < 24) return `${h} h`;
+                  return `${Math.floor(h / 24)} d`;
+                })();
+                const icons = {
+                  email_open:      { i: '👁', c: '#8B5CF6', bg: '#EDE9FE', label: 'otvoril email' },
+                  email_click:     { i: '🖱', c: '#F97316', bg: '#FFEDD5', label: 'klikol' },
+                  audit_requested: { i: '🎯', c: '#EA580C', bg: '#FED7AA', label: 'požiadal o audit' },
+                  email_replied:   { i: '💬', c: '#3B82F6', bg: '#DBEAFE', label: 'odpovedal' },
+                };
+                const t = icons[e.event_type] || { i: '•', c: '#6F6758', bg: '#F7F5F1', label: e.event_type };
+                return `
+                  <a href="#outreach" style="display:flex;align-items:center;gap:10px;padding:8px 18px;text-decoration:none;color:inherit;border-top:1px solid var(--border);">
+                    <div style="width:28px;height:28px;border-radius:7px;background:${t.bg};color:${t.c};display:flex;align-items:center;justify-content:center;font-size:14px;">${t.i}</div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><strong>${name}</strong> ${t.label}</div>
+                      ${e.geo_city || e.geo_country ? `<div style="font-size:11px;color:var(--ink-mute);">📍 ${[e.geo_city, e.geo_country].filter(Boolean).join(', ')}</div>` : ''}
+                    </div>
+                    <div style="font-size:11px;color:var(--ink-mute);font-weight:500;">${time}</div>
+                  </a>
+                `;
+              }).join('')}
+            </div>
           </div>
         </div>
 
