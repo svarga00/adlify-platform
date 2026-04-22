@@ -38,6 +38,8 @@ const OutreachModule = {
   importMap: null,
   selectedTemplateSlug: 'cold_outreach_audit',
   composePreviewViewport: 'desktop',
+  page: 1,
+  pageSize: 50,
 
   init() {
     console.log('📮 Outreach module initialized');
@@ -141,6 +143,13 @@ const OutreachModule = {
     const f = this.filters;
     const filtered = this.applyFilters();
     const selCount = this.selectedIds.size;
+    const total = filtered.length;
+    const pageSize = this.pageSize;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (this.page > totalPages) this.page = totalPages;
+    const from = (this.page - 1) * pageSize;
+    const to = Math.min(from + pageSize, total);
+    const pageRows = filtered.slice(from, to);
 
     return `
       <!-- Filters -->
@@ -157,6 +166,14 @@ const OutreachModule = {
           <option value="audit_viewed" ${f.stage==='audit_viewed'?'selected':''}>Audit videli</option>
           <option value="converted" ${f.stage==='converted'?'selected':''}>Premenení na lead</option>
           <option value="lost" ${f.stage==='lost'?'selected':''}>Stratení</option>
+        </select>
+        <select onchange="OutreachModule.setPageSize(this.value)"
+          style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;" title="Počet na stránku">
+          <option value="25" ${pageSize===25?'selected':''}>25 / strana</option>
+          <option value="50" ${pageSize===50?'selected':''}>50 / strana</option>
+          <option value="100" ${pageSize===100?'selected':''}>100 / strana</option>
+          <option value="200" ${pageSize===200?'selected':''}>200 / strana</option>
+          <option value="500" ${pageSize===500?'selected':''}>500 / strana</option>
         </select>
       </div>
 
@@ -178,7 +195,7 @@ const OutreachModule = {
             <thead style="background:#F7F5F1;">
               <tr>
                 <th style="padding:12px 16px;text-align:left;width:40px;">
-                  <input type="checkbox" ${this._allFilteredChecked(filtered) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)">
+                  <input type="checkbox" ${this._allPageChecked(pageRows) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)">
                 </th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Firma</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Kontakt</th>
@@ -188,15 +205,45 @@ const OutreachModule = {
               </tr>
             </thead>
             <tbody>
-              ${filtered.length === 0 ? `
-                <tr><td colspan="6" style="padding:40px;text-align:center;color:#6F6758;">Žiadni prospekti podľa filtra.</td></tr>
-              ` : filtered.slice(0, 100).map(p => this.renderRow(p)).join('')}
+              ${pageRows.length === 0 ? `
+                <tr><td colspan="6" style="padding:40px;text-align:center;color:#6F6758;">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
+              ` : pageRows.map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
         </div>
-        ${filtered.length > 100 ? `<div style="padding:12px;text-align:center;color:#948B7C;font-size:13px;border-top:1px solid #EAE6DE;">Zobrazených 100 z ${filtered.length}</div>` : ''}
+        ${total > 0 ? `
+          <div style="padding:12px 16px;border-top:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:#6F6758;">
+            <div>Zobrazené <strong>${from + 1}–${to}</strong> z <strong>${total}</strong></div>
+            ${totalPages > 1 ? `
+              <div style="display:inline-flex;gap:6px;align-items:center;">
+                <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.goToPage(1)" ${this.page === 1 ? 'disabled' : ''} title="Prvá">«</button>
+                <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.goToPage(${this.page - 1})" ${this.page === 1 ? 'disabled' : ''}>← Predošlá</button>
+                <span style="padding:0 10px;font-weight:600;">Strana ${this.page} / ${totalPages}</span>
+                <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.goToPage(${this.page + 1})" ${this.page === totalPages ? 'disabled' : ''}>Ďalšia →</button>
+                <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.goToPage(${totalPages})" ${this.page === totalPages ? 'disabled' : ''} title="Posledná">»</button>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
+  },
+
+  _allPageChecked(pageRows) {
+    if (!pageRows.length) return false;
+    return pageRows.every(p => this.selectedIds.has(p.id));
+  },
+
+  goToPage(n) {
+    this.page = Math.max(1, parseInt(n) || 1);
+    this.rerender();
+  },
+
+  setPageSize(n) {
+    const v = Math.max(10, parseInt(n) || 50);
+    this.pageSize = v;
+    this.page = 1;
+    this.rerender();
   },
 
   renderRow(prospect) {
@@ -409,6 +456,7 @@ const OutreachModule = {
 
   setFilter(k, v) {
     this.filters[k] = v;
+    this.page = 1;
     this.rerender();
   },
 
@@ -1476,15 +1524,13 @@ const OutreachModule = {
     this.rerender();
   },
 
-  _allFilteredChecked(filtered) {
-    if (!filtered.length) return false;
-    return filtered.every(p => this.selectedIds.has(p.id));
-  },
-
   toggleAllProspects(checked) {
-    const filtered = this.applyFilters().slice(0, 100);
-    if (checked) filtered.forEach(p => this.selectedIds.add(p.id));
-    else filtered.forEach(p => this.selectedIds.delete(p.id));
+    const filtered = this.applyFilters();
+    const from = (this.page - 1) * this.pageSize;
+    const to = Math.min(from + this.pageSize, filtered.length);
+    const pageRows = filtered.slice(from, to);
+    if (checked) pageRows.forEach(p => this.selectedIds.add(p.id));
+    else pageRows.forEach(p => this.selectedIds.delete(p.id));
     this.rerender();
   },
 
