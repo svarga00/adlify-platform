@@ -44,6 +44,11 @@
 [functions]
   directory = "netlify/functions"
 
+# Scheduled function — outreach scheduler (posiela ďalšie kroky kampaní)
+# Cron: každú hodinu o :05
+[functions."outreach-scheduler"]
+  schedule = "5 * * * *"
+
 # Plugin pre inštaláciu dependencies vo functions
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
