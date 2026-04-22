@@ -40,36 +40,36 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
-  padding: 0 16px;
-  font-size: 13px;
+  height: 42px;
+  padding: 0 20px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.1px;
-  border-radius: 10px;
+  border-radius: 11px;
   border: 1.5px solid #E5E0D7;
   background: #fff;
   color: #14120E;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .12s, border-color .12s, color .12s, box-shadow .12s;
+  transition: background .14s, border-color .14s, color .14s, box-shadow .14s;
   font-family: inherit;
-  box-shadow: 0 1px 2px rgba(20,18,14,0.04);
+  box-shadow: none;
 }
-.adl-btn:hover { background: #FAFAF7; border-color: #CFC7B9; box-shadow: 0 2px 4px rgba(20,18,14,0.06); }
-.adl-btn:active { background: #F5F2EC; box-shadow: 0 1px 2px rgba(20,18,14,0.04); }
+.adl-btn:hover { background: #FAFAF7; border-color: #CFC7B9; box-shadow: 0 3px 8px rgba(20,18,14,0.08); }
+.adl-btn:active { background: #F5F2EC; box-shadow: 0 1px 2px rgba(20,18,14,0.06); }
 .adl-btn:focus-visible {
   outline: 2px solid var(--brand-400);
   outline-offset: 2px;
 }
-.adl-btn:disabled, .adl-btn[disabled] { opacity: .45; cursor: not-allowed; }
-.adl-btn-sm { height: 30px; padding: 0 12px; font-size: 12px; border-radius: 8px; }
-.adl-btn-lg { height: 42px; padding: 0 20px; font-size: 14px; border-radius: 12px; }
+.adl-btn:disabled, .adl-btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.adl-btn-sm { height: 32px; padding: 0 14px; font-size: 12px; border-radius: 8px; }
+.adl-btn-lg { height: 48px; padding: 0 26px; font-size: 15px; border-radius: 12px; }
 .adl-btn-primary {
   background: var(--brand-500); color: #fff; border-color: var(--brand-500);
-  box-shadow: 0 1px 2px rgba(249,115,22,0.2);
+  box-shadow: none;
 }
-.adl-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); box-shadow: 0 2px 6px rgba(249,115,22,0.28); }
-.adl-btn-primary:active { background: var(--brand-600); }
+.adl-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); box-shadow: 0 4px 12px rgba(249,115,22,0.32); }
+.adl-btn-primary:active { background: var(--brand-600); box-shadow: 0 1px 3px rgba(249,115,22,0.25); }
 .adl-btn-ink { background: #14120E; color: #fff; border-color: #14120E; }
 .adl-btn-ink:hover { background: #2A241B; border-color: #2A241B; }
 .adl-btn-outline { background: #fff; color: #14120E; border-color: #E5E0D7; }

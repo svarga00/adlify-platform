@@ -136,6 +136,7 @@ const OutreachModule = {
   renderOverview(stats) {
     const f = this.filters;
     const filtered = this.applyFilters();
+    const selCount = this.selectedIds.size;
 
     return `
       <!-- Filters -->
@@ -155,12 +156,26 @@ const OutreachModule = {
         </select>
       </div>
 
+      ${selCount > 0 ? `
+        <div style="background:#FFF7ED;border:1.5px solid #F97316;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <strong style="color:#14120E;">Označených: ${selCount}</strong>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.clearSelection()">Zrušiť výber</button>
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.composeFromSelected()">▶ Poslať kampaň (${selCount})</button>
+            <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteSelected()">✕ Zmazať (${selCount})</button>
+          </div>
+        </div>
+      ` : ''}
+
       <!-- Table -->
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:14px;">
             <thead style="background:#F7F5F1;">
               <tr>
+                <th style="padding:12px 16px;text-align:left;width:40px;">
+                  <input type="checkbox" ${this._allFilteredChecked(filtered) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)">
+                </th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Firma</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Kontakt</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Fáza</th>
@@ -170,7 +185,7 @@ const OutreachModule = {
             </thead>
             <tbody>
               ${filtered.length === 0 ? `
-                <tr><td colspan="5" style="padding:40px;text-align:center;color:#6F6758;">Žiadni prospekti podľa filtra.</td></tr>
+                <tr><td colspan="6" style="padding:40px;text-align:center;color:#6F6758;">Žiadni prospekti podľa filtra.</td></tr>
               ` : filtered.slice(0, 100).map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
@@ -186,9 +201,13 @@ const OutreachModule = {
     const contact = prospect.contact_person ? `${prospect.contact_person}${prospect.email ? ' · ' + prospect.email : ''}` : (prospect.email || '—');
     const canSend = !prospect.outreach_email_sent_at && prospect.email && prospect.outreach_stage !== 'converted';
     const isConverted = prospect.outreach_stage === 'converted';
+    const checked = this.selectedIds.has(prospect.id);
 
     return `
       <tr style="border-top:1px solid #EAE6DE;${isConverted ? 'opacity:.6;' : ''}">
+        <td style="padding:14px 16px;">
+          <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')">
+        </td>
         <td style="padding:14px 16px;">
           <div style="font-weight:600;color:#14120E;">${this.esc(company)}</div>
           <div style="font-size:12px;color:#948B7C;">${this.esc(prospect.domain || '')}${prospect.industry ? ' · ' + this.esc(prospect.industry) : ''}</div>
@@ -201,6 +220,7 @@ const OutreachModule = {
           ${prospect.audit_token ? `<button class="adl-btn adl-btn-sm adl-btn-outline" onclick="window.open('/audit.html?t=${prospect.audit_token}', '_blank')" title="Pozrieť audit">Audit</button>` : ''}
           ${!isConverted ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.promoteToLead('${prospect.id}')" title="Manuálne presunúť do leadov">→ Lead</button>` : ''}
           ${isConverted && prospect.converted_to_lead_id ? `<a class="adl-btn adl-btn-sm adl-btn-soft" href="#/leads?id=${prospect.converted_to_lead_id}">Otvoriť lead</a>` : ''}
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteProspect('${prospect.id}')" title="Zmazať">✕</button>
         </td>
       </tr>
     `;
@@ -980,6 +1000,72 @@ const OutreachModule = {
     let s = String(raw).trim().toLowerCase();
     s = s.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     return s || null;
+  },
+
+  // ========== SELECTION + DELETE ==========
+
+  toggleSelect(id) {
+    if (this.selectedIds.has(id)) this.selectedIds.delete(id);
+    else this.selectedIds.add(id);
+    this.rerender();
+  },
+
+  _allFilteredChecked(filtered) {
+    if (!filtered.length) return false;
+    return filtered.every(p => this.selectedIds.has(p.id));
+  },
+
+  toggleAllProspects(checked) {
+    const filtered = this.applyFilters().slice(0, 100);
+    if (checked) filtered.forEach(p => this.selectedIds.add(p.id));
+    else filtered.forEach(p => this.selectedIds.delete(p.id));
+    this.rerender();
+  },
+
+  clearSelection() {
+    this.selectedIds.clear();
+    this.rerender();
+  },
+
+  composeFromSelected() {
+    const hasEmail = Array.from(this.selectedIds)
+      .map(id => this.prospects.find(p => p.id === id))
+      .filter(p => p && p.email);
+    if (hasEmail.length === 0) return Utils.toast('Žiadny z vybraných nemá email', 'warning');
+    this.drafts.clear();
+    this.currentView = 'compose';
+    this.rerender();
+  },
+
+  async deleteProspect(id) {
+    const p = this.prospects.find(x => x.id === id);
+    const label = p?.company_name || p?.domain || 'prospect';
+    const ok = typeof Utils?.confirm === 'function'
+      ? await Utils.confirm(`Zmazať „${label}"? Táto akcia je nevratná.`, { title: 'Zmazať prospect', type: 'danger', confirmText: 'Zmazať', cancelText: 'Zrušiť' })
+      : confirm(`Zmazať „${label}"?`);
+    if (!ok) return;
+    const { error } = await Database.client.from('prospects').delete().eq('id', id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.prospects = this.prospects.filter(x => x.id !== id);
+    this.selectedIds.delete(id);
+    Utils.toast('Zmazané', 'success');
+    this.rerender();
+  },
+
+  async deleteSelected() {
+    const n = this.selectedIds.size;
+    if (n === 0) return;
+    const ok = typeof Utils?.confirm === 'function'
+      ? await Utils.confirm(`Zmazať ${n} prospektov? Táto akcia je nevratná.`, { title: 'Hromadné mazanie', type: 'danger', confirmText: `Zmazať ${n}`, cancelText: 'Zrušiť' })
+      : confirm(`Zmazať ${n} prospektov?`);
+    if (!ok) return;
+    const ids = Array.from(this.selectedIds);
+    const { error } = await Database.client.from('prospects').delete().in('id', ids);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.prospects = this.prospects.filter(p => !this.selectedIds.has(p.id));
+    this.selectedIds.clear();
+    Utils.toast(`Zmazaných ${n} prospektov`, 'success');
+    this.rerender();
   },
 
   bindEvents() {
