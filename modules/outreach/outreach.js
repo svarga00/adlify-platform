@@ -1804,35 +1804,68 @@ const OutreachModule = {
   _findResults: null,
   _findSelection: new Set(),
 
+  _findSource: 'ai',
+
   openFindProspects() {
     this._findResults = null;
     this._findSelection = new Set();
+    this._findSource = this._findSource || 'ai';
     const modal = this._ensureModal('outreach-modal');
     modal.innerHTML = `
       <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
       <div class="adl-modal-card" style="max-width:720px;width:min(94vw,720px);">
         <div class="adl-modal-head">
-          <h3 style="margin:0;font-size:18px;font-weight:700;">🔍 Nájsť prospektov (AI)</h3>
+          <h3 style="margin:0;font-size:18px;font-weight:700;">🔍 Nájsť prospektov</h3>
           <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
         </div>
-        <form id="find-form" onsubmit="event.preventDefault();OutreachModule.runFindProspects();" style="padding:20px 24px 12px;display:grid;gap:12px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            ${this._field('segment', 'Segment / odvetvie *', 'text', true)}
-            ${this._field('city', 'Mesto / región', 'text')}
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;">
-            ${this._field('hints', 'Doplňujúce kritériá (ideálna veľkosť, typ, špecifikácie)', 'text')}
+
+        <!-- Source picker -->
+        <div style="padding:14px 24px 0;display:flex;gap:6px;flex-wrap:wrap;">
+          ${[
+            { k: 'ai',      label: '🤖 AI návrh',          hint: 'Claude' },
+            { k: 'places',  label: '📍 Google Maps',        hint: 'reálne firmy' },
+            { k: 'finstat', label: '📋 FinStat',            hint: 'SK register' },
+          ].map(s => `
+            <button type="button" onclick="OutreachModule._setFindSource('${s.k}')"
+              style="padding:8px 14px;border:1.5px solid ${this._findSource === s.k ? '#F97316' : '#E5E0D7'};background:${this._findSource === s.k ? '#FFF7ED' : '#fff'};border-radius:10px;font-size:13px;font-weight:600;color:${this._findSource === s.k ? '#F97316' : '#3A352B'};cursor:pointer;">
+              ${s.label}
+              <span style="font-size:10px;opacity:.7;display:block;font-weight:500;">${s.hint}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <form id="find-form" onsubmit="event.preventDefault();OutreachModule.runFindProspects();" style="padding:14px 24px 12px;display:grid;gap:12px;">
+          ${this._findSource === 'ai' ? `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              ${this._field('segment', 'Segment / odvetvie *', 'text', true)}
+              ${this._field('city', 'Mesto / región', 'text')}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;">
+              ${this._field('hints', 'Doplňujúce kritériá', 'text')}
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+                Počet
+                <input type="number" name="count" min="1" max="50" value="10"
+                  style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+              </label>
+            </div>
+            <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">AI návrhy na overenie. Bez kontaktov. Vyžaduje <code>ANTHROPIC_API_KEY</code>.</p>
+          ` : this._findSource === 'places' ? `
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
+              ${this._field('query', 'Hľadaj (kaderníctva, zubári, fitness) *', 'text', true)}
+              ${this._field('city', 'Mesto', 'text')}
+            </div>
             <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
-              Počet
-              <input type="number" name="count" min="1" max="50" value="10"
+              Počet výsledkov (max 20 per request)
+              <input type="number" name="maxResults" min="1" max="20" value="20"
                 style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
             </label>
-          </div>
-          <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">
-            AI vráti kandidátov na overenie (firma, doména, odvetvie, dôvod osloviť).
-            Kontakty neuhádne — emaily/telefóny si pridáš manuálne alebo cez CSV.
-            Vyžaduje <code>ANTHROPIC_API_KEY</code> v Netlify env.
-          </p>
+            <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">Reálne Google Maps firmy vrátane telefónu + webu. Vyžaduje <code>GOOGLE_MAPS_API_KEY</code>.</p>
+          ` : `
+            <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+              ${this._field('query', 'Názov firmy alebo IČO *', 'text', true)}
+            </div>
+            <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">Slovenský register FinStat. Vyžaduje <code>FINSTAT_API_KEY</code>.</p>
+          `}
           <div id="find-status" style="display:none;font-size:13px;color:#6F6758;padding:10px 14px;background:#F7F5F1;border-radius:10px;"></div>
           <div style="display:flex;justify-content:flex-end;gap:8px;">
             <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
@@ -1843,7 +1876,12 @@ const OutreachModule = {
       </div>
     `;
     this._openModal(modal);
-    setTimeout(() => modal.querySelector('[name=segment]')?.focus(), 30);
+    setTimeout(() => modal.querySelector('form input')?.focus(), 30);
+  },
+
+  _setFindSource(k) {
+    this._findSource = k;
+    this.openFindProspects();
   },
 
   async runFindProspects() {
@@ -1853,13 +1891,16 @@ const OutreachModule = {
     const payload = Object.fromEntries(fd.entries());
     const status = document.getElementById('find-status');
     const btn = form.querySelector('button[type=submit]');
+    const src = this._findSource || 'ai';
+    const endpoint = src === 'ai' ? 'find-prospects' : src === 'places' ? 'lead-finder-places' : 'lead-finder-finstat';
+
     status.style.display = 'block';
     status.style.background = '#F7F5F1';
     status.style.color = '#6F6758';
-    status.textContent = '⏳ Hľadám (15–30 s)…';
+    status.textContent = `⏳ Hľadám cez ${src === 'ai' ? 'AI (15-30s)' : src === 'places' ? 'Google Maps' : 'FinStat'}…`;
     btn.disabled = true;
     try {
-      const r = await fetch('/.netlify/functions/find-prospects', {
+      const r = await fetch(`/.netlify/functions/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1901,13 +1942,15 @@ const OutreachModule = {
           <label style="display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid #F7F5F1;cursor:pointer;align-items:flex-start;${sel.has(i) ? 'background:#FFF7ED;' : ''}">
             <input type="checkbox" ${sel.has(i) ? 'checked' : ''} onchange="OutreachModule._toggleFindItem(${i})">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;font-size:14px;color:#14120E;">${this.esc(p.company_name)}</div>
+              <div style="font-weight:600;font-size:14px;color:#14120E;">${this.esc(p.company_name)}${p.ico ? ` <span style="font-size:11px;color:#948B7C;font-weight:500;">· IČO ${this.esc(p.ico)}</span>` : ''}</div>
               <div style="font-size:12px;color:#6F6758;margin:2px 0;">
                 ${p.domain ? `<a href="https://${this.esc(p.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:#F97316;text-decoration:none;">${this.esc(p.domain)} ↗</a>` : '<span style="color:#948B7C;">bez domény</span>'}
                 ${p.city ? ` · ${this.esc(p.city)}` : ''}
                 ${p.industry ? ` · ${this.esc(p.industry)}` : ''}
               </div>
+              ${(p.email || p.phone) ? `<div style="font-size:12px;color:#3A352B;margin-top:2px;">${p.email ? `📧 ${this.esc(p.email)}` : ''}${p.email && p.phone ? ' · ' : ''}${p.phone ? `📞 ${this.esc(p.phone)}` : ''}</div>` : ''}
               ${p.reason ? `<div style="font-size:12px;color:#3A352B;font-style:italic;margin-top:3px;">${this.esc(p.reason)}</div>` : ''}
+              ${p.metadata?.address ? `<div style="font-size:11px;color:#948B7C;margin-top:2px;">${this.esc(p.metadata.address)}</div>` : ''}
             </div>
           </label>
         `).join('')}
@@ -1947,8 +1990,11 @@ const OutreachModule = {
         domain: p.domain || null,
         industry: p.industry || null,
         city: p.city || null,
-        source: 'ai_finder',
-        notes: p.reason || null,
+        email: p.email || null,
+        phone: p.phone || null,
+        ico: p.ico || null,
+        source: p.source || this._findSource + '_finder',
+        notes: p.reason || p.metadata?.address || null,
         outreach_stage: 'pending',
         score: 50,
       }));
@@ -3763,6 +3809,8 @@ const OutreachModule = {
       ['Kontaktná osoba', p.contact_person],
       ['Email', p.email ? `<a href="mailto:${this.esc(p.email)}" style="color:#F97316;">${this.esc(p.email)}</a>` : null],
       ['Telefón', p.phone ? `<a href="tel:${this.esc(p.phone.replace(/\s/g,''))}" style="color:#F97316;">${this.esc(p.phone)}</a>` : null],
+      ['LinkedIn', p.linkedin_url ? `<a href="${this.esc(p.linkedin_url)}" target="_blank" style="color:#0A66C2;">Otvoriť profil ↗</a>` : null],
+      ['IČO', p.ico],
       ['Priradený', assignSelect],
       ['Odvetvie', p.industry],
       ['Mesto', p.city],
@@ -3771,6 +3819,25 @@ const OutreachModule = {
       ['Zdroj', p.source],
       ['Pridané', p.created_at ? new Date(p.created_at).toLocaleString('sk-SK') : null],
     ].filter(([, v]) => v != null && v !== '');
+
+    const hasLinkedIn = !!p.linkedin_url;
+    const linkedInActions = hasLinkedIn ? `
+      <div style="margin-top:20px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:#0A66C2;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">in</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#1E3A8A;">LinkedIn outreach</div>
+            <div style="font-size:11px;color:#6F6758;">AI vygeneruje personalizovanú DM správu</div>
+          </div>
+        </div>
+        <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.generateLinkedInDM('${p.id}')">✨ Vygenerovať LinkedIn DM</button>
+      </div>
+    ` : `
+      <div style="margin-top:20px;background:#F7F5F1;border:1px dashed #D9D2C4;border-radius:12px;padding:14px 16px;text-align:center;">
+        <div style="font-size:12px;color:#6F6758;margin-bottom:6px;">Bez LinkedIn URL nemôžeme generovať DM</div>
+        <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.setLinkedInUrl('${p.id}')">+ Pridať LinkedIn URL</button>
+      </div>
+    `;
 
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;">
@@ -3787,7 +3854,92 @@ const OutreachModule = {
           <div style="font-size:14px;color:#3A352B;line-height:1.6;white-space:pre-wrap;background:#F7F5F1;padding:12px 14px;border-radius:10px;">${this.esc(p.notes)}</div>
         </div>
       ` : ''}
+      ${linkedInActions}
     `;
+  },
+
+  async setLinkedInUrl(prospectId) {
+    const url = await Utils.prompt({
+      title: '+ LinkedIn URL',
+      placeholder: 'https://www.linkedin.com/in/meno-priezvisko/',
+      confirmText: 'Uložiť',
+    });
+    if (!url) return;
+    if (!/linkedin\.com\//i.test(url)) return Utils.toast('Neplatná LinkedIn URL', 'warning');
+    const { error } = await Database.client.from('prospects').update({ linkedin_url: url }).eq('id', prospectId);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    const p = this.prospects.find(x => x.id === prospectId);
+    if (p) p.linkedin_url = url;
+    Utils.toast('LinkedIn URL uložený', 'success');
+    // refresh detail view
+    if (this._detailProspectId === prospectId) this._refreshDetailBody();
+  },
+
+  async generateLinkedInDM(prospectId) {
+    const p = this.prospects.find(x => x.id === prospectId);
+    if (!p?.linkedin_url) return Utils.toast('Chýba LinkedIn URL', 'warning');
+
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:560px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">in LinkedIn DM pre ${this.esc(p.company_name || p.domain || 'prospekta')}</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <div style="padding:20px 24px;">
+          <label style="display:block;font-size:12px;color:#6F6758;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Angle / hook</label>
+          <input id="li-angle" type="text" placeholder="napr. bezplatný audit, konkurencia v Google Ads..." value="bezplatný marketingový audit"
+            style="width:100%;padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;margin-bottom:12px;">
+          <button id="li-gen-btn" class="adl-btn adl-btn-primary" style="width:100%;" onclick="OutreachModule._runLinkedInDM('${prospectId}')">✨ Vygenerovať</button>
+          <div id="li-result" style="margin-top:16px;display:none;"></div>
+        </div>
+      </div>
+    `;
+    this._openModal(modal);
+  },
+
+  async _runLinkedInDM(prospectId) {
+    const btn = document.getElementById('li-gen-btn');
+    const resultBox = document.getElementById('li-result');
+    const angle = document.getElementById('li-angle')?.value?.trim() || '';
+    btn.disabled = true;
+    btn.textContent = '⏳ Generujem (10-20 s)…';
+    try {
+      const r = await fetch('/.netlify/functions/linkedin-generate-dm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prospectId, angle }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      const safeMsg = this.esc(d.message).replace(/\n/g, '<br>');
+      resultBox.style.display = 'block';
+      resultBox.innerHTML = `
+        <div style="background:#F7F5F1;border:1px solid #EAE6DE;border-radius:10px;padding:14px;margin-bottom:12px;">
+          <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px;">Návrh správy (${d.characters}/280 znakov)</div>
+          <div id="li-msg-text" style="font-size:14px;color:#14120E;line-height:1.6;white-space:pre-wrap;">${safeMsg}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="adl-btn adl-btn-outline" onclick="OutreachModule._copyLinkedInMsg()">📋 Skopírovať</button>
+          ${d.messageUrl ? `<a class="adl-btn adl-btn-primary" href="${d.messageUrl}" target="_blank" onclick="OutreachModule.closeModal()">↗ Otvoriť LinkedIn</a>` : ''}
+          <button class="adl-btn adl-btn-ghost" onclick="OutreachModule._runLinkedInDM('${prospectId}')">↻ Prerobiť</button>
+        </div>
+        <p style="font-size:11px;color:#948B7C;margin:12px 0 0;line-height:1.5;">Po odoslaní môžeš manuálne pridať poznámku do prospektu.</p>
+      `;
+      this._lastLinkedInMsg = d.message;
+    } catch (e) {
+      resultBox.style.display = 'block';
+      resultBox.innerHTML = `<div style="background:#FEE2E2;color:#991B1B;border-radius:10px;padding:12px 14px;">✕ ${this.esc(e.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✨ Vygenerovať';
+    }
+  },
+
+  _copyLinkedInMsg() {
+    const text = this._lastLinkedInMsg || '';
+    navigator.clipboard?.writeText(text);
+    Utils.toast('Správa skopírovaná', 'info');
   },
 
   _detailActivity(p) {
