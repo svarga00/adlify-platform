@@ -2451,6 +2451,7 @@ const OutreachModule = {
     this.detailTab = 'overview';
     this._detailEvents = null;
     this._detailTasksList = null;
+    this._detailNotesList = null;
     const modal = this._ensureModal('outreach-modal');
     modal.innerHTML = this._renderDetailModal(p);
     this._openModalWide(modal);
@@ -2539,7 +2540,9 @@ const OutreachModule = {
   _detailTabs() {
     const tabs = [
       { key: 'overview', label: 'Prehľad' },
+      { key: 'messages', label: 'Správy' },
       { key: 'activity', label: 'Aktivita' },
+      { key: 'notes',    label: 'Poznámky' },
       { key: 'tasks',    label: 'Úlohy' },
       { key: 'audit',    label: 'Audit' },
     ];
@@ -2557,7 +2560,183 @@ const OutreachModule = {
     if (this.detailTab === 'activity') return this._detailActivity(p);
     if (this.detailTab === 'audit')    return this._detailAudit(p);
     if (this.detailTab === 'tasks')    return this._detailTasks(p);
+    if (this.detailTab === 'messages') return this._detailMessages(p);
+    if (this.detailTab === 'notes')    return this._detailNotes(p);
     return this._detailOverview(p);
+  },
+
+  _detailNotes(p) {
+    const notes = this._detailNotesList;
+    if (notes == null) {
+      this._loadDetailNotes(p.id);
+      return `<div style="color:#948B7C;padding:12px;">Načítavam poznámky…</div>`;
+    }
+    return `
+      <form onsubmit="event.preventDefault();OutreachModule.addNote('${p.id}');" style="background:#FAFAF7;border:1px solid #EAE6DE;border-radius:12px;padding:12px;margin-bottom:14px;">
+        <textarea id="note-input" rows="3" placeholder="Napíš internú poznámku… (Ctrl+Enter odoslať)"
+          onkeydown="if(event.ctrlKey && event.key==='Enter') this.form.requestSubmit();"
+          style="width:100%;padding:10px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;background:#fff;"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+          <button type="submit" class="adl-btn adl-btn-sm adl-btn-primary">+ Pridať poznámku</button>
+        </div>
+      </form>
+      ${notes.length === 0 ? `<div style="color:#948B7C;padding:24px;text-align:center;background:#F7F5F1;border-radius:10px;">Zatiaľ žiadne poznámky.</div>` : `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${notes.map(n => this._renderNote(n)).join('')}
+        </div>
+      `}
+    `;
+  },
+
+  _renderNote(n) {
+    const time = new Date(n.created_at).toLocaleString('sk-SK');
+    const author = n.author?.full_name || n.author?.email || 'Autor';
+    const initial = (author[0] || '?').toUpperCase();
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:10px;padding:12px 14px;${n.is_pinned ? 'border-color:#F97316;background:#FFF7ED;' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <div style="flex-shrink:0;width:28px;height:28px;border-radius:7px;background:#F97316;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${this.esc(initial)}</div>
+            <div style="font-size:12px;color:#3A352B;font-weight:600;">${this.esc(author)}${n.is_pinned ? ' · 📌' : ''}</div>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <span style="font-size:11px;color:#948B7C;">${time}</span>
+            <button class="adl-btn adl-btn-sm adl-btn-ghost" style="padding:0 6px;" onclick="OutreachModule.togglePinNote('${n.id}')" title="${n.is_pinned ? 'Odpnúť' : 'Pripnúť'}">${n.is_pinned ? '📌' : '📍'}</button>
+            <button class="adl-btn adl-btn-sm adl-btn-ghost" style="padding:0 6px;color:#DC2626;" onclick="OutreachModule.deleteNote('${n.id}')" title="Zmazať">✕</button>
+          </div>
+        </div>
+        <div style="font-size:14px;color:#14120E;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${this.esc(n.body)}</div>
+      </div>
+    `;
+  },
+
+  async _loadDetailNotes(prospectId) {
+    this._detailNotesList = null;
+    try {
+      const { data, error } = await Database.client
+        .from('prospect_notes')
+        .select('id, body, is_pinned, created_at, updated_at, author:user_profiles!author_id(full_name, email)')
+        .eq('prospect_id', prospectId)
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      this._detailNotesList = data || [];
+    } catch (e) {
+      console.warn('loadDetailNotes error:', e);
+      this._detailNotesList = [];
+    }
+    this._refreshDetailBody();
+  },
+
+  async addNote(prospectId) {
+    const ta = document.getElementById('note-input');
+    if (!ta) return;
+    const body = ta.value.trim();
+    if (!body) return;
+    const author_id = window.Auth?.user?.id || null;
+    const { error } = await Database.client.from('prospect_notes').insert({
+      prospect_id: prospectId, body, author_id,
+    });
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    ta.value = '';
+    await this._loadDetailNotes(prospectId);
+    Utils.toast('Poznámka pridaná', 'success');
+  },
+
+  async togglePinNote(id) {
+    const n = (this._detailNotesList || []).find(x => x.id === id);
+    if (!n) return;
+    await Database.client.from('prospect_notes').update({ is_pinned: !n.is_pinned }).eq('id', id);
+    await this._loadDetailNotes(this._detailProspectId);
+  },
+
+  async deleteNote(id) {
+    const ok = await Utils.confirm('Zmazať poznámku?', { type: 'danger', confirmText: 'Zmazať' });
+    if (!ok) return;
+    await Database.client.from('prospect_notes').delete().eq('id', id);
+    await this._loadDetailNotes(this._detailProspectId);
+  },
+
+  _detailMessages(p) {
+    const events = this._detailEvents;
+    if (events == null) return `<div style="color:#948B7C;padding:12px;">Načítavam správy…</div>`;
+    const msgs = events.filter(e =>
+      ['email_sent','email_replied','email_delivered','email_bounced','email_complained'].includes(e.event_type)
+    ).sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at));
+
+    const canReply = !!p.email;
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:13px;color:#6F6758;">${msgs.length} záznamov · emailové komunikácie</div>
+        ${canReply ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeReplyToProspect('${p.id}')">✉ Napísať</button>` : ''}
+      </div>
+      ${msgs.length === 0 ? `<div style="color:#948B7C;padding:24px;text-align:center;background:#F7F5F1;border-radius:10px;">Zatiaľ žiadna emailová komunikácia.</div>` : `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${msgs.map(m => this._renderMessage(m, p)).join('')}
+        </div>
+      `}
+    `;
+  },
+
+  _renderMessage(m, p) {
+    const time = new Date(m.occurred_at).toLocaleString('sk-SK');
+    const meta = m.meta || {};
+    if (m.event_type === 'email_sent') {
+      const subject = meta.subject || meta.variant_slug || '—';
+      return `
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <div style="flex-shrink:0;margin-top:2px;width:30px;height:30px;border-radius:8px;background:#DBEAFE;color:#1E3A8A;display:flex;align-items:center;justify-content:center;font-size:14px;">✉</div>
+          <div style="flex:1;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px 12px 12px 0;padding:12px 14px;min-width:0;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#92400E;margin-bottom:4px;font-weight:600;">
+              <span>→ ${this.esc(p.email || 'prospect')}</span>
+              <span>${time}</span>
+            </div>
+            <div style="font-size:13px;color:#14120E;word-break:break-word;">
+              ${meta.variant_slug ? `Šablóna: <code style="background:#fff;padding:1px 6px;border-radius:3px;">${this.esc(meta.variant_slug)}</code>` : 'Odoslaný email'}
+              ${meta.step_order ? ` · Krok #${meta.step_order}` : ''}
+              ${meta.sender_email ? ` · Odosielateľ: ${this.esc(meta.sender_email)}` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    if (m.event_type === 'email_replied') {
+      const text = meta.text || meta.html?.replace(/<[^>]+>/g, '') || meta.body || '';
+      const subject = meta.subject || 'Odpoveď';
+      return `
+        <div style="display:flex;gap:10px;align-items:flex-start;flex-direction:row-reverse;">
+          <div style="flex-shrink:0;margin-top:2px;width:30px;height:30px;border-radius:8px;background:#DCFCE7;color:#166534;display:flex;align-items:center;justify-content:center;font-size:14px;">💬</div>
+          <div style="flex:1;background:#fff;border:1px solid #BBF7D0;border-radius:12px 12px 0 12px;padding:12px 14px;min-width:0;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:#166534;margin-bottom:4px;font-weight:600;">
+              <span>← ${this.esc(p.email || 'prospect')}</span>
+              <span>${time}</span>
+            </div>
+            <div style="font-weight:700;font-size:14px;color:#14120E;margin-bottom:6px;">${this.esc(subject)}</div>
+            ${text ? `<div style="font-size:13px;color:#3A352B;line-height:1.6;white-space:pre-wrap;word-break:break-word;">${this.esc(text.slice(0, 1500))}${text.length > 1500 ? '…' : ''}</div>` : '<div style="font-size:12px;color:#948B7C;font-style:italic;">(text odpovede nie je dostupný — pozri Resend dashboard)</div>'}
+          </div>
+        </div>
+      `;
+    }
+    const meta2 = { email_delivered: { icon:'✓', color:'#16A34A', bg:'#DCFCE7', label:'Doručené' },
+                    email_bounced:   { icon:'⚠', color:'#DC2626', bg:'#FEE2E2', label:'Bounced' },
+                    email_complained:{ icon:'🚫', color:'#DC2626', bg:'#FEE2E2', label:'Spam' } };
+    const t = meta2[m.event_type] || { icon:'•', color:'#6F6758', bg:'#F7F5F1', label:m.event_type };
+    return `
+      <div style="display:flex;gap:10px;align-items:center;padding:8px 14px;background:${t.bg};border-radius:10px;">
+        <div style="color:${t.color};font-size:14px;">${t.icon}</div>
+        <div style="flex:1;font-size:13px;color:${t.color};font-weight:600;">${t.label}</div>
+        <div style="font-size:11px;color:#948B7C;">${time}</div>
+      </div>
+    `;
+  },
+
+  composeReplyToProspect(prospectId) {
+    const p = this.prospects.find(x => x.id === prospectId);
+    if (!p?.email) return Utils.toast('Prospect nemá email', 'warning');
+    // Jednoducho: otvor mailto so subjektom
+    const subj = `Re: ${p.company_name || p.domain || 'Adlify'}`;
+    window.location.href = `mailto:${p.email}?subject=${encodeURIComponent(subj)}`;
   },
 
   _detailTasks(p) {
