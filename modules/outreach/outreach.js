@@ -267,7 +267,9 @@ const OutreachModule = {
 
           <div style="margin-bottom:16px;">
             <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Šablóna</label>
-            ${outreachTpls.length === 0 ? `
+            ${!this.templatesLoaded ? `
+              <div style="padding:14px;border:1px dashed #EAE6DE;border-radius:10px;color:#948B7C;font-size:13px;">Načítavam šablóny…</div>
+            ` : outreachTpls.length === 0 ? `
               <div style="padding:14px;border:1px dashed #EAE6DE;border-radius:10px;color:#948B7C;font-size:13px;">Žiadne outreach šablóny — vytvor v sekcii Šablóny.</div>
             ` : `
               <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;">
@@ -420,11 +422,31 @@ const OutreachModule = {
       .filter(p => p && p.email);
     if (selected.length === 0) return Utils.toast('Žiadny z označených prospektov nemá email', 'warning');
     this.drafts.clear();
+    this._previewProspectId = null;
+    // najprv fetch, potom prvý render (inak je picker prázdny pri prvom zobrazení)
+    await this.ensureOutreachTemplatesLoaded();
     this.currentView = 'compose';
     this.rerender();
-    await this.ensureOutreachTemplatesLoaded();
-    this.rerender();
     this._renderComposePreview();
+  },
+
+  async ensureOutreachTemplatesLoaded(force = false) {
+    if (!force && this.templatesLoaded && this.templates.length) return;
+    try {
+      const { data, error } = await Database.client
+        .from('email_templates')
+        .select('id, slug, name, description, category, subject, plain_text, body_text, html_content, body_html, variables, is_active, is_system, updated_at')
+        .in('category', ['outreach', 'transactional'])
+        .order('category', { ascending: true })
+        .order('name', { ascending: true });
+      if (error) throw error;
+      this.templates = (data || []).filter(t => t.is_active !== false);
+      this.templatesLoaded = true;
+    } catch (e) {
+      console.warn('loadTemplates for compose failed:', e);
+      Utils.toast('Chyba pri načítaní šablón: ' + e.message, 'danger');
+      this.templatesLoaded = true; // aby nešlo do infinite loop
+    }
   },
 
   composeSingle(prospectId) {
@@ -483,22 +505,6 @@ const OutreachModule = {
       });
     }
     return null;
-  },
-
-  async ensureOutreachTemplatesLoaded() {
-    if (this.templatesLoaded && this.templates.length) return;
-    try {
-      const { data } = await Database.client
-        .from('email_templates')
-        .select('id, slug, name, description, category, subject, is_active')
-        .eq('is_active', true)
-        .in('category', ['outreach', 'transactional'])
-        .order('name', { ascending: true });
-      this.templates = data || [];
-      this.templatesLoaded = true;
-    } catch (e) {
-      console.warn('loadTemplates for compose failed:', e);
-    }
   },
 
   previewFirst() {

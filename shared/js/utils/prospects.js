@@ -238,47 +238,82 @@
   }
 
   /**
-   * Vráti lead späť do prospectu (rollback konverzie).
-   * Zmaže lead z `leads`, prospectu nastaví stage='pending', čísti
-   * converted_to_lead_id/converted_at/conversion_reason.
+   * Vráti lead späť do prospectov (rollback konverzie alebo migrácia).
+   * - Ak lead vznikol z prospecta (converted_from_prospect_id), obnoví
+   *   pôvodný prospect do stage='pending' a zmaže lead.
+   * - Inak vytvorí nový prospect z dát leadu a zmaže lead.
    *
    * @param {string} leadId
-   * @returns {Promise<{prospect: object|null, error: Error|null}>}
+   * @returns {Promise<{prospect: object|null, mode: 'revert'|'migrate', error: Error|null}>}
    */
   async function revertLeadToProspect(leadId, opts) {
     const client = getClient(opts);
-    if (!client) return { prospect: null, error: new Error('Database client not available') };
+    if (!client) return { prospect: null, mode: null, error: new Error('Database client not available') };
     try {
       const { data: lead, error: leadErr } = await client
         .from('leads')
-        .select('id, converted_from_prospect_id')
+        .select('*')
         .eq('id', leadId)
         .single();
       if (leadErr || !lead) throw leadErr || new Error('Lead not found');
-      if (!lead.converted_from_prospect_id) {
-        throw new Error('Tento lead nevznikol z prospektu — nedá sa vrátiť.');
-      }
 
-      const { data: prospect, error: pErr } = await client
-        .from('prospects')
-        .update({
+      let prospect;
+      let mode;
+
+      if (lead.converted_from_prospect_id) {
+        // Strict revert — oživ pôvodný prospect
+        const { data, error } = await client
+          .from('prospects')
+          .update({
+            outreach_stage: 'pending',
+            converted_to_lead_id: null,
+            converted_at: null,
+            conversion_reason: null,
+          })
+          .eq('id', lead.converted_from_prospect_id)
+          .select()
+          .single();
+        if (error) throw error;
+        prospect = data;
+        mode = 'revert';
+      } else {
+        // Migrate — vytvor nový prospect z dát leadu
+        const payload = {
+          org_id: lead.org_id || '00000000-0000-0000-0000-000000000001',
+          company_name: lead.company_name,
+          domain: lead.domain,
+          industry: lead.industry,
+          city: lead.city,
+          contact_person: lead.contact_person,
+          email: lead.email,
+          phone: lead.phone,
+          score: lead.score || 50,
+          source: lead.source || 'lead_revert',
+          source_url: lead.source_url,
+          tags: lead.tags,
           outreach_stage: 'pending',
-          converted_to_lead_id: null,
-          converted_at: null,
-          conversion_reason: null,
-        })
-        .eq('id', lead.converted_from_prospect_id)
-        .select()
-        .single();
-      if (pErr) throw pErr;
+          notes: lead.notes,
+          assigned_to: lead.assigned_to,
+        };
+        // Odstráň null/undefined polia (nech defaulty fungujú)
+        Object.keys(payload).forEach(k => payload[k] == null && delete payload[k]);
+        const { data, error } = await client
+          .from('prospects')
+          .insert(payload)
+          .select()
+          .single();
+        if (error) throw error;
+        prospect = data;
+        mode = 'migrate';
+      }
 
       const { error: delErr } = await client.from('leads').delete().eq('id', leadId);
       if (delErr) throw delErr;
 
-      return { prospect, error: null };
+      return { prospect, mode, error: null };
     } catch (err) {
       console.error('revertLeadToProspect failed:', err);
-      return { prospect: null, error: err };
+      return { prospect: null, mode: null, error: err };
     }
   }
 

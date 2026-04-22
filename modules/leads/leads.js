@@ -822,7 +822,7 @@ const LeadsModule = {
           </td>
           <td>
             <div style="display:inline-flex; gap:4px;">
-              ${lead.converted_from_prospect_id ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.revertToProspect('${lead.id}')" title="Vrátiť späť do Outreach" style="padding:0 6px; width:28px; height:28px; justify-content:center;">↩</button>` : ''}
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.revertToProspect('${lead.id}')" title="${lead.converted_from_prospect_id ? 'Vrátiť späť do Outreach' : 'Presunúť do Outreach'}" style="padding:0 6px; width:28px; height:28px; justify-content:center;">↩</button>
               <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.showLeadMenu('${lead.id}', event)" title="Viac" style="padding:0 6px; width:28px; height:28px; justify-content:center;">${I.More({size:14})}</button>
             </div>
           </td>
@@ -842,17 +842,23 @@ const LeadsModule = {
     }
     const lead = this.leads.find(l => l.id === leadId);
     const label = lead?.company_name || lead?.domain || 'lead';
-    const ok = await Utils.confirm(`Vrátiť „${label}" späť do Outreach? Tento lead sa zmaže a prospect sa obnoví v stave „pending".`, {
-      title: 'Vrátiť do Outreach', type: 'warning', confirmText: 'Vrátiť', cancelText: 'Zrušiť'
+    const isRevert = !!lead?.converted_from_prospect_id;
+    const message = isRevert
+      ? `Vrátiť „${label}" späť do Outreach? Tento lead sa zmaže a pôvodný prospect sa obnoví v stave „pending".`
+      : `Presunúť „${label}" do Outreachu? Z leadu sa vytvorí prospect (stage „pending"), lead sa zmaže.`;
+    const ok = await Utils.confirm(message, {
+      title: isRevert ? 'Vrátiť do Outreach' : 'Presunúť do Outreach',
+      type: 'warning', confirmText: isRevert ? 'Vrátiť' : 'Presunúť', cancelText: 'Zrušiť'
     });
     if (!ok) return;
-    const { prospect, error } = await window.Prospects.revertLeadToProspect(leadId);
+    const { prospect, mode, error } = await window.Prospects.revertLeadToProspect(leadId);
     if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
     this.leads = this.leads.filter(l => l.id !== leadId);
     this.selectedIds.delete(leadId);
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
     this._updateListCount();
-    Utils.toast(`Vrátené do Outreach (${prospect?.company_name || prospect?.domain || 'prospect'})`, 'success');
+    const verb = mode === 'revert' ? 'Vrátené' : 'Presunuté';
+    Utils.toast(`${verb} do Outreach (${prospect?.company_name || prospect?.domain || 'prospect'})`, 'success');
   },
   
   getTimeAgo(date) {
