@@ -30,6 +30,7 @@ const OutreachModule = {
   filters: { stage: 'pending', segment: 'all', search: '' },
 
   templates: [],
+  templatesLoaded: false,
   editingTemplate: null,
   importRows: [],
   importMap: null,
@@ -734,6 +735,8 @@ const OutreachModule = {
   async openTemplates() {
     this.currentView = 'templates';
     this.editingTemplate = null;
+    this.templatesLoaded = false;
+    this.templates = [];
     this.rerender();
     try {
       const { data, error } = await Database.client
@@ -744,8 +747,11 @@ const OutreachModule = {
         .order('name', { ascending: true });
       if (error) throw error;
       this.templates = data || [];
+      this.templatesLoaded = true;
       this.rerender();
     } catch (e) {
+      this.templatesLoaded = true;
+      this.rerender();
       Utils.toast('Chyba pri načítaní šablón: ' + e.message, 'danger');
     }
   },
@@ -763,7 +769,7 @@ const OutreachModule = {
           </div>
         </div>
         <div>
-          ${rows.length === 0 ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam...</div>` : rows.map(t => `
+          ${!this.templatesLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam šablóny…</div>` : rows.length === 0 ? `<div style="padding:40px;text-align:center;color:#6F6758;">Žiadne šablóny. Ak by mali existovať, skontroluj RLS alebo kategóriu (outreach/transactional).</div>` : rows.map(t => `
             <div style="padding:16px 24px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:16px;">
               <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
