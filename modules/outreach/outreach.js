@@ -40,6 +40,7 @@ const OutreachModule = {
   },
 
   async render(container) {
+    this._container = container;
     container.innerHTML = '<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam...</div>';
     try {
       const { data, error } = await Database.client
@@ -290,8 +291,18 @@ const OutreachModule = {
   },
 
   rerender() {
-    const container = document.getElementById('module-content') || document.querySelector('[data-module-container]');
+    const container = this._container
+      || document.getElementById('main-content')
+      || document.getElementById('module-content')
+      || document.querySelector('[data-module-container]');
     if (container) container.innerHTML = this.template();
+  },
+
+  _getContainer() {
+    return this._container
+      || document.getElementById('main-content')
+      || document.getElementById('module-content')
+      || document.querySelector('[data-module-container]');
   },
 
   startCompose() {
@@ -325,7 +336,7 @@ const OutreachModule = {
     }
     Utils.toast(`Presunutý do leadov (id ${lead.id.slice(0, 8)}…)`, 'success');
     // reload
-    this.render(document.getElementById('module-content') || document.querySelector('[data-module-container]'));
+    this.render(this._getContainer());
   },
 
   async buildEmail(prospect) {
@@ -433,7 +444,7 @@ const OutreachModule = {
     document.getElementById('outreach-status').textContent = `Hotovo: ${ok} odoslaných, ${fail} neúspešných.`;
     Utils.toast(`Kampaň dokončená: ${ok}/${selected.length}`, fail === 0 ? 'success' : 'warning');
 
-    setTimeout(() => { this.currentView = 'overview'; this.render(document.getElementById('module-content') || document.querySelector('[data-module-container]')); }, 2000);
+    setTimeout(() => { this.currentView = 'overview'; this.render(this._getContainer()); }, 2000);
   },
 
   appendLog(msg, type) {
@@ -727,7 +738,7 @@ const OutreachModule = {
     Utils.toast(`Importovaných ${inserted} prospektov`, 'success');
     setTimeout(() => {
       this.currentView = 'overview';
-      this.render(document.getElementById('module-content') || document.querySelector('[data-module-container]'));
+      this.render(this._getContainer());
     }, 1500);
   },
 
