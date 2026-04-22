@@ -39,62 +39,103 @@
 .adl-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  height: 42px;
-  padding: 0 20px;
+  height: 40px;
+  padding: 0 18px;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.1px;
-  border-radius: 11px;
-  border: 1.5px solid #E5E0D7;
-  background: #fff;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
   color: #14120E;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .14s, border-color .14s, color .14s, box-shadow .14s;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease;
   font-family: inherit;
-  box-shadow: none;
 }
-.adl-btn:hover { background: #FAFAF7; border-color: #CFC7B9; box-shadow: 0 3px 8px rgba(20,18,14,0.08); }
-.adl-btn:active { background: #F5F2EC; box-shadow: 0 1px 2px rgba(20,18,14,0.06); }
 .adl-btn:focus-visible {
-  outline: 2px solid var(--brand-400);
+  outline: 2px solid #F97316;
   outline-offset: 2px;
 }
-.adl-btn:disabled, .adl-btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; }
-.adl-btn-sm { height: 32px; padding: 0 14px; font-size: 12px; border-radius: 8px; }
-.adl-btn-lg { height: 48px; padding: 0 26px; font-size: 15px; border-radius: 12px; }
-.adl-btn-primary {
-  background: var(--brand-500); color: #fff; border-color: var(--brand-500);
-  box-shadow: none;
+.adl-btn:disabled, .adl-btn[disabled] {
+  opacity: .42;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
-.adl-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); box-shadow: 0 4px 12px rgba(249,115,22,0.32); }
-.adl-btn-primary:active { background: var(--brand-600); box-shadow: 0 1px 3px rgba(249,115,22,0.25); }
-.adl-btn-ink { background: #14120E; color: #fff; border-color: #14120E; }
-.adl-btn-ink:hover { background: #2A241B; border-color: #2A241B; }
-.adl-btn-outline { background: #fff; color: #14120E; border-color: #E5E0D7; }
-.adl-btn-outline:hover { background: #FAFAF7; border-color: #CFC7B9; }
-.adl-btn-ghost { background: transparent; color: #14120E; border-color: transparent; box-shadow: none; }
-.adl-btn-ghost:hover { background: #F5F2EC; border-color: transparent; box-shadow: none; }
-.adl-btn-soft { background: #F5F2EC; color: #14120E; border-color: #E5E0D7; }
-.adl-btn-soft:hover { background: #EAE6DE; }
-.adl-btn-danger { background: var(--err); color: #fff; border-color: var(--err); }
-.adl-btn-danger:hover { filter: brightness(.93); }
-.adl-btn-icon { width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 10px; background: #fff; border-color: #E5E0D7; }
-.adl-btn-icon:hover { background: #FAFAF7; border-color: #CFC7B9; }
+.adl-btn-sm { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 8px; gap: 6px; }
+.adl-btn-lg { height: 46px; padding: 0 24px; font-size: 15px; border-radius: 12px; }
 
-/* Toolbar: skupina tlačidiel s jasným oddelením */
+.adl-btn-primary {
+  background: #F97316; color: #fff; border-color: #F97316;
+}
+.adl-btn-primary:hover {
+  background: #EA580C; border-color: #EA580C;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(249, 115, 22, 0.4);
+}
+.adl-btn-primary:active { transform: translateY(0); box-shadow: 0 2px 6px -2px rgba(249, 115, 22, 0.35); }
+
+.adl-btn-ink {
+  background: #14120E; color: #fff; border-color: #14120E;
+}
+.adl-btn-ink:hover {
+  background: #2A241B; border-color: #2A241B;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(20, 18, 14, 0.25);
+}
+.adl-btn-ink:active { transform: translateY(0); box-shadow: none; }
+
+.adl-btn-outline {
+  background: #fff; color: #14120E; border-color: #D9D2C4;
+}
+.adl-btn-outline:hover {
+  background: #14120E; color: #fff; border-color: #14120E;
+  transform: translateY(-1px);
+}
+.adl-btn-outline:active { transform: translateY(0); }
+
+.adl-btn-ghost {
+  background: transparent; color: #3A352B; border-color: transparent;
+}
+.adl-btn-ghost:hover { background: #F2EEE6; color: #14120E; }
+.adl-btn-ghost:active { background: #E8E2D3; }
+
+.adl-btn-soft {
+  background: #F2EEE6; color: #14120E; border-color: transparent;
+}
+.adl-btn-soft:hover { background: #E8E2D3; transform: translateY(-1px); }
+
+.adl-btn-danger {
+  background: #fff; color: #DC2626; border-color: #FCA5A5;
+}
+.adl-btn-danger:hover {
+  background: #DC2626; color: #fff; border-color: #DC2626;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(220, 38, 38, 0.35);
+}
+.adl-btn-danger:active { transform: translateY(0); }
+
+.adl-btn-icon {
+  width: 40px; height: 40px; padding: 0;
+  border-radius: 10px; background: #fff; border-color: #E5E0D7; color: #3A352B;
+}
+.adl-btn-icon:hover { background: #14120E; color: #fff; border-color: #14120E; }
+
+/* Toolbar — skupina tlačidiel s výraznejším oddelením */
 .adl-toolbar {
   display: inline-flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 }
 .adl-toolbar-divider {
   width: 1px;
-  height: 22px;
-  background: #E5E0D7;
-  margin: 0 4px;
+  height: 28px;
+  background: #D9D2C4;
+  margin: 0 2px;
 }
 
 /* ========== CARD ========== */

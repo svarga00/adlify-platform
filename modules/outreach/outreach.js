@@ -234,14 +234,13 @@ const OutreachModule = {
                 </th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Firma</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Kontakt</th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Fáza</th>
+                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Fáza a aktivita</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Skóre</th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Akcie</th>
               </tr>
             </thead>
             <tbody>
               ${pageRows.length === 0 ? `
-                <tr><td colspan="6" style="padding:40px;text-align:center;color:#6F6758;">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
+                <tr><td colspan="5" style="padding:40px;text-align:center;color:#6F6758;">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
               ` : pageRows.map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
@@ -284,15 +283,18 @@ const OutreachModule = {
   renderRow(prospect) {
     const stage = this.stageBadge(prospect);
     const company = prospect.company_name || prospect.domain;
-    const contact = prospect.contact_person ? `${prospect.contact_person}${prospect.email ? ' · ' + prospect.email : ''}` : (prospect.email || '—');
-    const canSend = !prospect.outreach_email_sent_at && prospect.email && prospect.outreach_stage !== 'converted';
+    const contact = prospect.contact_person
+      ? `${prospect.contact_person}${prospect.email ? ' · ' + prospect.email : ''}`
+      : (prospect.email || '—');
     const isConverted = prospect.outreach_stage === 'converted';
     const checked = this.selectedIds.has(prospect.id);
     const activity = this._activityChips(prospect);
 
     return `
-      <tr style="border-top:1px solid #EAE6DE;${isConverted ? 'opacity:.6;' : ''}">
-        <td style="padding:14px 16px;">
+      <tr data-id="${prospect.id}" onclick="OutreachModule._onRowClick(event, '${prospect.id}')"
+          style="border-top:1px solid #EAE6DE;cursor:pointer;${isConverted ? 'opacity:.6;' : ''}"
+          onmouseenter="this.style.background='#FAF8F4'" onmouseleave="this.style.background=''">
+        <td style="padding:14px 16px;" onclick="event.stopPropagation()">
           <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')">
         </td>
         <td style="padding:14px 16px;">
@@ -305,15 +307,15 @@ const OutreachModule = {
           ${activity ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${activity}</div>` : ''}
         </td>
         <td style="padding:14px 16px;"><strong>${prospect.score || 0}</strong></td>
-        <td style="padding:14px 16px;display:flex;gap:6px;flex-wrap:wrap;">
-          ${canSend ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeSingle('${prospect.id}')">Poslať email</button>` : ''}
-          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.openActivity('${prospect.id}')" title="Aktivita a tracking">📊</button>
-          ${!isConverted ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.promoteToLead('${prospect.id}')" title="Manuálne presunúť do leadov">→ Lead</button>` : ''}
-          ${isConverted && prospect.converted_to_lead_id ? `<a class="adl-btn adl-btn-sm adl-btn-soft" href="#/leads?id=${prospect.converted_to_lead_id}">Otvoriť lead</a>` : ''}
-          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteProspect('${prospect.id}')" title="Zmazať">✕</button>
-        </td>
       </tr>
     `;
+  },
+
+  _onRowClick(event, prospectId) {
+    // defenzívne — klik na tag typu button/a/input nech neotvára modal
+    const tag = (event.target?.tagName || '').toLowerCase();
+    if (['button','a','input','select','textarea','label'].includes(tag)) return;
+    this.openProspectDetail(prospectId);
   },
 
   _activityChips(p) {
@@ -1378,6 +1380,233 @@ const OutreachModule = {
     let s = String(raw).trim().toLowerCase();
     s = s.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     return s || null;
+  },
+
+  // ========== PROSPECT DETAIL MODAL ==========
+
+  detailTab: 'overview',  // overview | activity | audit
+  _detailProspectId: null,
+
+  async openProspectDetail(prospectId) {
+    const p = this.prospects.find(x => x.id === prospectId);
+    if (!p) return;
+    this._detailProspectId = prospectId;
+    this.detailTab = 'overview';
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = this._renderDetailModal(p);
+    this._openModalWide(modal);
+    // preload events
+    this._loadDetailEvents(prospectId);
+  },
+
+  async _loadDetailEvents(prospectId) {
+    try {
+      const { data } = await Database.client
+        .from('prospect_events')
+        .select('event_type, occurred_at, is_bot, bot_vendor, user_agent, geo_country, geo_city, geo_region, geo_isp, link_url')
+        .eq('prospect_id', prospectId)
+        .order('occurred_at', { ascending: false })
+        .limit(200);
+      this._detailEvents = data || [];
+      this._refreshDetailBody();
+    } catch (e) {
+      this._detailEvents = [];
+      this._refreshDetailBody();
+    }
+  },
+
+  setDetailTab(tab) {
+    this.detailTab = tab;
+    this._refreshDetailHeader();
+    this._refreshDetailBody();
+  },
+
+  _refreshDetailHeader() {
+    const el = document.getElementById('prospect-detail-tabs');
+    if (!el) return;
+    el.innerHTML = this._detailTabs();
+  },
+
+  _refreshDetailBody() {
+    const el = document.getElementById('prospect-detail-body');
+    const p = this.prospects.find(x => x.id === this._detailProspectId);
+    if (!el || !p) return;
+    el.innerHTML = this._detailBody(p);
+  },
+
+  _renderDetailModal(p) {
+    const company = p.company_name || p.domain || '—';
+    const initial = (company.trim().charAt(0) || '?').toUpperCase();
+    const stage = this.stageBadge(p);
+    const isConverted = p.outreach_stage === 'converted';
+    const canSend = !p.outreach_email_sent_at && p.email && !isConverted;
+
+    return `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:780px;width:min(92vw,780px);">
+        <div class="adl-modal-head" style="align-items:center;">
+          <div style="display:flex;align-items:center;gap:14px;min-width:0;">
+            <div style="flex-shrink:0;width:48px;height:48px;border-radius:12px;background:#FFF7ED;color:#F97316;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;">${this.esc(initial)}</div>
+            <div style="min-width:0;">
+              <h3 style="margin:0;font-size:18px;font-weight:700;color:#14120E;">${this.esc(company)}</h3>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap;">
+                ${p.domain ? `<a href="https://${this.esc(p.domain)}" target="_blank" onclick="event.stopPropagation()" style="font-size:13px;color:#6F6758;text-decoration:none;">${this.esc(p.domain)} ↗</a>` : ''}
+                ${stage}
+              </div>
+            </div>
+          </div>
+          <button class="adl-btn adl-btn-icon" onclick="OutreachModule.closeModal()" title="Zavrieť">✕</button>
+        </div>
+
+        <div id="prospect-detail-tabs" style="padding:0 24px;border-bottom:1px solid #EAE6DE;">
+          ${this._detailTabs()}
+        </div>
+
+        <div id="prospect-detail-body" style="padding:20px 24px;max-height:60vh;overflow-y:auto;">
+          ${this._detailBody(p)}
+        </div>
+
+        <div style="padding:16px 24px;border-top:1px solid #EAE6DE;background:#FAFAF7;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteProspectFromDetail()">✕ Zmazať</button>
+          <div class="adl-toolbar">
+            ${!isConverted ? `<button class="adl-btn adl-btn-outline" onclick="OutreachModule.promoteFromDetail()">→ Lead</button>` : ''}
+            ${isConverted && p.converted_to_lead_id ? `<a class="adl-btn adl-btn-soft" href="#/leads?id=${p.converted_to_lead_id}">Otvoriť lead ↗</a>` : ''}
+            ${canSend ? `<button class="adl-btn adl-btn-primary" onclick="OutreachModule.composeFromDetail()">✉ Poslať email</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  _detailTabs() {
+    const tabs = [
+      { key: 'overview', label: 'Prehľad' },
+      { key: 'activity', label: 'Aktivita' },
+      { key: 'audit',    label: 'Audit' },
+    ];
+    return `<div style="display:flex;gap:4px;">
+      ${tabs.map(t => `
+        <button onclick="OutreachModule.setDetailTab('${t.key}')"
+          style="padding:12px 16px;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:${this.detailTab === t.key ? '#14120E' : '#948B7C'};border-bottom:2px solid ${this.detailTab === t.key ? '#F97316' : 'transparent'};transition:color .15s;">
+          ${t.label}
+        </button>
+      `).join('')}
+    </div>`;
+  },
+
+  _detailBody(p) {
+    if (this.detailTab === 'activity') return this._detailActivity(p);
+    if (this.detailTab === 'audit')    return this._detailAudit(p);
+    return this._detailOverview(p);
+  },
+
+  _detailOverview(p) {
+    const fields = [
+      ['Kontaktná osoba', p.contact_person],
+      ['Email', p.email ? `<a href="mailto:${this.esc(p.email)}" style="color:#F97316;">${this.esc(p.email)}</a>` : null],
+      ['Telefón', p.phone ? `<a href="tel:${this.esc(p.phone.replace(/\s/g,''))}" style="color:#F97316;">${this.esc(p.phone)}</a>` : null],
+      ['Odvetvie', p.industry],
+      ['Mesto', p.city],
+      ['Segment', p.segment],
+      ['Skóre', `<strong>${p.score || 0}</strong>`],
+      ['Zdroj', p.source],
+      ['Pridané', p.created_at ? new Date(p.created_at).toLocaleString('sk-SK') : null],
+    ].filter(([, v]) => v != null && v !== '');
+
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;">
+        ${fields.map(([k, v]) => `
+          <div>
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:3px;">${k}</div>
+            <div style="font-size:14px;color:#14120E;word-break:break-word;">${typeof v === 'string' && v.startsWith('<') ? v : this.esc(v)}</div>
+          </div>
+        `).join('')}
+      </div>
+      ${p.notes ? `
+        <div style="margin-top:20px;">
+          <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Poznámka</div>
+          <div style="font-size:14px;color:#3A352B;line-height:1.6;white-space:pre-wrap;background:#F7F5F1;padding:12px 14px;border-radius:10px;">${this.esc(p.notes)}</div>
+        </div>
+      ` : ''}
+    `;
+  },
+
+  _detailActivity(p) {
+    const events = this._detailEvents;
+    if (events == null) return `<div style="color:#948B7C;padding:12px;">Načítavam aktivitu…</div>`;
+    if (events.length === 0) return `<div style="color:#948B7C;padding:12px;">Žiadna aktivita zatiaľ.</div>`;
+
+    const humanOpens = events.filter(e => e.event_type === 'email_open' && !e.is_bot).length;
+    const botOpens = events.filter(e => e.event_type === 'email_open' && e.is_bot).length;
+    const clicks = events.filter(e => e.event_type === 'email_click' && !e.is_bot).length;
+    const countries = [...new Set(events.filter(e => !e.is_bot && e.geo_country).map(e => e.geo_country))];
+
+    return `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
+        ${this._stat('👁 Otvorení', humanOpens, '#8B5CF6', '#EDE9FE')}
+        ${this._stat('🖱 Kliky', clicks, '#F97316', '#FFEDD5')}
+        ${this._stat('🤖 Botov', botOpens, '#6F6758', '#F7F5F1')}
+        ${this._stat('📍 Krajín', countries.length, '#3B82F6', '#DBEAFE')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${events.map(e => this._renderEvent(e)).join('')}
+      </div>
+    `;
+  },
+
+  _detailAudit(p) {
+    const items = [
+      ['Požiadal o audit', p.audit_requested_at],
+      ['Audit vygenerovaný', p.audit_generated_at || p.audit_delivered_at],
+      ['Audit doručený', p.audit_delivered_at],
+      ['Audit videl', p.audit_viewed_at],
+    ];
+    const hasAny = items.some(([, v]) => v);
+    const auditUrl = p.audit_token ? `/audit.html?t=${p.audit_token}` : null;
+    const requestUrl = p.audit_token ? `/audit-request.html?t=${p.audit_token}` : null;
+
+    return `
+      ${!hasAny ? `<div style="color:#948B7C;padding:12px;background:#F7F5F1;border-radius:10px;margin-bottom:14px;">Audit flow ešte nezačal.</div>` : `
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
+          ${items.map(([k, v]) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid #EAE6DE;border-radius:10px;background:#fff;">
+              <span style="color:${v ? '#14120E' : '#948B7C'};font-weight:${v ? '600' : '400'};">${k}</span>
+              <span style="color:#6F6758;font-size:13px;">${v ? new Date(v).toLocaleString('sk-SK') : '—'}</span>
+            </div>
+          `).join('')}
+        </div>
+      `}
+      ${p.audit_view_count ? `<div style="margin-bottom:16px;font-size:13px;color:#6F6758;">Audit bol zobrazený <strong>${p.audit_view_count}×</strong>.</div>` : ''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${auditUrl ? `<a class="adl-btn adl-btn-outline" href="${auditUrl}" target="_blank" onclick="event.stopPropagation()">📄 Otvoriť audit stránku ↗</a>` : ''}
+        ${requestUrl ? `<a class="adl-btn adl-btn-ghost" href="${requestUrl}" target="_blank" onclick="event.stopPropagation()">📋 Otvoriť request form ↗</a>` : ''}
+      </div>
+    `;
+  },
+
+  // Modal actions — prebrané z detailu
+  composeFromDetail() {
+    const id = this._detailProspectId;
+    this.closeModal();
+    this.composeSingle(id);
+  },
+  promoteFromDetail() {
+    const id = this._detailProspectId;
+    this.closeModal();
+    this.promoteToLead(id);
+  },
+  async deleteProspectFromDetail() {
+    const id = this._detailProspectId;
+    this.closeModal();
+    await this.deleteProspect(id);
+  },
+
+  _openModalWide(el) {
+    el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;';
+    el.querySelector('.adl-modal-backdrop').style.cssText = 'position:absolute;inset:0;background:rgba(20,18,14,0.55);';
+    el.querySelector('.adl-modal-card').style.cssText += 'position:relative;background:#fff;border-radius:16px;max-height:92vh;overflow:hidden;box-shadow:0 24px 64px -12px rgba(20,18,14,0.4);display:flex;flex-direction:column;';
+    const head = el.querySelector('.adl-modal-head');
+    if (head) head.style.cssText = 'padding:20px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;';
   },
 
   // ========== ACTIVITY TIMELINE ==========
