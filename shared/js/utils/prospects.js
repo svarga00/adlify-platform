@@ -237,6 +237,51 @@
     return { prospect, lead, promoted: !!lead };
   }
 
+  /**
+   * Vráti lead späť do prospectu (rollback konverzie).
+   * Zmaže lead z `leads`, prospectu nastaví stage='pending', čísti
+   * converted_to_lead_id/converted_at/conversion_reason.
+   *
+   * @param {string} leadId
+   * @returns {Promise<{prospect: object|null, error: Error|null}>}
+   */
+  async function revertLeadToProspect(leadId, opts) {
+    const client = getClient(opts);
+    if (!client) return { prospect: null, error: new Error('Database client not available') };
+    try {
+      const { data: lead, error: leadErr } = await client
+        .from('leads')
+        .select('id, converted_from_prospect_id')
+        .eq('id', leadId)
+        .single();
+      if (leadErr || !lead) throw leadErr || new Error('Lead not found');
+      if (!lead.converted_from_prospect_id) {
+        throw new Error('Tento lead nevznikol z prospektu — nedá sa vrátiť.');
+      }
+
+      const { data: prospect, error: pErr } = await client
+        .from('prospects')
+        .update({
+          outreach_stage: 'pending',
+          converted_to_lead_id: null,
+          converted_at: null,
+          conversion_reason: null,
+        })
+        .eq('id', lead.converted_from_prospect_id)
+        .select()
+        .single();
+      if (pErr) throw pErr;
+
+      const { error: delErr } = await client.from('leads').delete().eq('id', leadId);
+      if (delErr) throw delErr;
+
+      return { prospect, error: null };
+    } catch (err) {
+      console.error('revertLeadToProspect failed:', err);
+      return { prospect: null, error: err };
+    }
+  }
+
   // Export
   window.Prospects = {
     DEFAULT_SETTINGS,
@@ -244,5 +289,6 @@
     getOutreachSettings,
     promoteToLead,
     recordEventAndMaybePromote,
+    revertLeadToProspect,
   };
 })();

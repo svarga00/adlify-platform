@@ -443,7 +443,87 @@ const Utils = {
       });
     });
   },
-  
+
+  /**
+   * Prompt modal — nahradzuje window.prompt().
+   * Vráti Promise<string|null>.
+   */
+  prompt(opts = {}) {
+    const {
+      title = 'Zadaj hodnotu',
+      message = '',
+      placeholder = '',
+      defaultValue = '',
+      confirmText = 'OK',
+      cancelText = 'Zrušiť',
+      type = 'text', // text | textarea | email | url
+    } = typeof opts === 'string' ? { title: opts } : opts;
+
+    return new Promise(resolve => {
+      const existing = document.getElementById('utils-prompt-modal');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'utils-prompt-modal';
+      Object.assign(overlay.style, {
+        position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: '9999', padding: '1rem', backdropFilter: 'blur(4px)',
+        opacity: '0', transition: 'opacity 0.15s ease'
+      });
+
+      const inputHtml = type === 'textarea'
+        ? `<textarea id="utils-prompt-input" rows="4" placeholder="${placeholder}" style="width:100%;padding:12px 14px;border:1.5px solid #E5E0D7;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;">${defaultValue}</textarea>`
+        : `<input id="utils-prompt-input" type="${type}" placeholder="${placeholder}" value="${defaultValue}" style="width:100%;padding:12px 14px;border:1.5px solid #E5E0D7;border-radius:10px;font-size:14px;">`;
+
+      overlay.innerHTML = `
+        <div id="utils-prompt-box" style="
+          background:#fff;border-radius:16px;width:100%;max-width:440px;
+          box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);
+          transform:scale(0.95) translateY(10px);transition:transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+          overflow:hidden;
+        ">
+          <div style="padding:1.5rem;">
+            <h3 style="font-size:1.125rem;font-weight:700;color:#14120E;margin:0 0 0.5rem;">${title}</h3>
+            ${message ? `<p style="font-size:0.9rem;color:#6F6758;margin:0 0 1rem;line-height:1.5;">${message}</p>` : ''}
+            ${inputHtml}
+          </div>
+          <div style="padding:0 1.5rem 1.5rem;display:flex;gap:0.75rem;">
+            <button data-action="cancel" style="flex:1;padding:0.7rem 1rem;border-radius:10px;border:1.5px solid #E5E0D7;background:#fff;color:#475569;font-size:0.9rem;font-weight:600;cursor:pointer;">${cancelText}</button>
+            <button data-action="confirm" style="flex:1;padding:0.7rem 1rem;border-radius:10px;border:1.5px solid #F97316;background:#F97316;color:#fff;font-size:0.9rem;font-weight:600;cursor:pointer;">${confirmText}</button>
+          </div>
+        </div>
+      `;
+
+      const close = (result) => {
+        const box = document.getElementById('utils-prompt-box');
+        overlay.style.opacity = '0';
+        if (box) box.style.transform = 'scale(0.95) translateY(10px)';
+        setTimeout(() => { overlay.remove(); resolve(result); }, 150);
+      };
+
+      overlay.addEventListener('click', (e) => {
+        const action = e.target.dataset.action;
+        if (action === 'confirm') close(overlay.querySelector('#utils-prompt-input').value.trim() || null);
+        else if (action === 'cancel' || e.target === overlay) close(null);
+      });
+
+      const onKey = (e) => {
+        if (e.key === 'Escape') { close(null); document.removeEventListener('keydown', onKey); }
+        else if (e.key === 'Enter' && type !== 'textarea') { close(overlay.querySelector('#utils-prompt-input').value.trim() || null); document.removeEventListener('keydown', onKey); }
+      };
+      document.addEventListener('keydown', onKey);
+
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        const box = document.getElementById('utils-prompt-box');
+        if (box) box.style.transform = 'scale(1) translateY(0)';
+        setTimeout(() => { overlay.querySelector('#utils-prompt-input')?.focus(); }, 100);
+      });
+    });
+  },
+
   // ==========================================
   // VALIDATION
   // ==========================================

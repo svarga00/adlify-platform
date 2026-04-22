@@ -107,7 +107,7 @@ const OutreachModule = {
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">＋ Nový prospect</button>
             <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.exportCsv()">⬇ Export CSV</button>
             <span class="adl-toolbar-divider"></span>
-            <button class="adl-btn adl-btn-primary adl-btn-lg" onclick="OutreachModule.startCompose()" ${stats.pending === 0 ? 'disabled' : ''}>▶ Nová kampaň (${stats.pending})</button>
+            <button class="adl-btn adl-btn-primary adl-btn-lg" onclick="OutreachModule.startCompose()" ${this.selectedIds.size === 0 ? 'disabled' : ''}>▶ Poslať kampaň (${this.selectedIds.size})</button>
           `}
         </div>
       </div>
@@ -328,9 +328,13 @@ const OutreachModule = {
   },
 
   startCompose() {
-    const candidates = this.prospects.filter(p => (!p.outreach_stage || p.outreach_stage === 'pending') && p.email);
-    if (candidates.length === 0) return Utils.toast('Žiadni voľní prospekti s emailom', 'warning');
-    this.selectedIds = new Set(candidates.slice(0, 30).map(p => p.id));
+    if (this.selectedIds.size === 0) {
+      return Utils.toast('Najprv označ prospektov checkboxami (alebo stlač „Označiť všetkých" v hlavičke tabuľky).', 'warning');
+    }
+    const selected = Array.from(this.selectedIds)
+      .map(id => this.prospects.find(p => p.id === id))
+      .filter(p => p && p.email);
+    if (selected.length === 0) return Utils.toast('Žiadny z označených prospektov nemá email', 'warning');
     this.drafts.clear();
     this.currentView = 'compose';
     this.rerender();
@@ -854,7 +858,10 @@ const OutreachModule = {
         <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
             <h2 style="font-size:18px;font-weight:700;margin:0;">${this.esc(t.name)}</h2>
-            <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.cancelEdit()">← Späť na zoznam</button>
+            <div style="display:flex;gap:6px;">
+              <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.openAiGenerator()" title="Nechaj AI napísať za teba">✨ AI napíš za mňa</button>
+              <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.cancelEdit()">← Späť na zoznam</button>
+            </div>
           </div>
 
           <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Predmet</label>
@@ -1100,6 +1107,107 @@ const OutreachModule = {
     return s || null;
   },
 
+  // ========== AI GENERATOR ==========
+
+  openAiGenerator() {
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:560px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">✨ AI napíš šablónu za mňa</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="ai-gen-form" onsubmit="event.preventDefault();OutreachModule.runAiGenerator();" style="padding:20px 24px 24px;display:grid;gap:14px;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Cieľ emailu
+            <input name="goal" type="text" placeholder="napr. získať audit request, pozvať na 15-min call..." value="získať audit request"
+              style="padding:10px 14px;border:1.5px solid #E5E0D7;border-radius:10px;font-size:14px;">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Segment / odvetvie
+            <input name="segment" type="text" placeholder="napr. zubári v Bratislave, e-shopy s doplnkami, fitness centrá..."
+              style="padding:10px 14px;border:1.5px solid #E5E0D7;border-radius:10px;font-size:14px;">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Hlavný hook / uhol
+            <textarea name="keyHook" rows="3" placeholder="napr. väčšina zubárov má web z roku 2015 — vysoká bounce rate, zlé Google reviews, nepoužívajú Google Ads..."
+              style="padding:10px 14px;border:1.5px solid #E5E0D7;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Tón
+            <select name="tone" style="padding:10px 14px;border:1.5px solid #E5E0D7;border-radius:10px;font-size:14px;background:#fff;">
+              <option value="priamy">Priamy / biznis</option>
+              <option value="priateľský">Priateľský / osobný</option>
+              <option value="profesionálny">Profesionálny / formálny</option>
+              <option value="s humorom">S humorom / odľahčený</option>
+              <option value="naliehavý">Naliehavý / FOMO</option>
+            </select>
+          </label>
+          <div id="ai-gen-status" style="display:none;font-size:13px;color:#6F6758;padding:10px 14px;background:#F7F5F1;border-radius:10px;"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">✨ Vygenerovať</button>
+          </div>
+          <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">
+            AI vygeneruje subject + plain text s premennými a CTA. Môžeš ho potom editovať ako chceš.
+            Vyžaduje nastavený <code>ANTHROPIC_API_KEY</code> v Netlify env.
+          </p>
+        </form>
+      </div>
+    `;
+    this._openModal(modal);
+    setTimeout(() => modal.querySelector('[name=segment]')?.focus(), 30);
+  },
+
+  async runAiGenerator() {
+    const form = document.getElementById('ai-gen-form');
+    if (!form) return;
+    const fd = new FormData(form);
+    const payload = Object.fromEntries(fd.entries());
+    const status = document.getElementById('ai-gen-status');
+    const btn = form.querySelector('button[type=submit]');
+    if (status) { status.style.display = 'block'; status.textContent = '⏳ AI generuje (10–20 s)…'; }
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('/.netlify/functions/generate-email-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      this._applyAiResult(data);
+      this.closeModal();
+      Utils.toast('✨ Šablóna vygenerovaná — môžeš ju upraviť a uložiť.', 'success');
+    } catch (e) {
+      if (status) {
+        status.style.background = '#FEE2E2';
+        status.style.color = '#991B1B';
+        status.textContent = '✕ ' + (e.message || 'Chyba pri generovaní');
+      }
+      if (btn) btn.disabled = false;
+    }
+  },
+
+  _applyAiResult(data) {
+    const t = this.editingTemplate;
+    if (!t) return;
+    // Zapíš do editing template + aktualizuj formuláre
+    t.subject = data.subject;
+    t.plain_text = data.plainText;
+    t.body_text = data.plainText;
+    // Keď nemal meno (custom), aktualizuj z návrhu
+    if (!t.is_system && /^(Vlastná cold šablóna|Vlastná|Nová)/i.test(t.name)) {
+      t.name = data.suggestedName || t.name;
+    }
+    const subjectEl = document.getElementById('tpl-subject');
+    const textEl = document.getElementById('tpl-text');
+    if (subjectEl) subjectEl.value = data.subject;
+    if (textEl) textEl.value = data.plainText;
+    // Force prepočet (updated name zobrazíme pri rerenderi po uložení)
+  },
+
   // ========== EDITOR TOOLBAR + TEMPLATE CRUD ==========
 
   insertSnippet(kind) {
@@ -1127,7 +1235,13 @@ const OutreachModule = {
   },
 
   async newTemplate() {
-    const name = prompt('Názov novej šablóny:', 'Vlastná cold šablóna');
+    const name = await Utils.prompt({
+      title: '+ Nová šablóna',
+      message: 'Zadaj názov novej šablóny. Prázdnu ti otvorím v editore, alebo môžeš použiť „✨ AI napíš za mňa".',
+      placeholder: 'napr. Cold – letná kampaň',
+      defaultValue: 'Vlastná cold šablóna',
+      confirmText: 'Vytvoriť',
+    });
     if (!name) return;
     const baseSlug = name.toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')

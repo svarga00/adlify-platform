@@ -821,7 +821,10 @@ const LeadsModule = {
             ` : '<span style="color:var(--ink-mute); font-size:12px;">—</span>'}
           </td>
           <td>
-            <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.showLeadMenu('${lead.id}', event)" title="Viac" style="padding:0 6px; width:28px; height:28px; justify-content:center;">${I.More({size:14})}</button>
+            <div style="display:inline-flex; gap:4px;">
+              ${lead.converted_from_prospect_id ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.revertToProspect('${lead.id}')" title="Vrátiť späť do Outreach" style="padding:0 6px; width:28px; height:28px; justify-content:center;">↩</button>` : ''}
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.showLeadMenu('${lead.id}', event)" title="Viac" style="padding:0 6px; width:28px; height:28px; justify-content:center;">${I.More({size:14})}</button>
+            </div>
           </td>
         </tr>
       `;
@@ -831,6 +834,25 @@ const LeadsModule = {
   showLeadMenu(id, ev) {
     // Placeholder — môžme neskôr otvoriť dropdown menu
     this.showLeadDetail(id);
+  },
+
+  async revertToProspect(leadId) {
+    if (!window.Prospects || typeof window.Prospects.revertLeadToProspect !== 'function') {
+      return Utils.toast('Prospects helper nie je načítaný', 'danger');
+    }
+    const lead = this.leads.find(l => l.id === leadId);
+    const label = lead?.company_name || lead?.domain || 'lead';
+    const ok = await Utils.confirm(`Vrátiť „${label}" späť do Outreach? Tento lead sa zmaže a prospect sa obnoví v stave „pending".`, {
+      title: 'Vrátiť do Outreach', type: 'warning', confirmText: 'Vrátiť', cancelText: 'Zrušiť'
+    });
+    if (!ok) return;
+    const { prospect, error } = await window.Prospects.revertLeadToProspect(leadId);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.leads = this.leads.filter(l => l.id !== leadId);
+    this.selectedIds.delete(leadId);
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    this._updateListCount();
+    Utils.toast(`Vrátené do Outreach (${prospect?.company_name || prospect?.domain || 'prospect'})`, 'success');
   },
   
   getTimeAgo(date) {
