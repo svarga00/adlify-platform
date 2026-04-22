@@ -36,6 +36,120 @@ const OutreachTemplates = {
     return 'https://adlify.eu';
   },
 
+  _cache: new Map(),
+
+  /**
+   * Načíta šablónu z DB podľa slug. Cache po dobu session.
+   */
+  async loadTemplate(slug) {
+    if (this._cache.has(slug)) return this._cache.get(slug);
+    if (typeof Database === 'undefined' || !Database.client) return null;
+    const { data, error } = await Database.client
+      .from('email_templates')
+      .select('slug, name, subject, plain_text, body_text, html_content, body_html, variables, is_active')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    this._cache.set(slug, data);
+    return data;
+  },
+
+  clearCache() { this._cache.clear(); },
+
+  /**
+   * Substituuje {{vars}} v stringu podľa slovníka.
+   * Nedefinované premenné ostanú prázdne.
+   */
+  substitute(str, vars) {
+    if (!str) return '';
+    return str.replace(/\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi, (_, key) => {
+      const v = vars[key];
+      return v == null ? '' : String(v);
+    });
+  },
+
+  /**
+   * Zabalí plain-text odseky do brand HTML wrappera.
+   * Používa sa keď šablóna v DB nemá vlastný html_content.
+   */
+  wrapTextInBrand(subject, text, trackPixelUrl) {
+    const paragraphs = String(text || '').split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+    const body = paragraphs.map(p => {
+      const lines = p.split(/\n/).map(l => this._escapeHtml(l)).join('<br>');
+      return `<p style="margin:0 0 16px;font-size:16px;color:${this.brand.inkSoft};line-height:1.6;">${this._linkify(lines)}</p>`;
+    }).join('');
+    return `<!DOCTYPE html>
+<html lang="sk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${this._escapeHtml(subject)}</title></head>
+<body style="margin:0;padding:0;background:${this.brand.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:${this.brand.ink};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${this.brand.bg};padding:32px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:${this.brand.surface};border-radius:16px;border:1px solid ${this.brand.border};overflow:hidden;">
+        <tr><td style="padding:28px 32px 0;">
+          <span style="display:inline-block;width:32px;height:32px;border-radius:8px;background:${this.brand.primary};color:#fff;font-weight:800;font-size:16px;line-height:32px;text-align:center;">A</span>
+          <span style="display:inline-block;font-size:18px;font-weight:700;color:${this.brand.ink};margin-left:10px;vertical-align:middle;letter-spacing:-0.3px;">Adlify</span>
+        </td></tr>
+        <tr><td style="padding:24px 32px 8px;">${body}</td></tr>
+        <tr><td style="padding:20px 32px 24px;background:${this.brand.bg};border-top:1px solid ${this.brand.border};">
+          <p style="margin:0;font-size:11px;color:${this.brand.mutedLight};line-height:1.5;text-align:center;">
+            Adlify s.r.o. · Marketingová agentúra · <a href="https://adlify.eu" style="color:${this.brand.mutedLight};">adlify.eu</a>
+          </p>
+        </td></tr>
+      </table>
+      ${trackPixelUrl ? `<img src="${trackPixelUrl}" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;">` : ''}
+    </td></tr>
+  </table>
+</body></html>`;
+  },
+
+  _escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  },
+
+  _linkify(s) {
+    return String(s).replace(/(https?:\/\/[^\s<]+)/g, url => `<a href="${url}" style="color:${this.brand.primary};text-decoration:none;">${url}</a>`);
+  },
+
+  /**
+   * Univerzálny render: načíta šablónu z DB, substituuje premenné, vráti { subject, html, text }.
+   * Ak šablóna v DB neexistuje, vráti null (caller môže padnúť na hardcoded fallback).
+   */
+  async render(slug, vars = {}, opts = {}) {
+    const tpl = await this.loadTemplate(slug);
+    if (!tpl) return null;
+    const subject = this.substitute(tpl.subject, vars);
+    const text = this.substitute(tpl.plain_text || tpl.body_text || '', vars);
+    const rawHtml = tpl.html_content || tpl.body_html;
+    const html = rawHtml
+      ? this.substitute(rawHtml, vars)
+      : this.wrapTextInBrand(subject, text, opts.trackPixelUrl || null);
+    return { subject, html, text };
+  },
+
+  /**
+   * Pripraví "vars" slovník pre cold outreach zo záznamu prospekta + org settings.
+   */
+  buildColdOutreachVars(data) {
+    const {
+      contactName, companyName, domain, industry, auditToken, city,
+      senderName = 'Štefan Varga', senderTitle = 'Adlify',
+    } = data;
+    return {
+      greeting: contactName ? `Pán ${contactName}` : 'Dobrý deň',
+      contact_name: contactName || '',
+      company: companyName || domain || '',
+      domain: domain || '',
+      industry: industry || '',
+      industry_hook: this._industryHook(industry, city) ? ` — ${this._industryHook(industry, city)}` : '',
+      city: city || '',
+      audit_request_url: auditToken ? `${this.baseUrl()}/audit-request.html?t=${auditToken}` : '',
+      audit_url: auditToken ? `${this.baseUrl()}/audit.html?t=${auditToken}` : '',
+      sender_name: senderName,
+      sender_title: senderTitle,
+    };
+  },
+
   /**
    * 1. COLD OUTREACH EMAIL — ponuka bezplatneho mini-auditu.
    *
@@ -48,6 +162,26 @@ const OutreachTemplates = {
    * @param {string} data.city - Mesto (optional)
    * @returns {{subject:string, html:string, text:string}}
    */
+  /**
+   * Preferovaná verzia — najprv skúsi DB šablónu, padne na hardcoded.
+   */
+  async coldOutreachAuditAsync(data) {
+    const trackPixel = data.auditToken
+      ? `${this.baseUrl()}/.netlify/functions/track-open?audit=${data.auditToken}`
+      : null;
+    const vars = this.buildColdOutreachVars(data);
+    const fromDb = await this.render('cold_outreach_audit', vars, { trackPixelUrl: trackPixel });
+    if (fromDb) return fromDb;
+    return this.coldOutreachAudit(data);
+  },
+
+  async auditDeliveredAsync(data) {
+    const vars = this.buildColdOutreachVars(data);
+    const fromDb = await this.render('audit_delivered', vars);
+    if (fromDb) return fromDb;
+    return this.auditDelivered(data);
+  },
+
   coldOutreachAudit(data) {
     const {
       contactName,
