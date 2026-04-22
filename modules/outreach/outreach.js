@@ -266,11 +266,18 @@ const OutreachModule = {
           ${noEmail.length ? `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:16px;">${noEmail.length} firiem nemá email → bude preskočených.</div>` : ''}
 
           <div style="margin-bottom:16px;">
-            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Šablóna</label>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin:0;">Šablóna ${this._templatesLoadMeta ? `<span style="color:#948B7C;font-weight:500;text-transform:none;letter-spacing:0;">(DB: ${this._templatesLoadMeta.totalReturned ?? 0} záznamov, ${this._templatesLoadMeta.outreach ?? 0} outreach${this._templatesLoadMeta.error ? ', chyba: ' + this._templatesLoadMeta.error : ''})</span>` : ''}</label>
+              <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.reloadComposeTemplates()" title="Znovu načítať">↻</button>
+            </div>
             ${!this.templatesLoaded ? `
               <div style="padding:14px;border:1px dashed #EAE6DE;border-radius:10px;color:#948B7C;font-size:13px;">Načítavam šablóny…</div>
             ` : outreachTpls.length === 0 ? `
-              <div style="padding:14px;border:1px dashed #EAE6DE;border-radius:10px;color:#948B7C;font-size:13px;">Žiadne outreach šablóny — vytvor v sekcii Šablóny.</div>
+              <div style="padding:14px;border:1px dashed #F97316;background:#FFF7ED;border-radius:10px;color:#92400E;font-size:13px;line-height:1.5;">
+                <strong>Žiadne outreach šablóny neboli načítané.</strong><br>
+                V DB je: ${this._templatesLoadMeta?.totalReturned ?? '?'} záznamov. Skontroluj konzolu (F12) pre detaily.<br>
+                Prípadne klikni <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.reloadComposeTemplates()" style="margin:6px 0 0;">↻ Znovu načítať</button>
+              </div>
             ` : `
               <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;">
                 ${outreachTpls.map(t => {
@@ -339,6 +346,18 @@ const OutreachModule = {
     this.selectedTemplateSlug = slug;
     this.rerender();
     this._renderComposePreview();
+  },
+
+  async reloadComposeTemplates() {
+    this.templatesLoaded = false;
+    this.templates = [];
+    this.rerender();
+    await this.ensureOutreachTemplatesLoaded(true);
+    this.rerender();
+    this._renderComposePreview();
+    if (this.templates.filter(t => t.category === 'outreach').length > 0) {
+      Utils.toast(`Načítaných ${this.templates.filter(t => t.category === 'outreach').length} outreach šablón`, 'success');
+    }
   },
 
   setComposeViewport(vp) {
@@ -423,8 +442,9 @@ const OutreachModule = {
     if (selected.length === 0) return Utils.toast('Žiadny z označených prospektov nemá email', 'warning');
     this.drafts.clear();
     this._previewProspectId = null;
-    // najprv fetch, potom prvý render (inak je picker prázdny pri prvom zobrazení)
-    await this.ensureOutreachTemplatesLoaded();
+    // Vždy force-reload pred otvorením kampane (nech máme najčerstvejšie šablóny)
+    await this.ensureOutreachTemplatesLoaded(true);
+    console.log('[Outreach] compose start — templates:', this.templates.map(t => ({ slug: t.slug, category: t.category, is_active: t.is_active })));
     this.currentView = 'compose';
     this.rerender();
     this._renderComposePreview();
@@ -440,12 +460,20 @@ const OutreachModule = {
         .order('category', { ascending: true })
         .order('name', { ascending: true });
       if (error) throw error;
-      this.templates = (data || []).filter(t => t.is_active !== false);
+      const all = data || [];
+      this.templates = all.filter(t => t.is_active !== false);
       this.templatesLoaded = true;
+      this._templatesLoadMeta = {
+        totalReturned: all.length,
+        outreach: this.templates.filter(t => t.category === 'outreach').length,
+        transactional: this.templates.filter(t => t.category === 'transactional').length,
+      };
+      console.log('[Outreach] templates loaded:', this._templatesLoadMeta);
     } catch (e) {
-      console.warn('loadTemplates for compose failed:', e);
-      Utils.toast('Chyba pri načítaní šablón: ' + e.message, 'danger');
-      this.templatesLoaded = true; // aby nešlo do infinite loop
+      console.error('[Outreach] loadTemplates failed:', e);
+      Utils.toast('Chyba pri načítaní šablón: ' + (e.message || e), 'danger');
+      this.templatesLoaded = true;
+      this._templatesLoadMeta = { error: e.message || String(e) };
     }
   },
 
