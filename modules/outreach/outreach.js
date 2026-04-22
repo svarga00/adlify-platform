@@ -32,14 +32,17 @@ const OutreachModule = {
   templates: [],
   templatesLoaded: false,
   editingTemplate: null,
-  editorMode: 'plain',          // 'plain' | 'html'
-  previewViewport: 'desktop',   // 'desktop' | 'mobile'
+  editorMode: 'plain',
+  previewViewport: 'desktop',
   importRows: [],
   importMap: null,
   selectedTemplateSlug: 'cold_outreach_audit',
   composePreviewViewport: 'desktop',
   page: 1,
   pageSize: 50,
+  campaigns: [],
+  campaignsLoaded: false,
+  editingCampaign: null,
 
   init() {
     console.log('📮 Outreach module initialized');
@@ -104,6 +107,7 @@ const OutreachModule = {
     let body = '';
     if (this.currentView === 'compose') body = this.renderCompose();
     else if (this.currentView === 'templates') body = this.renderTemplates();
+    else if (this.currentView === 'campaigns') body = this.renderCampaigns();
     else if (this.currentView === 'import') body = this.renderImport();
     else body = this.renderOverview(stats);
     const showFunnel = this.currentView === 'overview' || this.currentView === 'compose';
@@ -141,6 +145,7 @@ const OutreachModule = {
           ${isSecondary ? `
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('overview')">← Späť</button>
           ` : `
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">🔁 Kampane</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">✉ Šablóny</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">⬆ Import CSV</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">＋ Nový prospect</button>
@@ -1380,6 +1385,321 @@ const OutreachModule = {
     let s = String(raw).trim().toLowerCase();
     s = s.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     return s || null;
+  },
+
+  // ========== CAMPAIGNS (sekvencie) ==========
+
+  async openCampaigns() {
+    this.currentView = 'campaigns';
+    this.editingCampaign = null;
+    this.campaigns = [];
+    this.campaignsLoaded = false;
+    this.rerender();
+    await this.ensureOutreachTemplatesLoaded();
+    try {
+      const { data, error } = await Database.client
+        .from('outreach_campaigns')
+        .select('id, name, description, status, segment_filter, stop_on_reply, stop_on_audit_request, sender_name, sender_email, created_at, updated_at, outreach_campaign_steps(id, step_order, delay_days, template_slug, send_if_stage_in, note), enrollments:outreach_campaign_enrollments(count)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      this.campaigns = (data || []).map(c => ({
+        ...c,
+        steps: (c.outreach_campaign_steps || []).sort((a, b) => a.step_order - b.step_order),
+        enrollment_count: c.enrollments?.[0]?.count ?? 0,
+      }));
+      this.campaignsLoaded = true;
+      this.rerender();
+    } catch (e) {
+      this.campaignsLoaded = true;
+      this.rerender();
+      Utils.toast('Chyba pri načítaní kampaní: ' + e.message, 'danger');
+    }
+  },
+
+  renderCampaigns() {
+    if (this.editingCampaign) return this._renderCampaignEditor();
+    const rows = this.campaigns;
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+        <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;color:#14120E;">Kampane / sekvencie</h2>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Viac-krokové cold outreach sekvencie. Scheduler odošle ďalší krok keď nastane <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">next_send_at</code>.</p>
+          </div>
+          <button class="adl-btn adl-btn-primary" onclick="OutreachModule.newCampaign()">+ Nová kampaň</button>
+        </div>
+        ${!this.campaignsLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam…</div>`
+          : rows.length === 0 ? `<div style="padding:40px;text-align:center;color:#6F6758;">Žiadne kampane. Vytvor prvú tlačidlom „+ Nová kampaň".</div>`
+          : rows.map(c => this._renderCampaignRow(c)).join('')}
+      </div>
+    `;
+  },
+
+  _renderCampaignRow(c) {
+    const statusMap = {
+      draft:      { label: 'Návrh',    bg: '#F7F5F1', color: '#6F6758' },
+      active:     { label: 'Aktívna',  bg: '#DCFCE7', color: '#166534' },
+      paused:     { label: 'Pauza',    bg: '#FEF3C7', color: '#92400E' },
+      completed:  { label: 'Dokončená',bg: '#DBEAFE', color: '#1E3A8A' },
+      archived:   { label: 'Archív',   bg: '#F7F5F1', color: '#948B7C' },
+    };
+    const s = statusMap[c.status] || statusMap.draft;
+    return `
+      <div style="padding:16px 24px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+            <strong style="font-size:15px;color:#14120E;">${this.esc(c.name)}</strong>
+            <span style="font-size:11px;background:${s.bg};color:${s.color};padding:2px 8px;border-radius:999px;font-weight:600;">${s.label}</span>
+          </div>
+          <div style="font-size:13px;color:#6F6758;margin-bottom:4px;">${this.esc(c.description || '')}</div>
+          <div style="font-size:12px;color:#948B7C;">${(c.steps || []).length} krokov · ${c.enrollment_count || 0} prospektov enrolled</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+          ${c.status === 'active' ? `<button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.setCampaignStatus('${c.id}','paused')">⏸ Pauza</button>` : ''}
+          ${c.status === 'paused' || c.status === 'draft' ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.setCampaignStatus('${c.id}','active')">▶ Aktivovať</button>` : ''}
+          <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editCampaign('${c.id}')">Upraviť</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteCampaign('${c.id}')" title="Zmazať">✕</button>
+        </div>
+      </div>
+    `;
+  },
+
+  editCampaign(id) {
+    const c = this.campaigns.find(x => x.id === id);
+    if (!c) return;
+    this.editingCampaign = JSON.parse(JSON.stringify(c));
+    this.rerender();
+  },
+
+  cancelEditCampaign() {
+    this.editingCampaign = null;
+    this.rerender();
+  },
+
+  async newCampaign() {
+    const name = await Utils.prompt({
+      title: '+ Nová kampaň',
+      placeholder: 'napr. Cold outreach zubári BA apríl',
+      confirmText: 'Vytvoriť',
+    });
+    if (!name) return;
+    const { data, error } = await Database.client.from('outreach_campaigns').insert({
+      name, status: 'draft', stop_on_reply: true, stop_on_audit_request: true,
+    }).select().single();
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.campaigns.unshift({ ...data, steps: [], enrollment_count: 0 });
+    this.editingCampaign = { ...data, steps: [], enrollment_count: 0 };
+    this.rerender();
+    Utils.toast('Kampaň vytvorená — pridaj kroky.', 'success');
+  },
+
+  _renderCampaignEditor() {
+    const c = this.editingCampaign;
+    const tplOptions = (this.templates || []).filter(t => t.category === 'outreach').map(t =>
+      `<option value="${t.slug}">${this.esc(t.name)} (${this.esc(t.slug)})</option>`
+    ).join('');
+    return `
+      <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div>
+              <h2 style="font-size:18px;font-weight:700;margin:0 0 2px;">${this.esc(c.name)}</h2>
+              <div style="font-size:12px;color:#948B7C;">${this.esc(c.description || '')}</div>
+            </div>
+            <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.cancelEditCampaign()">← Späť</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;">
+              Názov
+              <input id="cmp-name" type="text" value="${this.esc(c.name || '')}"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;">
+              Popis
+              <input id="cmp-desc" type="text" value="${this.esc(c.description || '')}"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+            </label>
+          </div>
+
+          <div style="display:flex;gap:20px;margin-bottom:18px;flex-wrap:wrap;">
+            <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#3A352B;">
+              <input id="cmp-stop-reply" type="checkbox" ${c.stop_on_reply ? 'checked' : ''}> Zastaviť pri odpovedi
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#3A352B;">
+              <input id="cmp-stop-audit" type="checkbox" ${c.stop_on_audit_request ? 'checked' : ''}> Zastaviť pri audit request
+            </label>
+          </div>
+
+          <h3 style="font-size:14px;font-weight:700;color:#14120E;margin:16px 0 8px;">Kroky (${(c.steps || []).length})</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;">
+            ${(c.steps || []).map((s, i) => `
+              <div style="background:#FAFAF7;border:1px solid #EAE6DE;border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:60px 120px 1fr auto;gap:12px;align-items:center;">
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;">Krok</div>
+                  <div style="font-size:20px;font-weight:800;color:#F97316;">#${s.step_order}</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Odstup</div>
+                  <input type="number" step="0.5" min="0" value="${s.delay_days || 0}" onchange="OutreachModule._updateStepDelay(${i}, this.value)"
+                    style="width:100%;padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+                  <div style="font-size:11px;color:#948B7C;margin-top:2px;">dní po predošlom</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Šablóna</div>
+                  <select onchange="OutreachModule._updateStepTemplate(${i}, this.value)"
+                    style="width:100%;padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+                    ${tplOptions.replace(`value="${s.template_slug}"`, `value="${s.template_slug}" selected`)}
+                  </select>
+                </div>
+                <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule._removeStep(${i})">✕</button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="adl-btn adl-btn-outline" onclick="OutreachModule._addStep()">+ Pridať krok</button>
+
+          <div style="border-top:1px solid #EAE6DE;margin-top:20px;padding-top:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="font-size:13px;color:#6F6758;">${c.enrollment_count || 0} prospektov enrolled</div>
+            <div style="display:flex;gap:8px;">
+              <button class="adl-btn adl-btn-outline" onclick="OutreachModule._enrollFromCampaign()">+ Enroll prospektov</button>
+              <button class="adl-btn adl-btn-primary" onclick="OutreachModule.saveCampaign()">Uložiť</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  _addStep() {
+    const c = this.editingCampaign;
+    if (!c) return;
+    const next = (c.steps?.length || 0) + 1;
+    const firstTpl = (this.templates || []).find(t => t.category === 'outreach');
+    c.steps = [...(c.steps || []), {
+      step_order: next,
+      delay_days: next === 1 ? 0 : 3,
+      template_slug: firstTpl?.slug || 'cold_outreach_audit',
+      send_if_stage_in: null,
+    }];
+    this.rerender();
+  },
+
+  _removeStep(idx) {
+    const c = this.editingCampaign;
+    if (!c) return;
+    c.steps.splice(idx, 1);
+    c.steps.forEach((s, i) => s.step_order = i + 1);
+    this.rerender();
+  },
+
+  _updateStepDelay(idx, value) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]) return;
+    c.steps[idx].delay_days = parseFloat(value) || 0;
+  },
+
+  _updateStepTemplate(idx, value) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]) return;
+    c.steps[idx].template_slug = value;
+  },
+
+  async saveCampaign() {
+    const c = this.editingCampaign;
+    if (!c) return;
+    const name = document.getElementById('cmp-name')?.value?.trim() || c.name;
+    const desc = document.getElementById('cmp-desc')?.value?.trim() || null;
+    const stopReply = document.getElementById('cmp-stop-reply')?.checked ?? c.stop_on_reply;
+    const stopAudit = document.getElementById('cmp-stop-audit')?.checked ?? c.stop_on_audit_request;
+    if (!name) return Utils.toast('Názov je povinný', 'warning');
+
+    try {
+      // 1. Update campaign
+      const { error: upErr } = await Database.client.from('outreach_campaigns').update({
+        name, description: desc, stop_on_reply: stopReply, stop_on_audit_request: stopAudit,
+      }).eq('id', c.id);
+      if (upErr) throw upErr;
+
+      // 2. Replace steps (delete all + insert new)
+      await Database.client.from('outreach_campaign_steps').delete().eq('campaign_id', c.id);
+      if (c.steps?.length) {
+        const { error: stErr } = await Database.client.from('outreach_campaign_steps').insert(
+          c.steps.map(s => ({
+            campaign_id: c.id,
+            step_order: s.step_order,
+            delay_days: s.delay_days || 0,
+            template_slug: s.template_slug,
+            send_if_stage_in: s.send_if_stage_in || null,
+            note: s.note || null,
+          }))
+        );
+        if (stErr) throw stErr;
+      }
+      Utils.toast('Kampaň uložená', 'success');
+      this.editingCampaign = null;
+      await this.openCampaigns();
+    } catch (e) {
+      Utils.toast('Chyba: ' + e.message, 'danger');
+    }
+  },
+
+  async setCampaignStatus(id, status) {
+    const patch = { status };
+    if (status === 'active') patch.started_at = new Date().toISOString();
+    if (status === 'completed') patch.completed_at = new Date().toISOString();
+    const { error } = await Database.client.from('outreach_campaigns').update(patch).eq('id', id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    const c = this.campaigns.find(x => x.id === id);
+    if (c) c.status = status;
+    this.rerender();
+    Utils.toast(`Status: ${status}`, 'success');
+  },
+
+  async deleteCampaign(id) {
+    const c = this.campaigns.find(x => x.id === id);
+    const ok = await Utils.confirm(`Zmazať kampaň „${c?.name}"? Zmažú sa aj všetky kroky a enrollments.`, {
+      type: 'danger', confirmText: 'Zmazať', cancelText: 'Zrušiť'
+    });
+    if (!ok) return;
+    const { error } = await Database.client.from('outreach_campaigns').delete().eq('id', id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.campaigns = this.campaigns.filter(x => x.id !== id);
+    this.rerender();
+    Utils.toast('Zmazané', 'success');
+  },
+
+  async _enrollFromCampaign() {
+    const c = this.editingCampaign;
+    if (!c) return;
+    if (!c.steps?.length) return Utils.toast('Najprv pridaj aspoň 1 krok a ulož.', 'warning');
+
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) {
+      return Utils.toast('Najprv označ prospektov v zozname (späť na Outreach a checkboxami).', 'warning');
+    }
+    const ok = await Utils.confirm(`Enroll ${ids.length} prospektov do kampane „${c.name}"? Prvý krok sa odošle pri najbližšom scheduler runu.`, {
+      type: 'warning', confirmText: 'Enroll', cancelText: 'Zrušiť'
+    });
+    if (!ok) return;
+
+    const firstStep = (c.steps || []).sort((a, b) => a.step_order - b.step_order)[0];
+    const delayMs = (firstStep.delay_days || 0) * 24 * 60 * 60 * 1000;
+    const nextSend = new Date(Date.now() + delayMs).toISOString();
+
+    const rows = ids.map(pid => ({
+      campaign_id: c.id,
+      prospect_id: pid,
+      current_step: 0,
+      next_send_at: nextSend,
+      status: 'active',
+    }));
+    const { error } = await Database.client.from('outreach_campaign_enrollments').upsert(rows, {
+      onConflict: 'campaign_id,prospect_id',
+    });
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    Utils.toast(`Enrolled ${ids.length} prospektov`, 'success');
+    this.selectedIds.clear();
+    await this.openCampaigns();
   },
 
   // ========== PROSPECT DETAIL MODAL ==========
