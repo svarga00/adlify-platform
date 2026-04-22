@@ -155,16 +155,73 @@ function _rewriteLinks(html, auditToken, unsubscribeUrl) {
   });
 }
 
-async function sendEmail(to, subject, html, text) {
+async function sendEmail(to, subject, html, text, sender) {
+  const payload = { to, subject, htmlBody: html, textBody: text };
+  if (sender?.email) {
+    payload.fromEmail = sender.email;
+    payload.fromName = sender.name;
+    if (sender.reply_to) payload.replyTo = sender.reply_to;
+  }
   const res = await fetch(`${BASE_URL}/.netlify/functions/send-email`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, subject, htmlBody: html, textBody: text }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
     throw new Error(`send-email ${res.status}: ${t}`);
   }
+}
+
+// Vyberie najvhodnejšieho sendera (is_active, sent_today<warmup_current,
+// last_sent_at starší ako throttle_seconds).
+async function pickSender() {
+  const { data: senders } = await supabase
+    .from('outreach_senders')
+    .select('*')
+    .eq('is_active', true);
+  if (!senders?.length) return null;
+
+  const now = Date.now();
+  // Reset sent_today ak uplynulo >24h
+  for (const s of senders) {
+    const reset = s.sent_today_reset_at ? new Date(s.sent_today_reset_at).getTime() : 0;
+    if (now - reset >= 24 * 60 * 60 * 1000) {
+      s.sent_today = 0;
+      s.sent_today_reset_at = new Date().toISOString();
+      await supabase.from('outreach_senders').update({
+        sent_today: 0, sent_today_reset_at: s.sent_today_reset_at,
+      }).eq('id', s.id);
+    }
+  }
+
+  // Filter available — zostávajúca kapacita + dodržaný throttle
+  const available = senders.filter(s => {
+    const limit = s.warmup_current || s.daily_limit || 40;
+    if ((s.sent_today || 0) >= limit) return false;
+    const lastMs = s.last_sent_at ? new Date(s.last_sent_at).getTime() : 0;
+    const gapMs = (s.throttle_seconds || 60) * 1000;
+    if (now - lastMs < gapMs) return false;
+    return true;
+  });
+  if (!available.length) return null;
+  // Round-robin: vyber s najstarším last_sent_at
+  available.sort((a, b) => (new Date(a.last_sent_at || 0).getTime()) - (new Date(b.last_sent_at || 0).getTime()));
+  return available[0];
+}
+
+async function bumpSenderCounters(senderId) {
+  const nowIso = new Date().toISOString();
+  const { data: s } = await supabase
+    .from('outreach_senders')
+    .select('sent_today, total_sent')
+    .eq('id', senderId).maybeSingle();
+  if (!s) return;
+  await supabase.from('outreach_senders').update({
+    sent_today: (s.sent_today || 0) + 1,
+    total_sent: (s.total_sent || 0) + 1,
+    last_sent_at: nowIso,
+  }).eq('id', senderId);
 }
 
 async function processOneEnrollment(enrollment, campaign, steps, prospect) {
@@ -198,6 +255,13 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
     return { sent: false, completed: true };
   }
 
+  // 2b. Vyber variant (A/B testing) — ak step má template_variants, weighted random
+  const variantSlug = pickVariant(step);
+  if (!variantSlug) {
+    console.error('[scheduler] no template for step', step.id);
+    return { sent: false, error: 'no_template' };
+  }
+
   // 3. Gate: send_if_stage_in
   if (step.send_if_stage_in?.length && !step.send_if_stage_in.includes(prospect.outreach_stage || 'pending')) {
     // preskoč tento krok, posuň na ďalší hneď
@@ -216,9 +280,35 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
   }
 
   // 4. Pošli email
+  let senderId = null;
   try {
-    const email = await renderEmailFromTemplate(step.template_slug, prospect);
-    await sendEmail(prospect.email, email.subject, email.html, email.text);
+    const sender = await pickSender();
+    // Ak existujú sendrovia a žiadny nie je dostupný → skip do ďalšieho runu
+    const { count: activeCount } = await supabase.from('outreach_senders').select('id', { count: 'exact', head: true }).eq('is_active', true);
+    if ((activeCount || 0) > 0 && !sender) {
+      // Všetci sú na dnešnom limite alebo throttled. Posuň next_send_at o 5 min.
+      await supabase.from('outreach_campaign_enrollments').update({
+        next_send_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      }).eq('id', enrollment.id);
+      return { sent: false, skipped: true, reason: 'sender_throttled' };
+    }
+    const email = await renderEmailFromTemplate(variantSlug, prospect);
+    await sendEmail(prospect.email, email.subject, email.html, email.text, sender);
+    if (sender?.id) {
+      senderId = sender.id;
+      await bumpSenderCounters(sender.id);
+    }
+    await supabase.from('prospect_events').insert({
+      prospect_id: prospect.id,
+      event_type: 'email_sent',
+      sender_id: senderId,
+      meta: {
+        campaign_id: campaign.id,
+        step_order: nextStepOrder,
+        variant_slug: variantSlug,
+        sender_email: sender?.email || null,
+      },
+    });
   } catch (err) {
     console.error('[scheduler] send failed:', err.message);
     return { sent: false, error: err.message };
@@ -237,6 +327,7 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
 
   // Určiť kedy bude ďalší krok
   const futureStep = steps.find(s => s.step_order === nextStepOrder + 1);
+  const variantHistoryPatch = { ...(enrollment.variant_history || {}), [`step_${nextStepOrder}`]: variantSlug };
   let enrollPatch;
   if (futureStep) {
     const delayMs = (futureStep.delay_days || 0) * 24 * 60 * 60 * 1000;
@@ -244,6 +335,8 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
       current_step: nextStepOrder,
       last_sent_at: now.toISOString(),
       next_send_at: new Date(now.getTime() + delayMs).toISOString(),
+      variant_history: variantHistoryPatch,
+      last_sender_id: senderId,
     };
   } else {
     enrollPatch = {
@@ -252,11 +345,29 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
       status: 'completed',
       completed_at: now.toISOString(),
       next_send_at: null,
+      variant_history: variantHistoryPatch,
+      last_sender_id: senderId,
     };
   }
   await supabase.from('outreach_campaign_enrollments').update(enrollPatch).eq('id', enrollment.id);
 
-  return { sent: true, step: nextStepOrder };
+  return { sent: true, step: nextStepOrder, variant: variantSlug };
+}
+
+function pickVariant(step) {
+  const variants = Array.isArray(step.template_variants) ? step.template_variants.filter(v => v.slug) : [];
+  if (variants.length === 0) return step.template_slug;
+  if (variants.length === 1) return variants[0].slug;
+  const totalWeight = variants.reduce((s, v) => s + (Number(v.weight) || 0), 0);
+  if (totalWeight <= 0) {
+    return variants[Math.floor(Math.random() * variants.length)].slug;
+  }
+  let r = Math.random() * totalWeight;
+  for (const v of variants) {
+    r -= (Number(v.weight) || 0);
+    if (r <= 0) return v.slug;
+  }
+  return variants[variants.length - 1].slug;
 }
 
 exports.handler = async () => {

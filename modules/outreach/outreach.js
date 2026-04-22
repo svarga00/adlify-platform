@@ -112,6 +112,7 @@ const OutreachModule = {
     else if (this.currentView === 'templates') body = this.renderTemplates();
     else if (this.currentView === 'campaigns') body = this.renderCampaigns();
     else if (this.currentView === 'analytics') body = this.renderAnalytics();
+    else if (this.currentView === 'senders') body = this.renderSenders();
     else if (this.currentView === 'import') body = this.renderImport();
     else body = this.renderOverview(stats);
     const showFunnel = this.currentView === 'overview' || this.currentView === 'compose';
@@ -151,6 +152,7 @@ const OutreachModule = {
           ` : `
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAnalytics()">📊 Analytika</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">🔁 Kampane</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openSenders()">📤 Odosielatelia</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">✉ Šablóny</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">⬆ Import CSV</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">＋ Nový prospect</button>
@@ -1696,6 +1698,174 @@ const OutreachModule = {
     `;
   },
 
+  // ========== SENDERS (rotation + warm-up) ==========
+
+  senders: [],
+  sendersLoaded: false,
+
+  async openSenders() {
+    this.currentView = 'senders';
+    this.senders = [];
+    this.sendersLoaded = false;
+    this.rerender();
+    try {
+      const { data, error } = await Database.client
+        .from('outreach_senders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      this.senders = data || [];
+      this.sendersLoaded = true;
+      this.rerender();
+    } catch (e) {
+      this.sendersLoaded = true;
+      this.rerender();
+      Utils.toast('Chyba: ' + e.message, 'danger');
+    }
+  },
+
+  renderSenders() {
+    const rows = this.senders;
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+        <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Odosielatelia a warm-up</h2>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Scheduler striedá odosielateľov, dodržiava daily limit a throttle medzi mailmi — prevencia voči spamu.</p>
+          </div>
+          <button class="adl-btn adl-btn-primary" onclick="OutreachModule.newSender()">+ Pridať odosielateľa</button>
+        </div>
+
+        ${!this.sendersLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam…</div>`
+          : rows.length === 0 ? `
+            <div style="padding:40px;text-align:center;color:#6F6758;">
+              <div style="font-size:14px;margin-bottom:8px;">Žiadni odosielatelia.</div>
+              <div style="font-size:12px;">Bez odosielateľov scheduler použije default <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">RESEND_FROM</code> env var.</div>
+            </div>`
+          : rows.map(s => this._renderSenderRow(s)).join('')}
+      </div>
+    `;
+  },
+
+  _renderSenderRow(s) {
+    const limit = s.warmup_current || s.daily_limit || 40;
+    const sentPct = Math.min(100, Math.round(((s.sent_today || 0) / limit) * 100));
+    return `
+      <div style="padding:16px 24px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+            <strong style="font-size:15px;color:#14120E;">${this.esc(s.name)}</strong>
+            <span style="font-size:12px;color:#6F6758;">&lt;${this.esc(s.email)}&gt;</span>
+            ${!s.is_active ? `<span style="font-size:11px;background:#F7F5F1;color:#6F6758;padding:2px 8px;border-radius:999px;font-weight:600;">disabled</span>` : ''}
+          </div>
+          <div style="font-size:12px;color:#948B7C;margin-bottom:6px;">
+            Dnes: <strong>${s.sent_today || 0}</strong> / ${limit} · celkovo ${s.total_sent || 0} · throttle ${s.throttle_seconds || 60}s
+          </div>
+          <div style="height:6px;background:#F7F5F1;border-radius:999px;overflow:hidden;max-width:280px;">
+            <div style="height:100%;background:${sentPct >= 95 ? '#DC2626' : '#F97316'};width:${sentPct}%;transition:width .3s;"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+          <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editSender('${s.id}')">Upraviť</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.toggleSender('${s.id}')">${s.is_active ? '⏸ Vypnúť' : '▶ Zapnúť'}</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteSender('${s.id}')">✕</button>
+        </div>
+      </div>
+    `;
+  },
+
+  newSender() { this._senderModal({ is_active: true, daily_limit: 40, warmup_current: 40, throttle_seconds: 60 }); },
+  editSender(id) {
+    const s = this.senders.find(x => x.id === id);
+    if (s) this._senderModal(s);
+  },
+
+  _senderModal(s) {
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:520px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">${s.id ? 'Upraviť odosielateľa' : '+ Nový odosielateľ'}</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="sender-form" onsubmit="event.preventDefault();OutreachModule.saveSender('${s.id || ''}');" style="padding:20px 24px;display:grid;gap:12px;">
+          ${this._field('name', 'Meno *', 'text', true)}
+          ${this._field('email', 'Email *', 'email', true)}
+          ${this._field('reply_to', 'Reply-to (voliteľné)', 'email')}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Denný limit (warm-up current)
+              <input type="number" name="warmup_current" min="1" max="500" value="${s.warmup_current || 40}" required
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Throttle (s)
+              <input type="number" name="throttle_seconds" min="10" max="3600" value="${s.throttle_seconds || 60}"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+            </label>
+          </div>
+          ${this._field('notes', 'Poznámka', 'textarea')}
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">Uložiť</button>
+          </div>
+        </form>
+      </div>
+    `;
+    this._openModal(modal);
+    const form = modal.querySelector('#sender-form');
+    if (form && s.id) {
+      ['name','email','reply_to','notes'].forEach(k => {
+        const el = form.querySelector(`[name=${k}]`);
+        if (el && s[k] != null) el.value = s[k];
+      });
+    }
+    setTimeout(() => modal.querySelector('[name=name]')?.focus(), 30);
+  },
+
+  async saveSender(id) {
+    const form = document.getElementById('sender-form');
+    if (!form) return;
+    const fd = new FormData(form);
+    const row = Object.fromEntries(fd.entries());
+    if (!row.name || !row.email) return Utils.toast('Meno a email sú povinné', 'warning');
+    const payload = {
+      name: row.name.trim(),
+      email: row.email.trim().toLowerCase(),
+      reply_to: row.reply_to?.trim() || null,
+      warmup_current: parseInt(row.warmup_current) || 40,
+      daily_limit: parseInt(row.warmup_current) || 40,
+      throttle_seconds: parseInt(row.throttle_seconds) || 60,
+      notes: row.notes?.trim() || null,
+    };
+    let err;
+    if (id) {
+      ({ error: err } = await Database.client.from('outreach_senders').update(payload).eq('id', id));
+    } else {
+      payload.is_active = true;
+      ({ error: err } = await Database.client.from('outreach_senders').insert(payload));
+    }
+    if (err) return Utils.toast('Chyba: ' + err.message, 'danger');
+    this.closeModal();
+    Utils.toast('Uložené', 'success');
+    await this.openSenders();
+  },
+
+  async toggleSender(id) {
+    const s = this.senders.find(x => x.id === id);
+    if (!s) return;
+    await Database.client.from('outreach_senders').update({ is_active: !s.is_active }).eq('id', id);
+    await this.openSenders();
+  },
+
+  async deleteSender(id) {
+    const ok = await Utils.confirm('Zmazať odosielateľa?', { type: 'danger', confirmText: 'Zmazať' });
+    if (!ok) return;
+    await Database.client.from('outreach_senders').delete().eq('id', id);
+    await this.openSenders();
+  },
+
   // ========== CAMPAIGNS (sekvencie) ==========
 
   async openCampaigns() {
@@ -1709,7 +1879,7 @@ const OutreachModule = {
     try {
       const { data, error } = await Database.client
         .from('outreach_campaigns')
-        .select('id, name, description, status, segment_filter, stop_on_reply, stop_on_audit_request, sender_name, sender_email, created_at, updated_at, outreach_campaign_steps(id, step_order, delay_days, template_slug, send_if_stage_in, note), enrollments:outreach_campaign_enrollments(count)')
+        .select('id, name, description, status, segment_filter, stop_on_reply, stop_on_audit_request, sender_name, sender_email, created_at, updated_at, outreach_campaign_steps(id, step_order, delay_days, template_slug, template_variants, send_if_stage_in, note), enrollments:outreach_campaign_enrollments(count)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       this.campaigns = (data || []).map(c => ({
@@ -2011,28 +2181,7 @@ const OutreachModule = {
 
           <h3 style="font-size:14px;font-weight:700;color:#14120E;margin:16px 0 8px;">Kroky (${(c.steps || []).length})</h3>
           <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;">
-            ${(c.steps || []).map((s, i) => `
-              <div style="background:#FAFAF7;border:1px solid #EAE6DE;border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:60px 120px 1fr auto;gap:12px;align-items:center;">
-                <div style="text-align:center;">
-                  <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;">Krok</div>
-                  <div style="font-size:20px;font-weight:800;color:#F97316;">#${s.step_order}</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Odstup</div>
-                  <input type="number" step="0.5" min="0" value="${s.delay_days || 0}" onchange="OutreachModule._updateStepDelay(${i}, this.value)"
-                    style="width:100%;padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
-                  <div style="font-size:11px;color:#948B7C;margin-top:2px;">dní po predošlom</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Šablóna</div>
-                  <select onchange="OutreachModule._updateStepTemplate(${i}, this.value)"
-                    style="width:100%;padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
-                    ${tplOptions.replace(`value="${s.template_slug}"`, `value="${s.template_slug}" selected`)}
-                  </select>
-                </div>
-                <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule._removeStep(${i})">✕</button>
-              </div>
-            `).join('')}
+            ${(c.steps || []).map((s, i) => this._renderStepCard(s, i, tplOptions)).join('')}
           </div>
           <button class="adl-btn adl-btn-outline" onclick="OutreachModule._addStep()">+ Pridať krok</button>
 
@@ -2057,9 +2206,114 @@ const OutreachModule = {
       step_order: next,
       delay_days: next === 1 ? 0 : 3,
       template_slug: firstTpl?.slug || 'cold_outreach_audit',
+      template_variants: null,
       send_if_stage_in: null,
     }];
     this.rerender();
+  },
+
+  _renderStepCard(s, i, tplOptions) {
+    const variants = Array.isArray(s.template_variants) && s.template_variants.length ? s.template_variants : null;
+    return `
+      <div style="background:#FAFAF7;border:1px solid #EAE6DE;border-radius:10px;padding:12px 14px;">
+        <div style="display:grid;grid-template-columns:60px 140px 1fr auto;gap:12px;align-items:center;">
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;">Krok</div>
+            <div style="font-size:20px;font-weight:800;color:#F97316;">#${s.step_order}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Odstup</div>
+            <input type="number" step="0.5" min="0" value="${s.delay_days || 0}" onchange="OutreachModule._updateStepDelay(${i}, this.value)"
+              style="width:100%;padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+            <div style="font-size:11px;color:#948B7C;margin-top:2px;">dní po predošlom</div>
+          </div>
+          <div>
+            ${!variants ? `
+              <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:2px;display:flex;justify-content:space-between;">
+                <span>Šablóna</span>
+                <button type="button" onclick="OutreachModule._enableVariants(${i})" style="background:none;border:0;color:#F97316;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:0.3px;">+ A/B testovať</button>
+              </div>
+              <select onchange="OutreachModule._updateStepTemplate(${i}, this.value)"
+                style="width:100%;padding:8px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+                ${tplOptions.replace(`value="${s.template_slug}"`, `value="${s.template_slug}" selected`)}
+              </select>
+            ` : `
+              <div style="font-size:11px;color:#948B7C;text-transform:uppercase;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;">
+                <span>A/B Varianty (${variants.length})</span>
+                <button type="button" onclick="OutreachModule._disableVariants(${i})" style="background:none;border:0;color:#6F6758;cursor:pointer;font-size:11px;font-weight:700;">← jeden</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                ${variants.map((v, vi) => `
+                  <div style="display:grid;grid-template-columns:1fr 80px auto;gap:6px;align-items:center;">
+                    <select onchange="OutreachModule._updateVariantSlug(${i}, ${vi}, this.value)"
+                      style="padding:7px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:12px;background:#fff;">
+                      ${tplOptions.replace(`value="${v.slug}"`, `value="${v.slug}" selected`)}
+                    </select>
+                    <input type="number" min="1" max="100" value="${v.weight || 50}" onchange="OutreachModule._updateVariantWeight(${i}, ${vi}, this.value)"
+                      title="Váha — % rozdelenie"
+                      style="padding:7px 8px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:12px;text-align:right;">
+                    <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;padding:0 8px;" onclick="OutreachModule._removeVariant(${i}, ${vi})" ${variants.length === 1 ? 'disabled' : ''}>✕</button>
+                  </div>
+                `).join('')}
+              </div>
+              <button type="button" onclick="OutreachModule._addVariant(${i})" style="background:none;border:0;color:#F97316;cursor:pointer;font-size:11px;font-weight:700;margin-top:6px;">+ Pridať variant</button>
+            `}
+          </div>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule._removeStep(${i})">✕</button>
+        </div>
+      </div>
+    `;
+  },
+
+  _enableVariants(idx) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]) return;
+    const cur = c.steps[idx].template_slug || 'cold_outreach_audit';
+    // začnú 2 varianty: current 50%, druhá z outreach 50%
+    const alt = (this.templates || []).filter(t => t.category === 'outreach' && t.slug !== cur)[0];
+    c.steps[idx].template_variants = [
+      { slug: cur, weight: 50 },
+      { slug: alt?.slug || cur, weight: 50 },
+    ];
+    this.rerender();
+  },
+
+  _disableVariants(idx) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]) return;
+    const first = c.steps[idx].template_variants?.[0]?.slug;
+    c.steps[idx].template_slug = first || c.steps[idx].template_slug;
+    c.steps[idx].template_variants = null;
+    this.rerender();
+  },
+
+  _addVariant(idx) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]) return;
+    const existing = new Set((c.steps[idx].template_variants || []).map(v => v.slug));
+    const alt = (this.templates || []).filter(t => t.category === 'outreach' && !existing.has(t.slug))[0];
+    if (!alt) return Utils.toast('Všetky outreach šablóny sú už vo variantoch.', 'warning');
+    c.steps[idx].template_variants = [...(c.steps[idx].template_variants || []), { slug: alt.slug, weight: 25 }];
+    this.rerender();
+  },
+
+  _removeVariant(idx, vi) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]?.template_variants) return;
+    c.steps[idx].template_variants.splice(vi, 1);
+    this.rerender();
+  },
+
+  _updateVariantSlug(idx, vi, value) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]?.template_variants?.[vi]) return;
+    c.steps[idx].template_variants[vi].slug = value;
+  },
+
+  _updateVariantWeight(idx, vi, value) {
+    const c = this.editingCampaign;
+    if (!c?.steps?.[idx]?.template_variants?.[vi]) return;
+    c.steps[idx].template_variants[vi].weight = parseInt(value) || 1;
   },
 
   _removeStep(idx) {
@@ -2102,14 +2356,19 @@ const OutreachModule = {
       await Database.client.from('outreach_campaign_steps').delete().eq('campaign_id', c.id);
       if (c.steps?.length) {
         const { error: stErr } = await Database.client.from('outreach_campaign_steps').insert(
-          c.steps.map(s => ({
-            campaign_id: c.id,
-            step_order: s.step_order,
-            delay_days: s.delay_days || 0,
-            template_slug: s.template_slug,
-            send_if_stage_in: s.send_if_stage_in || null,
-            note: s.note || null,
-          }))
+          c.steps.map(s => {
+            const hasVariants = Array.isArray(s.template_variants) && s.template_variants.length > 0;
+            return {
+              campaign_id: c.id,
+              step_order: s.step_order,
+              delay_days: s.delay_days || 0,
+              // pre backward compat uložíme prvý slug do template_slug; variants do JSONB
+              template_slug: hasVariants ? s.template_variants[0].slug : s.template_slug,
+              template_variants: hasVariants ? s.template_variants : null,
+              send_if_stage_in: s.send_if_stage_in || null,
+              note: s.note || null,
+            };
+          })
         );
         if (stErr) throw stErr;
       }
