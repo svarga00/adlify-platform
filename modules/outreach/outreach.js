@@ -794,33 +794,52 @@ const OutreachModule = {
     if (this.editingTemplate) return this._renderTemplateEditor();
 
     const rows = this.templates;
+    const groups = { outreach: [], transactional: [], custom: [] };
+    rows.forEach(t => {
+      const cat = t.category === 'transactional' ? 'transactional' : (t.is_system ? 'outreach' : 'custom');
+      (groups[cat] || groups.outreach).push(t);
+    });
+    const groupLabel = { outreach: 'Cold outreach', transactional: 'Transakčné', custom: 'Vlastné' };
+
+    const renderGroup = (key) => {
+      const items = groups[key] || [];
+      if (!items.length) return '';
+      return `
+        <div style="padding:14px 24px 6px;font-size:12px;font-weight:700;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;background:#FAF8F4;border-top:1px solid #EAE6DE;">${groupLabel[key]} (${items.length})</div>
+        ${items.map(t => `
+          <div style="padding:16px 24px;border-top:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:16px;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+                <strong style="font-size:15px;color:#14120E;">${this.esc(t.name)}</strong>
+                ${t.is_system ? `<span style="font-size:11px;background:#F7F5F1;color:#6F6758;padding:2px 8px;border-radius:999px;">systémová</span>` : `<span style="font-size:11px;background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:999px;">vlastná</span>`}
+                ${!t.is_active ? `<span style="font-size:11px;background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:999px;">neaktívna</span>` : ''}
+              </div>
+              <div style="font-size:13px;color:#6F6758;margin-bottom:4px;">${this.esc(t.description || '')}</div>
+              <div style="font-size:12px;color:#948B7C;font-family:ui-monospace,monospace;">${this.esc(t.slug)} · ${this.esc(t.subject)}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+              <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editTemplate('${t.id}')">Upraviť</button>
+              <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.previewTemplate('${t.id}')">Náhľad</button>
+              <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.duplicateTemplate('${t.id}')" title="Duplikovať">⎘</button>
+              ${!t.is_system ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteTemplate('${t.id}')" title="Zmazať">✕</button>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      `;
+    };
+
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
-        <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;">
+        <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
           <div>
             <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;color:#14120E;">Šablóny emailov</h2>
-            <p style="font-size:13px;color:#6F6758;margin:0;">Uprav predmet a text. Premenné sú v tvare <code>{{company}}</code>, <code>{{greeting}}</code> atď.</p>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Uprav predmet/text. Premenné <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">{{company}}</code>. CTA tlačidlo <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">[[Text|url]]</code>.</p>
           </div>
+          <button class="adl-btn adl-btn-primary" onclick="OutreachModule.newTemplate()">+ Nová šablóna</button>
         </div>
-        <div>
-          ${!this.templatesLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam šablóny…</div>` : rows.length === 0 ? `<div style="padding:40px;text-align:center;color:#6F6758;">Žiadne šablóny. Ak by mali existovať, skontroluj RLS alebo kategóriu (outreach/transactional).</div>` : rows.map(t => `
-            <div style="padding:16px 24px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:16px;">
-              <div style="flex:1;min-width:0;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                  <strong style="font-size:15px;color:#14120E;">${this.esc(t.name)}</strong>
-                  ${t.is_system ? `<span style="font-size:11px;background:#F7F5F1;color:#6F6758;padding:2px 8px;border-radius:999px;">systémová</span>` : ''}
-                  <span style="font-size:11px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:999px;">${this.esc(t.category)}</span>
-                </div>
-                <div style="font-size:13px;color:#6F6758;margin-bottom:4px;">${this.esc(t.description || '')}</div>
-                <div style="font-size:12px;color:#948B7C;font-family:monospace;">${this.esc(t.slug)} · ${this.esc(t.subject)}</div>
-              </div>
-              <div style="display:flex;gap:6px;flex-shrink:0;">
-                <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editTemplate('${t.id}')">Upraviť</button>
-                <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.previewTemplate('${t.id}')">Náhľad</button>
-              </div>
-            </div>
-          `).join('')}
-        </div>
+        ${!this.templatesLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam šablóny…</div>`
+          : rows.length === 0 ? `<div style="padding:40px;text-align:center;color:#6F6758;">Žiadne šablóny.</div>`
+          : renderGroup('outreach') + renderGroup('custom') + renderGroup('transactional')}
       </div>
     `;
   },
@@ -848,8 +867,17 @@ const OutreachModule = {
           </div>
 
           ${mode === 'plain' ? `
-            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Telo emailu (plain text + <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">[[Text|url]]</code> pre tlačidlo)</label>
-            <textarea id="tpl-text" rows="18" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;">${this.esc(t.plain_text || t.body_text || '')}</textarea>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Telo emailu</label>
+            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;padding:6px;background:#F7F5F1;border:1.5px solid #EAE6DE;border-bottom:0;border-radius:10px 10px 0 0;">
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.insertSnippet('cta')" title="Vložiť CTA tlačidlo">▶ Tlačidlo</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.insertSnippet('link')" title="Vložiť link">🔗 Link</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.insertSnippet('greeting')" title="{{greeting}}">👋 {{greeting}}</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.insertSnippet('company')" title="{{company}}">🏢 {{company}}</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.insertSnippet('audit')" title="Audit request CTA">🧾 Audit CTA</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.insertSnippet('signature')" title="Podpis">✍ Podpis</button>
+              <button type="button" class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.insertSnippet('ps')" title="P.S. riadok">P.S.</button>
+            </div>
+            <textarea id="tpl-text" rows="18" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-top:0;border-radius:0 0 10px 10px;font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6;resize:vertical;">${this.esc(t.plain_text || t.body_text || '')}</textarea>
           ` : `
             <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (úplný HTML, prepíše brand wrapper)</label>
             <textarea id="tpl-html" rows="22" placeholder="<!DOCTYPE html>&#10;<html>&#10;  ..." style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;">${this.esc(t.html_content || t.body_html || '')}</textarea>
@@ -1070,6 +1098,105 @@ const OutreachModule = {
     let s = String(raw).trim().toLowerCase();
     s = s.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
     return s || null;
+  },
+
+  // ========== EDITOR TOOLBAR + TEMPLATE CRUD ==========
+
+  insertSnippet(kind) {
+    const ta = document.getElementById('tpl-text');
+    if (!ta) return;
+    const snippets = {
+      cta: '\n\n[[Chcem audit zadarmo|{{audit_request_url}}]]\n',
+      link: '[[Klikni tu|https://]]',
+      greeting: '{{greeting}}',
+      company: '{{company}}',
+      audit: '\n\n[[Chcem audit zadarmo|{{audit_request_url}}]]\n\n',
+      signature: '\n\nS pozdravom,\n{{sender_name}}\n{{sender_title}}',
+      ps: '\n\nP.S. ',
+    };
+    const text = snippets[kind];
+    if (!text) return;
+    const start = ta.selectionStart ?? ta.value.length;
+    const end = ta.selectionEnd ?? ta.value.length;
+    const before = ta.value.slice(0, start);
+    const after = ta.value.slice(end);
+    ta.value = before + text + after;
+    const caret = start + text.length;
+    ta.focus();
+    ta.setSelectionRange(caret, caret);
+  },
+
+  async newTemplate() {
+    const name = prompt('Názov novej šablóny:', 'Vlastná cold šablóna');
+    if (!name) return;
+    const baseSlug = name.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 48) || 'custom';
+    const slug = `${baseSlug}_${Date.now().toString(36)}`;
+    const payload = {
+      org_id: '00000000-0000-0000-0000-000000000001',
+      slug,
+      name: name.trim(),
+      description: 'Vlastná šablóna',
+      category: 'outreach',
+      subject: '{{company}} — ',
+      plain_text: `{{greeting}},\n\n\n\n[[Chcem audit zadarmo|{{audit_request_url}}]]\n\nS pozdravom,\n{{sender_name}}\n{{sender_title}}`,
+      body_text: `{{greeting}},\n\n\n\n[[Chcem audit zadarmo|{{audit_request_url}}]]\n\nS pozdravom,\n{{sender_name}}\n{{sender_title}}`,
+      variables: ['greeting','contact_name','company','domain','industry','industry_hook','city','audit_request_url','sender_name','sender_title'],
+      is_system: false,
+      is_active: true,
+    };
+    const { data, error } = await Database.client.from('email_templates').insert(payload).select().single();
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.templates.unshift(data);
+    OutreachTemplates.clearCache();
+    this.editingTemplate = { ...data };
+    this.editorMode = 'plain';
+    this.rerender();
+    Utils.toast('Šablóna vytvorená', 'success');
+  },
+
+  async duplicateTemplate(id) {
+    const src = this.templates.find(x => x.id === id);
+    if (!src) return;
+    const payload = {
+      org_id: '00000000-0000-0000-0000-000000000001',
+      slug: `${src.slug}_copy_${Date.now().toString(36)}`,
+      name: `${src.name} (kópia)`,
+      description: src.description,
+      category: src.category,
+      subject: src.subject,
+      plain_text: src.plain_text || src.body_text || '',
+      body_text: src.plain_text || src.body_text || '',
+      html_content: src.html_content || src.body_html || null,
+      body_html: src.html_content || src.body_html || null,
+      variables: src.variables || [],
+      is_system: false,
+      is_active: true,
+    };
+    const { data, error } = await Database.client.from('email_templates').insert(payload).select().single();
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.templates.unshift(data);
+    OutreachTemplates.clearCache();
+    Utils.toast('Šablóna duplikovaná', 'success');
+    this.rerender();
+  },
+
+  async deleteTemplate(id) {
+    const t = this.templates.find(x => x.id === id);
+    if (!t) return;
+    if (t.is_system) return Utils.toast('Systémovú šablónu nemôžeš zmazať (použi Duplikovať a uprav kópiu).', 'warning');
+    const ok = typeof Utils?.confirm === 'function'
+      ? await Utils.confirm(`Zmazať šablónu „${t.name}"?`, { title: 'Zmazať šablónu', type: 'danger', confirmText: 'Zmazať', cancelText: 'Zrušiť' })
+      : confirm(`Zmazať „${t.name}"?`);
+    if (!ok) return;
+    const { error } = await Database.client.from('email_templates').delete().eq('id', id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.templates = this.templates.filter(x => x.id !== id);
+    OutreachTemplates.clearCache();
+    Utils.toast('Zmazané', 'success');
+    this.rerender();
   },
 
   // ========== SELECTION + DELETE ==========

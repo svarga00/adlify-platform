@@ -163,14 +163,35 @@ const OutreachTemplates = {
       : '';
 
     return `<!DOCTYPE html>
-<html lang="sk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${this._escapeHtml(subject)}</title></head>
+<html lang="sk"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<title>${this._escapeHtml(subject)}</title>
+<style>
+  @media only screen and (max-width: 520px) {
+    .adl-email-card { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+    .adl-email-pad { padding-left: 18px !important; padding-right: 18px !important; }
+    .adl-email-pad-top { padding-top: 22px !important; padding-bottom: 10px !important; }
+    .adl-email-hero { font-size: 15px !important; line-height: 1.55 !important; }
+    .adl-email-cta a { display: block !important; width: 100% !important; padding: 16px 20px !important; font-size: 15px !important; box-sizing: border-box !important; }
+    .adl-email-footer { padding: 16px 18px 20px !important; }
+    .adl-email-footer p { font-size: 11px !important; }
+    .adl-email-outer { padding: 12px 0 !important; }
+    .adl-email-logo img { max-height: 34px !important; }
+  }
+  body, table, td { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+  a { color: ${primary}; text-decoration: none; }
+</style>
+</head>
 <body style="margin:0;padding:0;background:${this.brand.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:${this.brand.ink};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${this.brand.bg};padding:32px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="adl-email-outer" style="background:${this.brand.bg};padding:32px 12px;">
     <tr><td align="center">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:${this.brand.surface};border-radius:16px;border:1px solid ${this.brand.border};overflow:hidden;">
-        <tr><td style="padding:28px 32px 16px;">${logoHtml}</td></tr>
-        <tr><td style="padding:0 32px 8px;">${body}</td></tr>
-        <tr><td style="padding:20px 32px 24px;background:${this.brand.bg};border-top:1px solid ${this.brand.border};">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="adl-email-card" style="max-width:600px;width:100%;background:${this.brand.surface};border-radius:16px;border:1px solid ${this.brand.border};overflow:hidden;">
+        <tr><td class="adl-email-pad adl-email-pad-top adl-email-logo" style="padding:28px 32px 16px;">${logoHtml}</td></tr>
+        <tr><td class="adl-email-pad adl-email-hero" style="padding:0 32px 8px;">${body}</td></tr>
+        <tr><td class="adl-email-footer" style="padding:20px 32px 24px;background:${this.brand.bg};border-top:1px solid ${this.brand.border};">
           ${footerLines.map(l => `<p style="margin:0 0 6px;font-size:11px;color:${this.brand.mutedLight};line-height:1.5;text-align:center;">${l}</p>`).join('')}
           ${unsubHtml}
         </td></tr>
@@ -188,21 +209,19 @@ const OutreachTemplates = {
     const primary = primaryColor || this.brand.primary;
     const paragraphs = String(text || '').split(/\n\n+/).map(p => p.trim()).filter(Boolean);
     return paragraphs.map(p => {
-      // CTA button syntax
       const ctaMatch = p.match(/^\[\[(.+?)\|(.+?)\]\]$/s);
       if (ctaMatch) {
         const label = this._escapeHtml(ctaMatch[1].trim());
         const url = this._escapeHtml(ctaMatch[2].trim());
-        return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:12px 0 20px;">
+        return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="adl-email-cta"><tr><td align="center" style="padding:16px 0 22px;">
           <a href="${url}" style="display:inline-block;background:${primary};color:#fff;text-decoration:none;font-size:16px;font-weight:600;padding:14px 32px;border-radius:12px;letter-spacing:-0.2px;">${label}</a>
         </td></tr></table>`;
       }
-      // paragraph with [[text|url]] inline — convert to inline button-ish link
       const lines = p.split(/\n/).map(l => this._escapeHtml(l)).join('<br>');
       const withInlineCTA = lines.replace(/\[\[(.+?)\|(.+?)\]\]/g, (_, label, url) =>
         `<a href="${url}" style="display:inline-block;background:${primary};color:#fff;text-decoration:none;padding:8px 16px;border-radius:8px;font-weight:600;">${label}</a>`
       );
-      return `<p style="margin:0 0 16px;font-size:16px;color:${this.brand.inkSoft};line-height:1.6;">${this._linkify(withInlineCTA, primary)}</p>`;
+      return `<p style="margin:0 0 16px;font-size:16px;color:${this.brand.inkSoft};line-height:1.65;">${this._linkify(withInlineCTA, primary)}</p>`;
     }).join('');
   },
 
