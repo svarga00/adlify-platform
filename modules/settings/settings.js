@@ -1023,6 +1023,11 @@ const SettingsModule = {
         const emailContact = this.getValue('email_contact', 'info@adlify.eu');
         const emailFooter = this.getValue('email_footer_text', '');
         const emailTagline = this.getValue('email_tagline', '');
+        const emailPhone = this.getValue('email_phone', '');
+        const emailAddress = this.getValue('email_company_address', '');
+        const emailUnsub = this.getValue('email_unsubscribe_url', '');
+        const senderName = this.getValue('sender_name', '');
+        const senderTitle = this.getValue('sender_title', '');
 
         return `
             <div class="settings-card mb-6">
@@ -1049,8 +1054,37 @@ const SettingsModule = {
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Tagline <span class="text-gray-400 font-normal">(nepovinné)</span></label>
-                        <input type="text" name="email_tagline" value="${emailTagline}" 
+                        <input type="text" name="email_tagline" value="${emailTagline}"
                                class="w-full p-2.5 border rounded-lg text-sm" placeholder="Online marketing, ktorý funguje.">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Telefón <span class="text-gray-400 font-normal">(v pätičke)</span></label>
+                            <input type="text" name="email_phone" value="${emailPhone}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="+421 944 184 045">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Unsubscribe URL <span class="text-gray-400 font-normal">(CAN-SPAM)</span></label>
+                            <input type="url" name="email_unsubscribe_url" value="${emailUnsub}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="https://adlify.eu/unsubscribe">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Adresa firmy <span class="text-gray-400 font-normal">(CAN-SPAM, zobrazí sa v pätičke)</span></label>
+                        <input type="text" name="email_company_address" value="${emailAddress}"
+                               class="w-full p-2.5 border rounded-lg text-sm" placeholder="Adlify s.r.o., Hviezdoslavova 12, 811 01 Bratislava">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Meno odosielateľa <span class="text-gray-400 font-normal">({{sender_name}})</span></label>
+                            <input type="text" name="sender_name" value="${senderName}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="Štefan Varga">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Titul odosielateľa <span class="text-gray-400 font-normal">({{sender_title}})</span></label>
+                            <input type="text" name="sender_title" value="${senderTitle}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="Adlify">
+                        </div>
                     </div>
                     <div class="flex justify-end pt-2">
                         <button type="submit" class="btn-primary">Uložiť</button>
@@ -1146,7 +1180,10 @@ const SettingsModule = {
             }
             
             if (window.App) App.settings = { ...App.settings, ...this.settings };
-            
+            if (window.OutreachTemplates && typeof OutreachTemplates.clearBrandCache === 'function') {
+                OutreachTemplates.clearBrandCache();
+            }
+
             Utils.toast('Email nastavenia uložené ✅', 'success');
             
             // Refresh previews

@@ -20,7 +20,7 @@ const OutreachModule = {
   title: 'Outreach',
   subtitle: 'Personalizované oslovovanie firiem',
 
-  menu: { section: 'main', order: 25 },
+  menu: { section: 'main', order: 15 },
   permissions: ['leads', 'view'],
 
   prospects: [],
@@ -32,6 +32,8 @@ const OutreachModule = {
   templates: [],
   templatesLoaded: false,
   editingTemplate: null,
+  editorMode: 'plain',          // 'plain' | 'html'
+  previewViewport: 'desktop',   // 'desktop' | 'mobile'
   importRows: [],
   importMap: null,
 
@@ -826,10 +828,12 @@ const OutreachModule = {
   _renderTemplateEditor() {
     const t = this.editingTemplate;
     const vars = Array.isArray(t.variables) ? t.variables : [];
+    const mode = this.editorMode;
+    const hasHtml = !!(t.html_content || t.body_html);
     return `
       <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;">
         <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
             <h2 style="font-size:18px;font-weight:700;margin:0;">${this.esc(t.name)}</h2>
             <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.cancelEdit()">← Späť na zoznam</button>
           </div>
@@ -838,8 +842,19 @@ const OutreachModule = {
           <input id="tpl-subject" type="text" value="${this.esc(t.subject || '')}"
             style="width:100%;padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;margin-bottom:16px;">
 
-          <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Telo emailu (plain text)</label>
-          <textarea id="tpl-text" rows="18" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;">${this.esc(t.plain_text || t.body_text || '')}</textarea>
+          <div style="display:flex;gap:6px;margin-bottom:8px;">
+            <button class="adl-btn adl-btn-sm ${mode==='plain'?'adl-btn-ink':'adl-btn-outline'}" onclick="OutreachModule.setEditorMode('plain')">Plain text${hasHtml?'':' (odporúčané)'}</button>
+            <button class="adl-btn adl-btn-sm ${mode==='html'?'adl-btn-ink':'adl-btn-outline'}" onclick="OutreachModule.setEditorMode('html')">HTML</button>
+          </div>
+
+          ${mode === 'plain' ? `
+            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Telo emailu (plain text + <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">[[Text|url]]</code> pre tlačidlo)</label>
+            <textarea id="tpl-text" rows="18" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;">${this.esc(t.plain_text || t.body_text || '')}</textarea>
+          ` : `
+            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (úplný HTML, prepíše brand wrapper)</label>
+            <textarea id="tpl-html" rows="22" placeholder="<!DOCTYPE html>&#10;<html>&#10;  ..." style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;">${this.esc(t.html_content || t.body_html || '')}</textarea>
+            <p style="font-size:12px;color:#948B7C;margin:6px 0 0;">Nechaj prázdne pre auto-generovanie HTML z plain textu s brandom.</p>
+          `}
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px;flex-wrap:wrap;">
             <span style="font-size:12px;color:#948B7C;">Posledná zmena: ${t.updated_at ? new Date(t.updated_at).toLocaleString('sk-SK') : '—'}</span>
@@ -855,7 +870,7 @@ const OutreachModule = {
         <aside style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:18px 20px;align-self:flex-start;">
           <h3 style="font-size:13px;font-weight:700;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 10px;">Dostupné premenné</h3>
           <p style="font-size:12px;color:#948B7C;margin:0 0 10px;">Klikni na premennú pre skopírovanie.</p>
-          <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
             ${vars.map(v => `
               <button onclick="OutreachModule.copyVar('${v}')"
                 style="text-align:left;padding:8px 10px;border:1px solid #EAE6DE;background:#F7F5F1;border-radius:8px;font-family:ui-monospace,monospace;font-size:12px;color:#3A352B;cursor:pointer;">
@@ -863,9 +878,27 @@ const OutreachModule = {
               </button>
             `).join('')}
           </div>
+          <h3 style="font-size:13px;font-weight:700;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px;">CTA tlačidlo</h3>
+          <p style="font-size:12px;color:#948B7C;margin:0 0 8px;line-height:1.5;">Do textu na samostatný riadok napíš:</p>
+          <code style="display:block;padding:8px 10px;background:#F7F5F1;border:1px solid #EAE6DE;border-radius:8px;font-size:12px;color:#3A352B;word-break:break-all;">[[Chcem audit|{{audit_request_url}}]]</code>
+          <p style="font-size:11px;color:#948B7C;margin:6px 0 0;">V emaili sa zobrazí ako veľké oranžové tlačidlo.</p>
         </aside>
       </div>
     `;
+  },
+
+  setEditorMode(mode) {
+    // zachovaj súčasné hodnoty pred prepnutím
+    const subj = document.getElementById('tpl-subject')?.value;
+    const plain = document.getElementById('tpl-text')?.value;
+    const html = document.getElementById('tpl-html')?.value;
+    if (this.editingTemplate) {
+      if (subj != null) this.editingTemplate.subject = subj;
+      if (plain != null) { this.editingTemplate.plain_text = plain; this.editingTemplate.body_text = plain; }
+      if (html != null) { this.editingTemplate.html_content = html; this.editingTemplate.body_html = html; }
+    }
+    this.editorMode = mode;
+    this.rerender();
   },
 
   editTemplate(id) {
@@ -894,26 +927,56 @@ const OutreachModule = {
     setTimeout(() => this.previewEditing(), 50);
   },
 
-  previewEditing() {
+  async previewEditing() {
     const subject = document.getElementById('tpl-subject')?.value || '';
     const text = document.getElementById('tpl-text')?.value || '';
+    const customHtml = document.getElementById('tpl-html')?.value || '';
     const sampleVars = this._sampleVars();
     const subj = OutreachTemplates.substitute(subject, sampleVars);
-    const txt = OutreachTemplates.substitute(text, sampleVars);
-    const html = OutreachTemplates.wrapTextInBrand(subj, txt, null);
+    const brand = await OutreachTemplates.loadBrand();
+    let html;
+    if (this.editorMode === 'html' && customHtml.trim()) {
+      html = OutreachTemplates.substitute(customHtml, sampleVars);
+    } else {
+      const txt = OutreachTemplates.substitute(text, sampleVars);
+      html = OutreachTemplates.wrapTextInBrand(subj, txt, { brand, unsubscribeUrl: brand.unsubscribeUrl });
+    }
     const box = document.getElementById('tpl-preview');
     if (!box) return;
+    this._previewHtml = html;
+    this._previewSubject = subj;
     box.style.display = 'block';
+    this._renderPreviewBox();
+  },
+
+  _renderPreviewBox() {
+    const box = document.getElementById('tpl-preview');
+    if (!box) return;
+    const vp = this.previewViewport;
+    const iframeWidth = vp === 'mobile' ? '375px' : '100%';
+    const iframeMaxWidth = vp === 'mobile' ? '375px' : '100%';
     box.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <strong style="font-size:14px;">Náhľad: ${this.esc(subj)}</strong>
-        <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="document.getElementById('tpl-preview').style.display='none'">Zavrieť</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
+        <strong style="font-size:14px;">Náhľad: ${this.esc(this._previewSubject || '')}</strong>
+        <div style="display:flex;gap:6px;">
+          <button class="adl-btn adl-btn-sm ${vp==='desktop'?'adl-btn-ink':'adl-btn-outline'}" onclick="OutreachModule.setPreviewViewport('desktop')">🖥 Desktop</button>
+          <button class="adl-btn adl-btn-sm ${vp==='mobile'?'adl-btn-ink':'adl-btn-outline'}" onclick="OutreachModule.setPreviewViewport('mobile')">📱 Mobile</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="document.getElementById('tpl-preview').style.display='none'">✕</button>
+        </div>
       </div>
-      <iframe id="tpl-preview-iframe" style="width:100%;height:560px;border:1px solid #EAE6DE;border-radius:12px;background:#fff;"></iframe>
+      <div style="background:#F7F5F1;border:1px solid #EAE6DE;border-radius:12px;padding:14px;display:flex;justify-content:center;">
+        <iframe id="tpl-preview-iframe" style="width:${iframeWidth};max-width:${iframeMaxWidth};height:640px;border:1px solid #EAE6DE;border-radius:10px;background:#fff;"></iframe>
+      </div>
     `;
     const iframe = document.getElementById('tpl-preview-iframe');
+    const html = this._previewHtml || '';
     iframe.onload = () => { try { iframe.contentDocument.open(); iframe.contentDocument.write(html); iframe.contentDocument.close(); } catch(e) {} };
     iframe.src = 'about:blank';
+  },
+
+  setPreviewViewport(vp) {
+    this.previewViewport = vp;
+    this._renderPreviewBox();
   },
 
   _sampleVars() {
@@ -940,18 +1003,25 @@ const OutreachModule = {
     const t = this.editingTemplate;
     if (!t) return;
     const subject = document.getElementById('tpl-subject')?.value?.trim();
-    const text = document.getElementById('tpl-text')?.value;
-    if (!subject || !text) return Utils.toast('Predmet aj telo sú povinné', 'warning');
+    const text = document.getElementById('tpl-text')?.value ?? t.plain_text ?? t.body_text ?? '';
+    const html = document.getElementById('tpl-html')?.value ?? t.html_content ?? t.body_html ?? '';
+    if (!subject) return Utils.toast('Predmet je povinný', 'warning');
+    if (!text && !html) return Utils.toast('Vyplň aspoň plain text alebo HTML', 'warning');
+    const update = { subject, plain_text: text, body_text: text };
+    // HTML sa ukladá len keď má hodnotu — prázdny reťazec uloží NULL aby sa použil brand wrapper
+    update.html_content = html.trim() || null;
+    update.body_html = html.trim() || null;
     const { error } = await Database.client
       .from('email_templates')
-      .update({ subject, plain_text: text, body_text: text })
+      .update(update)
       .eq('id', t.id);
     if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
     OutreachTemplates.clearCache();
     Utils.toast('Uložené', 'success');
     const idx = this.templates.findIndex(x => x.id === t.id);
-    if (idx >= 0) this.templates[idx] = { ...this.templates[idx], subject, plain_text: text, body_text: text, updated_at: new Date().toISOString() };
+    if (idx >= 0) this.templates[idx] = { ...this.templates[idx], ...update, updated_at: new Date().toISOString() };
     this.editingTemplate = null;
+    this.editorMode = 'plain';
     this.rerender();
   },
 
