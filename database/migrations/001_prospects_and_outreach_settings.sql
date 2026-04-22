@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS prospects (
   outreach_last_contacted_at TIMESTAMPTZ,
 
   -- Audit flow
-  audit_token TEXT UNIQUE,
+  audit_token UUID UNIQUE DEFAULT gen_random_uuid(),
   audit_requested_at TIMESTAMPTZ,
   audit_request_data JSONB,              -- odpoveď z audit-request.html (priority, note, ...)
   audit_delivered_at TIMESTAMPTZ,
