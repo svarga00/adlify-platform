@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/js/utils/prospects.js"></script>
 <style>
   :root {
     --brand: #F97316;
@@ -268,7 +269,7 @@
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let auditToken = null;
-  let leadData = null;
+  let prospectData = null;
 
   const ICONS = {
     check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
@@ -285,26 +286,26 @@
     }
 
     try {
-      const { data: lead, error } = await db
-        .from('leads')
-        .select('id, company_name, domain, contact_person, email, phone, industry, city, audit_requested_at, audit_delivered_at, outreach_stage, audit_token')
+      const { data: prospect, error } = await db
+        .from('prospects')
+        .select('id, company_name, domain, contact_person, email, phone, industry, city, audit_requested_at, audit_delivered_at, outreach_stage, audit_token, converted_to_lead_id')
         .eq('audit_token', auditToken)
         .single();
 
-      if (error || !lead) {
+      if (error || !prospect) {
         return showError('Audit nenájdený', 'Tento odkaz už nie je platný. Kontaktujte nás cez info@adlify.eu.');
       }
 
-      leadData = lead;
+      prospectData = prospect;
 
       // Ak uz bol audit dorucenu, presmeruj na nej
-      if (lead.audit_delivered_at) {
+      if (prospect.audit_delivered_at) {
         window.location.href = '/audit.html?t=' + auditToken;
         return;
       }
 
       // Ak uz raz vyplnil ale audit este nebol dorucenu, ukaz "v priprave"
-      if (lead.audit_requested_at) {
+      if (prospect.audit_requested_at) {
         return showInProgress();
       }
 
@@ -317,8 +318,8 @@
 
   function renderForm() {
     const app = document.getElementById('app');
-    const company = leadData.company_name || leadData.domain;
-    const greeting = leadData.contact_person ? leadData.contact_person : 'Dobrý deň';
+    const company = prospectData.company_name || prospectData.domain;
+    const greeting = prospectData.contact_person ? prospectData.contact_person : 'Dobrý deň';
 
     app.innerHTML = `
       <span class="badge">Bezplatná analýza · 5 voľných miest</span>
@@ -352,7 +353,7 @@
           <textarea id="note" placeholder="Napr. snažíme sa rozbiehať Meta reklamy ale neviem ako..."></textarea>
         </div>
 
-        ${!leadData.email ? `
+        ${!prospectData.email ? `
         <div class="form-group">
           <label for="email">Email pre doručenie auditu</label>
           <input type="email" id="email" required placeholder="vasa@firma.sk">
@@ -390,7 +391,7 @@
     const priorityEl = document.querySelector('input[name="priority"]:checked');
     const note = document.getElementById('note').value.trim();
     const emailEl = document.getElementById('email');
-    const email = emailEl ? emailEl.value.trim() : leadData.email;
+    const email = emailEl ? emailEl.value.trim() : prospectData.email;
 
     if (!priorityEl) {
       alert('Označte prosím vašu prioritu.');
@@ -417,14 +418,26 @@
         audit_request_data: requestData,
         outreach_stage: 'audit_requested'
       };
-      if (!leadData.email && email) updateData.email = email;
+      if (!prospectData.email && email) updateData.email = email;
 
-      const { error: updErr } = await db
-        .from('leads')
-        .update(updateData)
-        .eq('audit_token', auditToken);
-
-      if (updErr) throw updErr;
+      // 1. Update prospect a (podľa pravidiel) auto-promote na lead
+      if (window.Prospects && prospectData.id) {
+        const { prospect: updated, promoted } = await window.Prospects.recordEventAndMaybePromote(
+          prospectData.id,
+          'audit_requested',
+          updateData,
+          { client: db }
+        );
+        if (!updated) throw new Error('Update zlyhal');
+        console.log('Prospect updated.', promoted ? 'Promoted to lead.' : 'Not promoted.');
+      } else {
+        // fallback bez helpera — len update prospectu
+        const { error: updErr } = await db
+          .from('prospects')
+          .update(updateData)
+          .eq('audit_token', auditToken);
+        if (updErr) throw updErr;
+      }
 
       // 2. Spusti deep-audit edge function (asynchronne, klient nemusi cakat)
       try {

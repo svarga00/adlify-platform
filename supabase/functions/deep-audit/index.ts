@@ -4,7 +4,7 @@
 // Audit-first outreach flow: trigger po klike na "Chcem audit zadarmo"
 //
 // Vstup: { audit_token: string }
-// Vystup: 200 + audit_findings ulozene v leads.audit_findings
+// Vystup: 200 + audit_findings ulozene v prospects.audit_findings
 //
 // Postup:
 //   1. Validacia tokenu, nacitanie leadu
@@ -14,7 +14,7 @@
 //        - WHOIS (vek domeny)
 //        - Marketing Miner (top keywords pre odvetvie/firmu)
 //   3. Claude synteza -> 3 konkretne findings
-//   4. Update leads.audit_data + audit_findings
+//   4. Update prospects.audit_data + audit_findings
 //   5. Poslanie emailu cez Resend
 // =====================================================
 
@@ -564,7 +564,7 @@ serve(async (req) => {
 
     // 1. Load lead
     const { data: lead, error: leadErr } = await supabase
-      .from('leads')
+      .from('prospects')
       .select('*')
       .eq('audit_token', audit_token)
       .single()
@@ -612,7 +612,7 @@ serve(async (req) => {
 
     // 4. Save
     const { error: updErr } = await supabase
-      .from('leads')
+      .from('prospects')
       .update({
         audit_data: auditData,
         audit_findings: findings,

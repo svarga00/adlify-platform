@@ -37,7 +37,8 @@ BEGIN
       contact_person, email, phone,
       score, source, source_url, tags,
       outreach_stage, outreach_email_sent_at, outreach_email_opened_at,
-      audit_token, audit_requested_at, audit_delivered_at, audit_viewed_at,
+      audit_token, audit_requested_at, audit_request_data, audit_delivered_at,
+      audit_generated_at, audit_data, audit_findings, audit_viewed_at, audit_view_count,
       notes, assigned_to, created_at, updated_at
     )
     SELECT
@@ -55,8 +56,13 @@ BEGIN
       l.outreach_email_opened_at,
       l.audit_token,
       l.audit_requested_at,
+      l.audit_request_data,
       l.audit_delivered_at,
+      l.audit_generated_at,
+      l.audit_data,
+      l.audit_findings,
       l.audit_viewed_at,
+      COALESCE(l.audit_view_count, 0),
       l.notes, l.assigned_to, l.created_at, l.updated_at
     FROM leads l
     WHERE COALESCE(l.outreach_stage, 'pending') IN ('pending','email_sent','email_opened')

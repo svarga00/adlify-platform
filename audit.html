@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/js/utils/prospects.js"></script>
 <style>
   :root {
     --brand: #F97316; --brand-dark: #EA580C; --brand-50: #FFF4EC; --brand-100: #FFE6D3;
@@ -256,8 +257,8 @@
 
     try {
       const { data, error } = await db
-        .from('leads')
-        .select('id, company_name, domain, contact_person, email, industry, city, audit_data, audit_findings, audit_generated_at, audit_delivered_at, audit_view_count, audit_viewed_at, outreach_stage')
+        .from('prospects')
+        .select('id, company_name, domain, contact_person, email, industry, city, audit_data, audit_findings, audit_generated_at, audit_delivered_at, audit_view_count, audit_viewed_at, outreach_stage, converted_to_lead_id')
         .eq('audit_token', auditToken)
         .single();
 
@@ -268,9 +269,9 @@
         return showPending();
       }
 
-      // Track view
+      // Track view (non-critical)
       try {
-        await db.from('leads').update({
+        await db.from('prospects').update({
           audit_viewed_at: lead.audit_viewed_at || new Date().toISOString(),
           audit_view_count: (lead.audit_view_count || 0) + 1,
           outreach_stage: lead.outreach_stage === 'audit_delivered' ? 'audit_viewed' : lead.outreach_stage,

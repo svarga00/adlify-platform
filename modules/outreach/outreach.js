@@ -1,19 +1,16 @@
 /**
- * ADLIFY PLATFORM — Outreach Module v1.0
+ * ADLIFY PLATFORM — Outreach Module v2.0
  *
- * Personalizovane cold emaily firmam s audit-first prístupom.
+ * Pracuje s tabuľkou `prospects` (cold outreach targets).
+ * Prospect sa premení na lead buď:
+ *   - automaticky podľa pravidiel v outreach_settings (audit click, call booked, ...)
+ *   - manuálne cez tlačidlo "Presunúť do leadov"
  *
  * Flow:
- *   1. Vyber leadov (filter: status, segment, bez audit_sent)
+ *   1. Vyber prospectov (filter: stage, segment, search)
  *   2. Preview generovaneho emailu (OutreachTemplates.coldOutreachAudit)
- *   3. Rucna uprava per lead ak treba
- *   4. Poslanie cez /.netlify/functions/send-email (Resend)
- *   5. Update leads.outreach_email_sent_at + outreach_stage='email_sent'
- *
- * Meniaci sa state:
- *   - OutreachModule.currentView: 'overview' | 'compose' | 'preview'
- *   - OutreachModule.selectedIds: Set<uuid>
- *   - OutreachModule.drafts: Map<leadId, { subject, html, text, edited }>
+ *   3. Poslanie cez /.netlify/functions/send-email (Resend)
+ *   4. Update prospects.outreach_email_sent_at + outreach_stage='email_sent'
  */
 
 const OutreachModule = {
@@ -26,11 +23,11 @@ const OutreachModule = {
   menu: { section: 'main', order: 25 },
   permissions: ['leads', 'view'],
 
-  leads: [],
+  prospects: [],
   selectedIds: new Set(),
   drafts: new Map(),
   currentView: 'overview',
-  filters: { stage: 'pending', source: 'all', search: '' },
+  filters: { stage: 'pending', segment: 'all', search: '' },
 
   init() {
     console.log('📮 Outreach module initialized');
@@ -40,12 +37,12 @@ const OutreachModule = {
     container.innerHTML = '<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam...</div>';
     try {
       const { data, error } = await Database.client
-        .from('leads')
-        .select('id, company_name, domain, contact_person, email, phone, industry, city, status, score, source, audit_token, outreach_stage, outreach_email_sent_at, outreach_email_opened_at, audit_requested_at, audit_delivered_at, audit_viewed_at, created_at, notes')
+        .from('prospects')
+        .select('id, company_name, domain, contact_person, email, phone, industry, city, segment, status:outreach_stage, score, source, audit_token, outreach_stage, outreach_email_sent_at, outreach_email_opened_at, outreach_email_open_count, outreach_email_replied_at, audit_requested_at, audit_delivered_at, audit_viewed_at, converted_to_lead_id, converted_at, conversion_reason, created_at, notes')
         .order('score', { ascending: false, nullsLast: true })
         .limit(500);
       if (error) throw error;
-      this.leads = data || [];
+      this.prospects = data || [];
       container.innerHTML = this.template();
       this.bindEvents();
     } catch (e) {
@@ -66,15 +63,15 @@ const OutreachModule = {
   },
 
   computeStats() {
-    const l = this.leads;
+    const p = this.prospects;
     return {
-      total: l.length,
-      pending: l.filter(x => !x.outreach_stage || x.outreach_stage === 'pending').length,
-      email_sent: l.filter(x => x.outreach_stage === 'email_sent').length,
-      email_opened: l.filter(x => x.outreach_email_opened_at).length,
-      audit_requested: l.filter(x => x.audit_requested_at).length,
-      audit_viewed: l.filter(x => x.audit_viewed_at).length,
-      call_booked: l.filter(x => x.outreach_stage === 'call_booked').length,
+      total: p.length,
+      pending: p.filter(x => !x.outreach_stage || x.outreach_stage === 'pending').length,
+      email_sent: p.filter(x => x.outreach_stage === 'email_sent').length,
+      email_opened: p.filter(x => x.outreach_email_opened_at).length,
+      audit_requested: p.filter(x => x.audit_requested_at).length,
+      audit_viewed: p.filter(x => x.audit_viewed_at).length,
+      converted: p.filter(x => x.outreach_stage === 'converted').length,
     };
   },
 
@@ -99,12 +96,12 @@ const OutreachModule = {
 
   renderFunnel(stats) {
     const steps = [
-      { label: 'Voľné leady', value: stats.pending, color: '#6F6758' },
+      { label: 'Voľní prospekti', value: stats.pending, color: '#6F6758' },
       { label: 'Email odoslaný', value: stats.email_sent, color: '#3B82F6' },
       { label: 'Email otvorený', value: stats.email_opened, color: '#8B5CF6' },
       { label: 'Klikol na audit', value: stats.audit_requested, color: '#F59E0B' },
       { label: 'Audit videl', value: stats.audit_viewed, color: '#EA580C' },
-      { label: 'Rezervoval call', value: stats.call_booked, color: '#16A34A' },
+      { label: 'Lead', value: stats.converted, color: '#16A34A' },
     ];
     return `
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:24px;">
@@ -130,11 +127,13 @@ const OutreachModule = {
         <select onchange="OutreachModule.setFilter('stage', this.value)"
           style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
           <option value="all" ${f.stage==='all'?'selected':''}>Všetky fázy</option>
-          <option value="pending" ${f.stage==='pending'?'selected':''}>Voľné (neodoslané)</option>
+          <option value="pending" ${f.stage==='pending'?'selected':''}>Voľní (neodoslané)</option>
           <option value="email_sent" ${f.stage==='email_sent'?'selected':''}>Email odoslaný</option>
+          <option value="email_opened" ${f.stage==='email_opened'?'selected':''}>Email otvorený</option>
           <option value="audit_requested" ${f.stage==='audit_requested'?'selected':''}>Klikli na audit</option>
           <option value="audit_viewed" ${f.stage==='audit_viewed'?'selected':''}>Audit videli</option>
-          <option value="call_booked" ${f.stage==='call_booked'?'selected':''}>Rezervovali call</option>
+          <option value="converted" ${f.stage==='converted'?'selected':''}>Premenení na lead</option>
+          <option value="lost" ${f.stage==='lost'?'selected':''}>Stratení</option>
         </select>
       </div>
 
@@ -148,13 +147,13 @@ const OutreachModule = {
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Kontakt</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Fáza</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Skóre</th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Akcia</th>
+                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Akcie</th>
               </tr>
             </thead>
             <tbody>
               ${filtered.length === 0 ? `
-                <tr><td colspan="5" style="padding:40px;text-align:center;color:#6F6758;">Žiadne leady podľa filtra.</td></tr>
-              ` : filtered.slice(0, 100).map(l => this.renderRow(l)).join('')}
+                <tr><td colspan="5" style="padding:40px;text-align:center;color:#6F6758;">Žiadni prospekti podľa filtra.</td></tr>
+              ` : filtered.slice(0, 100).map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
         </div>
@@ -163,40 +162,42 @@ const OutreachModule = {
     `;
   },
 
-  renderRow(lead) {
-    const stage = this.stageBadge(lead);
-    const company = lead.company_name || lead.domain;
-    const contact = lead.contact_person ? `${lead.contact_person}${lead.email ? ' · ' + lead.email : ''}` : (lead.email || '—');
-    const canSend = !lead.outreach_email_sent_at && lead.email;
+  renderRow(prospect) {
+    const stage = this.stageBadge(prospect);
+    const company = prospect.company_name || prospect.domain;
+    const contact = prospect.contact_person ? `${prospect.contact_person}${prospect.email ? ' · ' + prospect.email : ''}` : (prospect.email || '—');
+    const canSend = !prospect.outreach_email_sent_at && prospect.email && prospect.outreach_stage !== 'converted';
+    const isConverted = prospect.outreach_stage === 'converted';
 
     return `
-      <tr style="border-top:1px solid #EAE6DE;">
+      <tr style="border-top:1px solid #EAE6DE;${isConverted ? 'opacity:.6;' : ''}">
         <td style="padding:14px 16px;">
           <div style="font-weight:600;color:#14120E;">${this.esc(company)}</div>
-          <div style="font-size:12px;color:#948B7C;">${this.esc(lead.domain || '')}${lead.industry ? ' · ' + this.esc(lead.industry) : ''}</div>
+          <div style="font-size:12px;color:#948B7C;">${this.esc(prospect.domain || '')}${prospect.industry ? ' · ' + this.esc(prospect.industry) : ''}</div>
         </td>
         <td style="padding:14px 16px;color:#6F6758;">${this.esc(contact)}</td>
         <td style="padding:14px 16px;">${stage}</td>
-        <td style="padding:14px 16px;"><strong>${lead.score || 0}</strong></td>
-        <td style="padding:14px 16px;">
-          ${canSend ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeSingle('${lead.id}')">Poslať email</button>` : ''}
-          ${lead.audit_token ? `<button class="adl-btn adl-btn-sm adl-btn-outline" onclick="window.open('/audit.html?t=${lead.audit_token}', '_blank')" title="Pozrieť audit">Audit</button>` : ''}
+        <td style="padding:14px 16px;"><strong>${prospect.score || 0}</strong></td>
+        <td style="padding:14px 16px;display:flex;gap:6px;flex-wrap:wrap;">
+          ${canSend ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeSingle('${prospect.id}')">Poslať email</button>` : ''}
+          ${prospect.audit_token ? `<button class="adl-btn adl-btn-sm adl-btn-outline" onclick="window.open('/audit.html?t=${prospect.audit_token}', '_blank')" title="Pozrieť audit">Audit</button>` : ''}
+          ${!isConverted ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.promoteToLead('${prospect.id}')" title="Manuálne presunúť do leadov">→ Lead</button>` : ''}
+          ${isConverted && prospect.converted_to_lead_id ? `<a class="adl-btn adl-btn-sm adl-btn-soft" href="#/leads?id=${prospect.converted_to_lead_id}">Otvoriť lead</a>` : ''}
         </td>
       </tr>
     `;
   },
 
-  stageBadge(lead) {
-    const s = lead.outreach_stage || 'pending';
+  stageBadge(prospect) {
+    const s = prospect.outreach_stage || 'pending';
     const map = {
       pending: { label: 'Voľný', color: '#6F6758', bg: '#F7F5F1' },
       email_sent: { label: 'Email odoslaný', color: '#3B82F6', bg: '#DBEAFE' },
       email_opened: { label: 'Otvorený', color: '#8B5CF6', bg: '#EDE9FE' },
-      audit_requested: { label: 'Klikol', color: '#F59E0B', bg: '#FEF3C7' },
-      audit_delivered: { label: 'Audit doručený', color: '#EA580C', bg: '#FFE6D3' },
-      audit_viewed: { label: 'Audit videl', color: '#DC2626', bg: '#FEE2E2' },
-      call_booked: { label: 'Rezervoval', color: '#16A34A', bg: '#DCFCE7' },
-      converted: { label: 'Klient', color: '#16A34A', bg: '#DCFCE7' },
+      email_clicked: { label: 'Klikol', color: '#F59E0B', bg: '#FEF3C7' },
+      bounced: { label: 'Bounced', color: '#DC2626', bg: '#FEE2E2' },
+      unsubscribed: { label: 'Opt-out', color: '#6F6758', bg: '#F7F5F1' },
+      converted: { label: 'Lead', color: '#16A34A', bg: '#DCFCE7' },
       lost: { label: 'Stratený', color: '#6F6758', bg: '#F7F5F1' },
     };
     const info = map[s] || map.pending;
@@ -204,9 +205,9 @@ const OutreachModule = {
   },
 
   renderCompose() {
-    const selected = Array.from(this.selectedIds).map(id => this.leads.find(l => l.id === id)).filter(Boolean);
-    const ready = selected.filter(l => l.email);
-    const noEmail = selected.filter(l => !l.email);
+    const selected = Array.from(this.selectedIds).map(id => this.prospects.find(p => p.id === id)).filter(Boolean);
+    const ready = selected.filter(p => p.email);
+    const noEmail = selected.filter(p => !p.email);
 
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:24px;margin-bottom:16px;">
@@ -224,13 +225,13 @@ const OutreachModule = {
         <div id="outreach-preview" style="display:none;margin-top:16px;border-top:1px solid #EAE6DE;padding-top:16px;"></div>
 
         <div style="max-height:360px;overflow-y:auto;margin-top:16px;border:1px solid #EAE6DE;border-radius:10px;">
-          ${ready.map(l => `
+          ${ready.map(p => `
             <div style="padding:12px 14px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <div style="font-weight:600;">${this.esc(l.company_name || l.domain)}</div>
-                <div style="font-size:12px;color:#948B7C;">${this.esc(l.contact_person || '')} · ${this.esc(l.email)}</div>
+                <div style="font-weight:600;">${this.esc(p.company_name || p.domain)}</div>
+                <div style="font-size:12px;color:#948B7C;">${this.esc(p.contact_person || '')} · ${this.esc(p.email)}</div>
               </div>
-              <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.previewSingle('${l.id}')">Náhľad</button>
+              <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.previewSingle('${p.id}')">Náhľad</button>
             </div>
           `).join('')}
         </div>
@@ -241,20 +242,21 @@ const OutreachModule = {
   },
 
   applyFilters() {
-    let out = this.leads;
+    let out = this.prospects;
     const { stage, search } = this.filters;
     if (stage && stage !== 'all') {
-      if (stage === 'pending') out = out.filter(l => !l.outreach_stage || l.outreach_stage === 'pending');
-      else if (stage === 'audit_requested') out = out.filter(l => l.audit_requested_at && !l.audit_delivered_at);
-      else out = out.filter(l => l.outreach_stage === stage);
+      if (stage === 'pending') out = out.filter(p => !p.outreach_stage || p.outreach_stage === 'pending');
+      else if (stage === 'audit_requested') out = out.filter(p => p.audit_requested_at && !p.audit_viewed_at);
+      else if (stage === 'audit_viewed') out = out.filter(p => p.audit_viewed_at);
+      else out = out.filter(p => p.outreach_stage === stage);
     }
     if (search) {
       const s = search.toLowerCase();
-      out = out.filter(l =>
-        (l.company_name || '').toLowerCase().includes(s) ||
-        (l.domain || '').toLowerCase().includes(s) ||
-        (l.email || '').toLowerCase().includes(s) ||
-        (l.industry || '').toLowerCase().includes(s)
+      out = out.filter(p =>
+        (p.company_name || '').toLowerCase().includes(s) ||
+        (p.domain || '').toLowerCase().includes(s) ||
+        (p.email || '').toLowerCase().includes(s) ||
+        (p.industry || '').toLowerCase().includes(s)
       );
     }
     return out;
@@ -276,47 +278,63 @@ const OutreachModule = {
   },
 
   startCompose() {
-    const candidates = this.leads.filter(l => (!l.outreach_stage || l.outreach_stage === 'pending') && l.email);
-    if (candidates.length === 0) return Utils.toast('Žiadne voľné leady s emailom', 'warning');
-    this.selectedIds = new Set(candidates.slice(0, 30).map(l => l.id));
+    const candidates = this.prospects.filter(p => (!p.outreach_stage || p.outreach_stage === 'pending') && p.email);
+    if (candidates.length === 0) return Utils.toast('Žiadni voľní prospekti s emailom', 'warning');
+    this.selectedIds = new Set(candidates.slice(0, 30).map(p => p.id));
     this.drafts.clear();
     this.currentView = 'compose';
     this.rerender();
   },
 
-  composeSingle(leadId) {
-    const lead = this.leads.find(l => l.id === leadId);
-    if (!lead?.email) return Utils.toast('Lead nemá email', 'warning');
-    this.selectedIds = new Set([leadId]);
+  composeSingle(prospectId) {
+    const p = this.prospects.find(x => x.id === prospectId);
+    if (!p?.email) return Utils.toast('Prospect nemá email', 'warning');
+    this.selectedIds = new Set([prospectId]);
     this.drafts.clear();
     this.currentView = 'compose';
     this.rerender();
   },
 
-  buildEmail(lead) {
+  async promoteToLead(prospectId) {
+    if (!window.Prospects) return Utils.toast('Prospects helper nie je načítaný', 'danger');
+    const p = this.prospects.find(x => x.id === prospectId);
+    const label = p?.company_name || p?.domain || 'prospect';
+    if (!confirm(`Presunúť "${label}" do leadov?`)) return;
+
+    const { lead, error } = await window.Prospects.promoteToLead(prospectId, 'manual');
+    if (error) {
+      Utils.toast('Chyba: ' + error.message, 'danger');
+      return;
+    }
+    Utils.toast(`Presunutý do leadov (id ${lead.id.slice(0, 8)}…)`, 'success');
+    // reload
+    this.render(document.getElementById('module-content') || document.querySelector('[data-module-container]'));
+  },
+
+  buildEmail(prospect) {
     if (!window.OutreachTemplates) {
       console.error('OutreachTemplates missing — include shared/js/utils/outreach-templates.js');
       return null;
     }
     return OutreachTemplates.coldOutreachAudit({
-      contactName: lead.contact_person || '',
-      companyName: lead.company_name || lead.domain,
-      domain: lead.domain,
-      industry: lead.industry || '',
-      city: lead.city || '',
-      auditToken: lead.audit_token,
+      contactName: prospect.contact_person || '',
+      companyName: prospect.company_name || prospect.domain,
+      domain: prospect.domain,
+      industry: prospect.industry || '',
+      city: prospect.city || '',
+      auditToken: prospect.audit_token,
     });
   },
 
   previewFirst() {
-    const firstId = Array.from(this.selectedIds).find(id => this.leads.find(l => l.id === id)?.email);
+    const firstId = Array.from(this.selectedIds).find(id => this.prospects.find(p => p.id === id)?.email);
     if (firstId) this.previewSingle(firstId);
   },
 
-  previewSingle(leadId) {
-    const lead = this.leads.find(l => l.id === leadId);
-    if (!lead) return;
-    const email = this.buildEmail(lead);
+  previewSingle(prospectId) {
+    const p = this.prospects.find(x => x.id === prospectId);
+    if (!p) return;
+    const email = this.buildEmail(p);
     if (!email) return Utils.toast('Chyba pri generovaní emailu', 'danger');
 
     const box = document.getElementById('outreach-preview');
@@ -325,7 +343,7 @@ const OutreachModule = {
     box.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div>
-          <div style="font-size:13px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Náhľad pre: ${this.esc(lead.company_name || lead.domain)}</div>
+          <div style="font-size:13px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Náhľad pre: ${this.esc(p.company_name || p.domain)}</div>
           <div style="font-weight:700;font-size:16px;">${this.esc(email.subject)}</div>
         </div>
         <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="document.getElementById('outreach-preview').style.display='none'">Zavrieť</button>
@@ -343,10 +361,10 @@ const OutreachModule = {
 
   async sendCampaign() {
     const selected = Array.from(this.selectedIds)
-      .map(id => this.leads.find(l => l.id === id))
-      .filter(l => l && l.email);
+      .map(id => this.prospects.find(p => p.id === id))
+      .filter(p => p && p.email);
 
-    if (selected.length === 0) return Utils.toast('Žiadne leady', 'warning');
+    if (selected.length === 0) return Utils.toast('Žiadni prospekti', 'warning');
     if (!confirm(`Odoslať ${selected.length} emailov?\n\nTáto akcia je nezvratná.`)) return;
 
     const progressBox = document.getElementById('outreach-progress');
@@ -359,34 +377,35 @@ const OutreachModule = {
 
     let ok = 0, fail = 0;
     for (let i = 0; i < selected.length; i++) {
-      const lead = selected[i];
+      const prospect = selected[i];
       try {
-        const email = this.buildEmail(lead);
+        const email = this.buildEmail(prospect);
         const r = await fetch('/.netlify/functions/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to: lead.email,
+            to: prospect.email,
             subject: email.subject,
             htmlBody: email.html,
             textBody: email.text,
-            leadId: lead.id,
+            prospectId: prospect.id,
           }),
         });
         if (r.ok) {
           ok++;
-          await Database.client.from('leads').update({
+          await Database.client.from('prospects').update({
             outreach_email_sent_at: new Date().toISOString(),
+            outreach_last_contacted_at: new Date().toISOString(),
             outreach_stage: 'email_sent',
-          }).eq('id', lead.id);
-          this.appendLog(`✓ ${lead.company_name || lead.domain} (${lead.email})`, 'ok');
+          }).eq('id', prospect.id);
+          this.appendLog(`✓ ${prospect.company_name || prospect.domain} (${prospect.email})`, 'ok');
         } else {
           fail++;
-          this.appendLog(`✗ ${lead.company_name || lead.domain}: ${r.status}`, 'err');
+          this.appendLog(`✗ ${prospect.company_name || prospect.domain}: ${r.status}`, 'err');
         }
       } catch (e) {
         fail++;
-        this.appendLog(`✗ ${lead.company_name || lead.domain}: ${e.message}`, 'err');
+        this.appendLog(`✗ ${prospect.company_name || prospect.domain}: ${e.message}`, 'err');
       }
       const pct = Math.round(((i + 1) / selected.length) * 100);
       document.getElementById('outreach-bar').style.width = pct + '%';
@@ -397,7 +416,6 @@ const OutreachModule = {
     document.getElementById('outreach-status').textContent = `Hotovo: ${ok} odoslaných, ${fail} neúspešných.`;
     Utils.toast(`Kampaň dokončená: ${ok}/${selected.length}`, fail === 0 ? 'success' : 'warning');
 
-    // Reload leads
     setTimeout(() => { this.currentView = 'overview'; this.render(document.getElementById('module-content') || document.querySelector('[data-module-container]')); }, 2000);
   },
 
@@ -413,21 +431,22 @@ const OutreachModule = {
   },
 
   exportCsv() {
-    const rows = [['Firma', 'Doména', 'Email', 'Kontakt', 'Odvetvie', 'Fáza', 'Skóre', 'Audit link']];
-    this.leads.forEach(l => {
+    const rows = [['Firma', 'Doména', 'Email', 'Kontakt', 'Odvetvie', 'Segment', 'Fáza', 'Skóre', 'Audit link']];
+    this.prospects.forEach(p => {
       rows.push([
-        l.company_name || '',
-        l.domain || '',
-        l.email || '',
-        l.contact_person || '',
-        l.industry || '',
-        l.outreach_stage || 'pending',
-        l.score || 0,
-        l.audit_token ? `${location.origin}/audit.html?t=${l.audit_token}` : '',
+        p.company_name || '',
+        p.domain || '',
+        p.email || '',
+        p.contact_person || '',
+        p.industry || '',
+        p.segment || '',
+        p.outreach_stage || 'pending',
+        p.score || 0,
+        p.audit_token ? `${location.origin}/audit.html?t=${p.audit_token}` : '',
       ]);
     });
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `adlify-outreach-${new Date().toISOString().split('T')[0]}.csv`;

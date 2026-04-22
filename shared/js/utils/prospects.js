@@ -10,11 +10,18 @@
  *   - getOutreachSettings()
  *       → načíta outreach_settings z organizácie (s default fallbackom)
  *
- * Závislosť: window.Database (supabase client wrapper)
+ * Závislosť: window.Database (admin), alebo prešlý client (public pages).
+ * Všetky async funkcie akceptujú voliteľný { client } override.
  */
 
 (function () {
   'use strict';
+
+  function getClient(opts) {
+    if (opts && opts.client) return opts.client;
+    if (window.Database && window.Database.client) return window.Database.client;
+    return null;
+  }
 
   const DEFAULT_SETTINGS = {
     auto_convert: {
@@ -72,10 +79,11 @@
    * Načíta outreach_settings pre aktuálnu org (alebo prvý org pre single-org setup).
    * Fallback na DEFAULT_SETTINGS ak DB nevráti nič.
    */
-  async function getOutreachSettings() {
-    if (!window.Database?.client) return DEFAULT_SETTINGS;
+  async function getOutreachSettings(opts) {
+    const client = getClient(opts);
+    if (!client) return DEFAULT_SETTINGS;
     try {
-      const { data, error } = await Database.client
+      const { data, error } = await client
         .from('organizations')
         .select('outreach_settings')
         .limit(1)
@@ -103,14 +111,15 @@
    * @param {string} reason  napr. 'audit_clicked', 'call_booked', 'manual'
    * @returns {Promise<{ lead: object | null, error: Error | null }>}
    */
-  async function promoteToLead(prospectId, reason = 'manual') {
-    if (!window.Database?.client) {
-      return { lead: null, error: new Error('Database not ready') };
+  async function promoteToLead(prospectId, reason = 'manual', opts) {
+    const client = getClient(opts);
+    if (!client) {
+      return { lead: null, error: new Error('Database client not available') };
     }
 
     try {
       // 1. Načítaj prospect
-      const { data: prospect, error: fetchErr } = await Database.client
+      const { data: prospect, error: fetchErr } = await client
         .from('prospects')
         .select('*')
         .eq('id', prospectId)
@@ -121,7 +130,7 @@
 
       // 2. Ak už je converted, vráť existujúci lead
       if (prospect.converted_to_lead_id) {
-        const { data: existingLead } = await Database.client
+        const { data: existingLead } = await client
           .from('leads')
           .select('*')
           .eq('id', prospect.converted_to_lead_id)
@@ -156,7 +165,7 @@
         },
       };
 
-      const { data: lead, error: insertErr } = await Database.client
+      const { data: lead, error: insertErr } = await client
         .from('leads')
         .insert(leadPayload)
         .select()
@@ -164,7 +173,7 @@
       if (insertErr) throw insertErr;
 
       // 4. Update prospect → converted
-      await Database.client
+      await client
         .from('prospects')
         .update({
           outreach_stage: 'converted',
@@ -190,8 +199,9 @@
    * @param {object} [eventData]  extra polia na update (napr. audit_requested_at)
    * @returns {Promise<{ prospect: object, lead: object | null, promoted: boolean }>}
    */
-  async function recordEventAndMaybePromote(prospectId, event, eventData = {}) {
-    if (!window.Database?.client) {
+  async function recordEventAndMaybePromote(prospectId, event, eventData = {}, opts) {
+    const client = getClient(opts);
+    if (!client) {
       return { prospect: null, lead: null, promoted: false };
     }
 
@@ -199,7 +209,7 @@
     const patch = { ...eventData };
     if (event === 'email_opened') {
       // inkrementujeme open count
-      const { data: curr } = await Database.client
+      const { data: curr } = await client
         .from('prospects')
         .select('outreach_email_open_count')
         .eq('id', prospectId)
@@ -208,7 +218,7 @@
       if (!patch.outreach_email_opened_at) patch.outreach_email_opened_at = new Date().toISOString();
     }
 
-    const { data: prospect } = await Database.client
+    const { data: prospect } = await client
       .from('prospects')
       .update(patch)
       .eq('id', prospectId)
@@ -218,12 +228,12 @@
     if (!prospect) return { prospect: null, lead: null, promoted: false };
 
     // 2. Vyhodnoť pravidlá
-    const settings = await getOutreachSettings();
+    const settings = await getOutreachSettings({ client });
     const { shouldConvert, reason } = evaluateConversionRules(prospect, event, settings);
     if (!shouldConvert) return { prospect, lead: null, promoted: false };
 
     // 3. Promote
-    const { lead } = await promoteToLead(prospectId, reason);
+    const { lead } = await promoteToLead(prospectId, reason, { client });
     return { prospect, lead, promoted: !!lead };
   }
 

@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/js/utils/prospects.js"></script>
 <style>
   :root {
     --brand: #F97316; --brand-dark: #EA580C; --brand-50: #FFF4EC; --brand-100: #FFE6D3;
@@ -160,10 +161,14 @@
     auditToken = params.get('t') || params.get('token');
 
     try {
-      // Load lead (if token provided)
+      // Load prospect (if token provided)
       if (auditToken) {
-        const { data } = await db.from('leads').select('id, company_name, contact_person, email, phone, domain').eq('audit_token', auditToken).single();
-        lead = data;
+        const { data } = await db
+          .from('prospects')
+          .select('id, company_name, contact_person, email, phone, domain, converted_to_lead_id')
+          .eq('audit_token', auditToken)
+          .single();
+        lead = data; // premenná sa volá 'lead' historicky, v skutočnosti je to prospect
       }
 
       // Load availability
@@ -325,8 +330,12 @@
       const scheduledAt = new Date(selectedDate + 'T' + selectedSlot + ':00').toISOString();
       const icsUid = `adlify-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@adlify.eu`;
 
+      // Ak prospect už má priradený lead (skorší audit click), použi ho rovno.
+      // Inak po vytvorení bookingu spustíme promote a lead_id updatneme spätne.
+      const prospectLeadId = lead?.converted_to_lead_id || null;
+
       const { data: booking, error } = await db.from('call_bookings').insert({
-        lead_id: lead?.id || null,
+        lead_id: prospectLeadId,
         scheduled_at: scheduledAt,
         duration_minutes: 15,
         status: 'booked',
@@ -339,8 +348,22 @@
 
       if (error) throw error;
 
-      if (lead?.id) {
-        await db.from('leads').update({ outreach_stage: 'call_booked' }).eq('id', lead.id);
+      // Spusti auto-promote podľa outreach_settings (call_booked default ZAP)
+      if (lead?.id && window.Prospects) {
+        try {
+          const { lead: promotedLead, promoted } = await window.Prospects.recordEventAndMaybePromote(
+            lead.id,
+            'call_booked',
+            { outreach_last_contacted_at: new Date().toISOString() },
+            { client: db }
+          );
+          // Ak prospect bol teraz promoted na lead, priraď lead_id k bookingu spätne
+          if (promoted && promotedLead && booking?.id) {
+            await db.from('call_bookings').update({ lead_id: promotedLead.id }).eq('id', booking.id);
+          }
+        } catch (e) {
+          console.warn('Promote failed (call still booked):', e);
+        }
       }
 
       try {

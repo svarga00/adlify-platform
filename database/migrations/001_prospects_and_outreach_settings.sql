@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS prospects (
     'email_sent',       -- email odoslaný
     'email_opened',     -- open pixel fired
     'email_clicked',    -- klikol v emaili (mimo audit link)
+    'audit_requested',  -- klikol "Chcem audit"
+    'audit_delivered',  -- audit vygenerovaný/poslaný
+    'audit_viewed',     -- klient si audit pozrel
+    'call_booked',      -- rezervoval 15min call (pred promote-om, ak je vypnutý auto-rule)
     'bounced',          -- email bounced
     'unsubscribed',     -- opt-out
     'converted',        -- premenený na lead
@@ -52,8 +56,13 @@ CREATE TABLE IF NOT EXISTS prospects (
   -- Audit flow
   audit_token TEXT UNIQUE,
   audit_requested_at TIMESTAMPTZ,
+  audit_request_data JSONB,              -- odpoveď z audit-request.html (priority, note, ...)
   audit_delivered_at TIMESTAMPTZ,
+  audit_generated_at TIMESTAMPTZ,
+  audit_data JSONB,                      -- raw dáta (pagespeed, seo, keywords, screenshot...)
+  audit_findings JSONB,                  -- Claude synthesis výsledky
   audit_viewed_at TIMESTAMPTZ,
+  audit_view_count INTEGER DEFAULT 0,
 
   -- Analýza (JSON) — volebné, pre outreach-scoped AI
   analysis JSONB DEFAULT '{}',
