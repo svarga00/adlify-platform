@@ -95,15 +95,16 @@ const OutreachModule = {
           <h1 style="font-size:28px;font-weight:700;letter-spacing:-0.5px;margin:0 0 4px;color:#14120E;">Outreach</h1>
           <p style="color:#6F6758;font-size:14px;margin:0;">Personalizované oslovovanie firiem · Audit-first flow</p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="adl-toolbar">
           ${isSecondary ? `
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('overview')">← Späť</button>
           ` : `
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">Šablóny</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">Import CSV</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">+ Nový prospect</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.exportCsv()">Export CSV</button>
-            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.startCompose()" ${stats.pending === 0 ? 'disabled' : ''}>Nová kampaň (${stats.pending})</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">✉ Šablóny</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">⬆ Import CSV</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">＋ Nový prospect</button>
+            <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.exportCsv()">⬇ Export CSV</button>
+            <span class="adl-toolbar-divider"></span>
+            <button class="adl-btn adl-btn-primary adl-btn-lg" onclick="OutreachModule.startCompose()" ${stats.pending === 0 ? 'disabled' : ''}>▶ Nová kampaň (${stats.pending})</button>
           `}
         </div>
       </div>

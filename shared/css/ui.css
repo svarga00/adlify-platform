@@ -40,50 +40,62 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 14px;
+  height: 38px;
+  padding: 0 16px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.1px;
   border-radius: 10px;
-  border: 1.5px solid transparent;
-  background: transparent;
-  color: var(--ink);
+  border: 2px solid #14120E;
+  background: #fff;
+  color: #14120E;
   cursor: pointer;
   white-space: nowrap;
   transition: background .12s, border-color .12s, color .12s, box-shadow .12s, transform .08s;
   font-family: inherit;
-  box-shadow: 0 1px 0 rgba(20,18,14,0.04);
+  box-shadow: 0 2px 0 0 #14120E;
 }
-.adl-btn:hover { transform: translateY(-1px); }
-.adl-btn:active { transform: translateY(0); }
+.adl-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 0 0 #14120E; }
+.adl-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 0 #14120E; }
 .adl-btn:focus-visible {
-  outline: 2px solid var(--brand-400);
+  outline: 3px solid var(--brand-400);
   outline-offset: 2px;
 }
-.adl-btn:disabled, .adl-btn[disabled] { opacity: .5; cursor: not-allowed; transform: none; }
-.adl-btn-sm { height: 30px; padding: 0 12px; font-size: 12px; border-radius: 8px; }
-.adl-btn-lg { height: 44px; padding: 0 20px; font-size: 14px; border-radius: 12px; }
-.adl-btn-primary  {
-  background: var(--brand-500); color: #fff; border-color: var(--brand-500);
-  box-shadow: 0 2px 6px rgba(249,115,22,0.28);
+.adl-btn:disabled, .adl-btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; box-shadow: 0 2px 0 0 #14120E; }
+.adl-btn-sm { height: 30px; padding: 0 12px; font-size: 12px; border-radius: 8px; box-shadow: 0 1.5px 0 0 #14120E; }
+.adl-btn-sm:hover { box-shadow: 0 2.5px 0 0 #14120E; }
+.adl-btn-sm:active { box-shadow: 0 1px 0 0 #14120E; }
+.adl-btn-lg { height: 46px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
+.adl-btn-primary {
+  background: var(--brand-500); color: #fff; border-color: #14120E;
 }
-.adl-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); box-shadow: 0 4px 10px rgba(249,115,22,0.35); }
-.adl-btn-ink      { background: var(--n-900); color: #fff; border-color: var(--n-900); box-shadow: 0 2px 6px rgba(20,18,14,0.15); }
-.adl-btn-ink:hover{ background: var(--n-800); box-shadow: 0 4px 10px rgba(20,18,14,0.2); }
-.adl-btn-outline  {
-  background: var(--surface); color: var(--ink); border-color: var(--ink);
-  box-shadow: 0 1px 2px rgba(20,18,14,0.05);
+.adl-btn-primary:hover { background: var(--brand-600); }
+.adl-btn-ink { background: #14120E; color: #fff; border-color: #14120E; }
+.adl-btn-ink:hover { background: #2A241B; }
+.adl-btn-outline { background: #fff; color: #14120E; border-color: #14120E; }
+.adl-btn-outline:hover { background: #14120E; color: #fff; }
+.adl-btn-ghost { background: #fff; color: #14120E; border-color: #14120E; }
+.adl-btn-ghost:hover { background: #F7F5F1; }
+.adl-btn-soft { background: #F7F5F1; color: #14120E; border-color: #14120E; }
+.adl-btn-soft:hover { background: #EAE6DE; }
+.adl-btn-danger { background: var(--err); color: #fff; border-color: #14120E; }
+.adl-btn-danger:hover { filter: brightness(.9); }
+.adl-btn-icon { width: 38px; height: 38px; padding: 0; justify-content: center; border-radius: 10px; background: #fff; border-color: #14120E; }
+.adl-btn-icon:hover { background: #14120E; color: #fff; }
+
+/* Toolbar: skupina tlačidiel s jasným oddelením */
+.adl-toolbar {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
 }
-.adl-btn-outline:hover { background: var(--ink); color: var(--surface); border-color: var(--ink); box-shadow: 0 3px 8px rgba(20,18,14,0.15); }
-.adl-btn-ghost    { background: transparent; color: var(--ink); border-color: var(--border-strong); box-shadow: none; }
-.adl-btn-ghost:hover { background: var(--n-75); color: var(--ink); border-color: var(--ink); }
-.adl-btn-soft     { background: var(--n-100); color: var(--ink); border-color: var(--border-strong); }
-.adl-btn-soft:hover { background: var(--n-75); border-color: var(--ink); }
-.adl-btn-danger   { background: var(--err); color: #fff; border-color: var(--err); box-shadow: 0 2px 6px rgba(220,38,38,0.28); }
-.adl-btn-danger:hover { filter: brightness(.93); box-shadow: 0 4px 10px rgba(220,38,38,0.35); }
-.adl-btn-icon     { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 10px; background: var(--surface); border-color: var(--border-strong); }
-.adl-btn-icon:hover { background: var(--n-50); border-color: var(--ink); }
+.adl-toolbar-divider {
+  width: 1.5px;
+  height: 24px;
+  background: #EAE6DE;
+  margin: 0 4px;
+}
 
 /* ========== CARD ========== */
 .adl-card {
