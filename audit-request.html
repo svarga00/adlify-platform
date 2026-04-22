@@ -453,6 +453,19 @@
         console.warn('Edge function trigger failed (will retry from admin):', e);
       }
 
+      // 3. Notifikácia ownerovi (fire-and-forget)
+      try {
+        fetch('/.netlify/functions/notify-outreach-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prospectId: prospectData.id,
+            event: 'audit_requested',
+            note: note || null,
+          }),
+        }).catch(e => console.warn('notify failed:', e));
+      } catch (e) { /* non-critical */ }
+
       showInProgress();
     } catch (err) {
       console.error(err);

@@ -43,6 +43,40 @@ const OutreachModule = {
 
   init() {
     console.log('📮 Outreach module initialized');
+    this.refreshBadge().catch(() => {});
+    // auto-refresh badge každé 2 minúty
+    if (!this._badgeInterval) {
+      this._badgeInterval = setInterval(() => this.refreshBadge().catch(() => {}), 120000);
+    }
+  },
+
+  /**
+   * Spočíta „nové akcie" — prospektov ktorí urobili niečo po poslednom
+   * pohľade ownerа. Zobrazí počet v sidebar badge.
+   */
+  async refreshBadge() {
+    if (!window.Database?.client) return;
+    try {
+      const lastSeen = localStorage.getItem('outreach_last_seen_activity_at') || '1970-01-01T00:00:00Z';
+      const { count, error } = await Database.client
+        .from('prospects')
+        .select('id', { count: 'exact', head: true })
+        .or(`audit_requested_at.gt.${lastSeen},audit_viewed_at.gt.${lastSeen},outreach_email_replied_at.gt.${lastSeen}`);
+      if (error) return;
+      const el = document.getElementById('badge-outreach');
+      if (!el) return;
+      if (count && count > 0) {
+        el.textContent = String(count);
+        el.style.display = 'inline-flex';
+      } else {
+        el.style.display = 'none';
+      }
+    } catch { /* no-op */ }
+  },
+
+  markActivitySeen() {
+    localStorage.setItem('outreach_last_seen_activity_at', new Date().toISOString());
+    this.refreshBadge().catch(() => {});
   },
 
   async render(container) {
@@ -58,6 +92,7 @@ const OutreachModule = {
       this.prospects = data || [];
       container.innerHTML = this.template();
       this.bindEvents();
+      this.markActivitySeen();
     } catch (e) {
       console.error(e);
       container.innerHTML = `<div style="padding:40px;text-align:center;color:#DC2626;">Chyba: ${e.message}</div>`;
@@ -253,6 +288,7 @@ const OutreachModule = {
     const canSend = !prospect.outreach_email_sent_at && prospect.email && prospect.outreach_stage !== 'converted';
     const isConverted = prospect.outreach_stage === 'converted';
     const checked = this.selectedIds.has(prospect.id);
+    const activity = this._activityChips(prospect);
 
     return `
       <tr style="border-top:1px solid #EAE6DE;${isConverted ? 'opacity:.6;' : ''}">
@@ -264,17 +300,49 @@ const OutreachModule = {
           <div style="font-size:12px;color:#948B7C;">${this.esc(prospect.domain || '')}${prospect.industry ? ' · ' + this.esc(prospect.industry) : ''}</div>
         </td>
         <td style="padding:14px 16px;color:#6F6758;">${this.esc(contact)}</td>
-        <td style="padding:14px 16px;">${stage}</td>
+        <td style="padding:14px 16px;">
+          ${stage}
+          ${activity ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${activity}</div>` : ''}
+        </td>
         <td style="padding:14px 16px;"><strong>${prospect.score || 0}</strong></td>
         <td style="padding:14px 16px;display:flex;gap:6px;flex-wrap:wrap;">
           ${canSend ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeSingle('${prospect.id}')">Poslať email</button>` : ''}
-          ${prospect.audit_token ? `<button class="adl-btn adl-btn-sm adl-btn-outline" onclick="window.open('/audit.html?t=${prospect.audit_token}', '_blank')" title="Pozrieť audit">Audit</button>` : ''}
           ${!isConverted ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.promoteToLead('${prospect.id}')" title="Manuálne presunúť do leadov">→ Lead</button>` : ''}
           ${isConverted && prospect.converted_to_lead_id ? `<a class="adl-btn adl-btn-sm adl-btn-soft" href="#/leads?id=${prospect.converted_to_lead_id}">Otvoriť lead</a>` : ''}
           <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteProspect('${prospect.id}')" title="Zmazať">✕</button>
         </td>
       </tr>
     `;
+  },
+
+  _activityChips(p) {
+    const chips = [];
+    const fmt = (ts) => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      const now = Date.now();
+      const diff = Math.max(0, now - d.getTime());
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'teraz';
+      if (mins < 60) return `pred ${mins} min`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `pred ${hrs} h`;
+      const days = Math.floor(hrs / 24);
+      if (days < 30) return `pred ${days} d`;
+      return d.toLocaleDateString('sk-SK');
+    };
+    const chip = (label, ts, color, bg, title) => {
+      if (!ts) return '';
+      return `<span title="${title || ''}${ts ? ' · ' + new Date(ts).toLocaleString('sk-SK') : ''}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;background:${bg};color:${color};font-size:11px;font-weight:600;">${label} ${fmt(ts)}</span>`;
+    };
+    chips.push(chip('✉ odoslané', p.outreach_email_sent_at, '#3B82F6', '#DBEAFE', 'Email odoslaný'));
+    if (p.outreach_email_open_count > 0) {
+      chips.push(chip(`👁 otvorené${p.outreach_email_open_count > 1 ? ' ×' + p.outreach_email_open_count : ''}`, p.outreach_email_opened_at, '#8B5CF6', '#EDE9FE', 'Email otvorený'));
+    }
+    chips.push(chip('🎯 audit request', p.audit_requested_at, '#F97316', '#FFEDD5', 'Klikol „Chcem audit"'));
+    chips.push(chip('📄 audit hotový', p.audit_delivered_at, '#0EA5E9', '#E0F2FE', 'Audit vygenerovaný'));
+    chips.push(chip('📖 audit videl', p.audit_viewed_at, '#16A34A', '#DCFCE7', 'Audit zobrazený'));
+    return chips.filter(Boolean).join('');
   },
 
   stageBadge(prospect) {
