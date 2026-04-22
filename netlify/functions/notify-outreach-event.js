@@ -29,11 +29,81 @@ async function getOwnerEmail() {
 }
 
 const EVENT_LABELS = {
-  audit_requested: { subject: 'požiadal o audit', emoji: '🎯', color: '#F97316' },
-  call_booked:     { subject: 'rezervoval hovor', emoji: '📞', color: '#16A34A' },
-  email_replied:   { subject: 'odpovedal na email', emoji: '💬', color: '#3B82F6' },
-  email_opened_n:  { subject: 'viackrát otvoril email', emoji: '👁', color: '#8B5CF6' },
+  audit_requested: { subject: 'požiadal o audit',      emoji: '🎯', color: '#F97316', priority: 'high',   taskDueInDays: 1, taskCategory: 'outreach_followup', action: 'Ozvi sa do 24 hodín a potvrď audit.' },
+  call_booked:     { subject: 'rezervoval hovor',      emoji: '📞', color: '#16A34A', priority: 'high',   taskDueInDays: 0, taskCategory: 'outreach_call',     action: 'Pripraviť sa na hovor.' },
+  email_replied:   { subject: 'odpovedal na email',    emoji: '💬', color: '#3B82F6', priority: 'high',   taskDueInDays: 0, taskCategory: 'outreach_reply',    action: 'Odpísať hneď ako je to možné.' },
+  email_opened_n:  { subject: 'viackrát otvoril email',emoji: '👁', color: '#8B5CF6', priority: 'normal', taskDueInDays: 2, taskCategory: 'outreach_warm',     action: 'Horúci lead — zvážiť follow-up.' },
 };
+
+async function createTaskAndNotifications(prospect, event, label, note) {
+  const company = prospect.company_name || prospect.domain || 'Prospekt';
+
+  // 1. TASK
+  try {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + (label.taskDueInDays || 1));
+    const descParts = [
+      `${company}${prospect.domain ? ` (${prospect.domain})` : ''} — ${label.subject}.`,
+      label.action,
+      prospect.email ? `Email: ${prospect.email}` : '',
+      prospect.phone ? `Telefón: ${prospect.phone}` : '',
+      prospect.audit_request_data?.priority ? `Priorita klienta: ${prospect.audit_request_data.priority}` : '',
+      note ? `Poznámka: ${note}` : '',
+    ].filter(Boolean);
+    await supabase.from('tasks').insert({
+      title: `${label.emoji} ${company} — ${label.subject}`,
+      description: descParts.join('\n'),
+      status: 'pending',
+      priority: label.priority || 'normal',
+      prospect_id: prospect.id,
+      due_date: dueDate.toISOString(),
+      category: label.taskCategory || 'outreach',
+    });
+  } catch (err) {
+    console.error('[notify] task insert failed:', err);
+  }
+
+  // 2. NOTIFICATIONS — pre každého ownera/admina/managera v org
+  try {
+    const { data: users } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .in('role', ['owner', 'admin', 'manager']);
+    if (users?.length) {
+      const rows = users.map(u => ({
+        user_id: u.id,
+        type: 'outreach_activity',
+        title: `${label.emoji} ${company} ${label.subject}`,
+        message: prospect.audit_request_data?.note || note || `${company} práve ${label.subject}.`,
+        entity_type: 'prospect',
+        entity_id: prospect.id,
+        action_url: '/admin/#outreach',
+        email_sent: true,
+        email_sent_at: new Date().toISOString(),
+      }));
+      await supabase.from('notifications').insert(rows);
+    }
+  } catch (err) {
+    console.error('[notify] notifications insert failed:', err);
+  }
+
+  // 3. ACTIVITY log
+  try {
+    await supabase.from('activities').insert({
+      entity_type: 'prospect',
+      entity_id: prospect.id,
+      action: event,
+      title: `${label.emoji} ${company} ${label.subject}`,
+      description: note || prospect.audit_request_data?.note || null,
+      metadata: {
+        stage: prospect.outreach_stage,
+        priority: prospect.audit_request_data?.priority || null,
+      },
+    });
+  } catch (err) {
+    console.error('[notify] activity insert failed:', err);
+  }
+}
 
 exports.handler = async (event) => {
   const cors = {
@@ -143,13 +213,16 @@ exports.handler = async (event) => {
     });
     if (!sendRes.ok) {
       const t = await sendRes.text().catch(() => '');
-      throw new Error(`send-email returned ${sendRes.status}: ${t}`);
+      console.error('[notify] send-email failed:', sendRes.status, t);
     }
+
+    // Paralelne vytvor task + notifikácie + activity log
+    await createTaskAndNotifications(prospect, ev, label, note);
 
     return {
       statusCode: 200,
       headers: { ...cors, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ok: true, sentTo: ownerEmail }),
+      body: JSON.stringify({ ok: true, sentTo: ownerEmail, taskCreated: true }),
     };
   } catch (err) {
     console.error('[notify-outreach-event] error:', err);

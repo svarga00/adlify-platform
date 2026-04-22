@@ -1392,10 +1392,11 @@ const OutreachModule = {
     if (!p) return;
     this._detailProspectId = prospectId;
     this.detailTab = 'overview';
+    this._detailEvents = null;
+    this._detailTasksList = null;
     const modal = this._ensureModal('outreach-modal');
     modal.innerHTML = this._renderDetailModal(p);
     this._openModalWide(modal);
-    // preload events
     this._loadDetailEvents(prospectId);
   },
 
@@ -1482,6 +1483,7 @@ const OutreachModule = {
     const tabs = [
       { key: 'overview', label: 'Prehľad' },
       { key: 'activity', label: 'Aktivita' },
+      { key: 'tasks',    label: 'Úlohy' },
       { key: 'audit',    label: 'Audit' },
     ];
     return `<div style="display:flex;gap:4px;">
@@ -1497,7 +1499,136 @@ const OutreachModule = {
   _detailBody(p) {
     if (this.detailTab === 'activity') return this._detailActivity(p);
     if (this.detailTab === 'audit')    return this._detailAudit(p);
+    if (this.detailTab === 'tasks')    return this._detailTasks(p);
     return this._detailOverview(p);
+  },
+
+  _detailTasks(p) {
+    const tasks = this._detailTasksList;
+    if (tasks == null) {
+      this._loadDetailTasks(p.id);
+      return `<div style="color:#948B7C;padding:12px;">Načítavam úlohy…</div>`;
+    }
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;">
+        <div style="font-size:13px;color:#6F6758;">${tasks.length} úloh · súvisiace s týmto prospectom</div>
+        <div style="display:flex;gap:6px;">
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule._loadDetailTasks('${p.id}')">↻ Obnoviť</button>
+          <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.createTaskForProspect('${p.id}')">+ Pridať úlohu</button>
+        </div>
+      </div>
+      ${tasks.length === 0 ? `<div style="color:#948B7C;padding:24px;text-align:center;background:#F7F5F1;border-radius:10px;">Zatiaľ žiadne úlohy.</div>` : `
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${tasks.map(t => this._renderTask(t)).join('')}
+        </div>
+      `}
+    `;
+  },
+
+  _renderTask(t) {
+    const statusMap = {
+      pending:     { label: 'Čaká',     bg: '#FEF3C7', color: '#92400E' },
+      in_progress: { label: 'Robím',    bg: '#DBEAFE', color: '#1E3A8A' },
+      done:        { label: 'Hotovo',   bg: '#DCFCE7', color: '#166534' },
+      completed:   { label: 'Hotovo',   bg: '#DCFCE7', color: '#166534' },
+      cancelled:   { label: 'Zrušené',  bg: '#F7F5F1', color: '#6F6758' },
+    };
+    const s = statusMap[t.status] || { label: t.status || 'Čaká', bg: '#FEF3C7', color: '#92400E' };
+    const prioMap = {
+      high:   '🔴',
+      urgent: '🔴',
+      normal: '🟠',
+      low:    '⚪',
+    };
+    const isDone = t.status === 'done' || t.status === 'completed';
+    const due = t.due_date ? new Date(t.due_date) : null;
+    const overdue = due && !isDone && due.getTime() < Date.now();
+    return `
+      <div style="background:#fff;border:1px solid ${overdue ? '#FCA5A5' : '#EAE6DE'};border-radius:10px;padding:12px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
+              <span style="font-size:13px;">${prioMap[t.priority] || '🟠'}</span>
+              <strong style="font-size:14px;color:${isDone ? '#948B7C' : '#14120E'};text-decoration:${isDone ? 'line-through' : 'none'};">${this.esc(t.title)}</strong>
+              <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:${s.bg};color:${s.color};">${s.label}</span>
+              ${overdue ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:#FEE2E2;color:#991B1B;">po termíne</span>` : ''}
+            </div>
+            ${t.description ? `<div style="font-size:12px;color:#6F6758;line-height:1.5;white-space:pre-wrap;margin-top:4px;">${this.esc(t.description)}</div>` : ''}
+            <div style="font-size:11px;color:#948B7C;margin-top:4px;">
+              ${due ? `Termín: ${due.toLocaleString('sk-SK')}` : ''}${due && t.category ? ' · ' : ''}${t.category ? this.esc(t.category) : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            ${!isDone ? `<button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.markTaskDone('${t.id}')">✓ Hotovo</button>` : ''}
+            <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteTask('${t.id}')" title="Zmazať">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  async _loadDetailTasks(prospectId) {
+    this._detailTasksList = null;
+    try {
+      const { data, error } = await Database.client
+        .from('tasks')
+        .select('id, title, description, status, priority, due_date, category, created_at, completed_at')
+        .eq('prospect_id', prospectId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      this._detailTasksList = data || [];
+    } catch (e) {
+      console.warn('loadDetailTasks error:', e);
+      this._detailTasksList = [];
+    }
+    this._refreshDetailBody();
+  },
+
+  async createTaskForProspect(prospectId) {
+    const p = this.prospects.find(x => x.id === prospectId);
+    const company = p?.company_name || p?.domain || 'prospect';
+    const title = await Utils.prompt({
+      title: `+ Úloha pre ${company}`,
+      placeholder: 'napr. Zavolať v piatok 15:00',
+      confirmText: 'Vytvoriť',
+    });
+    if (!title) return;
+    const { error } = await Database.client.from('tasks').insert({
+      title, status: 'pending', priority: 'normal', prospect_id: prospectId,
+      category: 'outreach_manual',
+      due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    });
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    Utils.toast('Úloha vytvorená', 'success');
+    this._loadDetailTasks(prospectId);
+  },
+
+  async markTaskDone(taskId) {
+    const { error } = await Database.client.from('tasks').update({
+      status: 'done',
+      completed_at: new Date().toISOString(),
+    }).eq('id', taskId);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    if (Array.isArray(this._detailTasksList)) {
+      this._detailTasksList = this._detailTasksList.map(t => t.id === taskId
+        ? { ...t, status: 'done', completed_at: new Date().toISOString() }
+        : t);
+    }
+    this._refreshDetailBody();
+    Utils.toast('Označené ako hotovo', 'success');
+  },
+
+  async deleteTask(taskId) {
+    const ok = await Utils.confirm('Zmazať úlohu?', { type: 'danger', confirmText: 'Zmazať', cancelText: 'Zrušiť' });
+    if (!ok) return;
+    const { error } = await Database.client.from('tasks').delete().eq('id', taskId);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    if (Array.isArray(this._detailTasksList)) {
+      this._detailTasksList = this._detailTasksList.filter(t => t.id !== taskId);
+    }
+    this._refreshDetailBody();
+    Utils.toast('Zmazané', 'success');
   },
 
   _detailOverview(p) {
