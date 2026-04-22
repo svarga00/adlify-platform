@@ -36,6 +36,8 @@ const OutreachModule = {
   previewViewport: 'desktop',   // 'desktop' | 'mobile'
   importRows: [],
   importMap: null,
+  selectedTemplateSlug: 'cold_outreach_audit',
+  composePreviewViewport: 'desktop',
 
   init() {
     console.log('📮 Outreach module initialized');
@@ -249,36 +251,118 @@ const OutreachModule = {
     const ready = selected.filter(p => p.email);
     const noEmail = selected.filter(p => !p.email);
 
-    return `
-      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:24px;margin-bottom:16px;">
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;color:#14120E;">Odoslať kampaň (${ready.length} firiem)</h2>
-        <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">Každý email je personalizovaný na firmu (meno, odvetvie, mesto). Odosielateľ: <strong>Štefan Varga · Adlify</strong>.</p>
-        ${noEmail.length ? `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:16px;">${noEmail.length} firiem nemá email a bude preskočených.</div>` : ''}
+    const outreachTpls = (this.templates || []).filter(t => t.category === 'outreach' && t.is_active !== false);
+    const currentTpl = outreachTpls.find(t => t.slug === this.selectedTemplateSlug) || outreachTpls[0];
+    if (currentTpl && currentTpl.slug !== this.selectedTemplateSlug) {
+      this.selectedTemplateSlug = currentTpl.slug;
+    }
 
-        <div style="display:flex;gap:10px;margin-bottom:16px;">
-          <button class="adl-btn adl-btn-outline" onclick="OutreachModule.previewFirst()">Náhľad 1. emailu</button>
-          <button class="adl-btn adl-btn-primary" onclick="OutreachModule.sendCampaign()" ${ready.length === 0 ? 'disabled' : ''}>
-            Odoslať ${ready.length} emailov
-          </button>
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:flex-start;">
+        <!-- LEFT: setup + recipients -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:24px;">
+          <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;color:#14120E;">Poslať kampaň</h2>
+          <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">${ready.length} príjemcov · personalizované (meno, firma, odvetvie, mesto).</p>
+          ${noEmail.length ? `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:16px;">${noEmail.length} firiem nemá email → bude preskočených.</div>` : ''}
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Šablóna</label>
+            ${outreachTpls.length === 0 ? `
+              <div style="padding:14px;border:1px dashed #EAE6DE;border-radius:10px;color:#948B7C;font-size:13px;">Žiadne outreach šablóny — vytvor v sekcii Šablóny.</div>
+            ` : `
+              <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;">
+                ${outreachTpls.map(t => {
+                  const active = t.slug === this.selectedTemplateSlug;
+                  return `
+                    <button type="button" onclick="OutreachModule.selectComposeTemplate('${t.slug}')"
+                      style="text-align:left;padding:12px 14px;border:1.5px solid ${active ? '#F97316' : '#EAE6DE'};background:${active ? '#FFF7ED' : '#fff'};border-radius:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                      <div style="min-width:0;">
+                        <div style="font-weight:600;font-size:13px;color:#14120E;margin-bottom:2px;">${this.esc(t.name)}</div>
+                        <div style="font-size:11px;color:#948B7C;">${this.esc(t.subject)}</div>
+                      </div>
+                      ${active ? `<span style="font-size:11px;color:#F97316;font-weight:700;flex-shrink:0;">✓ aktívna</span>` : ''}
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('templates')">✏ Upraviť šablóny</button>
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.sendCampaign()" ${ready.length === 0 || !currentTpl ? 'disabled' : ''}>
+              ▶ Odoslať ${ready.length} emailov
+            </button>
+          </div>
+
+          <div style="border-top:1px solid #EAE6DE;padding-top:14px;">
+            <div style="font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Príjemcovia (${ready.length})</div>
+            <div style="max-height:260px;overflow-y:auto;border:1px solid #EAE6DE;border-radius:10px;">
+              ${ready.map((p, i) => `
+                <div style="padding:10px 14px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:10px;${i === 0 ? 'background:#FFF7ED;' : ''}">
+                  <div style="min-width:0;">
+                    <div style="font-weight:600;font-size:13px;color:#14120E;">${this.esc(p.company_name || p.domain)}${i === 0 ? ' <span style=font-size:10px;color:#F97316;>(náhľad)</span>' : ''}</div>
+                    <div style="font-size:11px;color:#948B7C;">${this.esc(p.contact_person || '')} · ${this.esc(p.email)}</div>
+                  </div>
+                  <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.previewForProspect('${p.id}')" title="Náhľad pre túto firmu">👁</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
         </div>
 
-        <div id="outreach-preview" style="display:none;margin-top:16px;border-top:1px solid #EAE6DE;padding-top:16px;"></div>
-
-        <div style="max-height:360px;overflow-y:auto;margin-top:16px;border:1px solid #EAE6DE;border-radius:10px;">
-          ${ready.map(p => `
-            <div style="padding:12px 14px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;">
-              <div>
-                <div style="font-weight:600;">${this.esc(p.company_name || p.domain)}</div>
-                <div style="font-size:12px;color:#948B7C;">${this.esc(p.contact_person || '')} · ${this.esc(p.email)}</div>
-              </div>
-              <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.previewSingle('${p.id}')">Náhľad</button>
+        <!-- RIGHT: live preview -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px;position:sticky;top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;">Náhľad emailu</div>
+              <div id="compose-preview-subject" style="font-weight:700;font-size:15px;color:#14120E;margin-top:2px;">—</div>
             </div>
-          `).join('')}
+            <div style="display:flex;gap:6px;">
+              <button class="adl-btn adl-btn-sm ${this.composePreviewViewport==='desktop'?'adl-btn-ink':'adl-btn-outline'}" onclick="OutreachModule.setComposeViewport('desktop')">🖥</button>
+              <button class="adl-btn adl-btn-sm ${this.composePreviewViewport==='mobile'?'adl-btn-ink':'adl-btn-outline'}" onclick="OutreachModule.setComposeViewport('mobile')">📱</button>
+            </div>
+          </div>
+          <div style="background:#F7F5F1;border:1px solid #EAE6DE;border-radius:12px;padding:12px;display:flex;justify-content:center;">
+            <iframe id="compose-preview-iframe" style="width:${this.composePreviewViewport==='mobile'?'375px':'100%'};max-width:100%;height:640px;border:1px solid #EAE6DE;border-radius:10px;background:#fff;"></iframe>
+          </div>
         </div>
       </div>
 
-      <div id="outreach-progress" style="display:none;"></div>
+      <div id="outreach-progress" style="display:none;margin-top:16px;"></div>
     `;
+  },
+
+  selectComposeTemplate(slug) {
+    this.selectedTemplateSlug = slug;
+    this.rerender();
+    this._renderComposePreview();
+  },
+
+  setComposeViewport(vp) {
+    this.composePreviewViewport = vp;
+    this.rerender();
+    this._renderComposePreview();
+  },
+
+  async previewForProspect(id) {
+    this._previewProspectId = id;
+    await this._renderComposePreview();
+  },
+
+  async _renderComposePreview() {
+    if (this.currentView !== 'compose') return;
+    const selected = Array.from(this.selectedIds).map(id => this.prospects.find(p => p.id === id)).filter(p => p && p.email);
+    const prospect = this.prospects.find(p => p.id === this._previewProspectId) || selected[0];
+    if (!prospect) return;
+    const email = await this.buildEmail(prospect);
+    if (!email) return;
+    const subjEl = document.getElementById('compose-preview-subject');
+    if (subjEl) subjEl.textContent = email.subject;
+    const iframe = document.getElementById('compose-preview-iframe');
+    if (!iframe) return;
+    iframe.onload = () => { try { iframe.contentDocument.open(); iframe.contentDocument.write(email.html); iframe.contentDocument.close(); } catch(e) {} };
+    iframe.src = 'about:blank';
   },
 
   applyFilters() {
@@ -327,7 +411,7 @@ const OutreachModule = {
       || document.querySelector('[data-module-container]');
   },
 
-  startCompose() {
+  async startCompose() {
     if (this.selectedIds.size === 0) {
       return Utils.toast('Najprv označ prospektov checkboxami (alebo stlač „Označiť všetkých" v hlavičke tabuľky).', 'warning');
     }
@@ -338,6 +422,9 @@ const OutreachModule = {
     this.drafts.clear();
     this.currentView = 'compose';
     this.rerender();
+    await this.ensureOutreachTemplatesLoaded();
+    this.rerender();
+    this._renderComposePreview();
   },
 
   composeSingle(prospectId) {
@@ -370,7 +457,8 @@ const OutreachModule = {
       console.error('OutreachTemplates missing — include shared/js/utils/outreach-templates.js');
       return null;
     }
-    return await OutreachTemplates.coldOutreachAuditAsync({
+    const slug = this.selectedTemplateSlug || 'cold_outreach_audit';
+    const vars = OutreachTemplates.buildColdOutreachVars({
       contactName: prospect.contact_person || '',
       companyName: prospect.company_name || prospect.domain,
       domain: prospect.domain,
@@ -378,6 +466,39 @@ const OutreachModule = {
       city: prospect.city || '',
       auditToken: prospect.audit_token,
     });
+    const trackPixel = prospect.audit_token
+      ? `${OutreachTemplates.baseUrl()}/.netlify/functions/track-open?audit=${prospect.audit_token}`
+      : null;
+    const fromDb = await OutreachTemplates.render(slug, vars, { trackPixelUrl: trackPixel });
+    if (fromDb) return fromDb;
+    // fallback ak šablóna v DB chýba — pre cold_outreach_audit máme hardcoded
+    if (slug === 'cold_outreach_audit') {
+      return await OutreachTemplates.coldOutreachAuditAsync({
+        contactName: prospect.contact_person || '',
+        companyName: prospect.company_name || prospect.domain,
+        domain: prospect.domain,
+        industry: prospect.industry || '',
+        city: prospect.city || '',
+        auditToken: prospect.audit_token,
+      });
+    }
+    return null;
+  },
+
+  async ensureOutreachTemplatesLoaded() {
+    if (this.templatesLoaded && this.templates.length) return;
+    try {
+      const { data } = await Database.client
+        .from('email_templates')
+        .select('id, slug, name, description, category, subject, is_active')
+        .eq('is_active', true)
+        .in('category', ['outreach', 'transactional'])
+        .order('name', { ascending: true });
+      this.templates = data || [];
+      this.templatesLoaded = true;
+    } catch (e) {
+      console.warn('loadTemplates for compose failed:', e);
+    }
   },
 
   previewFirst() {
