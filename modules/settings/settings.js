@@ -49,7 +49,8 @@ const SettingsModule = {
                         ['signatures', 'Podpisy'],
                         ['templates', 'Šablóny'],
                         ['banking', 'Banka'],
-                        ['invoicing', 'Fakturácia']
+                        ['invoicing', 'Fakturácia'],
+                        ['outreach', 'Outreach']
                     ].map(([k,l]) => `<button onclick="SettingsModule.switchTab('${k}')" class="adl-btn adl-btn-sm ${tab===k?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab===k?'active':''}" style="border-radius:7px; padding:0 12px; flex-shrink:0;">${l}</button>`).join('')}
                 </div>
 
@@ -205,6 +206,10 @@ const SettingsModule = {
                 break;
             case 'invoicing':
                 content.innerHTML = this.renderInvoicingSettings();
+                break;
+            case 'outreach':
+                content.innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam…</div>';
+                this.renderOutreachSettings();
                 break;
         }
     },
@@ -1814,7 +1819,144 @@ const SettingsModule = {
         @keyframes spin { to { transform: rotate(360deg); } }
         </style>
         `;
-    }
+    },
+
+    // ===========================================
+    // OUTREACH SETTINGS (prospect → lead rules)
+    // ===========================================
+
+    async renderOutreachSettings() {
+        const content = document.getElementById('settings-content');
+        if (!content) return;
+
+        // Načítaj outreach_settings z organizations
+        let settings = window.Prospects?.DEFAULT_SETTINGS || {
+            auto_convert: {
+                audit_clicked: true, call_booked: true, form_submitted: true,
+                email_replied: false, email_opened_n: false, email_open_threshold: 3,
+            },
+            cooldown_days_after_lost: 90,
+            sender_name: 'Štefan Varga',
+            sender_title: 'Adlify',
+        };
+
+        try {
+            const { data } = await Database.client
+                .from('organizations')
+                .select('id, outreach_settings')
+                .limit(1)
+                .single();
+            if (data?.outreach_settings) {
+                settings = {
+                    ...settings,
+                    ...data.outreach_settings,
+                    auto_convert: { ...settings.auto_convert, ...(data.outreach_settings.auto_convert || {}) },
+                };
+                this._outreachOrgId = data.id;
+            }
+        } catch (e) {
+            console.warn('Outreach settings load failed, using defaults', e);
+        }
+
+        const ac = settings.auto_convert;
+        const rule = (key, label, desc, on) => `
+            <label style="display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--border,#EAE6DE);border-radius:12px;background:#fff;cursor:pointer;">
+                <input type="checkbox" data-outreach-rule="${key}" ${on?'checked':''} style="margin-top:3px;accent-color:#F97316;">
+                <div style="flex:1;">
+                    <div style="font-weight:600;font-size:14px;color:#14120E;">${label}</div>
+                    <div style="font-size:13px;color:#6F6758;margin-top:2px;">${desc}</div>
+                </div>
+            </label>`;
+
+        content.innerHTML = `
+            <div style="max-width:720px;">
+                <div style="margin-bottom:20px;">
+                    <h2 style="font-size:18px;font-weight:700;margin:0 0 4px;">Outreach pravidlá</h2>
+                    <div style="font-size:13px;color:#6F6758;">Kedy sa má prospect automaticky presunúť do leadov.</div>
+                </div>
+
+                <div style="display:grid;gap:10px;margin-bottom:20px;">
+                    ${rule('audit_clicked',  'Klikol „Chcem audit"',   'Po odoslaní žiadosti o audit z emailu.', ac.audit_clicked)}
+                    ${rule('call_booked',    'Rezervoval call',         'Po rezervácii 15min callu cez book-call stránku.', ac.call_booked)}
+                    ${rule('form_submitted', 'Odoslal kontaktný formulár','Žiadosť o ponuku / general contact formulár.', ac.form_submitted)}
+                    ${rule('email_replied',  'Odpísal na email',        'Vyžaduje Resend inbound webhook (experimentálne).', ac.email_replied)}
+                    ${rule('email_opened_n', 'Otvoril email N-krát',    'Prospekt si email otvoril viackrát (opakovaný záujem).', ac.email_opened_n)}
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--border,#EAE6DE);border-radius:12px;background:#fff;margin-bottom:20px;">
+                    <label style="font-size:13px;font-weight:600;color:#14120E;min-width:200px;">Prah otvorení (N):</label>
+                    <input type="number" id="outreach-open-threshold" value="${ac.email_open_threshold || 3}" min="1" max="20"
+                        style="width:80px;padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:14px;">
+                    <div style="font-size:12px;color:#6F6758;">otvorení emailu pred promóciou</div>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--border,#EAE6DE);border-radius:12px;background:#fff;margin-bottom:20px;">
+                    <label style="font-size:13px;font-weight:600;color:#14120E;min-width:200px;">Cooldown po "lost" (dni):</label>
+                    <input type="number" id="outreach-cooldown" value="${settings.cooldown_days_after_lost || 90}" min="0" max="365"
+                        style="width:80px;padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:14px;">
+                    <div style="font-size:12px;color:#6F6758;">po koľkých dňoch sa prospect dá znova osloviť</div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:#14120E;margin-bottom:6px;">Odosielateľ — meno</label>
+                        <input type="text" id="outreach-sender-name" value="${this._esc(settings.sender_name || '')}"
+                            style="width:100%;padding:10px 12px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:#14120E;margin-bottom:6px;">Odosielateľ — titul / firma</label>
+                        <input type="text" id="outreach-sender-title" value="${this._esc(settings.sender_title || '')}"
+                            style="width:100%;padding:10px 12px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+                    </div>
+                </div>
+
+                <button class="adl-btn adl-btn-primary" onclick="SettingsModule.saveOutreachSettings()">Uložiť</button>
+            </div>
+        `;
+    },
+
+    async saveOutreachSettings() {
+        const checkbox = (key) => document.querySelector(`[data-outreach-rule="${key}"]`)?.checked || false;
+        const num = (id, def) => {
+            const el = document.getElementById(id);
+            const v = el ? Number(el.value) : def;
+            return Number.isFinite(v) ? v : def;
+        };
+        const txt = (id) => document.getElementById(id)?.value?.trim() || '';
+
+        const payload = {
+            auto_convert: {
+                audit_clicked: checkbox('audit_clicked'),
+                call_booked: checkbox('call_booked'),
+                form_submitted: checkbox('form_submitted'),
+                email_replied: checkbox('email_replied'),
+                email_opened_n: checkbox('email_opened_n'),
+                email_open_threshold: num('outreach-open-threshold', 3),
+            },
+            cooldown_days_after_lost: num('outreach-cooldown', 90),
+            sender_name: txt('outreach-sender-name'),
+            sender_title: txt('outreach-sender-title'),
+        };
+
+        try {
+            const query = this._outreachOrgId
+                ? Database.client.from('organizations').update({ outreach_settings: payload }).eq('id', this._outreachOrgId)
+                : Database.client.from('organizations').update({ outreach_settings: payload }).neq('id', '');
+            const { error } = await query;
+            if (error) throw error;
+            if (window.Utils?.toast) Utils.toast('Outreach nastavenia uložené', 'success');
+            else alert('Uložené');
+        } catch (err) {
+            console.error(err);
+            if (window.Utils?.toast) Utils.toast('Chyba: ' + err.message, 'danger');
+            else alert('Chyba: ' + err.message);
+        }
+    },
+
+    _esc(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    },
 };
 
 // Register module
