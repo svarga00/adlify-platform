@@ -154,6 +154,7 @@ const OutreachModule = {
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">🔁 Kampane</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openSenders()">📤 Odosielatelia</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">✉ Šablóny</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFindProspects()">🔍 Nájsť prospekty</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">⬆ Import CSV</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">＋ Nový prospect</button>
             <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.exportCsv()">⬇ Export CSV</button>
@@ -232,8 +233,9 @@ const OutreachModule = {
       ${selCount > 0 ? `
         <div style="background:#FFF7ED;border:1.5px solid #F97316;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
           <strong style="color:#14120E;">Označených: ${selCount}</strong>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.clearSelection()">Zrušiť výber</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.bulkAssign()">👤 Priradiť</button>
             <button class="adl-btn adl-btn-primary" onclick="OutreachModule.composeFromSelected()">▶ Poslať kampaň (${selCount})</button>
             <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteSelected()">✕ Zmazať (${selCount})</button>
           </div>
@@ -432,6 +434,17 @@ const OutreachModule = {
             `}
           </div>
 
+          ${(this._composeSenders && this._composeSenders.length > 0) ? `
+            <div style="margin-bottom:14px;">
+              <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Odosielateľ</label>
+              <select onchange="OutreachModule._composeSenderId=this.value;OutreachModule._renderComposePreview();"
+                style="width:100%;padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
+                <option value="auto" ${this._composeSenderId === 'auto' ? 'selected' : ''}>Auto rotácia (round-robin, rešpektuje denný limit)</option>
+                ${this._composeSenders.map(s => `<option value="${s.id}" ${this._composeSenderId === s.id ? 'selected' : ''}>${this.esc(s.name)} &lt;${this.esc(s.email)}&gt; (${s.sent_today || 0}/${s.warmup_current || s.daily_limit || 40})</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('templates')">✏ Upraviť šablóny</button>
             <button class="adl-btn adl-btn-primary" onclick="OutreachModule.sendCampaign()" ${ready.length === 0 || !currentTpl ? 'disabled' : ''}>
@@ -580,6 +593,12 @@ const OutreachModule = {
     this._previewProspectId = null;
     // Vždy force-reload pred otvorením kampane (nech máme najčerstvejšie šablóny)
     await this.ensureOutreachTemplatesLoaded(true);
+    // Load senders pre selector
+    try {
+      const { data } = await Database.client.from('outreach_senders').select('id, name, email, is_active, sent_today, warmup_current, daily_limit').eq('is_active', true);
+      this._composeSenders = data || [];
+      if (!this._composeSenderId && this._composeSenders[0]) this._composeSenderId = 'auto';
+    } catch { this._composeSenders = []; }
     console.log('[Outreach] compose start — templates:', this.templates.map(t => ({ slug: t.slug, category: t.category, is_active: t.is_active })));
     this.currentView = 'compose';
     this.rerender();
@@ -710,7 +729,16 @@ const OutreachModule = {
       .filter(p => p && p.email);
 
     if (selected.length === 0) return Utils.toast('Žiadni prospekti', 'warning');
-    if (!confirm(`Odoslať ${selected.length} emailov?\n\nTáto akcia je nezvratná.`)) return;
+    const confirmOk = await Utils.confirm(`Odoslať ${selected.length} emailov? Táto akcia je nezvratná.`, {
+      type: 'warning', confirmText: `Odoslať ${selected.length}`, cancelText: 'Zrušiť'
+    });
+    if (!confirmOk) return;
+
+    // Sender selection
+    const senders = this._composeSenders || [];
+    const mode = this._composeSenderId || 'auto';
+    const explicit = mode !== 'auto' ? senders.find(s => s.id === mode) : null;
+    const rrPool = [...senders]; // round-robin order mutable
 
     const progressBox = document.getElementById('outreach-progress');
     progressBox.style.display = 'block';
@@ -721,20 +749,33 @@ const OutreachModule = {
     </div>`;
 
     let ok = 0, fail = 0;
+    const senderBumps = new Map(); // id → count
     for (let i = 0; i < selected.length; i++) {
       const prospect = selected[i];
+      // pick sender
+      let sender = explicit;
+      if (!sender && rrPool.length) {
+        // round-robin: vezmi z pool, posuň na koniec
+        sender = rrPool.shift();
+        rrPool.push(sender);
+      }
       try {
         const email = await this.buildEmail(prospect);
+        const payload = {
+          to: prospect.email,
+          subject: email.subject,
+          htmlBody: email.html,
+          textBody: email.text,
+          prospectId: prospect.id,
+        };
+        if (sender) {
+          payload.fromEmail = sender.email;
+          payload.fromName = sender.name;
+        }
         const r = await fetch('/.netlify/functions/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: prospect.email,
-            subject: email.subject,
-            htmlBody: email.html,
-            textBody: email.text,
-            prospectId: prospect.id,
-          }),
+          body: JSON.stringify(payload),
         });
         if (r.ok) {
           ok++;
@@ -743,7 +784,8 @@ const OutreachModule = {
             outreach_last_contacted_at: new Date().toISOString(),
             outreach_stage: 'email_sent',
           }).eq('id', prospect.id);
-          this.appendLog(`✓ ${prospect.company_name || prospect.domain} (${prospect.email})`, 'ok');
+          if (sender) senderBumps.set(sender.id, (senderBumps.get(sender.id) || 0) + 1);
+          this.appendLog(`✓ ${prospect.company_name || prospect.domain}${sender ? ` (via ${sender.email})` : ''}`, 'ok');
         } else {
           fail++;
           this.appendLog(`✗ ${prospect.company_name || prospect.domain}: ${r.status}`, 'err');
@@ -755,7 +797,18 @@ const OutreachModule = {
       const pct = Math.round(((i + 1) / selected.length) * 100);
       document.getElementById('outreach-bar').style.width = pct + '%';
       document.getElementById('outreach-status').textContent = `Odosielam ${i + 1}/${selected.length}...`;
-      await new Promise(r => setTimeout(r, 250)); // anti-spam delay
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    // Update sender counters atomicky per sender
+    for (const [senderId, count] of senderBumps.entries()) {
+      const s = senders.find(x => x.id === senderId);
+      if (!s) continue;
+      await Database.client.from('outreach_senders').update({
+        sent_today: (s.sent_today || 0) + count,
+        total_sent: (s.total_sent || 0) + count,
+        last_sent_at: new Date().toISOString(),
+      }).eq('id', senderId);
     }
 
     document.getElementById('outreach-status').textContent = `Hotovo: ${ok} odoslaných, ${fail} neúspešných.`;
@@ -1698,6 +1751,173 @@ const OutreachModule = {
     `;
   },
 
+  // ========== LEAD FINDER (AI) ==========
+
+  _findResults: null,
+  _findSelection: new Set(),
+
+  openFindProspects() {
+    this._findResults = null;
+    this._findSelection = new Set();
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:720px;width:min(94vw,720px);">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">🔍 Nájsť prospektov (AI)</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="find-form" onsubmit="event.preventDefault();OutreachModule.runFindProspects();" style="padding:20px 24px 12px;display:grid;gap:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            ${this._field('segment', 'Segment / odvetvie *', 'text', true)}
+            ${this._field('city', 'Mesto / región', 'text')}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;">
+            ${this._field('hints', 'Doplňujúce kritériá (ideálna veľkosť, typ, špecifikácie)', 'text')}
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Počet
+              <input type="number" name="count" min="1" max="50" value="10"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+            </label>
+          </div>
+          <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">
+            AI vráti kandidátov na overenie (firma, doména, odvetvie, dôvod osloviť).
+            Kontakty neuhádne — emaily/telefóny si pridáš manuálne alebo cez CSV.
+            Vyžaduje <code>ANTHROPIC_API_KEY</code> v Netlify env.
+          </p>
+          <div id="find-status" style="display:none;font-size:13px;color:#6F6758;padding:10px 14px;background:#F7F5F1;border-radius:10px;"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">🔍 Hľadať</button>
+          </div>
+        </form>
+        <div id="find-results" style="padding:0 24px 24px;"></div>
+      </div>
+    `;
+    this._openModal(modal);
+    setTimeout(() => modal.querySelector('[name=segment]')?.focus(), 30);
+  },
+
+  async runFindProspects() {
+    const form = document.getElementById('find-form');
+    if (!form) return;
+    const fd = new FormData(form);
+    const payload = Object.fromEntries(fd.entries());
+    const status = document.getElementById('find-status');
+    const btn = form.querySelector('button[type=submit]');
+    status.style.display = 'block';
+    status.style.background = '#F7F5F1';
+    status.style.color = '#6F6758';
+    status.textContent = '⏳ Hľadám (15–30 s)…';
+    btn.disabled = true;
+    try {
+      const r = await fetch('/.netlify/functions/find-prospects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      this._findResults = data.prospects || [];
+      this._findSelection = new Set(this._findResults.map((_, i) => i));
+      status.style.display = 'none';
+      this._renderFindResults();
+    } catch (e) {
+      status.style.background = '#FEE2E2';
+      status.style.color = '#991B1B';
+      status.textContent = '✕ ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  _renderFindResults() {
+    const box = document.getElementById('find-results');
+    if (!box || !this._findResults) return;
+    const rows = this._findResults;
+    if (rows.length === 0) {
+      box.innerHTML = '<div style="color:#948B7C;padding:16px;text-align:center;">Žiadne výsledky.</div>';
+      return;
+    }
+    const sel = this._findSelection;
+    box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:13px;color:#6F6758;">${rows.length} kandidátov · označených ${sel.size}</div>
+        <div style="display:flex;gap:6px;">
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule._toggleAllFind(true)">Všetkých</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule._toggleAllFind(false)">Žiadnych</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto;border:1px solid #EAE6DE;border-radius:10px;">
+        ${rows.map((p, i) => `
+          <label style="display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid #F7F5F1;cursor:pointer;align-items:flex-start;${sel.has(i) ? 'background:#FFF7ED;' : ''}">
+            <input type="checkbox" ${sel.has(i) ? 'checked' : ''} onchange="OutreachModule._toggleFindItem(${i})">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:14px;color:#14120E;">${this.esc(p.company_name)}</div>
+              <div style="font-size:12px;color:#6F6758;margin:2px 0;">
+                ${p.domain ? `<a href="https://${this.esc(p.domain)}" target="_blank" onclick="event.stopPropagation()" style="color:#F97316;text-decoration:none;">${this.esc(p.domain)} ↗</a>` : '<span style="color:#948B7C;">bez domény</span>'}
+                ${p.city ? ` · ${this.esc(p.city)}` : ''}
+                ${p.industry ? ` · ${this.esc(p.industry)}` : ''}
+              </div>
+              ${p.reason ? `<div style="font-size:12px;color:#3A352B;font-style:italic;margin-top:3px;">${this.esc(p.reason)}</div>` : ''}
+            </div>
+          </label>
+        `).join('')}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+        <button class="adl-btn adl-btn-primary" onclick="OutreachModule._addFoundProspects()" ${sel.size === 0 ? 'disabled' : ''}>
+          + Pridať ${sel.size} prospektov
+        </button>
+      </div>
+    `;
+  },
+
+  _toggleFindItem(i) {
+    if (this._findSelection.has(i)) this._findSelection.delete(i);
+    else this._findSelection.add(i);
+    this._renderFindResults();
+  },
+
+  _toggleAllFind(on) {
+    if (on) this._findSelection = new Set(this._findResults.map((_, i) => i));
+    else this._findSelection = new Set();
+    this._renderFindResults();
+  },
+
+  async _addFoundProspects() {
+    const rows = (this._findResults || []).filter((_, i) => this._findSelection.has(i));
+    if (rows.length === 0) return;
+
+    // Dedup na domain
+    const { data: existing } = await Database.client.from('prospects').select('domain');
+    const existingDomains = new Set((existing || []).map(x => (x.domain || '').toLowerCase()).filter(Boolean));
+
+    const toInsert = rows
+      .filter(p => !p.domain || !existingDomains.has(p.domain.toLowerCase()))
+      .map(p => ({
+        company_name: p.company_name,
+        domain: p.domain || null,
+        industry: p.industry || null,
+        city: p.city || null,
+        source: 'ai_finder',
+        notes: p.reason || null,
+        outreach_stage: 'pending',
+        score: 50,
+      }));
+
+    const skipped = rows.length - toInsert.length;
+    if (toInsert.length === 0) {
+      Utils.toast(`Všetkých ${rows.length} duplicitných`, 'warning');
+      return;
+    }
+    const { error } = await Database.client.from('prospects').insert(toInsert);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    Utils.toast(`Pridaných ${toInsert.length}${skipped ? ` (preskočených ${skipped} duplicitných)` : ''}`, 'success');
+    this.closeModal();
+    // reload
+    this.render(this._getContainer());
+  },
+
   // ========== SENDERS (rotation + warm-up) ==========
 
   senders: [],
@@ -2452,10 +2672,21 @@ const OutreachModule = {
     this._detailEvents = null;
     this._detailTasksList = null;
     this._detailNotesList = null;
+    if (!this._teamMembers) await this._loadTeamMembers();
     const modal = this._ensureModal('outreach-modal');
     modal.innerHTML = this._renderDetailModal(p);
     this._openModalWide(modal);
     this._loadDetailEvents(prospectId);
+  },
+
+  async _loadTeamMembers() {
+    try {
+      const { data } = await Database.client
+        .from('user_profiles')
+        .select('id, full_name, email, role')
+        .in('role', ['owner','admin','manager','employee']);
+      this._teamMembers = data || [];
+    } catch { this._teamMembers = []; }
   },
 
   async _loadDetailEvents(prospectId) {
@@ -2731,6 +2962,17 @@ const OutreachModule = {
     `;
   },
 
+  async assignProspect(prospectId, userId) {
+    const { error } = await Database.client.from('prospects')
+      .update({ assigned_to: userId || null })
+      .eq('id', prospectId);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    // update local cache
+    const p = this.prospects.find(x => x.id === prospectId);
+    if (p) p.assigned_to = userId || null;
+    Utils.toast(userId ? 'Priradené' : 'Priradenie zrušené', 'success');
+  },
+
   composeReplyToProspect(prospectId) {
     const p = this.prospects.find(x => x.id === prospectId);
     if (!p?.email) return Utils.toast('Prospect nemá email', 'warning');
@@ -2868,10 +3110,20 @@ const OutreachModule = {
   },
 
   _detailOverview(p) {
+    const assignee = (this._teamMembers || []).find(u => u.id === p.assigned_to);
+    const assigneeLabel = assignee ? (assignee.full_name || assignee.email) : 'Nepriradený';
+    const assignSelect = `
+      <select onchange="OutreachModule.assignProspect('${p.id}', this.value)"
+        style="padding:6px 10px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+        <option value="">— Nepriradený —</option>
+        ${(this._teamMembers || []).map(u => `<option value="${u.id}" ${u.id === p.assigned_to ? 'selected' : ''}>${this.esc(u.full_name || u.email)} (${u.role})</option>`).join('')}
+      </select>
+    `;
     const fields = [
       ['Kontaktná osoba', p.contact_person],
       ['Email', p.email ? `<a href="mailto:${this.esc(p.email)}" style="color:#F97316;">${this.esc(p.email)}</a>` : null],
       ['Telefón', p.phone ? `<a href="tel:${this.esc(p.phone.replace(/\s/g,''))}" style="color:#F97316;">${this.esc(p.phone)}</a>` : null],
+      ['Priradený', assignSelect],
       ['Odvetvie', p.industry],
       ['Mesto', p.city],
       ['Segment', p.segment],
@@ -3340,6 +3592,54 @@ const OutreachModule = {
     this.prospects = this.prospects.filter(x => x.id !== id);
     this.selectedIds.delete(id);
     Utils.toast('Zmazané', 'success');
+    this.rerender();
+  },
+
+  async bulkAssign() {
+    if (!this._teamMembers) await this._loadTeamMembers();
+    const members = this._teamMembers || [];
+    if (!members.length) return Utils.toast('Žiadni členovia tímu', 'warning');
+
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:460px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">Priradiť ${this.selectedIds.size} prospektov</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="assign-form" onsubmit="event.preventDefault();OutreachModule._runBulkAssign();" style="padding:20px 24px;display:grid;gap:12px;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Priradiť na
+            <select name="assignee" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
+              <option value="">— Nikoho (zrušiť priradenie) —</option>
+              ${members.map(u => `<option value="${u.id}">${this.esc(u.full_name || u.email)} (${u.role})</option>`).join('')}
+            </select>
+          </label>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">Priradiť</button>
+          </div>
+        </form>
+      </div>
+    `;
+    this._openModal(modal);
+  },
+
+  async _runBulkAssign() {
+    const form = document.getElementById('assign-form');
+    const assignee = form?.querySelector('[name=assignee]')?.value || null;
+    const ids = Array.from(this.selectedIds);
+    if (!ids.length) return;
+    const { error } = await Database.client.from('prospects')
+      .update({ assigned_to: assignee || null })
+      .in('id', ids);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    // update local
+    this.prospects.forEach(p => { if (this.selectedIds.has(p.id)) p.assigned_to = assignee || null; });
+    Utils.toast(`Priradených ${ids.length}`, 'success');
+    this.selectedIds.clear();
+    this.closeModal();
     this.rerender();
   },
 
