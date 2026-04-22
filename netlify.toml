@@ -49,6 +49,10 @@
 [functions."outreach-scheduler"]
   schedule = "5 * * * *"
 
+# Scheduled function — sync Google/Meta Ads metrík každé 2 hodiny o :15
+[functions."ads-scheduled-sync"]
+  schedule = "15 */2 * * *"
+
 # Plugin pre inštaláciu dependencies vo functions
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
