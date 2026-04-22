@@ -108,6 +108,7 @@ const OutreachModule = {
     if (this.currentView === 'compose') body = this.renderCompose();
     else if (this.currentView === 'templates') body = this.renderTemplates();
     else if (this.currentView === 'campaigns') body = this.renderCampaigns();
+    else if (this.currentView === 'analytics') body = this.renderAnalytics();
     else if (this.currentView === 'import') body = this.renderImport();
     else body = this.renderOverview(stats);
     const showFunnel = this.currentView === 'overview' || this.currentView === 'compose';
@@ -145,6 +146,7 @@ const OutreachModule = {
           ${isSecondary ? `
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('overview')">← Späť</button>
           ` : `
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAnalytics()">📊 Analytika</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">🔁 Kampane</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">✉ Šablóny</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">⬆ Import CSV</button>
@@ -1387,11 +1389,222 @@ const OutreachModule = {
     return s || null;
   },
 
+  // ========== ANALYTICS ==========
+
+  _analyticsData: null,
+
+  async openAnalytics() {
+    this.currentView = 'analytics';
+    this._analyticsData = null;
+    this.rerender();
+    try {
+      // 1. Prospects agregované
+      const { data: prospectsData } = await Database.client
+        .from('prospects')
+        .select('id, outreach_stage, outreach_email_sent_at, outreach_email_human_open, outreach_email_open_count, audit_requested_at, audit_viewed_at, converted_to_lead_id, outreach_email_replied_at, source');
+
+      // 2. Events agregované
+      const { data: eventsData } = await Database.client
+        .from('prospect_events')
+        .select('event_type, is_bot, occurred_at, geo_country, link_url')
+        .gte('occurred_at', new Date(Date.now() - 30 * 86400000).toISOString())
+        .limit(5000);
+
+      // 3. Campaigns
+      const { data: campaignsData } = await Database.client
+        .from('outreach_campaigns')
+        .select('id, name, status, outreach_campaign_enrollments(status)');
+
+      this._analyticsData = {
+        prospects: prospectsData || [],
+        events: eventsData || [],
+        campaigns: campaignsData || [],
+      };
+      this.rerender();
+    } catch (e) {
+      console.error(e);
+      Utils.toast('Chyba: ' + e.message, 'danger');
+    }
+  },
+
+  renderAnalytics() {
+    const d = this._analyticsData;
+    if (!d) return `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam analytiku…</div>`;
+
+    const p = d.prospects;
+    const sent = p.filter(x => x.outreach_email_sent_at).length;
+    const opened = p.filter(x => x.outreach_email_human_open).length;
+    const multiOpen = p.filter(x => (x.outreach_email_open_count || 0) >= 2).length;
+    const auditReq = p.filter(x => x.audit_requested_at).length;
+    const auditViewed = p.filter(x => x.audit_viewed_at).length;
+    const replied = p.filter(x => x.outreach_email_replied_at).length;
+    const converted = p.filter(x => x.converted_to_lead_id).length;
+    const unsubscribed = p.filter(x => x.outreach_stage === 'unsubscribed').length;
+    const bounced = p.filter(x => x.outreach_stage === 'bounced').length;
+
+    const rate = (n, total) => total > 0 ? Math.round((n / total) * 1000) / 10 : 0;
+    const openRate = rate(opened, sent);
+    const auditRate = rate(auditReq, sent);
+    const viewRate = rate(auditViewed, auditReq);
+    const convRate = rate(converted, sent);
+    const replyRate = rate(replied, sent);
+
+    // Events by day (30 dní)
+    const ev = d.events;
+    const humanOpens = ev.filter(e => e.event_type === 'email_open' && !e.is_bot).length;
+    const botOpens = ev.filter(e => e.event_type === 'email_open' && e.is_bot).length;
+    const clicks = ev.filter(e => e.event_type === 'email_click' && !e.is_bot).length;
+    const countries = [...new Set(ev.filter(e => !e.is_bot && e.geo_country).map(e => e.geo_country))];
+
+    // Sources
+    const sourceMap = {};
+    p.forEach(x => { const s = x.source || 'unknown'; sourceMap[s] = (sourceMap[s] || 0) + 1; });
+    const topSources = Object.entries(sourceMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+    // Campaigns overview
+    const campStats = d.campaigns.map(c => {
+      const enrollments = c.outreach_campaign_enrollments || [];
+      return {
+        name: c.name, status: c.status,
+        total: enrollments.length,
+        active: enrollments.filter(e => e.status === 'active').length,
+        completed: enrollments.filter(e => e.status === 'completed').length,
+      };
+    });
+
+    // Daily trend (30 dní)
+    const buckets = {};
+    for (let i = 29; i >= 0; i--) {
+      const d2 = new Date(Date.now() - i * 86400000);
+      const key = d2.toISOString().slice(0, 10);
+      buckets[key] = { opens: 0, clicks: 0 };
+    }
+    ev.forEach(e => {
+      if (e.is_bot) return;
+      const key = String(e.occurred_at || '').slice(0, 10);
+      if (!buckets[key]) return;
+      if (e.event_type === 'email_open') buckets[key].opens++;
+      else if (e.event_type === 'email_click') buckets[key].clicks++;
+    });
+    const maxDaily = Math.max(1, ...Object.values(buckets).map(b => b.opens + b.clicks));
+
+    return `
+      <div style="display:grid;gap:16px;">
+        <!-- Funnel -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
+          <h2 style="font-size:18px;font-weight:700;margin:0 0 14px;">Konverzný lievik (všetky prospecti)</h2>
+          <div style="display:grid;gap:8px;">
+            ${this._funnelRow('✉ Odoslané',       sent,        sent)}
+            ${this._funnelRow('👁 Otvorené',       opened,      sent, openRate + '%')}
+            ${this._funnelRow('👁×2 Viackrát',    multiOpen,   sent)}
+            ${this._funnelRow('🎯 Požiadali o audit', auditReq, sent, auditRate + '%')}
+            ${this._funnelRow('📖 Audit videli',   auditViewed, sent, viewRate + '%')}
+            ${this._funnelRow('💬 Odpovedali',    replied,     sent, replyRate + '%')}
+            ${this._funnelRow('🎉 Konvertovaní (lead)', converted, sent, convRate + '%')}
+          </div>
+          <div style="display:flex;gap:14px;margin-top:18px;flex-wrap:wrap;">
+            <div style="font-size:12px;color:#6F6758;">Unsubscribed: <strong>${unsubscribed}</strong></div>
+            <div style="font-size:12px;color:#6F6758;">Bounced: <strong>${bounced}</strong></div>
+          </div>
+        </div>
+
+        <!-- Stats + trend -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
+            <h3 style="font-size:15px;font-weight:700;margin:0 0 12px;">Aktivita (30 dní)</h3>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+              ${this._stat('👁 Human opens', humanOpens, '#8B5CF6', '#EDE9FE')}
+              ${this._stat('🖱 Clicks', clicks, '#F97316', '#FFEDD5')}
+              ${this._stat('🤖 Bot opens', botOpens, '#6F6758', '#F7F5F1')}
+              ${this._stat('📍 Krajín', countries.length, '#3B82F6', '#DBEAFE')}
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
+            <h3 style="font-size:15px;font-weight:700;margin:0 0 12px;">Zdroje prospektov</h3>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              ${topSources.length === 0 ? '<div style="color:#948B7C;">—</div>' : topSources.map(([src, count]) => {
+                const pct = Math.round((count / p.length) * 100);
+                return `
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px;"><span>${this.esc(src)}</span><strong>${count}</strong></div>
+                    <div style="height:6px;background:#EAE6DE;border-radius:999px;overflow:hidden;"><div style="height:100%;background:#F97316;width:${pct}%;"></div></div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily trend chart -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
+          <h3 style="font-size:15px;font-weight:700;margin:0 0 12px;">Opens + clicks denne (posledných 30 dní)</h3>
+          <div style="display:flex;align-items:flex-end;gap:3px;height:140px;border-bottom:1px solid #EAE6DE;padding-bottom:4px;">
+            ${Object.entries(buckets).map(([key, b]) => {
+              const total = b.opens + b.clicks;
+              const h = Math.round((total / maxDaily) * 100);
+              const openH = total > 0 ? Math.round((b.opens / total) * h) : 0;
+              return `
+                <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;position:relative;" title="${key}: ${b.opens} opens, ${b.clicks} clicks">
+                  <div style="background:#F97316;height:${h - openH}%;"></div>
+                  <div style="background:#8B5CF6;height:${openH}%;"></div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:#948B7C;">
+            <span>${Object.keys(buckets)[0]}</span>
+            <span>${Object.keys(buckets).slice(-1)[0]}</span>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:#6F6758;">
+            <span style="display:inline-block;width:10px;height:10px;background:#8B5CF6;border-radius:2px;margin-right:4px;"></span> Opens (human) ·
+            <span style="display:inline-block;width:10px;height:10px;background:#F97316;border-radius:2px;margin:0 4px 0 6px;"></span> Clicks
+          </div>
+        </div>
+
+        <!-- Campaigns overview -->
+        <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;">
+          <h3 style="font-size:15px;font-weight:700;margin:0 0 12px;">Kampane (${campStats.length})</h3>
+          ${campStats.length === 0 ? '<div style="color:#948B7C;">Žiadne kampane.</div>' : `
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              ${campStats.map(c => `
+                <div style="padding:10px 14px;border:1px solid #EAE6DE;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                  <div>
+                    <strong>${this.esc(c.name)}</strong>
+                    <span style="font-size:11px;margin-left:6px;color:#6F6758;">${this.esc(c.status)}</span>
+                  </div>
+                  <div style="font-size:12px;color:#6F6758;">
+                    ${c.total} enrolled · ${c.active} aktívnych · ${c.completed} dokončených
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  },
+
+  _funnelRow(label, count, total, rate) {
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    return `
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">
+          <span style="color:#14120E;font-weight:500;">${label}</span>
+          <span style="color:#6F6758;"><strong>${count}</strong>${rate ? ` · ${rate}` : ''}</span>
+        </div>
+        <div style="height:8px;background:#F7F5F1;border-radius:999px;overflow:hidden;">
+          <div style="height:100%;background:linear-gradient(90deg,#F97316,#EA580C);width:${pct}%;transition:width .4s;"></div>
+        </div>
+      </div>
+    `;
+  },
+
   // ========== CAMPAIGNS (sekvencie) ==========
 
   async openCampaigns() {
     this.currentView = 'campaigns';
     this.editingCampaign = null;
+    this.viewingCampaignId = null;
     this.campaigns = [];
     this.campaignsLoaded = false;
     this.rerender();
@@ -1418,6 +1631,7 @@ const OutreachModule = {
 
   renderCampaigns() {
     if (this.editingCampaign) return this._renderCampaignEditor();
+    if (this.viewingCampaignId) return this._renderCampaignDetail();
     const rows = this.campaigns;
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
@@ -1455,9 +1669,10 @@ const OutreachModule = {
           <div style="font-size:12px;color:#948B7C;">${(c.steps || []).length} krokov · ${c.enrollment_count || 0} prospektov enrolled</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+          <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.viewCampaign('${c.id}')">📊 Detail</button>
           ${c.status === 'active' ? `<button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.setCampaignStatus('${c.id}','paused')">⏸ Pauza</button>` : ''}
           ${c.status === 'paused' || c.status === 'draft' ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.setCampaignStatus('${c.id}','active')">▶ Aktivovať</button>` : ''}
-          <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editCampaign('${c.id}')">Upraviť</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.editCampaign('${c.id}')">Upraviť</button>
           <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteCampaign('${c.id}')" title="Zmazať">✕</button>
         </div>
       </div>
@@ -1469,6 +1684,172 @@ const OutreachModule = {
     if (!c) return;
     this.editingCampaign = JSON.parse(JSON.stringify(c));
     this.rerender();
+  },
+
+  async viewCampaign(id) {
+    this.viewingCampaignId = id;
+    this._campaignDetailData = null;
+    this.rerender();
+    try {
+      const { data: enrollments } = await Database.client
+        .from('outreach_campaign_enrollments')
+        .select('id, prospect_id, current_step, status, next_send_at, last_sent_at, completed_at, stop_reason, enrolled_at, prospect:prospects(company_name, domain, email, contact_person, outreach_stage, outreach_email_opened_at, outreach_email_open_count, audit_requested_at)')
+        .eq('campaign_id', id)
+        .order('enrolled_at', { ascending: false })
+        .limit(500);
+      this._campaignDetailData = enrollments || [];
+      this.rerender();
+    } catch (e) {
+      this._campaignDetailData = [];
+      Utils.toast('Chyba: ' + e.message, 'danger');
+      this.rerender();
+    }
+  },
+
+  backToCampaigns() {
+    this.viewingCampaignId = null;
+    this._campaignDetailData = null;
+    this.rerender();
+  },
+
+  _renderCampaignDetail() {
+    const c = this.campaigns.find(x => x.id === this.viewingCampaignId);
+    if (!c) return `<div style="padding:40px;text-align:center;color:#6F6758;">Kampaň neexistuje. <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.backToCampaigns()">← Späť</button></div>`;
+    const enrollments = this._campaignDetailData;
+    const steps = c.steps || [];
+
+    // Stats per-step
+    const stepStats = steps.map(s => {
+      const reached = (enrollments || []).filter(e => e.current_step >= s.step_order).length;
+      return { ...s, reached };
+    });
+    const total = enrollments?.length || 0;
+    const active = (enrollments || []).filter(e => e.status === 'active').length;
+    const completed = (enrollments || []).filter(e => e.status === 'completed').length;
+    const stopped = (enrollments || []).filter(e => e.status === 'stopped' || e.status === 'bounced').length;
+
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:20px 24px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Kampaň</div>
+            <h2 style="margin:2px 0 4px;font-size:20px;font-weight:700;">${this.esc(c.name)}</h2>
+            <div style="font-size:13px;color:#6F6758;">${this.esc(c.description || '')}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.backToCampaigns()">← Zoznam</button>
+            <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editCampaign('${c.id}')">Upraviť</button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
+          ${this._stat('✉ Enrolled', total, '#3B82F6', '#DBEAFE')}
+          ${this._stat('▶ Aktívni', active, '#F97316', '#FFEDD5')}
+          ${this._stat('✓ Dokončení', completed, '#16A34A', '#DCFCE7')}
+          ${this._stat('⏸ Stopped', stopped, '#6F6758', '#F7F5F1')}
+        </div>
+
+        <h3 style="font-size:14px;font-weight:700;color:#14120E;margin:8px 0 10px;">Priebeh krokov</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+          ${stepStats.length === 0 ? '<div style="color:#948B7C;">Žiadne kroky — uprav kampaň.</div>' : stepStats.map(s => {
+            const pct = total ? Math.round((s.reached / total) * 100) : 0;
+            return `
+              <div style="background:#FAFAF7;border:1px solid #EAE6DE;border-radius:10px;padding:10px 14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+                  <div style="font-size:13px;color:#14120E;"><strong>Krok #${s.step_order}</strong> · ${this.esc(s.template_slug)} · +${s.delay_days} dní</div>
+                  <div style="font-size:12px;color:#6F6758;"><strong>${s.reached}</strong> / ${total} (${pct}%)</div>
+                </div>
+                <div style="height:6px;background:#EAE6DE;border-radius:999px;overflow:hidden;">
+                  <div style="height:100%;background:#F97316;width:${pct}%;transition:width .3s;"></div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid #EAE6DE;font-size:14px;font-weight:700;">Enrolled prospekti (${total})</div>
+        ${enrollments == null ? `<div style="padding:40px;text-align:center;color:#948B7C;">Načítavam…</div>`
+          : total === 0 ? `<div style="padding:40px;text-align:center;color:#948B7C;">Žiadni enrollovaní. <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.backToCampaigns()">← Späť</button> → označ prospektov a spusti enroll z editora.</div>`
+          : `
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead style="background:#F7F5F1;">
+                <tr>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#6F6758;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Firma</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#6F6758;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Krok</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#6F6758;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Status</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#6F6758;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Ďalšie odoslanie</th>
+                  <th style="padding:10px 14px;text-align:left;font-weight:600;color:#6F6758;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Akcie</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${enrollments.map(e => this._renderEnrollmentRow(e, steps.length)).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    `;
+  },
+
+  _renderEnrollmentRow(e, totalSteps) {
+    const company = e.prospect?.company_name || e.prospect?.domain || '—';
+    const next = e.next_send_at ? new Date(e.next_send_at) : null;
+    const nextStr = next ? next.toLocaleString('sk-SK') : '—';
+    const statusMap = {
+      active:    { label: 'Aktívny',   bg: '#FFEDD5', color: '#92400E' },
+      paused:    { label: 'Pauza',     bg: '#FEF3C7', color: '#92400E' },
+      completed: { label: 'Dokončený', bg: '#DCFCE7', color: '#166534' },
+      stopped:   { label: 'Stopped',   bg: '#F7F5F1', color: '#6F6758' },
+      bounced:   { label: 'Bounced',   bg: '#FEE2E2', color: '#991B1B' },
+    };
+    const s = statusMap[e.status] || statusMap.active;
+    return `
+      <tr style="border-top:1px solid #EAE6DE;">
+        <td style="padding:10px 14px;cursor:pointer;" onclick="OutreachModule.openProspectDetail('${e.prospect_id}')">
+          <div style="font-weight:600;color:#14120E;">${this.esc(company)}</div>
+          <div style="font-size:11px;color:#948B7C;">${this.esc(e.prospect?.email || '')}</div>
+        </td>
+        <td style="padding:10px 14px;"><strong>${e.current_step}</strong><span style="color:#948B7C;"> / ${totalSteps}</span></td>
+        <td style="padding:10px 14px;">
+          <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:${s.bg};color:${s.color};">${s.label}</span>
+          ${e.stop_reason ? `<div style="font-size:10px;color:#948B7C;margin-top:2px;">${this.esc(e.stop_reason)}</div>` : ''}
+        </td>
+        <td style="padding:10px 14px;color:#6F6758;font-size:12px;">${e.status === 'active' ? nextStr : '—'}</td>
+        <td style="padding:10px 14px;">
+          ${e.status === 'active' ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.stopEnrollment('${e.id}')" title="Zastaviť v kampani">⏸</button>` : ''}
+          ${e.status === 'stopped' || e.status === 'paused' ? `<button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.resumeEnrollment('${e.id}')" title="Obnoviť">▶</button>` : ''}
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.removeEnrollment('${e.id}')" title="Vyradiť z kampane">✕</button>
+        </td>
+      </tr>
+    `;
+  },
+
+  async stopEnrollment(id) {
+    const { error } = await Database.client.from('outreach_campaign_enrollments').update({
+      status: 'stopped', stop_reason: 'manual',
+    }).eq('id', id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    await this.viewCampaign(this.viewingCampaignId);
+  },
+
+  async resumeEnrollment(id) {
+    const { error } = await Database.client.from('outreach_campaign_enrollments').update({
+      status: 'active', stop_reason: null, next_send_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    await this.viewCampaign(this.viewingCampaignId);
+  },
+
+  async removeEnrollment(id) {
+    const ok = await Utils.confirm('Vyradiť z kampane?', { type: 'danger', confirmText: 'Vyradiť' });
+    if (!ok) return;
+    const { error } = await Database.client.from('outreach_campaign_enrollments').delete().eq('id', id);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    Utils.toast('Vyradené', 'success');
+    await this.viewCampaign(this.viewingCampaignId);
   },
 
   cancelEditCampaign() {
