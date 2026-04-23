@@ -157,10 +157,10 @@ const OutreachModule = {
       play:    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
     };
     return `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
         <div>
-          <h1 style="font-size:28px;font-weight:700;letter-spacing:-0.5px;margin:0 0 4px;color:#14120E;">Outreach</h1>
-          <p style="color:#6F6758;font-size:14px;margin:0;">Personalizované oslovovanie firiem · Audit-first flow</p>
+          <h1 style="font-size:22px;font-weight:600;letter-spacing:-0.4px;margin:0 0 2px;color:var(--ink);">Outreach</h1>
+          <div style="color:var(--ink-sub);font-size:13px;">Personalizované oslovovanie firiem · Audit-first flow</div>
         </div>
         <div class="adl-toolbar">
           ${isSecondary ? `
@@ -173,11 +173,11 @@ const OutreachModule = {
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">${ic(icons.mail)} Šablóny</button>
             <span class="adl-toolbar-divider"></span>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFindProspects()">${ic(icons.search)} Nájsť prospekty</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">${ic(icons.upload)} Import CSV</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">${ic(icons.upload)} Import</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">${ic(icons.plus)} Nový prospect</button>
             <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.exportCsv()">${ic(icons.download)} Export</button>
             <span class="adl-toolbar-divider"></span>
-            <button class="adl-btn adl-btn-primary adl-btn-lg" onclick="OutreachModule.startCompose()" ${this.selectedIds.size === 0 ? 'disabled' : ''}>${ic(icons.play)} Poslať kampaň (${this.selectedIds.size})</button>
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.startCompose()" ${this.selectedIds.size === 0 ? 'disabled' : ''}>${ic(icons.play)} Poslať kampaň (${this.selectedIds.size})</button>
           `}
         </div>
       </div>

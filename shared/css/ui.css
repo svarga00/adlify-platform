@@ -36,106 +36,84 @@
 .adl-chip-warn   { background: color-mix(in oklab, var(--warn) 16%, transparent); color: var(--warn); border-color: transparent; }
 
 /* ========== BUTTON ========== */
+/* ========== BUTTON (aligned with design system — soft modern) ========== */
 .adl-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 14px;
-  font-size: 13.5px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: -0.1px;
-  border-radius: 10px;
+  border-radius: 9px;
   border: 1px solid transparent;
   background: transparent;
-  color: #14120E;
+  color: var(--ink);
   cursor: pointer;
   white-space: nowrap;
-  transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
   font-family: inherit;
 }
 .adl-btn svg { display: block; }
-.adl-btn:focus-visible {
-  outline: 2px solid #F97316;
-  outline-offset: 2px;
-}
-.adl-btn:disabled, .adl-btn[disabled] {
-  opacity: .42;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
-}
-.adl-btn-sm { height: 32px; padding: 0 12px; font-size: 12px; border-radius: 8px; gap: 6px; }
-.adl-btn-lg { height: 46px; padding: 0 24px; font-size: 15px; border-radius: 12px; }
+.adl-btn:focus-visible { outline: 2px solid var(--brand-400); outline-offset: 2px; }
+.adl-btn:disabled, .adl-btn[disabled] { opacity: .42; cursor: not-allowed; }
+.adl-btn-sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 8px; gap: 5px; }
+.adl-btn-lg { height: 40px; padding: 0 16px; font-size: 14px; border-radius: 10px; gap: 8px; }
 
 .adl-btn-primary {
-  background: #F97316; color: #fff; border-color: #F97316;
+  background: var(--brand-500); color: #fff; border-color: var(--brand-500);
 }
-.adl-btn-primary:hover {
-  background: #EA580C; border-color: #EA580C;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(249, 115, 22, 0.4);
-}
-.adl-btn-primary:active { transform: translateY(0); box-shadow: 0 2px 6px -2px rgba(249, 115, 22, 0.35); }
+.adl-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); }
+.adl-btn-primary:active { background: var(--brand-700); border-color: var(--brand-700); }
 
 .adl-btn-ink {
-  background: #14120E; color: #fff; border-color: #14120E;
+  background: var(--n-900); color: #fff; border-color: var(--n-900);
 }
-.adl-btn-ink:hover {
-  background: #2A241B; border-color: #2A241B;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(20, 18, 14, 0.25);
-}
-.adl-btn-ink:active { transform: translateY(0); box-shadow: none; }
+.adl-btn-ink:hover { background: var(--n-800); border-color: var(--n-800); }
 
 .adl-btn-outline {
-  background: #fff; color: #3A352B; border-color: #EAE3D5;
+  background: var(--surface); color: var(--ink); border-color: var(--border-strong);
 }
-.adl-btn-outline:hover {
-  background: #FAF6EE; color: #14120E; border-color: #CFC3AC;
-}
-.adl-btn-outline:active { background: #F5EEDF; }
+.adl-btn-outline:hover { background: var(--n-50); border-color: var(--n-200); }
+.adl-btn-outline:active { background: var(--n-75); }
 
 .adl-btn-ghost {
-  background: transparent; color: #6F6758; border-color: transparent;
+  background: transparent; color: var(--ink-sub); border-color: transparent;
 }
-.adl-btn-ghost:hover { background: #F2EEE6; color: #14120E; }
-.adl-btn-ghost:active { background: #E8E2D3; }
+.adl-btn-ghost:hover { background: var(--n-75); color: var(--ink); }
+.adl-btn-ghost:active { background: var(--n-100); }
 
 .adl-btn-soft {
-  background: #F2EEE6; color: #14120E; border-color: transparent;
+  background: var(--n-75); color: var(--ink); border-color: transparent;
 }
-.adl-btn-soft:hover { background: #E8E2D3; transform: translateY(-1px); }
+.adl-btn-soft:hover { background: var(--n-100); }
 
 .adl-btn-danger {
-  background: #fff; color: #DC2626; border-color: #FCA5A5;
+  background: var(--surface); color: var(--err); border-color: color-mix(in oklab, var(--err) 40%, transparent);
 }
-.adl-btn-danger:hover {
-  background: #DC2626; color: #fff; border-color: #DC2626;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -4px rgba(220, 38, 38, 0.35);
-}
-.adl-btn-danger:active { transform: translateY(0); }
+.adl-btn-danger:hover { background: var(--err); color: #fff; border-color: var(--err); }
 
 .adl-btn-icon {
-  width: 40px; height: 40px; padding: 0;
-  border-radius: 10px; background: #fff; border-color: #E5E0D7; color: #3A352B;
+  width: 34px; height: 34px; padding: 0;
+  border-radius: 9px; background: var(--surface);
+  border-color: var(--border); color: var(--ink-sub);
 }
-.adl-btn-icon:hover { background: #14120E; color: #fff; border-color: #14120E; }
+.adl-btn-icon:hover { background: var(--n-50); color: var(--ink); border-color: var(--border-strong); }
 
-/* Toolbar — skupina tlačidiel s výraznejším oddelením */
+/* Toolbar — rovnako ako v design chrome.jsx */
 .adl-toolbar {
   display: inline-flex;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
 }
 .adl-toolbar-divider {
   width: 1px;
-  height: 28px;
-  background: #D9D2C4;
-  margin: 0 2px;
+  height: 20px;
+  background: var(--border-strong);
+  margin: 0 4px;
 }
 
 /* ========== CARD ========== */
