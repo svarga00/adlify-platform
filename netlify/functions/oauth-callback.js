@@ -15,6 +15,7 @@ const TOKEN_ENDPOINTS = {
   google_ads:       { url: 'https://oauth2.googleapis.com/token',  clientId: 'GOOGLE_CLIENT_ID',   clientSecret: 'GOOGLE_CLIENT_SECRET' },
   google_analytics: { url: 'https://oauth2.googleapis.com/token',  clientId: 'GOOGLE_CLIENT_ID',   clientSecret: 'GOOGLE_CLIENT_SECRET' },
   google_business:  { url: 'https://oauth2.googleapis.com/token',  clientId: 'GOOGLE_CLIENT_ID',   clientSecret: 'GOOGLE_CLIENT_SECRET' },
+  gmail_send:       { url: 'https://oauth2.googleapis.com/token',  clientId: 'GOOGLE_CLIENT_ID',   clientSecret: 'GOOGLE_CLIENT_SECRET' },
   meta_ads:         { url: 'https://graph.facebook.com/v19.0/oauth/access_token', clientId: 'META_APP_ID', clientSecret: 'META_APP_SECRET' },
   linkedin_ads:     { url: 'https://www.linkedin.com/oauth/v2/accessToken',       clientId: 'LINKEDIN_CLIENT_ID', clientSecret: 'LINKEDIN_CLIENT_SECRET' },
 };
@@ -95,26 +96,55 @@ exports.handler = async (event) => {
     connected_by: stateRow.user_id || null,
   };
 
-  // Ak platforma podporuje účet discovery, spravíme neskôr. Pre teraz bez account_id.
+  // Pre gmail_send načítame email adresu hneď (je to account identifier)
+  if (stateRow.platform === 'gmail_send') {
+    try {
+      const profRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      const prof = await profRes.json();
+      if (prof.email) {
+        row.account_id = prof.email;
+        row.account_name = prof.name ? `${prof.name} <${prof.email}>` : prof.email;
+        row.metadata = { email: prof.email, name: prof.name || null, picture: prof.picture || null };
+      }
+    } catch (e) { console.warn('[oauth-callback] gmail profile failed:', e); }
+  }
+
   row.account_id = row.account_id || 'pending';
   row.account_name = row.account_name || `${stateRow.platform} — pripojené`;
 
-  // Delete predchádzajúcu pending a insert
   await supabase.from('platform_connections')
     .delete()
     .eq('platform', stateRow.platform)
     .eq('account_id', 'pending')
     .is('client_id', stateRow.client_id);
 
-  const { error: insErr } = await supabase.from('platform_connections').insert(row);
+  const { data: conn, error: insErr } = await supabase.from('platform_connections').insert(row).select().single();
   if (insErr) {
     console.error('[oauth-callback] DB insert failed:', insErr);
     return { statusCode: 500, headers: { 'Content-Type': 'text/html' }, body: html(`<h1>❌ DB chyba</h1><p>${insErr.message}</p>`, '/admin/#clients') };
   }
 
+  // Pre gmail_send automaticky vytvoriť outreach_sender ak ešte nie je
+  if (stateRow.platform === 'gmail_send' && row.metadata?.email) {
+    try {
+      await supabase.from('outreach_senders').upsert({
+        name: row.metadata.name || row.metadata.email,
+        email: row.metadata.email,
+        provider: 'gmail',
+        platform_connection_id: conn.id,
+        is_active: true,
+        warmup_current: 30,
+        daily_limit: 500,
+        throttle_seconds: 120,
+      }, { onConflict: 'email' });
+    } catch (e) { console.warn('[oauth-callback] sender upsert failed:', e); }
+  }
+
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html' },
-    body: html(`<h1>✅ Pripojené</h1><p>Platforma <strong>${stateRow.platform}</strong> je pripojená. Teraz si zvoľ reklamný účet v admin UI.</p>`, stateRow.redirect_uri || '/admin/#clients'),
+    body: html(`<h1>✅ Pripojené</h1><p>Platforma <strong>${stateRow.platform}</strong> je pripojená${row.metadata?.email ? ` ako <strong>${row.metadata.email}</strong>` : ''}.</p>`, stateRow.redirect_uri || '/admin/#ad-platforms'),
   };
 };

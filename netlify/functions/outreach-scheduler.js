@@ -156,6 +156,24 @@ function _rewriteLinks(html, auditToken, unsubscribeUrl) {
 }
 
 async function sendEmail(to, subject, html, text, sender) {
+  // Gmail provider — cez Gmail API
+  if (sender?.provider === 'gmail') {
+    const res = await fetch(`${BASE_URL}/.netlify/functions/gmail-send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        senderId: sender.id,
+        to, subject, htmlBody: html, textBody: text,
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new Error(`gmail-send ${res.status}: ${t}`);
+    }
+    return;
+  }
+
+  // Default: Resend cez send-email
   const payload = { to, subject, htmlBody: html, textBody: text };
   if (sender?.email) {
     payload.fromEmail = sender.email;

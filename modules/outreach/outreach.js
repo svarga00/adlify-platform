@@ -458,7 +458,7 @@ const OutreachModule = {
               <select onchange="OutreachModule._composeSenderId=this.value;OutreachModule._renderComposePreview();"
                 style="width:100%;padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
                 <option value="auto" ${this._composeSenderId === 'auto' ? 'selected' : ''}>Auto rotácia (round-robin, rešpektuje denný limit)</option>
-                ${this._composeSenders.map(s => `<option value="${s.id}" ${this._composeSenderId === s.id ? 'selected' : ''}>${this.esc(s.name)} &lt;${this.esc(s.email)}&gt; (${s.sent_today || 0}/${s.warmup_current || s.daily_limit || 40})</option>`).join('')}
+                ${this._composeSenders.map(s => `<option value="${s.id}" ${this._composeSenderId === s.id ? 'selected' : ''}>${s.provider === 'gmail' ? '📧 Gmail · ' : ''}${this.esc(s.name)} &lt;${this.esc(s.email)}&gt; (${s.sent_today || 0}/${s.warmup_current || s.daily_limit || 40})</option>`).join('')}
               </select>
             </div>
           ` : ''}
@@ -613,7 +613,9 @@ const OutreachModule = {
     await this.ensureOutreachTemplatesLoaded(true);
     // Load senders pre selector
     try {
-      const { data } = await Database.client.from('outreach_senders').select('id, name, email, is_active, sent_today, warmup_current, daily_limit').eq('is_active', true);
+      const { data } = await Database.client.from('outreach_senders')
+        .select('id, name, email, provider, is_active, sent_today, warmup_current, daily_limit')
+        .eq('is_active', true);
       this._composeSenders = data || [];
       if (!this._composeSenderId && this._composeSenders[0]) this._composeSenderId = 'auto';
     } catch { this._composeSenders = []; }
@@ -779,22 +781,39 @@ const OutreachModule = {
       }
       try {
         const email = await this.buildEmail(prospect);
-        const payload = {
-          to: prospect.email,
-          subject: email.subject,
-          htmlBody: email.html,
-          textBody: email.text,
-          prospectId: prospect.id,
-        };
-        if (sender) {
-          payload.fromEmail = sender.email;
-          payload.fromName = sender.name;
+        let r;
+        if (sender?.provider === 'gmail') {
+          // Pošli cez Gmail API
+          r = await fetch('/.netlify/functions/gmail-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              senderId: sender.id,
+              to: prospect.email,
+              subject: email.subject,
+              htmlBody: email.html,
+              textBody: email.text,
+            }),
+          });
+        } else {
+          // Resend (default)
+          const payload = {
+            to: prospect.email,
+            subject: email.subject,
+            htmlBody: email.html,
+            textBody: email.text,
+            prospectId: prospect.id,
+          };
+          if (sender) {
+            payload.fromEmail = sender.email;
+            payload.fromName = sender.name;
+          }
+          r = await fetch('/.netlify/functions/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
         }
-        const r = await fetch('/.netlify/functions/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
         if (r.ok) {
           ok++;
           await Database.client.from('prospects').update({
@@ -2631,7 +2650,7 @@ const OutreachModule = {
     try {
       const { data, error } = await Database.client
         .from('outreach_senders')
-        .select('*')
+        .select('*, platform_connection_id, provider')
         .order('created_at', { ascending: false });
       if (error) throw error;
       this.senders = data || [];
@@ -2651,9 +2670,17 @@ const OutreachModule = {
         <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
           <div>
             <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Odosielatelia a warm-up</h2>
-            <p style="font-size:13px;color:#6F6758;margin:0;">Scheduler striedá odosielateľov, dodržiava daily limit a throttle medzi mailmi — prevencia voči spamu.</p>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Gmail / Google Workspace je odporúčaný pre cold outreach (menšie riziko blokácie než Resend).</p>
           </div>
-          <button class="adl-btn adl-btn-primary" onclick="OutreachModule.newSender()">+ Pridať odosielateľa</button>
+          <div class="adl-toolbar">
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.connectGmailSender()">+ Pripojiť Gmail</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.newSender()">+ Manuálny (Resend / SMTP)</button>
+          </div>
+        </div>
+        <div style="padding:14px 24px;background:#FFF7ED;border-bottom:1px solid #FED7AA;font-size:12px;color:#92400E;">
+          <strong>Tip:</strong> Resend zakazuje cold outreach (ToS) — pre masové posielanie využi Gmail API
+          (limit 500/deň per účet, pripoj si 2-3 Workspace mailboxy). Resend necháš pre transactional
+          maily (audit delivered, booking confirmation).
         </div>
 
         ${!this.sendersLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam…</div>`
@@ -2670,13 +2697,21 @@ const OutreachModule = {
   _renderSenderRow(s) {
     const limit = s.warmup_current || s.daily_limit || 40;
     const sentPct = Math.min(100, Math.round(((s.sent_today || 0) / limit) * 100));
+    const providerBadge = {
+      gmail:  { label: 'Gmail API', bg: '#DBEAFE', color: '#1E3A8A' },
+      resend: { label: 'Resend',    bg: '#F7F5F1', color: '#6F6758' },
+      smtp:   { label: 'SMTP',      bg: '#F7F5F1', color: '#6F6758' },
+    }[s.provider || 'resend'];
+    const linked = s.provider === 'gmail' && !!s.platform_connection_id;
     return `
       <div style="padding:16px 24px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
         <div style="flex:1;min-width:220px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+            <span style="font-size:10px;background:${providerBadge.bg};color:${providerBadge.color};padding:2px 8px;border-radius:999px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${providerBadge.label}</span>
             <strong style="font-size:15px;color:#14120E;">${this.esc(s.name)}</strong>
             <span style="font-size:12px;color:#6F6758;">&lt;${this.esc(s.email)}&gt;</span>
             ${!s.is_active ? `<span style="font-size:11px;background:#F7F5F1;color:#6F6758;padding:2px 8px;border-radius:999px;font-weight:600;">disabled</span>` : ''}
+            ${s.provider === 'gmail' && !linked ? `<span style="font-size:11px;background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:999px;font-weight:600;">nepripojené</span>` : ''}
           </div>
           <div style="font-size:12px;color:#948B7C;margin-bottom:6px;">
             Dnes: <strong>${s.sent_today || 0}</strong> / ${limit} · celkovo ${s.total_sent || 0} · throttle ${s.throttle_seconds || 60}s
@@ -2686,12 +2721,26 @@ const OutreachModule = {
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+          ${s.provider === 'gmail' && !linked ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.connectGmailForSender('${s.id}')">Pripojiť Gmail</button>` : ''}
           <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.editSender('${s.id}')">Upraviť</button>
-          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.toggleSender('${s.id}')">${s.is_active ? '⏸ Vypnúť' : '▶ Zapnúť'}</button>
-          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteSender('${s.id}')">✕</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.toggleSender('${s.id}')">${s.is_active ? 'Vypnúť' : 'Zapnúť'}</button>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.deleteSender('${s.id}')">Zmazať</button>
         </div>
       </div>
     `;
+  },
+
+  connectGmailSender() {
+    const userId = window.Auth?.user?.id || '';
+    const params = new URLSearchParams({ platform: 'gmail_send', return_to: '/admin/#outreach' });
+    if (userId) params.set('user_id', userId);
+    window.location.href = `/.netlify/functions/oauth-start?${params.toString()}`;
+  },
+
+  connectGmailForSender(senderId) {
+    // Pre už existujúci sender — rovnaký flow, po callback sa vytvorí nový sender
+    // alebo sa na existujúci napojí. Pre jednoduchosť rovnako redirect.
+    this.connectGmailSender();
   },
 
   newSender() { this._senderModal({ is_active: true, daily_limit: 40, warmup_current: 40, throttle_seconds: 60 }); },

@@ -19,6 +19,16 @@ const PLATFORMS = {
     scopes: ['https://www.googleapis.com/auth/adwords'],
     extra: { access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true' },
   },
+  gmail_send: {
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    clientIdEnv: 'GOOGLE_CLIENT_ID',
+    scopes: [
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+    extra: { access_type: 'offline', prompt: 'consent' },
+  },
   google_analytics: {
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     clientIdEnv: 'GOOGLE_CLIENT_ID',
