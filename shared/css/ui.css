@@ -40,11 +40,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 18px;
-  font-size: 14px;
-  font-weight: 600;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  font-size: 13.5px;
+  font-weight: 500;
   letter-spacing: -0.1px;
   border-radius: 10px;
   border: 1px solid transparent;
@@ -55,6 +55,7 @@
   transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease;
   font-family: inherit;
 }
+.adl-btn svg { display: block; }
 .adl-btn:focus-visible {
   outline: 2px solid #F97316;
   outline-offset: 2px;
@@ -89,16 +90,15 @@
 .adl-btn-ink:active { transform: translateY(0); box-shadow: none; }
 
 .adl-btn-outline {
-  background: #fff; color: #14120E; border-color: #D9D2C4;
+  background: #fff; color: #3A352B; border-color: #EAE3D5;
 }
 .adl-btn-outline:hover {
-  background: #14120E; color: #fff; border-color: #14120E;
-  transform: translateY(-1px);
+  background: #FAF6EE; color: #14120E; border-color: #CFC3AC;
 }
-.adl-btn-outline:active { transform: translateY(0); }
+.adl-btn-outline:active { background: #F5EEDF; }
 
 .adl-btn-ghost {
-  background: transparent; color: #3A352B; border-color: transparent;
+  background: transparent; color: #6F6758; border-color: transparent;
 }
 .adl-btn-ghost:hover { background: #F2EEE6; color: #14120E; }
 .adl-btn-ghost:active { background: #E8E2D3; }

@@ -142,6 +142,20 @@ const OutreachModule = {
 
   renderHeader(stats) {
     const isSecondary = this.currentView !== 'overview';
+    const ic = (svg) => `<span style="display:inline-flex;align-items:center;width:16px;height:16px;flex-shrink:0;">${svg}</span>`;
+    const icons = {
+      back:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>',
+      chart:   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16V9"/><path d="M12 16v-5"/><path d="M17 16V6"/></svg>',
+      bolt:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+      refresh: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>',
+      send:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+      mail:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-10 5L2 7"/></svg>',
+      search:  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+      upload:  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>',
+      plus:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+      download:'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>',
+      play:    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+    };
     return `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
         <div>
@@ -150,20 +164,20 @@ const OutreachModule = {
         </div>
         <div class="adl-toolbar">
           ${isSecondary ? `
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('overview')">← Späť</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('overview')">${ic(icons.back)} Späť</button>
           ` : `
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAnalytics()">📊 Analytika</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCalendar()">📅 Kalendár</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAutomations()">⚡ Automatizácie</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">🔁 Kampane</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openSenders()">📤 Odosielatelia</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">✉ Šablóny</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFindProspects()">🔍 Nájsť prospekty</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">⬆ Import CSV</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">＋ Nový prospect</button>
-            <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.exportCsv()">⬇ Export CSV</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAnalytics()">${ic(icons.chart)} Analytika</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAutomations()">${ic(icons.bolt)} Automatizácie</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">${ic(icons.refresh)} Kampane</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openSenders()">${ic(icons.send)} Odosielatelia</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">${ic(icons.mail)} Šablóny</button>
             <span class="adl-toolbar-divider"></span>
-            <button class="adl-btn adl-btn-primary adl-btn-lg" onclick="OutreachModule.startCompose()" ${this.selectedIds.size === 0 ? 'disabled' : ''}>▶ Poslať kampaň (${this.selectedIds.size})</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFindProspects()">${ic(icons.search)} Nájsť prospekty</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">${ic(icons.upload)} Import CSV</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">${ic(icons.plus)} Nový prospect</button>
+            <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.exportCsv()">${ic(icons.download)} Export</button>
+            <span class="adl-toolbar-divider"></span>
+            <button class="adl-btn adl-btn-primary adl-btn-lg" onclick="OutreachModule.startCompose()" ${this.selectedIds.size === 0 ? 'disabled' : ''}>${ic(icons.play)} Poslať kampaň (${this.selectedIds.size})</button>
           `}
         </div>
       </div>
