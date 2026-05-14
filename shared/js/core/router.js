@@ -95,7 +95,16 @@ const Router = {
     const prevModule = this.currentModule;
     this.currentRoute = path;
     this.currentModule = module;
-    
+
+    // Zatvor všetky otvorené modaly z predchádzajúceho view-u —
+    // inak môže zostať visieť v body a prekrývať nový modul.
+    // Pokrývame oba patterny použité v moduloch:
+    //   - .modal-overlay (tasks.js, tickets.js, …)
+    //   - dialógy v #modals kontajneri (FB groups, atď.)
+    document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+    const modalsHost = document.getElementById('modals');
+    if (modalsHost) modalsHost.innerHTML = '';
+
     // Destroy predchádzajúci modul (ak má destroy)
     if (prevModule && prevModule !== module && typeof prevModule.destroy === 'function') {
         try { prevModule.destroy(); } catch(e) { console.warn('Module destroy error:', e); }

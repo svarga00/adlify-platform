@@ -20,9 +20,21 @@ const TicketsModule = {
 
     async init() {
         console.log('🎫 Tickets module initialized');
+        this._injectStyles();
+    },
+
+    _injectStyles() {
+        if (document.getElementById('tickets-module-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'tickets-module-styles';
+        style.innerHTML = this.getStyles()
+            .replace(/^[\s\S]*?<style>/, '')
+            .replace(/<\/style>[\s\S]*$/, '');
+        document.head.appendChild(style);
     },
 
     async render(container) {
+        this._injectStyles();
         const filter = this.currentFilter || 'open';
         container.innerHTML = `
             <div class="adl tickets-module">

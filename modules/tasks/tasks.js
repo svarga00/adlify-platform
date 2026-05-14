@@ -20,9 +20,31 @@ const TasksModule = {
 
     async init() {
         console.log('✅ Tasks module initialized');
+        this._injectStyles();
+    },
+
+    /**
+     * Inject module CSS (incl. .modal-overlay, .modal, .task-modal, ...)
+     * once into document.head. Bez tohto modaly otvorené z iného modulu
+     * (napr. openTask volaný z outreach detail) nemajú position:fixed
+     * ani z-index → zobrazia sa neviditeľne v body a pretrvávajú po
+     * navigácii.
+     */
+    _injectStyles() {
+        if (document.getElementById('tasks-module-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'tasks-module-styles';
+        style.innerHTML = this.getStyles()
+            .replace(/^[\s\S]*?<style>/, '')
+            .replace(/<\/style>[\s\S]*$/, '');
+        document.head.appendChild(style);
     },
 
     async render(container) {
+        // Inject CSS raz pre celý DOM — modaly fungujú aj keď sú vyvolané
+        // z iného modulu (napr. klik na úlohu z Outreach detail).
+        this._injectStyles();
+
         const view = this.currentView || 'list';
         const filter = this.currentFilter || 'all';
         container.innerHTML = `
