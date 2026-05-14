@@ -4055,7 +4055,7 @@ const OutreachModule = {
         ${fields.map(([k, v]) => `
           <div>
             <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:3px;">${k}</div>
-            <div style="font-size:14px;color:#14120E;word-break:break-word;">${typeof v === 'string' && v.startsWith('<') ? v : this.esc(v)}</div>
+            <div style="font-size:14px;color:#14120E;word-break:break-word;">${typeof v === 'string' && v.trim().startsWith('<') ? v : this.esc(v)}</div>
           </div>
         `).join('')}
       </div>
