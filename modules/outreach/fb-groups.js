@@ -39,6 +39,24 @@
   OM.fbGroupsLoaded = false;
   OM._bookmarkletSrc = null;
 
+  /* Predefined kategórie pre SK trh — pracovné inzeráty.
+     Voľný text je stále podporovaný (cez "Iné…"). */
+  OM.FB_GROUP_CATEGORIES = [
+    'Práca SK',
+    'IT práca',
+    'Práca v zahraničí',
+    'Brigády & krátkodobé',
+    'Remote',
+    'Marketing & sales',
+    'Manuálne práce',
+    'Vodiči & doprava',
+    'Gastro & služby',
+    'Stavebníctvo',
+    'Zdravotníctvo',
+    'Komunitné / všeobecné',
+    'Iné'
+  ];
+
   /* ============================================================
      PUBLIC ACTIONS — volané z toolbar tlačidla
      ============================================================ */
@@ -129,9 +147,9 @@
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Skupina</th>
                 <th style="padding:12px 16px;text-align:right;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Členovia</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Kategória</th>
+                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Publikovania</th>
                 <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Stav</th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Pridané</th>
-                <th style="padding:12px 16px;text-align:right;width:96px;"></th>
+                <th style="padding:12px 16px;text-align:right;width:140px;"></th>
               </tr>
             </thead>
             <tbody>
@@ -147,9 +165,6 @@
     const esc = OM._esc;
     const safeName = esc(g.name || '(bez názvu)');
     const safeUrl = esc(g.url || '');
-    const date = g.created_at
-      ? new Date(g.created_at).toLocaleDateString('sk-SK')
-      : '–';
     const avatar = g.image_url
       ? `<img src="${esc(g.image_url)}" alt="" style="width:40px;height:40px;border-radius:8px;object-fit:cover;display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       : '';
@@ -158,6 +173,16 @@
       ? 'background:#D6EFDE;color:#1F6E3D;'
       : 'background:#F1EEE8;color:#948B7C;';
     const statusTxt = g.is_active ? 'Aktívna' : 'Neaktívna';
+
+    // Publikovania column
+    const postCount = g.post_count || 0;
+    const lastPosted = g.last_posted_at
+      ? OM._fbRelativeDate(g.last_posted_at)
+      : null;
+    const postsCell = postCount > 0
+      ? `<div style="font-weight:500;color:#14120E;">${postCount}×</div>
+         <div style="font-size:11px;color:#948B7C;">naposledy ${lastPosted}</div>`
+      : '<span style="color:#B8B0A2;font-size:13px;">nikdy</span>';
 
     return `
       <tr style="border-bottom:1px solid #F1EEE8;">
@@ -168,14 +193,53 @@
         </td>
         <td style="padding:10px 16px;text-align:right;color:#524C3F;font-variant-numeric:tabular-nums;">${g.member_count ? OM._fmtNum(g.member_count) : '–'}</td>
         <td style="padding:10px 16px;">${g.category ? `<span style="background:#F1EEE8;padding:2px 8px;border-radius:6px;font-size:12px;color:#524C3F;">${esc(g.category)}</span>` : '–'}</td>
+        <td style="padding:10px 16px;">${postsCell}</td>
         <td style="padding:10px 16px;"><span style="padding:3px 8px;border-radius:6px;font-size:12px;font-weight:500;${statusCls}">${statusTxt}</span></td>
-        <td style="padding:10px 16px;color:#948B7C;font-size:13px;">${date}</td>
         <td style="padding:10px 16px;text-align:right;white-space:nowrap;">
+          <button onclick="OutreachModule.recordFbPublish('${g.id}')" title="Zaznamenať publikovanie" style="background:#FFF4EC;border:1px solid #FFE6D3;cursor:pointer;padding:4px 8px;border-radius:6px;color:#C2410C;font-size:12px;font-weight:500;margin-right:4px;">+ Publikoval</button>
           <button onclick="OutreachModule.openFbEditModal('${g.id}')" title="Upraviť" style="background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:#6F6758;">${OM._fbIcon('edit')}</button>
           <button onclick="OutreachModule.confirmFbDelete('${g.id}')" title="Zmazať" style="background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:#DC3C3C;">${OM._fbIcon('trash')}</button>
         </td>
       </tr>
     `;
+  };
+
+  /* ============================================================
+     PUBLISH TRACKING — increment post_count, set last_posted_at
+     ============================================================ */
+  OM.recordFbPublish = async function (id) {
+    const g = OM.fbGroups.find((x) => x.id === id);
+    if (!g) return;
+    if (!confirm(`Zaznamenať publikovanie inzerátu do „${g.name}"?`)) return;
+
+    const newCount = (g.post_count || 0) + 1;
+    const now = new Date().toISOString();
+    const { error } = await Database.client
+      .from('outreach_groups')
+      .update({ post_count: newCount, last_posted_at: now })
+      .eq('id', id);
+    if (error) {
+      OM._toast('Chyba: ' + error.message, 'err');
+      return;
+    }
+    g.post_count = newCount;
+    g.last_posted_at = now;
+    OM.rerender();
+    OM._toast(`Zaznamenané (${newCount}× celkom)`, 'ok');
+  };
+
+  OM._fbRelativeDate = function (iso) {
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now - d;
+    const day = 24 * 60 * 60 * 1000;
+    if (diff < day) {
+      const h = Math.floor(diff / (60 * 60 * 1000));
+      return h < 1 ? 'pred chvíľou' : `pred ${h}h`;
+    }
+    const days = Math.floor(diff / day);
+    if (days < 7) return `pred ${days}d`;
+    return d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric' });
   };
 
   /* ============================================================
@@ -326,7 +390,7 @@
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             ${OM._fbField('Počet členov', `<input type="number" name="member_count" value="${OM._esc(initial.member_count)}" placeholder="napr. 15000" style="${OM._fbInputStyle()}">`)}
-            ${OM._fbField('Kategória', `<input type="text" name="category" value="${OM._esc(initial.category)}" placeholder="napr. Práca SK" style="${OM._fbInputStyle()}">`)}
+            ${OM._fbField('Kategória', OM._fbCategoryControl(initial.category))}
           </div>
 
           ${OM._fbField('URL obrázka (cover)', `<input type="url" name="image_url" value="${OM._esc(initial.image_url)}" placeholder="https://..." style="${OM._fbInputStyle()}">`)}
@@ -350,7 +414,7 @@
             url: fd.get('url'),
             name: fd.get('name'),
             member_count: fd.get('member_count') ? parseInt(fd.get('member_count')) : null,
-            category: fd.get('category') || null,
+            category: OM._fbResolveCategory(fd),
             image_url: fd.get('image_url') || null,
             description: fd.get('description') || null
           };
@@ -523,6 +587,54 @@
 
   OM._fbInputStyle = function () {
     return 'width:100%;padding:9px 12px;border:1px solid #E0DBD1;border-radius:9px;font-size:13px;font-family:inherit;color:#14120E;background:#fff;box-sizing:border-box;';
+  };
+
+  /**
+   * Category dropdown s "Iné…" fallback na free-text input.
+   * - Ak aktuálna kategória je v predef zozname → vybraná v <select>
+   * - Ak je vlastná (free-text) → select má hodnotu "__custom" a text input je viditeľný s prefill
+   * - Hodnota sa berie z text inputu ak je viditeľný, inak zo <select>
+   */
+  OM._fbCategoryControl = function (current) {
+    const cats = OM.FB_GROUP_CATEGORIES;
+    const isCustom = current && !cats.includes(current);
+    const selectValue = isCustom ? '__custom' : (current || '');
+    const customStyle = isCustom ? '' : 'display:none;';
+    const options = [
+      '<option value="">— vyber —</option>',
+      ...cats.map(c => `<option value="${OM._esc(c)}"${c === selectValue ? ' selected' : ''}>${OM._esc(c)}</option>`),
+      `<option value="__custom"${selectValue === '__custom' ? ' selected' : ''}>Vlastná…</option>`
+    ].join('');
+    return `
+      <select name="category_select" onchange="OutreachModule._fbCategorySelectChange(this)" style="${OM._fbInputStyle()}">
+        ${options}
+      </select>
+      <input type="text" name="category_custom" value="${OM._esc(isCustom ? current : '')}"
+             placeholder="Zadaj vlastnú kategóriu" data-fb-category-custom
+             style="${OM._fbInputStyle()}margin-top:6px;${customStyle}">
+    `;
+  };
+
+  OM._fbCategorySelectChange = function (sel) {
+    const customInput = sel.parentNode.querySelector('[data-fb-category-custom]');
+    if (!customInput) return;
+    if (sel.value === '__custom') {
+      customInput.style.display = '';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
+      customInput.value = '';
+    }
+  };
+
+  /** Z form data spočítaj finálnu kategóriu (select alebo custom override). */
+  OM._fbResolveCategory = function (fd) {
+    const sel = fd.get('category_select') || '';
+    if (sel === '__custom') {
+      const custom = (fd.get('category_custom') || '').trim();
+      return custom || null;
+    }
+    return sel || null;
   };
 
   OM._toast = function (msg, kind) {
