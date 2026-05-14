@@ -705,7 +705,8 @@ const OutreachModule = {
     const { stage, search } = this.filters;
     if (stage && stage !== 'all') {
       if (stage === 'pending') out = out.filter(p => !p.outreach_stage || p.outreach_stage === 'pending');
-      else if (stage === 'audit_requested') out = out.filter(p => p.audit_requested_at && !p.audit_viewed_at);
+      else if (stage === 'email_opened') out = out.filter(p => p.outreach_email_opened_at);
+      else if (stage === 'audit_requested') out = out.filter(p => p.audit_requested_at);
       else if (stage === 'audit_viewed') out = out.filter(p => p.audit_viewed_at);
       else out = out.filter(p => p.outreach_stage === stage);
     }
