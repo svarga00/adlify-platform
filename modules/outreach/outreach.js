@@ -85,9 +85,19 @@ const OutreachModule = {
     this.refreshBadge().catch(() => {});
   },
 
-  async render(container) {
+  async render(container, params = {}) {
     this._container = container;
     container.innerHTML = '<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam...</div>';
+
+    // FB groups view (rozšírenie z fb-groups.js)
+    if (params.view === 'fb-groups' && typeof this.openFbGroups === 'function') {
+      await this.openFbGroups();
+      if (params.action === 'import' && typeof this.handleFbImportParams === 'function') {
+        this.handleFbImportParams(params);
+      }
+      return;
+    }
+
     try {
       const { data, error } = await Database.client
         .from('prospects')
@@ -116,6 +126,7 @@ const OutreachModule = {
     else if (this.currentView === 'calendar') body = this.renderCalendar();
     else if (this.currentView === 'automations') body = this.renderAutomations();
     else if (this.currentView === 'import') body = this.renderImport();
+    else if (this.currentView === 'fb-groups' && typeof this.renderFbGroups === 'function') body = this.renderFbGroups();
     else body = this.renderOverview(stats);
     const showFunnel = this.currentView === 'overview' || this.currentView === 'compose';
     return `
@@ -155,6 +166,7 @@ const OutreachModule = {
       plus:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
       download:'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>',
       play:    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+      users:   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     };
     return `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
@@ -171,6 +183,7 @@ const OutreachModule = {
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">${ic(icons.refresh)} Kampane</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openSenders()">${ic(icons.send)} Odosielatelia</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">${ic(icons.mail)} Šablóny</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFbGroups && OutreachModule.openFbGroups()">${ic(icons.users)} FB Skupiny</button>
             <span class="adl-toolbar-divider"></span>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFindProspects()">${ic(icons.search)} Nájsť prospekty</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">${ic(icons.upload)} Import</button>
