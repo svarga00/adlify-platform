@@ -77,6 +77,24 @@ const LeadsModule = {
   },
 
   init() { console.log('👥 Leads module v2.2 initialized'); },
+
+  // Inline stroke SVG ikony — nahrádzajú emoji v modálo a buttons.
+  _leadIcons() {
+    const wrap = (inner, size = 14, color = 'currentColor') =>
+      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;">${inner}</svg>`;
+    return {
+      edit:     (s, c) => wrap('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>', s, c),
+      save:     (s, c) => wrap('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>', s, c),
+      doc:      (s, c) => wrap('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', s, c),
+      docText:  (s, c) => wrap('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>', s, c),
+      globe:    (s, c) => wrap('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>', s, c),
+      mail:     (s, c) => wrap('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/>', s, c),
+      send:     (s, c) => wrap('<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>', s, c),
+      info:     (s, c) => wrap('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>', s, c),
+      undo:     (s, c) => wrap('<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>', s, c),
+    };
+  },
+
   
   async render(container, params = {}) {
     if (params.status) this.filters.status = params.status;
@@ -111,6 +129,7 @@ const LeadsModule = {
   },
 
   template() {
+    const LI = this._leadIcons();
     const stats = {
       total: this.leads.length,
       new: this.leads.filter(l => !l.status || l.status === 'new').length,
@@ -185,11 +204,11 @@ const LeadsModule = {
       <!-- Edit Modal -->
       <div id="edit-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-large">
-          <div class="modal-header"><h2>✏️ Upraviť analýzu</h2><button onclick="LeadsModule.closeEditModal()" class="modal-close-dark">✕</button></div>
+          <div class="modal-header"><h2 style="display:flex;align-items:center;gap:8px;">${LI.edit(18)} Upraviť analýzu</h2><button onclick="LeadsModule.closeEditModal()" class="modal-close-dark">✕</button></div>
           <div id="edit-content" class="modal-body"></div>
           <div class="modal-footer">
             <button onclick="LeadsModule.closeEditModal()" class="btn-secondary">Zrušiť</button>
-            <button onclick="LeadsModule.saveAnalysisEdits()" class="btn-primary">💾 Uložiť zmeny</button>
+            <button onclick="LeadsModule.saveAnalysisEdits()" class="btn-primary">${LI.save(14)} Uložiť zmeny</button>
           </div>
         </div>
       </div>
@@ -198,36 +217,36 @@ const LeadsModule = {
       <div id="proposal-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-medium">
           <div class="modal-header-gradient">
-            <h2>📄 Generovať ponuku</h2>
+            <h2 style="display:flex;align-items:center;gap:8px;">${LI.doc(18)} Generovať ponuku</h2>
             <button onclick="LeadsModule.closeProposalModal()" class="modal-close">✕</button>
           </div>
           <div class="modal-body">
             <p class="modal-desc">Pridajte poznámky a vyberte formát ponuky.</p>
-            
+
             <div class="form-group">
-              <label>📝 Poznámky pre ponuku (voliteľné)</label>
+              <label style="display:inline-flex;align-items:center;gap:6px;">${LI.docText(13)} Poznámky pre ponuku (voliteľné)</label>
               <textarea id="proposal-notes" rows="4" placeholder="Napr.: Zameraj sa na lokálnych zákazníkov, odporúčam Pro balík..."></textarea>
             </div>
-            
+
             <div class="proposal-options">
               <label>Vyberte akciu:</label>
               <div class="proposal-buttons">
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
-                  <span class="option-icon">🌐</span>
+                  <span class="option-icon">${LI.globe(22, 'var(--brand-600)')}</span>
                   <span class="option-text">
                     <strong>Otvoriť ako HTML</strong>
                     <small>Náhľad v prehliadači</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalPDF()" class="proposal-option-btn">
-                  <span class="option-icon">📑</span>
+                  <span class="option-icon">${LI.doc(22, 'var(--brand-600)')}</span>
                   <span class="option-text">
                     <strong>Stiahnuť PDF</strong>
                     <small>Uložiť na disk</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.openEmailModal()" class="proposal-option-btn primary" id="btn-send-email">
-                  <span class="option-icon">📧</span>
+                  <span class="option-icon">${LI.mail(22, '#fff')}</span>
                   <span class="option-text">
                     <strong>Poslať emailom</strong>
                     <small id="proposal-email-target">-</small>
@@ -235,8 +254,8 @@ const LeadsModule = {
                 </button>
               </div>
             </div>
-            
-            <div class="tip-box">💡 <strong>Tip:</strong> Pri odoslaní emailom môžeš vybrať zo šablón.</div>
+
+            <div class="tip-box" style="display:flex;align-items:flex-start;gap:8px;">${LI.info(14, 'var(--brand-700)')} <span><strong>Tip:</strong> Pri odoslaní emailom môžeš vybrať zo šablón.</span></div>
           </div>
           <div class="modal-footer">
             <button onclick="LeadsModule.closeProposalModal()" class="btn-secondary">Zavrieť</button>
@@ -248,7 +267,7 @@ const LeadsModule = {
       <div id="email-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-large">
           <div class="modal-header-gradient">
-            <h2>📧 Odoslať ponuku emailom</h2>
+            <h2 style="display:flex;align-items:center;gap:8px;">${LI.mail(18)} Odoslať ponuku emailom</h2>
             <button onclick="LeadsModule.closeEmailModal()" class="modal-close">✕</button>
           </div>
           <div class="modal-body" id="email-modal-body">
@@ -256,7 +275,7 @@ const LeadsModule = {
           </div>
           <div class="modal-footer">
             <button onclick="LeadsModule.closeEmailModal()" class="btn-secondary">Zrušiť</button>
-            <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">📤 Odoslať email</button>
+            <button onclick="LeadsModule.sendEmailFromModal()" class="btn-primary">${LI.send(14)} Odoslať email</button>
           </div>
         </div>
       </div>
@@ -458,7 +477,7 @@ const LeadsModule = {
   renderAddTab() {
     return `
       <div class="form-card">
-        <h2>✏️ Pridať nový lead</h2>
+        <h2 style="display:flex;align-items:center;gap:8px;">${this._leadIcons().edit(18)} Pridať nový lead</h2>
         <div class="form-grid">
           <div class="form-group"><label>Názov firmy *</label><input type="text" id="add-name" placeholder="Zadajte názov"></div>
           <div class="form-group"><label>Doména</label><input type="text" id="add-domain" placeholder="firma.sk"></div>
@@ -784,6 +803,7 @@ const LeadsModule = {
       const displayName = lead.company_name || lead.domain || 'Neznámy';
       const assignedName = lead.assigned_to_name || '';
       const assignedInitials = assignedName ? initialsOf(assignedName) : '';
+      const LI = this._leadIcons();
 
       return `
         <tr data-status="${lead.status}" data-industry="${industry}" style="cursor:pointer;" onclick="LeadsModule.showLeadDetail('${lead.id}')">
@@ -822,7 +842,7 @@ const LeadsModule = {
           </td>
           <td>
             <div style="display:inline-flex; gap:4px;">
-              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.revertToProspect('${lead.id}')" title="${lead.converted_from_prospect_id ? 'Vrátiť späť do Outreach' : 'Presunúť do Outreach'}" style="padding:0 6px; width:28px; height:28px; justify-content:center;">↩</button>
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.revertToProspect('${lead.id}')" title="${lead.converted_from_prospect_id ? 'Vrátiť späť do Outreach' : 'Presunúť do Outreach'}" style="padding:0 6px; width:28px; height:28px; justify-content:center;">${LI.undo(14)}</button>
               <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.showLeadMenu('${lead.id}', event)" title="Viac" style="padding:0 6px; width:28px; height:28px; justify-content:center;">${I.More({size:14})}</button>
             </div>
           </td>
@@ -882,7 +902,7 @@ const LeadsModule = {
   getProposalBadge(status, sentAt) {
     const badges = {
       'not_sent': '',
-      'sent': `<span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" title="${sentAt ? 'Odoslané: ' + Utils.formatDate(sentAt) : ''}">📧 Odoslané</span>`,
+      'sent': `<span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded" style="display:inline-flex;align-items:center;gap:4px;" title="${sentAt ? 'Odoslané: ' + Utils.formatDate(sentAt) : ''}">${this._leadIcons().mail(11)} Odoslané</span>`,
       'opened': `<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">👁️ Otvorené</span>`,
       'responded': `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">💬 Odpovedal</span>`,
       'converted': `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">🎉 Konvertovaný</span>`
