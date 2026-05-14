@@ -1,0 +1,265 @@
+/**
+ * ADLIFY DESIGN COMPONENTS v1
+ *
+ * Port from docs/design/src/ui.jsx — vanilla CSS classes.
+ * Vyžaduje shared/css/tokens.css (--adl-* premenné).
+ *
+ * Použitie: vlož class="adl" do koreňového kontajnera a potom
+ * používaj .adl-card, .adl-btn, .adl-chip, atď. Existujúce
+ * (legacy) štýly ostávajú nedotknuté — toto je opt-in vrstva.
+ */
+
+/* ============================================================
+   BUTTONS  — .adl-btn + variant + size
+   ============================================================ */
+.adl-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  font-size: 13px; font-weight: 500; letter-spacing: -0.1px;
+  border-radius: 9px; border: 1px solid transparent;
+  background: transparent; color: var(--adl-ink-sub);
+  white-space: nowrap; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, transform .05s;
+  font-family: var(--adl-font-sans);
+}
+.adl-btn:hover { background: var(--adl-n-75); }
+.adl-btn:active { transform: translateY(0.5px); }
+.adl-btn:disabled { opacity: .55; cursor: not-allowed; }
+.adl-btn:focus-visible { outline: 2px solid var(--adl-brand-500); outline-offset: 2px; }
+
+.adl-btn--sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
+.adl-btn--lg { height: 40px; padding: 0 16px; font-size: 14px; border-radius: 10px; }
+
+.adl-btn--primary {
+  background: var(--adl-brand-500); color: #fff;
+  border-color: var(--adl-brand-500);
+}
+.adl-btn--primary:hover { background: var(--adl-brand-600); border-color: var(--adl-brand-600); }
+
+.adl-btn--ink {
+  background: var(--adl-n-900); color: #fff;
+  border-color: var(--adl-n-900);
+}
+.adl-btn--ink:hover { background: var(--adl-n-800); }
+
+.adl-btn--outline {
+  background: var(--adl-surface); color: var(--adl-ink);
+  border-color: var(--adl-border-strong);
+}
+.adl-btn--outline:hover { background: var(--adl-n-50); }
+
+.adl-btn--ghost {
+  background: transparent; color: var(--adl-ink-sub);
+}
+
+.adl-btn--soft {
+  background: var(--adl-n-75); color: var(--adl-ink);
+}
+.adl-btn--soft:hover { background: var(--adl-n-100); }
+
+.adl-btn--danger {
+  background: var(--adl-err); color: #fff; border-color: var(--adl-err);
+}
+
+/* ============================================================
+   CARD  — .adl-card
+   ============================================================ */
+.adl-card {
+  background: var(--adl-surface);
+  border: 1px solid var(--adl-border);
+  border-radius: 14px;
+  box-shadow: var(--adl-sh-sm);
+}
+.adl-card__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--adl-border);
+}
+.adl-card__title {
+  font-size: 13px; font-weight: 600; letter-spacing: -.1px;
+  color: var(--adl-ink);
+}
+.adl-card__body { padding: 20px; }
+.adl-card__body--tight { padding: 14px; }
+
+/* ============================================================
+   CHIP  — .adl-chip + tone
+   ============================================================ */
+.adl-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 500; letter-spacing: -.1px;
+  white-space: nowrap;
+  border: 1px solid var(--adl-border);
+  background: var(--adl-n-100);
+  color: var(--adl-n-700);
+}
+.adl-chip--sm { padding: 2px 7px; font-size: 11px; }
+.adl-chip__dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: currentColor; opacity: .85;
+}
+
+.adl-chip--ink   { background: var(--adl-n-900);  color: #fff; border-color: var(--adl-n-900); }
+.adl-chip--brand { background: var(--adl-brand-50); color: var(--adl-brand-700); border-color: var(--adl-brand-100); }
+.adl-chip--sky   { background: var(--adl-acc-sky); color: var(--adl-acc-sky-ink); border-color: transparent; }
+.adl-chip--mint  { background: var(--adl-acc-mint); color: var(--adl-acc-mint-ink); border-color: transparent; }
+.adl-chip--lav   { background: var(--adl-acc-lavender); color: var(--adl-acc-lavender-ink); border-color: transparent; }
+.adl-chip--rose  { background: var(--adl-acc-rose); color: var(--adl-acc-rose-ink); border-color: transparent; }
+.adl-chip--amber { background: var(--adl-acc-amber); color: var(--adl-acc-amber-ink); border-color: transparent; }
+.adl-chip--ok    { background: color-mix(in oklab, var(--adl-ok) 14%, transparent); color: var(--adl-ok); border-color: transparent; }
+.adl-chip--err   { background: color-mix(in oklab, var(--adl-err) 14%, transparent); color: var(--adl-err); border-color: transparent; }
+.adl-chip--warn  { background: color-mix(in oklab, var(--adl-warn) 16%, transparent); color: var(--adl-warn); border-color: transparent; }
+
+/* ============================================================
+   STAT  — .adl-stat
+   ============================================================ */
+.adl-stat {
+  position: relative; overflow: hidden;
+  background: var(--adl-surface);
+  color: var(--adl-ink);
+  border: 1px solid var(--adl-border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: var(--adl-sh-sm);
+}
+.adl-stat--hero {
+  background: linear-gradient(135deg, var(--adl-brand-500), var(--adl-brand-700));
+  color: #fff;
+  border-color: var(--adl-brand-500);
+}
+.adl-stat__top { display: flex; justify-content: space-between; align-items: flex-start; }
+.adl-stat__label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+  font-weight: 600; color: var(--adl-ink-mute);
+}
+.adl-stat--hero .adl-stat__label { color: rgba(255,255,255,.75); }
+.adl-stat__value {
+  font-size: 28px; font-weight: 600; letter-spacing: -0.8px;
+  margin-top: 6px; line-height: 1.1;
+}
+.adl-stat__delta {
+  font-size: 12px; margin-top: 4px;
+  font-family: var(--adl-font-mono);
+  color: var(--adl-ink-sub);
+}
+.adl-stat__delta--pos { color: var(--adl-ok); }
+.adl-stat__delta--neg { color: var(--adl-err); }
+.adl-stat--hero .adl-stat__delta { color: rgba(255,255,255,.8); }
+
+/* ============================================================
+   AVATAR  — .adl-avatar (init wrap)
+   ============================================================ */
+.adl-avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 999px;
+  background: var(--adl-brand-500);
+  color: #fff;
+  font-size: 11px; font-weight: 600; letter-spacing: .3px;
+  flex-shrink: 0;
+}
+.adl-avatar--sm { width: 22px; height: 22px; font-size: 9px; }
+.adl-avatar--md { width: 32px; height: 32px; font-size: 12px; }
+.adl-avatar--lg { width: 40px; height: 40px; font-size: 14px; }
+.adl-avatar--xl { width: 56px; height: 56px; font-size: 18px; }
+
+/* ============================================================
+   BADGE  — malý indikátor (na sidebar item etc.)
+   ============================================================ */
+.adl-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 6px;
+  font-size: 10px; font-weight: 600;
+  background: var(--adl-n-150); color: var(--adl-ink-sub);
+  border-radius: 999px;
+}
+.adl-badge--brand { background: var(--adl-brand-500); color: #fff; }
+.adl-badge--dot {
+  width: 6px; height: 6px; min-width: 6px; padding: 0;
+  border-radius: 999px; background: var(--adl-brand-500);
+}
+
+/* ============================================================
+   FIELD / INPUT
+   ============================================================ */
+.adl-field { display: flex; flex-direction: column; gap: 5px; }
+.adl-field__label {
+  font-size: 12px; font-weight: 500;
+  color: var(--adl-ink-sub);
+}
+.adl-input,
+.adl-textarea,
+.adl-select {
+  width: 100%; padding: 9px 12px;
+  font-size: 13px; font-family: var(--adl-font-sans); color: var(--adl-ink);
+  background: var(--adl-surface);
+  border: 1px solid var(--adl-border-strong);
+  border-radius: 9px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.adl-input:focus,
+.adl-textarea:focus,
+.adl-select:focus {
+  outline: none;
+  border-color: var(--adl-brand-500);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--adl-brand-500) 18%, transparent);
+}
+.adl-input::placeholder,
+.adl-textarea::placeholder { color: var(--adl-ink-mute); }
+.adl-textarea { min-height: 80px; resize: vertical; }
+
+/* ============================================================
+   TABLE  — .adl-table
+   ============================================================ */
+.adl-table-wrap {
+  border: 1px solid var(--adl-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--adl-surface);
+}
+.adl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.adl-table thead th {
+  text-align: left; padding: 10px 14px;
+  font-size: 11px; font-weight: 600;
+  color: var(--adl-ink-sub);
+  text-transform: uppercase; letter-spacing: .6px;
+  border-bottom: 1px solid var(--adl-border);
+  background: var(--adl-n-50);
+}
+.adl-table tbody td {
+  padding: 12px 14px;
+  color: var(--adl-ink);
+  border-bottom: 1px solid var(--adl-border);
+}
+.adl-table tbody tr:last-child td { border-bottom: none; }
+.adl-table tbody tr:hover { background: var(--adl-n-25); }
+.adl-table--compact thead th { padding: 8px 12px; }
+.adl-table--compact tbody td { padding: 8px 12px; }
+
+/* ============================================================
+   DIVIDER
+   ============================================================ */
+.adl-divider {
+  height: 1px; background: var(--adl-border);
+  margin: 16px 0;
+}
+
+/* ============================================================
+   STACK / GRID utility
+   ============================================================ */
+.adl-stack    { display: flex; flex-direction: column; gap: var(--adl-gap); }
+.adl-stack--sm{ gap: 8px; }
+.adl-stack--lg{ gap: 24px; }
+.adl-row      { display: flex; gap: var(--adl-gap); align-items: center; }
+.adl-grid-2   { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--adl-gap); }
+.adl-grid-3   { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--adl-gap); }
+.adl-grid-4   { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--adl-gap); }
+
+@media (max-width: 768px) {
+  .adl-grid-3, .adl-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .adl-grid-2, .adl-grid-3, .adl-grid-4 { grid-template-columns: 1fr; }
+}

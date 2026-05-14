@@ -1,0 +1,152 @@
+/**
+ * ADLIFY DESIGN TOKENS — Soft Modern v1
+ *
+ * Port from docs/design/styles/tokens.css.
+ *
+ * Conventions:
+ *  - All custom properties are prefixed with --adl- to avoid collisions
+ *    with existing legacy CSS (vid admin/index.html inline <style>).
+ *  - Body-level vars (font-family, etc.) sa NEAPLIKUJÚ automaticky —
+ *    musíš si opt-in spraviť pridaním class="adl" na koreňový kontajner.
+ *  - Theme switch:  <html data-theme="dark">.
+ */
+
+:root {
+  /* Brand — Orange family */
+  --adl-brand-50:  #FFF4EC;
+  --adl-brand-100: #FFE6D3;
+  --adl-brand-200: #FFCBA5;
+  --adl-brand-300: #FFA870;
+  --adl-brand-400: #FF8740;
+  --adl-brand-500: #F97316;   /* primary */
+  --adl-brand-600: #EA5A0B;
+  --adl-brand-700: #C2410C;
+  --adl-brand-800: #9A3412;
+  --adl-brand-900: #7C2D12;
+
+  /* Neutral — warm off-white */
+  --adl-n-0:   #FFFFFF;
+  --adl-n-25:  #FCFBF9;
+  --adl-n-50:  #F7F5F1;
+  --adl-n-75:  #F1EEE8;
+  --adl-n-100: #EAE6DE;
+  --adl-n-150: #E0DBD1;
+  --adl-n-200: #D3CCC0;
+  --adl-n-300: #B8B0A2;
+  --adl-n-400: #948B7C;
+  --adl-n-500: #6F6758;
+  --adl-n-600: #524C3F;
+  --adl-n-700: #3A352B;
+  --adl-n-800: #24211A;
+  --adl-n-900: #14120E;
+
+  /* Pastel accents */
+  --adl-acc-sky:        #D9EAFB;
+  --adl-acc-sky-ink:    #1C4A84;
+  --adl-acc-mint:       #D6EFDE;
+  --adl-acc-mint-ink:   #1F6E3D;
+  --adl-acc-lavender:   #E4DEF7;
+  --adl-acc-lavender-ink:#4C3E8A;
+  --adl-acc-rose:       #FADCE0;
+  --adl-acc-rose-ink:   #9B2B3C;
+  --adl-acc-amber:      #FBE7C0;
+  --adl-acc-amber-ink:  #7A4A0E;
+
+  /* Semantic */
+  --adl-ok:   #2F9E5E;
+  --adl-warn: #D89418;
+  --adl-err:  #DC3C3C;
+  --adl-info: #2F6BD6;
+
+  /* Surfaces (light) */
+  --adl-bg:           var(--adl-n-50);
+  --adl-bg-sub:       var(--adl-n-75);
+  --adl-surface:      var(--adl-n-0);
+  --adl-surface-2:    var(--adl-n-25);
+  --adl-border:       var(--adl-n-100);
+  --adl-border-strong:var(--adl-n-150);
+  --adl-ink:          var(--adl-n-900);
+  --adl-ink-sub:      var(--adl-n-500);
+  --adl-ink-mute:     var(--adl-n-400);
+
+  /* Radii */
+  --adl-r-xs:  4px;
+  --adl-r-sm:  6px;
+  --adl-r-md:  10px;
+  --adl-r-lg:  14px;
+  --adl-r-xl:  20px;
+  --adl-r-full:999px;
+
+  /* Shadows */
+  --adl-sh-xs:    0 1px 2px rgba(20,18,14,.04);
+  --adl-sh-sm:    0 1px 3px rgba(20,18,14,.05), 0 1px 2px rgba(20,18,14,.03);
+  --adl-sh-md:    0 4px 12px rgba(20,18,14,.06), 0 1px 3px rgba(20,18,14,.04);
+  --adl-sh-lg:    0 12px 32px rgba(20,18,14,.08), 0 2px 6px rgba(20,18,14,.04);
+  --adl-sh-float: 0 20px 60px rgba(20,18,14,.12), 0 4px 12px rgba(20,18,14,.06);
+
+  /* Type */
+  --adl-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --adl-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+  /* Density */
+  --adl-gap: 16px;
+  --adl-pad: 20px;
+  --adl-row: 44px;
+}
+
+[data-theme="dark"] {
+  --adl-bg:           #0E0D0A;
+  --adl-bg-sub:       #15130F;
+  --adl-surface:      #1A1814;
+  --adl-surface-2:    #221F1A;
+  --adl-border:       #2A261F;
+  --adl-border-strong:#37322A;
+  --adl-ink:          #F5F2EC;
+  --adl-ink-sub:      #A59E8F;
+  --adl-ink-mute:     #726B5C;
+
+  --adl-brand-50:  #2B1B0C;
+  --adl-brand-100: #3D2510;
+
+  --adl-acc-sky:        #1A2E4A;
+  --adl-acc-sky-ink:    #A8C7F0;
+  --adl-acc-mint:       #1B3A2A;
+  --adl-acc-mint-ink:   #A3D6B5;
+  --adl-acc-lavender:   #2C2649;
+  --adl-acc-lavender-ink:#C6BDF0;
+  --adl-acc-rose:       #3E1F26;
+  --adl-acc-rose-ink:   #F0B5BF;
+  --adl-acc-amber:      #3B2A0D;
+  --adl-acc-amber-ink:  #EDC887;
+
+  --adl-sh-sm:    0 1px 2px rgba(0,0,0,.4);
+  --adl-sh-md:    0 4px 12px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.3);
+  --adl-sh-lg:    0 12px 32px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.3);
+  --adl-sh-float: 0 20px 60px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.3);
+}
+
+/* Opt-in base reset — pridaj class="adl" na koreňový element */
+.adl {
+  font-family: var(--adl-font-sans);
+  color: var(--adl-ink);
+  background: var(--adl-bg);
+  font-size: 14px;
+  line-height: 1.45;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+.adl *,
+.adl *::before,
+.adl *::after { box-sizing: border-box; }
+.adl button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+.adl input,
+.adl textarea,
+.adl select { font: inherit; color: inherit; }
+.adl a { color: inherit; text-decoration: none; }
+
+.adl-mono { font-family: var(--adl-font-mono); letter-spacing: 0; }
+
+.adl ::-webkit-scrollbar { width: 8px; height: 8px; }
+.adl ::-webkit-scrollbar-thumb { background: var(--adl-border-strong); border-radius: 999px; }
+.adl ::-webkit-scrollbar-track { background: transparent; }

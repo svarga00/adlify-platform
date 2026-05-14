@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8"/>
+<title>Adlify — Design Canvas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles/tokens.css"/>
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#f0eee9; font-family: 'Inter', system-ui, sans-serif; overflow:hidden; }
+  #root { width:100vw; height:100vh; }
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed; bottom: 18px; right: 18px; z-index: 50;
+    background: #fff; border: 1px solid #E0DBD1; border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(20,18,14,.14), 0 4px 12px rgba(20,18,14,.06);
+    padding: 14px; width: 260px; font-size: 12px;
+  }
+  .tweaks h4 { margin:0 0 10px; font-size:11px; text-transform:uppercase; letter-spacing:.9px; font-weight:700; color:#6F6758; }
+  .tweaks .row { margin-bottom: 12px; }
+  .tweaks .label { font-size:10px; color:#948B7C; font-weight:600; letter-spacing:.6px; text-transform:uppercase; margin-bottom: 5px; display:block; }
+  .tweaks .seg { display:flex; gap:2px; background:#F1EEE8; border-radius:8px; padding:3px; }
+  .tweaks .seg button { flex:1; padding:6px 4px; border:none; background:transparent; border-radius:6px; font-size:11px; font-weight:500; cursor:pointer; color:#524C3F; font-family:inherit; }
+  .tweaks .seg button.on { background:#fff; color:#14120E; font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="src/icons.jsx"></script>
+<script type="text/babel" src="src/ui.jsx"></script>
+<script type="text/babel" src="src/chrome.jsx"></script>
+<script type="text/babel" src="src/screens-admin-1.jsx"></script>
+<script type="text/babel" src="src/screens-admin-2.jsx"></script>
+<script type="text/babel" src="src/screens-admin-3.jsx"></script>
+<script type="text/babel" src="src/screens-portal.jsx"></script>
+<script type="text/babel" src="src/screens-mobile.jsx"></script>
+
+<script type="text/babel">
+const TWEAKS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "mode": "portal",
+  "sidebar": "floating",
+  "cardStyle": "hero"
+}/*EDITMODE-END*/;
+
+const W = 1280, H = 820;
+
+function Frame({ label, children, w=W, h=H }) {
+  return <DCArtboard label={label} width={w} height={h} style={{borderRadius: 14}}>
+    <div style={{width:w, height:h, overflow:'hidden'}}>{children}</div>
+  </DCArtboard>;
+}
+
+function App() {
+  const [theme, setTheme] = React.useState(TWEAKS.theme || 'light');
+  const [mode, setMode] = React.useState(TWEAKS.mode || 'admin');
+  const [sidebar, setSidebar] = React.useState(TWEAKS.sidebar || 'full');
+  const [cardStyle, setCardStyle] = React.useState(TWEAKS.cardStyle || 'hero');
+  const [tweaksOn, setTweaksOn] = React.useState(true);
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') setTweaksOn(true);
+      if (e.data.type === '__deactivate_edit_mode') setTweaksOn(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const update = (k, v) => {
+    if (k==='theme') setTheme(v);
+    if (k==='mode') setMode(v);
+    if (k==='sidebar') setSidebar(v);
+    if (k==='cardStyle') setCardStyle(v);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+  };
+
+  // Map Sidebar variant and mode into the chrome
+  // We override the sidebar variant by monkey-patching a CSS var? Simpler: re-render via prop.
+  // Our AppFrame accepts sidebarVariant prop directly.
+  const common = { sidebarVariant: sidebar };
+
+  // Admin sections
+  const adminSections = [
+    { title: 'Admin · Dashboard + prehľad', sub: '3 varianty hero / grid / list kariet',
+      screens: [
+        ['Dashboard · Hero karty', <ScreenDashboard cardStyle="hero" {...common}/>],
+        ['Dashboard · Grid karty', <ScreenDashboard cardStyle="grid" {...common}/>],
+        ['Dashboard · List karty', <ScreenDashboard cardStyle="list" {...common}/>],
+      ]
+    },
+    { title: 'Admin · Leady a klienti', sub: 'List + detail',
+      screens: [
+        ['Leady · list', <ScreenLeads {...common}/>],
+        ['Lead · detail', <ScreenLeadDetail {...common}/>],
+        ['Klienti · grid', <ScreenClients {...common}/>],
+        ['Klient · detail', <ScreenClientDetail {...common}/>],
+      ]
+    },
+    { title: 'Admin · Práca a spolupráca',
+      screens: [
+        ['Projekty · Kanban', <ScreenProjects {...common}/>],
+        ['Kampane', <ScreenCampaigns {...common}/>],
+        ['Správy · Inbox', <ScreenInbox {...common}/>],
+        ['Úlohy', <ScreenTasks {...common}/>],
+        ['Tickety', <ScreenTickets {...common}/>],
+      ]
+    },
+    { title: 'Admin · Financie a nástroje',
+      screens: [
+        ['Fakturácia', <ScreenInvoicing {...common}/>],
+        ['Onboarding', <ScreenOnboarding {...common}/>],
+        ['Služby & Balíčky', <ScreenServices {...common}/>],
+        ['Reporty', <ScreenReports {...common}/>],
+      ]
+    },
+    { title: 'Admin · Organizácia',
+      screens: [
+        ['Kalendár', <ScreenCalendar {...common}/>],
+        ['Šablóny', <ScreenTemplates {...common}/>],
+        ['Dokumenty', <ScreenDocuments {...common}/>],
+        ['Keywords · monitoring', <ScreenKeywords {...common}/>],
+        ['Nastavenia', <ScreenSettings {...common}/>],
+      ]
+    },
+  ];
+
+  const portalSections = [
+    { title: 'Klient portál · Prihlásenie a prehľad',
+      screens: [
+        ['Prihlásenie', <ScreenPortalLogin/>],
+        ['Dashboard', <ScreenPortalDashboard {...common}/>],
+        ['Reporty', <ScreenPortalReports {...common}/>],
+        ['Kampane', <ScreenPortalCampaigns {...common}/>],
+      ]
+    },
+    { title: 'Klient portál · Spolupráca',
+      screens: [
+        ['Správy · chat', <ScreenPortalMessages {...common}/>],
+        ['Schvaľovanie kreatívov', <ScreenPortalApprovals {...common}/>],
+        ['Kalendár & meetingy', <ScreenPortalCalendar {...common}/>],
+        ['Tickety · podpora', <ScreenPortalTickets {...common}/>],
+      ]
+    },
+    { title: 'Klient portál · Administratíva',
+      screens: [
+        ['Faktúry', <ScreenPortalInvoices {...common}/>],
+        ['Dokumenty', <ScreenPortalDocuments {...common}/>],
+        ['Nastavenia', <ScreenPortalSettings {...common}/>],
+      ]
+    },
+  ];
+
+  const Phone = ({children}) => (
+    <div style={{width:MW+18, height:MH+18, padding:9, background:'#1a1815', borderRadius:44, boxShadow:'0 30px 60px rgba(20,18,14,.18), 0 0 0 2px #2a2620'}}>
+      <div style={{width:MW, height:MH, borderRadius:35, overflow:'hidden', background:'#000', position:'relative'}}>
+        {children}
+        <div style={{position:'absolute', bottom:8, left:'50%', transform:'translateX(-50%)', width:120, height:4, background:'rgba(255,255,255,.25)', borderRadius:99, zIndex:5}}/>
+        <div style={{position:'absolute', top:10, left:'50%', transform:'translateX(-50%)', width:110, height:30, background:'#000', borderRadius:99, zIndex:5}}/>
+      </div>
+    </div>
+  );
+
+  const mobileSections = [
+    { title: 'Mobil · Admin aplikácia', sub: 'iOS / Android · 375×812',
+      screens: [
+        ['Domov · dnešný prehľad', <Phone><MAdminDashboard/></Phone>],
+        ['Klienti · zoznam + filtre', <Phone><MAdminClients/></Phone>],
+        ['Klient · detail', <Phone><MAdminClientDetail/></Phone>],
+        ['Inbox · správy', <Phone><MAdminInbox/></Phone>],
+        ['Rýchly výber (FAB sheet)', <Phone><MAdminQuickAdd/></Phone>],
+      ]
+    },
+    { title: 'Mobil · Klient portál',
+      screens: [
+        ['Dashboard', <Phone><MPortalDashboard/></Phone>],
+        ['Schvaľovanie kreatívov', <Phone><MPortalApprovals/></Phone>],
+        ['Reporty', <Phone><MPortalReports/></Phone>],
+        ['Chat s AM', <Phone><MPortalMessages/></Phone>],
+        ['Faktúry', <Phone><MPortalInvoices/></Phone>],
+      ]
+    },
+  ];
+
+  const sections = mode === 'admin' ? adminSections
+    : mode === 'portal' ? portalSections
+    : mode === 'mobile' ? mobileSections
+    : [...adminSections, ...portalSections, ...mobileSections];
+
+  return (<>
+    <DesignCanvas>
+      <div style={{padding:'0 60px 24px'}}>
+        <div style={{fontSize:32, fontWeight:700, letterSpacing:-.8, color:'#14120E'}}>Adlify — Kompletný redesign</div>
+        <div style={{fontSize:14, color:'#524C3F', marginTop:4, maxWidth:720, lineHeight:1.5}}>
+          Admin aplikácia pre tím agentúry + klientsky portál. Soft modern vibe, off-white pozadia, jemné tiene,
+          oranžový brand accent. Inter + JetBrains Mono. Bez emoji — čisté stroke ikony.
+        </div>
+        <div style={{display:'flex', gap:8, marginTop:14, fontSize:11, color:'#6F6758', flexWrap:'wrap'}}>
+          <span style={{padding:'3px 9px', background:'#FFF4EC', color:'#C2410C', border:'1px solid #FFE6D3', borderRadius:99, fontWeight:600}}>38 obrazoviek</span>
+          <span style={{padding:'3px 9px', background:'#fff', border:'1px solid #E0DBD1', borderRadius:99}}>17 admin desktop</span>
+          <span style={{padding:'3px 9px', background:'#fff', border:'1px solid #E0DBD1', borderRadius:99}}>11 klient desktop</span>
+          <span style={{padding:'3px 9px', background:'#fff', border:'1px solid #E0DBD1', borderRadius:99}}>10 mobil</span>
+          <span style={{padding:'3px 9px', background:'#fff', border:'1px solid #E0DBD1', borderRadius:99}}>Tweakable</span>
+          <a href="Feature Spec.html" style={{padding:'3px 11px', background:'#14120E', color:'#fff', borderRadius:99, fontWeight:600, textDecoration:'none'}}>Otvoriť detailný spec →</a>
+        </div>
+      </div>
+
+      {sections.map((sec, si) => (
+        <DCSection key={si} title={sec.title} subtitle={sec.sub}>
+          {sec.screens.map(([label, el], i) =>
+            <Frame key={i} label={`${String(si+1).padStart(2,'0')}.${String(i+1).padStart(2,'0')} · ${label}`}>
+              {el}
+            </Frame>
+          )}
+        </DCSection>
+      ))}
+    </DesignCanvas>
+
+    {tweaksOn && <div className="tweaks">
+      <h4>Tweaks</h4>
+      <div className="row">
+        <span className="label">Téma</span>
+        <div className="seg">
+          <button className={theme==='light'?'on':''} onClick={()=>update('theme','light')}>Light</button>
+          <button className={theme==='dark'?'on':''} onClick={()=>update('theme','dark')}>Dark</button>
+        </div>
+      </div>
+      <div className="row">
+        <span className="label">Prezrieť</span>
+        <div className="seg">
+          <button className={mode==='admin'?'on':''} onClick={()=>update('mode','admin')}>Admin</button>
+          <button className={mode==='portal'?'on':''} onClick={()=>update('mode','portal')}>Klient</button>
+          <button className={mode==='mobile'?'on':''} onClick={()=>update('mode','mobile')}>Mobil</button>
+          <button className={mode==='both'?'on':''} onClick={()=>update('mode','both')}>Všetko</button>
+        </div>
+      </div>
+      <div className="row">
+        <span className="label">Sidebar</span>
+        <div className="seg">
+          <button className={sidebar==='full'?'on':''} onClick={()=>update('sidebar','full')}>Plný</button>
+          <button className={sidebar==='icon'?'on':''} onClick={()=>update('sidebar','icon')}>Ikony</button>
+          <button className={sidebar==='floating'?'on':''} onClick={()=>update('sidebar','floating')}>Floating</button>
+        </div>
+      </div>
+      <div className="row">
+        <span className="label">Dashboard karty</span>
+        <div className="seg">
+          <button className={cardStyle==='hero'?'on':''} onClick={()=>update('cardStyle','hero')}>Hero</button>
+          <button className={cardStyle==='grid'?'on':''} onClick={()=>update('cardStyle','grid')}>Grid</button>
+          <button className={cardStyle==='list'?'on':''} onClick={()=>update('cardStyle','list')}>List</button>
+        </div>
+      </div>
+    </div>}
+  </>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

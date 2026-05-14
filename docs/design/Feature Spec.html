@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8"/>
+<title>Adlify — Detailný feature spec</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#F7F5F0; --surface:#fff; --ink:#14120E; --sub:#524C3F; --mute:#948B7C;
+    --border:#E8E3D7; --border-strong:#D4CDBC;
+    --brand:#F97316; --brand-ink:#C2410C; --brand-bg:#FFF4EC;
+    --ok:#059669; --warn:#D97706; --err:#DC2626;
+    --n-50:#F1EEE8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); font-family:'Inter', system-ui, sans-serif; color:var(--ink); line-height:1.6; }
+  .mono { font-family:'JetBrains Mono', monospace; }
+
+  /* Layout */
+  .shell { display:grid; grid-template-columns:280px 1fr; min-height:100vh; }
+  aside {
+    background:#fff; border-right:1px solid var(--border); padding:28px 20px;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  aside .logo { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:700; letter-spacing:-.5px; padding-bottom:18px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  aside .logo svg { border-radius:8px; }
+  aside .brand-tag { font-size:10px; font-weight:600; padding:2px 6px; background:var(--brand-bg); color:var(--brand-ink); border-radius:4px; text-transform:uppercase; letter-spacing:.6px; }
+  aside nav h5 { margin: 16px 0 6px; font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:var(--mute); font-weight:700; padding:0 8px; }
+  aside nav a { display:block; padding:7px 10px; border-radius:7px; font-size:13px; color:var(--sub); text-decoration:none; font-weight:500; }
+  aside nav a:hover { background:var(--n-50); color:var(--ink); }
+
+  main { padding:40px 56px 120px; max-width:1100px; }
+  .hero { margin-bottom:48px; padding-bottom:32px; border-bottom:1px solid var(--border); }
+  .hero .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:1.4px; color:var(--brand-ink); font-weight:700; }
+  h1 { font-size:44px; letter-spacing:-1.2px; margin:8px 0 14px; font-weight:700; line-height:1.1; }
+  .lede { font-size:16px; color:var(--sub); max-width:700px; line-height:1.65; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:28px; }
+  .stats .s { background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px; }
+  .stats .k { font-size:11px; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:.8px; }
+  .stats .v { font-size:28px; font-weight:700; letter-spacing:-.6px; margin-top:4px; }
+  .stats .h { font-size:12px; color:var(--sub); }
+
+  h2 { font-size:32px; letter-spacing:-.8px; font-weight:700; margin:72px 0 8px; padding-top:24px; border-top:1px solid var(--border); }
+  h2:first-of-type { border-top:none; padding-top:0; margin-top:56px; }
+  h2 .num { display:inline-block; font-family:'JetBrains Mono', monospace; font-size:13px; color:var(--brand-ink); background:var(--brand-bg); padding:4px 10px; border-radius:99px; font-weight:600; vertical-align:middle; margin-right:14px; letter-spacing:-.2px; }
+  .sec-sub { font-size:15px; color:var(--sub); margin-bottom:28px; max-width:700px; }
+
+  h3 { font-size:20px; letter-spacing:-.3px; font-weight:700; margin:36px 0 8px; display:flex; align-items:center; gap:10px; }
+  h3::before { content:''; width:4px; height:18px; background:var(--brand); border-radius:2px; }
+  h4 { font-size:14px; font-weight:700; letter-spacing:-.1px; margin:20px 0 6px; color:var(--ink); text-transform:uppercase; letter-spacing:.8px; font-size:12px; color:var(--mute); }
+
+  .desc { font-size:14px; color:var(--sub); margin:0 0 16px; }
+
+  /* Feature list */
+  ul.feat { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
+  ul.feat li { font-size:13.5px; color:var(--ink); padding-left:22px; position:relative; line-height:1.55; }
+  ul.feat li::before { content:''; position:absolute; left:2px; top:9px; width:6px; height:6px; border-radius:99px; background:var(--brand); }
+  ul.feat li .m { color:var(--mute); font-size:12px; display:block; margin-top:2px; }
+
+  /* Permissions table */
+  table.perm { width:100%; border-collapse:collapse; margin:12px 0; background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  table.perm th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--mute); font-weight:600; padding:10px 16px; background:var(--n-50); border-bottom:1px solid var(--border); }
+  table.perm td { padding:12px 16px; font-size:13px; border-top:1px solid var(--border); }
+  table.perm td:first-child { font-weight:600; }
+  .tick { color:var(--ok); font-weight:700; }
+  .cross { color:var(--mute); }
+
+  /* Callout */
+  .call { border:1px solid var(--border); background:#fff; padding:16px 20px; border-radius:12px; margin:14px 0; display:flex; gap:14px; align-items:flex-start; }
+  .call.brand { background:var(--brand-bg); border-color:#FFD9B8; }
+  .call.ok { background:#ECFDF5; border-color:#A7F3D0; }
+  .call .ico { width:34px; height:34px; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; border:1px solid var(--border); font-size:18px; font-weight:700; color:var(--brand-ink); font-family:'JetBrains Mono', monospace; }
+  .call .t { font-weight:700; font-size:13px; margin-bottom:2px; }
+  .call .d { font-size:12.5px; color:var(--sub); }
+
+  /* Pills */
+  .pills { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 14px; }
+  .pill { font-size:11px; padding:3px 9px; border-radius:99px; background:var(--n-50); color:var(--sub); font-weight:500; border:1px solid var(--border); }
+  .pill.p { background:var(--brand-bg); color:var(--brand-ink); border-color:#FFD9B8; font-weight:600; }
+  .pill.ok { background:#ECFDF5; color:var(--ok); border-color:#A7F3D0; }
+
+  /* Grid cards for screens */
+  .cards { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-top:16px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+  .card .t { font-weight:700; font-size:14px; letter-spacing:-.1px; }
+  .card .d { font-size:12.5px; color:var(--sub); margin-top:4px; line-height:1.55; }
+  .card .meta { font-size:11px; color:var(--mute); font-family:'JetBrains Mono', monospace; margin-top:8px; letter-spacing:-.2px; }
+
+  .toc { background:#fff; border:1px solid var(--border); border-radius:14px; padding:20px 24px; margin-bottom:40px; }
+  .toc h4 { margin-top:0; }
+  .toc ol { margin:0; padding-left:18px; color:var(--sub); font-size:13.5px; }
+  .toc ol li { padding:3px 0; }
+  .toc a { color:var(--ink); text-decoration:none; font-weight:500; }
+  .toc a:hover { color:var(--brand-ink); }
+
+  @media print {
+    aside { display:none; }
+    .shell { grid-template-columns:1fr; }
+    main { padding:32px; max-width:100%; }
+    h2 { page-break-before:always; }
+    h2:first-of-type { page-break-before:avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="logo">
+      <svg width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FB923C"/><stop offset="1" stop-color="#EA580C"/></linearGradient></defs><rect x="1" y="1" width="30" height="30" rx="8" fill="url(#g)"/><path d="M8 23 L14 8.5 L18 8.5 L24 23 M11 18 L21 18" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="24" cy="8" r="2.4" fill="#fff"/></svg>
+      Adlify <span class="brand-tag">Spec</span>
+    </div>
+    <nav>
+      <h5>Úvod</h5>
+      <a href="#intro">O produkte</a>
+      <a href="#personas">Personas & role</a>
+      <a href="#ds">Design systém</a>
+
+      <h5>Admin aplikácia</h5>
+      <a href="#a-dashboard">1. Dashboard</a>
+      <a href="#a-leads">2. Leady</a>
+      <a href="#a-clients">3. Klienti</a>
+      <a href="#a-projects">4. Projekty</a>
+      <a href="#a-campaigns">5. Kampane</a>
+      <a href="#a-inbox">6. Inbox</a>
+      <a href="#a-tasks">7. Úlohy</a>
+      <a href="#a-tickets">8. Tickety</a>
+      <a href="#a-invoicing">9. Fakturácia</a>
+      <a href="#a-onboard">10. Onboarding</a>
+      <a href="#a-services">11. Služby & Balíky</a>
+      <a href="#a-reports">12. Reporty</a>
+      <a href="#a-calendar">13. Kalendár</a>
+      <a href="#a-templates">14. Šablóny</a>
+      <a href="#a-docs">15. Dokumenty</a>
+      <a href="#a-keywords">16. Keywords</a>
+      <a href="#a-settings">17. Nastavenia</a>
+
+      <h5>Klient portál</h5>
+      <a href="#p-dashboard">18. Dashboard</a>
+      <a href="#p-reports">19. Reporty</a>
+      <a href="#p-campaigns">20. Kampane</a>
+      <a href="#p-approvals">21. Schvaľovanie</a>
+      <a href="#p-messages">22. Správy</a>
+      <a href="#p-invoices">23. Faktúry</a>
+      <a href="#p-tickets">24. Tickety</a>
+      <a href="#p-calendar">25. Kalendár</a>
+      <a href="#p-docs">26. Dokumenty</a>
+      <a href="#p-settings">27. Nastavenia</a>
+
+      <h5>Systém</h5>
+      <a href="#roles">Role a prístupy</a>
+      <a href="#mobile">Mobilná aplikácia</a>
+      <a href="#tech">Tech odporúčania</a>
+      <a href="#roadmap">Roadmap</a>
+    </nav>
+  </aside>
+
+  <main>
+    <section class="hero" id="intro">
+      <div class="eyebrow">Product specification · v1.0</div>
+      <h1>Adlify — agentúrna platforma pre správu klientov a kampaní</h1>
+      <p class="lede">Interný operačný systém pre tím Adlify + klientsky portál. Nahrádza Google Sheet + Trello + email chaos jednotným priestorom, kde tím spravuje leady, klientov, projekty, kampane, faktúry a komunikáciu, a klient cez svoj portál vidí výkon v reálnom čase, schvaľuje materiály a platí.</p>
+
+      <div class="stats">
+        <div class="s"><div class="k">Obrazoviek</div><div class="v">38</div><div class="h">17 admin + 11 klient + 10 mobil</div></div>
+        <div class="s"><div class="k">Hlavné moduly</div><div class="v">17</div><div class="h">admin + 11 portál</div></div>
+        <div class="s"><div class="k">Personas</div><div class="v">4</div><div class="h">owner · AM · špecialista · klient</div></div>
+        <div class="s"><div class="k">Integrácie</div><div class="v">8+</div><div class="h">Meta · Google · Pohoda …</div></div>
+      </div>
+
+      <div class="toc">
+        <h4>Ako dokument čítať</h4>
+        <p style="margin:6px 0 12px; font-size:13.5px; color:var(--sub);">Každá sekcia popisuje jeden modul: <strong>účel</strong> (prečo existuje), <strong>kľúčové funkcie</strong> (čo tam klikne), <strong>role & prístupy</strong>, <strong>dôležité stavy</strong> a <strong>napojenia</strong> na iné moduly. Číslovanie zodpovedá artboardom v "Adlify Design.html".</p>
+      </div>
+    </section>
+
+    <section id="personas">
+      <h2><span class="num">00</span>Personas & role</h2>
+      <p class="sec-sub">Platforma má 4 typy používateľov. Každý má iný cieľ aj iné prístupy — dizajn tomu zodpovedá (admin má boxovú dátovú plochu, klient má priateľský portál).</p>
+
+      <div class="cards">
+        <div class="card"><div class="t">Owner / konateľ agentúry</div><div class="d">Vidí celú agentúru: MRR, pipeline, tím, ziskovosť na klienta. Schvaľuje veľké zmeny, pozerá reporty. Full prístup.</div><div class="meta">admin · full</div></div>
+        <div class="card"><div class="t">Account Manager</div><div class="d">Denný driver platformy. Spravuje pridelených klientov, komunikuje, vytvára kampane, reporty. Nevidí finančné údaje iných AM.</div><div class="meta">admin · scoped</div></div>
+        <div class="card"><div class="t">Špecialista (kreatíva, PPC)</div><div class="d">Pracuje na tickets/úlohách pridelených AM. Kreatíva vytvára vizuály, PPC optimalizuje kampane. Nemá prístup k fakturácii.</div><div class="meta">admin · task-only</div></div>
+        <div class="card"><div class="t">Klient (majiteľ firmy)</div><div class="d">Vidí len svoje dáta. Schvaľuje kreatívy, komunikuje s AM, pozerá reporty, platí faktúry. Mobile-first používanie.</div><div class="meta">portál · own-data</div></div>
+      </div>
+    </section>
+
+    <section id="ds">
+      <h2><span class="num">00</span>Design systém</h2>
+      <p class="sec-sub">Soft modern — teplé off-white pozadia, jemné tiene, oranžový brand accent s pastelovými sekundárnymi farbami (mint, sky, lavender, rose, amber). Bez emoji, iba stroke ikony.</p>
+
+      <div class="pills">
+        <span class="pill p">Brand · #F97316</span>
+        <span class="pill">Inter — UI</span>
+        <span class="pill">JetBrains Mono — čísla & kódy</span>
+        <span class="pill">Radius · 10–16px</span>
+        <span class="pill">Shadows · 2-stop soft</span>
+        <span class="pill">No-emoji policy</span>
+      </div>
+
+      <h4>Kľúčové princípy</h4>
+      <ul class="feat">
+        <li><strong>Dáta sú hrdina.</strong> Čísla vo výraznej monospace type, farebný signál (zelená/žltá/červená) iba pri odchýlke.</li>
+        <li><strong>Chrómu minimum.</strong> Ľavý sidebar, top bar, content — zvyšok dýcha. Žiadne dekoratívne gradienty okrem hero kariet.</li>
+        <li><strong>Pastely sú sémantické.</strong> Každý klient = pevne pridelená pastelová farba. Rýchla vizuálna orientácia.</li>
+        <li><strong>Mobile-first pre klienta.</strong> Klient najčastejšie schvaľuje a pozerá — mobil má primárne flow, desktop druhotne.</li>
+      </ul>
+    </section>
+
+    <!-- ADMIN -->
+
+    <section id="a-dashboard">
+      <h2><span class="num">01</span>Admin · Dashboard</h2>
+      <p class="sec-sub">Ranný briefing. Čo sa udialo za noc, čo dnes horí, kde je pozornosť najpotrebnejšia. Pre owner-a agregát, pre AM len jeho klienti.</p>
+
+      <h4>Kľúčové funkcie</h4>
+      <ul class="feat">
+        <li>Hero metriky: MRR, aktívni klienti, otvorené leady, úlohy dnes <span class="m">s MoM rozdielom a cieľom</span></li>
+        <li>"Action feed" — top 5 vecí vyžadujúcich akciu <span class="m">schválenie od klienta, odpoveď, po-splatnosti faktúra, urgent ticket</span></li>
+        <li>Graf konverzií / spendu za 14 dní <span class="m">naprieč všetkými klientmi alebo filtrovaný</span></li>
+        <li>Pipeline widget: leady v 5 stavoch <span class="m">nový · kontakt · návrh · zmluva · client</span></li>
+        <li>Dnešné úlohy & meetingy <span class="m">kompaktný kalendár na pravom paneli</span></li>
+        <li>Klient health score <span class="m">červený ak ROI &lt; 1.5× alebo klient 2t bez komunikácie</span></li>
+        <li>Rýchle akcie: Pridať leada / Faktúra / Úloha <span class="m">bez opustenia dashboardu</span></li>
+        <li>3 varianty layoutu <span class="m">Hero (široké karty), Grid (rovnomerné), List (hustý)</span></li>
+      </ul>
+
+      <div class="call brand"><div class="ico">!</div><div><div class="t">Dizajnové rozhodnutie</div><div class="d">Dashboard neobsahuje "vitajte" placeholder, keď nie sú dáta — priamo ukazuje prvé kroky onboardingu ("Prepoj Meta BM", "Pozvi člena tímu").</div></div></div>
+    </section>
+
+    <section id="a-leads">
+      <h2><span class="num">02</span>Admin · Leady</h2>
+      <p class="sec-sub">CRM-lite pipeline od prvého kontaktu po podpis zmluvy. Optimalizované pre malú agentúru (nie Salesforce clone).</p>
+
+      <h4>Kľúčové funkcie</h4>
+      <ul class="feat">
+        <li>Pipeline kanban <span class="m">Nový · Kontaktovaný · Návrh · Vyjednávanie · Dohodnuté · Stratené</span></li>
+        <li>Zdroje leadov <span class="m">web formulár, manuálne, odporúčanie, kampaň</span></li>
+        <li>Lead scoring <span class="m">automaticky z veľkosti firmy + sektor + rozpočet</span></li>
+        <li>Timeline aktivít <span class="m">hovory, emaily, návrhy, poznámky</span></li>
+        <li>Rýchle akcie: pošli návrh balíka, zarezervuj call, priraď AM</span></li>
+        <li>Web formulár — hosted page <span class="m">custom pole per agentúra, UTM capture</span></li>
+        <li>Konverzia lead → klient <span class="m">1 klik, spustí onboarding wizard</span></li>
+        <li>Import z CSV / Marketing Miner</li>
+        <li>Duplicate detection <span class="m">email + telefón + IČO</span></li>
+      </ul>
+
+      <h4>Dôležité stavy</h4>
+      <div class="pills">
+        <span class="pill">Nový (0-24h)</span>
+        <span class="pill">Studený (bez akcie 7d)</span>
+        <span class="pill">Horúci (score &gt; 70)</span>
+        <span class="pill ok">Premena v 30d</span>
+      </div>
+    </section>
+
+    <section id="a-clients">
+      <h2><span class="num">03</span>Admin · Klienti</h2>
+      <p class="sec-sub">Centrum všetkého, čo sa s klientom deje. Každý klient = jeden "priestor" s vlastnými kampaňami, úlohami, súbormi, fakturáciou, komunikáciou.</p>
+
+      <h4>Kľúčové funkcie</h4>
+      <ul class="feat">
+        <li>Grid + list pohľad <span class="m">karty s health score, MRR, počtom kampaní</span></li>
+        <li>Detail klienta v taboch <span class="m">Prehľad · Kampane · Projekty · Inbox · Fakturácia · Súbory · Nastavenia</span></li>
+        <li>Hero metriky na detaile <span class="m">MRR, LTV, NPS, ROI naprieč kampaňami, dní od onboardingu</span></li>
+        <li>Health indicator <span class="m">zelená = OK, žltá = pozornosť, červená = risk odchodu</span></li>
+        <li>Notes & poznámky od AM <span class="m">interné, klient nevidí</span></li>
+        <li>Kontaktné osoby <span class="m">viac osôb na klientovi, role, preferovaný kanál</span></li>
+        <li>Pripojené reklamné účty <span class="m">Meta BM ID, Google Ads CID, GA4 property</span></li>
+        <li>Zmluva & balík <span class="m">história upgrade/downgrade, dátum obnovy</span></li>
+        <li>Activity log <span class="m">audit všetkého, filter podľa osoby/typu</span></li>
+      </ul>
+
+      <div class="call"><div class="ico">→</div><div><div class="t">Prepojenia</div><div class="d">Klient je centrum — odkazuje sa z Inbox (thread), Projekty (kanban karty), Kampane (spúšťač), Fakturácia (výstupy), Tickety, Keywords, Dokumenty.</div></div></div>
+    </section>
+
+    <section id="a-projects">
+      <h2><span class="num">04</span>Admin · Projekty (Kanban)</h2>
+      <p class="sec-sub">Agentúrna práca ako kanban. Každý väčší úkon pre klienta = kartička s priradeným tímom, termínom, priorita.</p>
+
+      <ul class="feat">
+        <li>Kanban: Backlog · Prebieha · Review · Hotovo</li>
+        <li>Karta = názov, klient-tag (farba), priradený tím (avatary), termín, progress, priorita</li>
+        <li>Drag & drop medzi stĺpcami <span class="m">spúšťa notifikácie (review → klient notif., Hotovo → auto-invoice ak billable)</span></li>
+        <li>Filter podľa klienta, typu, osoby, termínu</li>
+        <li>Dependency checkboxy <span class="m">čaká na → blokovaný od</span></li>
+        <li>Subtaskky, komentáre, prílohy na karte</li>
+        <li>Auto-create z templates <span class="m">typ "Mesačný report" vytvorí 5 subtaskov</span></li>
+        <li>Timeline / Gantt pohľad <span class="m">pre viditeľnosť naprieč projektmi</span></li>
+      </ul>
+    </section>
+
+    <section id="a-campaigns">
+      <h2><span class="num">05</span>Admin · Kampane</h2>
+      <p class="sec-sub">Agregovaný pohľad na všetky kampane naprieč klientmi + Meta + Google. Bez musíš-otvárať-Ads-Manager.</p>
+
+      <ul class="feat">
+        <li>Tabuľka: Kampaň · Klient · Platforma · Status · Spend · Konv · ROI · Health</li>
+        <li>Filter: platforma, klient, status, dátum</li>
+        <li>Status badges: Aktívna · Test · Pauza · Ukončená</li>
+        <li>Health bar <span class="m">kombinuje CTR, CPA trend, budget pacing; farebný indikátor</span></li>
+        <li>Rýchle akcie priamo z riadku <span class="m">pauza, budget up/down, duplikát</span></li>
+        <li>Hromadné akcie <span class="m">označ viacero a rob zmeny zároveň</span></li>
+        <li>Detail kampane <span class="m">kreatívy, audiences, ad sety, denný graf, A/B výsledky</span></li>
+        <li>Nová kampaň wizard <span class="m">cieľ → platforma → cielenie → kreatívy → budget → schválenie klientom</span></li>
+        <li>Grid / Zoznam / Timeline toggle</li>
+      </ul>
+
+      <h4>Integrácia s platformami</h4>
+      <ul class="feat">
+        <li>Meta Marketing API <span class="m">OAuth cez BM, čítanie + zápis, pixel events</span></li>
+        <li>Google Ads API <span class="m">cez MCC, manažment kampaní a reporting</span></li>
+        <li>Auto-sync každých 15 min <span class="m">performance dáta, status, spend</span></li>
+      </ul>
+    </section>
+
+    <section id="a-inbox">
+      <h2><span class="num">06</span>Admin · Inbox (Unified)</h2>
+      <p class="sec-sub">Všetka komunikácia s klientmi na jednom mieste — email, portál chat, formuláre z webu, interné správy.</p>
+
+      <ul class="feat">
+        <li>Thread list vľavo, konverzácia vpravo <span class="m">Gmail-like dvojstĺpec</span></li>
+        <li>Filtre: Klienti · Leady · Interné · Nezobrazené · Vyžaduje akciu</li>
+        <li>Thread auto-linkuje na klienta <span class="m">vpravo sidebar s kontextom: kampane, posledné faktúry, úlohy</span></li>
+        <li>AI návrh odpovede <span class="m">Claude generuje draft na základe histórie, AM len upraví</span></li>
+        <li>Šablóny odpovedí <span class="m">onboarding, reporty, faktúra-otázka</span></li>
+        <li>Snooze / Pripomenúť neskôr</li>
+        <li>Prílohy — drag drop, preview PDF/obrázky</li>
+        <li>Interné poznámky <span class="m">@mention kolegu v thread-e, klient nevidí</span></li>
+        <li>Unified inbox cez SMTP/IMAP <span class="m">každý AM svoju schránku</span></li>
+      </ul>
+    </section>
+
+    <section id="a-tasks">
+      <h2><span class="num">07</span>Admin · Úlohy</h2>
+      <p class="sec-sub">Atomické úlohy osobné a tímové. To-do pre deň, týždeň, blokátory.</p>
+      <ul class="feat">
+        <li>Skupiny: Po termíne · Dnes · Tento týždeň · Budúce</li>
+        <li>Taby: Moje · Tímové · Po termíne · Dnes</li>
+        <li>Úloha = názov, termín, priorita, blocker flag, @priradený, klient-tag</li>
+        <li>Rýchle pridanie enter-om <span class="m">natural-language parser: "Call Jablko zajtra 14h"</span></li>
+        <li>Prepojenie na projekt/kartu <span class="m">checked off → move kartu v kanban</span></li>
+        <li>Opakované úlohy <span class="m">každý piatok · mesačne 1. dňa</span></li>
+        <li>Komentáre a checklist</li>
+      </ul>
+    </section>
+
+    <section id="a-tickets">
+      <h2><span class="num">08</span>Admin · Tickety</h2>
+      <p class="sec-sub">Podpora pre klientov. Klient cez portál vytvorí, AM rieši. Nie helpdesk-sized — malá agentúra má 5-15 ticketov týždenne.</p>
+      <ul class="feat">
+        <li>Metriky: Otvorené, In progress, Čakajú klienta, Priemerný čas</li>
+        <li>Tabuľka: # · Predmet · Klient · Priorita · Status · Vek · Priradený</li>
+        <li>Priority: Urgent · High · Normal · Low</li>
+        <li>Status: Open · In progress · Čaká klienta · Čaká interne · Vyriešené</li>
+        <li>SLA podľa balíka <span class="m">Premium 2h, Enterprise 8h, Pro 24h, Starter 48h</span></li>
+        <li>Auto-escalation po porušení SLA <span class="m">notifikácia owner-ovi</span></li>
+        <li>Canned responses, interné notes</li>
+        <li>Satisfaction rating po uzavretí</li>
+      </ul>
+    </section>
+
+    <section id="a-invoicing">
+      <h2><span class="num">09</span>Admin · Fakturácia</h2>
+      <p class="sec-sub">Automatizovaná fakturácia pre SK trh. Pravidelné balíky + one-off služby. SEPA + kartová platba.</p>
+      <ul class="feat">
+        <li>Metriky: Vystavené · Zaplatené · Čakajú · Po splatnosti</li>
+        <li>Tabuľka faktúr s bulk akciami</li>
+        <li>Automatický generátor <span class="m">1. dňa mesiaca pre všetkých pravidelných</span></li>
+        <li>Upomienky po splatnosti <span class="m">+3, +7, +14 dní, tone eskaluje</span></li>
+        <li>Zľavy a kredity <span class="m">retention offer, refund, dobropis</span></li>
+        <li>DPH režimy <span class="m">SK platiteľ, neplatiteľ, reverse charge pre EÚ</span></li>
+        <li>Pravidelné služby (subscription) + one-off položky na tej istej faktúre</li>
+        <li>XML export pre Pohodu / Omega <span class="m">formát ISDOC alebo ubl</span></li>
+        <li>PDF generator s agentúrnym hlavičkovým</li>
+        <li>Platba kartou (Stripe) + SEPA Direct Debit</li>
+        <li>Automatická kontrola platby <span class="m">sync s bankou cez GoCardless / Tatra Bank API</span></li>
+        <li>Graf YTD príjem + sparkbar</li>
+        <li>Automatizácie (toggle):
+          <span class="m">Opakujúca sa fakturácia · Upomienky · Sync do Pohody</span></li>
+      </ul>
+
+      <div class="call ok"><div class="ico">✓</div><div><div class="t">Prepojenie</div><div class="d">Ak projekt v Kanban-e prejde do "Hotovo" a je označený ako billable, automaticky sa vytvorí draft faktúry ktorú AM len schváli a pošle.</div></div></div>
+    </section>
+
+    <section id="a-onboard">
+      <h2><span class="num">10</span>Admin · Onboarding wizard</h2>
+      <p class="sec-sub">6-krokový flow od podpisu po prvú spustenú kampaň. Má byť stress-free pre klienta aj AM.</p>
+      <ul class="feat">
+        <li>Kroky: Základné info · Biznis & ciele · Reklamné účty · Kreatívy · Zmluva & platba · Spustenie</li>
+        <li>Každý krok = samostatná obrazovka s validáciou</li>
+        <li>Paralelné kroky pre klienta <span class="m">AM nastavuje účty, klient zatiaľ posiela podklady</span></li>
+        <li>Auto-emails klientovi po každom kroku</li>
+        <li>Reklamné účty: Meta BM (plnomocenstvo), Google Ads (MCC link), IG (cez FB), Web (pixel, GA4, GSC)</li>
+        <li>Magic link pre klienta <span class="m">nemusí si vytvárať účet aby podpísal zmluvu</span></li>
+        <li>Šablóny zmlúv + e-signature <span class="m">ZealID alebo simple click-sign s audit trailom</span></li>
+        <li>Auto-vytvorenie priestoru klienta <span class="m">projekt, billing, inbox folder, welcome message</span></li>
+        <li>Progress indikátor AM + klient vidia rovnako</li>
+      </ul>
+    </section>
+
+    <section id="a-services">
+      <h2><span class="num">11</span>Admin · Služby & Balíčky</h2>
+      <p class="sec-sub">Centrálna definícia toho, čo agentúra predáva. Starter/Pro/Enterprise/Premium + doplnkové služby.</p>
+      <ul class="feat">
+        <li>Karty balíkov: Starter 149€ · Pro 249€ · Enterprise 399€ · Premium 1250€</li>
+        <li>Počet aktívnych klientov + MRR pre každý balík</li>
+        <li>Feature matrix <span class="m">počet platforiem, kampaní, vizuálov, report typ, SLA</span></li>
+        <li>Doplnkové služby <span class="m">landing, logo, video, konzultácia</span></li>
+        <li>Typ: Jednorazový · Mesačný · Hodinový</li>
+        <li>A/B cenník pre rôzne segmenty <span class="m">startupy vs. enterprise</span></li>
+        <li>Verejná stránka cenníka (hosted) <span class="m">auto-update zo systému</span></li>
+      </ul>
+    </section>
+
+    <section id="a-reports">
+      <h2><span class="num">12</span>Admin · Reporty (global)</h2>
+      <p class="sec-sub">Agregovaný výkon agentúry. Koľko spendujeme, koľko konvertujeme, kto je top klient.</p>
+      <ul class="feat">
+        <li>KPI hero: spend spravovaný, konverzie, ROI, cena za konv.</li>
+        <li>Graf v čase (bar), rozdelenie platforma (donut)</li>
+        <li>Top klienti podľa výkonu <span class="m">s mini-sparkline trendom</span></li>
+        <li>Export do PDF / CSV</li>
+        <li>Dátum range picker + porovnanie s minulým obdobím</li>
+        <li>Drill-down: klient → kampaň → ad set → kreatíva</li>
+      </ul>
+    </section>
+
+    <section id="a-calendar">
+      <h2><span class="num">13</span>Admin · Kalendár</h2>
+      <p class="sec-sub">Všetky termíny na mieste. Meetingy, deadlines, launch dates, fakturácia.</p>
+      <ul class="feat">
+        <li>Month / Week / Day pohľady</li>
+        <li>Kategórie farebne: Meetingy · Kampane · Fakturácia · Deadlines</li>
+        <li>Side panel "Dnes" so zoznamom eventov</li>
+        <li>Integrácia Google Cal + iCal feed</li>
+        <li>Event z inbox-u <span class="m">1 klik "vytvor meeting" z emailu</span></li>
+        <li>Bulk view: celý tím naraz <span class="m">kto má na čo čas</span></li>
+      </ul>
+    </section>
+
+    <section id="a-templates">
+      <h2><span class="num">14</span>Admin · Šablóny</h2>
+      <p class="sec-sub">Knižnica všetkého opakujúceho sa. Emaily, zmluvy, reporty, kreatívy, plány.</p>
+      <ul class="feat">
+        <li>Typy: Email · Report · Zmluva · Kreatíva · Doc</li>
+        <li>Mriežka s vizuálnym náhľadom</li>
+        <li>Filtre podľa typu + počet použití</li>
+        <li>Variables {{client_name}} {{mrr}} {{kampan}}</li>
+        <li>Verzie — A/B, revert</li>
+        <li>Rýchle použitie z Inbox / Docs / Projekty</li>
+      </ul>
+    </section>
+
+    <section id="a-docs">
+      <h2><span class="num">15</span>Admin · Dokumenty</h2>
+      <p class="sec-sub">Súborový systém s priečinkami na klienta a typy.</p>
+      <ul class="feat">
+        <li>Stromová štruktúra: Klient / Typ / Rok</li>
+        <li>Breadcrumb navigácia</li>
+        <li>Typy: priečinok, PDF, Figma, ZIP, PNG/JPG, DOC</li>
+        <li>Upload, preview, share link</li>
+        <li>Verzie súboru + kto nahral/upravil</li>
+        <li>Prístup klient vidí iba svoje veci označené "Zdieľané s klientom"</li>
+        <li>Full-text search v PDF</li>
+      </ul>
+    </section>
+
+    <section id="a-keywords">
+      <h2><span class="num">16</span>Admin · Keywords monitoring</h2>
+      <p class="sec-sub">SEO sledovanie pozícií pre klientov. Jednoduchšia náhrada Marketing Miner-u integrovaná dnu.</p>
+      <ul class="feat">
+        <li>Keyword list s obtiažnosťou, objemom, aktuálnou pozíciou, zmenou za 7 dní</li>
+        <li>Priradenie ku klientovi a URL</li>
+        <li>Import CSV / z Marketing Miner API</li>
+        <li>Denné meranie <span class="m">SERPs scraping cez DataForSEO alebo vlastný worker</span></li>
+        <li>Alerty: stratené top 10, skok o &gt; 5 pozícií</li>
+        <li>Competitor tracking <span class="m">3 konkurenti per keyword</span></li>
+        <li>Integrácia do klient reportu</li>
+      </ul>
+    </section>
+
+    <section id="a-settings">
+      <h2><span class="num">17</span>Admin · Nastavenia</h2>
+      <ul class="feat">
+        <li><strong>Profil</strong> — meno, email, heslo, 2FA, avatar</li>
+        <li><strong>Organizácia</strong> — IČO, DIČ, adresa, logo, fakturačné info</li>
+        <li><strong>Tím & roly</strong> — Owner · AM · Špecialista · Read-only</li>
+        <li><strong>Notifikácie</strong> — email/push/in-app per typ eventu</li>
+        <li><strong>Integrácie</strong> — Meta, Google, Resend, Pohoda, Slack, Marketing Miner, Stripe</li>
+        <li><strong>Fakturačné údaje</strong> — SEPA, Stripe, bankový účet</li>
+        <li><strong>Bezpečnosť</strong> — SSO, 2FA povinné, IP whitelist, audit log</li>
+        <li><strong>API kľúče</strong> — pre vývoj vlastných automatizácií</li>
+      </ul>
+    </section>
+
+    <!-- PORTAL -->
+
+    <section id="p-dashboard">
+      <h2><span class="num">18</span>Klient · Dashboard</h2>
+      <p class="sec-sub">Prvé, čo klient vidí. Jasne povie: "takto vám to ide, toto potrebuje vašu pozornosť, toto je ďalší krok".</p>
+      <ul class="feat">
+        <li>Hero karta s mesačným výsledkom + grafom <span class="m">napr. "142 konverzií, +28%"</span></li>
+        <li>4 KPI karty: Dosah, Kliky, Spend, Hodnota</li>
+        <li>Aktívne kampane (top 3) s mini-štatistikami</li>
+        <li>"Vyžaduje vašu akciu" box <span class="m">schválenie, faktúra, odpoveď AM</span></li>
+        <li>Blok "Váš tím" s priamym call/email na AM</li>
+        <li>Najbližšie eventy: call, launch, fakturácia</li>
+        <li>Onboarding checklist (prvých 14 dní)</li>
+      </ul>
+    </section>
+
+    <section id="p-reports">
+      <h2><span class="num">19</span>Klient · Reporty</h2>
+      <ul class="feat">
+        <li>Mesačný + quarterly report, vlastný range</li>
+        <li>Metriky v "ľudskej" reči <span class="m">"každé 5. euro prinieslo objednávku" namiesto ROAS</span></li>
+        <li>Graf výkonu po týždňoch (bar)</li>
+        <li>Porovnanie s minulým obdobím</li>
+        <li>Detail po kampaniach</li>
+        <li>Export PDF (branded), CSV dátový</li>
+        <li>AI summary na vrchu <span class="m">3 vety: čo sa podarilo, čo neišlo, čo plánujeme</span></li>
+      </ul>
+    </section>
+
+    <section id="p-campaigns">
+      <h2><span class="num">20</span>Klient · Kampane</h2>
+      <ul class="feat">
+        <li>Karty kampaní s farebným headerom + platformou</li>
+        <li>Rozpočet progress bar</li>
+        <li>Konverzie + ROI veľké čísla</li>
+        <li>Detail kampane: kreatívy (s náhľadom), ad copy, cielenie, dátumy</li>
+        <li>Klient môže dať spätnú väzbu <span class="m">"chcem inú kreatívu", "pridajte rozpočet"</span></li>
+        <li>Transparentne ukazuje: čo bežalo, čo bolo testované, čo fungovalo</li>
+      </ul>
+    </section>
+
+    <section id="p-approvals">
+      <h2><span class="num">21</span>Klient · Schvaľovanie materiálov</h2>
+      <p class="sec-sub">Najčastejšia akcia klienta. Musí byť 1-click, mobile-first, nech to zvládne medzi obedom.</p>
+      <ul class="feat">
+        <li>Grupované podľa kampane</li>
+        <li>Deadline badge (koľko času na rozhodnutie)</li>
+        <li>Každá kreatíva: náhľad, formát, caption</li>
+        <li>Akcie: Schváliť · Komentár · Zamietnuť</li>
+        <li>Bulk akcia "schváliť všetky"</li>
+        <li>Komentár sa viaže na konkrétny kus → AM dostane notifikáciu</li>
+        <li>História rozhodnutí (audit) <span class="m">kto schválil kedy, ktorú verziu</span></li>
+        <li>Email pripomienky ak blíži deadline</li>
+      </ul>
+    </section>
+
+    <section id="p-messages">
+      <h2><span class="num">22</span>Klient · Správy</h2>
+      <ul class="feat">
+        <li>Chat s AM + členmi tímu</li>
+        <li>Online status, "odpovedá do X"</li>
+        <li>Prílohy, hlasové správy (mobile)</li>
+        <li>Prepojenie na konkrétnu kampaň / ticket <span class="m">"otvoriť v kontexte"</span></li>
+        <li>Transparent — všetci členovia tímu, ktorí majú klienta, vidia thread</li>
+        <li>Poznámka: klient nemá prístup k interným thread-om</li>
+      </ul>
+    </section>
+
+    <section id="p-invoices">
+      <h2><span class="num">23</span>Klient · Faktúry</h2>
+      <ul class="feat">
+        <li>KPI: celkom zaplatené YTD, ďalšia splatnosť, spôsob platby</li>
+        <li>Tabuľka faktúr s PDF downloadom</li>
+        <li>Zaplatiť kartou in-place (Stripe checkout)</li>
+        <li>Zmena spôsobu platby (manage card, SEPA mandate)</li>
+        <li>Pozvať kolegu s účtovníckym prístupom</li>
+      </ul>
+    </section>
+
+    <section id="p-tickets">
+      <h2><span class="num">24</span>Klient · Tickety / Podpora</h2>
+      <ul class="feat">
+        <li>Zoznam ticketov + stav</li>
+        <li>Vytvoriť nový — krátky formulár s kategóriou</li>
+        <li>Priorita (Low / Normal / High)</li>
+        <li>Pravý panel "Potrebujete pomoc?" s priamym kontaktom na AM</li>
+      </ul>
+    </section>
+
+    <section id="p-calendar">
+      <h2><span class="num">25</span>Klient · Kalendár & meetingy</h2>
+      <ul class="feat">
+        <li>Nadchádzajúce udalosti (video-call "Join" button)</li>
+        <li>Mini-kalendár na mesiac s dotmi</li>
+        <li>Reschedule cez 1 klik (synchronizuje s AM)</li>
+        <li>Google / Apple cal download</li>
+      </ul>
+    </section>
+
+    <section id="p-docs">
+      <h2><span class="num">26</span>Klient · Dokumenty</h2>
+      <ul class="feat">
+        <li>Kategórie: Zmluvy · Reporty · Kreatívy · Faktúry · Brand</li>
+        <li>Karty s ikonou, veľkosťou, dátumom</li>
+        <li>Download, preview, zdieľať link s kolegom</li>
+        <li>Verzie (napr. zmluva v1, v2, final)</li>
+      </ul>
+    </section>
+
+    <section id="p-settings">
+      <h2><span class="num">27</span>Klient · Nastavenia</h2>
+      <ul class="feat">
+        <li>Profil — meno, email, telefón, pozícia</li>
+        <li>Firma — IČO, DIČ, adresa (sync s faktúrami)</li>
+        <li>Notifikácie — ktoré chcem, kanál (email/SMS/push)</li>
+        <li>Reklamné účty — zoznam prepojených + revoke access</li>
+        <li>Spôsob platby</li>
+        <li>Bezpečnosť — heslo, 2FA, aktívne session</li>
+        <li>Pozvať ďalšieho používateľa do svojej firmy <span class="m">účtovník s read-only, kolega s full</span></li>
+      </ul>
+    </section>
+
+    <section id="roles">
+      <h2><span class="num">28</span>Role a prístupy (matica)</h2>
+      <p class="sec-sub">Kto vidí a môže čo. Jednoduchý 4-role systém.</p>
+
+      <table class="perm">
+        <thead><tr><th>Čo</th><th>Owner</th><th>AM</th><th>Špecialista</th><th>Klient</th></tr></thead>
+        <tbody>
+          <tr><td>Všetci klienti</td><td class="tick">áno</td><td class="cross">len priradení</td><td class="cross">len priradené tasky</td><td class="cross">—</td></tr>
+          <tr><td>Fakturácia (globálna)</td><td class="tick">áno</td><td class="cross">len ich klienti</td><td class="cross">—</td><td class="cross">—</td></tr>
+          <tr><td>Vlastné faktúry klienta</td><td class="tick">áno</td><td class="tick">áno</td><td class="cross">—</td><td class="tick">áno</td></tr>
+          <tr><td>Upraviť balíky / cenník</td><td class="tick">áno</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+          <tr><td>Pridať/odobrať člena tímu</td><td class="tick">áno</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+          <tr><td>Kampane – spustiť</td><td class="tick">áno</td><td class="tick">áno</td><td class="tick">áno</td><td class="cross">—</td></tr>
+          <tr><td>Schváliť kreatívy</td><td class="tick">áno</td><td class="tick">áno</td><td class="cross">—</td><td class="tick">povinné</td></tr>
+          <tr><td>Reporty (global)</td><td class="tick">áno</td><td class="cross">len svoje</td><td class="cross">—</td><td class="cross">—</td></tr>
+          <tr><td>Vidí interné notes</td><td class="tick">áno</td><td class="tick">áno</td><td class="tick">áno</td><td class="cross">nikdy</td></tr>
+          <tr><td>API kľúče</td><td class="tick">áno</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="mobile">
+      <h2><span class="num">29</span>Mobilná aplikácia</h2>
+      <p class="sec-sub">Natívna iOS + Android appka. Dôraz: klient rýchlo schváli na mobile, AM má inbox a úlohy v ruke.</p>
+
+      <h3>Admin mobile</h3>
+      <ul class="feat">
+        <li>5-tab bottom navigácia: Domov · Klienti · Inbox · Úlohy · Viac</li>
+        <li>Hero dashboard s MRR + akčným feedom</li>
+        <li>Klienti list so search + filtrami</li>
+        <li>Klient detail + kampaňami a aktivitou</li>
+        <li>Inbox s threadmi a chatom</li>
+        <li>Rýchly výber (FAB sheet): nový lead/klient/kampaň/faktúra</li>
+        <li>Push notifikácie s akciou <span class="m">"Schválenie prijaté" → swipe spustí kampaň</span></li>
+        <li>Offline cache pre posledných 20 klientov</li>
+      </ul>
+
+      <h3>Klient mobile</h3>
+      <ul class="feat">
+        <li>5-tab bottom: Prehľad · Kampane · Správy · Akcie · Viac</li>
+        <li>Dashboard s hero konverzií + KPI grid</li>
+        <li>Schvaľovanie materiálov — primárny use-case, swipe gestá</li>
+        <li>Chat s AM (FaceID pre otvorenie)</li>
+        <li>Reporty stiahnuteľné ako PDF, share sheet</li>
+        <li>Faktúry — 1 klik Apple/Google Pay</li>
+        <li>Push pri nových kreatívach alebo deadlinoch</li>
+      </ul>
+    </section>
+
+    <section id="tech">
+      <h2><span class="num">30</span>Tech odporúčania</h2>
+      <ul class="feat">
+        <li><strong>Frontend:</strong> React + TypeScript, Next.js 15, Tailwind + shadcn/ui</li>
+        <li><strong>Mobile:</strong> React Native s Expo (shared komponenty a logika)</li>
+        <li><strong>Backend:</strong> Node + Postgres (Supabase / self-hosted)</li>
+        <li><strong>Auth:</strong> Clerk alebo Supabase Auth s magic links + 2FA</li>
+        <li><strong>Integrácie:</strong>
+          <span class="m">Meta Marketing API, Google Ads API, Stripe, Resend (email), GoCardless (SEPA)</span></li>
+        <li><strong>Reporting:</strong> Metabase alebo custom SQL views</li>
+        <li><strong>AI features:</strong> Anthropic Claude (inbox drafts, report summaries)</li>
+        <li><strong>PDF gen:</strong> Puppeteer pre faktúry + reporty</li>
+        <li><strong>Search:</strong> Meilisearch alebo Postgres full-text</li>
+        <li><strong>Logs & audit:</strong> každá akcia zapísaná s user + timestamp + IP</li>
+      </ul>
+    </section>
+
+    <section id="roadmap">
+      <h2><span class="num">31</span>Roadmap návrh</h2>
+      <p class="sec-sub">Staged rollout — najskôr interné, potom klient portál, potom mobile.</p>
+
+      <h4>Fáza 1 — Interný core (6-8 týždňov)</h4>
+      <ul class="feat">
+        <li>Klienti · Projekty · Úlohy · Inbox základný · Fakturácia · Onboarding</li>
+        <li>Základné role & tím</li>
+        <li>Meta + Google API read-only (len reporting)</li>
+      </ul>
+
+      <h4>Fáza 2 — Klient portál (4-6 týždňov)</h4>
+      <ul class="feat">
+        <li>Dashboard · Reporty · Schvaľovanie · Správy · Faktúry · Dokumenty</li>
+        <li>Magic-link auth pre klientov</li>
+        <li>Stripe + SEPA platby</li>
+      </ul>
+
+      <h4>Fáza 3 — Pokročilé (priebežne)</h4>
+      <ul class="feat">
+        <li>Kampane write (spustenie priamo zo systému)</li>
+        <li>Keywords monitoring</li>
+        <li>AI draft odpovedí + report summaries</li>
+        <li>Kalendár a integrácia s Google Cal</li>
+        <li>Šablóny a templaty</li>
+      </ul>
+
+      <h4>Fáza 4 — Mobile (6 týždňov)</h4>
+      <ul class="feat">
+        <li>iOS + Android, feature-parita s portálom</li>
+        <li>Push notifikácie, FaceID</li>
+        <li>Offline pre posledných klientov</li>
+      </ul>
+
+      <div class="call brand" style="margin-top:30px"><div class="ico">Σ</div><div><div class="t">Celkový odhad</div><div class="d">MVP (Fáza 1+2) ~ 3-4 mesiace s tímom 2 FE + 1 BE + 1 dizajnér. Plná verzia (vrátane mobile) ~ 7-8 mesiacov.</div></div></div>
+    </section>
+
+    <div style="margin-top:80px; padding:32px; background:#fff; border:1px solid var(--border); border-radius:18px; text-align:center;">
+      <div style="font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:1.2px; font-weight:600;">Adlify · spec v1.0</div>
+      <div style="font-size:24px; font-weight:700; letter-spacing:-.5px; margin-top:6px;">38 obrazoviek · 17 modulov · 4 role</div>
+      <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+        <a href="Adlify Design.html" style="padding:10px 20px; background:var(--ink); color:#fff; border-radius:10px; text-decoration:none; font-weight:600; font-size:13px;">← Späť na design canvas</a>
+        <a href="javascript:window.print()" style="padding:10px 20px; background:#fff; color:var(--ink); border:1px solid var(--border-strong); border-radius:10px; text-decoration:none; font-weight:600; font-size:13px;">Tlačiť / Uložiť PDF</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
