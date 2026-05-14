@@ -173,6 +173,9 @@
       ? 'background:#D6EFDE;color:#1F6E3D;'
       : 'background:#F1EEE8;color:#948B7C;';
     const statusTxt = g.is_active ? 'Aktívna' : 'Neaktívna';
+    const statusTitle = g.is_active
+      ? 'Kliknutím deaktivuj'
+      : 'Kliknutím aktivuj';
 
     // Publikovania column
     const postCount = g.post_count || 0;
@@ -194,7 +197,7 @@
         <td style="padding:10px 16px;text-align:right;color:#524C3F;font-variant-numeric:tabular-nums;">${g.member_count ? OM._fmtNum(g.member_count) : '–'}</td>
         <td style="padding:10px 16px;">${g.category ? `<span style="background:#F1EEE8;padding:2px 8px;border-radius:6px;font-size:12px;color:#524C3F;">${esc(g.category)}</span>` : '–'}</td>
         <td style="padding:10px 16px;">${postsCell}</td>
-        <td style="padding:10px 16px;"><span style="padding:3px 8px;border-radius:6px;font-size:12px;font-weight:500;${statusCls}">${statusTxt}</span></td>
+        <td style="padding:10px 16px;"><button onclick="OutreachModule.toggleFbActive('${g.id}')" title="${statusTitle}" style="border:none;cursor:pointer;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:500;${statusCls}font-family:inherit;">${statusTxt}</button></td>
         <td style="padding:10px 16px;text-align:right;white-space:nowrap;">
           <button onclick="OutreachModule.recordFbPublish('${g.id}')" title="Zaznamenať publikovanie" style="background:#FFF4EC;border:1px solid #FFE6D3;cursor:pointer;padding:4px 8px;border-radius:6px;color:#C2410C;font-size:12px;font-weight:500;margin-right:4px;">+ Publikoval</button>
           <button onclick="OutreachModule.openFbEditModal('${g.id}')" title="Upraviť" style="background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:#6F6758;">${OM._fbIcon('edit')}</button>
@@ -226,6 +229,26 @@
     g.last_posted_at = now;
     OM.rerender();
     OM._toast(`Zaznamenané (${newCount}× celkom)`, 'ok');
+  };
+
+  /* ============================================================
+     STATUS TOGGLE — prepne is_active priamo z tabuľky
+     ============================================================ */
+  OM.toggleFbActive = async function (id) {
+    const g = OM.fbGroups.find((x) => x.id === id);
+    if (!g) return;
+    const next = !g.is_active;
+    const { error } = await Database.client
+      .from('outreach_groups')
+      .update({ is_active: next })
+      .eq('id', id);
+    if (error) {
+      OM._toast('Chyba: ' + error.message, 'err');
+      return;
+    }
+    g.is_active = next;
+    OM.rerender();
+    OM._toast(next ? 'Skupina aktivovaná' : 'Skupina deaktivovaná', 'ok');
   };
 
   OM._fbRelativeDate = function (iso) {
@@ -365,7 +388,8 @@
       member_count: data.members || prefill.member_count || '',
       image_url: data.image || prefill.image_url || '',
       category: prefill.category || '',
-      description: prefill.description || ''
+      description: prefill.description || '',
+      is_active: existing ? !!prefill.is_active : true
     };
     const previewImg = initial.image_url;
 
@@ -396,6 +420,11 @@
           ${OM._fbField('URL obrázka (cover)', `<input type="url" name="image_url" value="${OM._esc(initial.image_url)}" placeholder="https://..." style="${OM._fbInputStyle()}">`)}
           ${OM._fbField('Popis (voliteľné)', `<textarea name="description" rows="3" placeholder="Krátky popis skupiny..." style="${OM._fbInputStyle()}resize:vertical;min-height:70px;">${OM._esc(initial.description)}</textarea>`)}
 
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#F7F5F1;border:1px solid #EAE6DE;border-radius:9px;cursor:pointer;font-size:13px;color:#3A352B;">
+            <input type="checkbox" name="is_active" value="1"${initial.is_active ? ' checked' : ''} style="width:16px;height:16px;accent-color:#F97316;cursor:pointer;">
+            <span><strong>Aktívna skupina</strong> — odškrtni ak sem nepublikujeme (napr. zakázaná moderátorom, neaktívna komunita).</span>
+          </label>
+
           <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:4px;">
             <button type="button" class="adl-btn adl-btn-outline" data-fb-cancel>Zrušiť</button>
             <button type="submit" class="adl-btn adl-btn-primary">
@@ -416,7 +445,8 @@
             member_count: fd.get('member_count') ? parseInt(fd.get('member_count')) : null,
             category: OM._fbResolveCategory(fd),
             image_url: fd.get('image_url') || null,
-            description: fd.get('description') || null
+            description: fd.get('description') || null,
+            is_active: fd.get('is_active') === '1'
           };
           const btn = form.querySelector('[type=submit]');
           btn.disabled = true;
@@ -450,6 +480,8 @@
       existing = row || null;
     }
 
+    const isActiveValue = payload.is_active === undefined ? true : !!payload.is_active;
+
     if (existing) {
       const { error } = await Database.client
         .from('outreach_groups')
@@ -459,7 +491,7 @@
           image_url: payload.image_url,
           category: payload.category,
           description: payload.description,
-          is_active: true,
+          is_active: isActiveValue,
           deleted_at: null
         })
         .eq('id', existing.id);
@@ -478,6 +510,7 @@
         image_url: payload.image_url,
         category: payload.category,
         description: payload.description,
+        is_active: isActiveValue,
         created_by: Auth.user?.id
       })
       .select()
