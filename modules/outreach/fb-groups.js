@@ -192,19 +192,19 @@
       'javascript:' +
       encodeURIComponent(
         src
-          .replace('__IMPORT_BASE_URL__', importBase)
-          .replace('__DEBUG__', 'false')
+          .replaceAll('__IMPORT_BASE_URL__', importBase)
+          .replaceAll('__DEBUG__', 'false')
       );
     const debugHref =
       'javascript:' +
       encodeURIComponent(
         src
-          .replace('__IMPORT_BASE_URL__', importBase)
-          .replace('__DEBUG__', 'true')
+          .replaceAll('__IMPORT_BASE_URL__', importBase)
+          .replaceAll('__DEBUG__', 'true')
       );
     const rawSrc = src
-      .replace('__IMPORT_BASE_URL__', importBase)
-      .replace('__DEBUG__', 'false');
+      .replaceAll('__IMPORT_BASE_URL__', importBase)
+      .replaceAll('__DEBUG__', 'false');
 
     const consoleHelper =
       'console.log({url:location.href,title:document.title,' +

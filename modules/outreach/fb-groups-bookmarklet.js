@@ -1,14 +1,17 @@
 /**
  * ADLIFY OUTREACH - FB Group Bookmarklet
  *
- * Čistý JS zdroj bookmarkletu. modules/outreach/fb-groups.js ho fetchuje,
- * nahradí placeholders __IMPORT_BASE_URL__ a __DEBUG__,
- * encodeURIComponent celého výsledku a vloží do href="javascript:...".
+ * Čistý JS zdroj bookmarkletu. fb-groups.js ho fetchuje, vykoná
+ * `replaceAll` substitúciu dvoch placeholderov v tele, encoduje
+ * cez encodeURIComponent a vloží do href="javascript:...".
+ *
+ * Placeholders sa NESPOMÍNAJÚ v tomto headeri — inak by `replace`
+ * mohol omylom trafiť komentár pred skutočný výskyt v kóde.
  *
  * Validácia: node --check modules/outreach/fb-groups-bookmarklet.js
  *
- * ŽIADNE // komentáre — len block. Po prípadnom whitespace collapse
- * hrozí "single-line zožerie zvyšok" problém.
+ * ŽIADNE // line-komentáre — len block. Po prípadnom whitespace
+ * collapse hrozí "single-line zožerie zvyšok" problém.
  */
 (function () {
   try {
