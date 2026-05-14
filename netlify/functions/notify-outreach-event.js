@@ -53,7 +53,7 @@ async function createTaskAndNotifications(prospect, event, label, note) {
     await supabase.from('tasks').insert({
       title: `${label.emoji} ${company} — ${label.subject}`,
       description: descParts.join('\n'),
-      status: 'pending',
+      status: 'todo',
       priority: label.priority || 'normal',
       prospect_id: prospect.id,
       due_date: dueDate.toISOString(),
