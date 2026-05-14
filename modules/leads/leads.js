@@ -613,7 +613,7 @@ const LeadsModule = {
       /* Modal */
       .modal-overlay { position: fixed; inset: 0; background: rgba(20,18,14,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
       .modal-box-new { background: var(--surface); border-radius: 14px; width: 100%; max-width: 540px; max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--sh-lg); border: 1px solid var(--border); }
-      .modal-box-new.modal-large { max-width: 960px; }
+      .modal-box-new.modal-large { max-width: 1180px; }
       .modal-header, .modal-header-gradient { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface); color: var(--ink); }
       .modal-header h2, .modal-header-gradient h2 { font-size: 15px; font-weight: 600; margin: 0; color: var(--ink); letter-spacing: -0.2px; }
       .modal-close, .modal-close-dark { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: var(--ink-sub); font-size: 15px; transition: background .12s; }
@@ -1268,22 +1268,21 @@ const LeadsModule = {
   renderModalFooter(hasAnalysis) {
     const footer = document.getElementById('analysis-footer');
     if (!footer) return;
-    
+    const LI = this._leadIcons();
+
     if (hasAnalysis) {
       footer.innerHTML = `
         <button onclick="LeadsModule.closeModal()" class="btn-secondary">Zavrieť</button>
         <div style="display:flex;gap:0.5rem;">
-          <button onclick="LeadsModule.editAnalysis()" class="btn-secondary">✏️ Upraviť</button>
-          <button onclick="LeadsModule.generateProposal()" class="btn-primary">📄 Generovať ponuku</button>
-          <button onclick="LeadsModule.convertToClient('${this.currentLeadId}')" class="btn-primary" style="background:#22c55e;">🎯 Konvertovať</button>
+          <button onclick="LeadsModule.editAnalysis()" class="btn-secondary">${LI.edit(14)} Upraviť</button>
+          <button onclick="LeadsModule.generateProposal()" class="btn-primary">${LI.doc(14, '#fff')} Generovať ponuku</button>
         </div>
       `;
     } else {
       footer.innerHTML = `
         <button onclick="LeadsModule.closeModal()" class="btn-secondary">Zavrieť</button>
         <div style="display:flex;gap:0.5rem;">
-          <button onclick="LeadsModule.editLeadBasicInfo('${this.currentLeadId}')" class="btn-secondary">✏️ Upraviť</button>
-          <button onclick="LeadsModule.convertToClient('${this.currentLeadId}')" class="btn-primary">🎯 Konvertovať</button>
+          <button onclick="LeadsModule.editLeadBasicInfo('${this.currentLeadId}')" class="btn-primary">${LI.edit(14, '#fff')} Upraviť údaje</button>
         </div>
       `;
     }
@@ -1380,7 +1379,7 @@ const LeadsModule = {
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Phone({size:14})} Zavolať</a>` : ''}
             ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Poslať email</a>` : ''}
-            <button onclick="LeadsModule.updateStatus('${lead.id}', 'won')" class="adl-btn adl-btn-primary adl-btn-sm">${I.ArrowRight({size:14})} Konvertovať na klienta</button>
+            <button onclick="LeadsModule.convertToClient('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm">${I.ArrowRight({size:14})} Konvertovať na klienta</button>
           </div>
         </div>
 
@@ -1695,10 +1694,14 @@ const LeadsModule = {
       t.classList.remove('active');
       t.style.background = 'transparent';
       t.style.color = 'var(--ink-sub)';
+      t.style.borderBottom = '2px solid transparent';
+      t.style.fontWeight = '500';
     });
     btn.classList.add('active');
-    btn.style.background = 'var(--surface)';
+    btn.style.background = 'transparent';
     btn.style.color = 'var(--ink)';
+    btn.style.borderBottom = '2px solid var(--brand-500)';
+    btn.style.fontWeight = '600';
     document.querySelectorAll('.detail-tab-content').forEach(c => c.style.display = 'none');
     const tabEl = document.getElementById(`detail-tab-${tab}`);
     if (tabEl) tabEl.style.display = 'block';
