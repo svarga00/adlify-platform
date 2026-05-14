@@ -176,7 +176,6 @@ const OutreachModule = {
 
   renderHeader(stats) {
     const I = this._outIcons();
-    const isSecondary = this.currentView !== 'overview' && this.currentView !== 'compose';
     const selCount = this.selectedIds.size;
 
     // Subtitle podľa aktuálneho view
@@ -216,7 +215,7 @@ const OutreachModule = {
             `}
           </div>
         </div>
-        ${isSecondary ? '' : this.renderTopTabs(I)}
+        ${this.renderTopTabs(I)}
       </div>
     `;
   },
