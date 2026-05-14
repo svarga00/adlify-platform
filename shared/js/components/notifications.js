@@ -100,14 +100,16 @@ const Notifications = {
 
     async load() {
         try {
-            const teamMemberId = Auth.teamMember?.id;
-            if (!teamMemberId) return;
+            // Notifikácie sú per user_profiles.id (= auth.users.id), nie team_members.id.
+            // notify-outreach-event ukladá user_id ako user_profiles.id.
+            const userId = Auth.user?.id;
+            if (!userId) return;
 
             // Načítaj osobné + systémové notifikácie (user_id = null)
             const { data, error } = await Database.client
                 .from('notifications')
                 .select('*')
-                .or(`user_id.eq.${teamMemberId},user_id.is.null`)
+                .or(`user_id.eq.${userId},user_id.is.null`)
                 .order('created_at', { ascending: false })
                 .limit(20);
 
@@ -321,13 +323,13 @@ const Notifications = {
 
     async markAllRead() {
         try {
-            const teamMemberId = Auth.teamMember?.id;
-            if (!teamMemberId) return;
+            const userId = Auth.user?.id;
+            if (!userId) return;
 
             const { error } = await Database.client
                 .from('notifications')
                 .update({ is_read: true, read_at: new Date().toISOString() })
-                .eq('user_id', teamMemberId)
+                .eq('user_id', userId)
                 .eq('is_read', false);
 
             if (error) throw error;
@@ -364,7 +366,7 @@ const Notifications = {
             if (error) throw error;
 
             // Ak je to pre aktuálneho používateľa, reload
-            if (userId === Auth.teamMember?.id) {
+            if (userId === Auth.user?.id) {
                 await this.load();
                 this.updateBadge();
             }
