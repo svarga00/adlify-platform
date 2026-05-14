@@ -18,7 +18,23 @@ const DashboardModule = {
   // Charts instances
   chartPipeline: null,
   chartActivity: null,
-  
+
+  // Inline SVG ikony špecifické pre Dashboard (bez emoji)
+  _dashIcons() {
+    const wrap = (inner, size = 14, color = 'currentColor') =>
+      `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px;">${inner}</svg>`;
+    return {
+      mail:        (s, c) => wrap('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>', s, c),
+      flame:       (s, c) => wrap('<path d="M12 2c1 4 4 5 4 9a4 4 0 1 1-8 0c0-2 1-3 2-4 0 2 2 3 2 5z"/><path d="M14 13a2 2 0 1 1-4 0c0-1 1-2 2-3 0 1 2 2 2 3z"/>', s, c),
+      activity:    (s, c) => wrap('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>', s, c),
+      mapPin:      (s, c) => wrap('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>', s, c),
+      mouseClick:  (s, c) => wrap('<path d="M9 9l3 12 2-5 5-2L9 9z"/><path d="M9 4v2M4 9h2M5.5 5.5l1.5 1.5"/>', s, c),
+      reply:       (s, c) => wrap('<path d="M9 17l-5-5 5-5"/><path d="M4 12h10a6 6 0 0 1 6 6v2"/>', s, c),
+      eye:         (s, c) => wrap('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>', s, c),
+      target:      (s, c) => wrap('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/>', s, c),
+    };
+  },
+
   /**
    * Initialize module
    */
@@ -138,6 +154,7 @@ const DashboardModule = {
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
 
+    const DI = this._dashIcons();
     const mrrFormatted = Utils.formatCurrency(stats.clients.mrr);
     const avgPerClient = stats.clients.active > 0 ? Math.round(stats.clients.mrr / stats.clients.active) : 0;
 
@@ -271,19 +288,19 @@ const DashboardModule = {
         <!-- OUTREACH WIDGETS -->
         <div class="adl-card" style="grid-column:1 / -1;">
           <div class="adl-card-header">
-            <div class="adl-card-title">📮 Outreach aktivita</div>
+            <div class="adl-card-title" style="display:flex;align-items:center;gap:8px;">${DI.mail(16, 'var(--brand-600)')} Outreach aktivita</div>
             <a href="#outreach" class="adl-btn adl-btn-ghost adl-btn-sm">Otvoriť Outreach ${I.ArrowRight({size:12})}</a>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
             <!-- Hot prospects -->
             <div style="border-right:1px solid var(--border);padding:6px 0;">
-              <div style="padding:8px 18px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-mute);font-weight:600;">🔥 Najteplejší prospecti</div>
+              <div style="padding:8px 18px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-mute);font-weight:600;display:flex;align-items:center;gap:6px;">${DI.flame(13, 'var(--brand-600)')} Najteplejší prospecti</div>
               ${hotProspects.length === 0 ? `<div style="padding:16px 18px;color:var(--ink-mute);font-size:13px;">Zatiaľ žiadni horúci prospecti.</div>` : hotProspects.slice(0, 5).map(p => {
                 const name = p.company_name || p.domain || '—';
                 const badges = [];
-                if (p.audit_requested_at) badges.push('<span style="font-size:10px;background:#FFEDD5;color:#92400E;padding:1px 6px;border-radius:999px;font-weight:600;">🎯 audit</span>');
-                if (p.outreach_email_replied_at) badges.push('<span style="font-size:10px;background:#DBEAFE;color:#1E3A8A;padding:1px 6px;border-radius:999px;font-weight:600;">💬 odpoveď</span>');
-                if ((p.outreach_email_open_count || 0) >= 2) badges.push('<span style="font-size:10px;background:#EDE9FE;color:#5B21B6;padding:1px 6px;border-radius:999px;font-weight:600;">👁 ×' + p.outreach_email_open_count + '</span>');
+                if (p.audit_requested_at) badges.push('<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;background:#FFEDD5;color:#92400E;padding:1px 6px;border-radius:999px;font-weight:600;">' + DI.target(10) + ' audit</span>');
+                if (p.outreach_email_replied_at) badges.push('<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;background:#DBEAFE;color:#1E3A8A;padding:1px 6px;border-radius:999px;font-weight:600;">' + DI.reply(10) + ' odpoveď</span>');
+                if ((p.outreach_email_open_count || 0) >= 2) badges.push('<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;background:#EDE9FE;color:#5B21B6;padding:1px 6px;border-radius:999px;font-weight:600;">' + DI.eye(10) + ' ×' + p.outreach_email_open_count + '</span>');
                 return `
                   <a href="#outreach" style="display:flex;align-items:center;gap:10px;padding:8px 18px;text-decoration:none;color:inherit;border-top:1px solid var(--border);">
                     <div style="width:28px;height:28px;border-radius:7px;background:#FFF7ED;color:#F97316;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${(name[0] || '?').toUpperCase()}</div>
@@ -298,7 +315,7 @@ const DashboardModule = {
             </div>
             <!-- Recent events -->
             <div style="padding:6px 0;">
-              <div style="padding:8px 18px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-mute);font-weight:600;">⏱ Nedávna aktivita</div>
+              <div style="padding:8px 18px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-mute);font-weight:600;display:flex;align-items:center;gap:6px;">${DI.activity(13, 'var(--ink-mute)')} Nedávna aktivita</div>
               ${recentEvents.length === 0 ? `<div style="padding:16px 18px;color:var(--ink-mute);font-size:13px;">Zatiaľ žiadna aktivita.</div>` : recentEvents.slice(0, 5).map(e => {
                 const name = e.prospect?.company_name || e.prospect?.domain || '—';
                 const time = (() => {
@@ -311,18 +328,18 @@ const DashboardModule = {
                   return `${Math.floor(h / 24)} d`;
                 })();
                 const icons = {
-                  email_open:      { i: '👁', c: '#8B5CF6', bg: '#EDE9FE', label: 'otvoril email' },
-                  email_click:     { i: '🖱', c: '#F97316', bg: '#FFEDD5', label: 'klikol' },
-                  audit_requested: { i: '🎯', c: '#EA580C', bg: '#FED7AA', label: 'požiadal o audit' },
-                  email_replied:   { i: '💬', c: '#3B82F6', bg: '#DBEAFE', label: 'odpovedal' },
+                  email_open:      { svg: DI.eye(14),        c: '#8B5CF6', bg: '#EDE9FE', label: 'otvoril email' },
+                  email_click:     { svg: DI.mouseClick(14), c: '#F97316', bg: '#FFEDD5', label: 'klikol' },
+                  audit_requested: { svg: DI.target(14),     c: '#EA580C', bg: '#FED7AA', label: 'požiadal o audit' },
+                  email_replied:   { svg: DI.reply(14),      c: '#3B82F6', bg: '#DBEAFE', label: 'odpovedal' },
                 };
-                const t = icons[e.event_type] || { i: '•', c: '#6F6758', bg: '#F7F5F1', label: e.event_type };
+                const t = icons[e.event_type] || { svg: '•', c: '#6F6758', bg: '#F7F5F1', label: e.event_type };
                 return `
                   <a href="#outreach" style="display:flex;align-items:center;gap:10px;padding:8px 18px;text-decoration:none;color:inherit;border-top:1px solid var(--border);">
-                    <div style="width:28px;height:28px;border-radius:7px;background:${t.bg};color:${t.c};display:flex;align-items:center;justify-content:center;font-size:14px;">${t.i}</div>
+                    <div style="width:28px;height:28px;border-radius:7px;background:${t.bg};color:${t.c};display:flex;align-items:center;justify-content:center;">${t.svg}</div>
                     <div style="flex:1;min-width:0;">
                       <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><strong>${name}</strong> ${t.label}</div>
-                      ${e.geo_city || e.geo_country ? `<div style="font-size:11px;color:var(--ink-mute);">📍 ${[e.geo_city, e.geo_country].filter(Boolean).join(', ')}</div>` : ''}
+                      ${e.geo_city || e.geo_country ? `<div style="font-size:11px;color:var(--ink-mute);display:flex;align-items:center;gap:4px;">${DI.mapPin(11)} ${[e.geo_city, e.geo_country].filter(Boolean).join(', ')}</div>` : ''}
                     </div>
                     <div style="font-size:11px;color:var(--ink-mute);font-weight:500;">${time}</div>
                   </a>
