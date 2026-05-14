@@ -13,13 +13,90 @@ const Notifications = {
     await this.load();
     this.render();
     this.updateBadge();
-    
+    this._initBrowserPush();
+
     // Refresh every 30 seconds
     setInterval(async () => {
         await this.load();
         this.updateBadge();
     }, 30000);
 },
+
+    /* ============================================================
+       BROWSER PUSH NOTIFICATIONS
+       ============================================================
+       Sleduje nové unread notifications medzi load() volaniami a
+       zobrazí browser Notification. Vyžaduje user permission
+       (one-time prompt). Permission state cache v localStorage.
+    */
+    _seenIds: new Set(),
+    _browserPushReady: false,
+
+    async _initBrowserPush() {
+        if (!('Notification' in window)) return;
+        // Inicializuj seen set zo všetkých aktuálnych notif (aby existujúce
+        // netriggerlo push pri prvom load)
+        this.notifications.forEach(n => this._seenIds.add(n.id));
+
+        const perm = Notification.permission;
+        if (perm === 'granted') {
+            this._browserPushReady = true;
+        } else if (perm === 'default') {
+            // Permission ešte nebola spýtaná — zobrazí soft prompt v dropdown-e
+            // (vid renderList) až keď user otvorí dropdown.
+        }
+    },
+
+    async requestBrowserPushPermission() {
+        if (!('Notification' in window)) {
+            alert('Tvoj prehliadač nepodporuje browser notifikácie.');
+            return false;
+        }
+        const result = await Notification.requestPermission();
+        this._browserPushReady = result === 'granted';
+        // re-render dropdown aby zmizla "Povoliť notifikácie" CTA
+        this.render();
+        if (this._browserPushReady) {
+            new Notification('Adlify · notifikácie zapnuté', {
+                body: 'Budeš dostávať push keď príde lead alebo audit request.',
+                icon: '/admin/favicon.ico',
+                silent: false,
+            });
+        }
+        return this._browserPushReady;
+    },
+
+    _maybeBrowserPushFor(notification) {
+        if (!this._browserPushReady) return;
+        if (this._seenIds.has(notification.id)) return;
+        if (notification.is_read) {
+            this._seenIds.add(notification.id);
+            return;
+        }
+        try {
+            const n = new Notification(notification.title || 'Adlify', {
+                body: notification.message || '',
+                icon: '/admin/favicon.ico',
+                tag: String(notification.id), // dedup pri rovnakom tag
+            });
+            n.onclick = () => {
+                window.focus();
+                if (notification.action_url) {
+                    if (notification.action_url.startsWith('http')) {
+                        window.location.href = notification.action_url;
+                    } else {
+                        window.location.hash = notification.action_url.replace(/^.*#/, '');
+                    }
+                }
+                n.close();
+            };
+            // Auto-close po 8s (browser zvyčajne robí sám, ale poistka)
+            setTimeout(() => n.close(), 8000);
+        } catch (err) {
+            console.warn('Browser push failed:', err);
+        }
+        this._seenIds.add(notification.id);
+    },
 
     async load() {
         try {
@@ -36,7 +113,17 @@ const Notifications = {
 
             if (error) throw error;
 
-            this.notifications = data || [];
+            const fresh = data || [];
+
+            // Detekcia nových notifikácií od posledného load() — triggerni push
+            if (this._browserPushReady && this._seenIds) {
+                fresh.forEach(n => this._maybeBrowserPushFor(n));
+            } else if (this._seenIds) {
+                // Permission nie je granted, ale aspoň zoznámeme seen set
+                fresh.forEach(n => this._seenIds.add(n.id));
+            }
+
+            this.notifications = fresh;
             this.unreadCount = this.notifications.filter(n => !n.is_read).length;
             this.updateBadge();
 
@@ -97,8 +184,10 @@ const Notifications = {
     },
 
     renderList() {
+        const pushBanner = this._renderPushBanner();
         if (this.notifications.length === 0) {
             return `
+                ${pushBanner}
                 <div class="notifications-empty">
                     <span class="empty-icon">🔔</span>
                     <p>Žiadne notifikácie</p>
@@ -106,7 +195,27 @@ const Notifications = {
             `;
         }
 
-        return this.notifications.map(n => this.renderItem(n)).join('');
+        return pushBanner + this.notifications.map(n => this.renderItem(n)).join('');
+    },
+
+    _renderPushBanner() {
+        if (!('Notification' in window)) return '';
+        const perm = Notification.permission;
+        if (perm === 'granted' || perm === 'denied') return '';
+        return `
+            <div style="padding:12px 14px;margin:8px;background:var(--brand-50);border:1px solid var(--brand-100);border-radius:10px;">
+                <div style="font-size:13px;font-weight:600;color:var(--brand-700);margin-bottom:4px;">
+                    🔔 Zapnúť push notifikácie?
+                </div>
+                <div style="font-size:12px;color:var(--ink-sub);margin-bottom:8px;">
+                    Dostaneš desktop notifikáciu hneď ako niekto klikne audit alebo odpovie na email.
+                </div>
+                <button onclick="Notifications.requestBrowserPushPermission()"
+                    style="padding:6px 12px;background:var(--brand-500);color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">
+                    Povoliť
+                </button>
+            </div>
+        `;
     },
 
     renderItem(notification) {

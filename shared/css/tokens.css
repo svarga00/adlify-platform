@@ -130,7 +130,12 @@
   -webkit-font-smoothing: antialiased;
 }
 .adl *, .adl *::before, .adl *::after { box-sizing: border-box; }
-.adl button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+/* Reset native button v .adl scope — vyňaté .adl-btn / .adl-btn-icon
+   pretože tie majú vlastné štýly v shared/css/ui.css. Bez :not()
+   by sme prepísali padding/background/border (vyššia spec než .adl-btn). */
+.adl button:not(.adl-btn):not(.adl-btn-icon) {
+  font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0;
+}
 .adl input, .adl textarea, .adl select { font: inherit; color: inherit; }
 .adl a { color: inherit; text-decoration: none; }
 .mono { font-family: var(--font-mono); letter-spacing: 0; }

@@ -151,69 +151,129 @@ const OutreachModule = {
     };
   },
 
-  renderHeader(stats) {
-    const isSecondary = this.currentView !== 'overview';
-    const ic = (svg) => `<span style="display:inline-flex;align-items:center;width:16px;height:16px;flex-shrink:0;">${svg}</span>`;
-    const icons = {
-      back:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>',
-      chart:   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16V9"/><path d="M12 16v-5"/><path d="M17 16V6"/></svg>',
-      bolt:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
-      refresh: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>',
-      send:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
-      mail:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-10 5L2 7"/></svg>',
-      search:  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
-      upload:  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>',
-      plus:    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
-      download:'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>',
-      play:    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
-      users:   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  // === DESIGN SYSTEM ICONS (Lucide-style, 16px stroke 1.6) ============
+  _outIcons() {
+    return {
+      back:       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>',
+      table:      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>',
+      chart:      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2F6BD6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16V9"/><path d="M12 16v-5"/><path d="M17 16V6"/></svg>',
+      bolt:       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D89418" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+      campaign:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l8 5V5L6 10H4a1 1 0 0 0-1 1z"/><path d="M18 8a5 5 0 0 1 0 8"/></svg>',
+      mail:       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4C3E8A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-10 5L2 7"/></svg>',
+      send:       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1F6E3D" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+      calendar:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C4A84" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+      users:      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9B2B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      upload:     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A4A0E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>',
+      download:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>',
+      plus:       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+      play:       '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+      search:     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+      mailSm:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-10 5L2 7"/></svg>',
+      edit:       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+      eye:        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
     };
+  },
+
+  renderHeader(stats) {
+    const I = this._outIcons();
+    const selCount = this.selectedIds.size;
+
+    // Subtitle podľa aktuálneho view
+    const subtitleMap = {
+      overview:    'Personalizované oslovovanie firiem · Audit-first flow',
+      compose:     `Pripravujem kampaň pre ${selCount} prospektov`,
+      analytics:   'Výkonnostné metriky outreach kampaní',
+      automations: 'Pravidlá automatickej konverzie a triggery',
+      campaigns:   'História a stav kampaní',
+      templates:   'Šablóny emailov a textov',
+      senders:     'Odosielatelia a sender rotácia',
+      calendar:    'Stretnutia, follow-upy a deadliny',
+      'fb-groups': 'FB skupiny kam publikujeme ponuky',
+      import:      'Hromadný import prospektov z CSV',
+    };
+    const subtitle = subtitleMap[this.currentView] || subtitleMap.overview;
+
     return `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
-        <div>
-          <h1 style="font-size:22px;font-weight:600;letter-spacing:-0.4px;margin:0 0 2px;color:var(--ink);">Outreach</h1>
-          <div style="color:var(--ink-sub);font-size:13px;">Personalizované oslovovanie firiem · Audit-first flow</div>
+      <div style="margin-bottom:18px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:22px;font-weight:600;letter-spacing:-0.4px;margin:0 0 2px;color:var(--ink);">Outreach</h1>
+            <div style="color:var(--ink-sub);font-size:13px;">${subtitle}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            ${selCount > 0 ? `
+              <button class="adl-btn adl-btn-primary" onclick="OutreachModule.startCompose()">
+                <span style="display:inline-flex;align-items:center;width:14px;height:14px;">${I.play}</span> Poslať kampaň (${selCount})
+              </button>
+            ` : `
+              <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFindProspects()">
+                <span style="display:inline-flex;align-items:center;width:16px;height:16px;">${I.search}</span> Nájsť
+              </button>
+              <button class="adl-btn adl-btn-primary" onclick="OutreachModule.openNewProspect()">
+                <span style="display:inline-flex;align-items:center;width:16px;height:16px;">${I.plus}</span> Nový prospekt
+              </button>
+            `}
+          </div>
         </div>
-        <div class="adl-toolbar">
-          ${isSecondary ? `
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('overview')">${ic(icons.back)} Späť</button>
-          ` : `
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAnalytics()">${ic(icons.chart)} Analytika</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openAutomations()">${ic(icons.bolt)} Automatizácie</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openCampaigns()">${ic(icons.refresh)} Kampane</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openSenders()">${ic(icons.send)} Odosielatelia</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openTemplates()">${ic(icons.mail)} Šablóny</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFbGroups && OutreachModule.openFbGroups()">${ic(icons.users)} FB Skupiny</button>
-            <span class="adl-toolbar-divider"></span>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openFindProspects()">${ic(icons.search)} Nájsť prospekty</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openImport()">${ic(icons.upload)} Import</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.openNewProspect()">${ic(icons.plus)} Nový prospect</button>
-            <button class="adl-btn adl-btn-ghost" onclick="OutreachModule.exportCsv()">${ic(icons.download)} Export</button>
-            <span class="adl-toolbar-divider"></span>
-            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.startCompose()" ${this.selectedIds.size === 0 ? 'disabled' : ''}>${ic(icons.play)} Poslať kampaň (${this.selectedIds.size})</button>
-          `}
-        </div>
+        ${this.renderTopTabs(I)}
+      </div>
+    `;
+  },
+
+  renderTopTabs(I) {
+    const tabs = [
+      { view: 'overview',    label: 'Tabuľka',       icon: I.table,    onClick: "OutreachModule.setView('overview')" },
+      { view: 'analytics',   label: 'Analytika',     icon: I.chart,    onClick: 'OutreachModule.openAnalytics()' },
+      { view: 'automations', label: 'Automatizácie', icon: I.bolt,     onClick: 'OutreachModule.openAutomations()' },
+      { view: 'campaigns',   label: 'Kampane',       icon: I.campaign, onClick: 'OutreachModule.openCampaigns()' },
+      { view: 'templates',   label: 'Šablóny',       icon: I.mail,     onClick: 'OutreachModule.openTemplates()' },
+      { view: 'senders',     label: 'Odosielatelia', icon: I.send,     onClick: 'OutreachModule.openSenders()' },
+      { view: 'calendar',    label: 'Kalendár',      icon: I.calendar, onClick: 'OutreachModule.openCalendar()' },
+      { view: 'fb-groups',   label: 'FB Skupiny',    icon: I.users,    onClick: 'OutreachModule.openFbGroups && OutreachModule.openFbGroups()' },
+      { view: 'import',      label: 'Import',        icon: I.upload,   onClick: 'OutreachModule.openImport()' },
+      { view: null,          label: 'Export',        icon: I.download, onClick: 'OutreachModule.exportCsv()' },
+    ];
+    return `
+      <div style="display:flex;gap:4px;margin-top:18px;border-bottom:1px solid var(--border);overflow-x:auto;padding-bottom:0;">
+        ${tabs.map(t => {
+          const active = t.view && this.currentView === t.view;
+          return `
+            <button onclick="${t.onClick}" type="button"
+              style="display:inline-flex;align-items:center;gap:7px;padding:10px 14px;background:transparent;border:none;border-bottom:2px solid ${active ? 'var(--brand-500)' : 'transparent'};color:${active ? 'var(--ink)' : 'var(--ink-sub)'};font-size:13px;font-weight:${active ? '600' : '500'};cursor:pointer;white-space:nowrap;transition:color .12s,border-color .12s;font-family:inherit;"
+              onmouseenter="if(!${active})this.style.color='var(--ink)'" onmouseleave="if(!${active})this.style.color='var(--ink-sub)'">
+              <span style="display:inline-flex;align-items:center;width:16px;height:16px;">${t.icon}</span>
+              <span>${t.label}</span>
+            </button>
+          `;
+        }).join('')}
       </div>
     `;
   },
 
   renderFunnel(stats) {
     const steps = [
-      { label: 'Voľní prospekti', value: stats.pending, color: '#6F6758' },
-      { label: 'Email odoslaný', value: stats.email_sent, color: '#3B82F6' },
-      { label: 'Email otvorený', value: stats.email_opened, color: '#8B5CF6' },
-      { label: 'Klikol na audit', value: stats.audit_requested, color: '#F59E0B' },
-      { label: 'Audit videl', value: stats.audit_viewed, color: '#EA580C' },
-      { label: 'Lead', value: stats.converted, color: '#16A34A' },
+      { label: 'Voľní prospekti', value: stats.pending,         color: '#14120E', stage: 'pending' },
+      { label: 'Email odoslaný',  value: stats.email_sent,       color: '#1F6E3D', stage: 'email_sent' },
+      { label: 'Email otvorený',  value: stats.email_opened,     color: '#4C3E8A', stage: 'email_opened' },
+      { label: 'Klikol na audit', value: stats.audit_requested,  color: '#C2410C', stage: 'audit_requested' },
+      { label: 'Audit videl',     value: stats.audit_viewed,     color: '#9B2B3C', stage: 'audit_viewed' },
+      { label: 'Lead',            value: stats.converted,        color: '#1F6E3D', stage: 'converted' },
     ];
+    const activeStage = this.filters?.stage;
     return `
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:24px;">
-        ${steps.map(s => `
-          <div style="background:#fff;border:1px solid #EAE6DE;border-radius:14px;padding:16px;">
-            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px;">${s.label}</div>
-            <div style="font-size:24px;font-weight:800;color:${s.color};letter-spacing:-0.5px;">${s.value}</div>
-          </div>
-        `).join('')}
+      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:20px;">
+        ${steps.map(s => {
+          const active = activeStage === s.stage;
+          return `
+            <button type="button"
+              onclick="OutreachModule.setFilter('stage', '${s.stage}')"
+              style="text-align:left;background:#fff;border:1px solid ${active ? s.color : 'var(--border)'};border-radius:14px;padding:14px 16px;cursor:pointer;transition:border-color .12s, box-shadow .12s;box-shadow:${active ? '0 0 0 2px ' + s.color + '22' : 'var(--sh-sm)'};font-family:inherit;"
+              onmouseenter="if(!${active})this.style.borderColor='var(--border-strong)'" onmouseleave="if(!${active})this.style.borderColor='var(--border)'">
+              <div style="font-size:10.5px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;margin-bottom:8px;">${s.label}</div>
+              <div style="font-size:32px;font-weight:700;color:${s.color};letter-spacing:-0.8px;line-height:1;">${s.value}</div>
+            </button>
+          `;
+        }).join('')}
       </div>
     `;
   },
@@ -233,26 +293,33 @@ const OutreachModule = {
     // Smart lists chipy
     if (!this.smartListsLoaded) this.loadSmartLists();
 
+    const stageLabels = {
+      all: 'Všetky fázy',
+      pending: 'Voľní (neodoslané)',
+      email_sent: 'Email odoslaný',
+      email_opened: 'Email otvorený',
+      audit_requested: 'Klikli na audit',
+      audit_viewed: 'Audit videli',
+      converted: 'Premenení na lead',
+      lost: 'Stratení'
+    };
+
     return `
       ${this._renderSmartListsBar()}
 
-      <!-- Filters -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
-        <input type="text" placeholder="Hľadať firmu, doménu..." value="${f.search}" oninput="OutreachModule.setFilter('search', this.value)"
-          style="flex:1;min-width:220px;padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
+      <!-- Search + filters row -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+        <div style="flex:1;min-width:240px;display:flex;align-items:center;gap:8px;padding:0 14px;background:#fff;border:1px solid var(--border-strong);border-radius:10px;height:42px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-mute);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" placeholder="Hľadať firmu, doménu..." value="${f.search}" oninput="OutreachModule.setFilter('search', this.value)"
+            style="flex:1;border:0;outline:0;font-size:14px;background:transparent;color:var(--ink);">
+        </div>
         <select onchange="OutreachModule.setFilter('stage', this.value)"
-          style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
-          <option value="all" ${f.stage==='all'?'selected':''}>Všetky fázy</option>
-          <option value="pending" ${f.stage==='pending'?'selected':''}>Voľní (neodoslané)</option>
-          <option value="email_sent" ${f.stage==='email_sent'?'selected':''}>Email odoslaný</option>
-          <option value="email_opened" ${f.stage==='email_opened'?'selected':''}>Email otvorený</option>
-          <option value="audit_requested" ${f.stage==='audit_requested'?'selected':''}>Klikli na audit</option>
-          <option value="audit_viewed" ${f.stage==='audit_viewed'?'selected':''}>Audit videli</option>
-          <option value="converted" ${f.stage==='converted'?'selected':''}>Premenení na lead</option>
-          <option value="lost" ${f.stage==='lost'?'selected':''}>Stratení</option>
+          style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
+          ${Object.entries(stageLabels).map(([k, v]) => `<option value="${k}" ${f.stage===k?'selected':''}>${v}</option>`).join('')}
         </select>
         <select onchange="OutreachModule.setPageSize(this.value)"
-          style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;" title="Počet na stránku">
+          style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);" title="Počet na stránku">
           <option value="25" ${pageSize===25?'selected':''}>25 / strana</option>
           <option value="50" ${pageSize===50?'selected':''}>50 / strana</option>
           <option value="100" ${pageSize===100?'selected':''}>100 / strana</option>
@@ -262,35 +329,38 @@ const OutreachModule = {
       </div>
 
       ${selCount > 0 ? `
-        <div style="background:#FFF7ED;border:1.5px solid #F97316;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-          <strong style="color:#14120E;">Označených: ${selCount}</strong>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.clearSelection()">Zrušiť výber</button>
-            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.bulkAssign()">👤 Priradiť</button>
-            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.composeFromSelected()">▶ Poslať kampaň (${selCount})</button>
-            <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteSelected()">✕ Zmazať (${selCount})</button>
+        <div style="background:var(--brand-50);border:1px solid var(--brand-100);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <strong style="color:var(--brand-700);">Označených: ${selCount}</strong>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.clearSelection()">Zrušiť výber</button>
+            <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.bulkAssign()">Priradiť</button>
+            <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeFromSelected()">Poslať kampaň (${selCount})</button>
+            <button class="adl-btn adl-btn-sm adl-btn-danger" onclick="OutreachModule.deleteSelected()">Zmazať (${selCount})</button>
           </div>
         </div>
       ` : ''}
 
       <!-- Table -->
-      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;">
         <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:14px;">
-            <thead style="background:#F7F5F1;">
-              <tr>
-                <th style="padding:12px 16px;text-align:left;width:40px;">
-                  <input type="checkbox" ${this._allPageChecked(pageRows) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:var(--n-50);">
+                <th style="padding:11px 16px;text-align:left;width:40px;border-bottom:1px solid var(--border);">
+                  <input type="checkbox" ${this._allPageChecked(pageRows) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)" style="accent-color:var(--brand-500);">
                 </th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Firma</th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Kontakt</th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Fáza a aktivita</th>
-                <th style="padding:12px 16px;text-align:left;font-weight:600;color:#6F6758;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Skóre</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Firma · stránka</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Kategória</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Zdroj</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Status</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);width:60px;">Score</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Aktivita</th>
+                <th style="padding:11px 16px;text-align:right;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);width:120px;">Akcie</th>
               </tr>
             </thead>
             <tbody>
               ${pageRows.length === 0 ? `
-                <tr><td colspan="5" style="padding:40px;text-align:center;color:#6F6758;">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
+                <tr><td colspan="8" style="padding:40px;text-align:center;color:var(--ink-sub);">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
               ` : pageRows.map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
@@ -331,34 +401,99 @@ const OutreachModule = {
   },
 
   renderRow(prospect) {
-    const stage = this.stageBadge(prospect);
+    const I = this._outIcons();
     const company = prospect.company_name || prospect.domain;
-    const contact = prospect.contact_person
-      ? `${prospect.contact_person}${prospect.email ? ' · ' + prospect.email : ''}`
-      : (prospect.email || '—');
+    const domain = prospect.domain || '';
+    const category = prospect.industry || prospect.segment || '';
+    const score = prospect.score || 0;
     const isConverted = prospect.outreach_stage === 'converted';
     const checked = this.selectedIds.has(prospect.id);
-    const activity = this._activityChips(prospect);
+    const status = this._stageInfo(prospect);
+    const activity = this._activityLabel(prospect);
+    const scoreColor = score >= 80 ? 'var(--ok)' : score >= 50 ? 'var(--brand-600)' : 'var(--ink-mute)';
 
     return `
       <tr data-id="${prospect.id}" onclick="OutreachModule._onRowClick(event, '${prospect.id}')"
-          style="border-top:1px solid #EAE6DE;cursor:pointer;${isConverted ? 'opacity:.6;' : ''}"
-          onmouseenter="this.style.background='#FAF8F4'" onmouseleave="this.style.background=''">
+          style="border-top:1px solid var(--border);cursor:pointer;${isConverted ? 'opacity:.6;' : ''}transition:background .1s;"
+          onmouseenter="this.style.background='var(--n-25)'" onmouseleave="this.style.background=''">
         <td style="padding:14px 16px;" onclick="event.stopPropagation()">
-          <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')">
+          <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')" style="accent-color:var(--brand-500);">
         </td>
         <td style="padding:14px 16px;">
-          <div style="font-weight:600;color:#14120E;">${this.esc(company)}</div>
-          <div style="font-size:12px;color:#948B7C;">${this.esc(prospect.domain || '')}${prospect.industry ? ' · ' + this.esc(prospect.industry) : ''}</div>
+          <div style="font-weight:600;color:var(--ink);">${this.esc(company)}</div>
+          ${domain ? `<a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>` : ''}
         </td>
-        <td style="padding:14px 16px;color:#6F6758;">${this.esc(contact)}</td>
+        <td style="padding:14px 16px;color:var(--ink-sub);">${category ? this.esc(category) : '—'}</td>
         <td style="padding:14px 16px;">
-          ${stage}
-          ${activity ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${activity}</div>` : ''}
+          ${prospect.source ? `<span style="display:inline-block;padding:2px 8px;background:var(--acc-sky);color:var(--acc-sky-ink);border-radius:6px;font-size:11px;font-weight:500;font-family:var(--font-mono);">${this.esc(prospect.source)}</span>` : '<span style="color:var(--ink-mute);font-size:12px;">—</span>'}
         </td>
-        <td style="padding:14px 16px;"><strong>${prospect.score || 0}</strong></td>
+        <td style="padding:14px 16px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${status.bg};color:${status.color};font-size:12px;font-weight:500;">
+            <span style="width:6px;height:6px;border-radius:999px;background:currentColor;"></span>
+            ${status.label}
+          </span>
+        </td>
+        <td style="padding:14px 16px;"><strong style="font-variant-numeric:tabular-nums;color:${scoreColor};">${score}</strong></td>
+        <td style="padding:14px 16px;color:var(--ink-sub);font-size:13px;">${activity}</td>
+        <td style="padding:14px 16px;text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
+          <button onclick="OutreachModule.composeForOne('${prospect.id}')" title="Poslať email" style="background:var(--brand-50);border:1px solid var(--brand-100);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--brand-700);margin-right:3px;">${I.mailSm}</button>
+          <button onclick="OutreachModule.openProspectDetail('${prospect.id}')" title="Detail" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);margin-right:3px;">${I.eye}</button>
+          <button onclick="OutreachModule.openEditProspect && OutreachModule.openEditProspect('${prospect.id}')" title="Upraviť" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);">${I.edit}</button>
+        </td>
       </tr>
     `;
+  },
+
+  _stageInfo(prospect) {
+    const s = prospect.outreach_stage || 'pending';
+    const map = {
+      pending:         { label: 'Voľný',         color: 'var(--ink-sub)',     bg: 'var(--n-75)' },
+      email_sent:      { label: 'Email odoslaný',color: 'var(--acc-sky-ink)', bg: 'var(--acc-sky)' },
+      email_opened:    { label: 'Otvorený',      color: 'var(--acc-lavender-ink)', bg: 'var(--acc-lavender)' },
+      email_clicked:   { label: 'Klikol',        color: 'var(--acc-amber-ink)', bg: 'var(--acc-amber)' },
+      audit_requested: { label: 'Klikol audit',  color: 'var(--brand-700)',   bg: 'var(--brand-50)' },
+      audit_viewed:    { label: 'Audit videl',   color: 'var(--acc-rose-ink)',bg: 'var(--acc-rose)' },
+      bounced:         { label: 'Bounced',       color: 'var(--err)',         bg: 'var(--n-75)' },
+      unsubscribed:    { label: 'Opt-out',       color: 'var(--ink-mute)',    bg: 'var(--n-75)' },
+      converted:       { label: 'Lead',          color: 'var(--acc-mint-ink)',bg: 'var(--acc-mint)' },
+      lost:            { label: 'Stratený',      color: 'var(--ink-mute)',    bg: 'var(--n-75)' },
+    };
+    return map[s] || map.pending;
+  },
+
+  /**
+   * Krátke „aktivita" pole v tabuľke — najnovšia event-time alebo "bez interakcie".
+   */
+  _activityLabel(p) {
+    const items = [
+      { ts: p.audit_viewed_at,           label: 'audit videl' },
+      { ts: p.audit_requested_at,        label: 'klikol audit' },
+      { ts: p.outreach_email_opened_at,  label: 'otvoril email' },
+      { ts: p.outreach_email_sent_at,    label: 'email odoslaný' },
+    ].filter(x => x.ts);
+    if (items.length === 0) return 'bez interakcie';
+    const newest = items[0];
+    return `${newest.label} ${this._relativeTime(newest.ts)}`;
+  },
+
+  _relativeTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const diff = Date.now() - d.getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'pred chvíľou';
+    if (m < 60) return `pred ${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `pred ${h}h`;
+    const days = Math.floor(h / 24);
+    if (days < 30) return `pred ${days}d`;
+    return d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric' });
+  },
+
+  composeForOne(id) {
+    this.selectedIds.clear();
+    this.selectedIds.add(id);
+    this.startCompose();
   },
 
   _onRowClick(event, prospectId) {
