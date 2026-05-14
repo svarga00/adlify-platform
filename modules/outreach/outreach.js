@@ -351,6 +351,7 @@ const OutreachModule = {
                 </th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Firma · stránka</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Kategória</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Zdroj</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Status</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);width:60px;">Score</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Aktivita</th>
@@ -359,7 +360,7 @@ const OutreachModule = {
             </thead>
             <tbody>
               ${pageRows.length === 0 ? `
-                <tr><td colspan="7" style="padding:40px;text-align:center;color:var(--ink-sub);">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
+                <tr><td colspan="8" style="padding:40px;text-align:center;color:var(--ink-sub);">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
               ` : pageRows.map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
@@ -423,6 +424,9 @@ const OutreachModule = {
           ${domain ? `<a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>` : ''}
         </td>
         <td style="padding:14px 16px;color:var(--ink-sub);">${category ? this.esc(category) : '—'}</td>
+        <td style="padding:14px 16px;">
+          ${prospect.source ? `<span style="display:inline-block;padding:2px 8px;background:var(--acc-sky);color:var(--acc-sky-ink);border-radius:6px;font-size:11px;font-weight:500;font-family:var(--font-mono);">${this.esc(prospect.source)}</span>` : '<span style="color:var(--ink-mute);font-size:12px;">—</span>'}
+        </td>
         <td style="padding:14px 16px;">
           <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:${status.bg};color:${status.color};font-size:12px;font-weight:500;">
             <span style="width:6px;height:6px;border-radius:999px;background:currentColor;"></span>
