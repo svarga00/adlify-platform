@@ -135,20 +135,29 @@ exports.handler = async (event) => {
 
   try {
     // 1) Check if prospect exists by email
-    const { data: existing, error: findErr } = await supabase
+    //    Použijeme limit(1) namiesto .maybeSingle() — email nie je UNIQUE
+    //    v schéme, takže duplicate-y môžu existovať (z importu / concurrent
+    //    submitov). Vezmeme najnovší a aktualizujeme ho; ostatné ignorujeme.
+    const { data: matches, error: findErr } = await supabase
       .from('prospects')
       .select('id, audit_token, outreach_stage, company_name')
       .eq('email', email)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (findErr) {
       console.error('[audit-intake] find error:', findErr);
       return {
         statusCode: 500,
         headers: { ...CORS, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ok: false, error: 'DB chyba pri vyhľadávaní' }),
+        body: JSON.stringify({
+          ok: false,
+          error: 'DB chyba pri vyhľadávaní',
+          detail: findErr.message || String(findErr),
+        }),
       };
     }
+    const existing = (matches && matches.length > 0) ? matches[0] : null;
 
     let prospect;
     let is_new;
