@@ -308,3 +308,122 @@
 .adl-text-md { font-size: 13px; }
 .adl-text-lg { font-size: 15px; }
 .adl-font-mono { font-family: var(--font-mono); letter-spacing: 0; }
+
+/* ============================================================
+   LEGACY MODAL & BUTTON CLASSES  (non-adl prefix)
+   ============================================================
+   Tieto classy používa staršia generácia modulov (tasks, tickets,
+   team, billing, keywords, templates, documents, campaigns, …).
+   Predtým boli definované per-modul v getStyles() — ktorý sa
+   v polovici modulov nikdy nevolal, takže modaly boli rozbité.
+   Presunuté sem aby boli globálne dostupné z čehokoľvek bez
+   závislosti na poradí navštívenia modulov.
+   ============================================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-large { max-width: 900px; }
+.modal-xl    { max-width: 1100px; }
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.modal-title h2 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+.modal-icon { font-size: 1.5rem; }
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: var(--n-50, #f1f5f9);
+  border-radius: 8px;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: var(--ink-sub, #64748b);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.modal-close:hover { background: var(--n-100, #e2e8f0); color: var(--ink, #14120E); }
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Legacy buttons (non-adl) */
+.btn-primary, .btn-secondary, .btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--brand-500, #F97316);
+  color: #fff;
+  border-color: var(--brand-500, #F97316);
+}
+.btn-primary:hover { background: var(--brand-600, #EA5A0B); border-color: var(--brand-600, #EA5A0B); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  background: #fff;
+  color: var(--ink, #14120E);
+  border-color: var(--border-strong, #E0DBD1);
+}
+.btn-secondary:hover { background: var(--n-50, #F7F5F1); }
+.btn-danger {
+  background: #fff;
+  color: var(--err, #DC3C3C);
+  border-color: color-mix(in oklab, var(--err, #DC3C3C) 40%, transparent);
+}
+.btn-danger:hover { background: var(--err, #DC3C3C); color: #fff; }
+.btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8125rem; border-radius: 7px; }
