@@ -114,90 +114,61 @@ const LeadsModule = {
     const stats = {
       total: this.leads.length,
       new: this.leads.filter(l => !l.status || l.status === 'new').length,
-      analyzed: this.leads.filter(l => l.analysis?.company || l.analysis?.analysis).length,
-      contacted: this.leads.filter(l => l.status === 'contacted' || l.proposal_status === 'sent').length
+      ready: this.leads.filter(l => l.status === 'ready' || l.status === 'analyzed').length,
+      contacted: this.leads.filter(l => l.status === 'contacted' || l.status === 'proposal_sent' || l.status === 'negotiating' || l.proposal_status === 'sent').length,
+      won: this.leads.filter(l => l.status === 'won' || l.status === 'converted').length
     };
-    
+
+    const activeTab = this.activeViewTab || 'all';
+    const viewTabs = [
+      { k: 'all',       label: 'Všetky',       count: stats.total },
+      { k: 'new',       label: 'Nové',         count: stats.new },
+      { k: 'ready',     label: 'Ready',        count: stats.ready },
+      { k: 'contacted', label: 'Kontaktované', count: stats.contacted },
+      { k: 'won',       label: 'Klienti',      count: stats.won }
+    ];
+
     return `
-      <div class="billing-module-new leads-module">
-        <!-- Header s gradientom -->
-        <div class="billing-header">
-          <div class="header-content">
-            <div class="header-title">
-              <h1>Leady</h1>
-              <p class="header-subtitle">Správa potenciálnych klientov</p>
-            </div>
-            <div class="header-actions">
-              <button class="btn-header-secondary" onclick="LeadsModule.showTab('import')">
-                📥 Import
-              </button>
-              <button class="btn-new-document" onclick="LeadsModule.showTab('add')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Nový lead
-              </button>
-            </div>
+      <div class="adl leads-module">
+        <!-- Page header -->
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px; flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0;">Leady <span style="font-size:13px; font-weight:500; color:var(--ink-sub); margin-left:8px;">${stats.total} záznamov</span></h1>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="LeadsModule.showTab('import')">${I.Upload({size:14})} Import</button>
+            ${stats.new > 0 ? `<button class="adl-btn adl-btn-outline adl-btn-sm" onclick="LeadsModule.analyzeSelected()">${I.Sparkle({size:14})} Analyzovať (${stats.new})</button>` : ''}
+            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="LeadsModule.showTab('add')">${I.Plus({size:14})} Nový lead</button>
           </div>
         </div>
-        
-        <!-- Štatistiky -->
-        <div class="billing-stats-grid">
-          <div class="stat-card-new">
-            <div class="stat-card-icon blue">👥</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.total}</span>
-              <span class="stat-card-label">Celkom</span>
-            </div>
-          </div>
-          <div class="stat-card-new">
-            <div class="stat-card-icon green">🆕</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.new}</span>
-              <span class="stat-card-label">Nové</span>
-            </div>
-          </div>
-          <div class="stat-card-new">
-            <div class="stat-card-icon purple">🤖</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.analyzed}</span>
-              <span class="stat-card-label">Analyzované</span>
-            </div>
-          </div>
-          <div class="stat-card-new success">
-            <div class="stat-card-icon orange">📧</div>
-            <div class="stat-card-content">
-              <span class="stat-card-value">${stats.contacted}</span>
-              <span class="stat-card-label">Kontaktované</span>
-            </div>
-          </div>
+
+        <!-- Underline view tabs -->
+        <div style="display:flex; gap:28px; border-bottom:1px solid var(--border); margin-bottom:18px; overflow-x:auto;" class="adl-leads-view-tabs">
+          ${viewTabs.map(t => `
+            <button onclick="LeadsModule.setViewTab('${t.k}')" data-view-tab="${t.k}" style="padding:10px 2px; border:0; background:transparent; cursor:pointer; font-family:inherit; color:${activeTab === t.k ? 'var(--ink)' : 'var(--ink-sub)'}; font-size:14px; font-weight:${activeTab === t.k ? '600' : '500'}; border-bottom:2px solid ${activeTab === t.k ? 'var(--brand-500)' : 'transparent'}; margin-bottom:-1px; display:inline-flex; align-items:center; gap:8px; white-space:nowrap;">
+              ${t.label} <span style="font-size:12px; color:var(--ink-mute); font-weight:500;">${t.count}</span>
+            </button>
+          `).join('')}
         </div>
-        
-        <!-- Taby -->
-        <div class="billing-tabs-container">
-          <div class="billing-tabs-new">
-            <button class="tab-btn-new active" data-tab="list" onclick="LeadsModule.showTab('list')">
-              <span class="tab-icon">📋</span>
-              Zoznam
-              <span class="tab-badge">${stats.total}</span>
-            </button>
-            <button class="tab-btn-new" data-tab="import" onclick="LeadsModule.showTab('import')">
-              <span class="tab-icon">📥</span>
-              Import
-            </button>
-            <button class="tab-btn-new" data-tab="add" onclick="LeadsModule.showTab('add')">
-              <span class="tab-icon">✏️</span>
-              Pridať
-            </button>
-          </div>
+
+        <!-- Internal tabs (list / import / add) -->
+        <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin-bottom:16px; width:fit-content;" class="adl-tabs">
+          <button class="adl-tab active" data-tab="list" onclick="LeadsModule.showTab('list')">Zoznam</button>
+          <button class="adl-tab" data-tab="import" onclick="LeadsModule.showTab('import')">Import</button>
+          <button class="adl-tab" data-tab="add" onclick="LeadsModule.showTab('add')">Pridať</button>
         </div>
-        
+
         <!-- Content -->
         <div id="leads-tab-content">
           ${this.renderListTab()}
         </div>
       </div>
+
+      <style>
+        .adl-tab { padding: 8px 14px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--ink-sub); background: transparent; border: 0; cursor: pointer; transition: background .12s, color .12s; }
+        .adl-tab:hover { color: var(--ink); }
+        .adl-tab.active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+      </style>
       
       <!-- Analysis Modal -->
       <div id="analysis-modal" class="modal-overlay" style="display:none;">
@@ -333,61 +304,114 @@ const LeadsModule = {
   },
   
   renderListTab() {
-    // Získať unikátne typy/odvetvia z leadov
-    const industries = [...new Set(this.leads.map(l => {
-      return l.industry || l.analysis?.company?.industry || null;
-    }).filter(Boolean))];
-    
+    const industries = [...new Set(this.leads.map(l => l.industry || l.analysis?.company?.industry || null).filter(Boolean))];
+
     return `
-      <div class="table-filters">
-        <input type="text" class="filter-search" id="filter-search" placeholder="Hľadať..." value="${this.filters.search}">
-        <select class="filter-select" id="filter-status" onchange="LeadsModule.onStatusChange(this.value)">
-          <option value="">Všetky stavy</option>
-          <option value="new" ${this.filters.status === 'new' ? 'selected' : ''}>🆕 Nové</option>
-          <option value="contacted" ${this.filters.status === 'contacted' ? 'selected' : ''}>📧 Kontaktované</option>
-          <option value="won" ${this.filters.status === 'won' ? 'selected' : ''}>✅ Vyhraní</option>
-          <option value="lost" ${this.filters.status === 'lost' ? 'selected' : ''}>❌ Prehraní</option>
-        </select>
-        <select class="filter-select" id="filter-industry" onchange="LeadsModule.onIndustryChange(this.value)">
-          <option value="">Všetky typy</option>
+      <!-- Filter bar -->
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px;" class="adl-leads-filters">
+        <div class="adl-input" style="flex:1; min-width:240px; max-width:420px;">
+          <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+          <input type="text" id="filter-search" placeholder="Filtrovať doménu, odvetvie, skóre…" value="${this.filters.search}" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+        </div>
+        <div style="flex:1;"></div>
+        <select class="adl-btn adl-btn-outline adl-btn-sm" id="filter-industry" onchange="LeadsModule.onIndustryChange(this.value)" style="padding:0 12px; height:32px; border-radius:9px; font-family:inherit;">
+          <option value="">Odvetvie</option>
           ${industries.map(i => `<option value="${i}" ${this.filters.industry === i ? 'selected' : ''}>${i}</option>`).join('')}
         </select>
-        <select class="filter-select" id="filter-date" onchange="LeadsModule.onDateChange(this.value)">
-          <option value="">Všetky dátumy</option>
-          <option value="today" ${this.filters.dateRange === 'today' ? 'selected' : ''}>📅 Dnes</option>
-          <option value="yesterday" ${this.filters.dateRange === 'yesterday' ? 'selected' : ''}>📅 Včera</option>
-          <option value="week" ${this.filters.dateRange === 'week' ? 'selected' : ''}>📅 Tento týždeň</option>
-          <option value="month" ${this.filters.dateRange === 'month' ? 'selected' : ''}>📅 Tento mesiac</option>
-          <option value="older" ${this.filters.dateRange === 'older' ? 'selected' : ''}>📅 Staršie</option>
+        <select class="adl-btn adl-btn-outline adl-btn-sm" id="filter-score" onchange="LeadsModule.onScoreChange(this.value)" style="padding:0 12px; height:32px; border-radius:9px; font-family:inherit;">
+          <option value="">Skóre</option>
+          <option value="90" ${this.filters.minScore === '90' ? 'selected' : ''}>Skóre ≥ 90</option>
+          <option value="70" ${this.filters.minScore === '70' ? 'selected' : ''}>Skóre ≥ 70</option>
+          <option value="50" ${this.filters.minScore === '50' ? 'selected' : ''}>Skóre ≥ 50</option>
         </select>
-        <div class="filter-actions">
-          <button onclick="LeadsModule.selectAll()" class="btn-filter">☑️ Všetky</button>
-          <button onclick="LeadsModule.analyzeSelected()" class="btn-filter purple">🤖 Analyzovať</button>
-          <button onclick="LeadsModule.sendBulkProposals()" class="btn-filter orange">📧 Ponuky</button>
-          <button onclick="LeadsModule.deleteSelected()" class="btn-filter red">🗑️</button>
+        <select class="adl-btn adl-btn-outline adl-btn-sm" id="filter-source" onchange="LeadsModule.onSourceChange(this.value)" style="padding:0 12px; height:32px; border-radius:9px; font-family:inherit;">
+          <option value="">Zdroj</option>
+          <option value="marketing_miner">Marketing Miner</option>
+          <option value="manual">Manuálne</option>
+          <option value="import_csv">Import CSV</option>
+          <option value="website">Web</option>
+        </select>
+        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="LeadsModule.exportLeads()">${I.Download({size:14})} Export</button>
+      </div>
+
+      <div class="adl-card" style="padding:0; overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="adl-table" id="leads-table" style="min-width:880px;">
+            <thead>
+              <tr>
+                <th style="width:40px; padding-left:18px;"><input type="checkbox" onchange="LeadsModule.toggleAllCheckbox(this.checked)"></th>
+                <th>Doména / spoločnosť</th>
+                <th>Odvetvie</th>
+                <th>Status</th>
+                <th>Skóre &amp; výkon</th>
+                <th>Pridané</th>
+                <th>Priradený</th>
+                <th style="width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="leads-list">
+              ${this.renderLeadsList()}
+            </tbody>
+          </table>
         </div>
       </div>
-      
-      <div class="table-container">
-        <table class="data-table" id="leads-table">
-          <thead>
-            <tr>
-              <th style="width:40px;"><input type="checkbox" onchange="LeadsModule.toggleAllCheckbox(this.checked)"></th>
-              <th>Firma</th>
-              <th>Typ</th>
-              <th>Kontakt</th>
-              <th>Stav</th>
-              <th>Dátum</th>
-              <th>Skóre</th>
-              <th>Akcie</th>
-            </tr>
-          </thead>
-          <tbody id="leads-list">
-            ${this.renderLeadsList()}
-          </tbody>
-        </table>
-      </div>
     `;
+  },
+
+  onScoreChange(value) {
+    this.filters.minScore = value;
+    this.loadLeads().then(() => {
+      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+      this._updateListCount();
+    });
+  },
+
+  onSourceChange(value) {
+    this.filters.source = value;
+    if (value) {
+      this.leads = this.leads.filter(l => (l.source || '') === value);
+    } else {
+      this.loadLeads();
+    }
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+  },
+
+  exportLeads() {
+    try {
+      const rows = [['Doména', 'Spoločnosť', 'Odvetvie', 'Status', 'Skóre', 'Email', 'Telefón', 'Pridané']];
+      this.leads.forEach(l => {
+        rows.push([
+          l.domain || '',
+          l.company_name || '',
+          l.industry || l.analysis?.company?.industry || '',
+          l.status || 'new',
+          l.score || 0,
+          l.email || '',
+          l.phone || '',
+          l.created_at ? new Date(l.created_at).toLocaleDateString('sk-SK') : ''
+        ]);
+      });
+      const csv = rows.map(r => r.map(cell => `"${(cell + '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `adlify-leady-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) { console.error('Export error', e); }
+  },
+
+  setViewTab(tab) {
+    this.activeViewTab = tab;
+    const statusMap = { all: '', new: 'new', ready: 'ready', contacted: 'contacted', won: 'won' };
+    this.filters.status = statusMap[tab] || '';
+    this.loadLeads().then(() => {
+      const main = document.getElementById('main-content');
+      if (main) {
+        main.innerHTML = this.template();
+        this.setupEventListeners();
+      }
+    });
   },
   
   renderImportTab() {
@@ -587,19 +611,17 @@ const LeadsModule = {
       .btn-secondary:hover { background: #e2e8f0; }
       
       /* Modal */
-      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
-      .modal-box-new { background: white; border-radius: 16px; width: 100%; max-width: 540px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-      .modal-box-new.modal-large { max-width: 900px; }
-      .modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-      .modal-header h2 { font-size: 1.25rem; font-weight: 600; margin: 0; }
-      .modal-header-gradient { padding: 1.25rem 1.5rem; background: linear-gradient(135deg, #f97316, #ec4899); color: white; display: flex; justify-content: space-between; align-items: center; }
-      .modal-header-gradient h2 { font-size: 1.25rem; font-weight: 600; margin: 0; }
-      .modal-close { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.2); border: none; border-radius: 8px; cursor: pointer; color: white; font-size: 1.25rem; }
-      .modal-close-dark { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: none; border-radius: 8px; cursor: pointer; color: #64748b; font-size: 1.25rem; }
-      .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
-      .modal-desc { color: #64748b; margin-bottom: 1.5rem; }
-      .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
-      .tip-box { background: #eff6ff; border-radius: 10px; padding: 1rem; font-size: 0.9rem; color: #1e40af; margin-top: 1rem; }
+      .modal-overlay { position: fixed; inset: 0; background: rgba(20,18,14,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+      .modal-box-new { background: var(--surface); border-radius: 14px; width: 100%; max-width: 540px; max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--sh-lg); border: 1px solid var(--border); }
+      .modal-box-new.modal-large { max-width: 960px; }
+      .modal-header, .modal-header-gradient { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface); color: var(--ink); }
+      .modal-header h2, .modal-header-gradient h2 { font-size: 15px; font-weight: 600; margin: 0; color: var(--ink); letter-spacing: -0.2px; }
+      .modal-close, .modal-close-dark { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: var(--ink-sub); font-size: 15px; transition: background .12s; }
+      .modal-close:hover, .modal-close-dark:hover { background: var(--n-75); color: var(--ink); }
+      .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+      .modal-desc { color: var(--ink-sub); margin-bottom: 14px; font-size: 13px; }
+      .modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--n-50); gap: 10px; }
+      .tip-box { background: color-mix(in oklab, var(--acc-sky) 60%, var(--surface)); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--acc-sky-ink); margin-top: 12px; }
       
       /* Empty State */
       .empty-state { text-align: center; padding: 3rem; }
@@ -717,97 +739,126 @@ const LeadsModule = {
       return `
         <tr>
           <td colspan="8">
-            <div class="empty-state">
-              <div class="empty-icon">👥</div>
-              <h3>Žiadne leady</h3>
-              <p>Pridajte prvý lead alebo importujte domény</p>
-              <button class="btn-primary" onclick="LeadsModule.showTab('add')">+ Nový lead</button>
+            <div style="padding:48px 24px; text-align:center; color:var(--ink-sub);">
+              <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Users({size:22})}</div>
+              <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne leady</h3>
+              <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Pridajte prvý lead alebo importujte domény z Marketing Miner</p>
+              <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="LeadsModule.showTab('add')">${I.Plus({size:14})} Nový lead</button>
             </div>
           </td>
         </tr>
       `;
     }
-    
+
+    const statusConfig = {
+      'new':           { label: 'Nový',         tone: 'sky' },
+      'analyzing':     { label: 'Analyzuje sa', tone: 'amber' },
+      'analyzed':      { label: 'Ready',        tone: 'lav' },
+      'ready':         { label: 'Ready',        tone: 'lav' },
+      'contacted':     { label: 'Kontaktovaný', tone: 'brand' },
+      'proposal_sent': { label: 'Ponuka',       tone: 'amber' },
+      'negotiating':   { label: 'Vyjednáva sa', tone: 'brand' },
+      'won':           { label: 'Klient',       tone: 'ok' },
+      'converted':     { label: 'Klient',       tone: 'ok' },
+      'lost':          { label: 'Prehraný',     tone: 'err' }
+    };
+
+    const avatarColors = ['#F97316','#4F46E5','#059669','#DC2626','#7C3AED','#0891B2','#CA8A04','#DB2777'];
+    const initialsOf = (name) => (name || '?').split(' ').map(s => s[0]).slice(0,2).join('').toUpperCase();
+    const colorOf = (name) => avatarColors[[...(name || 'x')].reduce((a,c) => a + c.charCodeAt(0), 0) % avatarColors.length];
+
     return this.leads.map(lead => {
       const a = lead.analysis || {};
-      const md = lead.marketing_data || {};
       const hasAnalysis = a.company || a.analysis;
-      const hasSocials = md.socialMedia && Object.keys(md.socialMedia).length > 0;
       const score = lead.score || 0;
-      const scoreClass = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
-      
-      // Typ/Industry - z analysis alebo lead.industry
+      const scoreColor = score >= 80 ? 'var(--ok)' : score >= 60 ? 'var(--warn)' : score >= 40 ? 'var(--brand-500)' : 'var(--err)';
+      const scorePct = Math.max(5, Math.min(100, score));
+
       const industry = lead.industry || a.company?.industry || a.analysis?.industry || '';
-      const industryShort = industry.length > 20 ? industry.substring(0, 18) + '...' : industry;
-      
-      // Dátum importu
+
       const createdAt = lead.created_at ? new Date(lead.created_at) : null;
-      const dateStr = createdAt ? createdAt.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) : '-';
-      const timeAgo = createdAt ? this.getTimeAgo(createdAt) : '';
-      
-      const statusConfig = {
-        'new': { label: 'Nový', class: 'blue' },
-        'analyzed': { label: 'Analyzovaný', class: 'indigo' },
-        'contacted': { label: 'Kontaktovaný', class: 'yellow' },
-        'proposal_sent': { label: 'Ponuka', class: 'purple' },
-        'won': { label: 'Vyhraný', class: 'green' },
-        'lost': { label: 'Prehraný', class: 'red' }
-      };
-      const status = statusConfig[lead.status] || statusConfig['new'];
-      
-      // Social icons
-      const socials = md.socialMedia || {};
-      const socialIcons = [];
-      if (socials.facebook) socialIcons.push(`<a href="${socials.facebook}" target="_blank" onclick="event.stopPropagation()" class="social-icon fb" title="Facebook">f</a>`);
-      if (socials.instagram) socialIcons.push(`<a href="${socials.instagram}" target="_blank" onclick="event.stopPropagation()" class="social-icon ig" title="Instagram">📷</a>`);
-      if (socials.linkedin) socialIcons.push(`<a href="${socials.linkedin}" target="_blank" onclick="event.stopPropagation()" class="social-icon li" title="LinkedIn">in</a>`);
-      
+      const dateStr = createdAt ? createdAt.toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric' }) + '.' : '—';
+
+      const st = statusConfig[lead.status] || statusConfig['new'];
+
+      const displayName = lead.company_name || lead.domain || 'Neznámy';
+      const assignedName = lead.assigned_to_name || '';
+      const assignedInitials = assignedName ? initialsOf(assignedName) : '';
+
       return `
-        <tr data-status="${lead.status}" data-industry="${industry}">
+        <tr data-status="${lead.status}" data-industry="${industry}" style="cursor:pointer;" onclick="LeadsModule.showLeadDetail('${lead.id}')">
+          <td style="padding-left:18px;"><input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="event.stopPropagation(); LeadsModule.toggleSelect('${lead.id}')"></td>
           <td>
-            <input type="checkbox" ${this.selectedIds.has(lead.id) ? 'checked' : ''} onchange="LeadsModule.toggleSelect('${lead.id}')">
+            <div style="min-width:0;">
+              <div style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--ink); letter-spacing:-0.1px;">
+                ${lead.domain ? `${lead.domain} <a href="https://${lead.domain}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex; color:var(--ink-mute);">${I.External({size:11})}</a>` : displayName}
+              </div>
+              ${lead.domain && lead.company_name ? `<div style="font-size:12px; color:var(--ink-sub); margin-top:2px;">${lead.company_name}</div>` : ''}
+            </div>
+          </td>
+          <td>${industry ? `<span class="adl-chip adl-chip-sm" title="${industry}">${industry.length > 18 ? industry.substring(0, 16) + '…' : industry}</span>` : '<span style="color:var(--ink-mute);">—</span>'}</td>
+          <td>
+            <span class="adl-chip adl-chip-${st.tone} adl-chip-sm"><span class="dot"></span>${st.label}</span>
+            ${hasAnalysis ? ` <span class="adl-chip adl-chip-sm" style="margin-left:4px; background:color-mix(in oklab, var(--brand-500) 10%, transparent); color:var(--brand-700);" title="AI analýza dokončená">${I.Sparkle({size:10})} AI</span>` : ''}
           </td>
           <td>
-            <div class="lead-company">
-              <strong>${lead.company_name || lead.domain || 'Neznámy'}</strong>
-              ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="lead-domain">${lead.domain} ↗</a>` : ''}
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="mono" style="font-size:14px; font-weight:600; color:${scoreColor}; min-width:26px; text-align:right;">${score}</span>
+              <div style="flex:1; max-width:130px; height:6px; background:var(--n-75); border-radius:99px; overflow:hidden;">
+                <div style="height:100%; width:${scorePct}%; background:${scoreColor}; border-radius:99px;"></div>
+              </div>
             </div>
           </td>
           <td>
-            ${industry ? `<span class="industry-tag" title="${industry}">${industryShort}</span>` : '<span class="text-muted">-</span>'}
+            <span class="mono" style="font-size:12px; color:var(--ink-sub);" title="${createdAt ? createdAt.toLocaleString('sk-SK') : ''}">${dateStr}</span>
           </td>
           <td>
-            <div class="lead-contact">
-              ${lead.email ? `<a href="mailto:${lead.email}" class="contact-email">📧 ${lead.email}</a>` : ''}
-              ${lead.phone ? `<a href="tel:${lead.phone}" class="contact-phone">📞 ${lead.phone}</a>` : ''}
-              ${!lead.email && !lead.phone ? '<span style="color:#94a3b8">-</span>' : ''}
-            </div>
-            ${socialIcons.length > 0 ? `<div class="social-icons">${socialIcons.join('')}</div>` : ''}
+            ${assignedName ? `
+              <div style="display:inline-flex; align-items:center; gap:6px;">
+                <div style="width:24px; height:24px; border-radius:50%; background:${colorOf(assignedName)}; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; letter-spacing:0.3px; flex-shrink:0;">${assignedInitials}</div>
+                <span style="font-size:12px; color:var(--ink);">${assignedInitials}</span>
+              </div>
+            ` : '<span style="color:var(--ink-mute); font-size:12px;">—</span>'}
           </td>
           <td>
-            <span class="status-badge ${status.class}">${status.label}</span>
-            ${hasAnalysis ? '<span class="analysis-badge">✓ AI</span>' : ''}
-            ${hasSocials && !hasAnalysis ? '<span class="analysis-badge" style="background:#dbeafe;color:#1d4ed8;">📊 MM</span>' : ''}
-          </td>
-          <td>
-            <span class="date-cell" title="${createdAt ? createdAt.toLocaleString('sk-SK') : ''}">${dateStr}</span>
-            ${timeAgo ? `<small class="time-ago">${timeAgo}</small>` : ''}
-          </td>
-          <td>
-            <div class="score-cell">
-              <span class="score-badge ${scoreClass}">${score}</span>
-            </div>
-          </td>
-          <td>
-            <div class="action-buttons">
-              <button class="btn-detail" onclick="LeadsModule.showLeadDetail('${lead.id}')">Detail</button>
-              <button class="btn-icon" onclick="LeadsModule.analyze('${lead.id}')" title="AI Analýza">🤖</button>
-              ${hasAnalysis ? `<button class="btn-icon" onclick="LeadsModule.showProposalModal('${lead.id}')" title="Ponuka">📄</button>` : ''}
+            <div style="display:inline-flex; gap:4px;">
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.revertToProspect('${lead.id}')" title="${lead.converted_from_prospect_id ? 'Vrátiť späť do Outreach' : 'Presunúť do Outreach'}" style="padding:0 6px; width:28px; height:28px; justify-content:center;">↩</button>
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); LeadsModule.showLeadMenu('${lead.id}', event)" title="Viac" style="padding:0 6px; width:28px; height:28px; justify-content:center;">${I.More({size:14})}</button>
             </div>
           </td>
         </tr>
       `;
     }).join('');
+  },
+
+  showLeadMenu(id, ev) {
+    // Placeholder — môžme neskôr otvoriť dropdown menu
+    this.showLeadDetail(id);
+  },
+
+  async revertToProspect(leadId) {
+    if (!window.Prospects || typeof window.Prospects.revertLeadToProspect !== 'function') {
+      return Utils.toast('Prospects helper nie je načítaný', 'danger');
+    }
+    const lead = this.leads.find(l => l.id === leadId);
+    const label = lead?.company_name || lead?.domain || 'lead';
+    const isRevert = !!lead?.converted_from_prospect_id;
+    const message = isRevert
+      ? `Vrátiť „${label}" späť do Outreach? Tento lead sa zmaže a pôvodný prospect sa obnoví v stave „pending".`
+      : `Presunúť „${label}" do Outreachu? Z leadu sa vytvorí prospect (stage „pending"), lead sa zmaže.`;
+    const ok = await Utils.confirm(message, {
+      title: isRevert ? 'Vrátiť do Outreach' : 'Presunúť do Outreach',
+      type: 'warning', confirmText: isRevert ? 'Vrátiť' : 'Presunúť', cancelText: 'Zrušiť'
+    });
+    if (!ok) return;
+    const { prospect, mode, error } = await window.Prospects.revertLeadToProspect(leadId);
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    this.leads = this.leads.filter(l => l.id !== leadId);
+    this.selectedIds.delete(leadId);
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    this._updateListCount();
+    const verb = mode === 'revert' ? 'Vrátené' : 'Presunuté';
+    Utils.toast(`${verb} do Outreach (${prospect?.company_name || prospect?.domain || 'prospect'})`, 'success');
   },
   
   getTimeAgo(date) {
@@ -848,14 +899,14 @@ const LeadsModule = {
   },
 
   showTab(tab) {
-    // Update tabs
-    document.querySelectorAll('.tab-btn-new').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`.tab-btn-new[data-tab="${tab}"]`)?.classList.add('active');
-    
+    // Update tabs (new adl-tab + legacy tab-btn-new)
+    document.querySelectorAll('.adl-tab, .tab-btn-new').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.adl-tab[data-tab="${tab}"], .tab-btn-new[data-tab="${tab}"]`)?.classList.add('active');
+
     // Render content
     const contentEl = document.getElementById('leads-tab-content');
     if (!contentEl) return;
-    
+
     switch(tab) {
       case 'list':
         contentEl.innerHTML = this.renderListTab();
@@ -870,10 +921,14 @@ const LeadsModule = {
     }
   },
 
-  async onSearchChange(value) { this.filters.search = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); document.getElementById('leads-count').textContent = this.leads.length; },
-  async onStatusChange(value) { this.filters.status = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); document.getElementById('leads-count').textContent = this.leads.length; },
-  async onIndustryChange(value) { 
-    this.filters.industry = value; 
+  _updateListCount() {
+    const el = document.getElementById('leads-count');
+    if (el) el.textContent = this.leads.length;
+  },
+  async onSearchChange(value) { this.filters.search = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); this._updateListCount(); },
+  async onStatusChange(value) { this.filters.status = value; await this.loadLeads(); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); this._updateListCount(); },
+  async onIndustryChange(value) {
+    this.filters.industry = value;
     // Filter lokálne (industry nie je v DB)
     if (value) {
       const allLeads = [...this.leads];
@@ -884,8 +939,8 @@ const LeadsModule = {
     } else {
       await this.loadLeads();
     }
-    document.getElementById('leads-list').innerHTML = this.renderLeadsList(); 
-    document.getElementById('leads-count').textContent = this.leads.length; 
+    document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+    this._updateListCount(); 
   },
   
   async onDateChange(value) {
@@ -921,7 +976,7 @@ const LeadsModule = {
     }
     
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-    document.getElementById('leads-count').textContent = this.leads.length;
+    this._updateListCount();
   },
   toggleSelect(id) { if (this.selectedIds.has(id)) this.selectedIds.delete(id); else this.selectedIds.add(id); },
   selectAll() { this.leads.forEach(l => this.selectedIds.add(l.id)); document.getElementById('leads-list').innerHTML = this.renderLeadsList(); },
@@ -1238,240 +1293,380 @@ const LeadsModule = {
   showLeadDetail(id) {
     const lead = this.leads.find(l => l.id === id);
     if (!lead) return;
-    
+
     this.currentLeadId = id;
     const a = lead.analysis || {};
     const md = lead.marketing_data || {};
     const hasAnalysis = a.company || a.analysis;
     const c = a.company || {};
-    
+
     if (hasAnalysis) {
       this.currentAnalysis = lead.analysis;
       this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
     }
-    
+
     const modal = document.getElementById('analysis-modal');
     const content = document.getElementById('analysis-content');
-    
+
     const statusConfig = {
-      'new': { label: 'Nový', class: 'blue' },
-      'analyzing': { label: 'Analyzuje sa', class: 'yellow' },
-      'analyzed': { label: 'Analyzovaný', class: 'indigo' },
-      'ready': { label: 'Pripravený', class: 'green' },
-      'contacted': { label: 'Kontaktovaný', class: 'yellow' },
-      'proposal_sent': { label: 'Ponuka odoslaná', class: 'purple' },
-      'negotiating': { label: 'Vyjednáva sa', class: 'orange' },
-      'converted': { label: 'Konvertovaný', class: 'green' },
-      'won': { label: 'Vyhraný', class: 'green' },
-      'lost': { label: 'Prehraný', class: 'red' }
+      'new':           { label: 'Nový',            tone: 'sky' },
+      'analyzing':     { label: 'Analyzuje sa',    tone: 'amber' },
+      'analyzed':      { label: 'Ready na kontakt', tone: 'mint' },
+      'ready':         { label: 'Ready na kontakt', tone: 'mint' },
+      'contacted':     { label: 'Kontaktovaný',    tone: 'brand' },
+      'proposal_sent': { label: 'Ponuka odoslaná', tone: 'amber' },
+      'negotiating':   { label: 'Vyjednáva sa',    tone: 'brand' },
+      'converted':     { label: 'Klient',          tone: 'ok' },
+      'won':           { label: 'Klient',          tone: 'ok' },
+      'lost':          { label: 'Prehraný',        tone: 'err' }
     };
     const status = statusConfig[lead.status] || statusConfig['new'];
     const socials = md.socialMedia || {};
     const hasSocials = Object.keys(socials).length > 0;
-    
+
+    const score = lead.score || 0;
+    const scoreColor = score >= 80 ? 'var(--ok)' : score >= 60 ? 'var(--brand-500)' : score >= 40 ? 'var(--warn)' : 'var(--ink-mute)';
+    const scorePct = Math.max(0, Math.min(100, score));
+    const scoreDash = (2 * Math.PI * 42 * scorePct / 100).toFixed(1);
+    const scoreTotal = (2 * Math.PI * 42).toFixed(1);
+    const displayName = lead.company_name || lead.domain || 'Neznámy';
+
+    // Activity timeline
+    const activities = [
+      { when: lead.created_at, label: 'Lead pridaný' + (md.importedAt ? ' · import CSV' : ''), icon: 'Plus', tone: 'mint' },
+      md.importedAt && md.importedAt !== lead.created_at ? { when: md.importedAt, label: 'Import z Marketing Miner', icon: 'Chart', tone: 'lav' } : null,
+      hasAnalysis ? { when: lead.updated_at || lead.created_at, label: 'AI analýza dokončená', icon: 'Sparkle', tone: 'lav' } : null,
+      lead.proposal_opened_at ? { when: lead.proposal_opened_at, label: 'Email otvorený', icon: 'Mail', tone: 'sky' } : null,
+      lead.proposal_sent_at ? { when: lead.proposal_sent_at, label: `Ponuka odoslaná${lead.proposal_sent_to ? ' · ' + lead.proposal_sent_to : ''}`, icon: 'Send', tone: 'amber' } : null,
+      lead.status === 'won' ? { when: lead.updated_at, label: 'Konvertovaný na klienta', icon: 'Check', tone: 'mint' } : null,
+      lead.status === 'lost' ? { when: lead.updated_at, label: 'Označený ako prehraný', icon: 'X', tone: 'err' } : null
+    ].filter(Boolean).sort((x, y) => new Date(y.when) - new Date(x.when));
+
+    // MM stats
+    const mmTraffic = md.traffic || md.visits_month || md.monthly_visits || null;
+    const mmRevenue = md.revenue_estimate || md.estimated_revenue || null;
+    const mmKeywords = md.organic_keywords || md.keywords_count || null;
+    const mmBacklinks = md.backlinks || md.backlinks_count || null;
+    const hasMM = mmTraffic || mmRevenue || mmKeywords || mmBacklinks;
+
+    // Tags from analysis
+    const tags = [];
+    if (c.size === 'small' || c.employees < 20) tags.push({ t: 'lokálna', tone: 'amber' });
+    if (a.ecommerce || lead.domain?.includes('shop') || lead.domain?.includes('eshop')) tags.push({ t: 'e-shop', tone: 'mint' });
+    if (c.branches > 1) tags.push({ t: `${c.branches} pobočky`, tone: 'sky' });
+    if (c.family || c.type === 'family') tags.push({ t: 'rodinná', tone: 'rose' });
+
+    // Recommended package
+    const recPkg = a.recommendedPackage || analysis?.recommendedPackage || null;
+    const pkgMap = { Starter: { price: 149 }, Pro: { price: 249 }, Enterprise: { price: 399 }, Premium: { price: 799 } };
+    const pkgInfo = recPkg && pkgMap[recPkg] ? { name: recPkg, price: pkgMap[recPkg].price } : null;
+
+    // AI recommendation text (humanWrittenIntro or generic)
+    const aiRecommendation = a.humanWrittenIntro || a.recommendation || (hasAnalysis
+      ? `Firma má potenciál pre PPC reklamu. Odporúčaný prístup — lokálne cielenie a remarketing.`
+      : null);
+
     content.innerHTML = `
-      <div class="lead-detail-modal">
-        <!-- Header -->
-        <div class="lead-detail-header">
-          <div class="lead-detail-info">
-            <h2>${lead.company_name || lead.domain || 'Neznámy'}</h2>
-            ${lead.domain ? `<a href="https://${lead.domain}" target="_blank" class="lead-detail-domain">${lead.domain} ↗</a>` : ''}
+      <div class="adl" style="padding:20px 24px;">
+        <!-- Top breadcrumb row with actions -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-sub);">
+            <a href="#leads" onclick="LeadsModule.closeModal()" style="color:var(--ink-sub); text-decoration:none;">Leady</a>
+            ${I.Chevron({size:11})}
+            <span>${status.label}</span>
+            ${I.Chevron({size:11})}
+            <strong style="color:var(--ink); font-weight:600;">${lead.domain || displayName}</strong>
           </div>
-          <div class="lead-detail-score">
-            <div class="score-big ${(lead.score || 0) >= 70 ? 'high' : (lead.score || 0) >= 40 ? 'medium' : 'low'}">${lead.score || 0}</div>
-            <span>Skóre</span>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Phone({size:14})} Zavolať</a>` : ''}
+            ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Poslať email</a>` : ''}
+            <button onclick="LeadsModule.updateStatus('${lead.id}', 'won')" class="adl-btn adl-btn-primary adl-btn-sm">${I.ArrowRight({size:14})} Konvertovať na klienta</button>
           </div>
         </div>
-        
-        <!-- Tabs -->
-        <div class="lead-detail-tabs">
-          <button class="lead-tab ${!hasAnalysis ? 'active' : ''}" onclick="LeadsModule.switchDetailTab('info', this)">📋 Info</button>
-          ${hasAnalysis ? `<button class="lead-tab active" onclick="LeadsModule.switchDetailTab('analysis', this)">🤖 Analýza</button>` : ''}
-          ${hasSocials ? `<button class="lead-tab" onclick="LeadsModule.switchDetailTab('social', this)">📱 Sociálne siete</button>` : ''}
-          <button class="lead-tab" onclick="LeadsModule.switchDetailTab('history', this)">📜 História</button>
-        </div>
-        
-        <!-- Info Tab -->
-        <div id="detail-tab-info" class="detail-tab-content" style="display: ${hasAnalysis ? 'none' : 'block'};">
-          <div class="detail-grid">
-            <!-- Kontakt -->
-            <div class="detail-card">
-              <div class="detail-card-header">
-                <span class="detail-card-icon">📧</span>
-                <h3>Kontaktné údaje</h3>
-              </div>
-              <div class="detail-card-body">
-                <div class="detail-row">
-                  <span class="detail-label">Email</span>
-                  <span class="detail-value">${lead.email ? `<a href="mailto:${lead.email}">${lead.email}</a>` : '<em class="empty">nezadaný</em>'}</span>
+
+        <div style="display:grid; grid-template-columns:1fr 320px; gap:20px;" id="lead-detail-grid">
+
+          <!-- MAIN COLUMN -->
+          <div style="display:flex; flex-direction:column; gap:16px;">
+
+            <!-- HERO card: score + chips + company -->
+            <div class="adl-card">
+              <div class="adl-card-body" style="display:flex; gap:24px; align-items:center;">
+                <!-- Donut score -->
+                <div style="position:relative; width:120px; height:120px; flex-shrink:0;">
+                  <svg viewBox="0 0 100 100" width="120" height="120">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--n-75)" stroke-width="10"/>
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="${scoreColor}" stroke-width="10"
+                      stroke-dasharray="${scoreDash} ${scoreTotal}" stroke-linecap="round"
+                      transform="rotate(-90 50 50)"/>
+                  </svg>
+                  <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                    <div class="mono" style="font-size:30px; font-weight:600; letter-spacing:-1px; color:var(--ink);">${score}</div>
+                    <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-top:-2px;">skóre</div>
+                  </div>
                 </div>
-                <div class="detail-row">
-                  <span class="detail-label">Telefón</span>
-                  <span class="detail-value">${lead.phone ? `<a href="tel:${lead.phone}">${lead.phone}</a>` : '<em class="empty">nezadaný</em>'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Odvetvie</span>
-                  <span class="detail-value">${lead.industry || c.industry || '<em class="empty">nezadané</em>'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Mesto</span>
-                  <span class="detail-value">${lead.city || c.location || '<em class="empty">nezadané</em>'}</span>
-                </div>
-                ${lead.logo_url ? `
-                <div class="detail-row">
-                  <span class="detail-label">Logo</span>
-                  <span class="detail-value"><img src="${lead.logo_url}" alt="Logo" style="height: 32px;"></span>
-                </div>
-                ` : ''}
-              </div>
-            </div>
-            
-            <!-- Status -->
-            <div class="detail-card">
-              <div class="detail-card-header">
-                <span class="detail-card-icon">📊</span>
-                <h3>Status</h3>
-              </div>
-              <div class="detail-card-body">
-                <div class="detail-row">
-                  <span class="detail-label">Stav</span>
-                  <span class="detail-value"><span class="status-badge ${status.class}">${status.label}</span></span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Vytvorený</span>
-                  <span class="detail-value">${new Date(lead.created_at).toLocaleDateString('sk-SK')}</span>
-                </div>
-                ${lead.source ? `
-                <div class="detail-row">
-                  <span class="detail-label">Zdroj</span>
-                  <span class="detail-value"><span class="source-badge">${lead.source}</span></span>
-                </div>
-                ` : ''}
-                
-                <div class="status-buttons">
-                  <label>Zmeniť status:</label>
-                  <div class="status-btn-group">
-                    ${['new', 'contacted', 'won', 'lost'].map(s => {
-                      const labels = { new: '🆕', contacted: '📞', won: '✅', lost: '❌' };
-                      return `<button onclick="LeadsModule.updateStatus('${lead.id}', '${s}')" class="status-btn ${lead.status === s ? 'active' : ''}" title="${statusConfig[s]?.label || s}">${labels[s]}</button>`;
-                    }).join('')}
+                <div style="flex:1; min-width:0;">
+                  <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+                    <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+                    ${score >= 80 ? `<span class="adl-chip adl-chip-brand adl-chip-sm">Vysoký potenciál</span>` : score >= 60 ? `<span class="adl-chip adl-chip-amber adl-chip-sm">Stredný potenciál</span>` : ''}
+                    ${lead.source ? `<span class="adl-chip adl-chip-sm">Zdroj: ${lead.source === 'marketing_miner' ? 'Marketing Miner' : lead.source === 'import_csv' ? 'Import CSV' : lead.source}</span>` : ''}
+                  </div>
+                  <h3 style="font-size:18px; font-weight:600; margin:0; letter-spacing:-0.3px; color:var(--ink);">${displayName}${c.legal_form ? ' ' + c.legal_form : ''}</h3>
+                  <div style="font-size:13px; color:var(--ink-sub); margin-top:4px;">
+                    ${c.description || c.about || [c.type, c.size, c.ico ? `IČO ${c.ico}` : ''].filter(Boolean).join(' · ') || (lead.industry || '')}
+                  </div>
+                  <div style="display:flex; gap:20px; margin-top:14px; font-size:12px; color:var(--ink-sub); flex-wrap:wrap;">
+                    ${lead.domain ? `<span style="display:inline-flex; align-items:center; gap:5px;">${I.Globe({size:12})} ${lead.domain}</span>` : ''}
+                    ${lead.phone ? `<span style="display:inline-flex; align-items:center; gap:5px;">${I.Phone({size:12})} ${lead.phone}</span>` : ''}
+                    ${lead.email ? `<span style="display:inline-flex; align-items:center; gap:5px;">${I.Mail({size:12})} ${lead.email}</span>` : ''}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          
-          <!-- CTA - Analyzovať alebo Generovať ponuku -->
-          ${hasAnalysis ? `
-          <div class="detail-cta" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #bbf7d0;">
-            <div class="cta-icon">✅</div>
-            <div class="cta-content">
-              <h3 style="color: #166534;">Analýza dokončená</h3>
-              <p style="color: #15803d;">Lead bol analyzovaný. Prejdite na tab "Analýza" pre zobrazenie výsledkov alebo generujte ponuku.</p>
+
+            <!-- Underline tabs -->
+            <div style="display:flex; gap:4px; border-bottom:1px solid var(--border);" class="adl-lead-detail-tabs">
+              ${[
+                { k: 'analysis', label: 'AI Analýza',     available: hasAnalysis },
+                { k: 'webseo',   label: 'Web & SEO',      available: hasMM },
+                { k: 'social',   label: 'Sociálne siete', available: hasSocials },
+                { k: 'history',  label: 'História',       available: true },
+                { k: 'notes',    label: 'Poznámky',       available: true }
+              ].filter(t => t.available).map((t, i) => {
+                const isFirst = i === 0;
+                return `<button class="lead-tab ${isFirst ? 'active' : ''}" data-tab="${t.k}" onclick="LeadsModule.switchDetailTab('${t.k}', this)" style="padding:10px 14px; border:0; background:transparent; font-size:13px; font-weight:${isFirst ? '600' : '500'}; color:${isFirst ? 'var(--ink)' : 'var(--ink-sub)'}; border-bottom:2px solid ${isFirst ? 'var(--brand-500)' : 'transparent'}; margin-bottom:-1px; cursor:pointer; font-family:inherit;">${t.label}</button>`;
+              }).join('')}
             </div>
-            <button onclick="LeadsModule.generateProposal()" class="btn-primary">📄 Generovať ponuku</button>
-          </div>
-          ` : `
-          <div class="detail-cta">
-            <div class="cta-icon">🤖</div>
-            <div class="cta-content">
-              <h3>Spustiť AI analýzu</h3>
-              <p>Získajte marketingovú stratégiu, odporúčania a generujte personalizovanú ponuku.</p>
-            </div>
-            <button onclick="LeadsModule.analyze('${lead.id}')" class="btn-primary">🤖 Analyzovať</button>
-          </div>
-          `}
-        </div>
-        
-        <!-- Analysis Tab -->
-        ${hasAnalysis ? `
-        <div id="detail-tab-analysis" class="detail-tab-content">
-          ${this.renderAnalysisContent(lead, a)}
-        </div>
-        ` : ''}
-        
-        <!-- Social Tab -->
-        ${hasSocials ? `
-        <div id="detail-tab-social" class="detail-tab-content" style="display:none;">
-          <div class="social-grid">
-            ${socials.facebook ? `
-            <a href="${socials.facebook}" target="_blank" class="social-card facebook">
-              <div class="social-card-icon">📘</div>
-              <div class="social-card-info">
-                <strong>Facebook</strong>
-                <span>Profil nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
-            ${socials.instagram ? `
-            <a href="${socials.instagram}" target="_blank" class="social-card instagram">
-              <div class="social-card-icon">📷</div>
-              <div class="social-card-info">
-                <strong>Instagram</strong>
-                <span>Profil nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
-            ${socials.linkedin ? `
-            <a href="${socials.linkedin}" target="_blank" class="social-card linkedin">
-              <div class="social-card-icon">💼</div>
-              <div class="social-card-info">
-                <strong>LinkedIn</strong>
-                <span>Profil nájdený</span>
-              </div>
-              <span class="social-card-arrow">↗</span>
-            </a>
-            ` : ''}
-          </div>
-        </div>
-        ` : ''}
-        
-        <!-- History Tab -->
-        <div id="detail-tab-history" class="detail-tab-content" style="display:none;">
-          <div class="history-timeline">
-            <div class="history-item">
-              <div class="history-dot"></div>
-              <div class="history-content">
-                <strong>Lead vytvorený</strong>
-                <span>${new Date(lead.created_at).toLocaleString('sk-SK')}</span>
-              </div>
-            </div>
-            ${md.importedAt ? `
-            <div class="history-item">
-              <div class="history-dot blue"></div>
-              <div class="history-content">
-                <strong>Import z Marketing Miner</strong>
-                <span>${new Date(md.importedAt).toLocaleString('sk-SK')}</span>
-              </div>
-            </div>
-            ` : ''}
+
+            <!-- AI Analýza tab -->
             ${hasAnalysis ? `
-            <div class="history-item">
-              <div class="history-dot green"></div>
-              <div class="history-content">
-                <strong>AI analýza dokončená</strong>
-                <span>${lead.updated_at ? new Date(lead.updated_at).toLocaleString('sk-SK') : 'Nedávno'}</span>
+            <div id="detail-tab-analysis" class="detail-tab-content" style="display:block;">
+              <div class="adl-card">
+                <div class="adl-card-header">
+                  <div class="adl-card-title">AI Analýza · Marketing Miner</div>
+                  <span class="adl-chip adl-chip-lav adl-chip-sm"><span class="dot"></span>Dokončené</span>
+                </div>
+                <div class="adl-card-body">
+                  ${hasMM ? `
+                    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px;" class="lead-mm-grid">
+                      <div style="background:var(--n-50); border-radius:10px; padding:12px 14px;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; font-weight:600;">Návštevnosť</div>
+                        <div style="font-size:18px; font-weight:600; letter-spacing:-0.4px; margin-top:2px;">${mmTraffic || '—'} <span style="font-size:11px; color:var(--ink-mute); font-weight:400;">/mes</span></div>
+                      </div>
+                      <div style="background:var(--n-50); border-radius:10px; padding:12px 14px;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; font-weight:600;">Odhadovaný obrat</div>
+                        <div style="font-size:18px; font-weight:600; letter-spacing:-0.4px; margin-top:2px;">${mmRevenue ? mmRevenue + ' €' : '—'} <span style="font-size:11px; color:var(--ink-mute); font-weight:400;">/mes</span></div>
+                      </div>
+                      <div style="background:var(--n-50); border-radius:10px; padding:12px 14px;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; font-weight:600;">Organic keywords</div>
+                        <div style="font-size:18px; font-weight:600; letter-spacing:-0.4px; margin-top:2px;">${mmKeywords || '—'}</div>
+                      </div>
+                      <div style="background:var(--n-50); border-radius:10px; padding:12px 14px;">
+                        <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; font-weight:600;">Backlinks</div>
+                        <div style="font-size:18px; font-weight:600; letter-spacing:-0.4px; margin-top:2px;">${mmBacklinks || '—'}</div>
+                      </div>
+                    </div>
+                  ` : ''}
+                  ${aiRecommendation ? `
+                    <div style="background:var(--brand-50); border:1px solid var(--brand-100); border-radius:10px; padding:14px 16px;">
+                      <div style="display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; color:var(--brand-700); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.8px;">
+                        ${I.Sparkle({size:14})} AI odporúčanie
+                      </div>
+                      <div style="font-size:13px; color:var(--ink); line-height:1.55;">${aiRecommendation}</div>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+
+              ${this.renderAnalysisContent(lead, this.currentAnalysis)}
+
+              <!-- Kontakty card -->
+              <div class="adl-card" style="margin-top:16px;">
+                <div class="adl-card-header">
+                  <div class="adl-card-title">Kontakty (${lead.email || lead.phone ? 1 : 0})</div>
+                </div>
+                <div style="padding:0 18px;">
+                  ${lead.email || lead.phone ? `
+                    <div style="display:flex; align-items:center; gap:14px; padding:12px 0;">
+                      <div class="adl-avatar adl-avatar-lg" style="background:var(--brand-500);">${(lead.contact_name || displayName)[0].toUpperCase()}</div>
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; font-weight:600; display:flex; gap:6px; align-items:center;">${lead.contact_name || displayName} <span class="adl-chip adl-chip-brand adl-chip-sm">Primárny</span></div>
+                        <div style="font-size:11px; color:var(--ink-sub);">${lead.contact_role || 'Kontaktná osoba'}${lead.email ? ' · ' + lead.email : ''}</div>
+                      </div>
+                      ${lead.phone ? `<span class="mono" style="font-size:12px; color:var(--ink-sub);">${lead.phone}</span>` : ''}
+                      <button class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;">${I.More({size:14})}</button>
+                    </div>
+                  ` : '<div style="padding:20px 0; color:var(--ink-mute); font-size:13px;">Žiadne kontakty</div>'}
+                </div>
               </div>
             </div>
             ` : ''}
-            ${lead.proposal_sent_at ? `
-            <div class="history-item">
-              <div class="history-dot orange"></div>
-              <div class="history-content">
-                <strong>Ponuka odoslaná</strong>
-                <span>${new Date(lead.proposal_sent_at).toLocaleString('sk-SK')}${lead.proposal_sent_to ? ` na ${lead.proposal_sent_to}` : ''}</span>
+
+            <!-- Web & SEO tab -->
+            ${hasMM ? `
+              <div id="detail-tab-webseo" class="detail-tab-content" style="display:none;">
+                <div class="adl-card">
+                  <div class="adl-card-header"><div class="adl-card-title">Marketing Miner dáta</div></div>
+                  <div class="adl-card-body" style="font-size:13px; line-height:1.6; color:var(--ink-sub);">
+                    Detailné dáta o organickej návštevnosti, kľúčových slovách a backlinkoch.
+                    <pre style="background:var(--n-50); border-radius:8px; padding:12px; font-size:11px; margin-top:10px; overflow-x:auto;">${JSON.stringify(md, null, 2)}</pre>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Social tab -->
+            ${hasSocials ? `
+              <div id="detail-tab-social" class="detail-tab-content" style="display:none;">
+                <div class="adl-card"><div class="adl-card-body" style="display:flex; flex-direction:column; gap:10px;">
+                  ${socials.facebook ? `<a href="${socials.facebook}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#1877F2;">${I.Fb({size:18})}</span> <span style="flex:1; font-size:13px;">Facebook</span> ${I.External({size:12})}</a>` : ''}
+                  ${socials.instagram ? `<a href="${socials.instagram}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#E1306C;">${I.Instagram({size:18})}</span> <span style="flex:1; font-size:13px;">Instagram</span> ${I.External({size:12})}</a>` : ''}
+                  ${socials.linkedin ? `<a href="${socials.linkedin}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#0A66C2;">${I.Link({size:18})}</span> <span style="flex:1; font-size:13px;">LinkedIn</span> ${I.External({size:12})}</a>` : ''}
+                </div></div>
+              </div>
+            ` : ''}
+
+            <!-- História tab -->
+            <div id="detail-tab-history" class="detail-tab-content" style="display:none;">
+              <div class="adl-card">
+                <div class="adl-card-header"><div class="adl-card-title">Časová os aktivity</div></div>
+                <div class="adl-card-body">
+                  ${activities.length === 0 ? '<div style="color:var(--ink-mute); font-size:12px;">Žiadna aktivita</div>' :
+                  `<div style="position:relative; padding-left:20px;">
+                    <div style="position:absolute; left:7px; top:8px; bottom:8px; width:2px; background:var(--border);"></div>
+                    ${activities.map((ev) => {
+                      const toneColor = { sky: 'var(--acc-sky-ink)', lav: 'var(--acc-lavender-ink)', mint: 'var(--ok)', amber: 'var(--warn)', ok: 'var(--ok)', err: 'var(--err)' }[ev.tone] || 'var(--n-400)';
+                      return `
+                        <div style="position:relative; padding:8px 0;">
+                          <div style="position:absolute; left:-20px; top:12px; width:14px; height:14px; border-radius:50%; background:${toneColor}; border:3px solid var(--surface); box-shadow:0 0 0 2px ${toneColor};"></div>
+                          <div style="font-size:13px; font-weight:500; color:var(--ink); line-height:1.3;">${ev.label}</div>
+                          <div class="mono" style="font-size:11px; color:var(--ink-mute); margin-top:2px;">${new Date(ev.when).toLocaleString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>`}
+                </div>
               </div>
             </div>
-            ` : ''}
+
+            <!-- Poznámky tab -->
+            <div id="detail-tab-notes" class="detail-tab-content" style="display:none;">
+              <div class="adl-card">
+                <div class="adl-card-header">
+                  <div class="adl-card-title">Interné poznámky</div>
+                  <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="LeadsModule.editNotes('${lead.id}')">${I.Edit({size:12})} Upraviť</button>
+                </div>
+                <div class="adl-card-body" style="font-size:13px; line-height:1.6; color:${lead.notes ? 'var(--ink)' : 'var(--ink-mute)'};">
+                  ${lead.notes || 'Žiadne poznámky. Kliknite na <strong>Upraviť</strong> a pridajte prvú.'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SIDEBAR -->
+          <div style="display:flex; flex-direction:column; gap:14px;">
+
+            <!-- AKCIE -->
+            <div class="adl-card">
+              <div class="adl-card-header" style="padding:12px 16px;">
+                <div class="adl-card-title">Akcie</div>
+              </div>
+              <div style="padding:6px 10px 10px;">
+                ${[
+                  { icon: 'Mail',     label: 'Odoslať úvodný email',   active: false, onClick: `LeadsModule.openEmailModal('${lead.id}')` },
+                  { icon: 'Phone',    label: 'Zavolať · naplánovať',   active: false, onClick: lead.phone ? `window.location.href='tel:${lead.phone}'` : `Utils.toast('Žiadne telefónne číslo','warning')` },
+                  { icon: 'Sparkle',  label: hasAnalysis ? 'Vygenerovať ponuku' : 'Spustiť AI analýzu', active: hasAnalysis, onClick: hasAnalysis ? `LeadsModule.showProposalModal('${lead.id}')` : `LeadsModule.analyze('${lead.id}')` },
+                  { icon: 'Template', label: 'Poslať pitch šablónu',   active: false, onClick: `LeadsModule.openEmailModal('${lead.id}')` },
+                  { icon: 'Users',    label: 'Priradiť inému tímu',    active: false, onClick: `Utils.toast('Čoskoro','info')` }
+                ].map(a => `
+                  <div onclick="${a.onClick}" style="display:flex; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; background:${a.active ? 'var(--brand-50)' : 'transparent'}; color:${a.active ? 'var(--brand-700)' : 'var(--ink)'}; align-items:center; transition:background .12s;" onmouseover="this.style.background='${a.active ? 'var(--brand-50)' : 'var(--n-50)'}'" onmouseout="this.style.background='${a.active ? 'var(--brand-50)' : 'transparent'}'">
+                    <span style="flex-shrink:0; display:inline-flex;">${I[a.icon]({size:16})}</span>
+                    <span style="font-size:13px; flex:1; font-weight:${a.active ? '600' : '500'};">${a.label}</span>
+                    ${I.Chevron({size:12})}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- AKTIVITA -->
+            <div class="adl-card">
+              <div class="adl-card-header" style="padding:12px 16px;">
+                <div class="adl-card-title">Aktivita</div>
+              </div>
+              <div class="adl-card-body" style="padding:8px 16px 14px;">
+                ${activities.length === 0 ? '<div style="color:var(--ink-mute); font-size:12px; padding:10px 0;">Žiadna aktivita</div>' :
+                activities.slice(0, 5).map((ev, i) => {
+                  const iconFn = I[ev.icon] || I.Dot;
+                  const toneBg = { sky: 'var(--acc-sky)', lav: 'var(--acc-lavender)', mint: 'var(--acc-mint)', amber: 'var(--acc-amber)', ok: 'var(--acc-mint)', err: 'var(--acc-rose)' }[ev.tone] || 'var(--n-75)';
+                  const toneInk = { sky: 'var(--acc-sky-ink)', lav: 'var(--acc-lavender-ink)', mint: 'var(--acc-mint-ink)', amber: 'var(--acc-amber-ink)', ok: 'var(--acc-mint-ink)', err: 'var(--acc-rose-ink)' }[ev.tone] || 'var(--ink-sub)';
+                  return `
+                    <div style="display:flex; gap:10px; align-items:flex-start; padding:8px 0; ${i > 0 ? 'border-top:1px dashed var(--border);' : ''}">
+                      <div style="width:28px; height:28px; border-radius:8px; background:${toneBg}; color:${toneInk}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${iconFn({size:13})}</div>
+                      <div style="flex:1; font-size:12px; min-width:0;">
+                        <div style="font-weight:500; color:var(--ink);">${ev.label}</div>
+                        <div style="color:var(--ink-mute); font-size:11px;">${this.getTimeAgo(new Date(ev.when))}</div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- TAGY & ODPORÚČANIE -->
+            <div class="adl-card">
+              <div class="adl-card-header" style="padding:12px 16px;">
+                <div class="adl-card-title">Tagy &amp; odporúčanie</div>
+              </div>
+              <div class="adl-card-body" style="padding:10px 16px 14px;">
+                ${tags.length > 0 ? `
+                  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+                    ${tags.map(t => `<span class="adl-chip adl-chip-${t.tone} adl-chip-sm">${t.t}</span>`).join('')}
+                  </div>
+                ` : '<div style="color:var(--ink-mute); font-size:12px; margin-bottom:12px;">Zatiaľ žiadne tagy</div>'}
+
+                ${pkgInfo ? `
+                  <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px;">Odporúčaný balík</div>
+                  <div style="padding:12px; background:var(--brand-50); border:1px solid var(--brand-100); border-radius:10px; display:flex; align-items:center; gap:10px;">
+                    <div style="width:36px; height:36px; border-radius:8px; background:var(--brand-500); color:#fff; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${I.Star({size:16})}</div>
+                    <div style="flex:1;">
+                      <div style="font-size:13px; font-weight:600;">${pkgInfo.name} · ${pkgInfo.price} €/mes</div>
+                      <div style="font-size:11px; color:var(--ink-sub);">FB/IG + Google · 3 kampane</div>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
           </div>
         </div>
+
+        <style>
+          @media (max-width: 900px) {
+            #lead-detail-grid { grid-template-columns: 1fr !important; }
+            .lead-contact-grid { grid-template-columns: 1fr !important; }
+            .lead-mm-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          }
+          @media (max-width: 500px) {
+            .lead-mm-grid { grid-template-columns: 1fr !important; }
+          }
+        </style>
       </div>
     `;
-    
+
     modal.style.display = 'flex';
     this.renderModalFooter(hasAnalysis);
+  },
+
+  editNotes(leadId) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    const current = lead.notes || '';
+    const next = prompt('Interné poznámky:', current);
+    if (next !== null && next !== current) {
+      Database.update('leads', leadId, { notes: next }).then(() => {
+        lead.notes = next;
+        this.showLeadDetail(leadId);
+      });
+    }
   },
   
   // Render analysis content pre tab
@@ -1496,8 +1691,14 @@ const LeadsModule = {
   },
 
   switchDetailTab(tab, btn) {
-    document.querySelectorAll('.lead-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.lead-tab').forEach(t => {
+      t.classList.remove('active');
+      t.style.background = 'transparent';
+      t.style.color = 'var(--ink-sub)';
+    });
     btn.classList.add('active');
+    btn.style.background = 'var(--surface)';
+    btn.style.color = 'var(--ink)';
     document.querySelectorAll('.detail-tab-content').forEach(c => c.style.display = 'none');
     const tabEl = document.getElementById(`detail-tab-${tab}`);
     if (tabEl) tabEl.style.display = 'block';
@@ -1589,7 +1790,7 @@ const LeadsModule = {
       Utils.toast('Lead zmazaný', 'success');
       this.closeModal();
       document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-      document.getElementById('leads-count').textContent = this.leads.length;
+      this._updateListCount();
     } catch (error) {
       Utils.toast('Chyba pri mazaní', 'error');
     }
@@ -5549,7 +5750,7 @@ Odkaz je platný 30 dní.
     Utils.toast('Vymazané', 'success');
     await this.loadLeads();
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-    document.getElementById('leads-count').textContent = this.leads.length;
+    this._updateListCount();
   },
   
   // Odoslanie ponuky emailom

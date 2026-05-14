@@ -286,39 +286,40 @@ const Notifications = {
 
                 .notifications-bell {
                     position: relative;
-                    width: 40px;
-                    height: 40px;
-                    border: none;
-                    background: #f1f5f9;
-                    border-radius: 10px;
+                    width: 34px;
+                    height: 34px;
+                    border: 1px solid var(--border, #EAE6DE);
+                    background: var(--surface, #fff);
+                    border-radius: 9px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color: #64748b;
-                    transition: all 0.2s;
+                    color: var(--ink-sub, #6F6758);
+                    transition: background .12s, color .12s, border-color .12s;
                 }
 
                 .notifications-bell:hover {
-                    background: #e2e8f0;
-                    color: #1e293b;
+                    background: var(--n-50, #F7F5F1);
+                    color: var(--ink, #14120E);
                 }
 
                 .notifications-badge {
                     position: absolute;
-                    top: -4px;
-                    right: -4px;
-                    min-width: 18px;
-                    height: 18px;
-                    background: #ef4444;
+                    top: -5px;
+                    right: -5px;
+                    min-width: 16px;
+                    height: 16px;
+                    background: var(--brand-500, #F97316);
                     color: white;
-                    font-size: 0.7rem;
-                    font-weight: 600;
-                    border-radius: 9px;
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    border-radius: 8px;
                     display: none;
                     align-items: center;
                     justify-content: center;
                     padding: 0 4px;
+                    border: 2px solid var(--surface, #fff);
                 }
 
                 .notifications-badge.show {

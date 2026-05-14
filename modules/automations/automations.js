@@ -45,51 +45,40 @@ const AutomationsModule = {
 
     async render(container) {
         container.innerHTML = `
-            <div class="automations-module">
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Automatizácie</h1>
-                        <p class="subtitle">Automatické workflow a notifikácie</p>
+            <div class="adl automations-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Automatizácie</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Automatické workflow a notifikácie</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="AutomationsModule.showCreateModal()">
-                            <span>+</span> Nová automatizácia
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="AutomationsModule.showCreateModal()">${I.Plus({size:14})} Nová automatizácia</button>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="auto-stats">
-                    <div class="stat-card">
-                        <span class="stat-icon">⚡</span>
-                        <span class="stat-value" id="stat-active">0</span>
-                        <span class="stat-label">Aktívne</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-icon">⏸️</span>
-                        <span class="stat-value" id="stat-paused">0</span>
-                        <span class="stat-label">Pozastavené</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-icon">🔄</span>
-                        <span class="stat-value" id="stat-runs">0</span>
-                        <span class="stat-label">Spustení (30d)</span>
-                    </div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:16px;" class="adl-auto-stats">
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Aktívne</div><span class="adl-chip adl-chip-ok adl-chip-sm">beží</span></div><div class="adl-stat-value" id="stat-active">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Pozastavené</div><span class="adl-chip adl-chip-amber adl-chip-sm">pauza</span></div><div class="adl-stat-value" id="stat-paused">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Spustenia (30d)</div><span class="adl-chip adl-chip-sm">celkom</span></div><div class="adl-stat-value" id="stat-runs">—</div></div>
                 </div>
 
-                <!-- Automations List -->
-                <div class="automations-content" id="automations-content">
-                    <div class="loading">Načítavam automatizácie...</div>
+                <!-- List -->
+                <div id="automations-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam automatizácie…</div>
                 </div>
 
                 <!-- Templates -->
-                <div class="templates-section">
-                    <h3>📦 Šablóny automatizácií</h3>
-                    <div class="templates-grid">
+                <div style="margin-top:24px;">
+                    <h3 style="font-size:14px; font-weight:600; color:var(--ink); margin:0 0 10px; text-transform:uppercase; letter-spacing:0.6px;">Šablóny automatizácií</h3>
+                    <div class="templates-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
                         ${this.renderTemplates()}
                     </div>
                 </div>
+
+                <style>@media (max-width: 900px) { .adl-auto-stats { grid-template-columns: 1fr !important; } .automations-module .templates-grid { grid-template-columns: 1fr !important; } }</style>
             </div>
+
             ${this.getStyles()}
         `;
 
@@ -131,63 +120,55 @@ const AutomationsModule = {
 
         if (this.automations.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">⚡</div>
-                    <h3>Žiadne automatizácie</h3>
-                    <p>Vytvor prvú automatizáciu alebo použi šablónu nižšie</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Zap({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne automatizácie</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0;">Vytvorte prvú automatizáciu alebo použite šablónu nižšie</p>
                 </div>
             `;
             return;
         }
 
         container.innerHTML = `
-            <div class="automations-list">
+            <div style="display:flex; flex-direction:column; gap:10px;">
                 ${this.automations.map(a => this.renderAutomationCard(a)).join('')}
             </div>
         `;
     },
 
     renderAutomationCard(automation) {
-        const trigger = this.triggers[automation.trigger_type] || { label: automation.trigger_type, icon: '⚙️' };
-        const action = this.actions[automation.action_type] || { label: automation.action_type, icon: '▶️' };
+        const trigger = this.triggers[automation.trigger_type] || { label: automation.trigger_type };
+        const action = this.actions[automation.action_type] || { label: automation.action_type };
 
         return `
-            <div class="automation-card ${automation.is_active ? 'active' : 'paused'}">
-                <div class="auto-header">
-                    <div class="auto-toggle">
-                        <label class="toggle">
-                            <input type="checkbox" ${automation.is_active ? 'checked' : ''} 
-                                   onchange="AutomationsModule.toggleAutomation('${automation.id}', this.checked)">
-                            <span class="toggle-slider"></span>
-                        </label>
+            <div style="background:var(--surface); border:1px solid ${automation.is_active ? 'var(--border)' : 'var(--border)'}; border-radius:12px; padding:16px; ${automation.is_active ? '' : 'opacity:0.7;'} display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <label style="position:relative; display:inline-block; width:36px; height:20px; flex-shrink:0;">
+                        <input type="checkbox" ${automation.is_active ? 'checked' : ''} onchange="AutomationsModule.toggleAutomation('${automation.id}', this.checked)" style="opacity:0; width:0; height:0;">
+                        <span style="position:absolute; inset:0; background:${automation.is_active ? 'var(--brand-500)' : 'var(--n-200)'}; border-radius:999px; transition: background .2s;"></span>
+                        <span style="position:absolute; left:${automation.is_active ? '18px' : '2px'}; top:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition: left .2s;"></span>
+                    </label>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:14px; font-weight:600; color:var(--ink);">${automation.name}</div>
+                        ${automation.description ? `<div style="font-size:12px; color:var(--ink-sub); margin-top:2px;">${automation.description}</div>` : ''}
                     </div>
-                    <div class="auto-info">
-                        <h4 class="auto-name">${automation.name}</h4>
-                        ${automation.description ? `<p class="auto-desc">${automation.description}</p>` : ''}
-                    </div>
-                    <div class="auto-actions">
-                        <button class="btn-icon" onclick="AutomationsModule.editAutomation('${automation.id}')" title="Upraviť">✏️</button>
-                        <button class="btn-icon" onclick="AutomationsModule.deleteAutomation('${automation.id}')" title="Zmazať">🗑️</button>
+                    <div style="display:flex; gap:4px;">
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="AutomationsModule.editAutomation('${automation.id}')" title="Upraviť" style="padding:0 8px;">${I.Edit({size:14})}</button>
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="AutomationsModule.deleteAutomation('${automation.id}')" title="Zmazať" style="color:var(--err); padding:0 8px;">${I.Trash({size:14})}</button>
                     </div>
                 </div>
-                
-                <div class="auto-flow">
-                    <div class="flow-trigger">
-                        <span class="flow-icon">${trigger.icon}</span>
-                        <span class="flow-label">${trigger.label}</span>
-                        ${automation.trigger_config?.status ? `<span class="flow-detail">→ ${automation.trigger_config.status}</span>` : ''}
-                        ${automation.trigger_config?.days ? `<span class="flow-detail">${automation.trigger_config.days} dní</span>` : ''}
-                    </div>
-                    <div class="flow-arrow">→</div>
-                    <div class="flow-action">
-                        <span class="flow-icon">${action.icon}</span>
-                        <span class="flow-label">${action.label}</span>
-                    </div>
+
+                <div style="display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--n-50); border-radius:8px; flex-wrap:wrap;">
+                    <span class="adl-chip adl-chip-sky adl-chip-sm">${I.Zap({size:11})} ${trigger.label}</span>
+                    ${automation.trigger_config?.status ? `<span style="font-size:11px; color:var(--ink-mute);">${automation.trigger_config.status}</span>` : ''}
+                    ${automation.trigger_config?.days ? `<span style="font-size:11px; color:var(--ink-mute);">${automation.trigger_config.days} dní</span>` : ''}
+                    <span style="color:var(--ink-mute); display:inline-flex;">${I.ArrowRight({size:12})}</span>
+                    <span class="adl-chip adl-chip-brand adl-chip-sm">${I.Play({size:11})} ${action.label}</span>
                 </div>
-                
-                <div class="auto-footer">
-                    <span class="auto-runs">🔄 ${automation.run_count || 0} spustení</span>
-                    ${automation.last_run_at ? `<span class="auto-last">Posledné: ${this.formatDate(automation.last_run_at)}</span>` : ''}
+
+                <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--ink-mute);">
+                    <span style="display:inline-flex; align-items:center; gap:4px;">${I.Clock({size:11})} ${automation.run_count || 0} spustení</span>
+                    ${automation.last_run_at ? `<span>Posledné: ${this.formatDate(automation.last_run_at)}</span>` : ''}
                 </div>
             </div>
         `;
@@ -195,41 +176,21 @@ const AutomationsModule = {
 
     renderTemplates() {
         const templates = [
-            {
-                name: 'Follow-up po 3 dňoch',
-                trigger: 'lead_status_changed',
-                action: 'send_email',
-                description: 'Automatický follow-up keď lead dostane ponuku'
-            },
-            {
-                name: 'Upomienka faktúry',
-                trigger: 'invoice_overdue',
-                action: 'send_email',
-                description: 'Email keď je faktúra po splatnosti'
-            },
-            {
-                name: 'Notifikácia pri novom leade',
-                trigger: 'lead_created',
-                action: 'create_notification',
-                description: 'Upozornenie keď príde nový lead'
-            },
-            {
-                name: 'Úloha po schválení',
-                trigger: 'lead_status_changed',
-                action: 'create_task',
-                description: 'Vytvoriť úlohu keď klient schváli ponuku'
-            }
+            { name: 'Follow-up po 3 dňoch',   trigger: 'lead_status_changed', action: 'send_email',          description: 'Automatický follow-up keď lead dostane ponuku' },
+            { name: 'Upomienka faktúry',      trigger: 'invoice_overdue',     action: 'send_email',          description: 'Email keď je faktúra po splatnosti' },
+            { name: 'Notifikácia pri novom leade', trigger: 'lead_created',    action: 'create_notification', description: 'Upozornenie keď príde nový lead' },
+            { name: 'Úloha po schválení',     trigger: 'lead_status_changed', action: 'create_task',         description: 'Vytvoriť úlohu keď klient schváli ponuku' }
         ];
 
         return templates.map(t => `
-            <div class="template-card" onclick="AutomationsModule.useTemplate('${t.name}')">
-                <div class="template-icons">
-                    <span>${this.triggers[t.trigger]?.icon || '⚙️'}</span>
-                    <span class="template-arrow">→</span>
-                    <span>${this.actions[t.action]?.icon || '▶️'}</span>
+            <div onclick="AutomationsModule.useTemplate('${t.name}')" style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; cursor:pointer; transition: border-color .12s, box-shadow .12s;" onmouseover="this.style.borderColor='var(--brand-400)'; this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--brand-600);">
+                    ${I.Zap({size:14})}
+                    <span style="color:var(--ink-mute); display:inline-flex;">${I.ArrowRight({size:12})}</span>
+                    ${I.Play({size:14})}
                 </div>
-                <h4>${t.name}</h4>
-                <p>${t.description}</p>
+                <div style="font-size:13px; font-weight:600; color:var(--ink); margin-bottom:4px;">${t.name}</div>
+                <div style="font-size:11px; color:var(--ink-sub); line-height:1.4;">${t.description}</div>
             </div>
         `).join('');
     },

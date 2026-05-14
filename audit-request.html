@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit zadarmo · Adlify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/js/utils/prospects.js"></script>
+<style>
+  :root {
+    --brand: #F97316;
+    --brand-dark: #EA580C;
+    --brand-50: #FFF4EC;
+    --brand-100: #FFE6D3;
+    --ink: #14120E;
+    --ink-soft: #3A352B;
+    --muted: #6F6758;
+    --muted-light: #948B7C;
+    --bg: #F7F5F1;
+    --surface: #FFFFFF;
+    --border: #EAE6DE;
+    --success: #16A34A;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+  .brand-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .brand-mark {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--brand);
+    color: #fff;
+    font-weight: 800;
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brand-name {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px 32px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--brand-50);
+    color: var(--brand-dark);
+    border: 1px solid var(--brand-100);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    margin-bottom: 20px;
+  }
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success);
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 12px;
+    letter-spacing: -0.6px;
+    line-height: 1.2;
+  }
+  .lead {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0 0 28px;
+  }
+  .lead strong { color: var(--ink); font-weight: 600; }
+
+  .checklist {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin: 0 0 28px;
+  }
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    padding: 6px 0;
+  }
+  .checklist-item svg { flex-shrink: 0; margin-top: 2px; }
+
+  .form-group {
+    margin: 0 0 20px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin: 0 0 8px;
+    letter-spacing: -0.1px;
+  }
+  .options {
+    display: grid;
+    gap: 8px;
+  }
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all .15s ease;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .option:hover { border-color: var(--brand); background: var(--brand-50); }
+  .option input[type="radio"] { margin: 0; accent-color: var(--brand); }
+  .option.selected {
+    border-color: var(--brand);
+    background: var(--brand-50);
+    color: var(--ink);
+  }
+  textarea, input[type="email"], input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--ink);
+    transition: border-color .15s;
+  }
+  textarea:focus, input:focus { outline: none; border-color: var(--brand); }
+  textarea { min-height: 80px; resize: vertical; }
+
+  .btn-primary {
+    display: block;
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--brand);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    margin-top: 8px;
+    font-family: inherit;
+    letter-spacing: -0.2px;
+  }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .trust {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted-light);
+    line-height: 1.5;
+  }
+
+  .success-state, .error-state {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .success-icon, .error-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .success-icon { background: #DCFCE7; color: var(--success); }
+  .error-icon { background: #FEE2E2; color: #DC2626; }
+  .success-state h2, .error-state h2 {
+    font-size: 22px; font-weight: 700; margin: 0 0 12px; color: var(--ink);
+  }
+  .success-state p, .error-state p {
+    color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 0 8px;
+  }
+
+  .skeleton {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--brand);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer {
+    margin-top: 32px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted-light);
+  }
+  .footer a { color: var(--muted); text-decoration: none; }
+
+  @media (max-width: 480px) {
+    .page { padding: 24px 16px 60px; }
+    .card { padding: 28px 22px; border-radius: 16px; }
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brand-header">
+    <div class="brand-mark">A</div>
+    <div class="brand-name">Adlify</div>
+  </div>
+
+  <div id="app" class="card">
+    <div class="skeleton">
+      <div class="spinner"></div>
+      <div>Načítavam...</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Adlify · <a href="mailto:info@adlify.eu">info@adlify.eu</a> · <a href="tel:+421944184045">+421 944 184 045</a>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let auditToken = null;
+  let prospectData = null;
+
+  const ICONS = {
+    check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    success: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    error: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  };
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    auditToken = params.get('t') || params.get('token');
+
+    if (!auditToken) {
+      return showError('Chýba token', 'Odkaz nie je platný. Použite prosím link z emailu.');
+    }
+
+    try {
+      const { data: prospect, error } = await db
+        .from('prospects')
+        .select('id, company_name, domain, contact_person, email, phone, industry, city, audit_requested_at, audit_delivered_at, outreach_stage, audit_token, converted_to_lead_id')
+        .eq('audit_token', auditToken)
+        .single();
+
+      if (error || !prospect) {
+        return showError('Audit nenájdený', 'Tento odkaz už nie je platný. Kontaktujte nás cez info@adlify.eu.');
+      }
+
+      prospectData = prospect;
+
+      // Ak uz bol audit dorucenu, presmeruj na nej
+      if (prospect.audit_delivered_at) {
+        window.location.href = '/audit.html?t=' + auditToken;
+        return;
+      }
+
+      // Ak uz raz vyplnil ale audit este nebol dorucenu, ukaz "v priprave"
+      if (prospect.audit_requested_at) {
+        return showInProgress();
+      }
+
+      renderForm();
+    } catch (err) {
+      console.error(err);
+      showError('Chyba', 'Nepodarilo sa načítať audit. Skúste to znova neskôr.');
+    }
+  }
+
+  function renderForm() {
+    const app = document.getElementById('app');
+    const company = prospectData.company_name || prospectData.domain;
+    const greeting = prospectData.contact_person ? prospectData.contact_person : 'Dobrý deň';
+
+    app.innerHTML = `
+      <span class="badge">Bezplatná analýza · 5 voľných miest</span>
+
+      <h1>Pripravím vám mini-audit pre <strong>${escapeHtml(company)}</strong></h1>
+
+      <p class="lead">
+        ${escapeHtml(greeting)}, ďakujem za záujem. Pred tým než začnem, povedzte mi prosím jednu vec — pomôže mi to zamerať audit na to čo vás reálne pohne.
+      </p>
+
+      <div class="checklist">
+        <div class="checklist-item">${ICONS.check}<span>Technický audit webu (rýchlosť, SEO, mobile)</span></div>
+        <div class="checklist-item">${ICONS.check}<span>Aktuálne reklamy + porovnanie s konkurenciou</span></div>
+        <div class="checklist-item">${ICONS.check}<span>3 konkrétne odporúčania s čím začať</span></div>
+      </div>
+
+      <form id="audit-form" onsubmit="submitForm(event)">
+        <div class="form-group">
+          <label>Čo je vaša najväčšia priorita?</label>
+          <div class="options" id="priority-options">
+            ${renderOption('more_leads', 'Viac kontaktov / rezervácií')}
+            ${renderOption('lower_cpa', 'Nižšia cena za zákazníka')}
+            ${renderOption('brand', 'Známosť značky / dosah')}
+            ${renderOption('all', 'Všetko dokopy — celkový rast')}
+            ${renderOption('other', 'Iné (napíšem v poznámke)')}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="note">Niečo doplniť? (nepovinné)</label>
+          <textarea id="note" placeholder="Napr. snažíme sa rozbiehať Meta reklamy ale neviem ako..."></textarea>
+        </div>
+
+        ${!prospectData.email ? `
+        <div class="form-group">
+          <label for="email">Email pre doručenie auditu</label>
+          <input type="email" id="email" required placeholder="vasa@firma.sk">
+        </div>
+        ` : ''}
+
+        <button type="submit" class="btn-primary" id="btn-submit">
+          Áno, chcem mini-audit zadarmo
+        </button>
+        <p class="trust">Doručím do 48 hodín · Žiadne predajné taktiky · Žiadny spam</p>
+      </form>
+    `;
+
+    document.querySelectorAll('.option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        document.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        opt.querySelector('input[type="radio"]').checked = true;
+      });
+    });
+  }
+
+  function renderOption(value, label) {
+    return `
+      <label class="option">
+        <input type="radio" name="priority" value="${value}">
+        <span>${label}</span>
+      </label>
+    `;
+  }
+
+  async function submitForm(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit');
+    const priorityEl = document.querySelector('input[name="priority"]:checked');
+    const note = document.getElementById('note').value.trim();
+    const emailEl = document.getElementById('email');
+    const email = emailEl ? emailEl.value.trim() : prospectData.email;
+
+    if (!priorityEl) {
+      alert('Označte prosím vašu prioritu.');
+      return;
+    }
+    if (!email) {
+      alert('Zadajte prosím email pre doručenie auditu.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Odosielam...';
+
+    try {
+      // 1. Update lead s audit_request_data
+      const requestData = {
+        priority: priorityEl.value,
+        note: note || null,
+        submitted_at: new Date().toISOString()
+      };
+
+      const updateData = {
+        audit_requested_at: new Date().toISOString(),
+        audit_request_data: requestData,
+        outreach_stage: 'audit_requested'
+      };
+      if (!prospectData.email && email) updateData.email = email;
+
+      // 1. Update prospect a (podľa pravidiel) auto-promote na lead
+      if (window.Prospects && prospectData.id) {
+        const { prospect: updated, promoted } = await window.Prospects.recordEventAndMaybePromote(
+          prospectData.id,
+          'audit_requested',
+          updateData,
+          { client: db }
+        );
+        if (!updated) throw new Error('Update zlyhal');
+        console.log('Prospect updated.', promoted ? 'Promoted to lead.' : 'Not promoted.');
+      } else {
+        // fallback bez helpera — len update prospectu
+        const { error: updErr } = await db
+          .from('prospects')
+          .update(updateData)
+          .eq('audit_token', auditToken);
+        if (updErr) throw updErr;
+      }
+
+      // 2. Spusti deep-audit edge function (asynchronne, klient nemusi cakat)
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/deep-audit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ audit_token: auditToken })
+        });
+      } catch (e) {
+        console.warn('Edge function trigger failed (will retry from admin):', e);
+      }
+
+      // 3. Notifikácia ownerovi + automation rules (fire-and-forget)
+      try {
+        fetch('/.netlify/functions/notify-outreach-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prospectId: prospectData.id,
+            event: 'audit_requested',
+            note: note || null,
+          }),
+        }).catch(e => console.warn('notify failed:', e));
+        fetch('/.netlify/functions/automation-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prospectId: prospectData.id,
+            event: 'audit_requested',
+          }),
+        }).catch(e => console.warn('automation failed:', e));
+      } catch (e) { /* non-critical */ }
+
+      showInProgress();
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = 'Áno, chcem mini-audit zadarmo';
+      alert('Chyba pri odosielaní. Skúste znova alebo nás kontaktujte na info@adlify.eu.');
+    }
+  }
+
+  function showInProgress() {
+    document.getElementById('app').innerHTML = `
+      <div class="success-state">
+        <div class="success-icon">${ICONS.success}</div>
+        <h2>Audit pripravujem</h2>
+        <p>Vaša žiadosť je prijatá. Audit doručím na váš email <strong>do 48 hodín</strong>.</p>
+        <p style="margin-top:16px;font-size:13px;color:var(--muted-light);">Ak by ste medzičasom mali otázku, napíšte mi priamo na <a href="mailto:info@adlify.eu" style="color:var(--brand);text-decoration:none;">info@adlify.eu</a>.</p>
+      </div>
+    `;
+  }
+
+  function showError(title, message) {
+    document.getElementById('app').innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">${ICONS.error}</div>
+        <h2>${escapeHtml(title)}</h2>
+        <p>${escapeHtml(message)}</p>
+      </div>
+    `;
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -30,158 +30,95 @@ const BillingModule = {
     // Modal pre výber typu nového dokladu
     showNewDocumentModal() {
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
+        modal.className = 'modal-overlay adl';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(20,18,14,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px;';
+
+        const options = [
+            { fn: 'createInvoice',  title: 'Faktúra',          desc: 'Štandardná faktúra za služby',       icon: I.Invoice, tone: 'brand' },
+            { fn: 'createProforma', title: 'Zálohová faktúra', desc: 'Predfaktúra pre platbu vopred',      icon: I.Docs,    tone: 'sky' },
+            { fn: 'createQuote',    title: 'Cenová ponuka',    desc: 'Ponuka pre potenciálneho klienta',    icon: I.Edit,    tone: 'lav' },
+            { fn: 'createOrder',    title: 'Objednávka',       desc: 'Potvrdená objednávka od klienta',    icon: I.Package, tone: 'mint' }
+        ];
+
         modal.innerHTML = `
-            <div class="document-type-modal">
-                <div class="dtm-header">
-                    <h2>Nový doklad</h2>
-                    <p>Vyberte typ dokladu, ktorý chcete vytvoriť</p>
+            <div style="background:var(--surface); border-radius:14px; max-width:520px; width:100%; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg); border:1px solid var(--border);">
+                <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h2 style="font-size:15px; font-weight:600; margin:0;">Nový doklad</h2>
+                        <p style="font-size:12px; color:var(--ink-sub); margin:2px 0 0;">Vyberte typ dokladu</p>
+                    </div>
+                    <button onclick="this.closest('.modal-overlay').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
                 </div>
-                <div class="dtm-options">
-                    <button class="dtm-option" onclick="BillingModule.createInvoice(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="16" y1="13" x2="8" y2="13"></line>
-                                <line x1="16" y1="17" x2="8" y2="17"></line>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Faktúra</span>
-                            <span class="dtm-desc">Štandardná faktúra za služby</span>
-                        </div>
-                    </button>
-                    
-                    <button class="dtm-option" onclick="BillingModule.createProforma(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="12" y1="18" x2="12" y2="12"></line>
-                                <line x1="9" y1="15" x2="15" y2="15"></line>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Zálohová faktúra</span>
-                            <span class="dtm-desc">Predfaktúra pre platbu vopred</span>
-                        </div>
-                    </button>
-                    
-                    <button class="dtm-option" onclick="BillingModule.createQuote(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="9" y1="15" x2="15" y2="15"></line>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Cenová ponuka</span>
-                            <span class="dtm-desc">Ponuka pre potenciálneho klienta</span>
-                        </div>
-                    </button>
-                    
-                    <button class="dtm-option" onclick="BillingModule.createOrder(); this.closest('.modal-overlay').remove();">
-                        <div class="dtm-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                                <circle cx="9" cy="21" r="1"></circle>
-                                <circle cx="20" cy="21" r="1"></circle>
-                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                            </svg>
-                        </div>
-                        <div class="dtm-text">
-                            <span class="dtm-title">Objednávka</span>
-                            <span class="dtm-desc">Potvrdená objednávka od klienta</span>
-                        </div>
-                    </button>
-                </div>
-                <div class="dtm-footer">
-                    <button class="dtm-cancel" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
+                <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
+                    ${options.map(o => `
+                        <button onclick="BillingModule.${o.fn}(); this.closest('.modal-overlay').remove();" style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; cursor:pointer; text-align:left; font-family:inherit; color:var(--ink); transition:border-color .12s, background .12s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.background='var(--n-25)'" onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--surface)'">
+                            <div style="width:40px; height:40px; border-radius:10px; background:var(--acc-${o.tone === 'brand' ? 'amber' : o.tone}); color:var(--acc-${o.tone === 'brand' ? 'amber' : o.tone}-ink); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${o.icon({size:20})}</div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:14px; font-weight:600; color:var(--ink);">${o.title}</div>
+                                <div style="font-size:12px; color:var(--ink-sub);">${o.desc}</div>
+                            </div>
+                            <span style="color:var(--ink-mute); flex-shrink:0;">${I.Chevron({size:14})}</span>
+                        </button>
+                    `).join('')}
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
-        
-        // Zavrieť kliknutím mimo
+
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
     },
 
     async render(container, params = {}) {
-        // Načítanie dát
         await this.loadData();
-        
+
         const invoices = this.invoices.filter(i => i.invoice_type === 'invoice');
         const proformas = this.invoices.filter(i => i.invoice_type === 'proforma');
-        
+        const tab = this.currentTab || 'invoices';
+
         container.innerHTML = `
-            <div class="billing-module-new">
-                <!-- Header s gradientom -->
-                <div class="billing-header">
-                    <div class="header-content">
-                        <div class="header-title">
-                            <h1>Fakturácia</h1>
-                            <p class="header-subtitle">Správa faktúr, ponúk a objednávok</p>
-                        </div>
-                        <div class="header-actions">
-                            <button class="btn-new-document" onclick="BillingModule.showNewDocumentModal()">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                </svg>
-                                Nový doklad
-                            </button>
-                        </div>
+            <div class="adl billing-module-new">
+                <!-- Header -->
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Fakturácia</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Faktúry, ponuky a objednávky</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="BillingModule.showNewDocumentModal()">${I.Plus({size:14})} Nový doklad</button>
                     </div>
                 </div>
-                
-                <!-- Štatistiky -->
+
+                <!-- Stats -->
                 <div class="billing-stats-grid">
                     ${this.renderStats()}
                 </div>
-                
-                <!-- Taby -->
-                <div class="billing-tabs-container">
-                    <div class="billing-tabs-new">
-                        <button class="tab-btn-new ${this.currentTab === 'invoices' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('invoices')">
-                            <span class="tab-icon">📄</span>
-                            <span class="tab-label">Faktúry</span>
-                            <span class="tab-count">${invoices.length}</span>
+
+                <!-- Tabs -->
+                <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin:16px 0; flex-wrap:wrap;" class="adl-billing-tabs">
+                    ${[
+                        ['invoices', 'Faktúry', invoices.length],
+                        ['proformas', 'Zálohové', proformas.length],
+                        ['quotes', 'Ponuky', this.quotes.length],
+                        ['orders', 'Objednávky', this.orders.length]
+                    ].map(([k, l, c]) => `
+                        <button onclick="BillingModule.switchTab('${k}')" class="tab-btn-new ${tab===k?'active':''}" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:${tab===k?'600':'500'}; color:${tab===k?'var(--ink)':'var(--ink-sub)'}; background:${tab===k?'var(--surface)':'transparent'}; box-shadow:${tab===k?'0 1px 2px rgba(0,0,0,.05)':'none'}; border:0; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                            ${l}
+                            <span class="adl-chip adl-chip-sm ${tab===k?'adl-chip-ink':''}">${c}</span>
                         </button>
-                        <button class="tab-btn-new ${this.currentTab === 'proformas' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('proformas')">
-                            <span class="tab-icon">📋</span>
-                            <span class="tab-label">Zálohové</span>
-                            <span class="tab-count">${proformas.length}</span>
-                        </button>
-                        <button class="tab-btn-new ${this.currentTab === 'quotes' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('quotes')">
-                            <span class="tab-icon">📝</span>
-                            <span class="tab-label">Ponuky</span>
-                            <span class="tab-count">${this.quotes.length}</span>
-                        </button>
-                        <button class="tab-btn-new ${this.currentTab === 'orders' ? 'active' : ''}" 
-                                onclick="BillingModule.switchTab('orders')">
-                            <span class="tab-icon">🛒</span>
-                            <span class="tab-label">Objednávky</span>
-                            <span class="tab-count">${this.orders.length}</span>
-                        </button>
-                    </div>
+                    `).join('')}
                 </div>
-                
+
                 <!-- Content -->
-                <div class="billing-content-area" id="billing-content">
+                <div id="billing-content">
                     ${this.renderTabContent()}
                 </div>
             </div>
-            
+
             ${this.renderStyles()}
         `;
-        
-        // Inicializácia dropdown
+
         this.initDropdowns();
     },
 
@@ -240,71 +177,32 @@ const BillingModule = {
             const now = new Date();
             return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
         });
-        
+
         const totalUnpaid = unpaid.reduce((sum, i) => sum + parseFloat(i.remaining_amount || i.total || 0), 0);
         const totalOverdue = overdue.reduce((sum, i) => sum + parseFloat(i.remaining_amount || i.total || 0), 0);
         const totalThisMonth = thisMonth.reduce((sum, i) => sum + parseFloat(i.total || 0), 0);
         const paidThisMonth = thisMonth.filter(i => i.status === 'paid').reduce((sum, i) => sum + parseFloat(i.total || 0), 0);
-        
+
         return `
-            <div class="stat-card-new">
-                <div class="stat-card-icon orange">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                    </svg>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px;" class="adl-billing-stats">
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Neuhradené</div><span class="adl-chip adl-chip-amber adl-chip-sm">${unpaid.length} faktúr</span></div>
+                    <div class="adl-stat-value">${this.formatMoney(totalUnpaid)}</div>
                 </div>
-                <div class="stat-card-content">
-                    <span class="stat-card-value">${this.formatMoney(totalUnpaid)}</span>
-                    <span class="stat-card-label">Neuhradené</span>
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Po splatnosti</div>${overdue.length > 0 ? `<span class="adl-chip adl-chip-err adl-chip-sm">${overdue.length}</span>` : '<span class="adl-chip adl-chip-ok adl-chip-sm">0</span>'}</div>
+                    <div class="adl-stat-value" style="${overdue.length > 0 ? 'color:var(--err);' : ''}">${this.formatMoney(totalOverdue)}</div>
                 </div>
-                <div class="stat-card-badge">${unpaid.length}</div>
-            </div>
-            
-            <div class="stat-card-new ${overdue.length > 0 ? 'warning' : ''}">
-                <div class="stat-card-icon red">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                    </svg>
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Tento mesiac</div><span class="adl-chip adl-chip-sky adl-chip-sm">${thisMonth.length}</span></div>
+                    <div class="adl-stat-value">${this.formatMoney(totalThisMonth)}</div>
                 </div>
-                <div class="stat-card-content">
-                    <span class="stat-card-value">${this.formatMoney(totalOverdue)}</span>
-                    <span class="stat-card-label">Po splatnosti</span>
-                </div>
-                <div class="stat-card-badge red">${overdue.length}</div>
-            </div>
-            
-            <div class="stat-card-new">
-                <div class="stat-card-icon blue">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                </div>
-                <div class="stat-card-content">
-                    <span class="stat-card-value">${this.formatMoney(totalThisMonth)}</span>
-                    <span class="stat-card-label">Tento mesiac</span>
-                </div>
-                <div class="stat-card-badge">${thisMonth.length}</div>
-            </div>
-            
-            <div class="stat-card-new success">
-                <div class="stat-card-icon green">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                </div>
-                <div class="stat-card-content">
-                    <span class="stat-card-value">${this.formatMoney(paidThisMonth)}</span>
-                    <span class="stat-card-label">Uhradené tento mesiac</span>
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Uhradené / mes</div><span class="adl-chip adl-chip-ok adl-chip-sm">paid</span></div>
+                    <div class="adl-stat-value">${this.formatMoney(paidThisMonth)}</div>
                 </div>
             </div>
+            <style>@media (max-width: 900px) { .adl-billing-stats { grid-template-columns: repeat(2, 1fr) !important; } }</style>
         `;
     },
 
@@ -337,25 +235,25 @@ const BillingModule = {
     renderInvoicesTable(type) {
         const invoices = this.invoices.filter(i => i.invoice_type === type);
         const typeLabel = type === 'invoice' ? 'faktúr' : 'zálohových faktúr';
-        
+
         if (invoices.length === 0) {
             return `
-                <div class="empty-state">
-                    <div class="empty-icon">${type === 'invoice' ? '📄' : '📋'}</div>
-                    <h3>Žiadne ${typeLabel}</h3>
-                    <p>Vytvorte prvú ${type === 'invoice' ? 'faktúru' : 'zálohovú faktúru'}</p>
-                    <button class="btn btn-primary" onclick="BillingModule.${type === 'invoice' ? 'createInvoice' : 'createProforma'}()">
-                        + Nový doklad
-                    </button>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Invoice({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne ${typeLabel}</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte prvú ${type === 'invoice' ? 'faktúru' : 'zálohovú faktúru'}</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="BillingModule.${type === 'invoice' ? 'createInvoice' : 'createProforma'}()">${I.Plus({size:14})} Nový doklad</button>
                 </div>
             `;
         }
-        
+
         return `
-            <div class="table-filters">
-                <input type="text" class="filter-search" placeholder="Hľadať..." 
-                       onkeyup="BillingModule.filterTable(this.value, 'invoices-table')">
-                <select class="filter-select" onchange="BillingModule.filterByStatus(this.value, 'invoice')">
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
+                <div class="adl-input" style="flex:1; min-width:220px; max-width:340px;">
+                    <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                    <input type="text" placeholder="Hľadať…" onkeyup="BillingModule.filterTable(this.value, 'invoices-table')" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+                </div>
+                <select class="adl-input" onchange="BillingModule.filterByStatus(this.value, 'invoice')" style="width:auto;">
                     <option value="">Všetky stavy</option>
                     <option value="draft">Koncept</option>
                     <option value="issued">Vystavená</option>
@@ -366,50 +264,40 @@ const BillingModule = {
                     <option value="cancelled">Stornovaná</option>
                 </select>
             </div>
-            
-            <div class="table-container">
-                <table class="data-table" id="invoices-table">
+
+            <div class="adl-table-wrap">
+                <table class="adl-table" id="invoices-table">
                     <thead>
                         <tr>
                             <th>Číslo</th>
                             <th>Klient</th>
-                            <th>Dátum vystavenia</th>
+                            <th>Vystavené</th>
                             <th>Splatnosť</th>
-                            <th>Suma</th>
-                            <th>Uhradené</th>
+                            <th style="text-align:right;">Suma</th>
+                            <th style="text-align:right;">Uhradené</th>
                             <th>Stav</th>
-                            <th>Akcie</th>
+                            <th style="width:180px;">Akcie</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${invoices.map(inv => `
-                            <tr class="${inv.computed_status === 'overdue' ? 'row-warning' : ''}" data-status="${inv.status}">
-                                <td>
-                                    <a href="#" onclick="BillingModule.showInvoiceDetail('${inv.id}'); return false;">
-                                        <strong>${inv.invoice_number}</strong>
-                                    </a>
-                                </td>
-                                <td>
-                                    <div class="client-cell">
-                                        <span class="client-name">${inv.client_company || inv.client_name || '-'}</span>
-                                    </div>
-                                </td>
-                                <td>${this.formatDate(inv.issue_date)}</td>
-                                <td>
+                            <tr data-status="${inv.status}">
+                                <td><a href="#" onclick="BillingModule.showInvoiceDetail('${inv.id}'); return false;" class="mono" style="font-weight:600; color:var(--ink);">${inv.invoice_number}</a></td>
+                                <td>${inv.client_company || inv.client_name || '—'}</td>
+                                <td class="mono" style="font-size:12px;">${this.formatDate(inv.issue_date)}</td>
+                                <td class="mono" style="font-size:12px;">
                                     ${this.formatDate(inv.due_date)}
-                                    ${inv.days_until_due < 0 ? `<span class="overdue-badge">${Math.abs(inv.days_until_due)} dní</span>` : ''}
+                                    ${inv.days_until_due < 0 ? `<span class="adl-chip adl-chip-err adl-chip-sm" style="margin-left:4px;">${Math.abs(inv.days_until_due)} d</span>` : ''}
                                 </td>
-                                <td><strong>${this.formatMoney(inv.total)}</strong></td>
-                                <td>${this.formatMoney(inv.paid_amount || 0)}</td>
+                                <td class="mono" style="text-align:right; font-weight:600;">${this.formatMoney(inv.total)}</td>
+                                <td class="mono" style="text-align:right; color:var(--ink-sub);">${this.formatMoney(inv.paid_amount || 0)}</td>
                                 <td>${this.renderInvoiceStatus(inv.computed_status || inv.status)}</td>
                                 <td>
-                                    <div class="action-buttons">
-                                        <button class="btn-icon" title="Detail" onclick="BillingModule.showInvoiceDetail('${inv.id}')">👁️</button>
-                                        <button class="btn-icon" title="PDF" onclick="BillingModule.downloadPDF('${inv.id}')">📥</button>
-                                        ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `
-                                            <button class="btn-icon" title="Pridať platbu" onclick="BillingModule.addPayment('${inv.id}')">💳</button>
-                                        ` : ''}
-                                        <button class="btn-icon" title="Viac" onclick="BillingModule.showInvoiceMenu('${inv.id}', event)">⋮</button>
+                                    <div style="display:flex; gap:4px;">
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" title="Detail" onclick="BillingModule.showInvoiceDetail('${inv.id}')" style="padding:0 8px;">${I.Eye({size:12})}</button>
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" title="PDF" onclick="BillingModule.downloadPDF('${inv.id}')" style="padding:0 8px;">${I.Download({size:12})}</button>
+                                        ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" title="Pridať platbu" onclick="BillingModule.addPayment('${inv.id}')" style="padding:0 8px;">${I.Money({size:12})}</button>` : ''}
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" title="Viac" onclick="BillingModule.showInvoiceMenu('${inv.id}', event)" style="padding:0 8px;">${I.More({size:12})}</button>
                                     </div>
                                 </td>
                             </tr>
@@ -423,22 +311,22 @@ const BillingModule = {
     renderQuotesTable() {
         if (this.quotes.length === 0) {
             return `
-                <div class="empty-state">
-                    <div class="empty-icon">📝</div>
-                    <h3>Žiadne ponuky</h3>
-                    <p>Vytvorte prvú cenovú ponuku</p>
-                    <button class="btn btn-primary" onclick="BillingModule.createQuote()">
-                        + Nová ponuka
-                    </button>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Docs({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne ponuky</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte prvú cenovú ponuku</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="BillingModule.createQuote()">${I.Plus({size:14})} Nová ponuka</button>
                 </div>
             `;
         }
-        
+
         return `
-            <div class="table-filters">
-                <input type="text" class="filter-search" placeholder="Hľadať..." 
-                       onkeyup="BillingModule.filterTable(this.value, 'quotes-table')">
-                <select class="filter-select" onchange="BillingModule.filterByStatus(this.value, 'quote')">
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
+                <div class="adl-input" style="flex:1; min-width:220px; max-width:340px;">
+                    <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                    <input type="text" placeholder="Hľadať…" onkeyup="BillingModule.filterTable(this.value, 'quotes-table')" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+                </div>
+                <select class="adl-input" onchange="BillingModule.filterByStatus(this.value, 'quote')" style="width:auto;">
                     <option value="">Všetky stavy</option>
                     <option value="draft">Koncept</option>
                     <option value="sent">Odoslaná</option>
@@ -448,9 +336,9 @@ const BillingModule = {
                     <option value="expired">Expirovaná</option>
                 </select>
             </div>
-            
-            <div class="table-container">
-                <table class="data-table" id="quotes-table">
+
+            <div class="adl-table-wrap">
+                <table class="adl-table" id="quotes-table">
                     <thead>
                         <tr>
                             <th>Číslo</th>
@@ -458,39 +346,27 @@ const BillingModule = {
                             <th>Názov</th>
                             <th>Dátum</th>
                             <th>Platnosť do</th>
-                            <th>Suma</th>
+                            <th style="text-align:right;">Suma</th>
                             <th>Stav</th>
-                            <th>Akcie</th>
+                            <th style="width:180px;">Akcie</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${this.quotes.map(q => `
                             <tr data-status="${q.status}">
-                                <td>
-                                    <a href="#" onclick="BillingModule.showQuoteDetail('${q.id}'); return false;">
-                                        <strong>${q.quote_number}</strong>
-                                    </a>
-                                </td>
-                                <td>
-                                    <div class="client-cell">
-                                        <span class="client-name">${q.client_name || q.lead_name || '-'}</span>
-                                    </div>
-                                </td>
-                                <td>${q.title || '-'}</td>
-                                <td>${this.formatDate(q.issue_date)}</td>
-                                <td>${q.valid_until ? this.formatDate(q.valid_until) : '-'}</td>
-                                <td><strong>${this.formatMoney(q.total)}</strong></td>
+                                <td><a href="#" onclick="BillingModule.showQuoteDetail('${q.id}'); return false;" class="mono" style="font-weight:600; color:var(--ink);">${q.quote_number}</a></td>
+                                <td>${q.client_name || q.lead_name || '—'}</td>
+                                <td>${q.title || '—'}</td>
+                                <td class="mono" style="font-size:12px;">${this.formatDate(q.issue_date)}</td>
+                                <td class="mono" style="font-size:12px;">${q.valid_until ? this.formatDate(q.valid_until) : '—'}</td>
+                                <td class="mono" style="text-align:right; font-weight:600;">${this.formatMoney(q.total)}</td>
                                 <td>${this.renderQuoteStatus(q.status)}</td>
                                 <td>
-                                    <div class="action-buttons">
-                                        <button class="btn-icon" title="Detail" onclick="BillingModule.showQuoteDetail('${q.id}')">👁️</button>
-                                        ${q.status === 'sent' || q.status === 'accepted' ? `
-                                            <button class="btn-icon" title="Vytvoriť objednávku" onclick="BillingModule.createOrderFromQuote('${q.id}')">🛒</button>
-                                        ` : ''}
-                                        ${q.status === 'accepted' ? `
-                                            <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromQuote('${q.id}')">📄</button>
-                                        ` : ''}
-                                        <button class="btn-icon" title="Viac" onclick="BillingModule.showQuoteMenu('${q.id}', event)">⋮</button>
+                                    <div style="display:flex; gap:4px;">
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" title="Detail" onclick="BillingModule.showQuoteDetail('${q.id}')" style="padding:0 8px;">${I.Eye({size:12})}</button>
+                                        ${q.status === 'sent' || q.status === 'accepted' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" title="Vytvoriť objednávku" onclick="BillingModule.createOrderFromQuote('${q.id}')" style="padding:0 8px;">${I.Package({size:12})}</button>` : ''}
+                                        ${q.status === 'accepted' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromQuote('${q.id}')" style="padding:0 8px;">${I.Invoice({size:12})}</button>` : ''}
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" title="Viac" onclick="BillingModule.showQuoteMenu('${q.id}', event)" style="padding:0 8px;">${I.More({size:12})}</button>
                                     </div>
                                 </td>
                             </tr>
@@ -504,22 +380,22 @@ const BillingModule = {
     renderOrdersTable() {
         if (this.orders.length === 0) {
             return `
-                <div class="empty-state">
-                    <div class="empty-icon">🛒</div>
-                    <h3>Žiadne objednávky</h3>
-                    <p>Vytvorte novú objednávku alebo ju vytvorte z ponuky</p>
-                    <button class="btn btn-primary" onclick="BillingModule.createOrder()">
-                        + Nová objednávka
-                    </button>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Package({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne objednávky</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte novú objednávku alebo ju vytvorte z ponuky</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="BillingModule.createOrder()">${I.Plus({size:14})} Nová objednávka</button>
                 </div>
             `;
         }
-        
+
         return `
-            <div class="table-filters">
-                <input type="text" class="filter-search" placeholder="Hľadať..." 
-                       onkeyup="BillingModule.filterTable(this.value, 'orders-table')">
-                <select class="filter-select" onchange="BillingModule.filterByStatus(this.value, 'order')">
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
+                <div class="adl-input" style="flex:1; min-width:220px; max-width:340px;">
+                    <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                    <input type="text" placeholder="Hľadať…" onkeyup="BillingModule.filterTable(this.value, 'orders-table')" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+                </div>
+                <select class="adl-input" onchange="BillingModule.filterByStatus(this.value, 'order')" style="width:auto;">
                     <option value="">Všetky stavy</option>
                     <option value="new">Nová</option>
                     <option value="confirmed">Potvrdená</option>
@@ -528,37 +404,33 @@ const BillingModule = {
                     <option value="cancelled">Zrušená</option>
                 </select>
             </div>
-            
-            <div class="table-container">
-                <table class="data-table" id="orders-table">
+
+            <div class="adl-table-wrap">
+                <table class="adl-table" id="orders-table">
                     <thead>
                         <tr>
                             <th>Číslo</th>
                             <th>Klient</th>
                             <th>Z ponuky</th>
                             <th>Dátum</th>
-                            <th>Suma</th>
+                            <th style="text-align:right;">Suma</th>
                             <th>Stav</th>
-                            <th>Akcie</th>
+                            <th style="width:110px;">Akcie</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${this.orders.map(o => `
                             <tr data-status="${o.status}">
-                                <td>
-                                    <a href="#" onclick="BillingModule.showOrderDetail('${o.id}'); return false;">
-                                        <strong>${o.order_number || '-'}</strong>
-                                    </a>
-                                </td>
-                                <td>${o.client_name || '-'}</td>
-                                <td>${o.quote_number ? `<span class="badge badge-sm">${o.quote_number}</span>` : '-'}</td>
-                                <td>${this.formatDate(o.order_date || o.created_at)}</td>
-                                <td><strong>${this.formatMoney(o.total)}</strong></td>
+                                <td><a href="#" onclick="BillingModule.showOrderDetail('${o.id}'); return false;" class="mono" style="font-weight:600; color:var(--ink);">${o.order_number || '—'}</a></td>
+                                <td>${o.client_name || '—'}</td>
+                                <td>${o.quote_number ? `<span class="adl-chip adl-chip-sm mono">${o.quote_number}</span>` : '—'}</td>
+                                <td class="mono" style="font-size:12px;">${this.formatDate(o.order_date || o.created_at)}</td>
+                                <td class="mono" style="text-align:right; font-weight:600;">${this.formatMoney(o.total)}</td>
                                 <td>${this.renderOrderStatus(o.status)}</td>
                                 <td>
-                                    <div class="action-buttons">
-                                        <button class="btn-icon" title="Vytvoriť zálohovku" onclick="BillingModule.createProformaFromOrder('${o.id}')">📋</button>
-                                        <button class="btn-icon" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromOrder('${o.id}')">📄</button>
+                                    <div style="display:flex; gap:4px;">
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" title="Vytvoriť zálohovku" onclick="BillingModule.createProformaFromOrder('${o.id}')" style="padding:0 8px;">${I.Docs({size:12})}</button>
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" title="Vytvoriť faktúru" onclick="BillingModule.createInvoiceFromOrder('${o.id}')" style="padding:0 8px;">${I.Invoice({size:12})}</button>
                                     </div>
                                 </td>
                             </tr>
@@ -571,14 +443,10 @@ const BillingModule = {
 
     renderPaymentsTab() {
         return `
-            <div class="payments-overview">
-                <h3>💰 Prehľad platieb</h3>
-                <p>Tu bude zoznam všetkých prijatých platieb...</p>
-                
-                <div class="coming-soon">
-                    <span>🚧</span>
-                    <p>Táto sekcia je vo vývoji</p>
-                </div>
+            <div style="padding:40px 24px; text-align:center; background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Money({size:22})}</div>
+                <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Prehľad platieb</h3>
+                <p style="font-size:13px; color:var(--ink-sub); margin:0;">Táto sekcia je vo vývoji — zoznam všetkých prijatých platieb sa tu zobrazí čoskoro</p>
             </div>
         `;
     },
@@ -586,41 +454,41 @@ const BillingModule = {
     // Status badges
     renderInvoiceStatus(status) {
         const statusMap = {
-            draft: { label: 'Koncept', class: 'status-gray' },
-            issued: { label: 'Vystavená', class: 'status-blue' },
-            sent: { label: 'Odoslaná', class: 'status-blue' },
-            paid: { label: 'Uhradená', class: 'status-green' },
-            partially_paid: { label: 'Čiastočne', class: 'status-orange' },
-            overdue: { label: 'Po splatnosti', class: 'status-red' },
-            cancelled: { label: 'Stornovaná', class: 'status-gray' }
+            draft:           { label: 'Koncept',       tone: 'n' },
+            issued:          { label: 'Vystavená',     tone: 'sky' },
+            sent:            { label: 'Odoslaná',      tone: 'sky' },
+            paid:            { label: 'Uhradená',      tone: 'ok' },
+            partially_paid:  { label: 'Čiastočne',     tone: 'amber' },
+            overdue:         { label: 'Po splatnosti', tone: 'err' },
+            cancelled:       { label: 'Stornovaná',    tone: 'n' }
         };
-        const s = statusMap[status] || { label: status, class: 'status-gray' };
-        return `<span class="status-badge ${s.class}">${s.label}</span>`;
+        const s = statusMap[status] || { label: status, tone: 'n' };
+        return `<span class="adl-chip adl-chip-${s.tone} adl-chip-sm"><span class="dot"></span>${s.label}</span>`;
     },
 
     renderQuoteStatus(status) {
         const statusMap = {
-            draft: { label: 'Koncept', class: 'status-gray' },
-            sent: { label: 'Odoslaná', class: 'status-blue' },
-            viewed: { label: 'Zobrazená', class: 'status-purple' },
-            accepted: { label: 'Akceptovaná', class: 'status-green' },
-            rejected: { label: 'Odmietnutá', class: 'status-red' },
-            expired: { label: 'Expirovaná', class: 'status-gray' }
+            draft:    { label: 'Koncept',    tone: 'n' },
+            sent:     { label: 'Odoslaná',   tone: 'sky' },
+            viewed:   { label: 'Zobrazená',  tone: 'lav' },
+            accepted: { label: 'Akceptovaná', tone: 'ok' },
+            rejected: { label: 'Odmietnutá', tone: 'err' },
+            expired:  { label: 'Expirovaná', tone: 'n' }
         };
-        const s = statusMap[status] || { label: status, class: 'status-gray' };
-        return `<span class="status-badge ${s.class}">${s.label}</span>`;
+        const s = statusMap[status] || { label: status, tone: 'n' };
+        return `<span class="adl-chip adl-chip-${s.tone} adl-chip-sm"><span class="dot"></span>${s.label}</span>`;
     },
 
     renderOrderStatus(status) {
         const statusMap = {
-            pending: { label: 'Čaká', class: 'status-orange' },
-            confirmed: { label: 'Potvrdená', class: 'status-blue' },
-            in_progress: { label: 'Rozpracovaná', class: 'status-purple' },
-            completed: { label: 'Dokončená', class: 'status-green' },
-            cancelled: { label: 'Zrušená', class: 'status-gray' }
+            pending:     { label: 'Čaká',         tone: 'amber' },
+            confirmed:   { label: 'Potvrdená',    tone: 'sky' },
+            in_progress: { label: 'Rozpracovaná', tone: 'lav' },
+            completed:   { label: 'Dokončená',    tone: 'ok' },
+            cancelled:   { label: 'Zrušená',      tone: 'n' }
         };
-        const s = statusMap[status] || { label: status, class: 'status-gray' };
-        return `<span class="status-badge ${s.class}">${s.label}</span>`;
+        const s = statusMap[status] || { label: status, tone: 'n' };
+        return `<span class="adl-chip adl-chip-${s.tone} adl-chip-sm"><span class="dot"></span>${s.label}</span>`;
     },
 
     // === CRUD operácie ===

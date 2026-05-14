@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rezervovať call · Adlify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/js/utils/prospects.js"></script>
+<style>
+  :root {
+    --brand: #F97316; --brand-dark: #EA580C; --brand-50: #FFF4EC; --brand-100: #FFE6D3;
+    --ink: #14120E; --ink-soft: #3A352B; --muted: #6F6758; --muted-light: #948B7C;
+    --bg: #F7F5F1; --surface: #FFFFFF; --border: #EAE6DE; --ok: #16A34A;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .page { max-width: 680px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--brand); color: #fff; font-weight: 800; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+  .brand-name { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 32px;
+  }
+  h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.5px; line-height: 1.2; }
+  .subtitle { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 0 28px; }
+
+  .step-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 24px 0 10px; }
+
+  /* Date picker */
+  .dates-scroll {
+    display: flex; gap: 10px; overflow-x: auto; padding: 4px 0 12px;
+    scroll-snap-type: x mandatory;
+  }
+  .date-chip {
+    flex: 0 0 auto; min-width: 80px;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 14px; padding: 14px 16px;
+    text-align: center; cursor: pointer;
+    transition: all .15s; scroll-snap-align: start;
+  }
+  .date-chip:hover { border-color: var(--brand); }
+  .date-chip.selected { border-color: var(--brand); background: var(--brand-50); }
+  .date-day-label { font-size: 11px; color: var(--muted-light); text-transform: uppercase; font-weight: 600; }
+  .date-day { font-size: 20px; font-weight: 700; color: var(--ink); margin: 2px 0; letter-spacing: -0.3px; }
+  .date-month { font-size: 11px; color: var(--muted); text-transform: capitalize; }
+
+  /* Slot picker */
+  .slots {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px;
+  }
+  .slot {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 12px;
+    text-align: center; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: var(--ink-soft);
+    transition: all .15s;
+  }
+  .slot:hover { border-color: var(--brand); }
+  .slot.selected { border-color: var(--brand); background: var(--brand); color: #fff; }
+  .slot.taken { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+  .no-slots { font-size: 14px; color: var(--muted); padding: 16px; text-align: center; background: var(--bg); border-radius: 12px; }
+
+  /* Form */
+  .form-group { margin: 16px 0; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-soft); margin-bottom: 6px; }
+  .form-group input, .form-group textarea {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    font-size: 14px; font-family: inherit; background: var(--surface); color: var(--ink);
+  }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--brand); }
+  .form-group textarea { min-height: 70px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn-primary {
+    display: block; width: 100%; padding: 16px 24px;
+    background: var(--brand); color: #fff;
+    border: none; border-radius: 14px;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    transition: background .15s; font-family: inherit;
+    margin-top: 16px;
+  }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .confirmation {
+    text-align: center; padding: 28px 20px;
+  }
+  .confirmation-icon {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: #DCFCE7; color: var(--ok);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+  }
+  .confirmation h2 { font-size: 24px; font-weight: 700; margin: 0 0 12px; }
+  .confirmation p { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0 0 12px; }
+  .confirmation .details {
+    display: inline-block; text-align: left; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 24px; margin: 16px 0;
+  }
+  .confirmation .details .row-label { font-size: 12px; color: var(--muted-light); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px; }
+  .confirmation .details .row-val { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 16px; }
+
+  .skeleton { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--brand); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 560px) {
+    .page { padding: 20px 14px; }
+    .card { padding: 24px 20px; border-radius: 16px; }
+    h1 { font-size: 22px; }
+    .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brand">
+    <div class="brand-mark">A</div>
+    <div class="brand-name">Adlify</div>
+  </div>
+
+  <div id="app">
+    <div class="skeleton">
+      <div class="spinner"></div>
+      <div>Načítavam dostupné termíny...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let auditToken = null;
+  let lead = null;
+  let availability = [];
+  let bookings = [];
+  let selectedDate = null;
+  let selectedSlot = null;
+
+  function esc(s) { return s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    auditToken = params.get('t') || params.get('token');
+
+    try {
+      // Load prospect (if token provided)
+      if (auditToken) {
+        const { data } = await db
+          .from('prospects')
+          .select('id, company_name, contact_person, email, phone, domain, converted_to_lead_id')
+          .eq('audit_token', auditToken)
+          .single();
+        lead = data; // premenná sa volá 'lead' historicky, v skutočnosti je to prospect
+      }
+
+      // Load availability
+      const { data: avail } = await db.from('call_availability').select('*').eq('active', true);
+      availability = avail || [];
+
+      // Load existing bookings (future, not cancelled)
+      const nowIso = new Date().toISOString();
+      const { data: bk } = await db.from('call_bookings').select('scheduled_at, duration_minutes, status').gte('scheduled_at', nowIso).neq('status', 'cancelled');
+      bookings = bk || [];
+
+      renderPicker();
+    } catch (e) {
+      console.error(e);
+      document.getElementById('app').innerHTML = `<div class="card"><h1>Chyba</h1><p class="subtitle">Nepodarilo sa načítať dostupné termíny. Skúste to neskôr alebo napíšte na info@adlify.eu.</p></div>`;
+    }
+  }
+
+  function renderPicker() {
+    const dates = generateAvailableDates();
+    const company = lead?.company_name || lead?.domain || '';
+
+    document.getElementById('app').innerHTML = `
+      <div class="card">
+        <h1>Rezervovať 15-min hovor</h1>
+        <p class="subtitle">${company ? `Pre <strong>${esc(company)}</strong>. Prejdeme si audit a ukážem konkrétne kroky. Žiadny predaj, žiadny tlak.` : 'Prejdeme si audit a ukážem konkrétne kroky. Žiadny predaj, žiadny tlak.'}</p>
+
+        <p class="step-title">1. Vyberte deň</p>
+        <div class="dates-scroll" id="dates"></div>
+
+        <div id="slots-wrapper" style="display:none;">
+          <p class="step-title">2. Vyberte čas</p>
+          <div class="slots" id="slots"></div>
+        </div>
+
+        <form id="form" style="display:none;" onsubmit="submitBooking(event)">
+          <p class="step-title">3. Vaše údaje</p>
+          <div class="row">
+            <div class="form-group">
+              <label>Meno a priezvisko</label>
+              <input type="text" id="f-name" required value="${esc(lead?.contact_person || '')}">
+            </div>
+            <div class="form-group">
+              <label>Telefón</label>
+              <input type="tel" id="f-phone" required value="${esc(lead?.phone || '')}" placeholder="+421 9XX XXX XXX">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="f-email" required value="${esc(lead?.email || '')}" placeholder="vasa@firma.sk">
+          </div>
+          <div class="form-group">
+            <label>O čom by ste chceli hovoriť? (nepovinné)</label>
+            <textarea id="f-topic" placeholder="Napríklad: chceme rozbehnúť Meta reklamy, no nevieme ako..."></textarea>
+          </div>
+          <button type="submit" class="btn-primary" id="btn-submit">Rezervovať termín</button>
+        </form>
+      </div>
+    `;
+
+    const dEl = document.getElementById('dates');
+    dEl.innerHTML = dates.map(d => `
+      <div class="date-chip" data-date="${d.iso}" onclick="selectDate('${d.iso}')">
+        <div class="date-day-label">${d.weekday}</div>
+        <div class="date-day">${d.day}</div>
+        <div class="date-month">${d.month}</div>
+      </div>
+    `).join('');
+  }
+
+  function generateAvailableDates() {
+    const out = [];
+    const weekdays = ['Ned', 'Pon', 'Uto', 'Str', 'Štv', 'Pia', 'Sob'];
+    const months = ['jan', 'feb', 'mar', 'apr', 'máj', 'jún', 'júl', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      const wd = d.getDay();
+      if (!availability.some(a => a.weekday === wd)) continue;
+      out.push({
+        iso: d.toISOString().split('T')[0],
+        weekday: weekdays[wd],
+        day: d.getDate(),
+        month: months[d.getMonth()],
+      });
+    }
+    return out.slice(0, 10);
+  }
+
+  window.selectDate = function(iso) {
+    selectedDate = iso;
+    selectedSlot = null;
+    document.querySelectorAll('.date-chip').forEach(c => c.classList.toggle('selected', c.dataset.date === iso));
+    renderSlots();
+    document.getElementById('slots-wrapper').style.display = 'block';
+    document.getElementById('form').style.display = 'none';
+  };
+
+  function renderSlots() {
+    const slotsEl = document.getElementById('slots');
+    const d = new Date(selectedDate + 'T00:00:00');
+    const wd = d.getDay();
+    const avail = availability.find(a => a.weekday === wd);
+    if (!avail) { slotsEl.innerHTML = '<div class="no-slots">V tento deň nemáme voľné termíny.</div>'; return; }
+
+    const slots = [];
+    const [sh, sm] = avail.start_time.split(':').map(Number);
+    const [eh, em] = avail.end_time.split(':').map(Number);
+    const dur = avail.slot_duration_minutes || 15;
+    const buf = avail.buffer_minutes || 5;
+    const step = dur + buf;
+    let mins = sh * 60 + sm;
+    const endMins = eh * 60 + em;
+    while (mins + dur <= endMins) {
+      slots.push(mins);
+      mins += step;
+    }
+
+    const now = new Date();
+    const html = slots.map(m => {
+      const hh = String(Math.floor(m / 60)).padStart(2, '0');
+      const mm = String(m % 60).padStart(2, '0');
+      const time = `${hh}:${mm}`;
+      const slotDate = new Date(selectedDate + 'T' + time + ':00');
+      const taken = bookings.some(b => {
+        const bs = new Date(b.scheduled_at);
+        return Math.abs(bs - slotDate) < dur * 60 * 1000;
+      }) || slotDate < now;
+      return `<div class="slot ${taken ? 'taken' : ''}" ${taken ? '' : `onclick="selectSlot('${time}')"`} data-time="${time}">${time}</div>`;
+    }).join('');
+
+    slotsEl.innerHTML = html || '<div class="no-slots">Žiadne voľné termíny.</div>';
+  }
+
+  window.selectSlot = function(time) {
+    selectedSlot = time;
+    document.querySelectorAll('.slot').forEach(s => s.classList.toggle('selected', s.dataset.time === time));
+    document.getElementById('form').style.display = 'block';
+    setTimeout(() => document.getElementById('f-name').focus(), 50);
+  };
+
+  window.submitBooking = async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit');
+    const name = document.getElementById('f-name').value.trim();
+    const phone = document.getElementById('f-phone').value.trim();
+    const email = document.getElementById('f-email').value.trim();
+    const topic = document.getElementById('f-topic').value.trim();
+
+    if (!selectedDate || !selectedSlot) return alert('Vyberte termín');
+    if (!name || !email) return alert('Vyplňte meno a email');
+
+    btn.disabled = true;
+    btn.textContent = 'Rezervujem...';
+
+    try {
+      const scheduledAt = new Date(selectedDate + 'T' + selectedSlot + ':00').toISOString();
+      const icsUid = `adlify-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@adlify.eu`;
+
+      // Ak prospect už má priradený lead (skorší audit click), použi ho rovno.
+      // Inak po vytvorení bookingu spustíme promote a lead_id updatneme spätne.
+      const prospectLeadId = lead?.converted_to_lead_id || null;
+
+      const { data: booking, error } = await db.from('call_bookings').insert({
+        lead_id: prospectLeadId,
+        scheduled_at: scheduledAt,
+        duration_minutes: 15,
+        status: 'booked',
+        contact_name: name,
+        contact_email: email,
+        contact_phone: phone,
+        topic: topic || null,
+        ics_uid: icsUid,
+      }).select().single();
+
+      if (error) throw error;
+
+      // Spusti auto-promote podľa outreach_settings (call_booked default ZAP)
+      if (lead?.id && window.Prospects) {
+        try {
+          const { lead: promotedLead, promoted } = await window.Prospects.recordEventAndMaybePromote(
+            lead.id,
+            'call_booked',
+            { outreach_last_contacted_at: new Date().toISOString() },
+            { client: db }
+          );
+          // Ak prospect bol teraz promoted na lead, priraď lead_id k bookingu spätne
+          if (promoted && promotedLead && booking?.id) {
+            await db.from('call_bookings').update({ lead_id: promotedLead.id }).eq('id', booking.id);
+          }
+        } catch (e) {
+          console.warn('Promote failed (call still booked):', e);
+        }
+      }
+
+      try {
+        await fetch('/.netlify/functions/send-booking-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_id: booking.id }),
+        });
+      } catch (e) { console.warn('Confirmation email failed:', e); }
+
+      showConfirmation(booking);
+    } catch (e) {
+      console.error(e);
+      btn.disabled = false;
+      btn.textContent = 'Rezervovať termín';
+      alert('Chyba pri rezervácii. Skúste iný termín alebo napíšte na info@adlify.eu.');
+    }
+  };
+
+  function showConfirmation(booking) {
+    const d = new Date(booking.scheduled_at);
+    const fmt = d.toLocaleString('sk-SK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    document.getElementById('app').innerHTML = `
+      <div class="card">
+        <div class="confirmation">
+          <div class="confirmation-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h2>Rezervácia potvrdená</h2>
+          <p>Tešíme sa na rozhovor. Potvrdenie som poslal na váš email.</p>
+          <div class="details">
+            <div class="row-label">Termín</div>
+            <div class="row-val">${esc(fmt)}</div>
+            <div class="row-label">Trvanie</div>
+            <div class="row-val" style="margin-bottom:0;">15 minút · telefonicky</div>
+          </div>
+          <p style="font-size:13px;color:var(--muted-light);margin-top:14px;">Ak potrebujete presunúť, stačí odpovedať na potvrdzovací email.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  init();
+</script>
+</body>
+</html>

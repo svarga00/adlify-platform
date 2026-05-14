@@ -96,61 +96,91 @@ const ClientsModule = {
     const activeClients = this.clients.filter(c => c.status === 'active');
     const totalMRR = activeClients.reduce((sum, c) => sum + (parseFloat(c.monthly_fee) || 0), 0);
     const onboardingCount = this.clients.filter(c => c.onboarding_status === 'in_progress' || c.onboarding_status === 'sent').length;
-    
+    const pausedCount = this.clients.filter(c => c.status === 'paused').length;
+
     return `
-      <!-- Stats -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="card p-4 text-center">
-          <div class="text-3xl font-bold text-gray-800">${this.clients.length}</div>
-          <div class="text-sm text-gray-500">Celkom klientov</div>
-        </div>
-        <div class="card p-4 text-center">
-          <div class="text-3xl font-bold text-green-600">${activeClients.length}</div>
-          <div class="text-sm text-gray-500">Aktívnych</div>
-        </div>
-        <div class="card p-4 text-center">
-          <div class="text-3xl font-bold text-blue-600">${onboardingCount}</div>
-          <div class="text-sm text-gray-500">V onboardingu</div>
-        </div>
-        <div class="card p-4 text-center">
-          <div class="text-3xl font-bold text-purple-600">${totalMRR.toFixed(0)}€</div>
-          <div class="text-sm text-gray-500">MRR</div>
-        </div>
-      </div>
-      
-      <!-- Filters & Actions -->
-      <div class="card p-4 mb-6">
-        <div class="flex flex-wrap gap-4 items-center justify-between">
-          <div class="flex gap-4 items-center flex-1">
-            <input type="text" id="filter-search" placeholder="🔍 Hľadať klienta..." 
-              value="${this.filters.search}" class="p-2 border rounded-lg w-64">
-            <select id="filter-status" class="p-2 border rounded-lg" onchange="ClientsModule.onStatusFilter(this.value)">
-              <option value="">Všetky stavy</option>
-              ${Object.entries(this.STATUSES).map(([key, val]) => 
-                `<option value="${key}" ${this.filters.status === key ? 'selected' : ''}>${val.label}</option>`
-              ).join('')}
-            </select>
+      <div class="adl">
+        <!-- Header -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Klienti</h1>
+            <div style="font-size:13px; color:var(--ink-sub);">
+              ${activeClients.length} aktívnych · ${onboardingCount} v onboardingu · ${pausedCount} pauza
+            </div>
           </div>
-          <button onclick="ClientsModule.showAddModal()" class="gradient-bg text-white px-4 py-2 rounded-xl font-medium">
-            ➕ Nový klient
-          </button>
-        </div>
-      </div>
-      
-      <!-- Clients Grid -->
-      <div id="clients-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        ${this.renderClientsGrid()}
-      </div>
-      
-      <!-- Add/Edit Modal -->
-      <div id="client-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-          <div class="p-4 border-b flex items-center justify-between bg-gradient-to-r from-orange-500 to-pink-500 text-white">
-            <h2 id="modal-title" class="text-xl font-bold">Nový klient</h2>
-            <button onclick="ClientsModule.closeModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+          <div style="display:flex; gap:8px;">
+            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.showAddModal()">
+              ${I.Plus({size:14})} Nový klient
+            </button>
           </div>
-          <div id="modal-content" class="p-6 overflow-y-auto flex-1"></div>
         </div>
+
+        <!-- Stats -->
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:18px;" class="adl-clients-stats">
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Aktívni</div>
+              ${activeClients.length ? `<span class="adl-chip adl-chip-mint adl-chip-sm">${Math.round(activeClients.length / Math.max(this.clients.length, 1) * 100)}%</span>` : ''}
+            </div>
+            <div class="adl-stat-value">${activeClients.length}</div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">MRR</div>
+              <span class="adl-chip adl-chip-brand adl-chip-sm">priemer</span>
+            </div>
+            <div class="adl-stat-value">${totalMRR.toFixed(0)} €</div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">V onboardingu</div>
+              <span class="adl-chip adl-chip-sky adl-chip-sm">rozpracované</span>
+            </div>
+            <div class="adl-stat-value">${onboardingCount}</div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head">
+              <div class="adl-stat-label">Celkom</div>
+              <span class="adl-chip adl-chip-sm">všetci</span>
+            </div>
+            <div class="adl-stat-value">${this.clients.length}</div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;" class="adl-clients-filters">
+          <div class="adl-input" style="flex:1; min-width:240px; max-width:340px;">
+            <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+            <input type="text" id="filter-search" placeholder="Hľadať klienta…" value="${this.filters.search}" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+          </div>
+          <select class="adl-input" id="filter-status" onchange="ClientsModule.onStatusFilter(this.value)" style="width:auto;">
+            <option value="">Všetky stavy</option>
+            ${Object.entries(this.STATUSES).map(([key, val]) =>
+              `<option value="${key}" ${this.filters.status === key ? 'selected' : ''}>${val.label}</option>`
+            ).join('')}
+          </select>
+        </div>
+
+        <!-- Clients Grid -->
+        <div id="clients-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;" class="adl-clients-grid">
+          ${this.renderClientsGrid()}
+        </div>
+
+        <!-- Add/Edit Modal -->
+        <div id="client-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4" style="background:rgba(20,18,14,0.5);">
+          <div style="background:var(--surface); border-radius:14px; max-width:720px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+              <h2 id="modal-title" style="font-size:16px; font-weight:600; margin:0;">Nový klient</h2>
+              <button onclick="ClientsModule.closeModal()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:6px; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
+            </div>
+            <div id="modal-content" style="padding:20px; overflow-y:auto; flex:1;"></div>
+          </div>
+        </div>
+
+        <style>
+          @media (max-width: 1200px) { .adl-clients-grid { grid-template-columns: repeat(2, 1fr) !important; } .adl-clients-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+          @media (max-width: 700px)  { .adl-clients-grid { grid-template-columns: 1fr !important; } }
+        </style>
       </div>
     `;
   },
@@ -158,73 +188,65 @@ const ClientsModule = {
   renderClientsGrid() {
     if (this.clients.length === 0) {
       return `
-        <div class="col-span-full text-center py-16 text-gray-400">
-          <div class="text-6xl mb-4">🏢</div>
-          <h3 class="text-xl font-semibold mb-2">Žiadni klienti</h3>
-          <p>Pridajte prvého klienta</p>
+        <div style="grid-column: 1 / -1; padding: 48px 24px; text-align: center; color: var(--ink-sub); background: var(--surface); border: 1px solid var(--border); border-radius: 14px;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Building({size:22})}</div>
+          <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadni klienti</h3>
+          <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Pridajte prvého klienta alebo dokončite onboarding existujúceho leadu</p>
+          <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.showAddModal()">${I.Plus({size:14})} Nový klient</button>
         </div>
       `;
     }
-    
+
     return this.clients.map(client => this.renderClientCard(client)).join('');
   },
-  
+
+  _statusTone(statusKey) {
+    const map = {
+      active: 'mint', inactive: 'n', paused: 'amber',
+      trial: 'sky', lead: 'lav', churned: 'err'
+    };
+    return map[statusKey] || 'n';
+  },
+
   renderClientCard(client) {
     const status = this.STATUSES[client.status] || this.STATUSES.active;
     const pkg = this.PACKAGES[client.package];
-    const onboarding = this.ONBOARDING_STATUSES[client.onboarding_status] || this.ONBOARDING_STATUSES.pending;
-    
+    const statusTone = this._statusTone(client.status);
+
+    const logoChar = (client.company_name || '?')[0].toUpperCase();
+
     return `
-      <div class="card p-5 hover:shadow-lg transition-shadow cursor-pointer" onclick="Router.navigate('clients', {id: '${client.id}'})">
-        <!-- Header -->
-        <div class="flex items-start justify-between mb-3">
-          <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-lg truncate">${client.company_name}</h3>
-            <p class="text-sm text-gray-500 truncate">${client.contact_person || client.email || 'Bez kontaktu'}</p>
+      <div onclick="Router.navigate('clients', {id: '${client.id}'})" style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--sh-sm); display:flex; flex-direction:column; gap:12px; cursor:pointer; transition: box-shadow .15s, border-color .15s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-md)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='var(--sh-sm)'">
+        <!-- Header row -->
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:40px; height:40px; border-radius:10px; background:var(--brand-50); color:var(--brand-700); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex-shrink:0;">${logoChar}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:14px; font-weight:600; letter-spacing:-0.2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${client.company_name}</div>
+            <div style="font-size:11px; color:var(--ink-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${client.contact_person || client.email || 'Bez kontaktu'}</div>
           </div>
-          <span class="px-2 py-1 rounded-full text-xs font-medium bg-${status.color}-100 text-${status.color}-700">
-            ${status.label}
-          </span>
+          <span class="adl-chip adl-chip-${statusTone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
         </div>
-        
-        <!-- Info -->
-        <div class="space-y-2 mb-4 text-sm">
-          ${pkg ? `
-            <div class="flex justify-between">
-              <span class="text-gray-500">Balík</span>
-              <span class="font-medium">${pkg.icon} ${pkg.name}</span>
-            </div>
-          ` : ''}
-          <div class="flex justify-between">
-            <span class="text-gray-500">MRR</span>
-            <span class="font-semibold">${client.monthly_fee || 0}€</span>
+
+        <!-- Quick info grid -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px 12px; background:var(--n-50); border-radius:8px;">
+          <div>
+            <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px;">Balík</div>
+            <div style="font-size:13px; font-weight:600;">${pkg ? pkg.name : '—'}</div>
           </div>
-          <div class="flex justify-between">
-            <span class="text-gray-500">Onboarding</span>
-            <span class="text-${onboarding.color}-600">${onboarding.icon} ${onboarding.label}</span>
+          <div>
+            <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px;">MRR</div>
+            <div class="mono" style="font-size:13px; font-weight:600;">${client.monthly_fee || 0} €</div>
           </div>
         </div>
-        
-        <!-- Contact icons -->
-        <div class="flex gap-2 pt-3 border-t">
-          ${client.email ? `
-            <a href="mailto:${client.email}" onclick="event.stopPropagation()" 
-              class="p-2 hover:bg-gray-100 rounded-lg" title="${client.email}">📧</a>
-          ` : ''}
-          ${client.phone ? `
-            <a href="tel:${client.phone}" onclick="event.stopPropagation()" 
-              class="p-2 hover:bg-gray-100 rounded-lg" title="${client.phone}">📞</a>
-          ` : ''}
-          ${client.website ? `
-            <a href="${client.website.startsWith('http') ? client.website : 'https://' + client.website}" 
-              target="_blank" onclick="event.stopPropagation()" 
-              class="p-2 hover:bg-gray-100 rounded-lg" title="${client.website}">🌐</a>
-          ` : ''}
-          <div class="flex-1"></div>
-          <button onclick="event.stopPropagation(); ClientsModule.editClient('${client.id}')" 
-            class="p-2 hover:bg-blue-100 rounded-lg" title="Upraviť">✏️</button>
-          <button onclick="event.stopPropagation(); ClientsModule.deleteClient('${client.id}')" 
-            class="p-2 hover:bg-red-100 rounded-lg" title="Zmazať">🗑️</button>
+
+        <!-- Footer: contacts + actions -->
+        <div style="display:flex; align-items:center; gap:6px; padding-top:6px; border-top:1px solid var(--border);">
+          ${client.email ? `<a href="mailto:${client.email}" onclick="event.stopPropagation()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;" title="${client.email}">${I.Mail({size:14})}</a>` : ''}
+          ${client.phone ? `<a href="tel:${client.phone}" onclick="event.stopPropagation()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;" title="${client.phone}">${I.Phone({size:14})}</a>` : ''}
+          ${client.website ? `<a href="${client.website.startsWith('http') ? client.website : 'https://' + client.website}" target="_blank" onclick="event.stopPropagation()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;" title="${client.website}">${I.Globe({size:14})}</a>` : ''}
+          <div style="flex:1;"></div>
+          <button onclick="event.stopPropagation(); ClientsModule.editClient('${client.id}')" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;" title="Upraviť">${I.Edit({size:14})}</button>
+          <button onclick="event.stopPropagation(); ClientsModule.deleteClient('${client.id}')" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px; color:var(--err);" title="Zmazať">${I.Trash({size:14})}</button>
         </div>
       </div>
     `;
@@ -657,90 +679,84 @@ const ClientsModule = {
     const status = this.STATUSES[c.status] || this.STATUSES.active;
     const pkg = this.PACKAGES[c.package];
     const onboarding = this.ONBOARDING_STATUSES[c.onboarding_status] || this.ONBOARDING_STATUSES.pending;
-    
+    const statusTone = this._statusTone(c.status);
+    const logoChar = (c.company_name || '?')[0].toUpperCase();
+
     return `
-      <!-- Header -->
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div class="flex items-center gap-4">
-          <a href="#clients" class="p-2 hover:bg-gray-100 rounded-lg text-xl">←</a>
-          <div>
-            <div class="flex items-center gap-3">
-              <h1 class="text-2xl font-bold">${c.company_name}</h1>
-              <span class="px-2 py-1 rounded-full text-sm font-medium bg-${status.color}-100 text-${status.color}-700">
-                ${status.label}
-              </span>
+      <div class="adl">
+        <!-- Header -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:14px; min-width:0;">
+            <a href="#clients" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 10px; width:34px; height:34px; justify-content:center;">${I.ChevronLeft({size:16})}</a>
+            <div style="width:48px; height:48px; border-radius:12px; background:var(--brand-50); color:var(--brand-700); display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0;">${logoChar}</div>
+            <div style="min-width:0;">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <h1 style="font-size:20px; font-weight:700; letter-spacing:-0.4px; margin:0;">${c.company_name}</h1>
+                <span class="adl-chip adl-chip-${statusTone}"><span class="dot"></span>${status.label}</span>
+              </div>
+              <div style="font-size:12px; color:var(--ink-sub); margin-top:2px;">${c.industry || ''}${c.industry && c.city ? ' · ' : ''}${c.city || ''}</div>
             </div>
-            <p class="text-gray-500">${c.industry || ''} ${c.city ? '• ' + c.city : ''}</p>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="ClientsModule.copyPortalLink('${c.id}')" title="Kopírovať link na klientský portál">${I.Link({size:14})} Portál</button>
+            <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="ClientsModule.editClient('${c.id}')">${I.Edit({size:14})} Upraviť</button>
+            <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="ClientsModule.sendOnboarding('${c.id}')">${I.Onboard({size:14})} Onboarding</button>
+            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.createProject('${c.id}')">${I.Plus({size:14})} Nový projekt</button>
           </div>
         </div>
-        <div class="flex gap-2">
-          <button onclick="ClientsModule.copyPortalLink('${c.id}')" class="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200" title="Kopírovať link na klientský portál">
-            🔗 Portál
-          </button>
-          <button onclick="ClientsModule.editClient('${c.id}')" class="px-4 py-2 bg-gray-100 rounded-xl hover:bg-gray-200">
-            ✏️ Upraviť
-          </button>
-          <button onclick="ClientsModule.sendOnboarding('${c.id}')" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200">
-            📋 Onboarding
-          </button>
-          <button onclick="ClientsModule.createProject('${c.id}')" class="gradient-bg text-white px-4 py-2 rounded-xl">
-            ➕ Nový projekt
-          </button>
-        </div>
-      </div>
-      
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="card p-4 border-l-4 border-purple-500">
-          <div class="text-sm text-gray-500">Balík</div>
-          <div class="text-lg font-bold">${pkg ? pkg.icon + ' ' + pkg.name : '-'}</div>
-        </div>
-        <div class="card p-4 border-l-4 border-green-500">
-          <div class="text-sm text-gray-500">MRR</div>
-          <div class="text-lg font-bold">${c.monthly_fee || 0}€</div>
-        </div>
-        <div class="card p-4 border-l-4 border-blue-500">
-          <div class="text-sm text-gray-500">Onboarding</div>
-          <div class="text-lg font-bold text-${onboarding.color}-600">${onboarding.icon} ${onboarding.label}</div>
-        </div>
-        <div class="card p-4 border-l-4 border-orange-500">
-          <div class="text-sm text-gray-500">Projekty</div>
-          <div class="text-lg font-bold">${c.projects?.length || 0}</div>
-        </div>
-      </div>
-      
-      <!-- Tabs -->
-      <div class="flex gap-2 mb-6 flex-wrap">
-        <button onclick="ClientsModule.showTab('info')" class="tab-btn active" data-tab="info">📋 Info</button>
-        <button onclick="ClientsModule.showTab('subscription')" class="tab-btn" data-tab="subscription">📦 Predplatné</button>
-        <button onclick="ClientsModule.showTab('projects')" class="tab-btn" data-tab="projects">📁 Projekty</button>
-        <button onclick="ClientsModule.showTab('onboarding')" class="tab-btn" data-tab="onboarding">📝 Onboarding</button>
-        <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices">💰 Faktúry</button>
-      </div>
-      
-      <!-- Tab Content -->
-      <div id="tab-info" class="tab-content">${this.templateTabInfo()}</div>
-      <div id="tab-subscription" class="tab-content hidden">${this.templateTabSubscription()}</div>
-      <div id="tab-projects" class="tab-content hidden">${this.templateTabProjects()}</div>
-      <div id="tab-onboarding" class="tab-content hidden">${this.templateTabOnboarding()}</div>
-      <div id="tab-invoices" class="tab-content hidden">${this.templateTabInvoices()}</div>
-      
-      <!-- Add/Edit Modal -->
-      <div id="client-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-          <div class="p-4 border-b flex items-center justify-between bg-gradient-to-r from-orange-500 to-pink-500 text-white">
-            <h2 id="modal-title" class="text-xl font-bold">Upraviť klienta</h2>
-            <button onclick="ClientsModule.closeModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+
+        <!-- Stats -->
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" class="adl-client-stats">
+          <div class="adl-stat">
+            <div class="adl-stat-head"><div class="adl-stat-label">Balík</div></div>
+            <div class="adl-stat-value" style="font-size:18px;">${pkg ? pkg.name : '—'}</div>
           </div>
-          <div id="modal-content" class="p-6 overflow-y-auto flex-1"></div>
+          <div class="adl-stat">
+            <div class="adl-stat-head"><div class="adl-stat-label">MRR</div><span class="adl-chip adl-chip-brand adl-chip-sm">mesačne</span></div>
+            <div class="adl-stat-value">${c.monthly_fee || 0}&nbsp;€</div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head"><div class="adl-stat-label">Onboarding</div></div>
+            <div class="adl-stat-value" style="font-size:14px;"><span class="adl-chip adl-chip-${onboarding.color === 'green' ? 'ok' : onboarding.color === 'blue' ? 'sky' : onboarding.color === 'yellow' ? 'amber' : 'n'}">${onboarding.label}</span></div>
+          </div>
+          <div class="adl-stat">
+            <div class="adl-stat-head"><div class="adl-stat-label">Projekty</div></div>
+            <div class="adl-stat-value">${c.projects?.length || 0}</div>
+          </div>
         </div>
+
+        <!-- Tabs -->
+        <div style="display:inline-flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin-bottom:16px; flex-wrap:wrap;">
+          <button onclick="ClientsModule.showTab('info')" class="tab-btn active" data-tab="info" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:600; border:0; background:var(--surface); color:var(--ink); cursor:pointer; font-family:inherit;">Info</button>
+          <button onclick="ClientsModule.showTab('subscription')" class="tab-btn" data-tab="subscription" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Predplatné</button>
+          <button onclick="ClientsModule.showTab('projects')" class="tab-btn" data-tab="projects" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Projekty</button>
+          <button onclick="ClientsModule.showTab('onboarding')" class="tab-btn" data-tab="onboarding" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Onboarding</button>
+          <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Faktúry</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="tab-info" class="tab-content">${this.templateTabInfo()}</div>
+        <div id="tab-subscription" class="tab-content hidden">${this.templateTabSubscription()}</div>
+        <div id="tab-projects" class="tab-content hidden">${this.templateTabProjects()}</div>
+        <div id="tab-onboarding" class="tab-content hidden">${this.templateTabOnboarding()}</div>
+        <div id="tab-invoices" class="tab-content hidden">${this.templateTabInvoices()}</div>
+
+        <!-- Edit Modal -->
+        <div id="client-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(20,18,14,0.5); padding:16px;">
+          <div style="background:var(--surface); border-radius:14px; max-width:720px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+            <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <h2 id="modal-title" style="font-size:15px; font-weight:600; margin:0;">Upraviť klienta</h2>
+              <button onclick="ClientsModule.closeModal()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
+            </div>
+            <div id="modal-content" style="padding:20px; overflow-y:auto; flex:1;"></div>
+          </div>
+        </div>
+
+        <style>
+          .tab-content.hidden { display: none; }
+          @media (max-width: 900px) { .adl-client-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+        </style>
       </div>
-      
-      <style>
-        .tab-btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; background: #f3f4f6; }
-        .tab-btn.active { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; }
-        .tab-content.hidden { display: none; }
-      </style>
     `;
   },
   
@@ -1500,11 +1516,22 @@ const ClientsModule = {
   
   showTab(tab) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    
+    document.querySelectorAll('.tab-btn').forEach(el => {
+      el.classList.remove('active');
+      el.style.background = 'transparent';
+      el.style.color = 'var(--ink-sub)';
+      el.style.fontWeight = '500';
+    });
+
     document.getElementById('tab-' + tab)?.classList.remove('hidden');
-    document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
-    
+    const activeBtn = document.querySelector(`[data-tab="${tab}"]`);
+    if (activeBtn) {
+      activeBtn.classList.add('active');
+      activeBtn.style.background = 'var(--surface)';
+      activeBtn.style.color = 'var(--ink)';
+      activeBtn.style.fontWeight = '600';
+    }
+
     // Lazy-load faktúr
     if (tab === 'invoices') this.loadInvoices();
   },

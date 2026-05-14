@@ -22,63 +22,37 @@ const TeamModule = {
 
     async render(container, params = {}) {
         await this.loadData();
-        
+        const tab = this.currentTab || 'members';
+
         container.innerHTML = `
-            <div class="team-module">
-                <!-- Header -->
-                <div class="team-header">
-                    <div class="header-content">
-                        <div class="header-title">
-                            <h1>Tím</h1>
-                            <p class="header-subtitle">Správa členov tímu a oprávnení</p>
-                        </div>
-                        <div class="header-actions">
-                            <button class="btn-invite" onclick="TeamModule.showInviteModal()">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="8.5" cy="7" r="4"></circle>
-                                    <line x1="20" y1="8" x2="20" y2="14"></line>
-                                    <line x1="17" y1="11" x2="23" y2="11"></line>
-                                </svg>
-                                Pozvať člena
-                            </button>
-                        </div>
+            <div class="adl team-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Tím</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Správa členov tímu a oprávnení</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TeamModule.showInviteModal()">${I.Plus({size:14})} Pozvať člena</button>
                     </div>
                 </div>
-                
+
                 <!-- Stats -->
                 <div class="team-stats-grid">
                     ${this.renderStats()}
                 </div>
-                
+
                 <!-- Tabs -->
-                <div class="team-tabs-container">
-                    <div class="team-tabs">
-                        <button class="tab-btn ${this.currentTab === 'members' ? 'active' : ''}" 
-                                onclick="TeamModule.switchTab('members')">
-                            <span class="tab-icon">👥</span>
-                            <span class="tab-label">Členovia</span>
-                            <span class="tab-count">${this.members.length}</span>
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'roles' ? 'active' : ''}" 
-                                onclick="TeamModule.switchTab('roles')">
-                            <span class="tab-icon">🔐</span>
-                            <span class="tab-label">Role a oprávnenia</span>
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'activity' ? 'active' : ''}" 
-                                onclick="TeamModule.switchTab('activity')">
-                            <span class="tab-icon">📋</span>
-                            <span class="tab-label">Aktivita</span>
-                        </button>
-                    </div>
+                <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin:16px 0;">
+                    <button onclick="TeamModule.switchTab('members')" class="adl-btn adl-btn-sm ${tab==='members'?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab==='members'?'active':''}" style="border-radius:7px; padding:0 12px;">Členovia <span class="adl-chip adl-chip-sm" style="margin-left:4px;">${this.members.length}</span></button>
+                    <button onclick="TeamModule.switchTab('roles')" class="adl-btn adl-btn-sm ${tab==='roles'?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab==='roles'?'active':''}" style="border-radius:7px; padding:0 12px;">Role a oprávnenia</button>
+                    <button onclick="TeamModule.switchTab('activity')" class="adl-btn adl-btn-sm ${tab==='activity'?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab==='activity'?'active':''}" style="border-radius:7px; padding:0 12px;">Aktivita</button>
                 </div>
-                
-                <!-- Content -->
-                <div class="team-content" id="team-content">
+
+                <div id="team-content">
                     ${this.renderTabContent()}
                 </div>
             </div>
-            
+
             ${this.renderStyles()}
         `;
     },
@@ -110,60 +84,17 @@ const TeamModule = {
         const invited = this.members.filter(m => m.status === 'invited').length;
         const owners = this.members.filter(m => m.role === 'owner').length;
         const admins = this.members.filter(m => m.role === 'admin').length;
-        
+
         return `
-            <div class="stat-card">
-                <div class="stat-icon green">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="9" cy="7" r="4"></circle>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <span class="stat-value">${active}</span>
-                    <span class="stat-label">Aktívni členovia</span>
-                </div>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px;" class="adl-team-stats">
+                <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Aktívni členovia</div><span class="adl-chip adl-chip-ok adl-chip-sm">online</span></div><div class="adl-stat-value">${active}</div></div>
+                <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Čakajúce pozvánky</div><span class="adl-chip adl-chip-amber adl-chip-sm">pending</span></div><div class="adl-stat-value">${invited}</div></div>
+                <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Administrátori</div><span class="adl-chip adl-chip-lav adl-chip-sm">privileged</span></div><div class="adl-stat-value">${owners + admins}</div></div>
+                <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Definované role</div><span class="adl-chip adl-chip-sm">roles</span></div><div class="adl-stat-value">5</div></div>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon orange">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                        <polyline points="22,6 12,13 2,6"></polyline>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <span class="stat-value">${invited}</span>
-                    <span class="stat-label">Čakajúce pozvánky</span>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon purple">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <span class="stat-value">${owners + admins}</span>
-                    <span class="stat-label">Administrátori</span>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon blue">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                </div>
-                <div class="stat-content">
-                    <span class="stat-value">5</span>
-                    <span class="stat-label">Definované role</span>
-                </div>
-            </div>
+            <style>
+                @media (max-width: 900px) { .adl-team-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+            </style>
         `;
     },
 
@@ -194,93 +125,63 @@ const TeamModule = {
     renderMembersTab() {
         if (this.members.length === 0) {
             return `
-                <div class="empty-state">
-                    <div class="empty-icon">👥</div>
-                    <h3>Žiadni členovia tímu</h3>
-                    <p>Začnite pozvaním prvého člena do vášho tímu</p>
-                    <button class="btn-primary" onclick="TeamModule.showInviteModal()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        Pozvať člena
-                    </button>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Users({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadni členovia tímu</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Začnite pozvaním prvého člena do vášho tímu</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TeamModule.showInviteModal()">${I.Plus({size:14})} Pozvať člena</button>
                 </div>
             `;
         }
-        
+
         return `
-            <div class="members-grid">
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;" class="adl-members-grid">
                 ${this.members.map(member => this.renderMemberCard(member)).join('')}
             </div>
+            <style>
+                @media (max-width: 1100px) { .adl-members-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+                @media (max-width: 640px)  { .adl-members-grid { grid-template-columns: 1fr !important; } }
+            </style>
         `;
     },
 
     renderMemberCard(member) {
-        const initials = `${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`.toUpperCase();
-        const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim();
-        const roleInfo = this.getRoleInfo(member.role);
-        const statusInfo = this.getStatusInfo(member.status);
-        
+        const initials = `${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`.toUpperCase() || '?';
+        const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Bez mena';
+        const roleToneMap = { owner: 'brand', admin: 'lav', manager: 'sky', specialist: 'mint', viewer: 'n' };
+        const statusToneMap = { active: 'ok', invited: 'amber', inactive: 'n' };
+        const statusLabel = { active: 'Aktívny', invited: 'Pozvaný', inactive: 'Neaktívny' };
+        const roleLabelMap = { owner: 'Vlastník', admin: 'Administrátor', manager: 'Manažér', specialist: 'Špecialista', viewer: 'Pozorovateľ' };
+
         return `
-            <div class="member-card">
-                <div class="member-header">
-                    <div class="member-avatar" style="background: ${roleInfo.gradient}">
-                        ${member.avatar_url 
-                            ? `<img src="${member.avatar_url}" alt="${fullName}">` 
-                            : initials}
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow:var(--sh-sm);">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="adl-avatar adl-avatar-lg">
+                        ${member.avatar_url ? `<img src="${member.avatar_url}" alt="${fullName}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : initials}
                     </div>
-                    <div class="member-status ${statusInfo.class}"></div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:14px; font-weight:600; letter-spacing:-0.2px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${fullName}</div>
+                        <div style="font-size:12px; color:var(--ink-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${member.position || member.email}</div>
+                    </div>
+                    <span class="adl-chip adl-chip-${statusToneMap[member.status] || 'n'} adl-chip-sm"><span class="dot"></span>${statusLabel[member.status] || member.status}</span>
                 </div>
-                
-                <div class="member-body">
-                    <h3 class="member-name">${fullName || 'Bez mena'}</h3>
-                    <p class="member-position">${member.position || member.email}</p>
-                    
-                    <div class="member-role-badge" style="background: ${roleInfo.bg}; color: ${roleInfo.color}">
-                        ${roleInfo.icon} ${roleInfo.label}
-                    </div>
+
+                <div>
+                    <span class="adl-chip adl-chip-${roleToneMap[member.role] || 'n'} adl-chip-sm">${roleLabelMap[member.role] || member.role}</span>
                 </div>
-                
-                <div class="member-footer">
-                    <div class="member-meta">
-                        ${member.last_login_at 
-                            ? `<span title="Posledné prihlásenie">🕐 ${this.formatDate(member.last_login_at)}</span>`
-                            : member.status === 'invited'
-                                ? `<span class="text-muted">Čaká na prijatie</span>`
-                                : `<span class="text-muted">Ešte sa neprihlásil</span>`
-                        }
-                    </div>
-                    <div class="member-actions">
-                        ${member.status === 'invited' ? `
-                            <button class="btn-icon btn-resend" onclick="TeamModule.resendInvite('${member.id}')" title="Znovu odoslať pozvánku">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path>
-                                </svg>
-                            </button>
-                        ` : ''}
-                        <button class="btn-icon" onclick="TeamModule.editMember('${member.id}')" title="Upraviť">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                        </button>
-                        ${member.role !== 'owner' ? `
-                            <button class="btn-icon btn-permissions" onclick="TeamModule.editPermissions('${member.id}')" title="Oprávnenia">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                </svg>
-                            </button>
-                        ` : ''}
-                        ${member.role !== 'owner' ? `
-                            <button class="btn-icon btn-danger" onclick="TeamModule.deleteMember('${member.id}')" title="Odstrániť">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                            </button>
-                        ` : ''}
+
+                <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid var(--border); font-size:11px; color:var(--ink-mute);">
+                    ${member.last_login_at
+                        ? `<span style="display:inline-flex; align-items:center; gap:4px;" title="Posledné prihlásenie">${I.Clock({size:11})} ${this.formatDate(member.last_login_at)}</span>`
+                        : member.status === 'invited'
+                            ? `<span>Čaká na prijatie</span>`
+                            : `<span>Ešte sa neprihlásil</span>`
+                    }
+                    <div style="display:flex; gap:4px;">
+                        ${member.status === 'invited' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="TeamModule.resendInvite('${member.id}')" title="Znovu odoslať" style="padding:0 8px;">${I.Send({size:12})}</button>` : ''}
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="TeamModule.editMember('${member.id}')" title="Upraviť" style="padding:0 8px;">${I.Edit({size:12})}</button>
+                        ${member.role !== 'owner' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="TeamModule.editPermissions('${member.id}')" title="Oprávnenia" style="padding:0 8px;">${I.Lock({size:12})}</button>` : ''}
+                        ${member.role !== 'owner' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="TeamModule.deleteMember('${member.id}')" title="Odstrániť" style="color:var(--err); padding:0 8px;">${I.Trash({size:12})}</button>` : ''}
                     </div>
                 </div>
             </div>

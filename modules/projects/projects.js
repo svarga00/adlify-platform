@@ -21,17 +21,20 @@ const CampaignProjectsModule = {
   
   // Workflow statusy
   STATUSES: {
-    draft: { label: 'Rozpracované', color: 'gray', icon: '📝' },
-    generating: { label: 'Generuje AI', color: 'purple', icon: '🤖' },
-    internal_review: { label: 'Interná kontrola', color: 'yellow', icon: '👁️' },
-    client_review: { label: 'Čaká na klienta', color: 'blue', icon: '👤' },
-    revision: { label: 'Revízia', color: 'orange', icon: '✏️' },
-    approved: { label: 'Schválené', color: 'green', icon: '✅' },
-    deploying: { label: 'Nasadzovanie', color: 'indigo', icon: '🚀' },
-    active: { label: 'Aktívne', color: 'emerald', icon: '▶️' },
-    paused: { label: 'Pozastavené', color: 'gray', icon: '⏸️' },
-    ended: { label: 'Ukončené', color: 'slate', icon: '⏹️' }
+    draft:           { label: 'Rozpracované',       color: 'gray',    icon: '📝', tone: 'n',     cdot: 'var(--n-400)' },
+    generating:      { label: 'Spracováva sa',      color: 'purple',  icon: '🤖', tone: 'lav',   cdot: 'var(--acc-lavender-ink)' },
+    internal_review: { label: 'Interná kontrola',   color: 'yellow',  icon: '👁️', tone: 'amber', cdot: 'var(--warn)' },
+    client_review:   { label: 'Čaká na klienta',    color: 'blue',    icon: '👤', tone: 'sky',   cdot: 'var(--acc-sky-ink)' },
+    revision:        { label: 'Revízia',            color: 'orange',  icon: '✏️', tone: 'brand', cdot: 'var(--brand-500)' },
+    approved:        { label: 'Schválené',          color: 'green',   icon: '✅', tone: 'mint',  cdot: 'var(--acc-mint-ink)' },
+    deploying:       { label: 'Nasadzovanie',       color: 'indigo',  icon: '🚀', tone: 'lav',   cdot: 'var(--acc-lavender-ink)' },
+    active:          { label: 'Aktívne',            color: 'emerald', icon: '▶️', tone: 'ok',    cdot: 'var(--ok)' },
+    paused:          { label: 'Pozastavené',        color: 'gray',    icon: '⏸️', tone: 'n',     cdot: 'var(--n-400)' },
+    ended:           { label: 'Ukončené',           color: 'slate',   icon: '⏹️', tone: 'n',     cdot: 'var(--n-400)' }
   },
+
+  // Default view: 'kanban' | 'grid'
+  view: 'kanban',
   
   // Platformy
   PLATFORMS: {
@@ -99,78 +102,170 @@ const CampaignProjectsModule = {
   },
   
   template() {
+    const view = this.view || 'kanban';
     return `
-      <!-- Header s akciami -->
-      <div class="flex flex-wrap gap-4 justify-between items-center mb-6">
-        <div class="flex gap-2">
-          ${this.renderStatusTabs()}
+      <div class="adl">
+        <!-- Header -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Projekty</h1>
+            <div style="font-size:13px; color:var(--ink-sub);">Kampaňové projekty · apríl 2026</div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px;">
+              <button onclick="CampaignProjectsModule.setView('kanban')" class="adl-btn adl-btn-sm ${view==='kanban'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Kanban</button>
+              <button onclick="CampaignProjectsModule.setView('grid')" class="adl-btn adl-btn-sm ${view==='grid'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Zoznam</button>
+            </div>
+            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="CampaignProjectsModule.showCreateModal()">${I.Plus({size:14})} Nový projekt</button>
+          </div>
         </div>
-        <button onclick="CampaignProjectsModule.showCreateModal()" class="px-4 py-2 gradient-bg text-white rounded-xl font-semibold hover:opacity-90">
-          ➕ Nový projekt
-        </button>
-      </div>
-      
-      <!-- Filtre -->
-      <div class="card p-4 mb-6">
-        <div class="flex flex-wrap gap-4 items-center">
-          <input type="text" id="filter-search" placeholder="🔍 Hľadať projekt..." 
-            value="${this.filters.search}" 
-            class="flex-1 min-w-[200px] p-2 border rounded-lg">
-          <select id="filter-client" class="p-2 border rounded-lg min-w-[200px]" onchange="CampaignProjectsModule.onClientChange(this.value)">
+
+        <!-- Stats -->
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" class="adl-projects-stats">
+          ${this.renderStats()}
+        </div>
+
+        <!-- Filter bar -->
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;" class="adl-projects-filters">
+          <div class="adl-input" style="flex:1; min-width:220px; max-width:340px;">
+            <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+            <input type="text" id="filter-search" placeholder="Hľadať projekt…" value="${this.filters.search}" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+          </div>
+          <select class="adl-input" id="filter-client" onchange="CampaignProjectsModule.onClientChange(this.value)" style="width:auto;">
             <option value="">Všetci klienti</option>
-            ${this.clients.map(c => `
-              <option value="${c.id}" ${this.filters.client === c.id ? 'selected' : ''}>${c.company_name}</option>
-            `).join('')}
+            ${this.clients.map(c => `<option value="${c.id}" ${this.filters.client === c.id ? 'selected' : ''}>${c.company_name}</option>`).join('')}
+          </select>
+          <select class="adl-input" id="filter-status" onchange="CampaignProjectsModule.onStatusChange(this.value)" style="width:auto;">
+            <option value="">Všetky stavy</option>
+            ${Object.entries(this.STATUSES).map(([k,v]) => `<option value="${k}" ${this.filters.status === k ? 'selected' : ''}>${v.label}</option>`).join('')}
           </select>
         </div>
-      </div>
-      
-      <!-- Stats Overview -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        ${this.renderStats()}
-      </div>
-      
-      <!-- Projekty Grid -->
-      <div id="projects-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        ${this.renderProjectsGrid()}
-      </div>
-      
-      <!-- Create Modal -->
-      <div id="create-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
-          <div class="p-4 border-b flex items-center justify-between bg-gradient-to-r from-orange-500 to-pink-500 text-white">
-            <h2 class="text-xl font-bold">➕ Nový projekt</h2>
-            <button onclick="CampaignProjectsModule.closeCreateModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
-          </div>
-          <div id="create-content" class="p-6 overflow-y-auto flex-1">
-            ${this.renderCreateForm()}
+
+        <!-- View -->
+        <div id="projects-view">
+          ${view === 'kanban' ? this.renderKanban() : `<div id="projects-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;" class="adl-projects-grid">${this.renderProjectsGrid()}</div>`}
+        </div>
+
+        <!-- Create Modal -->
+        <div id="create-modal" class="fixed inset-0 hidden items-center justify-center z-50 p-4" style="background:rgba(20,18,14,0.5);">
+          <div style="background:var(--surface); border-radius:14px; max-width:560px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+              <h2 style="font-size:16px; font-weight:600; margin:0;">Nový projekt</h2>
+              <button onclick="CampaignProjectsModule.closeCreateModal()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:6px; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
+            </div>
+            <div id="create-content" style="padding:20px; overflow-y:auto; flex:1;">
+              ${this.renderCreateForm()}
+            </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Project Detail Modal -->
-      <div id="detail-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col">
-          <div class="p-4 border-b flex items-center justify-between bg-gradient-to-r from-orange-500 to-pink-500 text-white">
-            <h2 id="detail-title" class="text-xl font-bold">Detail projektu</h2>
-            <button onclick="CampaignProjectsModule.closeDetailModal()" class="p-2 hover:bg-white/20 rounded-lg">✕</button>
+
+        <!-- Project Detail Modal -->
+        <div id="detail-modal" class="fixed inset-0 hidden items-center justify-center z-50 p-4" style="background:rgba(20,18,14,0.5);">
+          <div style="background:var(--surface); border-radius:14px; max-width:1100px; width:100%; max-height:95vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+              <h2 id="detail-title" style="font-size:16px; font-weight:600; margin:0;">Detail projektu</h2>
+              <button onclick="CampaignProjectsModule.closeDetailModal()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:6px; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
+            </div>
+            <div id="detail-content" style="padding:20px; overflow-y:auto; flex:1;"></div>
           </div>
-          <div id="detail-content" class="p-6 overflow-y-auto flex-1"></div>
+        </div>
+
+        <style>
+          @media (max-width: 1200px) { .adl-projects-grid { grid-template-columns: repeat(2, 1fr) !important; } .adl-projects-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+          @media (max-width: 700px)  { .adl-projects-grid { grid-template-columns: 1fr !important; } }
+          .workflow-step { position: relative; }
+          .workflow-step::after { content: ''; position: absolute; right: -1rem; top: 50%; width: 0.75rem; height: 2px; background: var(--border); }
+          .workflow-step:last-child::after { display: none; }
+          .workflow-step.active::after { background: var(--ok); }
+          .workflow-step.completed { background: color-mix(in oklab, var(--ok) 15%, transparent); color: var(--ok); }
+          .workflow-step.active { background: var(--brand-500); color: white; }
+        </style>
+      </div>
+    `;
+  },
+
+  setView(view) {
+    this.view = view;
+    // Re-render entire template
+    const container = document.getElementById('main-content');
+    if (container) container.innerHTML = this.template();
+    this.setupEventListeners();
+  },
+
+  renderKanban() {
+    // Stĺpce v logickom workflow poradí
+    const columns = [
+      { key: 'draft',           label: 'Rozpracované',    statuses: ['draft'] },
+      { key: 'generating',      label: 'Spracovanie',     statuses: ['generating', 'internal_review'] },
+      { key: 'client_review',   label: 'U klienta',       statuses: ['client_review', 'revision'] },
+      { key: 'approved',        label: 'Schválené',       statuses: ['approved', 'deploying'] },
+      { key: 'active',          label: 'Aktívne',         statuses: ['active'] },
+      { key: 'done',            label: 'Ukončené',        statuses: ['paused', 'ended'] }
+    ];
+
+    const colColors = {
+      draft: 'var(--n-400)', generating: 'var(--acc-lavender-ink)',
+      client_review: 'var(--acc-sky-ink)', approved: 'var(--acc-mint-ink)',
+      active: 'var(--ok)', done: 'var(--n-400)'
+    };
+
+    const byCol = {};
+    columns.forEach(c => byCol[c.key] = []);
+    this.projects.forEach(p => {
+      const col = columns.find(c => c.statuses.includes(p.status));
+      if (col) byCol[col.key].push(p);
+      else byCol['draft'].push(p);
+    });
+
+    return `
+      <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; min-height:400px;" class="adl-kanban">
+        ${columns.map(col => {
+          const items = byCol[col.key];
+          return `
+            <div style="flex:0 0 280px; min-width:260px; display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:center; gap:8px; padding:0 6px 10px;">
+                <span style="width:8px; height:8px; border-radius:99px; background:${colColors[col.key]};"></span>
+                <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px;">${col.label}</span>
+                <span style="font-size:11px; color:var(--ink-mute); background:var(--n-75); padding:1px 7px; border-radius:99px;">${items.length}</span>
+                <div style="flex:1;"></div>
+              </div>
+              <div style="flex:1; background:var(--n-75); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:8px; min-height:200px;">
+                ${items.length === 0 ? `
+                  <div style="padding:20px 8px; text-align:center; color:var(--ink-mute); font-size:12px;">Žiadne projekty</div>
+                ` : items.map(p => this.renderKanbanCard(p)).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  },
+
+  renderKanbanCard(project) {
+    const status = this.STATUSES[project.status] || this.STATUSES.draft;
+    const budget = project.total_monthly_budget || 0;
+    const created = project.created_at ? new Date(project.created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) : '';
+    const clientShort = (project.client_name || 'Bez klienta').length > 24
+      ? project.client_name.substring(0, 22) + '…'
+      : project.client_name;
+
+    return `
+      <div onclick="CampaignProjectsModule.showDetail('${project.id}')" style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px; box-shadow:var(--sh-xs); cursor:pointer; transition: border-color .12s, box-shadow .12s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='var(--sh-xs)'">
+        <div style="display:flex; gap:6px; margin-bottom:8px; align-items:center;">
+          <span class="adl-chip adl-chip-${status.tone} adl-chip-sm">${clientShort}</span>
+        </div>
+        <div style="font-size:13px; font-weight:500; letter-spacing:-0.1px; line-height:1.3; margin-bottom:10px;">${project.name}</div>
+        ${budget > 0 ? `
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+            <span class="mono" style="font-size:12px; font-weight:600; color:var(--ink);">${budget.toLocaleString('sk-SK')} €</span>
+            <span style="font-size:10px; color:var(--ink-mute);">/mes</span>
+          </div>
+        ` : ''}
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--ink-mute);">
+          <span style="display:flex; align-items:center; gap:4px;">${I.Clock({size:11})}${created}</span>
+          <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
         </div>
       </div>
-      
-      <style>
-        .status-tab { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; background: #f3f4f6; font-size: 0.875rem; }
-        .status-tab.active { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; }
-        .project-card { transition: all 0.2s; }
-        .project-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
-        .workflow-step { position: relative; }
-        .workflow-step::after { content: ''; position: absolute; right: -1rem; top: 50%; width: 0.75rem; height: 2px; background: #e5e7eb; }
-        .workflow-step:last-child::after { display: none; }
-        .workflow-step.active::after { background: #22c55e; }
-        .workflow-step.completed { background: #dcfce7; color: #166534; }
-        .workflow-step.active { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; }
-      </style>
     `;
   },
   
@@ -201,23 +296,36 @@ const CampaignProjectsModule = {
     const active = this.projects.filter(p => p.status === 'active').length;
     const pending = this.projects.filter(p => ['internal_review', 'client_review'].includes(p.status)).length;
     const totalBudget = this.projects.reduce((sum, p) => sum + (p.total_monthly_budget || 0), 0);
-    
+    const formattedBudget = (Utils.formatPrice ? Utils.formatPrice(totalBudget) : `${totalBudget.toLocaleString('sk-SK')} €`);
+
     return `
-      <div class="card p-4 text-center">
-        <div class="text-3xl font-bold text-gray-800">${total}</div>
-        <div class="text-sm text-gray-500">Celkom projektov</div>
+      <div class="adl-stat">
+        <div class="adl-stat-head">
+          <div class="adl-stat-label">Celkom</div>
+          <span class="adl-chip adl-chip-sm">projekty</span>
+        </div>
+        <div class="adl-stat-value">${total}</div>
       </div>
-      <div class="card p-4 text-center">
-        <div class="text-3xl font-bold text-emerald-600">${active}</div>
-        <div class="text-sm text-gray-500">Aktívnych</div>
+      <div class="adl-stat">
+        <div class="adl-stat-head">
+          <div class="adl-stat-label">Aktívne</div>
+          <span class="adl-chip adl-chip-ok adl-chip-sm">beží</span>
+        </div>
+        <div class="adl-stat-value">${active}</div>
       </div>
-      <div class="card p-4 text-center">
-        <div class="text-3xl font-bold text-yellow-600">${pending}</div>
-        <div class="text-sm text-gray-500">Čaká na schválenie</div>
+      <div class="adl-stat">
+        <div class="adl-stat-head">
+          <div class="adl-stat-label">Čaká na schválenie</div>
+          <span class="adl-chip adl-chip-amber adl-chip-sm">review</span>
+        </div>
+        <div class="adl-stat-value">${pending}</div>
       </div>
-      <div class="card p-4 text-center">
-        <div class="text-3xl font-bold text-purple-600">${Utils.formatPrice ? Utils.formatPrice(totalBudget) : totalBudget + '€'}</div>
-        <div class="text-sm text-gray-500">Mesačný rozpočet</div>
+      <div class="adl-stat">
+        <div class="adl-stat-head">
+          <div class="adl-stat-label">Mesačný rozpočet</div>
+          <span class="adl-chip adl-chip-brand adl-chip-sm">total</span>
+        </div>
+        <div class="adl-stat-value">${formattedBudget}</div>
       </div>
     `;
   },
@@ -225,167 +333,139 @@ const CampaignProjectsModule = {
   renderProjectsGrid() {
     if (this.projects.length === 0) {
       return `
-        <div class="col-span-full text-center py-16 text-gray-400">
-          <div class="text-6xl mb-4">📁</div>
-          <h3 class="text-xl font-semibold mb-2">Žiadne projekty</h3>
-          <p>Vytvorte prvý kampaňový projekt</p>
+        <div style="grid-column: 1 / -1; padding: 48px 24px; text-align: center; color: var(--ink-sub); background: var(--surface); border: 1px solid var(--border); border-radius: 14px;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Folder({size:22})}</div>
+          <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne projekty</h3>
+          <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte prvý kampaňový projekt — dokončením onboardingu klienta alebo manuálne.</p>
+          <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="CampaignProjectsModule.showCreateModal()">${I.Plus({size:14})} Nový projekt</button>
         </div>
       `;
     }
-    
+
     return this.projects.map(project => this.renderProjectCard(project)).join('');
   },
   
   renderProjectCard(project) {
     const status = this.STATUSES[project.status] || this.STATUSES.draft;
     const campaigns = project.campaigns_count || 0;
-    
+    const created = Utils.formatDate ? Utils.formatDate(project.created_at) : new Date(project.created_at).toLocaleDateString('sk');
+
     return `
-      <div class="card project-card p-5 cursor-pointer" onclick="CampaignProjectsModule.showDetail('${project.id}')">
+      <div onclick="CampaignProjectsModule.showDetail('${project.id}')" style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--sh-sm); cursor:pointer; transition: box-shadow .15s, border-color .15s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-md)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='var(--sh-sm)'">
         <!-- Header -->
-        <div class="flex items-start justify-between mb-3">
-          <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-lg truncate">${project.name}</h3>
-            <p class="text-sm text-gray-500">${project.client_name}</p>
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:12px;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:14px; font-weight:600; letter-spacing:-0.2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${project.name}</div>
+            <div style="font-size:11px; color:var(--ink-sub); margin-top:2px;">${project.client_name}</div>
           </div>
-          <span class="px-2 py-1 rounded-full text-xs font-medium bg-${status.color}-100 text-${status.color}-700">
-            ${status.icon} ${status.label}
-          </span>
+          <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
         </div>
-        
+
         <!-- Info -->
-        <div class="space-y-2 mb-4">
-          ${project.total_monthly_budget ? `
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-500">Rozpočet</span>
-              <span class="font-semibold">${project.total_monthly_budget}€/mes</span>
-            </div>
-          ` : ''}
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Kampane</span>
-            <span class="font-semibold">${campaigns}</span>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px 12px; background:var(--n-50); border-radius:8px; margin-bottom:12px;">
+          <div>
+            <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px;">Rozpočet</div>
+            <div class="mono" style="font-size:13px; font-weight:600;">${project.total_monthly_budget ? `${project.total_monthly_budget.toLocaleString('sk-SK')} €` : '—'}</div>
           </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Vytvorené</span>
-            <span>${Utils.formatDate ? Utils.formatDate(project.created_at) : new Date(project.created_at).toLocaleDateString('sk')}</span>
+          <div>
+            <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px;">Kampane</div>
+            <div class="mono" style="font-size:13px; font-weight:600;">${campaigns}</div>
           </div>
         </div>
-        
-        <!-- Workflow Mini -->
-        <div class="flex gap-1 mb-4">
+
+        <!-- Workflow progress dots -->
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
           ${this.renderWorkflowMini(project.status)}
+          <span style="flex:1;"></span>
+          <span style="font-size:11px; color:var(--ink-mute); display:flex; align-items:center; gap:4px;">${I.Clock({size:11})}${created}</span>
         </div>
-        
+
         <!-- Actions -->
-        <div class="flex gap-2 pt-3 border-t">
-          <button onclick="event.stopPropagation(); CampaignProjectsModule.showDetail('${project.id}')" 
-            class="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200">
-            👁️ Detail
-          </button>
+        <div style="display:flex; gap:6px; padding-top:10px; border-top:1px solid var(--border);">
+          <button onclick="event.stopPropagation(); CampaignProjectsModule.showDetail('${project.id}')" class="adl-btn adl-btn-soft adl-btn-sm" style="flex:1; justify-content:center;">${I.Eye({size:14})} Detail</button>
           ${project.status === 'draft' ? `
-            <button onclick="event.stopPropagation(); CampaignProjectsModule.startGeneration('${project.id}')" 
-              class="flex-1 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200">
-              🤖 Generovať
-            </button>
+            <button onclick="event.stopPropagation(); CampaignProjectsModule.startGeneration('${project.id}')" class="adl-btn adl-btn-ink adl-btn-sm" style="flex:1; justify-content:center;">${I.Sparkle({size:14})} Generovať</button>
           ` : ''}
           ${project.status === 'internal_review' ? `
-            <button onclick="event.stopPropagation(); CampaignProjectsModule.approveInternal('${project.id}')" 
-              class="flex-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">
-              ✅ Schváliť
-            </button>
+            <button onclick="event.stopPropagation(); CampaignProjectsModule.approveInternal('${project.id}')" class="adl-btn adl-btn-primary adl-btn-sm" style="flex:1; justify-content:center;">${I.Check({size:14})} Schváliť</button>
           ` : ''}
         </div>
       </div>
     `;
   },
-  
+
   renderWorkflowMini(currentStatus) {
     const steps = ['draft', 'generating', 'internal_review', 'client_review', 'approved', 'active'];
     const currentIndex = steps.indexOf(currentStatus);
-    
+
     return steps.map((step, index) => {
       const status = this.STATUSES[step];
-      let classes = 'w-2 h-2 rounded-full ';
-      
-      if (index < currentIndex) {
-        classes += 'bg-green-500';
-      } else if (index === currentIndex) {
-        classes += 'bg-orange-500';
-      } else {
-        classes += 'bg-gray-200';
-      }
-      
-      return `<div class="${classes}" title="${status.label}"></div>`;
+      let bg;
+      if (index < currentIndex) bg = 'var(--ok)';
+      else if (index === currentIndex) bg = 'var(--brand-500)';
+      else bg = 'var(--n-150)';
+
+      return `<div style="width:8px; height:8px; border-radius:99px; background:${bg};" title="${status.label}"></div>`;
     }).join('');
   },
   
   renderCreateForm() {
     return `
-      <div class="space-y-4">
+      <div class="adl" style="display:flex; flex-direction:column; gap:14px;">
         <div>
-          <label class="block text-sm font-medium mb-1">Klient *</label>
-          <select id="create-client" class="w-full p-3 border rounded-xl" required>
-            <option value="">Vyber klienta...</option>
+          <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Klient *</label>
+          <select id="create-client" class="adl-input" style="width:100%; height:38px;" required>
+            <option value="">Vyberte klienta…</option>
             ${this.clients.map(c => `<option value="${c.id}">${c.company_name}</option>`).join('')}
           </select>
         </div>
-        
+
         <div>
-          <label class="block text-sm font-medium mb-1">Názov projektu *</label>
-          <input type="text" id="create-name" placeholder="napr. Letná kampaň 2025" 
-            class="w-full p-3 border rounded-xl" required>
+          <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Názov projektu *</label>
+          <input type="text" id="create-name" placeholder="napr. Letná kampaň 2026" class="adl-input" style="width:100%; height:38px;" required>
         </div>
-        
+
         <div>
-          <label class="block text-sm font-medium mb-1">Popis (voliteľné)</label>
-          <textarea id="create-description" rows="3" placeholder="Stručný popis projektu..." 
-            class="w-full p-3 border rounded-xl"></textarea>
+          <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Popis (voliteľné)</label>
+          <textarea id="create-description" rows="3" placeholder="Stručný popis projektu…" style="width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:10px; font-size:13px; font-family:inherit; color:var(--ink); background:var(--surface); resize:vertical;"></textarea>
         </div>
-        
-        <div class="grid grid-cols-2 gap-4">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div>
-            <label class="block text-sm font-medium mb-1">Rozpočet na reklamu</label>
-            <div class="relative">
-              <input type="number" id="create-ad-budget" placeholder="500" 
-                class="w-full p-3 border rounded-xl pr-12">
-              <span class="absolute right-3 top-3 text-gray-400">€/mes</span>
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Rozpočet na reklamu</label>
+            <div style="position:relative;">
+              <input type="number" id="create-ad-budget" placeholder="500" class="adl-input" style="width:100%; height:38px; padding-right:54px;">
+              <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--ink-mute);">€/mes</span>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">Poplatok za správu</label>
-            <div class="relative">
-              <input type="number" id="create-fee" placeholder="249" 
-                class="w-full p-3 border rounded-xl pr-12">
-              <span class="absolute right-3 top-3 text-gray-400">€/mes</span>
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Poplatok za správu</label>
+            <div style="position:relative;">
+              <input type="number" id="create-fee" placeholder="249" class="adl-input" style="width:100%; height:38px; padding-right:54px;">
+              <span style="position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--ink-mute);">€/mes</span>
             </div>
           </div>
         </div>
-        
-        <div class="grid grid-cols-2 gap-4">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <div>
-            <label class="block text-sm font-medium mb-1">Plánovaný štart</label>
-            <input type="date" id="create-start-date" class="w-full p-3 border rounded-xl">
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Plánovaný štart</label>
+            <input type="date" id="create-start-date" class="adl-input" style="width:100%; height:38px;">
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">Plánovaný koniec</label>
-            <input type="date" id="create-end-date" class="w-full p-3 border rounded-xl">
+            <label style="display:block; font-size:12px; font-weight:500; color:var(--ink); margin-bottom:6px;">Plánovaný koniec</label>
+            <input type="date" id="create-end-date" class="adl-input" style="width:100%; height:38px;">
           </div>
         </div>
-        
-        <div class="bg-blue-50 rounded-xl p-4">
-          <h4 class="font-semibold text-blue-800 mb-2">💡 Tip</h4>
-          <p class="text-sm text-blue-700">Po vytvorení projektu môžete spustiť AI generovanie, ktoré vytvorí kompletný návrh kampaní na základe údajov z onboardingu klienta.</p>
+
+        <div style="padding:12px 14px; background:color-mix(in oklab, var(--acc-sky) 60%, var(--surface)); border-radius:10px; color:var(--acc-sky-ink); display:flex; gap:10px; align-items:start;">
+          <span style="flex-shrink:0;">${I.Info({size:16})}</span>
+          <div style="font-size:12px; line-height:1.5;">Po vytvorení projektu môžete spustiť generovanie, ktoré pripraví kompletný návrh kampaní z onboardingu klienta.</div>
         </div>
-        
-        <div class="flex gap-3 pt-4">
-          <button onclick="CampaignProjectsModule.closeCreateModal()" 
-            class="flex-1 px-4 py-3 bg-gray-200 rounded-xl hover:bg-gray-300">
-            Zrušiť
-          </button>
-          <button onclick="CampaignProjectsModule.createProject()" 
-            class="flex-1 px-4 py-3 gradient-bg text-white rounded-xl font-semibold hover:opacity-90">
-            ➕ Vytvoriť projekt
-          </button>
+
+        <div style="display:flex; gap:8px; padding-top:6px;">
+          <button onclick="CampaignProjectsModule.closeCreateModal()" class="adl-btn adl-btn-outline" style="flex:1; justify-content:center;">Zrušiť</button>
+          <button onclick="CampaignProjectsModule.createProject()" class="adl-btn adl-btn-primary" style="flex:1; justify-content:center;">${I.Plus({size:14})} Vytvoriť projekt</button>
         </div>
       </div>
     `;
@@ -406,27 +486,37 @@ const CampaignProjectsModule = {
     }
   },
   
+  async _refreshView() {
+    const viewEl = document.getElementById('projects-view');
+    if (!viewEl) return;
+    if (this.view === 'kanban') {
+      viewEl.innerHTML = this.renderKanban();
+    } else {
+      viewEl.innerHTML = `<div id="projects-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;" class="adl-projects-grid">${this.renderProjectsGrid()}</div>`;
+    }
+  },
+
   async onSearchChange(value) {
     this.filters.search = value;
     await this.loadData();
-    document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+    await this._refreshView();
   },
-  
+
   async onStatusChange(status) {
     this.filters.status = status;
     await this.loadData();
-    // Re-render whole template to update tabs
+    // Re-render whole template to update counts + filters
     const container = document.getElementById('main-content');
     if (container) {
       container.innerHTML = this.template();
       this.setupEventListeners();
     }
   },
-  
+
   async onClientChange(clientId) {
     this.filters.client = clientId;
     await this.loadData();
-    document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+    await this._refreshView();
   },
   
   // ==========================================
@@ -477,16 +567,32 @@ const CampaignProjectsModule = {
       .select('*')
       .eq('project_id', project.id)
       .order('created_at');
-    
+
     // Load onboarding data
     const { data: onboarding } = await Database.client
       .from('onboarding_responses')
       .select('*')
       .eq('client_id', project.client_id)
       .single();
-    
+
+    // Load ad groups + ads count
+    let totalAds = 0;
+    if (campaigns?.length) {
+      const campaignIds = campaigns.map(c => c.id);
+      const { data: adGroups } = await Database.client
+        .from('ad_groups').select('id').in('campaign_id', campaignIds);
+      if (adGroups?.length) {
+        const { count } = await Database.client
+          .from('ads').select('*', { count: 'exact', head: true })
+          .in('ad_group_id', adGroups.map(g => g.id));
+        totalAds = count || 0;
+      }
+    }
+
     const status = this.STATUSES[project.status] || this.STATUSES.draft;
-    
+    const totalBudget = (campaigns || []).reduce((s, c) => s + (c.budget_daily || 0) * 30, 0);
+    const expected = project.expected_results?.day_90 || project.expected_results?.day_30 || {};
+
     return `
       <div class="space-y-6">
         <!-- Status & Workflow -->
@@ -497,25 +603,67 @@ const CampaignProjectsModule = {
             </span>
             <span class="text-sm text-gray-500">Vytvorené: ${Utils.formatDate ? Utils.formatDate(project.created_at) : new Date(project.created_at).toLocaleDateString('sk')}</span>
           </div>
-          
+
           <!-- Workflow Progress -->
           <div class="flex items-center justify-between">
             ${this.renderWorkflowProgress(project.status)}
           </div>
         </div>
-        
+
+        <!-- Summary metrics -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${campaigns?.length || 0}</div>
+            <div class="text-xs text-gray-500">Kampaní</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${totalAds}</div>
+            <div class="text-xs text-gray-500">Reklám</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${totalBudget.toFixed(0)}€</div>
+            <div class="text-xs text-gray-500">Rozpočet/mes</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${expected.conversions != null ? expected.conversions : '—'}</div>
+            <div class="text-xs text-gray-500">Konverzie/90d</div>
+          </div>
+          <div class="bg-white border rounded-xl p-3 text-center">
+            <div class="text-xl font-bold">${expected.roas != null ? expected.roas + 'x' : '—'}</div>
+            <div class="text-xs text-gray-500">ROAS/90d</div>
+          </div>
+        </div>
+
+        <!-- Tab navigation -->
+        <div class="flex gap-1 border-b overflow-x-auto">
+          <button onclick="CampaignProjectsModule.switchTab('overview')" data-tab-btn="overview" class="px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-700 whitespace-nowrap">📋 Prehľad</button>
+          <button onclick="CampaignProjectsModule.switchTab('strategy')" data-tab-btn="strategy" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">🎯 Stratégia</button>
+          <button onclick="CampaignProjectsModule.switchTab('campaigns')" data-tab-btn="campaigns" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">📢 Kampane</button>
+          <button onclick="CampaignProjectsModule.switchTab('onboarding')" data-tab-btn="onboarding" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">📥 Onboarding</button>
+          <button onclick="CampaignProjectsModule.switchTab('deployment')" data-tab-btn="deployment" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-600 hover:text-purple-700 whitespace-nowrap">🚀 Deployment</button>
+        </div>
+
+        <!-- Tab content: OVERVIEW -->
+        <div data-tab-content="overview" class="space-y-6">
+
         <!-- Client Portal Link (if exists) -->
         ${project.client_portal_token ? `
         <div class="card p-4 bg-blue-50 border border-blue-200">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h4 class="font-semibold text-blue-800">🔗 Odkaz pre klienta</h4>
-              <p class="text-sm text-blue-600 truncate max-w-md">${window.location.origin}/client-portal.html?token=${project.client_portal_token}</p>
+              <p class="text-sm text-blue-600 truncate max-w-md">${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}</p>
             </div>
-            <button onclick="CampaignProjectsModule.copyClientLink('${project.id}')" 
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              📋 Kopírovať
-            </button>
+            <div class="flex gap-2">
+              <button onclick="CampaignProjectsModule.previewAsClient('${project.id}')"
+                class="px-4 py-2 bg-white text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50">
+                👁️ Preview ako klient
+              </button>
+              <button onclick="CampaignProjectsModule.copyClientLink('${project.id}')"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                📋 Kopírovať
+              </button>
+            </div>
           </div>
         </div>
         ` : ''}
@@ -580,14 +728,151 @@ const CampaignProjectsModule = {
         </div>
         ` : ''}
         
-        ${project.strategy_summary ? `
-        <div class="card p-4 bg-purple-50">
-          <h4 class="font-semibold mb-2 text-purple-800">🎯 Stratégia</h4>
-          <p class="text-purple-700">${project.strategy_summary}</p>
-        </div>
-        ` : ''}
-        
-        <!-- Onboarding Data -->
+        </div><!-- /tab-overview -->
+
+        <!-- Tab content: STRATEGY -->
+        <div data-tab-content="strategy" class="space-y-6 hidden">
+          ${project.strategy_summary ? `
+          <div class="card p-4 bg-purple-50">
+            <h4 class="font-semibold mb-2 text-purple-800">🎯 Stratégia</h4>
+            <p class="text-purple-700">${project.strategy_summary}</p>
+          </div>
+          ` : '<div class="text-gray-400 text-sm text-center py-8">Stratégia ešte nebola vygenerovaná</div>'}
+
+          ${project.business_analysis ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">💼 Analýza biznisu</h4>
+            ${project.business_analysis.summary ? `<p class="text-sm text-gray-700 mb-3">${project.business_analysis.summary}</p>` : ''}
+            <div class="grid md:grid-cols-2 gap-3">
+              ${project.business_analysis.key_insights?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">🔍 Zistenia</h5>
+                  <ul class="text-sm space-y-1">${project.business_analysis.key_insights.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>
+              ` : ''}
+              ${project.business_analysis.opportunities?.length ? `
+                <div class="bg-green-50 rounded-lg p-3">
+                  <h5 class="text-xs font-semibold text-green-700 uppercase mb-2">🚀 Príležitosti</h5>
+                  <ul class="text-sm space-y-1 text-green-800">${project.business_analysis.opportunities.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>
+              ` : ''}
+              ${project.business_analysis.challenges?.length ? `
+                <div class="bg-amber-50 rounded-lg p-3 md:col-span-2">
+                  <h5 class="text-xs font-semibold text-amber-700 uppercase mb-2">⚠️ Výzvy</h5>
+                  <ul class="text-sm space-y-1 text-amber-900">${project.business_analysis.challenges.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.research_data?.insights ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">🔎 Research insights</h4>
+            <div class="space-y-3 text-sm">
+              ${project.research_data.insights.market_analysis ? `<p><strong>Trh:</strong> ${project.research_data.insights.market_analysis}</p>` : ''}
+              ${project.research_data.insights.competitor_analysis ? `<p><strong>Konkurencia:</strong> ${project.research_data.insights.competitor_analysis}</p>` : ''}
+              ${project.research_data.insights.keyword_strategy ? `<p><strong>Keyword stratégia:</strong> ${project.research_data.insights.keyword_strategy}</p>` : ''}
+              ${project.research_data.insights.recommended_approach ? `<p class="p-3 bg-blue-50 rounded-lg text-blue-900"><strong>Prístup:</strong> ${project.research_data.insights.recommended_approach}</p>` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.research_data?.keywords?.length ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">🔑 Top kľúčové slová (${project.research_data.keywords.length})</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead><tr class="text-left text-xs text-gray-500 uppercase border-b"><th class="pb-2">Keyword</th><th class="pb-2">Hľadanosť</th><th class="pb-2">CPC</th></tr></thead>
+                <tbody>
+                  ${project.research_data.keywords.slice(0, 15).map(k => `<tr class="border-b"><td class="py-1.5">${k.keyword}</td><td class="py-1.5">${(k.search_volume || 0).toLocaleString('sk-SK')}</td><td class="py-1.5">${(k.cpc || 0).toFixed(2)}€</td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.research_data?.competitors?.length ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">⚔️ Konkurencia (${project.research_data.competitors.length})</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+              ${project.research_data.competitors.map(c => `
+                <div class="bg-gray-50 rounded-lg p-2 text-sm">
+                  <div class="flex justify-between items-center">
+                    <span class="font-medium">${c.domain}</span>
+                    ${c.is_paid ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-1.5 rounded">PPC</span>' : ''}
+                  </div>
+                  ${c.titles?.[0] ? `<div class="text-xs text-gray-500 mt-1 truncate">${c.titles[0]}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.expected_results ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">📈 Očakávané výsledky</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              ${['day_30','day_90','day_180'].map(key => {
+                const r = project.expected_results[key]; if (!r) return '';
+                const label = { day_30: 'Po 30 dňoch', day_90: 'Po 90 dňoch', day_180: 'Po 180 dňoch' }[key];
+                return `<div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">${label}</h5>
+                  ${r.impressions != null ? `<div class="flex justify-between py-0.5"><span>Zobrazenia</span><strong>${(r.impressions||0).toLocaleString('sk-SK')}</strong></div>` : ''}
+                  ${r.clicks != null ? `<div class="flex justify-between py-0.5"><span>Kliknutia</span><strong>${(r.clicks||0).toLocaleString('sk-SK')}</strong></div>` : ''}
+                  ${r.conversions != null ? `<div class="flex justify-between py-0.5"><span>Konverzie</span><strong>${r.conversions}</strong></div>` : ''}
+                  ${r.cpa != null ? `<div class="flex justify-between py-0.5"><span>CPA</span><strong>${r.cpa}€</strong></div>` : ''}
+                  ${r.roas != null ? `<div class="flex justify-between py-0.5"><span>ROAS</span><strong>${r.roas}x</strong></div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>
+            ${project.expected_results.notes ? `<p class="text-xs text-gray-500 mt-3">${project.expected_results.notes}</p>` : ''}
+          </div>
+          ` : ''}
+
+          ${project.timeline?.phases?.length ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">⏱️ Časový harmonogram</h4>
+            <div class="space-y-3">
+              ${project.timeline.phases.map(p => `
+                <div class="flex gap-3">
+                  <div class="flex-shrink-0 w-20 text-xs text-gray-500 pt-0.5">${p.duration_days} dní</div>
+                  <div class="flex-1">
+                    <div class="font-medium text-sm">${p.name}</div>
+                    ${p.activities?.length ? `<ul class="text-xs text-gray-600 mt-1 space-y-0.5">${p.activities.map(a => `<li>• ${a}</li>`).join('')}</ul>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+          ${project.next_steps ? `
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">📋 Ďalšie kroky</h4>
+            <div class="grid md:grid-cols-3 gap-3">
+              ${project.next_steps.client_needs_to_provide?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">Potrebujeme od klienta</h5>
+                  <ul class="space-y-1">${project.next_steps.client_needs_to_provide.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>` : ''}
+              ${project.next_steps.our_next_actions?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">My spravíme</h5>
+                  <ul class="space-y-1">${project.next_steps.our_next_actions.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>` : ''}
+              ${project.next_steps.launch_readiness?.length ? `
+                <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                  <h5 class="text-xs font-semibold text-gray-600 uppercase mb-2">Pred spustením</h5>
+                  <ul class="space-y-1">${project.next_steps.launch_readiness.map(i => `<li>• ${i}</li>`).join('')}</ul>
+                </div>` : ''}
+            </div>
+          </div>
+          ` : ''}
+        </div><!-- /tab-strategy -->
+
+        <!-- Tab content: ONBOARDING -->
+        <div data-tab-content="onboarding" class="space-y-6 hidden">
         ${onboarding ? `
         <div class="card p-4">
           <div class="flex items-center justify-between mb-4">
@@ -761,20 +1046,23 @@ const CampaignProjectsModule = {
           </div>
         </div>
         `}
-        
+        </div><!-- /tab-onboarding -->
+
+        <!-- Tab content: CAMPAIGNS -->
+        <div data-tab-content="campaigns" class="space-y-6 hidden">
         <!-- Kampane - Hierarchické zobrazenie podľa platforiem -->
         <div class="card p-4">
           <div class="flex items-center justify-between mb-4">
             <h4 class="font-semibold">📣 Kampane (${campaigns?.length || 0})</h4>
             ${project.status === 'draft' || project.status === 'revision' ? `
-            <button onclick="CampaignProjectsModule.addCampaign('${project.id}')" 
+            <button onclick="CampaignProjectsModule.addCampaign('${project.id}')"
               class="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200">
               ➕ Pridať
             </button>
             ` : ''}
           </div>
-          
-          ${campaigns && campaigns.length > 0 ? 
+
+          ${campaigns && campaigns.length > 0 ?
             this.renderCampaignsByPlatform(campaigns, project.id)
           : `
           <div class="text-center py-8 text-gray-400">
@@ -784,16 +1072,34 @@ const CampaignProjectsModule = {
           </div>
           `}
         </div>
-        
-        <!-- Deployment Checklist (pre approved a active projekty) -->
-        ${['approved', 'deploying', 'active'].includes(project.status) ? this.renderDeploymentChecklist(project, campaigns) : ''}
-        
+        </div><!-- /tab-campaigns -->
+
+        <!-- Tab content: DEPLOYMENT -->
+        <div data-tab-content="deployment" class="space-y-6 hidden">
+          ${['approved', 'deploying', 'active'].includes(project.status)
+            ? this.renderDeploymentChecklist(project, campaigns)
+            : '<div class="text-gray-400 text-sm text-center py-8">Deployment bude dostupný po schválení klientom</div>'}
+        </div><!-- /tab-deployment -->
+
         <!-- Actions -->
         <div class="flex flex-wrap gap-3 pt-4 border-t">
           ${this.renderDetailActions(project)}
         </div>
       </div>
     `;
+  },
+
+  switchTab(tabName) {
+    document.querySelectorAll('[data-tab-content]').forEach(el => {
+      el.classList.toggle('hidden', el.dataset.tabContent !== tabName);
+    });
+    document.querySelectorAll('[data-tab-btn]').forEach(el => {
+      const active = el.dataset.tabBtn === tabName;
+      el.classList.toggle('border-purple-600', active);
+      el.classList.toggle('text-purple-700', active);
+      el.classList.toggle('border-transparent', !active);
+      el.classList.toggle('text-gray-600', !active);
+    });
   },
   
   // Deployment checklist definition
@@ -1974,11 +2280,11 @@ const CampaignProjectsModule = {
       
       if (error) throw error;
       
-      const url = `${window.location.origin}/client-portal.html?token=${token}`;
-      
+      const url = `${window.location.origin}/portal/proposal.html?t=${token}`;
+
       // Copy to clipboard
       await navigator.clipboard.writeText(url);
-      
+
       Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
       
       // Update local data
@@ -2004,7 +2310,7 @@ const CampaignProjectsModule = {
       return;
     }
     
-    const url = `${window.location.origin}/client-portal.html?token=${project.client_portal_token}`;
+    const url = `${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}`;
     await navigator.clipboard.writeText(url);
     Utils.toast('Odkaz skopírovaný do schránky! 📋', 'success');
   },
@@ -2030,7 +2336,7 @@ const CampaignProjectsModule = {
       return;
     }
     
-    if (!client.contact_email) {
+    if (!client.email) {
       Utils.toast('Klient nemá email', 'error');
       return;
     }
@@ -2049,7 +2355,7 @@ const CampaignProjectsModule = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: client.contact_email,
+          to: client.email,
           toName: client.contact_person || client.company_name,
           subject: `📊 Návrh kampane pre ${client.company_name} - Adlify`,
           htmlBody: htmlBody
@@ -2064,17 +2370,17 @@ const CampaignProjectsModule = {
           .from('campaign_projects')
           .update({ 
             proposal_sent_at: new Date().toISOString(),
-            proposal_sent_to: client.contact_email
+            proposal_sent_to: client.email
           })
           .eq('id', projectId);
         
-        Utils.toast(`📧 Email odoslaný na ${client.contact_email}`, 'success');
+        Utils.toast(`📧 Email odoslaný na ${client.email}`, 'success');
         
         // Vytvor notifikáciu
         await Database.client.from('notifications').insert({
           type: 'proposal_sent',
           title: '📧 Návrh odoslaný klientovi',
-          message: `Návrh pre ${client.company_name} bol odoslaný na ${client.contact_email}`,
+          message: `Návrh pre ${client.company_name} bol odoslaný na ${client.email}`,
           action_url: `#projects?id=${projectId}`,
           entity_type: 'project',
           entity_id: projectId

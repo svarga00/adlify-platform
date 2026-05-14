@@ -45,7 +45,9 @@ exports.handler = async (event) => {
             inReplyToId,
             attachments,
             leadId,
-            clientId
+            clientId,
+            fromEmail: overrideFromEmail,
+            fromName: overrideFromName
         } = JSON.parse(event.body || '{}');
 
         // Validácia
@@ -80,6 +82,10 @@ exports.handler = async (event) => {
                 fromName = account.display_name || account.name || 'Adlify';
             }
         }
+
+        // Explicit override z volajúceho (outreach scheduler) má prioritu
+        if (overrideFromEmail) fromEmail = overrideFromEmail;
+        if (overrideFromName) fromName = overrideFromName;
 
         console.log(`📤 Sending email from ${fromEmail} to ${to}`);
 

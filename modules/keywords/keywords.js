@@ -22,74 +22,56 @@ const KeywordResearchModule = {
 
     async render(container) {
         container.innerHTML = `
-            <div class="keywords-module">
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Keyword Research</h1>
-                        <p class="subtitle">SEO a PPC analýza kľúčových slov</p>
+            <div class="adl keywords-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Keyword Research</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">SEO a PPC analýza kľúčových slov</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="KeywordResearchModule.showNewSearch()">
-                            <span>🔍</span> Nový výskum
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="KeywordResearchModule.showNewSearch()">${I.Search({size:14})} Nový výskum</button>
                     </div>
                 </div>
 
                 <!-- Quick Search -->
-                <div class="quick-search-card">
-                    <div class="search-input-wrapper">
-                        <input type="text" id="quick-keyword" placeholder="Zadaj kľúčové slovo..." 
-                               onkeypress="if(event.key==='Enter') KeywordResearchModule.quickSearch()">
-                        <select id="quick-country">
-                            <option value="sk">🇸🇰 Slovensko</option>
-                            <option value="cz">🇨🇿 Česko</option>
-                            <option value="hu">🇭🇺 Maďarsko</option>
-                            <option value="at">🇦🇹 Rakúsko</option>
-                            <option value="de">🇩🇪 Nemecko</option>
+                <div class="adl-card" style="margin-bottom:16px;">
+                    <div class="adl-card-body" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <div class="adl-input" style="flex:1; min-width:240px;">
+                            <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                            <input type="text" id="quick-keyword" placeholder="Zadaj kľúčové slovo…" onkeypress="if(event.key==='Enter') KeywordResearchModule.quickSearch()" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
+                        </div>
+                        <select class="adl-input" id="quick-country" style="width:auto;">
+                            <option value="sk">Slovensko</option>
+                            <option value="cz">Česko</option>
+                            <option value="hu">Maďarsko</option>
+                            <option value="at">Rakúsko</option>
+                            <option value="de">Nemecko</option>
                         </select>
-                        <button class="btn-search" onclick="KeywordResearchModule.quickSearch()">
-                            Hľadať
-                        </button>
+                        <button class="adl-btn adl-btn-primary" onclick="KeywordResearchModule.quickSearch()">Hľadať</button>
                     </div>
                 </div>
 
-                <!-- Results Area -->
-                <div class="keywords-content" id="keywords-content">
-                    <div class="keywords-placeholder">
-                        <div class="placeholder-icon">🔍</div>
-                        <h3>Začni výskum kľúčových slov</h3>
-                        <p>Zadaj seed keyword a získaj návrhy s objemom vyhľadávania, CPC a konkurenciou</p>
-                        
-                        <div class="features-grid">
-                            <div class="feature">
-                                <span class="feature-icon">📊</span>
-                                <span>Search Volume</span>
-                            </div>
-                            <div class="feature">
-                                <span class="feature-icon">💰</span>
-                                <span>CPC odhad</span>
-                            </div>
-                            <div class="feature">
-                                <span class="feature-icon">📈</span>
-                                <span>Konkurencia</span>
-                            </div>
-                            <div class="feature">
-                                <span class="feature-icon">💡</span>
-                                <span>Návrhy</span>
-                            </div>
+                <!-- Results -->
+                <div id="keywords-content">
+                    <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Key({size:22})}</div>
+                        <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Začnite výskum kľúčových slov</h3>
+                        <p style="font-size:13px; color:var(--ink-sub); margin:0 0 14px;">Zadajte seed keyword a získajte návrhy s objemom vyhľadávania, CPC a konkurenciou</p>
+                        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                            <span class="adl-chip adl-chip-sky">${I.Chart({size:12})} Search Volume</span>
+                            <span class="adl-chip adl-chip-brand">${I.Money({size:12})} CPC odhad</span>
+                            <span class="adl-chip adl-chip-amber">${I.Target({size:12})} Konkurencia</span>
+                            <span class="adl-chip adl-chip-lav">${I.Sparkle({size:12})} Návrhy</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- History -->
-                <div class="search-history" id="search-history">
-                    <h3>📜 Posledné výskumy</h3>
-                    <div class="history-list" id="history-list">
-                        <!-- Načíta sa z DB -->
-                    </div>
+                <div class="adl-card" id="search-history" style="margin-top:16px;">
+                    <div class="adl-card-header"><div class="adl-card-title">Posledné výskumy</div></div>
+                    <div id="history-list" class="adl-card-body" style="padding:8px;"></div>
                 </div>
             </div>
-            ${this.getStyles()}
         `;
 
         await this.loadHistory();
@@ -125,18 +107,23 @@ const KeywordResearchModule = {
         if (!container) return;
 
         if (this.searches.length === 0) {
-            container.innerHTML = '<p class="no-history">Zatiaľ žiadne výskumy</p>';
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ink-mute); font-size:13px;">Zatiaľ žiadne výskumy</div>';
             return;
         }
 
-        container.innerHTML = this.searches.map(s => `
-            <div class="history-item" onclick="KeywordResearchModule.loadSearch('${s.id}')">
-                <div class="history-keyword">${s.seed_keyword}</div>
-                <div class="history-meta">
-                    <span class="history-country">${this.getCountryFlag(s.country)}</span>
-                    <span class="history-count">${s.results_count || 0} výsledkov</span>
-                    <span class="history-date">${this.formatDate(s.created_at)}</span>
+        const countryLabel = { sk: 'SK', cz: 'CZ', hu: 'HU', at: 'AT', de: 'DE' };
+
+        container.innerHTML = this.searches.map((s, i) => `
+            <div onclick="KeywordResearchModule.loadSearch('${s.id}')" style="display:flex; align-items:center; gap:12px; padding:10px 14px; ${i > 0 ? 'border-top:1px solid var(--border);' : ''} cursor:pointer; transition: background .12s;" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='transparent'">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:13px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.seed_keyword}</div>
+                    <div style="display:flex; align-items:center; gap:10px; font-size:11px; color:var(--ink-mute); margin-top:2px;">
+                        <span class="adl-chip adl-chip-sm">${countryLabel[s.country] || s.country}</span>
+                        <span>${s.results_count || 0} výsledkov</span>
+                        <span>${this.formatDate(s.created_at)}</span>
+                    </div>
                 </div>
+                <span style="color:var(--ink-mute); display:inline-flex;">${I.Chevron({size:14})}</span>
             </div>
         `).join('');
     },
@@ -319,73 +306,76 @@ const KeywordResearchModule = {
 
     renderResults(results, keyword) {
         const content = document.getElementById('keywords-content');
-        
+
         if (!results || results.length === 0) {
             content.innerHTML = `
-                <div class="no-results">
-                    <div class="no-results-icon">🤷</div>
-                    <h3>Žiadne výsledky</h3>
-                    <p>Pre "${keyword}" sme nenašli žiadne návrhy</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Search({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne výsledky</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0;">Pre „${keyword}" sme nenašli žiadne návrhy</p>
                 </div>
             `;
             return;
         }
 
+        const maxVol = Math.max(1, ...results.map(r => r.search_volume || 0));
+
         content.innerHTML = `
-            <div class="results-header">
-                <div class="results-info">
-                    <h3>Výsledky pre "${keyword}"</h3>
-                    <span class="results-count">${results.length} kľúčových slov</span>
+            <div class="adl-card">
+                <div class="adl-card-header" style="flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <div class="adl-card-title">Výsledky pre „${keyword}"</div>
+                        <div style="font-size:11px; color:var(--ink-mute); margin-top:2px;">${results.length} kľúčových slov</div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="KeywordResearchModule.exportResults()">${I.Download({size:14})} Export CSV</button>
+                        <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="KeywordResearchModule.saveToProject()">${I.Folder({size:14})} Uložiť do projektu</button>
+                    </div>
                 </div>
-                <div class="results-actions">
-                    <button class="btn-secondary" onclick="KeywordResearchModule.exportResults()">
-                        📥 Export CSV
-                    </button>
-                    <button class="btn-secondary" onclick="KeywordResearchModule.saveToProject()">
-                        📁 Uložiť do projektu
-                    </button>
-                </div>
-            </div>
-            
-            <div class="results-table-wrapper">
-                <table class="results-table">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" onchange="KeywordResearchModule.selectAll(this)"></th>
-                            <th>Kľúčové slovo</th>
-                            <th class="text-right">Objem</th>
-                            <th class="text-right">CPC</th>
-                            <th class="text-right">Konkurencia</th>
-                            <th>Trend</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${results.map((r, i) => `
+                <div style="overflow-x:auto;">
+                    <table class="adl-table">
+                        <thead>
                             <tr>
-                                <td><input type="checkbox" class="kw-checkbox" data-index="${i}"></td>
-                                <td class="keyword-cell">${r.keyword}</td>
-                                <td class="text-right">
-                                    <span class="volume-badge">${this.formatNumber(r.search_volume)}</span>
-                                </td>
-                                <td class="text-right">€${r.cpc}</td>
-                                <td class="text-right">
-                                    <div class="competition-bar">
-                                        <div class="competition-fill" style="width: ${r.competition * 100}%"></div>
-                                    </div>
-                                </td>
-                                <td>
-                                    ${this.getTrendIcon(r.trend)}
-                                </td>
-                                <td>
-                                    <button class="btn-icon-small" onclick="KeywordResearchModule.copyKeyword('${r.keyword}')" title="Kopírovať">
-                                        📋
-                                    </button>
-                                </td>
+                                <th style="width:32px;"><input type="checkbox" onchange="KeywordResearchModule.selectAll(this)"></th>
+                                <th>Kľúčové slovo</th>
+                                <th style="text-align:right;">Hľadanosť/mes</th>
+                                <th style="text-align:right;">CPC</th>
+                                <th>Konkurencia</th>
+                                <th style="width:48px;"></th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${results.map((r, i) => {
+                                const widthPct = Math.round(((r.search_volume || 0) / maxVol) * 100);
+                                const compPct = Math.round((r.competition || 0) * 100);
+                                const compTone = compPct >= 70 ? 'err' : compPct >= 40 ? 'amber' : 'mint';
+                                return `
+                                <tr>
+                                    <td><input type="checkbox" class="kw-checkbox" data-index="${i}"></td>
+                                    <td><strong style="font-size:13px;">${r.keyword}</strong></td>
+                                    <td style="text-align:right;">
+                                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                                            <span style="display:inline-block; height:6px; background:linear-gradient(90deg, var(--brand-500), var(--brand-700)); border-radius:3px; width:${Math.max(10, widthPct * 0.8)}px;"></span>
+                                            <span class="mono">${this.formatNumber(r.search_volume || 0)}</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:right;" class="mono">${(r.cpc || 0).toFixed(2)}&nbsp;€</td>
+                                    <td>
+                                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                                            <div style="width:60px; height:4px; background:var(--n-100); border-radius:99px; overflow:hidden;">
+                                                <div style="width:${compPct}%; height:100%; background:var(--${compTone === 'err' ? 'err' : compTone === 'amber' ? 'warn' : 'ok'});"></div>
+                                            </div>
+                                            <span style="font-size:11px; color:var(--ink-sub);">${compPct}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="KeywordResearchModule.copyKeyword('${r.keyword}')" title="Kopírovať" style="padding:0 8px;">${I.Copy({size:12})}</button>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `;
     },

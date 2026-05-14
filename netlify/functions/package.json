@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Adlify Netlify Functions",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.1",
     "@supabase/supabase-js": "^2.39.0",
     "imap": "^0.8.19",
     "mailparser": "^3.6.5",

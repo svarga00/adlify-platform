@@ -23,70 +23,47 @@ const TasksModule = {
     },
 
     async render(container) {
+        const view = this.currentView || 'list';
+        const filter = this.currentFilter || 'all';
         container.innerHTML = `
-            <div class="tasks-module">
+            <div class="adl tasks-module">
                 <!-- Header -->
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Úlohy</h1>
-                        <p class="subtitle">Správa úloh a priradenie</p>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Úlohy</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Správa úloh a priradenie členom tímu</div>
                     </div>
-                    <div class="header-right">
-                        <div class="view-toggle">
-                            <button class="view-btn ${this.currentView === 'list' ? 'active' : ''}" onclick="TasksModule.setView('list')" title="Zoznam">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="8" y1="6" x2="21" y2="6"></line>
-                                    <line x1="8" y1="12" x2="21" y2="12"></line>
-                                    <line x1="8" y1="18" x2="21" y2="18"></line>
-                                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                                </svg>
-                            </button>
-                            <button class="view-btn ${this.currentView === 'kanban' ? 'active' : ''}" onclick="TasksModule.setView('kanban')" title="Kanban">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="5" height="18" rx="1"></rect>
-                                    <rect x="10" y="3" width="5" height="12" rx="1"></rect>
-                                    <rect x="17" y="3" width="5" height="8" rx="1"></rect>
-                                </svg>
-                            </button>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px;">
+                            <button onclick="TasksModule.setView('list')" class="adl-btn adl-btn-sm ${view==='list'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Zoznam</button>
+                            <button onclick="TasksModule.setView('kanban')" class="adl-btn adl-btn-sm ${view==='kanban'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Kanban</button>
                         </div>
-                        <button class="btn-primary" onclick="TasksModule.showCreateModal()">
-                            <span>+</span> Nová úloha
-                        </button>
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TasksModule.showCreateModal()">${I.Plus({size:14})} Nová úloha</button>
                     </div>
                 </div>
 
                 <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="filter-tabs">
-                        <button class="filter-tab ${this.currentFilter === 'all' ? 'active' : ''}" onclick="TasksModule.setFilter('all')">
-                            Všetky
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'my' ? 'active' : ''}" onclick="TasksModule.setFilter('my')">
-                            Moje
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'todo' ? 'active' : ''}" onclick="TasksModule.setFilter('todo')">
-                            📋 To Do
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'in_progress' ? 'active' : ''}" onclick="TasksModule.setFilter('in_progress')">
-                            🔄 In Progress
-                        </button>
-                        <button class="filter-tab ${this.currentFilter === 'done' ? 'active' : ''}" onclick="TasksModule.setFilter('done')">
-                            ✅ Hotové
-                        </button>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;" class="adl-tasks-filters">
+                    <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px; flex-wrap:wrap;">
+                        ${[
+                            ['all', 'Všetky'],
+                            ['my', 'Moje'],
+                            ['todo', 'To Do'],
+                            ['in_progress', 'In Progress'],
+                            ['done', 'Hotové']
+                        ].map(([k,l]) => `<button onclick="TasksModule.setFilter('${k}')" class="adl-btn adl-btn-sm ${filter===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">${l}</button>`).join('')}
                     </div>
-                    <div class="filter-search">
-                        <input type="text" id="task-search" placeholder="Hľadať úlohy..." oninput="TasksModule.handleSearch(this.value)">
+                    <div class="adl-input" style="flex:1; min-width:200px; max-width:340px; margin-left:auto;">
+                        <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                        <input type="text" id="task-search" placeholder="Hľadať úlohy…" oninput="TasksModule.handleSearch(this.value)" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
                     </div>
                 </div>
 
                 <!-- Content -->
-                <div class="tasks-content" id="tasks-content">
-                    <div class="loading">Načítavam úlohy...</div>
+                <div id="tasks-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam úlohy…</div>
                 </div>
             </div>
-            ${this.getStyles()}
         `;
 
         await this.loadData();
@@ -135,17 +112,18 @@ const TasksModule = {
 
         if (filteredTasks.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">📋</div>
-                    <h3>Žiadne úlohy</h3>
-                    <p>Vytvor prvú úlohu kliknutím na tlačidlo "Nová úloha"</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Tasks({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne úlohy</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte prvú úlohu kliknutím na tlačidlo „Nová úloha"</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="TasksModule.showCreateModal()">${I.Plus({size:14})} Nová úloha</button>
                 </div>
             `;
             return;
         }
 
         container.innerHTML = `
-            <div class="tasks-list">
+            <div style="display:flex; flex-direction:column; gap:10px;">
                 ${filteredTasks.map(task => this.renderTaskCard(task)).join('')}
             </div>
         `;
@@ -153,26 +131,26 @@ const TasksModule = {
 
     renderKanban(container) {
         const columns = [
-            { id: 'todo', name: 'To Do', icon: '📋', color: '#6366f1' },
-            { id: 'in_progress', name: 'In Progress', icon: '🔄', color: '#f59e0b' },
-            { id: 'review', name: 'Review', icon: '👁️', color: '#8b5cf6' },
-            { id: 'done', name: 'Hotové', icon: '✅', color: '#10b981' }
+            { id: 'todo',        name: 'To Do',        color: 'var(--acc-lavender-ink)' },
+            { id: 'in_progress', name: 'In Progress',  color: 'var(--warn)' },
+            { id: 'review',      name: 'Review',       color: 'var(--acc-lavender-ink)' },
+            { id: 'done',        name: 'Hotové',       color: 'var(--ok)' }
         ];
 
         container.innerHTML = `
-            <div class="kanban-board">
+            <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; min-height:400px;" class="adl-kanban">
                 ${columns.map(col => {
                     const tasks = this.tasks.filter(t => t.status === col.id);
                     return `
-                        <div class="kanban-column" data-status="${col.id}">
-                            <div class="column-header" style="border-top-color: ${col.color}">
-                                <span class="column-icon">${col.icon}</span>
-                                <span class="column-name">${col.name}</span>
-                                <span class="column-count">${tasks.length}</span>
+                        <div data-status="${col.id}" style="flex:0 0 280px; min-width:260px; display:flex; flex-direction:column;">
+                            <div style="display:flex; align-items:center; gap:8px; padding:0 6px 10px;">
+                                <span style="width:8px; height:8px; border-radius:99px; background:${col.color};"></span>
+                                <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px;">${col.name}</span>
+                                <span style="font-size:11px; color:var(--ink-mute); background:var(--n-75); padding:1px 7px; border-radius:99px;">${tasks.length}</span>
                             </div>
-                            <div class="column-content" ondragover="TasksModule.handleDragOver(event)" ondrop="TasksModule.handleDrop(event, '${col.id}')">
+                            <div style="flex:1; background:var(--n-75); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:8px; min-height:200px;" ondragover="TasksModule.handleDragOver(event)" ondrop="TasksModule.handleDrop(event, '${col.id}')">
                                 ${tasks.map(task => this.renderKanbanCard(task)).join('')}
-                                ${tasks.length === 0 ? '<div class="empty-column">Žiadne úlohy</div>' : ''}
+                                ${tasks.length === 0 ? `<div style="padding:20px 8px; text-align:center; color:var(--ink-mute); font-size:12px;">Žiadne úlohy</div>` : ''}
                             </div>
                         </div>
                     `;
@@ -181,67 +159,48 @@ const TasksModule = {
         `;
     },
 
-    renderTaskCard(task) {
-        const priorityColors = {
-            low: '#10b981',
-            medium: '#f59e0b',
-            high: '#f97316',
-            urgent: '#ef4444'
-        };
-        const priorityNames = {
-            low: 'Nízka',
-            medium: 'Stredná',
-            high: 'Vysoká',
-            urgent: 'Urgentná'
-        };
-        const statusNames = {
-            todo: 'To Do',
-            in_progress: 'In Progress',
-            review: 'Review',
-            done: 'Hotové',
-            cancelled: 'Zrušené'
-        };
+    _priorityTone(p) {
+        return ({ low: 'mint', medium: 'amber', high: 'brand', urgent: 'err' })[p] || 'n';
+    },
+    _priorityLabel(p) {
+        return ({ low: 'Nízka', medium: 'Stredná', high: 'Vysoká', urgent: 'Urgentná' })[p] || '—';
+    },
+    _statusTone(s) {
+        return ({ todo: 'lav', in_progress: 'amber', review: 'sky', done: 'ok', cancelled: 'n' })[s] || 'n';
+    },
+    _statusLabel(s) {
+        return ({ todo: 'To Do', in_progress: 'In Progress', review: 'Review', done: 'Hotové', cancelled: 'Zrušené' })[s] || s;
+    },
 
+    renderTaskCard(task) {
         const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done';
         const assignedName = task.assigned ? `${task.assigned.first_name} ${task.assigned.last_name}` : 'Nepriradené';
         const assignedInitials = task.assigned ? `${task.assigned.first_name[0]}${task.assigned.last_name[0]}` : '?';
 
         return `
-            <div class="task-card ${task.status === 'done' ? 'completed' : ''} ${isOverdue ? 'overdue' : ''}" onclick="TasksModule.openTask('${task.id}')">
-                <div class="task-header">
-                    <div class="task-priority" style="background: ${priorityColors[task.priority]}15; color: ${priorityColors[task.priority]}">
-                        ${priorityNames[task.priority]}
-                    </div>
-                    <div class="task-status status-${task.status}">
-                        ${statusNames[task.status]}
-                    </div>
+            <div onclick="TasksModule.openTask('${task.id}')" style="background:var(--surface); border:1px solid ${isOverdue ? 'var(--err)' : 'var(--border)'}; border-radius:12px; padding:14px 16px; box-shadow:var(--sh-xs); cursor:pointer; transition: border-color .12s, box-shadow .12s; ${task.status === 'done' ? 'opacity:0.7;' : ''}" onmouseover="this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.boxShadow='var(--sh-xs)'">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+                    <span class="adl-chip adl-chip-${this._priorityTone(task.priority)} adl-chip-sm">${this._priorityLabel(task.priority)}</span>
+                    <span class="adl-chip adl-chip-${this._statusTone(task.status)} adl-chip-sm"><span class="dot"></span>${this._statusLabel(task.status)}</span>
+                    ${isOverdue ? `<span class="adl-chip adl-chip-err adl-chip-sm">${I.Warning({size:11})} Po termíne</span>` : ''}
                 </div>
-                
-                <h3 class="task-title">${task.title}</h3>
-                
-                ${task.description ? `<p class="task-description">${task.description.substring(0, 100)}${task.description.length > 100 ? '...' : ''}</p>` : ''}
-                
-                <div class="task-meta">
-                    <div class="task-assignee" title="${assignedName}">
-                        <span class="assignee-avatar">${assignedInitials}</span>
-                        <span class="assignee-name">${assignedName}</span>
+
+                <div style="font-size:14px; font-weight:600; letter-spacing:-0.1px; line-height:1.3; ${task.status === 'done' ? 'text-decoration:line-through;' : ''}">${task.title}</div>
+
+                ${task.description ? `<p style="font-size:12px; color:var(--ink-sub); margin:6px 0 0; line-height:1.4;">${task.description.substring(0, 120)}${task.description.length > 120 ? '…' : ''}</p>` : ''}
+
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <div class="adl-avatar adl-avatar-sm" title="${assignedName}">${assignedInitials}</div>
+                        <span style="font-size:11px; color:var(--ink-sub);">${assignedName}</span>
                     </div>
-                    
-                    ${task.due_date ? `
-                        <div class="task-due ${isOverdue ? 'overdue' : ''}">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                            </svg>
-                            ${this.formatDate(task.due_date)}
-                        </div>
-                    ` : ''}
+                    ${task.due_date ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; color:${isOverdue ? 'var(--err)' : 'var(--ink-mute)'};">${I.Clock({size:11})} ${this.formatDate(task.due_date)}</span>` : ''}
                 </div>
-                
+
                 ${task.tags && task.tags.length > 0 ? `
-                    <div class="task-tags">
-                        ${task.tags.slice(0, 3).map(tag => `<span class="tag">${tag}</span>`).join('')}
-                        ${task.tags.length > 3 ? `<span class="tag more">+${task.tags.length - 3}</span>` : ''}
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+                        ${task.tags.slice(0, 3).map(tag => `<span class="adl-chip adl-chip-sm">${tag}</span>`).join('')}
+                        ${task.tags.length > 3 ? `<span class="adl-chip adl-chip-sm">+${task.tags.length - 3}</span>` : ''}
                     </div>
                 ` : ''}
             </div>
@@ -249,29 +208,19 @@ const TasksModule = {
     },
 
     renderKanbanCard(task) {
-        const priorityColors = {
-            low: '#10b981',
-            medium: '#f59e0b',
-            high: '#f97316',
-            urgent: '#ef4444'
-        };
         const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done';
         const assignedInitials = task.assigned ? `${task.assigned.first_name[0]}${task.assigned.last_name[0]}` : '?';
+        const priorityBar = ({ low: 'var(--ok)', medium: 'var(--warn)', high: 'var(--brand-500)', urgent: 'var(--err)' })[task.priority] || 'var(--n-300)';
 
         return `
-            <div class="kanban-card ${isOverdue ? 'overdue' : ''}" 
-                 draggable="true" 
-                 ondragstart="TasksModule.handleDragStart(event, '${task.id}')"
-                 onclick="TasksModule.openTask('${task.id}')">
-                <div class="kanban-card-priority" style="background: ${priorityColors[task.priority]}"></div>
-                <h4 class="kanban-card-title">${task.title}</h4>
-                <div class="kanban-card-footer">
-                    <span class="kanban-assignee">${assignedInitials}</span>
-                    ${task.due_date ? `
-                        <span class="kanban-due ${isOverdue ? 'overdue' : ''}">
-                            ${this.formatDate(task.due_date)}
-                        </span>
-                    ` : ''}
+            <div draggable="true" ondragstart="TasksModule.handleDragStart(event, '${task.id}')" onclick="TasksModule.openTask('${task.id}')" style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px; box-shadow:var(--sh-xs); cursor:pointer; position:relative; ${isOverdue ? 'border-color:var(--err);' : ''}">
+                <div style="position:absolute; left:0; top:8px; bottom:8px; width:3px; background:${priorityBar}; border-radius:99px;"></div>
+                <div style="padding-left:10px;">
+                    <div style="font-size:13px; font-weight:500; letter-spacing:-0.1px; line-height:1.3; margin-bottom:8px;">${task.title}</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <div class="adl-avatar adl-avatar-sm">${assignedInitials}</div>
+                        ${task.due_date ? `<span style="display:inline-flex; align-items:center; gap:3px; font-size:10px; color:${isOverdue ? 'var(--err)' : 'var(--ink-mute)'};">${I.Clock({size:10})} ${this.formatDate(task.due_date)}</span>` : ''}
+                    </div>
                 </div>
             </div>
         `;

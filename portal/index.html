@@ -5,21 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Klientský portál | Adlify</title>
     <link rel="icon" href="/admin/favicon.ico">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Adlify Design System -->
+    <link rel="stylesheet" href="/shared/css/tokens.css">
+    <link rel="stylesheet" href="/shared/css/ui.css">
+    <link rel="stylesheet" href="/shared/css/chrome.css">
+    <link rel="stylesheet" href="/shared/css/responsive.css">
+    <script src="/shared/js/design/icons.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: linear-gradient(135deg, #fef3e2 0%, #fce7f3 50%, #ede9fe 100%);
+            font-family: var(--font-sans);
+            background: var(--bg);
             min-height: 100vh;
-            color: #1e293b;
+            color: var(--ink);
         }
 
         .portal-header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 1rem 2rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -28,101 +37,78 @@
             z-index: 100;
         }
 
-        .logo { display: flex; align-items: center; gap: 0.75rem; }
-
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #f97316, #ec4899);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 1.25rem;
-        }
-
-        .logo-text { font-weight: 700; font-size: 1.25rem; }
-
+        .logo { display: flex; align-items: center; gap: 10px; }
         .client-badge {
-            font-size: 0.65rem;
-            background: #dbeafe;
-            color: #1d4ed8;
-            padding: 0.25rem 0.5rem;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
             border-radius: 4px;
+            letter-spacing: 0.5px;
         }
-
-        .header-right { display: flex; align-items: center; gap: 1rem; }
-        .client-name { font-weight: 600; color: #64748b; }
-        
-        .btn-logout {
-            padding: 0.5rem 1rem;
-            background: #f1f5f9;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            color: #64748b;
-            transition: all 0.2s;
-        }
-        
-        .btn-logout:hover { background: #e2e8f0; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .client-name { font-weight: 500; color: var(--ink-sub); font-size: 13px; }
 
         .portal-nav {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 0 2rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 28px;
         }
 
-        .nav-tabs { display: flex; gap: 0.5rem; }
+        .nav-tabs { display: flex; gap: 4px; }
 
         .nav-tab {
-            padding: 1rem 1.5rem;
+            padding: 12px 16px;
             border: none;
             background: transparent;
-            font-size: 0.9rem;
+            font-size: 13px;
             font-weight: 500;
-            color: #64748b;
+            color: var(--ink-sub);
             cursor: pointer;
             border-bottom: 2px solid transparent;
-            transition: all 0.2s;
+            transition: color .12s, border-color .12s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
         }
 
-        .nav-tab:hover { color: #1e293b; }
-        .nav-tab.active { color: #f97316; border-bottom-color: #f97316; }
+        .nav-tab:hover { color: var(--ink); }
+        .nav-tab.active { color: var(--brand-600); border-bottom-color: var(--brand-500); font-weight: 600; }
 
         .portal-main {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 24px;
         }
 
         .card {
-            background: white;
-            border-radius: 16px;
-            border: 1px solid #e2e8f0;
+            background: var(--surface);
+            border-radius: 14px;
+            border: 1px solid var(--border);
             overflow: hidden;
-            margin-bottom: 1.5rem;
+            margin-bottom: 18px;
+            box-shadow: var(--sh-sm);
         }
 
         .card-header {
-            padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .card-header h2 {
-            font-size: 1.1rem;
+            font-size: 15px;
             font-weight: 600;
+            letter-spacing: -0.2px;
+            color: var(--ink);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 8px;
         }
 
-        .card-body { padding: 1.5rem; }
+        .card-body { padding: 20px; }
 
         .stats-grid {
             display: grid;
@@ -130,23 +116,40 @@
             gap: 1rem;
             margin-bottom: 2rem;
         }
-
-        .stat-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            text-align: center;
-            border: 1px solid #e2e8f0;
+        @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 520px) { .stats-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 640px) {
+            .portal-header { padding: 1rem; flex-wrap: wrap; }
+            .portal-nav { padding: 0 0.5rem; overflow-x: auto; }
+            .nav-tabs { flex-wrap: nowrap; white-space: nowrap; }
+            .portal-main { padding: 1rem; }
         }
 
-        .stat-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-        .stat-value { font-size: 1.75rem; font-weight: 700; color: #1e293b; }
-        .stat-label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+        .stat-card {
+            background: var(--surface);
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+            border: 1px solid var(--border);
+            box-shadow: var(--sh-sm);
+        }
+
+        .stat-icon { display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; color: var(--brand-500); }
+        .stat-icon svg { width: 22px; height: 22px; }
+        .stat-value { font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: -0.5px; }
+        .stat-label { font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
 
         .welcome-card {
-            background: linear-gradient(135deg, #f97316, #ec4899);
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
             color: white;
             border: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-card::before {
+            content: ''; position: absolute; right: -60px; top: -60px;
+            width: 240px; height: 240px;
+            background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
         }
 
         .welcome-card .card-body {
@@ -164,48 +167,46 @@
         .item {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            background: #f8fafc;
+            gap: 12px;
+            padding: 12px 14px;
+            background: var(--n-50);
             border-radius: 10px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background .12s, transform .12s;
             text-decoration: none;
             color: inherit;
         }
-
-        .item:hover { background: #f1f5f9; }
+        .item:hover { background: var(--n-75); transform: translateX(2px); }
 
         .item-icon {
-            width: 44px;
-            height: 44px;
+            width: 40px;
+            height: 40px;
             border-radius: 10px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
+            flex-shrink: 0;
         }
+        .item-icon.project { background: var(--acc-sky); color: var(--acc-sky-ink); }
+        .item-icon.campaign { background: var(--acc-amber); color: var(--acc-amber-ink); }
+        .item-icon.invoice { background: var(--acc-mint); color: var(--acc-mint-ink); }
+        .item-icon.document { background: var(--acc-lavender); color: var(--acc-lavender-ink); }
 
-        .item-icon.project { background: #dbeafe; }
-        .item-icon.campaign { background: #fef3c7; }
-        .item-icon.invoice { background: #d1fae5; }
-        .item-icon.document { background: #e0e7ff; }
-
-        .item-info { flex: 1; }
-        .item-name { font-weight: 600; margin-bottom: 0.125rem; }
-        .item-meta { font-size: 0.8rem; color: #64748b; }
+        .item-info { flex: 1; min-width: 0; }
+        .item-name { font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: -0.1px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-meta { font-size: 11px; color: var(--ink-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .item-status {
-            padding: 0.25rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
             font-weight: 500;
+            flex-shrink: 0;
         }
-
-        .status-active, .status-paid { background: #d1fae5; color: #059669; }
-        .status-pending, .status-in_progress { background: #fef3c7; color: #d97706; }
-        .status-draft { background: #f1f5f9; color: #64748b; }
-        .status-overdue { background: #fecaca; color: #dc2626; }
+        .status-active, .status-paid { background: var(--acc-mint); color: var(--acc-mint-ink); }
+        .status-pending, .status-in_progress { background: var(--acc-amber); color: var(--acc-amber-ink); }
+        .status-draft { background: var(--n-100); color: var(--ink-sub); }
+        .status-overdue { background: color-mix(in oklab, var(--err) 14%, transparent); color: var(--err); }
 
         .invoice-amount {
             font-weight: 700;
@@ -236,30 +237,24 @@
         .error-screen h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
         .error-screen p { color: #64748b; margin-bottom: 1.5rem; }
 
-        .btn { 
-            padding: 0.75rem 1.5rem; 
-            border-radius: 10px; 
-            font-weight: 600; 
-            cursor: pointer; 
+        .btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            border: none;
-            transition: all 0.2s;
+            gap: 6px;
+            border: 1px solid transparent;
+            transition: background .12s;
+            font-family: inherit;
         }
-        
-        .btn-primary { 
-            background: linear-gradient(135deg, #f97316, #ec4899); 
-            color: white; 
-        }
-        
-        .btn-primary:hover {
-            box-shadow: 0 4px 15px rgba(249,115,22,0.3);
-            transform: translateY(-2px);
-        }
-        
-        .btn-secondary { background: #f1f5f9; color: #475569; }
+        .btn-primary { background: var(--brand-500); color: white; border-color: var(--brand-500); }
+        .btn-primary:hover { background: var(--brand-600); }
+        .btn-secondary { background: var(--n-75); color: var(--ink); border-color: transparent; }
+        .btn-secondary:hover { background: var(--n-100); }
 
         .loading {
             min-height: 80vh;
@@ -267,14 +262,14 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 1rem;
+            gap: 16px;
         }
 
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #e2e8f0;
-            border-top-color: #f97316;
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--n-100);
+            border-top-color: var(--brand-500);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -403,7 +398,7 @@
         function showError(title, message) {
             document.getElementById('app').innerHTML = `
                 <div class="error-screen">
-                    <div class="error-icon">😕</div>
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Warning({size:22})}</div>
                     <h1>${title}</h1>
                     <p>${message}</p>
                     <button class="btn btn-primary" onclick="logout()">Odhlásiť sa</button>
@@ -421,25 +416,25 @@
             
             document.getElementById('app').innerHTML = `
                 <header class="portal-header">
-                    <div class="logo">
-                        <div class="logo-icon">A</div>
-                        <span class="logo-text">Adlify</span>
-                        <span class="client-badge">Klientský portál</span>
+                    <div class="logo" style="display:flex; align-items:center; gap:10px;">
+                        ${I.Logo({size:30, id:'pl'})}
+                        <span class="logo-text" style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">Adlify</span>
+                        <span class="client-badge" style="background:var(--brand-50); color:var(--brand-700); font-weight:600; letter-spacing:0.4px; text-transform:uppercase;">Klient</span>
                     </div>
-                    <div class="header-right">
-                        <span class="client-name">${client.company_name}</span>
-                        <button class="btn-logout" onclick="logout()">Odhlásiť sa</button>
+                    <div class="header-right" style="display:flex; align-items:center; gap:12px;">
+                        <span class="client-name" style="font-size:13px; color:var(--ink-sub);">${client.company_name}</span>
+                        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="logout()">${I.Logout({size:14})} Odhlásiť</button>
                     </div>
                 </header>
 
                 <nav class="portal-nav">
                     <div class="nav-tabs">
-                        <button class="nav-tab ${currentTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">📊 Prehľad</button>
-                        <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">📢 Kampane</button>
-                        <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">💰 Faktúry</button>
-                        <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">📄 Dokumenty</button>
-                        <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">💬 Podpora</button>
-                        <button class="nav-tab ${currentTab === 'account' ? 'active' : ''}" onclick="switchTab('account')">👤 Môj účet</button>
+                        <button class="nav-tab ${currentTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">${I.Dashboard({size:16})} Prehľad</button>
+                        <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">${I.Campaign({size:16})} Kampane</button>
+                        <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">${I.Invoice({size:16})} Faktúry</button>
+                        <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">${I.Docs({size:16})} Dokumenty</button>
+                        <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">${I.Ticket({size:16})} Podpora</button>
+                        <button class="nav-tab ${currentTab === 'account' ? 'active' : ''}" onclick="switchTab('account')">${I.Settings({size:16})} Môj účet</button>
                     </div>
                 </nav>
 
@@ -473,43 +468,26 @@
             
             return `
                 <div class="card welcome-card">
-                    <div class="card-body">
+                    <div class="card-body" style="position:relative; z-index:1;">
                         <div class="welcome-text">
-                            <h1>Ahoj, ${firstName}! 👋</h1>
-                            <p>Vitajte v klientskom portáli Adlify</p>
+                            <h1 style="font-size:28px; letter-spacing:-0.5px; margin-bottom:6px;">Vitajte, ${firstName}</h1>
+                            <p style="opacity:0.9; font-size:14px;">Toto je Váš klientský portál — sledujte výkon kampaní, faktúry a komunikáciu s tímom.</p>
                         </div>
-                        <div class="welcome-icon">🚀</div>
                     </div>
                 </div>
 
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon">📢</div>
-                        <div class="stat-value">${activeCampaigns}</div>
-                        <div class="stat-label">Aktívne kampane</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">📁</div>
-                        <div class="stat-value">${projects.length}</div>
-                        <div class="stat-label">Projekty</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">💰</div>
-                        <div class="stat-value">${unpaidInvoices}</div>
-                        <div class="stat-label">Neuhradené faktúry</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">📄</div>
-                        <div class="stat-value">${documents.length}</div>
-                        <div class="stat-label">Dokumenty</div>
-                    </div>
+                    <div class="stat-card"><div style="color:var(--brand-500); display:inline-flex;">${I.Campaign({size:22})}</div><div class="stat-value">${activeCampaigns}</div><div class="stat-label">Aktívne kampane</div></div>
+                    <div class="stat-card"><div style="color:var(--acc-lavender-ink); display:inline-flex;">${I.Folder({size:22})}</div><div class="stat-value">${projects.length}</div><div class="stat-label">Projekty</div></div>
+                    <div class="stat-card"><div style="color:var(--warn); display:inline-flex;">${I.Invoice({size:22})}</div><div class="stat-value">${unpaidInvoices}</div><div class="stat-label">Neuhradené faktúry</div></div>
+                    <div class="stat-card"><div style="color:var(--acc-sky-ink); display:inline-flex;">${I.Docs({size:22})}</div><div class="stat-value">${documents.length}</div><div class="stat-label">Dokumenty</div></div>
                 </div>
 
                 ${unpaidInvoices > 0 ? `
-                    <div class="card" style="border-color: #fbbf24;">
-                        <div class="card-header" style="background: #fef3c7;">
-                            <h2>⚠️ Neuhradené faktúry (${unpaidInvoices})</h2>
-                            <button class="btn btn-primary" onclick="switchTab('invoices')">Zobraziť</button>
+                    <div class="card" style="border-color: var(--warn);">
+                        <div class="card-header" style="background: color-mix(in oklab, var(--warn) 12%, var(--surface));">
+                            <h2 style="color:var(--warn); display:flex; align-items:center; gap:8px;">${I.Warning({size:18})} Neuhradené faktúry (${unpaidInvoices})</h2>
+                            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="switchTab('invoices')">Zobraziť</button>
                         </div>
                     </div>
                 ` : ''}
@@ -522,14 +500,14 @@
             return `
                 <div class="card">
                     <div class="card-header">
-                        <h2>📁 Aktuálne projekty</h2>
+                        <h2>Aktuálne projekty</h2>
                     </div>
                     <div class="card-body">
                         ${projects.length > 0 ? `
                             <div class="item-list">
                                 ${projects.map(p => `
                                     <div class="item">
-                                        <div class="item-icon project">📁</div>
+                                        <div class="item-icon project" style="color:var(--acc-sky-ink);">${I.Folder({size:18})}</div>
                                         <div class="item-info">
                                             <div class="item-name">${p.name}</div>
                                             <div class="item-meta">${p.description || 'Bez popisu'}</div>
@@ -538,7 +516,7 @@
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">📁</div><h3>Zatiaľ žiadne projekty</h3></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Folder({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne projekty</div></div>`}
                     </div>
                 </div>
             `;
@@ -547,13 +525,13 @@
         function renderCampaigns() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>📢 Vaše kampane</h2></div>
+                    <div class="card-header"><h2>Vaše kampane</h2></div>
                     <div class="card-body">
                         ${campaigns.length > 0 ? `
                             <div class="item-list">
                                 ${campaigns.map(c => `
                                     <div class="item">
-                                        <div class="item-icon campaign">${c.platform === 'meta' ? '📱' : '🔍'}</div>
+                                        <div class="item-icon campaign" style="color:var(--acc-amber-ink);">${c.platform === 'meta' ? I.Fb({size:18}) : I.Google({size:18})}</div>
                                         <div class="item-info">
                                             <div class="item-name">${c.name}</div>
                                             <div class="item-meta">${c.platform === 'meta' ? 'Meta Ads' : 'Google Ads'} • Budget: ${formatCurrency(c.budget || 0)}/mes</div>
@@ -562,7 +540,7 @@
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">📢</div><h3>Zatiaľ žiadne kampane</h3><p style="color:#94a3b8;margin-top:0.5rem;">Kampane sa zobrazia po spustení</p></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Campaign({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne kampane</div><div style="font-size:12px; margin-top:4px;">Kampane sa zobrazia po spustení</div></div>`}
                     </div>
                 </div>
             `;
@@ -571,13 +549,13 @@
         function renderInvoices() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>💰 Faktúry</h2></div>
+                    <div class="card-header"><h2>Faktúry</h2></div>
                     <div class="card-body">
                         ${invoices.length > 0 ? `
                             <div class="item-list">
                                 ${invoices.map(i => `
                                     <div class="item">
-                                        <div class="item-icon invoice">💰</div>
+                                        <div class="item-icon invoice" style="color:var(--acc-mint-ink);">${I.Invoice({size:18})}</div>
                                         <div class="item-info">
                                             <div class="item-name">${i.invoice_number || 'Faktúra'}</div>
                                             <div class="item-meta">Vystavená: ${formatDate(i.issue_date || i.created_at)} | Splatnosť: ${formatDate(i.due_date)}</div>
@@ -587,7 +565,7 @@
                                     </div>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">💰</div><h3>Zatiaľ žiadne faktúry</h3></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Invoice({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne faktúry</div></div>`}
                     </div>
                 </div>
             `;
@@ -596,7 +574,7 @@
         function renderDocuments() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>📄 Dokumenty</h2></div>
+                    <div class="card-header"><h2>Dokumenty</h2></div>
                     <div class="card-body">
                         ${documents.length > 0 ? `
                             <div class="item-list">
@@ -607,11 +585,11 @@
                                             <div class="item-name">${d.name}</div>
                                             <div class="item-meta">${d.file_name} • ${formatDate(d.created_at)}</div>
                                         </div>
-                                        <span>📥</span>
+                                        <span style="color:var(--ink-mute);">${I.Download({size:16})}</span>
                                     </a>
                                 `).join('')}
                             </div>
-                        ` : '<div class="empty-state"><div class="empty-icon">📄</div><h3>Zatiaľ žiadne dokumenty</h3></div>'}
+                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Docs({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne dokumenty</div></div>`}
                     </div>
                 </div>
             `;
@@ -620,7 +598,7 @@
         function renderSupport() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>💬 Podpora</h2></div>
+                    <div class="card-header"><h2>Podpora</h2></div>
                     <div class="card-body">
                         <p style="margin-bottom: 1.5rem; color: #64748b;">Máte otázky? Kontaktujte nás.</p>
                         
@@ -631,13 +609,13 @@
                                 <p>Váš marketing partner</p>
                             </div>
                             <div class="contact-actions">
-                                <a href="mailto:info@adlify.eu" class="btn btn-secondary">📧 Email</a>
-                                <a href="tel:+421944184045" class="btn btn-primary">📞 Zavolať</a>
+                                <a href="mailto:info@adlify.eu" class="adl-btn adl-btn-outline">${I.Mail({size:14})} Email</a>
+                                <a href="tel:+421944184045" class="adl-btn adl-btn-primary">${I.Phone({size:14})} Zavolať</a>
                             </div>
                         </div>
                         
                         <div style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px;">
-                            <h4 style="margin-bottom: 0.5rem;">📍 Kontaktné údaje</h4>
+                            <h4 style="margin-bottom: 0.5rem;">Kontaktné údaje</h4>
                             <p style="color: #64748b; font-size: 0.9rem;">
                                 Email: info@adlify.eu<br>
                                 Telefón: +421 944 184 045<br>
@@ -653,14 +631,14 @@
             return `
                 <div class="card">
                     <div class="card-header">
-                        <h2>👤 Môj účet</h2>
+                        <h2>Môj účet</h2>
                     </div>
                     <div class="card-body">
                         <form id="account-form" onsubmit="saveAccount(event)">
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
                                 <!-- Firemné údaje -->
                                 <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">🏢 Firemné údaje</h3>
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Firemné údaje</h3>
                                     
                                     <div style="margin-bottom: 1rem;">
                                         <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Názov firmy</label>
@@ -695,7 +673,7 @@
 
                                 <!-- Kontaktné údaje -->
                                 <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">👤 Kontaktné údaje</h3>
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Kontaktné údaje</h3>
                                     
                                     <div style="margin-bottom: 1rem;">
                                         <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Kontaktná osoba</label>
@@ -718,7 +696,7 @@
 
                                 <!-- Fakturačná adresa -->
                                 <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: #64748b;">📍 Fakturačná adresa</h3>
+                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Fakturačná adresa</h3>
                                     
                                     <div style="margin-bottom: 1rem;">
                                         <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Ulica a číslo</label>
@@ -756,7 +734,7 @@
                             
                             <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
                                 <button type="submit" class="btn btn-primary" id="save-account-btn">
-                                    💾 Uložiť zmeny
+                                    Uložiť zmeny
                                 </button>
                             </div>
                         </form>
@@ -772,7 +750,7 @@
             const msg = document.getElementById('account-message');
             
             btn.disabled = true;
-            btn.innerHTML = '⏳ Ukladám...';
+            btn.innerHTML = 'Ukladám…';
             msg.innerHTML = '';
             
             try {
@@ -806,14 +784,14 @@
                 
                 setTimeout(() => {
                     btn.disabled = false;
-                    btn.innerHTML = '💾 Uložiť zmeny';
+                    btn.innerHTML = 'Uložiť zmeny';
                 }, 2000);
                 
             } catch (err) {
                 console.error('Save error:', err);
                 msg.innerHTML = '<div style="padding: 1rem; background: #fef2f2; color: #dc2626; border-radius: 8px;">❌ Chyba pri ukladaní: ' + err.message + '</div>';
                 btn.disabled = false;
-                btn.innerHTML = '💾 Uložiť zmeny';
+                btn.innerHTML = 'Uložiť zmeny';
             }
         }
 
@@ -837,8 +815,14 @@
         }
 
         function getDocIcon(category) {
-            const icons = { contract: '📝', invoice: '💰', proposal: '📄', report: '📊', image: '🖼️' };
-            return icons[category] || '📄';
+            const map = {
+                contract: I.Edit({size:18}),
+                invoice: I.Invoice({size:18}),
+                proposal: I.Docs({size:18}),
+                report: I.Chart({size:18}),
+                image: I.Image({size:18})
+            };
+            return map[category] || I.Docs({size:18});
         }
 
         init();

@@ -22,64 +22,51 @@ const DocumentsModule = {
     },
 
     async render(container) {
+        const cat = this.currentCategory || 'all';
         container.innerHTML = `
-            <div class="documents-module">
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Dokumenty</h1>
-                        <p class="subtitle">Súbory, zmluvy a prílohy</p>
+            <div class="adl documents-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Dokumenty</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Súbory, zmluvy a prílohy</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="DocumentsModule.showUploadModal()">
-                            <span>📤</span> Nahrať súbor
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="DocumentsModule.showUploadModal()">${I.Upload({size:14})} Nahrať súbor</button>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="docs-stats">
-                    <div class="stat-item">
-                        <span class="stat-icon">📄</span>
-                        <span class="stat-value" id="stat-total">0</span>
-                        <span class="stat-label">Celkom</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-icon">📝</span>
-                        <span class="stat-value" id="stat-contracts">0</span>
-                        <span class="stat-label">Zmluvy</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-icon">💰</span>
-                        <span class="stat-value" id="stat-invoices">0</span>
-                        <span class="stat-label">Faktúry</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-icon">🖼️</span>
-                        <span class="stat-value" id="stat-images">0</span>
-                        <span class="stat-label">Obrázky</span>
-                    </div>
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" class="adl-docs-stats">
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Celkom</div><span class="adl-chip adl-chip-sm">súbory</span></div><div class="adl-stat-value" id="stat-total">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Zmluvy</div><span class="adl-chip adl-chip-sm">legal</span></div><div class="adl-stat-value" id="stat-contracts">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Faktúry</div><span class="adl-chip adl-chip-brand adl-chip-sm">invoice</span></div><div class="adl-stat-value" id="stat-invoices">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Obrázky</div><span class="adl-chip adl-chip-lav adl-chip-sm">image</span></div><div class="adl-stat-value" id="stat-images">—</div></div>
                 </div>
 
                 <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="category-filter">
-                        <button class="cat-btn ${this.currentCategory === 'all' ? 'active' : ''}" onclick="DocumentsModule.setCategory('all')">Všetky</button>
-                        <button class="cat-btn ${this.currentCategory === 'contract' ? 'active' : ''}" onclick="DocumentsModule.setCategory('contract')">📝 Zmluvy</button>
-                        <button class="cat-btn ${this.currentCategory === 'invoice' ? 'active' : ''}" onclick="DocumentsModule.setCategory('invoice')">💰 Faktúry</button>
-                        <button class="cat-btn ${this.currentCategory === 'proposal' ? 'active' : ''}" onclick="DocumentsModule.setCategory('proposal')">📄 Ponuky</button>
-                        <button class="cat-btn ${this.currentCategory === 'image' ? 'active' : ''}" onclick="DocumentsModule.setCategory('image')">🖼️ Obrázky</button>
-                        <button class="cat-btn ${this.currentCategory === 'other' ? 'active' : ''}" onclick="DocumentsModule.setCategory('other')">📁 Ostatné</button>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+                    <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px; flex-wrap:wrap;">
+                        ${[
+                            ['all', 'Všetky'],
+                            ['contract', 'Zmluvy'],
+                            ['invoice', 'Faktúry'],
+                            ['proposal', 'Ponuky'],
+                            ['image', 'Obrázky'],
+                            ['other', 'Ostatné']
+                        ].map(([k,l]) => `<button onclick="DocumentsModule.setCategory('${k}')" class="adl-btn adl-btn-sm ${cat===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">${l}</button>`).join('')}
                     </div>
-                    <div class="search-box">
-                        <input type="text" id="doc-search" placeholder="Hľadať dokumenty..." oninput="DocumentsModule.handleSearch()">
+                    <div class="adl-input" style="flex:1; min-width:200px; max-width:340px; margin-left:auto;">
+                        <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                        <input type="text" id="doc-search" placeholder="Hľadať dokumenty…" oninput="DocumentsModule.handleSearch()" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
                     </div>
                 </div>
 
-                <div class="documents-content" id="documents-content">
-                    <div class="loading">Načítavam dokumenty...</div>
+                <div id="documents-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam dokumenty…</div>
                 </div>
+
+                <style>@media (max-width: 900px) { .adl-docs-stats { grid-template-columns: repeat(2, 1fr) !important; } }</style>
             </div>
-            ${this.getStyles()}
         `;
 
         await this.loadData();
@@ -133,64 +120,58 @@ const DocumentsModule = {
 
         if (filtered.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">📁</div>
-                    <h3>Žiadne dokumenty</h3>
-                    <p>Nahraj prvý dokument kliknutím na tlačidlo "Nahrať súbor"</p>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Folder({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne dokumenty</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Nahrajte prvý dokument kliknutím na tlačidlo „Nahrať súbor"</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="DocumentsModule.showUploadModal()">${I.Upload({size:14})} Nahrať súbor</button>
                 </div>
             `;
             return;
         }
 
         container.innerHTML = `
-            <div class="documents-grid">
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;" class="adl-docs-grid">
                 ${filtered.map(doc => this.renderDocumentCard(doc)).join('')}
             </div>
+            <style>
+                @media (max-width: 1100px) { .adl-docs-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+                @media (max-width: 640px)  { .adl-docs-grid { grid-template-columns: 1fr !important; } }
+            </style>
         `;
     },
 
     renderDocumentCard(doc) {
-        const icons = {
-            contract: '📝',
-            invoice: '💰',
-            proposal: '📄',
-            report: '📊',
-            image: '🖼️',
-            video: '🎬',
-            other: '📁'
+        const catMap = {
+            contract: { icon: I.Edit,    tone: 'sky'   },
+            invoice:  { icon: I.Invoice, tone: 'mint'  },
+            proposal: { icon: I.Docs,    tone: 'amber' },
+            report:   { icon: I.Chart,   tone: 'lav'   },
+            image:    { icon: I.Image,   tone: 'rose'  },
+            video:    { icon: I.Play,    tone: 'brand' },
+            other:    { icon: I.Folder,  tone: 'n'     }
         };
-
-        const icon = icons[doc.category] || '📄';
+        const c = catMap[doc.category] || catMap.other;
         const uploaderName = doc.uploader ? `${doc.uploader.first_name} ${doc.uploader.last_name}` : 'Neznámy';
         const fileSize = this.formatFileSize(doc.file_size);
         const isImage = doc.file_type?.startsWith('image/');
 
         return `
-            <div class="document-card" onclick="DocumentsModule.openDocument('${doc.id}')">
-                <div class="doc-preview">
-                    ${isImage && doc.file_url ? 
-                        `<img src="${doc.file_url}" alt="${doc.name}">` : 
-                        `<span class="doc-icon">${icon}</span>`
-                    }
+            <div onclick="DocumentsModule.openDocument('${doc.id}')" style="background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; transition: border-color .12s, box-shadow .12s;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-sm)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                <div style="aspect-ratio: 16/9; background:var(--n-75); display:flex; align-items:center; justify-content:center; overflow:hidden; color:var(--ink-mute);">
+                    ${isImage && doc.file_url ? `<img src="${doc.file_url}" alt="${doc.name}" style="width:100%; height:100%; object-fit:cover;">` : c.icon({size:32})}
                 </div>
-                <div class="doc-info">
-                    <h4 class="doc-name">${doc.name}</h4>
-                    <p class="doc-meta">
-                        <span>${this.getCategoryName(doc.category)}</span>
-                        <span>•</span>
-                        <span>${fileSize}</span>
-                    </p>
-                    <p class="doc-date">
-                        ${uploaderName} • ${this.formatDate(doc.created_at)}
-                    </p>
-                </div>
-                <div class="doc-actions">
-                    <a href="${doc.file_url}" target="_blank" class="btn-icon" onclick="event.stopPropagation()" title="Stiahnuť">
-                        📥
-                    </a>
-                    <button class="btn-icon" onclick="event.stopPropagation(); DocumentsModule.deleteDocument('${doc.id}')" title="Zmazať">
-                        🗑️
-                    </button>
+                <div style="padding:14px;">
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                        <span class="adl-chip adl-chip-${c.tone} adl-chip-sm">${this.getCategoryName(doc.category)}</span>
+                        <span style="font-size:11px; color:var(--ink-mute);">${fileSize}</span>
+                    </div>
+                    <div style="font-size:13px; font-weight:600; color:var(--ink); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${doc.name}</div>
+                    <div style="font-size:11px; color:var(--ink-mute); margin-top:4px;">${uploaderName} · ${this.formatDate(doc.created_at)}</div>
+                    <div style="display:flex; gap:4px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+                        <a href="${doc.file_url}" target="_blank" onclick="event.stopPropagation()" class="adl-btn adl-btn-soft adl-btn-sm" style="flex:1; justify-content:center; text-decoration:none;">${I.Download({size:12})} Stiahnuť</a>
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="event.stopPropagation(); DocumentsModule.deleteDocument('${doc.id}')" title="Zmazať" style="color:var(--err); padding:0 10px;">${I.Trash({size:12})}</button>
+                    </div>
                 </div>
             </div>
         `;

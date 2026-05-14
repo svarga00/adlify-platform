@@ -22,87 +22,60 @@ const CampaignsModule = {
     },
 
     async render(container) {
+        const platform = this.currentPlatform || 'all';
         container.innerHTML = `
-            <div class="campaigns-module">
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Kampane</h1>
-                        <p class="subtitle">Správa Google Ads a Meta Ads kampaní</p>
+            <div class="adl campaigns-module">
+                <!-- Header -->
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Kampane</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Google Ads a Meta Ads · stav a výkon</div>
                     </div>
-                    <div class="header-right">
-                        <button class="btn-primary" onclick="CampaignsModule.showCreateModal()">
-                            <span>+</span> Nová kampaň
-                        </button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="CampaignsModule.showCreateModal()">${I.Plus({size:14})} Nová kampaň</button>
                     </div>
                 </div>
 
                 <!-- Stats -->
-                <div class="campaigns-stats">
-                    <div class="stat-card">
-                        <div class="stat-icon active">🚀</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-active">-</span>
-                            <span class="stat-label">Aktívne</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon paused">⏸️</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-paused">-</span>
-                            <span class="stat-label">Pozastavené</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon budget">💰</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-budget">-</span>
-                            <span class="stat-label">Celkový budget</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon clients">👥</div>
-                        <div class="stat-info">
-                            <span class="stat-value" id="stat-clients">-</span>
-                            <span class="stat-label">Klientov s kampaňami</span>
-                        </div>
-                    </div>
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" class="adl-campaigns-stats">
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Aktívne</div><span class="adl-chip adl-chip-ok adl-chip-sm">beží</span></div><div class="adl-stat-value" id="stat-active">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Pozastavené</div><span class="adl-chip adl-chip-amber adl-chip-sm">pauza</span></div><div class="adl-stat-value" id="stat-paused">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Budget</div><span class="adl-chip adl-chip-brand adl-chip-sm">celkom</span></div><div class="adl-stat-value" id="stat-budget">—</div></div>
+                    <div class="adl-stat"><div class="adl-stat-head"><div class="adl-stat-label">Klienti</div><span class="adl-chip adl-chip-sm">s kampaňami</span></div><div class="adl-stat-value" id="stat-clients">—</div></div>
                 </div>
 
                 <!-- Filters -->
-                <div class="filters-bar">
-                    <div class="filter-group">
-                        <div class="platform-filter">
-                            <button class="platform-btn ${this.currentPlatform === 'all' ? 'active' : ''}" onclick="CampaignsModule.setPlatform('all')">
-                                Všetky
-                            </button>
-                            <button class="platform-btn google ${this.currentPlatform === 'google' ? 'active' : ''}" onclick="CampaignsModule.setPlatform('google')">
-                                🔍 Google
-                            </button>
-                            <button class="platform-btn meta ${this.currentPlatform === 'meta' ? 'active' : ''}" onclick="CampaignsModule.setPlatform('meta')">
-                                📱 Meta
-                            </button>
-                        </div>
-                        <div class="status-filter">
-                            <select onchange="CampaignsModule.setFilter(this.value)">
-                                <option value="all">Všetky statusy</option>
-                                <option value="active">🚀 Aktívne</option>
-                                <option value="paused">⏸️ Pozastavené</option>
-                                <option value="draft">📝 Návrhy</option>
-                                <option value="ended">✅ Ukončené</option>
-                            </select>
-                        </div>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;" class="adl-campaigns-filters">
+                    <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px;">
+                        <button onclick="CampaignsModule.setPlatform('all')" class="adl-btn adl-btn-sm ${platform==='all'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">Všetky</button>
+                        <button onclick="CampaignsModule.setPlatform('google')" class="adl-btn adl-btn-sm ${platform==='google'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 10px;">${I.Google({size:14})} Google</button>
+                        <button onclick="CampaignsModule.setPlatform('meta')" class="adl-btn adl-btn-sm ${platform==='meta'?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 10px;">${I.Fb({size:14})} Meta</button>
                     </div>
-                    <div class="search-box">
-                        <input type="text" id="campaign-search" placeholder="Hľadať kampane..." oninput="CampaignsModule.handleSearch()">
+                    <select class="adl-input" onchange="CampaignsModule.setFilter(this.value)" style="width:auto;">
+                        <option value="all">Všetky statusy</option>
+                        <option value="active">Aktívne</option>
+                        <option value="paused">Pozastavené</option>
+                        <option value="draft">Návrhy</option>
+                        <option value="ended">Ukončené</option>
+                    </select>
+                    <div class="adl-input" style="flex:1; min-width:200px; max-width:340px; margin-left:auto;">
+                        <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
+                        <input type="text" id="campaign-search" placeholder="Hľadať kampane…" oninput="CampaignsModule.handleSearch()" style="flex:1; border:0; outline:none; background:transparent; font:inherit; color:inherit;">
                     </div>
                 </div>
 
                 <!-- Content -->
-                <div class="campaigns-content" id="campaigns-content">
-                    <div class="loading">Načítavam kampane...</div>
+                <div id="campaigns-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam kampane…</div>
                 </div>
+
+                <style>
+                  @media (max-width: 900px) { .adl-campaigns-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+                  .adl-campaigns-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+                  @media (max-width: 1200px) { .adl-campaigns-grid { grid-template-columns: repeat(2, 1fr); } }
+                  @media (max-width: 700px)  { .adl-campaigns-grid { grid-template-columns: 1fr; } }
+                </style>
             </div>
-            ${this.getStyles()}
         `;
 
         await this.loadData();
@@ -155,13 +128,11 @@ const CampaignsModule = {
 
         if (filtered.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">📢</div>
-                    <h3>Žiadne kampane</h3>
-                    <p>Vytvor prvú kampaň pre klienta</p>
-                    <button class="btn-primary" onclick="CampaignsModule.showCreateModal()" style="margin-top: 1rem;">
-                        + Nová kampaň
-                    </button>
+                <div style="padding:48px 24px; text-align:center; color:var(--ink-sub); background:var(--surface); border:1px solid var(--border); border-radius:14px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Megaphone({size:22})}</div>
+                    <h3 style="font-size:15px; font-weight:600; color:var(--ink); margin:0 0 4px;">Žiadne kampane</h3>
+                    <p style="font-size:13px; color:var(--ink-sub); margin:0 0 12px;">Vytvorte prvú kampaň pre klienta</p>
+                    <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="CampaignsModule.showCreateModal()">${I.Plus({size:14})} Nová kampaň</button>
                 </div>
             `;
             return;
@@ -178,12 +149,13 @@ const CampaignsModule = {
         let html = '';
         for (const [clientName, campaigns] of Object.entries(byClient)) {
             html += `
-                <div class="client-group">
-                    <div class="client-header">
-                        <span class="client-name">👤 ${clientName}</span>
-                        <span class="client-count">${campaigns.length} kampaní</span>
+                <div style="margin-bottom:18px;">
+                    <div style="display:flex; align-items:center; gap:8px; padding:0 2px 10px;">
+                        <span style="width:6px; height:6px; border-radius:99px; background:var(--brand-500);"></span>
+                        <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-sub);">${clientName}</span>
+                        <span style="font-size:11px; color:var(--ink-mute); background:var(--n-75); padding:1px 7px; border-radius:99px;">${campaigns.length}</span>
                     </div>
-                    <div class="campaigns-grid">
+                    <div class="adl-campaigns-grid">
                         ${campaigns.map(c => this.renderCampaignCard(c)).join('')}
                     </div>
                 </div>
@@ -194,71 +166,68 @@ const CampaignsModule = {
     },
 
     renderCampaignCard(campaign) {
-        const platformConfig = {
-            google: { icon: '🔍', label: 'Google Ads', class: 'google' },
-            meta: { icon: '📱', label: 'Meta Ads', class: 'meta' },
-            both: { icon: '🌐', label: 'Multi-platform', class: 'both' }
+        const platformMap = {
+            google: { iconFn: I.Google, label: 'Google Ads' },
+            meta:   { iconFn: I.Fb,     label: 'Meta Ads' },
+            both:   { iconFn: I.Globe,  label: 'Multi-platform' }
         };
 
-        const statusConfig = {
-            draft: { icon: '📝', label: 'Návrh', class: 'draft' },
-            pending: { icon: '⏳', label: 'Čaká', class: 'pending' },
-            active: { icon: '🚀', label: 'Aktívna', class: 'active' },
-            paused: { icon: '⏸️', label: 'Pozastavená', class: 'paused' },
-            ended: { icon: '✅', label: 'Ukončená', class: 'ended' },
-            rejected: { icon: '❌', label: 'Zamietnutá', class: 'rejected' }
+        const statusMap = {
+            draft:    { label: 'Návrh',        tone: 'n' },
+            pending:  { label: 'Čaká',         tone: 'amber' },
+            active:   { label: 'Aktívna',      tone: 'ok' },
+            paused:   { label: 'Pozastavená',  tone: 'amber' },
+            ended:    { label: 'Ukončená',     tone: 'n' },
+            rejected: { label: 'Zamietnutá',   tone: 'err' }
         };
 
-        const platform = platformConfig[campaign.platform] || platformConfig.google;
-        const status = statusConfig[campaign.status] || statusConfig.draft;
+        const platform = platformMap[campaign.platform] || platformMap.google;
+        const status = statusMap[campaign.status] || statusMap.draft;
         const metrics = campaign.metrics || {};
+        const hasMetrics = metrics.impressions != null || metrics.clicks != null || metrics.ctr != null;
+        const periodLabel = campaign.budget_type === 'daily' ? 'deň' : 'mes';
 
         return `
-            <div class="campaign-card" onclick="CampaignsModule.openCampaign('${campaign.id}')">
-                <div class="campaign-header">
-                    <div class="platform-badge ${platform.class}">
-                        ${platform.icon} ${platform.label}
-                    </div>
-                    <div class="status-badge ${status.class}">
-                        ${status.icon} ${status.label}
-                    </div>
+            <div onclick="CampaignsModule.openCampaign('${campaign.id}')" style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--sh-sm); cursor:pointer; transition: box-shadow .15s, border-color .15s; display:flex; flex-direction:column; gap:12px;" onmouseover="this.style.borderColor='var(--border-strong)'; this.style.boxShadow='var(--sh-md)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow='var(--sh-sm)'">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-flex; align-items:center; gap:4px; color:var(--ink-sub); font-size:12px;">${platform.iconFn({size:14})} ${platform.label}</span>
+                    <div style="flex:1;"></div>
+                    <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
                 </div>
-                
-                <h3 class="campaign-name">${campaign.name}</h3>
-                
-                <div class="campaign-type">${campaign.campaign_type || 'Search'}</div>
-                
-                <div class="campaign-budget">
-                    <span class="budget-label">Budget:</span>
-                    <span class="budget-value">${this.formatCurrency(campaign.budget || 0)}/${campaign.budget_type === 'daily' ? 'deň' : 'mesiac'}</span>
+
+                <div>
+                    <div style="font-size:14px; font-weight:600; letter-spacing:-0.2px; line-height:1.3;">${campaign.name}</div>
+                    <div style="font-size:11px; color:var(--ink-mute); margin-top:2px;">${campaign.campaign_type || 'Search'}</div>
                 </div>
-                
-                ${Object.keys(metrics).length > 0 ? `
-                    <div class="campaign-metrics">
-                        <div class="metric">
-                            <span class="metric-value">${metrics.impressions?.toLocaleString() || 0}</span>
-                            <span class="metric-label">Zobrazení</span>
+
+                <div style="display:flex; align-items:center; gap:6px; padding:8px 10px; background:var(--n-50); border-radius:8px;">
+                    <span style="font-size:11px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px;">Budget</span>
+                    <span class="mono" style="font-size:13px; font-weight:600; margin-left:auto;">${this.formatCurrency(campaign.budget || 0)}/${periodLabel}</span>
+                </div>
+
+                ${hasMetrics ? `
+                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+                        <div style="background:var(--n-50); border-radius:8px; padding:8px; text-align:center;">
+                            <div class="mono" style="font-size:13px; font-weight:600;">${metrics.impressions?.toLocaleString('sk-SK') || 0}</div>
+                            <div style="font-size:10px; color:var(--ink-mute);">Zobrazenia</div>
                         </div>
-                        <div class="metric">
-                            <span class="metric-value">${metrics.clicks?.toLocaleString() || 0}</span>
-                            <span class="metric-label">Klikov</span>
+                        <div style="background:var(--n-50); border-radius:8px; padding:8px; text-align:center;">
+                            <div class="mono" style="font-size:13px; font-weight:600;">${metrics.clicks?.toLocaleString('sk-SK') || 0}</div>
+                            <div style="font-size:10px; color:var(--ink-mute);">Kliknutia</div>
                         </div>
-                        <div class="metric">
-                            <span class="metric-value">${metrics.ctr ? metrics.ctr.toFixed(1) + '%' : '-'}</span>
-                            <span class="metric-label">CTR</span>
+                        <div style="background:var(--n-50); border-radius:8px; padding:8px; text-align:center;">
+                            <div class="mono" style="font-size:13px; font-weight:600;">${metrics.ctr ? metrics.ctr.toFixed(1) + '%' : '—'}</div>
+                            <div style="font-size:10px; color:var(--ink-mute);">CTR</div>
                         </div>
                     </div>
                 ` : ''}
-                
-                <div class="campaign-footer">
-                    <span class="campaign-date">${this.formatDate(campaign.created_at)}</span>
-                    <div class="campaign-actions">
-                        ${campaign.status === 'active' ? `
-                            <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.pauseCampaign('${campaign.id}')" title="Pozastaviť">⏸️</button>
-                        ` : campaign.status === 'paused' ? `
-                            <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.activateCampaign('${campaign.id}')" title="Aktivovať">▶️</button>
-                        ` : ''}
-                        <button class="btn-icon" onclick="event.stopPropagation(); CampaignsModule.editCampaign('${campaign.id}')" title="Upraviť">✏️</button>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid var(--border);">
+                    <span style="font-size:11px; color:var(--ink-mute); display:flex; align-items:center; gap:4px;">${I.Clock({size:11})}${this.formatDate(campaign.created_at)}</span>
+                    <div style="display:flex; gap:4px;">
+                        ${campaign.status === 'active' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;" onclick="event.stopPropagation(); CampaignsModule.pauseCampaign('${campaign.id}')" title="Pozastaviť">${I.Pause({size:14})}</button>` : ''}
+                        ${campaign.status === 'paused' ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;" onclick="event.stopPropagation(); CampaignsModule.activateCampaign('${campaign.id}')" title="Aktivovať">${I.Play({size:14})}</button>` : ''}
+                        <button class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0 8px;" onclick="event.stopPropagation(); CampaignsModule.editCampaign('${campaign.id}')" title="Upraviť">${I.Edit({size:14})}</button>
                     </div>
                 </div>
             </div>
@@ -308,104 +277,100 @@ const CampaignsModule = {
 
     showCreateModal() {
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
+        modal.className = 'modal-overlay adl';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(20,18,14,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px;';
         modal.innerHTML = `
-            <div class="modal campaign-modal">
-                <div class="modal-header">
-                    <div class="modal-title">
-                        <span class="modal-icon">📢</span>
-                        <h2>Nová kampaň</h2>
-                    </div>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+            <div style="background:var(--surface); border-radius:14px; max-width:640px; width:100%; max-height:92vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg); border:1px solid var(--border);">
+                <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="font-size:15px; font-weight:600; margin:0;">Nová kampaň</h2>
+                    <button onclick="this.closest('.modal-overlay').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
                 </div>
-                
-                <div class="modal-body">
-                    <form id="campaign-form">
-                        <div class="form-group">
-                            <label>Názov kampane *</label>
-                            <input type="text" name="name" required placeholder="Napr. Brand awareness - Leto 2025">
+
+                <div style="padding:20px; overflow-y:auto; flex:1;">
+                    <form id="campaign-form" style="display:flex; flex-direction:column; gap:14px;">
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Názov kampane *</label>
+                            <input type="text" name="name" required placeholder="Napr. Brand awareness — leto 2026" class="adl-input" style="width:100%; height:38px;">
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Klient *</label>
-                                <select name="client_id" required>
-                                    <option value="">-- Vyber klienta --</option>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Klient *</label>
+                                <select name="client_id" required class="adl-input" style="width:100%; height:38px;">
+                                    <option value="">Vyberte klienta…</option>
                                     ${this.clients.map(c => `<option value="${c.id}">${c.company_name}</option>`).join('')}
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label>Platforma *</label>
-                                <select name="platform" required>
-                                    <option value="google">🔍 Google Ads</option>
-                                    <option value="meta">📱 Meta Ads</option>
-                                    <option value="both">🌐 Oboje</option>
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Platforma *</label>
+                                <select name="platform" required class="adl-input" style="width:100%; height:38px;">
+                                    <option value="google">Google Ads</option>
+                                    <option value="meta">Meta Ads</option>
+                                    <option value="both">Google + Meta</option>
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Typ kampane</label>
-                                <select name="campaign_type">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Typ kampane</label>
+                                <select name="campaign_type" class="adl-input" style="width:100%; height:38px;">
                                     <option value="search">Search</option>
                                     <option value="display">Display</option>
                                     <option value="shopping">Shopping</option>
                                     <option value="video">Video</option>
                                     <option value="performance_max">Performance Max</option>
-                                    <option value="awareness">Brand Awareness</option>
+                                    <option value="awareness">Brand awareness</option>
                                     <option value="traffic">Traffic</option>
                                     <option value="conversions">Conversions</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label>Status</label>
-                                <select name="status">
-                                    <option value="draft">📝 Návrh</option>
-                                    <option value="active">🚀 Aktívna</option>
-                                    <option value="paused">⏸️ Pozastavená</option>
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Stav</label>
+                                <select name="status" class="adl-input" style="width:100%; height:38px;">
+                                    <option value="draft">Návrh</option>
+                                    <option value="active">Aktívna</option>
+                                    <option value="paused">Pozastavená</option>
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Budget (€)</label>
-                                <input type="number" name="budget" step="0.01" placeholder="500">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Rozpočet (€)</label>
+                                <input type="number" name="budget" step="0.01" placeholder="500" class="adl-input" style="width:100%; height:38px;">
                             </div>
-                            <div class="form-group">
-                                <label>Typ budgetu</label>
-                                <select name="budget_type">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Typ rozpočtu</label>
+                                <select name="budget_type" class="adl-input" style="width:100%; height:38px;">
                                     <option value="daily">Denný</option>
                                     <option value="monthly">Mesačný</option>
                                     <option value="total">Celkový</option>
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Začiatok</label>
-                                <input type="date" name="start_date">
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Začiatok</label>
+                                <input type="date" name="start_date" class="adl-input" style="width:100%; height:38px;">
                             </div>
-                            <div class="form-group">
-                                <label>Koniec</label>
-                                <input type="date" name="end_date">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Koniec</label>
+                                <input type="date" name="end_date" class="adl-input" style="width:100%; height:38px;">
                             </div>
                         </div>
-                        
-                        <div class="form-group">
-                            <label>Popis</label>
-                            <textarea name="description" rows="3" placeholder="Interné poznámky ku kampani..."></textarea>
+
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:500; margin-bottom:6px;">Popis (interný)</label>
+                            <textarea name="description" rows="3" placeholder="Poznámky ku kampani…" style="width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:10px; font-size:13px; font-family:inherit; color:var(--ink); background:var(--surface); resize:vertical;"></textarea>
                         </div>
                     </form>
                 </div>
-                
-                <div class="modal-footer">
-                    <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Zrušiť</button>
-                    <button class="btn-primary" onclick="CampaignsModule.saveCampaign()">
-                        Vytvoriť kampaň
-                    </button>
+
+                <div style="padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; background:var(--n-50);">
+                    <button onclick="this.closest('.modal-overlay').remove()" class="adl-btn adl-btn-outline">Zrušiť</button>
+                    <button onclick="CampaignsModule.saveCampaign()" class="adl-btn adl-btn-primary">${I.Plus({size:14})} Vytvoriť kampaň</button>
                 </div>
             </div>
         `;

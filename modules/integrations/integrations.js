@@ -52,37 +52,31 @@ const IntegrationsModule = {
     
     async render(container) {
         container.innerHTML = `
-            <div class="integrations-module">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h1 class="text-2xl font-bold">🔗 Integrácie</h1>
-                        <p class="text-gray-500">Prepojenia s externými službami</p>
-                    </div>
+            <div class="adl integrations-module">
+                <div style="margin-bottom:18px;">
+                    <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Integrácie</h1>
+                    <div style="font-size:13px; color:var(--ink-sub);">Prepojenia s externými službami (Google, Meta, Marketing Miner, Resend…)</div>
                 </div>
-                
-                <div id="integrations-list" class="space-y-4">
-                    <div class="text-center py-8 text-gray-500">
-                        Načítavam integrácie...
-                    </div>
+
+                <div id="integrations-list" style="display:flex; flex-direction:column; gap:10px;">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam integrácie…</div>
                 </div>
             </div>
-            
-            <!-- Modal pre nastavenia -->
-            <div id="integration-modal" class="modal-overlay hidden">
-                <div class="modal" style="max-width: 500px;">
-                    <div class="modal-header">
-                        <h2 class="text-xl font-bold" id="modal-title">Nastavenia integrácie</h2>
-                        <button onclick="IntegrationsModule.closeModal()" class="modal-close">×</button>
+
+            <!-- Modal -->
+            <div id="integration-modal" class="modal-overlay hidden" style="position:fixed; inset:0; background:rgba(20,18,14,0.5); display:none; align-items:center; justify-content:center; z-index:50; padding:16px;">
+                <div class="modal" style="background:var(--surface); border-radius:14px; max-width:500px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+                    <div class="modal-header" style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+                        <h2 id="modal-title" style="font-size:16px; font-weight:600; margin:0;">Nastavenia integrácie</h2>
+                        <button onclick="IntegrationsModule.closeModal()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:6px; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
                     </div>
-                    <div class="modal-body" id="modal-body">
-                        <!-- Dynamic content -->
-                    </div>
+                    <div class="modal-body" id="modal-body" style="padding:20px; overflow-y:auto;"></div>
                 </div>
             </div>
-            
+
             ${this.getStyles()}
         `;
-        
+
         await this.loadIntegrations();
     },
     
@@ -146,58 +140,47 @@ const IntegrationsModule = {
     
     renderIntegrationCard(integration) {
         const { id, name, provider, is_enabled, last_sync_at, sync_status } = integration;
-        
-        const icons = {
-            superfaktura: '📄',
-            marketing_miner: '🔍',
-            google_ads: '📊',
-            meta_ads: '📘',
-            google_calendar: '📅',
-            slack: '💬'
-        };
-        
+
+        const iconFn = {
+            superfaktura: I.Invoice,
+            marketing_miner: I.Chart,
+            google_ads: I.Google,
+            meta_ads: I.Fb,
+            google_calendar: I.Calendar,
+            slack: I.Mail
+        }[provider] || I.Link;
+
         const descriptions = {
             superfaktura: 'Fakturácia, DPH, účtovníctvo',
             marketing_miner: 'Keyword research, SEO analýza',
             google_ads: 'Import/export kampaní a metrík',
             meta_ads: 'Facebook & Instagram reklamy',
             google_calendar: 'Synchronizácia kalendára',
-            slack: 'Notifikácie a alertyň'
+            slack: 'Notifikácie a alerty'
         };
-        
-        const statusClass = is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
-        const statusText = is_enabled ? '✅ Aktívne' : '⭕ Neaktívne';
-        
+
         return `
-            <div class="integration-card ${is_enabled ? 'enabled' : ''}" data-id="${id}">
-                <div class="flex items-start gap-4">
-                    <div class="text-4xl">${icons[provider] || '🔗'}</div>
-                    <div class="flex-1">
-                        <div class="flex items-center gap-3 mb-1">
-                            <h3 class="text-lg font-semibold">${name}</h3>
-                            <span class="px-2 py-0.5 rounded-full text-xs ${statusClass}">${statusText}</span>
+            <div data-id="${id}" style="background:var(--surface); border:1px solid ${is_enabled ? 'color-mix(in oklab, var(--ok) 30%, var(--border))' : 'var(--border)'}; border-radius:14px; padding:16px; display:flex; align-items:flex-start; gap:14px;">
+                <div style="width:48px; height:48px; border-radius:12px; background:${is_enabled ? 'color-mix(in oklab, var(--brand-500) 10%, var(--n-50))' : 'var(--n-75)'}; color:${is_enabled ? 'var(--brand-600)' : 'var(--ink-sub)'}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    ${iconFn({size:24})}
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <h3 style="font-size:15px; font-weight:600; letter-spacing:-0.2px; margin:0;">${name}</h3>
+                        <span class="adl-chip adl-chip-sm ${is_enabled ? 'adl-chip-ok' : ''}"><span class="dot"></span>${is_enabled ? 'Aktívne' : 'Neaktívne'}</span>
+                    </div>
+                    <p style="font-size:12px; color:var(--ink-sub); margin:4px 0 8px;">${descriptions[provider] || ''}</p>
+                    ${last_sync_at ? `
+                        <div style="font-size:11px; color:var(--ink-mute); display:flex; align-items:center; gap:6px;">
+                            <span style="display:inline-flex;">${I.Clock({size:11})}</span>
+                            Posledná sync: ${this.formatDate(last_sync_at)}
+                            ${sync_status === 'failed' ? `<span class="adl-chip adl-chip-err adl-chip-sm">${I.Warning({size:10})} Chyba</span>` : ''}
                         </div>
-                        <p class="text-gray-500 text-sm mb-3">${descriptions[provider] || ''}</p>
-                        
-                        ${last_sync_at ? `
-                            <div class="text-xs text-gray-400">
-                                Posledná sync: ${this.formatDate(last_sync_at)}
-                                ${sync_status === 'failed' ? '<span class="text-red-500 ml-2">⚠️ Chyba</span>' : ''}
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="IntegrationsModule.configure('${provider}')" 
-                                class="btn-secondary">
-                            ⚙️ Nastaviť
-                        </button>
-                        ${is_enabled && provider === 'superfaktura' ? `
-                            <button onclick="IntegrationsModule.testConnection('${provider}')" 
-                                    class="btn-secondary">
-                                🔄 Test
-                            </button>
-                        ` : ''}
-                    </div>
+                    ` : ''}
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap;">
+                    <button onclick="IntegrationsModule.configure('${provider}')" class="adl-btn adl-btn-soft adl-btn-sm">${I.Settings({size:14})} Nastaviť</button>
+                    ${is_enabled && provider === 'superfaktura' ? `<button onclick="IntegrationsModule.testConnection('${provider}')" class="adl-btn adl-btn-ghost adl-btn-sm">${I.Zap({size:14})} Test</button>` : ''}
                 </div>
             </div>
         `;

@@ -1,0 +1,139 @@
+/* Adlify Global Responsive — mobile-friendly defaults
+ * Kompletné prispôsobenie na telefón, tablet.
+ * Loaduje sa po ui.css a chrome.css aby prebijalo defaulty.
+ */
+
+/* ========== TABLET (max-width: 900px) ========== */
+@media (max-width: 900px) {
+  /* Page header: nech sa tlačidlá nezoradia priveľmi doprava */
+  .adl h1 { font-size: 20px !important; }
+
+  /* Grid patterns — v kóde používame inline styles ako repeat(3,1fr). Override selektorov v module CSS:
+     `.adl-clients-stats`, `.adl-projects-stats`, `.adl-projects-grid`, `.adl-clients-grid`,
+     `.adl-leads-stats`, `.adl-dashboard-*` — tie maju svoje @media. Ostatné nech dostanú generic fallback: */
+  .adl [style*="grid-template-columns: repeat(4, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(4, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(4,1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .adl [style*="grid-template-columns: repeat(5, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(5, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(5,1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Cards padding menší */
+  .adl-card-body { padding: 14px; }
+}
+
+/* ========== PHONE (max-width: 640px) ========== */
+@media (max-width: 640px) {
+  /* Typography */
+  .adl h1 { font-size: 18px !important; }
+  .adl h2 { font-size: 16px !important; }
+  .adl-stat-value { font-size: 22px; }
+  .adl-section-title { font-size: 14px; }
+
+  /* Buttons — default stack, ale flex-wrap to pokrýva */
+  .adl [style*="gap:8px"],
+  .adl [style*="gap: 8px"] { gap: 6px !important; }
+
+  /* Stat grid — vždy 2 stĺpce na mobile (alebo 1) */
+  .adl [style*="grid-template-columns: repeat(4, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(4, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(4,1fr)"],
+  .adl [style*="grid-template-columns: repeat(5, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(5, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(5,1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .adl [style*="grid-template-columns: repeat(3, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(3, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(3,1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .adl [style*="grid-template-columns: 2fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  .adl [style*="grid-template-columns: 1.1fr 1fr"],
+  .adl [style*="grid-template-columns: 1fr 1.2fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  .adl [style*="grid-template-columns: 1fr 320px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Generic 2-col grid ostáva 2-col — mení sa len ak obsah je príliš veľký */
+
+  /* Tabuľky — horizontálny scroll default */
+  .adl-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .adl-table { min-width: 640px; }
+
+  /* Inputs a tlačidlá full-width na mobile ak sú samostatne */
+  .adl-input { width: 100% !important; }
+  .adl-input select { width: 100%; }
+
+  /* Modaly: plná šírka */
+  .adl [id$="-modal"] > div,
+  .adl-modal {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    height: 100vh;
+    border-radius: 0 !important;
+  }
+
+  /* Filter bar — tlačidlá a inputy wrap a full-width */
+  .adl-clients-filters,
+  .adl-projects-filters,
+  .adl-leads-filters,
+  [class*="-filters"] {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .adl-clients-filters select,
+  .adl-projects-filters select,
+  .adl-leads-filters select,
+  [class*="-filters"] select {
+    width: 100% !important;
+  }
+
+  /* Content padding menší */
+  .adl-content { padding: 14px !important; }
+
+  /* Avatar/logo chip neschrumpni */
+  .adl-avatar, .adl-avatar-sm, .adl-avatar-lg { flex-shrink: 0; }
+
+  /* Chip: wrap na mobile */
+  .adl-chip { white-space: normal; }
+
+  /* Action button ikony v stlpci: ostaňu v jednom riadku ale menšie */
+  .adl-btn { flex-shrink: 0; }
+
+  /* Kanban — scroll horizontálny */
+  .adl-kanban { padding-bottom: 16px !important; }
+  .adl-kanban > div { flex: 0 0 82% !important; min-width: 240px !important; }
+
+  /* Card info grids — single column na veľmi úzkych */
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    /* ponechať 2-col na info gridoch (balík/MRR atď.) */
+  }
+
+  /* Summary grid dashboardu */
+  .summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ========== ULTRA NARROW (max-width: 420px) ========== */
+@media (max-width: 420px) {
+  .adl h1 { font-size: 17px !important; }
+  .adl-stat-value { font-size: 20px; }
+  .adl [style*="grid-template-columns: repeat(2, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(2, 1fr)"],
+  .adl [style*="grid-template-columns:repeat(2,1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+}

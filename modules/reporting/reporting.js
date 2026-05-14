@@ -21,32 +21,29 @@ const ReportingModule = {
 
     async render(container) {
         container.innerHTML = `
-            <div class="reporting-module">
-                <!-- Header -->
-                <div class="module-header">
-                    <div class="header-left">
-                        <h1>Reporty</h1>
-                        <p class="subtitle">Štatistiky a prehľady</p>
+            <div class="adl reporting-module">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Reporty</h1>
+                        <div style="font-size:13px; color:var(--ink-sub);">Štatistiky a prehľady</div>
                     </div>
-                    <div class="header-right">
-                        <select class="date-range-select" onchange="ReportingModule.setDateRange(this.value)">
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <select class="adl-input" onchange="ReportingModule.setDateRange(this.value)" style="width:auto;">
                             <option value="7days">Posledných 7 dní</option>
                             <option value="30days" selected>Posledných 30 dní</option>
                             <option value="90days">Posledných 90 dní</option>
                             <option value="year">Tento rok</option>
                             <option value="all">Celkovo</option>
                         </select>
-                        <button class="btn-secondary" onclick="ReportingModule.exportReport()">
-                            📥 Exportovať
-                        </button>
+                        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="ReportingModule.exportReport()">${I.Download({size:14})} Exportovať</button>
                     </div>
                 </div>
 
-                <!-- Loading -->
-                <div class="report-content" id="report-content">
-                    <div class="loading">Načítavam dáta...</div>
+                <div id="report-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam dáta…</div>
                 </div>
             </div>
+
             ${this.getStyles()}
         `;
 
@@ -104,99 +101,80 @@ const ReportingModule = {
         const stats = this.calculateStats();
 
         container.innerHTML = `
-            <!-- Summary Cards -->
-            <div class="summary-cards">
-                <div class="summary-card">
-                    <div class="card-icon leads">🎯</div>
-                    <div class="card-content">
-                        <span class="card-value">${stats.leads.total}</span>
-                        <span class="card-label">Nových leadov</span>
-                        <span class="card-change ${stats.leads.converted > 0 ? 'positive' : ''}">${stats.leads.converted} konvertovaných</span>
-                    </div>
+            <!-- Summary -->
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:16px;" class="adl-report-summary">
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Noví leady</div><span class="adl-chip adl-chip-sky adl-chip-sm">${stats.leads.converted} konv.</span></div>
+                    <div class="adl-stat-value">${stats.leads.total}</div>
                 </div>
-                
-                <div class="summary-card">
-                    <div class="card-icon clients">👥</div>
-                    <div class="card-content">
-                        <span class="card-value">${stats.clients.active}</span>
-                        <span class="card-label">Aktívnych klientov</span>
-                        <span class="card-change">${stats.clients.total} celkovo</span>
-                    </div>
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Aktívni klienti</div><span class="adl-chip adl-chip-mint adl-chip-sm">${stats.clients.total} total</span></div>
+                    <div class="adl-stat-value">${stats.clients.active}</div>
                 </div>
-                
-                <div class="summary-card">
-                    <div class="card-icon revenue">💰</div>
-                    <div class="card-content">
-                        <span class="card-value">${this.formatCurrency(stats.revenue.total)}</span>
-                        <span class="card-label">Tržby</span>
-                        <span class="card-change">${stats.revenue.paid} zaplatených faktúr</span>
-                    </div>
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Tržby</div><span class="adl-chip adl-chip-brand adl-chip-sm">${stats.revenue.paid} zaplatených</span></div>
+                    <div class="adl-stat-value">${this.formatCurrency(stats.revenue.total)}</div>
                 </div>
-                
-                <div class="summary-card">
-                    <div class="card-icon tasks">✅</div>
-                    <div class="card-content">
-                        <span class="card-value">${stats.tasks.completed}</span>
-                        <span class="card-label">Dokončených úloh</span>
-                        <span class="card-change">${stats.tasks.total} celkovo</span>
-                    </div>
+                <div class="adl-stat">
+                    <div class="adl-stat-head"><div class="adl-stat-label">Dokončené úlohy</div><span class="adl-chip adl-chip-sm">${stats.tasks.total} total</span></div>
+                    <div class="adl-stat-value">${stats.tasks.completed}</div>
                 </div>
             </div>
 
             <!-- Charts Row -->
-            <div class="charts-row">
-                <div class="chart-card">
-                    <h3>📈 Leady podľa statusu</h3>
-                    <div class="chart-container">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;" class="adl-report-charts">
+                <div class="adl-card">
+                    <div class="adl-card-header"><div class="adl-card-title">Leady podľa statusu</div></div>
+                    <div class="adl-card-body" style="height:260px; position:relative;">
                         <canvas id="leads-chart"></canvas>
                     </div>
                 </div>
-                
-                <div class="chart-card">
-                    <h3>💵 Tržby podľa mesiaca</h3>
-                    <div class="chart-container">
+                <div class="adl-card">
+                    <div class="adl-card-header"><div class="adl-card-title">Tržby podľa mesiaca</div></div>
+                    <div class="adl-card-body" style="height:260px; position:relative;">
                         <canvas id="revenue-chart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Details Tables -->
-            <div class="details-row">
-                <div class="detail-card">
-                    <h3>🎯 Top leady</h3>
-                    <div class="detail-table">
-                        ${this.renderTopLeads()}
-                    </div>
+            <!-- Details Row -->
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;" class="adl-report-details">
+                <div class="adl-card">
+                    <div class="adl-card-header"><div class="adl-card-title">Top leady</div></div>
+                    <div style="padding:0;">${this.renderTopLeads()}</div>
                 </div>
-                
-                <div class="detail-card">
-                    <h3>🎫 Tickety podľa statusu</h3>
-                    <div class="tickets-stats">
-                        ${this.renderTicketStats(stats.tickets)}
-                    </div>
+                <div class="adl-card">
+                    <div class="adl-card-header"><div class="adl-card-title">Tickety podľa statusu</div></div>
+                    <div class="adl-card-body">${this.renderTicketStats(stats.tickets)}</div>
                 </div>
-                
-                <div class="detail-card">
-                    <h3>⏱️ Produktivita tímu</h3>
-                    <div class="productivity-stats">
-                        <div class="prod-item">
-                            <span class="prod-label">Priemerný čas na ticket</span>
-                            <span class="prod-value">${stats.tickets.avgResponseTime}</span>
+                <div class="adl-card">
+                    <div class="adl-card-header"><div class="adl-card-title">Produktivita tímu</div></div>
+                    <div class="adl-card-body" style="padding:2px 18px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border);">
+                            <span style="font-size:13px; color:var(--ink-sub);">Priemerný čas na ticket</span>
+                            <span class="mono" style="font-size:13px; font-weight:600;">${stats.tickets.avgResponseTime}</span>
                         </div>
-                        <div class="prod-item">
-                            <span class="prod-label">Úlohy na člena/týždeň</span>
-                            <span class="prod-value">${stats.tasks.perMemberWeek}</span>
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border);">
+                            <span style="font-size:13px; color:var(--ink-sub);">Úlohy na člena/týždeň</span>
+                            <span class="mono" style="font-size:13px; font-weight:600;">${stats.tasks.perMemberWeek}</span>
                         </div>
-                        <div class="prod-item">
-                            <span class="prod-label">Konverzný pomer leadov</span>
-                            <span class="prod-value">${stats.leads.conversionRate}%</span>
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0;">
+                            <span style="font-size:13px; color:var(--ink-sub);">Konverzný pomer leadov</span>
+                            <span class="mono" style="font-size:13px; font-weight:600; color:var(--ok);">${stats.leads.conversionRate}%</span>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <style>
+                @media (max-width: 1100px) {
+                    .adl-report-summary { grid-template-columns: repeat(2, 1fr) !important; }
+                    .adl-report-charts { grid-template-columns: 1fr !important; }
+                    .adl-report-details { grid-template-columns: 1fr !important; }
+                }
+            </style>
         `;
 
-        // Init charts
         this.initCharts(stats);
     },
 
@@ -279,44 +257,42 @@ const ReportingModule = {
             .slice(0, 5);
 
         if (topLeads.length === 0) {
-            return '<p class="no-data">Žiadne leady</p>';
+            return '<div style="padding:28px; text-align:center; color:var(--ink-mute); font-size:13px;">Žiadne leady</div>';
         }
 
+        const statusTone = { new: 'sky', analyzed: 'lav', contacted: 'brand', proposal_sent: 'amber', won: 'mint', lost: 'err', client: 'mint' };
+
         return `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Firma</th>
-                        <th>Skóre</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${topLeads.map(lead => `
-                        <tr>
-                            <td>${lead.company_name || 'Neznámy'}</td>
-                            <td><span class="score-badge">${lead.score || 0}</span></td>
-                            <td><span class="status-badge status-${lead.status}">${lead.status}</span></td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+            <div>
+                ${topLeads.map((lead, i) => {
+                    const score = lead.score || 0;
+                    const scoreColor = score >= 70 ? 'var(--ok)' : score >= 40 ? 'var(--warn)' : 'var(--ink-mute)';
+                    return `
+                    <div style="display:flex; align-items:center; gap:10px; padding:10px 18px; ${i > 0 ? 'border-top:1px solid var(--border);' : ''}">
+                        <span style="flex:1; font-size:13px; font-weight:500; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${lead.company_name || 'Neznámy'}</span>
+                        <span class="mono" style="display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:22px; padding:0 6px; border-radius:6px; background:color-mix(in oklab, ${scoreColor} 14%, transparent); color:${scoreColor}; font-weight:600; font-size:11px;">${score}</span>
+                        <span class="adl-chip adl-chip-${statusTone[lead.status] || 'n'} adl-chip-sm">${lead.status}</span>
+                    </div>
+                `;}).join('')}
+            </div>
         `;
     },
 
     renderTicketStats(tickets) {
         return `
-            <div class="ticket-stat open">
-                <span class="stat-count">${tickets.open}</span>
-                <span class="stat-label">Otvorené</span>
-            </div>
-            <div class="ticket-stat progress">
-                <span class="stat-count">${tickets.in_progress}</span>
-                <span class="stat-label">V riešení</span>
-            </div>
-            <div class="ticket-stat resolved">
-                <span class="stat-count">${tickets.resolved}</span>
-                <span class="stat-label">Vyriešené</span>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--acc-sky); border-radius:10px; color:var(--acc-sky-ink);">
+                    <span style="font-size:12px; font-weight:500;">Otvorené</span>
+                    <span class="mono" style="font-size:18px; font-weight:700;">${tickets.open}</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--acc-amber); border-radius:10px; color:var(--acc-amber-ink);">
+                    <span style="font-size:12px; font-weight:500;">V riešení</span>
+                    <span class="mono" style="font-size:18px; font-weight:700;">${tickets.in_progress}</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--acc-mint); border-radius:10px; color:var(--acc-mint-ink);">
+                    <span style="font-size:12px; font-weight:500;">Vyriešené</span>
+                    <span class="mono" style="font-size:18px; font-weight:700;">${tickets.resolved}</span>
+                </div>
             </div>
         `;
     },
@@ -370,7 +346,7 @@ const ReportingModule = {
 
     async setDateRange(range) {
         this.dateRange = range;
-        document.getElementById('report-content').innerHTML = '<div class="loading">Načítavam dáta...</div>';
+        document.getElementById('report-content').innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam dáta…</div>';
         await this.loadData();
         this.renderContent();
     },

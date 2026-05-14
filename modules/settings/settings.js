@@ -29,65 +29,40 @@ const SettingsModule = {
     // ===========================================
     
     async render(container) {
-        // Načítaj aktuálneho usera
         const { data: { user } } = await Database.client.auth.getUser();
         this.currentUser = user;
-        
+        const tab = this.currentTab || 'brand';
+
         container.innerHTML = `
-            <div class="settings-module">
-                <div class="flex items-center justify-between mb-6">
-                    <h1 class="text-2xl font-bold">⚙️ Nastavenia</h1>
+            <div class="adl settings-module">
+                <div style="margin-bottom:18px;">
+                    <h1 style="font-size:22px; font-weight:700; letter-spacing:-0.4px; margin:0 0 2px;">Nastavenia</h1>
+                    <div style="font-size:13px; color:var(--ink-sub);">Brand, firemné údaje, schránky, podpisy, banka, fakturácia</div>
                 </div>
-                
-                <!-- Tabs -->
-                <div class="tabs-container mb-6">
-                    <div class="flex gap-1 border-b overflow-x-auto">
-                        <button class="tab-btn ${this.currentTab === 'brand' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('brand')">
-                            🎨 Brand
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'company' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('company')">
-                            🏢 Firma
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'email-accounts' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('email-accounts')">
-                            📬 Schránky
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'signatures' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('signatures')">
-                            ✍️ Podpisy
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'templates' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('templates')">
-                            📝 Šablóny
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'banking' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('banking')">
-                            🏦 Banka
-                        </button>
-                        <button class="tab-btn ${this.currentTab === 'invoicing' ? 'active' : ''}" 
-                                onclick="SettingsModule.switchTab('invoicing')">
-                            📄 Fakturácia
-                        </button>
-                    </div>
+
+                <!-- Tabs (horizontally scrollable) -->
+                <div style="display:flex; gap:2px; background:var(--n-75); border-radius:10px; padding:4px; margin-bottom:16px; overflow-x:auto; max-width:100%;">
+                    ${[
+                        ['brand', 'Brand'],
+                        ['company', 'Firma'],
+                        ['email-accounts', 'Schránky'],
+                        ['signatures', 'Podpisy'],
+                        ['templates', 'Šablóny'],
+                        ['banking', 'Banka'],
+                        ['invoicing', 'Fakturácia'],
+                        ['outreach', 'Outreach']
+                    ].map(([k,l]) => `<button onclick="SettingsModule.switchTab('${k}')" class="adl-btn adl-btn-sm ${tab===k?'adl-btn-ink':'adl-btn-ghost'} tab-btn ${tab===k?'active':''}" style="border-radius:7px; padding:0 12px; flex-shrink:0;">${l}</button>`).join('')}
                 </div>
-                
-                <!-- Content -->
-                <div id="settings-content" class="settings-content">
-                    <div class="text-center py-8 text-gray-500">
-                        <div class="spinner"></div>
-                        Načítavam nastavenia...
-                    </div>
+
+                <div id="settings-content">
+                    <div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam nastavenia…</div>
                 </div>
             </div>
-            
+
             ${this.getStyles()}
         `;
-        
-        // Načítaj Quill CSS/JS ak ešte nie je
+
         await this.loadQuill();
-        
         await this.loadAllData();
         this.renderContent();
     },
@@ -232,6 +207,10 @@ const SettingsModule = {
             case 'invoicing':
                 content.innerHTML = this.renderInvoicingSettings();
                 break;
+            case 'outreach':
+                content.innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam…</div>';
+                this.renderOutreachSettings();
+                break;
         }
     },
     
@@ -248,7 +227,7 @@ const SettingsModule = {
         
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">🎨 Brand & Logo</h2>
+                <h2 class="text-lg font-semibold mb-4">Brand &amp; Logo</h2>
                 <p class="text-sm text-gray-500 mb-6">Nastavte logá a farby, ktoré sa použijú v celej aplikácii, emailoch a dokumentoch.</p>
                 
                 <form id="brand-form" onsubmit="SettingsModule.saveBrandSettings(event)" class="space-y-6">
@@ -298,7 +277,7 @@ const SettingsModule = {
                     <hr class="my-6">
                     
                     <!-- Farby -->
-                    <h3 class="font-medium mb-4">🎨 Brand farby</h3>
+                    <h3 class="font-medium mb-4">Brand farby</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium mb-2">Primárna farba</label>
@@ -334,7 +313,7 @@ const SettingsModule = {
                     
                     <div class="flex justify-end pt-4">
                         <button type="submit" class="btn-primary">
-                            💾 Uložiť zmeny
+                            Uložiť zmeny
                         </button>
                     </div>
                 </form>
@@ -480,11 +459,11 @@ const SettingsModule = {
             <div class="settings-card">
                 <div class="flex justify-between items-center mb-4">
                     <div>
-                        <h2 class="text-lg font-semibold">📬 Emailové schránky</h2>
+                        <h2 class="text-lg font-semibold">Emailové schránky</h2>
                         <p class="text-sm text-gray-500">Spravujte emailové účty pre odosielanie a príjem správ.</p>
                     </div>
                     <button onclick="SettingsModule.showAddAccountModal()" class="btn-primary">
-                        ➕ Pridať schránku
+                        Pridať schránku
                     </button>
                 </div>
                 
@@ -494,7 +473,7 @@ const SettingsModule = {
                             <div class="text-4xl mb-2">📭</div>
                             <p>Žiadne emailové schránky</p>
                             <button onclick="SettingsModule.showAddAccountModal()" class="btn-secondary mt-4">
-                                ➕ Pridať prvú schránku
+                                Pridať prvú schránku
                             </button>
                         </div>
                     ` : this.emailAccounts.map(acc => this.renderAccountCard(acc)).join('')}
@@ -687,7 +666,7 @@ const SettingsModule = {
                         Zrušiť
                     </button>
                     <button type="submit" class="btn-primary">
-                        💾 ${isEdit ? 'Uložiť zmeny' : 'Pridať schránku'}
+                        ${isEdit ? "Uložiť zmeny" : "Pridať schránku"}
                     </button>
                 </div>
             </form>
@@ -810,11 +789,11 @@ const SettingsModule = {
             <div class="settings-card">
                 <div class="flex justify-between items-center mb-4">
                     <div>
-                        <h2 class="text-lg font-semibold">✍️ Email podpisy</h2>
+                        <h2 class="text-lg font-semibold">Email podpisy</h2>
                         <p class="text-sm text-gray-500">Vytvorte si vlastné podpisy pre emaily.</p>
                     </div>
                     <button onclick="SettingsModule.addSignature()" class="btn-primary">
-                        ➕ Nový podpis
+                        Nový podpis
                     </button>
                 </div>
                 
@@ -865,17 +844,15 @@ const SettingsModule = {
                                         🗑️ Zmazať
                                     </button>
                                     <button type="submit" class="btn-primary">
-                                        💾 Uložiť podpis
+                                        Uložiť podpis
                                     </button>
                                 </div>
                             </form>
                         ` : `
-                            <div class="text-center py-12 text-gray-500">
-                                <div class="text-4xl mb-2">✍️</div>
-                                <p>Vytvorte si prvý email podpis</p>
-                                <button onclick="SettingsModule.addSignature()" class="btn-primary mt-4">
-                                    ➕ Vytvoriť podpis
-                                </button>
+                            <div style="padding:48px 24px; text-align:center; color:var(--ink-sub);">
+                                <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-mute); margin-bottom:12px;">${I.Edit({size:22})}</div>
+                                <p style="margin:0 0 12px;">Vytvorte si prvý email podpis</p>
+                                <button onclick="SettingsModule.addSignature()" class="adl-btn adl-btn-primary adl-btn-sm">${I.Plus({size:14})} Vytvoriť podpis</button>
                             </div>
                         `}
                     </div>
@@ -1046,10 +1023,15 @@ const SettingsModule = {
         const emailContact = this.getValue('email_contact', 'info@adlify.eu');
         const emailFooter = this.getValue('email_footer_text', '');
         const emailTagline = this.getValue('email_tagline', '');
+        const emailPhone = this.getValue('email_phone', '');
+        const emailAddress = this.getValue('email_company_address', '');
+        const emailUnsub = this.getValue('email_unsubscribe_url', '');
+        const senderName = this.getValue('sender_name', '');
+        const senderTitle = this.getValue('sender_title', '');
 
         return `
             <div class="settings-card mb-6">
-                <h2 class="text-lg font-semibold mb-1">📧 Nastavenia emailov</h2>
+                <h2 class="text-lg font-semibold mb-1">Nastavenia emailov</h2>
                 <p class="text-sm text-gray-500 mb-5">Tieto údaje sa zobrazia v päte každého odoslaného emailu. Logo a farby sa preberajú z Brand nastavení.</p>
                 
                 <form id="email-settings-form" onsubmit="SettingsModule.saveEmailSettings(event)" class="space-y-4">
@@ -1072,11 +1054,40 @@ const SettingsModule = {
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Tagline <span class="text-gray-400 font-normal">(nepovinné)</span></label>
-                        <input type="text" name="email_tagline" value="${emailTagline}" 
+                        <input type="text" name="email_tagline" value="${emailTagline}"
                                class="w-full p-2.5 border rounded-lg text-sm" placeholder="Online marketing, ktorý funguje.">
                     </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Telefón <span class="text-gray-400 font-normal">(v pätičke)</span></label>
+                            <input type="text" name="email_phone" value="${emailPhone}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="+421 944 184 045">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Unsubscribe URL <span class="text-gray-400 font-normal">(CAN-SPAM)</span></label>
+                            <input type="url" name="email_unsubscribe_url" value="${emailUnsub}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="https://adlify.eu/unsubscribe">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Adresa firmy <span class="text-gray-400 font-normal">(CAN-SPAM, zobrazí sa v pätičke)</span></label>
+                        <input type="text" name="email_company_address" value="${emailAddress}"
+                               class="w-full p-2.5 border rounded-lg text-sm" placeholder="Adlify s.r.o., Hviezdoslavova 12, 811 01 Bratislava">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Meno odosielateľa <span class="text-gray-400 font-normal">({{sender_name}})</span></label>
+                            <input type="text" name="sender_name" value="${senderName}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="Štefan Varga">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Titul odosielateľa <span class="text-gray-400 font-normal">({{sender_title}})</span></label>
+                            <input type="text" name="sender_title" value="${senderTitle}"
+                                   class="w-full p-2.5 border rounded-lg text-sm" placeholder="Adlify">
+                        </div>
+                    </div>
                     <div class="flex justify-end pt-2">
-                        <button type="submit" class="btn-primary">💾 Uložiť</button>
+                        <button type="submit" class="btn-primary">Uložiť</button>
                     </div>
                 </form>
             </div>
@@ -1084,7 +1095,7 @@ const SettingsModule = {
             <div class="settings-card">
                 <div class="flex justify-between items-center mb-5">
                     <div>
-                        <h2 class="text-lg font-semibold mb-1">📝 Šablóny emailov</h2>
+                        <h2 class="text-lg font-semibold mb-1">Šablóny emailov</h2>
                         <p class="text-sm text-gray-500">Náhľad systémových šablón. Farby a logo sa menia v Brand nastaveniach.</p>
                     </div>
                     <button onclick="SettingsModule.refreshTemplatePreviews()" class="btn-secondary text-xs">🔄 Obnoviť</button>
@@ -1169,7 +1180,10 @@ const SettingsModule = {
             }
             
             if (window.App) App.settings = { ...App.settings, ...this.settings };
-            
+            if (window.OutreachTemplates && typeof OutreachTemplates.clearBrandCache === 'function') {
+                OutreachTemplates.clearBrandCache();
+            }
+
             Utils.toast('Email nastavenia uložené ✅', 'success');
             
             // Refresh previews
@@ -1287,7 +1301,7 @@ const SettingsModule = {
                             <button onclick="SettingsModule.previewTemplateEdit('${templateId}')" 
                                     style="background:#f7f7f7;border:1px solid #ddd;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;">👁️ Náhľad</button>
                             <button onclick="SettingsModule.saveTemplateOverride('${templateId}')" 
-                                    style="background:#FF6B35;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">💾 Uložiť</button>
+                                    style="background:#FF6B35;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Uložiť</button>
                         </div>
                     </div>
                 </div>
@@ -1399,7 +1413,7 @@ const SettingsModule = {
         const s = this.settings;
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">🏢 Firemné údaje</h2>
+                <h2 class="text-lg font-semibold mb-4">Firemné údaje</h2>
                 <p class="text-sm text-gray-500 mb-6">Tieto údaje sa použijú na faktúrach a v komunikácii.</p>
                 
                 <form id="company-form" onsubmit="SettingsModule.saveForm(event, 'company-form')" class="space-y-4">
@@ -1471,7 +1485,7 @@ const SettingsModule = {
                     </div>
                     
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="btn-primary">💾 Uložiť zmeny</button>
+                        <button type="submit" class="btn-primary">Uložiť zmeny</button>
                     </div>
                 </form>
             </div>
@@ -1481,7 +1495,7 @@ const SettingsModule = {
     renderBankingSettings() {
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">🏦 Bankové údaje</h2>
+                <h2 class="text-lg font-semibold mb-4">Bankové údaje</h2>
                 <p class="text-sm text-gray-500 mb-6">Údaje pre fakturáciu a platby.</p>
                 
                 <form id="banking-form" onsubmit="SettingsModule.saveForm(event, 'banking-form')" class="space-y-4">
@@ -1512,7 +1526,7 @@ const SettingsModule = {
                     </div>
                     
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="btn-primary">💾 Uložiť zmeny</button>
+                        <button type="submit" class="btn-primary">Uložiť zmeny</button>
                     </div>
                 </form>
             </div>
@@ -1522,7 +1536,7 @@ const SettingsModule = {
     renderInvoicingSettings() {
         return `
             <div class="settings-card">
-                <h2 class="text-lg font-semibold mb-4">📄 Nastavenia fakturácie</h2>
+                <h2 class="text-lg font-semibold mb-4">Nastavenia fakturácie</h2>
                 <p class="text-sm text-gray-500 mb-6">Predvolené hodnoty pre nové faktúry.</p>
                 
                 <form id="invoicing-form" onsubmit="SettingsModule.saveForm(event, 'invoicing-form')" class="space-y-4">
@@ -1569,7 +1583,7 @@ const SettingsModule = {
                     </div>
                     
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="btn-primary">💾 Uložiť zmeny</button>
+                        <button type="submit" class="btn-primary">Uložiť zmeny</button>
                     </div>
                 </form>
             </div>
@@ -1628,31 +1642,61 @@ const SettingsModule = {
         return `
         <style>
         .settings-module { max-width: 1200px; }
-        
-        .tab-btn {
-            padding: 12px 20px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            font-size: 14px;
-            color: #64748b;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .tab-btn:hover { color: #1a1a2e; background: #f8fafc; }
-        .tab-btn.active { 
-            color: #f97316; 
-            border-bottom-color: #f97316; 
-            font-weight: 600;
-        }
-        
+
         .settings-card {
-            background: white;
-            border-radius: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
             padding: 24px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-shadow: var(--sh-sm);
         }
+        .settings-module input[type="text"],
+        .settings-module input[type="email"],
+        .settings-module input[type="url"],
+        .settings-module input[type="tel"],
+        .settings-module input[type="number"],
+        .settings-module input[type="password"],
+        .settings-module textarea,
+        .settings-module select {
+            font-family: inherit;
+            font-size: 13px;
+            border-radius: 10px !important;
+            border: 1px solid var(--border-strong) !important;
+            padding: 10px 12px !important;
+            background: var(--surface);
+            color: var(--ink);
+            transition: border-color .12s, box-shadow .12s;
+        }
+        .settings-module input:focus,
+        .settings-module textarea:focus,
+        .settings-module select:focus {
+            outline: none;
+            border-color: var(--brand-400) !important;
+            box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand-500) 14%, transparent);
+        }
+        .settings-module .btn-primary,
+        .settings-module button[type="submit"].btn-primary {
+            background: var(--brand-500) !important;
+            color: #fff !important;
+            border: 1px solid var(--brand-500) !important;
+            padding: 10px 16px !important;
+            border-radius: 10px !important;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .settings-module .btn-primary:hover { background: var(--brand-600) !important; border-color: var(--brand-600) !important; }
+        .settings-module .btn-secondary {
+            background: var(--n-75) !important;
+            color: var(--ink) !important;
+            border: 1px solid transparent !important;
+            padding: 8px 14px !important;
+            border-radius: 9px !important;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .settings-module .btn-secondary:hover { background: var(--n-100) !important; }
         
         /* Logo upload */
         .logo-upload-box { text-align: center; }
@@ -1812,7 +1856,144 @@ const SettingsModule = {
         @keyframes spin { to { transform: rotate(360deg); } }
         </style>
         `;
-    }
+    },
+
+    // ===========================================
+    // OUTREACH SETTINGS (prospect → lead rules)
+    // ===========================================
+
+    async renderOutreachSettings() {
+        const content = document.getElementById('settings-content');
+        if (!content) return;
+
+        // Načítaj outreach_settings z organizations
+        let settings = window.Prospects?.DEFAULT_SETTINGS || {
+            auto_convert: {
+                audit_clicked: true, call_booked: true, form_submitted: true,
+                email_replied: false, email_opened_n: false, email_open_threshold: 3,
+            },
+            cooldown_days_after_lost: 90,
+            sender_name: 'Štefan Varga',
+            sender_title: 'Adlify',
+        };
+
+        try {
+            const { data } = await Database.client
+                .from('organizations')
+                .select('id, outreach_settings')
+                .limit(1)
+                .single();
+            if (data?.outreach_settings) {
+                settings = {
+                    ...settings,
+                    ...data.outreach_settings,
+                    auto_convert: { ...settings.auto_convert, ...(data.outreach_settings.auto_convert || {}) },
+                };
+                this._outreachOrgId = data.id;
+            }
+        } catch (e) {
+            console.warn('Outreach settings load failed, using defaults', e);
+        }
+
+        const ac = settings.auto_convert;
+        const rule = (key, label, desc, on) => `
+            <label style="display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--border,#EAE6DE);border-radius:12px;background:#fff;cursor:pointer;">
+                <input type="checkbox" data-outreach-rule="${key}" ${on?'checked':''} style="margin-top:3px;accent-color:#F97316;">
+                <div style="flex:1;">
+                    <div style="font-weight:600;font-size:14px;color:#14120E;">${label}</div>
+                    <div style="font-size:13px;color:#6F6758;margin-top:2px;">${desc}</div>
+                </div>
+            </label>`;
+
+        content.innerHTML = `
+            <div style="max-width:720px;">
+                <div style="margin-bottom:20px;">
+                    <h2 style="font-size:18px;font-weight:700;margin:0 0 4px;">Outreach pravidlá</h2>
+                    <div style="font-size:13px;color:#6F6758;">Kedy sa má prospect automaticky presunúť do leadov.</div>
+                </div>
+
+                <div style="display:grid;gap:10px;margin-bottom:20px;">
+                    ${rule('audit_clicked',  'Klikol „Chcem audit"',   'Po odoslaní žiadosti o audit z emailu.', ac.audit_clicked)}
+                    ${rule('call_booked',    'Rezervoval call',         'Po rezervácii 15min callu cez book-call stránku.', ac.call_booked)}
+                    ${rule('form_submitted', 'Odoslal kontaktný formulár','Žiadosť o ponuku / general contact formulár.', ac.form_submitted)}
+                    ${rule('email_replied',  'Odpísal na email',        'Vyžaduje Resend inbound webhook (experimentálne).', ac.email_replied)}
+                    ${rule('email_opened_n', 'Otvoril email N-krát',    'Prospekt si email otvoril viackrát (opakovaný záujem).', ac.email_opened_n)}
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--border,#EAE6DE);border-radius:12px;background:#fff;margin-bottom:20px;">
+                    <label style="font-size:13px;font-weight:600;color:#14120E;min-width:200px;">Prah otvorení (N):</label>
+                    <input type="number" id="outreach-open-threshold" value="${ac.email_open_threshold || 3}" min="1" max="20"
+                        style="width:80px;padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:14px;">
+                    <div style="font-size:12px;color:#6F6758;">otvorení emailu pred promóciou</div>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--border,#EAE6DE);border-radius:12px;background:#fff;margin-bottom:20px;">
+                    <label style="font-size:13px;font-weight:600;color:#14120E;min-width:200px;">Cooldown po "lost" (dni):</label>
+                    <input type="number" id="outreach-cooldown" value="${settings.cooldown_days_after_lost || 90}" min="0" max="365"
+                        style="width:80px;padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:14px;">
+                    <div style="font-size:12px;color:#6F6758;">po koľkých dňoch sa prospect dá znova osloviť</div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:#14120E;margin-bottom:6px;">Odosielateľ — meno</label>
+                        <input type="text" id="outreach-sender-name" value="${this._esc(settings.sender_name || '')}"
+                            style="width:100%;padding:10px 12px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:#14120E;margin-bottom:6px;">Odosielateľ — titul / firma</label>
+                        <input type="text" id="outreach-sender-title" value="${this._esc(settings.sender_title || '')}"
+                            style="width:100%;padding:10px 12px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+                    </div>
+                </div>
+
+                <button class="adl-btn adl-btn-primary" onclick="SettingsModule.saveOutreachSettings()">Uložiť</button>
+            </div>
+        `;
+    },
+
+    async saveOutreachSettings() {
+        const checkbox = (key) => document.querySelector(`[data-outreach-rule="${key}"]`)?.checked || false;
+        const num = (id, def) => {
+            const el = document.getElementById(id);
+            const v = el ? Number(el.value) : def;
+            return Number.isFinite(v) ? v : def;
+        };
+        const txt = (id) => document.getElementById(id)?.value?.trim() || '';
+
+        const payload = {
+            auto_convert: {
+                audit_clicked: checkbox('audit_clicked'),
+                call_booked: checkbox('call_booked'),
+                form_submitted: checkbox('form_submitted'),
+                email_replied: checkbox('email_replied'),
+                email_opened_n: checkbox('email_opened_n'),
+                email_open_threshold: num('outreach-open-threshold', 3),
+            },
+            cooldown_days_after_lost: num('outreach-cooldown', 90),
+            sender_name: txt('outreach-sender-name'),
+            sender_title: txt('outreach-sender-title'),
+        };
+
+        try {
+            const query = this._outreachOrgId
+                ? Database.client.from('organizations').update({ outreach_settings: payload }).eq('id', this._outreachOrgId)
+                : Database.client.from('organizations').update({ outreach_settings: payload }).neq('id', '');
+            const { error } = await query;
+            if (error) throw error;
+            if (window.Utils?.toast) Utils.toast('Outreach nastavenia uložené', 'success');
+            else alert('Uložené');
+        } catch (err) {
+            console.error(err);
+            if (window.Utils?.toast) Utils.toast('Chyba: ' + err.message, 'danger');
+            else alert('Chyba: ' + err.message);
+        }
+    },
+
+    _esc(s) {
+        if (s == null) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    },
 };
 
 // Register module
