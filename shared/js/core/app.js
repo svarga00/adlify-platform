@@ -67,7 +67,11 @@ const App = {
       
       // 7. Initialize UI
       this.initUI();
-      
+
+      // 7.5. Load brand settings + apply (logo, favicon, colors)
+      await this.loadBrandSettings();
+      this.applyBrand();
+
       // 8. Initialize Router
       Router.init('main-content');
       
@@ -153,6 +157,49 @@ const App = {
     }
   },
   
+  /**
+   * Load brand settings (logo, favicon, primary color) from DB.
+   * Stored as key/value rows in `settings` table by SettingsModule.
+   * Populates App.settings so renderers can read brand_logo_url etc.
+   */
+  async loadBrandSettings() {
+    if (!this.settings) this.settings = {};
+    try {
+      const { data } = await Database.client
+        .from('settings')
+        .select('key, value')
+        .like('key', 'brand_%');
+      (data || []).forEach(s => {
+        try { this.settings[s.key] = JSON.parse(s.value); }
+        catch { this.settings[s.key] = s.value; }
+      });
+    } catch (e) {
+      console.warn('Brand settings load failed (fallback to inline SVG):', e.message);
+    }
+  },
+
+  /**
+   * Apply brand customization to sidebar header + favicon.
+   * If brand_logo_url is set, replaces inline SVG with <img>. Otherwise
+   * the inline gradient-A SVG fallback (from admin/index.html) stays.
+   */
+  applyBrand() {
+    const logoUrl = this.settings?.brand_logo_url;
+    const iconUrl = this.settings?.brand_logo_icon_url;
+
+    // Sidebar brand → <img> when configured
+    const brandEl = document.querySelector('.adl-sidebar-brand');
+    if (brandEl && logoUrl && logoUrl !== 'https://adlify.eu/logo.png') {
+      brandEl.innerHTML = `<img src="${logoUrl}" alt="Adlify" style="max-height:32px;max-width:140px;object-fit:contain;display:block;" onerror="this.parentElement.innerHTML=this.dataset.fallback" data-fallback='${brandEl.innerHTML.replace(/'/g, "&#39;")}'>`;
+    }
+
+    // Favicon → custom icon when configured
+    if (iconUrl) {
+      const fav = document.querySelector('link[rel="icon"]');
+      if (fav) fav.setAttribute('href', iconUrl);
+    }
+  },
+
   /**
    * Initialize UI elements
    */

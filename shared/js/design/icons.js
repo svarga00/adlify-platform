@@ -33,26 +33,27 @@
   }
 
   const I = {
-    // Brand mark — orange gradient square with "A" monogram
+    // Brand mark — gradient A so šípkou (purple → pink → orange) podľa Adlify wordmark
     Logo: function (opts) {
       const { size = 28, id = 'd' } = opts || {};
-      return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none">
-        <defs><linearGradient id="adlG-${id}" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#FB923C"/>
-          <stop offset="1" stop-color="#EA580C"/>
+      return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Adlify">
+        <defs><linearGradient id="adlMark-${id}" x1="15%" y1="85%" x2="85%" y2="15%">
+          <stop offset="0%"   stop-color="#A855F7"/>
+          <stop offset="35%"  stop-color="#EC4899"/>
+          <stop offset="75%"  stop-color="#F97316"/>
+          <stop offset="100%" stop-color="#FB923C"/>
         </linearGradient></defs>
-        <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#adlG-${id})"/>
-        <path d="M8 23 L14 8.5 L18 8.5 L24 23 M11 18 L21 18" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        <circle cx="24" cy="8" r="2.4" fill="#fff"/>
+        <path d="M50 6 C46 6 42 9 40 14 L12 84 C10 88 13 92 17 92 L26 92 C28 92 30 91 31 88 L36 76 L64 76 L69 88 C70 91 72 92 74 92 L83 92 C87 92 90 88 88 84 L60 14 C58 9 54 6 50 6 Z M44 62 L50 46 L56 62 Z" fill="url(#adlMark-${id})"/>
+        <path d="M28 78 L60 30 M60 30 L46 30 M60 30 L60 44" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>`;
     },
 
     LogoWord: function (opts) {
       const { size = 28, id = 'd', sub = '', color = 'currentColor' } = opts || {};
       const subTag = sub ? `<span style="font-size:.55em;font-weight:500;color:var(--ink-sub);margin-left:6px;text-transform:uppercase;letter-spacing:.8px">${sub}</span>` : '';
-      return `<span style="display:inline-flex;align-items:center;gap:9px">
+      return `<span style="display:inline-flex;align-items:center;gap:8px">
         ${I.Logo({ size: size, id: id })}
-        <span style="font-size:${size * 0.66}px;font-weight:700;letter-spacing:-.5px;color:${color}">Adlify${subTag}</span>
+        <span style="font-size:${size * 0.78}px;font-weight:800;letter-spacing:-1px;color:${color};line-height:1">Adlify${subTag}</span>
       </span>`;
     },
 
