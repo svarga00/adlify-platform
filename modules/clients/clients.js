@@ -398,7 +398,7 @@ const ClientsModule = {
         
         <!-- Adresa -->
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">📍 Adresa</h3>
+          <h3 class="font-semibold mb-3 text-gray-700">Adresa</h3>
           <div class="grid md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Ulica</label>
@@ -481,7 +481,7 @@ const ClientsModule = {
         
         <!-- Poznámky -->
         <div>
-          <label class="block text-sm font-medium mb-1">📝 Poznámky</label>
+          <label class="block text-sm font-medium mb-1">Poznámky</label>
           <textarea name="notes" rows="3" class="w-full p-3 border rounded-xl" 
             placeholder="Interné poznámky o klientovi...">${client.notes || ''}</textarea>
         </div>
@@ -493,7 +493,7 @@ const ClientsModule = {
             Zrušiť
           </button>
           <button type="submit" class="flex-1 px-4 py-3 gradient-bg text-white rounded-xl font-semibold hover:opacity-90">
-            ${client.id ? '💾 Uložiť zmeny' : '➕ Vytvoriť klienta'}
+            ${client.id ? 'Uložiť zmeny' : 'Vytvoriť klienta'}
           </button>
         </div>
       </form>
@@ -790,7 +790,7 @@ const ClientsModule = {
         </div>
         
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">📍 Adresa</h3>
+          <h3 class="font-semibold mb-4">Adresa</h3>
           <div class="text-sm space-y-1">
             <div>${c.street || '-'}</div>
             <div>${c.zip || ''} ${c.city || ''}</div>
@@ -799,7 +799,7 @@ const ClientsModule = {
         </div>
         
         <div class="card p-6">
-          <h3 class="font-semibold mb-4">📝 Poznámky</h3>
+          <h3 class="font-semibold mb-4">Poznámky</h3>
           <p class="text-sm text-gray-600">${c.notes || 'Žiadne poznámky'}</p>
         </div>
       </div>
@@ -815,10 +815,10 @@ const ClientsModule = {
         <!-- Current Subscription -->
         <div class="card p-6">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold">📦 Aktuálne predplatné</h3>
-            <button onclick="ClientsModule.showSubscriptionModal()" 
+            <h3 class="font-semibold">Aktuálne predplatné</h3>
+            <button onclick="ClientsModule.showSubscriptionModal()"
               class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-sm">
-              ${subscription ? '✏️ Upraviť' : '➕ Priradiť balíček'}
+              ${subscription ? 'Upraviť' : 'Priradiť balíček'}
             </button>
           </div>
           
@@ -826,7 +826,7 @@ const ClientsModule = {
             <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
               <div class="flex items-start justify-between">
                 <div>
-                  <div class="text-3xl mb-2">${subscription.package_icon || '📦'}</div>
+                  <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:rgba(168,85,247,0.15); color:#7C3AED; margin-bottom:8px;">${I.Package({size:24})}</div>
                   <h4 class="text-xl font-bold">${subscription.package_name || 'Vlastný balíček'}</h4>
                   <p class="text-gray-500">${subscription.custom_name || ''}</p>
                 </div>
@@ -855,12 +855,12 @@ const ClientsModule = {
             </div>
           ` : `
             <div class="text-center py-8 bg-gray-50 rounded-xl">
-              <div class="text-4xl mb-4">📦</div>
+              <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:#E5E7EB; color:#6B7280; margin:0 auto 16px;">${I.Package({size:28})}</div>
               <h4 class="text-lg font-medium text-gray-600">Žiadne predplatné</h4>
               <p class="text-gray-500 mb-4">Klient nemá priradený žiadny balíček</p>
-              <button onclick="ClientsModule.showSubscriptionModal()" 
+              <button onclick="ClientsModule.showSubscriptionModal()"
                 class="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
-                ➕ Priradiť balíček
+                Priradiť balíček
               </button>
             </div>
           `}
@@ -872,7 +872,7 @@ const ClientsModule = {
             <h3 class="font-semibold">🔧 Extra služby</h3>
             <button onclick="ClientsModule.showAddServiceModal()" 
               class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
-              ➕ Pridať službu
+              Pridať službu
             </button>
           </div>
           
@@ -900,7 +900,7 @@ const ClientsModule = {
         ${services.map(svc => `
           <div class="py-3 flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <span class="text-xl">${svc.icon || '📋'}</span>
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--n-75);color:var(--ink-sub);flex-shrink:0;">${I.Docs({size:14})}</span>
               <div>
                 <div class="font-medium">${svc.name}</div>
                 <div class="text-xs text-gray-500">${svc.is_extra ? 'Extra k balíčku' : 'À la carte'}</div>
@@ -951,7 +951,7 @@ const ClientsModule = {
             <div style="margin-bottom:1rem;">
               <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.5rem;">Služba</label>
               <select id="add-service-select" style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
-                ${available.map(s => `<option value="${s.id}" data-price="${s.price || 0}" data-name="${s.name}">${s.icon || '📋'} ${s.name} ${s.price ? '(' + s.price + '€)' : ''}</option>`).join('')}
+                ${available.map(s => `<option value="${s.id}" data-price="${s.price || 0}" data-name="${s.name}">${s.name} ${s.price ? '(' + s.price + '€)' : ''}</option>`).join('')}
               </select>
             </div>
             <div style="margin-bottom:1rem;">
@@ -964,7 +964,7 @@ const ClientsModule = {
             </div>
           ` : `
             <div style="text-align:center;padding:2rem;color:#64748b;">
-              <div style="font-size:2rem;margin-bottom:0.5rem;">📋</div>
+              <div style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:var(--n-75);color:var(--ink-sub);margin-bottom:8px;">${I.Docs({size:18})}</div>
               <p>Žiadne dostupné služby. Najprv ich vytvorte v module Služby.</p>
             </div>
           `}
@@ -1061,7 +1061,7 @@ const ClientsModule = {
       <div id="subscription-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
-            <h2 class="text-xl font-bold">📦 Predplatné klienta</h2>
+            <h2 class="text-xl font-bold">Predplatné klienta</h2>
             <button onclick="ClientsModule.closeSubscriptionModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
           </div>
           
@@ -1072,7 +1072,7 @@ const ClientsModule = {
                 <option value="">-- Vlastný (bez balíčka) --</option>
                 ${packages.map(p => `
                   <option value="${p.id}" data-price="${p.price}" ${subscription.package_id === p.id ? 'selected' : ''}>
-                    ${p.icon || '📦'} ${p.name} (${p.price}€/mes)
+                    ${p.name} (${p.price}€/mes)
                   </option>
                 `).join('')}
               </select>
@@ -1133,7 +1133,7 @@ const ClientsModule = {
                 Zrušiť
               </button>
               <button onclick="ClientsModule.saveSubscription()" class="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
-                💾 Uložiť
+                Uložiť
               </button>
             </div>
           </div>
@@ -1255,7 +1255,7 @@ const ClientsModule = {
           <h3 class="font-semibold">📁 Projekty (${projects.length})</h3>
           <button onclick="ClientsModule.createProject('${this.currentClient.id}')" 
             class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">
-            ➕ Nový projekt
+            Nový projekt
           </button>
         </div>
         ${projects.length > 0 ? `
@@ -1301,38 +1301,38 @@ const ClientsModule = {
     return `
       <div class="card p-6">
         <div class="flex items-center justify-between mb-6">
-          <h3 class="font-semibold">📝 Onboarding formulár</h3>
+          <h3 class="font-semibold">Onboarding formulár</h3>
           <span class="px-3 py-1 rounded-full text-sm bg-${onboarding.color}-100 text-${onboarding.color}-700">
-            ${onboarding.icon} ${onboarding.label}
+            ${onboarding.label}
           </span>
         </div>
-        
+
         ${onboardingUrl ? `
           <div class="bg-gray-50 rounded-xl p-4 mb-6">
             <label class="block text-sm font-medium mb-2">Link pre klienta</label>
             <div class="flex gap-2">
-              <input type="text" readonly value="${onboardingUrl}" 
+              <input type="text" readonly value="${onboardingUrl}"
                 class="flex-1 p-2 border rounded-lg bg-white text-sm" id="onboarding-url">
               <button onclick="ClientsModule.copyOnboardingUrl()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                📋 Kopírovať
+                Kopírovať
               </button>
             </div>
           </div>
         ` : ''}
-        
+
         <div class="flex gap-3">
-          <button onclick="ClientsModule.sendOnboarding('${c.id}')" 
+          <button onclick="ClientsModule.sendOnboarding('${c.id}')"
             class="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200">
-            📧 Odoslať link emailom
+            Odoslať link emailom
           </button>
-          <button onclick="ClientsModule.fillOnboarding('${c.id}')" 
+          <button onclick="ClientsModule.fillOnboarding('${c.id}')"
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200">
-            ✏️ Vyplniť za klienta
+            Vyplniť za klienta
           </button>
           ${c.onboarding_status === 'completed' ? `
             <button onclick="ClientsModule.viewOnboarding('${c.id}')" 
               class="px-4 py-2 bg-green-100 text-green-700 rounded-xl hover:bg-green-200">
-              👁️ Zobraziť odpovede
+              Zobraziť odpovede
             </button>
           ` : ''}
         </div>
@@ -1347,7 +1347,7 @@ const ClientsModule = {
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-semibold">💰 Faktúry</h3>
           <div class="flex gap-2">
-            <button onclick="ClientsModule.openBillingInvoice()" class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">➕ Nová faktúra</button>
+            <button onclick="ClientsModule.openBillingInvoice()" class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">Nová faktúra</button>
             <button onclick="Router.navigate('billing')" class="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">📊 Fakturácia</button>
           </div>
         </div>
@@ -1389,7 +1389,7 @@ const ClientsModule = {
           <div class="text-center py-8 text-gray-400">
             <div class="text-4xl mb-2">💰</div>
             <p>Žiadne faktúry</p>
-            <button onclick="ClientsModule.openBillingInvoice()" class="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">➕ Vystaviť prvú faktúru</button>
+            <button onclick="ClientsModule.openBillingInvoice()" class="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">Vystaviť prvú faktúru</button>
           </div>
         `;
         return;
@@ -1418,7 +1418,7 @@ const ClientsModule = {
                 <span class="px-2 py-0.5 rounded-full text-xs bg-${color}-100 text-${color}-700">${statusLabels[status] || status}</span>
                 <span class="font-bold">${parseFloat(inv.total || 0).toFixed(2)}€</span>
                 <div class="flex gap-1">
-                  <button onclick="ClientsModule.openInvoiceDetail('${inv.id}')" class="p-1 hover:bg-blue-100 rounded text-blue-600 text-sm" title="Detail">👁️</button>
+                  <button onclick="ClientsModule.openInvoiceDetail('${inv.id}')" class="p-1 hover:bg-blue-100 rounded text-blue-600 text-sm" title="Detail">${I.Eye({size:14})}</button>
                   ${['issued', 'sent', 'overdue', 'partially_paid'].includes(status) ? `<button onclick="ClientsModule.markInvoicePaid('${inv.id}')" class="p-1 hover:bg-green-100 rounded text-green-600 text-sm" title="Označiť ako zaplatenú">✅</button>` : ''}
                   <button onclick="ClientsModule.deleteInvoice('${inv.id}')" class="p-1 hover:bg-red-100 rounded text-red-500 text-sm" title="Zmazať">🗑️</button>
                 </div>
@@ -1717,7 +1717,7 @@ const ClientsModule = {
       modal.innerHTML = `
         <div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
           <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#f97316,#ec4899);color:white;">
-            <h2 style="font-size:1.25rem;font-weight:600;margin:0;">📋 Onboarding odpovede</h2>
+            <h2 style="font-size:1.25rem;font-weight:600;margin:0;">Onboarding odpovede</h2>
             <button onclick="document.getElementById('onboarding-view-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;color:white;font-size:1.25rem;">✕</button>
           </div>
           <div style="padding:1.5rem;overflow-y:auto;flex:1;">
