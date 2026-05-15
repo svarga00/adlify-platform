@@ -536,10 +536,10 @@ const SettingsModule = {
                             🔌
                         </button>
                         <button onclick="SettingsModule.editAccount('${account.id}')" class="btn-icon" title="Upraviť">
-                            ✏️
+                            ${I.Edit({size:14})}
                         </button>
                         <button onclick="SettingsModule.deleteAccount('${account.id}')" class="btn-icon text-red-500" title="Zmazať">
-                            🗑️
+                            ${I.Trash({size:14})}
                         </button>
                     </div>
                 </div>
@@ -1118,7 +1118,7 @@ const SettingsModule = {
                                 <div class="flex gap-2">
                                     <button onclick="SettingsModule.editEmailTemplate('${tpl.id}')" 
                                             class="btn-secondary text-xs" title="Upraviť texty">
-                                        ✏️ Upraviť
+                                        ${I.Edit({size:12})} Upraviť
                                     </button>
                                     <button onclick="SettingsModule.previewEmailTemplate('${tpl.id}')" 
                                             class="btn-secondary text-xs" title="Otvoriť náhľad">
@@ -1263,7 +1263,7 @@ const SettingsModule = {
         overlay.innerHTML = `
             <div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
                 <div style="padding:20px 24px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-                    <h3 style="margin:0;font-size:17px;">✏️ ${tpl.name}</h3>
+                    <h3 style="margin:0;font-size:17px;display:flex;align-items:center;gap:8px;">${I.Edit({size:16})} ${tpl.name}</h3>
                     <button onclick="document.getElementById('tpl-edit-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">✕</button>
                 </div>
                 <div style="padding:24px;">
