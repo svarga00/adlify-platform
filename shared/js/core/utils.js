@@ -555,5 +555,11 @@ const Utils = {
   }
 };
 
+// Alias — staršie moduly (tickets, tasks, team, templates, automations,
+// campaigns, billing, reporting, keywords + pdf-generator + notifications)
+// volajú Utils.showNotification. Bez aliasu zhodia stránku pri prvom toaste
+// ("Utils.showNotification is not a function").
+Utils.showNotification = Utils.toast;
+
 // Export
 window.Utils = Utils;
