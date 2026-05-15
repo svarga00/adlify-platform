@@ -45,6 +45,9 @@ const TasksModule = {
         // z iného modulu (napr. klik na úlohu z Outreach detail).
         this._injectStyles();
 
+        container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam úlohy…</div>';
+        await this.loadData();
+
         const view = this.currentView || 'list';
         const filter = this.currentFilter || 'all';
         container.innerHTML = `
@@ -67,13 +70,22 @@ const TasksModule = {
                 <!-- Filters -->
                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;" class="adl-tasks-filters">
                     <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px; flex-wrap:wrap;">
-                        ${[
-                            ['all', 'Všetky'],
-                            ['my', 'Moje'],
-                            ['todo', 'To Do'],
-                            ['in_progress', 'In Progress'],
-                            ['done', 'Hotové']
-                        ].map(([k,l]) => `<button onclick="TasksModule.setFilter('${k}')" class="adl-btn adl-btn-sm ${filter===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">${l}</button>`).join('')}
+                        ${(() => {
+                            const counts = {
+                                all: this.tasks?.length || 0,
+                                my: (this.tasks || []).filter(t => t.assigned_to === Auth.teamMember?.id).length,
+                                todo: (this.tasks || []).filter(t => t.status === 'todo').length,
+                                in_progress: (this.tasks || []).filter(t => t.status === 'in_progress').length,
+                                done: (this.tasks || []).filter(t => t.status === 'done').length
+                            };
+                            return [
+                                ['all', 'Všetky'],
+                                ['my', 'Moje'],
+                                ['todo', 'To Do'],
+                                ['in_progress', 'In Progress'],
+                                ['done', 'Hotové']
+                            ].map(([k,l]) => `<button onclick="TasksModule.setFilter('${k}')" class="adl-btn adl-btn-sm ${filter===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px; gap:6px;">${l}<span style="font-size:10px; color:${filter===k?'rgba(255,255,255,.7)':'var(--ink-mute)'}; background:${filter===k?'rgba(255,255,255,.15)':'var(--n-100)'}; padding:1px 6px; border-radius:99px;">${counts[k]}</span></button>`).join('');
+                        })()}
                     </div>
                     <div class="adl-input" style="flex:1; min-width:200px; max-width:340px; margin-left:auto;">
                         <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
@@ -88,7 +100,6 @@ const TasksModule = {
             </div>
         `;
 
-        await this.loadData();
         this.renderContent();
     },
 
@@ -344,7 +355,6 @@ const TasksModule = {
             <div class="modal task-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">✅</span>
                         <h2>Nová úloha</h2>
                     </div>
                     <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
@@ -366,10 +376,10 @@ const TasksModule = {
                             <div class="form-group">
                                 <label>Priorita</label>
                                 <select name="priority">
-                                    <option value="low">🟢 Nízka</option>
-                                    <option value="medium" selected>🟡 Stredná</option>
-                                    <option value="high">🟠 Vysoká</option>
-                                    <option value="urgent">🔴 Urgentná</option>
+                                    <option value="low">Nízka</option>
+                                    <option value="medium" selected>Stredná</option>
+                                    <option value="high">Vysoká</option>
+                                    <option value="urgent">Urgentná</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -545,11 +555,11 @@ const TasksModule = {
                             <div class="sidebar-item">
                                 <label>Status</label>
                                 <select id="task-status" onchange="TasksModule.updateTaskField('status', this.value)">
-                                    <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>📋 To Do</option>
-                                    <option value="in_progress" ${task.status === 'in_progress' ? 'selected' : ''}>🔄 In Progress</option>
-                                    <option value="review" ${task.status === 'review' ? 'selected' : ''}>👁️ Review</option>
-                                    <option value="done" ${task.status === 'done' ? 'selected' : ''}>✅ Hotové</option>
-                                    <option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>❌ Zrušené</option>
+                                    <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>To Do</option>
+                                    <option value="in_progress" ${task.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                                    <option value="review" ${task.status === 'review' ? 'selected' : ''}>Review</option>
+                                    <option value="done" ${task.status === 'done' ? 'selected' : ''}>Hotové</option>
+                                    <option value="cancelled" ${task.status === 'cancelled' ? 'selected' : ''}>Zrušené</option>
                                 </select>
                             </div>
                             
@@ -568,10 +578,10 @@ const TasksModule = {
                             <div class="sidebar-item">
                                 <label>Priorita</label>
                                 <select id="task-priority" onchange="TasksModule.updateTaskField('priority', this.value)">
-                                    <option value="low" ${task.priority === 'low' ? 'selected' : ''}>🟢 Nízka</option>
-                                    <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>🟡 Stredná</option>
-                                    <option value="high" ${task.priority === 'high' ? 'selected' : ''}>🟠 Vysoká</option>
-                                    <option value="urgent" ${task.priority === 'urgent' ? 'selected' : ''}>🔴 Urgentná</option>
+                                    <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Nízka</option>
+                                    <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Stredná</option>
+                                    <option value="high" ${task.priority === 'high' ? 'selected' : ''}>Vysoká</option>
+                                    <option value="urgent" ${task.priority === 'urgent' ? 'selected' : ''}>Urgentná</option>
                                 </select>
                             </div>
                             
