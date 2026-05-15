@@ -100,6 +100,29 @@ const LeadsModule = {
     if (params.status) this.filters.status = params.status;
     container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
     try {
+      // Detail route: #leads?id=xxx → full-page lead detail
+      // (Loads lead directly from DB so list filters don't hide it.)
+      if (params.id) {
+        const { data: lead, error } = await Database.client
+          .from('leads')
+          .select('*')
+          .eq('id', params.id)
+          .single();
+        if (error || !lead) {
+          console.warn('Lead not found:', params.id, error);
+          Router.navigate('leads');
+          return;
+        }
+        this.currentLeadId = params.id;
+        if (lead.analysis?.company || lead.analysis?.analysis) {
+          this.currentAnalysis = lead.analysis;
+          this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
+        }
+        container.innerHTML = this._renderLeadDetailPage(lead);
+        return;
+      }
+
+      // List route
       await this.loadLeads();
       container.innerHTML = this.template();
       this.setupEventListeners();
@@ -189,7 +212,18 @@ const LeadsModule = {
         .adl-tab.active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
       </style>
       
-      <!-- Analysis Modal -->
+      ${this._renderSharedModals()}
+
+      ${this.getStyles()}
+    `;
+  },
+
+  // Modals shared across list view + detail route view. AI analyze loading,
+  // analysis edit, proposal generator and email composer all reuse these.
+  _renderSharedModals() {
+    const LI = this._leadIcons();
+    return `
+      <!-- Analysis Modal (AI analyze in progress + legacy results) -->
       <div id="analysis-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-large">
           <div class="modal-header-gradient">
@@ -200,7 +234,7 @@ const LeadsModule = {
           <div id="analysis-footer" class="modal-footer"></div>
         </div>
       </div>
-      
+
       <!-- Edit Modal -->
       <div id="edit-modal" class="modal-overlay" style="display:none;">
         <div class="modal-box-new modal-large">
@@ -317,11 +351,9 @@ const LeadsModule = {
         .btn-link { background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.85rem; }
         .btn-link:hover { color: #f97316; text-decoration: underline; }
       </style>
-      
-      ${this.getStyles()}
     `;
   },
-  
+
   renderListTab() {
     const industries = [...new Set(this.leads.map(l => l.industry || l.analysis?.company?.industry || null).filter(Boolean))];
 
@@ -1309,23 +1341,18 @@ const LeadsModule = {
   },
 
   // Detail leadu - kliknutím na riadok
+  // Public API — navigates to full-page lead detail (replaces old modal).
+  // Legacy callsites (LeadsModule.showLeadDetail(id)) still work.
   showLeadDetail(id) {
-    const lead = this.leads.find(l => l.id === id);
-    if (!lead) return;
+    Router.navigate('leads', { id });
+  },
 
-    this.currentLeadId = id;
+  // Builds full-page lead detail HTML. Called from render() when params.id set.
+  _renderLeadDetailPage(lead) {
     const a = lead.analysis || {};
     const md = lead.marketing_data || {};
     const hasAnalysis = a.company || a.analysis;
     const c = a.company || {};
-
-    if (hasAnalysis) {
-      this.currentAnalysis = lead.analysis;
-      this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
-    }
-
-    const modal = document.getElementById('analysis-modal');
-    const content = document.getElementById('analysis-content');
 
     const statusConfig = {
       'new':           { label: 'Nový',            tone: 'sky' },
@@ -1385,12 +1412,12 @@ const LeadsModule = {
       ? `Firma má potenciál pre PPC reklamu. Odporúčaný prístup — lokálne cielenie a remarketing.`
       : null);
 
-    content.innerHTML = `
-      <div class="adl" style="padding:20px 24px;">
+    return `
+      <div class="adl" style="padding:0;">
         <!-- Top breadcrumb row with actions -->
         <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
           <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-sub);">
-            <a href="#leads" onclick="LeadsModule.closeModal()" style="color:var(--ink-sub); text-decoration:none;">Leady</a>
+            <a href="#leads" style="color:var(--ink-sub); text-decoration:none;">Leady</a>
             ${I.Chevron({size:11})}
             <span>${status.label}</span>
             ${I.Chevron({size:11})}
@@ -1669,10 +1696,9 @@ const LeadsModule = {
           }
         </style>
       </div>
+      ${this._renderSharedModals()}
+      ${this.getStyles()}
     `;
-
-    modal.style.display = 'flex';
-    this.renderModalFooter(hasAnalysis);
   },
 
   editNotes(leadId) {
@@ -1885,9 +1911,9 @@ const LeadsModule = {
     }
   },
 
-  closeModal() { 
+  closeModal() {
     const modal = document.getElementById('analysis-modal');
-    modal.style.display = 'none';
+    if (modal) modal.style.display = 'none';
   },
 
   editAnalysis() {
