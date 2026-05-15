@@ -304,16 +304,16 @@ const TeamModule = {
 
     getModuleName(module) {
         const names = {
-            dashboard: '📊 Dashboard',
-            leads: '🎯 Leady',
-            clients: '🏢 Klienti',
-            projects: '📁 Projekty',
-            tasks: '✅ Úlohy',
-            messages: '📧 Správy',
-            billing: '📄 Fakturácia',
-            team: '👥 Tím',
-            settings: '⚙️ Nastavenia',
-            integrations: '🔗 Integrácie'
+            dashboard: 'Dashboard',
+            leads: 'Leady',
+            clients: 'Klienti',
+            projects: 'Projekty',
+            tasks: 'Úlohy',
+            messages: 'Správy',
+            billing: 'Fakturácia',
+            team: 'Tím',
+            settings: 'Nastavenia',
+            integrations: 'Integrácie'
         };
         return names[module] || module;
     },
@@ -322,7 +322,7 @@ const TeamModule = {
         if (this.activityLog.length === 0) {
             return `
                 <div class="empty-state">
-                    <div class="empty-icon">📋</div>
+                    <div class="empty-icon" style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:var(--n-75);color:var(--ink-mute);">${I.Docs({size:24})}</div>
                     <h3>Žiadna aktivita</h3>
                     <p>História aktivít sa zobrazí tu</p>
                 </div>
@@ -659,7 +659,7 @@ const TeamModule = {
                                style="flex: 1; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem;">
                         <button onclick="navigator.clipboard.writeText('${inviteUrl}'); Utils.toast('Link skopírovaný!', 'success');" 
                                 class="btn-primary" style="white-space: nowrap;">
-                            📋 Kopírovať
+                            ${I.Copy({size:14})} Kopírovať
                         </button>
                     </div>
                 </div>
@@ -786,7 +786,6 @@ const TeamModule = {
             <div class="modal team-modal">
                 <div class="modal-header">
                     <div class="modal-title">
-                        <span class="modal-icon">✏️</span>
                         <div>
                             <h2>Upraviť člena</h2>
                             <p class="modal-subtitle">${member.first_name} ${member.last_name}</p>
