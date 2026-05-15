@@ -328,7 +328,7 @@ const CalendarModule = {
                     <div class="day-events-list">
                         ${events.map(e => `
                             <div class="day-event-item ${e.priority}" onclick="CalendarModule.openEvent('${e.type}', '${e.id}'); this.closest('.modal-overlay').remove();">
-                                <span class="event-icon">${e.type === 'task' ? '✅' : '🎫'}</span>
+                                <span class="event-icon" style="display:inline-flex;align-items:center;">${e.type === 'task' ? I.Tasks({size:14}) : I.Ticket({size:14})}</span>
                                 <div class="event-details">
                                     <span class="event-title">${e.title}</span>
                                     <span class="event-meta">${e.type === 'task' ? 'Úloha' : 'Ticket'}</span>

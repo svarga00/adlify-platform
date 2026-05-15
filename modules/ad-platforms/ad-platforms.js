@@ -56,7 +56,7 @@ const AdPlatformsModule = {
       <div class="adl">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px;flex-wrap:wrap;">
           <div>
-            <h1 style="font-size:28px;font-weight:700;letter-spacing:-0.5px;margin:0 0 4px;color:#14120E;">📊 Reklamné platformy</h1>
+            <h1 style="font-size:28px;font-weight:700;letter-spacing:-0.5px;margin:0 0 4px;color:#14120E;">Reklamné platformy</h1>
             <p style="color:#6F6758;font-size:14px;margin:0;">${totalActive} aktívnych pripojení · automatický sync metrík každé 2 hodiny</p>
           </div>
           <div class="adl-toolbar">
@@ -123,7 +123,7 @@ const AdPlatformsModule = {
   },
 
   async connect(platform) {
-    const clientOptions = [{ id: '', label: '🏢 Agency-wide' }]
+    const clientOptions = [{ id: '', label: 'Agency-wide' }]
       .concat(this.clientsList.map(c => ({ id: c.id, label: c.company_name })));
 
     const options = clientOptions.map((o, i) => `${i + 1}. ${o.label}`).join('\n');
