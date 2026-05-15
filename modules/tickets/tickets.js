@@ -34,6 +34,8 @@ const TicketsModule = {
     },
 
     async render(container) {
+        container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--ink-mute);">Načítavam tickety…</div>';
+        await this.loadData();
         this._injectStyles();
         const filter = this.currentFilter || 'open';
         container.innerHTML = `
@@ -60,13 +62,23 @@ const TicketsModule = {
                 <!-- Filters -->
                 <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;" class="adl-tickets-filters">
                     <div style="display:inline-flex; background:var(--n-75); border-radius:9px; padding:3px; flex-wrap:wrap;">
-                        ${[
-                            ['open', 'Otvorené'],
-                            ['in_progress', 'V riešení'],
-                            ['waiting', 'Čakajúce'],
-                            ['all', 'Všetky'],
-                            ['my', 'Moje']
-                        ].map(([k,l]) => `<button onclick="TicketsModule.setFilter('${k}')" class="adl-btn adl-btn-sm ${filter===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px;">${l}</button>`).join('')}
+                        ${(() => {
+                            const t = this.tickets || [];
+                            const counts = {
+                                open: t.filter(x => x.status === 'open').length,
+                                in_progress: t.filter(x => x.status === 'in_progress').length,
+                                waiting: t.filter(x => x.status === 'waiting').length,
+                                all: t.length,
+                                my: t.filter(x => x.assigned_to === Auth.teamMember?.id).length
+                            };
+                            return [
+                                ['open', 'Otvorené'],
+                                ['in_progress', 'V riešení'],
+                                ['waiting', 'Čakajúce'],
+                                ['all', 'Všetky'],
+                                ['my', 'Moje']
+                            ].map(([k,l]) => `<button onclick="TicketsModule.setFilter('${k}')" class="adl-btn adl-btn-sm ${filter===k?'adl-btn-ink':'adl-btn-ghost'}" style="border-radius:7px; padding:0 12px; gap:6px;">${l}<span style="font-size:10px; color:${filter===k?'rgba(255,255,255,.7)':'var(--ink-mute)'}; background:${filter===k?'rgba(255,255,255,.15)':'var(--n-100)'}; padding:1px 6px; border-radius:99px;">${counts[k]}</span></button>`).join('');
+                        })()}
                     </div>
                     <div class="adl-input" style="flex:1; min-width:200px; max-width:340px; margin-left:auto;">
                         <span style="color:var(--ink-mute); display:flex;">${I.Search({size:15})}</span>
@@ -85,7 +97,6 @@ const TicketsModule = {
             </div>
         `;
 
-        await this.loadData();
         this.renderContent();
     },
 
@@ -281,10 +292,10 @@ const TicketsModule = {
                             <div class="form-group">
                                 <label>Priorita</label>
                                 <select name="priority">
-                                    <option value="low">🟢 Nízka</option>
-                                    <option value="medium" selected>🟡 Stredná</option>
-                                    <option value="high">🟠 Vysoká</option>
-                                    <option value="urgent">🔴 Urgentná</option>
+                                    <option value="low">Nízka</option>
+                                    <option value="medium" selected>Stredná</option>
+                                    <option value="high">Vysoká</option>
+                                    <option value="urgent">Urgentná</option>
                                 </select>
                             </div>
                         </div>
@@ -452,21 +463,21 @@ const TicketsModule = {
                             <div class="sidebar-item">
                                 <label>Status</label>
                                 <select id="ticket-status" onchange="TicketsModule.updateTicketField('status', this.value)">
-                                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>📬 Otvorený</option>
-                                    <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>🔄 V riešení</option>
-                                    <option value="waiting" ${ticket.status === 'waiting' ? 'selected' : ''}>⏳ Čaká na odpoveď</option>
-                                    <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>✅ Vyriešený</option>
-                                    <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>🔒 Uzavretý</option>
+                                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Otvorený</option>
+                                    <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>V riešení</option>
+                                    <option value="waiting" ${ticket.status === 'waiting' ? 'selected' : ''}>Čaká na odpoveď</option>
+                                    <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Vyriešený</option>
+                                    <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Uzavretý</option>
                                 </select>
                             </div>
                             
                             <div class="sidebar-item">
                                 <label>Priorita</label>
                                 <select id="ticket-priority" onchange="TicketsModule.updateTicketField('priority', this.value)">
-                                    <option value="low" ${ticket.priority === 'low' ? 'selected' : ''}>🟢 Nízka</option>
-                                    <option value="medium" ${ticket.priority === 'medium' ? 'selected' : ''}>🟡 Stredná</option>
-                                    <option value="high" ${ticket.priority === 'high' ? 'selected' : ''}>🟠 Vysoká</option>
-                                    <option value="urgent" ${ticket.priority === 'urgent' ? 'selected' : ''}>🔴 Urgentná</option>
+                                    <option value="low" ${ticket.priority === 'low' ? 'selected' : ''}>Nízka</option>
+                                    <option value="medium" ${ticket.priority === 'medium' ? 'selected' : ''}>Stredná</option>
+                                    <option value="high" ${ticket.priority === 'high' ? 'selected' : ''}>Vysoká</option>
+                                    <option value="urgent" ${ticket.priority === 'urgent' ? 'selected' : ''}>Urgentná</option>
                                 </select>
                             </div>
                             
