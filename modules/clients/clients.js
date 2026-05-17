@@ -354,7 +354,7 @@ const ClientsModule = {
       <form id="client-form" class="space-y-6" onsubmit="event.preventDefault(); ClientsModule.saveClient(); return false;">
         <!-- Základné info -->
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">🏢 Základné informácie</h3>
+          <h3 class="font-semibold mb-3 text-gray-700" style="display:inline-flex; align-items:center; gap:8px;">${I.Building({size:14})} Základné informácie</h3>
           <div class="grid md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Názov firmy *</label>
@@ -376,7 +376,7 @@ const ClientsModule = {
         
         <!-- Kontakt -->
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">📞 Kontaktné údaje</h3>
+          <h3 class="font-semibold mb-3 text-gray-700" style="display:inline-flex; align-items:center; gap:8px;">${I.Phone({size:14})} Kontaktné údaje</h3>
           <div class="grid md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium mb-1">Email *</label>
@@ -732,6 +732,7 @@ const ClientsModule = {
           <button onclick="ClientsModule.showTab('projects')" class="tab-btn" data-tab="projects" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Projekty</button>
           <button onclick="ClientsModule.showTab('onboarding')" class="tab-btn" data-tab="onboarding" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Onboarding</button>
           <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Faktúry</button>
+          <button onclick="ClientsModule.showTab('tasks')" class="tab-btn" data-tab="tasks" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Úlohy</button>
         </div>
 
         <!-- Tab Content -->
@@ -740,6 +741,7 @@ const ClientsModule = {
         <div id="tab-projects" class="tab-content hidden">${this.templateTabProjects()}</div>
         <div id="tab-onboarding" class="tab-content hidden">${this.templateTabOnboarding()}</div>
         <div id="tab-invoices" class="tab-content hidden">${this.templateTabInvoices()}</div>
+        <div id="tab-tasks" class="tab-content hidden">${this.templateTabTasks()}</div>
 
         <!-- Edit Modal -->
         <div id="client-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(20,18,14,0.5); padding:16px;">
@@ -762,45 +764,61 @@ const ClientsModule = {
   
   templateTabInfo() {
     const c = this.currentClient;
+    const tags = Array.isArray(c.tags) ? c.tags : [];
     return `
       <div class="grid md:grid-cols-2 gap-6">
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">🏢 Firemné údaje</h3>
-          <div class="space-y-3 text-sm">
-            <div class="flex justify-between"><span class="text-gray-500">IČO</span><span>${c.ico || '-'}</span></div>
-            <div class="flex justify-between"><span class="text-gray-500">DIČ</span><span>${c.dic || '-'}</span></div>
-            <div class="flex justify-between"><span class="text-gray-500">IČ DPH</span><span>${c.ic_dph || '-'}</span></div>
-            <div class="flex justify-between"><span class="text-gray-500">Web</span>
-              ${c.website ? `<a href="${c.website.startsWith('http') ? c.website : 'https://' + c.website}" target="_blank" class="text-primary hover:underline">${c.website}</a>` : '-'}
+        <div class="adl-card">
+          <div class="adl-card-header"><div class="adl-card-title" style="display:inline-flex;align-items:center;gap:8px;">${I.Building({size:14})} Firemné údaje</div></div>
+          <div class="adl-card-body" style="font-size:13px;">
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ink-sub);">IČO</span><span class="mono">${c.ico || '—'}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ink-sub);">DIČ</span><span class="mono">${c.dic || '—'}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ink-sub);">IČ DPH</span><span class="mono">${c.ic_dph || '—'}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ink-sub);">Web</span>
+              ${c.website ? `<a href="${c.website.startsWith('http') ? c.website : 'https://' + c.website}" target="_blank" style="color:var(--brand-600);text-decoration:none;">${c.website}</a>` : '—'}
             </div>
           </div>
         </div>
-        
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">👤 Kontakt</h3>
-          <div class="space-y-3 text-sm">
-            <div class="flex justify-between"><span class="text-gray-500">Kontaktná osoba</span><span>${c.contact_person || '-'}</span></div>
-            <div class="flex justify-between"><span class="text-gray-500">Email</span>
-              ${c.email ? `<a href="mailto:${c.email}" class="text-primary hover:underline">${c.email}</a>` : '-'}
+
+        <div class="adl-card">
+          <div class="adl-card-header"><div class="adl-card-title" style="display:inline-flex;align-items:center;gap:8px;">${I.Users({size:14})} Kontakt</div></div>
+          <div class="adl-card-body" style="font-size:13px;">
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ink-sub);">Kontaktná osoba</span><span>${c.contact_person || '—'}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ink-sub);">Email</span>
+              ${c.email ? `<a href="mailto:${c.email}" style="color:var(--brand-600);text-decoration:none;">${c.email}</a>` : '—'}
             </div>
-            <div class="flex justify-between"><span class="text-gray-500">Telefón</span>
-              ${c.phone ? `<a href="tel:${c.phone}" class="text-primary hover:underline">${c.phone}</a>` : '-'}
+            <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--ink-sub);">Telefón</span>
+              ${c.phone ? `<a href="tel:${c.phone}" style="color:var(--brand-600);text-decoration:none;" class="mono">${c.phone}</a>` : '—'}
             </div>
           </div>
         </div>
-        
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">Adresa</h3>
-          <div class="text-sm space-y-1">
-            <div>${c.street || '-'}</div>
+
+        <div class="adl-card">
+          <div class="adl-card-header"><div class="adl-card-title">Adresa</div></div>
+          <div class="adl-card-body" style="font-size:13px; line-height:1.6;">
+            <div>${c.street || '—'}</div>
             <div>${c.zip || ''} ${c.city || ''}</div>
-            <div>${c.country || 'Slovensko'}</div>
+            <div style="color:var(--ink-sub);">${c.country || 'Slovensko'}</div>
           </div>
         </div>
-        
-        <div class="card p-6">
-          <h3 class="font-semibold mb-4">Poznámky</h3>
-          <p class="text-sm text-gray-600">${c.notes || 'Žiadne poznámky'}</p>
+
+        <div class="adl-card" id="client-tags-card">
+          <div class="adl-card-header">
+            <div class="adl-card-title">Tagy</div>
+            <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="ClientsModule.openAddTag()" title="Pridať tag" style="padding:0 6px; width:24px; height:24px; justify-content:center;">${I.Plus({size:12})}</button>
+          </div>
+          <div class="adl-card-body" style="font-size:13px;">
+            ${this._renderClientTags(tags)}
+          </div>
+        </div>
+
+        <div class="adl-card" id="client-notes-card" style="grid-column:1 / -1;">
+          <div class="adl-card-header">
+            <div class="adl-card-title">Poznámky</div>
+            <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="ClientsModule.editNotes()">${I.Edit({size:12})} Upraviť</button>
+          </div>
+          <div class="adl-card-body" style="font-size:13px; line-height:1.6; color:${c.notes ? 'var(--ink)' : 'var(--ink-mute)'}; white-space:pre-wrap;">
+            ${c.notes ? c.notes.replace(/</g,'&lt;') : 'Žiadne poznámky. Kliknite na <strong>Upraviť</strong> a pridajte prvú.'}
+          </div>
         </div>
       </div>
     `;
@@ -840,7 +858,7 @@ const ClientsModule = {
                 <div>
                   <div class="text-xs text-gray-500">Status</div>
                   <div class="font-medium ${subscription.status === 'active' ? 'text-green-600' : 'text-gray-600'}">
-                    ${subscription.status === 'active' ? '● Aktívne' : '○ ' + subscription.status}
+                    <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:50%; background:${subscription.status === 'active' ? 'var(--ok)' : 'var(--ink-mute)'};"></span>${subscription.status === 'active' ? 'Aktívne' : subscription.status}</span>
                   </div>
                 </div>
                 <div>
@@ -869,7 +887,7 @@ const ClientsModule = {
         <!-- Client Services -->
         <div class="card p-6">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold">🔧 Extra služby</h3>
+            <h3 class="font-semibold" style="display:inline-flex; align-items:center; gap:8px;">${I.Settings({size:14})} Extra služby</h3>
             <button onclick="ClientsModule.showAddServiceModal()" 
               class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm">
               Pridať službu
@@ -909,7 +927,7 @@ const ClientsModule = {
             <div class="flex items-center gap-3">
               <span class="font-medium">${svc.price || 0}€</span>
               <button onclick="ClientsModule.removeClientService('${svc.id}')" 
-                class="p-1 hover:bg-red-100 rounded text-red-500">✕</button>
+                class="p-1 hover:bg-red-100 rounded text-red-500" style="display:inline-flex; align-items:center; justify-content:center;">${I.X({size:14})}</button>
             </div>
           </div>
         `).join('')}
@@ -943,8 +961,8 @@ const ClientsModule = {
     modal.innerHTML = `
       <div style="background:white;border-radius:16px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
         <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
-          <h2 style="font-size:1.125rem;font-weight:600;margin:0;">🔧 Pridať extra službu</h2>
-          <button onclick="document.getElementById('add-service-modal').remove()" style="background:#f1f5f9;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:1.25rem;">✕</button>
+          <h2 style="font-size:1.125rem;font-weight:600;margin:0;display:inline-flex;align-items:center;gap:8px;">${I.Settings({size:16})} Pridať extra službu</h2>
+          <button onclick="document.getElementById('add-service-modal').remove()" style="background:#f1f5f9;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${I.X({size:14})}</button>
         </div>
         <div style="padding:1.5rem;">
           ${available.length > 0 ? `
@@ -1062,7 +1080,7 @@ const ClientsModule = {
         <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
           <div class="p-6 border-b flex items-center justify-between">
             <h2 class="text-xl font-bold">Predplatné klienta</h2>
-            <button onclick="ClientsModule.closeSubscriptionModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
+            <button onclick="ClientsModule.closeSubscriptionModal()" class="p-2 hover:bg-gray-100 rounded-lg" style="display:inline-flex; align-items:center; justify-content:center;">${I.X({size:14})}</button>
           </div>
           
           <div class="p-6 space-y-4">
@@ -1204,7 +1222,7 @@ const ClientsModule = {
         .update({ monthly_fee: data.monthly_price })
         .eq('id', this.currentClient.id);
       
-      Utils.toast('Predplatné uložené! ✅', 'success');
+      Utils.toast('Predplatné uložené', 'success');
       this.closeSubscriptionModal();
       
       // Reload client detail
@@ -1252,7 +1270,7 @@ const ClientsModule = {
     return `
       <div class="card overflow-hidden">
         <div class="p-4 border-b flex justify-between items-center">
-          <h3 class="font-semibold">📁 Projekty (${projects.length})</h3>
+          <h3 class="font-semibold" style="display:inline-flex; align-items:center; gap:8px;">${I.Folder({size:14})} Projekty (${projects.length})</h3>
           <button onclick="ClientsModule.createProject('${this.currentClient.id}')" 
             class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">
             Nový projekt
@@ -1281,9 +1299,9 @@ const ClientsModule = {
           </div>
         ` : `
           <div class="p-8 text-center text-gray-400">
-            <div class="text-4xl mb-2">📁</div>
+            <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-sub); margin-bottom:10px;">${I.Folder({size:24})}</div>
             <p>Žiadne projekty</p>
-            <button onclick="ClientsModule.createProject('${this.currentClient.id}')" 
+            <button onclick="ClientsModule.createProject('${this.currentClient.id}')"
               class="mt-4 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm">
               Vytvoriť prvý projekt
             </button>
@@ -1345,10 +1363,10 @@ const ClientsModule = {
     return `
       <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold">💰 Faktúry</h3>
+          <h3 class="font-semibold" style="display:inline-flex; align-items:center; gap:8px;">${I.Invoice({size:14})} Faktúry</h3>
           <div class="flex gap-2">
             <button onclick="ClientsModule.openBillingInvoice()" class="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">Nová faktúra</button>
-            <button onclick="Router.navigate('billing')" class="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">📊 Fakturácia</button>
+            <button onclick="Router.navigate('billing')" class="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200" style="display:inline-flex; align-items:center; gap:6px;">${I.Chart({size:12})} Fakturácia</button>
           </div>
         </div>
         <div id="invoices-list">
@@ -1387,7 +1405,7 @@ const ClientsModule = {
       if (!invoices || invoices.length === 0) {
         container.innerHTML = `
           <div class="text-center py-8 text-gray-400">
-            <div class="text-4xl mb-2">💰</div>
+            <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-sub); margin-bottom:10px;">${I.Invoice({size:24})}</div>
             <p>Žiadne faktúry</p>
             <button onclick="ClientsModule.openBillingInvoice()" class="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200">Vystaviť prvú faktúru</button>
           </div>
@@ -1534,6 +1552,286 @@ const ClientsModule = {
 
     // Lazy-load faktúr
     if (tab === 'invoices') this.loadInvoices();
+    if (tab === 'tasks') this.loadClientTasks();
+  },
+
+  templateTabTasks() {
+    return `
+      <div class="adl-card">
+        <div class="adl-card-header">
+          <div class="adl-card-title">Úlohy &amp; follow-upy</div>
+          <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.openFollowUpModal()">${I.Plus({size:14})} Nová úloha</button>
+        </div>
+        <div class="adl-card-body" id="client-tasks-body" style="padding:0;">
+          <div style="text-align:center; padding:24px; color:var(--ink-mute); font-size:13px;">Načítavam...</div>
+        </div>
+      </div>
+    `;
+  },
+
+  async loadClientTasks() {
+    const body = document.getElementById('client-tasks-body');
+    if (!body || !this.currentClient) return;
+    try {
+      const res = await Database.client.from('tasks')
+        .select('*')
+        .eq('client_id', this.currentClient.id)
+        .order('status', { ascending: true })
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(50);
+      const tasks = res.data || [];
+      if (tasks.length === 0) {
+        body.innerHTML = `
+          <div style="text-align:center; padding:32px 20px; color:var(--ink-mute);">
+            <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-75); color:var(--ink-sub); margin-bottom:10px;">${I.Tasks({size:24})}</div>
+            <div style="font-size:13px; margin-bottom:10px;">Žiadne úlohy pre tohto klienta</div>
+            <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="ClientsModule.openFollowUpModal()">${I.Plus({size:12})} Naplánovať prvý follow-up</button>
+          </div>`;
+        return;
+      }
+      const today = new Date(new Date().toDateString());
+      body.innerHTML = tasks.map((t, i) => {
+        const due = t.due_date ? new Date(t.due_date) : null;
+        const overdue = due && due < today && t.status !== 'done';
+        const done = t.status === 'done';
+        const dueLabel = due ? due.toLocaleDateString('sk-SK', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
+        const prioTone = { urgent:'err', high:'amber', medium:'sky', low:'' }[t.priority] || '';
+        return `
+          <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 18px; ${i > 0 ? 'border-top:1px solid var(--border);' : ''}">
+            <button onclick="ClientsModule.toggleClientTask('${t.id}', ${done})" title="${done ? 'Vrátiť ako otvorenú' : 'Označiť ako hotovú'}"
+              style="width:20px; height:20px; border-radius:50%; border:1.5px solid ${done ? 'var(--ok)' : 'var(--n-300)'}; background:${done ? 'var(--ok)' : 'transparent'}; cursor:pointer; flex-shrink:0; margin-top:1px; display:inline-flex; align-items:center; justify-content:center; color:#fff;">${done ? I.Check({size:12}) : ''}</button>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:13px; font-weight:500; color:${done ? 'var(--ink-mute)' : 'var(--ink)'}; ${done ? 'text-decoration:line-through;' : ''}">${(t.title || '').replace(/</g,'&lt;')}</div>
+              ${t.description ? `<div style="font-size:12px; color:var(--ink-sub); margin-top:3px; white-space:pre-wrap;">${t.description.replace(/</g,'&lt;')}</div>` : ''}
+              <div style="display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                <span class="mono" style="font-size:11px; color:${overdue ? 'var(--err)' : 'var(--ink-mute)'};">${overdue ? 'Po termíne · ' : ''}${dueLabel}</span>
+                ${t.priority && t.priority !== 'medium' ? `<span class="adl-chip adl-chip-sm ${prioTone ? 'adl-chip-' + prioTone : ''}">${t.priority}</span>` : ''}
+                ${t.status && t.status !== 'todo' && t.status !== 'done' ? `<span class="adl-chip adl-chip-sm">${t.status}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      console.error('loadClientTasks', e);
+      body.innerHTML = `<div style="padding:20px; text-align:center; color:var(--err); font-size:12px;">Chyba pri načítaní úloh</div>`;
+    }
+  },
+
+  async toggleClientTask(taskId, currentlyDone) {
+    try {
+      await Database.update('tasks', taskId, currentlyDone
+        ? { status: 'todo', completed_at: null }
+        : { status: 'done', completed_at: new Date().toISOString() });
+      this.loadClientTasks();
+    } catch (e) {
+      Utils.toast('Chyba pri ukladaní', 'error');
+    }
+  },
+
+  openFollowUpModal() {
+    if (!this.currentClient) return;
+    const c = this.currentClient;
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const displayName = c.company_name || 'klientom';
+    const modal = document.createElement('div');
+    modal.id = 'client-followup-modal';
+    modal.style.cssText = 'position:fixed; inset:0; background:rgba(20,18,14,0.4); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px;';
+    modal.innerHTML = `
+      <div class="adl-card" style="width:100%; max-width:440px; background:#fff;">
+        <div class="adl-card-header">
+          <div class="adl-card-title">Nová úloha pre ${displayName.replace(/</g,'&lt;')}</div>
+          <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="document.getElementById('client-followup-modal').remove()" style="padding:0 6px; width:28px; height:28px;">${I.X({size:14})}</button>
+        </div>
+        <form onsubmit="event.preventDefault(); ClientsModule.submitFollowUp(); return false;" class="adl-card-body" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Názov úlohy</label>
+            <input id="cfu-title" class="adl-input" required value="Follow-up s ${displayName.replace(/"/g,'&quot;')}" style="width:100%;" maxlength="120">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Termín</label>
+              <input id="cfu-due" type="date" class="adl-input" required value="${tomorrow}" style="width:100%;">
+            </div>
+            <div>
+              <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Priorita</label>
+              <select id="cfu-priority" class="adl-input" style="width:100%;">
+                <option value="low">Nízka</option>
+                <option value="medium" selected>Stredná</option>
+                <option value="high">Vysoká</option>
+                <option value="urgent">Urgentná</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Poznámka (voliteľné)</label>
+            <textarea id="cfu-desc" class="adl-input" rows="3" placeholder="Napr. zavolať a opýtať sa na status reportu..." style="width:100%; resize:vertical;"></textarea>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button type="button" class="adl-btn adl-btn-ghost" onclick="document.getElementById('client-followup-modal').remove()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">${I.Check({size:14})} Vytvoriť</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    setTimeout(() => document.getElementById('cfu-title')?.focus(), 50);
+  },
+
+  async submitFollowUp() {
+    const title = document.getElementById('cfu-title')?.value.trim();
+    const due = document.getElementById('cfu-due')?.value;
+    const priority = document.getElementById('cfu-priority')?.value || 'medium';
+    const desc = document.getElementById('cfu-desc')?.value.trim();
+    if (!title || !due) { Utils.toast('Vyplň názov a termín', 'warning'); return; }
+    try {
+      await Database.insert('tasks', {
+        client_id: this.currentClient.id,
+        title,
+        description: desc || null,
+        due_date: due,
+        priority,
+        status: 'todo'
+      });
+      document.getElementById('client-followup-modal')?.remove();
+      Utils.toast('Úloha vytvorená', 'success');
+      this.showTab('tasks');
+    } catch (e) {
+      console.error('submitFollowUp', e);
+      Utils.toast('Chyba pri vytváraní úlohy', 'error');
+    }
+  },
+
+  editNotes() {
+    const card = document.getElementById('client-notes-card');
+    if (!card || !this.currentClient) return;
+    const current = this.currentClient.notes || '';
+    card.innerHTML = `
+      <div class="adl-card-header">
+        <div class="adl-card-title">Poznámky</div>
+        <div style="display:flex; gap:6px;">
+          <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="ClientsModule.cancelEditNotes()">Zrušiť</button>
+          <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.saveNotes()">${I.Check({size:12})} Uložiť</button>
+        </div>
+      </div>
+      <div class="adl-card-body">
+        <textarea id="client-notes-textarea" class="adl-input" rows="6" placeholder="Interné poznámky o klientovi — kontext, špeciálne požiadavky, dôležité detaily..." style="width:100%; resize:vertical; font-family:inherit; font-size:13px; line-height:1.5;">${current.replace(/</g,'&lt;')}</textarea>
+      </div>
+    `;
+    const ta = document.getElementById('client-notes-textarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  },
+
+  cancelEditNotes() {
+    this._rerenderNotesCard();
+  },
+
+  async saveNotes() {
+    const ta = document.getElementById('client-notes-textarea');
+    if (!ta || !this.currentClient) return;
+    const next = ta.value.trim();
+    if (next === (this.currentClient.notes || '')) { this._rerenderNotesCard(); return; }
+    try {
+      await Database.update('clients', this.currentClient.id, { notes: next });
+      this.currentClient.notes = next;
+      const cached = this.clients?.find(x => x.id === this.currentClient.id);
+      if (cached) cached.notes = next;
+      this._rerenderNotesCard();
+      Utils.toast('Poznámky uložené', 'success');
+    } catch (e) {
+      Utils.toast('Chyba pri ukladaní poznámok', 'error');
+    }
+  },
+
+  _rerenderNotesCard() {
+    const card = document.getElementById('client-notes-card');
+    const c = this.currentClient;
+    if (!card || !c) return;
+    card.innerHTML = `
+      <div class="adl-card-header">
+        <div class="adl-card-title">Poznámky</div>
+        <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="ClientsModule.editNotes()">${I.Edit({size:12})} Upraviť</button>
+      </div>
+      <div class="adl-card-body" style="font-size:13px; line-height:1.6; color:${c.notes ? 'var(--ink)' : 'var(--ink-mute)'}; white-space:pre-wrap;">
+        ${c.notes ? c.notes.replace(/</g,'&lt;') : 'Žiadne poznámky. Kliknite na <strong>Upraviť</strong> a pridajte prvú.'}
+      </div>
+    `;
+  },
+
+  _renderClientTags(tags) {
+    if (!tags || tags.length === 0) {
+      return '<div style="color:var(--ink-mute); font-size:12px;">Zatiaľ žiadne tagy. Kliknite na <strong>+</strong> pre pridanie.</div>';
+    }
+    return `
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        ${tags.map((t, i) => `
+          <span class="adl-chip adl-chip-sm" style="display:inline-flex; align-items:center; gap:4px;">
+            ${t.replace(/</g,'&lt;')}
+            <button onclick="ClientsModule.removeTag(${i})" title="Odstrániť" style="background:transparent; border:0; color:var(--ink-mute); cursor:pointer; padding:0; display:inline-flex; align-items:center;">${I.X({size:10})}</button>
+          </span>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  openAddTag() {
+    const card = document.getElementById('client-tags-card');
+    if (!card) return;
+    const body = card.querySelector('.adl-card-body');
+    if (!body || body.querySelector('#client-new-tag-input')) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex; gap:6px; margin-bottom:10px;';
+    wrap.innerHTML = `
+      <input id="client-new-tag-input" class="adl-input" placeholder="Nový tag..." style="flex:1; font-size:12px; padding:6px 10px;" maxlength="32"
+        onkeydown="if(event.key==='Enter'){ClientsModule.confirmAddTag()} if(event.key==='Escape'){this.parentElement.remove()}">
+      <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.confirmAddTag()">${I.Check({size:12})}</button>
+    `;
+    body.prepend(wrap);
+    wrap.querySelector('input').focus();
+  },
+
+  async confirmAddTag() {
+    const input = document.getElementById('client-new-tag-input');
+    if (!input || !this.currentClient) return;
+    const tag = input.value.trim();
+    if (!tag) { input.focus(); return; }
+    const current = Array.isArray(this.currentClient.tags) ? this.currentClient.tags.slice() : [];
+    if (current.includes(tag)) { Utils.toast('Tag už existuje', 'warning'); return; }
+    current.push(tag);
+    try {
+      await Database.update('clients', this.currentClient.id, { tags: current });
+      this.currentClient.tags = current;
+      const cached = this.clients?.find(x => x.id === this.currentClient.id);
+      if (cached) cached.tags = current;
+      this._rerenderTagsCard();
+      Utils.toast('Tag pridaný', 'success');
+    } catch (e) {
+      Utils.toast('Chyba pri pridávaní tagu', 'error');
+    }
+  },
+
+  async removeTag(index) {
+    if (!this.currentClient || !Array.isArray(this.currentClient.tags)) return;
+    const next = this.currentClient.tags.slice();
+    next.splice(index, 1);
+    try {
+      await Database.update('clients', this.currentClient.id, { tags: next });
+      this.currentClient.tags = next;
+      const cached = this.clients?.find(x => x.id === this.currentClient.id);
+      if (cached) cached.tags = next;
+      this._rerenderTagsCard();
+    } catch (e) {
+      Utils.toast('Chyba pri odstraňovaní tagu', 'error');
+    }
+  },
+
+  _rerenderTagsCard() {
+    const card = document.getElementById('client-tags-card');
+    if (!card) return;
+    const body = card.querySelector('.adl-card-body');
+    if (!body) return;
+    body.innerHTML = this._renderClientTags(this.currentClient.tags || []);
   },
   
   // ==========================================
