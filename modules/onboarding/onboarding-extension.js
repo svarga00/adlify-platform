@@ -468,7 +468,7 @@
                 <!-- Info -->
                 <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl">
                     <p class="text-blue-800 text-sm flex items-center gap-2">
-                        <span>💡</span>
+                        <span style="display:inline-flex;">${I.Info({size:14})}</span>
                         <span>Váš balík <strong>${pkg?.name || selectedPkg}</strong> 
                         umožňuje <strong>${platformLimitText}</strong> 
                         ${platformLimit === 1 ? 'platformu' : 'platforiem'}.</span>
@@ -686,7 +686,7 @@
                     <div class="adlify-modal__header" style="background: linear-gradient(135deg, #F97316, #EC4899)">
                         <button class="adlify-modal__close" onclick="OnboardingModule.closeUpgradeModal()">✕</button>
                         <div class="text-center py-4">
-                            <span class="text-4xl mb-2 block">🚀</span>
+                            <span style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,0.15);color:#fff;margin:0 auto 8px;">${I.Zap({size:28})}</span>
                             <h2 class="text-xl font-bold text-white">Navýšte si balík</h2>
                         </div>
                     </div>
@@ -822,8 +822,9 @@
                 </div>
                 
                 <div class="p-3 bg-green-50 border border-green-200 rounded-xl">
-                    <p class="text-sm text-green-800">
-                        <strong>💡 Tip:</strong> Po vyplnení dotazníka vám pošleme email s návodmi.
+                    <p class="text-sm text-green-800" style="display:flex;align-items:flex-start;gap:6px;">
+                        <span style="display:inline-flex;flex-shrink:0;color:#15803D;">${I.Info({size:14})}</span>
+                        <span><strong>Tip:</strong> Po vyplnení dotazníka vám pošleme email s návodmi.</span>
                     </p>
                 </div>
             </div>
