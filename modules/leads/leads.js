@@ -118,7 +118,10 @@ const LeadsModule = {
           this.currentAnalysis = lead.analysis;
           this.editedAnalysis = JSON.parse(JSON.stringify(lead.analysis));
         }
+        // Cache lead in list for in-page updates (tags, notes, tasks)
+        if (!this.leads.find(l => l.id === lead.id)) this.leads.push(lead);
         container.innerHTML = this._renderLeadDetailPage(lead);
+        this.loadLeadTasks(lead.id);
         return;
       }
 
@@ -1597,13 +1600,13 @@ const LeadsModule = {
 
             <!-- Poznámky tab -->
             <div id="detail-tab-notes" class="detail-tab-content" style="display:none;">
-              <div class="adl-card">
+              <div class="adl-card" id="lead-notes-card">
                 <div class="adl-card-header">
                   <div class="adl-card-title">Interné poznámky</div>
                   <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="LeadsModule.editNotes('${lead.id}')">${I.Edit({size:12})} Upraviť</button>
                 </div>
-                <div class="adl-card-body" style="font-size:13px; line-height:1.6; color:${lead.notes ? 'var(--ink)' : 'var(--ink-mute)'};">
-                  ${lead.notes || 'Žiadne poznámky. Kliknite na <strong>Upraviť</strong> a pridajte prvú.'}
+                <div class="adl-card-body" style="font-size:13px; line-height:1.6; color:${lead.notes ? 'var(--ink)' : 'var(--ink-mute)'}; white-space:pre-wrap;">
+                  ${lead.notes ? lead.notes.replace(/</g,'&lt;') : 'Žiadne poznámky. Kliknite na <strong>Upraviť</strong> a pridajte prvú.'}
                 </div>
               </div>
             </div>
@@ -1623,7 +1626,7 @@ const LeadsModule = {
                   { icon: 'Phone',    label: 'Zavolať · naplánovať',   active: false, onClick: lead.phone ? `window.location.href='tel:${lead.phone}'` : `Utils.toast('Žiadne telefónne číslo','warning')` },
                   { icon: 'Sparkle',  label: hasAnalysis ? 'Vygenerovať ponuku' : 'Spustiť AI analýzu', active: hasAnalysis, onClick: hasAnalysis ? `LeadsModule.showProposalModal('${lead.id}')` : `LeadsModule.analyze('${lead.id}')` },
                   { icon: 'Template', label: 'Poslať pitch šablónu',   active: false, onClick: `LeadsModule.openEmailModal('${lead.id}')` },
-                  { icon: 'Users',    label: 'Priradiť inému tímu',    active: false, onClick: `Utils.toast('Čoskoro','info')` }
+                  { icon: 'Calendar', label: 'Naplánovať follow-up',   active: false, onClick: `LeadsModule.openFollowUpModal('${lead.id}')` }
                 ].map(a => `
                   <div onclick="${a.onClick}" style="display:flex; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; background:${a.active ? 'var(--brand-50)' : 'transparent'}; color:${a.active ? 'var(--brand-700)' : 'var(--ink)'}; align-items:center; transition:background .12s;" onmouseover="this.style.background='${a.active ? 'var(--brand-50)' : 'var(--n-50)'}'" onmouseout="this.style.background='${a.active ? 'var(--brand-50)' : 'transparent'}'">
                     <span style="flex-shrink:0; display:inline-flex;">${I[a.icon]({size:16})}</span>
@@ -1659,16 +1662,13 @@ const LeadsModule = {
             </div>
 
             <!-- TAGY & ODPORÚČANIE -->
-            <div class="adl-card">
+            <div class="adl-card" id="lead-tags-card">
               <div class="adl-card-header" style="padding:12px 16px;">
                 <div class="adl-card-title">Tagy &amp; odporúčanie</div>
+                <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.openAddTag('${lead.id}')" title="Pridať tag" style="padding:0 6px; width:24px; height:24px; justify-content:center;">${I.Plus({size:12})}</button>
               </div>
               <div class="adl-card-body" style="padding:10px 16px 14px;">
-                ${tags.length > 0 ? `
-                  <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
-                    ${tags.map(t => `<span class="adl-chip adl-chip-${t.tone} adl-chip-sm">${t.t}</span>`).join('')}
-                  </div>
-                ` : '<div style="color:var(--ink-mute); font-size:12px; margin-bottom:12px;">Zatiaľ žiadne tagy</div>'}
+                ${this._renderLeadTags(lead, tags)}
 
                 ${pkgInfo ? `
                   <div style="font-size:10px; color:var(--ink-mute); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px;">Odporúčaný balík</div>
@@ -1680,6 +1680,17 @@ const LeadsModule = {
                     </div>
                   </div>
                 ` : ''}
+              </div>
+            </div>
+
+            <!-- ÚLOHY & FOLLOW-UPY -->
+            <div class="adl-card" id="lead-tasks-card">
+              <div class="adl-card-header" style="padding:12px 16px;">
+                <div class="adl-card-title">Úlohy &amp; follow-upy</div>
+                <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.openFollowUpModal('${lead.id}')" title="Nový follow-up" style="padding:0 6px; width:24px; height:24px; justify-content:center;">${I.Plus({size:12})}</button>
+              </div>
+              <div class="adl-card-body" id="lead-tasks-body" style="padding:8px 16px 14px;">
+                <div style="color:var(--ink-mute); font-size:12px; padding:6px 0;">Načítavam...</div>
               </div>
             </div>
           </div>
@@ -1702,16 +1713,250 @@ const LeadsModule = {
   },
 
   editNotes(leadId) {
+    const card = document.getElementById('lead-notes-card');
+    if (!card) return;
+    const lead = this.leads.find(l => l.id === leadId) || {};
+    const current = lead.notes || '';
+    card.innerHTML = `
+      <div class="adl-card-header">
+        <div class="adl-card-title">Interné poznámky</div>
+        <div style="display:flex; gap:6px;">
+          <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="LeadsModule.cancelEditNotes('${leadId}')">Zrušiť</button>
+          <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="LeadsModule.saveNotes('${leadId}')">${I.Check({size:12})} Uložiť</button>
+        </div>
+      </div>
+      <div class="adl-card-body">
+        <textarea id="lead-notes-textarea" class="adl-input" rows="6" placeholder="Napíšte poznámky o leade — kontext, predchádzajúce hovory, ďalšie kroky..." style="width:100%; resize:vertical; font-family:inherit; font-size:13px; line-height:1.5;">${current.replace(/</g,'&lt;')}</textarea>
+      </div>
+    `;
+    const ta = document.getElementById('lead-notes-textarea');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  },
+
+  cancelEditNotes(leadId) {
+    this._rerenderNotesCard(leadId);
+  },
+
+  async saveNotes(leadId) {
+    const ta = document.getElementById('lead-notes-textarea');
+    if (!ta) return;
+    const next = ta.value.trim();
     const lead = this.leads.find(l => l.id === leadId);
     if (!lead) return;
-    const current = lead.notes || '';
-    const next = prompt('Interné poznámky:', current);
-    if (next !== null && next !== current) {
-      Database.update('leads', leadId, { notes: next }).then(() => {
-        lead.notes = next;
-        this.showLeadDetail(leadId);
-      });
+    if (next === (lead.notes || '')) { this._rerenderNotesCard(leadId); return; }
+    try {
+      await Database.update('leads', leadId, { notes: next });
+      lead.notes = next;
+      this._rerenderNotesCard(leadId);
+      Utils.toast('Poznámky uložené', 'success');
+    } catch (e) {
+      Utils.toast('Chyba pri ukladaní poznámok', 'error');
     }
+  },
+
+  _renderLeadTags(lead, autoTags) {
+    const custom = Array.isArray(lead.tags) ? lead.tags : [];
+    const auto = autoTags || [];
+    if (custom.length === 0 && auto.length === 0) {
+      return '<div style="color:var(--ink-mute); font-size:12px; margin-bottom:12px;">Zatiaľ žiadne tagy. Kliknite na <strong>+</strong> pre pridanie.</div>';
+    }
+    return `
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+        ${auto.map(t => `<span class="adl-chip adl-chip-${t.tone} adl-chip-sm">${t.t}</span>`).join('')}
+        ${custom.map((t, i) => `
+          <span class="adl-chip adl-chip-sm" style="display:inline-flex; align-items:center; gap:4px;">
+            ${t.replace(/</g,'&lt;')}
+            <button onclick="LeadsModule.removeTag('${lead.id}', ${i})" title="Odstrániť" style="background:transparent; border:0; color:var(--ink-mute); cursor:pointer; padding:0; display:inline-flex; align-items:center;">${I.X({size:10})}</button>
+          </span>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  openAddTag(leadId) {
+    const card = document.getElementById('lead-tags-card');
+    if (!card) return;
+    const body = card.querySelector('.adl-card-body');
+    if (!body || body.querySelector('#new-tag-input')) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex; gap:6px; margin-bottom:10px;';
+    wrap.innerHTML = `
+      <input id="new-tag-input" class="adl-input" placeholder="Nový tag..." style="flex:1; font-size:12px; padding:6px 10px;" maxlength="32"
+        onkeydown="if(event.key==='Enter'){LeadsModule.confirmAddTag('${leadId}')} if(event.key==='Escape'){this.parentElement.remove()}">
+      <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="LeadsModule.confirmAddTag('${leadId}')">${I.Check({size:12})}</button>
+    `;
+    body.prepend(wrap);
+    wrap.querySelector('input').focus();
+  },
+
+  async confirmAddTag(leadId) {
+    const input = document.getElementById('new-tag-input');
+    if (!input) return;
+    const tag = input.value.trim();
+    if (!tag) { input.focus(); return; }
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    const current = Array.isArray(lead.tags) ? lead.tags.slice() : [];
+    if (current.includes(tag)) { Utils.toast('Tag už existuje', 'warning'); return; }
+    current.push(tag);
+    try {
+      await Database.update('leads', leadId, { tags: current });
+      lead.tags = current;
+      this.showLeadDetail(leadId);
+      Utils.toast('Tag pridaný', 'success');
+    } catch (e) {
+      Utils.toast('Chyba pri pridávaní tagu', 'error');
+    }
+  },
+
+  async removeTag(leadId, index) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead || !Array.isArray(lead.tags)) return;
+    const next = lead.tags.slice();
+    next.splice(index, 1);
+    try {
+      await Database.update('leads', leadId, { tags: next });
+      lead.tags = next;
+      this.showLeadDetail(leadId);
+    } catch (e) {
+      Utils.toast('Chyba pri odstraňovaní tagu', 'error');
+    }
+  },
+
+  async loadLeadTasks(leadId) {
+    const body = document.getElementById('lead-tasks-body');
+    if (!body) return;
+    try {
+      const res = await Database.client.from('tasks').select('*').eq('lead_id', leadId).neq('status', 'done').order('due_date', { ascending: true, nullsFirst: false }).limit(8);
+      const tasks = res.data || [];
+      if (tasks.length === 0) {
+        body.innerHTML = `<div style="color:var(--ink-mute); font-size:12px; padding:6px 0;">Žiadne otvorené úlohy. Kliknite na <strong>+</strong> a naplánujte follow-up.</div>`;
+        return;
+      }
+      body.innerHTML = tasks.map(t => {
+        const due = t.due_date ? new Date(t.due_date) : null;
+        const overdue = due && due < new Date(new Date().toDateString());
+        const dueLabel = due ? due.toLocaleDateString('sk-SK', { day:'2-digit', month:'2-digit' }) : '';
+        const prioTone = { urgent:'err', high:'amber', medium:'sky', low:'' }[t.priority] || '';
+        return `
+          <div style="display:flex; gap:8px; align-items:flex-start; padding:8px 0; border-top:1px dashed var(--border);">
+            <button onclick="LeadsModule.completeLeadTask('${t.id}', '${leadId}')" title="Označiť ako hotové"
+              style="width:18px; height:18px; border-radius:50%; border:1.5px solid var(--n-300); background:transparent; cursor:pointer; flex-shrink:0; margin-top:1px;"></button>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:12px; font-weight:500; color:var(--ink); line-height:1.3;">${(t.title || '').replace(/</g,'&lt;')}</div>
+              <div style="display:flex; gap:6px; align-items:center; margin-top:3px;">
+                ${dueLabel ? `<span class="mono" style="font-size:11px; color:${overdue ? 'var(--err)' : 'var(--ink-mute)'};">${overdue ? 'Po termíne · ' : ''}${dueLabel}</span>` : ''}
+                ${t.priority && t.priority !== 'medium' ? `<span class="adl-chip adl-chip-sm ${prioTone ? 'adl-chip-' + prioTone : ''}">${t.priority}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      const first = body.querySelector('div');
+      if (first) first.style.borderTop = '0';
+    } catch (e) {
+      body.innerHTML = `<div style="color:var(--err); font-size:12px;">Chyba pri načítaní úloh</div>`;
+    }
+  },
+
+  async completeLeadTask(taskId, leadId) {
+    try {
+      await Database.update('tasks', taskId, { status: 'done', completed_at: new Date().toISOString() });
+      Utils.toast('Úloha označená ako hotová', 'success');
+      this.loadLeadTasks(leadId);
+    } catch (e) {
+      Utils.toast('Chyba pri ukladaní', 'error');
+    }
+  },
+
+  openFollowUpModal(leadId) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const displayName = lead.company_name || lead.domain || 'leadom';
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'followup-modal';
+    modal.style.cssText = 'position:fixed; inset:0; background:rgba(20,18,14,0.4); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px;';
+    modal.innerHTML = `
+      <div class="adl-card" style="width:100%; max-width:440px; background:#fff;">
+        <div class="adl-card-header">
+          <div class="adl-card-title">Naplánovať follow-up</div>
+          <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="document.getElementById('followup-modal').remove()" style="padding:0 6px; width:28px; height:28px;">${I.X({size:14})}</button>
+        </div>
+        <form id="followup-form" onsubmit="event.preventDefault(); LeadsModule.submitFollowUp('${leadId}'); return false;" class="adl-card-body" style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Názov úlohy</label>
+            <input id="fu-title" class="adl-input" required value="Follow-up s ${displayName.replace(/"/g,'&quot;')}" style="width:100%;" maxlength="120">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Termín</label>
+              <input id="fu-due" type="date" class="adl-input" required value="${tomorrow}" style="width:100%;">
+            </div>
+            <div>
+              <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Priorita</label>
+              <select id="fu-priority" class="adl-input" style="width:100%;">
+                <option value="low">Nízka</option>
+                <option value="medium" selected>Stredná</option>
+                <option value="high">Vysoká</option>
+                <option value="urgent">Urgentná</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size:11px; font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px;">Poznámka (voliteľné)</label>
+            <textarea id="fu-desc" class="adl-input" rows="3" placeholder="Napr. zavolať a opýtať sa na rozhodnutie..." style="width:100%; resize:vertical;"></textarea>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button type="button" class="adl-btn adl-btn-ghost" onclick="document.getElementById('followup-modal').remove()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">${I.Check({size:14})} Naplánovať</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+    setTimeout(() => document.getElementById('fu-title')?.focus(), 50);
+  },
+
+  async submitFollowUp(leadId) {
+    const title = document.getElementById('fu-title')?.value.trim();
+    const due = document.getElementById('fu-due')?.value;
+    const priority = document.getElementById('fu-priority')?.value || 'medium';
+    const desc = document.getElementById('fu-desc')?.value.trim();
+    if (!title || !due) { Utils.toast('Vyplň názov a termín', 'warning'); return; }
+    try {
+      await Database.insert('tasks', {
+        lead_id: leadId,
+        title,
+        description: desc || null,
+        due_date: due,
+        priority,
+        status: 'todo'
+      });
+      document.getElementById('followup-modal')?.remove();
+      Utils.toast('Follow-up naplánovaný', 'success');
+      this.loadLeadTasks(leadId);
+    } catch (e) {
+      console.error('submitFollowUp', e);
+      Utils.toast('Chyba pri vytváraní úlohy', 'error');
+    }
+  },
+
+  _rerenderNotesCard(leadId) {
+    const card = document.getElementById('lead-notes-card');
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!card || !lead) return;
+    card.innerHTML = `
+      <div class="adl-card-header">
+        <div class="adl-card-title">Interné poznámky</div>
+        <button class="adl-btn adl-btn-soft adl-btn-sm" onclick="LeadsModule.editNotes('${leadId}')">${I.Edit({size:12})} Upraviť</button>
+      </div>
+      <div class="adl-card-body" style="font-size:13px; line-height:1.6; color:${lead.notes ? 'var(--ink)' : 'var(--ink-mute)'}; white-space:pre-wrap;">
+        ${lead.notes ? lead.notes.replace(/</g,'&lt;') : 'Žiadne poznámky. Kliknite na <strong>Upraviť</strong> a pridajte prvú.'}
+      </div>
+    `;
   },
   
   // Render analysis content pre tab
