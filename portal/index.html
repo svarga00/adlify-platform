@@ -332,7 +332,10 @@
         let campaigns = [];
         let invoices = [];
         let documents = [];
+        let tickets = [];
         let currentTab = 'dashboard';
+        let expandedTicketId = null;
+        let ticketReplies = {};
 
         async function init() {
             // Check authentication
@@ -366,7 +369,7 @@
                     return;
                 }
 
-                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments()]);
+                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments(), loadTickets()]);
                 render();
 
             } catch (error) {
@@ -393,6 +396,11 @@
         async function loadDocuments() {
             const { data } = await db.from('documents').select('*').eq('client_id', client.id).eq('is_public', true).order('created_at', { ascending: false });
             documents = data || [];
+        }
+
+        async function loadTickets() {
+            const { data } = await db.from('tickets').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
+            tickets = data || [];
         }
 
         function showError(title, message) {
@@ -465,6 +473,7 @@
             const firstName = user.user_metadata?.full_name?.split(' ')[0] || 'vážený klient';
             const unpaidInvoices = invoices.filter(i => i.status !== 'paid').length;
             const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
+            const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
             
             return `
                 <div class="card welcome-card">
@@ -478,8 +487,8 @@
 
                 <div class="stats-grid">
                     <div class="stat-card"><div style="color:var(--brand-500); display:inline-flex;">${I.Campaign({size:22})}</div><div class="stat-value">${activeCampaigns}</div><div class="stat-label">Aktívne kampane</div></div>
-                    <div class="stat-card"><div style="color:var(--acc-lavender-ink); display:inline-flex;">${I.Folder({size:22})}</div><div class="stat-value">${projects.length}</div><div class="stat-label">Projekty</div></div>
                     <div class="stat-card"><div style="color:var(--warn); display:inline-flex;">${I.Invoice({size:22})}</div><div class="stat-value">${unpaidInvoices}</div><div class="stat-label">Neuhradené faktúry</div></div>
+                    <div class="stat-card"><div style="color:var(--acc-amber-ink); display:inline-flex;">${I.Ticket({size:22})}</div><div class="stat-value">${openTickets}</div><div class="stat-label">Otvorené tickety</div></div>
                     <div class="stat-card"><div style="color:var(--acc-sky-ink); display:inline-flex;">${I.Docs({size:22})}</div><div class="stat-value">${documents.length}</div><div class="stat-label">Dokumenty</div></div>
                 </div>
 
@@ -598,149 +607,252 @@
         function renderSupport() {
             return `
                 <div class="card">
-                    <div class="card-header"><h2>Podpora</h2></div>
+                    <div class="card-header">
+                        <h2>${I.Plus({size:16})} Vytvoriť nový ticket</h2>
+                    </div>
                     <div class="card-body">
-                        <p style="margin-bottom: 1.5rem; color: #64748b;">Máte otázky? Kontaktujte nás.</p>
-                        
+                        <form id="ticket-form" onsubmit="submitTicket(event)" style="display:flex; flex-direction:column; gap:14px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Predmet *</label>
+                                <input type="text" id="t-subject" required maxlength="200" class="adl-input" placeholder="Stručný popis problému alebo otázky">
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Kategória</label>
+                                    <select id="t-category" class="adl-input">
+                                        <option value="general">Všeobecné</option>
+                                        <option value="billing">Fakturácia</option>
+                                        <option value="technical">Technické</option>
+                                        <option value="campaign">Kampaň</option>
+                                        <option value="other">Iné</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Priorita</label>
+                                    <select id="t-priority" class="adl-input">
+                                        <option value="low">Nízka</option>
+                                        <option value="medium" selected>Stredná</option>
+                                        <option value="high">Vysoká</option>
+                                        <option value="urgent">Súrne</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Popis</label>
+                                <textarea id="t-description" rows="4" class="adl-input" style="resize:vertical; font-family:inherit;" placeholder="Detailný popis problému, kroky reprodukcie alebo otázka..."></textarea>
+                            </div>
+                            <div id="ticket-form-msg"></div>
+                            <div style="display:flex; justify-content:flex-end;">
+                                <button type="submit" id="ticket-submit-btn" class="adl-btn adl-btn-primary">${I.Send({size:14})} Odoslať ticket</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>${I.Ticket({size:16})} Vaše tickety (${tickets.length})</h2>
+                    </div>
+                    <div class="card-body">
+                        ${tickets.length > 0 ? `
+                            <div class="item-list">
+                                ${tickets.map(t => renderTicketRow(t)).join('')}
+                            </div>
+                        ` : `
+                            <div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;">
+                                <div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Ticket({size:18})}</div>
+                                <div style="font-size:14px; font-weight:600; color:var(--ink);">Žiadne tickety</div>
+                                <div style="font-size:12px; margin-top:4px;">Vytvorte prvý ticket vyššie</div>
+                            </div>
+                        `}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><h2>${I.Phone({size:16})} Priamy kontakt</h2></div>
+                    <div class="card-body">
                         <div class="contact-card">
                             <div class="contact-avatar">A</div>
                             <div class="contact-info">
-                                <h4>Adlify Support</h4>
-                                <p>Váš marketing partner</p>
+                                <h4 style="font-size:15px; margin-bottom:2px;">Adlify Support</h4>
+                                <p style="font-size:12px; color:var(--ink-sub);">Váš marketing partner · Po-Pi 9:00–17:00</p>
                             </div>
                             <div class="contact-actions">
-                                <a href="mailto:info@adlify.eu" class="adl-btn adl-btn-outline">${I.Mail({size:14})} Email</a>
-                                <a href="tel:+421944184045" class="adl-btn adl-btn-primary">${I.Phone({size:14})} Zavolať</a>
+                                <a href="mailto:info@adlify.eu" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Email</a>
+                                <a href="tel:+421944184045" class="adl-btn adl-btn-primary adl-btn-sm">${I.Phone({size:14})} Zavolať</a>
                             </div>
-                        </div>
-                        
-                        <div style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 12px;">
-                            <h4 style="margin-bottom: 0.5rem;">Kontaktné údaje</h4>
-                            <p style="color: #64748b; font-size: 0.9rem;">
-                                Email: info@adlify.eu<br>
-                                Telefón: +421 944 184 045<br>
-                                Web: www.adlify.eu
-                            </p>
                         </div>
                     </div>
                 </div>
             `;
         }
 
+        function renderTicketRow(t) {
+            const statusMap = {
+                open: { label: 'Otvorené', tone: 'sky' },
+                in_progress: { label: 'V riešení', tone: 'amber' },
+                waiting: { label: 'Čaká', tone: 'lav' },
+                resolved: { label: 'Vyriešené', tone: 'mint' },
+                closed: { label: 'Uzatvorené', tone: 'n' }
+            };
+            const priorityMap = {
+                low: { label: 'Nízka', tone: 'n' },
+                medium: { label: 'Stredná', tone: 'sky' },
+                high: { label: 'Vysoká', tone: 'amber' },
+                urgent: { label: 'Súrne', tone: 'err' }
+            };
+            const categoryLabel = ({ general: 'Všeobecné', billing: 'Fakturácia', technical: 'Technické', campaign: 'Kampaň', other: 'Iné' })[t.category] || t.category || '—';
+            const status = statusMap[t.status] || statusMap.open;
+            const priority = priorityMap[t.priority] || priorityMap.medium;
+            return `
+                <div style="padding:14px; background:var(--n-50); border-radius:10px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--ink); letter-spacing:-0.1px;">${(t.subject || '—').replace(/</g,'&lt;')}</div>
+                        <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                        <span class="adl-chip adl-chip-sm">${categoryLabel}</span>
+                        <span class="adl-chip adl-chip-${priority.tone} adl-chip-sm">${priority.label}</span>
+                        <span style="font-size:11px; color:var(--ink-mute); margin-left:auto;">${formatDate(t.created_at)}</span>
+                    </div>
+                    ${t.description ? `<div style="font-size:12px; color:var(--ink-sub); white-space:pre-wrap; line-height:1.5;">${t.description.replace(/</g,'&lt;')}</div>` : ''}
+                </div>
+            `;
+        }
+
+        async function submitTicket(e) {
+            e.preventDefault();
+            const subject = document.getElementById('t-subject').value.trim();
+            const description = document.getElementById('t-description').value.trim();
+            const category = document.getElementById('t-category').value;
+            const priority = document.getElementById('t-priority').value;
+            const btn = document.getElementById('ticket-submit-btn');
+            const msg = document.getElementById('ticket-form-msg');
+            if (!subject) return;
+
+            btn.disabled = true;
+            const original = btn.innerHTML;
+            btn.innerHTML = 'Odosielam…';
+            msg.innerHTML = '';
+
+            try {
+                const { data, error } = await db.from('tickets').insert([{
+                    client_id: client.id,
+                    subject,
+                    description: description || null,
+                    category,
+                    priority,
+                    status: 'open'
+                }]).select().single();
+                if (error) throw error;
+                tickets.unshift(data);
+                render();
+            } catch (err) {
+                console.error('Create ticket error:', err);
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Chyba: ${err.message}</div>`;
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
+        }
+
         function renderAccount() {
+            const lbl = (text) => `<label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">${text}</label>`;
+            const section = (title, body) => `
+                <div style="background:var(--n-50); padding:18px; border-radius:12px; display:flex; flex-direction:column; gap:12px;">
+                    <h3 style="margin:0; font-size:13px; font-weight:600; color:var(--ink); letter-spacing:-0.1px;">${title}</h3>
+                    ${body}
+                </div>`;
             return `
                 <div class="card">
                     <div class="card-header">
-                        <h2>Môj účet</h2>
+                        <h2>${I.Settings({size:16})} Môj účet</h2>
                     </div>
                     <div class="card-body">
-                        <form id="account-form" onsubmit="saveAccount(event)">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-                                <!-- Firemné údaje -->
-                                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Firemné údaje</h3>
-                                    
-                                    <div style="margin-bottom: 1rem;">
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Názov firmy</label>
-                                        <input type="text" id="acc-company" value="${client?.company_name || ''}" 
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                    
-                                    <div style="margin-bottom: 1rem;">
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">IČO</label>
-                                        <input type="text" id="acc-ico" value="${client?.ico || ''}" 
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                    
-                                    <div style="margin-bottom: 1rem;">
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">DIČ</label>
-                                        <input type="text" id="acc-dic" value="${client?.dic || ''}" 
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                    
-                                    <div style="margin-bottom: 1rem;">
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">IČ DPH</label>
-                                        <input type="text" id="acc-ic-dph" value="${client?.ic_dph || ''}" placeholder="SK1234567890"
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                    
-                                    <div>
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Web</label>
-                                        <input type="url" id="acc-web" value="${client?.domain || ''}" placeholder="https://www.firma.sk"
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                </div>
+                        <form id="account-form" onsubmit="saveAccount(event)" style="display:flex; flex-direction:column; gap:18px;">
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+                                ${section(`${I.Building({size:14})} Firemné údaje`, `
+                                    <div>${lbl('Názov firmy')}<input type="text" id="acc-company" value="${client?.company_name || ''}" class="adl-input"></div>
+                                    <div>${lbl('IČO')}<input type="text" id="acc-ico" value="${client?.ico || ''}" class="adl-input"></div>
+                                    <div>${lbl('DIČ')}<input type="text" id="acc-dic" value="${client?.dic || ''}" class="adl-input"></div>
+                                    <div>${lbl('IČ DPH')}<input type="text" id="acc-ic-dph" value="${client?.ic_dph || ''}" class="adl-input" placeholder="SK1234567890"></div>
+                                    <div>${lbl('Web')}<input type="url" id="acc-web" value="${client?.domain || ''}" class="adl-input" placeholder="https://www.firma.sk"></div>
+                                `)}
 
-                                <!-- Kontaktné údaje -->
-                                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Kontaktné údaje</h3>
-                                    
-                                    <div style="margin-bottom: 1rem;">
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Kontaktná osoba</label>
-                                        <input type="text" id="acc-contact" value="${client?.contact_person || ''}" 
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                    
-                                    <div style="margin-bottom: 1rem;">
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Email</label>
-                                        <input type="email" id="acc-email" value="${client?.email || ''}" 
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                    
-                                    <div>
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Telefón</label>
-                                        <input type="tel" id="acc-phone" value="${client?.phone || ''}" placeholder="+421 9XX XXX XXX"
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                    </div>
-                                </div>
+                                ${section(`${I.Phone({size:14})} Kontaktné údaje`, `
+                                    <div>${lbl('Kontaktná osoba')}<input type="text" id="acc-contact" value="${client?.contact_person || ''}" class="adl-input"></div>
+                                    <div>${lbl('Email')}<input type="email" id="acc-email" value="${client?.email || ''}" class="adl-input"></div>
+                                    <div>${lbl('Telefón')}<input type="tel" id="acc-phone" value="${client?.phone || ''}" class="adl-input" placeholder="+421 9XX XXX XXX"></div>
+                                `)}
 
-                                <!-- Fakturačná adresa -->
-                                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px;">
-                                    <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--ink-sub);">Fakturačná adresa</h3>
-                                    
-                                    <div style="margin-bottom: 1rem;">
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Ulica a číslo</label>
-                                        <input type="text" id="acc-street" value="${client?.billing_street || ''}" 
-                                            style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
+                                ${section(`${I.Globe({size:14})} Fakturačná adresa`, `
+                                    <div>${lbl('Ulica a číslo')}<input type="text" id="acc-street" value="${client?.billing_street || ''}" class="adl-input"></div>
+                                    <div style="display:grid; grid-template-columns:1fr 2fr; gap:10px;">
+                                        <div>${lbl('PSČ')}<input type="text" id="acc-zip" value="${client?.billing_zip || ''}" class="adl-input"></div>
+                                        <div>${lbl('Mesto')}<input type="text" id="acc-city" value="${client?.billing_city || ''}" class="adl-input"></div>
                                     </div>
-                                    
-                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem; margin-bottom: 1rem;">
-                                        <div>
-                                            <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">PSČ</label>
-                                            <input type="text" id="acc-zip" value="${client?.billing_zip || ''}" 
-                                                style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                        </div>
-                                        <div>
-                                            <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Mesto</label>
-                                            <input type="text" id="acc-city" value="${client?.billing_city || ''}" 
-                                                style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem;">
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <label style="display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">Krajina</label>
-                                        <select id="acc-country" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; background: white;">
-                                            <option value="SK" ${(client?.billing_country || 'SK') === 'SK' ? 'selected' : ''}>Slovensko</option>
-                                            <option value="CZ" ${client?.billing_country === 'CZ' ? 'selected' : ''}>Česko</option>
-                                            <option value="HU" ${client?.billing_country === 'HU' ? 'selected' : ''}>Maďarsko</option>
-                                            <option value="AT" ${client?.billing_country === 'AT' ? 'selected' : ''}>Rakúsko</option>
-                                            <option value="PL" ${client?.billing_country === 'PL' ? 'selected' : ''}>Poľsko</option>
-                                        </select>
-                                    </div>
-                                </div>
+                                    <div>${lbl('Krajina')}<select id="acc-country" class="adl-input">
+                                        <option value="SK" ${(client?.billing_country || 'SK') === 'SK' ? 'selected' : ''}>Slovensko</option>
+                                        <option value="CZ" ${client?.billing_country === 'CZ' ? 'selected' : ''}>Česko</option>
+                                        <option value="HU" ${client?.billing_country === 'HU' ? 'selected' : ''}>Maďarsko</option>
+                                        <option value="AT" ${client?.billing_country === 'AT' ? 'selected' : ''}>Rakúsko</option>
+                                        <option value="PL" ${client?.billing_country === 'PL' ? 'selected' : ''}>Poľsko</option>
+                                    </select></div>
+                                `)}
                             </div>
-                            
-                            <div id="account-message" style="margin-top: 1.5rem;"></div>
-                            
-                            <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
-                                <button type="submit" class="btn btn-primary" id="save-account-btn">
-                                    Uložiť zmeny
-                                </button>
+
+                            <div id="account-message"></div>
+
+                            <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:6px; border-top:1px solid var(--border);">
+                                <button type="submit" class="adl-btn adl-btn-primary" id="save-account-btn">${I.Check({size:14})} Uložiť zmeny</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>${I.Lock({size:16})} Bezpečnosť</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="password-form" onsubmit="changePassword(event)" style="display:flex; flex-direction:column; gap:14px; max-width:480px;">
+                            <p style="margin:0; font-size:13px; color:var(--ink-sub);">Pre zmenu hesla zadajte nové dvakrát. Heslo musí mať aspoň 8 znakov.</p>
+                            <div>${lbl('Nové heslo')}<input type="password" id="pw-new" required minlength="8" autocomplete="new-password" class="adl-input" placeholder="••••••••"></div>
+                            <div>${lbl('Nové heslo (znova)')}<input type="password" id="pw-confirm" required minlength="8" autocomplete="new-password" class="adl-input" placeholder="••••••••"></div>
+                            <div id="password-message"></div>
+                            <div style="display:flex; justify-content:flex-end;">
+                                <button type="submit" id="pw-submit-btn" class="adl-btn adl-btn-primary">${I.Lock({size:14})} Zmeniť heslo</button>
                             </div>
                         </form>
                     </div>
                 </div>
             `;
+        }
+
+        async function changePassword(e) {
+            e.preventDefault();
+            const pw1 = document.getElementById('pw-new').value;
+            const pw2 = document.getElementById('pw-confirm').value;
+            const msg = document.getElementById('password-message');
+            const btn = document.getElementById('pw-submit-btn');
+            msg.innerHTML = '';
+            if (pw1 !== pw2) {
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Heslá sa nezhodujú</div>`;
+                return;
+            }
+            btn.disabled = true;
+            const original = btn.innerHTML;
+            btn.innerHTML = 'Ukladám…';
+            try {
+                const { error } = await db.auth.updateUser({ password: pw1 });
+                if (error) throw error;
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--ok) 14%, var(--surface)); color:var(--ok); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Check({size:14})} Heslo bolo zmenené</div>`;
+                document.getElementById('pw-new').value = '';
+                document.getElementById('pw-confirm').value = '';
+            } catch (err) {
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} ${err.message}</div>`;
+            }
+            btn.disabled = false;
+            btn.innerHTML = original;
         }
 
         async function saveAccount(e) {
@@ -750,9 +862,10 @@
             const msg = document.getElementById('account-message');
             
             btn.disabled = true;
+            const originalBtn = btn.innerHTML;
             btn.innerHTML = 'Ukladám…';
             msg.innerHTML = '';
-            
+
             try {
                 const updateData = {
                     company_name: document.getElementById('acc-company').value.trim(),
@@ -768,30 +881,25 @@
                     billing_city: document.getElementById('acc-city').value.trim(),
                     billing_country: document.getElementById('acc-country').value
                 };
-                
+
                 const { error } = await db
                     .from('clients')
                     .update(updateData)
                     .eq('id', client.id);
-                
+
                 if (error) throw error;
-                
-                // Update local client object
+
                 Object.assign(client, updateData);
-                
-                msg.innerHTML = '<div style="padding: 1rem; background: #dcfce7; color: #166534; border-radius: 8px;">✅ Údaje boli uložené</div>';
-                btn.innerHTML = '✓ Uložené';
-                
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = 'Uložiť zmeny';
-                }, 2000);
-                
+
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--ok) 14%, var(--surface)); color:var(--ok); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Check({size:14})} Údaje boli uložené</div>`;
+                btn.disabled = false;
+                btn.innerHTML = originalBtn;
+
             } catch (err) {
                 console.error('Save error:', err);
-                msg.innerHTML = '<div style="padding: 1rem; background: #fef2f2; color: #dc2626; border-radius: 8px;">❌ Chyba pri ukladaní: ' + err.message + '</div>';
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Chyba pri ukladaní: ${err.message}</div>`;
                 btn.disabled = false;
-                btn.innerHTML = 'Uložiť zmeny';
+                btn.innerHTML = originalBtn;
             }
         }
 
