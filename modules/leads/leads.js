@@ -1426,10 +1426,8 @@ const LeadsModule = {
             ${I.Chevron({size:11})}
             <strong style="color:var(--ink); font-weight:600;">${lead.domain || displayName}</strong>
           </div>
-          <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Phone({size:14})} Zavolať</a>` : ''}
-            ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Poslať email</a>` : ''}
-            <button onclick="LeadsModule.convertToClient('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm">${I.ArrowRight({size:14})} Konvertovať na klienta</button>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;" id="lead-hero-actions">
+            ${this._renderHeroActions(lead)}
           </div>
         </div>
 
@@ -1464,10 +1462,10 @@ const LeadsModule = {
                   <div style="font-size:13px; color:var(--ink-sub); margin-top:4px;">
                     ${c.description || c.about || [c.type, c.size, c.ico ? `IČO ${c.ico}` : ''].filter(Boolean).join(' · ') || (lead.industry || '')}
                   </div>
-                  <div style="display:flex; gap:20px; margin-top:14px; font-size:12px; color:var(--ink-sub); flex-wrap:wrap;">
+                  <div style="display:flex; gap:20px; margin-top:14px; font-size:12px; color:var(--ink-sub); flex-wrap:wrap; align-items:center;" id="lead-hero-contacts">
                     ${lead.domain ? `<span style="display:inline-flex; align-items:center; gap:5px;">${I.Globe({size:12})} ${lead.domain}</span>` : ''}
-                    ${lead.phone ? `<span style="display:inline-flex; align-items:center; gap:5px;">${I.Phone({size:12})} ${lead.phone}</span>` : ''}
-                    ${lead.email ? `<span style="display:inline-flex; align-items:center; gap:5px;">${I.Mail({size:12})} ${lead.email}</span>` : ''}
+                    ${this._renderContactInline(lead, 'phone')}
+                    ${this._renderContactInline(lead, 'email')}
                   </div>
                 </div>
               </div>
@@ -1710,6 +1708,100 @@ const LeadsModule = {
       ${this._renderSharedModals()}
       ${this.getStyles()}
     `;
+  },
+
+  _contactMeta(field) {
+    if (field === 'phone') return { icon: I.Phone({size:12}), label: 'telefón', placeholder: '+421 ...', type: 'tel' };
+    return { icon: I.Mail({size:12}), label: 'email', placeholder: 'kontakt@firma.sk', type: 'email' };
+  },
+
+  _renderContactInline(lead, field) {
+    const m = this._contactMeta(field);
+    const val = lead[field];
+    if (val) {
+      return `
+        <span id="lead-contact-${field}" style="display:inline-flex; align-items:center; gap:5px;">
+          ${m.icon}
+          <span>${val.replace(/</g,'&lt;')}</span>
+          <button onclick="LeadsModule.startEditContact('${lead.id}','${field}')" title="Upraviť"
+            style="background:transparent; border:0; color:var(--ink-mute); cursor:pointer; padding:2px 4px; display:inline-flex; align-items:center; border-radius:4px;"
+            onmouseover="this.style.background='var(--n-75)'; this.style.color='var(--ink)'"
+            onmouseout="this.style.background='transparent'; this.style.color='var(--ink-mute)'">${I.Edit({size:10})}</button>
+        </span>`;
+    }
+    return `
+      <button id="lead-contact-${field}" onclick="LeadsModule.startEditContact('${lead.id}','${field}')"
+        style="display:inline-flex; align-items:center; gap:5px; background:transparent; border:1px dashed var(--border-strong); color:var(--ink-mute); cursor:pointer; padding:4px 10px; border-radius:6px; font-size:12px;"
+        onmouseover="this.style.borderColor='var(--brand-500)'; this.style.color='var(--brand-700)'"
+        onmouseout="this.style.borderColor='var(--border-strong)'; this.style.color='var(--ink-mute)'">
+        ${I.Plus({size:11})} pridať ${m.label}
+      </button>`;
+  },
+
+  _renderHeroActions(lead) {
+    return `
+      ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Phone({size:14})} Zavolať</a>` : ''}
+      ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Poslať email</a>` : ''}
+      <button onclick="LeadsModule.convertToClient('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm">${I.ArrowRight({size:14})} Konvertovať na klienta</button>
+    `;
+  },
+
+  startEditContact(leadId, field) {
+    const el = document.getElementById(`lead-contact-${field}`);
+    if (!el) return;
+    const lead = this.leads.find(l => l.id === leadId) || {};
+    const m = this._contactMeta(field);
+    const current = (lead[field] || '').replace(/"/g, '&quot;');
+    const wrap = document.createElement('span');
+    wrap.id = `lead-contact-${field}`;
+    wrap.style.cssText = 'display:inline-flex; align-items:center; gap:4px;';
+    wrap.innerHTML = `
+      ${m.icon}
+      <input id="lead-contact-input-${field}" type="${m.type}" value="${current}" placeholder="${m.placeholder}"
+        class="adl-input" style="width:200px; font-size:12px; padding:4px 8px;"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();LeadsModule.saveContact('${leadId}','${field}')} if(event.key==='Escape'){LeadsModule.cancelEditContact('${leadId}','${field}')}">
+      <button onclick="LeadsModule.saveContact('${leadId}','${field}')" title="Uložiť"
+        style="background:var(--brand-500); border:0; color:white; cursor:pointer; padding:4px 6px; display:inline-flex; align-items:center; border-radius:4px;">${I.Check({size:12})}</button>
+      <button onclick="LeadsModule.cancelEditContact('${leadId}','${field}')" title="Zrušiť"
+        style="background:transparent; border:1px solid var(--border); color:var(--ink-sub); cursor:pointer; padding:3px 5px; display:inline-flex; align-items:center; border-radius:4px;">${I.X({size:12})}</button>
+    `;
+    el.replaceWith(wrap);
+    const inp = wrap.querySelector('input');
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  },
+
+  cancelEditContact(leadId, field) {
+    const el = document.getElementById(`lead-contact-${field}`);
+    if (!el) return;
+    const lead = this.leads.find(l => l.id === leadId) || {};
+    const fresh = document.createElement('div');
+    fresh.innerHTML = this._renderContactInline(lead, field).trim();
+    el.replaceWith(fresh.firstElementChild);
+  },
+
+  async saveContact(leadId, field) {
+    const input = document.getElementById(`lead-contact-input-${field}`);
+    if (!input) return;
+    const next = input.value.trim();
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    const prev = lead[field] || '';
+    if (next === prev) { this.cancelEditContact(leadId, field); return; }
+    if (next && field === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) {
+      Utils.toast('Neplatný email', 'error');
+      input.focus();
+      return;
+    }
+    try {
+      await Database.update('leads', leadId, { [field]: next || null });
+      lead[field] = next || null;
+      this.cancelEditContact(leadId, field);
+      const actions = document.getElementById('lead-hero-actions');
+      if (actions) actions.innerHTML = this._renderHeroActions(lead);
+      Utils.toast(field === 'phone' ? 'Telefón uložený' : 'Email uložený', 'success');
+    } catch (e) {
+      Utils.toast('Chyba pri ukladaní', 'error');
+    }
   },
 
   editNotes(leadId) {
