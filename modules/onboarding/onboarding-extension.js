@@ -78,7 +78,7 @@
             name: 'Starter',
             badge: 'Pre začiatok',
             badgeColor: 'orange',
-            icon: '🚀',
+            icon: 'rocket',
             price: { monthly: 149, '6m': 134, '12m': 119 },
             description: 'Ideálne pre živnostníkov, ktorí chcú vyskúšať online reklamu',
             features: [
@@ -97,7 +97,7 @@
             name: 'Pro',
             badge: 'Najobľúbenejšie',
             badgeColor: 'gradient',
-            icon: '⭐',
+            icon: 'star',
             popular: true,
             price: { monthly: 249, '6m': 224, '12m': 199 },
             description: 'Pre firmy, ktoré chcú rásť na viacerých platformách',
@@ -117,7 +117,7 @@
             name: 'Enterprise',
             badge: 'Pre firmy',
             badgeColor: 'gray',
-            icon: '💎',
+            icon: 'gem',
             price: { monthly: 399, '6m': 359, '12m': 319 },
             description: 'Pre e-shopy a firmy s vyšším rozpočtom na reklamu',
             features: [
@@ -136,7 +136,7 @@
             name: 'Premium',
             badge: 'VIP',
             badgeColor: 'gold',
-            icon: '👑',
+            icon: 'crown',
             isPremium: true,
             priceFrom: true,
             price: { monthly: 799, '6m': 719, '12m': 639 },
@@ -234,17 +234,17 @@
     // ==========================================
     
     OnboardingModule.EXTENDED_SECTIONS = [
-        { id: 1, title: 'Základné informácie', icon: '🏢', key: 'company' },
-        { id: 2, title: 'Produkty a služby', icon: '📦', key: 'products' },
-        { id: 3, title: 'Cieľová skupina', icon: '🎯', key: 'audience' },
-        { id: 4, title: 'Výber balíka', icon: '💎', key: 'package', isNew: true },
-        { id: 5, title: 'Reklamné platformy', icon: '📱', key: 'platforms', isNew: true },
-        { id: 6, title: 'Aktuálny marketing', icon: '📊', key: 'marketing' },
-        { id: 7, title: 'Ciele a očakávania', icon: '🚀', key: 'goals' },
-        { id: 8, title: 'Obsah a kreatíva', icon: '🎨', key: 'creative' },
-        { id: 9, title: 'Technické možnosti', icon: '⚙️', key: 'technical_simple', isNew: true },
-        { id: 10, title: 'Kontaktné údaje', icon: '👤', key: 'contact' },
-        { id: 11, title: 'Dodatočné info', icon: '📝', key: 'additional' }
+        { id: 1, title: 'Základné informácie', icon: 'building', key: 'company' },
+        { id: 2, title: 'Produkty a služby', icon: 'package', key: 'products' },
+        { id: 3, title: 'Cieľová skupina', icon: 'target', key: 'audience' },
+        { id: 4, title: 'Výber balíka', icon: 'gem', key: 'package', isNew: true },
+        { id: 5, title: 'Reklamné platformy', icon: 'platforms', key: 'platforms', isNew: true },
+        { id: 6, title: 'Aktuálny marketing', icon: 'chart', key: 'marketing' },
+        { id: 7, title: 'Ciele a očakávania', icon: 'rocket', key: 'goals' },
+        { id: 8, title: 'Obsah a kreatíva', icon: 'palette', key: 'creative' },
+        { id: 9, title: 'Technické možnosti', icon: 'settings', key: 'technical_simple', isNew: true },
+        { id: 10, title: 'Kontaktné údaje', icon: 'user', key: 'contact' },
+        { id: 11, title: 'Dodatočné info', icon: 'fileText', key: 'additional' }
     ];
     
     OnboardingModule.SECTIONS = OnboardingModule.EXTENDED_SECTIONS;
@@ -380,7 +380,7 @@
                 <div class="p-4 pt-10 flex flex-col flex-1">
                     <!-- Icon & Name -->
                     <div class="mb-3">
-                        <span class="text-2xl">${pkg.icon}</span>
+                        <span class="inline-flex w-7 h-7 text-orange-500">${OnboardingModule.ICONS[pkg.icon] || ''}</span>
                         <h3 class="text-lg font-bold mt-1 ${nameColor}">${pkg.name}</h3>
                     </div>
                     
@@ -712,7 +712,7 @@
                                     onclick="OnboardingModule.upgradeToPackage('${pkg.id}', '${wantedPlatformId}')">
                                     <div class="flex items-center justify-between">
                                         <div class="flex items-center gap-3">
-                                            <span class="text-2xl">${pkg.icon}</span>
+                                            <span class="inline-flex w-7 h-7 text-orange-500">${OnboardingModule.ICONS[pkg.icon] || ''}</span>
                                             <div>
                                                 <h5 class="font-bold text-gray-800">${pkg.name}</h5>
                                                 <p class="text-sm text-gray-500">
