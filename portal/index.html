@@ -336,16 +336,70 @@
         let currentTab = 'dashboard';
         let expandedTicketId = null;
         let ticketReplies = {};
+        const isPreview = new URLSearchParams(location.search).get('preview') === '1';
+
+        function loadPreviewData() {
+            const now = new Date();
+            const daysAgo = (n) => new Date(now.getTime() - n * 86400000).toISOString();
+            user = { id: 'preview-user', email: 'demo@adlify.sk', user_metadata: { full_name: 'Demo Klient' } };
+            client = {
+                id: 'preview-client',
+                company_name: 'Demo Klient s.r.o.',
+                contact_person: 'Ján Demo',
+                email: 'demo@adlify.sk',
+                phone: '+421 901 234 567',
+                domain: 'demoklient.sk',
+                ico: '12345678',
+                dic: '2023456789',
+                ic_dph: 'SK2023456789',
+                billing_street: 'Hviezdoslavova 12',
+                billing_zip: '811 02',
+                billing_city: 'Bratislava',
+                billing_country: 'SK',
+                onboarding_status: 'completed'
+            };
+            campaigns = [
+                { id: 'c1', client_id: client.id, name: 'Google Ads Q2 — Search', status: 'active', budget: 1500, created_at: daysAgo(45) },
+                { id: 'c2', client_id: client.id, name: 'Meta Retargeting', status: 'active', budget: 800, created_at: daysAgo(30) },
+                { id: 'c3', client_id: client.id, name: 'LinkedIn Lead Gen', status: 'paused', budget: 600, created_at: daysAgo(60) }
+            ];
+            projects = [
+                { id: 'p1', client_id: client.id, name: 'Jarná kampaň 2026', status: 'active', created_at: daysAgo(50) }
+            ];
+            invoices = [
+                { id: 'i1', client_id: client.id, invoice_number: '2026-0042', amount: 249, status: 'paid', issue_date: daysAgo(30), due_date: daysAgo(15), created_at: daysAgo(30) },
+                { id: 'i2', client_id: client.id, invoice_number: '2026-0067', amount: 249, status: 'sent', issue_date: daysAgo(5), due_date: daysAgo(-9), created_at: daysAgo(5) }
+            ];
+            documents = [
+                { id: 'd1', client_id: client.id, name: 'Zmluva o spolupráci.pdf', file_url: '#', is_public: true, created_at: daysAgo(60) },
+                { id: 'd2', client_id: client.id, name: 'Reporting Q1 2026.pdf', file_url: '#', is_public: true, created_at: daysAgo(20) }
+            ];
+            tickets = [
+                { id: 't1', client_id: client.id, subject: 'Žiadosť o úpravu cieľovej skupiny', description: 'Chceli by sme zúžiť targeting na Bratislavu a okolie do 30 km.', category: 'campaign', priority: 'medium', status: 'in_progress', created_at: daysAgo(3) },
+                { id: 't2', client_id: client.id, subject: 'Otázka k poslednej faktúre', description: 'Pri faktúre 2026-0067 nie je jasné, čo zahŕňa poplatok za reporting.', category: 'billing', priority: 'low', status: 'resolved', created_at: daysAgo(10) }
+            ];
+        }
+
+        function previewBlocked(msgEl) {
+            if (!msgEl) return;
+            msgEl.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--warn, #d97706) 14%, var(--surface)); color:var(--warn, #d97706); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Náhľad — zmeny sa neukladajú</div>`;
+        }
 
         async function init() {
+            if (isPreview) {
+                loadPreviewData();
+                render();
+                return;
+            }
+
             // Check authentication
             const { data: { session } } = await db.auth.getSession();
-            
+
             if (!session) {
                 window.location.href = '/portal/login.html';
                 return;
             }
-            
+
             user = session.user;
 
             try {
@@ -362,7 +416,7 @@
                 }
 
                 client = clientUser.clients;
-                
+
                 // Check if onboarding completed
                 if (client.onboarding_status && client.onboarding_status !== 'completed') {
                     window.location.href = '/portal/onboarding.html';
@@ -415,6 +469,10 @@
         }
 
         async function logout() {
+            if (isPreview) {
+                window.location.href = '/portal/login.html';
+                return;
+            }
             await db.auth.signOut();
             window.location.href = '/portal/login.html';
         }
@@ -428,6 +486,7 @@
                         ${I.Logo({size:30, id:'pl'})}
                         <span class="logo-text" style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">Adlify</span>
                         <span class="client-badge" style="background:var(--brand-50); color:var(--brand-700); font-weight:600; letter-spacing:0.4px; text-transform:uppercase;">Klient</span>
+                        ${isPreview ? `<span style="background:color-mix(in oklab, var(--warn, #d97706) 14%, var(--surface)); color:var(--warn, #d97706); font-weight:600; letter-spacing:0.4px; text-transform:uppercase; font-size:11px; padding:3px 8px; border-radius:6px;">Náhľad</span>` : ''}
                     </div>
                     <div class="header-right" style="display:flex; align-items:center; gap:12px;">
                         <span class="client-name" style="font-size:13px; color:var(--ink-sub);">${client.company_name}</span>
@@ -730,6 +789,8 @@
             const msg = document.getElementById('ticket-form-msg');
             if (!subject) return;
 
+            if (isPreview) { previewBlocked(msg); return; }
+
             btn.disabled = true;
             const original = btn.innerHTML;
             btn.innerHTML = 'Odosielam…';
@@ -839,6 +900,7 @@
                 msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Heslá sa nezhodujú</div>`;
                 return;
             }
+            if (isPreview) { previewBlocked(msg); return; }
             btn.disabled = true;
             const original = btn.innerHTML;
             btn.innerHTML = 'Ukladám…';
@@ -857,10 +919,12 @@
 
         async function saveAccount(e) {
             e.preventDefault();
-            
+
             const btn = document.getElementById('save-account-btn');
             const msg = document.getElementById('account-message');
-            
+
+            if (isPreview) { previewBlocked(msg); return; }
+
             btn.disabled = true;
             const originalBtn = btn.innerHTML;
             btn.innerHTML = 'Ukladám…';
