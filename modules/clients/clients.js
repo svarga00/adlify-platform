@@ -350,151 +350,67 @@ const ClientsModule = {
   },
   
   renderForm(client = {}) {
+    const sectionTitle = (icon, label) => `<h3 style="font-size:13px; font-weight:600; color:var(--ink); margin:0 0 12px; display:inline-flex; align-items:center; gap:8px;">${icon} ${label}</h3>`;
+    const fieldLabel = (label) => `<label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">${label}</label>`;
+    const grid = (cols, body) => `<div style="display:grid; grid-template-columns:repeat(${cols}, 1fr); gap:12px;">${body}</div>`;
+    const colspan = (n, body) => `<div style="grid-column: span ${n};">${body}</div>`;
     return `
-      <form id="client-form" class="space-y-6" onsubmit="event.preventDefault(); ClientsModule.saveClient(); return false;">
-        <!-- Základné info -->
+      <form id="client-form" onsubmit="event.preventDefault(); ClientsModule.saveClient(); return false;" style="display:flex; flex-direction:column; gap:18px;">
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700" style="display:inline-flex; align-items:center; gap:8px;">${I.Building({size:14})} Základné informácie</h3>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium mb-1">Názov firmy *</label>
-              <input type="text" name="company_name" value="${client.company_name || ''}" 
-                required class="w-full p-3 border rounded-xl" placeholder="Názov spoločnosti">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Kontaktná osoba</label>
-              <input type="text" name="contact_person" value="${client.contact_person || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="Meno a priezvisko">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Odvetvie</label>
-              <input type="text" name="industry" value="${client.industry || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="napr. E-commerce, Gastro...">
-            </div>
-          </div>
+          ${sectionTitle(I.Building({size:14}), 'Základné informácie')}
+          ${grid(2, `
+            ${colspan(2, `${fieldLabel('Názov firmy *')}<input type="text" name="company_name" value="${client.company_name || ''}" required class="adl-input" placeholder="Názov spoločnosti">`)}
+            <div>${fieldLabel('Kontaktná osoba')}<input type="text" name="contact_person" value="${client.contact_person || ''}" class="adl-input" placeholder="Meno a priezvisko"></div>
+            <div>${fieldLabel('Odvetvie')}<input type="text" name="industry" value="${client.industry || ''}" class="adl-input" placeholder="napr. E-commerce, Gastro..."></div>
+          `)}
         </div>
-        
-        <!-- Kontakt -->
+
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700" style="display:inline-flex; align-items:center; gap:8px;">${I.Phone({size:14})} Kontaktné údaje</h3>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Email *</label>
-              <input type="email" name="email" value="${client.email || ''}" 
-                required class="w-full p-3 border rounded-xl" placeholder="email@firma.sk">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Telefón</label>
-              <input type="tel" name="phone" value="${client.phone || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="+421 9XX XXX XXX">
-            </div>
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium mb-1">Web</label>
-              <input type="text" name="website" value="${client.website || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="www.firma.sk">
-            </div>
-          </div>
+          ${sectionTitle(I.Phone({size:14}), 'Kontaktné údaje')}
+          ${grid(2, `
+            <div>${fieldLabel('Email *')}<input type="email" name="email" value="${client.email || ''}" required class="adl-input" placeholder="email@firma.sk"></div>
+            <div>${fieldLabel('Telefón')}<input type="tel" name="phone" value="${client.phone || ''}" class="adl-input" placeholder="+421 9XX XXX XXX"></div>
+            ${colspan(2, `${fieldLabel('Web')}<input type="text" name="website" value="${client.website || ''}" class="adl-input" placeholder="www.firma.sk">`)}
+          `)}
         </div>
-        
-        <!-- Adresa -->
+
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">Adresa</h3>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium mb-1">Ulica</label>
-              <input type="text" name="street" value="${client.street || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="Ulica a číslo">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Mesto</label>
-              <input type="text" name="city" value="${client.city || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="Mesto">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">PSČ</label>
-              <input type="text" name="zip" value="${client.zip || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="XXX XX">
-            </div>
-          </div>
+          ${sectionTitle(I.Globe({size:14}), 'Adresa')}
+          ${grid(2, `
+            ${colspan(2, `${fieldLabel('Ulica')}<input type="text" name="street" value="${client.street || ''}" class="adl-input" placeholder="Ulica a číslo">`)}
+            <div>${fieldLabel('Mesto')}<input type="text" name="city" value="${client.city || ''}" class="adl-input" placeholder="Mesto"></div>
+            <div>${fieldLabel('PSČ')}<input type="text" name="zip" value="${client.zip || ''}" class="adl-input" placeholder="XXX XX"></div>
+          `)}
         </div>
-        
-        <!-- Fakturačné údaje -->
+
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">🧾 Fakturačné údaje</h3>
-          <div class="grid md:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">IČO</label>
-              <input type="text" name="ico" value="${client.ico || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="12345678">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">DIČ</label>
-              <input type="text" name="dic" value="${client.dic || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="1234567890">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">IČ DPH</label>
-              <input type="text" name="ic_dph" value="${client.ic_dph || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="SK1234567890">
-            </div>
-            <div class="md:col-span-3">
-              <label class="block text-sm font-medium mb-1">Fakturačný email</label>
-              <input type="email" name="billing_email" value="${client.billing_email || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="fakturacia@firma.sk">
-            </div>
-          </div>
+          ${sectionTitle(I.Invoice({size:14}), 'Fakturačné údaje')}
+          ${grid(3, `
+            <div>${fieldLabel('IČO')}<input type="text" name="ico" value="${client.ico || ''}" class="adl-input" placeholder="12345678"></div>
+            <div>${fieldLabel('DIČ')}<input type="text" name="dic" value="${client.dic || ''}" class="adl-input" placeholder="1234567890"></div>
+            <div>${fieldLabel('IČ DPH')}<input type="text" name="ic_dph" value="${client.ic_dph || ''}" class="adl-input" placeholder="SK1234567890"></div>
+            ${colspan(3, `${fieldLabel('Fakturačný email')}<input type="email" name="billing_email" value="${client.billing_email || ''}" class="adl-input" placeholder="fakturacia@firma.sk">`)}
+          `)}
         </div>
-        
-        <!-- Služby -->
+
         <div>
-          <h3 class="font-semibold mb-3 text-gray-700">💼 Služby a platby</h3>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Balík</label>
-              <select name="package" class="w-full p-3 border rounded-xl">
-                <option value="">Bez balíka</option>
-                ${Object.entries(this.PACKAGES).map(([key, pkg]) => 
-                  `<option value="${key}" ${client.package === key ? 'selected' : ''}>${pkg.icon} ${pkg.name} (${pkg.price}€)</option>`
-                ).join('')}
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Mesačný poplatok (€)</label>
-              <input type="number" name="monthly_fee" value="${client.monthly_fee || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="249">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Stav</label>
-              <select name="status" class="w-full p-3 border rounded-xl">
-                ${Object.entries(this.STATUSES).map(([key, val]) => 
-                  `<option value="${key}" ${(client.status || 'active') === key ? 'selected' : ''}>${val.label}</option>`
-                ).join('')}
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Začiatok spolupráce</label>
-              <input type="date" name="contract_start" value="${client.contract_start || ''}" 
-                class="w-full p-3 border rounded-xl">
-            </div>
-          </div>
+          ${sectionTitle(I.Money({size:14}), 'Služby a platby')}
+          ${grid(2, `
+            <div>${fieldLabel('Balík')}<select name="package" class="adl-input"><option value="">Bez balíka</option>${Object.entries(this.PACKAGES).map(([key, pkg]) => `<option value="${key}" ${client.package === key ? 'selected' : ''}>${pkg.name} (${pkg.price}€)</option>`).join('')}</select></div>
+            <div>${fieldLabel('Mesačný poplatok (€)')}<input type="number" name="monthly_fee" value="${client.monthly_fee || ''}" class="adl-input" placeholder="249"></div>
+            <div>${fieldLabel('Stav')}<select name="status" class="adl-input">${Object.entries(this.STATUSES).map(([key, val]) => `<option value="${key}" ${(client.status || 'active') === key ? 'selected' : ''}>${val.label}</option>`).join('')}</select></div>
+            <div>${fieldLabel('Začiatok spolupráce')}<input type="date" name="contract_start" value="${client.contract_start || ''}" class="adl-input"></div>
+          `)}
         </div>
-        
-        <!-- Poznámky -->
+
         <div>
-          <label class="block text-sm font-medium mb-1">Poznámky</label>
-          <textarea name="notes" rows="3" class="w-full p-3 border rounded-xl" 
-            placeholder="Interné poznámky o klientovi...">${client.notes || ''}</textarea>
+          ${fieldLabel('Poznámky')}
+          <textarea name="notes" rows="3" class="adl-input" style="resize:vertical; font-family:inherit;" placeholder="Interné poznámky o klientovi...">${client.notes || ''}</textarea>
         </div>
-        
-        <!-- Actions -->
-        <div class="flex gap-3 pt-4 border-t">
-          <button type="button" onclick="ClientsModule.closeModal()" 
-            class="flex-1 px-4 py-3 bg-gray-200 rounded-xl hover:bg-gray-300">
-            Zrušiť
-          </button>
-          <button type="submit" class="flex-1 px-4 py-3 gradient-bg text-white rounded-xl font-semibold hover:opacity-90">
-            ${client.id ? 'Uložiť zmeny' : 'Vytvoriť klienta'}
-          </button>
+
+        <div style="display:flex; gap:10px; padding-top:14px; border-top:1px solid var(--border);">
+          <button type="button" onclick="ClientsModule.closeModal()" class="adl-btn adl-btn-ghost" style="flex:1; justify-content:center;">Zrušiť</button>
+          <button type="submit" class="adl-btn adl-btn-primary" style="flex:1; justify-content:center;">${client.id ? `${I.Check({size:14})} Uložiť zmeny` : `${I.Plus({size:14})} Vytvoriť klienta`}</button>
         </div>
       </form>
     `;
@@ -954,36 +870,34 @@ const ClientsModule = {
       return;
     }
     
+    const lbl = (text) => `<label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">${text}</label>`;
     const modal = document.createElement('div');
     modal.id = 'add-service-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9998;padding:1rem;';
-    
+    modal.style.cssText = 'position:fixed; inset:0; background:rgba(20,18,14,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px;';
+
     modal.innerHTML = `
-      <div style="background:white;border-radius:16px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
-        <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
-          <h2 style="font-size:1.125rem;font-weight:600;margin:0;display:inline-flex;align-items:center;gap:8px;">${I.Settings({size:16})} Pridať extra službu</h2>
-          <button onclick="document.getElementById('add-service-modal').remove()" style="background:#f1f5f9;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${I.X({size:14})}</button>
+      <div style="background:var(--surface); border-radius:14px; width:100%; max-width:460px; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+          <h2 style="font-size:16px; font-weight:600; margin:0; display:inline-flex; align-items:center; gap:8px;">${I.Settings({size:16})} Pridať extra službu</h2>
+          <button onclick="document.getElementById('add-service-modal').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:6px; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
         </div>
-        <div style="padding:1.5rem;">
+        <div style="padding:20px;">
           ${available.length > 0 ? `
-            <div style="margin-bottom:1rem;">
-              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.5rem;">Služba</label>
-              <select id="add-service-select" style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;">
-                ${available.map(s => `<option value="${s.id}" data-price="${s.price || 0}" data-name="${s.name}">${s.name} ${s.price ? '(' + s.price + '€)' : ''}</option>`).join('')}
-              </select>
-            </div>
-            <div style="margin-bottom:1rem;">
-              <label style="display:block;font-size:0.875rem;font-weight:500;margin-bottom:0.5rem;">Cena (€/mesiac)</label>
-              <input type="number" id="add-service-price" value="${available[0]?.price || 0}" style="width:100%;padding:0.75rem;border:1px solid #e2e8f0;border-radius:10px;" />
-            </div>
-            <div style="display:flex;gap:0.75rem;">
-              <button onclick="document.getElementById('add-service-modal').remove()" style="flex:1;padding:0.625rem;border-radius:10px;border:1px solid #e2e8f0;background:white;cursor:pointer;">Zrušiť</button>
-              <button onclick="ClientsModule.addClientService()" style="flex:1;padding:0.625rem;border-radius:10px;border:none;background:#8b5cf6;color:white;cursor:pointer;font-weight:600;">Pridať</button>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <div>${lbl('Služba')}<select id="add-service-select" class="adl-input">
+                ${available.map(s => `<option value="${s.id}" data-price="${s.price || 0}" data-name="${s.name}">${s.name}${s.price ? ' (' + s.price + '€)' : ''}</option>`).join('')}
+              </select></div>
+              <div>${lbl('Cena (€/mesiac)')}<input type="number" id="add-service-price" value="${available[0]?.price || 0}" class="adl-input"></div>
+              <div style="display:flex; gap:8px; padding-top:6px;">
+                <button onclick="document.getElementById('add-service-modal').remove()" class="adl-btn adl-btn-ghost" style="flex:1; justify-content:center;">Zrušiť</button>
+                <button onclick="ClientsModule.addClientService()" class="adl-btn adl-btn-primary" style="flex:1; justify-content:center;">${I.Plus({size:14})} Pridať</button>
+              </div>
             </div>
           ` : `
-            <div style="text-align:center;padding:2rem;color:#64748b;">
-              <div style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:var(--n-75);color:var(--ink-sub);margin-bottom:8px;">${I.Docs({size:18})}</div>
-              <p>Žiadne dostupné služby. Najprv ich vytvorte v module Služby.</p>
+            <div style="text-align:center; padding:24px 16px; color:var(--ink-sub);">
+              <div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Docs({size:18})}</div>
+              <p style="margin:0 0 12px; font-size:13px;">Žiadne dostupné služby. Najprv ich vytvorte v module Služby.</p>
+              <button onclick="document.getElementById('add-service-modal').remove()" class="adl-btn adl-btn-ghost adl-btn-sm">Zavrieť</button>
             </div>
           `}
         </div>
@@ -1075,90 +989,60 @@ const ClientsModule = {
     
     const subscription = this.currentClient.subscription || {};
     
+    const lbl = (text) => `<label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">${text}</label>`;
     const modalHtml = `
-      <div id="subscription-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-          <div class="p-6 border-b flex items-center justify-between">
-            <h2 class="text-xl font-bold">Predplatné klienta</h2>
-            <button onclick="ClientsModule.closeSubscriptionModal()" class="p-2 hover:bg-gray-100 rounded-lg" style="display:inline-flex; align-items:center; justify-content:center;">${I.X({size:14})}</button>
+      <div id="subscription-modal" style="position:fixed; inset:0; background:rgba(20,18,14,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px;">
+        <div style="background:var(--surface); border-radius:14px; max-width:560px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+          <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+            <h2 style="font-size:16px; font-weight:600; margin:0; display:inline-flex; align-items:center; gap:8px;">${I.Invoice({size:16})} Predplatné klienta</h2>
+            <button onclick="ClientsModule.closeSubscriptionModal()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:6px; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
           </div>
-          
-          <div class="p-6 space-y-4">
+
+          <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
             <div>
-              <label class="block text-sm font-medium mb-2">Balíček</label>
-              <select id="sub-package" class="w-full p-3 border rounded-xl" onchange="ClientsModule.onPackageChange()">
-                <option value="">-- Vlastný (bez balíčka) --</option>
-                ${packages.map(p => `
-                  <option value="${p.id}" data-price="${p.price}" ${subscription.package_id === p.id ? 'selected' : ''}>
-                    ${p.name} (${p.price}€/mes)
-                  </option>
-                `).join('')}
+              ${lbl('Balíček')}
+              <select id="sub-package" class="adl-input" onchange="ClientsModule.onPackageChange()">
+                <option value="">— Vlastný (bez balíčka) —</option>
+                ${packages.map(p => `<option value="${p.id}" data-price="${p.price}" ${subscription.package_id === p.id ? 'selected' : ''}>${p.name} (${p.price}€/mes)</option>`).join('')}
               </select>
             </div>
-            
-            <div id="custom-name-wrapper" class="${subscription.package_id ? 'hidden' : ''}">
-              <label class="block text-sm font-medium mb-1">Vlastný názov</label>
-              <input type="text" id="sub-custom-name" value="${subscription.custom_name || ''}" 
-                class="w-full p-3 border rounded-xl" placeholder="napr. Špeciálny balíček">
+
+            <div id="custom-name-wrapper" style="${subscription.package_id ? 'display:none;' : ''}">
+              ${lbl('Vlastný názov')}
+              <input type="text" id="sub-custom-name" value="${subscription.custom_name || ''}" class="adl-input" placeholder="napr. Špeciálny balíček">
             </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Mesačná cena (€)</label>
-                <input type="number" id="sub-price" value="${subscription.monthly_price || ''}" 
-                  class="w-full p-3 border rounded-xl" placeholder="249">
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Fakturačný deň</label>
-                <input type="number" id="sub-billing-day" value="${subscription.billing_day || 1}" min="1" max="28"
-                  class="w-full p-3 border rounded-xl">
-              </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div>${lbl('Mesačná cena (€)')}<input type="number" id="sub-price" value="${subscription.monthly_price || ''}" class="adl-input" placeholder="249"></div>
+              <div>${lbl('Fakturačný deň')}<input type="number" id="sub-billing-day" value="${subscription.billing_day || 1}" min="1" max="28" class="adl-input"></div>
             </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Dátum začiatku</label>
-                <input type="date" id="sub-start-date" value="${subscription.start_date || new Date().toISOString().split('T')[0]}" 
-                  class="w-full p-3 border rounded-xl">
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Status</label>
-                <select id="sub-status" class="w-full p-3 border rounded-xl">
-                  <option value="active" ${subscription.status === 'active' ? 'selected' : ''}>Aktívne</option>
-                  <option value="pending" ${subscription.status === 'pending' ? 'selected' : ''}>Čaká</option>
-                  <option value="paused" ${subscription.status === 'paused' ? 'selected' : ''}>Pozastavené</option>
-                  <option value="cancelled" ${subscription.status === 'cancelled' ? 'selected' : ''}>Zrušené</option>
-                </select>
-              </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div>${lbl('Dátum začiatku')}<input type="date" id="sub-start-date" value="${subscription.start_date || new Date().toISOString().split('T')[0]}" class="adl-input"></div>
+              <div>${lbl('Status')}<select id="sub-status" class="adl-input">
+                <option value="active" ${subscription.status === 'active' ? 'selected' : ''}>Aktívne</option>
+                <option value="pending" ${subscription.status === 'pending' ? 'selected' : ''}>Čaká</option>
+                <option value="paused" ${subscription.status === 'paused' ? 'selected' : ''}>Pozastavené</option>
+                <option value="cancelled" ${subscription.status === 'cancelled' ? 'selected' : ''}>Zrušené</option>
+              </select></div>
             </div>
-            
-            <div>
-              <label class="block text-sm font-medium mb-1">Poznámky</label>
-              <textarea id="sub-notes" rows="2" class="w-full p-3 border rounded-xl" 
-                placeholder="Interné poznámky...">${subscription.notes || ''}</textarea>
-            </div>
+
+            <div>${lbl('Poznámky')}<textarea id="sub-notes" rows="2" class="adl-input" style="resize:vertical; font-family:inherit;" placeholder="Interné poznámky...">${subscription.notes || ''}</textarea></div>
           </div>
-          
-          <div class="p-6 border-t flex justify-between gap-3 bg-gray-50">
-            ${subscription.id ? `
-              <button onclick="ClientsModule.deleteSubscription('${subscription.id}')" 
-                class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl">
-                🗑️ Zmazať
-              </button>
-            ` : '<div></div>'}
-            <div class="flex gap-3">
-              <button onclick="ClientsModule.closeSubscriptionModal()" class="px-6 py-2 bg-gray-200 rounded-xl hover:bg-gray-300">
-                Zrušiť
-              </button>
-              <button onclick="ClientsModule.saveSubscription()" class="px-6 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700">
-                Uložiť
-              </button>
+
+          <div style="padding:14px 20px; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:10px; background:var(--n-50);">
+            ${subscription.id
+              ? `<button onclick="ClientsModule.deleteSubscription('${subscription.id}')" class="adl-btn adl-btn-ghost adl-btn-sm" style="color:var(--err);">${I.Trash({size:12})} Zmazať</button>`
+              : '<div></div>'}
+            <div style="display:flex; gap:8px;">
+              <button onclick="ClientsModule.closeSubscriptionModal()" class="adl-btn adl-btn-ghost">Zrušiť</button>
+              <button onclick="ClientsModule.saveSubscription()" class="adl-btn adl-btn-primary">${I.Check({size:14})} Uložiť</button>
             </div>
           </div>
         </div>
       </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', modalHtml);
   },
   
@@ -1166,13 +1050,13 @@ const ClientsModule = {
     const select = document.getElementById('sub-package');
     const customNameWrapper = document.getElementById('custom-name-wrapper');
     const priceInput = document.getElementById('sub-price');
-    
+
     if (select.value) {
-      customNameWrapper.classList.add('hidden');
+      if (customNameWrapper) customNameWrapper.style.display = 'none';
       const selectedOption = select.options[select.selectedIndex];
       priceInput.value = selectedOption.dataset.price || '';
     } else {
-      customNameWrapper.classList.remove('hidden');
+      if (customNameWrapper) customNameWrapper.style.display = '';
     }
   },
   
@@ -2016,7 +1900,7 @@ const ClientsModule = {
         <div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
           <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#f97316,#ec4899);color:white;">
             <h2 style="font-size:1.25rem;font-weight:600;margin:0;">Onboarding odpovede</h2>
-            <button onclick="document.getElementById('onboarding-view-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;color:white;font-size:1.25rem;">✕</button>
+            <button onclick="document.getElementById('onboarding-view-modal').remove()" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;color:white;display:inline-flex;align-items:center;justify-content:center;">${I.X({size:14})}</button>
           </div>
           <div style="padding:1.5rem;overflow-y:auto;flex:1;">
             ${sections.join('')}
