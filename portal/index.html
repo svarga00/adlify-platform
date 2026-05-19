@@ -25,62 +25,169 @@
             color: var(--ink);
         }
 
-        .portal-header {
+        /* ===== Topbar right actions ===== */
+        .pt-iconbtn {
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
             background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 14px 28px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo { display: flex; align-items: center; gap: 10px; }
-        .client-badge {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 4px;
-            letter-spacing: 0.5px;
-        }
-        .header-right { display: flex; align-items: center; gap: 12px; }
-        .client-name { font-weight: 500; color: var(--ink-sub); font-size: 13px; }
-
-        .portal-nav {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 0 28px;
-        }
-
-        .nav-tabs { display: flex; gap: 4px; }
-
-        .nav-tab {
-            padding: 12px 16px;
-            border: none;
-            background: transparent;
-            font-size: 13px;
-            font-weight: 500;
+            display: inline-flex; align-items: center; justify-content: center;
+            position: relative;
             color: var(--ink-sub);
             cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: color .12s, border-color .12s;
-            display: inline-flex;
+        }
+        .pt-iconbtn:hover { color: var(--ink); background: var(--n-50); }
+        .pt-iconbtn .dot {
+            position: absolute; top: 7px; right: 8px;
+            width: 6px; height: 6px; border-radius: 99px; background: var(--brand-500);
+        }
+
+        /* ===== Dashboard hero ===== */
+        .pt-hero {
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+            border-radius: 16px;
+            padding: 28px;
+            color: #fff;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pt-hero::before {
+            content: ''; position: absolute; right: -50px; top: -50px;
+            width: 260px; height: 260px;
+            background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+            pointer-events: none;
+        }
+        .pt-hero-row { display: flex; align-items: flex-start; gap: 40px; position: relative; }
+        .pt-hero-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; font-weight: 600; }
+        .pt-hero-value { font-size: 44px; font-weight: 700; letter-spacing: -1.5px; margin-top: 6px; line-height: 1.1; font-family: var(--font-mono); }
+        .pt-hero-meta { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+        .pt-hero-chip {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            background: rgba(255,255,255,0.18);
+            padding: 4px 10px; border-radius: 999px;
+        }
+        .pt-hero-sub { font-size: 13px; opacity: 0.85; }
+        .pt-hero-spark { width: 300px; flex-shrink: 0; }
+        @media (max-width: 720px) {
+            .pt-hero-row { flex-direction: column; gap: 16px; }
+            .pt-hero-spark { width: 100%; }
+            .pt-hero-value { font-size: 34px; }
+        }
+
+        /* ===== KPI stat grid ===== */
+        .pt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        @media (max-width: 900px) { .pt-stats { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px) { .pt-stats { grid-template-columns: 1fr; } }
+        .pt-stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .pt-stat-label { font-size: 11px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+        .pt-stat-value { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-top: 6px; font-family: var(--font-mono); color: var(--ink); }
+        .pt-stat-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; }
+        .pt-stat-delta-up { color: var(--ok); font-weight: 600; }
+        .pt-stat-delta-down { color: var(--err); font-weight: 600; }
+        .pt-stat-hint { color: var(--ink-mute); }
+
+        /* ===== Two-col dashboard grids ===== */
+        .pt-grid-13 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .pt-grid-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 900px) { .pt-grid-13, .pt-grid-2 { grid-template-columns: 1fr; } }
+
+        /* ===== Cards (light) ===== */
+        .pt-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .pt-card-head {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 10px;
+        }
+        .pt-card-title { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+        .pt-card-body { padding: 18px; }
+        .pt-card-body.tight { padding: 0; }
+
+        /* ===== Campaign row in dashboard ===== */
+        .pt-camp-row {
+            padding: 14px 18px;
+            display: grid;
+            grid-template-columns: 2fr 100px 80px 80px 60px;
+            gap: 14px;
             align-items: center;
-            gap: 8px;
-            font-family: inherit;
+        }
+        .pt-camp-row + .pt-camp-row { border-top: 1px solid var(--border); }
+        .pt-camp-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+        .pt-camp-meta { font-size: 11px; color: var(--ink-sub); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+        @media (max-width: 720px) {
+            .pt-camp-row { grid-template-columns: 1fr auto; }
+            .pt-camp-row > :nth-child(n+3) { display: none; }
         }
 
-        .nav-tab:hover { color: var(--ink); }
-        .nav-tab.active { color: var(--brand-600); border-bottom-color: var(--brand-500); font-weight: 600; }
+        /* ===== Action items ===== */
+        .pt-action {
+            display: flex; gap: 12px;
+            padding: 12px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background .12s;
+        }
+        .pt-action:hover { background: var(--n-50); }
+        .pt-action-icon {
+            width: 34px; height: 34px; border-radius: 9px;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .pt-action-body { flex: 1; min-width: 0; }
+        .pt-action-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+        .pt-action-sub { font-size: 11px; color: var(--ink-sub); margin-top: 2px; }
 
-        .portal-main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
+        /* ===== Team + events ===== */
+        .pt-team-row { display: flex; align-items: center; gap: 14px; }
+        .pt-team-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+        .pt-team-sub { font-size: 11px; color: var(--ink-sub); margin-top: 2px; }
+        .pt-event {
+            display: flex; gap: 14px;
+            padding: 10px 0;
+        }
+        .pt-event + .pt-event { border-top: 1px dashed var(--border); }
+        .pt-event-date {
+            text-align: center; width: 44px; flex-shrink: 0;
+            font-family: var(--font-mono);
+            font-size: 15px; font-weight: 600; color: var(--ink);
+        }
+        .pt-event-time { font-size: 10px; color: var(--ink-mute); margin-top: 2px; }
+        .pt-event-body { flex: 1; font-size: 13px; padding-left: 12px; border-left: 3px solid var(--acc-sky-ink); color: var(--ink); }
+
+        /* ===== Preview banner ===== */
+        .pt-preview-badge {
+            background: color-mix(in oklab, var(--warn) 18%, var(--surface));
+            color: var(--warn);
+            font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+            font-size: 10px;
+            padding: 3px 8px; border-radius: 6px;
         }
 
+        /* ===== Mobile sidebar toggle (PR A: simple — hidden on mobile, content goes full-width) ===== */
+        .pt-menu-btn { display: none; }
+        @media (max-width: 900px) {
+            .pt-menu-btn {
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 34px; height: 34px; border-radius: 9px;
+                border: 1px solid var(--border); background: var(--surface);
+                color: var(--ink-sub);
+            }
+        }
+
+        /* ===== Legacy styles still used by other tabs (PR B will refactor) ===== */
         .card {
             background: var(--surface);
             border-radius: 14px;
@@ -89,7 +196,6 @@
             margin-bottom: 18px;
             box-shadow: var(--sh-sm);
         }
-
         .card-header {
             padding: 14px 20px;
             border-bottom: 1px solid var(--border);
@@ -97,7 +203,6 @@
             justify-content: space-between;
             align-items: center;
         }
-
         .card-header h2 {
             font-size: 15px;
             font-weight: 600;
@@ -107,63 +212,9 @@
             align-items: center;
             gap: 8px;
         }
-
         .card-body { padding: 20px; }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-        @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 520px) { .stats-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 640px) {
-            .portal-header { padding: 1rem; flex-wrap: wrap; }
-            .portal-nav { padding: 0 0.5rem; overflow-x: auto; }
-            .nav-tabs { flex-wrap: nowrap; white-space: nowrap; }
-            .portal-main { padding: 1rem; }
-        }
-
-        .stat-card {
-            background: var(--surface);
-            border-radius: 14px;
-            padding: 18px;
-            text-align: center;
-            border: 1px solid var(--border);
-            box-shadow: var(--sh-sm);
-        }
-
-        .stat-icon { display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; color: var(--brand-500); }
-        .stat-icon svg { width: 22px; height: 22px; }
-        .stat-value { font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: -0.5px; }
-        .stat-label { font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
-
-        .welcome-card {
-            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
-            color: white;
-            border: none;
-            position: relative;
-            overflow: hidden;
-        }
-        .welcome-card::before {
-            content: ''; position: absolute; right: -60px; top: -60px;
-            width: 240px; height: 240px;
-            background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
-        }
-
-        .welcome-card .card-body {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .welcome-text h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        .welcome-text p { opacity: 0.9; }
-        .welcome-icon { font-size: 4rem; }
-
         .item-list { display: flex; flex-direction: column; gap: 0.75rem; }
-
         .item {
             display: flex;
             align-items: center;
@@ -177,138 +228,84 @@
             color: inherit;
         }
         .item:hover { background: var(--n-75); transform: translateX(2px); }
-
         .item-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            width: 40px; height: 40px; border-radius: 10px;
+            display: inline-flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
         .item-icon.project { background: var(--acc-sky); color: var(--acc-sky-ink); }
         .item-icon.campaign { background: var(--acc-amber); color: var(--acc-amber-ink); }
         .item-icon.invoice { background: var(--acc-mint); color: var(--acc-mint-ink); }
         .item-icon.document { background: var(--acc-lavender); color: var(--acc-lavender-ink); }
-
         .item-info { flex: 1; min-width: 0; }
         .item-name { font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: -0.1px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .item-meta { font-size: 11px; color: var(--ink-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
         .item-status {
-            padding: 3px 9px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 500;
-            flex-shrink: 0;
+            padding: 3px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 500; flex-shrink: 0;
         }
         .status-active, .status-paid { background: var(--acc-mint); color: var(--acc-mint-ink); }
         .status-pending, .status-in_progress { background: var(--acc-amber); color: var(--acc-amber-ink); }
         .status-draft { background: var(--n-100); color: var(--ink-sub); }
         .status-overdue { background: color-mix(in oklab, var(--err) 14%, transparent); color: var(--err); }
 
-        .invoice-amount {
-            font-weight: 700;
-            color: #1e293b;
-            margin-right: 1rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #64748b;
-        }
-
-        .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .invoice-amount { font-weight: 700; color: var(--ink); margin-right: 1rem; }
+        .empty-state { text-align: center; padding: 3rem; color: var(--ink-sub); }
         .empty-state h3 { font-size: 1rem; font-weight: 500; }
 
         .error-screen {
             min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 2rem;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; padding: 2rem;
         }
-
-        .error-icon { font-size: 4rem; margin-bottom: 1rem; }
         .error-screen h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        .error-screen p { color: #64748b; margin-bottom: 1.5rem; }
+        .error-screen p { color: var(--ink-sub); margin-bottom: 1.5rem; }
 
         .btn {
-            padding: 10px 16px;
-            border-radius: 10px;
-            font-weight: 500;
-            font-size: 13px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+            padding: 10px 16px; border-radius: 10px;
+            font-weight: 500; font-size: 13px;
+            cursor: pointer; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
             border: 1px solid transparent;
-            transition: background .12s;
             font-family: inherit;
         }
         .btn-primary { background: var(--brand-500); color: white; border-color: var(--brand-500); }
         .btn-primary:hover { background: var(--brand-600); }
-        .btn-secondary { background: var(--n-75); color: var(--ink); border-color: transparent; }
-        .btn-secondary:hover { background: var(--n-100); }
 
         .loading {
             min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
             gap: 16px;
         }
-
         .spinner {
-            width: 40px;
-            height: 40px;
+            width: 40px; height: 40px;
             border: 3px solid var(--n-100);
             border-top-color: var(--brand-500);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .contact-card {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
+            display: flex; align-items: center; gap: 1rem;
             padding: 1.5rem;
-            background: linear-gradient(135deg, #fef3e7, #fce7f3);
+            background: var(--n-50);
+            border: 1px solid var(--border);
             border-radius: 12px;
         }
-
         .contact-avatar {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #f97316, #ec4899);
+            width: 50px; height: 50px;
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
             border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 1.25rem;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: 700; font-size: 1.25rem;
         }
-
         .contact-info { flex: 1; }
         .contact-info h4 { font-size: 1rem; margin-bottom: 0.25rem; }
-        .contact-info p { font-size: 0.85rem; color: #64748b; }
+        .contact-info p { font-size: 0.85rem; color: var(--ink-sub); }
         .contact-actions { display: flex; gap: 0.5rem; }
-
-        @media (max-width: 768px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .portal-header { padding: 1rem; }
-            .portal-main { padding: 1rem; }
-            .nav-tabs { overflow-x: auto; }
-        }
     </style>
 </head>
 <body>
@@ -344,11 +341,11 @@
             user = { id: 'preview-user', email: 'demo@adlify.sk', user_metadata: { full_name: 'Demo Klient' } };
             client = {
                 id: 'preview-client',
-                company_name: 'Demo Klient s.r.o.',
-                contact_person: 'Ján Demo',
-                email: 'demo@adlify.sk',
+                company_name: 'Pekáreň Jablko s.r.o.',
+                contact_person: 'Jana Kováčová',
+                email: 'jana@pekaren-jablko.sk',
                 phone: '+421 901 234 567',
-                domain: 'demoklient.sk',
+                domain: 'pekaren-jablko.sk',
                 ico: '12345678',
                 dic: '2023456789',
                 ic_dph: 'SK2023456789',
@@ -356,12 +353,43 @@
                 billing_zip: '811 02',
                 billing_city: 'Bratislava',
                 billing_country: 'SK',
-                onboarding_status: 'completed'
+                onboarding_status: 'completed',
+                dashboard_kpis: {
+                    conversions: 142,
+                    conversions_delta_pct: 28,
+                    roi: 3.4,
+                    cost_per_conversion: 5.96,
+                    reach: 184200,
+                    clicks: 8421,
+                    ctr_pct: 4.6,
+                    spent: 847,
+                    budget: 1000,
+                    conversion_value: 12480,
+                    conversion_value_delta_pct: 42,
+                    trend: [2, 4, 3, 5, 6, 4, 7, 9, 8, 10, 12, 14, 15, 13, 18]
+                },
+                action_items: [
+                    { icon: 'Check',   title: '4 kreatívy na schválenie', sub: 'Letná kampaň · do 20. 4.',       tone: 'brand',  target_tab: 'approvals' },
+                    { icon: 'Invoice', title: 'Faktúra 2026/04/015',      sub: '249 € · splatnosť 15. 4.',       tone: 'amber',  target_tab: 'invoices' },
+                    { icon: 'Mail',    title: 'Otázka od Lucie',          sub: 'Report — odpovedať',             tone: 'sky',    target_tab: 'messages' },
+                ],
+                account_manager: {
+                    name: 'Štefan Varga',
+                    role: 'Váš account manažér',
+                    response_time: 'odpovedá do 2h',
+                    email: 'stefan@adlify.sk',
+                    phone: '+421 905 123 456'
+                },
+                upcoming_events: [
+                    { date: '18. 4.', time: '14:00', title: 'Call · monthly review',     tone: 'amber' },
+                    { date: '22. 4.', time: '',      title: 'Spustenie novej kampane',   tone: 'sky' },
+                    { date: '1. 5.',  time: '',      title: 'Fakturácia máj',            tone: 'amber' },
+                ]
             };
             campaigns = [
-                { id: 'c1', client_id: client.id, name: 'Google Ads Q2 — Search', status: 'active', budget: 1500, created_at: daysAgo(45) },
-                { id: 'c2', client_id: client.id, name: 'Meta Retargeting', status: 'active', budget: 800, created_at: daysAgo(30) },
-                { id: 'c3', client_id: client.id, name: 'LinkedIn Lead Gen', status: 'paused', budget: 600, created_at: daysAgo(60) }
+                { id: 'c1', client_id: client.id, name: 'Letná ponuka · chlieb BIO', platform_label: 'FB + IG',  status: 'active', budget: 420, conversions: 47, roi: 2.1, created_at: daysAgo(45) },
+                { id: 'c2', client_id: client.id, name: 'Lokálne cielenie · 15km',   platform_label: 'Google',   status: 'active', budget: 280, conversions: 68, roi: 4.2, created_at: daysAgo(30) },
+                { id: 'c3', client_id: client.id, name: 'Remarketing',               platform_label: 'Facebook', status: 'paused', budget: 147, conversions: 27, roi: 1.8, created_at: daysAgo(60) }
             ];
             projects = [
                 { id: 'p1', client_id: client.id, name: 'Jarná kampaň 2026', status: 'active', created_at: daysAgo(50) }
@@ -477,37 +505,119 @@
             window.location.href = '/portal/login.html';
         }
 
-        function render() {
-            const firstName = user.user_metadata?.full_name?.split(' ')[0] || client.contact_person?.split(' ')[0] || 'vážený klient';
-            
-            document.getElementById('app').innerHTML = `
-                <header class="portal-header">
-                    <div class="logo" style="display:flex; align-items:center; gap:10px;">
-                        ${I.Logo({size:30, id:'pl'})}
-                        <span class="logo-text" style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">Adlify</span>
-                        <span class="client-badge" style="background:var(--brand-50); color:var(--brand-700); font-weight:600; letter-spacing:0.4px; text-transform:uppercase;">Klient</span>
-                        ${isPreview ? `<span style="background:color-mix(in oklab, var(--warn, #d97706) 14%, var(--surface)); color:var(--warn, #d97706); font-weight:600; letter-spacing:0.4px; text-transform:uppercase; font-size:11px; padding:3px 8px; border-radius:6px;">Náhľad</span>` : ''}
+        const SIDEBAR_GROUPS = [
+            { label: 'Prehľad', items: [
+                { key: 'dashboard', icon: 'Dashboard', label: 'Prehľad' },
+                { key: 'reports',   icon: 'Chart',     label: 'Reporty' },
+                { key: 'campaigns', icon: 'Campaign',  label: 'Kampane' },
+            ]},
+            { label: 'Spolupráca', items: [
+                { key: 'messages',  icon: 'Mail',     label: 'Správy' },
+                { key: 'approvals', icon: 'Check',    label: 'Schvaľovanie' },
+                { key: 'calendar',  icon: 'Calendar', label: 'Kalendár' },
+                { key: 'support',   icon: 'Ticket',   label: 'Tickety' },
+            ]},
+            { label: 'Administratíva', items: [
+                { key: 'invoices',  icon: 'Invoice',  label: 'Faktúry' },
+                { key: 'documents', icon: 'Docs',     label: 'Dokumenty' },
+                { key: 'account',   icon: 'Settings', label: 'Nastavenia' },
+            ]},
+        ];
+
+        const TAB_META = {
+            dashboard: { title: () => `Dobré ráno, ${firstName()}`, sub: () => `${currentMonthLabel()} · ${client.company_name}` },
+            reports:   { title: () => 'Reporty',                     sub: () => `Výkon kampaní · ${client.company_name}` },
+            campaigns: { title: () => 'Kampane',                     sub: () => `${campaigns.length} aktívnych` },
+            messages:  { title: () => 'Správy',                      sub: () => 'Komunikácia s tímom' },
+            approvals: { title: () => 'Schvaľovanie',                sub: () => 'Kreatívy čakajúce na schválenie' },
+            calendar:  { title: () => 'Kalendár',                    sub: () => 'Plánované udalosti' },
+            support:   { title: () => 'Tickety',                     sub: () => 'Podporné požiadavky' },
+            invoices:  { title: () => 'Faktúry',                     sub: () => 'História platieb' },
+            documents: { title: () => 'Dokumenty',                   sub: () => 'Zmluvy, reporty, kreatívy' },
+            account:   { title: () => 'Nastavenia',                  sub: () => client.company_name },
+        };
+
+        function firstName() {
+            return user?.user_metadata?.full_name?.split(' ')[0]
+                || client?.contact_person?.split(' ')[0]
+                || 'vážený klient';
+        }
+
+        function currentMonthLabel() {
+            const months = ['január','február','marec','apríl','máj','jún','júl','august','september','október','november','december'];
+            const d = new Date();
+            return `${months[d.getMonth()]} ${d.getFullYear()}`;
+        }
+
+        function initials(name) {
+            if (!name) return '?';
+            const parts = name.trim().split(/\s+/);
+            return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+        }
+
+        function renderSidebar() {
+            return `
+                <aside class="adl-sidebar">
+                    <div class="adl-sidebar-inner">
+                        <div class="adl-sidebar-brand">
+                            ${I.Logo({size:28, id:'sb-logo'})}
+                            <div class="adl-sidebar-brand-text">Adlify<span class="adl-sidebar-brand-subtag">Klient</span></div>
+                        </div>
+                        <nav class="adl-sidebar-nav">
+                            ${SIDEBAR_GROUPS.map(g => `
+                                <div class="adl-sidebar-group">
+                                    <div class="adl-sidebar-group-label">${g.label}</div>
+                                    ${g.items.map(it => `
+                                        <a class="adl-sidebar-item ${currentTab === it.key ? 'active' : ''}" onclick="switchTab('${it.key}')">
+                                            ${I[it.icon]({size:17})}
+                                            <span class="adl-sidebar-item-label">${it.label}</span>
+                                        </a>
+                                    `).join('')}
+                                </div>
+                            `).join('')}
+                        </nav>
+                        <div class="adl-sidebar-footer">
+                            <div class="adl-avatar">${initials(client.contact_person || client.company_name)}</div>
+                            <div class="adl-sidebar-footer-info">
+                                <div class="adl-sidebar-footer-name">${client.contact_person || 'Klient'}</div>
+                                <div class="adl-sidebar-footer-sub">${client.company_name}</div>
+                            </div>
+                            <a class="adl-sidebar-item" onclick="logout()" style="margin:0; padding:6px; flex:0;" title="Odhlásiť">${I.Logout({size:16})}</a>
+                        </div>
                     </div>
-                    <div class="header-right" style="display:flex; align-items:center; gap:12px;">
-                        <span class="client-name" style="font-size:13px; color:var(--ink-sub);">${client.company_name}</span>
-                        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="logout()">${I.Logout({size:14})} Odhlásiť</button>
+                </aside>
+            `;
+        }
+
+        function renderTopbar() {
+            const meta = TAB_META[currentTab] || TAB_META.dashboard;
+            return `
+                <header class="adl-topbar">
+                    <div class="adl-topbar-title-wrap">
+                        <div class="adl-topbar-title">
+                            ${meta.title()}
+                            ${isPreview ? `<span class="pt-preview-badge">Náhľad</span>` : ''}
+                        </div>
+                        <div class="adl-topbar-sub">${meta.sub()}</div>
+                    </div>
+                    <div class="adl-topbar-actions">
+                        <button class="pt-iconbtn" title="Notifikácie">${I.Bell({size:16})}<span class="dot"></span></button>
                     </div>
                 </header>
+            `;
+        }
 
-                <nav class="portal-nav">
-                    <div class="nav-tabs">
-                        <button class="nav-tab ${currentTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">${I.Dashboard({size:16})} Prehľad</button>
-                        <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">${I.Campaign({size:16})} Kampane</button>
-                        <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">${I.Invoice({size:16})} Faktúry</button>
-                        <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">${I.Docs({size:16})} Dokumenty</button>
-                        <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">${I.Ticket({size:16})} Podpora</button>
-                        <button class="nav-tab ${currentTab === 'account' ? 'active' : ''}" onclick="switchTab('account')">${I.Settings({size:16})} Môj účet</button>
+        function render() {
+            document.getElementById('app').innerHTML = `
+                <div class="adl adl-frame">
+                    ${renderSidebar()}
+                    <div class="adl-main">
+                        ${renderTopbar()}
+                        <main class="adl-content">
+                            ${renderContent()}
+                        </main>
                     </div>
-                </nav>
-
-                <main class="portal-main">
-                    ${renderContent()}
-                </main>
+                </div>
             `;
         }
 
@@ -519,49 +629,196 @@
         function renderContent() {
             switch (currentTab) {
                 case 'dashboard': return renderDashboard();
+                case 'reports':   return renderComingSoon('Reporty', 'Detailné reporty výkonu kampaní pribudnú v ďalšom update.');
                 case 'campaigns': return renderCampaigns();
-                case 'invoices': return renderInvoices();
+                case 'messages':  return renderComingSoon('Správy', 'Real-time komunikácia s tímom pribudne v ďalšom update.');
+                case 'approvals': return renderComingSoon('Schvaľovanie', 'Schvaľovanie kreatív pribudne v ďalšom update.');
+                case 'calendar':  return renderComingSoon('Kalendár', 'Plánované udalosti pribudnú v ďalšom update.');
+                case 'support':   return renderSupport();
+                case 'invoices':  return renderInvoices();
                 case 'documents': return renderDocuments();
-                case 'support': return renderSupport();
-                case 'account': return renderAccount();
+                case 'account':   return renderAccount();
                 default: return renderDashboard();
             }
         }
 
-        function renderDashboard() {
-            const firstName = user.user_metadata?.full_name?.split(' ')[0] || 'vážený klient';
-            const unpaidInvoices = invoices.filter(i => i.status !== 'paid').length;
-            const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
-            const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
-            
+        function renderComingSoon(title, description) {
             return `
-                <div class="card welcome-card">
-                    <div class="card-body" style="position:relative; z-index:1;">
-                        <div class="welcome-text">
-                            <h1 style="font-size:28px; letter-spacing:-0.5px; margin-bottom:6px;">Vitajte, ${firstName}</h1>
-                            <p style="opacity:0.9; font-size:14px;">Toto je Váš klientský portál — sledujte výkon kampaní, faktúry a komunikáciu s tímom.</p>
-                        </div>
-                    </div>
+                <div class="pt-card" style="padding:60px 28px; text-align:center;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Clock({size:24})}</div>
+                    <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">${title} — čoskoro</h2>
+                    <p style="color:var(--ink-sub); font-size:13px; max-width:380px; margin:0 auto;">${description}</p>
                 </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card"><div style="color:var(--brand-500); display:inline-flex;">${I.Campaign({size:22})}</div><div class="stat-value">${activeCampaigns}</div><div class="stat-label">Aktívne kampane</div></div>
-                    <div class="stat-card"><div style="color:var(--warn); display:inline-flex;">${I.Invoice({size:22})}</div><div class="stat-value">${unpaidInvoices}</div><div class="stat-label">Neuhradené faktúry</div></div>
-                    <div class="stat-card"><div style="color:var(--acc-amber-ink); display:inline-flex;">${I.Ticket({size:22})}</div><div class="stat-value">${openTickets}</div><div class="stat-label">Otvorené tickety</div></div>
-                    <div class="stat-card"><div style="color:var(--acc-sky-ink); display:inline-flex;">${I.Docs({size:22})}</div><div class="stat-value">${documents.length}</div><div class="stat-label">Dokumenty</div></div>
-                </div>
-
-                ${unpaidInvoices > 0 ? `
-                    <div class="card" style="border-color: var(--warn);">
-                        <div class="card-header" style="background: color-mix(in oklab, var(--warn) 12%, var(--surface));">
-                            <h2 style="color:var(--warn); display:flex; align-items:center; gap:8px;">${I.Warning({size:18})} Neuhradené faktúry (${unpaidInvoices})</h2>
-                            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="switchTab('invoices')">Zobraziť</button>
-                        </div>
-                    </div>
-                ` : ''}
-
-                ${renderProjects()}
             `;
+        }
+
+        function sparkline(data, w = 300, h = 80, color = '#fff') {
+            if (!data || data.length < 2) return '';
+            const max = Math.max(...data), min = Math.min(...data);
+            const range = max - min || 1;
+            const step = w / (data.length - 1);
+            const points = data.map((v, i) => `${i * step},${h - ((v - min) / range) * (h - 4) - 2}`);
+            const path = `M ${points.join(' L ')}`;
+            const fillPath = `${path} L ${w},${h} L 0,${h} Z`;
+            return `
+                <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block; max-width:100%;">
+                    <defs>
+                        <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="${color}" stop-opacity="0.4"/>
+                            <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="${fillPath}" fill="url(#spark-grad)" stroke="none"/>
+                    <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            `;
+        }
+
+        function renderDashboard() {
+            const k = client.dashboard_kpis || {};
+            const conv = k.conversions ?? 0;
+            const convDelta = k.conversions_delta_pct;
+            const roi = k.roi ?? 0;
+            const cpa = k.cost_per_conversion ?? 0;
+            const reach = k.reach ?? 0;
+            const clicks = k.clicks ?? 0;
+            const ctr = k.ctr_pct;
+            const spent = k.spent ?? 0;
+            const budget = k.budget ?? 0;
+            const value = k.conversion_value ?? 0;
+            const valueDelta = k.conversion_value_delta_pct;
+            const trend = k.trend || [];
+            const actionItems = client.action_items || [];
+            const teamMember = client.account_manager || null;
+            const upcomingEvents = client.upcoming_events || [];
+            const activeCamps = campaigns.filter(c => c.status === 'active' || c.status === 'paused').slice(0, 3);
+
+            const fmtNum = (n) => new Intl.NumberFormat('sk-SK').format(Math.round(n));
+            const fmtMoney = (n) => new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €';
+            const deltaChip = (pct) => pct == null ? ''
+                : `<span class="${pct >= 0 ? 'pt-stat-delta-up' : 'pt-stat-delta-down'}">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+            const statusToneClass = (s) => s === 'active' ? 'adl-chip-mint' : s === 'paused' ? 'adl-chip-amber' : '';
+            const statusLabel = (s) => s === 'active' ? 'Aktívna' : s === 'paused' ? 'Pauza' : (s || '—');
+
+            return `
+                <div class="pt-hero">
+                    <div class="pt-hero-row">
+                        <div style="flex:1; min-width:0;">
+                            <div class="pt-hero-label">Váš výkon · ${currentMonthLabel()}</div>
+                            <div class="pt-hero-value">${fmtNum(conv)} <span style="font-size:18px; font-weight:500; font-family:inherit; opacity:0.85;">konverzií</span></div>
+                            <div class="pt-hero-meta">
+                                ${convDelta != null ? `<span class="pt-hero-chip">${convDelta >= 0 ? '+' : ''}${convDelta}% vs. minulý mesiac</span>` : ''}
+                                <span class="pt-hero-sub">ROI ${roi}× · cena za konverziu ${fmtMoney(cpa)}</span>
+                            </div>
+                        </div>
+                        <div class="pt-hero-spark">${sparkline(trend, 300, 80, '#fff')}</div>
+                    </div>
+                </div>
+
+                <div class="pt-stats">
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Dosah</div>
+                        <div class="pt-stat-value">${fmtNum(reach)}</div>
+                    </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Kliky</div>
+                        <div class="pt-stat-value">${fmtNum(clicks)}</div>
+                        <div class="pt-stat-meta">${ctr != null ? `<span class="pt-stat-hint">CTR ${ctr}%</span>` : ''}</div>
+                    </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Minuté z budgetu</div>
+                        <div class="pt-stat-value">${fmtMoney(spent)}</div>
+                        ${budget ? `<div class="pt-stat-meta"><span class="pt-stat-hint">z ${fmtMoney(budget)}</span></div>` : ''}
+                    </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Hodnota konverzií</div>
+                        <div class="pt-stat-value">${fmtMoney(value)}</div>
+                        <div class="pt-stat-meta">${deltaChip(valueDelta)}</div>
+                    </div>
+                </div>
+
+                <div class="pt-grid-13">
+                    <div class="pt-card">
+                        <div class="pt-card-head">
+                            <div class="pt-card-title">Aktívne kampane (${activeCamps.length})</div>
+                            <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="switchTab('campaigns')">Všetky ${I.ArrowRight({size:12})}</button>
+                        </div>
+                        <div class="pt-card-body tight">
+                            ${activeCamps.length > 0 ? activeCamps.map(c => `
+                                <div class="pt-camp-row">
+                                    <div>
+                                        <div class="pt-camp-name">${escapeHtml(c.name || 'Kampaň')}</div>
+                                        <div class="pt-camp-meta">${c.platform_label ? escapeHtml(c.platform_label) : 'Multi-platform'}</div>
+                                    </div>
+                                    <span class="adl-chip ${statusToneClass(c.status)} adl-chip-sm"><span class="dot"></span>${statusLabel(c.status)}</span>
+                                    <span class="mono" style="font-size:12px; font-weight:600;">${c.budget ? fmtMoney(c.budget) : '—'}</span>
+                                    <span class="mono" style="font-size:12px;">${c.conversions != null ? c.conversions + ' konv.' : '—'}</span>
+                                    ${c.roi != null ? `<span class="adl-chip ${c.roi > 2 ? 'adl-chip-mint' : 'adl-chip-amber'} adl-chip-sm">${c.roi}×</span>` : '<span></span>'}
+                                </div>
+                            `).join('') : `<div class="empty-state" style="padding:40px;"><h3 style="margin-bottom:6px;">Žiadne aktívne kampane</h3><p style="color:var(--ink-sub); font-size:13px;">Akonáhle tím spustí kampaň, objaví sa tu.</p></div>`}
+                        </div>
+                    </div>
+
+                    <div class="pt-card">
+                        <div class="pt-card-head">
+                            <div class="pt-card-title">Vyžaduje vašu akciu</div>
+                        </div>
+                        <div class="pt-card-body">
+                            ${actionItems.length > 0 ? actionItems.map((a, i) => `
+                                <div class="pt-action" onclick="${a.target_tab ? `switchTab('${a.target_tab}')` : ''}" style="${i === 0 ? 'background:var(--brand-50);' : ''}">
+                                    <div class="pt-action-icon" style="background:${a.tone === 'brand' ? 'var(--brand-500)' : `var(--acc-${a.tone || 'sky'})`}; color:${a.tone === 'brand' ? '#fff' : `var(--acc-${a.tone || 'sky'}-ink)`};">
+                                        ${I[a.icon || 'Info']({size:15})}
+                                    </div>
+                                    <div class="pt-action-body">
+                                        <div class="pt-action-title">${escapeHtml(a.title)}</div>
+                                        <div class="pt-action-sub">${escapeHtml(a.sub || '')}</div>
+                                    </div>
+                                    ${I.Chevron({size:14, color:'var(--ink-mute)'})}
+                                </div>
+                            `).join('') : `<div style="text-align:center; padding:20px; color:var(--ink-sub); font-size:13px;">${I.Check({size:24})}<div style="margin-top:8px;">Žiadne akcie nečakajú</div></div>`}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-grid-2">
+                    <div class="pt-card">
+                        <div class="pt-card-head"><div class="pt-card-title">Tím Adlify</div></div>
+                        <div class="pt-card-body">
+                            ${teamMember ? `
+                                <div class="pt-team-row">
+                                    <div class="adl-avatar adl-avatar-lg">${initials(teamMember.name)}</div>
+                                    <div style="flex:1; min-width:0;">
+                                        <div class="pt-team-name">${escapeHtml(teamMember.name)}</div>
+                                        <div class="pt-team-sub">${escapeHtml(teamMember.role || 'Account manažér')} · ${escapeHtml(teamMember.response_time || 'odpovedá do 2h')}</div>
+                                    </div>
+                                    ${teamMember.email ? `<a class="adl-btn adl-btn-outline adl-btn-sm" href="mailto:${teamMember.email}">${I.Mail({size:14})} Napísať</a>` : ''}
+                                    ${teamMember.phone ? `<a class="adl-btn adl-btn-outline adl-btn-sm" href="tel:${teamMember.phone}">${I.Phone({size:14})} Zavolať</a>` : ''}
+                                </div>
+                            ` : `<div style="color:var(--ink-sub); font-size:13px;">Account manažér ešte nebol priradený.</div>`}
+                        </div>
+                    </div>
+
+                    <div class="pt-card">
+                        <div class="pt-card-head"><div class="pt-card-title">Najbližšie udalosti</div></div>
+                        <div class="pt-card-body">
+                            ${upcomingEvents.length > 0 ? upcomingEvents.map(ev => `
+                                <div class="pt-event">
+                                    <div class="pt-event-date">
+                                        <div>${escapeHtml(ev.date)}</div>
+                                        ${ev.time ? `<div class="pt-event-time">${escapeHtml(ev.time)}</div>` : ''}
+                                    </div>
+                                    <div class="pt-event-body" style="border-left-color:var(--acc-${ev.tone || 'sky'}-ink);">${escapeHtml(ev.title)}</div>
+                                </div>
+                            `).join('') : `<div style="color:var(--ink-sub); font-size:13px;">Žiadne plánované udalosti.</div>`}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
 
         function renderProjects() {
