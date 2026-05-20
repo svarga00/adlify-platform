@@ -25,62 +25,413 @@
             color: var(--ink);
         }
 
-        .portal-header {
+        /* ===== Topbar right actions ===== */
+        .pt-iconbtn {
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
             background: var(--surface);
+            display: inline-flex; align-items: center; justify-content: center;
+            position: relative;
+            color: var(--ink-sub);
+            cursor: pointer;
+        }
+        .pt-iconbtn:hover { color: var(--ink); background: var(--n-50); }
+        .pt-iconbtn .dot {
+            position: absolute; top: 7px; right: 8px;
+            width: 6px; height: 6px; border-radius: 99px; background: var(--brand-500);
+        }
+
+        /* ===== Dashboard hero ===== */
+        .pt-hero {
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+            border-radius: 16px;
+            padding: 28px;
+            color: #fff;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pt-hero::before {
+            content: ''; position: absolute; right: -50px; top: -50px;
+            width: 260px; height: 260px;
+            background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+            pointer-events: none;
+        }
+        .pt-hero-row { display: flex; align-items: flex-start; gap: 40px; position: relative; }
+        .pt-hero-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; font-weight: 600; }
+        .pt-hero-value { font-size: 44px; font-weight: 700; letter-spacing: -1.5px; margin-top: 6px; line-height: 1.1; font-family: var(--font-mono); }
+        .pt-hero-meta { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+        .pt-hero-chip {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            background: rgba(255,255,255,0.18);
+            padding: 4px 10px; border-radius: 999px;
+        }
+        .pt-hero-sub { font-size: 13px; opacity: 0.85; }
+        .pt-hero-spark { width: 300px; flex-shrink: 0; }
+        @media (max-width: 720px) {
+            .pt-hero-row { flex-direction: column; gap: 16px; }
+            .pt-hero-spark { width: 100%; }
+            .pt-hero-value { font-size: 34px; }
+        }
+
+        /* ===== KPI stat grid ===== */
+        .pt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        @media (max-width: 900px) { .pt-stats { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px) { .pt-stats { grid-template-columns: 1fr; } }
+        .pt-stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .pt-stat-label { font-size: 11px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+        .pt-stat-value { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-top: 6px; font-family: var(--font-mono); color: var(--ink); }
+        .pt-stat-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 11px; }
+        .pt-stat-delta-up { color: var(--ok); font-weight: 600; }
+        .pt-stat-delta-down { color: var(--err); font-weight: 600; }
+        .pt-stat-hint { color: var(--ink-mute); }
+
+        /* ===== Two-col dashboard grids ===== */
+        .pt-grid-13 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .pt-grid-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 900px) { .pt-grid-13, .pt-grid-2 { grid-template-columns: 1fr; } }
+
+        /* ===== Cards (light) ===== */
+        .pt-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .pt-card-head {
+            padding: 14px 18px;
             border-bottom: 1px solid var(--border);
-            padding: 14px 28px;
-            display: flex;
-            justify-content: space-between;
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 10px;
+        }
+        .pt-card-title { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+        .pt-card-body { padding: 18px; }
+        .pt-card-body.tight { padding: 0; }
+
+        /* ===== Campaign row in dashboard ===== */
+        .pt-camp-row {
+            padding: 14px 18px;
+            display: grid;
+            grid-template-columns: 2fr 100px 80px 80px 60px;
+            gap: 14px;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+        }
+        .pt-camp-row + .pt-camp-row { border-top: 1px solid var(--border); }
+        .pt-camp-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+        .pt-camp-meta { font-size: 11px; color: var(--ink-sub); display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+        @media (max-width: 720px) {
+            .pt-camp-row { grid-template-columns: 1fr auto; }
+            .pt-camp-row > :nth-child(n+3) { display: none; }
         }
 
-        .logo { display: flex; align-items: center; gap: 10px; }
-        .client-badge {
+        /* ===== Action items ===== */
+        .pt-action {
+            display: flex; gap: 12px;
+            padding: 12px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background .12s;
+        }
+        .pt-action:hover { background: var(--n-50); }
+        .pt-action-icon {
+            width: 34px; height: 34px; border-radius: 9px;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .pt-action-body { flex: 1; min-width: 0; }
+        .pt-action-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+        .pt-action-sub { font-size: 11px; color: var(--ink-sub); margin-top: 2px; }
+
+        /* ===== Team + events ===== */
+        .pt-team-row { display: flex; align-items: center; gap: 14px; }
+        .pt-team-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+        .pt-team-sub { font-size: 11px; color: var(--ink-sub); margin-top: 2px; }
+        .pt-event {
+            display: flex; gap: 14px;
+            padding: 10px 0;
+        }
+        .pt-event + .pt-event { border-top: 1px dashed var(--border); }
+        .pt-event-date {
+            text-align: center; width: 44px; flex-shrink: 0;
+            font-family: var(--font-mono);
+            font-size: 15px; font-weight: 600; color: var(--ink);
+        }
+        .pt-event-time { font-size: 10px; color: var(--ink-mute); margin-top: 2px; }
+        .pt-event-body { flex: 1; font-size: 13px; padding-left: 12px; border-left: 3px solid var(--acc-sky-ink); color: var(--ink); }
+
+        /* ===== Preview banner ===== */
+        .pt-preview-badge {
+            background: color-mix(in oklab, var(--warn) 18%, var(--surface));
+            color: var(--warn);
+            font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
             font-size: 10px;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 4px;
-            letter-spacing: 0.5px;
+            padding: 3px 8px; border-radius: 6px;
         }
-        .header-right { display: flex; align-items: center; gap: 12px; }
-        .client-name { font-weight: 500; color: var(--ink-sub); font-size: 13px; }
 
-        .portal-nav {
+        /* ===== Mobile sidebar toggle (PR A: simple — hidden on mobile, content goes full-width) ===== */
+        .pt-menu-btn { display: none; }
+        @media (max-width: 900px) {
+            .pt-menu-btn {
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 34px; height: 34px; border-radius: 9px;
+                border: 1px solid var(--border); background: var(--surface);
+                color: var(--ink-sub);
+            }
+        }
+
+        /* ===== Campaigns grid (PR B) ===== */
+        .pt-camp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        @media (max-width: 1100px) { .pt-camp-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 640px)  { .pt-camp-grid { grid-template-columns: 1fr; } }
+        .pt-camp-card {
             background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform .15s, box-shadow .15s;
+        }
+        .pt-camp-card:hover { transform: translateY(-2px); box-shadow: var(--sh-md); }
+        .pt-camp-cover {
+            height: 100px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            padding: 14px;
+        }
+        .pt-camp-cover-rose { background: linear-gradient(135deg, var(--acc-rose), #F0B5BF); }
+        .pt-camp-cover-mint { background: linear-gradient(135deg, var(--acc-mint), #A3D6B5); }
+        .pt-camp-cover-lav  { background: linear-gradient(135deg, var(--acc-lavender), #C6BDF0); }
+        .pt-camp-cover-sky  { background: linear-gradient(135deg, var(--acc-sky), #B0CFEA); }
+        .pt-camp-cover-amber{ background: linear-gradient(135deg, var(--acc-amber), #F2C879); }
+        .pt-camp-platforms {
+            position: absolute; top: 14px; right: 14px;
+            display: flex; gap: 6px;
+            background: rgba(255,255,255,0.85);
+            padding: 5px 8px; border-radius: 8px;
+            color: var(--ink);
+        }
+        .pt-camp-body { padding: 18px; }
+        .pt-camp-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; color: var(--ink); }
+        .pt-camp-sub   { font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
+        .pt-progress-wrap { margin-top: 14px; }
+        .pt-progress-head {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: var(--ink-mute);
+            margin-bottom: 6px;
+        }
+        .pt-progress-bar {
+            height: 6px; background: var(--n-75);
+            border-radius: 99px; overflow: hidden;
+        }
+        .pt-progress-fill { height: 100%; background: var(--brand-500); }
+        .pt-camp-stats {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 14px; padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .pt-camp-stat-label {
+            font-size: 10px; color: var(--ink-mute);
+            text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;
+        }
+        .pt-camp-stat-value {
+            font-size: 20px; font-weight: 600;
+            font-family: var(--font-mono);
+            color: var(--ink);
+        }
+        .pt-camp-stat-value.ok   { color: var(--ok); }
+        .pt-camp-stat-value.warn { color: var(--warn); }
+
+        /* ===== Data table (PR B — Invoices, Tickets) ===== */
+        .pt-table { width: 100%; }
+        .pt-table-row {
+            display: grid;
+            padding: 14px 20px;
+            border-top: 1px solid var(--border);
+            align-items: center;
+            gap: 12px;
+        }
+        .pt-table-row:first-of-type { border-top: none; }
+        .pt-table-head {
+            display: grid;
+            padding: 12px 20px;
+            background: var(--n-50);
             border-bottom: 1px solid var(--border);
-            padding: 0 28px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ink-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            gap: 12px;
+        }
+        .pt-table-cols-inv      { grid-template-columns: 140px 1fr 100px 120px 110px 100px 32px; }
+        @media (max-width: 900px) {
+            .pt-table-cols-inv  { grid-template-columns: 1fr 100px 100px; }
+            .pt-table-cols-inv > :nth-child(n+4) { display: none; }
+            .pt-table-head.pt-table-cols-inv > :nth-child(n+4) { display: none; }
         }
 
-        .nav-tabs { display: flex; gap: 4px; }
+        /* ===== Filter chip strip (PR B — Documents) ===== */
+        .pt-chip-strip {
+            display: flex; gap: 6px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .pt-chip-filter {
+            display: inline-flex; align-items: center;
+            padding: 5px 12px;
+            border-radius: 999px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ink-sub);
+            cursor: pointer;
+            transition: all .12s;
+            font-family: inherit;
+        }
+        .pt-chip-filter:hover { color: var(--ink); background: var(--n-50); }
+        .pt-chip-filter.active {
+            background: var(--n-900);
+            color: #fff;
+            border-color: var(--n-900);
+        }
 
-        .nav-tab {
-            padding: 12px 16px;
-            border: none;
-            background: transparent;
+        /* ===== Document grid (PR B) ===== */
+        .pt-doc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 1100px) { .pt-doc-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 720px)  { .pt-doc-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px)  { .pt-doc-grid { grid-template-columns: 1fr; } }
+        .pt-doc-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex; flex-direction: column;
+            gap: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            transition: transform .12s, box-shadow .12s, border-color .12s;
+        }
+        .pt-doc-card:hover { transform: translateY(-2px); box-shadow: var(--sh-md); border-color: var(--n-100); }
+        .pt-doc-icon {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .pt-doc-icon-mint { background: var(--acc-mint); color: var(--acc-mint-ink); }
+        .pt-doc-icon-lav  { background: var(--acc-lavender); color: var(--acc-lavender-ink); }
+        .pt-doc-icon-sky  { background: var(--acc-sky); color: var(--acc-sky-ink); }
+        .pt-doc-icon-rose { background: var(--acc-rose); color: var(--acc-rose-ink); }
+        .pt-doc-icon-amber{ background: var(--acc-amber); color: var(--acc-amber-ink); }
+        .pt-doc-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+        .pt-doc-sub   { font-size: 11px; color: var(--ink-sub); margin-top: 2px; }
+        .pt-doc-foot {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: var(--ink-mute);
+            margin-top: auto;
+            align-items: center;
+        }
+
+        /* ===== Settings 2-col layout (PR B) ===== */
+        .pt-settings-grid {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 900px) {
+            .pt-settings-grid { grid-template-columns: 1fr; gap: 14px; }
+        }
+        .pt-settings-nav {
+            display: flex; flex-direction: column;
+            gap: 2px;
+        }
+        @media (max-width: 900px) {
+            .pt-settings-nav { flex-direction: row; flex-wrap: wrap; }
+        }
+        .pt-settings-nav-item {
+            display: flex; align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
             font-size: 13px;
             font-weight: 500;
             color: var(--ink-sub);
             cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: color .12s, border-color .12s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            background: transparent;
+            border: none;
             font-family: inherit;
+            text-align: left;
+        }
+        .pt-settings-nav-item:hover { background: var(--n-50); color: var(--ink); }
+        .pt-settings-nav-item.active {
+            background: var(--n-75);
+            color: var(--ink);
+            font-weight: 600;
         }
 
-        .nav-tab:hover { color: var(--ink); }
-        .nav-tab.active { color: var(--brand-600); border-bottom-color: var(--brand-500); font-weight: 600; }
-
-        .portal-main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
+        /* ===== Settings — Profile readonly fields ===== */
+        .pt-field-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        @media (max-width: 640px) { .pt-field-grid { grid-template-columns: 1fr; } }
+        .pt-field-label {
+            font-size: 11px;
+            color: var(--ink-mute);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .pt-field-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--n-50);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--ink);
+        }
+        .pt-field-input:focus {
+            outline: none;
+            border-color: var(--brand-500);
+            background: var(--surface);
         }
 
+        /* ===== Profile header (settings) ===== */
+        .pt-profile-head {
+            display: flex; gap: 20px; align-items: center;
+            margin-bottom: 20px; padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .pt-profile-avatar-lg {
+            width: 70px; height: 70px;
+            border-radius: 99px;
+            background: var(--brand-500); color: #fff;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 22px; font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        /* ===== Legacy styles still used by other tabs (PR B will refactor) ===== */
         .card {
             background: var(--surface);
             border-radius: 14px;
@@ -89,7 +440,6 @@
             margin-bottom: 18px;
             box-shadow: var(--sh-sm);
         }
-
         .card-header {
             padding: 14px 20px;
             border-bottom: 1px solid var(--border);
@@ -97,7 +447,6 @@
             justify-content: space-between;
             align-items: center;
         }
-
         .card-header h2 {
             font-size: 15px;
             font-weight: 600;
@@ -107,63 +456,9 @@
             align-items: center;
             gap: 8px;
         }
-
         .card-body { padding: 20px; }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-        @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 520px) { .stats-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 640px) {
-            .portal-header { padding: 1rem; flex-wrap: wrap; }
-            .portal-nav { padding: 0 0.5rem; overflow-x: auto; }
-            .nav-tabs { flex-wrap: nowrap; white-space: nowrap; }
-            .portal-main { padding: 1rem; }
-        }
-
-        .stat-card {
-            background: var(--surface);
-            border-radius: 14px;
-            padding: 18px;
-            text-align: center;
-            border: 1px solid var(--border);
-            box-shadow: var(--sh-sm);
-        }
-
-        .stat-icon { display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px; color: var(--brand-500); }
-        .stat-icon svg { width: 22px; height: 22px; }
-        .stat-value { font-size: 28px; font-weight: 700; color: var(--ink); letter-spacing: -0.5px; }
-        .stat-label { font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
-
-        .welcome-card {
-            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
-            color: white;
-            border: none;
-            position: relative;
-            overflow: hidden;
-        }
-        .welcome-card::before {
-            content: ''; position: absolute; right: -60px; top: -60px;
-            width: 240px; height: 240px;
-            background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
-        }
-
-        .welcome-card .card-body {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .welcome-text h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        .welcome-text p { opacity: 0.9; }
-        .welcome-icon { font-size: 4rem; }
-
         .item-list { display: flex; flex-direction: column; gap: 0.75rem; }
-
         .item {
             display: flex;
             align-items: center;
@@ -177,138 +472,84 @@
             color: inherit;
         }
         .item:hover { background: var(--n-75); transform: translateX(2px); }
-
         .item-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            width: 40px; height: 40px; border-radius: 10px;
+            display: inline-flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
         .item-icon.project { background: var(--acc-sky); color: var(--acc-sky-ink); }
         .item-icon.campaign { background: var(--acc-amber); color: var(--acc-amber-ink); }
         .item-icon.invoice { background: var(--acc-mint); color: var(--acc-mint-ink); }
         .item-icon.document { background: var(--acc-lavender); color: var(--acc-lavender-ink); }
-
         .item-info { flex: 1; min-width: 0; }
         .item-name { font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: -0.1px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .item-meta { font-size: 11px; color: var(--ink-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
         .item-status {
-            padding: 3px 9px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 500;
-            flex-shrink: 0;
+            padding: 3px 9px; border-radius: 999px;
+            font-size: 11px; font-weight: 500; flex-shrink: 0;
         }
         .status-active, .status-paid { background: var(--acc-mint); color: var(--acc-mint-ink); }
         .status-pending, .status-in_progress { background: var(--acc-amber); color: var(--acc-amber-ink); }
         .status-draft { background: var(--n-100); color: var(--ink-sub); }
         .status-overdue { background: color-mix(in oklab, var(--err) 14%, transparent); color: var(--err); }
 
-        .invoice-amount {
-            font-weight: 700;
-            color: #1e293b;
-            margin-right: 1rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #64748b;
-        }
-
-        .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .invoice-amount { font-weight: 700; color: var(--ink); margin-right: 1rem; }
+        .empty-state { text-align: center; padding: 3rem; color: var(--ink-sub); }
         .empty-state h3 { font-size: 1rem; font-weight: 500; }
 
         .error-screen {
             min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 2rem;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; padding: 2rem;
         }
-
-        .error-icon { font-size: 4rem; margin-bottom: 1rem; }
         .error-screen h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        .error-screen p { color: #64748b; margin-bottom: 1.5rem; }
+        .error-screen p { color: var(--ink-sub); margin-bottom: 1.5rem; }
 
         .btn {
-            padding: 10px 16px;
-            border-radius: 10px;
-            font-weight: 500;
-            font-size: 13px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
+            padding: 10px 16px; border-radius: 10px;
+            font-weight: 500; font-size: 13px;
+            cursor: pointer; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
             border: 1px solid transparent;
-            transition: background .12s;
             font-family: inherit;
         }
         .btn-primary { background: var(--brand-500); color: white; border-color: var(--brand-500); }
         .btn-primary:hover { background: var(--brand-600); }
-        .btn-secondary { background: var(--n-75); color: var(--ink); border-color: transparent; }
-        .btn-secondary:hover { background: var(--n-100); }
 
         .loading {
             min-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
             gap: 16px;
         }
-
         .spinner {
-            width: 40px;
-            height: 40px;
+            width: 40px; height: 40px;
             border: 3px solid var(--n-100);
             border-top-color: var(--brand-500);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .contact-card {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
+            display: flex; align-items: center; gap: 1rem;
             padding: 1.5rem;
-            background: linear-gradient(135deg, #fef3e7, #fce7f3);
+            background: var(--n-50);
+            border: 1px solid var(--border);
             border-radius: 12px;
         }
-
         .contact-avatar {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #f97316, #ec4899);
+            width: 50px; height: 50px;
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
             border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 1.25rem;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: 700; font-size: 1.25rem;
         }
-
         .contact-info { flex: 1; }
         .contact-info h4 { font-size: 1rem; margin-bottom: 0.25rem; }
-        .contact-info p { font-size: 0.85rem; color: #64748b; }
+        .contact-info p { font-size: 0.85rem; color: var(--ink-sub); }
         .contact-actions { display: flex; gap: 0.5rem; }
-
-        @media (max-width: 768px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .portal-header { padding: 1rem; }
-            .portal-main { padding: 1rem; }
-            .nav-tabs { overflow-x: auto; }
-        }
     </style>
 </head>
 <body>
@@ -334,18 +575,123 @@
         let documents = [];
         let tickets = [];
         let currentTab = 'dashboard';
+        let currentDocFilter = 'all';
+        let currentSettingsSection = 'profile';
         let expandedTicketId = null;
         let ticketReplies = {};
+        const isPreview = new URLSearchParams(location.search).get('preview') === '1';
+
+        function loadPreviewData() {
+            const now = new Date();
+            const daysAgo = (n) => new Date(now.getTime() - n * 86400000).toISOString();
+            user = { id: 'preview-user', email: 'demo@adlify.sk', user_metadata: { full_name: 'Demo Klient' } };
+            client = {
+                id: 'preview-client',
+                company_name: 'Pekáreň Jablko s.r.o.',
+                contact_person: 'Jana Kováčová',
+                email: 'jana@pekaren-jablko.sk',
+                phone: '+421 901 234 567',
+                domain: 'pekaren-jablko.sk',
+                ico: '12345678',
+                dic: '2023456789',
+                ic_dph: 'SK2023456789',
+                billing_street: 'Hviezdoslavova 12',
+                billing_zip: '811 02',
+                billing_city: 'Bratislava',
+                billing_country: 'SK',
+                onboarding_status: 'completed',
+                position: 'Konateľka',
+                language: 'sk',
+                payment_method: 'SEPA',
+                payment_last4: '••• 4521',
+                notification_prefs: { email_invoices: true, email_campaigns: true, email_messages: true, email_marketing: false },
+                ad_accounts: [
+                    { platform: 'meta',   name: 'Meta Ads · Pekáreň Jablko',  account_id: 'act_1234567890' },
+                    { platform: 'google', name: 'Google Ads · Pekáreň Jablko', account_id: '123-456-7890' }
+                ],
+                dashboard_kpis: {
+                    conversions: 142,
+                    conversions_delta_pct: 28,
+                    roi: 3.4,
+                    cost_per_conversion: 5.96,
+                    reach: 184200,
+                    clicks: 8421,
+                    ctr_pct: 4.6,
+                    spent: 847,
+                    budget: 1000,
+                    conversion_value: 12480,
+                    conversion_value_delta_pct: 42,
+                    trend: [2, 4, 3, 5, 6, 4, 7, 9, 8, 10, 12, 14, 15, 13, 18]
+                },
+                action_items: [
+                    { icon: 'Check',   title: '4 kreatívy na schválenie', sub: 'Letná kampaň · do 20. 4.',       tone: 'brand',  target_tab: 'approvals' },
+                    { icon: 'Invoice', title: 'Faktúra 2026/04/015',      sub: '249 € · splatnosť 15. 4.',       tone: 'amber',  target_tab: 'invoices' },
+                    { icon: 'Mail',    title: 'Otázka od Lucie',          sub: 'Report — odpovedať',             tone: 'sky',    target_tab: 'messages' },
+                ],
+                account_manager: {
+                    name: 'Štefan Varga',
+                    role: 'Váš account manažér',
+                    response_time: 'odpovedá do 2h',
+                    email: 'stefan@adlify.sk',
+                    phone: '+421 905 123 456'
+                },
+                upcoming_events: [
+                    { date: '18. 4.', time: '14:00', title: 'Call · monthly review',     tone: 'amber' },
+                    { date: '22. 4.', time: '',      title: 'Spustenie novej kampane',   tone: 'sky' },
+                    { date: '1. 5.',  time: '',      title: 'Fakturácia máj',            tone: 'amber' },
+                ]
+            };
+            campaigns = [
+                { id: 'c1', client_id: client.id, name: 'Letná ponuka · chlieb BIO', platform_label: 'FB + Instagram', cover_tone: 'rose',  status: 'active', budget: 420, budget_total: 1000, conversions: 47, roi: 2.1, created_at: daysAgo(45) },
+                { id: 'c2', client_id: client.id, name: 'Lokálne cielenie · 15km',   platform_label: 'Google Ads',     cover_tone: 'mint',  status: 'active', budget: 280, budget_total: 400,  conversions: 68, roi: 4.2, created_at: daysAgo(30) },
+                { id: 'c3', client_id: client.id, name: 'Remarketing wellness',     platform_label: 'Facebook',        cover_tone: 'lav',   status: 'paused', budget: 147, budget_total: 300,  conversions: 27, roi: 1.8, created_at: daysAgo(60) }
+            ];
+            projects = [
+                { id: 'p1', client_id: client.id, name: 'Jarná kampaň 2026', status: 'active', created_at: daysAgo(50) }
+            ];
+            invoices = [
+                { id: 'i1', client_id: client.id, invoice_number: '2026/04/015', description: 'Pro balík · apríl 2026',            total: 249, status: 'paid',    issue_date: daysAgo(34), due_date: daysAgo(19), file_url: '#', created_at: daysAgo(34) },
+                { id: 'i2', client_id: client.id, invoice_number: '2026/03/012', description: 'Pro balík · marec 2026',            total: 249, status: 'paid',    issue_date: daysAgo(65), due_date: daysAgo(50), file_url: '#', created_at: daysAgo(65) },
+                { id: 'i3', client_id: client.id, invoice_number: '2026/02/009', description: 'Pro balík · február 2026',          total: 249, status: 'paid',    issue_date: daysAgo(93), due_date: daysAgo(78), file_url: '#', created_at: daysAgo(93) },
+                { id: 'i4', client_id: client.id, invoice_number: '2026/01/004', description: 'Pro balík · január 2026 + setup',   total: 498, status: 'paid',    issue_date: daysAgo(124), due_date: daysAgo(109), file_url: '#', created_at: daysAgo(124) },
+                { id: 'i5', client_id: client.id, invoice_number: '2026/05/—',   description: 'Pro balík · máj 2026 (pripravované)', total: 249, status: 'pending', issue_date: daysAgo(0),   due_date: daysAgo(-14), created_at: daysAgo(0) }
+            ];
+            documents = [
+                { id: 'd1', client_id: client.id, name: 'Zmluva Pro · podpísaná',  category: 'contract', file_name: 'PDF · 2.4 MB',  file_url: '#', created_at: daysAgo(124) },
+                { id: 'd2', client_id: client.id, name: 'Report · marec 2026',     category: 'report',   file_name: 'PDF · 4.2 MB',  file_url: '#', created_at: daysAgo(50) },
+                { id: 'd3', client_id: client.id, name: 'Report · február 2026',   category: 'report',   file_name: 'PDF · 4.1 MB',  file_url: '#', created_at: daysAgo(78) },
+                { id: 'd4', client_id: client.id, name: 'Kreatívy · letná',        category: 'creative', file_name: 'ZIP · 18 MB',   file_url: '#', created_at: daysAgo(32) },
+                { id: 'd5', client_id: client.id, name: 'Brand guidelines',        category: 'contract', file_name: 'PDF · 8.1 MB',  file_url: '#', created_at: daysAgo(38) },
+                { id: 'd6', client_id: client.id, name: 'Faktúry Q1 2026',         category: 'invoice',  file_name: 'ZIP · 1.2 MB',  file_url: '#', created_at: daysAgo(50) },
+                { id: 'd7', client_id: client.id, name: 'Logo pack',               category: 'creative', file_name: 'ZIP · 22.6 MB', file_url: '#', created_at: daysAgo(124) },
+                { id: 'd8', client_id: client.id, name: 'GDPR súhlasy',            category: 'contract', file_name: 'PDF · 340 KB',  file_url: '#', created_at: daysAgo(124) }
+            ];
+            tickets = [
+                { id: 't1', client_id: client.id, subject: 'Žiadosť o úpravu cieľovej skupiny', description: 'Chceli by sme zúžiť targeting na Bratislavu a okolie do 30 km.', category: 'campaign', priority: 'medium', status: 'in_progress', created_at: daysAgo(3) },
+                { id: 't2', client_id: client.id, subject: 'Otázka k poslednej faktúre', description: 'Pri faktúre 2026-0067 nie je jasné, čo zahŕňa poplatok za reporting.', category: 'billing', priority: 'low', status: 'resolved', created_at: daysAgo(10) }
+            ];
+        }
+
+        function previewBlocked(msgEl) {
+            if (!msgEl) return;
+            msgEl.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--warn, #d97706) 14%, var(--surface)); color:var(--warn, #d97706); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Náhľad — zmeny sa neukladajú</div>`;
+        }
 
         async function init() {
+            if (isPreview) {
+                loadPreviewData();
+                render();
+                return;
+            }
+
             // Check authentication
             const { data: { session } } = await db.auth.getSession();
-            
+
             if (!session) {
                 window.location.href = '/portal/login.html';
                 return;
             }
-            
+
             user = session.user;
 
             try {
@@ -362,7 +708,7 @@
                 }
 
                 client = clientUser.clients;
-                
+
                 // Check if onboarding completed
                 if (client.onboarding_status && client.onboarding_status !== 'completed') {
                     window.location.href = '/portal/onboarding.html';
@@ -415,40 +761,127 @@
         }
 
         async function logout() {
+            if (isPreview) {
+                window.location.href = '/portal/login.html';
+                return;
+            }
             await db.auth.signOut();
             window.location.href = '/portal/login.html';
         }
 
-        function render() {
-            const firstName = user.user_metadata?.full_name?.split(' ')[0] || client.contact_person?.split(' ')[0] || 'vážený klient';
-            
-            document.getElementById('app').innerHTML = `
-                <header class="portal-header">
-                    <div class="logo" style="display:flex; align-items:center; gap:10px;">
-                        ${I.Logo({size:30, id:'pl'})}
-                        <span class="logo-text" style="font-size:18px; font-weight:700; letter-spacing:-0.5px;">Adlify</span>
-                        <span class="client-badge" style="background:var(--brand-50); color:var(--brand-700); font-weight:600; letter-spacing:0.4px; text-transform:uppercase;">Klient</span>
+        const SIDEBAR_GROUPS = [
+            { label: 'Prehľad', items: [
+                { key: 'dashboard', icon: 'Dashboard', label: 'Prehľad' },
+                { key: 'reports',   icon: 'Chart',     label: 'Reporty' },
+                { key: 'campaigns', icon: 'Campaign',  label: 'Kampane' },
+            ]},
+            { label: 'Spolupráca', items: [
+                { key: 'messages',  icon: 'Mail',     label: 'Správy' },
+                { key: 'approvals', icon: 'Check',    label: 'Schvaľovanie' },
+                { key: 'calendar',  icon: 'Calendar', label: 'Kalendár' },
+                { key: 'support',   icon: 'Ticket',   label: 'Tickety' },
+            ]},
+            { label: 'Administratíva', items: [
+                { key: 'invoices',  icon: 'Invoice',  label: 'Faktúry' },
+                { key: 'documents', icon: 'Docs',     label: 'Dokumenty' },
+                { key: 'account',   icon: 'Settings', label: 'Nastavenia' },
+            ]},
+        ];
+
+        const TAB_META = {
+            dashboard: { title: () => `Dobré ráno, ${firstName()}`, sub: () => `${currentMonthLabel()} · ${client.company_name}` },
+            reports:   { title: () => 'Reporty',                     sub: () => `Výkon kampaní · ${client.company_name}` },
+            campaigns: { title: () => 'Kampane',                     sub: () => `${campaigns.length} aktívnych` },
+            messages:  { title: () => 'Správy',                      sub: () => 'Komunikácia s tímom' },
+            approvals: { title: () => 'Schvaľovanie',                sub: () => 'Kreatívy čakajúce na schválenie' },
+            calendar:  { title: () => 'Kalendár',                    sub: () => 'Plánované udalosti' },
+            support:   { title: () => 'Tickety',                     sub: () => 'Podporné požiadavky' },
+            invoices:  { title: () => 'Faktúry',                     sub: () => 'História platieb' },
+            documents: { title: () => 'Dokumenty',                   sub: () => 'Zmluvy, reporty, kreatívy' },
+            account:   { title: () => 'Nastavenia',                  sub: () => client.company_name },
+        };
+
+        function firstName() {
+            return user?.user_metadata?.full_name?.split(' ')[0]
+                || client?.contact_person?.split(' ')[0]
+                || 'vážený klient';
+        }
+
+        function currentMonthLabel() {
+            const months = ['január','február','marec','apríl','máj','jún','júl','august','september','október','november','december'];
+            const d = new Date();
+            return `${months[d.getMonth()]} ${d.getFullYear()}`;
+        }
+
+        function initials(name) {
+            if (!name) return '?';
+            const parts = name.trim().split(/\s+/);
+            return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+        }
+
+        function renderSidebar() {
+            return `
+                <aside class="adl-sidebar">
+                    <div class="adl-sidebar-inner">
+                        <div class="adl-sidebar-brand">
+                            ${I.Logo({size:28, id:'sb-logo'})}
+                            <div class="adl-sidebar-brand-text">Adlify<span class="adl-sidebar-brand-subtag">Klient</span></div>
+                        </div>
+                        <nav class="adl-sidebar-nav">
+                            ${SIDEBAR_GROUPS.map(g => `
+                                <div class="adl-sidebar-group">
+                                    <div class="adl-sidebar-group-label">${g.label}</div>
+                                    ${g.items.map(it => `
+                                        <a class="adl-sidebar-item ${currentTab === it.key ? 'active' : ''}" onclick="switchTab('${it.key}')">
+                                            ${I[it.icon]({size:17})}
+                                            <span class="adl-sidebar-item-label">${it.label}</span>
+                                        </a>
+                                    `).join('')}
+                                </div>
+                            `).join('')}
+                        </nav>
+                        <div class="adl-sidebar-footer">
+                            <div class="adl-avatar">${initials(client.contact_person || client.company_name)}</div>
+                            <div class="adl-sidebar-footer-info">
+                                <div class="adl-sidebar-footer-name">${client.contact_person || 'Klient'}</div>
+                                <div class="adl-sidebar-footer-sub">${client.company_name}</div>
+                            </div>
+                            <a class="adl-sidebar-item" onclick="logout()" style="margin:0; padding:6px; flex:0;" title="Odhlásiť">${I.Logout({size:16})}</a>
+                        </div>
                     </div>
-                    <div class="header-right" style="display:flex; align-items:center; gap:12px;">
-                        <span class="client-name" style="font-size:13px; color:var(--ink-sub);">${client.company_name}</span>
-                        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="logout()">${I.Logout({size:14})} Odhlásiť</button>
+                </aside>
+            `;
+        }
+
+        function renderTopbar() {
+            const meta = TAB_META[currentTab] || TAB_META.dashboard;
+            return `
+                <header class="adl-topbar">
+                    <div class="adl-topbar-title-wrap">
+                        <div class="adl-topbar-title">
+                            ${meta.title()}
+                            ${isPreview ? `<span class="pt-preview-badge">Náhľad</span>` : ''}
+                        </div>
+                        <div class="adl-topbar-sub">${meta.sub()}</div>
+                    </div>
+                    <div class="adl-topbar-actions">
+                        <button class="pt-iconbtn" title="Notifikácie">${I.Bell({size:16})}<span class="dot"></span></button>
                     </div>
                 </header>
+            `;
+        }
 
-                <nav class="portal-nav">
-                    <div class="nav-tabs">
-                        <button class="nav-tab ${currentTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">${I.Dashboard({size:16})} Prehľad</button>
-                        <button class="nav-tab ${currentTab === 'campaigns' ? 'active' : ''}" onclick="switchTab('campaigns')">${I.Campaign({size:16})} Kampane</button>
-                        <button class="nav-tab ${currentTab === 'invoices' ? 'active' : ''}" onclick="switchTab('invoices')">${I.Invoice({size:16})} Faktúry</button>
-                        <button class="nav-tab ${currentTab === 'documents' ? 'active' : ''}" onclick="switchTab('documents')">${I.Docs({size:16})} Dokumenty</button>
-                        <button class="nav-tab ${currentTab === 'support' ? 'active' : ''}" onclick="switchTab('support')">${I.Ticket({size:16})} Podpora</button>
-                        <button class="nav-tab ${currentTab === 'account' ? 'active' : ''}" onclick="switchTab('account')">${I.Settings({size:16})} Môj účet</button>
+        function render() {
+            document.getElementById('app').innerHTML = `
+                <div class="adl adl-frame">
+                    ${renderSidebar()}
+                    <div class="adl-main">
+                        ${renderTopbar()}
+                        <main class="adl-content">
+                            ${renderContent()}
+                        </main>
                     </div>
-                </nav>
-
-                <main class="portal-main">
-                    ${renderContent()}
-                </main>
+                </div>
             `;
         }
 
@@ -460,49 +893,196 @@
         function renderContent() {
             switch (currentTab) {
                 case 'dashboard': return renderDashboard();
+                case 'reports':   return renderComingSoon('Reporty', 'Detailné reporty výkonu kampaní pribudnú v ďalšom update.');
                 case 'campaigns': return renderCampaigns();
-                case 'invoices': return renderInvoices();
+                case 'messages':  return renderComingSoon('Správy', 'Real-time komunikácia s tímom pribudne v ďalšom update.');
+                case 'approvals': return renderComingSoon('Schvaľovanie', 'Schvaľovanie kreatív pribudne v ďalšom update.');
+                case 'calendar':  return renderComingSoon('Kalendár', 'Plánované udalosti pribudnú v ďalšom update.');
+                case 'support':   return renderSupport();
+                case 'invoices':  return renderInvoices();
                 case 'documents': return renderDocuments();
-                case 'support': return renderSupport();
-                case 'account': return renderAccount();
+                case 'account':   return renderAccount();
                 default: return renderDashboard();
             }
         }
 
-        function renderDashboard() {
-            const firstName = user.user_metadata?.full_name?.split(' ')[0] || 'vážený klient';
-            const unpaidInvoices = invoices.filter(i => i.status !== 'paid').length;
-            const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
-            const openTickets = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
-            
+        function renderComingSoon(title, description) {
             return `
-                <div class="card welcome-card">
-                    <div class="card-body" style="position:relative; z-index:1;">
-                        <div class="welcome-text">
-                            <h1 style="font-size:28px; letter-spacing:-0.5px; margin-bottom:6px;">Vitajte, ${firstName}</h1>
-                            <p style="opacity:0.9; font-size:14px;">Toto je Váš klientský portál — sledujte výkon kampaní, faktúry a komunikáciu s tímom.</p>
-                        </div>
-                    </div>
+                <div class="pt-card" style="padding:60px 28px; text-align:center;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Clock({size:24})}</div>
+                    <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">${title} — čoskoro</h2>
+                    <p style="color:var(--ink-sub); font-size:13px; max-width:380px; margin:0 auto;">${description}</p>
                 </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card"><div style="color:var(--brand-500); display:inline-flex;">${I.Campaign({size:22})}</div><div class="stat-value">${activeCampaigns}</div><div class="stat-label">Aktívne kampane</div></div>
-                    <div class="stat-card"><div style="color:var(--warn); display:inline-flex;">${I.Invoice({size:22})}</div><div class="stat-value">${unpaidInvoices}</div><div class="stat-label">Neuhradené faktúry</div></div>
-                    <div class="stat-card"><div style="color:var(--acc-amber-ink); display:inline-flex;">${I.Ticket({size:22})}</div><div class="stat-value">${openTickets}</div><div class="stat-label">Otvorené tickety</div></div>
-                    <div class="stat-card"><div style="color:var(--acc-sky-ink); display:inline-flex;">${I.Docs({size:22})}</div><div class="stat-value">${documents.length}</div><div class="stat-label">Dokumenty</div></div>
-                </div>
-
-                ${unpaidInvoices > 0 ? `
-                    <div class="card" style="border-color: var(--warn);">
-                        <div class="card-header" style="background: color-mix(in oklab, var(--warn) 12%, var(--surface));">
-                            <h2 style="color:var(--warn); display:flex; align-items:center; gap:8px;">${I.Warning({size:18})} Neuhradené faktúry (${unpaidInvoices})</h2>
-                            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="switchTab('invoices')">Zobraziť</button>
-                        </div>
-                    </div>
-                ` : ''}
-
-                ${renderProjects()}
             `;
+        }
+
+        function sparkline(data, w = 300, h = 80, color = '#fff') {
+            if (!data || data.length < 2) return '';
+            const max = Math.max(...data), min = Math.min(...data);
+            const range = max - min || 1;
+            const step = w / (data.length - 1);
+            const points = data.map((v, i) => `${i * step},${h - ((v - min) / range) * (h - 4) - 2}`);
+            const path = `M ${points.join(' L ')}`;
+            const fillPath = `${path} L ${w},${h} L 0,${h} Z`;
+            return `
+                <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block; max-width:100%;">
+                    <defs>
+                        <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="${color}" stop-opacity="0.4"/>
+                            <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="${fillPath}" fill="url(#spark-grad)" stroke="none"/>
+                    <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            `;
+        }
+
+        function renderDashboard() {
+            const k = client.dashboard_kpis || {};
+            const conv = k.conversions ?? 0;
+            const convDelta = k.conversions_delta_pct;
+            const roi = k.roi ?? 0;
+            const cpa = k.cost_per_conversion ?? 0;
+            const reach = k.reach ?? 0;
+            const clicks = k.clicks ?? 0;
+            const ctr = k.ctr_pct;
+            const spent = k.spent ?? 0;
+            const budget = k.budget ?? 0;
+            const value = k.conversion_value ?? 0;
+            const valueDelta = k.conversion_value_delta_pct;
+            const trend = k.trend || [];
+            const actionItems = client.action_items || [];
+            const teamMember = client.account_manager || null;
+            const upcomingEvents = client.upcoming_events || [];
+            const activeCamps = campaigns.filter(c => c.status === 'active' || c.status === 'paused').slice(0, 3);
+
+            const fmtNum = (n) => new Intl.NumberFormat('sk-SK').format(Math.round(n));
+            const fmtMoney = (n) => new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €';
+            const deltaChip = (pct) => pct == null ? ''
+                : `<span class="${pct >= 0 ? 'pt-stat-delta-up' : 'pt-stat-delta-down'}">${pct >= 0 ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+            const statusToneClass = (s) => s === 'active' ? 'adl-chip-mint' : s === 'paused' ? 'adl-chip-amber' : '';
+            const statusLabel = (s) => s === 'active' ? 'Aktívna' : s === 'paused' ? 'Pauza' : (s || '—');
+
+            return `
+                <div class="pt-hero">
+                    <div class="pt-hero-row">
+                        <div style="flex:1; min-width:0;">
+                            <div class="pt-hero-label">Váš výkon · ${currentMonthLabel()}</div>
+                            <div class="pt-hero-value">${fmtNum(conv)} <span style="font-size:18px; font-weight:500; font-family:inherit; opacity:0.85;">konverzií</span></div>
+                            <div class="pt-hero-meta">
+                                ${convDelta != null ? `<span class="pt-hero-chip">${convDelta >= 0 ? '+' : ''}${convDelta}% vs. minulý mesiac</span>` : ''}
+                                <span class="pt-hero-sub">ROI ${roi}× · cena za konverziu ${fmtMoney(cpa)}</span>
+                            </div>
+                        </div>
+                        <div class="pt-hero-spark">${sparkline(trend, 300, 80, '#fff')}</div>
+                    </div>
+                </div>
+
+                <div class="pt-stats">
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Dosah</div>
+                        <div class="pt-stat-value">${fmtNum(reach)}</div>
+                    </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Kliky</div>
+                        <div class="pt-stat-value">${fmtNum(clicks)}</div>
+                        <div class="pt-stat-meta">${ctr != null ? `<span class="pt-stat-hint">CTR ${ctr}%</span>` : ''}</div>
+                    </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Minuté z budgetu</div>
+                        <div class="pt-stat-value">${fmtMoney(spent)}</div>
+                        ${budget ? `<div class="pt-stat-meta"><span class="pt-stat-hint">z ${fmtMoney(budget)}</span></div>` : ''}
+                    </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Hodnota konverzií</div>
+                        <div class="pt-stat-value">${fmtMoney(value)}</div>
+                        <div class="pt-stat-meta">${deltaChip(valueDelta)}</div>
+                    </div>
+                </div>
+
+                <div class="pt-grid-13">
+                    <div class="pt-card">
+                        <div class="pt-card-head">
+                            <div class="pt-card-title">Aktívne kampane (${activeCamps.length})</div>
+                            <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="switchTab('campaigns')">Všetky ${I.ArrowRight({size:12})}</button>
+                        </div>
+                        <div class="pt-card-body tight">
+                            ${activeCamps.length > 0 ? activeCamps.map(c => `
+                                <div class="pt-camp-row">
+                                    <div>
+                                        <div class="pt-camp-name">${escapeHtml(c.name || 'Kampaň')}</div>
+                                        <div class="pt-camp-meta">${c.platform_label ? escapeHtml(c.platform_label) : 'Multi-platform'}</div>
+                                    </div>
+                                    <span class="adl-chip ${statusToneClass(c.status)} adl-chip-sm"><span class="dot"></span>${statusLabel(c.status)}</span>
+                                    <span class="mono" style="font-size:12px; font-weight:600;">${c.budget ? fmtMoney(c.budget) : '—'}</span>
+                                    <span class="mono" style="font-size:12px;">${c.conversions != null ? c.conversions + ' konv.' : '—'}</span>
+                                    ${c.roi != null ? `<span class="adl-chip ${c.roi > 2 ? 'adl-chip-mint' : 'adl-chip-amber'} adl-chip-sm">${c.roi}×</span>` : '<span></span>'}
+                                </div>
+                            `).join('') : `<div class="empty-state" style="padding:40px;"><h3 style="margin-bottom:6px;">Žiadne aktívne kampane</h3><p style="color:var(--ink-sub); font-size:13px;">Akonáhle tím spustí kampaň, objaví sa tu.</p></div>`}
+                        </div>
+                    </div>
+
+                    <div class="pt-card">
+                        <div class="pt-card-head">
+                            <div class="pt-card-title">Vyžaduje vašu akciu</div>
+                        </div>
+                        <div class="pt-card-body">
+                            ${actionItems.length > 0 ? actionItems.map((a, i) => `
+                                <div class="pt-action" onclick="${a.target_tab ? `switchTab('${a.target_tab}')` : ''}" style="${i === 0 ? 'background:var(--brand-50);' : ''}">
+                                    <div class="pt-action-icon" style="background:${a.tone === 'brand' ? 'var(--brand-500)' : `var(--acc-${a.tone || 'sky'})`}; color:${a.tone === 'brand' ? '#fff' : `var(--acc-${a.tone || 'sky'}-ink)`};">
+                                        ${I[a.icon || 'Info']({size:15})}
+                                    </div>
+                                    <div class="pt-action-body">
+                                        <div class="pt-action-title">${escapeHtml(a.title)}</div>
+                                        <div class="pt-action-sub">${escapeHtml(a.sub || '')}</div>
+                                    </div>
+                                    ${I.Chevron({size:14, color:'var(--ink-mute)'})}
+                                </div>
+                            `).join('') : `<div style="text-align:center; padding:20px; color:var(--ink-sub); font-size:13px;">${I.Check({size:24})}<div style="margin-top:8px;">Žiadne akcie nečakajú</div></div>`}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-grid-2">
+                    <div class="pt-card">
+                        <div class="pt-card-head"><div class="pt-card-title">Tím Adlify</div></div>
+                        <div class="pt-card-body">
+                            ${teamMember ? `
+                                <div class="pt-team-row">
+                                    <div class="adl-avatar adl-avatar-lg">${initials(teamMember.name)}</div>
+                                    <div style="flex:1; min-width:0;">
+                                        <div class="pt-team-name">${escapeHtml(teamMember.name)}</div>
+                                        <div class="pt-team-sub">${escapeHtml(teamMember.role || 'Account manažér')} · ${escapeHtml(teamMember.response_time || 'odpovedá do 2h')}</div>
+                                    </div>
+                                    ${teamMember.email ? `<a class="adl-btn adl-btn-outline adl-btn-sm" href="mailto:${teamMember.email}">${I.Mail({size:14})} Napísať</a>` : ''}
+                                    ${teamMember.phone ? `<a class="adl-btn adl-btn-outline adl-btn-sm" href="tel:${teamMember.phone}">${I.Phone({size:14})} Zavolať</a>` : ''}
+                                </div>
+                            ` : `<div style="color:var(--ink-sub); font-size:13px;">Account manažér ešte nebol priradený.</div>`}
+                        </div>
+                    </div>
+
+                    <div class="pt-card">
+                        <div class="pt-card-head"><div class="pt-card-title">Najbližšie udalosti</div></div>
+                        <div class="pt-card-body">
+                            ${upcomingEvents.length > 0 ? upcomingEvents.map(ev => `
+                                <div class="pt-event">
+                                    <div class="pt-event-date">
+                                        <div>${escapeHtml(ev.date)}</div>
+                                        ${ev.time ? `<div class="pt-event-time">${escapeHtml(ev.time)}</div>` : ''}
+                                    </div>
+                                    <div class="pt-event-body" style="border-left-color:var(--acc-${ev.tone || 'sky'}-ink);">${escapeHtml(ev.title)}</div>
+                                </div>
+                            `).join('') : `<div style="color:var(--ink-sub); font-size:13px;">Žiadne plánované udalosti.</div>`}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
 
         function renderProjects() {
@@ -532,76 +1112,204 @@
         }
 
         function renderCampaigns() {
-            return `
-                <div class="card">
-                    <div class="card-header"><h2>Vaše kampane</h2></div>
-                    <div class="card-body">
-                        ${campaigns.length > 0 ? `
-                            <div class="item-list">
-                                ${campaigns.map(c => `
-                                    <div class="item">
-                                        <div class="item-icon campaign" style="color:var(--acc-amber-ink);">${c.platform === 'meta' ? I.Fb({size:18}) : I.Google({size:18})}</div>
-                                        <div class="item-info">
-                                            <div class="item-name">${c.name}</div>
-                                            <div class="item-meta">${c.platform === 'meta' ? 'Meta Ads' : 'Google Ads'} • Budget: ${formatCurrency(c.budget || 0)}/mes</div>
-                                        </div>
-                                        <span class="item-status status-${c.status || 'draft'}">${getStatusLabel(c.status)}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Campaign({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne kampane</div><div style="font-size:12px; margin-top:4px;">Kampane sa zobrazia po spustení</div></div>`}
+            if (campaigns.length === 0) {
+                return `
+                    <div class="pt-card" style="padding:60px 28px; text-align:center;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Campaign({size:24})}</div>
+                        <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">Zatiaľ žiadne kampane</h2>
+                        <p style="color:var(--ink-sub); font-size:13px; max-width:380px; margin:0 auto;">Kampane sa zobrazia po spustení tímom.</p>
                     </div>
+                `;
+            }
+            const coverTones = ['rose', 'mint', 'lav', 'sky', 'amber'];
+            const fmtMoney = (n) => new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €';
+            const statusChip = (s) => {
+                if (s === 'active') return `<span class="adl-chip adl-chip-mint adl-chip-sm"><span class="dot"></span>Aktívna</span>`;
+                if (s === 'paused') return `<span class="adl-chip adl-chip-amber adl-chip-sm"><span class="dot"></span>Pauza</span>`;
+                if (s === 'completed') return `<span class="adl-chip adl-chip-sky adl-chip-sm">Dokončená</span>`;
+                return `<span class="adl-chip adl-chip-sm">${getStatusLabel(s)}</span>`;
+            };
+            const platformIcons = (c) => {
+                const label = c.platform_label || (c.platform === 'meta' ? 'Facebook' : c.platform === 'google' ? 'Google' : '');
+                const icons = [];
+                if (/FB|Facebook|Meta/i.test(label)) icons.push(I.Fb({size:14}));
+                if (/IG|Instagram/i.test(label))    icons.push(I.Instagram({size:14}));
+                if (/Google/i.test(label))          icons.push(I.Google({size:14}));
+                return icons.length ? `<div class="pt-camp-platforms">${icons.join('')}</div>` : '';
+            };
+            return `
+                <div class="pt-camp-grid">
+                    ${campaigns.map((c, i) => {
+                        const cover = c.cover_tone || coverTones[i % coverTones.length];
+                        const budget = c.budget || 0;
+                        const budgetTotal = c.budget_total || budget;
+                        const pct = budgetTotal > 0 ? Math.min(100, Math.round((budget / budgetTotal) * 100)) : 0;
+                        const conv = c.conversions ?? 0;
+                        const roi = c.roi;
+                        return `
+                            <div class="pt-camp-card">
+                                <div class="pt-camp-cover pt-camp-cover-${cover}">
+                                    ${statusChip(c.status)}
+                                    ${platformIcons(c)}
+                                </div>
+                                <div class="pt-camp-body">
+                                    <div class="pt-camp-title">${escapeHtml(c.name || 'Kampaň')}</div>
+                                    <div class="pt-camp-sub">${escapeHtml(c.platform_label || (c.platform === 'meta' ? 'Meta Ads' : c.platform === 'google' ? 'Google Ads' : 'Multi-platform'))}</div>
+                                    ${budget > 0 ? `
+                                        <div class="pt-progress-wrap">
+                                            <div class="pt-progress-head">
+                                                <span>Rozpočet</span>
+                                                <span class="mono">${fmtMoney(budget)}${budgetTotal !== budget ? ` z ${fmtMoney(budgetTotal)}` : ''}</span>
+                                            </div>
+                                            <div class="pt-progress-bar"><div class="pt-progress-fill" style="width:${pct}%;"></div></div>
+                                        </div>
+                                    ` : ''}
+                                    <div class="pt-camp-stats">
+                                        <div>
+                                            <div class="pt-camp-stat-label">Konverzie</div>
+                                            <div class="pt-camp-stat-value">${conv}</div>
+                                        </div>
+                                        <div>
+                                            <div class="pt-camp-stat-label">ROI</div>
+                                            <div class="pt-camp-stat-value ${roi == null ? '' : roi > 2 ? 'ok' : 'warn'}">${roi != null ? roi + '×' : '—'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             `;
         }
 
         function renderInvoices() {
+            const year = new Date().getFullYear();
+            const paid = invoices.filter(i => i.status === 'paid');
+            const paidThisYear = paid.filter(i => new Date(i.issue_date || i.created_at || 0).getFullYear() === year);
+            const paidTotal = paidThisYear.reduce((sum, i) => sum + (i.total || 0), 0);
+            const upcoming = invoices
+                .filter(i => i.status !== 'paid' && i.due_date)
+                .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+            const paymentMethod = client?.payment_method || 'SEPA';
+            const paymentLast4 = client?.payment_last4 || '•••• ••••';
+
+            const fmtMoney = (n) => new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €';
+            const statusChip = (s) => {
+                if (s === 'paid') return `<span class="adl-chip adl-chip-mint adl-chip-sm"><span class="dot"></span>Zaplatené</span>`;
+                if (s === 'overdue') return `<span class="adl-chip adl-chip-err adl-chip-sm"><span class="dot"></span>Po splatnosti</span>`;
+                if (s === 'pending' || s === 'sent') return `<span class="adl-chip adl-chip-amber adl-chip-sm"><span class="dot"></span>Čaká</span>`;
+                return `<span class="adl-chip adl-chip-sm">${getInvoiceStatusLabel(s)}</span>`;
+            };
+
             return `
-                <div class="card">
-                    <div class="card-header"><h2>Faktúry</h2></div>
-                    <div class="card-body">
-                        ${invoices.length > 0 ? `
-                            <div class="item-list">
-                                ${invoices.map(i => `
-                                    <div class="item">
-                                        <div class="item-icon invoice" style="color:var(--acc-mint-ink);">${I.Invoice({size:18})}</div>
-                                        <div class="item-info">
-                                            <div class="item-name">${i.invoice_number || 'Faktúra'}</div>
-                                            <div class="item-meta">Vystavená: ${formatDate(i.issue_date || i.created_at)} | Splatnosť: ${formatDate(i.due_date)}</div>
-                                        </div>
-                                        <span class="invoice-amount">${formatCurrency(i.total)}</span>
-                                        <span class="item-status status-${i.status || 'pending'}">${getInvoiceStatusLabel(i.status)}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Invoice({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne faktúry</div></div>`}
+                <div class="pt-stats" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Celkom zaplatené (${year})</div>
+                        <div class="pt-stat-value">${fmtMoney(paidTotal)}</div>
+                        <div class="pt-stat-meta"><span class="pt-stat-hint">${paidThisYear.length} ${paidThisYear.length === 1 ? 'faktúra' : paidThisYear.length < 5 ? 'faktúry' : 'faktúr'}</span></div>
                     </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Ďalšia splatnosť</div>
+                        <div class="pt-stat-value">${upcoming ? fmtMoney(upcoming.total || 0) : '—'}</div>
+                        <div class="pt-stat-meta"><span class="pt-stat-hint">${upcoming ? formatDate(upcoming.due_date) : 'Žiadne neuhradené'}</span></div>
+                    </div>
+                    <div class="pt-stat">
+                        <div class="pt-stat-label">Spôsob platby</div>
+                        <div class="pt-stat-value">${escapeHtml(paymentMethod)}</div>
+                        <div class="pt-stat-meta"><span class="pt-stat-hint mono">${escapeHtml(paymentLast4)}</span></div>
+                    </div>
+                </div>
+
+                <div class="pt-card">
+                    ${invoices.length > 0 ? `
+                        <div class="pt-table">
+                            <div class="pt-table-head pt-table-cols-inv">
+                                <span>Číslo</span><span>Popis</span><span>Suma</span><span>Splatnosť</span><span>Status</span><span></span><span></span>
+                            </div>
+                            ${invoices.map(inv => `
+                                <div class="pt-table-row pt-table-cols-inv">
+                                    <span class="mono" style="font-size:11px; color:var(--ink-sub);">${escapeHtml(inv.invoice_number || '—')}</span>
+                                    <span style="font-size:13px; font-weight:500;">${escapeHtml(inv.description || inv.note || 'Faktúra')}</span>
+                                    <span class="mono" style="font-size:13px; font-weight:600;">${fmtMoney(inv.total || 0)}</span>
+                                    <span style="font-size:12px; color:var(--ink-sub);">${formatDate(inv.due_date)}</span>
+                                    ${statusChip(inv.status)}
+                                    ${inv.file_url
+                                        ? `<a class="adl-btn adl-btn-outline adl-btn-sm" href="${inv.file_url}" target="_blank" rel="noopener">${I.Download({size:12})} PDF</a>`
+                                        : `<span></span>`}
+                                    <span style="color:var(--ink-mute); cursor:pointer;">${I.More({size:14})}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div style="padding:60px 28px; text-align:center;">
+                            <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Invoice({size:24})}</div>
+                            <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">Zatiaľ žiadne faktúry</h2>
+                            <p style="color:var(--ink-sub); font-size:13px;">Prvá faktúra sa zobrazí po vystavení.</p>
+                        </div>
+                    `}
                 </div>
             `;
         }
 
         function renderDocuments() {
+            const categories = [
+                { key: 'all',       label: 'Všetko',    match: () => true },
+                { key: 'contract',  label: 'Zmluvy',    match: d => d.category === 'contract' },
+                { key: 'report',    label: 'Reporty',   match: d => d.category === 'report' },
+                { key: 'creative',  label: 'Kreatívy',  match: d => d.category === 'creative' },
+                { key: 'invoice',   label: 'Faktúry',   match: d => d.category === 'invoice' },
+            ];
+            const docToneIcon = (cat) => {
+                switch (cat) {
+                    case 'contract': return { tone: 'mint',  icon: 'Docs' };
+                    case 'report':   return { tone: 'lav',   icon: 'Chart' };
+                    case 'creative': return { tone: 'rose',  icon: 'Template' };
+                    case 'invoice':  return { tone: 'amber', icon: 'Invoice' };
+                    default:         return { tone: 'sky',   icon: 'Docs' };
+                }
+            };
+            const filtered = documents.filter(categories.find(c => c.key === currentDocFilter)?.match || (() => true));
+
             return `
-                <div class="card">
-                    <div class="card-header"><h2>Dokumenty</h2></div>
-                    <div class="card-body">
-                        ${documents.length > 0 ? `
-                            <div class="item-list">
-                                ${documents.map(d => `
-                                    <a href="${d.file_url}" target="_blank" class="item">
-                                        <div class="item-icon document">${getDocIcon(d.category)}</div>
-                                        <div class="item-info">
-                                            <div class="item-name">${d.name}</div>
-                                            <div class="item-meta">${d.file_name} • ${formatDate(d.created_at)}</div>
-                                        </div>
-                                        <span style="color:var(--ink-mute);">${I.Download({size:16})}</span>
-                                    </a>
-                                `).join('')}
-                            </div>
-                        ` : `<div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;"><div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Docs({size:18})}</div><div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne dokumenty</div></div>`}
-                    </div>
+                <div class="pt-chip-strip">
+                    ${categories.map(c => {
+                        const count = c.key === 'all' ? documents.length : documents.filter(c.match).length;
+                        return `<button class="pt-chip-filter ${currentDocFilter === c.key ? 'active' : ''}" onclick="setDocFilter('${c.key}')">${c.label} (${count})</button>`;
+                    }).join('')}
                 </div>
+
+                ${filtered.length > 0 ? `
+                    <div class="pt-doc-grid">
+                        ${filtered.map(d => {
+                            const ti = docToneIcon(d.category);
+                            return `
+                                <a class="pt-doc-card" href="${d.file_url || '#'}" target="_blank" rel="noopener">
+                                    <div class="pt-doc-icon pt-doc-icon-${ti.tone}">${I[ti.icon]({size:20})}</div>
+                                    <div>
+                                        <div class="pt-doc-title">${escapeHtml(d.name)}</div>
+                                        <div class="pt-doc-sub">${escapeHtml(d.file_name || d.file_size_label || '')}</div>
+                                    </div>
+                                    <div class="pt-doc-foot">
+                                        <span>${formatDate(d.created_at)}</span>
+                                        ${I.Download({size:13})}
+                                    </div>
+                                </a>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : `
+                    <div class="pt-card" style="padding:60px 28px; text-align:center;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Docs({size:24})}</div>
+                        <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">${currentDocFilter === 'all' ? 'Zatiaľ žiadne dokumenty' : 'V tejto kategórii nič nie je'}</h2>
+                        <p style="color:var(--ink-sub); font-size:13px;">${currentDocFilter === 'all' ? 'Prvý dokument sa zobrazí po nahratí.' : 'Skús inú kategóriu.'}</p>
+                    </div>
+                `}
             `;
+        }
+
+        function setDocFilter(key) {
+            currentDocFilter = key;
+            render();
         }
 
         function renderSupport() {
@@ -730,6 +1438,8 @@
             const msg = document.getElementById('ticket-form-msg');
             if (!subject) return;
 
+            if (isPreview) { previewBlocked(msg); return; }
+
             btn.disabled = true;
             const original = btn.innerHTML;
             btn.innerHTML = 'Odosielam…';
@@ -755,70 +1465,245 @@
             }
         }
 
+        const SETTINGS_SECTIONS = [
+            { key: 'profile',       label: 'Profil',          icon: 'Users' },
+            { key: 'company',       label: 'Firma',           icon: 'Building' },
+            { key: 'notifications', label: 'Notifikácie',     icon: 'Bell' },
+            { key: 'ad_accounts',   label: 'Reklamné účty',   icon: 'Link' },
+            { key: 'payment',       label: 'Spôsob platby',   icon: 'Money' },
+            { key: 'security',      label: 'Bezpečnosť',      icon: 'Lock' },
+        ];
+
         function renderAccount() {
-            const lbl = (text) => `<label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">${text}</label>`;
-            const section = (title, body) => `
-                <div style="background:var(--n-50); padding:18px; border-radius:12px; display:flex; flex-direction:column; gap:12px;">
-                    <h3 style="margin:0; font-size:13px; font-weight:600; color:var(--ink); letter-spacing:-0.1px;">${title}</h3>
-                    ${body}
-                </div>`;
             return `
-                <div class="card">
-                    <div class="card-header">
-                        <h2>${I.Settings({size:16})} Môj účet</h2>
+                <div class="pt-settings-grid">
+                    <div class="pt-settings-nav">
+                        ${SETTINGS_SECTIONS.map(s => `
+                            <button class="pt-settings-nav-item ${currentSettingsSection === s.key ? 'active' : ''}" onclick="setSettingsSection('${s.key}')">
+                                ${I[s.icon]({size:16})}
+                                <span>${s.label}</span>
+                            </button>
+                        `).join('')}
                     </div>
-                    <div class="card-body">
-                        <form id="account-form" onsubmit="saveAccount(event)" style="display:flex; flex-direction:column; gap:18px;">
-                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
-                                ${section(`${I.Building({size:14})} Firemné údaje`, `
-                                    <div>${lbl('Názov firmy')}<input type="text" id="acc-company" value="${client?.company_name || ''}" class="adl-input"></div>
-                                    <div>${lbl('IČO')}<input type="text" id="acc-ico" value="${client?.ico || ''}" class="adl-input"></div>
-                                    <div>${lbl('DIČ')}<input type="text" id="acc-dic" value="${client?.dic || ''}" class="adl-input"></div>
-                                    <div>${lbl('IČ DPH')}<input type="text" id="acc-ic-dph" value="${client?.ic_dph || ''}" class="adl-input" placeholder="SK1234567890"></div>
-                                    <div>${lbl('Web')}<input type="url" id="acc-web" value="${client?.domain || ''}" class="adl-input" placeholder="https://www.firma.sk"></div>
-                                `)}
+                    <div>${renderSettingsSection()}</div>
+                </div>
+            `;
+        }
 
-                                ${section(`${I.Phone({size:14})} Kontaktné údaje`, `
-                                    <div>${lbl('Kontaktná osoba')}<input type="text" id="acc-contact" value="${client?.contact_person || ''}" class="adl-input"></div>
-                                    <div>${lbl('Email')}<input type="email" id="acc-email" value="${client?.email || ''}" class="adl-input"></div>
-                                    <div>${lbl('Telefón')}<input type="tel" id="acc-phone" value="${client?.phone || ''}" class="adl-input" placeholder="+421 9XX XXX XXX"></div>
-                                `)}
+        function setSettingsSection(key) {
+            currentSettingsSection = key;
+            render();
+        }
 
-                                ${section(`${I.Globe({size:14})} Fakturačná adresa`, `
-                                    <div>${lbl('Ulica a číslo')}<input type="text" id="acc-street" value="${client?.billing_street || ''}" class="adl-input"></div>
-                                    <div style="display:grid; grid-template-columns:1fr 2fr; gap:10px;">
-                                        <div>${lbl('PSČ')}<input type="text" id="acc-zip" value="${client?.billing_zip || ''}" class="adl-input"></div>
-                                        <div>${lbl('Mesto')}<input type="text" id="acc-city" value="${client?.billing_city || ''}" class="adl-input"></div>
-                                    </div>
-                                    <div>${lbl('Krajina')}<select id="acc-country" class="adl-input">
+        function renderSettingsSection() {
+            switch (currentSettingsSection) {
+                case 'profile':       return renderSettingsProfile();
+                case 'company':       return renderSettingsCompany();
+                case 'notifications': return renderSettingsNotifications();
+                case 'ad_accounts':   return renderSettingsAdAccounts();
+                case 'payment':       return renderSettingsPayment();
+                case 'security':      return renderSettingsSecurity();
+                default:              return renderSettingsProfile();
+            }
+        }
+
+        function renderSettingsProfile() {
+            const contactName = client?.contact_person || '';
+            const [firstNameVal, ...rest] = contactName.split(/\s+/);
+            const lastNameVal = rest.join(' ');
+            return `
+                <div class="pt-card">
+                    <div class="pt-card-head"><div class="pt-card-title">Profil</div></div>
+                    <div class="pt-card-body">
+                        <div class="pt-profile-head">
+                            <div class="pt-profile-avatar-lg">${initials(contactName || client.company_name)}</div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:16px; font-weight:600; letter-spacing:-0.2px;">${escapeHtml(contactName || 'Klient')}</div>
+                                <div style="font-size:12px; color:var(--ink-sub); margin-top:2px;">${escapeHtml(client?.position || 'Konateľ/ka')} · ${escapeHtml(client?.company_name || '')}</div>
+                            </div>
+                            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="alert('Funkcia pribudne v ďalšom update.')">${I.Upload({size:14})} Zmeniť foto</button>
+                        </div>
+                        <form id="profile-form" onsubmit="saveProfile(event)">
+                            <div class="pt-field-grid">
+                                <div>
+                                    <label class="pt-field-label">Meno</label>
+                                    <input id="prof-first" class="pt-field-input" type="text" value="${escapeHtml(firstNameVal || '')}">
+                                </div>
+                                <div>
+                                    <label class="pt-field-label">Priezvisko</label>
+                                    <input id="prof-last" class="pt-field-input" type="text" value="${escapeHtml(lastNameVal || '')}">
+                                </div>
+                                <div>
+                                    <label class="pt-field-label">Email</label>
+                                    <input id="prof-email" class="pt-field-input" type="email" value="${escapeHtml(client?.email || '')}">
+                                </div>
+                                <div>
+                                    <label class="pt-field-label">Telefón</label>
+                                    <input id="prof-phone" class="pt-field-input" type="tel" value="${escapeHtml(client?.phone || '')}">
+                                </div>
+                                <div>
+                                    <label class="pt-field-label">Pozícia</label>
+                                    <input id="prof-position" class="pt-field-input" type="text" value="${escapeHtml(client?.position || '')}">
+                                </div>
+                                <div>
+                                    <label class="pt-field-label">Jazyk</label>
+                                    <select id="prof-language" class="pt-field-input">
+                                        <option value="sk" ${(client?.language || 'sk') === 'sk' ? 'selected' : ''}>Slovenčina</option>
+                                        <option value="cs" ${client?.language === 'cs' ? 'selected' : ''}>Čeština</option>
+                                        <option value="en" ${client?.language === 'en' ? 'selected' : ''}>English</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="profile-message" style="margin-top:16px;"></div>
+                            <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+                                <button type="submit" class="adl-btn adl-btn-primary" id="save-profile-btn">${I.Check({size:14})} Uložiť zmeny</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSettingsCompany() {
+            return `
+                <div class="pt-card">
+                    <div class="pt-card-head"><div class="pt-card-title">Firma</div></div>
+                    <div class="pt-card-body">
+                        <form id="account-form" onsubmit="saveAccount(event)">
+                            <div class="pt-field-grid">
+                                <div style="grid-column:1/-1;">
+                                    <label class="pt-field-label">Názov firmy</label>
+                                    <input id="acc-company" class="pt-field-input" type="text" value="${escapeHtml(client?.company_name || '')}">
+                                </div>
+                                <div><label class="pt-field-label">IČO</label><input id="acc-ico" class="pt-field-input" type="text" value="${escapeHtml(client?.ico || '')}"></div>
+                                <div><label class="pt-field-label">DIČ</label><input id="acc-dic" class="pt-field-input" type="text" value="${escapeHtml(client?.dic || '')}"></div>
+                                <div><label class="pt-field-label">IČ DPH</label><input id="acc-ic-dph" class="pt-field-input" type="text" value="${escapeHtml(client?.ic_dph || '')}" placeholder="SK1234567890"></div>
+                                <div><label class="pt-field-label">Web</label><input id="acc-web" class="pt-field-input" type="url" value="${escapeHtml(client?.domain || '')}" placeholder="https://www.firma.sk"></div>
+                                <div><label class="pt-field-label">Kontaktná osoba</label><input id="acc-contact" class="pt-field-input" type="text" value="${escapeHtml(client?.contact_person || '')}"></div>
+                                <div><label class="pt-field-label">Email</label><input id="acc-email" class="pt-field-input" type="email" value="${escapeHtml(client?.email || '')}"></div>
+                                <div><label class="pt-field-label">Telefón</label><input id="acc-phone" class="pt-field-input" type="tel" value="${escapeHtml(client?.phone || '')}" placeholder="+421 9XX XXX XXX"></div>
+                                <div style="grid-column:1/-1;">
+                                    <label class="pt-field-label">Fakturačná adresa</label>
+                                    <input id="acc-street" class="pt-field-input" type="text" value="${escapeHtml(client?.billing_street || '')}" placeholder="Ulica a číslo">
+                                </div>
+                                <div><label class="pt-field-label">PSČ</label><input id="acc-zip" class="pt-field-input" type="text" value="${escapeHtml(client?.billing_zip || '')}"></div>
+                                <div><label class="pt-field-label">Mesto</label><input id="acc-city" class="pt-field-input" type="text" value="${escapeHtml(client?.billing_city || '')}"></div>
+                                <div>
+                                    <label class="pt-field-label">Krajina</label>
+                                    <select id="acc-country" class="pt-field-input">
                                         <option value="SK" ${(client?.billing_country || 'SK') === 'SK' ? 'selected' : ''}>Slovensko</option>
                                         <option value="CZ" ${client?.billing_country === 'CZ' ? 'selected' : ''}>Česko</option>
                                         <option value="HU" ${client?.billing_country === 'HU' ? 'selected' : ''}>Maďarsko</option>
                                         <option value="AT" ${client?.billing_country === 'AT' ? 'selected' : ''}>Rakúsko</option>
                                         <option value="PL" ${client?.billing_country === 'PL' ? 'selected' : ''}>Poľsko</option>
-                                    </select></div>
-                                `)}
+                                    </select>
+                                </div>
                             </div>
-
-                            <div id="account-message"></div>
-
-                            <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:6px; border-top:1px solid var(--border);">
+                            <div id="account-message" style="margin-top:16px;"></div>
+                            <div style="display:flex; justify-content:flex-end; margin-top:20px;">
                                 <button type="submit" class="adl-btn adl-btn-primary" id="save-account-btn">${I.Check({size:14})} Uložiť zmeny</button>
                             </div>
                         </form>
                     </div>
                 </div>
+            `;
+        }
 
-                <div class="card">
-                    <div class="card-header">
-                        <h2>${I.Lock({size:16})} Bezpečnosť</h2>
+        function renderSettingsNotifications() {
+            const prefs = client?.notification_prefs || { email_invoices: true, email_campaigns: true, email_messages: true, email_marketing: false };
+            const row = (key, title, sub) => `
+                <label style="display:flex; align-items:center; gap:14px; padding:14px 16px; border:1px solid var(--border); border-radius:10px; cursor:pointer; margin-bottom:8px;">
+                    <input type="checkbox" id="notif-${key}" ${prefs[key] ? 'checked' : ''} style="width:18px; height:18px; accent-color:var(--brand-500);">
+                    <div style="flex:1;">
+                        <div style="font-size:13px; font-weight:600;">${title}</div>
+                        <div style="font-size:11px; color:var(--ink-sub); margin-top:2px;">${sub}</div>
                     </div>
-                    <div class="card-body">
-                        <form id="password-form" onsubmit="changePassword(event)" style="display:flex; flex-direction:column; gap:14px; max-width:480px;">
-                            <p style="margin:0; font-size:13px; color:var(--ink-sub);">Pre zmenu hesla zadajte nové dvakrát. Heslo musí mať aspoň 8 znakov.</p>
-                            <div>${lbl('Nové heslo')}<input type="password" id="pw-new" required minlength="8" autocomplete="new-password" class="adl-input" placeholder="••••••••"></div>
-                            <div>${lbl('Nové heslo (znova)')}<input type="password" id="pw-confirm" required minlength="8" autocomplete="new-password" class="adl-input" placeholder="••••••••"></div>
-                            <div id="password-message"></div>
+                </label>
+            `;
+            return `
+                <div class="pt-card">
+                    <div class="pt-card-head"><div class="pt-card-title">Notifikácie</div></div>
+                    <div class="pt-card-body">
+                        ${row('email_invoices',  'Nová faktúra',           'Email pri každej novej faktúre alebo blížiacej sa splatnosti.')}
+                        ${row('email_campaigns', 'Update kampaní',         'Týždenný report výkonu vašich kampaní.')}
+                        ${row('email_messages',  'Správy od tímu',         'Notifikácia keď vám tím napíše správu.')}
+                        ${row('email_marketing', 'Novinky a tipy',         'Občasné tipy ako zlepšiť výkon kampaní.')}
+                        <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                            <button class="adl-btn adl-btn-primary" onclick="saveNotificationPrefs()">${I.Check({size:14})} Uložiť</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSettingsAdAccounts() {
+            const accounts = client?.ad_accounts || [];
+            return `
+                <div class="pt-card">
+                    <div class="pt-card-head"><div class="pt-card-title">Reklamné účty</div></div>
+                    <div class="pt-card-body">
+                        ${accounts.length > 0 ? accounts.map(a => `
+                            <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px;">
+                                <div style="width:36px; height:36px; border-radius:10px; background:var(--n-50); display:inline-flex; align-items:center; justify-content:center;">
+                                    ${a.platform === 'meta' ? I.Fb({size:18}) : a.platform === 'google' ? I.Google({size:18}) : I.Link({size:18})}
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-size:13px; font-weight:600;">${escapeHtml(a.name || a.platform)}</div>
+                                    <div style="font-size:11px; color:var(--ink-sub); margin-top:2px;">${escapeHtml(a.account_id || '')}</div>
+                                </div>
+                                <span class="adl-chip adl-chip-mint adl-chip-sm"><span class="dot"></span>Pripojený</span>
+                            </div>
+                        `).join('') : `
+                            <div style="text-align:center; padding:40px 20px;">
+                                <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-50); color:var(--ink-mute); margin-bottom:12px;">${I.Link({size:20})}</div>
+                                <div style="font-size:14px; font-weight:600; margin-bottom:4px;">Zatiaľ žiadne pripojené účty</div>
+                                <div style="font-size:12px; color:var(--ink-sub); max-width:340px; margin:0 auto;">Tím Adlify nastavuje reklamné účty počas onboardingu. Ak potrebuješ niečo zmeniť, ozvi sa.</div>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSettingsPayment() {
+            const method = client?.payment_method || 'SEPA';
+            const last4 = client?.payment_last4 || '•••• ••••';
+            return `
+                <div class="pt-card">
+                    <div class="pt-card-head"><div class="pt-card-title">Spôsob platby</div></div>
+                    <div class="pt-card-body">
+                        <div style="display:flex; align-items:center; gap:16px; padding:18px; border:1px solid var(--border); border-radius:12px; background:var(--n-50);">
+                            <div style="width:48px; height:48px; border-radius:12px; background:var(--surface); border:1px solid var(--border); display:inline-flex; align-items:center; justify-content:center;">${I.Money({size:22})}</div>
+                            <div style="flex:1;">
+                                <div style="font-size:14px; font-weight:600;">${escapeHtml(method)}</div>
+                                <div style="font-size:12px; color:var(--ink-sub); margin-top:2px; font-family:var(--font-mono);">${escapeHtml(last4)}</div>
+                            </div>
+                            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="alert('Pre zmenu spôsobu platby kontaktujte tím Adlify.')">Zmeniť</button>
+                        </div>
+                        <div style="font-size:12px; color:var(--ink-sub); margin-top:14px; line-height:1.6;">
+                            Faktúry sa automaticky strhávajú zo SEPA mandátu. Pre zmenu kontaktujte tím Adlify cez ticket alebo email.
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSettingsSecurity() {
+            return `
+                <div class="pt-card">
+                    <div class="pt-card-head"><div class="pt-card-title">Bezpečnosť</div></div>
+                    <div class="pt-card-body">
+                        <form id="password-form" onsubmit="changePassword(event)" style="max-width:480px;">
+                            <p style="margin:0 0 14px; font-size:13px; color:var(--ink-sub);">Pre zmenu hesla zadajte nové dvakrát. Heslo musí mať aspoň 8 znakov.</p>
+                            <div style="margin-bottom:14px;">
+                                <label class="pt-field-label">Nové heslo</label>
+                                <input id="pw-new" class="pt-field-input" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••">
+                            </div>
+                            <div style="margin-bottom:14px;">
+                                <label class="pt-field-label">Nové heslo (znova)</label>
+                                <input id="pw-confirm" class="pt-field-input" type="password" required minlength="8" autocomplete="new-password" placeholder="••••••••">
+                            </div>
+                            <div id="password-message" style="margin-bottom:14px;"></div>
                             <div style="display:flex; justify-content:flex-end;">
                                 <button type="submit" id="pw-submit-btn" class="adl-btn adl-btn-primary">${I.Lock({size:14})} Zmeniť heslo</button>
                             </div>
@@ -826,6 +1711,41 @@
                     </div>
                 </div>
             `;
+        }
+
+        async function saveProfile(e) {
+            e.preventDefault();
+            const btn = document.getElementById('save-profile-btn');
+            const msg = document.getElementById('profile-message');
+            msg.innerHTML = '';
+            if (isPreview) { previewBlocked(msg); return; }
+            btn.disabled = true;
+            const original = btn.innerHTML;
+            btn.innerHTML = 'Ukladám…';
+            try {
+                const first = document.getElementById('prof-first').value.trim();
+                const last  = document.getElementById('prof-last').value.trim();
+                const fullName = [first, last].filter(Boolean).join(' ');
+                const updateData = {
+                    contact_person: fullName,
+                    email:    document.getElementById('prof-email').value.trim(),
+                    phone:    document.getElementById('prof-phone').value.trim(),
+                    position: document.getElementById('prof-position').value.trim(),
+                    language: document.getElementById('prof-language').value
+                };
+                const { error } = await db.from('clients').update(updateData).eq('id', client.id);
+                if (error) throw error;
+                Object.assign(client, updateData);
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--ok) 14%, var(--surface)); color:var(--ok); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Check({size:14})} Profil bol uložený</div>`;
+            } catch (err) {
+                msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} ${err.message}</div>`;
+            }
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
+
+        function saveNotificationPrefs() {
+            alert('Notifikácie sa uložia v ďalšom update.');
         }
 
         async function changePassword(e) {
@@ -839,6 +1759,7 @@
                 msg.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Heslá sa nezhodujú</div>`;
                 return;
             }
+            if (isPreview) { previewBlocked(msg); return; }
             btn.disabled = true;
             const original = btn.innerHTML;
             btn.innerHTML = 'Ukladám…';
@@ -857,10 +1778,12 @@
 
         async function saveAccount(e) {
             e.preventDefault();
-            
+
             const btn = document.getElementById('save-account-btn');
             const msg = document.getElementById('account-message');
-            
+
+            if (isPreview) { previewBlocked(msg); return; }
+
             btn.disabled = true;
             const originalBtn = btn.innerHTML;
             btn.innerHTML = 'Ukladám…';
