@@ -68,3 +68,22 @@ SELECT
     WHERE schemaname = 'public' AND indexname = 'leads_org_domain_uniq'
   ) THEN '✅ OK — batchUpsertLeads bude fungovať'
        ELSE '❌ CHÝBA — manuálny import leadov hodí onConflict chybu' END AS status;
+
+SELECT '=== MESSAGES — UPDATE policy pre klienta ===' AS section;
+SELECT
+  '011' AS migration,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'messages'
+      AND policyname = 'Clients can mark own messages as read'
+  ) THEN '✅ OK — klient môže označiť správy ako prečítané'
+       ELSE '❌ CHÝBA — markMessagesAsRead zlyhá s RLS chybou' END AS status;
+
+SELECT '=== MESSAGES — realtime publication ===' AS section;
+SELECT
+  '011' AS migration,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'messages'
+  ) THEN '✅ OK — realtime channel posiela INSERT eventy'
+       ELSE '❌ CHÝBA — nové správy sa zobrazia až po refreshi' END AS status;
