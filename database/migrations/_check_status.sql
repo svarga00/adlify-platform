@@ -68,3 +68,39 @@ SELECT
     WHERE schemaname = 'public' AND indexname = 'leads_org_domain_uniq'
   ) THEN '✅ OK — batchUpsertLeads bude fungovať'
        ELSE '❌ CHÝBA — manuálny import leadov hodí onConflict chybu' END AS status;
+
+SELECT '=== MESSAGES — schéma stĺpcov ===' AS section;
+WITH expected_msg_cols (col, migration, purpose) AS (VALUES
+  ('sender_type', '011', 'team/client diskriminátor — vyžadovaný UI a indexom'),
+  ('is_read',     '011', 'mark-as-read flag — vyžadovaný unread badge'),
+  ('read_at',     '011', 'kedy bola správa prečítaná'),
+  ('content',     '011', 'text správy')
+)
+SELECT
+  e.migration,
+  e.col AS column_name,
+  CASE WHEN c.column_name IS NULL THEN '❌ CHÝBA' ELSE '✅ OK' END AS status,
+  e.purpose
+FROM expected_msg_cols e
+LEFT JOIN information_schema.columns c
+  ON c.table_schema = 'public' AND c.table_name = 'messages' AND c.column_name = e.col
+ORDER BY e.col;
+
+SELECT '=== MESSAGES — UPDATE policy pre klienta ===' AS section;
+SELECT
+  '011' AS migration,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'messages'
+      AND policyname = 'Clients can mark own messages as read'
+  ) THEN '✅ OK — klient môže označiť správy ako prečítané'
+       ELSE '❌ CHÝBA — markMessagesAsRead zlyhá s RLS chybou' END AS status;
+
+SELECT '=== MESSAGES — realtime publication ===' AS section;
+SELECT
+  '011' AS migration,
+  CASE WHEN EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'messages'
+  ) THEN '✅ OK — realtime channel posiela INSERT eventy'
+       ELSE '❌ CHÝBA — nové správy sa zobrazia až po refreshi' END AS status;
