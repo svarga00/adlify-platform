@@ -432,27 +432,43 @@ const LeadsModule = {
 
   exportLeads() {
     try {
-      const rows = [['Doména', 'Spoločnosť', 'Odvetvie', 'Status', 'Skóre', 'Email', 'Telefón', 'Pridané']];
-      this.leads.forEach(l => {
+      const list = Array.isArray(this.leads) ? this.leads : [];
+      if (list.length === 0) {
+        Utils.toast('Nie sú žiadne leady na export', 'warning');
+        return;
+      }
+
+      const fmt = (v) => v ? new Date(v).toISOString() : '';
+      const header = ['company_name', 'domain', 'email', 'phone', 'status', 'contacted_at', 'source_query', 'created_at'];
+      const rows = [header];
+      list.forEach(l => {
         rows.push([
-          l.domain || '',
           l.company_name || '',
-          l.industry || l.analysis?.company?.industry || '',
-          l.status || 'new',
-          l.score || 0,
+          l.domain || '',
           l.email || '',
           l.phone || '',
-          l.created_at ? new Date(l.created_at).toLocaleDateString('sk-SK') : ''
+          l.status || 'new',
+          fmt(l.contacted_at),
+          l.source_query || '',
+          fmt(l.created_at)
         ]);
       });
-      const csv = rows.map(r => r.map(cell => `"${(cell + '').replace(/"/g, '""')}"`).join(',')).join('\n');
+
+      const csv = rows.map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
       const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const count = list.length;
+      const date = new Date().toISOString().slice(0, 10);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `adlify-leady-${new Date().toISOString().slice(0,10)}.csv`;
+      a.download = `adlify-leady-${count}-${date}.csv`;
       a.click();
       URL.revokeObjectURL(a.href);
-    } catch (e) { console.error('Export error', e); }
+
+      Utils.toast(`Exportovaných ${count} ${count === 1 ? 'lead' : count < 5 ? 'leady' : 'leadov'}`, 'success');
+    } catch (e) {
+      console.error('Export error', e);
+      Utils.toast('Chyba pri exporte', 'error');
+    }
   },
 
   setViewTab(tab) {
@@ -490,7 +506,10 @@ const LeadsModule = {
         <!-- Manual domains -->
         <label class="form-label">Manuálny import domén</label>
         <textarea id="import-domains" rows="6" placeholder="firma1.sk&#10;firma2.sk&#10;firma3.sk" class="form-textarea"></textarea>
-        
+
+        <label class="form-label" style="margin-top:0.75rem;">Zdroj / hľadaný výraz (voliteľné)</label>
+        <input id="import-source-query" type="text" placeholder="napr. „pekáreň Bratislava"" class="form-input">
+
         <div class="form-actions">
           <button onclick="LeadsModule.handleImport()" class="btn-primary">📥 Importovať</button>
           <button onclick="LeadsModule.showTab('list')" class="btn-secondary">← Späť</button>
@@ -5060,12 +5079,125 @@ ${analysis.customNote ? `
   },
 
   cleanDomain(value) {
-    if (!value) return null;
-    return value.toString().trim()
-      .replace(/^https?:\/\//, '')
-      .replace(/^www\./, '')
-      .split('/')[0]
-      .toLowerCase();
+    return this.normalizeDomain(value);
+  },
+
+  /**
+   * Normalizácia domény pre import / scraper / upsert.
+   *
+   * - trim, lowercase
+   * - strip http:// / https://
+   * - strip leading www.
+   * - drop path / query string / port (zoberie iba host)
+   * - vráti null pre prázdny vstup
+   */
+  normalizeDomain(raw) {
+    if (raw == null) return null;
+    let s = String(raw).trim().toLowerCase();
+    if (!s) return null;
+    s = s.replace(/^https?:\/\//, '');
+    s = s.replace(/^www\./, '');
+    s = s.split('/')[0].split('?')[0].split('#')[0];
+    s = s.split(':')[0];
+    return s || null;
+  },
+
+  /**
+   * Normalizácia emailu: trim + lowercase.
+   */
+  normalizeEmail(raw) {
+    if (raw == null) return null;
+    const s = String(raw).trim().toLowerCase();
+    return s || null;
+  },
+
+  /**
+   * Základná validácia formátu emailu.
+   */
+  isValidEmail(raw) {
+    if (!raw) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(raw).trim());
+  },
+
+  /**
+   * Batch upsert leadov do Supabase tabuľky `leads`.
+   *
+   * - Normalizuje doménu / email pre každý riadok.
+   * - Vyfiltruje záznamy bez platnej domény a deduplikuje vstupné pole.
+   * - Zahodí email ak je vyplnený ale neplatného formátu.
+   * - Nastaví default `status: 'new'` a `source_query` (ak je dodané).
+   * - Posiela v dávkach po `chunkSize` (default 500) cez
+   *   `.upsert(..., { onConflict: 'org_id,domain', ignoreDuplicates: true })`.
+   * - Existujúce záznamy sa NEPREPISUJÚ (ignoreDuplicates).
+   *
+   * Vyžaduje UNIQUE INDEX `leads_org_domain_uniq` na (org_id, lower(domain))
+   * — viď migrácia `010_leads_normalize_upsert.sql`.
+   *
+   * @param {Array<Object>} rows - Vstupné dáta (každý riadok musí obsahovať `domain`).
+   * @param {Object} [opts]
+   * @param {string} [opts.sourceQuery] - Hodnota pre `source_query` ak chýba na riadku.
+   * @param {number} [opts.chunkSize=500] - Veľkosť dávky.
+   * @returns {Promise<{inserted:number, skipped:number, errors:number}>}
+   */
+  async batchUpsertLeads(rows, opts = {}) {
+    const { sourceQuery = null, chunkSize = 500 } = opts;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { inserted: 0, skipped: 0, errors: 0 };
+    }
+
+    const seen = new Set();
+    const clean = [];
+    let droppedInvalid = 0;
+
+    for (const r of rows) {
+      const domain = this.normalizeDomain(r?.domain);
+      if (!domain || !domain.includes('.')) { droppedInvalid++; continue; }
+      if (seen.has(domain)) continue;
+      seen.add(domain);
+
+      const email = r?.email != null ? this.normalizeEmail(r.email) : null;
+      const row = {
+        domain,
+        company_name: r?.company_name || domain.split('.')[0],
+        status: r?.status || 'new',
+        score: r?.score ?? 50,
+        email: email && this.isValidEmail(email) ? email : null,
+        phone: r?.phone || null,
+        logo_url: r?.logo_url || null,
+        industry: r?.industry || null,
+        source: r?.source || null,
+        source_url: r?.source_url || null,
+        source_query: r?.source_query || sourceQuery || null,
+        analysis: r?.analysis || undefined
+      };
+      Object.keys(row).forEach(k => { if (row[k] === undefined) delete row[k]; });
+      clean.push(row);
+    }
+
+    if (clean.length === 0) {
+      return { inserted: 0, skipped: droppedInvalid, errors: 0 };
+    }
+
+    const client = Database.getClient();
+    let inserted = 0, errors = 0;
+
+    for (let i = 0; i < clean.length; i += chunkSize) {
+      const chunk = clean.slice(i, i + chunkSize);
+      try {
+        const { data, error } = await client
+          .from('leads')
+          .upsert(chunk, { onConflict: 'org_id,domain', ignoreDuplicates: true })
+          .select('id');
+        if (error) throw error;
+        inserted += (data?.length || 0);
+      } catch (e) {
+        console.error('batchUpsertLeads chunk failed:', e);
+        errors += chunk.length;
+      }
+    }
+
+    const skipped = clean.length - inserted - errors + droppedInvalid;
+    return { inserted, skipped: Math.max(0, skipped), errors };
   },
 
   loadScript(src) {
@@ -5775,27 +5907,25 @@ ${analysis.customNote ? `
     const textarea = document.getElementById('import-domains');
     const text = textarea?.value?.trim();
     if (!text) return Utils.toast('Zadaj domény alebo nahraj súbor', 'warning');
-    
-    const domains = text.split('\n')
-      .map(d => this.cleanDomain(d))
-      .filter(d => d && d.includes('.'));
-    
-    if (domains.length === 0) {
+
+    const queryEl = document.getElementById('import-source-query');
+    const sourceQuery = queryEl?.value?.trim() || null;
+
+    const rows = text.split('\n').map(d => ({ domain: d }));
+
+    const { inserted, skipped, errors } = await this.batchUpsertLeads(rows, { sourceQuery });
+
+    if (inserted === 0 && skipped === 0 && errors === 0) {
       Utils.toast('Žiadne platné domény', 'warning');
       return;
     }
-    
-    let added = 0, skipped = 0;
-    for (const domain of domains) {
-      try {
-        const existing = await Database.select('leads', { filters: { domain }, limit: 1 });
-        if (existing?.length > 0) { skipped++; continue; }
-        await Database.insert('leads', { domain, company_name: domain.split('.')[0], status: 'new', score: 50 });
-        added++;
-      } catch (e) { console.error('Import error:', e); }
-    }
-    Utils.toast(`Pridaných: ${added}, Preskočených: ${skipped}`, 'success');
+
+    const parts = [`Pridaných: ${inserted}`, `Preskočených: ${skipped}`];
+    if (errors > 0) parts.push(`Chyby: ${errors}`);
+    Utils.toast(parts.join(', '), errors > 0 ? 'warning' : 'success');
+
     textarea.value = '';
+    if (queryEl) queryEl.value = '';
     await this.loadLeads();
     this.showTab('list');
   },
