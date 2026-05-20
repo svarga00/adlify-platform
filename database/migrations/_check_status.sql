@@ -69,6 +69,23 @@ SELECT
   ) THEN '✅ OK — batchUpsertLeads bude fungovať'
        ELSE '❌ CHÝBA — manuálny import leadov hodí onConflict chybu' END AS status;
 
+SELECT '=== MESSAGES — schéma stĺpcov ===' AS section;
+WITH expected_msg_cols (col, migration, purpose) AS (VALUES
+  ('sender_type', '011', 'team/client diskriminátor — vyžadovaný UI a indexom'),
+  ('is_read',     '011', 'mark-as-read flag — vyžadovaný unread badge'),
+  ('read_at',     '011', 'kedy bola správa prečítaná'),
+  ('content',     '011', 'text správy')
+)
+SELECT
+  e.migration,
+  e.col AS column_name,
+  CASE WHEN c.column_name IS NULL THEN '❌ CHÝBA' ELSE '✅ OK' END AS status,
+  e.purpose
+FROM expected_msg_cols e
+LEFT JOIN information_schema.columns c
+  ON c.table_schema = 'public' AND c.table_name = 'messages' AND c.column_name = e.col
+ORDER BY e.col;
+
 SELECT '=== MESSAGES — UPDATE policy pre klienta ===' AS section;
 SELECT
   '011' AS migration,
