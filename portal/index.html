@@ -726,6 +726,342 @@
             .pt-msg-thread { order: 1; min-height: 480px; }
             .pt-msg-bubble { max-width: 85%; }
         }
+
+        /* ─── Tickets 2-col (PR D) ─── */
+        .pt-tk-wrap {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 16px;
+            height: calc(100vh - 160px);
+            min-height: 520px;
+        }
+        .pt-tk-side {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        .pt-tk-side-head {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 12px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .pt-tk-side-head .pt-chip-strip { flex: 1; min-width: 0; }
+        .pt-tk-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .pt-tk-row {
+            display: flex; align-items: stretch;
+            width: 100%;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 0;
+            cursor: pointer;
+            text-align: left;
+            margin-bottom: 4px;
+            font: inherit;
+            color: inherit;
+            transition: background .12s, border-color .12s;
+        }
+        .pt-tk-row:hover { background: var(--n-50); }
+        .pt-tk-row.is-selected {
+            background: color-mix(in oklab, var(--brand-500) 8%, var(--surface));
+            border-color: color-mix(in oklab, var(--brand-500) 30%, var(--border));
+        }
+        .pt-tk-row-bar {
+            width: 3px;
+            border-radius: 99px;
+            margin: 10px 8px 10px 6px;
+            background: var(--brand-500);
+        }
+        .pt-tk-row-body {
+            flex: 1; min-width: 0;
+            padding: 10px 10px 10px 0;
+        }
+        .pt-tk-row-subject {
+            font-size: 13px; font-weight: 600;
+            color: var(--ink); letter-spacing: -0.1px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .pt-tk-row-meta {
+            display: flex; align-items: center; gap: 6px;
+            margin-top: 6px;
+        }
+        .pt-tk-row-pri {
+            width: 6px; height: 6px; border-radius: 99px;
+            background: var(--ink-mute);
+        }
+        .pt-tk-row-pri--sky   { background: var(--acc-sky-ink, #3b82f6); }
+        .pt-tk-row-pri--amber { background: var(--warn, #d97706); }
+        .pt-tk-row-pri--err   { background: var(--err, #ef4444); }
+        .pt-tk-row-pri--n     { background: var(--ink-mute); }
+        .pt-tk-row-date {
+            margin-left: auto;
+            font-size: 10px; color: var(--ink-mute);
+            font-family: var(--font-mono);
+        }
+        .pt-tk-empty-mini {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 8px; padding: 40px 16px;
+            color: var(--ink-mute);
+            font-size: 12px; text-align: center;
+        }
+
+        .pt-tk-detail {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow-y: auto;
+            display: flex; flex-direction: column;
+        }
+        .pt-tk-empty {
+            flex: 1;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--ink-sub);
+        }
+        .pt-tk-empty-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 56px; height: 56px; border-radius: 14px;
+            background: var(--n-50); color: var(--ink-mute);
+            margin-bottom: 12px;
+        }
+        .pt-tk-empty-title { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+        .pt-tk-empty-sub { font-size: 12px; max-width: 380px; line-height: 1.5; }
+
+        .pt-tk-detail-head {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .pt-tk-detail-head-row {
+            display: flex; align-items: center; gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .pt-tk-detail-id {
+            margin-left: auto;
+            font-size: 11px; color: var(--ink-mute);
+            font-family: var(--font-mono);
+        }
+        .pt-tk-detail-title {
+            font-size: 18px; font-weight: 600; letter-spacing: -0.3px;
+            color: var(--ink);
+            margin: 0;
+            line-height: 1.35;
+        }
+        .pt-tk-detail-sub {
+            margin-top: 4px;
+            font-size: 12px; color: var(--ink-sub);
+        }
+        .pt-tk-detail-body {
+            padding: 20px 24px 28px;
+            display: flex; flex-direction: column; gap: 22px;
+        }
+        .pt-tk-detail-section-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+            font-weight: 600; color: var(--ink-mute);
+            margin-bottom: 8px;
+        }
+        .pt-tk-detail-desc {
+            font-size: 13px; color: var(--ink);
+            line-height: 1.6;
+            white-space: pre-wrap; word-wrap: break-word;
+        }
+        .pt-tk-detail-desc--muted { color: var(--ink-sub); font-style: italic; }
+
+        .pt-tk-timeline {
+            list-style: none; padding: 0; margin: 0;
+            display: flex; flex-direction: column;
+        }
+        .pt-tk-timeline-item {
+            position: relative;
+            padding-left: 22px;
+            padding-bottom: 16px;
+        }
+        .pt-tk-timeline-item:not(.is-last)::before {
+            content: '';
+            position: absolute;
+            left: 5px; top: 14px; bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+        .pt-tk-timeline-item.is-done:not(.is-last)::before {
+            background: color-mix(in oklab, var(--brand-500) 60%, var(--border));
+        }
+        .pt-tk-timeline-dot {
+            position: absolute;
+            left: 0; top: 4px;
+            width: 12px; height: 12px;
+            border-radius: 99px;
+            background: var(--n-100);
+            border: 2px solid var(--surface);
+            box-shadow: 0 0 0 1px var(--border);
+        }
+        .pt-tk-timeline-item.is-done .pt-tk-timeline-dot {
+            box-shadow: 0 0 0 1px transparent;
+        }
+        .pt-tk-timeline-label {
+            font-size: 13px; font-weight: 600; color: var(--ink);
+        }
+        .pt-tk-timeline-item:not(.is-done) .pt-tk-timeline-label { color: var(--ink-mute); }
+        .pt-tk-timeline-hint {
+            font-size: 11px; color: var(--ink-sub);
+            margin-top: 2px;
+        }
+        .pt-tk-detail-hint {
+            display: flex; align-items: center; gap: 6px;
+            padding: 10px 12px;
+            background: var(--n-50);
+            border-radius: 10px;
+            font-size: 12px; color: var(--ink-sub);
+        }
+        .pt-tk-detail-hint a {
+            color: var(--brand-500);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .pt-tk-detail-hint a:hover { text-decoration: underline; }
+
+        @media (max-width: 900px) {
+            .pt-tk-wrap {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .pt-tk-detail { min-height: 360px; }
+        }
+
+        /* ─── Modal (ticket composer) ─── */
+        .pt-modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+            z-index: 100;
+            animation: pt-fade-in .15s ease-out;
+        }
+        @keyframes pt-fade-in { from { opacity: 0; } to { opacity: 1; } }
+        .pt-modal {
+            background: var(--surface);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 540px;
+            max-height: calc(100vh - 48px);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+        }
+        .pt-modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .pt-modal-title {
+            font-size: 15px; font-weight: 600; letter-spacing: -0.2px;
+            color: var(--ink);
+            margin: 0;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .pt-modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .pt-modal-foot {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding-top: 6px;
+        }
+
+        /* ─── Calendar timeline (PR D) ─── */
+        .pt-cal-bucket {
+            margin-bottom: 18px;
+        }
+        .pt-cal-bucket-head {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 8px;
+        }
+        .pt-cal-bucket-label {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px;
+            font-weight: 600; color: var(--ink-mute);
+        }
+        .pt-cal-bucket-count {
+            font-size: 10px; font-weight: 700;
+            background: var(--n-75); color: var(--ink-sub);
+            padding: 2px 8px; border-radius: 99px;
+        }
+        .pt-cal-bucket-list {
+            display: flex; flex-direction: column;
+            gap: 6px;
+        }
+        .pt-cal-event {
+            display: grid;
+            grid-template-columns: 56px 36px 1fr auto;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: border-color .12s, transform .12s;
+        }
+        .pt-cal-event.is-clickable { cursor: pointer; }
+        .pt-cal-event.is-clickable:hover {
+            border-color: color-mix(in oklab, var(--brand-500) 30%, var(--border));
+            transform: translateY(-1px);
+        }
+        .pt-cal-event-date {
+            text-align: center;
+            background: var(--n-50);
+            border-radius: 8px;
+            padding: 6px 4px;
+        }
+        .pt-cal-event-day {
+            font-size: 18px; font-weight: 700;
+            color: var(--ink); letter-spacing: -0.4px;
+            font-family: var(--font-mono);
+            line-height: 1;
+        }
+        .pt-cal-event-mo {
+            font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--ink-mute); font-weight: 600;
+            margin-top: 2px;
+        }
+        .pt-cal-event-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .pt-cal-event-icon--sky   { background: var(--acc-sky, #dbeafe);   color: var(--acc-sky-ink, #3b82f6); }
+        .pt-cal-event-icon--amber { background: var(--acc-amber, #fef3c7); color: var(--acc-amber-ink, #d97706); }
+        .pt-cal-event-icon--mint  { background: var(--acc-mint, #d1fae5);  color: var(--acc-mint-ink, #059669); }
+        .pt-cal-event-icon--lav   { background: var(--acc-lavender, #ede9fe); color: var(--acc-lavender-ink, #7c3aed); }
+        .pt-cal-event-icon--rose  { background: var(--acc-rose, #fee2e2);  color: var(--acc-rose-ink, #e11d48); }
+        .pt-cal-event-icon--err   { background: color-mix(in oklab, var(--err, #ef4444) 18%, var(--surface)); color: var(--err, #ef4444); }
+        .pt-cal-event-title {
+            font-size: 13px; font-weight: 600;
+            color: var(--ink); letter-spacing: -0.1px;
+        }
+        .pt-cal-event-sub {
+            font-size: 11px; color: var(--ink-sub);
+            margin-top: 2px;
+        }
+        .pt-cal-event-weekday {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--ink-mute); font-weight: 600;
+        }
+
+        @media (max-width: 700px) {
+            .pt-cal-event {
+                grid-template-columns: 48px 32px 1fr;
+                gap: 10px;
+            }
+            .pt-cal-event-weekday { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -756,8 +1092,10 @@
         let currentTab = 'dashboard';
         let currentDocFilter = 'all';
         let currentSettingsSection = 'profile';
-        let expandedTicketId = null;
-        let ticketReplies = {};
+        let selectedTicketId = null;
+        let ticketFilter = 'all';
+        let ticketComposerOpen = false;
+        let calendarFilter = 'all';
         const isPreview = new URLSearchParams(location.search).get('preview') === '1';
 
         function loadPreviewData() {
@@ -815,9 +1153,9 @@
                     phone: '+421 905 123 456'
                 },
                 upcoming_events: [
-                    { date: '18. 4.', time: '14:00', title: 'Call · monthly review',     tone: 'amber' },
-                    { date: '22. 4.', time: '',      title: 'Spustenie novej kampane',   tone: 'sky' },
-                    { date: '1. 5.',  time: '',      title: 'Fakturácia máj',            tone: 'amber' },
+                    { iso_date: new Date(now.getTime() + 5 * 86400000).toISOString(),  date: '18. 4.', time: '14:00', title: 'Call · monthly review',     tone: 'amber', kind: 'meeting', sub: 'Online · 30 min' },
+                    { iso_date: new Date(now.getTime() + 9 * 86400000).toISOString(),  date: '22. 4.', time: '',      title: 'Spustenie novej kampane',   tone: 'sky',   kind: 'campaign', sub: 'Letná ponuka · chlieb BIO' },
+                    { iso_date: new Date(now.getTime() + 18 * 86400000).toISOString(), date: '1. 5.',  time: '',      title: 'Fakturácia máj',            tone: 'amber', kind: 'invoice', sub: 'Pro balík' }
                 ]
             };
             campaigns = [
@@ -846,8 +1184,10 @@
                 { id: 'd8', client_id: client.id, name: 'GDPR súhlasy',            category: 'contract', file_name: 'PDF · 340 KB',  file_url: '#', created_at: daysAgo(124) }
             ];
             tickets = [
-                { id: 't1', client_id: client.id, subject: 'Žiadosť o úpravu cieľovej skupiny', description: 'Chceli by sme zúžiť targeting na Bratislavu a okolie do 30 km.', category: 'campaign', priority: 'medium', status: 'in_progress', created_at: daysAgo(3) },
-                { id: 't2', client_id: client.id, subject: 'Otázka k poslednej faktúre', description: 'Pri faktúre 2026-0067 nie je jasné, čo zahŕňa poplatok za reporting.', category: 'billing', priority: 'low', status: 'resolved', created_at: daysAgo(10) }
+                { id: 't1', client_id: client.id, subject: 'Žiadosť o úpravu cieľovej skupiny', description: 'Chceli by sme zúžiť targeting na Bratislavu a okolie do 30 km. Aktuálne sa kampaň zobrazuje aj v Trnave a Nitre, čo nie je pre nás relevantné.', category: 'campaign', priority: 'medium', status: 'in_progress', created_at: daysAgo(3) },
+                { id: 't2', client_id: client.id, subject: 'Pridať platobnú metódu — kartu',  description: 'Chcel by som okrem SEPA prevodu pridať aj platbu kartou, kvôli rýchlejšiemu spracovaniu.', category: 'billing', priority: 'low', status: 'waiting', created_at: daysAgo(5) },
+                { id: 't3', client_id: client.id, subject: 'Logo vo vyššom rozlíšení',         description: 'Pôvodný súbor má 800 px, potrebujeme min. 2000 px pre tlačoviny. Máte ho v archíve?', category: 'general', priority: 'high', status: 'open', created_at: daysAgo(1) },
+                { id: 't4', client_id: client.id, subject: 'Otázka k poslednej faktúre',      description: 'Pri faktúre 2026-0067 nie je jasné, čo zahŕňa poplatok za reporting.', category: 'billing', priority: 'low', status: 'resolved', created_at: daysAgo(10) }
             ];
             const hoursAgo = (h) => new Date(now.getTime() - h * 3600000).toISOString();
             const minsAgo  = (m) => new Date(now.getTime() - m * 60000).toISOString();
@@ -1205,7 +1545,7 @@
                 case 'campaigns': return renderCampaigns();
                 case 'messages':  return renderMessages();
                 case 'approvals': return renderComingSoon('Schvaľovanie', 'Schvaľovanie kreatív pribudne v ďalšom update.');
-                case 'calendar':  return renderComingSoon('Kalendár', 'Plánované udalosti pribudnú v ďalšom update.');
+                case 'calendar':  return renderCalendar();
                 case 'support':   return renderSupport();
                 case 'invoices':  return renderInvoices();
                 case 'documents': return renderDocuments();
@@ -1712,22 +2052,164 @@
             return groups;
         }
 
+        const TICKET_STATUS_MAP = {
+            open:        { label: 'Otvorené',   tone: 'sky'   },
+            in_progress: { label: 'V riešení',  tone: 'amber' },
+            waiting:     { label: 'Čaká',       tone: 'lav'   },
+            resolved:    { label: 'Vyriešené',  tone: 'mint'  },
+            closed:      { label: 'Uzatvorené', tone: 'n'     }
+        };
+        const TICKET_PRIORITY_MAP = {
+            low:    { label: 'Nízka',   tone: 'n'     },
+            medium: { label: 'Stredná', tone: 'sky'   },
+            high:   { label: 'Vysoká',  tone: 'amber' },
+            urgent: { label: 'Súrne',   tone: 'err'   }
+        };
+        const TICKET_CATEGORY_LABEL = { general: 'Všeobecné', billing: 'Fakturácia', technical: 'Technické', campaign: 'Kampaň', other: 'Iné' };
+        const TICKET_FILTERS = [
+            { key: 'all',       label: 'Všetky',   match: () => true },
+            { key: 'open',      label: 'Otvorené', match: t => t.status === 'open' || t.status === 'in_progress' || t.status === 'waiting' },
+            { key: 'resolved',  label: 'Hotové',   match: t => t.status === 'resolved' || t.status === 'closed' }
+        ];
+
         function renderSupport() {
+            const activeFilter = TICKET_FILTERS.find(f => f.key === ticketFilter) || TICKET_FILTERS[0];
+            const filtered = tickets.filter(activeFilter.match);
+            const selected = tickets.find(t => t.id === selectedTicketId) || null;
+
             return `
-                <div class="card">
-                    <div class="card-header">
-                        <h2>${I.Plus({size:16})} Vytvoriť nový ticket</h2>
+                <div class="pt-tk-wrap">
+                    <aside class="pt-tk-side">
+                        <div class="pt-tk-side-head">
+                            <div class="pt-chip-strip" style="margin:0; padding:0;">
+                                ${TICKET_FILTERS.map(f => {
+                                    const count = tickets.filter(f.match).length;
+                                    return `<button class="pt-chip-filter ${ticketFilter === f.key ? 'active' : ''}" onclick="setTicketFilter('${f.key}')">${f.label} (${count})</button>`;
+                                }).join('')}
+                            </div>
+                            <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="openTicketComposer()">${I.Plus({size:13})} Nový</button>
+                        </div>
+                        <div class="pt-tk-list">
+                            ${filtered.length === 0 ? `
+                                <div class="pt-tk-empty-mini">
+                                    ${I.Ticket({size:18})}
+                                    <div>Žiadne tickety v tejto kategórii</div>
+                                </div>
+                            ` : filtered.map(t => renderTicketListItem(t, t.id === selectedTicketId)).join('')}
+                        </div>
+                    </aside>
+                    <section class="pt-tk-detail">
+                        ${selected ? renderTicketDetail(selected) : renderTicketEmptyDetail()}
+                    </section>
+                </div>
+                ${ticketComposerOpen ? renderTicketComposer() : ''}
+            `;
+        }
+
+        function renderTicketListItem(t, isSelected) {
+            const status = TICKET_STATUS_MAP[t.status] || TICKET_STATUS_MAP.open;
+            const priority = TICKET_PRIORITY_MAP[t.priority] || TICKET_PRIORITY_MAP.medium;
+            return `
+                <button class="pt-tk-row ${isSelected ? 'is-selected' : ''}" onclick="selectTicket('${t.id}')">
+                    <span class="pt-tk-row-bar" style="background:var(--acc-${status.tone}-ink, var(--brand-500));"></span>
+                    <div class="pt-tk-row-body">
+                        <div class="pt-tk-row-subject">${escapeHtml(t.subject || '—')}</div>
+                        <div class="pt-tk-row-meta">
+                            <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+                            <span class="pt-tk-row-pri pt-tk-row-pri--${priority.tone}" title="Priorita: ${priority.label}"></span>
+                            <span class="pt-tk-row-date">${formatDate(t.created_at)}</span>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <form id="ticket-form" onsubmit="submitTicket(event)" style="display:flex; flex-direction:column; gap:14px;">
+                </button>
+            `;
+        }
+
+        function renderTicketEmptyDetail() {
+            return `
+                <div class="pt-tk-empty">
+                    <div class="pt-tk-empty-icon">${I.Ticket({size:24})}</div>
+                    <div class="pt-tk-empty-title">${tickets.length === 0 ? 'Zatiaľ žiadne tickety' : 'Vyberte ticket vľavo'}</div>
+                    <div class="pt-tk-empty-sub">${tickets.length === 0 ? 'Vytvorte prvý ticket cez tlačidlo „Nový" — odpovedáme zvyčajne do niekoľkých hodín.' : 'Klikom na ticket sa zobrazí detail, popis a história stavu.'}</div>
+                    ${tickets.length === 0 ? `<button class="adl-btn adl-btn-primary adl-btn-sm" style="margin-top:14px;" onclick="openTicketComposer()">${I.Plus({size:13})} Vytvoriť ticket</button>` : ''}
+                </div>
+            `;
+        }
+
+        function renderTicketDetail(t) {
+            const status = TICKET_STATUS_MAP[t.status] || TICKET_STATUS_MAP.open;
+            const priority = TICKET_PRIORITY_MAP[t.priority] || TICKET_PRIORITY_MAP.medium;
+            const categoryLabel = TICKET_CATEGORY_LABEL[t.category] || t.category || '—';
+            const ticketIdShort = (t.id || '').toString().slice(0, 8);
+            const timeline = buildTicketTimeline(t);
+            return `
+                <header class="pt-tk-detail-head">
+                    <div class="pt-tk-detail-head-row">
+                        <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+                        <span class="adl-chip adl-chip-${priority.tone} adl-chip-sm">${priority.label}</span>
+                        <span class="adl-chip adl-chip-sm">${categoryLabel}</span>
+                        <span class="pt-tk-detail-id">#${escapeHtml(ticketIdShort)}</span>
+                    </div>
+                    <h2 class="pt-tk-detail-title">${escapeHtml(t.subject || '—')}</h2>
+                    <div class="pt-tk-detail-sub">Vytvorené ${formatDate(t.created_at)}</div>
+                </header>
+                <div class="pt-tk-detail-body">
+                    <div class="pt-tk-detail-section">
+                        <div class="pt-tk-detail-section-label">Popis</div>
+                        ${t.description
+                            ? `<div class="pt-tk-detail-desc">${escapeHtml(t.description).replace(/\n/g, '<br>')}</div>`
+                            : `<div class="pt-tk-detail-desc pt-tk-detail-desc--muted">Bez popisu.</div>`}
+                    </div>
+                    <div class="pt-tk-detail-section">
+                        <div class="pt-tk-detail-section-label">História stavu</div>
+                        <ol class="pt-tk-timeline">
+                            ${timeline.map((step, i) => `
+                                <li class="pt-tk-timeline-item ${step.done ? 'is-done' : ''} ${i === timeline.length - 1 ? 'is-last' : ''}">
+                                    <span class="pt-tk-timeline-dot" style="${step.done ? `background:var(--acc-${step.tone}-ink, var(--brand-500));` : ''}"></span>
+                                    <div class="pt-tk-timeline-body">
+                                        <div class="pt-tk-timeline-label">${step.label}</div>
+                                        ${step.hint ? `<div class="pt-tk-timeline-hint">${escapeHtml(step.hint)}</div>` : ''}
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>
+                    <div class="pt-tk-detail-hint">
+                        ${I.Info({size:12})} Pre konkrétne otázky napíšte do <a href="#" onclick="event.preventDefault(); switchTab('messages')">Správy</a> — odpovedáme rýchlejšie ako tu.
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildTicketTimeline(t) {
+            const status = t.status || 'open';
+            const order = ['open', 'in_progress', 'waiting', 'resolved'];
+            const currentIdx = Math.max(0, order.indexOf(status === 'closed' ? 'resolved' : status));
+            const steps = [
+                { key: 'open',        label: 'Vytvorené',     tone: 'sky',   hint: formatDate(t.created_at) },
+                { key: 'in_progress', label: 'V riešení',     tone: 'amber', hint: status === 'in_progress' ? 'Náš tím pracuje na ticketu' : '' },
+                { key: 'waiting',     label: 'Čaká na vás',   tone: 'lav',   hint: status === 'waiting' ? 'Potrebujeme od vás doplniť informácie' : '' },
+                { key: 'resolved',    label: status === 'closed' ? 'Uzatvorené' : 'Vyriešené', tone: 'mint', hint: '' }
+            ];
+            return steps.map((s, i) => ({ ...s, done: i <= currentIdx }));
+        }
+
+        function renderTicketComposer() {
+            return `
+                <div class="pt-modal-overlay" onclick="if(event.target===this) closeTicketComposer()">
+                    <div class="pt-modal">
+                        <div class="pt-modal-head">
+                            <h3 class="pt-modal-title">${I.Plus({size:16})} Nový ticket</h3>
+                            <button class="pt-iconbtn" onclick="closeTicketComposer()" title="Zatvoriť">${I.X ? I.X({size:14}) : '×'}</button>
+                        </div>
+                        <form id="ticket-form" class="pt-modal-body" onsubmit="submitTicket(event)">
                             <div>
-                                <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Predmet *</label>
-                                <input type="text" id="t-subject" required maxlength="200" class="adl-input" placeholder="Stručný popis problému alebo otázky">
+                                <label class="pt-field-label">Predmet *</label>
+                                <input type="text" id="t-subject" required maxlength="200" class="pt-field-input" placeholder="Stručný popis problému alebo otázky">
                             </div>
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                                 <div>
-                                    <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Kategória</label>
-                                    <select id="t-category" class="adl-input">
+                                    <label class="pt-field-label">Kategória</label>
+                                    <select id="t-category" class="pt-field-input">
                                         <option value="general">Všeobecné</option>
                                         <option value="billing">Fakturácia</option>
                                         <option value="technical">Technické</option>
@@ -1736,8 +2218,8 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Priorita</label>
-                                    <select id="t-priority" class="adl-input">
+                                    <label class="pt-field-label">Priorita</label>
+                                    <select id="t-priority" class="pt-field-input">
                                         <option value="low">Nízka</option>
                                         <option value="medium" selected>Stredná</option>
                                         <option value="high">Vysoká</option>
@@ -1746,86 +2228,39 @@
                                 </div>
                             </div>
                             <div>
-                                <label style="display:block; font-size:12px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Popis</label>
-                                <textarea id="t-description" rows="4" class="adl-input" style="resize:vertical; font-family:inherit;" placeholder="Detailný popis problému, kroky reprodukcie alebo otázka..."></textarea>
+                                <label class="pt-field-label">Popis</label>
+                                <textarea id="t-description" rows="4" class="pt-field-input" style="resize:vertical; font-family:inherit;" placeholder="Detailný popis problému, kroky reprodukcie alebo otázka…"></textarea>
                             </div>
                             <div id="ticket-form-msg"></div>
-                            <div style="display:flex; justify-content:flex-end;">
-                                <button type="submit" id="ticket-submit-btn" class="adl-btn adl-btn-primary">${I.Send({size:14})} Odoslať ticket</button>
+                            <div class="pt-modal-foot">
+                                <button type="button" class="adl-btn adl-btn-outline adl-btn-sm" onclick="closeTicketComposer()">Zrušiť</button>
+                                <button type="submit" id="ticket-submit-btn" class="adl-btn adl-btn-primary adl-btn-sm">${I.Send({size:13})} Odoslať</button>
                             </div>
                         </form>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <h2>${I.Ticket({size:16})} Vaše tickety (${tickets.length})</h2>
-                    </div>
-                    <div class="card-body">
-                        ${tickets.length > 0 ? `
-                            <div class="item-list">
-                                ${tickets.map(t => renderTicketRow(t)).join('')}
-                            </div>
-                        ` : `
-                            <div style="padding:40px 24px; text-align:center; color:var(--ink-sub); background:var(--n-50); border-radius:10px;">
-                                <div style="display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:10px; background:var(--n-75); color:var(--ink-mute); margin-bottom:10px;">${I.Ticket({size:18})}</div>
-                                <div style="font-size:14px; font-weight:600; color:var(--ink);">Žiadne tickety</div>
-                                <div style="font-size:12px; margin-top:4px;">Vytvorte prvý ticket vyššie</div>
-                            </div>
-                        `}
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header"><h2>${I.Phone({size:16})} Priamy kontakt</h2></div>
-                    <div class="card-body">
-                        <div class="contact-card">
-                            <div class="contact-avatar">A</div>
-                            <div class="contact-info">
-                                <h4 style="font-size:15px; margin-bottom:2px;">Adlify Support</h4>
-                                <p style="font-size:12px; color:var(--ink-sub);">Váš marketing partner · Po-Pi 9:00–17:00</p>
-                            </div>
-                            <div class="contact-actions">
-                                <a href="mailto:info@adlify.eu" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Email</a>
-                                <a href="tel:+421944184045" class="adl-btn adl-btn-primary adl-btn-sm">${I.Phone({size:14})} Zavolať</a>
-                            </div>
-                        </div>
                     </div>
                 </div>
             `;
         }
 
-        function renderTicketRow(t) {
-            const statusMap = {
-                open: { label: 'Otvorené', tone: 'sky' },
-                in_progress: { label: 'V riešení', tone: 'amber' },
-                waiting: { label: 'Čaká', tone: 'lav' },
-                resolved: { label: 'Vyriešené', tone: 'mint' },
-                closed: { label: 'Uzatvorené', tone: 'n' }
-            };
-            const priorityMap = {
-                low: { label: 'Nízka', tone: 'n' },
-                medium: { label: 'Stredná', tone: 'sky' },
-                high: { label: 'Vysoká', tone: 'amber' },
-                urgent: { label: 'Súrne', tone: 'err' }
-            };
-            const categoryLabel = ({ general: 'Všeobecné', billing: 'Fakturácia', technical: 'Technické', campaign: 'Kampaň', other: 'Iné' })[t.category] || t.category || '—';
-            const status = statusMap[t.status] || statusMap.open;
-            const priority = priorityMap[t.priority] || priorityMap.medium;
-            return `
-                <div style="padding:14px; background:var(--n-50); border-radius:10px; display:flex; flex-direction:column; gap:8px;">
-                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                        <div style="flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--ink); letter-spacing:-0.1px;">${(t.subject || '—').replace(/</g,'&lt;')}</div>
-                        <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
-                    </div>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                        <span class="adl-chip adl-chip-sm">${categoryLabel}</span>
-                        <span class="adl-chip adl-chip-${priority.tone} adl-chip-sm">${priority.label}</span>
-                        <span style="font-size:11px; color:var(--ink-mute); margin-left:auto;">${formatDate(t.created_at)}</span>
-                    </div>
-                    ${t.description ? `<div style="font-size:12px; color:var(--ink-sub); white-space:pre-wrap; line-height:1.5;">${t.description.replace(/</g,'&lt;')}</div>` : ''}
-                </div>
-            `;
+        function setTicketFilter(f) {
+            ticketFilter = f;
+            render();
+        }
+
+        function selectTicket(id) {
+            selectedTicketId = id;
+            render();
+        }
+
+        function openTicketComposer() {
+            ticketComposerOpen = true;
+            render();
+            requestAnimationFrame(() => document.getElementById('t-subject')?.focus());
+        }
+
+        function closeTicketComposer() {
+            ticketComposerOpen = false;
+            render();
         }
 
         async function submitTicket(e) {
@@ -1856,6 +2291,8 @@
                 }]).select().single();
                 if (error) throw error;
                 tickets.unshift(data);
+                selectedTicketId = data.id;
+                ticketComposerOpen = false;
                 render();
             } catch (err) {
                 console.error('Create ticket error:', err);
@@ -1863,6 +2300,139 @@
                 btn.disabled = false;
                 btn.innerHTML = original;
             }
+        }
+
+        // ─── Calendar (PR D) ───
+        const CALENDAR_FILTERS = [
+            { key: 'all',       label: 'Všetko',    match: () => true },
+            { key: 'invoices',  label: 'Faktúry',   match: e => e.kind === 'invoice' },
+            { key: 'campaigns', label: 'Kampane',   match: e => e.kind === 'campaign' },
+            { key: 'meetings',  label: 'Stretnutia',match: e => e.kind === 'meeting' }
+        ];
+
+        function buildCalendarEvents() {
+            const out = [];
+            const now = new Date();
+            const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+
+            (invoices || []).forEach(inv => {
+                if (!inv.due_date || inv.status === 'paid') return;
+                const due = new Date(inv.due_date);
+                if (isNaN(due.getTime())) return;
+                out.push({
+                    iso_date: due.toISOString(),
+                    kind: 'invoice',
+                    title: `Splatnosť faktúry ${inv.invoice_number || ''}`.trim(),
+                    sub: inv.description || inv.note || '',
+                    tone: due < startOfToday ? 'err' : 'amber',
+                    target_tab: 'invoices'
+                });
+            });
+
+            (campaigns || []).forEach(c => {
+                if (!c.created_at) return;
+                const launched = new Date(c.created_at);
+                if (isNaN(launched.getTime())) return;
+                if (launched < startOfToday) return;
+                out.push({
+                    iso_date: launched.toISOString(),
+                    kind: 'campaign',
+                    title: `Spustenie: ${c.name || 'kampaň'}`,
+                    sub: c.platform_label || '',
+                    tone: c.cover_tone || 'sky',
+                    target_tab: 'campaigns'
+                });
+            });
+
+            (client?.upcoming_events || []).forEach(ev => {
+                if (!ev.iso_date) return;
+                out.push({
+                    iso_date: ev.iso_date,
+                    kind: ev.kind || 'meeting',
+                    title: ev.title || 'Udalosť',
+                    sub: ev.sub || (ev.time ? `o ${ev.time}` : ''),
+                    tone: ev.tone || 'sky'
+                });
+            });
+
+            out.sort((a, b) => new Date(a.iso_date) - new Date(b.iso_date));
+            return out;
+        }
+
+        function renderCalendar() {
+            const all = buildCalendarEvents();
+            const activeFilter = CALENDAR_FILTERS.find(f => f.key === calendarFilter) || CALENDAR_FILTERS[0];
+            const filtered = all.filter(activeFilter.match);
+            const now = new Date();
+            const in7 = new Date(now.getTime() + 7 * 86400000);
+            const in30 = new Date(now.getTime() + 30 * 86400000);
+            const buckets = [
+                { key: 'week',  label: 'Tento týždeň', range: ev => new Date(ev.iso_date) < in7,                                  items: [] },
+                { key: 'month', label: 'Tento mesiac', range: ev => { const d = new Date(ev.iso_date); return d >= in7 && d < in30; }, items: [] },
+                { key: 'later', label: 'Neskôr',       range: ev => new Date(ev.iso_date) >= in30,                                 items: [] }
+            ];
+            filtered.forEach(ev => {
+                const b = buckets.find(x => x.range(ev));
+                if (b) b.items.push(ev);
+            });
+            const nonEmpty = buckets.filter(b => b.items.length > 0);
+
+            return `
+                <div class="pt-chip-strip">
+                    ${CALENDAR_FILTERS.map(f => {
+                        const count = all.filter(f.match).length;
+                        return `<button class="pt-chip-filter ${calendarFilter === f.key ? 'active' : ''}" onclick="setCalendarFilter('${f.key}')">${f.label} (${count})</button>`;
+                    }).join('')}
+                </div>
+
+                ${nonEmpty.length === 0 ? `
+                    <div class="pt-card" style="padding:60px 28px; text-align:center;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Calendar({size:24})}</div>
+                        <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">${all.length === 0 ? 'Zatiaľ žiadne udalosti' : 'V tomto filtri nič nie je'}</h2>
+                        <p style="color:var(--ink-sub); font-size:13px;">${all.length === 0 ? 'Plánované udalosti, splatnosti a launch kampaní sa objavia tu.' : 'Skúste iný filter.'}</p>
+                    </div>
+                ` : nonEmpty.map(b => `
+                    <div class="pt-cal-bucket">
+                        <div class="pt-cal-bucket-head">
+                            <span class="pt-cal-bucket-label">${b.label}</span>
+                            <span class="pt-cal-bucket-count">${b.items.length}</span>
+                        </div>
+                        <div class="pt-cal-bucket-list">
+                            ${b.items.map(renderCalendarEvent).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function renderCalendarEvent(ev) {
+            const iconMap = { invoice: 'Invoice', campaign: 'Campaign', meeting: 'Calendar', ticket: 'Ticket' };
+            const iconName = iconMap[ev.kind] || 'Calendar';
+            const d = new Date(ev.iso_date);
+            const day = d.getDate();
+            const monthShort = d.toLocaleDateString('sk-SK', { month: 'short' }).replace('.', '');
+            const weekday = d.toLocaleDateString('sk-SK', { weekday: 'short' }).replace('.', '');
+            const onClick = ev.target_tab ? `onclick="switchTab('${ev.target_tab}')"` : '';
+            const cls = ev.target_tab ? 'pt-cal-event is-clickable' : 'pt-cal-event';
+            return `
+                <div class="${cls}" ${onClick}>
+                    <div class="pt-cal-event-date">
+                        <div class="pt-cal-event-day">${day}</div>
+                        <div class="pt-cal-event-mo">${escapeHtml(monthShort)}</div>
+                    </div>
+                    <div class="pt-cal-event-icon pt-cal-event-icon--${ev.tone || 'sky'}">${I[iconName]({size:16})}</div>
+                    <div class="pt-cal-event-body">
+                        <div class="pt-cal-event-title">${escapeHtml(ev.title || '')}</div>
+                        ${ev.sub ? `<div class="pt-cal-event-sub">${escapeHtml(ev.sub)}</div>` : ''}
+                    </div>
+                    <div class="pt-cal-event-weekday">${escapeHtml(weekday)}</div>
+                </div>
+            `;
+        }
+
+        function setCalendarFilter(f) {
+            calendarFilter = f;
+            render();
         }
 
         const SETTINGS_SECTIONS = [
