@@ -977,63 +977,184 @@
             padding-top: 6px;
         }
 
-        /* ─── Calendar timeline (PR D) ─── */
-        .pt-cal-bucket {
-            margin-bottom: 18px;
+        /* ─── Calendar month grid (PR D v2) ─── */
+        .pt-cal-toolbar {
+            display: flex; align-items: center; gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
         }
-        .pt-cal-bucket-head {
-            display: flex; align-items: center; gap: 10px;
-            margin-bottom: 8px;
+        .pt-cal-nav {
+            display: flex; align-items: center; gap: 8px;
         }
-        .pt-cal-bucket-label {
-            font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px;
-            font-weight: 600; color: var(--ink-mute);
+        .pt-cal-navbtn {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--ink-sub);
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: background .12s, color .12s, border-color .12s;
         }
-        .pt-cal-bucket-count {
-            font-size: 10px; font-weight: 700;
-            background: var(--n-75); color: var(--ink-sub);
-            padding: 2px 8px; border-radius: 99px;
+        .pt-cal-navbtn:hover {
+            color: var(--ink);
+            background: var(--n-50);
+            border-color: color-mix(in oklab, var(--brand-500) 25%, var(--border));
         }
-        .pt-cal-bucket-list {
-            display: flex; flex-direction: column;
-            gap: 6px;
+        .pt-cal-month-label {
+            font-size: 17px; font-weight: 600; letter-spacing: -0.3px;
+            color: var(--ink);
+            min-width: 160px; text-align: center;
         }
-        .pt-cal-event {
+
+        .pt-cal-wrap {
             display: grid;
-            grid-template-columns: 56px 36px 1fr auto;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 14px;
+            grid-template-columns: 1fr 320px;
+            gap: 16px;
+        }
+
+        .pt-cal-grid-card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            transition: border-color .12s, transform .12s;
+            border-radius: 14px;
+            overflow: hidden;
         }
-        .pt-cal-event.is-clickable { cursor: pointer; }
-        .pt-cal-event.is-clickable:hover {
-            border-color: color-mix(in oklab, var(--brand-500) 30%, var(--border));
-            transform: translateY(-1px);
-        }
-        .pt-cal-event-date {
-            text-align: center;
+        .pt-cal-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
             background: var(--n-50);
-            border-radius: 8px;
-            padding: 6px 4px;
+            border-bottom: 1px solid var(--border);
         }
-        .pt-cal-event-day {
-            font-size: 18px; font-weight: 700;
-            color: var(--ink); letter-spacing: -0.4px;
+        .pt-cal-wd {
+            padding: 10px 0;
+            text-align: center;
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px;
+            font-weight: 600; color: var(--ink-mute);
+        }
+        .pt-cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .pt-cal-day {
+            position: relative;
+            min-height: 92px;
+            background: var(--surface);
+            border: 0;
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 8px 6px;
+            text-align: left;
+            cursor: pointer;
+            font: inherit;
+            color: inherit;
+            display: flex; flex-direction: column; align-items: flex-start;
+            transition: background .12s;
+        }
+        .pt-cal-grid .pt-cal-day:nth-child(7n) { border-right: 0; }
+        .pt-cal-day:hover { background: var(--n-50); }
+        .pt-cal-day.is-out .pt-cal-day-num { color: var(--ink-mute); opacity: 0.55; }
+        .pt-cal-day.is-out { background: color-mix(in oklab, var(--n-50) 60%, var(--surface)); }
+        .pt-cal-day.is-today .pt-cal-day-num {
+            background: var(--brand-500); color: #fff;
+            width: 24px; height: 24px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 99px;
+            font-weight: 700;
+        }
+        .pt-cal-day.is-selected {
+            background: color-mix(in oklab, var(--brand-500) 8%, var(--surface));
+            outline: 2px solid var(--brand-500);
+            outline-offset: -2px;
+            z-index: 1;
+        }
+        .pt-cal-day-num {
+            font-size: 13px; font-weight: 600;
+            color: var(--ink);
             font-family: var(--font-mono);
+            letter-spacing: -0.2px;
             line-height: 1;
+            padding: 2px 0;
         }
-        .pt-cal-event-mo {
-            font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px;
-            color: var(--ink-mute); font-weight: 600;
+        .pt-cal-day-dots {
+            display: flex; flex-wrap: wrap; gap: 3px;
+            margin-top: 6px;
+            width: 100%;
+        }
+        .pt-cal-day-dot {
+            width: 6px; height: 6px; border-radius: 99px;
+            background: var(--brand-500);
+        }
+        .pt-cal-day-dot--sky   { background: var(--acc-sky-ink, #3b82f6); }
+        .pt-cal-day-dot--amber { background: var(--acc-amber-ink, #d97706); }
+        .pt-cal-day-dot--mint  { background: var(--acc-mint-ink, #059669); }
+        .pt-cal-day-dot--lav   { background: var(--acc-lavender-ink, #7c3aed); }
+        .pt-cal-day-dot--rose  { background: var(--acc-rose-ink, #e11d48); }
+        .pt-cal-day-dot--err   { background: var(--err, #ef4444); }
+        .pt-cal-day-more {
+            font-size: 9px; font-weight: 700;
+            color: var(--ink-mute);
+            margin-left: 2px;
+            letter-spacing: 0.3px;
+        }
+
+        /* Agenda (right) */
+        .pt-cal-agenda {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+        .pt-cal-agenda-head {
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, color-mix(in oklab, var(--brand-500) 8%, var(--surface)), var(--surface));
+        }
+        .pt-cal-agenda-weekday {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px;
+            font-weight: 600; color: var(--brand-500);
+        }
+        .pt-cal-agenda-date {
+            font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
+            color: var(--ink);
             margin-top: 2px;
         }
-        .pt-cal-event-icon {
-            width: 36px; height: 36px;
+        .pt-cal-agenda-year {
+            font-size: 11px; color: var(--ink-mute);
+            font-family: var(--font-mono);
+            margin-top: 2px;
+        }
+        .pt-cal-agenda-body {
+            flex: 1;
+            padding: 14px 16px;
+            display: flex; flex-direction: column; gap: 8px;
+            overflow-y: auto;
+            min-height: 200px;
+        }
+        .pt-cal-agenda-event {
+            display: grid;
+            grid-template-columns: 32px 1fr auto;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
             border-radius: 10px;
+            background: var(--n-50);
+            transition: background .12s, transform .12s;
+        }
+        .pt-cal-agenda-event.is-clickable { cursor: pointer; }
+        .pt-cal-agenda-event.is-clickable:hover {
+            background: color-mix(in oklab, var(--brand-500) 6%, var(--surface));
+            transform: translateY(-1px);
+        }
+        .pt-cal-agenda-event-icon {
+            width: 32px; height: 32px;
+            border-radius: 9px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        /* reused tone classes: .pt-cal-event-icon--sky/amber/mint/lav/rose/err */
+        .pt-cal-event-icon {
+            width: 32px; height: 32px;
+            border-radius: 9px;
             display: inline-flex; align-items: center; justify-content: center;
         }
         .pt-cal-event-icon--sky   { background: var(--acc-sky, #dbeafe);   color: var(--acc-sky-ink, #3b82f6); }
@@ -1042,25 +1163,60 @@
         .pt-cal-event-icon--lav   { background: var(--acc-lavender, #ede9fe); color: var(--acc-lavender-ink, #7c3aed); }
         .pt-cal-event-icon--rose  { background: var(--acc-rose, #fee2e2);  color: var(--acc-rose-ink, #e11d48); }
         .pt-cal-event-icon--err   { background: color-mix(in oklab, var(--err, #ef4444) 18%, var(--surface)); color: var(--err, #ef4444); }
-        .pt-cal-event-title {
+        .pt-cal-agenda-event-title {
             font-size: 13px; font-weight: 600;
             color: var(--ink); letter-spacing: -0.1px;
         }
-        .pt-cal-event-sub {
+        .pt-cal-agenda-event-sub {
             font-size: 11px; color: var(--ink-sub);
             margin-top: 2px;
         }
-        .pt-cal-event-weekday {
-            font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
-            color: var(--ink-mute); font-weight: 600;
+        .pt-cal-agenda-event-time {
+            font-size: 11px; color: var(--ink-sub);
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+        .pt-cal-agenda-empty {
+            text-align: center;
+            padding: 28px 16px;
+            color: var(--ink-mute);
+            font-size: 13px; font-weight: 500;
+        }
+        .pt-cal-agenda-empty-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            background: var(--n-50); color: var(--ink-mute);
+            margin-bottom: 10px;
+        }
+        .pt-cal-agenda-empty-sub {
+            font-size: 11px; color: var(--ink-mute);
+            font-weight: 400;
+            margin-top: 2px;
+        }
+        .pt-cal-agenda-foot {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 20px;
+            border-top: 1px solid var(--border);
+            background: var(--n-50);
+        }
+        .pt-cal-agenda-foot-label {
+            font-size: 11px; color: var(--ink-mute);
+            text-transform: uppercase; letter-spacing: 0.6px;
+            font-weight: 600;
+        }
+        .pt-cal-agenda-foot-count {
+            font-size: 14px; font-weight: 700;
+            color: var(--ink);
+            font-family: var(--font-mono);
         }
 
-        @media (max-width: 700px) {
-            .pt-cal-event {
-                grid-template-columns: 48px 32px 1fr;
-                gap: 10px;
+        @media (max-width: 900px) {
+            .pt-cal-wrap {
+                grid-template-columns: 1fr;
             }
-            .pt-cal-event-weekday { display: none; }
+            .pt-cal-day { min-height: 64px; padding: 6px; }
+            .pt-cal-day-num { font-size: 12px; }
         }
     </style>
 </head>
@@ -1096,6 +1252,8 @@
         let ticketFilter = 'all';
         let ticketComposerOpen = false;
         let calendarFilter = 'all';
+        let calendarMonth = null;          // {year, month0} viewed month; null = today's month
+        let calendarSelectedDate = null;   // 'YYYY-MM-DD' selected day; null = today
         const isPreview = new URLSearchParams(location.search).get('preview') === '1';
 
         function loadPreviewData() {
@@ -1152,11 +1310,18 @@
                     email: 'stefan@adlify.sk',
                     phone: '+421 905 123 456'
                 },
-                upcoming_events: [
-                    { iso_date: new Date(now.getTime() + 5 * 86400000).toISOString(),  date: '18. 4.', time: '14:00', title: 'Call · monthly review',     tone: 'amber', kind: 'meeting', sub: 'Online · 30 min' },
-                    { iso_date: new Date(now.getTime() + 9 * 86400000).toISOString(),  date: '22. 4.', time: '',      title: 'Spustenie novej kampane',   tone: 'sky',   kind: 'campaign', sub: 'Letná ponuka · chlieb BIO' },
-                    { iso_date: new Date(now.getTime() + 18 * 86400000).toISOString(), date: '1. 5.',  time: '',      title: 'Fakturácia máj',            tone: 'amber', kind: 'invoice', sub: 'Pro balík' }
-                ]
+                upcoming_events: (() => {
+                    const at = (days, h = 0, m = 0) => { const d = new Date(now); d.setDate(d.getDate() + days); d.setHours(h, m, 0, 0); return d.toISOString(); };
+                    return [
+                        { iso_date: at(2,  10, 0),  time: '10:00', title: 'Strategický call',              tone: 'mint',  kind: 'meeting',  sub: 'Online · 45 min' },
+                        { iso_date: at(5,  14, 0),  time: '14:00', title: 'Call · monthly review',         tone: 'amber', kind: 'meeting',  sub: 'Online · 30 min' },
+                        { iso_date: at(7),          time: '',      title: 'Deadline · schválenie kreatív', tone: 'rose',  kind: 'meeting',  sub: 'Letná kampaň · 4 vizuály' },
+                        { iso_date: at(9),          time: '',      title: 'Spustenie novej kampane',       tone: 'sky',   kind: 'campaign', sub: 'Letná ponuka · chlieb BIO' },
+                        { iso_date: at(14, 9, 0),   time: '09:00', title: 'Workshop · brand audit',        tone: 'lav',   kind: 'meeting',  sub: 'V kancelárii · 2h' },
+                        { iso_date: at(18),         time: '',      title: 'Fakturácia máj',                tone: 'amber', kind: 'invoice',  sub: 'Pro balík' },
+                        { iso_date: at(25, 13, 0),  time: '13:00', title: 'Quarterly business review',     tone: 'mint',  kind: 'meeting',  sub: 'Q2 výsledky · 90 min' }
+                    ];
+                })()
             };
             campaigns = [
                 { id: 'c1', client_id: client.id, name: 'Letná ponuka · chlieb BIO', platform_label: 'FB + Instagram', cover_tone: 'rose',  status: 'active', budget: 420, budget_total: 1000, conversions: 47, roi: 2.1, created_at: daysAgo(45) },
@@ -1713,15 +1878,19 @@
                     <div class="pt-card">
                         <div class="pt-card-head"><div class="pt-card-title">Najbližšie udalosti</div></div>
                         <div class="pt-card-body">
-                            ${upcomingEvents.length > 0 ? upcomingEvents.map(ev => `
+                            ${upcomingEvents.length > 0 ? upcomingEvents.map(ev => {
+                                const dateLabel = ev.date || (ev.iso_date ? (() => { const d = new Date(ev.iso_date); return `${d.getDate()}. ${d.getMonth() + 1}.`; })() : '');
+                                const timeLabel = ev.time || (ev.iso_date ? (() => { const d = new Date(ev.iso_date); return (d.getHours() || d.getMinutes()) ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : ''; })() : '');
+                                return `
                                 <div class="pt-event">
                                     <div class="pt-event-date">
-                                        <div>${escapeHtml(ev.date)}</div>
-                                        ${ev.time ? `<div class="pt-event-time">${escapeHtml(ev.time)}</div>` : ''}
+                                        <div>${escapeHtml(dateLabel)}</div>
+                                        ${timeLabel ? `<div class="pt-event-time">${escapeHtml(timeLabel)}</div>` : ''}
                                     </div>
                                     <div class="pt-event-body" style="border-left-color:var(--acc-${ev.tone || 'sky'}-ink);">${escapeHtml(ev.title)}</div>
                                 </div>
-                            `).join('') : `<div style="color:var(--ink-sub); font-size:13px;">Žiadne plánované udalosti.</div>`}
+                                `;
+                            }).join('') : `<div style="color:var(--ink-sub); font-size:13px;">Žiadne plánované udalosti.</div>`}
                         </div>
                     </div>
                 </div>
@@ -2359,75 +2528,193 @@
             return out;
         }
 
+        const CAL_KIND_ICON = { invoice: 'Invoice', campaign: 'Campaign', meeting: 'Calendar', ticket: 'Ticket' };
+        const CAL_WEEKDAYS_SHORT = ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'];
+
+        function dateKey(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function getViewedMonth() {
+            if (calendarMonth) return calendarMonth;
+            const now = new Date();
+            return { year: now.getFullYear(), month0: now.getMonth() };
+        }
+
+        function getSelectedDateObj() {
+            if (calendarSelectedDate) {
+                const [y, m, d] = calendarSelectedDate.split('-').map(Number);
+                return new Date(y, m - 1, d);
+            }
+            const now = new Date();
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        }
+
+        function buildMonthGrid(year, month0, eventsByDay) {
+            const firstOfMonth = new Date(year, month0, 1);
+            const offset = (firstOfMonth.getDay() + 6) % 7; // Po-first
+            const start = new Date(year, month0, 1 - offset);
+            const days = [];
+            const todayKey = dateKey(new Date());
+            const selectedKey = dateKey(getSelectedDateObj());
+            for (let i = 0; i < 42; i++) {
+                const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+                const key = dateKey(d);
+                days.push({
+                    date: d,
+                    dateStr: key,
+                    inMonth: d.getMonth() === month0,
+                    isToday: key === todayKey,
+                    isSelected: key === selectedKey,
+                    events: eventsByDay.get(key) || []
+                });
+            }
+            // 42 = 6 týždňov; ak posledný týždeň je celý out-of-month, useknime ho
+            const lastWeek = days.slice(35);
+            if (lastWeek.every(d => !d.inMonth)) days.length = 35;
+            return days;
+        }
+
+        function groupEventsByDay(events) {
+            const map = new Map();
+            events.forEach(ev => {
+                const k = dateKey(new Date(ev.iso_date));
+                if (!map.has(k)) map.set(k, []);
+                map.get(k).push(ev);
+            });
+            return map;
+        }
+
         function renderCalendar() {
             const all = buildCalendarEvents();
             const activeFilter = CALENDAR_FILTERS.find(f => f.key === calendarFilter) || CALENDAR_FILTERS[0];
             const filtered = all.filter(activeFilter.match);
-            const now = new Date();
-            const in7 = new Date(now.getTime() + 7 * 86400000);
-            const in30 = new Date(now.getTime() + 30 * 86400000);
-            const buckets = [
-                { key: 'week',  label: 'Tento týždeň', range: ev => new Date(ev.iso_date) < in7,                                  items: [] },
-                { key: 'month', label: 'Tento mesiac', range: ev => { const d = new Date(ev.iso_date); return d >= in7 && d < in30; }, items: [] },
-                { key: 'later', label: 'Neskôr',       range: ev => new Date(ev.iso_date) >= in30,                                 items: [] }
-            ];
-            filtered.forEach(ev => {
-                const b = buckets.find(x => x.range(ev));
-                if (b) b.items.push(ev);
-            });
-            const nonEmpty = buckets.filter(b => b.items.length > 0);
+            const eventsByDay = groupEventsByDay(filtered);
+
+            const { year, month0 } = getViewedMonth();
+            const days = buildMonthGrid(year, month0, eventsByDay);
+            const monthLabel = new Date(year, month0, 1).toLocaleDateString('sk-SK', { month: 'long', year: 'numeric' });
+            const monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+            const selectedDate = getSelectedDateObj();
+            const selectedDayEvents = eventsByDay.get(dateKey(selectedDate)) || [];
 
             return `
-                <div class="pt-chip-strip">
-                    ${CALENDAR_FILTERS.map(f => {
-                        const count = all.filter(f.match).length;
-                        return `<button class="pt-chip-filter ${calendarFilter === f.key ? 'active' : ''}" onclick="setCalendarFilter('${f.key}')">${f.label} (${count})</button>`;
-                    }).join('')}
+                <div class="pt-cal-toolbar">
+                    <div class="pt-cal-nav">
+                        <button class="pt-cal-navbtn" onclick="navCalendar(-1)" title="Predchádzajúci mesiac">${I.ChevronLeft({size:14})}</button>
+                        <div class="pt-cal-month-label">${escapeHtml(monthLabelCap)}</div>
+                        <button class="pt-cal-navbtn" onclick="navCalendar(1)" title="Ďalší mesiac">${I.Chevron({size:14})}</button>
+                        <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="gotoToday()" style="margin-left:6px;">Dnes</button>
+                    </div>
+                    <div class="pt-chip-strip" style="margin:0;">
+                        ${CALENDAR_FILTERS.map(f => {
+                            const count = all.filter(f.match).length;
+                            return `<button class="pt-chip-filter ${calendarFilter === f.key ? 'active' : ''}" onclick="setCalendarFilter('${f.key}')">${f.label} (${count})</button>`;
+                        }).join('')}
+                    </div>
                 </div>
 
-                ${nonEmpty.length === 0 ? `
-                    <div class="pt-card" style="padding:60px 28px; text-align:center;">
-                        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Calendar({size:24})}</div>
-                        <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">${all.length === 0 ? 'Zatiaľ žiadne udalosti' : 'V tomto filtri nič nie je'}</h2>
-                        <p style="color:var(--ink-sub); font-size:13px;">${all.length === 0 ? 'Plánované udalosti, splatnosti a launch kampaní sa objavia tu.' : 'Skúste iný filter.'}</p>
-                    </div>
-                ` : nonEmpty.map(b => `
-                    <div class="pt-cal-bucket">
-                        <div class="pt-cal-bucket-head">
-                            <span class="pt-cal-bucket-label">${b.label}</span>
-                            <span class="pt-cal-bucket-count">${b.items.length}</span>
+                <div class="pt-cal-wrap">
+                    <div class="pt-cal-grid-card">
+                        <div class="pt-cal-weekdays">
+                            ${CAL_WEEKDAYS_SHORT.map(w => `<div class="pt-cal-wd">${w}</div>`).join('')}
                         </div>
-                        <div class="pt-cal-bucket-list">
-                            ${b.items.map(renderCalendarEvent).join('')}
+                        <div class="pt-cal-grid">
+                            ${days.map(renderCalendarDayCell).join('')}
                         </div>
                     </div>
-                `).join('')}
+                    <aside class="pt-cal-agenda">
+                        <div class="pt-cal-agenda-head">
+                            <div class="pt-cal-agenda-weekday">${escapeHtml(selectedDate.toLocaleDateString('sk-SK', { weekday: 'long' }))}</div>
+                            <div class="pt-cal-agenda-date">${selectedDate.getDate()}. ${escapeHtml(selectedDate.toLocaleDateString('sk-SK', { month: 'long' }))}</div>
+                            <div class="pt-cal-agenda-year">${selectedDate.getFullYear()}</div>
+                        </div>
+                        <div class="pt-cal-agenda-body">
+                            ${selectedDayEvents.length === 0 ? `
+                                <div class="pt-cal-agenda-empty">
+                                    <div class="pt-cal-agenda-empty-icon">${I.Calendar({size:18})}</div>
+                                    <div>Žiadne udalosti</div>
+                                    <div class="pt-cal-agenda-empty-sub">v tento deň</div>
+                                </div>
+                            ` : selectedDayEvents.map(renderAgendaEvent).join('')}
+                        </div>
+                        ${all.length > 0 ? `
+                            <div class="pt-cal-agenda-foot">
+                                <span class="pt-cal-agenda-foot-label">Celkom udalostí</span>
+                                <span class="pt-cal-agenda-foot-count">${all.length}</span>
+                            </div>
+                        ` : ''}
+                    </aside>
+                </div>
             `;
         }
 
-        function renderCalendarEvent(ev) {
-            const iconMap = { invoice: 'Invoice', campaign: 'Campaign', meeting: 'Calendar', ticket: 'Ticket' };
-            const iconName = iconMap[ev.kind] || 'Calendar';
+        function renderCalendarDayCell(day) {
+            const cls = [
+                'pt-cal-day',
+                !day.inMonth && 'is-out',
+                day.isToday && 'is-today',
+                day.isSelected && 'is-selected',
+                day.events.length > 0 && 'has-events'
+            ].filter(Boolean).join(' ');
+            const maxDots = 4;
+            const dots = day.events.slice(0, maxDots).map(ev =>
+                `<span class="pt-cal-day-dot pt-cal-day-dot--${ev.tone || 'sky'}" title="${escapeHtml(ev.title || '')}"></span>`
+            ).join('');
+            const extra = day.events.length > maxDots ? `<span class="pt-cal-day-more">+${day.events.length - maxDots}</span>` : '';
+            return `
+                <button class="${cls}" onclick="selectCalendarDay('${day.dateStr}')">
+                    <span class="pt-cal-day-num">${day.date.getDate()}</span>
+                    ${day.events.length > 0 ? `<span class="pt-cal-day-dots">${dots}${extra}</span>` : ''}
+                </button>
+            `;
+        }
+
+        function renderAgendaEvent(ev) {
+            const iconName = CAL_KIND_ICON[ev.kind] || 'Calendar';
             const d = new Date(ev.iso_date);
-            const day = d.getDate();
-            const monthShort = d.toLocaleDateString('sk-SK', { month: 'short' }).replace('.', '');
-            const weekday = d.toLocaleDateString('sk-SK', { weekday: 'short' }).replace('.', '');
+            const time = (d.getHours() || d.getMinutes()) ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
             const onClick = ev.target_tab ? `onclick="switchTab('${ev.target_tab}')"` : '';
-            const cls = ev.target_tab ? 'pt-cal-event is-clickable' : 'pt-cal-event';
+            const cls = ev.target_tab ? 'pt-cal-agenda-event is-clickable' : 'pt-cal-agenda-event';
             return `
                 <div class="${cls}" ${onClick}>
-                    <div class="pt-cal-event-date">
-                        <div class="pt-cal-event-day">${day}</div>
-                        <div class="pt-cal-event-mo">${escapeHtml(monthShort)}</div>
+                    <div class="pt-cal-agenda-event-icon pt-cal-event-icon--${ev.tone || 'sky'}">${I[iconName]({size:16})}</div>
+                    <div class="pt-cal-agenda-event-body">
+                        <div class="pt-cal-agenda-event-title">${escapeHtml(ev.title || '')}</div>
+                        ${ev.sub ? `<div class="pt-cal-agenda-event-sub">${escapeHtml(ev.sub)}</div>` : ''}
                     </div>
-                    <div class="pt-cal-event-icon pt-cal-event-icon--${ev.tone || 'sky'}">${I[iconName]({size:16})}</div>
-                    <div class="pt-cal-event-body">
-                        <div class="pt-cal-event-title">${escapeHtml(ev.title || '')}</div>
-                        ${ev.sub ? `<div class="pt-cal-event-sub">${escapeHtml(ev.sub)}</div>` : ''}
-                    </div>
-                    <div class="pt-cal-event-weekday">${escapeHtml(weekday)}</div>
+                    ${time ? `<div class="pt-cal-agenda-event-time">${time}</div>` : ''}
                 </div>
             `;
+        }
+
+        function navCalendar(delta) {
+            const cur = getViewedMonth();
+            const d = new Date(cur.year, cur.month0 + delta, 1);
+            calendarMonth = { year: d.getFullYear(), month0: d.getMonth() };
+            render();
+        }
+
+        function gotoToday() {
+            const now = new Date();
+            calendarMonth = { year: now.getFullYear(), month0: now.getMonth() };
+            calendarSelectedDate = dateKey(now);
+            render();
+        }
+
+        function selectCalendarDay(dateStr) {
+            calendarSelectedDate = dateStr;
+            const [y, m] = dateStr.split('-').map(Number);
+            // Ak je vybraný deň mimo aktuálne zobrazeného mesiaca, posuň aj mesiac
+            const cur = getViewedMonth();
+            if (cur.year !== y || cur.month0 !== m - 1) {
+                calendarMonth = { year: y, month0: m - 1 };
+            }
+            render();
         }
 
         function setCalendarFilter(f) {
