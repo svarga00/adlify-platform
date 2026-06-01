@@ -1428,6 +1428,231 @@
             .pt-rep-hero-title { font-size: 18px; }
             .pt-rep-spark { display: none; }
         }
+
+        /* ─── Approvals (PR E2) ─── */
+        .pt-ap-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 14px;
+        }
+        .pt-ap-card {
+            display: flex; flex-direction: column;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 0;
+            cursor: pointer;
+            overflow: hidden;
+            text-align: left;
+            font: inherit; color: inherit;
+            transition: border-color .12s, transform .12s, box-shadow .12s;
+        }
+        .pt-ap-card:hover {
+            border-color: color-mix(in oklab, var(--brand-500) 30%, var(--border));
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px color-mix(in oklab, var(--brand-500) 14%, transparent);
+        }
+        .pt-ap-card-media {
+            position: relative;
+            aspect-ratio: 4 / 3;
+            background: var(--n-50);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .pt-ap-card-media img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .pt-ap-card-placeholder {
+            color: var(--ink-mute);
+        }
+        .pt-ap-card-version {
+            position: absolute; top: 8px; left: 8px;
+            background: rgba(15, 23, 42, 0.7);
+            color: #fff;
+            font-size: 10px; font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 99px;
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(6px);
+        }
+        .pt-ap-card-status {
+            position: absolute; top: 8px; right: 8px;
+        }
+        .pt-ap-card-body {
+            padding: 12px 14px 14px;
+        }
+        .pt-ap-card-title {
+            font-size: 13px; font-weight: 600;
+            color: var(--ink); letter-spacing: -0.1px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .pt-ap-card-meta {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 8px;
+            font-size: 11px; color: var(--ink-mute);
+        }
+        .pt-ap-card-meta > span:first-child {
+            display: inline-flex; align-items: center; gap: 4px;
+            color: var(--ink-sub);
+            font-weight: 500;
+        }
+
+        /* Modal large variant */
+        .pt-modal--lg {
+            max-width: 960px;
+        }
+        .pt-ap-modal-version {
+            font-size: 11px; font-weight: 700;
+            background: var(--n-75); color: var(--ink-sub);
+            padding: 2px 8px; border-radius: 99px;
+            letter-spacing: 0.3px;
+        }
+        .pt-ap-modal-body {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            overflow: hidden;
+        }
+        .pt-ap-preview {
+            background: var(--n-50);
+            display: flex; align-items: center; justify-content: center;
+            min-height: 360px;
+            max-height: 70vh;
+            overflow: hidden;
+        }
+        .pt-ap-preview img {
+            max-width: 100%; max-height: 70vh;
+            object-fit: contain;
+            display: block;
+        }
+        .pt-ap-preview-placeholder {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            color: var(--ink-mute);
+            font-size: 12px;
+        }
+        .pt-ap-side {
+            border-left: 1px solid var(--border);
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 70vh;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .pt-ap-side-title {
+            font-size: 16px; font-weight: 600; letter-spacing: -0.3px;
+            color: var(--ink);
+            line-height: 1.35;
+        }
+        .pt-ap-side-desc {
+            font-size: 12px; color: var(--ink-sub);
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .pt-ap-side-section-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+            font-weight: 600; color: var(--ink-mute);
+            margin-bottom: 8px;
+        }
+
+        .pt-ap-chain {
+            list-style: none; padding: 0; margin: 0;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .pt-ap-chain-item button {
+            display: flex; align-items: center; gap: 8px;
+            width: 100%;
+            background: var(--n-50);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font: inherit; color: inherit;
+            text-align: left;
+            transition: background .12s, border-color .12s;
+        }
+        .pt-ap-chain-item button:hover:not(:disabled) {
+            background: color-mix(in oklab, var(--brand-500) 6%, var(--surface));
+            border-color: color-mix(in oklab, var(--brand-500) 25%, var(--border));
+        }
+        .pt-ap-chain-item.is-current button {
+            background: color-mix(in oklab, var(--brand-500) 10%, var(--surface));
+            border-color: color-mix(in oklab, var(--brand-500) 35%, var(--border));
+            cursor: default;
+        }
+        .pt-ap-chain-ver {
+            font-size: 11px; font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--ink-sub);
+            letter-spacing: 0.3px;
+            min-width: 22px;
+        }
+        .pt-ap-chain-date {
+            margin-left: auto;
+            font-size: 10px; color: var(--ink-mute);
+            font-family: var(--font-mono);
+        }
+
+        .pt-ap-decision {
+            font-size: 12px; color: var(--ink-sub);
+        }
+        .pt-ap-feedback {
+            margin-top: 8px;
+            padding: 12px 14px;
+            background: var(--n-50);
+            border-radius: 10px;
+            border-left: 3px solid var(--err);
+            font-size: 12px; color: var(--ink);
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .pt-ap-actions {
+            margin-top: auto;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .pt-ap-actions-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .pt-ap-btn-approve {
+            background: var(--ok, #10b981);
+            border-color: var(--ok, #10b981);
+            color: #fff;
+        }
+        .pt-ap-btn-approve:hover {
+            background: color-mix(in oklab, var(--ok, #10b981) 88%, #000);
+        }
+        .pt-ap-btn-reject {
+            color: var(--err, #ef4444);
+            border-color: color-mix(in oklab, var(--err, #ef4444) 40%, var(--border));
+        }
+        .adl-btn-err {
+            background: var(--err, #ef4444);
+            border-color: var(--err, #ef4444);
+            color: #fff;
+        }
+        .adl-btn-err:hover {
+            background: color-mix(in oklab, var(--err, #ef4444) 90%, #000);
+        }
+
+        @media (max-width: 800px) {
+            .pt-ap-modal-body {
+                grid-template-columns: 1fr;
+            }
+            .pt-ap-side {
+                border-left: 0;
+                border-top: 1px solid var(--border);
+                max-height: none;
+            }
+            .pt-ap-preview { max-height: 50vh; }
+            .pt-ap-preview img { max-height: 50vh; }
+        }
     </style>
 </head>
 <body>
@@ -1453,6 +1678,11 @@
         let documents = [];
         let tickets = [];
         let reports = [];
+        let approvals = [];
+        let approvalsSubscription = null;
+        let selectedApprovalId = null;
+        let approvalsFilter = 'pending';
+        let approvalDecisionMode = null;  // null | 'reject'
         let messages = [];
         let messagesSubscription = null;
         let messageDraft = '';
@@ -1571,6 +1801,17 @@
                 { id: 'r3', client_id: client.id, title: 'Report · Január 2026',  period_start: '2026-01-01', period_end: '2026-01-31', file_url: '#', file_name: 'Adlify_Report_2026-01.pdf', file_size_bytes: 3_900_000, highlights: { conversions: 96,  roi: 2.4, spent: 712, reach: 148900 }, created_at: daysAgo(94) },
                 { id: 'r4', client_id: client.id, title: 'Quarterly · Q4 2025',   period_start: '2025-10-01', period_end: '2025-12-31', file_url: '#', file_name: 'Adlify_Quarterly_Q4-2025.pdf', file_size_bytes: 8_700_000, highlights: { conversions: 312, roi: 2.9, spent: 2240, reach: 488200 }, created_at: daysAgo(150) }
             ];
+            approvals = [
+                // Pending čerstvé
+                { id: 'ap1', client_id: client.id, version: 1, kind: 'creative', title: 'Letná kampaň · Hero vizuál', description: 'Hlavný banner pre Letnú kampaň. Pomer 1:1, použité v Meta feed + stories.', asset_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=900&q=80', thumbnail_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&q=80', status: 'pending', created_at: daysAgo(1) },
+                { id: 'ap2', client_id: client.id, version: 1, kind: 'creative', title: 'Letná kampaň · Carousel A', description: 'Carousel séria — 4 produkty BIO chleba. Square format.', asset_url: 'https://images.unsplash.com/photo-1568254183919-78a4f43a2877?w=900&q=80', thumbnail_url: 'https://images.unsplash.com/photo-1568254183919-78a4f43a2877?w=400&q=80', status: 'pending', created_at: daysAgo(2) },
+                { id: 'ap3', client_id: client.id, version: 1, kind: 'copy', title: 'Texty Google Ads · Lokálne cielenie', description: 'Headline + Description varianty pre Google Search kampaň. 3 ad groups.', asset_url: '', thumbnail_url: '', status: 'pending', created_at: daysAgo(3) },
+                // Revision chain: v1 zamietnuté → v2 čaká
+                { id: 'ap4-v1', client_id: client.id, version: 1, kind: 'design', title: 'Landing page · Wellness', description: 'Wireframe novej landing page.', asset_url: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=900&q=80', thumbnail_url: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&q=80', status: 'rejected', feedback: 'CTA tlačidlo je málo viditeľné a chýba social proof sekcia. Inak vyzerá pekne.', reviewed_at: daysAgo(8), created_at: daysAgo(10) },
+                { id: 'ap4-v2', client_id: client.id, parent_approval_id: 'ap4-v1', version: 2, kind: 'design', title: 'Landing page · Wellness', description: 'Druhá verzia s výraznejším CTA a social proof sekciou (5★ recenzie zákazníkov).', asset_url: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=900&q=80', thumbnail_url: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=400&q=80', status: 'pending', created_at: daysAgo(2) },
+                // Schválené
+                { id: 'ap5', client_id: client.id, version: 1, kind: 'video', title: 'Reel · Pekáreň Story', description: '15-sekundový reel s príbehom pekárne. Vhodný pre Reels aj TikTok.', asset_url: 'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?w=900&q=80', thumbnail_url: 'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?w=400&q=80', status: 'approved', reviewed_at: daysAgo(5), created_at: daysAgo(7) }
+            ];
             const hoursAgo = (h) => new Date(now.getTime() - h * 3600000).toISOString();
             const minsAgo  = (m) => new Date(now.getTime() - m * 60000).toISOString();
             messages = [
@@ -1627,9 +1868,10 @@
                     return;
                 }
 
-                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments(), loadTickets(), loadMessages(), loadReports()]);
+                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments(), loadTickets(), loadMessages(), loadReports(), loadApprovals()]);
                 render();
                 subscribeToMessages();
+                subscribeToApprovals();
 
             } catch (error) {
                 console.error('Init error:', error);
@@ -1670,6 +1912,34 @@
         async function loadReports() {
             const { data } = await db.from('reports').select('*').eq('client_id', client.id).order('period_end', { ascending: false, nullsFirst: false });
             reports = data || [];
+        }
+
+        async function loadApprovals() {
+            const { data } = await db.from('approvals').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
+            approvals = data || [];
+        }
+
+        function subscribeToApprovals() {
+            if (isPreview || !client?.id) return;
+            try { approvalsSubscription?.unsubscribe(); } catch (_) {}
+            approvalsSubscription = db.channel(`approvals-${client.id}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'approvals', filter: `client_id=eq.${client.id}` }, payload => {
+                    const ev = payload.eventType;
+                    const row = payload.new || payload.old;
+                    if (!row) return;
+                    if (ev === 'INSERT') {
+                        if (!approvals.find(a => a.id === row.id)) approvals.unshift(row);
+                    } else if (ev === 'UPDATE') {
+                        const i = approvals.findIndex(a => a.id === row.id);
+                        if (i !== -1) approvals[i] = row;
+                    } else if (ev === 'DELETE') {
+                        approvals = approvals.filter(a => a.id !== row.id);
+                        if (selectedApprovalId === row.id) selectedApprovalId = null;
+                    }
+                    if (currentTab === 'approvals') render();
+                    else renderSidebarOnly();
+                })
+                .subscribe();
         }
 
         function subscribeToMessages() {
@@ -1833,7 +2103,9 @@
                                 <div class="adl-sidebar-group">
                                     <div class="adl-sidebar-group-label">${g.label}</div>
                                     ${g.items.map(it => {
-                                        const badge = it.key === 'messages' ? unreadTeamMessagesCount() : 0;
+                                        let badge = 0;
+                                        if (it.key === 'messages')  badge = unreadTeamMessagesCount();
+                                        if (it.key === 'approvals') badge = pendingApprovalsCount();
                                         return `
                                         <a class="adl-sidebar-item ${currentTab === it.key ? 'active' : ''}" onclick="switchTab('${it.key}')">
                                             ${I[it.icon]({size:17})}
@@ -1931,7 +2203,7 @@
                 case 'reports':   return renderReports();
                 case 'campaigns': return renderCampaigns();
                 case 'messages':  return renderMessages();
-                case 'approvals': return renderComingSoon('Schvaľovanie', 'Schvaľovanie kreatív pribudne v ďalšom update.');
+                case 'approvals': return renderApprovals();
                 case 'calendar':  return renderCalendar();
                 case 'support':   return renderSupport();
                 case 'invoices':  return renderInvoices();
@@ -2288,6 +2560,267 @@
                     `}
                 </div>
             `;
+        }
+
+        // ─── Approvals (PR E2) ───
+        const APPROVAL_STATUS_META = {
+            pending:  { label: 'Čaká',       tone: 'amber' },
+            approved: { label: 'Schválené',  tone: 'mint'  },
+            rejected: { label: 'Zamietnuté', tone: 'err'   }
+        };
+        const APPROVAL_KIND_META = {
+            creative: { label: 'Kreatíva', icon: 'Template' },
+            copy:     { label: 'Texty',    icon: 'Docs'     },
+            design:   { label: 'Dizajn',   icon: 'Template' },
+            video:    { label: 'Video',    icon: 'Campaign' },
+            other:    { label: 'Iné',      icon: 'Docs'     }
+        };
+        const APPROVAL_FILTERS = [
+            { key: 'pending',   label: 'Čakajú na vás', match: a => a.status === 'pending' },
+            { key: 'approved',  label: 'Schválené',     match: a => a.status === 'approved' },
+            { key: 'rejected',  label: 'Zamietnuté',    match: a => a.status === 'rejected' },
+            { key: 'all',       label: 'Všetko',        match: () => true }
+        ];
+
+        function pendingApprovalsCount() {
+            return approvals.filter(a => a.status === 'pending').length;
+        }
+
+        function buildApprovalChain(approval) {
+            // Najnovšia verzia s rovnakým „root" — najprv vystúpame na root, potom všetky deti.
+            const byId = new Map(approvals.map(a => [a.id, a]));
+            let root = approval;
+            while (root.parent_approval_id && byId.has(root.parent_approval_id)) {
+                root = byId.get(root.parent_approval_id);
+            }
+            const chain = [];
+            const visit = (node) => {
+                chain.push(node);
+                const children = approvals.filter(a => a.parent_approval_id === node.id);
+                children.sort((a, b) => (a.version || 0) - (b.version || 0));
+                children.forEach(visit);
+            };
+            visit(root);
+            return chain;
+        }
+
+        function renderApprovals() {
+            const activeFilter = APPROVAL_FILTERS.find(f => f.key === approvalsFilter) || APPROVAL_FILTERS[0];
+            const filtered = approvals.filter(activeFilter.match);
+            const selected = approvals.find(a => a.id === selectedApprovalId) || null;
+
+            return `
+                <div class="pt-chip-strip">
+                    ${APPROVAL_FILTERS.map(f => {
+                        const count = approvals.filter(f.match).length;
+                        return `<button class="pt-chip-filter ${approvalsFilter === f.key ? 'active' : ''}" onclick="setApprovalsFilter('${f.key}')">${f.label} (${count})</button>`;
+                    }).join('')}
+                </div>
+
+                ${filtered.length === 0 ? `
+                    <div class="pt-card" style="padding:60px 28px; text-align:center;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:14px; background:var(--n-50); color:var(--ink-mute); margin-bottom:14px;">${I.Check({size:24})}</div>
+                        <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px;">${approvals.length === 0 ? 'Zatiaľ nič na schválenie' : 'V tomto filtri nič nie je'}</h2>
+                        <p style="color:var(--ink-sub); font-size:13px;">${approvals.length === 0 ? 'Keď vám tím pošle kreatívy alebo texty na schválenie, objavia sa tu.' : 'Skúste iný filter.'}</p>
+                    </div>
+                ` : `
+                    <div class="pt-ap-grid">
+                        ${filtered.map(renderApprovalCard).join('')}
+                    </div>
+                `}
+
+                ${selected ? renderApprovalDetailModal(selected) : ''}
+            `;
+        }
+
+        function renderApprovalCard(a) {
+            const status = APPROVAL_STATUS_META[a.status] || APPROVAL_STATUS_META.pending;
+            const kind = APPROVAL_KIND_META[a.kind] || APPROVAL_KIND_META.other;
+            const v = a.version > 1 ? `v${a.version}` : '';
+            const thumb = a.thumbnail_url || a.asset_url;
+            return `
+                <button class="pt-ap-card" onclick="selectApproval('${a.id}')">
+                    <div class="pt-ap-card-media">
+                        ${thumb
+                            ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy">`
+                            : `<div class="pt-ap-card-placeholder">${I[kind.icon]({size:32})}</div>`}
+                        ${v ? `<span class="pt-ap-card-version">${v}</span>` : ''}
+                        <span class="pt-ap-card-status adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+                    </div>
+                    <div class="pt-ap-card-body">
+                        <div class="pt-ap-card-title">${escapeHtml(a.title || 'Bez názvu')}</div>
+                        <div class="pt-ap-card-meta">
+                            <span>${I[kind.icon]({size:11})} ${kind.label}</span>
+                            <span class="pt-ap-card-date">${formatDate(a.created_at)}</span>
+                        </div>
+                    </div>
+                </button>
+            `;
+        }
+
+        function renderApprovalDetailModal(a) {
+            const status = APPROVAL_STATUS_META[a.status] || APPROVAL_STATUS_META.pending;
+            const kind = APPROVAL_KIND_META[a.kind] || APPROVAL_KIND_META.other;
+            const chain = buildApprovalChain(a);
+            const reviewer = a.reviewed_at ? formatDate(a.reviewed_at) : '';
+            const isPending = a.status === 'pending';
+            const isReject = approvalDecisionMode === 'reject';
+
+            return `
+                <div class="pt-modal-overlay" onclick="if(event.target===this) closeApprovalDetail()">
+                    <div class="pt-modal pt-modal--lg">
+                        <div class="pt-modal-head">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+                                <span class="adl-chip adl-chip-sm">${kind.label}</span>
+                                ${a.version > 1 ? `<span class="pt-ap-modal-version">v${a.version}</span>` : ''}
+                            </div>
+                            <button class="pt-iconbtn" onclick="closeApprovalDetail()" title="Zatvoriť">${I.X({size:14})}</button>
+                        </div>
+                        <div class="pt-ap-modal-body">
+                            <div class="pt-ap-preview">
+                                ${a.asset_url
+                                    ? `<img src="${escapeHtml(a.asset_url)}" alt="${escapeHtml(a.title || '')}">`
+                                    : `<div class="pt-ap-preview-placeholder">${I[kind.icon]({size:48})}<span>Bez náhľadu</span></div>`}
+                            </div>
+                            <div class="pt-ap-side">
+                                <div class="pt-ap-side-title">${escapeHtml(a.title || 'Bez názvu')}</div>
+                                ${a.description ? `<div class="pt-ap-side-desc">${escapeHtml(a.description)}</div>` : ''}
+
+                                ${chain.length > 1 ? `
+                                    <div class="pt-ap-side-section">
+                                        <div class="pt-ap-side-section-label">Verzie</div>
+                                        <ol class="pt-ap-chain">
+                                            ${chain.map(c => {
+                                                const cs = APPROVAL_STATUS_META[c.status] || APPROVAL_STATUS_META.pending;
+                                                const isCurrent = c.id === a.id;
+                                                return `
+                                                    <li class="pt-ap-chain-item ${isCurrent ? 'is-current' : ''}">
+                                                        <button onclick="selectApproval('${c.id}')" ${isCurrent ? 'disabled' : ''}>
+                                                            <span class="pt-ap-chain-ver">v${c.version || 1}</span>
+                                                            <span class="adl-chip adl-chip-${cs.tone} adl-chip-sm">${cs.label}</span>
+                                                            <span class="pt-ap-chain-date">${formatDate(c.created_at)}</span>
+                                                        </button>
+                                                    </li>
+                                                `;
+                                            }).join('')}
+                                        </ol>
+                                    </div>
+                                ` : ''}
+
+                                ${!isPending && reviewer ? `
+                                    <div class="pt-ap-side-section">
+                                        <div class="pt-ap-side-section-label">Rozhodnutie</div>
+                                        <div class="pt-ap-decision">${escapeHtml(reviewer)}</div>
+                                        ${a.feedback ? `<div class="pt-ap-feedback">${escapeHtml(a.feedback)}</div>` : ''}
+                                    </div>
+                                ` : ''}
+
+                                ${isPending ? (isReject ? `
+                                    <div class="pt-ap-side-section">
+                                        <div class="pt-ap-side-section-label">Dôvod zamietnutia</div>
+                                        <form onsubmit="event.preventDefault(); confirmReject('${a.id}', this)">
+                                            <textarea id="ap-reject-feedback" class="pt-field-input" rows="4" required minlength="3" placeholder="Stručne čo treba upraviť — tím podľa toho pripraví novú verziu." style="font-family:inherit; resize:vertical;"></textarea>
+                                            <div id="ap-reject-msg" style="margin-top:8px;"></div>
+                                            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                                                <button type="button" class="adl-btn adl-btn-outline adl-btn-sm" onclick="cancelDecision()">Späť</button>
+                                                <button type="submit" class="adl-btn adl-btn-err adl-btn-sm">${I.X({size:13})} Zamietnuť verziu</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                ` : `
+                                    <div class="pt-ap-actions">
+                                        <div id="ap-action-msg"></div>
+                                        <div class="pt-ap-actions-row">
+                                            <button class="adl-btn adl-btn-outline adl-btn-sm pt-ap-btn-reject" onclick="startReject()">${I.X({size:13})} Zamietnuť</button>
+                                            <button class="adl-btn adl-btn-primary adl-btn-sm pt-ap-btn-approve" onclick="confirmApprove('${a.id}')">${I.Check({size:13})} Schváliť</button>
+                                        </div>
+                                    </div>
+                                `) : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function setApprovalsFilter(f) {
+            approvalsFilter = f;
+            render();
+        }
+
+        function selectApproval(id) {
+            selectedApprovalId = id;
+            approvalDecisionMode = null;
+            render();
+            requestAnimationFrame(() => {
+                document.querySelector('.pt-ap-modal-body')?.scrollTo(0, 0);
+            });
+        }
+
+        function closeApprovalDetail() {
+            selectedApprovalId = null;
+            approvalDecisionMode = null;
+            render();
+        }
+
+        function startReject() {
+            approvalDecisionMode = 'reject';
+            render();
+            requestAnimationFrame(() => document.getElementById('ap-reject-feedback')?.focus());
+        }
+
+        function cancelDecision() {
+            approvalDecisionMode = null;
+            render();
+        }
+
+        async function confirmApprove(id) {
+            const msgEl = document.getElementById('ap-action-msg');
+            if (isPreview) { previewBlocked(msgEl); return; }
+            const idx = approvals.findIndex(a => a.id === id);
+            if (idx === -1) return;
+            const prev = approvals[idx];
+            approvals[idx] = { ...prev, status: 'approved', reviewed_at: new Date().toISOString() };
+            render();
+            const { error } = await db.from('approvals').update({
+                status: 'approved',
+                reviewed_at: new Date().toISOString(),
+                reviewed_by: user.id
+            }).eq('id', id);
+            if (error) {
+                approvals[idx] = prev;
+                render();
+                alert('Schválenie zlyhalo: ' + error.message);
+            }
+        }
+
+        async function confirmReject(id, formEl) {
+            const ta = formEl.querySelector('#ap-reject-feedback');
+            const msgEl = formEl.querySelector('#ap-reject-msg');
+            const feedback = (ta?.value || '').trim();
+            if (feedback.length < 3) {
+                ta?.focus();
+                return;
+            }
+            if (isPreview) { previewBlocked(msgEl); return; }
+            const idx = approvals.findIndex(a => a.id === id);
+            if (idx === -1) return;
+            const prev = approvals[idx];
+            approvals[idx] = { ...prev, status: 'rejected', feedback, reviewed_at: new Date().toISOString() };
+            approvalDecisionMode = null;
+            render();
+            const { error } = await db.from('approvals').update({
+                status: 'rejected',
+                feedback,
+                reviewed_at: new Date().toISOString(),
+                reviewed_by: user.id
+            }).eq('id', id);
+            if (error) {
+                approvals[idx] = prev;
+                render();
+                alert('Zamietnutie zlyhalo: ' + error.message);
+            }
         }
 
         // ─── Reports (PR E1) ───
