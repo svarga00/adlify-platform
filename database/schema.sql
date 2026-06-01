@@ -408,6 +408,28 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 -- ============================================
+-- 📊 REPORTS (PDF/PPTX reporty archív v portáli)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001',
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+
+  title TEXT NOT NULL,
+  period_start DATE,
+  period_end DATE,
+
+  file_url TEXT,
+  file_name TEXT,
+  file_size_bytes BIGINT,
+
+  highlights JSONB DEFAULT '{}',
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
 -- 📂 CAMPAIGN_PROJECTS (projekty klienta v portáli)
 -- ============================================
 
@@ -534,6 +556,7 @@ ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
@@ -690,6 +713,17 @@ CREATE POLICY "Clients can view own public documents" ON documents
     AND is_public = true
   );
 
+-- Reports
+CREATE POLICY "Team can manage reports" ON reports
+  FOR ALL USING (
+    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Clients can view own reports" ON reports
+  FOR SELECT USING (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+  );
+
 -- Campaign projects
 CREATE POLICY "Team can manage projects" ON campaign_projects
   FOR ALL USING (
@@ -796,6 +830,7 @@ CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tickets_client ON tickets(client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_client ON documents(client_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_client ON reports(client_id, period_end DESC);
 CREATE INDEX IF NOT EXISTS idx_campaign_projects_client ON campaign_projects(client_id, created_at DESC);
 
 -- ============================================

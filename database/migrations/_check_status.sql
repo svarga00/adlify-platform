@@ -20,7 +20,8 @@ WITH expected (name, migration, purpose) AS (VALUES
   ('outreach_groups',                 '009', 'FB/LinkedIn skupiny (bookmarklet)'),
   ('tickets',                         '012', 'Portál — support tickety (loadTickets/submitTicket)'),
   ('documents',                       '012', 'Portál — dokumenty klienta (loadDocuments)'),
-  ('campaign_projects',               '012', 'Portál — projekty klienta (loadProjects)')
+  ('campaign_projects',               '012', 'Portál — projekty klienta (loadProjects)'),
+  ('reports',                         '013', 'Portál — PDF/PPTX reporty archív (loadReports)')
 )
 SELECT
   e.migration,
