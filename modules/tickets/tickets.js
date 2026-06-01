@@ -97,6 +97,7 @@ const TicketsModule = {
             </div>
         `;
 
+        this.updateStats();
         this.renderContent();
     },
 
@@ -124,9 +125,6 @@ const TicketsModule = {
                 .select('id, company_name');
             this.clients = clients || [];
 
-            // Update stats
-            this.updateStats();
-
         } catch (error) {
             console.error('Load tickets error:', error);
             Utils.showNotification('Chyba pri načítaní ticketov', 'error');
@@ -141,10 +139,14 @@ const TicketsModule = {
             resolved: this.tickets.filter(t => t.status === 'resolved' || t.status === 'closed').length
         };
 
-        document.getElementById('stat-open').textContent = stats.open;
-        document.getElementById('stat-progress').textContent = stats.progress;
-        document.getElementById('stat-waiting').textContent = stats.waiting;
-        document.getElementById('stat-resolved').textContent = stats.resolved;
+        const setStat = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+        setStat('stat-open', stats.open);
+        setStat('stat-progress', stats.progress);
+        setStat('stat-waiting', stats.waiting);
+        setStat('stat-resolved', stats.resolved);
     },
 
     renderContent() {

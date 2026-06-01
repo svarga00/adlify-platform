@@ -366,8 +366,62 @@ CREATE TABLE IF NOT EXISTS messages (
   -- Stav
   is_read BOOLEAN DEFAULT false,
   read_at TIMESTAMPTZ,
-  
+
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 🎫 TICKETS (support tickety z portálu)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS tickets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001',
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+
+  subject TEXT NOT NULL,
+  description TEXT,
+  category TEXT DEFAULT 'general',
+  priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  status TEXT DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'waiting', 'resolved', 'closed')),
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 📁 DOCUMENTS (dokumenty klienta v portáli)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001',
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+
+  name TEXT NOT NULL,
+  category TEXT DEFAULT 'contract',
+  file_name TEXT,
+  file_url TEXT,
+  is_public BOOLEAN DEFAULT true,
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- 📂 CAMPAIGN_PROJECTS (projekty klienta v portáli)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS campaign_projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001',
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'active',
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================
@@ -478,6 +532,9 @@ ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
 
@@ -605,6 +662,45 @@ CREATE POLICY "Clients can send messages" ON messages
     AND sender_type = 'client'
   );
 
+-- Tickets
+CREATE POLICY "Team can manage tickets" ON tickets
+  FOR ALL USING (
+    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Clients can view own tickets" ON tickets
+  FOR SELECT USING (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Clients can create own tickets" ON tickets
+  FOR INSERT WITH CHECK (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+  );
+
+-- Documents
+CREATE POLICY "Team can manage documents" ON documents
+  FOR ALL USING (
+    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Clients can view own public documents" ON documents
+  FOR SELECT USING (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+    AND is_public = true
+  );
+
+-- Campaign projects
+CREATE POLICY "Team can manage projects" ON campaign_projects
+  FOR ALL USING (
+    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Clients can view own projects" ON campaign_projects
+  FOR SELECT USING (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+  );
+
 -- Integrations
 CREATE POLICY "Team admins can manage integrations" ON integrations
   FOR ALL USING (
@@ -698,6 +794,9 @@ CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_date) WHERE status != 'don
 CREATE INDEX IF NOT EXISTS idx_invoices_client ON invoices(client_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tickets_client ON tickets(client_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_client ON documents(client_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_campaign_projects_client ON campaign_projects(client_id, created_at DESC);
 
 -- ============================================
 -- ✅ DONE

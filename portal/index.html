@@ -550,6 +550,182 @@
         .contact-info h4 { font-size: 1rem; margin-bottom: 0.25rem; }
         .contact-info p { font-size: 0.85rem; color: var(--ink-sub); }
         .contact-actions { display: flex; gap: 0.5rem; }
+
+        /* ─── Messages (PR C) ─── */
+        .pt-msg-wrap {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 16px;
+            height: calc(100vh - 160px);
+            min-height: 520px;
+        }
+        .pt-msg-side {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .pt-msg-am {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px 16px;
+            text-align: center;
+        }
+        .pt-msg-am-avatar {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+            color: #fff;
+            font-weight: 700; font-size: 22px;
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-bottom: 10px;
+        }
+        .pt-msg-am-name { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; color: var(--ink); }
+        .pt-msg-am-role { font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
+        .pt-msg-am-status {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 10px; font-size: 11px; color: var(--ink-sub);
+            background: color-mix(in oklab, var(--ok, #10b981) 12%, var(--surface));
+            padding: 4px 10px; border-radius: 99px;
+        }
+        .pt-msg-dot {
+            width: 6px; height: 6px; border-radius: 99px;
+            background: var(--ok, #10b981);
+        }
+        .pt-msg-am-contact {
+            display: flex; flex-direction: column; gap: 6px;
+            margin-top: 14px; padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .pt-msg-am-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 12px; color: var(--ink-sub);
+            text-decoration: none;
+        }
+        .pt-msg-am-link:hover { color: var(--brand-500); }
+        .pt-msg-side-hint {
+            display: flex; align-items: flex-start; gap: 6px;
+            font-size: 11px; color: var(--ink-mute);
+            padding: 10px 12px;
+            background: var(--n-50);
+            border-radius: 10px;
+            line-height: 1.5;
+        }
+
+        .pt-msg-thread {
+            display: flex; flex-direction: column;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            position: relative;
+        }
+        #pt-msg-thread {
+            overflow-y: auto;
+            padding: 16px 20px 0;
+        }
+        .pt-msg-daysep {
+            display: flex; align-items: center; gap: 10px;
+            margin: 10px 0;
+        }
+        .pt-msg-daysep::before, .pt-msg-daysep::after {
+            content: ''; flex: 1; height: 1px; background: var(--border);
+        }
+        .pt-msg-daysep span {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--ink-mute); font-weight: 600;
+        }
+        .pt-msg-row { display: flex; margin-bottom: 8px; }
+        .pt-msg-row--in  { justify-content: flex-start; }
+        .pt-msg-row--out { justify-content: flex-end; }
+        .pt-msg-bubble {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .pt-msg-bubble--in {
+            background: var(--n-50);
+            color: var(--ink);
+            border-bottom-left-radius: 4px;
+        }
+        .pt-msg-bubble--out {
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .pt-msg-text { white-space: pre-wrap; word-wrap: break-word; }
+        .pt-msg-meta {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 4px;
+            font-family: var(--font-mono);
+        }
+        .pt-msg-empty {
+            flex: 1;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--ink-sub);
+        }
+        .pt-msg-empty-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 56px; height: 56px; border-radius: 14px;
+            background: var(--n-50); color: var(--ink-mute);
+            margin-bottom: 12px;
+        }
+        .pt-msg-empty-title { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+        .pt-msg-empty-sub { font-size: 12px; max-width: 340px; }
+
+        .pt-msg-composer {
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            background: var(--surface);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .pt-msg-input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font: inherit;
+            font-size: 13px;
+            color: var(--ink);
+            background: var(--surface);
+            resize: vertical;
+            min-height: 56px;
+            max-height: 200px;
+            outline: none;
+        }
+        .pt-msg-input:focus { border-color: var(--brand-500); }
+        .pt-msg-composer-foot {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .pt-msg-hint { font-size: 10px; color: var(--ink-mute); }
+
+        /* Sidebar unread badge */
+        .adl-sidebar-item-badge {
+            margin-left: auto;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 99px;
+            background: var(--brand-500);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-flex; align-items: center; justify-content: center;
+            line-height: 1;
+        }
+
+        @media (max-width: 900px) {
+            .pt-msg-wrap {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .pt-msg-side { order: 2; }
+            .pt-msg-thread { order: 1; min-height: 480px; }
+            .pt-msg-bubble { max-width: 85%; }
+        }
     </style>
 </head>
 <body>
@@ -574,6 +750,9 @@
         let invoices = [];
         let documents = [];
         let tickets = [];
+        let messages = [];
+        let messagesSubscription = null;
+        let messageDraft = '';
         let currentTab = 'dashboard';
         let currentDocFilter = 'all';
         let currentSettingsSection = 'profile';
@@ -670,6 +849,17 @@
                 { id: 't1', client_id: client.id, subject: 'Žiadosť o úpravu cieľovej skupiny', description: 'Chceli by sme zúžiť targeting na Bratislavu a okolie do 30 km.', category: 'campaign', priority: 'medium', status: 'in_progress', created_at: daysAgo(3) },
                 { id: 't2', client_id: client.id, subject: 'Otázka k poslednej faktúre', description: 'Pri faktúre 2026-0067 nie je jasné, čo zahŕňa poplatok za reporting.', category: 'billing', priority: 'low', status: 'resolved', created_at: daysAgo(10) }
             ];
+            const hoursAgo = (h) => new Date(now.getTime() - h * 3600000).toISOString();
+            const minsAgo  = (m) => new Date(now.getTime() - m * 60000).toISOString();
+            messages = [
+                { id: 'm1', client_id: client.id, sender_type: 'team',   sender_id: 'team-stefan', content: 'Dobrý deň Jana, vitajte v Adlify portáli. Tu môžeme komunikovať priamo k vašim kampaniam.',         is_read: true,  created_at: daysAgo(7) },
+                { id: 'm2', client_id: client.id, sender_type: 'client', sender_id: 'preview-user', content: 'Super, ďakujem! Mám otázku k letnej kampani — kedy ju plánujete spustiť?',                         is_read: true,  created_at: daysAgo(7) },
+                { id: 'm3', client_id: client.id, sender_type: 'team',   sender_id: 'team-stefan', content: 'Spustenie máme naplánované na 22. apríla. Pošlem vám náhľad kreatív na schválenie do piatka.',      is_read: true,  created_at: daysAgo(6) },
+                { id: 'm4', client_id: client.id, sender_type: 'team',   sender_id: 'team-lucia',  content: 'Posielam vám report za marec. Konverzie sú +28 % oproti februáru, ROI 3.4×. Detaily v PDF v sekcii Dokumenty.', is_read: true, created_at: daysAgo(2) },
+                { id: 'm5', client_id: client.id, sender_type: 'client', sender_id: 'preview-user', content: 'Skvelé výsledky! Môžeme sa baviť o zvýšení budgetu na máj?',                                         is_read: true,  created_at: daysAgo(2) },
+                { id: 'm6', client_id: client.id, sender_type: 'team',   sender_id: 'team-stefan', content: 'Určite. Pripravím vám návrh na 1 400 €/mesiac s rozdelením 60/40 medzi Meta a Google. Pošlem do utorka.', is_read: false, created_at: hoursAgo(5) },
+                { id: 'm7', client_id: client.id, sender_type: 'team',   sender_id: 'team-lucia',  content: 'Ešte malá vec — potrebujeme od vás aktualizované logo vo vyššom rozlíšení (min. 2000 px). Vďaka!',     is_read: false, created_at: minsAgo(45) }
+            ];
         }
 
         function previewBlocked(msgEl) {
@@ -715,8 +905,9 @@
                     return;
                 }
 
-                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments(), loadTickets()]);
+                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments(), loadTickets(), loadMessages()]);
                 render();
+                subscribeToMessages();
 
             } catch (error) {
                 console.error('Init error:', error);
@@ -747,6 +938,89 @@
         async function loadTickets() {
             const { data } = await db.from('tickets').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
             tickets = data || [];
+        }
+
+        async function loadMessages() {
+            const { data } = await db.from('messages').select('*').eq('client_id', client.id).order('created_at', { ascending: true });
+            messages = data || [];
+        }
+
+        function subscribeToMessages() {
+            if (isPreview || !client?.id) return;
+            try { messagesSubscription?.unsubscribe(); } catch (_) {}
+            messagesSubscription = db.channel(`messages-${client.id}`)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `client_id=eq.${client.id}` }, payload => {
+                    const m = payload.new;
+                    if (!m) return;
+                    if (m.sender_type === 'client' && m.sender_id === user?.id) return;
+                    if (messages.find(x => x.id === m.id)) return;
+                    messages.push(m);
+                    if (currentTab === 'messages') {
+                        renderMessageThreadOnly();
+                        if (m.sender_type === 'team') markMessagesAsRead();
+                    } else {
+                        renderSidebarOnly();
+                    }
+                })
+                .subscribe();
+        }
+
+        function unreadTeamMessagesCount() {
+            return messages.filter(m => m.sender_type === 'team' && !m.is_read).length;
+        }
+
+        async function markMessagesAsRead() {
+            const unread = messages.filter(m => m.sender_type === 'team' && !m.is_read);
+            if (unread.length === 0) return;
+            unread.forEach(m => { m.is_read = true; m.read_at = new Date().toISOString(); });
+            renderSidebarOnly();
+            if (isPreview) return;
+            const ids = unread.map(m => m.id);
+            await db.from('messages').update({ is_read: true, read_at: new Date().toISOString() }).in('id', ids);
+        }
+
+        async function sendMessage(formEl) {
+            const ta = formEl.querySelector('textarea');
+            const content = (ta.value || '').trim();
+            if (!content) return;
+            if (isPreview) {
+                const banner = formEl.querySelector('[data-preview-banner]');
+                previewBlocked(banner);
+                return;
+            }
+            const btn = formEl.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            const optimistic = {
+                id: 'tmp-' + Date.now(),
+                client_id: client.id,
+                sender_id: user.id,
+                sender_type: 'client',
+                content,
+                is_read: true,
+                created_at: new Date().toISOString()
+            };
+            messages.push(optimistic);
+            ta.value = '';
+            messageDraft = '';
+            renderMessageThreadOnly();
+            const { data, error } = await db.from('messages').insert({
+                client_id: client.id,
+                sender_id: user.id,
+                sender_type: 'client',
+                content
+            }).select().single();
+            if (error) {
+                messages = messages.filter(m => m.id !== optimistic.id);
+                ta.value = content;
+                messageDraft = content;
+                renderMessageThreadOnly();
+                alert('Správu sa nepodarilo odoslať: ' + error.message);
+            } else if (data) {
+                const idx = messages.findIndex(m => m.id === optimistic.id);
+                if (idx !== -1) messages[idx] = data;
+                renderMessageThreadOnly();
+            }
+            btn.disabled = false;
         }
 
         function showError(title, message) {
@@ -831,12 +1105,15 @@
                             ${SIDEBAR_GROUPS.map(g => `
                                 <div class="adl-sidebar-group">
                                     <div class="adl-sidebar-group-label">${g.label}</div>
-                                    ${g.items.map(it => `
+                                    ${g.items.map(it => {
+                                        const badge = it.key === 'messages' ? unreadTeamMessagesCount() : 0;
+                                        return `
                                         <a class="adl-sidebar-item ${currentTab === it.key ? 'active' : ''}" onclick="switchTab('${it.key}')">
                                             ${I[it.icon]({size:17})}
                                             <span class="adl-sidebar-item-label">${it.label}</span>
-                                        </a>
-                                    `).join('')}
+                                            ${badge > 0 ? `<span class="adl-sidebar-item-badge">${badge}</span>` : ''}
+                                        </a>`;
+                                    }).join('')}
                                 </div>
                             `).join('')}
                         </nav>
@@ -888,6 +1165,37 @@
         function switchTab(tab) {
             currentTab = tab;
             render();
+            if (tab === 'messages') {
+                markMessagesAsRead();
+                scrollMessageThreadToBottom();
+            }
+        }
+
+        function renderSidebarOnly() {
+            const old = document.querySelector('.adl-sidebar');
+            if (!old) return;
+            const wrap = document.createElement('div');
+            wrap.innerHTML = renderSidebar();
+            const fresh = wrap.firstElementChild;
+            old.replaceWith(fresh);
+        }
+
+        function renderMessageThreadOnly() {
+            const thread = document.getElementById('pt-msg-thread');
+            if (!thread) { if (currentTab === 'messages') render(); return; }
+            thread.outerHTML = renderMessageThread();
+            scrollMessageThreadToBottom();
+        }
+
+        function scrollMessageThreadToBottom() {
+            requestAnimationFrame(() => {
+                const t = document.getElementById('pt-msg-thread');
+                if (t) t.scrollTop = t.scrollHeight;
+            });
+        }
+
+        function onMessageInput(el) {
+            messageDraft = el.value;
         }
 
         function renderContent() {
@@ -895,7 +1203,7 @@
                 case 'dashboard': return renderDashboard();
                 case 'reports':   return renderComingSoon('Reporty', 'Detailné reporty výkonu kampaní pribudnú v ďalšom update.');
                 case 'campaigns': return renderCampaigns();
-                case 'messages':  return renderComingSoon('Správy', 'Real-time komunikácia s tímom pribudne v ďalšom update.');
+                case 'messages':  return renderMessages();
                 case 'approvals': return renderComingSoon('Schvaľovanie', 'Schvaľovanie kreatív pribudne v ďalšom update.');
                 case 'calendar':  return renderComingSoon('Kalendár', 'Plánované udalosti pribudnú v ďalšom update.');
                 case 'support':   return renderSupport();
@@ -1310,6 +1618,98 @@
         function setDocFilter(key) {
             currentDocFilter = key;
             render();
+        }
+
+        function renderMessages() {
+            const am = client?.account_manager || { name: 'Adlify tím', role: 'Account manažér', response_time: 'odpovedá do 2h', email: 'team@adlify.sk', phone: '' };
+            return `
+                <div class="pt-msg-wrap">
+                    <aside class="pt-msg-side">
+                        <div class="pt-msg-am">
+                            <div class="pt-msg-am-avatar">${initials(am.name)}</div>
+                            <div class="pt-msg-am-name">${escapeHtml(am.name)}</div>
+                            <div class="pt-msg-am-role">${escapeHtml(am.role || 'Account manažér')}</div>
+                            <div class="pt-msg-am-status"><span class="pt-msg-dot"></span>${escapeHtml(am.response_time || 'odpovedá do 2h')}</div>
+                            <div class="pt-msg-am-contact">
+                                ${am.email ? `<a class="pt-msg-am-link" href="mailto:${escapeHtml(am.email)}">${I.Mail({size:13})} ${escapeHtml(am.email)}</a>` : ''}
+                                ${am.phone ? `<a class="pt-msg-am-link" href="tel:${escapeHtml(am.phone)}">${I.Phone({size:13})} ${escapeHtml(am.phone)}</a>` : ''}
+                            </div>
+                        </div>
+                        <div class="pt-msg-side-hint">${I.Info({size:12})} Odpovedáme zvyčajne do niekoľkých hodín v pracovných dňoch.</div>
+                    </aside>
+                    ${renderMessageThread()}
+                </div>
+            `;
+        }
+
+        function renderMessageThread() {
+            const sorted = [...messages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            const groups = groupMessagesByDay(sorted);
+            const body = sorted.length === 0
+                ? `<div class="pt-msg-empty">
+                       <div class="pt-msg-empty-icon">${I.Mail({size:24})}</div>
+                       <div class="pt-msg-empty-title">Zatiaľ žiadne správy</div>
+                       <div class="pt-msg-empty-sub">Napíšte tímu prvú správu — odpovieme zvyčajne do niekoľkých hodín.</div>
+                   </div>`
+                : groups.map(g => `
+                    <div class="pt-msg-daysep"><span>${escapeHtml(g.label)}</span></div>
+                    ${g.items.map(m => renderMessageBubble(m)).join('')}
+                `).join('');
+            return `
+                <section id="pt-msg-thread" class="pt-msg-thread">
+                    ${body}
+                    <form class="pt-msg-composer" onsubmit="event.preventDefault(); sendMessage(this);">
+                        <div data-preview-banner></div>
+                        <textarea
+                            class="pt-msg-input"
+                            placeholder="Napíšte správu tímu…"
+                            rows="2"
+                            oninput="onMessageInput(this)"
+                            onkeydown="if(event.key==='Enter' && (event.metaKey||event.ctrlKey)){ event.preventDefault(); this.form.requestSubmit(); }"
+                        >${escapeHtml(messageDraft)}</textarea>
+                        <div class="pt-msg-composer-foot">
+                            <span class="pt-msg-hint">Cmd/Ctrl + Enter na odoslanie</span>
+                            <button type="submit" class="adl-btn adl-btn-primary adl-btn-sm">${I.Send({size:13})} Odoslať</button>
+                        </div>
+                    </form>
+                </section>
+            `;
+        }
+
+        function renderMessageBubble(m) {
+            const isClient = m.sender_type === 'client';
+            const time = new Date(m.created_at);
+            const hh = String(time.getHours()).padStart(2, '0');
+            const mm = String(time.getMinutes()).padStart(2, '0');
+            return `
+                <div class="pt-msg-row ${isClient ? 'pt-msg-row--out' : 'pt-msg-row--in'}">
+                    <div class="pt-msg-bubble ${isClient ? 'pt-msg-bubble--out' : 'pt-msg-bubble--in'}">
+                        <div class="pt-msg-text">${escapeHtml(m.content || '').replace(/\n/g, '<br>')}</div>
+                        <div class="pt-msg-meta">${hh}:${mm}${isClient && m.is_read ? ` · prečítané` : ''}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function groupMessagesByDay(items) {
+            const groups = [];
+            let last = null;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const yest  = new Date(today.getTime() - 86400000);
+            for (const m of items) {
+                const d = new Date(m.created_at); d.setHours(0,0,0,0);
+                const key = d.toISOString().slice(0,10);
+                let label;
+                if (d.getTime() === today.getTime()) label = 'Dnes';
+                else if (d.getTime() === yest.getTime()) label = 'Včera';
+                else label = d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'long', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+                if (!last || last.key !== key) {
+                    last = { key, label, items: [] };
+                    groups.push(last);
+                }
+                last.items.push(m);
+            }
+            return groups;
         }
 
         function renderSupport() {
