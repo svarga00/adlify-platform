@@ -17,7 +17,10 @@ WITH expected (name, migration, purpose) AS (VALUES
   ('outreach_campaigns',              '008', 'Campaign Builder — kampane'),
   ('outreach_campaign_steps',         '008', 'Campaign Builder — kroky sekvencie'),
   ('outreach_campaign_enrollments',   '008', 'Campaign Builder — zaradenie prospectov'),
-  ('outreach_groups',                 '009', 'FB/LinkedIn skupiny (bookmarklet)')
+  ('outreach_groups',                 '009', 'FB/LinkedIn skupiny (bookmarklet)'),
+  ('tickets',                         '012', 'Portál — support tickety (loadTickets/submitTicket)'),
+  ('documents',                       '012', 'Portál — dokumenty klienta (loadDocuments)'),
+  ('campaign_projects',               '012', 'Portál — projekty klienta (loadProjects)')
 )
 SELECT
   e.migration,
