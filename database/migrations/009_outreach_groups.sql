@@ -43,7 +43,7 @@ ALTER TABLE outreach_groups ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Team can manage outreach groups" ON outreach_groups
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE TRIGGER update_outreach_groups_updated_at

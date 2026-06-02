@@ -605,29 +605,29 @@ CREATE POLICY "Users can update own profile" ON user_profiles
 -- Team members can view all profiles in org
 CREATE POLICY "Team can view org profiles" ON user_profiles
   FOR SELECT USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 -- Team Members
 CREATE POLICY "Team members visible to org" ON team_members
   FOR SELECT USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 -- Clients - Team Access
 CREATE POLICY "Team can view all clients" ON clients
   FOR SELECT USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Team can insert clients" ON clients
   FOR INSERT WITH CHECK (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Team can update clients" ON clients
   FOR UPDATE USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 -- Clients - Client Access (only their own)
@@ -639,13 +639,13 @@ CREATE POLICY "Clients can view own company" ON clients
 -- Leads
 CREATE POLICY "Team can manage leads" ON leads
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 -- Client Services
 CREATE POLICY "Team can manage services" ON client_services
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own services" ON client_services
@@ -656,7 +656,7 @@ CREATE POLICY "Clients can view own services" ON client_services
 -- Campaigns
 CREATE POLICY "Team can manage campaigns" ON campaigns
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own campaigns" ON campaigns
@@ -667,12 +667,12 @@ CREATE POLICY "Clients can view own campaigns" ON campaigns
 -- Activities
 CREATE POLICY "Team can view all activities" ON activities
   FOR SELECT USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Team can create activities" ON activities
   FOR INSERT WITH CHECK (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view visible activities" ON activities
@@ -684,7 +684,7 @@ CREATE POLICY "Clients can view visible activities" ON activities
 -- Invoices
 CREATE POLICY "Team can manage invoices" ON invoices
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own invoices" ON invoices
@@ -695,13 +695,13 @@ CREATE POLICY "Clients can view own invoices" ON invoices
 -- Tasks
 CREATE POLICY "Team can manage tasks" ON tasks
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 -- Messages
 CREATE POLICY "Team can manage messages" ON messages
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own messages" ON messages
@@ -718,7 +718,7 @@ CREATE POLICY "Clients can send messages" ON messages
 -- Tickets
 CREATE POLICY "Team can manage tickets" ON tickets
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own tickets" ON tickets
@@ -734,7 +734,7 @@ CREATE POLICY "Clients can create own tickets" ON tickets
 -- Documents
 CREATE POLICY "Team can manage documents" ON documents
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own public documents" ON documents
@@ -746,7 +746,7 @@ CREATE POLICY "Clients can view own public documents" ON documents
 -- Reports
 CREATE POLICY "Team can manage reports" ON reports
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own reports" ON reports
@@ -757,7 +757,7 @@ CREATE POLICY "Clients can view own reports" ON reports
 -- Approvals
 CREATE POLICY "Team can manage approvals" ON approvals
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own approvals" ON approvals
@@ -777,7 +777,7 @@ CREATE POLICY "Clients can decide own approvals" ON approvals
 -- Campaign projects
 CREATE POLICY "Team can manage projects" ON campaign_projects
   FOR ALL USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Clients can view own projects" ON campaign_projects
@@ -797,7 +797,7 @@ CREATE POLICY "Team admins can manage integrations" ON integrations
 -- Templates
 CREATE POLICY "Team can view templates" ON templates
   FOR SELECT USING (
-    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+    EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid())
   );
 
 CREATE POLICY "Team admins can manage templates" ON templates
