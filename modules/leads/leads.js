@@ -1786,13 +1786,13 @@ const LeadsModule = {
 
   _renderHeroActions(lead) {
     const hasAnalysis = !!(lead.analysis && (lead.analysis.company || lead.analysis.analysis));
-    const hasDeepProposal = !!lead.deep_proposal;
-    const deepDate = lead.deep_proposal_generated_at
-      ? new Date(lead.deep_proposal_generated_at).toLocaleDateString('sk-SK')
+    const hasPremium = !!(lead.premium_analysis || lead.deep_proposal);
+    const premiumDate = (lead.premium_analysis_generated_at || lead.deep_proposal_generated_at)
+      ? new Date(lead.premium_analysis_generated_at || lead.deep_proposal_generated_at).toLocaleDateString('sk-SK')
       : '';
     return `
-      ${hasDeepProposal ? `<button onclick="LeadsModule.showProposalModal('${lead.id}')" class="adl-btn adl-btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;" title="Otvor uložený Deep Proposal vygenerovaný ${deepDate}">
-        ✨ Uložený návrh (${deepDate})
+      ${hasPremium ? `<button onclick="LeadsModule.openPremiumProposal('${lead.id}')" class="adl-btn adl-btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;" title="Otvor premium návrh vygenerovaný ${premiumDate}">
+        ${I.Sparkle({size:14})} Premium návrh (${premiumDate})
       </button>` : ''}
       ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Phone({size:14})} Zavolať</a>` : ''}
       ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Poslať email</a>` : ''}
@@ -3233,38 +3233,41 @@ Odkaz je platný 30 dní.
       const data = await resp.json();
       console.log('[DeepProposal] Response data:', data);
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-      if (!data.proposal) throw new Error('Server vrátil success ale chýba .proposal v response');
+      const proposal = data.premium_analysis || data.proposal;
+      if (!proposal) throw new Error('Server vrátil success ale chýba premium_analysis v response');
 
       clearInterval(tickInterval);
-      lead.deep_proposal = data.proposal;
+      lead.premium_analysis = proposal;
+      lead.premium_analysis_generated_at = data.generated_at;
+      lead.premium_analysis_model = data.model;
+      // backwards-compat aliasy
+      lead.deep_proposal = proposal;
       lead.deep_proposal_generated_at = data.generated_at;
       lead.deep_proposal_model = data.model;
 
-      // Render — ak zlyhá, zobraz aspoň raw JSON aby user vedel že proposal existuje
+      // Otvor priamo pôvodný proposal HTML template s novými dátami v novom okne
       try {
-        this._renderDeepProposal(data.proposal, data.model, data.generated_at);
+        const html = this.buildProposalHTML(lead, proposal);
+        const blob = new Blob([html], { type: 'text/html' });
+        window.open(URL.createObjectURL(blob), '_blank');
+        this.closeProposalModal();
+        Utils.toast('Premium návrh vygenerovaný — otvorený v novom okne', 'success');
       } catch (renderErr) {
-        console.error('[DeepProposal] Render failed:', renderErr);
-        if (output) {
-          output.innerHTML = `
-            <div style="padding:14px; background:color-mix(in oklab, var(--warn) 14%, var(--surface)); color:var(--warn); border-radius:10px; margin-bottom:12px;">
-              ⚠️ Návrh sa vygeneroval ale UI render zlyhal: ${renderErr.message}.<br>
-              Raw JSON nižšie — proposal je uložený v DB (lead.deep_proposal), môžeš ho otvoriť ako HTML cez tlačidlo nižšie.
-            </div>
-            <button onclick="LeadsModule.openDeepProposalHTML()" class="adl-btn adl-btn-primary adl-btn-sm" style="margin-bottom:12px;">📄 Otvoriť ako HTML / PDF</button>
-            <pre style="background:var(--n-50); padding:12px; border-radius:8px; font-size:11px; overflow:auto; max-height:400px;">${JSON.stringify(data.proposal, null, 2)}</pre>
-          `;
-          output.style.display = 'block';
+        console.error('[DeepProposal] HTML render failed:', renderErr);
+        // Fallback inline render
+        try {
+          this._renderDeepProposal(proposal, data.model, data.generated_at);
+          if (meta) meta.textContent = `✓ Vygenerované ${new Date(data.generated_at).toLocaleString('sk-SK')} · ${data.model}`;
+          Utils.toast('Návrh vygenerovaný (inline fallback render)', 'warning');
+        } catch (e) {
+          if (output) {
+            output.innerHTML = `<div style="padding:14px;background:#fef3c7;color:#92400e;border-radius:10px;">Návrh vygenerovaný (HTML render zlyhal). <button onclick="LeadsModule.openPremiumProposal()" class="adl-btn adl-btn-primary adl-btn-sm">Otvoriť v okne</button></div><pre style="background:#f8fafc;padding:12px;border-radius:8px;font-size:11px;overflow:auto;max-height:400px;margin-top:8px;">${JSON.stringify(proposal, null, 2)}</pre>`;
+            output.style.display = 'block';
+          }
         }
-        Utils.toast('Návrh vygenerovaný (render zlyhal, viď konzolu)', 'warning');
-        return;
       }
 
-      output.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      Utils.toast('Návrh vygenerovaný!', 'success');
-      if (meta) meta.textContent = `✓ Vygenerované ${new Date(data.generated_at).toLocaleString('sk-SK')} · ${data.model}`;
-
-      // Refresh hero actions + leads list (zobraziť deep proposal badge)
+      // Refresh hero actions + leads list
       const heroEl = document.getElementById('lead-hero-actions');
       if (heroEl) heroEl.innerHTML = this._renderHeroActions(lead);
       const listEl = document.getElementById('leads-list');
@@ -3335,14 +3338,14 @@ Odkaz je platný 30 dní.
       <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:11px;color:var(--ink-mute);">Generované ${new Date(generatedAt).toLocaleString('sk-SK')} · model ${esc(model)}</span>
         <div style="display:flex;gap:6px;">
-          <button onclick="LeadsModule.generateDeepProposal()" class="adl-btn adl-btn-outline adl-btn-sm">🔄 Regenerovať</button>
-          <button onclick="LeadsModule.openDeepProposalHTML()" class="adl-btn adl-btn-primary adl-btn-sm">📄 Otvoriť ako HTML / PDF</button>
+          <button onclick="LeadsModule.generateDeepProposal()" class="adl-btn adl-btn-outline adl-btn-sm">Regenerovať</button>
+          <button onclick="LeadsModule.openDeepProposalHTML()" class="adl-btn adl-btn-primary adl-btn-sm">Otvoriť ako HTML / PDF</button>
         </div>
       </div>
 
       ${sect('1. Executive Summary', `<p>${esc(p.executive_summary).replace(/\n/g,'</p><p>')}</p>`)}
 
-      ${p.unique_insight ? sect('💡 Unikátny insight', `<p style="font-style:italic;color:var(--brand-700);">${esc(p.unique_insight)}</p>`) : ''}
+      ${p.unique_insight ? sect('Unikátny insight', `<p style="font-style:italic;color:var(--brand-700);">${esc(p.unique_insight)}</p>`) : ''}
 
       ${p.situation_analysis ? sect('2. Situačná analýza', `
         <p><strong>Aktuálny stav:</strong> ${esc(p.situation_analysis.current_state)}</p>
@@ -3418,6 +3421,22 @@ Odkaz je platný 30 dní.
     const html = this.buildDeepProposalHTML(lead, lead.deep_proposal);
     const blob = new Blob([html], { type: 'text/html' });
     window.open(URL.createObjectURL(blob), '_blank');
+  },
+
+  // Otvor PREMIUM proposal (rozšírený analysis schema cez Claude Opus) cez existing buildProposalHTML template
+  openPremiumProposal(leadId) {
+    const id = leadId || this.currentLeadId;
+    const lead = this.leads.find(l => l.id === id);
+    if (!lead?.premium_analysis && !lead?.deep_proposal) return Utils.toast('Najprv vygenerujte premium návrh', 'warning');
+    const analysis = lead.premium_analysis || lead.deep_proposal;
+    try {
+      const html = this.buildProposalHTML(lead, analysis);
+      const blob = new Blob([html], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    } catch (err) {
+      console.error('[Premium] buildProposalHTML failed:', err);
+      Utils.toast('Render zlyhal: ' + err.message, 'error');
+    }
   },
 
   buildDeepProposalHTML(lead, p) {
@@ -4214,7 +4233,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 
 <!-- Hero Section -->
 <section class="hero-section">
-  <div class="hero-badge">📊 Personalizovaná analýza & stratégia</div>
+  <div class="hero-badge">Personalizovaná analýza & stratégia</div>
   <h1 class="hero-title">Návrh <span>marketingovej stratégie</span></h1>
   <p class="hero-subtitle">Komplexná analýza vašej online prítomnosti, identifikácia príležitostí a konkrétne odporúčania pre rast vášho podnikania prostredníctvom online reklamy</p>
   
@@ -4233,14 +4252,14 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     <p class="section-subtitle">${c.description || 'Spoločnosť pôsobí na slovenskom trhu a ponúka svoje služby zákazníkom.'}</p>
     
     <div class="card">
-      <h3 class="card-title">🛠 Vaše služby a produkty</h3>
+      <h3 class="card-title">Vaše služby a produkty</h3>
       <div class="services-grid">
         ${(c.services || ['Služba 1', 'Služba 2', 'Služba 3']).map(s => `<span class="service-tag">${s}</span>`).join('')}
       </div>
     </div>
     
     <div class="card" style="margin-top: 30px;">
-      <h3 class="card-title">👥 Vaši ideálni zákazníci</h3>
+      <h3 class="card-title">Vaši ideálni zákazníci</h3>
       <p style="color: #64748b; font-size: 1rem; line-height: 1.8;">${c.targetCustomers || 'Firmy a jednotlivci hľadajúci kvalitné služby'}</p>
     </div>
   </div>
@@ -4254,7 +4273,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     <p class="section-subtitle">${a.humanWrittenIntro || o.summary || 'Na základe našej analýzy sme identifikovali silné stránky aj príležitosti na zlepšenie.'}</p>
     
     ${a.strengths?.length ? `
-    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">✅ Vaše silné stránky</h3>
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">Vaše silné stránky</h3>
     <div class="grid-2" style="margin-bottom: 40px;">
       ${a.strengths.map(str => `
         <div class="card">
@@ -4266,7 +4285,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     ` : ''}
     
     ${a.opportunities?.length ? `
-    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">🚀 Príležitosti na zlepšenie</h3>
+    <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">Príležitosti na zlepšenie</h3>
     <div class="grid-2">
       ${a.opportunities.map(opp => `
         <div class="card">
@@ -4291,22 +4310,22 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     
     <div class="grid-4" style="margin-bottom: 40px;">
       <div class="stat-box">
-        <div class="stat-icon">${o.website?.exists !== false ? '✅' : '❌'}</div>
+        <div class="stat-icon">${o.website?.exists !== false ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Webstránka</div>
         <div class="stat-label">${o.website?.quality || (o.website?.exists !== false ? 'priemerná' : 'Chýba')}</div>
       </div>
       <div class="stat-box">
-        <div class="stat-icon">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div>
+        <div class="stat-icon">${o.socialMedia?.facebook?.exists ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Facebook</div>
         <div class="stat-label">${o.socialMedia?.facebook?.exists ? 'Aktívny' : 'Neaktívny'}</div>
       </div>
       <div class="stat-box">
-        <div class="stat-icon">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div>
+        <div class="stat-icon">${o.socialMedia?.instagram?.exists ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Instagram</div>
         <div class="stat-label">${o.socialMedia?.instagram?.exists ? 'Aktívny' : 'Neaktívny'}</div>
       </div>
       <div class="stat-box">
-        <div class="stat-icon">${o.paidAds?.detected ? '✅' : '❌'}</div>
+        <div class="stat-icon">${o.paidAds?.detected ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Platená reklama</div>
         <div class="stat-label">${o.paidAds?.detected ? 'Využíva' : 'Nevyužíva'}</div>
       </div>
@@ -4316,7 +4335,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     <div class="grid-2">
       ${o.website?.strengths?.length ? `
       <div class="card" style="border-left: 4px solid #22c55e;">
-        <h4 style="color: #166534; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">💪 Čo funguje dobre</h4>
+        <h4 style="color: #166534; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">Čo funguje dobre</h4>
         <ul style="list-style: none;">
           ${o.website.strengths.map(s => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #22c55e; font-size: 1.2rem;">✓</span> ${s}</li>`).join('')}
         </ul>
@@ -4324,7 +4343,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
       ` : ''}
       ${o.website?.weaknesses?.length ? `
       <div class="card" style="border-left: 4px solid #f59e0b;">
-        <h4 style="color: #92400e; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">⚠️ Čo treba zlepšiť</h4>
+        <h4 style="color: #92400e; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">Čo treba zlepšiť</h4>
         <ul style="list-style: none;">
           ${o.website.weaknesses.map(w => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #f59e0b; font-size: 1.2rem;">!</span> ${w}</li>`).join('')}
         </ul>
@@ -4334,7 +4353,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     ` : ''}
     
     <div class="note-box">
-      <p>📌 Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby</p>
+      <p>Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby</p>
     </div>
   </div>
 </section>
@@ -4349,19 +4368,19 @@ ${a.swot ? `
     
     <div class="swot-grid">
       <div class="swot-box swot-strengths">
-        <h4>💪 Silné stránky</h4>
+        <h4>Silné stránky</h4>
         <ul>${a.swot.strengths?.map(s => `<li>${s}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-weaknesses">
-        <h4>⚠️ Slabé stránky</h4>
+        <h4>Slabé stránky</h4>
         <ul>${a.swot.weaknesses?.map(w => `<li>${w}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-opportunities">
-        <h4>🚀 Príležitosti</h4>
+        <h4>Príležitosti</h4>
         <ul>${a.swot.opportunities?.map(o => `<li>${o}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-threats">
-        <h4>⚡ Hrozby</h4>
+        <h4>Hrozby</h4>
         <ul>${a.swot.threats?.map(t => `<li>${t}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
     </div>
@@ -4399,7 +4418,7 @@ ${k.topKeywords?.length ? `
     </table>
     
     <div class="note-box">
-      <p>📌 Máme pripravených ďalších <strong>${Math.max((k.totalFound || k.topKeywords?.length || 10) - 10, 30)}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>
+      <p>Máme pripravených ďalších <strong>${Math.max((k.totalFound || k.topKeywords?.length || 10) - 10, 30)}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>
     </div>
   </div>
 </section>
@@ -4413,20 +4432,20 @@ ${k.topKeywords?.length ? `
     
     <div class="grid-2" style="margin-bottom: 35px;">
       <div class="card">
-        <h4 class="card-title">📱 Odporúčané platformy</h4>
+        <h4 class="card-title">Odporúčané platformy</h4>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-gradient">${p}</span>`).join('')}
         </div>
       </div>
       <div class="card">
-        <h4 class="card-title">🎯 Hlavný cieľ</h4>
+        <h4 class="card-title">Hlavný cieľ</h4>
         <p style="color: #64748b; font-size: 1.05rem; line-height: 1.7;">${s.primaryGoal || 'Generovanie kvalifikovaných dopytov a zvýšenie povedomia o značke'}</p>
       </div>
     </div>
     
     ${s.targetAudience ? `
     <div class="card">
-      <h4 class="card-title">👥 Cieľová skupina</h4>
+      <h4 class="card-title">Cieľová skupina</h4>
       <div class="grid-3">
         <div>
           <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Demografia</p>
@@ -4498,7 +4517,7 @@ ${camp.google || camp.meta ? `
             <span style="color: #65676b; font-size: 1.2rem; cursor: pointer;">···</span>
           </div>
           <div class="meta-ad-body">
-            <div class="meta-ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Hľadáte spoľahlivého partnera? ✅ Viac ako 10 rokov skúseností. Kontaktujte nás ešte dnes!'}</div>
+            <div class="meta-ad-text">${camp.meta.campaign.adSets?.[0]?.adCopy?.primaryText || 'Hľadáte spoľahlivého partnera? Viac ako 10 rokov skúseností. Kontaktujte nás ešte dnes!'}</div>
           </div>
           <div class="meta-ad-image" style="background: url('${adImageUrl}') center/cover no-repeat;">
             <div class="meta-ad-image-overlay">
@@ -4681,7 +4700,7 @@ ${camp.google || camp.meta ? `
     </div>
     
     <div class="info-box">
-      <p>💡 <strong>Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
+      <p><strong>Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
     </div>
   </div>
 </section>
@@ -4710,7 +4729,7 @@ ${r.projection ? `
     </div>
     
     <div class="card">
-      <h4 class="card-title">📊 Predpoklady výpočtu</h4>
+      <h4 class="card-title">Predpoklady výpočtu</h4>
       <div class="grid-3">
         <div style="text-align: center; padding: 25px;">
           <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Priemerná hodnota objednávky</p>
@@ -4779,22 +4798,22 @@ ${r.projection ? `
     
     <div class="grid-2">
       <div class="benefit-card">
-        <div class="benefit-icon">🎯</div>
+        <div class="benefit-icon"></div>
         <div class="benefit-title">Zákazníci s urgentnou potrebou</div>
         <div class="benefit-desc">Oslovíte ľudí, ktorí PRÁVE TERAZ aktívne hľadajú vaše služby alebo produkty. Žiadne čakanie - okamžité výsledky.</div>
       </div>
       <div class="benefit-card">
-        <div class="benefit-icon">📊</div>
+        <div class="benefit-icon"></div>
         <div class="benefit-title">100% merateľné výsledky</div>
         <div class="benefit-desc">Presne viete, koľko ľudí videlo reklamu, kliklo, zavolalo alebo vyplnilo formulár. Každé euro je merateľné.</div>
       </div>
       <div class="benefit-card">
-        <div class="benefit-icon">🏆</div>
+        <div class="benefit-icon"></div>
         <div class="benefit-title">Konkurenčná výhoda</div>
         <div class="benefit-desc">Zatiaľ čo vaša konkurencia čaká na zákazníkov, vy ich aktívne oslovujete presne v momente, keď hľadajú riešenie.</div>
       </div>
       <div class="benefit-card">
-        <div class="benefit-icon">📈</div>
+        <div class="benefit-icon"></div>
         <div class="benefit-title">Flexibilita a kontrola</div>
         <div class="benefit-desc">Rozpočet môžete kedykoľvek navýšiť pred sezónou alebo znížiť. Máte plnú kontrolu nad svojimi investíciami.</div>
       </div>
@@ -4865,7 +4884,7 @@ ${r.projection ? `
 <section class="page page-white">
   <div class="page-content">
     <div class="cta-section">
-      <h2 class="cta-title">Začnime spoluprácu 🚀</h2>
+      <h2 class="cta-title">Začnime spoluprácu</h2>
       <p class="cta-subtitle">Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov cez online reklamu.</p>
       
       <div class="cta-buttons">
