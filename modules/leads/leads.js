@@ -25,6 +25,7 @@ const LeadsModule = {
   editedAnalysis: null,
   
   ANALYZE_URL: 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/analyze-lead',
+  DEEP_PROPOSAL_URL: 'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/generate-deep-proposal',
   
   // Správne logo URL
   // Logo - ťahá sa z nastavení alebo fallback
@@ -272,7 +273,7 @@ const LeadsModule = {
                   <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : '✨'}</span>
                   <span class="option-text">
                     <strong>Vygenerovať podrobný návrh (Claude Opus)</strong>
-                    <small id="deep-proposal-meta">12 sekcií · 30-60s · ~$0.50 / generácia</small>
+                    <small id="deep-proposal-meta">12 sekcií · ~60s · Claude Opus 4.5</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
@@ -3204,16 +3205,28 @@ Odkaz je platný 30 dní.
     const origMeta = meta?.textContent || '';
     btn.disabled = true;
     btn.style.opacity = '0.7';
-    if (meta) meta.textContent = '⏳ Generujem… (30-60s, Claude Opus skenuje web + analýzu)';
+
+    // Timer ktorý ukazuje koľko sekúnd už beží — user vidí že to robí prácu
+    let elapsed = 0;
+    const updateMeta = () => {
+      if (meta) meta.textContent = `⏳ Generujem… ${elapsed}s (Claude Opus skenuje web + analýzu, max ~90s)`;
+    };
+    updateMeta();
+    const tickInterval = setInterval(() => { elapsed += 1; updateMeta(); }, 1000);
 
     console.log('[DeepProposal] Starting generation for lead:', lead.id, lead.company_name);
     try {
       const session = await Database.client.auth.getSession();
       const token = session?.data?.session?.access_token || '';
-      console.log('[DeepProposal] Calling /.netlify/functions/generate-deep-proposal…');
-      const resp = await fetch('/.netlify/functions/generate-deep-proposal', {
+      const supabaseAnonKey = (typeof Config !== 'undefined' ? Config.get('supabase_key') : '') || (window.SUPABASE_ANON_KEY) || '';
+      console.log('[DeepProposal] Calling Supabase Edge Function:', this.DEEP_PROPOSAL_URL);
+      const resp = await fetch(this.DEEP_PROPOSAL_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
+        },
         body: JSON.stringify({ leadId: lead.id, customNotes })
       });
       console.log('[DeepProposal] HTTP', resp.status, resp.ok);
@@ -3222,6 +3235,7 @@ Odkaz je platný 30 dní.
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       if (!data.proposal) throw new Error('Server vrátil success ale chýba .proposal v response');
 
+      clearInterval(tickInterval);
       lead.deep_proposal = data.proposal;
       lead.deep_proposal_generated_at = data.generated_at;
       lead.deep_proposal_model = data.model;
@@ -3258,6 +3272,7 @@ Odkaz je platný 30 dní.
     } catch (err) {
       console.error('[DeepProposal] Error:', err);
       Utils.toast('Chyba: ' + (err.message || err), 'error');
+      clearInterval(tickInterval);
       if (meta) meta.textContent = origMeta;
     } finally {
       btn.disabled = false;
