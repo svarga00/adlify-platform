@@ -509,11 +509,15 @@ const ClientsModule = {
   async renderClientDetail(container, clientId) {
     container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
 
-    // Cleanup prípadnej message subscription pre predchádzajúceho klienta
+    // Cleanup subscriptions pre predchádzajúceho klienta
     try { this.messagesSubscription?.unsubscribe(); } catch (_) {}
+    try { this.approvalsSubscription?.unsubscribe(); } catch (_) {}
     this.messagesSubscription = null;
+    this.approvalsSubscription = null;
     this.clientMessages = [];
+    this.clientApprovals = [];
     this.messagesDraft = '';
+    this.approvalsFilter = 'pending';
 
     try {
       // Get client
@@ -656,6 +660,7 @@ const ClientsModule = {
           <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Faktúry</button>
           <button onclick="ClientsModule.showTab('tasks')" class="tab-btn" data-tab="tasks" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Úlohy</button>
           <button onclick="ClientsModule.showTab('messages')" class="tab-btn" data-tab="messages" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit; position:relative;">Správy<span id="messages-tab-badge" class="adl-tab-badge" style="display:none;"></span></button>
+          <button onclick="ClientsModule.showTab('approvals')" class="tab-btn" data-tab="approvals" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit; position:relative;">Schvaľovanie<span id="approvals-tab-badge" class="adl-tab-badge" style="display:none;"></span></button>
         </div>
 
         <!-- Tab Content -->
@@ -666,6 +671,7 @@ const ClientsModule = {
         <div id="tab-invoices" class="tab-content hidden">${this.templateTabInvoices()}</div>
         <div id="tab-tasks" class="tab-content hidden">${this.templateTabTasks()}</div>
         <div id="tab-messages" class="tab-content hidden"></div>
+        <div id="tab-approvals" class="tab-content hidden"></div>
 
         <!-- Edit Modal -->
         <div id="client-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(20,18,14,0.5); padding:16px;">
@@ -782,6 +788,62 @@ const ClientsModule = {
             .adl-msg-side { order: 2; }
             .adl-msg-thread { order: 1; min-height: 480px; }
             .adl-msg-bubble { max-width: 85%; }
+          }
+
+          /* Approvals grid */
+          .adl-ap-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+          }
+          .adl-ap-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: border-color .12s, transform .12s, box-shadow .12s;
+            display: flex; flex-direction: column;
+          }
+          .adl-ap-card:hover {
+            border-color: color-mix(in oklab, var(--brand-500) 30%, var(--border));
+            transform: translateY(-2px);
+            box-shadow: var(--sh-md);
+          }
+          .adl-ap-card-media {
+            position: relative;
+            aspect-ratio: 4 / 3;
+            background: var(--n-50);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+          }
+          .adl-ap-card-media img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+          .adl-ap-card-version {
+            position: absolute; top: 8px; left: 8px;
+            background: rgba(15, 23, 42, 0.7);
+            color: #fff;
+            font-size: 10px; font-weight: 700;
+            padding: 3px 8px; border-radius: 99px;
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(6px);
+          }
+          .adl-ap-card-status { position: absolute; top: 8px; right: 8px; }
+          .adl-ap-card-body { padding: 12px 14px; }
+          .adl-ap-card-title {
+            font-size: 13px; font-weight: 600;
+            color: var(--ink); letter-spacing: -0.1px;
+            line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          .adl-ap-card-meta {
+            display: flex; align-items: center; gap: 6px;
+            margin-top: 8px;
+            font-size: 11px; color: var(--ink-sub);
           }
         </style>
       </div>
@@ -1548,6 +1610,7 @@ const ClientsModule = {
     if (tab === 'invoices') this.loadInvoices();
     if (tab === 'tasks') this.loadClientTasks();
     if (tab === 'messages') this.openMessagesTab();
+    if (tab === 'approvals') this.openApprovalsTab();
   },
 
   // ─── CLIENT MESSAGES (admin reply k portálovému chat-u) ───
@@ -1781,6 +1844,388 @@ const ClientsModule = {
       this.renderMessagesThread();
     }
     btn.disabled = false;
+  },
+
+  // ─── CLIENT APPROVALS (admin upload kreatívy + revízie) ───
+  clientApprovals: [],
+  approvalsSubscription: null,
+  approvalsFilter: 'pending',
+
+  APPROVAL_STATUS_META: {
+    pending:  { label: 'Čaká',       tone: 'amber' },
+    approved: { label: 'Schválené',  tone: 'mint'  },
+    rejected: { label: 'Zamietnuté', tone: 'err'   }
+  },
+  APPROVAL_KIND_META: {
+    creative: { label: 'Kreatíva', icon: 'Template' },
+    copy:     { label: 'Texty',    icon: 'Docs'     },
+    design:   { label: 'Dizajn',   icon: 'Template' },
+    video:    { label: 'Video',    icon: 'Campaign' },
+    other:    { label: 'Iné',      icon: 'Docs'     }
+  },
+
+  async openApprovalsTab() {
+    if (!this.currentClient?.id) return;
+    await this.loadClientApprovals();
+    this.renderApprovalsTab();
+    this.subscribeToClientApprovals();
+  },
+
+  async loadClientApprovals() {
+    const { data, error } = await Database.client
+      .from('approvals')
+      .select('*')
+      .eq('client_id', this.currentClient.id)
+      .order('created_at', { ascending: false });
+    if (error) { console.error('Load approvals error:', error); this.clientApprovals = []; return; }
+    this.clientApprovals = data || [];
+    this.updateApprovalsBadge();
+  },
+
+  updateApprovalsBadge() {
+    const badge = document.getElementById('approvals-tab-badge');
+    if (!badge) return;
+    // Badge = počet rozhodnutí (approved+rejected) ktoré ešte admin neuvidel?
+    // Pragmatické: počet pending (na admin pripomienka že tam visí robota)
+    const n = this.clientApprovals.filter(a => a.status === 'pending').length;
+    if (n > 0) {
+      badge.textContent = n;
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  },
+
+  subscribeToClientApprovals() {
+    if (!this.currentClient?.id) return;
+    try { this.approvalsSubscription?.unsubscribe(); } catch (_) {}
+    this.approvalsSubscription = Database.client.channel(`admin-approvals-${this.currentClient.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'approvals',
+        filter: `client_id=eq.${this.currentClient.id}`
+      }, payload => {
+        const ev = payload.eventType;
+        const row = payload.new || payload.old;
+        if (!row) return;
+        if (ev === 'INSERT') {
+          if (!this.clientApprovals.find(a => a.id === row.id)) this.clientApprovals.unshift(row);
+        } else if (ev === 'UPDATE') {
+          const i = this.clientApprovals.findIndex(a => a.id === row.id);
+          if (i !== -1) this.clientApprovals[i] = row;
+          // Notifikácia ak klient rozhodol
+          const prev = payload.old;
+          if (prev?.status === 'pending' && row.status === 'approved') Utils.toast(`Klient schválil: ${row.title}`, 'success');
+          else if (prev?.status === 'pending' && row.status === 'rejected') Utils.toast(`Klient zamietol: ${row.title}`, 'info');
+        } else if (ev === 'DELETE') {
+          this.clientApprovals = this.clientApprovals.filter(a => a.id !== row.id);
+        }
+        this.renderApprovalsTab();
+      })
+      .subscribe();
+  },
+
+  renderApprovalsTab() {
+    const el = document.getElementById('tab-approvals');
+    if (!el) return;
+    el.innerHTML = this.templateTabApprovals();
+    this.updateApprovalsBadge();
+  },
+
+  templateTabApprovals() {
+    const filters = [
+      { key: 'pending',   label: 'Čakajú' },
+      { key: 'approved',  label: 'Schválené' },
+      { key: 'rejected',  label: 'Zamietnuté' },
+      { key: 'all',       label: 'Všetko' }
+    ];
+    const counts = {
+      pending:  this.clientApprovals.filter(a => a.status === 'pending').length,
+      approved: this.clientApprovals.filter(a => a.status === 'approved').length,
+      rejected: this.clientApprovals.filter(a => a.status === 'rejected').length,
+      all:      this.clientApprovals.length
+    };
+    const filtered = this.approvalsFilter === 'all'
+      ? this.clientApprovals
+      : this.clientApprovals.filter(a => a.status === this.approvalsFilter);
+
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+        <div style="display:inline-flex; gap:6px; flex-wrap:wrap;">
+          ${filters.map(f => `
+            <button onclick="ClientsModule.setApprovalsFilter('${f.key}')" class="adl-btn adl-btn-sm ${this.approvalsFilter === f.key ? 'adl-btn-ink' : 'adl-btn-ghost'}" style="padding:0 12px; gap:6px;">
+              ${f.label}<span style="font-size:10px; opacity:.7; background:${this.approvalsFilter === f.key ? 'rgba(255,255,255,.15)' : 'var(--n-100)'}; padding:1px 6px; border-radius:99px;">${counts[f.key]}</span>
+            </button>
+          `).join('')}
+        </div>
+        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.openApprovalUploadModal()">${I.Plus({size:13})} Nahrať na schválenie</button>
+      </div>
+
+      ${filtered.length === 0 ? `
+        <div class="adl-card" style="padding:48px 24px; text-align:center;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-50); color:var(--ink-mute); margin-bottom:12px;">${I.Check({size:20})}</div>
+          <div style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:4px;">${this.clientApprovals.length === 0 ? 'Zatiaľ nič na schválenie' : 'V tomto filtri nič nie je'}</div>
+          <div style="font-size:12px; color:var(--ink-sub);">${this.clientApprovals.length === 0 ? 'Nahrajte kreatívu, copy alebo design — klient ju uvidí v portáli.' : 'Skúste iný filter.'}</div>
+        </div>
+      ` : `
+        <div class="adl-ap-grid">
+          ${filtered.map(a => this._approvalCardHTML(a)).join('')}
+        </div>
+      `}
+    `;
+  },
+
+  _approvalCardHTML(a) {
+    const status = this.APPROVAL_STATUS_META[a.status] || this.APPROVAL_STATUS_META.pending;
+    const kind = this.APPROVAL_KIND_META[a.kind] || this.APPROVAL_KIND_META.other;
+    const thumb = a.thumbnail_url || a.asset_url;
+    const v = a.version > 1 ? `v${a.version}` : '';
+    return `
+      <div class="adl-ap-card" onclick="ClientsModule.openApprovalDetail('${a.id}')">
+        <div class="adl-ap-card-media">
+          ${thumb
+            ? `<img src="${this._esc(thumb)}" alt="" loading="lazy">`
+            : `<div style="color:var(--ink-mute);">${I[kind.icon]({size:32})}</div>`}
+          ${v ? `<span class="adl-ap-card-version">${v}</span>` : ''}
+          <span class="adl-ap-card-status adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+        </div>
+        <div class="adl-ap-card-body">
+          <div class="adl-ap-card-title">${this._esc(a.title || 'Bez názvu')}</div>
+          <div class="adl-ap-card-meta">
+            <span>${I[kind.icon]({size:11})} ${kind.label}</span>
+            <span style="margin-left:auto; font-size:10px; color:var(--ink-mute); font-family:var(--font-mono);">${this._formatRelativeDate(a.created_at)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  _formatRelativeDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(d); target.setHours(0,0,0,0);
+    const diff = Math.round((today - target) / 86400000);
+    if (diff === 0) return 'dnes';
+    if (diff === 1) return 'včera';
+    if (diff < 7)  return `pred ${diff} d`;
+    return d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric' });
+  },
+
+  setApprovalsFilter(f) {
+    this.approvalsFilter = f;
+    this.renderApprovalsTab();
+  },
+
+  // ─── Upload modal ───
+  openApprovalUploadModal(parentApproval = null) {
+    const existing = document.getElementById('approval-upload-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'approval-upload-modal';
+    modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+    modal.style.cssText = 'background:rgba(20,18,14,0.55); padding:16px;';
+    const title = parentApproval ? `Nová verzia: ${this._esc(parentApproval.title)}` : 'Nová kreatíva na schválenie';
+    const lockedKind = parentApproval ? parentApproval.kind : null;
+    modal.innerHTML = `
+      <div style="background:var(--surface); border-radius:14px; max-width:540px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <h2 style="font-size:15px; font-weight:600; margin:0; display:inline-flex; align-items:center; gap:8px;">${I.Plus({size:14})} ${title}</h2>
+          <button onclick="document.getElementById('approval-upload-modal').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
+        </div>
+        <form id="approval-upload-form" onsubmit="ClientsModule.submitApprovalUpload(event, ${parentApproval ? `'${parentApproval.id}'` : 'null'})" style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="adl-label">Typ <span style="color:var(--err);">*</span></label>
+            <select name="kind" required class="adl-input" ${lockedKind ? 'disabled' : ''}>
+              <option value="creative" ${lockedKind === 'creative' ? 'selected' : ''}>Kreatíva (obrázok)</option>
+              <option value="copy"     ${lockedKind === 'copy'     ? 'selected' : ''}>Texty (copy)</option>
+              <option value="design"   ${lockedKind === 'design'   ? 'selected' : ''}>Dizajn (wireframe/mockup)</option>
+              <option value="video"    ${lockedKind === 'video'    ? 'selected' : ''}>Video</option>
+              <option value="other"    ${lockedKind === 'other'    ? 'selected' : ''}>Iné</option>
+            </select>
+            ${lockedKind ? `<input type="hidden" name="kind" value="${lockedKind}">` : ''}
+          </div>
+          <div>
+            <label class="adl-label">Názov <span style="color:var(--err);">*</span></label>
+            <input name="title" required maxlength="200" class="adl-input" value="${parentApproval ? this._esc(parentApproval.title) : ''}" placeholder="napr. Letná kampaň · Hero vizuál">
+          </div>
+          <div>
+            <label class="adl-label">Popis</label>
+            <textarea name="description" rows="3" class="adl-input" style="resize:vertical; font-family:inherit;" placeholder="Krátky popis pre klienta — formát, kde sa použije…">${parentApproval ? this._esc(parentApproval.description || '') : ''}</textarea>
+          </div>
+          <div>
+            <label class="adl-label">Súbor (obrázok / video)</label>
+            <input id="approval-file" name="file" type="file" accept="image/*,video/*" class="adl-input" style="padding:8px;">
+            <div style="font-size:11px; color:var(--ink-mute); margin-top:4px;">Voliteľné — pre copy-only môže ostať prázdne. Max 10 MB.</div>
+          </div>
+          ${parentApproval ? `
+            <div style="padding:10px 12px; background:color-mix(in oklab, var(--brand-500) 6%, var(--surface)); border:1px solid color-mix(in oklab, var(--brand-500) 30%, var(--border)); border-radius:8px; font-size:12px; color:var(--ink-sub);">
+              ${I.Info({size:12})} Nahráva sa verzia ${parentApproval.version + 1} — klient uvidí prepojenie na predchádzajúce verzie v revision chain.
+            </div>
+          ` : ''}
+          <div id="approval-upload-msg"></div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+            <button type="button" class="adl-btn adl-btn-outline adl-btn-sm" onclick="document.getElementById('approval-upload-modal').remove()">Zrušiť</button>
+            <button type="submit" id="approval-upload-btn" class="adl-btn adl-btn-primary adl-btn-sm">${I.Upload({size:13})} Nahrať</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    requestAnimationFrame(() => modal.querySelector('input[name="title"]')?.focus());
+  },
+
+  async submitApprovalUpload(e, parentId) {
+    e.preventDefault();
+    const form = e.target;
+    const data = new FormData(form);
+    const kind = data.get('kind');
+    const title = (data.get('title') || '').toString().trim();
+    const description = (data.get('description') || '').toString().trim();
+    const file = document.getElementById('approval-file').files[0];
+    const btn = document.getElementById('approval-upload-btn');
+    const msg = document.getElementById('approval-upload-msg');
+
+    if (!title) { msg.innerHTML = this._formMsg('error', 'Názov je povinný.'); return; }
+    if (file && file.size > 10 * 1024 * 1024) { msg.innerHTML = this._formMsg('error', 'Súbor je väčší ako 10 MB.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = 'Nahrávam…';
+
+    let asset_url = null;
+    let thumbnail_url = null;
+
+    if (file) {
+      const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+      const path = `approvals/${this.currentClient.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await Database.client.storage.from('assets').upload(path, file, { cacheControl: '3600', upsert: false });
+      if (upErr) {
+        btn.disabled = false; btn.innerHTML = `${I.Upload({size:13})} Nahrať`;
+        msg.innerHTML = this._formMsg('error', upErr.message?.includes('Bucket not found') ? 'Storage bucket "assets" neexistuje. Vytvorte ho v Supabase → Storage.' : 'Upload zlyhal: ' + upErr.message);
+        return;
+      }
+      const { data: urlData } = Database.client.storage.from('assets').getPublicUrl(path);
+      asset_url = urlData.publicUrl;
+      thumbnail_url = urlData.publicUrl;
+    }
+
+    const parent = parentId ? this.clientApprovals.find(a => a.id === parentId) : null;
+    const payload = {
+      client_id: this.currentClient.id,
+      kind, title,
+      description: description || null,
+      asset_url, thumbnail_url,
+      status: 'pending',
+      parent_approval_id: parentId || null,
+      version: parent ? (parent.version || 1) + 1 : 1
+    };
+    const { error } = await Database.client.from('approvals').insert(payload);
+    if (error) {
+      btn.disabled = false; btn.innerHTML = `${I.Upload({size:13})} Nahrať`;
+      msg.innerHTML = this._formMsg('error', 'Nepodarilo sa uložiť: ' + error.message);
+      return;
+    }
+    Utils.toast(parent ? `Verzia ${payload.version} nahrané ✅` : 'Kreatíva nahraná ✅', 'success');
+    document.getElementById('approval-upload-modal')?.remove();
+    await this.loadClientApprovals();
+    this.renderApprovalsTab();
+  },
+
+  // ─── Detail modal ───
+  openApprovalDetail(id) {
+    const a = this.clientApprovals.find(x => x.id === id);
+    if (!a) return;
+    const status = this.APPROVAL_STATUS_META[a.status] || this.APPROVAL_STATUS_META.pending;
+    const kind = this.APPROVAL_KIND_META[a.kind] || this.APPROVAL_KIND_META.other;
+    const chain = this._buildApprovalChain(a);
+    const existing = document.getElementById('approval-detail-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'approval-detail-modal';
+    modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+    modal.style.cssText = 'background:rgba(20,18,14,0.55); padding:16px;';
+    modal.innerHTML = `
+      <div style="background:var(--surface); border-radius:14px; max-width:980px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
+          <span class="adl-chip adl-chip-sm">${kind.label}</span>
+          ${a.version > 1 ? `<span style="font-size:11px; font-weight:700; background:var(--n-75); color:var(--ink-sub); padding:2px 8px; border-radius:99px;">v${a.version}</span>` : ''}
+          <span style="margin-left:auto; font-size:11px; color:var(--ink-mute); font-family:var(--font-mono);">#${this._esc((a.id || '').toString().slice(0, 8))}</span>
+          <button onclick="document.getElementById('approval-detail-modal').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 320px; overflow:hidden; flex:1;">
+          <div style="background:var(--n-50); display:flex; align-items:center; justify-content:center; min-height:360px; max-height:70vh; overflow:hidden;">
+            ${a.asset_url
+              ? `<img src="${this._esc(a.asset_url)}" alt="" style="max-width:100%; max-height:70vh; object-fit:contain;">`
+              : `<div style="display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--ink-mute);">${I[kind.icon]({size:48})}<span style="font-size:12px;">Bez náhľadu</span></div>`}
+          </div>
+          <div style="border-left:1px solid var(--border); padding:20px; overflow-y:auto; max-height:70vh; display:flex; flex-direction:column; gap:14px;">
+            <div style="font-size:16px; font-weight:600; letter-spacing:-0.3px; line-height:1.35;">${this._esc(a.title || 'Bez názvu')}</div>
+            ${a.description ? `<div style="font-size:12px; color:var(--ink-sub); line-height:1.6; white-space:pre-wrap;">${this._esc(a.description)}</div>` : ''}
+            ${chain.length > 1 ? `
+              <div>
+                <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.6px; font-weight:600; color:var(--ink-mute); margin-bottom:8px;">Verzie</div>
+                <ol style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px;">
+                  ${chain.map(c => {
+                    const cs = this.APPROVAL_STATUS_META[c.status] || this.APPROVAL_STATUS_META.pending;
+                    const isCurrent = c.id === a.id;
+                    return `<li><button onclick="ClientsModule.openApprovalDetail('${c.id}')" ${isCurrent ? 'disabled' : ''} style="display:flex; align-items:center; gap:8px; width:100%; background:${isCurrent ? 'color-mix(in oklab, var(--brand-500) 10%, var(--surface))' : 'var(--n-50)'}; border:1px solid ${isCurrent ? 'color-mix(in oklab, var(--brand-500) 35%, var(--border))' : 'transparent'}; border-radius:10px; padding:8px 12px; cursor:${isCurrent ? 'default' : 'pointer'}; font:inherit; text-align:left;"><span style="font-size:11px; font-weight:700; font-family:var(--font-mono); color:var(--ink-sub);">v${c.version || 1}</span><span class="adl-chip adl-chip-${cs.tone} adl-chip-sm">${cs.label}</span><span style="margin-left:auto; font-size:10px; color:var(--ink-mute); font-family:var(--font-mono);">${this._formatRelativeDate(c.created_at)}</span></button></li>`;
+                  }).join('')}
+                </ol>
+              </div>
+            ` : ''}
+            ${a.status !== 'pending' && a.reviewed_at ? `
+              <div>
+                <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.6px; font-weight:600; color:var(--ink-mute); margin-bottom:8px;">Rozhodnutie klienta</div>
+                <div style="font-size:12px; color:var(--ink-sub);">${this._formatRelativeDate(a.reviewed_at)}</div>
+                ${a.feedback ? `<div style="margin-top:8px; padding:12px 14px; background:var(--n-50); border-radius:10px; border-left:3px solid var(--err); font-size:12px; line-height:1.5; white-space:pre-wrap;">${this._esc(a.feedback)}</div>` : ''}
+              </div>
+            ` : ''}
+            <div style="margin-top:auto; padding-top:12px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
+              ${a.status === 'rejected' ? `
+                <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.openApprovalUploadModal(ClientsModule.clientApprovals.find(x => x.id === '${a.id}'))">${I.Plus({size:13})} Nahrať novú verziu</button>
+              ` : ''}
+              <button class="adl-btn adl-btn-ghost adl-btn-sm" style="color:var(--err);" onclick="ClientsModule.deleteApproval('${a.id}')">${I.Trash({size:13})} Zmazať</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  },
+
+  _buildApprovalChain(approval) {
+    const byId = new Map(this.clientApprovals.map(a => [a.id, a]));
+    let root = approval;
+    while (root.parent_approval_id && byId.has(root.parent_approval_id)) {
+      root = byId.get(root.parent_approval_id);
+    }
+    const chain = [];
+    const visit = (node) => {
+      chain.push(node);
+      const children = this.clientApprovals.filter(a => a.parent_approval_id === node.id);
+      children.sort((a, b) => (a.version || 0) - (b.version || 0));
+      children.forEach(visit);
+    };
+    visit(root);
+    return chain;
+  },
+
+  async deleteApproval(id) {
+    if (!confirm('Naozaj zmazať tento záznam? (Súbor v storage ostane)')) return;
+    const { error } = await Database.client.from('approvals').delete().eq('id', id);
+    if (error) { Utils.toast('Nepodarilo sa zmazať: ' + error.message, 'error'); return; }
+    Utils.toast('Zmazané', 'success');
+    document.getElementById('approval-detail-modal')?.remove();
+    this.clientApprovals = this.clientApprovals.filter(a => a.id !== id);
+    this.renderApprovalsTab();
+  },
+
+  _formMsg(tone, text) {
+    const color = tone === 'error' ? 'var(--err)' : 'var(--ok)';
+    const icon = tone === 'error' ? I.Warning({size:13}) : I.Check({size:13});
+    return `<div style="padding:10px 12px; background:color-mix(in oklab, ${color} 12%, var(--surface)); color:${color}; border-radius:8px; font-size:12px; display:inline-flex; align-items:center; gap:8px;">${icon} ${this._esc(text)}</div>`;
   },
 
   templateTabTasks() {
