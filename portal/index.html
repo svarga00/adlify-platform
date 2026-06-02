@@ -2106,11 +2106,17 @@
                                         let badge = 0;
                                         if (it.key === 'messages')  badge = unreadTeamMessagesCount();
                                         if (it.key === 'approvals') badge = pendingApprovalsCount();
+                                        const isActive = currentTab === it.key;
                                         return `
-                                        <a class="adl-sidebar-item ${currentTab === it.key ? 'active' : ''}" onclick="switchTab('${it.key}')">
+                                        <a class="adl-sidebar-item ${isActive ? 'active' : ''}"
+                                           role="button" tabindex="0"
+                                           aria-current="${isActive ? 'page' : 'false'}"
+                                           aria-label="${escapeHtml(it.label)}${badge > 0 ? ` (${badge} ${it.key === 'messages' ? 'neprečítaných' : 'čakajúcich'})` : ''}"
+                                           onclick="switchTab('${it.key}')"
+                                           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); switchTab('${it.key}');}">
                                             ${I[it.icon]({size:17})}
                                             <span class="adl-sidebar-item-label">${it.label}</span>
-                                            ${badge > 0 ? `<span class="adl-sidebar-item-badge">${badge}</span>` : ''}
+                                            ${badge > 0 ? `<span class="adl-sidebar-item-badge" aria-hidden="true">${badge}</span>` : ''}
                                         </a>`;
                                     }).join('')}
                                 </div>
@@ -2122,7 +2128,7 @@
                                 <div class="adl-sidebar-footer-name">${client.contact_person || 'Klient'}</div>
                                 <div class="adl-sidebar-footer-sub">${client.company_name}</div>
                             </div>
-                            <a class="adl-sidebar-item" onclick="logout()" style="margin:0; padding:6px; flex:0;" title="Odhlásiť">${I.Logout({size:16})}</a>
+                            <a class="adl-sidebar-item" role="button" tabindex="0" aria-label="Odhlásiť sa" onclick="logout()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); logout();}" style="margin:0; padding:6px; flex:0;" title="Odhlásiť">${I.Logout({size:16})}</a>
                         </div>
                     </div>
                 </aside>
@@ -3318,10 +3324,19 @@
             render();
         }
 
-        function openTicketComposer() {
+        function openTicketComposer(prefill) {
+            currentTab = 'support';
             ticketComposerOpen = true;
             render();
-            requestAnimationFrame(() => document.getElementById('t-subject')?.focus());
+            requestAnimationFrame(() => {
+                const subject = document.getElementById('t-subject');
+                if (subject && prefill?.subject) subject.value = prefill.subject;
+                const cat = document.getElementById('t-category');
+                if (cat && prefill?.category) cat.value = prefill.category;
+                const desc = document.getElementById('t-description');
+                if (desc && prefill?.description) desc.value = prefill.description;
+                (prefill?.description ? desc : subject)?.focus();
+            });
         }
 
         function closeTicketComposer() {
@@ -3675,7 +3690,7 @@
                                 <div style="font-size:16px; font-weight:600; letter-spacing:-0.2px;">${escapeHtml(contactName || 'Klient')}</div>
                                 <div style="font-size:12px; color:var(--ink-sub); margin-top:2px;">${escapeHtml(client?.position || 'Konateľ/ka')} · ${escapeHtml(client?.company_name || '')}</div>
                             </div>
-                            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="alert('Funkcia pribudne v ďalšom update.')">${I.Upload({size:14})} Zmeniť foto</button>
+                            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="openTicketComposer({ subject: 'Zmena profilového obrázka', category: 'general', description: 'Chcel/a by som nahrať nový profilový obrázok. Prikladám ho v prílohe / pošlem mailom.' })">${I.Upload({size:14})} Zmeniť foto</button>
                         </div>
                         <form id="profile-form" onsubmit="saveProfile(event)">
                             <div class="pt-field-grid">
@@ -3782,7 +3797,8 @@
                         ${row('email_campaigns', 'Update kampaní',         'Týždenný report výkonu vašich kampaní.')}
                         ${row('email_messages',  'Správy od tímu',         'Notifikácia keď vám tím napíše správu.')}
                         ${row('email_marketing', 'Novinky a tipy',         'Občasné tipy ako zlepšiť výkon kampaní.')}
-                        <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+                        <div id="notif-msg" style="margin-top:14px;"></div>
+                        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
                             <button class="adl-btn adl-btn-primary" onclick="saveNotificationPrefs()">${I.Check({size:14})} Uložiť</button>
                         </div>
                     </div>
@@ -3832,7 +3848,7 @@
                                 <div style="font-size:14px; font-weight:600;">${escapeHtml(method)}</div>
                                 <div style="font-size:12px; color:var(--ink-sub); margin-top:2px; font-family:var(--font-mono);">${escapeHtml(last4)}</div>
                             </div>
-                            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="alert('Pre zmenu spôsobu platby kontaktujte tím Adlify.')">Zmeniť</button>
+                            <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="openTicketComposer({ subject: 'Zmena spôsobu platby', category: 'billing', description: 'Chcel/a by som zmeniť spôsob platby. Aktuálne: ' + (client?.payment_method || 'SEPA') + '. Preferovaná zmena: ' })">Zmeniť</button>
                         </div>
                         <div style="font-size:12px; color:var(--ink-sub); margin-top:14px; line-height:1.6;">
                             Faktúry sa automaticky strhávajú zo SEPA mandátu. Pre zmenu kontaktujte tím Adlify cez ticket alebo email.
@@ -3898,8 +3914,21 @@
             btn.innerHTML = original;
         }
 
-        function saveNotificationPrefs() {
-            alert('Notifikácie sa uložia v ďalšom update.');
+        async function saveNotificationPrefs() {
+            const msgEl = document.getElementById('notif-msg');
+            const keys = ['email_invoices', 'email_campaigns', 'email_messages', 'email_marketing'];
+            const prefs = Object.fromEntries(keys.map(k => [k, document.getElementById(`notif-${k}`)?.checked || false]));
+
+            if (isPreview) { previewBlocked(msgEl); return; }
+
+            const { error } = await db.from('clients').update({ notification_prefs: prefs }).eq('id', client.id);
+            if (error) {
+                msgEl.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--err) 12%, var(--surface)); color:var(--err); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} ${escapeHtml(error.message)}</div>`;
+                return;
+            }
+            client.notification_prefs = prefs;
+            msgEl.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--ok) 12%, var(--surface)); color:var(--ok); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Check({size:14})} Notifikácie uložené</div>`;
+            setTimeout(() => { if (msgEl) msgEl.innerHTML = ''; }, 3000);
         }
 
         async function changePassword(e) {
