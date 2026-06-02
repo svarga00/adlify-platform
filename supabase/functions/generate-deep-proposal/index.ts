@@ -1,22 +1,20 @@
 // ==========================================
-// GENERATE DEEP PROPOSAL (Supabase Edge Function)
+// GENERATE DEEP PROPOSAL — premium_analysis JSON
 //
 // Vstup:  { leadId, model?, customNotes? }
-// Output: { proposal: {...}, model, generated_at, usage }
+// Output: { premium_analysis: {...}, model, generated_at, usage }
 //
-// PREČO Supabase Edge namiesto Netlify function:
-// Netlify free plan má 10s function timeout; Claude Opus generuje
-// 30-60s → request abortuje (504), ale Claude API call už prebehol
-// a user platí kredit bez viditeľného výsledku. Supabase Edge má
-// default timeout 150s, Deno runtime, identický flow.
+// Vracia OBohatený analysis schema KOMPATIBILNÝ s existing
+// buildProposalHTML template (12-sekcií page-based proposal s ad
+// mockupmi pre Google/Meta/Instagram/LinkedIn).
+//
+// Cieľ: zachovať krásny design pôvodného proposalu, len nahradiť
+// generický obsah hlbokým, personalizovaným, profesionálnym
+// content od Claude Opus.
 //
 // Deploy: `supabase functions deploy generate-deep-proposal`
-//   alebo cez Supabase Dashboard → Edge Functions → Deploy
-//
-// Env (Supabase Dashboard → Edge Functions → Manage Secrets):
-//   ANTHROPIC_API_KEY
-//   SUPABASE_URL (auto)
-//   SUPABASE_SERVICE_ROLE_KEY (auto)
+// Env (Edge Function secrets): ANTHROPIC_API_KEY, SUPABASE_URL,
+//                              SUPABASE_SERVICE_ROLE_KEY
 // ==========================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -32,110 +30,245 @@ const DEFAULT_MODEL = 'claude-opus-4-5'
 
 const SYSTEM_PROMPT = `Si senior PPC stratég v slovenskej digitálnej marketingovej agentúre s 10+ rokmi skúseností (Google Ads, Meta Ads, LinkedIn, performance marketing).
 
-Tvoja úloha: pre konkrétneho leada vygenerovať **podrobný, profesionálny, unikátny** marketingový návrh kampaní, ktorý by mohol byť hneď použitý ako pitch dokument pre klienta.
+Tvoja úloha: pre konkrétneho leada vygenerovať **podrobný, profesionálny, unikátny premium marketingový návrh**, ktorý bude pitch dokument pripravený na podpis kontraktu. Klient po prečítaní by mal hneď chcieť spolupracovať.
 
 POVINNÉ PRAVIDLÁ:
 
-1. **Vždy v slovenčine.** Profesionálny, ale ľudský tón. Žiadne floskuly typu "synergie", "leveraging", "best practices". Konkrétne čísla, konkrétne kroky.
+1. **Slovenčina vždy.** Profesionálny ale ľudský tón. ZÁKAZ floskúl typu "synergie", "best practices", "leveraging", "kľúčové aktíva". Konkrétne čísla a kroky.
 
-2. **Personalizuj všetko.** Použi názov firmy, doménu, lokalitu, biznis model. Ak je e-shop → bav sa o produktoch. Ak je B2B služba → bav sa o lead generation. Nikdy generické "vaša firma".
+2. **ZÁKAZ EMOJI.** Žiadne ✅ 🚀 🎯 💡 📊 atď. nikde v texte. Používame iba slová.
 
-3. **Reálne čísla z dát.** Ak máš Marketing Miner kľúčové slová s search_volume a CPC, použij ich v keywords sekcii. Ak nemáš → odhadni realistické pre slovenský trh (mestá 5-50K obyvateľov, lokálny biz: 50-500 hľadaní/mesiac, CPC 0.20-1.50 €).
+3. **Extrémna personalizácia.** Použi názov firmy, doménu, mestá, biz model, konkrétne produkty/služby. Ak je to e-shop záhradnej techniky → spomeň konkrétne produktové kategórie. Ak je B2B služba → konkrétny ICP s rolami. Nikdy "vaša firma" generic.
 
-4. **Budget breakdown musí sedieť matematicky.** Súčet kanálov = mesačný budget. Kampane majú konkrétne sumy (nie "vhodný budget").
+4. **Reálne čísla.** Marketing Miner search volume + CPC ak sú. Inak realistické estimate pre SR (mestá 5-50K obyvateľov: 50-500 hľadaní/mes, CPC 0.20-2.50 €). Budget musí sedieť matematicky (suma = celok).
 
-5. **Štruktúra výstupu — výhradne JSON, žiadny text okolo, žiadne markdown wrappers.**
+5. **Detailné "prečo" a "ako" v každej sekcii.** Nielen "Google Ads Search 800€/mes" — ale aj 2-3 vety prečo tento kanál pre tohto klienta, ako bude vyzerať realizácia, čo očakávame.
+
+6. **Reklamné kreatívy konkrétne.** Pre každú reklamu — headline, description, primary text, CTA. Pre Meta — aj predstaviteľný vizuál (1-2 vety opis obrázka). Pre Instagram Story — full-screen koncept.
+
+7. **Výstup je VÝLUČNE JSON.** Žiadny text okolo, žiadne markdown wrappery.
 
 Tvar JSON odpovede (presne tieto kľúče):
+
 {
-  "executive_summary": "2-3 odstavce — kto je klient, prečo PPC, aký výsledok očakávame za 3/6 mesiacov, prečo my",
-  "situation_analysis": {
-    "current_state": "Aký je dnes online stav firmy (web, SEO, social, reklama). Konkrétne čo funguje a čo chýba.",
-    "opportunities": ["3-5 konkrétnych príležitostí, jedna na bullet"],
-    "challenges": ["2-4 konkrétne výzvy/prekážky"]
+  "company": {
+    "name": "presný názov firmy",
+    "domain": "doména",
+    "industry": "konkrétne odvetvie",
+    "city": "mesto/región",
+    "services": ["3-6 konkrétnych služieb/produktových kategórií"],
+    "idealCustomer": "Detailný opis ICP — kto presne, demografia, intent, problém ktorý rieši. 2-3 vety."
   },
-  "competitive_landscape": {
-    "main_competitors": [
-      { "name": "...", "strength": "...", "weakness_we_exploit": "..." }
+  "executive_summary": "4-6 odstavcov. (1) Kto je klient — biz model, lokalita, USP. (2) Situácia na trhu — prečo PPC práve teraz. (3) Naša stratégia v 1 vete + dôvod. (4) Očakávaný výsledok za 3/6 mesiacov s konkrétnymi číslami. (5) Prečo my agentúra — diferenciátor. (6) Investícia a ROI.",
+  "ourFindings": {
+    "strengths": [
+      { "title": "krátky názov silnej stránky", "description": "1-2 vety prečo je to silná stránka a ako ju využijeme v reklame" }
     ],
-    "positioning": "Ako sa odlíšime od konkurencie v reklame (1-2 odstavce)"
+    "opportunities": [
+      { "title": "krátky názov príležitosti", "description": "1-2 vety čo presne urobíme a aký výsledok očakávame" }
+    ]
   },
-  "target_audience": {
-    "primary": {
-      "description": "Demografia + psychografia + intent",
-      "geo": "konkrétne mestá / regióny",
-      "estimated_size": "odhad veľkosti TAM v SR"
-    },
-    "secondary": { "description": "...", "geo": "..." }
+  "onlinePresence": {
+    "website": { "status": "good|needs_work|critical", "notes": "konkrétne čo funguje a čo chýba na webe" },
+    "social": { "status": "good|needs_work|missing", "notes": "social presence assessment" },
+    "seo": { "status": "good|needs_work|critical", "notes": "SEO stav" },
+    "ppc": { "status": "none|basic|advanced", "notes": "PPC histora ak je" }
   },
-  "keywords": [
-    { "keyword": "...", "search_volume": 1200, "cpc_eur": 0.45, "match_type": "exact|phrase|broad", "campaign": "ktorá kampaň", "priority": "high|medium|low" }
-  ],
+  "swot": {
+    "strengths": ["3-5 silných stránok firmy z marketing perspectívy"],
+    "weaknesses": ["2-4 slabostí ktoré treba ošetriť"],
+    "opportunities": ["3-5 trhových príležitostí"],
+    "threats": ["2-4 hrozby (konkurencia, regulácie, trend)"]
+  },
+  "keywords": {
+    "primary": [
+      { "keyword": "...", "search_volume": 1200, "cpc_eur": 0.45, "intent": "buy|info|brand", "priority": "high" }
+    ],
+    "secondary": [
+      { "keyword": "...", "search_volume": 300, "cpc_eur": 0.30, "intent": "info" }
+    ],
+    "longTail": [
+      { "keyword": "...", "search_volume": 50, "cpc_eur": 0.18 }
+    ]
+  },
   "strategy": {
+    "overview": "1 odstavec — high-level prístup pre tohto klienta a prečo.",
     "channels": [
       {
-        "channel": "Google Ads — Search",
-        "rationale": "prečo tento kanál pre tohto klienta",
+        "name": "Google Ads — Search",
         "monthly_budget_eur": 800,
-        "expected_kpi": "konkrétny KPI s číslom (napr. 35 leadov/mesiac pri CPL 22€)"
+        "rationale": "3-4 vety prečo presne tento kanál pre tohto klienta, ako bude vyzerať realizácia (typy kampaní, audience), aký výsledok očakávame v 1./3./6. mesiaci",
+        "expected_kpi": "konkrétne číslo (napr. 35 leadov/mes pri CPL 22€)"
       }
     ],
-    "creative_approach": "1-2 odstavce o copy/visual direction — tón, mood, hlavné messaging hooky"
+    "creativeApproach": "2 odstavce o copy/visual direction — tón, mood, hlavné messaging hooky pre tohto klienta. Diferenciátor od konkurencie."
   },
-  "campaigns": [
-    {
-      "name": "konkrétny názov kampane (napr. 'Search — Slovenské mestá: zábradlie eshop')",
-      "objective": "konkrétny cieľ",
-      "channel": "Google Ads — Search",
-      "monthly_budget_eur": 400,
-      "key_keywords": ["3-5 kľúčových slov"],
-      "ad_groups": ["zoznam ad groupov"],
-      "landing_page_recommendation": "URL alebo opis cieľovej stránky",
-      "expected_metrics": { "clicks": 850, "ctr_pct": 4.2, "conversions": 22, "cpa_eur": 18 }
+  "proposedCampaigns": {
+    "google": {
+      "searchCampaign": {
+        "name": "konkrétny názov (napr. 'Search Brand — Ra-ga.sk' alebo 'Search Generic — PUR pena Trenčín')",
+        "monthly_budget_eur": 400,
+        "objective": "1 veta konkrétny cieľ",
+        "adGroups": [
+          {
+            "name": "Názov ad group (napr. 'PUR pena strecha')",
+            "keywords": ["5-8 cielených kľúčových slov"],
+            "matchTypes": ["phrase", "exact"],
+            "adCopy": {
+              "headlines": ["3-5 headline variantov — každý 30 znakov max"],
+              "descriptions": ["2-3 description varianty — každý 90 znakov max"],
+              "sitelinks": ["3-4 sitelink extensions"],
+              "callouts": ["3-4 callout extensions"]
+            },
+            "landingPage": "URL alebo opis ideálnej landing page",
+            "rationale": "1-2 vety prečo táto kombinácia KW + copy + LP"
+          }
+        ]
+      },
+      "performanceMaxCampaign": {
+        "name": "Performance Max — názov",
+        "monthly_budget_eur": 300,
+        "audienceSignals": ["3-4 audience signals"],
+        "assetGroups": [
+          {
+            "theme": "téma asset groupu",
+            "headlines": ["headlines"],
+            "descriptions": ["descriptions"],
+            "imageDirection": "1 veta o vizuáloch"
+          }
+        ]
+      }
+    },
+    "meta": {
+      "campaign": {
+        "name": "Meta — názov",
+        "monthly_budget_eur": 400,
+        "objective": "konkrétny cieľ (leads/conversions/traffic)",
+        "audience": {
+          "primary": "demografia + záujmy + behaviors",
+          "lookalike": "z akého source",
+          "retargeting": "od koho retargetujeme"
+        },
+        "adSets": [
+          {
+            "name": "Ad set — názov",
+            "audience": "konkrétna audience",
+            "placements": ["Facebook Feed", "Instagram Feed", "Reels"],
+            "adCopy": {
+              "primaryText": "Hlavný text reklamy — 2-4 vety, hook + benefit + CTA",
+              "headline": "Bold headline 40 znakov max",
+              "description": "Sub-text 30 znakov max",
+              "cta": "Zistiť viac | Kontaktovať | Objednať teraz",
+              "imageDescription": "1-2 vety opis vizuálu (čo bude na obrázku/videu)"
+            },
+            "rationale": "Prečo tento ad set — 2 vety"
+          }
+        ]
+      }
+    },
+    "instagram": {
+      "stories": [
+        {
+          "name": "Story — názov konceptu",
+          "concept": "1-2 vety celkový koncept",
+          "headline": "Bold text na story (krátky)",
+          "subtext": "Doplnkový text",
+          "imageDescription": "Opis vizuálu — full-screen vertical",
+          "cta": "Zistiť viac | Swipe up"
+        }
+      ]
+    },
+    "linkedin": {
+      "sponsoredContent": {
+        "audience": "B2B targeting — pracovné pozície, odvetvie, veľkosť firmy",
+        "monthly_budget_eur": 200,
+        "adCopy": {
+          "headline": "B2B headline",
+          "primaryText": "B2B primary text — odbornejší tón",
+          "cta": "Stiahnuť | Zaregistrovať sa"
+        },
+        "rationale": "Prečo LinkedIn (alebo prečo nie pre tohto klienta — nullable)"
+      }
+    },
+    "googleDisplay": {
+      "banner": {
+        "concept": "1-2 vety vizuálny koncept",
+        "headline": "Headline na banneri",
+        "description": "Sub-text",
+        "cta": "CTA button text",
+        "targeting": "audiences (in-market, affinity, custom)"
+      }
     }
-  ],
-  "budget_breakdown": {
+  },
+  "budget": {
+    "summary": "2-3 vety zhrnutie celkového investičného plánu a logiky rozdelenia",
     "monthly_total_eur": 1500,
     "media_spend_eur": 1200,
     "agency_fee_eur": 300,
-    "by_channel": [
-      { "channel": "Google Ads Search", "amount_eur": 800, "pct": 53 }
+    "allocations": [
+      { "channel": "Google Ads Search", "amount_eur": 800, "pct": 53, "rationale": "1 veta prečo najviac sem" }
     ],
+    "recommendations": {
+      "conservative": { "total_eur": 1000, "leads_expected": 15, "description": "konzervatívna verzia s nižším rizikom" },
+      "moderate":     { "total_eur": 1500, "leads_expected": 30, "description": "odporúčaná" },
+      "aggressive":   { "total_eur": 2500, "leads_expected": 60, "description": "agresívna škálovacia" }
+    },
+    "avgCpc": 0.50,
     "six_month_projection_eur": 9000,
-    "notes": "ako budget škáluje keď začnú výsledky (mesiac 1-3 testing, 4-6 scale)"
+    "scaling_notes": "ako budget škáluje keď začnú výsledky"
   },
-  "kpi_targets": {
-    "month_1": { "kpi": "10 leadov", "spend_eur": 1500, "explanation": "..." },
-    "month_3": { "kpi": "30 leadov pri CPL <30€", "spend_eur": 1500, "explanation": "..." },
-    "month_6": { "kpi": "60 leadov pri CPL <22€", "spend_eur": 2000, "explanation": "..." }
+  "roi": {
+    "explanation": "2-3 vety ako sme prišli k ROI číslam (assumptions: avg order value, conversion rate, repeat purchase, atď.)",
+    "month_1": { "spend_eur": 1500, "leads": 10, "cpl_eur": 150, "revenue_eur": 3000, "roi_pct": 100, "explanation": "1 veta" },
+    "month_3": { "spend_eur": 1500, "leads": 30, "cpl_eur": 50,  "revenue_eur": 9000, "roi_pct": 500, "explanation": "1 veta" },
+    "month_6": { "spend_eur": 2000, "leads": 60, "cpl_eur": 33,  "revenue_eur": 18000, "roi_pct": 800, "explanation": "1 veta" }
   },
-  "timeline": [
-    { "week": "1", "milestone": "Onboarding + audit konkurencie", "deliverables": ["..."] },
-    { "week": "2", "milestone": "Setup Google Ads konta + tracking", "deliverables": ["..."] },
-    { "week": "3-4", "milestone": "Spustenie pilotných kampaní", "deliverables": ["..."] },
-    { "week": "5-8", "milestone": "Optimalizácia + scaling", "deliverables": ["..."] }
-  ],
+  "timeline": {
+    "weeks": [
+      { "week": "1", "milestone": "Onboarding + audit", "deliverables": ["3-4 konkrétne deliverables"], "duration_hours": 12 },
+      { "week": "2", "milestone": "Setup", "deliverables": ["..."], "duration_hours": 18 },
+      { "week": "3-4", "milestone": "Pilot launch", "deliverables": ["..."], "duration_hours": 20 },
+      { "week": "5-8", "milestone": "Optimalizácia & scaling", "deliverables": ["..."], "duration_hours": 32 }
+    ],
+    "totalHoursMonth1": 82,
+    "recurringMonthlyHours": 40
+  },
+  "ourSolution": {
+    "headline": "1 vetový hook prečo my",
+    "valueProps": [
+      { "title": "krátky benefit", "description": "1-2 vety detail" }
+    ]
+  },
+  "competitive_landscape": {
+    "main_competitors": [
+      { "name": "menovitý konkurent", "their_strength": "...", "our_advantage": "..." }
+    ],
+    "positioning": "1-2 vety ako sa odlíšime"
+  },
   "risks": [
-    { "risk": "...", "mitigation": "..." }
+    { "risk": "konkrétne riziko", "mitigation": "ako ho ošetríme" }
   ],
   "next_steps": [
     "Konkrétny ďalší krok 1",
-    "Konkrétny ďalší krok 2"
+    "Konkrétny ďalší krok 2",
+    "Konkrétny ďalší krok 3"
   ],
-  "unique_insight": "Jeden veľmi špecifický insight ku konkrétnemu klientovi — niečo čo by konkurent neuvidel. 2-3 vety."
+  "unique_insight": "Jeden veľmi špecifický insight ku konkrétnemu klientovi — niečo čo by konkurent neuvidel. 2-3 vety. Toto je 'wow moment' v proposale."
 }
 
-DÔLEŽITÉ:
-- Vráť LEN ten JSON objekt. Žiadne \`\`\`json wrappers. Žiadne komentáre. Žiadny text pred/za.
-- Vždy minimálne 3 kampane, 8-15 keywords, 2-4 kanály.
-- Číselné hodnoty ako čísla, nie stringy ("1500" → 1500).`
+PRIPOMENUTIE:
+- Žiadne emoji. Žiadne ${'```'}json wrappery.
+- Personalizácia až do detailov produktov, miest, ICP.
+- Reklamné kreatívy musia byť naozaj použiteľné — copywriter quality, žiadne lorem ipsum.
+- Pre každú sekciu min. 1-2 vety "prečo" a "ako".
+- Output JSON musí byť syntakticky validný (žiadne trailing commas).`
 
 async function scrapeWebsite(domain: string): Promise<string> {
   if (!domain) return ''
   try {
     const url = domain.startsWith('http') ? domain : `https://${domain}`
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 8000)
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Adlify-Proposal-Bot/1.0)' }
@@ -149,20 +282,23 @@ async function scrapeWebsite(domain: string): Promise<string> {
               || ''
     const h1Matches = [...html.matchAll(/<h1[^>]*>([^<]+)<\/h1>/gi)]
     const h2Matches = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi)]
+    const h3Matches = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gi)]
     const h1s = h1Matches.map(m => m[1].trim()).slice(0, 5)
-    const h2s = h2Matches.map(m => m[1].trim()).slice(0, 8)
+    const h2s = h2Matches.map(m => m[1].trim()).slice(0, 10)
+    const h3s = h3Matches.map(m => m[1].trim()).slice(0, 15)
     const bodyText = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 4000)
+      .slice(0, 6000)
     return `WEB SCRAPE (${url}):
 Title: ${title}
 Description: ${desc}
 H1: ${h1s.join(' | ')}
 H2: ${h2s.join(' | ')}
+H3: ${h3s.join(' | ')}
 Body excerpt: ${bodyText}`
   } catch (e) {
     console.warn('Scrape failed:', e instanceof Error ? e.message : String(e))
@@ -197,7 +333,7 @@ serve(async (req) => {
       })
     }
 
-    console.log(`[deep-proposal] Loading lead ${leadId}`)
+    console.log(`[premium] Loading lead ${leadId}`)
     const { data: lead, error: leadErr } = await supabase
       .from('leads').select('*').eq('id', leadId).single()
     if (leadErr || !lead) {
@@ -207,7 +343,7 @@ serve(async (req) => {
       })
     }
 
-    console.log(`[deep-proposal] Scraping ${lead.domain}`)
+    console.log(`[premium] Scraping ${lead.domain}`)
     const scrapedContent = await scrapeWebsite(lead.domain)
 
     const context = `LEAD DATA:
@@ -218,20 +354,22 @@ Telefón: ${lead.phone || '—'}
 Odvetvie: ${lead.industry || lead.analysis?.company?.industry || 'neuvedené'}
 Mesto / lokalita: ${lead.city || lead.analysis?.company?.city || lead.analysis?.company?.location || 'neuvedené'}
 
-AI ANALYSIS (predošlé volanie analyze-lead):
-${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 8000)}
+PÔVODNÁ AI ANALÝZA (od analyze-lead Edge function):
+${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 10000)}
 
 MARKETING DATA (Marketing Miner):
-${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 4000)}
+${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 5000)}
 
 ${scrapedContent}
 
 ${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}
 
 ÚLOHA:
-Vygeneruj podrobný marketingový návrh pre TOHTO konkrétneho klienta. Buď extrémne personalizovaný, používaj reálne čísla, zmieni doménu/mesto/produktov. Output je JSON podľa system promptu.`
+Vygeneruj PREMIUM marketingový návrh — extrémne podrobný, personalizovaný, s konkrétnymi reklamnými kreatívami pre Google Ads, Meta (FB+IG), Instagram Stories, LinkedIn, Display.
 
-    console.log(`[deep-proposal] Calling Anthropic with model ${model}`)
+Klient po prečítaní musí mať pocit "presne to potrebujem, kde mám podpísať". Žiadne emoji. Output je JSON podľa system promptu — kompatibilný so schema ktoré renderne existing buildProposalHTML template (preto kľúče presne tak ako v promptu).`
+
+    console.log(`[premium] Calling Anthropic with model ${model}`)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -241,7 +379,7 @@ Vygeneruj podrobný marketingový návrh pre TOHTO konkrétneho klienta. Buď ex
       },
       body: JSON.stringify({
         model,
-        max_tokens: 8000,
+        max_tokens: 16000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: context }],
       })
@@ -249,7 +387,7 @@ Vygeneruj podrobný marketingový návrh pre TOHTO konkrétneho klienta. Buď ex
 
     const claudeJson = await claudeRes.json()
     if (claudeJson.error) {
-      console.error('[deep-proposal] Anthropic error:', claudeJson.error)
+      console.error('[premium] Anthropic error:', claudeJson.error)
       return new Response(JSON.stringify({ error: claudeJson.error.message || 'Anthropic API chyba' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -258,32 +396,36 @@ Vygeneruj podrobný marketingový návrh pre TOHTO konkrétneho klienta. Buď ex
 
     const text = (claudeJson.content || []).map((c: any) => c.text || '').join('').trim()
     const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    let proposal
-    try { proposal = JSON.parse(cleaned) }
+    let premium
+    try { premium = JSON.parse(cleaned) }
     catch {
       const match = cleaned.match(/\{[\s\S]*\}/)
       if (!match) {
-        console.error('[deep-proposal] Cannot parse JSON. Raw text:', cleaned.slice(0, 500))
+        console.error('[premium] Cannot parse JSON. Raw text:', cleaned.slice(0, 1000))
         throw new Error('Model nevrátil platný JSON')
       }
-      proposal = JSON.parse(match[0])
+      premium = JSON.parse(match[0])
     }
 
     const generatedAt = new Date().toISOString()
-    console.log(`[deep-proposal] Saving to DB for lead ${leadId}`)
+    console.log(`[premium] Saving to DB for lead ${leadId}`)
     const { error: updateErr } = await supabase.from('leads').update({
-      deep_proposal: proposal,
+      premium_analysis: premium,
+      premium_analysis_generated_at: generatedAt,
+      premium_analysis_model: model,
+      // Zachováme aj starý deep_proposal stĺpec pre backwards compat
+      deep_proposal: premium,
       deep_proposal_generated_at: generatedAt,
       deep_proposal_model: model,
     }).eq('id', leadId)
 
     if (updateErr) {
-      console.error('[deep-proposal] DB update error:', updateErr)
-      // Vraciame proposal aj keď DB update zlyhal — user nestratí výsledok
+      console.error('[premium] DB update error:', updateErr)
     }
 
     return new Response(JSON.stringify({
-      proposal,
+      premium_analysis: premium,
+      proposal: premium, // alias pre frontend backwards compat
       model,
       generated_at: generatedAt,
       usage: claudeJson.usage || null,
@@ -292,7 +434,7 @@ Vygeneruj podrobný marketingový návrh pre TOHTO konkrétneho klienta. Buď ex
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    console.error('[deep-proposal] Fatal error:', err)
+    console.error('[premium] Fatal error:', err)
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Neočakávaná chyba' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
