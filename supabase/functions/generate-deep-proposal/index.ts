@@ -263,47 +263,90 @@ PRIPOMENUTIE:
 - Pre každú sekciu min. 1-2 vety "prečo" a "ako".
 - Output JSON musí byť syntakticky validný (žiadne trailing commas).`
 
-async function scrapeWebsite(domain: string): Promise<string> {
-  if (!domain) return ''
+async function fetchPage(url: string, timeoutMs = 8000): Promise<{ url: string; html: string } | null> {
   try {
-    const url = domain.startsWith('http') ? domain : `https://${domain}`
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const t = setTimeout(() => controller.abort(), timeoutMs)
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Adlify-Proposal-Bot/1.0)' }
     })
-    clearTimeout(timeoutId)
-    if (!resp.ok) return ''
-    const html = await resp.text()
-    const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || ''
-    const desc = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)?.[1]
-              || html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i)?.[1]
-              || ''
-    const h1Matches = [...html.matchAll(/<h1[^>]*>([^<]+)<\/h1>/gi)]
-    const h2Matches = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi)]
-    const h3Matches = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gi)]
-    const h1s = h1Matches.map(m => m[1].trim()).slice(0, 5)
-    const h2s = h2Matches.map(m => m[1].trim()).slice(0, 10)
-    const h3s = h3Matches.map(m => m[1].trim()).slice(0, 15)
-    const bodyText = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 6000)
-    return `WEB SCRAPE (${url}):
+    clearTimeout(t)
+    if (!resp.ok) return null
+    return { url, html: await resp.text() }
+  } catch {
+    return null
+  }
+}
+
+function extractPageContent(url: string, html: string): string {
+  const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || ''
+  const desc = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)?.[1]
+            || html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i)?.[1]
+            || ''
+  const h1s = [...html.matchAll(/<h1[^>]*>([^<]+)<\/h1>/gi)].map(m => m[1].trim()).slice(0, 5)
+  const h2s = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi)].map(m => m[1].trim()).slice(0, 10)
+  const h3s = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gi)].map(m => m[1].trim()).slice(0, 15)
+  const bodyText = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 4000)
+  return `URL: ${url}
 Title: ${title}
 Description: ${desc}
 H1: ${h1s.join(' | ')}
 H2: ${h2s.join(' | ')}
 H3: ${h3s.join(' | ')}
-Body excerpt: ${bodyText}`
-  } catch (e) {
-    console.warn('Scrape failed:', e instanceof Error ? e.message : String(e))
-    return ''
+Body: ${bodyText}`
+}
+
+// Multi-page scrape — homepage + relevantné internal linky (sluzby/produkty/o-nas/referencie/cennik)
+async function deepScrape(domain: string): Promise<string> {
+  if (!domain) return ''
+  const base = domain.startsWith('http') ? domain : `https://${domain}`
+  const baseUrl = new URL(base)
+  const origin = baseUrl.origin
+
+  const homepage = await fetchPage(base, 10000)
+  if (!homepage) return ''
+
+  const pages: { url: string; html: string }[] = [homepage]
+  const homeHtml = homepage.html
+
+  // Extract internal links — hľadáme tie ktoré obsahujú relevantné keywords
+  const relevantKeywords = [
+    'sluzb', 'service', 'produkt', 'product', 'o-nas', 'about',
+    'referenc', 'portfolio', 'cennik', 'pricing', 'kontakt', 'contact',
+    'projekt', 'realizac', 'galer', 'gallery', 'blog'
+  ]
+  const linkMatches = [...homeHtml.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>/gi)]
+  const candidates = new Set<string>()
+  for (const m of linkMatches) {
+    let href = m[1].trim()
+    if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) continue
+    try {
+      const u = href.startsWith('http') ? new URL(href) : new URL(href, origin)
+      if (u.origin !== origin) continue
+      const path = u.pathname.toLowerCase()
+      if (path === '/' || path === '') continue
+      if (relevantKeywords.some(kw => path.includes(kw))) {
+        candidates.add(u.origin + u.pathname)
+      }
+    } catch {}
   }
+
+  const top = [...candidates].slice(0, 4)
+  console.log(`[scrape] Homepage + ${top.length} relevant subpages:`, top)
+
+  const results = await Promise.allSettled(top.map(u => fetchPage(u, 8000)))
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value) pages.push(r.value)
+  }
+
+  return pages.map(p => extractPageContent(p.url, p.html)).join('\n\n---\n\n')
 }
 
 serve(async (req) => {
@@ -343,8 +386,8 @@ serve(async (req) => {
       })
     }
 
-    console.log(`[premium] Scraping ${lead.domain}`)
-    const scrapedContent = await scrapeWebsite(lead.domain)
+    console.log(`[premium] Deep scrape ${lead.domain}`)
+    const scrapedContent = await deepScrape(lead.domain)
 
     const context = `LEAD DATA:
 Firma: ${lead.company_name || 'neuvedené'}
@@ -360,16 +403,29 @@ ${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 10000)}
 MARKETING DATA (Marketing Miner):
 ${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 5000)}
 
+DEEP WEB SCRAPE (homepage + relevantné podstránky klienta):
 ${scrapedContent}
 
 ${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}
 
 ÚLOHA:
-Vygeneruj PREMIUM marketingový návrh — extrémne podrobný, personalizovaný, s konkrétnymi reklamnými kreatívami pre Google Ads, Meta (FB+IG), Instagram Stories, LinkedIn, Display.
+Si senior PPC stratég. Použij DOSTUPNÝ web_search tool na vyhľadanie:
+1. Top 3-5 konkurentov v ${lead.industry || 'tomto odvetví'} na slovenskom trhu (najmä v lokalite ${lead.city || ''})
+2. Aktuálne ceny / trendy / market data v odvetví na SK trhu
+3. Bench-marky pre Google Ads / Meta Ads v tomto segmente (avg CPC, CTR, conversion rate)
+4. Špecifické insights ku klientovi (existuje case study, špecifický problém ICP, atď.)
 
-Klient po prečítaní musí mať pocit "presne to potrebujem, kde mám podpísať". Žiadne emoji. Output je JSON podľa system promptu — kompatibilný so schema ktoré renderne existing buildProposalHTML template (preto kľúče presne tak ako v promptu).`
+Maximálne 6 web search dotazov. Citácie URL ulož do "research_sources" v output JSON.
 
-    console.log(`[premium] Calling Anthropic with model ${model}`)
+Použij EXTENDED THINKING — premysli si stratégiu hĺbavo pred vygenerovaním JSON output.
+
+Vygeneruj PREMIUM marketingový návrh — extrémne podrobný, personalizovaný, s konkrétnymi reklamnými kreatívami pre Google Ads, Meta (FB+IG), Instagram Stories, LinkedIn, Display. Klient po prečítaní musí mať pocit "presne to potrebujem, kde mám podpísať". Žiadne emoji.
+
+Output JSON podľa system promptu + navyše:
+"research_sources": [{"url": "...", "summary": "1 veta čo sme z neho zistili"}]
+"competitive_landscape.main_competitors[].evidence_url": "URL kde sme našli údaje o konkurentovi"`
+
+    console.log(`[premium] Calling Anthropic with model ${model} + web_search + extended thinking`)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -379,8 +435,12 @@ Klient po prečítaní musí mať pocit "presne to potrebujem, kde mám podpísa
       },
       body: JSON.stringify({
         model,
-        max_tokens: 16000,
-        system: SYSTEM_PROMPT,
+        max_tokens: 20000,
+        thinking: { type: 'enabled', budget_tokens: 10000 },
+        tools: [{ type: 'web_search_20250604', max_uses: 6 }],
+        // Prompt caching — system prompt sa cache-uje (rovnaký pre každého
+        // klienta), pri opakovaných volaniach ušetríme ~90% input ceny
+        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: context }],
       })
     })
@@ -394,7 +454,12 @@ Klient po prečítaní musí mať pocit "presne to potrebujem, kde mám podpísa
       })
     }
 
-    const text = (claudeJson.content || []).map((c: any) => c.text || '').join('').trim()
+    // Output content array može obsahovať: thinking blocks, tool_use blocks (web_search),
+    // tool_result blocks, a finálne text bloky s JSON output. Extrahujeme len text bloky.
+    const text = (claudeJson.content || [])
+      .filter((c: any) => c.type === 'text')
+      .map((c: any) => c.text || '').join('').trim()
+    console.log(`[premium] Got ${text.length} chars text + ${(claudeJson.content || []).length} content blocks`)
     const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     let premium
     try { premium = JSON.parse(cleaned) }
