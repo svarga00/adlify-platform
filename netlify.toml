@@ -29,6 +29,10 @@
   from = "/portal/proposal.html"
   to = "/portal/proposal.html"
   status = 200
+[[redirects]]
+  from = "/portal/reset-password.html"
+  to = "/portal/reset-password.html"
+  status = 200
 
 # Portal - SPA fallback pre dashboard
 [[redirects]]
