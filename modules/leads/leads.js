@@ -270,11 +270,18 @@ const LeadsModule = {
             <div class="proposal-options">
               <label>Vyberte akciu:</label>
               <div class="proposal-buttons">
-                <button onclick="LeadsModule.generateDeepProposal()" class="proposal-option-btn primary" id="btn-deep-proposal" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;color:#fff;">
-                  <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : '✨'}</span>
+                <button onclick="LeadsModule.generateDeepProposal(event)" class="proposal-option-btn primary" id="btn-deep-proposal" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;color:#fff;" title="Klik = reálna generácia (kredit). Shift+klik = test mode (mock data, žiadny kredit).">
+                  <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : ''}</span>
                   <span class="option-text">
-                    <strong>Vygenerovať podrobný návrh (Claude Opus)</strong>
-                    <small id="deep-proposal-meta">Background mode · web research + Claude Sonnet 4.5 · 1-3 min</small>
+                    <strong>Vygenerovať podrobný návrh (Claude)</strong>
+                    <small id="deep-proposal-meta">Background · 1-3 min · Sonnet 4.5 · Shift+klik = test mode (zadarmo)</small>
+                  </span>
+                </button>
+                <button onclick="LeadsModule.generateDeepProposal({ shiftKey: true })" class="proposal-option-btn" style="border:1px dashed var(--n-200);">
+                  <span class="option-icon">${LI.globe(22, 'var(--n-400)')}</span>
+                  <span class="option-text">
+                    <strong>Test mode — mock data</strong>
+                    <small>Žiadny Anthropic call, nahrá mock JSON do DB. Pre testovanie HTML render.</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
@@ -3242,7 +3249,9 @@ Odkaz je platný 30 dní.
   // Edge function vráti 202 do 1s, generácia beží na pozadí do 6 minút.
   // Frontend subscriber na Supabase realtime UPDATE event → automatický
   // otvor proposalu keď je hotové.
-  async generateDeepProposal() {
+  // Shift+klik (event.shiftKey) → test mode (mock data bez Anthropic, žiadny kredit).
+  async generateDeepProposal(event) {
+    const testMode = !!(event && event.shiftKey);
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv spustite AI analýzu', 'warning');
 
@@ -3281,7 +3290,7 @@ Odkaz je platný 30 dní.
           'Authorization': `Bearer ${token || supabaseAnonKey}`,
           'apikey': supabaseAnonKey,
         },
-        body: JSON.stringify({ leadId: lead.id, customNotes })
+        body: JSON.stringify({ leadId: lead.id, customNotes, testMode })
       });
       console.log('[DeepProposal] HTTP', resp.status, resp.ok);
       const data = await resp.json();
@@ -3300,7 +3309,7 @@ Odkaz je platný 30 dní.
       // riadku — keď premium_analysis_status sa zmení na 'done' → otvor proposal.
       this._subscribeToPremiumStatus(lead.id, tickInterval, meta, btn);
 
-      Utils.toast('Generácia spustená na pozadí (1-3 min). Môžete pokračovať v práci.', 'info');
+      Utils.toast(testMode ? 'TEST MODE — mock dáta uložené, otváram proposal…' : 'Generácia spustená na pozadí (1-3 min). Môžete pokračovať v práci.', testMode ? 'success' : 'info');
     } catch (err) {
       console.error('[DeepProposal] Error:', err);
       Utils.toast('Chyba: ' + (err.message || err), 'error');
