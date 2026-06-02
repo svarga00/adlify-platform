@@ -28,6 +28,303 @@ const corsHeaders = {
 
 const DEFAULT_MODEL = 'claude-sonnet-4-5'
 
+// ============================================================
+// SECTION MODE — generuj len konkrétnu sekciu premium_analysis.
+// Každá sekcia je <30s, takže ide sync (žiadny background).
+// Frontend môže generovať postupne, upravovať a regenerovať.
+// ============================================================
+
+const SECTION_DEFS: Record<string, { label: string; promptKey: string; estimatedSec: number; useWebSearch?: boolean }> = {
+  analysis: {
+    label: 'Analýza firmy + SWOT + online prítomnosť',
+    promptKey: 'analysis',
+    estimatedSec: 15,
+  },
+  keywords: {
+    label: 'Kľúčové slová (primary + secondary + long-tail)',
+    promptKey: 'keywords',
+    estimatedSec: 15,
+  },
+  strategy: {
+    label: 'Stratégia + kanály + creative approach',
+    promptKey: 'strategy',
+    estimatedSec: 20,
+  },
+  campaigns: {
+    label: 'Reklamné kampane (Google + Meta + IG + LinkedIn)',
+    promptKey: 'campaigns',
+    estimatedSec: 30,
+  },
+  budget: {
+    label: 'Rozpočet + ROI',
+    promptKey: 'budget',
+    estimatedSec: 15,
+  },
+  summary: {
+    label: 'Executive summary + unique insight + next steps',
+    promptKey: 'summary',
+    estimatedSec: 15,
+  },
+  competitive: {
+    label: 'Konkurenčný research (živý web search)',
+    promptKey: 'competitive',
+    estimatedSec: 60,
+    useWebSearch: true,
+  },
+}
+
+const SECTION_PROMPTS: Record<string, string> = {
+  analysis: `Si senior PPC stratég. Vygeneruj sekciu "ANALÝZA FIRMY + SWOT + ONLINE PRÍTOMNOSŤ" pre marketingový proposal v slovenčine. Zákaz emoji. Zákaz floskúl (synergie, best practices, atď.). Konkrétne čísla, krátke vety, expert tone.
+
+Vráť VÝLUČNE JSON v tvare:
+{
+  "company": { "name": "...", "domain": "...", "industry": "...", "city": "...", "services": ["..."], "idealCustomer": "..." },
+  "ourFindings": {
+    "strengths": [{ "title": "...", "description": "1-2 vety" }],
+    "opportunities": [{ "title": "...", "description": "1-2 vety" }]
+  },
+  "onlinePresence": {
+    "website": { "status": "good|needs_work|critical", "notes": "..." },
+    "social": { "status": "good|needs_work|missing", "notes": "..." },
+    "seo": { "status": "good|needs_work|critical", "notes": "..." },
+    "ppc": { "status": "none|basic|advanced", "notes": "..." }
+  },
+  "swot": {
+    "strengths": ["3-5"], "weaknesses": ["2-4"],
+    "opportunities": ["3-5"], "threats": ["2-4"]
+  }
+}`,
+
+  keywords: `Si PPC stratég. Vygeneruj sekciu "KĽÚČOVÉ SLOVÁ" pre proposal v slovenčine. Použij Marketing Miner dáta ak sú, inak realistic estimate pre SR (mestá 5-50K: 50-500 hľadaní/mes, CPC 0.20-2.50 €).
+
+Vráť VÝLUČNE JSON:
+{
+  "keywords": {
+    "primary":   [{ "keyword": "...", "search_volume": 1200, "cpc_eur": 0.45, "intent": "buy|info|brand", "priority": "high" }],
+    "secondary": [{ "keyword": "...", "search_volume": 300,  "cpc_eur": 0.30, "intent": "info" }],
+    "longTail":  [{ "keyword": "...", "search_volume": 50,   "cpc_eur": 0.18 }]
+  }
+}
+
+Minimum 6 primary, 5 secondary, 5 long-tail keywords. Všetko špecifické k tomuto klientovi (jeho produkty, lokalitu, intent).`,
+
+  strategy: `Si PPC stratég. Vygeneruj sekciu "STRATÉGIA + KANÁLY" pre proposal v slovenčine. Konkrétne čísla, konkrétne kanály, "prečo a ako" pre každý.
+
+Vráť VÝLUČNE JSON:
+{
+  "strategy": {
+    "overview": "1 odstavec — high-level prístup pre tohto klienta a prečo",
+    "channels": [
+      {
+        "name": "Google Ads — Search",
+        "monthly_budget_eur": 800,
+        "rationale": "3-4 vety prečo presne tento kanál, ako bude vyzerať realizácia, aký výsledok očakávame v 1./3./6. mesiaci",
+        "expected_kpi": "konkrétne číslo (napr. 35 leadov/mes pri CPL 22€)"
+      }
+    ],
+    "creativeApproach": "2 odstavce o copy/visual direction — tón, mood, messaging hooky pre tohto klienta. Diferenciátor od konkurencie."
+  }
+}
+
+Minimum 3 kanály (typicky Google Search + Google Performance Max + Meta).`,
+
+  campaigns: `Si PPC stratég. Vygeneruj sekciu "REKLAMNÉ KAMPANE" pre proposal v slovenčine. Konkrétne kampane s ad copy, headlines, descriptions, audience, landing pages. Copywriter quality, žiadne lorem ipsum.
+
+Vráť VÝLUČNE JSON:
+{
+  "proposedCampaigns": {
+    "google": {
+      "searchCampaign": {
+        "name": "konkrétny názov", "monthly_budget_eur": 400, "objective": "...",
+        "adGroups": [{
+          "name": "...", "keywords": ["5-8"], "matchTypes": ["phrase","exact"],
+          "adCopy": {
+            "headlines": ["3-5 variantov, každý ≤30 znakov"],
+            "descriptions": ["2-3 varianty, každý ≤90 znakov"],
+            "sitelinks": ["3-4"], "callouts": ["3-4"]
+          },
+          "landingPage": "...", "rationale": "1-2 vety"
+        }]
+      },
+      "performanceMaxCampaign": {
+        "name": "...", "monthly_budget_eur": 300, "audienceSignals": ["3-4"],
+        "assetGroups": [{ "theme": "...", "headlines": [...], "descriptions": [...], "imageDirection": "..." }]
+      }
+    },
+    "meta": {
+      "campaign": {
+        "name": "...", "monthly_budget_eur": 400, "objective": "...",
+        "audience": { "primary": "...", "lookalike": "...", "retargeting": "..." },
+        "adSets": [{
+          "name": "...", "audience": "...", "placements": ["..."],
+          "adCopy": {
+            "primaryText": "2-4 vety hook + benefit + CTA",
+            "headline": "≤40 znakov", "description": "≤30 znakov",
+            "cta": "Zistiť viac|Kontaktovať|Objednať teraz",
+            "imageDescription": "1-2 vety opis vizuálu"
+          },
+          "rationale": "2 vety"
+        }]
+      }
+    },
+    "instagram": {
+      "stories": [{
+        "name": "...", "concept": "1-2 vety", "headline": "...", "subtext": "...",
+        "imageDescription": "...", "cta": "..."
+      }]
+    },
+    "linkedin": {
+      "sponsoredContent": {
+        "audience": "B2B targeting — pozície, odvetvie, veľkosť firmy",
+        "monthly_budget_eur": 200,
+        "adCopy": { "headline": "...", "primaryText": "...", "cta": "..." },
+        "rationale": "Prečo LinkedIn (alebo null ak nie je relevantný)"
+      }
+    }
+  }
+}`,
+
+  budget: `Si PPC stratég. Vygeneruj sekciu "ROZPOČET + ROI" pre proposal v slovenčine. Matematicky sediaci budget (suma = celok). Realistic ROI assumptions.
+
+Vráť VÝLUČNE JSON:
+{
+  "budget": {
+    "summary": "2-3 vety zhrnutie investičného plánu",
+    "monthly_total_eur": 1500, "media_spend_eur": 1200, "agency_fee_eur": 300,
+    "allocations": [{ "channel": "Google Ads Search", "amount_eur": 800, "pct": 53, "rationale": "1 veta" }],
+    "recommendations": {
+      "conservative": { "totalBudget": 1000, "leads": 15, "description": "..." },
+      "moderate":     { "totalBudget": 1500, "leads": 30, "description": "..." },
+      "aggressive":   { "totalBudget": 2500, "leads": 60, "description": "..." }
+    },
+    "avgCpc": 0.50,
+    "six_month_projection_eur": 9000,
+    "scaling_notes": "ako budget škáluje keď začnú výsledky"
+  },
+  "roi": {
+    "explanation": "2-3 vety ako sme prišli k ROI (AOV, conversion rate, repeat purchase)",
+    "month_1": { "spend_eur": 1500, "leads": 10, "cpl_eur": 150, "revenue_eur": 3000,  "roi_pct": 100, "explanation": "..." },
+    "month_3": { "spend_eur": 1500, "leads": 30, "cpl_eur": 50,  "revenue_eur": 9000,  "roi_pct": 500, "explanation": "..." },
+    "month_6": { "spend_eur": 2000, "leads": 60, "cpl_eur": 33,  "revenue_eur": 18000, "roi_pct": 800, "explanation": "..." }
+  }
+}`,
+
+  summary: `Si senior PPC stratég. Toto je FINÁLNA záverečná sekcia proposalu — píš ako keby si videl všetky predošlé sekcie a teraz to zhrnieš. Slovenčina, ekspertný tón, žiadne floskuly.
+
+Vráť VÝLUČNE JSON:
+{
+  "executive_summary": "4-6 odstavcov. (1) Kto je klient. (2) Situácia na trhu. (3) Naša stratégia v 1 vete + dôvod. (4) Očakávaný výsledok za 3/6 mesiacov s konkrétnymi číslami. (5) Prečo my. (6) Investícia a ROI.",
+  "ourSolution": {
+    "headline": "1 vetový hook prečo my",
+    "valueProps": [{ "title": "krátky benefit", "description": "1-2 vety" }]
+  },
+  "next_steps": ["Konkrétny krok 1", "Krok 2", "Krok 3"],
+  "unique_insight": "Jeden veľmi špecifický insight ku konkrétnemu klientovi — niečo čo by konkurent neuvidel. 2-3 vety. Wow moment proposalu."
+}`,
+
+  competitive: `Si senior PPC stratég. POUŽIJ web_search tool (max 3 dotazy) na vyhľadanie reálnych konkurentov klienta. Nepoužívaj odhady — len overiteľné dáta z webu.
+
+Search strategy:
+1. "<industry> Slovensko top 5" alebo podobné
+2. "<industry> <city> konkurencia"
+3. Voliteľne: prípadová štúdia / market research SK
+
+Vráť VÝLUČNE JSON:
+{
+  "competitive_landscape": {
+    "main_competitors": [
+      { "name": "menovitý konkurent", "their_strength": "...", "our_advantage": "...", "evidence_url": "https://..." }
+    ],
+    "positioning": "1-2 vety ako sa odlíšime"
+  },
+  "research_sources": [{ "url": "...", "summary": "1 veta čo sme z neho zistili" }]
+}
+
+Citácia URL je POVINNÁ pre každého konkurenta. Ak si neistá názvom alebo dátami, použij webovú stránku ktorú reálne pozrieš.`,
+}
+
+async function generateSection(
+  apiKey: string,
+  supabase: any,
+  lead: any,
+  model: string,
+  customNotes: string,
+  sectionKey: string,
+): Promise<{ partial: any; usage: any } | { error: string }> {
+  const def = SECTION_DEFS[sectionKey]
+  if (!def) return { error: `Neznáma sekcia: ${sectionKey}` }
+
+  // Pre sekcie ktoré nie sú competitive je scrape len homepage + 1 page (rýchle)
+  const useScrape = sectionKey !== 'competitive'
+  const scraped = useScrape ? await deepScrape(lead.domain) : ''
+  const context = buildSectionContext(lead, scraped, customNotes, sectionKey, def.label)
+
+  const apiBody: any = {
+    model,
+    max_tokens: 6000,
+    system: SECTION_PROMPTS[def.promptKey],
+    messages: [{ role: 'user', content: context }],
+  }
+  if (def.useWebSearch) {
+    apiBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }]
+    apiBody.max_tokens = 8000
+  }
+
+  const abort = new AbortController()
+  const timeout = setTimeout(() => abort.abort(), 130000)
+  let resp: Response
+  try {
+    resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: abort.signal,
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(apiBody),
+    })
+    clearTimeout(timeout)
+  } catch (e) {
+    clearTimeout(timeout)
+    return { error: 'Anthropic timeout/network: ' + (e instanceof Error ? e.message : String(e)) }
+  }
+
+  const json = await resp.json()
+  if (json.error) return { error: json.error.message || 'Anthropic error' }
+
+  const text = (json.content || []).filter((c: any) => c.type === 'text').map((c: any) => c.text || '').join('').trim()
+  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+  let partial
+  try { partial = JSON.parse(cleaned) }
+  catch {
+    const match = cleaned.match(/\{[\s\S]*\}/)
+    if (!match) return { error: 'Model nevrátil platný JSON' }
+    partial = JSON.parse(match[0])
+  }
+
+  return { partial, usage: json.usage }
+}
+
+function buildSectionContext(lead: any, scrape: string, customNotes: string, sectionKey: string, label: string): string {
+  return `LEAD:
+Firma: ${lead.company_name || ''}
+Doména: ${lead.domain || ''}
+Odvetvie: ${lead.industry || lead.analysis?.company?.industry || ''}
+Lokalita: ${lead.city || lead.analysis?.company?.city || ''}
+
+PÔVODNÁ ANALÝZA (analyze-lead Edge fn):
+${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 6000)}
+
+MARKETING DATA:
+${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 3000)}
+
+${scrape ? `WEB SCRAPE:\n${scrape}\n` : ''}
+
+${lead.premium_analysis ? `EXISTUJÚCE SEKCIE V PROPOSALI (referenčné pre koherenciu):\n${JSON.stringify(lead.premium_analysis, null, 2).slice(0, 5000)}\n` : ''}
+
+${customNotes ? `CUSTOM POŽIADAVKY: ${customNotes}\n` : ''}
+
+ÚLOHA: Vygeneruj VÝLUČNE sekciu "${label}" pre marketingový proposal. Output je čistý JSON podľa system promptu.`
+}
+
+
 const SYSTEM_PROMPT = `Si senior PPC stratég v slovenskej digitálnej marketingovej agentúre s 10+ rokmi skúseností (Google Ads, Meta Ads, LinkedIn, performance marketing).
 
 Tvoja úloha: pre konkrétneho leada vygenerovať **podrobný, profesionálny, unikátny premium marketingový návrh**, ktorý bude pitch dokument pripravený na podpis kontraktu. Klient po prečítaní by mal hneď chcieť spolupracovať.
@@ -509,7 +806,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const body = await req.json()
-    const { leadId, model = DEFAULT_MODEL, customNotes = '' } = body
+    const { leadId, model = DEFAULT_MODEL, customNotes = '', section } = body
     if (!leadId) {
       return new Response(JSON.stringify({ error: 'leadId je povinný' }), {
         status: 400,
@@ -526,6 +823,51 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    // ─── SECTION MODE — sync, <30s typicky, vráti partial JSON ────────────
+    if (section) {
+      if (!SECTION_DEFS[section]) {
+        return new Response(JSON.stringify({
+          error: `Neznáma sekcia: ${section}. Dostupné: ${Object.keys(SECTION_DEFS).join(', ')}`
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      console.log(`[premium] Section mode: ${section}`)
+      const result = await generateSection(apiKey, supabase, lead, model, customNotes, section)
+      if ('error' in result) {
+        return new Response(JSON.stringify({ error: result.error }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      // Merge partial do existing premium_analysis v DB
+      const merged = { ...(lead.premium_analysis || {}), ...result.partial }
+      const generatedAt = new Date().toISOString()
+      await supabase.from('leads').update({
+        premium_analysis: merged,
+        premium_analysis_generated_at: generatedAt,
+        premium_analysis_model: model,
+        premium_analysis_status: 'done',
+        deep_proposal: merged,
+        deep_proposal_generated_at: generatedAt,
+        deep_proposal_model: model,
+      }).eq('id', leadId)
+      return new Response(JSON.stringify({
+        status: 'section_done',
+        section,
+        partial: result.partial,
+        merged,
+        model,
+        generated_at: generatedAt,
+        usage: result.usage,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    // ─── END SECTION MODE ─────────────────────────────────────────────────
 
     // Idempotent guard: ak status už je 'generating' a začalo < 6 min,
     // vrátime 409 namiesto spustenia ďalšieho behu paralelne (chráni pred
