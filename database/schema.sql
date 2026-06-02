@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   full_name TEXT,
   avatar_url TEXT,
   phone TEXT,
+  tour_completed_at TIMESTAMPTZ,
   role TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('owner', 'admin', 'employee', 'client')),
   org_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001',
   is_active BOOLEAN DEFAULT true,
