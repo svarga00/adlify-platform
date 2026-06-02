@@ -21,7 +21,8 @@ WITH expected (name, migration, purpose) AS (VALUES
   ('tickets',                         '012', 'Portál — support tickety (loadTickets/submitTicket)'),
   ('documents',                       '012', 'Portál — dokumenty klienta (loadDocuments)'),
   ('campaign_projects',               '012', 'Portál — projekty klienta (loadProjects)'),
-  ('reports',                         '013', 'Portál — PDF/PPTX reporty archív (loadReports)')
+  ('reports',                         '013', 'Portál — PDF/PPTX reporty archív (loadReports)'),
+  ('approvals',                       '014', 'Portál — schvaľovanie kreatív s revision chain')
 )
 SELECT
   e.migration,

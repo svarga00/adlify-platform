@@ -447,6 +447,34 @@ CREATE TABLE IF NOT EXISTS campaign_projects (
 );
 
 -- ============================================
+-- ✅ APPROVALS (schvaľovanie kreatív s revision chain)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS approvals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001',
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+
+  parent_approval_id UUID REFERENCES approvals(id) ON DELETE SET NULL,
+  version INT DEFAULT 1,
+
+  kind TEXT DEFAULT 'creative' CHECK (kind IN ('creative', 'copy', 'design', 'video', 'other')),
+  title TEXT NOT NULL,
+  description TEXT,
+  asset_url TEXT,
+  thumbnail_url TEXT,
+
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  feedback TEXT,
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES auth.users(id),
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
 -- ⚙️ INTEGRATIONS CONFIG
 -- ============================================
 
@@ -557,6 +585,7 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
@@ -724,6 +753,26 @@ CREATE POLICY "Clients can view own reports" ON reports
     client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
   );
 
+-- Approvals
+CREATE POLICY "Team can manage approvals" ON approvals
+  FOR ALL USING (
+    org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Clients can view own approvals" ON approvals
+  FOR SELECT USING (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+  );
+
+CREATE POLICY "Clients can decide own approvals" ON approvals
+  FOR UPDATE
+  USING (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+  )
+  WITH CHECK (
+    client_id IN (SELECT client_id FROM client_users WHERE user_id = auth.uid())
+  );
+
 -- Campaign projects
 CREATE POLICY "Team can manage projects" ON campaign_projects
   FOR ALL USING (
@@ -831,6 +880,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id, created_at
 CREATE INDEX IF NOT EXISTS idx_tickets_client ON tickets(client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_client ON documents(client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_client ON reports(client_id, period_end DESC);
+CREATE INDEX IF NOT EXISTS idx_approvals_client ON approvals(client_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_approvals_parent ON approvals(parent_approval_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_projects_client ON campaign_projects(client_id, created_at DESC);
 
 -- ============================================
