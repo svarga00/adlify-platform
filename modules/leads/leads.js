@@ -268,20 +268,33 @@ const LeadsModule = {
             </div>
 
             <div class="proposal-options">
-              <label>Vyberte akciu:</label>
+              <label>Premium návrh — generovanie po sekciách (každá 15-60s, môžete upravovať):</label>
+              <div id="section-generator" style="background:var(--n-50); border-radius:10px; padding:14px; margin:8px 0 12px;">
+                <div id="section-list" style="display:flex; flex-direction:column; gap:6px;">
+                  <!-- Vyplní LeadsModule._renderSectionList() po otvorení modalu -->
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px solid var(--n-100); flex-wrap:wrap;">
+                  <small id="section-status" style="color:var(--ink-sub); font-size:12px;">Vyberte sekcie na generovanie</small>
+                  <div style="display:flex; gap:6px;">
+                    <button onclick="LeadsModule.openPremiumProposal()" class="adl-btn adl-btn-outline adl-btn-sm" title="Otvorí proposal HTML s tým čo už je v DB">Otvoriť HTML</button>
+                    <button onclick="LeadsModule.generateSelectedSections()" class="adl-btn adl-btn-primary adl-btn-sm" id="btn-generate-sections" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;">Generovať vybrané</button>
+                  </div>
+                </div>
+              </div>
+              <label>Alebo všetko naraz (background):</label>
               <div class="proposal-buttons">
-                <button onclick="LeadsModule.generateDeepProposal(event)" class="proposal-option-btn primary" id="btn-deep-proposal" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;color:#fff;" title="Klik = reálna generácia (kredit). Shift+klik = test mode (mock data, žiadny kredit).">
+                <button onclick="LeadsModule.generateDeepProposal(event)" class="proposal-option-btn primary" id="btn-deep-proposal" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;color:#fff;" title="Klik = reálna generácia (kredit). Shift+klik = test mode.">
                   <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : ''}</span>
                   <span class="option-text">
-                    <strong>Vygenerovať podrobný návrh (Claude)</strong>
-                    <small id="deep-proposal-meta">Background · 1-3 min · Sonnet 4.5 · Shift+klik = test mode (zadarmo)</small>
+                    <strong>Vygenerovať všetko naraz (background)</strong>
+                    <small id="deep-proposal-meta">Background · 1-3 min · Sonnet 4.5 · Shift+klik = test mode</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateDeepProposal({ shiftKey: true })" class="proposal-option-btn" style="border:1px dashed var(--n-200);">
                   <span class="option-icon">${LI.globe(22, 'var(--n-400)')}</span>
                   <span class="option-text">
                     <strong>Test mode — mock data</strong>
-                    <small>Žiadny Anthropic call, nahrá mock JSON do DB. Pre testovanie HTML render.</small>
+                    <small>Žiadny Anthropic call, mock JSON do DB. Pre testovanie.</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
@@ -2554,6 +2567,9 @@ const LeadsModule = {
     } else {
       if (meta) meta.textContent = '12 sekcií · 30-60s · ~$0.50 / generácia';
     }
+
+    // Renderuj sectioned checkbox list
+    this._renderSectionList();
   },
 
   closeProposalModal() {
@@ -3245,6 +3261,140 @@ Odkaz je platný 30 dní.
     return '<p>' + plainText.replace(/\n/g, '<br>') + '</p>' + (proposalUrl ? '<p><a href="' + proposalUrl + '">Zobraziť ponuku</a></p>' : '');
   },
   
+  // ─── SECTIONED GENERATION ───
+  // Definícia sekcií čo sú dostupné (zhodné s SECTION_DEFS v Edge fn).
+  PROPOSAL_SECTIONS: [
+    { key: 'analysis',    label: 'Analýza firmy + SWOT',           sec: 15, defaultChecked: true },
+    { key: 'keywords',    label: 'Kľúčové slová',                  sec: 15, defaultChecked: true },
+    { key: 'strategy',    label: 'Stratégia + kanály',             sec: 20, defaultChecked: true },
+    { key: 'campaigns',   label: 'Reklamné kampane (Google + Meta + IG + LinkedIn)', sec: 30, defaultChecked: true },
+    { key: 'budget',      label: 'Rozpočet + ROI',                 sec: 15, defaultChecked: true },
+    { key: 'summary',     label: 'Executive summary + next steps', sec: 15, defaultChecked: true },
+    { key: 'competitive', label: 'Konkurencia (živý web search)',  sec: 60, defaultChecked: false },
+  ],
+
+  // Renderuje checkbox zoznam sekcií + ich aktuálny status (✓ hotovo, neexistuje)
+  _renderSectionList() {
+    const list = document.getElementById('section-list');
+    if (!list) return;
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    const premium = lead?.premium_analysis || {};
+
+    const rows = this.PROPOSAL_SECTIONS.map(s => {
+      const exists = this._sectionHasContent(premium, s.key);
+      return `
+        <label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--n-100); border-radius:8px; cursor:pointer; background:var(--surface); transition:background .12s;" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='var(--surface)'">
+          <input type="checkbox" data-section="${s.key}" ${s.defaultChecked && !exists ? 'checked' : ''} style="margin:0;">
+          <div style="flex:1; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div>
+              <div style="font-size:13px; font-weight:500;">${exists ? '✓ ' : ''}${s.label}</div>
+              <div style="font-size:11px; color:var(--ink-mute);">~${s.sec}s${exists ? ' · už vygenerované, zaškrtni pre regen' : ''}</div>
+            </div>
+            ${exists ? `<button onclick="event.preventDefault(); event.stopPropagation(); LeadsModule.regenerateSection('${s.key}')" class="adl-btn adl-btn-ghost adl-btn-sm" title="Regenerovať" style="padding:4px 8px; font-size:11px;">↻</button>` : ''}
+          </div>
+        </label>
+      `;
+    }).join('');
+    list.innerHTML = rows;
+  },
+
+  _sectionHasContent(premium, sectionKey) {
+    if (!premium) return false;
+    const checks = {
+      analysis: () => premium.company || premium.ourFindings || premium.swot,
+      keywords: () => premium.keywords && (premium.keywords.primary?.length || premium.keywords.secondary?.length),
+      strategy: () => premium.strategy && premium.strategy.channels?.length,
+      campaigns: () => premium.proposedCampaigns && (premium.proposedCampaigns.google || premium.proposedCampaigns.meta),
+      budget: () => premium.budget && premium.budget.recommendations,
+      summary: () => premium.executive_summary,
+      competitive: () => premium.competitive_landscape && premium.competitive_landscape.main_competitors?.length,
+    };
+    const fn = checks[sectionKey];
+    return fn ? !!fn() : false;
+  },
+
+  async generateSelectedSections() {
+    const checkboxes = document.querySelectorAll('#section-list input[type="checkbox"]:checked');
+    const selected = Array.from(checkboxes).map(c => c.dataset.section);
+    if (selected.length === 0) return Utils.toast('Vyber aspoň jednu sekciu', 'warning');
+
+    const btn = document.getElementById('btn-generate-sections');
+    const status = document.getElementById('section-status');
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+
+    let completed = 0;
+    let failed = 0;
+    for (const sectionKey of selected) {
+      const sectionDef = this.PROPOSAL_SECTIONS.find(s => s.key === sectionKey);
+      status.textContent = `[${completed + 1}/${selected.length}] Generujem: ${sectionDef.label}…`;
+      const ok = await this._generateOneSection(sectionKey);
+      if (ok) completed++; else failed++;
+      // Re-render list aby user videl ✓ check pri novom sekcii
+      this._renderSectionList();
+    }
+
+    status.textContent = `Hotovo · ${completed}/${selected.length} sekcií${failed ? ` (${failed} zlyhalo)` : ''}`;
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    if (completed > 0) {
+      Utils.toast(`${completed} sekcií vygenerovaných`, 'success');
+      // Refresh hero actions (badge) + leads list
+      const heroEl = document.getElementById('lead-hero-actions');
+      const lead = this.leads.find(l => l.id === this.currentLeadId);
+      if (heroEl && lead) heroEl.innerHTML = this._renderHeroActions(lead);
+    }
+  },
+
+  async regenerateSection(sectionKey) {
+    const status = document.getElementById('section-status');
+    if (status) status.textContent = `Regenerujem: ${this.PROPOSAL_SECTIONS.find(s => s.key === sectionKey)?.label}…`;
+    const ok = await this._generateOneSection(sectionKey);
+    this._renderSectionList();
+    if (status) status.textContent = ok ? 'Hotovo · sekcia regenerovaná' : 'Chyba pri regenerácii';
+    Utils.toast(ok ? 'Sekcia regenerovaná' : 'Regenerácia zlyhala', ok ? 'success' : 'error');
+  },
+
+  async _generateOneSection(sectionKey) {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead) return false;
+    const customNotes = document.getElementById('proposal-notes')?.value?.trim() || '';
+    const session = await Database.client.auth.getSession();
+    const token = session?.data?.session?.access_token || '';
+    const supabaseAnonKey = (typeof Config !== 'undefined' ? Config.get('supabase_key') : '') || (window.SUPABASE_ANON_KEY) || '';
+
+    try {
+      console.log(`[Section] Generating: ${sectionKey}`);
+      const resp = await fetch(this.DEEP_PROPOSAL_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({ leadId: lead.id, customNotes, section: sectionKey })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      console.log(`[Section] Done: ${sectionKey}`, data);
+
+      // Aktualizuj lokálny lead state z merged výsledku
+      if (data.merged) {
+        lead.premium_analysis = data.merged;
+        lead.premium_analysis_generated_at = data.generated_at;
+        lead.premium_analysis_model = data.model;
+        lead.deep_proposal = data.merged;
+        lead.deep_proposal_generated_at = data.generated_at;
+        lead.deep_proposal_model = data.model;
+      }
+      return true;
+    } catch (err) {
+      console.error(`[Section] Error ${sectionKey}:`, err);
+      Utils.toast(`Sekcia ${sectionKey} zlyhala: ${err.message}`, 'error');
+      return false;
+    }
+  },
+
   // Volá Supabase Edge function generate-deep-proposal v BACKGROUND mode.
   // Edge function vráti 202 do 1s, generácia beží na pozadí do 6 minút.
   // Frontend subscriber na Supabase realtime UPDATE event → automatický
