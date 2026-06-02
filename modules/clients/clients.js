@@ -516,6 +516,7 @@ const ClientsModule = {
     this.approvalsSubscription = null;
     this.clientMessages = [];
     this.clientApprovals = [];
+    this.clientReports = [];
     this.messagesDraft = '';
     this.approvalsFilter = 'pending';
 
@@ -661,6 +662,7 @@ const ClientsModule = {
           <button onclick="ClientsModule.showTab('tasks')" class="tab-btn" data-tab="tasks" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Úlohy</button>
           <button onclick="ClientsModule.showTab('messages')" class="tab-btn" data-tab="messages" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit; position:relative;">Správy<span id="messages-tab-badge" class="adl-tab-badge" style="display:none;"></span></button>
           <button onclick="ClientsModule.showTab('approvals')" class="tab-btn" data-tab="approvals" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit; position:relative;">Schvaľovanie<span id="approvals-tab-badge" class="adl-tab-badge" style="display:none;"></span></button>
+          <button onclick="ClientsModule.showTab('reports')" class="tab-btn" data-tab="reports" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Reporty</button>
         </div>
 
         <!-- Tab Content -->
@@ -672,6 +674,7 @@ const ClientsModule = {
         <div id="tab-tasks" class="tab-content hidden">${this.templateTabTasks()}</div>
         <div id="tab-messages" class="tab-content hidden"></div>
         <div id="tab-approvals" class="tab-content hidden"></div>
+        <div id="tab-reports" class="tab-content hidden"></div>
 
         <!-- Edit Modal -->
         <div id="client-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(20,18,14,0.5); padding:16px;">
@@ -844,6 +847,33 @@ const ClientsModule = {
             display: flex; align-items: center; gap: 6px;
             margin-top: 8px;
             font-size: 11px; color: var(--ink-sub);
+          }
+
+          /* Reports list */
+          .adl-rep-list { display: flex; flex-direction: column; gap: 8px; }
+          .adl-rep-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: border-color .12s, transform .12s, box-shadow .12s;
+          }
+          .adl-rep-row:hover {
+            border-color: color-mix(in oklab, var(--brand-500) 30%, var(--border));
+            transform: translateY(-1px);
+            box-shadow: var(--sh-sm);
+          }
+          .adl-rep-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            background: color-mix(in oklab, var(--brand-500) 10%, var(--surface));
+            color: var(--brand-500);
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+          }
+          @media (max-width: 700px) {
+            .adl-rep-row { flex-wrap: wrap; }
           }
         </style>
       </div>
@@ -1611,6 +1641,7 @@ const ClientsModule = {
     if (tab === 'tasks') this.loadClientTasks();
     if (tab === 'messages') this.openMessagesTab();
     if (tab === 'approvals') this.openApprovalsTab();
+    if (tab === 'reports') this.openReportsTab();
   },
 
   // ─── CLIENT MESSAGES (admin reply k portálovému chat-u) ───
@@ -2226,6 +2257,229 @@ const ClientsModule = {
     const color = tone === 'error' ? 'var(--err)' : 'var(--ok)';
     const icon = tone === 'error' ? I.Warning({size:13}) : I.Check({size:13});
     return `<div style="padding:10px 12px; background:color-mix(in oklab, ${color} 12%, var(--surface)); color:${color}; border-radius:8px; font-size:12px; display:inline-flex; align-items:center; gap:8px;">${icon} ${this._esc(text)}</div>`;
+  },
+
+  // ─── CLIENT REPORTS (admin upload PDF + highlights JSON) ───
+  clientReports: [],
+
+  async openReportsTab() {
+    if (!this.currentClient?.id) return;
+    await this.loadClientReports();
+    this.renderReportsTab();
+  },
+
+  async loadClientReports() {
+    const { data, error } = await Database.client
+      .from('reports')
+      .select('*')
+      .eq('client_id', this.currentClient.id)
+      .order('period_end', { ascending: false, nullsFirst: false });
+    if (error) { console.error('Load reports error:', error); this.clientReports = []; return; }
+    this.clientReports = data || [];
+  },
+
+  renderReportsTab() {
+    const el = document.getElementById('tab-reports');
+    if (!el) return;
+    el.innerHTML = this.templateTabReports();
+  },
+
+  templateTabReports() {
+    const fmtBytes = (b) => {
+      if (!b) return '';
+      const mb = b / (1024 * 1024);
+      if (mb < 1) return Math.round(b / 1024) + ' KB';
+      return (mb < 10 ? mb.toFixed(1) : Math.round(mb)) + ' MB';
+    };
+    const fmtPeriod = (start, end) => {
+      if (!start || !end) return '';
+      const s = new Date(start), e = new Date(end);
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
+      const sameYear = s.getFullYear() === e.getFullYear();
+      const fmt = (d, withYear) => d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'short', year: withYear ? 'numeric' : undefined });
+      return `${fmt(s, !sameYear)} – ${fmt(e, true)}`;
+    };
+
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+        <div style="font-size:13px; color:var(--ink-sub);">${this.clientReports.length} ${this.clientReports.length === 1 ? 'report' : this.clientReports.length < 5 ? 'reporty' : 'reportov'}</div>
+        <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="ClientsModule.openReportUploadModal()">${I.Plus({size:13})} Nahrať report</button>
+      </div>
+
+      ${this.clientReports.length === 0 ? `
+        <div class="adl-card" style="padding:48px 24px; text-align:center;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--n-50); color:var(--ink-mute); margin-bottom:12px;">${I.Chart({size:20})}</div>
+          <div style="font-size:15px; font-weight:600; color:var(--ink); margin-bottom:4px;">Zatiaľ žiadne reporty</div>
+          <div style="font-size:12px; color:var(--ink-sub);">Nahrajte mesačný PDF report — klient ho uvidí v archíve v portáli.</div>
+        </div>
+      ` : `
+        <div class="adl-rep-list">
+          ${this.clientReports.map(r => {
+            const h = r.highlights || {};
+            const hasKpis = (h.conversions || h.roi || h.spent || h.reach);
+            return `
+              <div class="adl-rep-row">
+                <div class="adl-rep-icon">${I.Chart({size:18})}</div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:14px; font-weight:600; color:var(--ink); letter-spacing:-0.1px;">${this._esc(r.title || 'Report')}</div>
+                  <div style="font-size:11px; color:var(--ink-sub); margin-top:2px;">${this._esc(fmtPeriod(r.period_start, r.period_end))}</div>
+                  ${hasKpis ? `
+                    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:11px; color:var(--ink-sub);">
+                      ${typeof h.conversions === 'number' ? `<span><strong style="color:var(--ink); font-family:var(--font-mono);">${h.conversions}</strong> konverzií</span>` : ''}
+                      ${typeof h.roi === 'number' ? `<span><strong style="color:var(--ink); font-family:var(--font-mono);">${h.roi.toFixed(1)}×</strong> ROI</span>` : ''}
+                      ${typeof h.spent === 'number' ? `<span><strong style="color:var(--ink); font-family:var(--font-mono);">${h.spent} €</strong> spent</span>` : ''}
+                      ${typeof h.reach === 'number' ? `<span><strong style="color:var(--ink); font-family:var(--font-mono);">${h.reach.toLocaleString('sk-SK')}</strong> dosah</span>` : ''}
+                    </div>
+                  ` : ''}
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:11px; color:var(--ink-mute); font-family:var(--font-mono);">${fmtBytes(r.file_size_bytes)}</span>
+                  ${r.file_url ? `<a href="${this._esc(r.file_url)}" target="_blank" rel="noopener" class="adl-btn adl-btn-outline adl-btn-sm" title="Otvoriť">${I.Download({size:13})}</a>` : ''}
+                  <button class="adl-btn adl-btn-ghost adl-btn-sm" style="color:var(--err); padding:0 8px;" onclick="ClientsModule.deleteReport('${r.id}')" title="Zmazať">${I.Trash({size:13})}</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    `;
+  },
+
+  openReportUploadModal() {
+    const existing = document.getElementById('report-upload-modal');
+    if (existing) existing.remove();
+    const today = new Date();
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const monthLabel = today.toLocaleDateString('sk-SK', { month: 'long', year: 'numeric' });
+    const cap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+    const modal = document.createElement('div');
+    modal.id = 'report-upload-modal';
+    modal.className = 'fixed inset-0 flex items-center justify-center z-50';
+    modal.style.cssText = 'background:rgba(20,18,14,0.55); padding:16px;';
+    modal.innerHTML = `
+      <div style="background:var(--surface); border-radius:14px; max-width:560px; width:100%; max-height:90vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--sh-lg);">
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <h2 style="font-size:15px; font-weight:600; margin:0; display:inline-flex; align-items:center; gap:8px;">${I.Plus({size:14})} Nahrať report</h2>
+          <button onclick="document.getElementById('report-upload-modal').remove()" class="adl-btn adl-btn-ghost adl-btn-sm" style="padding:0; width:32px; height:32px; justify-content:center;">${I.X({size:14})}</button>
+        </div>
+        <form id="report-upload-form" onsubmit="ClientsModule.submitReportUpload(event)" style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label class="adl-label">Názov <span style="color:var(--err);">*</span></label>
+            <input name="title" required maxlength="200" class="adl-input" value="Report · ${this._esc(cap)}" placeholder="napr. Report · Marec 2026">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label class="adl-label">Obdobie od</label>
+              <input name="period_start" type="date" class="adl-input" value="${firstOfMonth.toISOString().slice(0,10)}">
+            </div>
+            <div>
+              <label class="adl-label">Obdobie do</label>
+              <input name="period_end" type="date" class="adl-input" value="${lastOfMonth.toISOString().slice(0,10)}">
+            </div>
+          </div>
+          <div>
+            <label class="adl-label">PDF súbor <span style="color:var(--err);">*</span></label>
+            <input id="report-file" name="file" type="file" accept=".pdf,application/pdf" required class="adl-input" style="padding:8px;">
+            <div style="font-size:11px; color:var(--ink-mute); margin-top:4px;">Max 25 MB.</div>
+          </div>
+          <div>
+            <div style="font-size:12px; font-weight:600; color:var(--ink); margin-bottom:8px;">Highlights (voliteľné)</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div>
+                <label class="adl-label" style="font-size:11px;">Konverzie</label>
+                <input name="h_conversions" type="number" min="0" step="1" class="adl-input" placeholder="142">
+              </div>
+              <div>
+                <label class="adl-label" style="font-size:11px;">ROI (×)</label>
+                <input name="h_roi" type="number" min="0" step="0.1" class="adl-input" placeholder="3.4">
+              </div>
+              <div>
+                <label class="adl-label" style="font-size:11px;">Náklady (€)</label>
+                <input name="h_spent" type="number" min="0" step="1" class="adl-input" placeholder="847">
+              </div>
+              <div>
+                <label class="adl-label" style="font-size:11px;">Dosah</label>
+                <input name="h_reach" type="number" min="0" step="1" class="adl-input" placeholder="184200">
+              </div>
+            </div>
+            <div style="font-size:11px; color:var(--ink-mute); margin-top:6px;">Tieto KPI sa klientovi zobrazia ako náhľad pri každej karte v archíve.</div>
+          </div>
+          <div id="report-upload-msg"></div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+            <button type="button" class="adl-btn adl-btn-outline adl-btn-sm" onclick="document.getElementById('report-upload-modal').remove()">Zrušiť</button>
+            <button type="submit" id="report-upload-btn" class="adl-btn adl-btn-primary adl-btn-sm">${I.Upload({size:13})} Nahrať</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    requestAnimationFrame(() => modal.querySelector('input[name="title"]')?.focus());
+  },
+
+  async submitReportUpload(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = new FormData(form);
+    const title = (data.get('title') || '').toString().trim();
+    const period_start = data.get('period_start') || null;
+    const period_end = data.get('period_end') || null;
+    const file = document.getElementById('report-file').files[0];
+    const btn = document.getElementById('report-upload-btn');
+    const msg = document.getElementById('report-upload-msg');
+
+    if (!title || !file) { msg.innerHTML = this._formMsg('error', 'Názov a súbor sú povinné.'); return; }
+    if (file.size > 25 * 1024 * 1024) { msg.innerHTML = this._formMsg('error', 'Súbor je väčší ako 25 MB.'); return; }
+
+    const highlights = {};
+    ['conversions', 'roi', 'spent', 'reach'].forEach(k => {
+      const v = data.get('h_' + k);
+      if (v !== null && v !== '') highlights[k] = parseFloat(v);
+    });
+
+    btn.disabled = true;
+    btn.innerHTML = 'Nahrávam…';
+
+    const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+    const path = `reports/${this.currentClient.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: upErr } = await Database.client.storage.from('assets').upload(path, file, { cacheControl: '3600', upsert: false });
+    if (upErr) {
+      btn.disabled = false; btn.innerHTML = `${I.Upload({size:13})} Nahrať`;
+      msg.innerHTML = this._formMsg('error', upErr.message?.includes('Bucket not found') ? 'Storage bucket "assets" neexistuje. Vytvorte ho v Supabase → Storage.' : 'Upload zlyhal: ' + upErr.message);
+      return;
+    }
+    const { data: urlData } = Database.client.storage.from('assets').getPublicUrl(path);
+
+    const { error } = await Database.client.from('reports').insert({
+      client_id: this.currentClient.id,
+      title,
+      period_start, period_end,
+      file_url: urlData.publicUrl,
+      file_name: file.name,
+      file_size_bytes: file.size,
+      highlights
+    });
+    if (error) {
+      btn.disabled = false; btn.innerHTML = `${I.Upload({size:13})} Nahrať`;
+      msg.innerHTML = this._formMsg('error', 'Nepodarilo sa uložiť: ' + error.message);
+      return;
+    }
+
+    Utils.toast('Report nahraný ✅', 'success');
+    document.getElementById('report-upload-modal')?.remove();
+    await this.loadClientReports();
+    this.renderReportsTab();
+  },
+
+  async deleteReport(id) {
+    if (!confirm('Naozaj zmazať tento report? (PDF v storage ostane)')) return;
+    const { error } = await Database.client.from('reports').delete().eq('id', id);
+    if (error) { Utils.toast('Nepodarilo sa zmazať: ' + error.message, 'error'); return; }
+    Utils.toast('Zmazané', 'success');
+    this.clientReports = this.clientReports.filter(r => r.id !== id);
+    this.renderReportsTab();
   },
 
   templateTabTasks() {
