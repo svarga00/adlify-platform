@@ -3786,48 +3786,62 @@ Odkaz je platný 30 dní.
     };
 
     // strategy — targetAudience + packages + CONTACT + channels
-    const tap = strategy.targetAudienceParsed || {};
+    // target_audience môže prísť z analysis sekcie (Sonnet), inak fallback z company.idealCustomer
+    const ta = p.target_audience?.primary || {};
     const s = {
       overview: strategy.overview || '',
       creativeApproach: strategy.creativeApproach || '',
       channels: strategy.channels || [],
       targetAudience: {
-        demographics: company.idealCustomer || 'Konkrétny ideálny zákazník',
-        interests: tap.interests || [],
-        behaviors: tap.behaviors || []
+        demographics: ta.demographics || company.idealCustomer || 'Konkrétny ideálny zákazník',
+        interests: ta.interests && ta.interests.length ? ta.interests : ['Domov a bývanie', 'Rekonštrukcia', 'DIY projekty', 'Energetické úspory'],
+        behaviors: ta.behaviors && ta.behaviors.length ? ta.behaviors : ['Vyhľadávajú odporúčania', 'Porovnávajú cenníky', 'Žiadajú nezáväznú konzultáciu']
       },
       mainGoal: ourSolution.headline || 'Získať kvalitných leadov cez výkonnostný marketing',
       platforms: (strategy.channels || []).map(ch => ch.name || ch.channel || '').filter(Boolean),
       CONTACT: {
         email: 'info@adlify.eu',
-        phone: '+421 904 614 776',
+        phone: '+421 944 184 045',
         web: 'adlify.eu'
       },
       // Default balíčky — template ich vždy renderuje, aby sme zachovali design
       packages: this._defaultPackages(budget, ourSolution)
     };
 
-    // budget — recommendations conservative/moderate/aggressive, avgCpc
+    // budget — TEMPLATE číta b.recommendations.{starter,recommended,aggressive}.adSpend
+    // Premium analysis vracia b.recommendations.{conservative,moderate,aggressive}.totalBudget
+    // → mapujeme oboje, nech template nájde čo potrebuje
     const budgetRec = budget.recommendations || {};
+    const moderate = budgetRec.moderate?.totalBudget || budget.monthly_total_eur || 1500;
+    const conservative = budgetRec.conservative?.totalBudget || Math.round(moderate * 0.65);
+    const aggressive = budgetRec.aggressive?.totalBudget || Math.round(moderate * 1.7);
     const b = {
       summary: budget.summary || '',
       recommendations: {
-        conservative: budgetRec.conservative || { totalBudget: 1000, leads: 15 },
-        moderate:     budgetRec.moderate     || { totalBudget: budget.monthly_total_eur || 1500, leads: 30 },
-        aggressive:   budgetRec.aggressive   || { totalBudget: 2500, leads: 60 },
+        // legacy keys ktoré používa template
+        starter:     { adSpend: conservative, leads: budgetRec.conservative?.leads || 15 },
+        recommended: { adSpend: moderate,     leads: budgetRec.moderate?.leads     || 30 },
+        aggressive:  { adSpend: aggressive,   leads: budgetRec.aggressive?.leads   || 60 },
+        // nové keys ktoré používa generate-deep-proposal output (zachované pre backwards)
+        conservative: { totalBudget: conservative, leads: budgetRec.conservative?.leads || 15 },
+        moderate:     { totalBudget: moderate,     leads: budgetRec.moderate?.leads     || 30 },
       },
       avgCpc: budget.avgCpc || (allKws.length ? (allKws.reduce((a, x) => a + (x.cpc_eur || 0), 0) / allKws.length).toFixed(2) : 0.50),
       allocations: budget.allocations || [],
-      sixMonthProjection: budget.six_month_projection_eur || (budget.monthly_total_eur || 1500) * 6
+      sixMonthProjection: budget.six_month_projection_eur || moderate * 6
     };
 
-    // ROI — projection.monthlyLeads, monthlyRevenue, roi
+    // ROI — template číta r.projection.{monthlyLeads, monthlyRevenue, roi, aov, conversionRate, ltv}
     const roiMid = roi.month_3 || roi.month_1 || {};
+    const assumptions = roi.assumptions || {};
     const r = {
       projection: {
         monthlyLeads: roiMid.leads || 30,
         monthlyRevenue: roiMid.revenue_eur || 9000,
-        roi: roiMid.roi_pct || 500
+        roi: roiMid.roi_pct || 500,
+        aov: assumptions.avg_order_value_eur || 0,
+        conversionRate: assumptions.conversion_rate_pct ? `${assumptions.conversion_rate_pct}%` : 'N/A',
+        ltv: assumptions.ltv_eur || (assumptions.avg_order_value_eur && assumptions.ltv_multiplier ? Math.round(assumptions.avg_order_value_eur * assumptions.ltv_multiplier) : 0)
       },
       month_1: roi.month_1,
       month_3: roi.month_3,
@@ -3845,8 +3859,24 @@ Odkaz je platný 30 dní.
     };
 
     // Recommended package
-    const monthlyBudget = b.recommendations.moderate.totalBudget || 1500;
+    const monthlyBudget = moderate;
     const recommendedPackage = monthlyBudget < 800 ? 'Starter' : monthlyBudget < 1500 ? 'Pro' : monthlyBudget < 3000 ? 'Enterprise' : 'Premium';
+
+    // Timeline — template čaká timeline.{week1, week2, "weeks3-4", month2, month3plus}
+    // Premium output dáva timeline.weeks[] s {week, milestone, deliverables}
+    const weeks = timeline.weeks || [];
+    const findWeek = (key) => {
+      const w = weeks.find(x => String(x.week || '').toLowerCase().includes(key.toLowerCase()));
+      return w ? `${w.milestone}${w.deliverables?.length ? ' — ' + w.deliverables.slice(0, 2).join(', ') : ''}` : null;
+    };
+    const templateTimeline = {
+      week1: findWeek('1') || 'Onboarding, audit konkurencie, setup tracking',
+      week2: findWeek('2') || 'Spustenie pilotných Search kampaní, prvé A/B testy',
+      'weeks3-4': findWeek('3') || findWeek('4') || 'Optimalizácia na základe prvých dát, rozšírenie KW listu',
+      month2: weeks[3]?.milestone || 'Spustenie Performance Max + Meta kampaní, remarketing',
+      month3plus: weeks[4]?.milestone || 'Škálovanie výkonných kampaní, mesačné reporty, strategické odporúčania',
+      weeks // pre future template ktorý čaká array
+    };
 
     return {
       company,
@@ -3857,7 +3887,7 @@ Odkaz je platný 30 dní.
       budget: b,
       roi: r,
       proposedCampaigns: camp,
-      timeline,
+      timeline: templateTimeline,
       competition: competitive,
       recommendedPackage,
       executive_summary: p.executive_summary,
@@ -4409,7 +4439,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .package-desc { color: #64748b; font-size: 0.9rem; margin-bottom: 28px; min-height: 50px; line-height: 1.6; }
 .package-features { list-style: none; text-align: left; margin-bottom: 30px; flex-grow: 1; }
 .package-features li { padding: 14px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; display: flex; align-items: center; gap: 12px; }
-.package-features li::before { content: "✓"; color: #22c55e; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
+.package-features li::before { content: ""; color: #22c55e; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
 .package-btn { display: block; width: 100%; padding: 18px; border-radius: 14px; font-weight: 600; text-decoration: none; transition: all 0.3s; font-size: 1rem; margin-top: auto; cursor: pointer; }
 .package-btn-outline { border: 2px solid #e2e8f0; color: #475569; background: white; }
 .package-btn-outline:hover { border-color: #FF6B35; color: #FF6B35; }
@@ -4788,7 +4818,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
       <div class="card" style="border-left: 4px solid #22c55e;">
         <h4 style="color: #166534; margin-bottom: 20px; font-weight: 700; font-size: 1.1rem;">Čo funguje dobre</h4>
         <ul style="list-style: none;">
-          ${o.website.strengths.map(s => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #22c55e; font-size: 1.2rem;">✓</span> ${s}</li>`).join('')}
+          ${o.website.strengths.map(s => `<li style="padding: 10px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e2e8f0;"><span style="color: #22c55e; font-size: 1.2rem;"></span> ${s}</li>`).join('')}
         </ul>
       </div>
       ` : ''}
@@ -5339,20 +5369,20 @@ ${r.projection ? `
       <p class="cta-subtitle">Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov cez online reklamu.</p>
       
       <div class="cta-buttons">
-        <a href="mailto:${this.CONTACT.email}?subject=Mám záujem o spoluprácu - ${c.name || lead.company_name}" class="cta-btn cta-btn-white">✓ Mám záujem</a>
+        <a href="mailto:${this.CONTACT.email}?subject=Mám záujem o spoluprácu - ${c.name || lead.company_name}" class="cta-btn cta-btn-white"> Mám záujem</a>
         <a href="mailto:${this.CONTACT.email}?subject=Otázky k ponuke - ${c.name || lead.company_name}" class="cta-btn cta-btn-outline">Mám otázky</a>
       </div>
       
       <div class="cta-contact">
-        <p>📧 <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
-        <p>📞 <a href="tel:${this.CONTACT.phone.replace(/\s/g, '')}">${this.CONTACT.phone}</a></p>
-        <p>🌐 <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
+        <p> <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
+        <p> <a href="tel:${this.CONTACT.phone.replace(/\s/g, '')}">${this.CONTACT.phone}</a></p>
+        <p> <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
       </div>
     </div>
     
     ${analysis.customNote ? `
     <div class="card card-highlight" style="margin-top: 50px;">
-      <h4 style="margin-bottom: 15px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;">💬 Osobná poznámka od nás</h4>
+      <h4 style="margin-bottom: 15px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;"> Osobná poznámka od nás</h4>
       <p style="color: #64748b; font-style: italic; font-size: 1.05rem; line-height: 1.8;">${analysis.customNote}</p>
     </div>
     ` : ''}
@@ -5362,7 +5392,7 @@ ${r.projection ? `
 <!-- Footer -->
 <footer class="footer">
   <img src="${this.LOGO}" alt="Adlify" class="footer-logo" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;color:#94a3b8;margin-bottom:20px;\\'>ADLIFY</div>'">
-  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ❤️ pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
+  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ️ pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
   <p style="font-size: 0.85rem; color: #94a3b8;">Táto prezentácia je dôverná a je určená výhradne pre ${c.name || lead.company_name}</p>
 </footer>
 
