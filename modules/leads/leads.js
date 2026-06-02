@@ -1785,7 +1785,14 @@ const LeadsModule = {
 
   _renderHeroActions(lead) {
     const hasAnalysis = !!(lead.analysis && (lead.analysis.company || lead.analysis.analysis));
+    const hasDeepProposal = !!lead.deep_proposal;
+    const deepDate = lead.deep_proposal_generated_at
+      ? new Date(lead.deep_proposal_generated_at).toLocaleDateString('sk-SK')
+      : '';
     return `
+      ${hasDeepProposal ? `<button onclick="LeadsModule.showProposalModal('${lead.id}')" class="adl-btn adl-btn-sm" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;" title="Otvor uložený Deep Proposal vygenerovaný ${deepDate}">
+        ✨ Uložený návrh (${deepDate})
+      </button>` : ''}
       ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Phone({size:14})} Zavolať</a>` : ''}
       ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Poslať email</a>` : ''}
       <button onclick="LeadsModule.proposalOrAnalyze('${lead.id}')" class="adl-btn adl-btn-outline adl-btn-sm" title="${hasAnalysis ? 'Vygenerovať návrh kampane z existujúcej analýzy' : 'Najprv spustí AI analýzu, potom môžeš vygenerovať návrh'}">
@@ -2465,7 +2472,7 @@ const LeadsModule = {
     const modal = document.getElementById('proposal-modal');
     modal.style.display = 'flex';
     document.getElementById('proposal-notes').value = '';
-    
+
     // Update email target
     const emailTarget = document.getElementById('proposal-email-target');
     const emailBtn = document.getElementById('btn-send-email');
@@ -2475,6 +2482,22 @@ const LeadsModule = {
     } else {
       emailTarget.textContent = 'Email nie je k dispozícii';
       emailBtn.disabled = true;
+    }
+
+    // Auto-load existujúceho deep proposal (ak je v DB) — neminieš ďalší kredit
+    const meta = document.getElementById('deep-proposal-meta');
+    const output = document.getElementById('deep-proposal-output');
+    if (output) output.innerHTML = '';
+    if (output) output.style.display = 'none';
+    if (lead?.deep_proposal) {
+      if (meta) meta.textContent = `✓ Uložený návrh z ${new Date(lead.deep_proposal_generated_at).toLocaleString('sk-SK')} · ${lead.deep_proposal_model || 'claude'} · klik znova pre regen`;
+      try {
+        this._renderDeepProposal(lead.deep_proposal, lead.deep_proposal_model, lead.deep_proposal_generated_at);
+      } catch (e) {
+        console.error('[DeepProposal] Auto-load render failed:', e);
+      }
+    } else {
+      if (meta) meta.textContent = '12 sekcií · 30-60s · ~$0.50 / generácia';
     }
   },
 
@@ -3183,27 +3206,57 @@ Odkaz je platný 30 dní.
     btn.style.opacity = '0.7';
     if (meta) meta.textContent = '⏳ Generujem… (30-60s, Claude Opus skenuje web + analýzu)';
 
+    console.log('[DeepProposal] Starting generation for lead:', lead.id, lead.company_name);
     try {
       const session = await Database.client.auth.getSession();
       const token = session?.data?.session?.access_token || '';
+      console.log('[DeepProposal] Calling /.netlify/functions/generate-deep-proposal…');
       const resp = await fetch('/.netlify/functions/generate-deep-proposal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ leadId: lead.id, customNotes })
       });
+      console.log('[DeepProposal] HTTP', resp.status, resp.ok);
       const data = await resp.json();
+      console.log('[DeepProposal] Response data:', data);
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      if (!data.proposal) throw new Error('Server vrátil success ale chýba .proposal v response');
 
       lead.deep_proposal = data.proposal;
       lead.deep_proposal_generated_at = data.generated_at;
       lead.deep_proposal_model = data.model;
 
-      this._renderDeepProposal(data.proposal, data.model, data.generated_at);
+      // Render — ak zlyhá, zobraz aspoň raw JSON aby user vedel že proposal existuje
+      try {
+        this._renderDeepProposal(data.proposal, data.model, data.generated_at);
+      } catch (renderErr) {
+        console.error('[DeepProposal] Render failed:', renderErr);
+        if (output) {
+          output.innerHTML = `
+            <div style="padding:14px; background:color-mix(in oklab, var(--warn) 14%, var(--surface)); color:var(--warn); border-radius:10px; margin-bottom:12px;">
+              ⚠️ Návrh sa vygeneroval ale UI render zlyhal: ${renderErr.message}.<br>
+              Raw JSON nižšie — proposal je uložený v DB (lead.deep_proposal), môžeš ho otvoriť ako HTML cez tlačidlo nižšie.
+            </div>
+            <button onclick="LeadsModule.openDeepProposalHTML()" class="adl-btn adl-btn-primary adl-btn-sm" style="margin-bottom:12px;">📄 Otvoriť ako HTML / PDF</button>
+            <pre style="background:var(--n-50); padding:12px; border-radius:8px; font-size:11px; overflow:auto; max-height:400px;">${JSON.stringify(data.proposal, null, 2)}</pre>
+          `;
+          output.style.display = 'block';
+        }
+        Utils.toast('Návrh vygenerovaný (render zlyhal, viď konzolu)', 'warning');
+        return;
+      }
+
       output.scrollIntoView({ behavior: 'smooth', block: 'start' });
       Utils.toast('Návrh vygenerovaný!', 'success');
       if (meta) meta.textContent = `✓ Vygenerované ${new Date(data.generated_at).toLocaleString('sk-SK')} · ${data.model}`;
+
+      // Refresh hero actions + leads list (zobraziť deep proposal badge)
+      const heroEl = document.getElementById('lead-hero-actions');
+      if (heroEl) heroEl.innerHTML = this._renderHeroActions(lead);
+      const listEl = document.getElementById('leads-list');
+      if (listEl) listEl.innerHTML = this.renderLeadsList();
     } catch (err) {
-      console.error('Deep proposal error:', err);
+      console.error('[DeepProposal] Error:', err);
       Utils.toast('Chyba: ' + (err.message || err), 'error');
       if (meta) meta.textContent = origMeta;
     } finally {
@@ -3214,7 +3267,15 @@ Odkaz je platný 30 dní.
 
   _renderDeepProposal(p, model, generatedAt) {
     const output = document.getElementById('deep-proposal-output');
-    if (!output || !p) return;
+    if (!output) {
+      console.warn('[DeepProposal] No #deep-proposal-output element in DOM');
+      return;
+    }
+    if (!p) {
+      console.warn('[DeepProposal] Empty proposal object passed to render');
+      return;
+    }
+    console.log('[DeepProposal] Rendering proposal with sections:', Object.keys(p));
     const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const sect = (title, body) => `<section style="margin-bottom:18px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
       <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-0.2px;">${esc(title)}</h3>
