@@ -268,6 +268,13 @@ const LeadsModule = {
             <div class="proposal-options">
               <label>Vyberte akciu:</label>
               <div class="proposal-buttons">
+                <button onclick="LeadsModule.generateDeepProposal()" class="proposal-option-btn primary" id="btn-deep-proposal" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;color:#fff;">
+                  <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : '✨'}</span>
+                  <span class="option-text">
+                    <strong>Vygenerovať podrobný návrh (Claude Opus)</strong>
+                    <small id="deep-proposal-meta">12 sekcií · 30-60s · ~$0.50 / generácia</small>
+                  </span>
+                </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
                   <span class="option-icon">${LI.globe(22, 'var(--brand-600)')}</span>
                   <span class="option-text">
@@ -278,12 +285,12 @@ const LeadsModule = {
                 <button onclick="LeadsModule.generateProposalPDF()" class="proposal-option-btn">
                   <span class="option-icon">${LI.doc(22, 'var(--brand-600)')}</span>
                   <span class="option-text">
-                    <strong>Stiahnuť PDF</strong>
-                    <small>Uložiť na disk</small>
+                    <strong>Stiahnuť PDF (jednoduchý)</strong>
+                    <small>Bez detailného návrhu</small>
                   </span>
                 </button>
-                <button onclick="LeadsModule.openEmailModal()" class="proposal-option-btn primary" id="btn-send-email">
-                  <span class="option-icon">${LI.mail(22, '#fff')}</span>
+                <button onclick="LeadsModule.openEmailModal()" class="proposal-option-btn" id="btn-send-email">
+                  <span class="option-icon">${LI.mail(22, 'var(--brand-600)')}</span>
                   <span class="option-text">
                     <strong>Poslať emailom</strong>
                     <small id="proposal-email-target">-</small>
@@ -291,6 +298,9 @@ const LeadsModule = {
                 </button>
               </div>
             </div>
+
+            <!-- Deep proposal output (render po generovaní) -->
+            <div id="deep-proposal-output" style="display:none; margin-top:16px;"></div>
 
             <div class="tip-box" style="display:flex;align-items:flex-start;gap:8px;">${LI.info(14, 'var(--brand-700)')} <span><strong>Tip:</strong> Pri odoslaní emailom môžeš vybrať zo šablón.</span></div>
           </div>
@@ -3157,6 +3167,263 @@ Odkaz je platný 30 dní.
     return '<p>' + plainText.replace(/\n/g, '<br>') + '</p>' + (proposalUrl ? '<p><a href="' + proposalUrl + '">Zobraziť ponuku</a></p>' : '');
   },
   
+  // Volá netlify function generate-deep-proposal — Claude Opus 4.8.
+  // 30-60s. Output uloží do lead.deep_proposal + renderne v modale.
+  async generateDeepProposal() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead?.analysis) return Utils.toast('Najprv spustite AI analýzu', 'warning');
+
+    const btn = document.getElementById('btn-deep-proposal');
+    const meta = document.getElementById('deep-proposal-meta');
+    const output = document.getElementById('deep-proposal-output');
+    const customNotes = document.getElementById('proposal-notes')?.value?.trim() || '';
+
+    const origMeta = meta?.textContent || '';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+    if (meta) meta.textContent = '⏳ Generujem… (30-60s, Claude Opus skenuje web + analýzu)';
+
+    try {
+      const session = await Database.client.auth.getSession();
+      const token = session?.data?.session?.access_token || '';
+      const resp = await fetch('/.netlify/functions/generate-deep-proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ leadId: lead.id, customNotes })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+      lead.deep_proposal = data.proposal;
+      lead.deep_proposal_generated_at = data.generated_at;
+      lead.deep_proposal_model = data.model;
+
+      this._renderDeepProposal(data.proposal, data.model, data.generated_at);
+      output.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      Utils.toast('Návrh vygenerovaný!', 'success');
+      if (meta) meta.textContent = `✓ Vygenerované ${new Date(data.generated_at).toLocaleString('sk-SK')} · ${data.model}`;
+    } catch (err) {
+      console.error('Deep proposal error:', err);
+      Utils.toast('Chyba: ' + (err.message || err), 'error');
+      if (meta) meta.textContent = origMeta;
+    } finally {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  },
+
+  _renderDeepProposal(p, model, generatedAt) {
+    const output = document.getElementById('deep-proposal-output');
+    if (!output || !p) return;
+    const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const sect = (title, body) => `<section style="margin-bottom:18px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;">
+      <h3 style="margin:0 0 10px;font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-0.2px;">${esc(title)}</h3>
+      <div style="font-size:13px;color:var(--ink-sub);line-height:1.6;">${body}</div>
+    </section>`;
+
+    const kwTable = (p.keywords || []).slice(0, 20).map(k => `
+      <tr><td>${esc(k.keyword)}</td><td style="text-align:right;">${k.search_volume || '–'}</td><td style="text-align:right;">${k.cpc_eur ? k.cpc_eur.toFixed(2) + ' €' : '–'}</td><td>${esc(k.match_type || '')}</td><td>${esc(k.priority || '')}</td></tr>
+    `).join('');
+
+    const campaignCards = (p.campaigns || []).map(c => `
+      <div style="padding:12px;background:var(--n-50);border-radius:8px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <strong style="font-size:13px;">${esc(c.name)}</strong>
+          <span style="font-size:12px;color:var(--brand-600);font-weight:600;">${c.monthly_budget_eur} €/mes</span>
+        </div>
+        <div style="font-size:12px;color:var(--ink-sub);margin-bottom:4px;">${esc(c.objective)}</div>
+        <div style="font-size:11px;color:var(--ink-mute);">Kanál: ${esc(c.channel)} · ${esc(c.landing_page_recommendation || '')}</div>
+        ${c.expected_metrics ? `<div style="font-size:11px;margin-top:6px;color:var(--ink-sub);">Očakávané: ${c.expected_metrics.clicks || '?'} klikov · ${c.expected_metrics.ctr_pct || '?'}% CTR · ${c.expected_metrics.conversions || '?'} konverzií · ${c.expected_metrics.cpa_eur || '?'} € CPA</div>` : ''}
+      </div>
+    `).join('');
+
+    const budgetRows = (p.budget_breakdown?.by_channel || []).map(b => `
+      <tr><td>${esc(b.channel)}</td><td style="text-align:right;">${b.amount_eur} €</td><td style="text-align:right;">${b.pct}%</td></tr>
+    `).join('');
+
+    const timelineSteps = (p.timeline || []).map(t => `
+      <div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--n-100);">
+        <div style="flex-shrink:0;width:60px;font-weight:600;color:var(--brand-600);font-size:12px;">${esc(t.week)}</div>
+        <div style="flex:1;font-size:13px;">
+          <strong>${esc(t.milestone)}</strong>
+          ${t.deliverables ? `<ul style="margin:4px 0 0;padding-left:18px;font-size:12px;color:var(--ink-sub);">${t.deliverables.map(d => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    const risksList = (p.risks || []).map(r => `
+      <li style="margin-bottom:6px;"><strong>${esc(r.risk)}</strong><br><span style="color:var(--ink-sub);font-size:12px;">→ ${esc(r.mitigation)}</span></li>
+    `).join('');
+
+    output.innerHTML = `
+      <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:var(--ink-mute);">Generované ${new Date(generatedAt).toLocaleString('sk-SK')} · model ${esc(model)}</span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="LeadsModule.generateDeepProposal()" class="adl-btn adl-btn-outline adl-btn-sm">🔄 Regenerovať</button>
+          <button onclick="LeadsModule.openDeepProposalHTML()" class="adl-btn adl-btn-primary adl-btn-sm">📄 Otvoriť ako HTML / PDF</button>
+        </div>
+      </div>
+
+      ${sect('1. Executive Summary', `<p>${esc(p.executive_summary).replace(/\n/g,'</p><p>')}</p>`)}
+
+      ${p.unique_insight ? sect('💡 Unikátny insight', `<p style="font-style:italic;color:var(--brand-700);">${esc(p.unique_insight)}</p>`) : ''}
+
+      ${p.situation_analysis ? sect('2. Situačná analýza', `
+        <p><strong>Aktuálny stav:</strong> ${esc(p.situation_analysis.current_state)}</p>
+        ${p.situation_analysis.opportunities ? `<p style="margin-top:8px;"><strong>Príležitosti:</strong></p><ul>${p.situation_analysis.opportunities.map(o=>`<li>${esc(o)}</li>`).join('')}</ul>` : ''}
+        ${p.situation_analysis.challenges ? `<p style="margin-top:8px;"><strong>Výzvy:</strong></p><ul>${p.situation_analysis.challenges.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+      `) : ''}
+
+      ${p.competitive_landscape ? sect('3. Konkurenčné prostredie', `
+        ${p.competitive_landscape.main_competitors ? `<ul>${p.competitive_landscape.main_competitors.map(c=>`<li><strong>${esc(c.name)}</strong> — sila: ${esc(c.strength)} · slabina: ${esc(c.weakness_we_exploit)}</li>`).join('')}</ul>` : ''}
+        ${p.competitive_landscape.positioning ? `<p style="margin-top:8px;"><strong>Naše pozicovanie:</strong> ${esc(p.competitive_landscape.positioning)}</p>` : ''}
+      `) : ''}
+
+      ${p.target_audience ? sect('4. Cieľová skupina', `
+        ${p.target_audience.primary ? `<p><strong>Primárna:</strong> ${esc(p.target_audience.primary.description)}<br><small>📍 ${esc(p.target_audience.primary.geo)} · veľkosť: ${esc(p.target_audience.primary.estimated_size)}</small></p>` : ''}
+        ${p.target_audience.secondary ? `<p style="margin-top:8px;"><strong>Sekundárna:</strong> ${esc(p.target_audience.secondary.description)}</p>` : ''}
+      `) : ''}
+
+      ${kwTable ? sect('5. Kľúčové slová (top 20)', `
+        <table style="width:100%;font-size:12px;border-collapse:collapse;">
+          <thead><tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:6px 4px;">Keyword</th><th style="text-align:right;padding:6px 4px;">VL/mes</th><th style="text-align:right;padding:6px 4px;">CPC</th><th style="text-align:left;padding:6px 4px;">Match</th><th style="text-align:left;padding:6px 4px;">Priorita</th></tr></thead>
+          <tbody>${kwTable}</tbody>
+        </table>
+      `) : ''}
+
+      ${p.strategy ? sect('6. Stratégia & kanály', `
+        ${(p.strategy.channels || []).map(ch => `
+          <div style="margin-bottom:10px;padding:10px;background:var(--n-50);border-radius:8px;">
+            <strong>${esc(ch.channel)}</strong> <span style="color:var(--brand-600);">${ch.monthly_budget_eur} €/mes</span>
+            <div style="font-size:12px;color:var(--ink-sub);margin-top:4px;">${esc(ch.rationale)}</div>
+            <div style="font-size:11px;color:var(--ink-mute);margin-top:4px;">KPI: ${esc(ch.expected_kpi)}</div>
+          </div>
+        `).join('')}
+        ${p.strategy.creative_approach ? `<p style="margin-top:8px;"><strong>Kreatívny prístup:</strong> ${esc(p.strategy.creative_approach)}</p>` : ''}
+      `) : ''}
+
+      ${campaignCards ? sect('7. Konkrétne kampane', campaignCards) : ''}
+
+      ${p.budget_breakdown ? sect('8. Rozpočet', `
+        <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+          <div><strong>Mesačne:</strong> ${p.budget_breakdown.monthly_total_eur} €</div>
+          <div><strong>Media spend:</strong> ${p.budget_breakdown.media_spend_eur} €</div>
+          <div><strong>Agency fee:</strong> ${p.budget_breakdown.agency_fee_eur} €</div>
+          <div><strong>6 mesiacov:</strong> ${p.budget_breakdown.six_month_projection_eur} €</div>
+        </div>
+        ${budgetRows ? `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:8px;">
+          <thead><tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:6px 4px;">Kanál</th><th style="text-align:right;padding:6px 4px;">€/mes</th><th style="text-align:right;padding:6px 4px;">%</th></tr></thead>
+          <tbody>${budgetRows}</tbody>
+        </table>` : ''}
+        ${p.budget_breakdown.notes ? `<p style="margin-top:8px;font-size:12px;color:var(--ink-sub);">${esc(p.budget_breakdown.notes)}</p>` : ''}
+      `) : ''}
+
+      ${p.kpi_targets ? sect('9. KPI ciele', `
+        ${['month_1','month_3','month_6'].map(m => p.kpi_targets[m] ? `
+          <div style="padding:8px;background:var(--n-50);border-radius:6px;margin-bottom:6px;">
+            <strong>${m.replace('month_','Mesiac ')}:</strong> ${esc(p.kpi_targets[m].kpi)} pri spend ${p.kpi_targets[m].spend_eur} €
+            <div style="font-size:11px;color:var(--ink-sub);margin-top:2px;">${esc(p.kpi_targets[m].explanation)}</div>
+          </div>
+        ` : '').join('')}
+      `) : ''}
+
+      ${timelineSteps ? sect('10. Časový harmonogram', timelineSteps) : ''}
+
+      ${risksList ? sect('11. Riziká & mitigácia', `<ul>${risksList}</ul>`) : ''}
+
+      ${p.next_steps ? sect('12. Ďalšie kroky', `<ol>${p.next_steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`) : ''}
+    `;
+    output.style.display = 'block';
+  },
+
+  openDeepProposalHTML() {
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead?.deep_proposal) return Utils.toast('Najprv vygenerujte návrh', 'warning');
+    const html = this.buildDeepProposalHTML(lead, lead.deep_proposal);
+    const blob = new Blob([html], { type: 'text/html' });
+    window.open(URL.createObjectURL(blob), '_blank');
+  },
+
+  buildDeepProposalHTML(lead, p) {
+    const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const company = lead.company_name || lead.domain || 'Klient';
+    return `<!doctype html><html><head><meta charset="utf-8"><title>Marketingový návrh — ${esc(company)}</title>
+    <style>
+      body { font-family: -apple-system, 'Inter', Arial, sans-serif; max-width: 880px; margin: 0 auto; padding: 40px 32px; color: #1e293b; line-height: 1.6; }
+      h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.5px; }
+      h2 { font-size: 19px; margin: 32px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #6366f1; color: #4338ca; }
+      h3 { font-size: 15px; margin: 16px 0 8px; }
+      .meta { color: #64748b; font-size: 13px; margin-bottom: 24px; }
+      .hero { background: linear-gradient(135deg,#6366f1,#8b5cf6); color: #fff; padding: 24px 28px; border-radius: 14px; margin-bottom: 24px; }
+      .hero h1 { color: #fff; }
+      .hero .meta { color: rgba(255,255,255,0.85); }
+      table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+      th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+      th { background: #f8fafc; font-weight: 600; }
+      .card { background: #f8fafc; padding: 12px 16px; border-radius: 8px; margin: 8px 0; border-left: 3px solid #6366f1; }
+      .insight { background: #fef3c7; padding: 14px 18px; border-radius: 10px; font-style: italic; margin: 16px 0; border-left: 4px solid #f59e0b; }
+      ul, ol { padding-left: 22px; }
+      .muted { color: #64748b; font-size: 12px; }
+      @media print { body { padding: 24px; } .hero { box-shadow: none; } }
+    </style></head><body>
+      <div class="hero">
+        <h1>Marketingový návrh pre ${esc(company)}</h1>
+        <div class="meta">${esc(lead.domain || '')} · vygenerované ${new Date().toLocaleDateString('sk-SK')} · Adlify Agency</div>
+      </div>
+
+      <h2>Executive Summary</h2>
+      <p>${esc(p.executive_summary).replace(/\n/g,'</p><p>')}</p>
+
+      ${p.unique_insight ? `<div class="insight">💡 ${esc(p.unique_insight)}</div>` : ''}
+
+      ${p.situation_analysis ? `<h2>Situačná analýza</h2>
+        <p><strong>Aktuálny stav:</strong> ${esc(p.situation_analysis.current_state)}</p>
+        ${p.situation_analysis.opportunities ? `<h3>Príležitosti</h3><ul>${p.situation_analysis.opportunities.map(o=>`<li>${esc(o)}</li>`).join('')}</ul>` : ''}
+        ${p.situation_analysis.challenges ? `<h3>Výzvy</h3><ul>${p.situation_analysis.challenges.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>` : ''}` : ''}
+
+      ${p.competitive_landscape ? `<h2>Konkurenčné prostredie</h2>
+        ${(p.competitive_landscape.main_competitors||[]).map(c=>`<div class="card"><strong>${esc(c.name)}</strong><br><span class="muted">Sila: ${esc(c.strength)} · Slabina ktorú využijeme: ${esc(c.weakness_we_exploit)}</span></div>`).join('')}
+        ${p.competitive_landscape.positioning ? `<p><strong>Naše pozicovanie:</strong> ${esc(p.competitive_landscape.positioning)}</p>` : ''}` : ''}
+
+      ${p.target_audience ? `<h2>Cieľová skupina</h2>
+        ${p.target_audience.primary ? `<div class="card"><strong>Primárna:</strong> ${esc(p.target_audience.primary.description)}<br><span class="muted">📍 ${esc(p.target_audience.primary.geo)} · ${esc(p.target_audience.primary.estimated_size)}</span></div>` : ''}
+        ${p.target_audience.secondary ? `<div class="card"><strong>Sekundárna:</strong> ${esc(p.target_audience.secondary.description)}</div>` : ''}` : ''}
+
+      ${(p.keywords||[]).length ? `<h2>Kľúčové slová</h2>
+        <table><thead><tr><th>Keyword</th><th style="text-align:right;">VL/mes</th><th style="text-align:right;">CPC</th><th>Match</th><th>Priorita</th></tr></thead>
+        <tbody>${p.keywords.map(k=>`<tr><td>${esc(k.keyword)}</td><td style="text-align:right;">${k.search_volume||'–'}</td><td style="text-align:right;">${k.cpc_eur?k.cpc_eur.toFixed(2)+' €':'–'}</td><td>${esc(k.match_type||'')}</td><td>${esc(k.priority||'')}</td></tr>`).join('')}</tbody></table>` : ''}
+
+      ${p.strategy ? `<h2>Stratégia & kanály</h2>
+        ${(p.strategy.channels||[]).map(ch=>`<div class="card"><strong>${esc(ch.channel)}</strong> <span style="color:#6366f1;font-weight:600;">${ch.monthly_budget_eur} €/mes</span><br>${esc(ch.rationale)}<br><span class="muted">KPI: ${esc(ch.expected_kpi)}</span></div>`).join('')}
+        ${p.strategy.creative_approach ? `<p><strong>Kreatívny prístup:</strong> ${esc(p.strategy.creative_approach)}</p>` : ''}` : ''}
+
+      ${(p.campaigns||[]).length ? `<h2>Konkrétne kampane</h2>
+        ${p.campaigns.map(c=>`<div class="card"><strong>${esc(c.name)}</strong> <span style="float:right;color:#6366f1;font-weight:600;">${c.monthly_budget_eur} €/mes</span><br>${esc(c.objective)}<br><span class="muted">${esc(c.channel)} · ${esc(c.landing_page_recommendation||'')}</span>${c.expected_metrics?`<br><span class="muted">Očakávané: ${c.expected_metrics.clicks||'?'} klikov · ${c.expected_metrics.ctr_pct||'?'}% CTR · ${c.expected_metrics.conversions||'?'} konverzií · ${c.expected_metrics.cpa_eur||'?'} € CPA</span>`:''}</div>`).join('')}` : ''}
+
+      ${p.budget_breakdown ? `<h2>Rozpočet</h2>
+        <p><strong>Mesačne:</strong> ${p.budget_breakdown.monthly_total_eur} € (media spend ${p.budget_breakdown.media_spend_eur} € + agency fee ${p.budget_breakdown.agency_fee_eur} €) · <strong>6 mes. projekcia:</strong> ${p.budget_breakdown.six_month_projection_eur} €</p>
+        ${(p.budget_breakdown.by_channel||[]).length ? `<table><thead><tr><th>Kanál</th><th style="text-align:right;">€/mes</th><th style="text-align:right;">%</th></tr></thead><tbody>${p.budget_breakdown.by_channel.map(b=>`<tr><td>${esc(b.channel)}</td><td style="text-align:right;">${b.amount_eur} €</td><td style="text-align:right;">${b.pct}%</td></tr>`).join('')}</tbody></table>` : ''}
+        ${p.budget_breakdown.notes ? `<p class="muted">${esc(p.budget_breakdown.notes)}</p>` : ''}` : ''}
+
+      ${p.kpi_targets ? `<h2>KPI ciele</h2>
+        ${['month_1','month_3','month_6'].map(m=>p.kpi_targets[m]?`<div class="card"><strong>${m.replace('month_','Mesiac ')}:</strong> ${esc(p.kpi_targets[m].kpi)} pri ${p.kpi_targets[m].spend_eur} € spend<br><span class="muted">${esc(p.kpi_targets[m].explanation)}</span></div>`:'').join('')}` : ''}
+
+      ${(p.timeline||[]).length ? `<h2>Časový harmonogram</h2>
+        ${p.timeline.map(t=>`<div class="card"><strong>Týždeň ${esc(t.week)}:</strong> ${esc(t.milestone)}${t.deliverables?`<ul>${t.deliverables.map(d=>`<li>${esc(d)}</li>`).join('')}</ul>`:''}</div>`).join('')}` : ''}
+
+      ${(p.risks||[]).length ? `<h2>Riziká & mitigácia</h2>
+        <ul>${p.risks.map(r=>`<li><strong>${esc(r.risk)}</strong> — ${esc(r.mitigation)}</li>`).join('')}</ul>` : ''}
+
+      ${(p.next_steps||[]).length ? `<h2>Ďalšie kroky</h2>
+        <ol>${p.next_steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>` : ''}
+
+      <div style="margin-top:48px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:11px;">
+        Adlify · Marketingový návrh pre ${esc(company)} · ${new Date().toLocaleDateString('sk-SK')}<br>
+        Pre tlač / PDF: Cmd+P · Save as PDF
+      </div>
+    </body></html>`;
+  },
+
   // HTML ponuka - otvorí v novom okne
   generateProposalHTML() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
