@@ -273,7 +273,7 @@ const LeadsModule = {
                   <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : '✨'}</span>
                   <span class="option-text">
                     <strong>Vygenerovať podrobný návrh (Claude Opus)</strong>
-                    <small id="deep-proposal-meta">Deep research · web search konkurentov · 2-5 min · Claude Opus 4.5</small>
+                    <small id="deep-proposal-meta">Deep research · web search konkurentov · 1-2 min · Claude Sonnet 4.5</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">

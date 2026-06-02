@@ -26,7 +26,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const DEFAULT_MODEL = 'claude-opus-4-5'
+const DEFAULT_MODEL = 'claude-sonnet-4-5'
 
 const SYSTEM_PROMPT = `Si senior PPC stratég v slovenskej digitálnej marketingovej agentúre s 10+ rokmi skúseností (Google Ads, Meta Ads, LinkedIn, performance marketing).
 
@@ -338,10 +338,10 @@ async function deepScrape(domain: string): Promise<string> {
     } catch {}
   }
 
-  const top = [...candidates].slice(0, 4)
+  const top = [...candidates].slice(0, 3)
   console.log(`[scrape] Homepage + ${top.length} relevant subpages:`, top)
 
-  const results = await Promise.allSettled(top.map(u => fetchPage(u, 8000)))
+  const results = await Promise.allSettled(top.map(u => fetchPage(u, 6000)))
   for (const r of results) {
     if (r.status === 'fulfilled' && r.value) pages.push(r.value)
   }
@@ -435,11 +435,12 @@ Output JSON podľa system promptu + navyše:
       },
       body: JSON.stringify({
         model,
-        max_tokens: 20000,
-        thinking: { type: 'enabled', budget_tokens: 10000 },
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
+        max_tokens: 14000,
+        // Web search — Claude vyhľadáva konkurentov + market dáta. Max 3 search
+        // aby sme sa zmestili do 150s Supabase Edge timeoutu.
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
         // Prompt caching — system prompt sa cache-uje (rovnaký pre každého
-        // klienta), pri opakovaných volaniach ušetríme ~90% input ceny
+        // klienta), pri opakovaných volaniach ušetríme ~90% input ceny.
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: context }],
       })
