@@ -437,7 +437,7 @@ Output JSON podľa system promptu + navyše:
         model,
         max_tokens: 20000,
         thinking: { type: 'enabled', budget_tokens: 10000 },
-        tools: [{ type: 'web_search_20250604', max_uses: 6 }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
         // Prompt caching — system prompt sa cache-uje (rovnaký pre každého
         // klienta), pri opakovaných volaniach ušetríme ~90% input ceny
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
