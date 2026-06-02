@@ -431,6 +431,54 @@
             flex-shrink: 0;
             overflow: hidden;
         }
+
+        /* ─── First-time tour ─── */
+        .pt-tour-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            z-index: 9999;
+            animation: pt-fade-in .2s ease-out;
+        }
+        .pt-tour-highlight {
+            border: 3px solid var(--brand-500);
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.5);
+            transition: all .25s ease-out;
+        }
+        .pt-tour-card {
+            background: var(--surface);
+            border-radius: 14px;
+            padding: 20px 22px 18px;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+            z-index: 10000;
+            border: 1px solid var(--border);
+        }
+        .pt-tour-progress {
+            display: flex; gap: 6px;
+            margin-bottom: 14px;
+        }
+        .pt-tour-dot {
+            width: 28px; height: 4px;
+            border-radius: 99px;
+            background: var(--n-100);
+            transition: background .15s;
+        }
+        .pt-tour-dot.is-active { background: var(--brand-500); }
+        .pt-tour-dot.is-done   { background: color-mix(in oklab, var(--brand-500) 50%, var(--n-100)); }
+        .pt-tour-title {
+            font-size: 17px; font-weight: 700; letter-spacing: -0.3px;
+            color: var(--ink);
+            margin: 0 0 8px;
+        }
+        .pt-tour-body {
+            font-size: 13px; color: var(--ink-sub);
+            line-height: 1.55;
+            margin: 0 0 16px;
+        }
+        .pt-tour-actions {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 8px;
+        }
         .pt-profile-avatar-lg img,
         .adl-avatar img {
             width: 100%; height: 100%;
@@ -1681,6 +1729,8 @@
         let user = null;
         let userProfile = {};
         let client = null;
+        let tourStep = 0;
+        let tourActive = false;
         let projects = [];
         let campaigns = [];
         let invoices = [];
@@ -1840,6 +1890,133 @@
             msgEl.innerHTML = `<div style="padding:10px 14px; background:color-mix(in oklab, var(--warn, #d97706) 14%, var(--surface)); color:var(--warn, #d97706); border-radius:8px; font-size:13px; display:inline-flex; align-items:center; gap:8px;">${I.Warning({size:14})} Náhľad — zmeny sa neukladajú</div>`;
         }
 
+        // ─── First-time tour ───
+        const TOUR_STEPS = [
+            {
+                target: null,
+                title: 'Vitajte v Adlify portáli 👋',
+                body: 'Krátky prehľad sekcií, ktoré tu nájdete. Stačí 30 sekúnd — alebo preskočte kedykoľvek.',
+                cta: 'Začnime'
+            },
+            {
+                target: '[data-tour="dashboard"]',
+                tab: 'dashboard',
+                title: 'Prehľad výkonu',
+                body: 'Live KPI z kampaní, najbližšie udalosti a akčné položky na jednom mieste.'
+            },
+            {
+                target: '[data-tour="messages"]',
+                tab: 'messages',
+                title: 'Real-time chat s tímom',
+                body: 'Napíšte nám priamo — odpovedáme zvyčajne do niekoľkých hodín v pracovných dňoch. Bez emailov, bez čakania.'
+            },
+            {
+                target: '[data-tour="approvals"]',
+                tab: 'approvals',
+                title: 'Schvaľovanie kreatív',
+                body: 'Pred spustením kampaní vám pošleme kreatívy a texty na schválenie. Kliknite ✓ alebo ✗ s krátkym dôvodom.'
+            },
+            {
+                target: '[data-tour="reports"]',
+                tab: 'reports',
+                title: 'Reporty a archív',
+                body: 'Mesačné PDF reporty + live KPI. Všetko stiahnuteľné, vždy po ruke.'
+            },
+            {
+                target: '[data-tour="account"]',
+                tab: 'account',
+                title: 'Nastavenia',
+                body: 'Profil, notifikácie, fakturačné údaje a heslo — všetko v jednej karte.'
+            }
+        ];
+
+        function startTour() {
+            tourActive = true;
+            tourStep = 0;
+            renderTourStep();
+        }
+
+        function tourNext() {
+            if (tourStep < TOUR_STEPS.length - 1) {
+                tourStep++;
+                renderTourStep();
+            } else {
+                finishTour(true);
+            }
+        }
+
+        function tourPrev() {
+            if (tourStep > 0) {
+                tourStep--;
+                renderTourStep();
+            }
+        }
+
+        async function finishTour(completed) {
+            tourActive = false;
+            document.getElementById('tour-overlay')?.remove();
+            if (isPreview) return;
+            const now = new Date().toISOString();
+            userProfile.tour_completed_at = now;
+            await db.from('user_profiles').update({ tour_completed_at: now }).eq('id', user.id);
+        }
+
+        function renderTourStep() {
+            const step = TOUR_STEPS[tourStep];
+            if (!step) { finishTour(true); return; }
+
+            // Prepni tab ak step ho špecifikuje
+            if (step.tab && currentTab !== step.tab) {
+                currentTab = step.tab;
+                render();
+            }
+
+            requestAnimationFrame(() => {
+                const targetEl = step.target ? document.querySelector(step.target) : null;
+                const rect = targetEl ? targetEl.getBoundingClientRect() : null;
+
+                let pos = '';
+                if (rect) {
+                    const card = { w: 360, h: 200 };
+                    let left = rect.right + 14;
+                    let top = rect.top;
+                    if (left + card.w > window.innerWidth - 16) left = Math.max(16, rect.left - card.w - 14);
+                    if (top + card.h > window.innerHeight - 16) top = Math.max(16, window.innerHeight - card.h - 16);
+                    pos = `style="position:fixed; left:${left}px; top:${top}px; max-width:${card.w}px;"`;
+                } else {
+                    pos = `style="position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); max-width:440px;"`;
+                }
+
+                const highlight = rect
+                    ? `<div class="pt-tour-highlight" style="position:fixed; left:${rect.left - 6}px; top:${rect.top - 6}px; width:${rect.width + 12}px; height:${rect.height + 12}px; pointer-events:none;"></div>`
+                    : '';
+
+                const existing = document.getElementById('tour-overlay');
+                if (existing) existing.remove();
+                const overlay = document.createElement('div');
+                overlay.id = 'tour-overlay';
+                overlay.className = 'pt-tour-overlay';
+                overlay.innerHTML = `
+                    ${highlight}
+                    <div class="pt-tour-card" ${pos}>
+                        <div class="pt-tour-progress">
+                            ${TOUR_STEPS.map((_, i) => `<span class="pt-tour-dot ${i === tourStep ? 'is-active' : i < tourStep ? 'is-done' : ''}"></span>`).join('')}
+                        </div>
+                        <h3 class="pt-tour-title">${escapeHtml(step.title)}</h3>
+                        <p class="pt-tour-body">${escapeHtml(step.body)}</p>
+                        <div class="pt-tour-actions">
+                            <button class="adl-btn adl-btn-ghost adl-btn-sm" onclick="finishTour(false)">Preskočiť</button>
+                            <div style="display:flex; gap:6px;">
+                                ${tourStep > 0 ? `<button class="adl-btn adl-btn-outline adl-btn-sm" onclick="tourPrev()">← Späť</button>` : ''}
+                                <button class="adl-btn adl-btn-primary adl-btn-sm" onclick="tourNext()">${tourStep === TOUR_STEPS.length - 1 ? '✓ Hotovo' : (step.cta || 'Ďalej →')}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            });
+        }
+
         async function init() {
             if (isPreview) {
                 loadPreviewData();
@@ -1872,8 +2049,8 @@
 
                 client = clientUser.clients;
 
-                // Načítaj user profile (pre avatar)
-                const { data: prof } = await db.from('user_profiles').select('avatar_url, full_name').eq('id', user.id).single();
+                // Načítaj user profile (pre avatar + tour state)
+                const { data: prof } = await db.from('user_profiles').select('avatar_url, full_name, tour_completed_at').eq('id', user.id).single();
                 userProfile = prof || {};
 
                 // Check if onboarding completed
@@ -1886,6 +2063,10 @@
                 render();
                 subscribeToMessages();
                 subscribeToApprovals();
+                // First-time tour ak ešte neabsolvovaný
+                if (!userProfile.tour_completed_at) {
+                    setTimeout(() => startTour(), 600);
+                }
 
             } catch (error) {
                 console.error('Init error:', error);
@@ -2124,6 +2305,7 @@
                                         return `
                                         <a class="adl-sidebar-item ${isActive ? 'active' : ''}"
                                            role="button" tabindex="0"
+                                           data-tour="${it.key}"
                                            aria-current="${isActive ? 'page' : 'false'}"
                                            aria-label="${escapeHtml(it.label)}${badge > 0 ? ` (${badge} ${it.key === 'messages' ? 'neprečítaných' : 'čakajúcich'})` : ''}"
                                            onclick="switchTab('${it.key}')"
@@ -3710,6 +3892,9 @@
                                 ${userProfile.avatar_url ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" style="color:var(--err);" onclick="removeAvatar()">${I.Trash({size:13})} Odstrániť</button>` : ''}
                             </div>
                             <div id="avatar-msg" style="flex-basis:100%; margin-top:8px;"></div>
+                            <div style="flex-basis:100%; margin-top:4px; font-size:11px; color:var(--ink-mute);">
+                                <a href="#" onclick="event.preventDefault(); startTour();" style="color:var(--brand-500); text-decoration:none;">${I.Info({size:11})} Spustiť úvodný sprievodca znova</a>
+                            </div>
                         </div>
                         <form id="profile-form" onsubmit="saveProfile(event)">
                             <div class="pt-field-grid">
