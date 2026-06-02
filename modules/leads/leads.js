@@ -1665,6 +1665,7 @@ const LeadsModule = {
                   { icon: 'Sparkle',  label: hasAnalysis ? 'Vygenerovať návrh kampane' : 'Analyzovať + návrh kampane', active: true, onClick: `LeadsModule.proposalOrAnalyze('${lead.id}')` },
                   { icon: 'Template', label: 'Poslať pitch šablónu',   active: false, onClick: `LeadsModule.openEmailModal('${lead.id}')` },
                   { icon: 'Calendar', label: 'Naplánovať follow-up',   active: false, onClick: `LeadsModule.openFollowUpModal('${lead.id}')` },
+                  { icon: 'Edit',     label: 'Upraviť údaje leadu',    active: false, onClick: `LeadsModule.editLeadBasicInfo('${lead.id}')` },
                   { icon: 'Trash',    label: 'Zmazať lead',            active: false, onClick: `LeadsModule.deleteLead('${lead.id}')`, danger: true }
                 ].map(a => {
                   const bg = a.danger ? 'transparent' : (a.active ? 'var(--brand-50)' : 'transparent');
@@ -1799,6 +1800,7 @@ const LeadsModule = {
       <button onclick="LeadsModule.proposalOrAnalyze('${lead.id}')" class="adl-btn adl-btn-outline adl-btn-sm" title="${hasAnalysis ? 'Vygenerovať návrh kampane z existujúcej analýzy' : 'Najprv spustí AI analýzu, potom môžeš vygenerovať návrh'}">
         ${I.Sparkle({size:14})} ${hasAnalysis ? 'Vygenerovať návrh' : 'Analyzovať + návrh'}
       </button>
+      <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="adl-btn adl-btn-outline adl-btn-sm" title="Upraviť meno, email, telefón, doménu, web a logo">${I.Edit({size:14})} Upraviť</button>
       <button onclick="LeadsModule.convertToClient('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm">${I.ArrowRight({size:14})} Konvertovať na klienta</button>
       <button onclick="LeadsModule.deleteLead('${lead.id}')" class="adl-btn adl-btn-ghost adl-btn-sm" title="Zmazať lead" style="color:var(--err);">${I.Trash({size:14})}</button>
     `;
