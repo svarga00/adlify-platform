@@ -1435,7 +1435,7 @@ const LeadsModule = {
     if (c.family || c.type === 'family') tags.push({ t: 'rodinná', tone: 'rose' });
 
     // Recommended package
-    const recPkg = a.recommendedPackage || analysis?.recommendedPackage || null;
+    const recPkg = a.recommendedPackage || a.analysis?.recommendedPackage || null;
     const pkgMap = { Starter: { price: 149 }, Pro: { price: 249 }, Enterprise: { price: 399 }, Premium: { price: 799 } };
     const pkgInfo = recPkg && pkgMap[recPkg] ? { name: recPkg, price: pkgMap[recPkg].price } : null;
 
