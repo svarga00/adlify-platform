@@ -508,19 +508,25 @@ const ClientsModule = {
   
   async renderClientDetail(container, clientId) {
     container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
-    
+
+    // Cleanup prípadnej message subscription pre predchádzajúceho klienta
+    try { this.messagesSubscription?.unsubscribe(); } catch (_) {}
+    this.messagesSubscription = null;
+    this.clientMessages = [];
+    this.messagesDraft = '';
+
     try {
       // Get client
       const client = await Database.select('clients', {
         filters: { id: clientId },
         single: true
       });
-      
+
       if (!client) {
         Utils.showEmpty(container, 'Klient nenájdený', '🔍');
         return;
       }
-      
+
       this.currentClient = client;
       
       // Load projects for this client
@@ -649,6 +655,7 @@ const ClientsModule = {
           <button onclick="ClientsModule.showTab('onboarding')" class="tab-btn" data-tab="onboarding" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Onboarding</button>
           <button onclick="ClientsModule.showTab('invoices')" class="tab-btn" data-tab="invoices" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Faktúry</button>
           <button onclick="ClientsModule.showTab('tasks')" class="tab-btn" data-tab="tasks" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit;">Úlohy</button>
+          <button onclick="ClientsModule.showTab('messages')" class="tab-btn" data-tab="messages" style="padding:8px 14px; border-radius:7px; font-size:13px; font-weight:500; border:0; background:transparent; color:var(--ink-sub); cursor:pointer; font-family:inherit; position:relative;">Správy<span id="messages-tab-badge" class="adl-tab-badge" style="display:none;"></span></button>
         </div>
 
         <!-- Tab Content -->
@@ -658,6 +665,7 @@ const ClientsModule = {
         <div id="tab-onboarding" class="tab-content hidden">${this.templateTabOnboarding()}</div>
         <div id="tab-invoices" class="tab-content hidden">${this.templateTabInvoices()}</div>
         <div id="tab-tasks" class="tab-content hidden">${this.templateTabTasks()}</div>
+        <div id="tab-messages" class="tab-content hidden"></div>
 
         <!-- Edit Modal -->
         <div id="client-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(20,18,14,0.5); padding:16px;">
@@ -673,6 +681,108 @@ const ClientsModule = {
         <style>
           .tab-content.hidden { display: none; }
           @media (max-width: 900px) { .adl-client-stats { grid-template-columns: repeat(2, 1fr) !important; } }
+
+          /* Tab badge (unread klient správ) */
+          .adl-tab-badge {
+            min-width: 18px; height: 18px; padding: 0 6px;
+            border-radius: 99px;
+            background: var(--brand-500); color: #fff;
+            font-size: 10px; font-weight: 700;
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-left: 6px; line-height: 1;
+          }
+
+          /* Admin messages chat */
+          .adl-msg-wrap {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 14px;
+            height: 560px;
+          }
+          .adl-msg-side { display: flex; flex-direction: column; gap: 10px; }
+          .adl-msg-thread {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+            min-width: 0;
+          }
+          #admin-msg-thread { overflow-y: auto; padding: 14px 18px 0; flex: 1; }
+          .adl-msg-daysep {
+            display: flex; align-items: center; gap: 10px;
+            margin: 10px 0;
+          }
+          .adl-msg-daysep::before, .adl-msg-daysep::after {
+            content: ''; flex: 1; height: 1px; background: var(--border);
+          }
+          .adl-msg-daysep span {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--ink-mute); font-weight: 600;
+          }
+          .adl-msg-row { display: flex; margin-bottom: 8px; }
+          .adl-msg-row--in  { justify-content: flex-start; }
+          .adl-msg-row--out { justify-content: flex-end; }
+          .adl-msg-bubble {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 13px; line-height: 1.5;
+          }
+          .adl-msg-bubble--in {
+            background: var(--n-50);
+            color: var(--ink);
+            border-bottom-left-radius: 4px;
+          }
+          .adl-msg-bubble--out {
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+            color: #fff;
+            border-bottom-right-radius: 4px;
+          }
+          .adl-msg-meta {
+            font-size: 10px; opacity: 0.7; margin-top: 4px;
+            font-family: var(--font-mono);
+          }
+          .adl-msg-empty {
+            flex: 1;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 40px 20px;
+            color: var(--ink-sub);
+          }
+          .adl-msg-empty-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 48px; height: 48px; border-radius: 12px;
+            background: var(--n-50); color: var(--ink-mute);
+            margin-bottom: 10px;
+          }
+          .adl-msg-composer {
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            background: var(--surface);
+            display: flex; flex-direction: column; gap: 8px;
+          }
+          .adl-msg-input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font: inherit; font-size: 13px;
+            color: var(--ink); background: var(--surface);
+            resize: vertical;
+            min-height: 56px; max-height: 200px;
+            outline: none;
+            box-sizing: border-box;
+          }
+          .adl-msg-input:focus { border-color: var(--brand-500); }
+          .adl-msg-composer-foot {
+            display: flex; justify-content: space-between; align-items: center;
+          }
+          @media (max-width: 900px) {
+            .adl-msg-wrap { grid-template-columns: 1fr; height: auto; }
+            .adl-msg-side { order: 2; }
+            .adl-msg-thread { order: 1; min-height: 480px; }
+            .adl-msg-bubble { max-width: 85%; }
+          }
         </style>
       </div>
     `;
@@ -1437,6 +1547,240 @@ const ClientsModule = {
     // Lazy-load faktúr
     if (tab === 'invoices') this.loadInvoices();
     if (tab === 'tasks') this.loadClientTasks();
+    if (tab === 'messages') this.openMessagesTab();
+  },
+
+  // ─── CLIENT MESSAGES (admin reply k portálovému chat-u) ───
+  clientMessages: [],
+  messagesSubscription: null,
+  messagesDraft: '',
+
+  async openMessagesTab() {
+    if (!this.currentClient?.id) return;
+    await this.loadClientMessages();
+    this.renderMessagesTab();
+    this.markClientMessagesRead();
+    this.subscribeToClientMessages();
+  },
+
+  async loadClientMessages() {
+    const { data, error } = await Database.client
+      .from('messages')
+      .select('*')
+      .eq('client_id', this.currentClient.id)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.error('Load messages error:', error);
+      this.clientMessages = [];
+      return;
+    }
+    this.clientMessages = data || [];
+    this.updateMessagesBadge();
+  },
+
+  unreadClientMessagesCount() {
+    return this.clientMessages.filter(m => m.sender_type === 'client' && !m.is_read).length;
+  },
+
+  updateMessagesBadge() {
+    const badge = document.getElementById('messages-tab-badge');
+    if (!badge) return;
+    const n = this.unreadClientMessagesCount();
+    if (n > 0) {
+      badge.textContent = n;
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  },
+
+  async markClientMessagesRead() {
+    const unread = this.clientMessages.filter(m => m.sender_type === 'client' && !m.is_read);
+    if (unread.length === 0) return;
+    const now = new Date().toISOString();
+    unread.forEach(m => { m.is_read = true; m.read_at = now; });
+    this.updateMessagesBadge();
+    const ids = unread.map(m => m.id);
+    await Database.client.from('messages').update({ is_read: true, read_at: now }).in('id', ids);
+  },
+
+  subscribeToClientMessages() {
+    if (!this.currentClient?.id) return;
+    try { this.messagesSubscription?.unsubscribe(); } catch (_) {}
+    this.messagesSubscription = Database.client.channel(`admin-messages-${this.currentClient.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'messages',
+        filter: `client_id=eq.${this.currentClient.id}`
+      }, payload => {
+        const m = payload.new;
+        if (!m || this.clientMessages.find(x => x.id === m.id)) return;
+        if (m.sender_type === 'team' && m.sender_id === Auth.user?.id) return; // vlastné optimistic
+        this.clientMessages.push(m);
+        this.renderMessagesThread();
+        if (m.sender_type === 'client' && document.getElementById('tab-messages') && !document.getElementById('tab-messages').classList.contains('hidden')) {
+          this.markClientMessagesRead();
+        } else {
+          this.updateMessagesBadge();
+        }
+      })
+      .subscribe();
+  },
+
+  renderMessagesTab() {
+    const el = document.getElementById('tab-messages');
+    if (!el) return;
+    el.innerHTML = this.templateTabMessages();
+    this.scrollMessagesToBottom();
+  },
+
+  renderMessagesThread() {
+    const el = document.getElementById('admin-msg-thread');
+    if (!el) { this.renderMessagesTab(); return; }
+    el.outerHTML = this._messagesThreadHTML();
+    this.scrollMessagesToBottom();
+  },
+
+  scrollMessagesToBottom() {
+    requestAnimationFrame(() => {
+      const t = document.getElementById('admin-msg-thread');
+      if (t) t.scrollTop = t.scrollHeight;
+    });
+  },
+
+  templateTabMessages() {
+    const c = this.currentClient;
+    return `
+      <div class="adl-msg-wrap">
+        <aside class="adl-msg-side">
+          <div class="adl-card" style="padding:16px; text-align:center;">
+            <div style="width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, var(--brand-500), var(--brand-700)); color:#fff; font-weight:700; font-size:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:10px;">${(c.company_name || '?')[0].toUpperCase()}</div>
+            <div style="font-size:14px; font-weight:600; letter-spacing:-0.2px;">${this._esc(c.contact_person || c.company_name)}</div>
+            <div style="font-size:11px; color:var(--ink-sub); margin-top:2px;">${this._esc(c.company_name)}</div>
+            <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--ink-sub);">
+              ${c.email ? `<a href="mailto:${this._esc(c.email)}" style="color:inherit; text-decoration:none;">${I.Mail({size:11})} ${this._esc(c.email)}</a>` : ''}
+              ${c.phone ? `<a href="tel:${this._esc(c.phone)}" style="color:inherit; text-decoration:none;">${I.Phone({size:11})} ${this._esc(c.phone)}</a>` : ''}
+            </div>
+          </div>
+          <div style="font-size:11px; color:var(--ink-mute); padding:10px 12px; background:var(--n-50); border-radius:10px; line-height:1.5;">
+            ${I.Info({size:11})} Správy odoslané ako tím sa zobrazia klientovi v portáli v reálnom čase.
+          </div>
+        </aside>
+        ${this._messagesThreadHTML()}
+      </div>
+    `;
+  },
+
+  _messagesThreadHTML() {
+    const groups = this._groupMessagesByDay(this.clientMessages);
+    const body = this.clientMessages.length === 0
+      ? `<div class="adl-msg-empty">
+           <div class="adl-msg-empty-icon">${I.Mail({size:22})}</div>
+           <div style="font-size:14px; font-weight:600; color:var(--ink);">Zatiaľ žiadne správy</div>
+           <div style="font-size:12px; color:var(--ink-sub); max-width:300px; margin-top:4px;">Napíšte klientovi prvú správu — uvidí ju v portáli okamžite.</div>
+         </div>`
+      : groups.map(g => `
+          <div class="adl-msg-daysep"><span>${this._esc(g.label)}</span></div>
+          ${g.items.map(m => this._messageBubbleHTML(m)).join('')}
+        `).join('');
+    return `
+      <section id="admin-msg-thread" class="adl-msg-thread">
+        ${body}
+        <form class="adl-msg-composer" onsubmit="event.preventDefault(); ClientsModule.sendTeamMessage(this);">
+          <textarea
+            class="adl-msg-input"
+            placeholder="Napíšte správu klientovi…"
+            rows="2"
+            oninput="ClientsModule.messagesDraft = this.value"
+            onkeydown="if(event.key==='Enter' && (event.metaKey||event.ctrlKey)){ event.preventDefault(); this.form.requestSubmit(); }"
+          >${this._esc(this.messagesDraft)}</textarea>
+          <div class="adl-msg-composer-foot">
+            <span style="font-size:10px; color:var(--ink-mute);">Cmd/Ctrl + Enter na odoslanie</span>
+            <button type="submit" class="adl-btn adl-btn-primary adl-btn-sm">${I.Send({size:13})} Odoslať</button>
+          </div>
+        </form>
+      </section>
+    `;
+  },
+
+  _messageBubbleHTML(m) {
+    const isTeam = m.sender_type === 'team';
+    const time = new Date(m.created_at);
+    const hh = String(time.getHours()).padStart(2, '0');
+    const mm = String(time.getMinutes()).padStart(2, '0');
+    const content = this._esc(m.content || '').replace(/\n/g, '<br>');
+    return `
+      <div class="adl-msg-row ${isTeam ? 'adl-msg-row--out' : 'adl-msg-row--in'}">
+        <div class="adl-msg-bubble ${isTeam ? 'adl-msg-bubble--out' : 'adl-msg-bubble--in'}">
+          <div>${content}</div>
+          <div class="adl-msg-meta">${hh}:${mm}${!isTeam && m.is_read ? ' · prečítané' : ''}</div>
+        </div>
+      </div>
+    `;
+  },
+
+  _groupMessagesByDay(items) {
+    const groups = [];
+    let last = null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yest = new Date(today.getTime() - 86400000);
+    for (const m of items) {
+      const d = new Date(m.created_at); d.setHours(0,0,0,0);
+      const key = d.toISOString().slice(0, 10);
+      let label;
+      if (d.getTime() === today.getTime()) label = 'Dnes';
+      else if (d.getTime() === yest.getTime()) label = 'Včera';
+      else label = d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'long', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+      if (!last || last.key !== key) { last = { key, label, items: [] }; groups.push(last); }
+      last.items.push(m);
+    }
+    return groups;
+  },
+
+  _esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  },
+
+  async sendTeamMessage(formEl) {
+    const ta = formEl.querySelector('textarea');
+    const content = (ta.value || '').trim();
+    if (!content) return;
+    const btn = formEl.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
+    const optimistic = {
+      id: 'tmp-' + Date.now(),
+      client_id: this.currentClient.id,
+      sender_id: Auth.user?.id,
+      sender_type: 'team',
+      content,
+      is_read: false,
+      created_at: new Date().toISOString()
+    };
+    this.clientMessages.push(optimistic);
+    ta.value = '';
+    this.messagesDraft = '';
+    this.renderMessagesThread();
+
+    const { data, error } = await Database.client.from('messages').insert({
+      client_id: this.currentClient.id,
+      sender_id: Auth.user?.id,
+      sender_type: 'team',
+      content
+    }).select().single();
+
+    if (error) {
+      this.clientMessages = this.clientMessages.filter(m => m.id !== optimistic.id);
+      ta.value = content;
+      this.messagesDraft = content;
+      this.renderMessagesThread();
+      Utils.toast('Správu sa nepodarilo odoslať: ' + error.message, 'error');
+    } else if (data) {
+      const idx = this.clientMessages.findIndex(m => m.id === optimistic.id);
+      if (idx !== -1) this.clientMessages[idx] = data;
+      this.renderMessagesThread();
+    }
+    btn.disabled = false;
   },
 
   templateTabTasks() {
