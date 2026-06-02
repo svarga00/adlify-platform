@@ -274,7 +274,7 @@ const LeadsModule = {
                   <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : '✨'}</span>
                   <span class="option-text">
                     <strong>Vygenerovať podrobný návrh (Claude Opus)</strong>
-                    <small id="deep-proposal-meta">Background mode · web research + Claude Opus 4.5 · 2-5 min</small>
+                    <small id="deep-proposal-meta">Background mode · web research + Claude Sonnet 4.5 · 1-3 min</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
@@ -3286,6 +3286,12 @@ Odkaz je platný 30 dní.
       console.log('[DeepProposal] HTTP', resp.status, resp.ok);
       const data = await resp.json();
       console.log('[DeepProposal] Response data:', data);
+      if (resp.status === 409 && data.status === 'already_running') {
+        // Iná generácia už beží pre tento lead — re-subscribneme miesto error
+        Utils.toast(`Generácia už beží (od ${data.started_at ? new Date(data.started_at).toLocaleTimeString('sk-SK') : 'neznáma'}). Čakáme na výsledok.`, 'info');
+        this._subscribeToPremiumStatus(lead.id, tickInterval, meta, btn);
+        return;
+      }
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       if (data.status !== 'started') throw new Error('Server nevrátil expected status: started');
 
@@ -3294,7 +3300,7 @@ Odkaz je platný 30 dní.
       // riadku — keď premium_analysis_status sa zmení na 'done' → otvor proposal.
       this._subscribeToPremiumStatus(lead.id, tickInterval, meta, btn);
 
-      Utils.toast('Generácia spustená na pozadí (2-6 min). Môžete pokračovať v práci.', 'info');
+      Utils.toast('Generácia spustená na pozadí (1-3 min). Môžete pokračovať v práci.', 'info');
     } catch (err) {
       console.error('[DeepProposal] Error:', err);
       Utils.toast('Chyba: ' + (err.message || err), 'error');
@@ -3382,12 +3388,13 @@ Odkaz je platný 30 dní.
       if (row) handleUpdate(row);
     }, 8000);
 
-    // Safety timeout 7 min — ak Edge function zlyhala v pozadí bez DB update
+    // Safety timeout 5 min — typický beh je 1-3 min, pri 5 min už niečo
+    // zlyhalo (Anthropic, Supabase abort, atď.)
     setTimeout(() => {
       if (resolved) return;
-      Utils.toast('Generácia trvá dlhšie ako 7 min — niekde zlyhala. Skús znova.', 'warning');
+      Utils.toast('Generácia trvá dlhšie ako 5 min — pravdepodobne zlyhala. Skús znova alebo skontroluj Edge function Logs v Supabase.', 'warning');
       cleanup();
-    }, 7 * 60 * 1000);
+    }, 5 * 60 * 1000);
   },
 
   _renderDeepProposal(p, model, generatedAt) {

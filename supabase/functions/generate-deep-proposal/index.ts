@@ -26,7 +26,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const DEFAULT_MODEL = 'claude-opus-4-5'
+const DEFAULT_MODEL = 'claude-sonnet-4-5'
 
 const SYSTEM_PROMPT = `Si senior PPC stratég v slovenskej digitálnej marketingovej agentúre s 10+ rokmi skúseností (Google Ads, Meta Ads, LinkedIn, performance marketing).
 
@@ -386,9 +386,11 @@ async function runPremiumGeneration(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 20000,
-        thinking: { type: 'enabled', budget_tokens: 8000 },
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+        max_tokens: 14000,
+        // Web search 2 uses — Anthropic call s 2 search ~60-120s typicky,
+        // 5 uses bolo ~200-300s = nad Supabase Edge background 400s limit.
+        // 2 uses dáva top konkurentov + benchmarky, dostatočná research depth.
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }],
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: context }],
       })
@@ -475,13 +477,11 @@ Si senior PPC stratég s 10+ rokmi skúseností na slovenskom trhu. Background m
 
 1. DETAILNÝ web scrape klientovho webu — extrahuj produkty, služby, ceny, USP, target audience, tone of voice, technologie ktoré používa
 2. Pôvodnú AI analýzu — keywords, SWOT, market context
-3. **web_search tool** — vyhľadaj REÁLNE údaje:
-   • Top 5 konkurentov v ${lead.industry || 'odvetví'} v lokalite ${lead.city || 'SR'} — meno, web, USP, čo robia inak
-   • Aktuálne CPC / CTR / CR benchmarky pre tento segment na SK (alebo CZ ako proxy)
-   • Trendy / regulácie / sezónnosť relevantné pre toto odvetvie
-   • Prípadové štúdie / success stories podobných klientov
+3. **web_search tool** — máš max 2 search dotazy, použij ich strategicky pre dva najdôležitejšie research smery:
+   a) Top 3-5 konkurentov v ${lead.industry || 'odvetví'} v lokalite ${lead.city || 'SR'} — meno, web, USP
+   b) Aktuálne CPC / market benchmarky pre tento segment na SK trhu
 
-Max 5 search dotazov. Citácie URL ulož do "research_sources" v output JSON. main_competitors[] majú "evidence_url" pre overiteľnosť.
+Citácie URL ulož do "research_sources" v output JSON. main_competitors[] majú "evidence_url".
 
 ANTI-AI VOICE: výstup nesmie vyzerať ako vygenerovaný AI. Píš ako skutočný senior konzultant — konkrétne čísla, špecifické pozorovania, nie všeobecné rady. Vyhni sa frázam ako "v dnešnej rýchlo sa meniacej digitálnej krajine", "leveraging synergies", "best practices", "kľúčové aktíva". Krátke vety, konkrétne príklady, taktické postupy.
 
@@ -525,6 +525,26 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Idempotent guard: ak status už je 'generating' a začalo < 6 min,
+    // vrátime 409 namiesto spustenia ďalšieho behu paralelne (chráni pred
+    // dvojkliku alebo accidental retry).
+    if (lead.premium_analysis_status === 'generating' && lead.premium_analysis_started_at) {
+      const startedMs = new Date(lead.premium_analysis_started_at).getTime()
+      const ageMs = Date.now() - startedMs
+      if (ageMs < 6 * 60 * 1000) {
+        return new Response(JSON.stringify({
+          error: `Generácia už beží (${Math.round(ageMs / 1000)}s). Čakaj na dokončenie alebo skús o pár minút.`,
+          status: 'already_running',
+          started_at: lead.premium_analysis_started_at,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      // ageMs >= 6 min → považujeme za zaseknutú/zlyhalú, môžeme spustiť novú
+      console.log(`[premium] Previous run stuck (${ageMs}ms old), restarting`)
     }
 
     // Spusti background worker — vráti 202 do 1s, generácia beží na pozadí
