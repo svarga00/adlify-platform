@@ -3247,7 +3247,8 @@ Odkaz je platný 30 dní.
 
       // Otvor priamo pôvodný proposal HTML template s novými dátami v novom okne
       try {
-        const html = this.buildProposalHTML(lead, proposal);
+        const compatAnalysis = this._premiumToTemplateSchema(proposal, lead);
+        const html = this.buildProposalHTML(lead, compatAnalysis);
         const blob = new Blob([html], { type: 'text/html' });
         window.open(URL.createObjectURL(blob), '_blank');
         this.closeProposalModal();
@@ -3428,7 +3429,13 @@ Odkaz je platný 30 dní.
     const id = leadId || this.currentLeadId;
     const lead = this.leads.find(l => l.id === id);
     if (!lead?.premium_analysis && !lead?.deep_proposal) return Utils.toast('Najprv vygenerujte premium návrh', 'warning');
-    const analysis = lead.premium_analysis || lead.deep_proposal;
+    const premium = lead.premium_analysis || lead.deep_proposal;
+    // Adapter: Claude vracia obohatený schema, ale buildProposalHTML
+    // čaká konkrétne kľúče (analysis.company, analysis.analysis.swot,
+    // proposedCampaigns.google.searchCampaign.adGroups[].adCopy.headlines,
+    // strategy.targetAudience, strategy.packages, budget.recommendations,
+    // roi.projection, timeline.weekX, atď.). Adapter to mapuje.
+    const analysis = this._premiumToTemplateSchema(premium, lead);
     try {
       const html = this.buildProposalHTML(lead, analysis);
       const blob = new Blob([html], { type: 'text/html' });
@@ -3437,6 +3444,178 @@ Odkaz je platný 30 dní.
       console.error('[Premium] buildProposalHTML failed:', err);
       Utils.toast('Render zlyhal: ' + err.message, 'error');
     }
+  },
+
+  // Mapuj Claude premium_analysis → schema kompatibilný s buildProposalHTML.
+  // buildProposalHTML číta: analysis.{company, analysis, onlinePresence,
+  // keywords, strategy, budget, roi, proposedCampaigns, timeline,
+  // recommendedPackage, competition}
+  _premiumToTemplateSchema(p, lead) {
+    p = p || {};
+    const company = p.company || {};
+    const swot = p.swot || {};
+    const findings = p.ourFindings || {};
+    const onlinePresence = p.onlinePresence || {};
+    const keywordsObj = p.keywords || {};
+    const strategy = p.strategy || {};
+    const budget = p.budget || {};
+    const roi = p.roi || {};
+    const campaigns = p.proposedCampaigns || {};
+    const timeline = p.timeline || {};
+    const ourSolution = p.ourSolution || {};
+    const competitive = p.competitive_landscape || {};
+
+    // analysis.analysis — silné stránky, príležitosti, SWOT
+    const a = {
+      strengths: (findings.strengths || []).map(s =>
+        typeof s === 'string' ? s : `${s.title || ''}${s.description ? ' — ' + s.description : ''}`
+      ),
+      opportunities: (findings.opportunities || []).map(o =>
+        typeof o === 'string' ? o : `${o.title || ''}${o.description ? ' — ' + o.description : ''}`
+      ),
+      swot: {
+        strengths: swot.strengths || (findings.strengths || []).map(s => typeof s === 'string' ? s : s.title || ''),
+        weaknesses: swot.weaknesses || [],
+        opportunities: swot.opportunities || (findings.opportunities || []).map(o => typeof o === 'string' ? o : o.title || ''),
+        threats: swot.threats || []
+      },
+      humanWrittenIntro: p.executive_summary || '',
+      recommendation: ourSolution.headline || p.unique_insight || ''
+    };
+
+    // onlinePresence.{website, socialMedia, paidAds}
+    const op = {
+      website: {
+        exists: onlinePresence.website?.status !== 'critical',
+        strengths: onlinePresence.website?.notes ? [onlinePresence.website.notes] : [],
+        weaknesses: onlinePresence.website?.status === 'critical' ? [onlinePresence.website.notes || 'Web má vážne nedostatky'] : []
+      },
+      socialMedia: {
+        facebook: { exists: onlinePresence.social?.status !== 'missing' },
+        instagram: { exists: onlinePresence.social?.status !== 'missing' }
+      },
+      paidAds: { detected: onlinePresence.ppc?.status !== 'none' }
+    };
+
+    // keywords.topKeywords[] — objects {keyword, search_volume, cpc, intent}
+    const allKws = [
+      ...(keywordsObj.primary || []),
+      ...(keywordsObj.secondary || []),
+      ...(keywordsObj.longTail || [])
+    ];
+    const k = {
+      topKeywords: allKws.slice(0, 12).map(kw => ({
+        keyword: kw.keyword,
+        searchVolume: kw.search_volume,
+        cpc: kw.cpc_eur,
+        intent: kw.intent || ''
+      })),
+      totalFound: allKws.length
+    };
+
+    // strategy — targetAudience + packages + CONTACT + channels
+    const tap = strategy.targetAudienceParsed || {};
+    const s = {
+      overview: strategy.overview || '',
+      creativeApproach: strategy.creativeApproach || '',
+      channels: strategy.channels || [],
+      targetAudience: {
+        demographics: company.idealCustomer || 'Konkrétny ideálny zákazník',
+        interests: tap.interests || [],
+        behaviors: tap.behaviors || []
+      },
+      mainGoal: ourSolution.headline || 'Získať kvalitných leadov cez výkonnostný marketing',
+      platforms: (strategy.channels || []).map(ch => ch.name || ch.channel || '').filter(Boolean),
+      CONTACT: {
+        email: 'info@adlify.eu',
+        phone: '+421 904 614 776',
+        web: 'adlify.eu'
+      },
+      // Default balíčky — template ich vždy renderuje, aby sme zachovali design
+      packages: this._defaultPackages(budget, ourSolution)
+    };
+
+    // budget — recommendations conservative/moderate/aggressive, avgCpc
+    const budgetRec = budget.recommendations || {};
+    const b = {
+      summary: budget.summary || '',
+      recommendations: {
+        conservative: budgetRec.conservative || { totalBudget: 1000, leads: 15 },
+        moderate:     budgetRec.moderate     || { totalBudget: budget.monthly_total_eur || 1500, leads: 30 },
+        aggressive:   budgetRec.aggressive   || { totalBudget: 2500, leads: 60 },
+      },
+      avgCpc: budget.avgCpc || (allKws.length ? (allKws.reduce((a, x) => a + (x.cpc_eur || 0), 0) / allKws.length).toFixed(2) : 0.50),
+      allocations: budget.allocations || [],
+      sixMonthProjection: budget.six_month_projection_eur || (budget.monthly_total_eur || 1500) * 6
+    };
+
+    // ROI — projection.monthlyLeads, monthlyRevenue, roi
+    const roiMid = roi.month_3 || roi.month_1 || {};
+    const r = {
+      projection: {
+        monthlyLeads: roiMid.leads || 30,
+        monthlyRevenue: roiMid.revenue_eur || 9000,
+        roi: roiMid.roi_pct || 500
+      },
+      month_1: roi.month_1,
+      month_3: roi.month_3,
+      month_6: roi.month_6,
+      explanation: roi.explanation || ''
+    };
+
+    // proposedCampaigns — Google, Meta, Instagram, LinkedIn, Display
+    const camp = {
+      google: campaigns.google || {},
+      meta: campaigns.meta || {},
+      instagram: campaigns.instagram || {},
+      linkedin: campaigns.linkedin || {},
+      googleDisplay: campaigns.googleDisplay || {}
+    };
+
+    // Recommended package
+    const monthlyBudget = b.recommendations.moderate.totalBudget || 1500;
+    const recommendedPackage = monthlyBudget < 800 ? 'Starter' : monthlyBudget < 1500 ? 'Pro' : monthlyBudget < 3000 ? 'Enterprise' : 'Premium';
+
+    return {
+      company,
+      analysis: a,
+      onlinePresence: op,
+      keywords: k,
+      strategy: s,
+      budget: b,
+      roi: r,
+      proposedCampaigns: camp,
+      timeline,
+      competition: competitive,
+      recommendedPackage,
+      executive_summary: p.executive_summary,
+      unique_insight: p.unique_insight,
+      risks: p.risks,
+      next_steps: p.next_steps
+    };
+  },
+
+  _defaultPackages(budget, ourSolution) {
+    const moderate = budget?.recommendations?.moderate?.totalBudget || budget?.monthly_total_eur || 1500;
+    const conservative = budget?.recommendations?.conservative?.totalBudget || Math.round(moderate * 0.65);
+    const aggressive = budget?.recommendations?.aggressive?.totalBudget || Math.round(moderate * 1.7);
+    return {
+      starter: {
+        icon: 'rocket',
+        description: `Pre začínajúce firmy alebo testovací rozpočet. Mesačný budget cca ${conservative} €.`,
+        features: ['Google Ads — Search', '1 ad group', 'Mesačný report', 'Email support']
+      },
+      pro: {
+        icon: 'crown',
+        description: `Odporúčaný balík pre väčšinu klientov. Mesačný budget cca ${moderate} €.`,
+        features: ['Google Ads — Search + Performance Max', 'Meta Ads (FB + IG)', '3-4 kampane', 'Bi-weekly call', 'A/B testing kreatív', 'Detailný report']
+      },
+      enterprise: {
+        icon: 'star',
+        description: `Pre rastúce firmy s ambíciou škálovať. Mesačný budget ${aggressive} € +.`,
+        features: ['Všetko z Pro balíka', 'LinkedIn Ads (B2B)', 'Display kampane', 'Weekly review', 'Dedicated account manager', 'Quarterly business review']
+      }
+    };
   },
 
   buildDeepProposalHTML(lead, p) {
