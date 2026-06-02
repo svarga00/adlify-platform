@@ -1237,9 +1237,19 @@ const LeadsModule = {
       
       this.renderAnalysisResults(lead, enrichedAnalysis);
       this.renderModalFooter(true);
-      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+      const listEl = document.getElementById('leads-list');
+      if (listEl) listEl.innerHTML = this.renderLeadsList();
+      // Re-render hero actions ak sme v lead detail page (analyza → "Vygenerovať návrh")
+      const heroEl = document.getElementById('lead-hero-actions');
+      if (heroEl) heroEl.innerHTML = this._renderHeroActions(lead);
       Utils.toast('Analýza dokončená!', 'success');
-      
+
+      // Auto-otvor proposal modal ak bola analýza spustená z "Analyzovať + návrh"
+      if (this._openProposalAfterAnalysis === id) {
+        this._openProposalAfterAnalysis = null;
+        setTimeout(() => this.showProposalModal(id), 800);
+      }
+
     } catch (error) {
       console.error('Analysis error:', error);
       content.innerHTML = `
@@ -1641,16 +1651,22 @@ const LeadsModule = {
                 ${[
                   { icon: 'Mail',     label: 'Odoslať úvodný email',   active: false, onClick: `LeadsModule.openEmailModal('${lead.id}')` },
                   { icon: 'Phone',    label: 'Zavolať · naplánovať',   active: false, onClick: lead.phone ? `window.location.href='tel:${lead.phone}'` : `Utils.toast('Žiadne telefónne číslo','warning')` },
-                  { icon: 'Sparkle',  label: hasAnalysis ? 'Vygenerovať ponuku' : 'Spustiť AI analýzu', active: hasAnalysis, onClick: hasAnalysis ? `LeadsModule.showProposalModal('${lead.id}')` : `LeadsModule.analyze('${lead.id}')` },
+                  { icon: 'Sparkle',  label: hasAnalysis ? 'Vygenerovať návrh kampane' : 'Analyzovať + návrh kampane', active: true, onClick: `LeadsModule.proposalOrAnalyze('${lead.id}')` },
                   { icon: 'Template', label: 'Poslať pitch šablónu',   active: false, onClick: `LeadsModule.openEmailModal('${lead.id}')` },
-                  { icon: 'Calendar', label: 'Naplánovať follow-up',   active: false, onClick: `LeadsModule.openFollowUpModal('${lead.id}')` }
-                ].map(a => `
-                  <div onclick="${a.onClick}" style="display:flex; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; background:${a.active ? 'var(--brand-50)' : 'transparent'}; color:${a.active ? 'var(--brand-700)' : 'var(--ink)'}; align-items:center; transition:background .12s;" onmouseover="this.style.background='${a.active ? 'var(--brand-50)' : 'var(--n-50)'}'" onmouseout="this.style.background='${a.active ? 'var(--brand-50)' : 'transparent'}'">
+                  { icon: 'Calendar', label: 'Naplánovať follow-up',   active: false, onClick: `LeadsModule.openFollowUpModal('${lead.id}')` },
+                  { icon: 'Trash',    label: 'Zmazať lead',            active: false, onClick: `LeadsModule.deleteLead('${lead.id}')`, danger: true }
+                ].map(a => {
+                  const bg = a.danger ? 'transparent' : (a.active ? 'var(--brand-50)' : 'transparent');
+                  const color = a.danger ? 'var(--err)' : (a.active ? 'var(--brand-700)' : 'var(--ink)');
+                  const hoverBg = a.danger ? 'color-mix(in oklab, var(--err) 10%, var(--surface))' : (a.active ? 'var(--brand-50)' : 'var(--n-50)');
+                  return `
+                  <div onclick="${a.onClick}" style="display:flex; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; background:${bg}; color:${color}; align-items:center; transition:background .12s;" onmouseover="this.style.background='${hoverBg}'" onmouseout="this.style.background='${bg}'">
                     <span style="flex-shrink:0; display:inline-flex;">${I[a.icon]({size:16})}</span>
                     <span style="font-size:13px; flex:1; font-weight:${a.active ? '600' : '500'};">${a.label}</span>
                     ${I.Chevron({size:12})}
                   </div>
-                `).join('')}
+                `;
+                }).join('')}
               </div>
             </div>
 
@@ -1758,10 +1774,15 @@ const LeadsModule = {
   },
 
   _renderHeroActions(lead) {
+    const hasAnalysis = !!(lead.analysis && (lead.analysis.company || lead.analysis.analysis));
     return `
       ${lead.phone ? `<a href="tel:${lead.phone}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Phone({size:14})} Zavolať</a>` : ''}
       ${lead.email ? `<a href="mailto:${lead.email}" class="adl-btn adl-btn-outline adl-btn-sm">${I.Mail({size:14})} Poslať email</a>` : ''}
+      <button onclick="LeadsModule.proposalOrAnalyze('${lead.id}')" class="adl-btn adl-btn-outline adl-btn-sm" title="${hasAnalysis ? 'Vygenerovať návrh kampane z existujúcej analýzy' : 'Najprv spustí AI analýzu, potom môžeš vygenerovať návrh'}">
+        ${I.Sparkle({size:14})} ${hasAnalysis ? 'Vygenerovať návrh' : 'Analyzovať + návrh'}
+      </button>
       <button onclick="LeadsModule.convertToClient('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm">${I.ArrowRight({size:14})} Konvertovať na klienta</button>
+      <button onclick="LeadsModule.deleteLead('${lead.id}')" class="adl-btn adl-btn-ghost adl-btn-sm" title="Zmazať lead" style="color:var(--err);">${I.Trash({size:14})}</button>
     `;
   },
 
@@ -2188,16 +2209,29 @@ const LeadsModule = {
   },
 
   async deleteLead(leadId) {
-    if (!await Utils.confirm('Naozaj chcete zmazať tento lead? Táto akcia je nevratná.', { title: 'Zmazať lead', type: 'danger', confirmText: 'Zmazať', cancelText: 'Ponechať' })) return;
+    const lead = this.leads.find(l => l.id === leadId);
+    const name = lead?.company_name || lead?.domain || 'tento lead';
+    if (!await Utils.confirm(
+      `Naozaj chcete zmazať "${name}"? Táto akcia je nevratná a stratíte všetky dáta vrátane AI analýzy.`,
+      { title: 'Zmazať lead', type: 'danger', confirmText: 'Zmazať natrvalo', cancelText: 'Ponechať' }
+    )) return;
     try {
       await Database.delete('leads', leadId);
       this.leads = this.leads.filter(l => l.id !== leadId);
       Utils.toast('Lead zmazaný', 'success');
       this.closeModal();
-      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-      this._updateListCount();
+      // Ak sme v lead detail page → naviguj na list
+      const onDetail = window.location.hash.includes('id=') || (Router?.currentParams?.id === leadId);
+      if (onDetail) {
+        Router.navigate('leads');
+      } else {
+        const listEl = document.getElementById('leads-list');
+        if (listEl) listEl.innerHTML = this.renderLeadsList();
+        this._updateListCount();
+      }
     } catch (error) {
-      Utils.toast('Chyba pri mazaní', 'error');
+      console.error('Delete lead error:', error);
+      Utils.toast('Chyba pri mazaní: ' + (error.message || error), 'error');
     }
   },
 
@@ -2391,6 +2425,24 @@ const LeadsModule = {
     const lead = this.leads.find(l => l.id === id);
     if (!lead?.analysis) return Utils.toast('Lead nemá analýzu', 'warning');
     this.showProposalModal(id);
+  },
+
+  // Smart akcia: ak má analýzu → otvor proposal, inak najprv spusti analýzu
+  // a po jej dokončení automaticky otvor proposal modal.
+  async proposalOrAnalyze(id) {
+    const lead = this.leads.find(l => l.id === id);
+    if (!lead) return Utils.toast('Lead nenájdený', 'error');
+    const hasAnalysis = !!(lead.analysis && (lead.analysis.company || lead.analysis.analysis));
+    if (hasAnalysis) {
+      this.showProposalModal(id);
+      return;
+    }
+    if (!await Utils.confirm(
+      `Pre vygenerovanie návrhu kampane musíme najprv spustiť AI analýzu pre ${lead.company_name || lead.domain}. Trvá to 20–40 sekúnd. Pokračovať?`,
+      { title: 'Spustiť analýzu', type: 'info', confirmText: 'Áno, spusti', cancelText: 'Zrušiť' }
+    )) return;
+    this._openProposalAfterAnalysis = id;
+    await this.analyze(id);
   },
 
   showProposalModal(id) {
