@@ -425,26 +425,46 @@ Output JSON podľa system promptu + navyše:
 "research_sources": [{"url": "...", "summary": "1 veta čo sme z neho zistili"}]
 "competitive_landscape.main_competitors[].evidence_url": "URL kde sme našli údaje o konkurentovi"`
 
-    console.log(`[premium] Calling Anthropic with model ${model} + web_search + extended thinking`)
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 14000,
-        // Web search — Claude vyhľadáva konkurentov + market dáta. Max 3 search
-        // aby sme sa zmestili do 150s Supabase Edge timeoutu.
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-        // Prompt caching — system prompt sa cache-uje (rovnaký pre každého
-        // klienta), pri opakovaných volaniach ušetríme ~90% input ceny.
-        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: context }],
+    console.log(`[premium] Calling Anthropic with model ${model} + web_search`)
+    // AbortController s explicit 130s timeoutom — pred Supabase Edge 150s hard limit.
+    // Bez tohto: pri prekročení 150s Supabase function abortne PRED return → browser
+    // dostane "Failed to fetch" bez CORS headers (klasická "blocked by CORS policy" chyba).
+    // S týmto: dostaneme JSON error s CORS headers a user vidí konkrétny error.
+    const anthropicAbort = new AbortController()
+    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 130000)
+    let claudeRes: Response
+    try {
+      claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        signal: anthropicAbort.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 14000,
+          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+          system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+          messages: [{ role: 'user', content: context }],
+        })
       })
-    })
+      clearTimeout(anthropicTimeout)
+    } catch (fetchErr) {
+      clearTimeout(anthropicTimeout)
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+      const isTimeout = msg.includes('aborted') || msg.includes('timeout')
+      console.error('[premium] Anthropic fetch failed:', msg)
+      return new Response(JSON.stringify({
+        error: isTimeout
+          ? 'Generácia trvala dlhšie ako 130s. Skús znova s jednoduchším promptom alebo skús neskôr.'
+          : 'Spojenie s Anthropic API zlyhalo: ' + msg
+      }), {
+        status: 504,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const claudeJson = await claudeRes.json()
     if (claudeJson.error) {
