@@ -75,6 +75,37 @@ ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_projects ENABLE ROW LEVEL SECURITY;
 
+-- ───── Safety net: ADD COLUMN IF NOT EXISTS pre prípad pred-existujúcich
+-- tabuliek so staršou schémou. Bez tohto CREATE POLICY padá na chýbajúcich
+-- stĺpcoch (client_id, org_id) lebo CREATE TABLE IF NOT EXISTS nemodifikuje
+-- existujúce tabuľky.
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS org_id UUID;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS client_id UUID;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS subject TEXT;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general';
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium';
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open';
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS org_id UUID;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS client_id UUID;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'contract';
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_name TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_url TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT true;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
+ALTER TABLE campaign_projects ADD COLUMN IF NOT EXISTS org_id UUID;
+ALTER TABLE campaign_projects ADD COLUMN IF NOT EXISTS client_id UUID;
+ALTER TABLE campaign_projects ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE campaign_projects ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE campaign_projects ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+ALTER TABLE campaign_projects ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE campaign_projects ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 -- ───── RLS policies: TICKETS ─────
 DO $$
 BEGIN

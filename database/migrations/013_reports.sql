@@ -39,6 +39,18 @@ CREATE TABLE IF NOT EXISTS reports (
 
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 
+-- Safety net: ADD COLUMN IF NOT EXISTS pre prípad pred-existujúcich tabuliek
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS org_id UUID;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS client_id UUID;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS period_start DATE;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS period_end DATE;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS file_url TEXT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS file_name TEXT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS file_size_bytes BIGINT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS highlights JSONB DEFAULT '{}';
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='reports' AND policyname='Team can manage reports') THEN
