@@ -62,6 +62,24 @@ CREATE TABLE IF NOT EXISTS approvals (
 
 ALTER TABLE approvals ENABLE ROW LEVEL SECURITY;
 
+-- Safety net: ADD COLUMN IF NOT EXISTS pre prípad pred-existujúcich tabuliek
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS org_id UUID;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS client_id UUID;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS campaign_id UUID;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS parent_approval_id UUID;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS version INT DEFAULT 1;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS kind TEXT DEFAULT 'creative';
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS asset_url TEXT;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS feedback TEXT;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS reviewed_by UUID;
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE approvals ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='approvals' AND policyname='Team can manage approvals') THEN
