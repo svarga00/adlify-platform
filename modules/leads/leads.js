@@ -2165,28 +2165,41 @@ const LeadsModule = {
 
   editLeadBasicInfo(leadId) {
     const lead = this.leads.find(l => l.id === leadId);
-    if (!lead) return;
-    
-    const content = document.getElementById('analysis-content');
-    content.innerHTML = `
-      <div class="edit-lead-form">
-        <h2 class="text-xl font-bold mb-6">✏️ Upraviť lead</h2>
-        <div class="grid md:grid-cols-2 gap-4 mb-4">
-          <div><label class="block text-sm font-medium mb-1">Názov firmy</label><input type="text" id="edit-lead-name" value="${lead.company_name || ''}" class="w-full p-3 border rounded-xl"></div>
-          <div><label class="block text-sm font-medium mb-1">Doména</label><input type="text" id="edit-lead-domain" value="${lead.domain || ''}" class="w-full p-3 border rounded-xl"></div>
-          <div><label class="block text-sm font-medium mb-1">Email</label><input type="email" id="edit-lead-email" value="${lead.email || ''}" class="w-full p-3 border rounded-xl"></div>
-          <div><label class="block text-sm font-medium mb-1">Telefón</label><input type="text" id="edit-lead-phone" value="${lead.phone || ''}" class="w-full p-3 border rounded-xl"></div>
-          <div><label class="block text-sm font-medium mb-1">Odvetvie</label><input type="text" id="edit-lead-industry" value="${lead.industry || ''}" class="w-full p-3 border rounded-xl"></div>
-          <div><label class="block text-sm font-medium mb-1">Mesto</label><input type="text" id="edit-lead-city" value="${lead.city || ''}" class="w-full p-3 border rounded-xl"></div>
+    if (!lead) return Utils.toast('Lead nenájdený', 'error');
+
+    // Pôvodne plnil analysis-content (element v legacy modale ktorý nie je
+    // súčasťou lead detail full-page view → null.innerHTML padlo ticho).
+    // Riešenie: vytvor samostatný overlay div priamo v body.
+    document.getElementById('edit-lead-overlay')?.remove();
+
+    const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const overlay = document.createElement('div');
+    overlay.id = 'edit-lead-overlay';
+    overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;';
+    overlay.innerHTML = `
+      <div style="background:var(--surface); border-radius:14px; padding:24px 26px; max-width:640px; width:100%; max-height:90vh; overflow:auto; box-shadow:0 20px 50px rgba(15,23,42,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+          <h2 style="font-size:18px; font-weight:700; margin:0; letter-spacing:-0.3px; color:var(--ink);">${I.Edit({size:18})} Upraviť lead</h2>
+          <button onclick="document.getElementById('edit-lead-overlay').remove()" style="background:none; border:0; font-size:20px; cursor:pointer; color:var(--ink-sub); padding:4px 8px;">✕</button>
         </div>
-        <div class="mb-4"><label class="block text-sm font-medium mb-1">🖼️ Logo URL</label><input type="url" id="edit-lead-logo" value="${lead.logo_url || ''}" class="w-full p-3 border rounded-xl" placeholder="https://firma.sk/logo.png"><small class="text-gray-500 text-xs">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
-        <div class="mb-4"><label class="block text-sm font-medium mb-1">Poznámky</label><textarea id="edit-lead-notes" rows="3" class="w-full p-3 border rounded-xl">${lead.notes || ''}</textarea></div>
-        <div class="flex gap-3">
-          <button onclick="LeadsModule.showLeadDetail('${leadId}')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">← Späť</button>
-          <button onclick="LeadsModule.saveLeadBasicInfo('${leadId}')" class="px-6 py-2 gradient-bg text-white rounded-lg font-semibold">💾 Uložiť</button>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+          <div><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Názov firmy</label><input type="text" id="edit-lead-name" value="${esc(lead.company_name)}" class="adl-input" style="width:100%;"></div>
+          <div><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Doména</label><input type="text" id="edit-lead-domain" value="${esc(lead.domain)}" class="adl-input" style="width:100%;"></div>
+          <div><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Email</label><input type="email" id="edit-lead-email" value="${esc(lead.email)}" class="adl-input" style="width:100%;"></div>
+          <div><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Telefón</label><input type="text" id="edit-lead-phone" value="${esc(lead.phone)}" class="adl-input" style="width:100%;"></div>
+          <div><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Odvetvie</label><input type="text" id="edit-lead-industry" value="${esc(lead.industry)}" class="adl-input" style="width:100%;"></div>
+          <div><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Mesto</label><input type="text" id="edit-lead-city" value="${esc(lead.city)}" class="adl-input" style="width:100%;"></div>
+        </div>
+        <div style="margin-bottom:12px;"><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Logo URL</label><input type="url" id="edit-lead-logo" value="${esc(lead.logo_url)}" class="adl-input" style="width:100%;" placeholder="https://firma.sk/logo.png"><small style="display:block; color:var(--ink-mute); font-size:11px; margin-top:4px;">Ak nevyplníte, použije sa favicon z domény</small></div>
+        <div style="margin-bottom:18px;"><label style="display:block; font-size:12px; font-weight:600; color:var(--ink-sub); margin-bottom:4px;">Poznámky</label><textarea id="edit-lead-notes" rows="3" class="adl-input" style="width:100%; resize:vertical;">${esc(lead.notes)}</textarea></div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button onclick="document.getElementById('edit-lead-overlay').remove()" class="adl-btn adl-btn-ghost adl-btn-sm">Zrušiť</button>
+          <button onclick="LeadsModule.saveLeadBasicInfo('${leadId}')" class="adl-btn adl-btn-primary adl-btn-sm">${I.Check({size:14})} Uložiť</button>
         </div>
       </div>
     `;
+    document.body.appendChild(overlay);
+    setTimeout(() => document.getElementById('edit-lead-name')?.focus(), 100);
   },
 
   async saveLeadBasicInfo(leadId) {
@@ -2219,9 +2232,15 @@ const LeadsModule = {
       
       const lead = this.leads.find(l => l.id === leadId);
       if (lead) Object.assign(lead, updates);
-      Utils.toast('Uložené! ✅', 'success');
-      this.showLeadDetail(leadId);
-      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+      Utils.toast('Uložené', 'success');
+      document.getElementById('edit-lead-overlay')?.remove();
+      // Re-render lead detail page (hero, contact, list)
+      const listEl = document.getElementById('leads-list');
+      if (listEl) listEl.innerHTML = this.renderLeadsList();
+      // Ak sme v detail page, re-render cez Router
+      if (Router?.currentParams?.id === leadId) {
+        this.render(Router.currentParams);
+      }
     } catch (error) {
       console.error('Save lead error:', error);
       Utils.toast('Chyba pri ukladaní: ' + (error.message || error), 'error');
