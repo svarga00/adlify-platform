@@ -875,6 +875,15 @@ const ClientsModule = {
           @media (max-width: 700px) {
             .adl-rep-row { flex-wrap: wrap; }
           }
+          @media (max-width: 480px) {
+            .adl-msg-bubble { max-width: 92%; padding: 8px 12px; font-size: 12px; }
+            .adl-msg-composer { padding: 10px 12px; }
+            .adl-msg-input { font-size: 12px; padding: 8px 10px; }
+            .adl-ap-grid { grid-template-columns: 1fr !important; }
+            .adl-rep-row { padding: 12px; gap: 10px; }
+            .adl-rep-icon { width: 36px; height: 36px; }
+            .adl-client-stats { grid-template-columns: 1fr !important; }
+          }
         </style>
       </div>
     `;

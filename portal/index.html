@@ -79,7 +79,30 @@
         /* ===== KPI stat grid ===== */
         .pt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
         @media (max-width: 900px) { .pt-stats { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 480px) { .pt-stats { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) {
+            .pt-stats { grid-template-columns: 1fr; }
+            .adl-topbar-title { font-size: 18px !important; letter-spacing: -0.3px; }
+            .adl-topbar-sub { font-size: 11px !important; }
+            .adl-content { padding: 12px !important; }
+            .pt-card { padding: 16px; }
+            .pt-card-head { padding: 14px 16px; }
+            .pt-rep-kpi-grid { grid-template-columns: 1fr !important; }
+            .pt-rep-hero { padding: 18px 16px; }
+            .pt-rep-hero-title { font-size: 17px; }
+            .pt-tk-wrap { height: auto; min-height: 0; }
+            .pt-msg-bubble { max-width: 92%; padding: 8px 12px; font-size: 12px; }
+            .pt-msg-composer { padding: 10px 12px; }
+            .pt-modal-overlay { padding: 8px; }
+            .pt-modal { max-height: calc(100vh - 16px); border-radius: 12px; }
+            .pt-cal-event { grid-template-columns: 42px 28px 1fr; gap: 8px; padding: 10px 12px; }
+            .pt-cal-event-icon { width: 28px; height: 28px; }
+            .pt-cal-event-day { font-size: 16px; }
+            .adl-ap-grid, .pt-ap-grid { grid-template-columns: 1fr; }
+            .pt-rep-archive { grid-template-columns: 1fr; }
+            .pt-tour-card { padding: 16px 18px; }
+            .pt-tour-title { font-size: 15px; }
+            .pt-tour-body { font-size: 12px; }
+        }
         .pt-stat {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -2070,7 +2093,13 @@
 
             } catch (error) {
                 console.error('Init error:', error);
-                showError('Chyba', 'Nastala chyba pri načítavaní. Skúste obnoviť stránku.');
+                const detail = error?.message || error?.error_description || '';
+                const friendly = detail.includes('JWT') || detail.includes('expired')
+                    ? 'Vaše prihlásenie expirovalo. Prihláste sa znova.'
+                    : detail.includes('Failed to fetch') || detail.includes('Network')
+                    ? 'Pripojenie k serveru zlyhalo. Skontrolujte internet a obnovte stránku.'
+                    : 'Nepodarilo sa načítať vaše dáta. ' + (detail ? `Detail: ${detail}` : 'Skúste obnoviť stránku.');
+                showError('Chyba pri načítaní', friendly);
             }
         }
 
