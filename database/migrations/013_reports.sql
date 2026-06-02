@@ -43,7 +43,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='reports' AND policyname='Team can manage reports') THEN
     CREATE POLICY "Team can manage reports" ON reports
-      FOR ALL USING (org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid()));
+      FOR ALL USING (EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid()));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='reports' AND policyname='Clients can view own reports') THEN

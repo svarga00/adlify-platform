@@ -80,7 +80,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='tickets' AND policyname='Team can manage tickets') THEN
     CREATE POLICY "Team can manage tickets" ON tickets
-      FOR ALL USING (org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid()));
+      FOR ALL USING (EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid()));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='tickets' AND policyname='Clients can view own tickets') THEN
@@ -99,7 +99,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='documents' AND policyname='Team can manage documents') THEN
     CREATE POLICY "Team can manage documents" ON documents
-      FOR ALL USING (org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid()));
+      FOR ALL USING (EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid()));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='documents' AND policyname='Clients can view own public documents') THEN
@@ -116,7 +116,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='campaign_projects' AND policyname='Team can manage projects') THEN
     CREATE POLICY "Team can manage projects" ON campaign_projects
-      FOR ALL USING (org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid()));
+      FOR ALL USING (EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid()));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='campaign_projects' AND policyname='Clients can view own projects') THEN

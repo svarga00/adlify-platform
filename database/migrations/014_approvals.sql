@@ -66,7 +66,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='approvals' AND policyname='Team can manage approvals') THEN
     CREATE POLICY "Team can manage approvals" ON approvals
-      FOR ALL USING (org_id IN (SELECT org_id FROM team_members WHERE user_id = auth.uid()));
+      FOR ALL USING (EXISTS (SELECT 1 FROM team_members WHERE user_id = auth.uid()));
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='approvals' AND policyname='Clients can view own approvals') THEN
