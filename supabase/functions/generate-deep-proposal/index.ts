@@ -409,21 +409,16 @@ ${scrapedContent}
 ${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}
 
 ÚLOHA:
-Si senior PPC stratég. Použij DOSTUPNÝ web_search tool na vyhľadanie:
-1. Top 3-5 konkurentov v ${lead.industry || 'tomto odvetví'} na slovenskom trhu (najmä v lokalite ${lead.city || ''})
-2. Aktuálne ceny / trendy / market data v odvetví na SK trhu
-3. Bench-marky pre Google Ads / Meta Ads v tomto segmente (avg CPC, CTR, conversion rate)
-4. Špecifické insights ku klientovi (existuje case study, špecifický problém ICP, atď.)
+Si senior PPC stratég s 10+ rokmi skúseností na slovenskom trhu. Použij:
+1. DETAILNÝ web scrape klientovho webu (homepage + 3 podstránky vyššie) — extrahuj produkty, služby, cenu, USP, target audience, tone of voice
+2. Pôvodnú AI analýzu (analyze-lead) — keywords, marketing data, SWOT
+3. Tvoje vlastné znalosti slovenského PPC trhu (konkurencia v odvetví, typické CPC/CTR/CR pre segment, benchmarky)
 
-Maximálne 6 web search dotazov. Citácie URL ulož do "research_sources" v output JSON.
-
-Použij EXTENDED THINKING — premysli si stratégiu hĺbavo pred vygenerovaním JSON output.
+Konkurencia v odvetví ${lead.industry || ''} na SK: pomenuj realisticky 3-5 hráčov ktorých poznáš z trénovacích dát alebo odhadom (uvedom "názov firmy (odhadom)" ak nie si si istý).
 
 Vygeneruj PREMIUM marketingový návrh — extrémne podrobný, personalizovaný, s konkrétnymi reklamnými kreatívami pre Google Ads, Meta (FB+IG), Instagram Stories, LinkedIn, Display. Klient po prečítaní musí mať pocit "presne to potrebujem, kde mám podpísať". Žiadne emoji.
 
-Output JSON podľa system promptu + navyše:
-"research_sources": [{"url": "...", "summary": "1 veta čo sme z neho zistili"}]
-"competitive_landscape.main_competitors[].evidence_url": "URL kde sme našli údaje o konkurentovi"`
+Output JSON presne podľa system promptu. Premysli si stratégiu HĹBAVO pred vygenerovaním — najprv si v hlave urob plán, potom vyplň JSON.`
 
     console.log(`[premium] Calling Anthropic with model ${model} + web_search`)
     // AbortController s explicit 130s timeoutom — pred Supabase Edge 150s hard limit.
@@ -445,7 +440,11 @@ Output JSON podľa system promptu + navyše:
         body: JSON.stringify({
           model,
           max_tokens: 14000,
-          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+          // POZN: web_search tool dočasne odstránený — Sonnet 4.5 + 3 search
+          // calls bežalo nad 130s timeout. Multi-page scrape klientovho webu
+          // + Sonnet training data dáva dostatočnú depth pre kvalitný
+          // proposal. Web search vrátime neskôr cez background processing
+          // (EdgeRuntime.waitUntil + Supabase realtime polling).
           system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content: context }],
         })

@@ -274,7 +274,7 @@ const LeadsModule = {
                   <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : '✨'}</span>
                   <span class="option-text">
                     <strong>Vygenerovať podrobný návrh (Claude Opus)</strong>
-                    <small id="deep-proposal-meta">Deep research · web search konkurentov · 1-2 min · Claude Sonnet 4.5</small>
+                    <small id="deep-proposal-meta">Multi-page scrape · 30-60s · Claude Sonnet 4.5</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
@@ -3256,12 +3256,11 @@ Odkaz je platný 30 dní.
     // Timer ktorý ukazuje koľko sekúnd už beží — user vidí že to robí prácu
     let elapsed = 0;
     const updateMeta = () => {
-      const phase = elapsed < 15 ? 'Skenujem web klienta (multi-page)' :
-                    elapsed < 30 ? 'Claude vyhľadáva konkurenciu + market dáta' :
-                    elapsed < 60 ? 'Extended thinking + reklamné kreatívy' :
-                    elapsed < 150 ? 'Finalizujem podrobný návrh' :
-                                    'Dlhšie ako zvyčajne, vyčkajte…';
-      if (meta) meta.textContent = `⏳ ${elapsed}s — ${phase} (typicky 2-5 min)`;
+      const phase = elapsed < 10 ? 'Skenujem web klienta (multi-page)' :
+                    elapsed < 30 ? 'Claude generuje analýzu a stratégiu' :
+                    elapsed < 60 ? 'Reklamné kreatívy + budget breakdown' :
+                                    'Finalizujem, ešte chvíľu…';
+      if (meta) meta.textContent = `⏳ ${elapsed}s — ${phase}`;
     };
     updateMeta();
     const tickInterval = setInterval(() => { elapsed += 1; updateMeta(); }, 1000);
