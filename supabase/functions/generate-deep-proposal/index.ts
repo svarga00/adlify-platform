@@ -74,11 +74,18 @@ const SECTION_DEFS: Record<string, { label: string; promptKey: string; estimated
 }
 
 const SECTION_PROMPTS: Record<string, string> = {
-  analysis: `Si senior PPC stratég. Vygeneruj sekciu "ANALÝZA FIRMY + SWOT + ONLINE PRÍTOMNOSŤ" pre marketingový proposal v slovenčine. Zákaz emoji. Zákaz floskúl (synergie, best practices, atď.). Konkrétne čísla, krátke vety, expert tone.
+  analysis: `Si senior PPC stratég. Vygeneruj sekciu "ANALÝZA FIRMY + SWOT + ONLINE PRÍTOMNOSŤ + ICP" pre marketingový proposal v slovenčine. Zákaz emoji. Zákaz floskúl (synergie, best practices, atď.). Konkrétne čísla, krátke vety, expert tone.
 
 Vráť VÝLUČNE JSON v tvare:
 {
-  "company": { "name": "...", "domain": "...", "industry": "...", "city": "...", "services": ["..."], "idealCustomer": "..." },
+  "company": { "name": "...", "domain": "...", "industry": "...", "city": "...", "services": ["..."], "idealCustomer": "Detailný opis ICP — 2-3 vety, kto presne, demografia, intent, problém" },
+  "target_audience": {
+    "primary": {
+      "demographics": "1-2 vety demografia (vek, pohlavie, rodinný stav, príjem)",
+      "interests": ["4-6 záujmov ktoré sledujú/lajknú na webe a social"],
+      "behaviors": ["3-5 nákupných správaní (kedy nakupujú, ako sa rozhodujú, čo ich brzdí)"]
+    }
+  },
   "ourFindings": {
     "strengths": [{ "title": "...", "description": "1-2 vety" }],
     "opportunities": [{ "title": "...", "description": "1-2 vety" }]
@@ -203,6 +210,12 @@ Vráť VÝLUČNE JSON:
   },
   "roi": {
     "explanation": "2-3 vety ako sme prišli k ROI (AOV, conversion rate, repeat purchase)",
+    "assumptions": {
+      "avg_order_value_eur": 2800,
+      "conversion_rate_pct": 5,
+      "ltv_multiplier": 1.5,
+      "ltv_eur": 4200
+    },
     "month_1": { "spend_eur": 1500, "leads": 10, "cpl_eur": 150, "revenue_eur": 3000,  "roi_pct": 100, "explanation": "..." },
     "month_3": { "spend_eur": 1500, "leads": 30, "cpl_eur": 50,  "revenue_eur": 9000,  "roi_pct": 500, "explanation": "..." },
     "month_6": { "spend_eur": 2000, "leads": 60, "cpl_eur": 33,  "revenue_eur": 18000, "roi_pct": 800, "explanation": "..." }
@@ -261,13 +274,13 @@ async function generateSection(
 
   const apiBody: any = {
     model,
-    max_tokens: 6000,
+    max_tokens: sectionKey === 'campaigns' ? 12000 : 6000,
     system: SECTION_PROMPTS[def.promptKey],
     messages: [{ role: 'user', content: context }],
   }
   if (def.useWebSearch) {
     apiBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }]
-    apiBody.max_tokens = 8000
+    apiBody.max_tokens = 10000
   }
 
   const abort = new AbortController()
