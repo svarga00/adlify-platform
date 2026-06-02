@@ -1,25 +1,34 @@
 // ==========================================
-// GENERATE DEEP PROPOSAL
+// GENERATE DEEP PROPOSAL (Supabase Edge Function)
 //
 // Vstup:  { leadId, model?, customNotes? }
-// Output: { proposal: {...12 sekcií...}, model, usage }
+// Output: { proposal: {...}, model, generated_at, usage }
 //
-// Volá Claude Opus 4.8 (default) alebo Sonnet 4.6 s detailným
-// promptom. Pred LLM-om scrapne hlavnú stránku klienta (extract
-// text z <title>, <meta description>, <h1>, <h2>, prvých 5K znakov
-// <body>) pre dodatočný context.
+// PREČO Supabase Edge namiesto Netlify function:
+// Netlify free plan má 10s function timeout; Claude Opus generuje
+// 30-60s → request abortuje (504), ale Claude API call už prebehol
+// a user platí kredit bez viditeľného výsledku. Supabase Edge má
+// default timeout 150s, Deno runtime, identický flow.
 //
-// Cena per generácia:
-//   Opus 4.8:    ~$0.30-0.80 (input ~10K tokens, output ~5K)
-//   Sonnet 4.6:  ~$0.05-0.15
+// Deploy: `supabase functions deploy generate-deep-proposal`
+//   alebo cez Supabase Dashboard → Edge Functions → Deploy
 //
-// Env: ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Env (Supabase Dashboard → Edge Functions → Manage Secrets):
+//   ANTHROPIC_API_KEY
+//   SUPABASE_URL (auto)
+//   SUPABASE_SERVICE_ROLE_KEY (auto)
 // ==========================================
 
-const Anthropic = require('@anthropic-ai/sdk').default || require('@anthropic-ai/sdk');
-const { createClient } = require('@supabase/supabase-js');
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const DEFAULT_MODEL = 'claude-opus-4-5';
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+const DEFAULT_MODEL = 'claude-opus-4-5'
 
 const SYSTEM_PROMPT = `Si senior PPC stratég v slovenskej digitálnej marketingovej agentúre s 10+ rokmi skúseností (Google Ads, Meta Ads, LinkedIn, performance marketing).
 
@@ -117,84 +126,91 @@ Tvar JSON odpovede (presne tieto kľúče):
 }
 
 DÔLEŽITÉ:
-- Vráť LEN ten JSON objekt. Žiadne ${'```'}json wrappers. Žiadne komentáre. Žiadny text pred/za.
+- Vráť LEN ten JSON objekt. Žiadne \`\`\`json wrappers. Žiadne komentáre. Žiadny text pred/za.
 - Vždy minimálne 3 kampane, 8-15 keywords, 2-4 kanály.
-- Číselné hodnoty ako čísla, nie stringy ("1500" → 1500).`;
+- Číselné hodnoty ako čísla, nie stringy ("1500" → 1500).`
 
-async function scrapeWebsite(domain) {
-  if (!domain) return '';
+async function scrapeWebsite(domain: string): Promise<string> {
+  if (!domain) return ''
   try {
-    const url = domain.startsWith('http') ? domain : `https://${domain}`;
+    const url = domain.startsWith('http') ? domain : `https://${domain}`
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
     const resp = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
+      signal: controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Adlify-Proposal-Bot/1.0)' }
-    });
-    if (!resp.ok) return '';
-    const html = await resp.text();
-    const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || '';
+    })
+    clearTimeout(timeoutId)
+    if (!resp.ok) return ''
+    const html = await resp.text()
+    const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || ''
     const desc = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)?.[1]
               || html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i)?.[1]
-              || '';
-    const h1s = [...html.matchAll(/<h1[^>]*>([^<]+)<\/h1>/gi)].map(m => m[1].trim()).slice(0, 5);
-    const h2s = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi)].map(m => m[1].trim()).slice(0, 8);
+              || ''
+    const h1Matches = [...html.matchAll(/<h1[^>]*>([^<]+)<\/h1>/gi)]
+    const h2Matches = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi)]
+    const h1s = h1Matches.map(m => m[1].trim()).slice(0, 5)
+    const h2s = h2Matches.map(m => m[1].trim()).slice(0, 8)
     const bodyText = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 4000);
+      .slice(0, 4000)
     return `WEB SCRAPE (${url}):
 Title: ${title}
 Description: ${desc}
 H1: ${h1s.join(' | ')}
 H2: ${h2s.join(' | ')}
-Body excerpt: ${bodyText}`;
+Body excerpt: ${bodyText}`
   } catch (e) {
-    console.warn('Scrape failed:', e.message);
-    return '';
+    console.warn('Scrape failed:', e instanceof Error ? e.message : String(e))
+    return ''
   }
 }
 
-exports.handler = async (event) => {
-  const cors = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: cors, body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: cors, body: 'Method not allowed' };
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { statusCode: 500, headers: cors, body: JSON.stringify({ error: 'ANTHROPIC_API_KEY nie je nastavený v Netlify env vars.' }) };
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    return { statusCode: 500, headers: cors, body: JSON.stringify({ error: 'Supabase env vars chýbajú (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).' }) };
-  }
+  try {
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY chýba v Supabase Edge secrets' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-  let payload;
-  try { payload = JSON.parse(event.body || '{}'); }
-  catch { return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Neplatný JSON' }) }; }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
-  const { leadId, model = DEFAULT_MODEL, customNotes = '' } = payload;
-  if (!leadId) {
-    return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'leadId je povinný' }) };
-  }
+    const body = await req.json()
+    const { leadId, model = DEFAULT_MODEL, customNotes = '' } = body
+    if (!leadId) {
+      return new Response(JSON.stringify({ error: 'leadId je povinný' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  const { data: lead, error: leadErr } = await supabase
-    .from('leads').select('*').eq('id', leadId).single();
-  if (leadErr || !lead) {
-    return { statusCode: 404, headers: cors, body: JSON.stringify({ error: 'Lead nenájdený' }) };
-  }
+    console.log(`[deep-proposal] Loading lead ${leadId}`)
+    const { data: lead, error: leadErr } = await supabase
+      .from('leads').select('*').eq('id', leadId).single()
+    if (leadErr || !lead) {
+      return new Response(JSON.stringify({ error: 'Lead nenájdený: ' + (leadErr?.message || '') }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-  const scrapedContent = await scrapeWebsite(lead.domain);
+    console.log(`[deep-proposal] Scraping ${lead.domain}`)
+    const scrapedContent = await scrapeWebsite(lead.domain)
 
-  const context = `LEAD DATA:
+    const context = `LEAD DATA:
 Firma: ${lead.company_name || 'neuvedené'}
 Doména: ${lead.domain || 'neuvedená'}
 Email: ${lead.email || '—'}
@@ -213,50 +229,73 @@ ${scrapedContent}
 ${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}
 
 ÚLOHA:
-Vygeneruj podrobný marketingový návrh pre TOHTO konkrétneho klienta. Buď extrémne personalizovaný, používaj reálne čísla, zmieni doménu/mesto/produktov. Output je JSON podľa system promptu.`;
+Vygeneruj podrobný marketingový návrh pre TOHTO konkrétneho klienta. Buď extrémne personalizovaný, používaj reálne čísla, zmieni doménu/mesto/produktov. Output je JSON podľa system promptu.`
 
-  try {
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model,
-      max_tokens: 8000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: context }],
-    });
+    console.log(`[deep-proposal] Calling Anthropic with model ${model}`)
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 8000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: context }],
+      })
+    })
 
-    const text = (response.content || []).map(c => c.text || '').join('').trim();
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    let proposal;
-    try { proposal = JSON.parse(cleaned); }
-    catch {
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error('Model nevrátil platný JSON');
-      proposal = JSON.parse(match[0]);
+    const claudeJson = await claudeRes.json()
+    if (claudeJson.error) {
+      console.error('[deep-proposal] Anthropic error:', claudeJson.error)
+      return new Response(JSON.stringify({ error: claudeJson.error.message || 'Anthropic API chyba' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    const generatedAt = new Date().toISOString();
-    await supabase.from('leads').update({
+    const text = (claudeJson.content || []).map((c: any) => c.text || '').join('').trim()
+    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    let proposal
+    try { proposal = JSON.parse(cleaned) }
+    catch {
+      const match = cleaned.match(/\{[\s\S]*\}/)
+      if (!match) {
+        console.error('[deep-proposal] Cannot parse JSON. Raw text:', cleaned.slice(0, 500))
+        throw new Error('Model nevrátil platný JSON')
+      }
+      proposal = JSON.parse(match[0])
+    }
+
+    const generatedAt = new Date().toISOString()
+    console.log(`[deep-proposal] Saving to DB for lead ${leadId}`)
+    const { error: updateErr } = await supabase.from('leads').update({
       deep_proposal: proposal,
       deep_proposal_generated_at: generatedAt,
       deep_proposal_model: model,
-    }).eq('id', leadId);
+    }).eq('id', leadId)
 
-    return {
-      statusCode: 200,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        proposal,
-        model,
-        generated_at: generatedAt,
-        usage: response.usage || null,
-      }),
-    };
+    if (updateErr) {
+      console.error('[deep-proposal] DB update error:', updateErr)
+      // Vraciame proposal aj keď DB update zlyhal — user nestratí výsledok
+    }
+
+    return new Response(JSON.stringify({
+      proposal,
+      model,
+      generated_at: generatedAt,
+      usage: claudeJson.usage || null,
+      db_saved: !updateErr,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   } catch (err) {
-    console.error('generate-deep-proposal error', err);
-    return {
-      statusCode: 500,
-      headers: cors,
-      body: JSON.stringify({ error: err.message || 'Chyba pri generovaní návrhu' }),
-    };
+    console.error('[deep-proposal] Fatal error:', err)
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Neočakávaná chyba' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
-};
+})
