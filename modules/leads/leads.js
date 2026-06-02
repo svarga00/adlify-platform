@@ -122,6 +122,7 @@ const LeadsModule = {
         // Cache lead in list for in-page updates (tags, notes, tasks)
         if (!this.leads.find(l => l.id === lead.id)) this.leads.push(lead);
         container.innerHTML = this._renderLeadDetailPage(lead);
+        this._ensureModalsInBody();
         this.loadLeadTasks(lead.id);
         return;
       }
@@ -1531,7 +1532,10 @@ const LeadsModule = {
               <div class="adl-card">
                 <div class="adl-card-header">
                   <div class="adl-card-title">AI Analýza · Marketing Miner</div>
-                  <span class="adl-chip adl-chip-lav adl-chip-sm"><span class="dot"></span>Dokončené</span>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    ${hasAnalysis ? `<button onclick="LeadsModule.editAnalysis()" class="adl-btn adl-btn-outline adl-btn-sm" title="Upraviť obsah analýzy: texty, fotky, rozpočet, balíček, sekcie">${I.Edit({size:13})} Upraviť analýzu</button>` : ''}
+                    <span class="adl-chip adl-chip-lav adl-chip-sm"><span class="dot"></span>Dokončené</span>
+                  </div>
                 </div>
                 <div class="adl-card-body">
                   ${hasMM ? `
@@ -2343,6 +2347,28 @@ const LeadsModule = {
   closeModal() {
     const modal = document.getElementById('analysis-modal');
     if (modal) modal.style.display = 'none';
+  },
+
+  // Detail page (_renderLeadDetailPage) je full-page, nerendruje sa
+  // this.template() ktorý obsahuje analysis-modal, edit-modal,
+  // proposal-modal, email-modal. Tento helper ich pridá do body
+  // ako fallback, aby editAnalysis() / generateProposal() / atď.
+  // našli ich getElementById a fungovali z detail page tiež.
+  _ensureModalsInBody() {
+    const modalIds = ['analysis-modal', 'edit-modal', 'proposal-modal', 'email-modal'];
+    const allExist = modalIds.every(id => document.getElementById(id));
+    if (allExist) return;
+
+    // Extrahuj modaly z this.template() — vyparsujeme z hlavnej template
+    // a appendneme len chýbajúce. template() je čistý HTML string.
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'none';
+    wrapper.innerHTML = this.template();
+    for (const id of modalIds) {
+      if (document.getElementById(id)) continue;
+      const el = wrapper.querySelector(`#${id}`);
+      if (el) document.body.appendChild(el);
+    }
   },
 
   editAnalysis() {
