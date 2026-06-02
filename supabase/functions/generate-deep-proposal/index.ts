@@ -547,6 +547,85 @@ serve(async (req) => {
       console.log(`[premium] Previous run stuck (${ageMs}ms old), restarting`)
     }
 
+    // Test mode — vráti mock premium_analysis bez Anthropic call (žiadny kredit).
+    // Aktivácia cez { testMode: true } v request body.
+    if (body.testMode) {
+      console.log(`[premium] TEST MODE — vraciam mock data, žiadny Anthropic call`)
+      const mockPremium = {
+        company: {
+          name: lead.company_name || 'Test Company',
+          domain: lead.domain || 'test.sk',
+          industry: lead.industry || 'IT služby',
+          city: lead.city || 'Bratislava',
+          services: ['Testovacia služba 1', 'Testovacia služba 2', 'Testovacia služba 3'],
+          idealCustomer: 'Mock ICP popis pre testovanie UI render flow bez Anthropic kreditu.'
+        },
+        executive_summary: 'TEST MODE — toto je mock executive summary pre testovanie HTML proposal template renderu. Žiadny Anthropic call sa neuskutočnil, žiadny kredit nebol minutý. Slúži na overenie že buildProposalHTML + adapter správne mapuje schema.',
+        ourFindings: {
+          strengths: [{ title: 'Mock silná stránka', description: 'Test description' }],
+          opportunities: [{ title: 'Mock príležitosť', description: 'Test description' }]
+        },
+        swot: {
+          strengths: ['Test S1', 'Test S2'],
+          weaknesses: ['Test W1'],
+          opportunities: ['Test O1', 'Test O2'],
+          threats: ['Test T1']
+        },
+        keywords: {
+          primary: [{ keyword: 'test keyword 1', search_volume: 1200, cpc_eur: 0.45, intent: 'buy', priority: 'high' }],
+          secondary: [{ keyword: 'test keyword 2', search_volume: 300, cpc_eur: 0.30, intent: 'info' }],
+          longTail: [{ keyword: 'test long tail', search_volume: 50, cpc_eur: 0.18 }]
+        },
+        strategy: {
+          overview: 'Test stratégia overview',
+          channels: [{ name: 'Google Ads — Search', monthly_budget_eur: 800, rationale: 'Test rationale', expected_kpi: '20 leadov/mes' }],
+          creativeApproach: 'Test creative approach'
+        },
+        proposedCampaigns: {
+          google: { searchCampaign: { name: 'Test Search', monthly_budget_eur: 400, objective: 'Test', adGroups: [{ name: 'AG 1', keywords: ['kw1', 'kw2'], adCopy: { headlines: ['H1', 'H2'], descriptions: ['D1', 'D2'] } }] } },
+          meta: { campaign: { name: 'Test Meta', monthly_budget_eur: 300, adSets: [{ name: 'AS 1', adCopy: { primaryText: 'Test text', headline: 'Test', cta: 'Zistiť viac' } }] } }
+        },
+        budget: {
+          summary: 'Test budget summary',
+          monthly_total_eur: 1500,
+          recommendations: {
+            conservative: { totalBudget: 1000, leads: 15, description: 'test' },
+            moderate: { totalBudget: 1500, leads: 30, description: 'test' },
+            aggressive: { totalBudget: 2500, leads: 60, description: 'test' }
+          },
+          avgCpc: 0.50,
+          six_month_projection_eur: 9000
+        },
+        roi: {
+          explanation: 'Test ROI explanation',
+          month_1: { spend_eur: 1500, leads: 10, cpl_eur: 150, revenue_eur: 3000, roi_pct: 100 },
+          month_3: { spend_eur: 1500, leads: 30, cpl_eur: 50, revenue_eur: 9000, roi_pct: 500 },
+          month_6: { spend_eur: 2000, leads: 60, cpl_eur: 33, revenue_eur: 18000, roi_pct: 800 }
+        },
+        next_steps: ['Test krok 1', 'Test krok 2'],
+        unique_insight: 'TEST MODE — toto je mock unique insight.'
+      }
+      const generatedAt = new Date().toISOString()
+      await supabase.from('leads').update({
+        premium_analysis: mockPremium,
+        premium_analysis_generated_at: generatedAt,
+        premium_analysis_model: 'TEST_MODE',
+        premium_analysis_status: 'done',
+        deep_proposal: mockPremium,
+        deep_proposal_generated_at: generatedAt,
+        deep_proposal_model: 'TEST_MODE',
+      }).eq('id', leadId)
+      return new Response(JSON.stringify({
+        status: 'started',
+        leadId,
+        model: 'TEST_MODE',
+        message: 'Test mode — mock data uložené do DB, žiadny kredit',
+      }), {
+        status: 202,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Spusti background worker — vráti 202 do 1s, generácia beží na pozadí
     // do 6.6 minút (Supabase Edge background limit).
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
