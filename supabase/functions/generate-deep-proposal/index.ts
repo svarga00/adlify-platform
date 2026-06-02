@@ -26,7 +26,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5'
+const DEFAULT_MODEL = 'claude-opus-4-5'
 
 const SYSTEM_PROMPT = `Si senior PPC stratég v slovenskej digitálnej marketingovej agentúre s 10+ rokmi skúseností (Google Ads, Meta Ads, LinkedIn, performance marketing).
 
@@ -349,6 +349,147 @@ async function deepScrape(domain: string): Promise<string> {
   return pages.map(p => extractPageContent(p.url, p.html)).join('\n\n---\n\n')
 }
 
+// Background worker — beží do 400s cez EdgeRuntime.waitUntil.
+// Po dokončení uloží premium_analysis do DB, frontend dostane realtime UPDATE.
+async function runPremiumGeneration(
+  apiKey: string,
+  supabase: any,
+  lead: any,
+  model: string,
+  customNotes: string,
+) {
+  const leadId = lead.id
+  try {
+    // Označ status pending v DB — frontend vidí že beží
+    await supabase.from('leads').update({
+      premium_analysis_status: 'generating',
+      premium_analysis_started_at: new Date().toISOString(),
+    }).eq('id', leadId)
+
+    console.log(`[premium-bg] Deep scrape ${lead.domain}`)
+    const scrapedContent = await deepScrape(lead.domain)
+    console.log(`[premium-bg] Scrape done, calling Anthropic`)
+
+    const context = buildContext(lead, scrapedContent, customNotes)
+
+    // Anthropic call s web_search + extended thinking + Opus.
+    // Background timeout 380s — pred Supabase Edge background limit 400s.
+    const anthropicAbort = new AbortController()
+    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 380000)
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: anthropicAbort.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 20000,
+        thinking: { type: 'enabled', budget_tokens: 8000 },
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: context }],
+      })
+    })
+    clearTimeout(anthropicTimeout)
+
+    const claudeJson = await claudeRes.json()
+    if (claudeJson.error) {
+      console.error('[premium-bg] Anthropic error:', claudeJson.error)
+      await supabase.from('leads').update({
+        premium_analysis_status: 'error',
+        premium_analysis_error: claudeJson.error.message || 'Anthropic error',
+      }).eq('id', leadId)
+      return
+    }
+
+    const text = (claudeJson.content || [])
+      .filter((c: any) => c.type === 'text')
+      .map((c: any) => c.text || '').join('').trim()
+    console.log(`[premium-bg] Got ${text.length} chars + ${(claudeJson.content || []).length} content blocks`)
+
+    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    let premium
+    try { premium = JSON.parse(cleaned) }
+    catch {
+      const match = cleaned.match(/\{[\s\S]*\}/)
+      if (!match) {
+        console.error('[premium-bg] Cannot parse JSON. Raw:', cleaned.slice(0, 1000))
+        await supabase.from('leads').update({
+          premium_analysis_status: 'error',
+          premium_analysis_error: 'Model nevrátil platný JSON',
+        }).eq('id', leadId)
+        return
+      }
+      premium = JSON.parse(match[0])
+    }
+
+    const generatedAt = new Date().toISOString()
+    console.log(`[premium-bg] Saving to DB for lead ${leadId}`)
+    await supabase.from('leads').update({
+      premium_analysis: premium,
+      premium_analysis_generated_at: generatedAt,
+      premium_analysis_model: model,
+      premium_analysis_status: 'done',
+      premium_analysis_error: null,
+      // Backwards compat
+      deep_proposal: premium,
+      deep_proposal_generated_at: generatedAt,
+      deep_proposal_model: model,
+    }).eq('id', leadId)
+
+    console.log(`[premium-bg] DONE lead=${leadId}`)
+  } catch (err) {
+    console.error('[premium-bg] Fatal:', err)
+    await supabase.from('leads').update({
+      premium_analysis_status: 'error',
+      premium_analysis_error: err instanceof Error ? err.message : String(err),
+    }).eq('id', leadId)
+  }
+}
+
+function buildContext(lead: any, scrapedContent: string, customNotes: string): string {
+  return `LEAD DATA:
+Firma: ${lead.company_name || 'neuvedené'}
+Doména: ${lead.domain || 'neuvedená'}
+Email: ${lead.email || '—'}
+Telefón: ${lead.phone || '—'}
+Odvetvie: ${lead.industry || lead.analysis?.company?.industry || 'neuvedené'}
+Mesto / lokalita: ${lead.city || lead.analysis?.company?.city || lead.analysis?.company?.location || 'neuvedené'}
+
+PÔVODNÁ AI ANALÝZA (od analyze-lead Edge function):
+${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 10000)}
+
+MARKETING DATA (Marketing Miner):
+${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 5000)}
+
+DEEP WEB SCRAPE (homepage + 3 relevantné podstránky klienta):
+${scrapedContent}
+
+${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}
+
+ÚLOHA:
+Si senior PPC stratég s 10+ rokmi skúseností na slovenskom trhu. Background mode — máš čas (do 6 min). Použij:
+
+1. DETAILNÝ web scrape klientovho webu — extrahuj produkty, služby, ceny, USP, target audience, tone of voice, technologie ktoré používa
+2. Pôvodnú AI analýzu — keywords, SWOT, market context
+3. **web_search tool** — vyhľadaj REÁLNE údaje:
+   • Top 5 konkurentov v ${lead.industry || 'odvetví'} v lokalite ${lead.city || 'SR'} — meno, web, USP, čo robia inak
+   • Aktuálne CPC / CTR / CR benchmarky pre tento segment na SK (alebo CZ ako proxy)
+   • Trendy / regulácie / sezónnosť relevantné pre toto odvetvie
+   • Prípadové štúdie / success stories podobných klientov
+
+Max 5 search dotazov. Citácie URL ulož do "research_sources" v output JSON. main_competitors[] majú "evidence_url" pre overiteľnosť.
+
+ANTI-AI VOICE: výstup nesmie vyzerať ako vygenerovaný AI. Píš ako skutočný senior konzultant — konkrétne čísla, špecifické pozorovania, nie všeobecné rady. Vyhni sa frázam ako "v dnešnej rýchlo sa meniacej digitálnej krajine", "leveraging synergies", "best practices", "kľúčové aktíva". Krátke vety, konkrétne príklady, taktické postupy.
+
+Output JSON presne podľa system promptu. Premysli si stratégiu HĹBAVO pred vygenerovaním — extended thinking je zapnuté, využij to.`
+}
+
+declare const EdgeRuntime: { waitUntil: (promise: Promise<any>) => void } | undefined
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -386,143 +527,32 @@ serve(async (req) => {
       })
     }
 
-    console.log(`[premium] Deep scrape ${lead.domain}`)
-    const scrapedContent = await deepScrape(lead.domain)
-
-    const context = `LEAD DATA:
-Firma: ${lead.company_name || 'neuvedené'}
-Doména: ${lead.domain || 'neuvedená'}
-Email: ${lead.email || '—'}
-Telefón: ${lead.phone || '—'}
-Odvetvie: ${lead.industry || lead.analysis?.company?.industry || 'neuvedené'}
-Mesto / lokalita: ${lead.city || lead.analysis?.company?.city || lead.analysis?.company?.location || 'neuvedené'}
-
-PÔVODNÁ AI ANALÝZA (od analyze-lead Edge function):
-${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 10000)}
-
-MARKETING DATA (Marketing Miner):
-${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 5000)}
-
-DEEP WEB SCRAPE (homepage + relevantné podstránky klienta):
-${scrapedContent}
-
-${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}
-
-ÚLOHA:
-Si senior PPC stratég s 10+ rokmi skúseností na slovenskom trhu. Použij:
-1. DETAILNÝ web scrape klientovho webu (homepage + 3 podstránky vyššie) — extrahuj produkty, služby, cenu, USP, target audience, tone of voice
-2. Pôvodnú AI analýzu (analyze-lead) — keywords, marketing data, SWOT
-3. Tvoje vlastné znalosti slovenského PPC trhu (konkurencia v odvetví, typické CPC/CTR/CR pre segment, benchmarky)
-
-Konkurencia v odvetví ${lead.industry || ''} na SK: pomenuj realisticky 3-5 hráčov ktorých poznáš z trénovacích dát alebo odhadom (uvedom "názov firmy (odhadom)" ak nie si si istý).
-
-Vygeneruj PREMIUM marketingový návrh — extrémne podrobný, personalizovaný, s konkrétnymi reklamnými kreatívami pre Google Ads, Meta (FB+IG), Instagram Stories, LinkedIn, Display. Klient po prečítaní musí mať pocit "presne to potrebujem, kde mám podpísať". Žiadne emoji.
-
-Output JSON presne podľa system promptu. Premysli si stratégiu HĹBAVO pred vygenerovaním — najprv si v hlave urob plán, potom vyplň JSON.`
-
-    console.log(`[premium] Calling Anthropic with model ${model} + web_search`)
-    // AbortController s explicit 130s timeoutom — pred Supabase Edge 150s hard limit.
-    // Bez tohto: pri prekročení 150s Supabase function abortne PRED return → browser
-    // dostane "Failed to fetch" bez CORS headers (klasická "blocked by CORS policy" chyba).
-    // S týmto: dostaneme JSON error s CORS headers a user vidí konkrétny error.
-    const anthropicAbort = new AbortController()
-    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 130000)
-    let claudeRes: Response
-    try {
-      claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        signal: anthropicAbort.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 14000,
-          // POZN: web_search tool dočasne odstránený — Sonnet 4.5 + 3 search
-          // calls bežalo nad 130s timeout. Multi-page scrape klientovho webu
-          // + Sonnet training data dáva dostatočnú depth pre kvalitný
-          // proposal. Web search vrátime neskôr cez background processing
-          // (EdgeRuntime.waitUntil + Supabase realtime polling).
-          system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-          messages: [{ role: 'user', content: context }],
-        })
-      })
-      clearTimeout(anthropicTimeout)
-    } catch (fetchErr) {
-      clearTimeout(anthropicTimeout)
-      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
-      const isTimeout = msg.includes('aborted') || msg.includes('timeout')
-      console.error('[premium] Anthropic fetch failed:', msg)
-      return new Response(JSON.stringify({
-        error: isTimeout
-          ? 'Generácia trvala dlhšie ako 130s. Skús znova s jednoduchším promptom alebo skús neskôr.'
-          : 'Spojenie s Anthropic API zlyhalo: ' + msg
-      }), {
-        status: 504,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const claudeJson = await claudeRes.json()
-    if (claudeJson.error) {
-      console.error('[premium] Anthropic error:', claudeJson.error)
-      return new Response(JSON.stringify({ error: claudeJson.error.message || 'Anthropic API chyba' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Output content array može obsahovať: thinking blocks, tool_use blocks (web_search),
-    // tool_result blocks, a finálne text bloky s JSON output. Extrahujeme len text bloky.
-    const text = (claudeJson.content || [])
-      .filter((c: any) => c.type === 'text')
-      .map((c: any) => c.text || '').join('').trim()
-    console.log(`[premium] Got ${text.length} chars text + ${(claudeJson.content || []).length} content blocks`)
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    let premium
-    try { premium = JSON.parse(cleaned) }
-    catch {
-      const match = cleaned.match(/\{[\s\S]*\}/)
-      if (!match) {
-        console.error('[premium] Cannot parse JSON. Raw text:', cleaned.slice(0, 1000))
-        throw new Error('Model nevrátil platný JSON')
-      }
-      premium = JSON.parse(match[0])
-    }
-
-    const generatedAt = new Date().toISOString()
-    console.log(`[premium] Saving to DB for lead ${leadId}`)
-    const { error: updateErr } = await supabase.from('leads').update({
-      premium_analysis: premium,
-      premium_analysis_generated_at: generatedAt,
-      premium_analysis_model: model,
-      // Zachováme aj starý deep_proposal stĺpec pre backwards compat
-      deep_proposal: premium,
-      deep_proposal_generated_at: generatedAt,
-      deep_proposal_model: model,
-    }).eq('id', leadId)
-
-    if (updateErr) {
-      console.error('[premium] DB update error:', updateErr)
+    // Spusti background worker — vráti 202 do 1s, generácia beží na pozadí
+    // do 6.6 minút (Supabase Edge background limit).
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+      EdgeRuntime.waitUntil(runPremiumGeneration(apiKey, supabase, lead, model, customNotes))
+    } else {
+      // Fallback ak EdgeRuntime nie je dostupný (local dev)
+      runPremiumGeneration(apiKey, supabase, lead, model, customNotes).catch(e =>
+        console.error('Background fallback error:', e)
+      )
     }
 
     return new Response(JSON.stringify({
-      premium_analysis: premium,
-      proposal: premium, // alias pre frontend backwards compat
+      status: 'started',
+      leadId,
       model,
-      generated_at: generatedAt,
-      usage: claudeJson.usage || null,
-      db_saved: !updateErr,
+      message: 'Generácia spustená na pozadí — výsledok sa zobrazí cez Supabase realtime alebo opätovné načítanie',
     }), {
+      status: 202,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    console.error('[premium] Fatal error:', err)
+    console.error('[premium] Handler error:', err)
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Neočakávaná chyba' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
+

@@ -274,7 +274,7 @@ const LeadsModule = {
                   <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : '✨'}</span>
                   <span class="option-text">
                     <strong>Vygenerovať podrobný návrh (Claude Opus)</strong>
-                    <small id="deep-proposal-meta">Multi-page scrape · 30-60s · Claude Sonnet 4.5</small>
+                    <small id="deep-proposal-meta">Background mode · web research + Claude Opus 4.5 · 2-5 min</small>
                   </span>
                 </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
@@ -3238,8 +3238,10 @@ Odkaz je platný 30 dní.
     return '<p>' + plainText.replace(/\n/g, '<br>') + '</p>' + (proposalUrl ? '<p><a href="' + proposalUrl + '">Zobraziť ponuku</a></p>' : '');
   },
   
-  // Volá netlify function generate-deep-proposal — Claude Opus 4.8.
-  // 30-60s. Output uloží do lead.deep_proposal + renderne v modale.
+  // Volá Supabase Edge function generate-deep-proposal v BACKGROUND mode.
+  // Edge function vráti 202 do 1s, generácia beží na pozadí do 6 minút.
+  // Frontend subscriber na Supabase realtime UPDATE event → automatický
+  // otvor proposalu keď je hotové.
   async generateDeepProposal() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead?.analysis) return Utils.toast('Najprv spustite AI analýzu', 'warning');
@@ -3256,11 +3258,12 @@ Odkaz je platný 30 dní.
     // Timer ktorý ukazuje koľko sekúnd už beží — user vidí že to robí prácu
     let elapsed = 0;
     const updateMeta = () => {
-      const phase = elapsed < 10 ? 'Skenujem web klienta (multi-page)' :
-                    elapsed < 30 ? 'Claude generuje analýzu a stratégiu' :
-                    elapsed < 60 ? 'Reklamné kreatívy + budget breakdown' :
-                                    'Finalizujem, ešte chvíľu…';
-      if (meta) meta.textContent = `⏳ ${elapsed}s — ${phase}`;
+      const phase = elapsed < 15  ? 'Skenujem web klienta (multi-page)' :
+                    elapsed < 60  ? 'Claude vyhľadáva konkurentov + market dáta' :
+                    elapsed < 180 ? 'Extended thinking + reklamné kreatívy' :
+                    elapsed < 300 ? 'Finalizujem podrobný návrh' :
+                                    'Trvá dlhšie ako zvyčajne, vyčkajte…';
+      if (meta) meta.textContent = `⏳ ${elapsed}s — ${phase} (background, môžete zatvoriť okno)`;
     };
     updateMeta();
     const tickInterval = setInterval(() => { elapsed += 1; updateMeta(); }, 1000);
@@ -3270,7 +3273,7 @@ Odkaz je platný 30 dní.
       const session = await Database.client.auth.getSession();
       const token = session?.data?.session?.access_token || '';
       const supabaseAnonKey = (typeof Config !== 'undefined' ? Config.get('supabase_key') : '') || (window.SUPABASE_ANON_KEY) || '';
-      console.log('[DeepProposal] Calling Supabase Edge Function:', this.DEEP_PROPOSAL_URL);
+      console.log('[DeepProposal] Calling Supabase Edge Function (background):', this.DEEP_PROPOSAL_URL);
       const resp = await fetch(this.DEEP_PROPOSAL_URL, {
         method: 'POST',
         headers: {
@@ -3284,55 +3287,107 @@ Odkaz je platný 30 dní.
       const data = await resp.json();
       console.log('[DeepProposal] Response data:', data);
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-      const proposal = data.premium_analysis || data.proposal;
-      if (!proposal) throw new Error('Server vrátil success ale chýba premium_analysis v response');
+      if (data.status !== 'started') throw new Error('Server nevrátil expected status: started');
 
-      clearInterval(tickInterval);
-      lead.premium_analysis = proposal;
-      lead.premium_analysis_generated_at = data.generated_at;
-      lead.premium_analysis_model = data.model;
-      // backwards-compat aliasy
-      lead.deep_proposal = proposal;
-      lead.deep_proposal_generated_at = data.generated_at;
-      lead.deep_proposal_model = data.model;
+      // Background mode: Edge fn vrátil 202 hneď. Generácia beží na pozadí
+      // do 6 minút. Použijeme Supabase realtime subscription na zmeny lead
+      // riadku — keď premium_analysis_status sa zmení na 'done' → otvor proposal.
+      this._subscribeToPremiumStatus(lead.id, tickInterval, meta, btn);
 
-      // Otvor priamo pôvodný proposal HTML template s novými dátami v novom okne
-      try {
-        const compatAnalysis = this._premiumToTemplateSchema(proposal, lead);
-        const html = this.buildProposalHTML(lead, compatAnalysis);
-        const blob = new Blob([html], { type: 'text/html' });
-        window.open(URL.createObjectURL(blob), '_blank');
-        this.closeProposalModal();
-        Utils.toast('Premium návrh vygenerovaný — otvorený v novom okne', 'success');
-      } catch (renderErr) {
-        console.error('[DeepProposal] HTML render failed:', renderErr);
-        // Fallback inline render
-        try {
-          this._renderDeepProposal(proposal, data.model, data.generated_at);
-          if (meta) meta.textContent = `✓ Vygenerované ${new Date(data.generated_at).toLocaleString('sk-SK')} · ${data.model}`;
-          Utils.toast('Návrh vygenerovaný (inline fallback render)', 'warning');
-        } catch (e) {
-          if (output) {
-            output.innerHTML = `<div style="padding:14px;background:#fef3c7;color:#92400e;border-radius:10px;">Návrh vygenerovaný (HTML render zlyhal). <button onclick="LeadsModule.openPremiumProposal()" class="adl-btn adl-btn-primary adl-btn-sm">Otvoriť v okne</button></div><pre style="background:#f8fafc;padding:12px;border-radius:8px;font-size:11px;overflow:auto;max-height:400px;margin-top:8px;">${JSON.stringify(proposal, null, 2)}</pre>`;
-            output.style.display = 'block';
-          }
-        }
-      }
-
-      // Refresh hero actions + leads list
-      const heroEl = document.getElementById('lead-hero-actions');
-      if (heroEl) heroEl.innerHTML = this._renderHeroActions(lead);
-      const listEl = document.getElementById('leads-list');
-      if (listEl) listEl.innerHTML = this.renderLeadsList();
+      Utils.toast('Generácia spustená na pozadí (2-6 min). Môžete pokračovať v práci.', 'info');
     } catch (err) {
       console.error('[DeepProposal] Error:', err);
       Utils.toast('Chyba: ' + (err.message || err), 'error');
       clearInterval(tickInterval);
       if (meta) meta.textContent = origMeta;
-    } finally {
       btn.disabled = false;
       btn.style.opacity = '1';
     }
+  },
+
+  // Supabase realtime subscription na lead row UPDATE.
+  // Keď premium_analysis_status sa zmení → reagujeme (otvor proposal / chybu).
+  // Fallback: polling každých 8s ak realtime zlyhal.
+  _subscribeToPremiumStatus(leadId, tickInterval, meta, btn) {
+    let resolved = false;
+    const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(tickInterval);
+      if (channel) Database.client.removeChannel(channel);
+      clearInterval(pollInterval);
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    };
+
+    const handleUpdate = async (newRow) => {
+      if (!newRow || resolved) return;
+      if (newRow.premium_analysis_status === 'done' && newRow.premium_analysis) {
+        const lead = this.leads.find(l => l.id === leadId);
+        if (lead) {
+          Object.assign(lead, {
+            premium_analysis: newRow.premium_analysis,
+            premium_analysis_generated_at: newRow.premium_analysis_generated_at,
+            premium_analysis_model: newRow.premium_analysis_model,
+            premium_analysis_status: 'done',
+            deep_proposal: newRow.premium_analysis,
+            deep_proposal_generated_at: newRow.premium_analysis_generated_at,
+            deep_proposal_model: newRow.premium_analysis_model,
+          });
+        }
+        if (meta) meta.textContent = `✓ Hotovo · ${newRow.premium_analysis_model}`;
+        Utils.toast('Premium návrh hotový — otvoram v novom okne', 'success');
+        // Otvor proposal v novom okne
+        try {
+          const compatAnalysis = this._premiumToTemplateSchema(newRow.premium_analysis, lead);
+          const html = this.buildProposalHTML(lead, compatAnalysis);
+          const blob = new Blob([html], { type: 'text/html' });
+          window.open(URL.createObjectURL(blob), '_blank');
+          this.closeProposalModal();
+        } catch (e) {
+          console.error('[DeepProposal] Open failed:', e);
+        }
+        // Refresh hero actions + leads list
+        const heroEl = document.getElementById('lead-hero-actions');
+        if (heroEl) heroEl.innerHTML = this._renderHeroActions(lead);
+        const listEl = document.getElementById('leads-list');
+        if (listEl) listEl.innerHTML = this.renderLeadsList();
+        cleanup();
+      } else if (newRow.premium_analysis_status === 'error') {
+        Utils.toast('Chyba pri generácii: ' + (newRow.premium_analysis_error || 'neznáma'), 'error');
+        if (meta) meta.textContent = 'Chyba: ' + (newRow.premium_analysis_error || 'neznáma');
+        cleanup();
+      }
+    };
+
+    // Realtime subscription
+    const channel = Database.client
+      .channel(`lead-premium-${leadId}-${Date.now()}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leads', filter: `id=eq.${leadId}` },
+        (payload) => {
+          console.log('[DeepProposal] Realtime UPDATE:', payload.new);
+          handleUpdate(payload.new);
+        }
+      )
+      .subscribe((status) => {
+        console.log('[DeepProposal] Realtime subscription status:', status);
+      });
+
+    // Fallback polling každých 8s — pre prípad že realtime zlyhal
+    const pollInterval = setInterval(async () => {
+      if (resolved) return clearInterval(pollInterval);
+      const { data: row } = await Database.client.from('leads')
+        .select('premium_analysis, premium_analysis_status, premium_analysis_generated_at, premium_analysis_model, premium_analysis_error')
+        .eq('id', leadId).single();
+      if (row) handleUpdate(row);
+    }, 8000);
+
+    // Safety timeout 7 min — ak Edge function zlyhala v pozadí bez DB update
+    setTimeout(() => {
+      if (resolved) return;
+      Utils.toast('Generácia trvá dlhšie ako 7 min — niekde zlyhala. Skús znova.', 'warning');
+      cleanup();
+    }, 7 * 60 * 1000);
   },
 
   _renderDeepProposal(p, model, generatedAt) {
