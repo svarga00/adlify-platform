@@ -1174,25 +1174,38 @@ async function runPremiumGeneration(
   lead: any,
   model: string,
   customNotes: string,
-) {
+): Promise<{ premium?: any; generatedAt?: string; usage?: any; error?: string }> {
   const leadId = lead.id
   try {
-    // Označ status pending v DB — frontend vidí že beží
+    // Označ status pending v DB — frontend vidí že beží (UI feedback)
     await supabase.from('leads').update({
       premium_analysis_status: 'generating',
       premium_analysis_started_at: new Date().toISOString(),
     }).eq('id', leadId)
 
-    console.log(`[premium-bg] Deep scrape ${lead.domain}`)
-    const scrapedContent = await deepScrape(lead.domain)
-    console.log(`[premium-bg] Scrape done, calling Anthropic`)
+    // Skip scrape ak admin uploadol bohaté MM dáta — máme všetko čo potrebujeme
+    // (Contact Finder, web_category, tech_detection, seo_audit pages,
+    // keyword_volumes, ppc_competitors, serp_analysis). Scrape pridáva len
+    // marginal value a robí ~3-5s extra.
+    const mmReports = lead.marketing_data?.mm_reports || {}
+    const hasRichMM = Object.keys(mmReports).length >= 3 ||
+                       !!mmReports.seo_audit ||
+                       !!mmReports.keyword_volumes
+    let scrapedContent = ''
+    if (hasRichMM) {
+      console.log(`[premium-bg] Skip scrape — má MM dáta (${Object.keys(mmReports).length} reportov)`)
+    } else {
+      console.log(`[premium-bg] Deep scrape ${lead.domain}`)
+      scrapedContent = await deepScrape(lead.domain)
+      console.log(`[premium-bg] Scrape done, calling Anthropic`)
+    }
 
     const context = buildContext(lead, scrapedContent, customNotes)
 
-    // Anthropic call s web_search + extended thinking + Opus.
-    // Background timeout 380s — pred Supabase Edge background limit 400s.
+    // Foreground sync — timeout 120s (Supabase Edge foreground limit má
+    // viac priestoru než background waitUntil, ale stále finite).
     const anthropicAbort = new AbortController()
-    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 380000)
+    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 120000)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: anthropicAbort.signal,
@@ -1203,13 +1216,10 @@ async function runPremiumGeneration(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 16000,
-        // web_search vypnutý — Anthropic web_search 2 uses zaberie 60-120s
-        // čo prekračuje Supabase Edge background task limit (na tomto
-        // projekte cca 60-90s podľa logov). Bez search Haiku/Sonnet dokončia
-        // call za 20-60s — bezpečne v limite.
-        // Konkurenti sa berú z MM dát (presnejšie aj tak), ak admin dodal.
-        // tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }],
+        // Znížené z 16K na 10K — donúti model byť stručnejší, aj zabezpečí
+        // rýchlejší response. 10K stačí pre full proposal so všetkými
+        // sekciami pri kompaktnom JSON.
+        max_tokens: 10000,
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: context }],
       })
@@ -1218,60 +1228,59 @@ async function runPremiumGeneration(
 
     const claudeJson = await claudeRes.json()
     if (claudeJson.error) {
-      console.error('[premium-bg] Anthropic error:', claudeJson.error)
+      console.error('[premium] Anthropic error:', claudeJson.error)
       await supabase.from('leads').update({
         premium_analysis_status: 'error',
         premium_analysis_error: claudeJson.error.message || 'Anthropic error',
       }).eq('id', leadId)
-      return
+      return { error: claudeJson.error.message || 'Anthropic error' }
     }
 
     const text = (claudeJson.content || [])
       .filter((c: any) => c.type === 'text')
       .map((c: any) => c.text || '').join('').trim()
-    console.log(`[premium-bg] Got ${text.length} chars + ${(claudeJson.content || []).length} content blocks · stop_reason=${claudeJson.stop_reason}`)
+    console.log(`[premium] Got ${text.length} chars + ${(claudeJson.content || []).length} content blocks · stop_reason=${claudeJson.stop_reason}`)
 
-    // Robustný parse — rovnaký repair pipeline ako v section mode (smart
-    // quotes, trailing commas, raw newlines v stringoch, unescaped quotes,
-    // truncated repair). Predtým full mode používal len basic JSON.parse →
-    // veľa zbytočných fail-ov pri verbose Slovak output.
     const cleaned = text
       .replace(/^[\s\S]*?```(?:json)?\s*/i, (m: string) => m.includes('```') ? '' : m)
       .replace(/\s*```[\s\S]*$/i, '')
       .trim()
     const premium = tryParseJson(cleaned)
     if (!premium) {
-      console.error(`[premium-bg] JSON parse fail. stop_reason=${claudeJson.stop_reason}, len=${cleaned.length}`)
-      console.error(`[premium-bg] First 800 chars:`, cleaned.slice(0, 800))
-      console.error(`[premium-bg] Last 800 chars:`, cleaned.slice(-800))
+      console.error(`[premium] JSON parse fail. stop_reason=${claudeJson.stop_reason}, len=${cleaned.length}`)
+      console.error(`[premium] First 800 chars:`, cleaned.slice(0, 800))
+      console.error(`[premium] Last 800 chars:`, cleaned.slice(-800))
+      const errMsg = `Model nevrátil platný JSON (stop_reason=${claudeJson.stop_reason || 'unknown'}). Skús regen.`
       await supabase.from('leads').update({
         premium_analysis_status: 'error',
-        premium_analysis_error: `Model nevrátil platný JSON (stop_reason=${claudeJson.stop_reason || 'unknown'}). Skús regen — typicky druhý pokus vyjde stabilný.`,
+        premium_analysis_error: errMsg,
       }).eq('id', leadId)
-      return
+      return { error: errMsg }
     }
 
     const generatedAt = new Date().toISOString()
-    console.log(`[premium-bg] Saving to DB for lead ${leadId}`)
+    console.log(`[premium] Saving to DB for lead ${leadId}`)
     await supabase.from('leads').update({
       premium_analysis: premium,
       premium_analysis_generated_at: generatedAt,
       premium_analysis_model: model,
       premium_analysis_status: 'done',
       premium_analysis_error: null,
-      // Backwards compat
       deep_proposal: premium,
       deep_proposal_generated_at: generatedAt,
       deep_proposal_model: model,
     }).eq('id', leadId)
 
-    console.log(`[premium-bg] DONE lead=${leadId}`)
+    console.log(`[premium] DONE lead=${leadId}`)
+    return { premium, generatedAt, usage: claudeJson.usage }
   } catch (err) {
-    console.error('[premium-bg] Fatal:', err)
+    console.error('[premium] Fatal:', err)
+    const errMsg = err instanceof Error ? err.message : String(err)
     await supabase.from('leads').update({
       premium_analysis_status: 'error',
-      premium_analysis_error: err instanceof Error ? err.message : String(err),
+      premium_analysis_error: errMsg,
     }).eq('id', leadId)
+    return { error: errMsg }
   }
 }
 
@@ -1546,24 +1555,33 @@ serve(async (req) => {
       })
     }
 
-    // Spusti background worker — vráti 202 do 1s, generácia beží na pozadí
-    // do 6.6 minút (Supabase Edge background limit).
-    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
-      EdgeRuntime.waitUntil(runPremiumGeneration(apiKey, supabase, lead, model, customNotes))
-    } else {
-      // Fallback ak EdgeRuntime nie je dostupný (local dev)
-      runPremiumGeneration(apiKey, supabase, lead, model, customNotes).catch(e =>
-        console.error('Background fallback error:', e)
-      )
+    // FOREGROUND SYNC MODE — funkcia čaká na Anthropic response a vráti ho
+    // priamo. EdgeRuntime.waitUntil background mode mal nestabilné limity
+    // (na tomto projekte ~70-90s death), realtime subscription nestihla
+    // dostať notifikáciu. Sync mode: client čaká v modali, response príde
+    // priamo, lead row sa zaktualizuje server-side.
+    const result = await runPremiumGeneration(apiKey, supabase, lead, model, customNotes)
+
+    if (result.error) {
+      return new Response(JSON.stringify({
+        error: result.error,
+        leadId,
+        status: 'error',
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     return new Response(JSON.stringify({
-      status: 'started',
+      status: 'done',
       leadId,
       model,
-      message: 'Generácia spustená na pozadí — výsledok sa zobrazí cez Supabase realtime alebo opätovné načítanie',
+      premium_analysis: result.premium,
+      generated_at: result.generatedAt,
+      usage: result.usage,
     }), {
-      status: 202,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {

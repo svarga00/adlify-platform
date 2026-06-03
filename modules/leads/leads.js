@@ -4374,20 +4374,54 @@ info@adlify.eu | www.adlify.eu`
       const data = await resp.json();
       console.log('[DeepProposal] Response data:', data);
       if (resp.status === 409 && data.status === 'already_running') {
-        // Iná generácia už beží pre tento lead — re-subscribneme miesto error
         Utils.toast(`Generácia už beží (od ${data.started_at ? new Date(data.started_at).toLocaleTimeString('sk-SK') : 'neznáma'}). Čakáme na výsledok.`, 'info');
         this._subscribeToPremiumStatus(lead.id, tickInterval, meta, btn);
         return;
       }
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-      if (data.status !== 'started') throw new Error('Server nevrátil expected status: started');
 
-      // Background mode: Edge fn vrátil 202 hneď. Generácia beží na pozadí
-      // do 6 minút. Použijeme Supabase realtime subscription na zmeny lead
-      // riadku — keď premium_analysis_status sa zmení na 'done' → otvor proposal.
-      this._subscribeToPremiumStatus(lead.id, tickInterval, meta, btn);
+      // FOREGROUND SYNC MODE — Edge fn teraz vracia status='done' priamo
+      // s premium_analysis v response. Žiadny realtime poll-ovanie potrebné.
+      // Predtým status='started' (202 background) → Edge runtime killer
+      // funkciu zabil pred Anthropic odpoveďou.
+      if (data.status === 'done' && data.premium_analysis) {
+        clearInterval(tickInterval);
+        Object.assign(lead, {
+          premium_analysis: data.premium_analysis,
+          premium_analysis_generated_at: data.generated_at,
+          premium_analysis_model: data.model,
+          premium_analysis_status: 'done',
+          deep_proposal: data.premium_analysis,
+          deep_proposal_generated_at: data.generated_at,
+          deep_proposal_model: data.model,
+        });
+        if (meta) meta.textContent = `✓ Hotovo · ${data.model}`;
+        Utils.toast('Premium návrh hotový — otvoram v novom okne', 'success');
+        try {
+          const compatAnalysis = this._premiumToTemplateSchema(data.premium_analysis, lead);
+          const html = this.buildProposalHTML(lead, compatAnalysis);
+          const blob = new Blob([html], { type: 'text/html' });
+          window.open(URL.createObjectURL(blob), '_blank');
+          this.closeProposalModal();
+        } catch (e) {
+          console.error('[DeepProposal] Open failed:', e);
+        }
+        const heroEl = document.getElementById('lead-hero-actions');
+        if (heroEl) heroEl.innerHTML = this._renderHeroActions(lead);
+        const listEl = document.getElementById('leads-list');
+        if (listEl) listEl.innerHTML = this.renderLeadsList();
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        return;
+      }
 
-      Utils.toast(testMode ? 'TEST MODE — mock dáta uložené, otváram proposal…' : 'Generácia spustená na pozadí (1-3 min). Môžete pokračovať v práci.', testMode ? 'success' : 'info');
+      // Backwards compat — ak Edge fn ešte vráti 202 background mode
+      if (data.status === 'started') {
+        this._subscribeToPremiumStatus(lead.id, tickInterval, meta, btn);
+        Utils.toast(testMode ? 'TEST MODE — mock dáta uložené.' : 'Generácia spustená na pozadí (1-3 min).', testMode ? 'success' : 'info');
+        return;
+      }
+
+      throw new Error('Neočakávaná odpoveď: status=' + (data.status || 'unknown'));
     } catch (err) {
       console.error('[DeepProposal] Error:', err);
       Utils.toast('Chyba: ' + (err.message || err), 'error');
