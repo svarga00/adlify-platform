@@ -3807,22 +3807,36 @@ Odkaz je platný 30 dní.
       sixMonthProjection: budget.six_month_projection_eur || moderate * 6
     };
 
-    // ROI — template číta r.projection.{monthlyLeads, monthlyRevenue, roi, aov, conversionRate, ltv}
+    // ROI — DYNAMICKÝ výpočet z rozpočtu sekcie 8.
+    // Vzorec: leads = adSpend / cpl; revenue = leads × CR% × AOV × LTV multiplier; roi = revenue/adSpend × 100
     const roiMid = roi.month_3 || roi.month_1 || {};
     const assumptions = roi.assumptions || {};
+    const aovEur = Number(assumptions.avg_order_value_eur) || Number(roi.aov) || 2500;
+    const crPct  = Number(assumptions.conversion_rate_pct) || Number(roi.conversion_rate) || 5;
+    const ltvMul = Number(assumptions.ltv_multiplier) || 1.5;
+    const ltvEur = Number(assumptions.ltv_eur) || Math.round(aovEur * ltvMul);
+    const cplEur = Number(roiMid.cpl_eur) || 50;
+    const monthlyBudget = moderate; // z budget sekcie (b.recommendations.recommended.adSpend)
+    const computedLeads = roiMid.leads || Math.round(monthlyBudget / cplEur);
+    const computedConversions = Math.round(computedLeads * (crPct / 100));
+    const computedRevenue = roiMid.revenue_eur || Math.round(computedConversions * aovEur * ltvMul);
+    const computedROI = roiMid.roi_pct || Math.round((computedRevenue / monthlyBudget) * 100);
+
     const r = {
       projection: {
-        monthlyLeads: roiMid.leads || 30,
-        monthlyRevenue: roiMid.revenue_eur || 9000,
-        roi: roiMid.roi_pct || 500,
-        aov: assumptions.avg_order_value_eur || 0,
-        conversionRate: assumptions.conversion_rate_pct ? `${assumptions.conversion_rate_pct}%` : 'N/A',
-        ltv: assumptions.ltv_eur || (assumptions.avg_order_value_eur && assumptions.ltv_multiplier ? Math.round(assumptions.avg_order_value_eur * assumptions.ltv_multiplier) : 0)
+        monthlyLeads: computedLeads,
+        monthlyRevenue: `${computedRevenue.toLocaleString('sk-SK')} €`,
+        roi: `${computedROI} %`,
+      },
+      assumptions: {
+        averageOrderValue: aovEur,
+        conversionRate: `${crPct} %`,
+        customerLifetimeValue: ltvEur,
       },
       month_1: roi.month_1,
       month_3: roi.month_3,
       month_6: roi.month_6,
-      explanation: roi.explanation || ''
+      explanation: roi.explanation || `ROI kalkulácia vychádza z mesačného rozpočtu ${monthlyBudget.toLocaleString('sk-SK')} €, priemernej hodnoty objednávky ${aovEur.toLocaleString('sk-SK')} €, konverzného pomeru ${crPct}% z leadov na zákazku a LTV multiplikátora ${ltvMul}× (opakované objednávky, referraly). Pri ${computedLeads} leadoch mesačne a ${crPct}% konverzii dosiahneme ROI ${computedROI}%.`
     };
 
     // proposedCampaigns — Google, Meta, Instagram, LinkedIn, Display
@@ -3835,7 +3849,6 @@ Odkaz je platný 30 dní.
     };
 
     // Recommended package
-    const monthlyBudget = moderate;
     const recommendedPackage = monthlyBudget < 800 ? 'Starter' : monthlyBudget < 1500 ? 'Pro' : monthlyBudget < 3000 ? 'Enterprise' : 'Premium';
 
     // Timeline — template čaká timeline.{week1, week2, "weeks3-4", month2, month3plus}
@@ -4720,19 +4733,35 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">1</span> O vašej firme</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">${c.description || 'Spoločnosť pôsobí na slovenskom trhu a ponúka svoje služby zákazníkom.'}</p>
-    
+    <p class="section-subtitle">${c.description || analysis.executive_summary?.split('\n\n')[0] || 'Spoločnosť pôsobí na slovenskom trhu a ponúka svoje služby zákazníkom.'}</p>
+
+    ${c.idealCustomer || analysis.executive_summary ? `
+    <div class="card" style="background:linear-gradient(135deg, #f8fafc, #fff); border-left:4px solid #7c3aed; margin-bottom: 24px;">
+      <h3 class="card-title">Náš pohľad a prvý dojem</h3>
+      <p style="color:#475569; font-size:0.98rem; line-height:1.75;">${(analysis.executive_summary || '').split('\n\n').slice(0,2).join('<br><br>') || c.idealCustomer || 'Firma má silné základy pre rast cez výkonnostný marketing.'}</p>
+    </div>
+    ` : ''}
+
     <div class="card">
       <h3 class="card-title">Vaše služby a produkty</h3>
       <div class="services-grid">
         ${(c.services || ['Služba 1', 'Služba 2', 'Služba 3']).map(s => `<span class="service-tag">${s}</span>`).join('')}
       </div>
     </div>
-    
-    <div class="card" style="margin-top: 30px;">
+
+    <div class="card" style="margin-top: 24px;">
       <h3 class="card-title">Vaši ideálni zákazníci</h3>
-      <p style="color: #64748b; font-size: 1rem; line-height: 1.8;">${c.targetCustomers || 'Firmy a jednotlivci hľadajúci kvalitné služby'}</p>
+      <p style="color: #64748b; font-size: 1rem; line-height: 1.8;">${c.idealCustomer || c.targetCustomers || 'Firmy a jednotlivci hľadajúci kvalitné služby'}</p>
     </div>
+
+    ${a.opportunities?.length || analysis.ourFindings?.opportunities?.length ? `
+    <div class="card" style="margin-top: 24px; background:linear-gradient(135deg, #fef3c7, #fff7ed); border-left:4px solid #f59e0b;">
+      <h3 class="card-title" style="color:#92400e;">Kde vidíme potenciál</h3>
+      <ul style="color: #78350f; font-size: 0.96rem; line-height: 1.85; padding-left: 20px; margin: 0;">
+        ${(a.opportunities || analysis.ourFindings?.opportunities || []).slice(0,3).map(opp => `<li style="margin-bottom: 8px;"><strong>${opp.title || opp}</strong>${opp.description ? ' — ' + opp.description : ''}</li>`).join('')}
+      </ul>
+    </div>
+    ` : ''}
   </div>
 </section>
 
@@ -4783,22 +4812,22 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
       <div class="stat-box">
         <div class="stat-icon">${o.website?.exists !== false ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Webstránka</div>
-        <div class="stat-label">${o.website?.quality || (o.website?.exists !== false ? 'priemerná' : 'Chýba')}</div>
+        <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.website?.exists !== false ? (o.website?.quality || 'Funkčný web') : 'Nenašli sme web — odporúčame vytvoriť landing pred štartom kampaní.'}</div>
       </div>
       <div class="stat-box">
         <div class="stat-icon">${o.socialMedia?.facebook?.exists ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Facebook</div>
-        <div class="stat-label">${o.socialMedia?.facebook?.exists ? 'Aktívny' : 'Neaktívny'}</div>
+        <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.socialMedia?.facebook?.exists ? 'Aktívny profil — vieme na ňom stavať Meta kampane.' : 'Nenašli sme aktívnu stránku. Pre Meta Ads ju potrebujeme — pomôžeme so založením.'}</div>
       </div>
       <div class="stat-box">
         <div class="stat-icon">${o.socialMedia?.instagram?.exists ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Instagram</div>
-        <div class="stat-label">${o.socialMedia?.instagram?.exists ? 'Aktívny' : 'Neaktívny'}</div>
+        <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.socialMedia?.instagram?.exists ? 'Profil online — IG Stories & Reels ready.' : 'Nenašli sme aktívne IG. Pre vizuálne odvetvia (oplotenie, izolácie) je IG silný kanál.'}</div>
       </div>
       <div class="stat-box">
         <div class="stat-icon">${o.paidAds?.detected ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Platená reklama</div>
-        <div class="stat-label">${o.paidAds?.detected ? 'Využíva' : 'Nevyužíva'}</div>
+        <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.paidAds?.detected ? 'Aktívne kampane — spravíme audit (viď ďalej).' : 'Žiadne aktívne PPC kampane. Konkurencia tiež neinzeruje — výhoda pre rýchly štart.'}</div>
       </div>
     </div>
     
@@ -4873,8 +4902,11 @@ ${analysis.campaign_audit && analysis.campaign_audit.headline ? `
     <div style="display:flex; justify-content:space-between; align-items:center; gap:20px; padding:20px 24px; background:#f8fafc; border-radius:12px; flex-wrap:wrap;">
       <div>
         <div style="font-size:13px; color:#64748b; margin-bottom:4px;">Cena samostatne</div>
-        <div style="font-size:24px; font-weight:700; color:#1a1a2e;">${analysis.campaign_audit.pricing?.standalone_eur || 350} €</div>
-        ${analysis.campaign_audit.pricing?.credit_note ? `<div style="font-size:12px; color:#16a34a; margin-top:6px; font-weight:500;">${escapeHtml(analysis.campaign_audit.pricing.credit_note)}</div>` : ''}
+        <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
+          <span style="font-size:24px; font-weight:700; color:#94a3b8; text-decoration:line-through; text-decoration-thickness:2px; text-decoration-color:#ef4444;">${analysis.campaign_audit.pricing?.standalone_eur || 350} €</span>
+          <span style="font-size:18px; font-weight:700; color:#16a34a;">Zadarmo</span>
+        </div>
+        <div style="font-size:12px; color:#16a34a; margin-top:6px; font-weight:500;">V cene prvého mesiaca pri balíčku <strong>PRO</strong> alebo vyššom.</div>
       </div>
       <a href="mailto:info@adlify.eu?subject=${encodeURIComponent(analysis.campaign_audit.cta_subject || ('Záujem o audit kampaní — ' + (lead.company_name || lead.domain)))}&body=Dobrý%20deň%2C%0A%0AmÁm%20záujem%20o%20audit%20vašich%20kampaní%20pre%20${encodeURIComponent(lead.company_name || lead.domain)}.%0AKontaktujte%20ma%20pre%20ďalšie%20kroky.%0A%0AĎakujem"
          style="display:inline-flex; align-items:center; gap:10px; padding:14px 22px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; text-decoration:none; border-radius:10px; font-weight:600; font-size:14px;">
@@ -4928,19 +4960,24 @@ ${k.topKeywords?.length ? `
         <tr>
           <th>Kľúčové slovo</th>
           <th style="text-align: center;">Mesačná hľadanosť</th>
-          <th style="text-align: center;">Konkurencia</th>
+          <th style="text-align: center;">Charakter dopytu</th>
           <th style="text-align: right;">Cena za klik</th>
         </tr>
       </thead>
       <tbody>
-        ${k.topKeywords.slice(0, 10).map(kw => `
+        ${k.topKeywords.slice(0, 10).map(kw => {
+          const intentMap = { buy: 'nákupný', info: 'informačný', brand: 'značkový', transactional: 'transakčný', commercial: 'komerčný', research: 'výskumný' };
+          const intentLabel = kw.intent ? (intentMap[kw.intent] || kw.intent) : (kw.competition || '–');
+          const intentClass = kw.intent === 'buy' || kw.competition === 'nízka' ? 'tag-success' : kw.intent === 'info' || kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light';
+          const cpcVal = typeof kw.cpc === 'number' ? kw.cpc.toFixed(2) + ' €' : (kw.cpc ? String(kw.cpc).replace(/€?$/, '').trim() + ' €' : '–');
+          return `
           <tr>
             <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
-            <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString() : kw.searchVolume}</td>
-            <td style="text-align: center;"><span class="tag ${kw.competition === 'nízka' ? 'tag-success' : kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light'}">${kw.competition}</span></td>
-            <td style="text-align: right; font-weight: 700; color: #FF6B35;">${kw.cpc}</td>
+            <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString('sk-SK') : (kw.searchVolume || '–')}</td>
+            <td style="text-align: center;"><span class="tag ${intentClass}">${intentLabel}</span></td>
+            <td style="text-align: right; font-weight: 700; color: #FF6B35;">${cpcVal}</td>
           </tr>
-        `).join('')}
+        `;}).join('')}
       </tbody>
     </table>
     
@@ -5428,8 +5465,30 @@ ${r.projection ? `
       </div>
     </div>
 
-    <div class="packages-footer-note">
-      Všetky ceny sú <strong>bez DPH</strong> a sú fee za správu kampaní. <strong>Reklamný rozpočet</strong> platíte priamo Google / Meta / LinkedIn — máte nad ním plnú kontrolu. Pri uzavretí spolupráce odpočítavame poplatok 350 € za úvodný audit z prvého mesiaca.
+    <div style="margin-top:36px;">
+      <h3 style="font-size:18px; font-weight:700; color:#1a1a2e; margin:0 0 16px; text-align:center;">Špeciálne ponuky a zľavy</h3>
+      <div class="grid-3" style="gap:16px;">
+        <div style="background:linear-gradient(135deg,#dbeafe,#eff6ff); border:1.5px solid #3b82f6; border-radius:14px; padding:20px 22px;">
+          <div style="font-size:11px; font-weight:700; color:#1e40af; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">Nová spolupráca</div>
+          <div style="font-size:24px; font-weight:800; color:#1e40af; margin-bottom:4px;">Prvý mesiac za <span style="background:linear-gradient(135deg,#3b82f6,#6366f1); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">polovicu</span></div>
+          <div style="font-size:13px; color:#475569; line-height:1.5;">Pre nových klientov — odskúšajte si spoluprácu so 50% zľavou na fee v prvom mesiaci. Žiadny záväzok.</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#dcfce7,#f0fdf4); border:1.5px solid #16a34a; border-radius:14px; padding:20px 22px;">
+          <div style="font-size:11px; font-weight:700; color:#166534; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">6-mesačná dohoda</div>
+          <div style="font-size:24px; font-weight:800; color:#166534; margin-bottom:4px;">−5 % zľava</div>
+          <div style="font-size:13px; color:#475569; line-height:1.5;">Pri 6-mesačnej spolupráci znížime fee o 5%. Stabilita kampaní + lepšie cenovanie pre vás.</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb); border:1.5px solid #f59e0b; border-radius:14px; padding:20px 22px; position:relative;">
+          <div style="position:absolute; top:-10px; right:14px; background:#f59e0b; color:#fff; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.5px;">NAJVÝHODNEJŠIE</div>
+          <div style="font-size:11px; font-weight:700; color:#92400e; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">12-mesačná dohoda</div>
+          <div style="font-size:24px; font-weight:800; color:#92400e; margin-bottom:4px;">−10 % zľava</div>
+          <div style="font-size:13px; color:#78350f; line-height:1.5;">Pri ročnej spolupráci 10% zľava + bezplatný audit + štvrťročné strategické stretnutia.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="packages-footer-note" style="margin-top:24px;">
+      Všetky ceny sú <strong>bez DPH</strong> a sú fee za <strong>správu kampaní</strong>. <strong>Reklamný rozpočet</strong> platíte priamo Google / Meta / LinkedIn — máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.
     </div>
   </div>
 </section>
@@ -5437,26 +5496,33 @@ ${r.projection ? `
 <!-- Page 13: CTA -->
 <section class="page page-white">
   <div class="page-content">
-    <div class="cta-section">
-      <h2 class="cta-title">Začnime spoluprácu</h2>
-      <p class="cta-subtitle">Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov cez online reklamu.</p>
-      
-      <div class="cta-buttons">
-        <a href="mailto:${this.CONTACT.email}?subject=Mám záujem o spoluprácu - ${c.name || lead.company_name}" class="cta-btn cta-btn-white"> Mám záujem</a>
-        <a href="mailto:${this.CONTACT.email}?subject=Otázky k ponuke - ${c.name || lead.company_name}" class="cta-btn cta-btn-outline">Mám otázky</a>
+    <div style="background:linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); border-radius:24px; padding:56px 48px; color:#fff; text-align:center; box-shadow:0 30px 70px -20px rgba(124,58,237,0.45);">
+      <div style="display:inline-block; padding:6px 14px; background:rgba(255,255,255,0.18); border-radius:99px; font-size:11px; font-weight:600; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:18px;">Ďalšie kroky</div>
+      <h2 style="font-size:36px; font-weight:800; letter-spacing:-1px; margin:0 0 14px; line-height:1.15;">Začnime spoluprácu</h2>
+      <p style="font-size:17px; line-height:1.65; opacity:0.95; max-width:560px; margin:0 auto 36px;">Stačí jeden email a do 24 hodín sa vám ozveme s konkrétnymi krokmi. Konzultácia je nezáväzná.</p>
+
+      <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:36px;">
+        <a href="mailto:${this.CONTACT.email}?subject=${encodeURIComponent('Mám záujem o spoluprácu — ' + (c.name || lead.company_name))}&body=${encodeURIComponent('Dobrý deň,\n\nzaujala ma vaša ponuka pre ' + (c.name || lead.company_name) + '. Rád by som sa dohodol na konzultácii.\n\nĎakujem')}"
+           style="display:inline-flex; align-items:center; gap:10px; padding:16px 32px; background:#fff; color:#7c3aed; text-decoration:none; border-radius:12px; font-weight:700; font-size:15px; box-shadow:0 8px 20px -4px rgba(0,0,0,0.15);">
+          Mám záujem →
+        </a>
+        <a href="mailto:${this.CONTACT.email}?subject=${encodeURIComponent('Otázky k ponuke — ' + (c.name || lead.company_name))}"
+           style="display:inline-flex; align-items:center; gap:10px; padding:16px 32px; background:rgba(255,255,255,0.12); color:#fff; text-decoration:none; border:1.5px solid rgba(255,255,255,0.35); border-radius:12px; font-weight:600; font-size:15px;">
+          Mám otázky
+        </a>
       </div>
-      
-      <div class="cta-contact">
-        <p> <a href="mailto:${this.CONTACT.email}">${this.CONTACT.email}</a></p>
-        <p> <a href="tel:${this.CONTACT.phone.replace(/\s/g, '')}">${this.CONTACT.phone}</a></p>
-        <p> <a href="https://${this.CONTACT.web}" target="_blank">${this.CONTACT.web}</a></p>
+
+      <div style="display:flex; gap:24px; justify-content:center; flex-wrap:wrap; padding-top:28px; border-top:1px solid rgba(255,255,255,0.15);">
+        <a href="mailto:${this.CONTACT.email}" style="color:rgba(255,255,255,0.92); text-decoration:none; font-size:14px;">${this.CONTACT.email}</a>
+        <a href="tel:${this.CONTACT.phone.replace(/\s/g, '')}" style="color:rgba(255,255,255,0.92); text-decoration:none; font-size:14px;">${this.CONTACT.phone}</a>
+        <a href="https://${this.CONTACT.web}" target="_blank" style="color:rgba(255,255,255,0.92); text-decoration:none; font-size:14px;">${this.CONTACT.web}</a>
       </div>
     </div>
-    
+
     ${analysis.customNote ? `
-    <div class="card card-highlight" style="margin-top: 50px;">
-      <h4 style="margin-bottom: 15px; font-weight: 700; font-size: 1.1rem; color: #1a1a2e;"> Osobná poznámka od nás</h4>
-      <p style="color: #64748b; font-style: italic; font-size: 1.05rem; line-height: 1.8;">${analysis.customNote}</p>
+    <div style="margin-top:28px; padding:20px 24px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:10px;">
+      <div style="font-size:11px; font-weight:700; color:#92400e; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">Osobná poznámka</div>
+      <p style="color:#78350f; font-size:14px; line-height:1.65; margin:0;">${analysis.customNote}</p>
     </div>
     ` : ''}
   </div>
