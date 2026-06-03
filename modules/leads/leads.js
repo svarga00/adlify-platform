@@ -2405,15 +2405,25 @@ const LeadsModule = {
       <div class="form-group" style="margin-bottom:1rem;"><label>Úvodný text analýzy</label><textarea id="edit-intro" rows="4">${a.analysis?.humanWrittenIntro || ''}</textarea></div>
       <div class="form-group"><label>Poznámka pre klienta</label><textarea id="edit-custom-note" rows="3">${a.customNote || ''}</textarea></div>
       <div class="analysis-section" style="margin-bottom:1rem;">
-        <h3 style="margin:0 0 1rem;">💰 Rozpočet na reklamu (mesačne)</h3>
+        <h3 style="margin:0 0 1rem;">Rozpočet na reklamu (mesačne)</h3>
         <div class="form-grid">
           <div class="form-group"><label>Štart (€)</label><input type="number" id="edit-budget-starter" value="${a.budget?.recommendations?.starter?.adSpend || 300}"></div>
           <div class="form-group"><label>Odporúčaný (€)</label><input type="number" id="edit-budget-recommended" value="${a.budget?.recommendations?.recommended?.adSpend || 500}"></div>
           <div class="form-group"><label>Agresívny (€)</label><input type="number" id="edit-budget-aggressive" value="${a.budget?.recommendations?.aggressive?.adSpend || 800}"></div>
         </div>
+        <small style="color:#64748b;font-size:0.8rem;">Tieto čísla idú do proposalu (sekcia 8 Rozpočet) a ROI sa vypočíta z "Odporúčaný" automaticky.</small>
       </div>
       <div class="analysis-section" style="margin-bottom:1rem;">
-        <h3 style="margin:0 0 1rem;">🖼️ Obrázok v ponuke</h3>
+        <h3 style="margin:0 0 1rem;">ROI predpoklady</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Priemerná hodnota objednávky (€)</label><input type="number" id="edit-roi-aov" value="${a.roi?.assumptions?.averageOrderValue || a.roi?.assumptions?.avg_order_value_eur || 2500}"></div>
+          <div class="form-group"><label>Konverzný pomer (%)</label><input type="number" step="0.1" id="edit-roi-cr" value="${parseFloat(String(a.roi?.assumptions?.conversionRate || a.roi?.assumptions?.conversion_rate_pct || 5).replace('%','')) || 5}"></div>
+          <div class="form-group"><label>LTV multiplikátor</label><input type="number" step="0.1" id="edit-roi-ltv" value="${a.roi?.assumptions?.ltv_multiplier || 1.5}"></div>
+        </div>
+        <small style="color:#64748b;font-size:0.8rem;">ROI sa počíta: leady = rozpočet / 50€ CPL · revenue = leady × CR% × AOV × LTV multiplier</small>
+      </div>
+      <div class="analysis-section" style="margin-bottom:1rem;">
+        <h3 style="margin:0 0 1rem;">Obrázok v ponuke</h3>
         <div class="form-group"><label>URL obrázka</label><input type="url" id="edit-ad-image" value="${a.customAdImage || ''}" placeholder="https://images.unsplash.com/photo-..."></div>
         <small style="color:#64748b;font-size:0.8rem;">Nájdi na <a href="https://unsplash.com" target="_blank" style="color:#f97316;">unsplash.com</a> a vlož URL</small>
       </div>
@@ -2458,7 +2468,21 @@ const LeadsModule = {
     this.editedAnalysis.budget.recommendations.recommended = calcBudget(recommendedSpend);
     this.editedAnalysis.budget.recommendations.aggressive = calcBudget(aggressiveSpend);
     this.editedAnalysis.budget.avgCpc = avgCpc;
-    
+
+    // ROI predpoklady — sync s adapter (template číta r.assumptions a r.projection)
+    const aovInput = parseInt(document.getElementById('edit-roi-aov')?.value) || 2500;
+    const crInput = parseFloat(document.getElementById('edit-roi-cr')?.value) || 5;
+    const ltvInput = parseFloat(document.getElementById('edit-roi-ltv')?.value) || 1.5;
+    this.editedAnalysis.roi = this.editedAnalysis.roi || {};
+    this.editedAnalysis.roi.assumptions = {
+      averageOrderValue: aovInput,
+      avg_order_value_eur: aovInput,
+      conversionRate: `${crInput}%`,
+      conversion_rate_pct: crInput,
+      ltv_multiplier: ltvInput,
+      ltv_eur: Math.round(aovInput * ltvInput),
+    };
+
     // Custom ad image
     const customImg = document.getElementById('edit-ad-image')?.value.trim();
     if (customImg) this.editedAnalysis.customAdImage = customImg;
@@ -2552,9 +2576,33 @@ const LeadsModule = {
   // Fallback šablóny ak DB je prázdna
   defaultEmailTemplates: [
     {
+      id: 'simple',
+      slug: 'proposal-simple',
+      name: 'Jednoduchá výchozia',
+      subject: 'Návrh marketingovej stratégie pre {{company}}',
+      body_html: `Dobrý deň,
+
+ďakujem za záujem o spoluprácu. Po analýze webu {{company}} sme pre Vás pripravili konkrétny návrh — kde vidíme príležitosti, čo by sme spravili a aký výsledok očakávame.
+
+[[Otvoriť návrh|{{audit_request_url}}]]
+
+V návrhu nájdete:
+• Detailnú analýzu vašej online prítomnosti
+• Konkrétne reklamné kampane pre Google Ads, Meta, LinkedIn
+• 3 budget varianty s očakávanou ROI
+• Časový plán prvých 60 dní
+• Audit existujúcich kampaní zdarma pri spolupráci 3+ mesiace
+
+Stačí napísať email späť alebo si rezervovať konzultáciu.
+
+S pozdravom,
+Štefan Varga · Adlify
+info@adlify.eu`
+    },
+    {
       id: 'intro',
       slug: 'proposal-intro',
-      name: '👋 Úvodná ponuka',
+      name: 'Úvodná ponuka (dlhšia)',
       subject: 'Krátky marketingový návrh pre {{company}}',
       body_html: `Dobrý deň,
 
@@ -3202,21 +3250,33 @@ Odkaz je platný 30 dní.
       console.log('Email send result:', result);
       
       if (result.success) {
-        // Aktualizovať lead
-        await Database.update('leads', leadId, { 
-          status: 'contacted',
-          proposal_status: 'sent',
-          proposal_sent_at: new Date().toISOString()
-        });
+        // Aktualizovať lead — najprv full payload, ak DB hodí chybu na neznámom
+        // stĺpci, skús minimalistický update. Email je už odoslaný, nesmieme
+        // zobrazovať false-negative chybu.
+        try {
+          await Database.update('leads', leadId, {
+            status: 'contacted',
+            proposal_status: 'sent',
+            proposal_sent_at: new Date().toISOString()
+          });
+        } catch (dbErr) {
+          console.warn('Full lead update failed, trying minimal:', dbErr?.message);
+          try {
+            await Database.update('leads', leadId, { status: 'contacted' });
+          } catch (dbErr2) {
+            console.warn('Minimal lead update also failed (email už odoslaný):', dbErr2?.message);
+          }
+        }
         lead.status = 'contacted';
-        document.getElementById('leads-list').innerHTML = this.renderLeadsList();
-        
+        const listEl = document.getElementById('leads-list');
+        if (listEl) listEl.innerHTML = this.renderLeadsList();
+
         this.closeEmailModal();
-        Utils.toast('Email odoslaný! ✉️', 'success');
+        Utils.toast('Email odoslaný klientovi', 'success');
       } else {
         throw new Error(result.error || 'Odoslanie zlyhalo');
       }
-      
+
     } catch (error) {
       console.error('Email send error:', error);
       Utils.toast('Chyba: ' + error.message, 'error');
@@ -3784,13 +3844,23 @@ Odkaz je platný 30 dní.
       packages: this._defaultPackages(budget, ourSolution)
     };
 
-    // budget — TEMPLATE číta b.recommendations.{starter,recommended,aggressive}.adSpend
-    // Premium analysis vracia b.recommendations.{conservative,moderate,aggressive}.totalBudget
-    // → mapujeme oboje, nech template nájde čo potrebuje
+    // budget — TEMPLATE číta b.recommendations.{starter,recommended,aggressive}.adSpend.
+    // Priorita zdrojov (PREFER USER-EDITED PRED CLAUDE):
+    // 1) lead.analysis.budget.recommendations (user edituje v admin cez editAnalysis modal)
+    // 2) premium_analysis.budget.recommendations.{conservative,moderate,aggressive}
+    // 3) fallback default
+    const userBudget = lead.analysis?.budget?.recommendations || {};
     const budgetRec = budget.recommendations || {};
-    const moderate = budgetRec.moderate?.totalBudget || budget.monthly_total_eur || 1500;
-    const conservative = budgetRec.conservative?.totalBudget || Math.round(moderate * 0.65);
-    const aggressive = budgetRec.aggressive?.totalBudget || Math.round(moderate * 1.7);
+    const moderate = userBudget.recommended?.adSpend
+      || budgetRec.moderate?.totalBudget
+      || budget.monthly_total_eur
+      || 1500;
+    const conservative = userBudget.starter?.adSpend
+      || budgetRec.conservative?.totalBudget
+      || Math.round(moderate * 0.65);
+    const aggressive = userBudget.aggressive?.adSpend
+      || budgetRec.aggressive?.totalBudget
+      || Math.round(moderate * 1.7);
     const b = {
       summary: budget.summary || '',
       recommendations: {
@@ -3811,10 +3881,14 @@ Odkaz je platný 30 dní.
     // Vzorec: leads = adSpend / cpl; revenue = leads × CR% × AOV × LTV multiplier; roi = revenue/adSpend × 100
     const roiMid = roi.month_3 || roi.month_1 || {};
     const assumptions = roi.assumptions || {};
-    const aovEur = Number(assumptions.avg_order_value_eur) || Number(roi.aov) || 2500;
-    const crPct  = Number(assumptions.conversion_rate_pct) || Number(roi.conversion_rate) || 5;
-    const ltvMul = Number(assumptions.ltv_multiplier) || 1.5;
-    const ltvEur = Number(assumptions.ltv_eur) || Math.round(aovEur * ltvMul);
+    // Prefer user-editované hodnoty z lead.analysis.roi.assumptions
+    const userROIAssump = lead.analysis?.roi?.assumptions || {};
+    const aovEur = Number(userROIAssump.averageOrderValue) || Number(userROIAssump.avg_order_value_eur)
+      || Number(assumptions.avg_order_value_eur) || Number(roi.aov) || 2500;
+    const crPct  = Number(userROIAssump.conversion_rate_pct) || parseFloat(String(userROIAssump.conversionRate || '').replace('%',''))
+      || Number(assumptions.conversion_rate_pct) || Number(roi.conversion_rate) || 5;
+    const ltvMul = Number(userROIAssump.ltv_multiplier) || Number(assumptions.ltv_multiplier) || 1.5;
+    const ltvEur = Number(userROIAssump.ltv_eur) || Number(assumptions.ltv_eur) || Math.round(aovEur * ltvMul);
     const cplEur = Number(roiMid.cpl_eur) || 50;
     const monthlyBudget = moderate; // z budget sekcie (b.recommendations.recommended.adSpend)
     const computedLeads = roiMid.leads || Math.round(monthlyBudget / cplEur);
