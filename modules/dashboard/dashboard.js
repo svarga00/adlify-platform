@@ -51,7 +51,7 @@ const DashboardModule = {
 
     try {
       // Fetch data
-      const [leads, clients, tasksResult, hotProspectsResult, recentEventsResult, clientMessagesResult] = await Promise.all([
+      const [leads, clients, tasksResult, hotProspectsResult, recentEventsResult, clientMessagesResult, portalClientsResult] = await Promise.all([
         Database.select('leads', { columns: 'id, status, score, created_at' }),
         Database.select('clients', { columns: 'id, status, monthly_fee, company_name' }),
         Database.client.from('tasks').select('id, status, due_date, assigned_to'),
@@ -59,6 +59,8 @@ const DashboardModule = {
         Database.client.from('prospect_events').select('prospect_id, event_type, occurred_at, is_bot, geo_city, geo_country, link_url, prospect:prospects(company_name, domain)').eq('is_bot', false).order('occurred_at', { ascending: false }).limit(10),
         // Klientske správy z portálu (sender_type='client') — admin notifikácia
         Database.client.from('messages').select('id, client_id, content, created_at, is_read, from_email, from_name').eq('sender_type', 'client').order('created_at', { ascending: false }).limit(10),
+        // Klienti v portáli (client_users + clients) — kto má prístup
+        Database.client.from('client_users').select('user_id, client_id, role, created_at, clients(id, company_name, email, status)').order('created_at', { ascending: false }),
       ]);
       
       // Filter tasks for current user
@@ -72,11 +74,23 @@ const DashboardModule = {
       const hotProspects = (hotProspectsResult?.data || []).filter(p => (p.score || 0) > 50);
       const recentEvents = recentEventsResult?.data || [];
       const clientMessages = clientMessagesResult?.data || [];
+      const portalClients = portalClientsResult?.data || [];
       // Mapuj client_id → company_name pre rýchle zobrazenie
       const clientsData = (clients || []).reduce((acc, c) => { acc[c.id] = c.company_name; return acc; }, {});
+      // Spočítaj správy per client_id (z všetkých messages aj sender_type='team' aj 'client')
+      const msgCountByClient = clientMessages.reduce((acc, m) => {
+        acc[m.client_id] = (acc[m.client_id] || 0) + 1;
+        return acc;
+      }, {});
+      const lastMsgByClient = clientMessages.reduce((acc, m) => {
+        if (!acc[m.client_id] || new Date(m.created_at) > new Date(acc[m.client_id])) {
+          acc[m.client_id] = m.created_at;
+        }
+        return acc;
+      }, {});
 
       // Render
-      container.innerHTML = this.template(stats, leads, clients, hotProspects, recentEvents, clientMessages, clientsData);
+      container.innerHTML = this.template(stats, leads, clients, hotProspects, recentEvents, clientMessages, clientsData, portalClients, msgCountByClient, lastMsgByClient);
       
       // Initialize charts
       this.initCharts(stats);
@@ -154,12 +168,13 @@ const DashboardModule = {
   /**
    * Dashboard template
    */
-  template(stats, leads, clients, hotProspects = [], recentEvents = [], clientMessages = [], clientsData = {}) {
+  template(stats, leads, clients, hotProspects = [], recentEvents = [], clientMessages = [], clientsData = {}, portalClients = [], msgCountByClient = {}, lastMsgByClient = {}) {
     const recentLeads = leads
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
     const unreadClientMsgs = clientMessages.filter(m => !m.is_read).length;
     const clientMessagesWidget = this._renderClientMessagesWidget(clientMessages, clientsData, unreadClientMsgs);
+    const portalClientsWidget = this._renderPortalClientsWidget(portalClients, msgCountByClient, lastMsgByClient);
 
     const DI = this._dashIcons();
     const mrrFormatted = Utils.formatCurrency(stats.clients.mrr);
@@ -414,7 +429,87 @@ const DashboardModule = {
         }
       </style>
 
-      ${clientMessagesWidget}
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:24px;" class="adl-dashboard-portal-row">
+        ${clientMessagesWidget}
+        ${portalClientsWidget}
+      </div>
+      <style>
+        @media (max-width: 1100px) {
+          .adl-dashboard-portal-row { grid-template-columns: 1fr !important; }
+        }
+      </style>
+    </div>
+    `;
+  },
+
+  // Widget: Klienti v portáli — kto má prístup + aktivita
+  _renderPortalClientsWidget(portalClients, msgCountByClient, lastMsgByClient) {
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const formatDate = (d) => {
+      if (!d) return 'žiadna';
+      const dt = new Date(d);
+      const now = new Date();
+      const diff = (now - dt) / 1000;
+      if (diff < 60) return 'pred chvíľou';
+      if (diff < 3600) return 'pred ' + Math.floor(diff / 60) + ' min';
+      if (diff < 86400) return 'pred ' + Math.floor(diff / 3600) + ' h';
+      if (diff < 86400 * 7) return 'pred ' + Math.floor(diff / 86400) + ' dňami';
+      return dt.toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' });
+    };
+
+    // Dedupli — viacero client_users môže byť per client (team). Zachová posledný.
+    const uniqueByClient = {};
+    for (const cu of portalClients) {
+      if (!cu.clients) continue;
+      const cid = cu.client_id;
+      if (!uniqueByClient[cid] || new Date(cu.created_at) > new Date(uniqueByClient[cid].created_at)) {
+        uniqueByClient[cid] = cu;
+      }
+    }
+    const items = Object.values(uniqueByClient);
+    items.sort((a, b) => {
+      // Najnovšia aktivita prv
+      const aLast = lastMsgByClient[a.client_id] || a.created_at;
+      const bLast = lastMsgByClient[b.client_id] || b.created_at;
+      return new Date(bLast) - new Date(aLast);
+    });
+
+    const totalCount = items.length;
+
+    return `
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:linear-gradient(135deg, rgba(16,185,129,0.05), rgba(20,184,166,0.05));">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, #10b981, #14b8a6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">${totalCount}</div>
+          <div>
+            <div style="font-size:14px; font-weight:700; color:var(--ink);">Klienti v portáli</div>
+            <div style="font-size:11px; color:var(--ink-mute);">${totalCount === 0 ? 'Zatiaľ žiadni registrovaní' : totalCount + ' ' + (totalCount === 1 ? 'klient s prístupom' : 'klientov s prístupom')}</div>
+          </div>
+        </div>
+      </div>
+      ${items.length === 0 ? `
+        <div style="padding:32px 20px; text-align:center; color:var(--ink-mute); font-size:13px;">
+          Klient sa zatiaľ neregistroval do portálu. Po konverzii lead → klient mu pošlete onboarding link.
+        </div>
+      ` : items.slice(0, 8).map(cu => {
+        const c = cu.clients;
+        const name = c.company_name || c.email || 'Klient';
+        const msgs = msgCountByClient[cu.client_id] || 0;
+        const lastActivity = lastMsgByClient[cu.client_id];
+        return `
+        <a href="#clients?id=${cu.client_id}" style="display:flex; align-items:center; gap:12px; padding:12px 20px; text-decoration:none; color:inherit; border-top:1px solid var(--n-100); transition:background .12s;" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='transparent'">
+          <div style="width:34px; height:34px; border-radius:99px; background:linear-gradient(135deg, #10b981, #14b8a6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">${(name[0] || '?').toUpperCase()}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:13px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(name)}</div>
+            <div style="font-size:11px; color:var(--ink-mute); margin-top:2px;">
+              ${msgs > 0 ? `<span style="color:#7c3aed; font-weight:600;">${msgs} ${msgs === 1 ? 'správa' : msgs < 5 ? 'správy' : 'správ'}</span> · ` : ''}
+              posledná aktivita ${formatDate(lastActivity || cu.created_at)}
+            </div>
+          </div>
+          <span style="font-size:10px; padding:2px 8px; border-radius:99px; background:${c.status === 'active' ? '#dcfce7' : '#fef3c7'}; color:${c.status === 'active' ? '#166534' : '#92400e'}; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">${esc(c.status || 'pending')}</span>
+        </a>
+        `;
+      }).join('')}
     </div>
     `;
   },
@@ -433,7 +528,7 @@ const DashboardModule = {
     };
 
     return `
-    <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-top:24px;">
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;">
       <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:linear-gradient(135deg, rgba(124,58,237,0.04), rgba(236,72,153,0.04));">
         <div style="display:flex; align-items:center; gap:10px;">
           <div style="width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, #7c3aed, #ec4899); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">${unreadCount}</div>
