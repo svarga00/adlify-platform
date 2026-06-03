@@ -3201,37 +3201,12 @@ info@adlify.eu | www.adlify.eu`
         }
       }
 
-      // 2. Pridať odkaz do emailu — IBA ak telo emailu ešte nemá CTA placeholder.
-      // Nová šablóna "Jednoduchá výchozia" obsahuje [[Otvoriť návrh|{{audit_request_url}}]]
-      // → CTA je už v tele, nepridávame duplikát "VAŠA PERSONALIZOVANÁ PONUKA" sekciu.
-      const bodyHasCTA = /\[\[.+?\|.+?\]\]|\{\{\s*(audit_request_url|proposal_url)\s*\}\}/i.test(body);
-      if (proposalUrl && !bodyHasCTA) {
-        const proposalSection = `
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-VAŠA PERSONALIZOVANÁ PONUKA
-
-Pripravili sme pre Vás detailnú marketingovú ponuku.
-Kliknite na odkaz nižšie pre jej zobrazenie:
-
-${proposalUrl}
-
-V ponuke nájdete:
-- Analýzu Vašej online prítomnosti
-- SWOT analýzu a odporúčania
-- Návrh kľúčových slov
-- Odporúčaný rozpočet a ROI
-- Balíčky služieb
-
-Odkaz je platný 30 dní.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-        body = body + proposalSection;
-      } else if (proposalUrl && bodyHasCTA) {
-        // Nahrad placeholder {{audit_request_url}} / {{proposal_url}} skutočným URL
-        body = body
-          .replace(/\{\{\s*(audit_request_url|proposal_url)\s*\}\}/gi, proposalUrl);
+      // 2. Substituuj {{audit_request_url}} placeholder v tele (ak je).
+      // ŽIADNE auto-pridanie "VAŠA PERSONALIZOVANÁ PONUKA" sekcie — to spôsobovalo
+      // duplicitné CTA. EmailTemplates.leadProposal pridá button + footer note
+      // automaticky na konci (iba ak proposalUrl je).
+      if (proposalUrl) {
+        body = body.replace(/\{\{\s*(audit_request_url|proposal_url)\s*\}\}/gi, proposalUrl);
       }
       
       // 3. Konvertovať plain text na HTML
