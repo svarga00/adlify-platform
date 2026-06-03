@@ -112,42 +112,112 @@ DÔLEŽITÉ pre onlinePresence:
 - Ak v "Social profiles" sú nájdené FB/IG/LinkedIn URL → social.status = "good" alebo "needs_work" (nikdy nie "missing"). Vyplň aj facebook/instagram/linkedin URL polia.
 - Ak "Social profiles: NONE FOUND" → social.status = "missing".
 - Ak v "Ad/tracking pixels" je Meta Pixel alebo Google Ads conversion → ppc.status = "basic" alebo "advanced". Ak iba GA/GTM bez ad pixela → "none" (majú analytics ale neinzerujú).
-- Toto má prednosť pred tvojím vlastným odhadom z body textu — HTML scrape vidí veci ktoré v text body nie sú (footer ikony, JS skripty).`,
+- Toto má prednosť pred tvojím vlastným odhadom z body textu — HTML scrape vidí veci ktoré v text body nie sú (footer ikony, JS skripty).
 
-  keywords: `Si PPC stratég. Vygeneruj sekciu "KĽÚČOVÉ SLOVÁ" pre proposal v slovenčine. Použij Marketing Miner dáta ak sú, inak realistic estimate pre SR (mestá 5-50K: 50-500 hľadaní/mes, CPC 0.20-2.50 €).
+KRITICKÉ — POUŽI MM REPORTY EXPLICITNE V TEXTE:
+Ak v contexte vidíš blok "MARKETING MINER REPORTY", MUSÍŠ z nich citovať konkrétne čísla a fakty priamo v textoch:
+
+1. ourFindings.opportunities (3-5 položiek) — aspoň 2 musia citovať konkrétne číslo z MM reportov:
+   - Ak seo_audit.issues existuje: "Z {issues.total_pages} analyzovaných strán Google indexuje len {total - pages_not_indexed} — okamžitý SEO blocker." alebo "Žiadna z {total_pages} strán nemá meta description, čo znižuje CTR v SERPe o 15-25%."
+   - Ak positions.stats existuje: "Pre kľúčové slová pre vaše služby ste momentálne len na {stats.top_10} pozíciách v top 10 z {stats.total} sledovaných — {stats.total - stats.top_10} KW je mimo top 10."
+   - Ak keyword_volumes existuje: "Vaše top KW majú celkový objem {total_volume} hľadaní mesačne, ale momentálne z nich získavate odhadom <X> kliknutí — masívny untapped potenciál."
+
+2. swot.weaknesses (2-4) — aspoň 1 musí byť konkrétne číslo z seo_audit alebo positions:
+   - "Žiadna stránka nemá vyplnenú meta description (analyzovaných {total_pages})"
+   - "Vstavané skrine Bratislava (180 hľadaní/mes) — momentálna pozícia 21 = 0 organic kliknutí"
+
+3. swot.threats (2-4) — aspoň 1 musí menovať konkrétneho konkurenta z ppc_competitors.top_competitors alebo serp_analysis.top_competitors:
+   - "{top_competitors[0].domain} agresívne inzeruje na vaše top KW ({ad_count} reklám zachytených) — bez aktívnej PPC tieto leady berú oni."
+   - "V SERPe pre {keyword} sú na pozíciách 1-3 weby {top_competitors[0].domain}, {top_competitors[1].domain} a {top_competitors[2].domain} — silne usadená konkurencia."
+
+4. onlinePresence.seo.notes — citovať seo_audit.issues konkrétne číselne:
+   "Audit ukázal {pages_not_indexed} z {total_pages} strán neindexovaných Googlom, priemerný title score {avg_title_score}/100, {pages_without_meta} strán bez meta description."
+
+5. company.idealCustomer — ak existuje keyword_volumes, citovať intent z KW dát:
+   "Klienti hľadajú výrazy ako '{najvyšší volume KW}' ({volume}/mes) a '{druhý KW}' ({volume}/mes) — vysoký commercial intent."
+
+Ak MM reporty NIE SÚ v contexte, povedz to v ourFindings.opportunities ako "Pre presnejšiu analýzu odporúčame doplniť Marketing Miner audit." namiesto vymýšľania.`,
+
+  keywords: `Si PPC stratég. Vygeneruj sekciu "KĽÚČOVÉ SLOVÁ" pre proposal v slovenčine.
+
+KRITICKÉ PRAVIDLO:
+Ak v contexte je MM report "keyword_volumes" s poľom "keywords[]", MUSÍŠ POUŽIŤ EXAKTNE TIETO ČÍSLA — search_volume, cpc_eur, peak_month, yoy_change_pct. NESMIEŠ vymýšľať vlastné odhady ak máš MM dáta. Klient zaplatil za MM dáta, takže vidí v reportoch tie isté čísla ako dáš ty — ak ich obmeníš, vyzeráš nedôveryhodne.
+
+Postup:
+1. Vezmi všetky keywords[] z MM keyword_volumes reportu.
+2. Rozdeľ ich do primary/secondary/longTail podľa search_volume:
+   - primary: search_volume >= 500 (top obchodný intent + objem)
+   - secondary: 100-499 (mid-tail, dobrý ROI)
+   - longTail: < 100 (špecifické, vysoký intent)
+3. Pre KAŽDÝ KW pridaj v rationale/intent prečo je relevantný:
+   - intent: "buy" (commercial), "info" (informational), "brand" (brand search)
+   - priority: "high" (top 5 primary), "medium", "low"
+4. Doplň "seasonality" notes z MM (peak_month, volatility_pct, yoy_change_pct):
+   "Peak v júli, YoY pokles -17% — trh sa zmenšuje, treba bojovať agresívnejšie."
+5. Ak MM dáta majú aj positions report, citujte aktuálne pozície klienta v "current_ranking" poli per KW.
+
+Ak MM dáta NIE SÚ v contexte: spravi realistic estimate pre SR (mestá 5-50K: 50-500 hľadaní/mes, CPC 0.20-2.50 €) ale označ pole "estimated": true.
 
 Vráť VÝLUČNE JSON:
 {
   "keywords": {
-    "primary":   [{ "keyword": "...", "search_volume": 1200, "cpc_eur": 0.45, "intent": "buy|info|brand", "priority": "high" }],
-    "secondary": [{ "keyword": "...", "search_volume": 300,  "cpc_eur": 0.30, "intent": "info" }],
-    "longTail":  [{ "keyword": "...", "search_volume": 50,   "cpc_eur": 0.18 }]
+    "primary":   [{ "keyword": "...", "search_volume": 1200, "cpc_eur": 0.45, "intent": "buy|info|brand", "priority": "high", "current_ranking": "21 (mimo top 20)", "peak_month": "July", "estimated": false }],
+    "secondary": [{ "keyword": "...", "search_volume": 300,  "cpc_eur": 0.30, "intent": "info", "estimated": false }],
+    "longTail":  [{ "keyword": "...", "search_volume": 50,   "cpc_eur": 0.18, "estimated": false }],
+    "totals": { "total_volume_monthly": 12000, "avg_cpc_eur": 0.46, "primary_count": 6, "data_source": "Marketing Miner" | "AI estimate" },
+    "seasonality_summary": "1-2 vety o sezónnosti trhu — kedy zvýšiť budget, kedy znížiť. Cite peak_month z MM."
   }
 }
 
-Minimum 6 primary, 5 secondary, 5 long-tail keywords. Všetko špecifické k tomuto klientovi (jeho produkty, lokalitu, intent).`,
+Minimum 6 primary, 5 secondary, 5 long-tail keywords. Všetko špecifické k tomuto klientovi (jeho produkty, lokalitu, intent). Ak máš v MM viac KW, použij ich VŠETKY (do max 25 total).`,
 
   strategy: `Si PPC stratég. Vygeneruj sekciu "STRATÉGIA + KANÁLY" pre proposal v slovenčine. Konkrétne čísla, konkrétne kanály, "prečo a ako" pre každý.
+
+KRITICKÉ — POUŽI MM DÁTA EXPLICITNE:
+1. overview — MUSÍ obsahovať aspoň 2 konkrétne čísla z MM:
+   - Total volume z keyword_volumes.total_volume: "Vaše top KW majú objem {total_volume} hľadaní/mes na slovenskom trhu"
+   - Avg CPC z keyword_volumes.avg_cpc_eur: "Priemerná CPC ~{avg_cpc_eur} € znamená že pri budgete X € dostaneme Y kliknutí"
+   - Top competitors z ppc_competitors.top_competitors: "Hlavná PPC konkurencia: {domain1}, {domain2}, {domain3}"
+
+2. Pre KAŽDÝ kanál v channels[] musí "rationale" odkazovať na MM dáta ak existujú:
+   - Pre Google Search: "Hlavná súťaž s {ppc_competitors.top_competitors[0].domain} — vidíme {ad_count} ich reklám na vaše top KW. Naša stratégia: {konkrétne taktiky}."
+   - Pre Performance Max: zohľadni avg_cpc_eur pri budget allocation
+   - Pre Meta: ak ppc_competitors prevažujú v Google PPC, Meta = blue ocean pre vyhľadávanie nepriamych intentov
+
+3. creativeApproach — MUSÍ porovnať váš messaging voči konkurentom z ppc_competitors.ads[]:
+   "Konkurent {domain} v reklamách tvrdí '{ad_title}' — '{ad_description}'. My sa odlišíme tým, že namiesto {ich uhol} podčiarkneme {náš USP — z lead.analysis a unique_insight}."
+   Toto je SUPER dôležité aby copy mala konkurenčný kontext.
 
 Vráť VÝLUČNE JSON:
 {
   "strategy": {
-    "overview": "1 odstavec — high-level prístup pre tohto klienta a prečo",
+    "overview": "1 odstavec — high-level prístup pre tohto klienta a prečo. Musia byť MM čísla.",
     "channels": [
       {
         "name": "Google Ads — Search",
         "monthly_budget_eur": 800,
-        "rationale": "3-4 vety prečo presne tento kanál, ako bude vyzerať realizácia, aký výsledok očakávame v 1./3./6. mesiaci",
-        "expected_kpi": "konkrétne číslo (napr. 35 leadov/mes pri CPL 22€)"
+        "rationale": "3-4 vety prečo presne tento kanál, ako bude vyzerať realizácia, aký výsledok očakávame v 1./3./6. mesiaci. Musí spomenúť konkurenta z MM ak existuje.",
+        "expected_kpi": "konkrétne číslo (napr. 35 leadov/mes pri CPL 22€) — vychádza z reálneho CPC z MM",
+        "competitor_context": "1 veta o tom kto v tomto kanáli inzeruje (z ppc_competitors)"
       }
     ],
-    "creativeApproach": "2 odstavce o copy/visual direction — tón, mood, messaging hooky pre tohto klienta. Diferenciátor od konkurencie."
+    "creativeApproach": "2 odstavce o copy/visual direction. Prvý odstavec citujte 1-2 reálne reklamy konkurentov z MM ppc_competitors.ads, druhý ako sa odlíšime."
   }
 }
 
 Minimum 3 kanály (typicky Google Search + Google Performance Max + Meta).`,
 
   campaigns: `Si PPC stratég. Vygeneruj sekciu "REKLAMNÉ KAMPANE" pre proposal v slovenčine. Konkrétne kampane s ad copy, headlines, descriptions, audience, landing pages. Copywriter quality, žiadne lorem ipsum.
+
+KRITICKÉ — POUŽI MM PPC DÁTA:
+1. Ak v contexte je ppc_competitors.ads[], pozri si reálne reklamy konkurentov. Tvoje headlines a descriptions musia:
+   - Mať INÝ uhol než dominantný konkurent (napr. ak konkurenti tlačia "zľavu 50%", ty tlač "rýchle dodanie 3-4 týždne" alebo "lokálna firma s 10+ rokmi referencií")
+   - Spomenúť konkrétny benefit ktorý v konkurenčných reklamách nevidíš
+2. Pre KAŽDÚ adGroup pridaj pole "competitor_benchmark":
+   "Konkurent {domain} v podobnej reklame píše '{ad_title}'. Naša ad sa odlišuje tým, že {náš diferenciátor}."
+3. Keywords v adGroups MUSIA byť z MM keyword_volumes (ak existujú) — žiadne vymýšľanie.
+4. monthly_budget_eur pre Search kampaň: vypočítaj ako (avg_cpc_eur z MM × cieľový počet kliknutí). Ak avg_cpc_eur = 0.46€ a chceš 1000 kliknutí, budget = 460€.
+
 
 Vráť VÝLUČNE JSON:
 {
@@ -205,6 +275,17 @@ Vráť VÝLUČNE JSON:
 
   budget: `Si PPC stratég. Vygeneruj sekciu "ROZPOČET + ROI" pre proposal v slovenčine. Matematicky sediaci budget (suma = celok). Realistic ROI assumptions.
 
+KRITICKÉ — POUŽI MM AVG CPC:
+Ak v contexte je keyword_volumes.avg_cpc_eur, MUSÍŠ to použiť ako "avgCpc" v output JSON. Toto určuje koľko kliknutí dostane klient za daný budget. Nepoužívaj generic 0.50€ ak máš MM avg_cpc.
+
+Príklad: ak avg_cpc_eur z MM = 0.46€:
+- "avgCpc": 0.46
+- Pri moderate budgete 1500€ → 1500/0.46 = ~3260 kliknutí → pri 3-5% web-to-lead = 98-163 leadov/mes
+- summary text MUSÍ spomenúť že "Pri reálnom priemernom CPC {avg_cpc_eur} € na vašom trhu..."
+
+Ak avg_cpc_eur nie je v MM, použij fallback 0.50€ a v summary povedz "Bez detailných MM dát používame opatrný odhad 0.50€ CPC".
+
+
 Vráť VÝLUČNE JSON:
 {
   "budget": {
@@ -237,6 +318,21 @@ Vráť VÝLUČNE JSON:
   summary: `Si senior PPC stratég. Toto je FINÁLNA záverečná sekcia proposalu — píš ako keby si videl všetky predošlé sekcie a teraz to zhrnieš. Slovenčina, ekspertný tón, žiadne floskuly.
 
 DÔLEŽITÉ: Spomeň v executive summary aj že "Pred spustením kampaní spravíme detailný audit existujúcich aktivít (ak nejaké máte) — fee sa odpočítava pri uzavretí spolupráce" — to je entry point pre warm leadov ktorí už niečo bežia.
+
+KRITICKÉ — POUŽI KONKRÉTNE MM ČÍSLA V EXECUTIVE SUMMARY:
+Z MM dát v contexte vytiahni 3-5 konkrétnych čísel/faktov ktoré v summary spomenieš:
+- Z keyword_volumes: total_volume hľadaní/mes, počet KW analyzovaných
+- Z positions: aktuálne pozície klienta (top_10 count, organic traffic)
+- Z seo_audit: kritické issues (pages_not_indexed, pages_without_meta) — "audit odhalil X kritických blockerov"
+- Z ppc_competitors: počet konkurentov v PPC + ich agresivitu
+- Z serp_analysis: kto dominuje SERP
+
+Príklady správnych viet do executive_summary:
+- "Analýza ukázala že vaše top KW majú 12 000 hľadaní mesačne, ale momentálne ste z nich na top 10 len pre 1 KW — strácate tým odhadom 280-400 leadov mesačne v prospech konkurentov ako mojaskrina.sk a inmainterior.sk."
+- "Pri priemernom CPC 0.46€ na vašom trhu, mesačný budget 1500€ prinesie ~3260 kliknutí a pri konverznej miere 3% až 98 leadov."
+- "Aktuálny SEO stav je kritický: zo 6 analyzovaných strán Google indexuje 0 — preto neviete ranknúť ani na lokálne KW."
+
+Bez MM dát = generic summary. S MM dátami = expert summary.
 
 Vráť VÝLUČNE JSON:
 {
@@ -295,9 +391,20 @@ Pravidlá:
 - "intro" — vždy personalizované! Napr. "Vzhľadom na to že už beží Google Ads pre PUR penu, audit odhalí kde tečie budget a kde sú quick wins" alebo "Začnime auditom existujúcich kampaní — máte základ na ktorom môžeme stavať bez zbytočného testovania od nuly."
 - Ak applicable=false, sekcia obsahuje LEN intro+headline ako "Pre-launch audit" mini verzia, ostatné polia môžu byť tie isté ale "scope" zmeň na "Pre-launch checklist: web, tracking, analytics setup pred spustením kampaní".`,
 
-  competitive: `Si senior PPC stratég. POUŽIJ web_search tool (max 3 dotazy) na vyhľadanie reálnych konkurentov klienta. Nepoužívaj odhady — len overiteľné dáta z webu.
+  competitive: `Si senior PPC stratég.
 
-Search strategy:
+KRITICKÉ — POUŽI MM DÁTA AKO PRIMÁRNY ZDROJ KONKURENTOV:
+1. Ak v contexte sú serp_analysis.top_competitors[] a ppc_competitors.top_competitors[], TIETO SÚ PRIMÁRNE konkurenti — nie tvoje guess z web search.
+   - Vezmi UNION top 5 z oboch (deduplicate by domain)
+   - Pre každého naformuluj 1-vetové their_strength z MM dát:
+     "{domain} drží {top10_count} pozícií v top 10 pre vaše KW" alebo "{domain} inzeruje s {ad_count} reklamami na vaše KW"
+   - their_strength musí citovať konkrétne číslo z MM
+2. web_search použij IBA na enrichment — názov firmy (nie len doména), USP, ich slabiny. Maximálne 3 dotazy.
+3. evidence_url = URL ich webu (nie tvoj search query).
+
+Ak MM dáta neexistujú, fallback na web_search ako predtým.
+
+Search strategy (ak chýbajú MM dáta):
 1. "<industry> Slovensko top 5" alebo podobné
 2. "<industry> <city> konkurencia"
 3. Voliteľne: prípadová štúdia / market research SK
@@ -306,9 +413,16 @@ Vráť VÝLUČNE JSON:
 {
   "competitive_landscape": {
     "main_competitors": [
-      { "name": "menovitý konkurent", "their_strength": "...", "our_advantage": "...", "evidence_url": "https://..." }
+      {
+        "name": "menovitý konkurent (z webu)",
+        "domain": "domena.sk (z MM)",
+        "their_strength": "Cite číslo z MM: 'drží {top10_count} pozícií v top 10' alebo '{ad_count} aktívnych PPC reklám' — 2 vety celkom",
+        "our_advantage": "1-2 vety prečo my (porovnaj s ich slabinou)",
+        "evidence_url": "https://...",
+        "data_source": "Marketing Miner" | "Web search"
+      }
     ],
-    "positioning": "1-2 vety ako sa odlíšime"
+    "positioning": "1-2 vety ako sa odlíšime. Cite konkrétny SERP feature alebo PPC strategy z MM."
   },
   "research_sources": [{ "url": "...", "summary": "1 veta čo sme z neho zistili" }]
 }
@@ -523,17 +637,52 @@ function buildSectionContext(lead: any, scrape: string, customNotes: string, sec
     competitive: ['ppc_competitors', 'serp_analysis', 'positions'],
     summary:    ['web_category', 'seo_audit', 'positions'],
   }
+  // Trimovanie heavy polí — pre tokeny. ppc_competitors.ads môže mať 50+
+  // záznamov × 200 chars = 10K char dump. Nechávame iba top 15 ads a stručné
+  // top_competitors. Rovnako serp_analysis.results.
+  const trimMMReport = (key: string, r: any): any => {
+    if (!r) return r
+    const t: any = { ...r }
+    if (key === 'ppc_competitors' && Array.isArray(t.ads)) {
+      t.ads = t.ads.slice(0, 15).map((a: any) => ({
+        keyword: a.keyword, competitor_domain: a.competitor_domain,
+        ad_title: a.ad_title, ad_description: a.ad_description, ad_rank: a.ad_rank,
+      }))
+    }
+    if (key === 'serp_analysis' && Array.isArray(t.results)) {
+      // Iba organické výsledky top 10 + top features
+      t.results = t.results.filter((x: any) => x.type === 'Search Results' && x.position && x.position <= 10).slice(0, 30).map((x: any) => ({
+        keyword: x.keyword, position: x.position, domain: x.domain, title: x.title,
+      }))
+    }
+    if (key === 'positions' && Array.isArray(t.positions)) {
+      t.positions = t.positions.slice(0, 25)
+    }
+    if (key === 'seo_audit' && Array.isArray(t.pages)) {
+      // Stačí 1 sample page + agregát issues
+      t.sample_pages = t.pages.slice(0, 3).map((p: any) => ({
+        url: p.url, title: p.title, meta_description: p.meta_description,
+        indexability: p.indexability, indexed_by_google: p.indexed_by_google,
+      }))
+      delete t.pages
+    }
+    if (key === 'broken_links' && Array.isArray(t.broken_links)) {
+      t.broken_links = t.broken_links.slice(0, 10)
+    }
+    return t
+  }
+
   const relevantKeys = mmRelevance[sectionKey] || []
   const slimMMReports: Record<string, any> = {}
   for (const k of relevantKeys) {
     if (reports[k]) {
-      // Slim — vynechaj raw rows (zbytočné), nechaj parsované polia
+      // Slim — vynechaj raw rows + trimuj heavy arrays
       const { rows, ...rest } = reports[k]
-      slimMMReports[k] = rest
+      slimMMReports[k] = trimMMReport(k, rest)
     }
   }
   const mmReportsBlock = Object.keys(slimMMReports).length
-    ? `MARKETING MINER REPORTY (uploadnuté admin-om — AUTORITATÍVNE DÁTA, použij ich namiesto vlastných odhadov):\n${JSON.stringify(slimMMReports, null, 2).slice(0, 4000)}\n`
+    ? `MARKETING MINER REPORTY (uploadnuté admin-om — AUTORITATÍVNE DÁTA, MUSÍŠ ich citovať v texte):\n${JSON.stringify(slimMMReports, null, 2).slice(0, 6000)}\n`
     : ''
 
   // Legacy marketing_data — len pre sekcie ktoré nemajú parsované MM reporty
@@ -604,7 +753,15 @@ POVINNÉ PRAVIDLÁ:
 
 3. **Extrémna personalizácia.** Použi názov firmy, doménu, mestá, biz model, konkrétne produkty/služby. Ak je to e-shop záhradnej techniky → spomeň konkrétne produktové kategórie. Ak je B2B služba → konkrétny ICP s rolami. Nikdy "vaša firma" generic.
 
-4. **Reálne čísla.** Marketing Miner search volume + CPC ak sú. Inak realistické estimate pre SR (mestá 5-50K obyvateľov: 50-500 hľadaní/mes, CPC 0.20-2.50 €). Budget musí sedieť matematicky (suma = celok).
+4. **Reálne čísla z Marketing Miner — POVINNÉ ak v contexte existujú.** Ak v contexte je blok "MARKETING MINER REPORTY", všetky search volumes, CPCs, pozície, mená konkurentov MUSÍŠ brať odtiaľ — NIKDY vlastné odhady ak máš MM dáta. Klient si pozrie MM dashboard a porovná čísla s tvojím proposalom — ak sa rozchádzajú, stratíme dôveru. MM dáta cite explicitne v texte ("podľa Marketing Miner máte 6 400 hľadaní mesačne pre 'kuchynské linky' na SK"). Bez MM = fallback estimate pre SR (mestá 5-50K obyvateľov: 50-500 hľadaní/mes, CPC 0.20-2.50 €). Budget musí sedieť matematicky (suma = celok).
+
+4b. **MM dáta v texte = expert level.** V každej sekcii sa snaž citovať aspoň 1 konkrétne číslo z MM reportov:
+- analysis: pages_not_indexed, seo_audit issues, social URL z Contact Finder
+- keywords: volume + CPC + peak month z keyword_volumes
+- strategy: top_competitors z ppc_competitors/serp_analysis menovite
+- campaigns: konkurenčné reklamy z ppc_competitors.ads (ako benchmark)
+- competitive: main_competitors[] dopĺňaj z MM dát PRED web search
+- summary: agregátne čísla (total_volume, top_10 count, untapped potenciál)
 
 5. **Detailné "prečo" a "ako" v každej sekcii.** Nielen "Google Ads Search 800€/mes" — ale aj 2-3 vety prečo tento kanál pre tohto klienta, ako bude vyzerať realizácia, čo očakávame.
 
@@ -1072,13 +1229,41 @@ function buildContext(lead: any, scrapedContent: string, customNotes: string): s
   // MM reporty uploadnuté cez admin (XLSX) — preferuj pred raw marketing_data dumpom
   const mm = lead.marketing_data || {}
   const reports = mm.mm_reports || {}
+
+  // Inline trim — rovnaký ako v buildSectionContext, ale ponecháme všetky reporty (full mode)
+  const trim = (key: string, r: any): any => {
+    if (!r) return r
+    const t: any = { ...r }
+    if (key === 'ppc_competitors' && Array.isArray(t.ads)) {
+      t.ads = t.ads.slice(0, 20).map((a: any) => ({
+        keyword: a.keyword, competitor_domain: a.competitor_domain,
+        ad_title: a.ad_title, ad_description: a.ad_description,
+      }))
+    }
+    if (key === 'serp_analysis' && Array.isArray(t.results)) {
+      t.results = t.results.filter((x: any) => x.type === 'Search Results' && x.position && x.position <= 10).slice(0, 40).map((x: any) => ({
+        keyword: x.keyword, position: x.position, domain: x.domain, title: x.title,
+      }))
+    }
+    if (key === 'positions' && Array.isArray(t.positions)) t.positions = t.positions.slice(0, 30)
+    if (key === 'seo_audit' && Array.isArray(t.pages)) {
+      t.sample_pages = t.pages.slice(0, 3).map((p: any) => ({
+        url: p.url, title: p.title, meta_description: p.meta_description,
+        indexability: p.indexability, indexed_by_google: p.indexed_by_google,
+      }))
+      delete t.pages
+    }
+    if (key === 'broken_links' && Array.isArray(t.broken_links)) t.broken_links = t.broken_links.slice(0, 15)
+    return t
+  }
+
   const slimReports: Record<string, any> = {}
   for (const [k, v] of Object.entries(reports)) {
     const { rows, ...rest } = (v as any) || {}
-    slimReports[k] = rest
+    slimReports[k] = trim(k, rest)
   }
   const mmReportsBlock = Object.keys(slimReports).length
-    ? `MARKETING MINER REPORTY (XLSX uploadnuté admin-om — AUTORITATÍVNE DÁTA, použij ich namiesto vlastných odhadov pre social URL, KW objemy, konkurentov, SERP pozície, web kategóriu, tech stack):\n${JSON.stringify(slimReports, null, 2).slice(0, 8000)}\n`
+    ? `MARKETING MINER REPORTY (XLSX uploadnuté admin-om — AUTORITATÍVNE DÁTA, MUSÍŠ ich citovať v texte. V analysis spomeň seo_audit issues, v keywords použij keyword_volumes čísla, v strategy menuj top_competitors, v competitive doplň main_competitors z ppc/serp dát):\n${JSON.stringify(slimReports, null, 2).slice(0, 10000)}\n`
     : ''
   const legacyMMBlock = !mmReportsBlock && (mm.organicTraffic || mm.keywords)
     ? `MARKETING DATA (legacy auto-scraped):\n${JSON.stringify({
