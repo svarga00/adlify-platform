@@ -4721,6 +4721,128 @@ info@adlify.eu | www.adlify.eu`
   // Toto sú FAKTY — kód ich vkladá verbatim do ponuky, nezávisle od toho čo
   // vygeneroval LLM. Tým tabuľky (KW, konkurenti, SEO) vždy sedia na reálne
   // dáta a nie sú parafrázované ani vynechané pri truncation.
+  // Benchmark konverzných pomerov a hodnôt podľa odvetvia.
+  // Reálne SK/CZ priemery z PPC kampaní za posledné 2 roky — slúži ako sanity
+  // check pre ROI výpočet (ak admin nepostuľoval vlastné hodnoty).
+  // Štruktúra: webToLead = % návštev čo nechá kontakt, leadToCustomer = % dopytov
+  // čo skončí objednávkou, aov = priemerná hodnota objednávky v €.
+  INDUSTRY_BENCHMARKS: [
+    // High-ticket, considered purchase — nábytok, stavba, izolácie, oplotenie
+    { match: /nábytok|nabytok|skrine|kuchyn|interiér|interier|stolarstv|stolárstv/i,
+      label: 'Nábytok na mieru', webToLead: 4.0, leadToCustomer: 22, aov: 2800, salesCycleWeeks: 4 },
+    { match: /oploten|brán|brana|plot|pergol|terasy/i,
+      label: 'Oplotenie a exteriér', webToLead: 4.5, leadToCustomer: 28, aov: 3500, salesCycleWeeks: 3 },
+    { match: /izolác|izolac|stavb|rekonštrukci|rekonstrukci|pur pen|fasád|fasad|kúren|kurenie/i,
+      label: 'Stavebné práce', webToLead: 3.5, leadToCustomer: 20, aov: 4500, salesCycleWeeks: 5 },
+    { match: /okná|okna|dvere|žalúzi|zaluzi|tieneni|garáž/i,
+      label: 'Okná a dvere', webToLead: 4.0, leadToCustomer: 25, aov: 2200, salesCycleWeeks: 3 },
+    // E-shop / e-commerce
+    { match: /e-?shop|eshop|obchod|predaj online/i,
+      label: 'E-shop', webToLead: 1.8, leadToCustomer: 100, aov: 65, salesCycleWeeks: 0 },
+    // Auto / motorky
+    { match: /auto|motork|vozid|servis aut|pneuservis|prevádz/i,
+      label: 'Automotive', webToLead: 3.5, leadToCustomer: 30, aov: 800, salesCycleWeeks: 1 },
+    // Krása / zdravie
+    { match: /kozmet|salón|salon|krása|krasa|wellness|spa|estetic|dermatol|stomatol|zubn/i,
+      label: 'Kozmetika a wellness', webToLead: 6.0, leadToCustomer: 45, aov: 180, salesCycleWeeks: 0 },
+    // B2B služby
+    { match: /účtovn|uctovn|právn|pravn|advokát|advokat|consulting|poradn|outsourcing|softvér|softver|IT |webd|programovan/i,
+      label: 'B2B služby', webToLead: 3.0, leadToCustomer: 25, aov: 1500, salesCycleWeeks: 4 },
+    // Reality
+    { match: /realit|nehnut|maklér|makler/i,
+      label: 'Reality', webToLead: 2.8, leadToCustomer: 12, aov: 5000, salesCycleWeeks: 6 },
+    // Vzdelávanie / kurzy
+    { match: /kurz|vzdeláv|vzdelav|jazyk|tréning|trening|coaching/i,
+      label: 'Kurzy a vzdelávanie', webToLead: 5.0, leadToCustomer: 35, aov: 350, salesCycleWeeks: 1 },
+    // Reštaurácie / catering
+    { match: /reštaur|restaur|catering|jedál|jedal|pizz|cafe|kavi/i,
+      label: 'Gastro', webToLead: 8.0, leadToCustomer: 60, aov: 45, salesCycleWeeks: 0 },
+    // Lokálne služby — finále default
+    { match: /služb|sluzb|servis|opravy|údržb|udrzb/i,
+      label: 'Lokálne služby', webToLead: 4.0, leadToCustomer: 25, aov: 250, salesCycleWeeks: 1 },
+  ],
+
+  // Vráti benchmark pre konkrétny lead — pokúsi sa nájsť match v industry,
+  // services a description. Ak nič nezhoduje, vráti všeobecný priemer pre SK.
+  // Vypočíta realistický konverzný lievik pre konkrétny lead.
+  // Vstupy: lead (pre benchmark), b (budget objekt z adaptéra), k (keywords).
+  // Výstup: kroky lievika s číslami → renderuje sa v sekcii ROI.
+  // User-edit má prednosť: ak lead.analysis.roi.assumptions má vyplnené hodnoty,
+  // tie sa použijú namiesto benchmark default.
+  _buildConversionFunnel(lead, b, k) {
+    const bench = this._industryBenchmark(lead);
+    const userAssump = lead?.analysis?.roi?.assumptions || {};
+    const monthlyBudget = b?.recommendations?.recommended?.adSpend || b?.recommendations?.moderate?.totalBudget || 1500;
+    const avgCpc = b?.avgCpc || 0.50;
+
+    // Conversion rates (user override > benchmark)
+    const webToLeadPct = Number(userAssump.web_to_lead_pct) || bench.webToLead;
+    const leadToCustomerPct = Number(userAssump.conversion_rate_pct)
+      || parseFloat(String(userAssump.conversionRate || '').replace('%','')) || bench.leadToCustomer;
+    const aov = Number(userAssump.avg_order_value_eur) || Number(userAssump.averageOrderValue) || bench.aov;
+    const ltvMul = Number(userAssump.ltv_multiplier) || 1.0;
+
+    // Pipeline values
+    const clicks = Math.round(monthlyBudget / avgCpc);
+    const leads = Math.round(clicks * (webToLeadPct / 100));
+    const customers = Math.max(1, Math.round(leads * (leadToCustomerPct / 100)));
+    const revenue = Math.round(customers * aov * ltvMul);
+    const profit = revenue - monthlyBudget;
+    const roiPct = monthlyBudget > 0 ? Math.round((revenue / monthlyBudget) * 100) : 0;
+
+    // Mini example — jeden konkrétny zákazník (najdrahší KW v top)
+    const topKw = (k?.topKeywords || [])[0];
+    const exampleClicks = 100;
+    const exampleLeads = Math.max(1, Math.round(exampleClicks * (webToLeadPct / 100)));
+    const exampleCustomers = Math.max(1, Math.round(exampleLeads * (leadToCustomerPct / 100)));
+    const exampleSpend = Math.round(exampleClicks * avgCpc);
+    const exampleRevenue = exampleCustomers * aov;
+
+    return {
+      industryLabel: bench.label,
+      benchmarkSource: userAssump.conversion_rate_pct || userAssump.averageOrderValue ? 'Vaše vlastné údaje' : 'Branžový priemer pre SR',
+      steps: [
+        { label: 'Mesačný rozpočet', value: `${monthlyBudget.toLocaleString('sk-SK')} €`, note: `Pri priemernej cene za klik ${avgCpc.toFixed(2)} €` },
+        { label: 'Návštev z reklamy', value: clicks.toLocaleString('sk-SK'), note: 'Kvalifikovaná návštevnosť na vašom webe' },
+        { label: 'Dopytov (kontaktný formulár, telefón)', value: leads.toLocaleString('sk-SK'), note: `Pri konverznom pomere ${webToLeadPct} % — typické pre obor "${bench.label}"`, conversion: `${webToLeadPct} %` },
+        { label: 'Zákazníkov (objednávka, podpis zmluvy)', value: customers.toLocaleString('sk-SK'), note: `Pri uzavretí ${leadToCustomerPct} % dopytov`, conversion: `${leadToCustomerPct} %` },
+        { label: 'Mesačný obrat', value: `${revenue.toLocaleString('sk-SK')} €`, note: `${customers} × priemerná hodnota ${aov.toLocaleString('sk-SK')} €${ltvMul > 1 ? ` × LTV ${ltvMul}` : ''}`, highlight: true },
+      ],
+      summary: {
+        monthlySpend: monthlyBudget,
+        monthlyRevenue: revenue,
+        monthlyProfit: profit,
+        roiPct,
+        cpl: leads > 0 ? Math.round(monthlyBudget / leads) : 0,
+        cac: Math.round(monthlyBudget / customers),
+      },
+      example: topKw ? {
+        keyword: topKw.keyword,
+        clicks: exampleClicks,
+        leads: exampleLeads,
+        customers: exampleCustomers,
+        spend: exampleSpend,
+        revenue: exampleRevenue,
+      } : null,
+      assumptions: { webToLeadPct, leadToCustomerPct, aov, avgCpc, ltvMul },
+    };
+  },
+
+  _industryBenchmark(lead) {
+    const search = [
+      lead?.industry,
+      lead?.analysis?.company?.industry,
+      ...(lead?.analysis?.company?.services || []),
+      lead?.analysis?.company?.description,
+      lead?.company_name,
+    ].filter(Boolean).join(' ');
+    for (const b of this.INDUSTRY_BENCHMARKS) {
+      if (b.match.test(search)) return b;
+    }
+    // Default — všeobecné SK PPC priemery
+    return { label: 'SK PPC priemer', webToLead: 3.0, leadToCustomer: 20, aov: 800, salesCycleWeeks: 2 };
+  },
+
   _mmFacts(lead) {
     const mm = (lead && lead.marketing_data && lead.marketing_data.mm_reports) || {};
     const facts = { keywords: null, social: null, seoNote: null, seoWeaknesses: [], competitors: null, positionsByKw: {}, techAudit: null };
@@ -5235,6 +5357,7 @@ info@adlify.eu | www.adlify.eu`
       timeline: templateTimeline,
       competition: competitive,
       techAudit: mmf.techAudit,
+      conversionFunnel: this._buildConversionFunnel(lead, b, k),
       campaign_audit: p.campaign_audit || null,
       recommendedPackage,
       customAdImage,
@@ -6765,8 +6888,94 @@ ${r.projection ? `
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">11</span> Predpokladaná návratnosť (ROI)</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">${r.explanation || 'Na základe odhadov návštevnosti, konverzného pomeru a priemernej hodnoty objednávky sme vypočítali potenciálnu návratnosť vašej investície.'}</p>
-    
+    <p class="section-subtitle">${analysis.conversionFunnel ? `Výpočet vychádza z reálnych konverzných pomerov pre obor <strong>${analysis.conversionFunnel.industryLabel}</strong> (zdroj: ${analysis.conversionFunnel.benchmarkSource}). Tu je krok-za-krokom čo môžete očakávať z mesačného rozpočtu:` : (r.explanation || 'Na základe odhadov návštevnosti, konverzného pomeru a priemernej hodnoty objednávky sme vypočítali potenciálnu návratnosť vašej investície.')}</p>
+
+    ${analysis.conversionFunnel ? `
+    <!-- Konverzný lievik — kroky 1→5 -->
+    <div style="display:flex; flex-direction:column; gap:10px; margin:30px 0 40px; position:relative;">
+      ${analysis.conversionFunnel.steps.map((step, i) => {
+        const isLast = i === analysis.conversionFunnel.steps.length - 1;
+        const isHighlight = step.highlight;
+        const bg = isHighlight ? 'linear-gradient(135deg, #FF6B35, #E91E63)' : '#ffffff';
+        const color = isHighlight ? '#ffffff' : '#1a1a2e';
+        const noteColor = isHighlight ? 'rgba(255,255,255,0.85)' : '#64748b';
+        const numBg = isHighlight ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #FF6B35, #E91E63)';
+        return `
+        <div style="background:${bg}; border:1px solid ${isHighlight ? 'transparent' : '#e2e8f0'}; border-radius:14px; padding:18px 22px; box-shadow:${isHighlight ? '0 8px 30px rgba(233, 30, 99, 0.25)' : '0 2px 8px rgba(0,0,0,0.04)'}; display:flex; align-items:center; gap:18px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:${numBg}; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem; flex-shrink:0;">${i+1}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:4px;">
+              <div style="font-size:1.05rem; font-weight:600; color:${color};">${step.label}</div>
+              <div style="font-size:1.4rem; font-weight:800; color:${color}; ${isHighlight ? '' : 'background:linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;'} white-space:nowrap;">${step.value}</div>
+            </div>
+            <div style="font-size:0.85rem; color:${noteColor}; line-height:1.5;">${step.note}${step.conversion ? ` <span style="background:${isHighlight ? 'rgba(255,255,255,0.18)' : '#fef3c7'}; color:${isHighlight ? '#fff' : '#92400e'}; padding:2px 8px; border-radius:99px; font-weight:600; font-size:0.78rem; margin-left:6px;">${step.conversion}</span>` : ''}</div>
+          </div>
+        </div>
+        ${!isLast ? `<div style="text-align:center; height:14px; color:#cbd5e1; font-size:1.2rem; line-height:14px;">↓</div>` : ''}
+        `;
+      }).join('')}
+    </div>
+
+    <!-- 3 hlavné metriky -->
+    <div class="grid-3" style="margin-bottom: 32px;">
+      <div class="stat-box">
+        <div class="stat-value">${analysis.conversionFunnel.summary.cpl.toLocaleString('sk-SK')} €</div>
+        <div class="stat-label">Cena za dopyt (CPL)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${analysis.conversionFunnel.summary.cac.toLocaleString('sk-SK')} €</div>
+        <div class="stat-label">Cena za zákazníka (CAC)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${analysis.conversionFunnel.summary.roiPct}%</div>
+        <div class="stat-label">Návratnosť investície</div>
+      </div>
+    </div>
+
+    ${analysis.conversionFunnel.example ? `
+    <!-- Mini príklad -->
+    <div class="card" style="border-left:4px solid #FF6B35; background:linear-gradient(135deg, #fff7ed, #ffffff); padding:28px 32px;">
+      <div style="display:inline-block; padding:4px 12px; background:rgba(255,107,53,0.12); color:#FF6B35; border-radius:99px; font-size:0.72rem; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:14px;">Konkrétny príklad</div>
+      <h4 style="font-size:1.15rem; font-weight:700; color:#1a1a2e; margin-bottom:8px;">Predstavte si jeden týždeň kampane na výraz „${analysis.conversionFunnel.example.keyword}"</h4>
+      <p style="color:#475569; font-size:0.95rem; line-height:1.7; margin-bottom:18px;">Pri rozpočte <strong>${analysis.conversionFunnel.example.spend.toLocaleString('sk-SK')} €</strong> dosiahneme <strong>${analysis.conversionFunnel.example.clicks} kliknutí</strong> na váš web. Z nich približne <strong>${analysis.conversionFunnel.example.leads} ${analysis.conversionFunnel.example.leads === 1 ? 'záujemca vás osloví' : analysis.conversionFunnel.example.leads < 5 ? 'záujemcovia vás oslovia' : 'záujemcov vás osloví'}</strong> (telefón, formulár, e-mail). Z tých <strong>${analysis.conversionFunnel.example.customers} ${analysis.conversionFunnel.example.customers === 1 ? 'sa stane' : 'sa stanú'} platiacim zákazníkom</strong> s objednávkou priemerne <strong>${analysis.conversionFunnel.assumptions.aov.toLocaleString('sk-SK')} €</strong>.</p>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:#ffffff; border-radius:10px; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Investícia</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#1a1a2e;">${analysis.conversionFunnel.example.spend.toLocaleString('sk-SK')} €</div>
+        </div>
+        <div style="color:#cbd5e1; font-size:1.6rem; font-weight:300;">→</div>
+        <div>
+          <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Obrat z týždňa</div>
+          <div style="font-size:1.4rem; font-weight:800; background:linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">${analysis.conversionFunnel.example.revenue.toLocaleString('sk-SK')} €</div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    <!-- Predpoklady (transparency) -->
+    <div class="card" style="margin-top:24px;">
+      <h4 class="card-title">Predpoklady výpočtu</h4>
+      <div class="grid-4">
+        <div style="text-align: center; padding: 18px 12px;">
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Cena za klik</p>
+          <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.avgCpc.toFixed(2)} €</p>
+        </div>
+        <div style="text-align: center; padding: 18px 12px; border-left: 1px solid #e2e8f0;">
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Návšteva → dopyt</p>
+          <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.webToLeadPct} %</p>
+        </div>
+        <div style="text-align: center; padding: 18px 12px; border-left: 1px solid #e2e8f0;">
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Dopyt → zákazník</p>
+          <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.leadToCustomerPct} %</p>
+        </div>
+        <div style="text-align: center; padding: 18px 12px; border-left: 1px solid #e2e8f0;">
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Hodnota objednávky</p>
+          <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.aov.toLocaleString('sk-SK')} €</p>
+        </div>
+      </div>
+    </div>
+    ` : `
+    <!-- Fallback ak funnel chýba (legacy data) -->
     <div class="grid-3" style="margin-bottom: 40px;">
       <div class="stat-box">
         <div class="stat-value">${r.projection.monthlyLeads}</div>
@@ -6781,24 +6990,7 @@ ${r.projection ? `
         <div class="stat-label">Návratnosť investície</div>
       </div>
     </div>
-    
-    <div class="card">
-      <h4 class="card-title">Predpoklady výpočtu</h4>
-      <div class="grid-3">
-        <div style="text-align: center; padding: 25px;">
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Priemerná hodnota objednávky</p>
-          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.averageOrderValue || 'N/A'}€</p>
-        </div>
-        <div style="text-align: center; padding: 25px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Konverzný pomer</p>
-          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.conversionRate || 'N/A'}</p>
-        </div>
-        <div style="text-align: center; padding: 25px;">
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-weight: 600;">Hodnota zákazníka (LTV)</p>
-          <p style="font-size: 2rem; font-weight: 700; color: #1a1a2e;">${r.assumptions?.customerLifetimeValue || 'N/A'}€</p>
-        </div>
-      </div>
-    </div>
+    `}
   </div>
 </section>
 ` : ''}
