@@ -48,15 +48,17 @@ const DashboardModule = {
   async render(container) {
     // Show loading
     container.innerHTML = '<div class="flex items-center justify-center h-64"><div class="animate-spin text-4xl">⏳</div></div>';
-    
+
     try {
       // Fetch data
-      const [leads, clients, tasksResult, hotProspectsResult, recentEventsResult] = await Promise.all([
+      const [leads, clients, tasksResult, hotProspectsResult, recentEventsResult, clientMessagesResult] = await Promise.all([
         Database.select('leads', { columns: 'id, status, score, created_at' }),
-        Database.select('clients', { columns: 'id, status, monthly_fee' }),
+        Database.select('clients', { columns: 'id, status, monthly_fee, company_name' }),
         Database.client.from('tasks').select('id, status, due_date, assigned_to'),
         Database.client.from('prospects').select('id, company_name, domain, email, score, outreach_stage, audit_requested_at, audit_viewed_at, outreach_email_opened_at, outreach_email_open_count, outreach_email_replied_at').order('score', { ascending: false, nullsLast: true }).limit(8),
         Database.client.from('prospect_events').select('prospect_id, event_type, occurred_at, is_bot, geo_city, geo_country, link_url, prospect:prospects(company_name, domain)').eq('is_bot', false).order('occurred_at', { ascending: false }).limit(10),
+        // Klientske správy z portálu (sender_type='client') — admin notifikácia
+        Database.client.from('messages').select('id, client_id, content, created_at, is_read, from_email, from_name').eq('sender_type', 'client').order('created_at', { ascending: false }).limit(10),
       ]);
       
       // Filter tasks for current user
@@ -69,9 +71,12 @@ const DashboardModule = {
       
       const hotProspects = (hotProspectsResult?.data || []).filter(p => (p.score || 0) > 50);
       const recentEvents = recentEventsResult?.data || [];
+      const clientMessages = clientMessagesResult?.data || [];
+      // Mapuj client_id → company_name pre rýchle zobrazenie
+      const clientsData = (clients || []).reduce((acc, c) => { acc[c.id] = c.company_name; return acc; }, {});
 
       // Render
-      container.innerHTML = this.template(stats, leads, clients, hotProspects, recentEvents);
+      container.innerHTML = this.template(stats, leads, clients, hotProspects, recentEvents, clientMessages, clientsData);
       
       // Initialize charts
       this.initCharts(stats);
@@ -149,10 +154,12 @@ const DashboardModule = {
   /**
    * Dashboard template
    */
-  template(stats, leads, clients, hotProspects = [], recentEvents = []) {
+  template(stats, leads, clients, hotProspects = [], recentEvents = [], clientMessages = [], clientsData = {}) {
     const recentLeads = leads
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
+    const unreadClientMsgs = clientMessages.filter(m => !m.is_read).length;
+    const clientMessagesWidget = this._renderClientMessagesWidget(clientMessages, clientsData, unreadClientMsgs);
 
     const DI = this._dashIcons();
     const mrrFormatted = Utils.formatCurrency(stats.clients.mrr);
@@ -406,6 +413,57 @@ const DashboardModule = {
           .adl-dashboard-bottom { grid-template-columns: 1fr !important; }
         }
       </style>
+
+      ${clientMessagesWidget}
+    </div>
+    `;
+  },
+
+  // Widget: Klientske správy z portálu (sender_type='client')
+  _renderClientMessagesWidget(messages, clientsData, unreadCount) {
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const formatDate = (d) => {
+      const dt = new Date(d);
+      const now = new Date();
+      const diff = (now - dt) / 1000;
+      if (diff < 60) return 'teraz';
+      if (diff < 3600) return Math.floor(diff / 60) + ' min';
+      if (diff < 86400) return Math.floor(diff / 3600) + ' h';
+      return dt.toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' });
+    };
+
+    return `
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-top:24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:linear-gradient(135deg, rgba(124,58,237,0.04), rgba(236,72,153,0.04));">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, #7c3aed, #ec4899); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">${unreadCount}</div>
+          <div>
+            <div style="font-size:14px; font-weight:700; color:var(--ink);">Klientske správy z portálu</div>
+            <div style="font-size:11px; color:var(--ink-mute);">${unreadCount === 0 ? 'Žiadne neprečítané' : unreadCount + ' neprečítaných · ' + messages.length + ' celkom'}</div>
+          </div>
+        </div>
+      </div>
+      ${messages.length === 0 ? `
+        <div style="padding:32px 20px; text-align:center; color:var(--ink-mute); font-size:13px;">
+          Klienti zatiaľ neposlali žiadne správy z portálu.
+        </div>
+      ` : messages.slice(0, 6).map(m => {
+        const companyName = clientsData[m.client_id] || m.from_name || m.from_email || 'Klient';
+        const preview = (m.content || '').slice(0, 100) + ((m.content || '').length > 100 ? '…' : '');
+        return `
+        <a href="#clients?id=${m.client_id}" style="display:flex; align-items:flex-start; gap:12px; padding:12px 20px; text-decoration:none; color:inherit; border-top:1px solid var(--n-100); transition:background .12s; ${!m.is_read ? 'background:rgba(124,58,237,0.04);' : ''}" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='${!m.is_read ? 'rgba(124,58,237,0.04)' : 'transparent'}'">
+          <div style="width:34px; height:34px; border-radius:99px; background:${m.is_read ? 'var(--n-100)' : 'linear-gradient(135deg, #7c3aed, #ec4899)'}; color:${m.is_read ? 'var(--ink-sub)' : '#fff'}; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">${(companyName[0] || '?').toUpperCase()}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
+              <strong style="font-size:13px; font-weight:${m.is_read ? '500' : '700'}; color:var(--ink);">${esc(companyName)}</strong>
+              ${!m.is_read ? '<span style="display:inline-block; width:6px; height:6px; border-radius:99px; background:#ec4899;"></span>' : ''}
+              <span style="margin-left:auto; font-size:11px; color:var(--ink-mute);">${formatDate(m.created_at)}</span>
+            </div>
+            <div style="font-size:12px; color:var(--ink-sub); line-height:1.5; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${esc(preview)}</div>
+          </div>
+        </a>
+        `;
+      }).join('')}
     </div>
     `;
   },
