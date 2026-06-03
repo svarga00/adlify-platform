@@ -1869,7 +1869,18 @@ const ClientsModule = {
       client_id: this.currentClient.id,
       sender_id: Auth.user?.id,
       sender_type: 'team',
-      content
+      content,
+      // Defensive — legacy DB schémy môžu mať subject/from_email/to_email
+      // ako NOT NULL. Posielame defaults aj keby nový schema ich nepotreboval.
+      subject: content.length > 80 ? content.slice(0, 77) + '...' : content,
+      body_text: content,
+      body_html: content.replace(/</g, '&lt;').replace(/\n/g, '<br>'),
+      from_email: Auth.user?.email || 'team@adlify.eu',
+      from_name: Auth.user?.user_metadata?.full_name || 'Tím Adlify',
+      to_email: this.currentClient.email || null,
+      to_name: this.currentClient.contact_person || this.currentClient.company_name || null,
+      status: 'sent',
+      type: 'admin',
     }).select().single();
 
     if (error) {
