@@ -504,11 +504,48 @@ function buildSectionContext(lead: any, scrape: string, customNotes: string, sec
     return JSON.stringify(slim, null, 2).slice(0, 3000)
   })()
 
-  // Marketing data — len pre keywords/strategy/campaigns/budget
-  const needsMM = ['keywords', 'strategy', 'campaigns', 'budget'].includes(sectionKey)
-  const mmBlock = needsMM && lead.marketing_data
-    ? `MARKETING MINER DATA:\n${JSON.stringify(lead.marketing_data, null, 2).slice(0, 2000)}\n`
+  // Marketing data — preferuj štruktúrované MM reporty (uploadnuté cez admin
+  // ako XLSX) pred raw marketing_data dumpom. Reporty obsahujú už spracované
+  // pole: contact_finder.social, keyword_volumes.keywords, ppc_competitors.ads,
+  // serp_analysis.top_competitors atď. AI tak dostane reálne čísla a názvy
+  // konkurentov, nie hádanie zo scrape textu.
+  const mm = lead.marketing_data || {}
+  const reports = mm.mm_reports || {}
+
+  // Per-section relevance — ktoré MM reporty má daná sekcia vidieť
+  const mmRelevance: Record<string, string[]> = {
+    analysis:   ['contact_finder', 'web_category', 'tech_detection', 'majestic_domain'],
+    audit:      ['contact_finder', 'web_category', 'tech_detection', 'majestic_domain'],
+    keywords:   ['keyword_volumes', 'keyword_suggest', 'serp_analysis', 'positions'],
+    strategy:   ['keyword_volumes', 'ppc_competitors', 'serp_analysis', 'web_category'],
+    campaigns:  ['ppc_competitors', 'keyword_volumes', 'serp_analysis'],
+    budget:     ['keyword_volumes', 'ppc_competitors', 'positions'],
+    competitive: ['ppc_competitors', 'serp_analysis', 'majestic_domain'],
+    summary:    ['web_category', 'majestic_domain'],
+  }
+  const relevantKeys = mmRelevance[sectionKey] || []
+  const slimMMReports: Record<string, any> = {}
+  for (const k of relevantKeys) {
+    if (reports[k]) {
+      // Slim — vynechaj raw rows (zbytočné), nechaj parsované polia
+      const { rows, ...rest } = reports[k]
+      slimMMReports[k] = rest
+    }
+  }
+  const mmReportsBlock = Object.keys(slimMMReports).length
+    ? `MARKETING MINER REPORTY (uploadnuté admin-om — AUTORITATÍVNE DÁTA, použij ich namiesto vlastných odhadov):\n${JSON.stringify(slimMMReports, null, 2).slice(0, 4000)}\n`
     : ''
+
+  // Legacy marketing_data — len pre sekcie ktoré nemajú parsované MM reporty
+  const needsMM = ['keywords', 'strategy', 'campaigns', 'budget'].includes(sectionKey)
+  const legacyMMBlock = needsMM && !mmReportsBlock && (mm.organicTraffic || mm.keywords)
+    ? `MARKETING MINER (legacy auto-scraped data):\n${JSON.stringify({
+        organicTraffic: mm.organicTraffic,
+        organicKeywords: mm.organicKeywords,
+        backlinks: mm.backlinks,
+      }, null, 2).slice(0, 1000)}\n`
+    : ''
+  const mmBlock = mmReportsBlock + legacyMMBlock
 
   // Existujúce sekcie pre coherence — iba reference k tým ktoré majú vplyv na túto sekciu.
   // Predtým dumpovali celé premium_analysis (5K), teraz iba relevantné kľúče.
@@ -1032,6 +1069,23 @@ async function runPremiumGeneration(
 }
 
 function buildContext(lead: any, scrapedContent: string, customNotes: string): string {
+  // MM reporty uploadnuté cez admin (XLSX) — preferuj pred raw marketing_data dumpom
+  const mm = lead.marketing_data || {}
+  const reports = mm.mm_reports || {}
+  const slimReports: Record<string, any> = {}
+  for (const [k, v] of Object.entries(reports)) {
+    const { rows, ...rest } = (v as any) || {}
+    slimReports[k] = rest
+  }
+  const mmReportsBlock = Object.keys(slimReports).length
+    ? `MARKETING MINER REPORTY (XLSX uploadnuté admin-om — AUTORITATÍVNE DÁTA, použij ich namiesto vlastných odhadov pre social URL, KW objemy, konkurentov, SERP pozície, web kategóriu, tech stack):\n${JSON.stringify(slimReports, null, 2).slice(0, 8000)}\n`
+    : ''
+  const legacyMMBlock = !mmReportsBlock && (mm.organicTraffic || mm.keywords)
+    ? `MARKETING DATA (legacy auto-scraped):\n${JSON.stringify({
+        organicTraffic: mm.organicTraffic, organicKeywords: mm.organicKeywords, backlinks: mm.backlinks
+      }, null, 2).slice(0, 2000)}\n`
+    : ''
+
   return `LEAD DATA:
 Firma: ${lead.company_name || 'neuvedené'}
 Doména: ${lead.domain || 'neuvedená'}
@@ -1043,10 +1097,7 @@ Mesto / lokalita: ${lead.city || lead.analysis?.company?.city || lead.analysis?.
 PÔVODNÁ AI ANALÝZA (od analyze-lead Edge function):
 ${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 10000)}
 
-MARKETING DATA (Marketing Miner):
-${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 5000)}
-
-DEEP WEB SCRAPE (homepage + 3 relevantné podstránky klienta):
+${mmReportsBlock}${legacyMMBlock}DEEP WEB SCRAPE (homepage + 3 relevantné podstránky klienta):
 ${scrapedContent}
 
 ${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}

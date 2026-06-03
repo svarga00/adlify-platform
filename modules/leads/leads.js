@@ -1523,6 +1523,7 @@ const LeadsModule = {
               ${[
                 { k: 'analysis', label: 'AI Analýza',     available: hasAnalysis },
                 { k: 'webseo',   label: 'Web & SEO',      available: hasMM },
+                { k: 'mm',       label: 'MM Reporty',     available: true },
                 { k: 'social',   label: 'Sociálne siete', available: hasSocials },
                 { k: 'history',  label: 'História',       available: true },
                 { k: 'notes',    label: 'Poznámky',       available: true }
@@ -1622,6 +1623,19 @@ const LeadsModule = {
                 </div></div>
               </div>
             ` : ''}
+
+            <!-- MM Reporty tab -->
+            <div id="detail-tab-mm" class="detail-tab-content" style="display:none;">
+              <div class="adl-card">
+                <div class="adl-card-header">
+                  <div class="adl-card-title">Marketing Miner reporty</div>
+                  <a href="https://app.marketingminer.com/" target="_blank" class="adl-btn adl-btn-outline adl-btn-sm">${I.External({size:12})} Otvoriť Marketing Miner</a>
+                </div>
+                <div class="adl-card-body">
+                  ${this._renderMMReports(lead)}
+                </div>
+              </div>
+            </div>
 
             <!-- História tab -->
             <div id="detail-tab-history" class="detail-tab-content" style="display:none;">
@@ -2140,6 +2154,291 @@ const LeadsModule = {
       ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
       <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>🎯 Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
     `;
+  },
+
+  // ================== MARKETING MINER REPORT UPLOAD ==================
+  // User v MM dashboarde vygeneruje XLSX reporty (Contact Finder, Hľadanosť,
+  // PPC reklamy, Analýza SERP, Pozícia...), stiahne ich a sem ich drag-and-dropne.
+  // Parser detekuje typ reportu zo sheet names a uloží štruktúrované dáta do
+  // lead.marketing_data.mm_reports.{report_type}. Tieto dáta potom Edge fn
+  // generate-deep-proposal použije ako autoritatívne čísla namiesto AI hádania.
+
+  // Mapovanie sheet names → typ reportu. MM používa anglické názvy sheetov
+  // konzistentne naprieč jazykmi UI.
+  MM_REPORT_DETECTORS: [
+    { key: 'contact_finder',   sheets: ['Contact Finder', 'Data'],         label: 'Contact Finder' },
+    { key: 'keyword_volumes',  sheets: ['Search Volume', 'Hľadanosť fráz', 'Hledanost frází'], label: 'Hľadanosť fráz' },
+    { key: 'ppc_competitors',  sheets: ['PPC', 'PPC reklamy', 'PPC Ads'],  label: 'PPC reklamy' },
+    { key: 'serp_analysis',    sheets: ['SERP', 'Analýza SERP', 'SERP Analysis'], label: 'Analýza SERP' },
+    { key: 'positions',        sheets: ['Position', 'Pozícia vo vyhľadávačoch', 'Position Check'], label: 'Pozícia vo vyhľadávačoch' },
+    { key: 'web_category',     sheets: ['Website Categorization', 'Kategorizácia webu'], label: 'Kategorizácia webu' },
+    { key: 'tech_detection',   sheets: ['Technology Detection', 'Detekcia technológií'], label: 'Detekcia technológií' },
+    { key: 'dns_info',         sheets: ['DNS Info'], label: 'DNS info' },
+    { key: 'keyword_suggest',  sheets: ['Suggestions', 'Návrhy kľúčových slov', 'Keyword Suggestions'], label: 'Návrhy kľúčových slov' },
+    { key: 'majestic_domain',  sheets: ['Majestic', 'Majestic (Domain)'], label: 'Majestic (autorita domény)' },
+  ],
+
+  _renderMMReports(lead) {
+    const md = lead.marketing_data || {};
+    const reports = md.mm_reports || {};
+    const has = Object.keys(reports).length > 0;
+
+    const reportCard = (key, def) => {
+      const r = reports[key];
+      if (!r) return '';
+      return `
+        <div style="background:var(--surface); border:1px solid var(--n-100); border-radius:10px; padding:12px 14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="width:32px; height:32px; border-radius:8px; background:var(--brand-50); color:var(--brand-700); display:inline-flex; align-items:center; justify-content:center;">${I.Check({size:16})}</div>
+              <div>
+                <div style="font-size:13px; font-weight:600;">${def.label}</div>
+                <div style="font-size:11px; color:var(--ink-sub);">${r.summary || `${(r.rows || []).length} riadkov`}</div>
+              </div>
+            </div>
+            <button onclick="LeadsModule.removeMMReport('${key}')" class="adl-btn adl-btn-ghost adl-btn-sm" title="Zmazať report">${I.Trash({size:13})}</button>
+          </div>
+        </div>
+      `;
+    };
+
+    const uploadedList = has ? `
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; margin-bottom:16px;">
+        ${this.MM_REPORT_DETECTORS.map(d => reportCard(d.key, d)).join('')}
+      </div>
+    ` : '';
+
+    const missingList = this.MM_REPORT_DETECTORS
+      .filter(d => !reports[d.key])
+      .map(d => `<span class="adl-chip adl-chip-sm" style="background:var(--n-50); color:var(--ink-sub);">${d.label}</span>`)
+      .join('');
+
+    return `
+      ${uploadedList}
+      <div id="mm-dropzone" ondragover="event.preventDefault(); this.style.borderColor='var(--brand-500)'; this.style.background='var(--brand-50)';"
+           ondragleave="this.style.borderColor='var(--border)'; this.style.background='var(--n-50)';"
+           ondrop="event.preventDefault(); this.style.borderColor='var(--border)'; this.style.background='var(--n-50)'; LeadsModule.handleMMUpload(event.dataTransfer.files);"
+           style="border:2px dashed var(--border); border-radius:12px; padding:24px 20px; text-align:center; background:var(--n-50); transition:background .15s, border-color .15s;">
+        <div style="display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:var(--brand-50); color:var(--brand-700); margin-bottom:8px;">${I.Upload({size:22})}</div>
+        <div style="font-size:14px; font-weight:600; margin-bottom:4px;">Pretiahni MM XLSX reporty sem</div>
+        <div style="font-size:12px; color:var(--ink-sub); margin-bottom:12px;">Alebo klikni na tlačidlo. Systém auto-detekuje typ reportu zo sheet names.</div>
+        <label class="adl-btn adl-btn-outline adl-btn-sm" style="cursor:pointer;">
+          ${I.Folder({size:13})} Vybrať súbory
+          <input type="file" accept=".xlsx,.xls" multiple style="display:none;" onchange="LeadsModule.handleMMUpload(this.files); this.value='';">
+        </label>
+      </div>
+
+      ${missingList ? `
+        <div style="margin-top:16px; padding:12px 14px; background:var(--n-50); border-radius:10px;">
+          <div style="font-size:11px; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; font-weight:600; margin-bottom:6px;">Ešte chýbajú</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">${missingList}</div>
+        </div>
+      ` : ''}
+
+      <details style="margin-top:16px;">
+        <summary style="cursor:pointer; font-size:12px; color:var(--ink-sub); font-weight:500;">📋 Postup ako vygenerovať reporty v MM (klikni)</summary>
+        <ol style="font-size:13px; color:var(--ink); line-height:1.7; margin-top:10px; padding-left:20px;">
+          <li>Otvor <a href="https://app.marketingminer.com/" target="_blank" style="color:var(--brand-600);">app.marketingminer.com</a> a prihlás sa</li>
+          <li><b>Contact Finder</b> (3 kr) — input: doména klienta (napr. <code>${lead.domain || 'firma.sk'}</code>) → Generovať → Stiahnuť XLSX</li>
+          <li><b>Kategorizácia webu</b> (1 kr) — input: doména → Stiahnuť</li>
+          <li><b>Detekcia technológií</b> (1 kr) — input: doména → Stiahnuť</li>
+          <li>Pozri si KW z AI analýzy (sekcia "Kľúčové slová" v Náhľade ponuky) a skopíruj top 10-15</li>
+          <li><b>Hľadanosť fráz</b> (3 kr) — input: zoznam KW → Stiahnuť</li>
+          <li><b>PPC reklamy</b> (10 kr) — input: top 5-8 KW → Stiahnuť</li>
+          <li><b>Analýza SERP</b> (10 kr) — input: top 5 KW → Stiahnuť</li>
+          <li><b>Pozícia vo vyhľadávačoch</b> (10 kr) — input: doména + 10 KW → Stiahnuť</li>
+          <li>Všetky XLSX súbory sem pretiahni — systém ich automaticky rozpozná a uloží</li>
+          <li>Regeneruj proposal — AI dostane reálne čísla namiesto hádania</li>
+        </ol>
+        <p style="font-size:12px; color:var(--ink-sub); margin-top:8px;">Celkový kredit: ~<b>40 kr/lead</b>. Čas: ~2-3 min.</p>
+      </details>
+    `;
+  },
+
+  async handleMMUpload(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    if (typeof XLSX === 'undefined') {
+      Utils.toast('SheetJS knižnica nie je načítaná. Obnov stránku.', 'error');
+      return;
+    }
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead) return Utils.toast('Lead nenájdený', 'error');
+
+    const md = lead.marketing_data || {};
+    md.mm_reports = md.mm_reports || {};
+
+    let processed = 0;
+    let unrecognized = 0;
+    for (const file of fileList) {
+      try {
+        const data = await file.arrayBuffer();
+        const wb = XLSX.read(data, { type: 'array' });
+        const detected = this._detectMMReport(wb, file.name);
+        if (!detected) {
+          console.warn('[MM] Unrecognized file:', file.name, 'sheets:', wb.SheetNames);
+          unrecognized++;
+          continue;
+        }
+        md.mm_reports[detected.key] = {
+          uploaded_at: new Date().toISOString(),
+          filename: file.name,
+          ...detected.data,
+        };
+        processed++;
+      } catch (err) {
+        console.error('[MM] Parse error:', file.name, err);
+        Utils.toast(`Chyba pri parsovaní ${file.name}: ${err.message}`, 'error');
+      }
+    }
+
+    if (processed > 0) {
+      lead.marketing_data = md;
+      await Database.update('leads', lead.id, { marketing_data: md });
+      Utils.toast(`Nahraných ${processed} MM ${processed === 1 ? 'report' : 'reportov'}${unrecognized ? ` (${unrecognized} neznámych preskočených)` : ''}`, 'success');
+      // Re-render MM sekciu
+      const tab = document.getElementById('detail-tab-mm');
+      if (tab) tab.querySelector('.adl-card-body').innerHTML = this._renderMMReports(lead);
+    } else if (unrecognized > 0) {
+      Utils.toast(`Súbor(y) nerozpoznané — skontroluj že je to XLSX z Marketing Miner`, 'warning');
+    }
+  },
+
+  // Detekcia typu reportu zo sheet names + extract štruktúrovaných dát
+  _detectMMReport(wb, filename) {
+    const sheetNames = wb.SheetNames || [];
+    const def = this.MM_REPORT_DETECTORS.find(d =>
+      d.sheets.some(s => sheetNames.includes(s))
+    );
+    if (!def) return null;
+
+    // Primárny sheet — prvý zo zoznamu ktorý existuje
+    const primarySheet = def.sheets.find(s => sheetNames.includes(s));
+    const sheet = wb.Sheets[primarySheet];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+    return {
+      key: def.key,
+      data: this._parseMMReportData(def.key, rows, wb),
+    };
+  },
+
+  _parseMMReportData(key, rows, wb) {
+    // Per-report parser. Vraciame { rows, summary, ...extracted fields }
+    const slim = rows.filter(r => r && Object.values(r).some(v => v !== null && v !== ''));
+    switch (key) {
+      case 'contact_finder': {
+        const r0 = slim[0] || {};
+        // Emails s confidence: "email@x (90%); email@y (99%)" → array
+        const emailsStr = r0['Contact Emails'] || '';
+        const emails = String(emailsStr).split(/;/).map(s => {
+          const m = s.trim().match(/^([\w._%+-]+@[\w.-]+)\s*(?:\((\d+)%?\))?/);
+          return m ? { email: m[1], confidence: parseInt(m[2] || '0', 10) } : null;
+        }).filter(Boolean);
+        return {
+          rows: slim,
+          summary: `${emails.length} email${emails.length === 1 ? '' : 'y'}${r0['Facebook'] ? ' · FB' : ''}${r0['Instagram'] ? ' · IG' : ''}${r0['LinkedIn'] ? ' · LinkedIn' : ''}`,
+          contact_page: r0['Contact Page'] || null,
+          emails,
+          social: {
+            facebook: r0['Facebook'] || null,
+            instagram: r0['Instagram'] || null,
+            linkedin: r0['LinkedIn'] || null,
+            youtube: r0['YouTube'] || null,
+            tiktok: r0['TikTok'] || null,
+            twitter: r0['Twitter'] || null,
+          }
+        };
+      }
+      case 'keyword_volumes': {
+        const kws = slim.map(r => ({
+          keyword: r['Keyword'] || r['Kľúčové slovo'] || r['Klíčové slovo'] || Object.values(r)[0],
+          search_volume: r['Search Volume'] || r['Hľadanosť'] || r['Hledanost'] || null,
+          cpc_eur: r['CPC'] || r['CPC (EUR)'] || null,
+          competition: r['Competition'] || r['Konkurencia'] || null,
+        })).filter(k => k.keyword);
+        const totalVol = kws.reduce((a, k) => a + (Number(k.search_volume) || 0), 0);
+        return { rows: slim, keywords: kws, summary: `${kws.length} KW · spolu ${totalVol.toLocaleString('sk-SK')} hľadaní/mes` };
+      }
+      case 'ppc_competitors': {
+        // Konkurenti v PPC + ich ads
+        const ads = slim.map(r => ({
+          keyword: r['Keyword'] || r['Kľúčové slovo'] || null,
+          competitor_domain: r['Domain'] || r['Doména'] || r['URL'] || null,
+          ad_title: r['Title'] || r['Headline'] || r['Nadpis'] || null,
+          ad_description: r['Description'] || r['Popis'] || null,
+        })).filter(a => a.competitor_domain || a.ad_title);
+        const competitors = [...new Set(ads.map(a => a.competitor_domain).filter(Boolean))];
+        return { rows: slim, ads, competitors, summary: `${ads.length} reklám · ${competitors.length} konkurentov` };
+      }
+      case 'serp_analysis': {
+        const results = slim.map(r => ({
+          keyword: r['Keyword'] || r['Kľúčové slovo'] || null,
+          position: parseInt(r['Position'] || r['Pozícia'] || 0, 10),
+          url: r['URL'] || null,
+          domain: r['Domain'] || r['Doména'] || null,
+          title: r['Title'] || r['Nadpis'] || null,
+        })).filter(r => r.url || r.domain);
+        const topDomains = {};
+        results.forEach(r => {
+          if (r.domain && r.position <= 10) topDomains[r.domain] = (topDomains[r.domain] || 0) + 1;
+        });
+        const sortedDomains = Object.entries(topDomains).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        return { rows: slim, results, top_competitors: sortedDomains.map(([d, c]) => ({ domain: d, top10_count: c })), summary: `${results.length} výsledkov · top: ${sortedDomains.slice(0,3).map(([d]) => d).join(', ')}` };
+      }
+      case 'positions': {
+        const pos = slim.map(r => ({
+          keyword: r['Keyword'] || r['Kľúčové slovo'] || null,
+          position: parseInt(r['Position'] || r['Pozícia'] || 0, 10) || null,
+          url: r['URL'] || null,
+        })).filter(p => p.keyword);
+        const ranking = pos.filter(p => p.position && p.position <= 100);
+        const top10 = pos.filter(p => p.position && p.position <= 10).length;
+        return { rows: slim, positions: pos, summary: `${ranking.length}/${pos.length} KW v top 100 · ${top10} v top 10` };
+      }
+      case 'web_category': {
+        const r0 = slim[0] || {};
+        return { rows: slim, category: r0['Categorization'] || r0['Kategorizácia'] || null, summary: r0['Categorization'] || r0['Kategorizácia'] || '—' };
+      }
+      case 'tech_detection': {
+        const techs = slim.map(r => ({
+          name: r['Name'] || r['Názov'] || null,
+          category: r['Category'] || r['Kategória'] || null,
+          website: r['Website'] || null,
+        })).filter(t => t.name);
+        return { rows: slim, technologies: techs, summary: techs.length ? techs.slice(0,5).map(t => t.name).join(', ') : 'Žiadne tech detekované' };
+      }
+      case 'majestic_domain': {
+        const r0 = slim[0] || {};
+        return {
+          rows: slim,
+          citation_flow: parseInt(r0['Citation Flow'] || r0['CF'] || 0, 10) || null,
+          trust_flow: parseInt(r0['Trust Flow'] || r0['TF'] || 0, 10) || null,
+          backlinks: parseInt(r0['External Backlinks'] || r0['Backlinks'] || 0, 10) || null,
+          summary: `CF ${r0['Citation Flow'] || '?'} · TF ${r0['Trust Flow'] || '?'}`
+        };
+      }
+      case 'keyword_suggest': {
+        const kws = slim.map(r => r['Keyword'] || r['Kľúčové slovo'] || Object.values(r)[0]).filter(Boolean);
+        return { rows: slim, suggestions: kws, summary: `${kws.length} návrhov KW` };
+      }
+      default:
+        return { rows: slim, summary: `${slim.length} riadkov` };
+    }
+  },
+
+  async removeMMReport(key) {
+    if (!await Utils.confirm(`Zmazať report "${key}"?`, { type: 'warning', confirmText: 'Zmazať', cancelText: 'Zrušiť' })) return;
+    const lead = this.leads.find(l => l.id === this.currentLeadId);
+    if (!lead) return;
+    const md = lead.marketing_data || {};
+    if (md.mm_reports?.[key]) {
+      delete md.mm_reports[key];
+      lead.marketing_data = md;
+      await Database.update('leads', lead.id, { marketing_data: md });
+      Utils.toast('Report zmazaný', 'success');
+      const tab = document.getElementById('detail-tab-mm');
+      if (tab) tab.querySelector('.adl-card-body').innerHTML = this._renderMMReports(lead);
+    }
   },
 
   switchDetailTab(tab, btn) {
