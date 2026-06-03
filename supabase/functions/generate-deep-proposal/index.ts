@@ -309,6 +309,60 @@ Vráť VÝLUČNE JSON:
 Citácia URL je POVINNÁ pre každého konkurenta. Ak si neistá názvom alebo dátami, použij webovú stránku ktorú reálne pozrieš.`,
 }
 
+// Robustný JSON parsing — Sonnet/Opus občas vracia JSON s drobnými chybami:
+// smart quotes, trailing commas, unescaped newlines v stringoch, truncated
+// pri max_tokens, atď. Skúsi viacero stratégií opravy.
+function tryParseJson(raw: string): any | null {
+  // 1) Priamy parse
+  try { return JSON.parse(raw) } catch {}
+
+  // 2) Extract { ... } blok (najväčší match)
+  const blockMatch = raw.match(/\{[\s\S]*\}/)
+  if (blockMatch) {
+    try { return JSON.parse(blockMatch[0]) } catch {}
+
+    let candidate = blockMatch[0]
+    // 3) Smart quotes → straight quotes
+    candidate = candidate
+      .replace(/[‘’]/g, "'")
+      .replace(/[“”]/g, '"')
+    try { return JSON.parse(candidate) } catch {}
+
+    // 4) Trailing commas pred } alebo ]
+    candidate = candidate.replace(/,(\s*[}\]])/g, '$1')
+    try { return JSON.parse(candidate) } catch {}
+
+    // 5) Truncated JSON — pokus uzavrieť otvorené { a [ na konci
+    let opens = 0, closes = 0, openSquare = 0, closeSquare = 0
+    let inString = false, escaped = false
+    for (const ch of candidate) {
+      if (escaped) { escaped = false; continue }
+      if (ch === '\\') { escaped = true; continue }
+      if (ch === '"') { inString = !inString; continue }
+      if (inString) continue
+      if (ch === '{') opens++
+      else if (ch === '}') closes++
+      else if (ch === '[') openSquare++
+      else if (ch === ']') closeSquare++
+    }
+    let repaired = candidate
+    // Odsekni od posledného poľa/objektu ak je v strings string ktorý nie je uzavretý
+    if (inString) {
+      // posledný open quote a všetko za ním vyrež
+      const lastQuote = repaired.lastIndexOf('"')
+      if (lastQuote > 0) repaired = repaired.slice(0, lastQuote)
+    }
+    // Odsekni trailing comma
+    repaired = repaired.replace(/,\s*$/, '')
+    // Pridaj chýbajúce ] a }
+    while (openSquare > closeSquare) { repaired += ']'; closeSquare++ }
+    while (opens > closes)         { repaired += '}'; closes++ }
+    try { return JSON.parse(repaired) } catch {}
+  }
+
+  return null
+}
+
 async function generateSection(
   apiKey: string,
   supabase: any,
@@ -357,12 +411,11 @@ async function generateSection(
 
   const text = (json.content || []).filter((c: any) => c.type === 'text').map((c: any) => c.text || '').join('').trim()
   const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  let partial
-  try { partial = JSON.parse(cleaned) }
-  catch {
-    const match = cleaned.match(/\{[\s\S]*\}/)
-    if (!match) return { error: 'Model nevrátil platný JSON' }
-    partial = JSON.parse(match[0])
+  let partial = tryParseJson(cleaned)
+  if (!partial) {
+    console.error(`[section ${sectionKey}] Cannot parse JSON. First 500 chars:`, cleaned.slice(0, 500))
+    console.error(`[section ${sectionKey}] Last 300 chars:`, cleaned.slice(-300))
+    return { error: `JSON parse zlyhal pre sekciu ${sectionKey}. Skús regen — niekedy model vráti truncated alebo invalid JSON.` }
   }
 
   return { partial, usage: json.usage }
