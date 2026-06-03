@@ -3242,7 +3242,10 @@ Odkaz je platný 30 dní.
     { key: 'campaigns',   label: 'Reklamné kampane (Google + Meta + IG + LinkedIn)', sec: 30, defaultChecked: true },
     { key: 'budget',      label: 'Rozpočet + ROI',                           sec: 15, defaultChecked: true },
     { key: 'summary',     label: 'Executive summary + next steps',           sec: 15, defaultChecked: true },
-    { key: 'competitive', label: 'Konkurencia (živý web search)',            sec: 60, defaultChecked: false },
+    // Konkurencia (živý web search) odstránená — bola nestabilná (timeout / parse error),
+    // detailná konkurenčná analýza sa robí ako súčasť spolupráce po uzavretí, nie v
+    // proposale. Edge function key 'competitive' ostáva v SECTION_PROMPTS pre prípad
+    // budúceho re-enablu cez DevTools console.
   ],
 
   // Renderuje checkbox zoznam sekcií + ich aktuálny status (✓ hotovo, neexistuje)
@@ -4143,6 +4146,7 @@ Odkaz je platný 30 dní.
   },
 
 buildProposalHTML(lead, analysis) {
+  const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const c = analysis.company || {};
   const a = analysis.analysis || {};
   const o = analysis.onlinePresence || {};
