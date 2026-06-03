@@ -1229,10 +1229,21 @@ async function runPremiumGeneration(
 
     const context = buildContext(lead, scrapedContent, customNotes)
 
-    // Foreground sync — timeout 120s (Supabase Edge foreground limit má
-    // viac priestoru než background waitUntil, ale stále finite).
+    // Dynamic max_tokens podľa modelu — output rýchlosť veľmi varíruje:
+    // - Haiku 4.5: ~150-300 tokens/sec → 14K = 47-93s ✓ vyhovuje 150s limit
+    // - Sonnet 4.6: ~50-100 tokens/sec → 14K by bolo 140-280s = nad limit
+    //   → preto Sonnet dostane 10K (100-200s) — model musí byť stručnejší
+    // - Opus 4.8: ~25-50 tokens/sec → maximum 7K (140-280s, stále tesné)
+    const maxTokens = model.includes('haiku') ? 14000
+                    : model.includes('opus') ? 7000
+                    : 10000  // sonnet/default
+    console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}`)
+
+    // Foreground timeout 150s — matchuje Supabase Edge foreground wall-clock
+    // limit (Free tier 150s, Pro tier viac). Background mode mal ~73s
+    // EdgeRuntime kill, foreground má viac priestoru.
     const anthropicAbort = new AbortController()
-    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 120000)
+    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 150000)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: anthropicAbort.signal,
@@ -1243,10 +1254,7 @@ async function runPremiumGeneration(
       },
       body: JSON.stringify({
         model,
-        // 14K — kompromis: stačí pre full proposal so VŠETKÝMI sekciami
-        // (10K viedlo k "ocesanému" output kde model skracoval keywords a
-        // campaigns aby sa zmestil). Pri Haiku/Sonnet 14K = ~30-60s.
-        max_tokens: 14000,
+        max_tokens: maxTokens,
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: context }],
       })

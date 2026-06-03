@@ -273,17 +273,17 @@ const LeadsModule = {
                 <div style="margin-bottom:12px;">
                   <div style="font-size:11px; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; font-weight:600; margin-bottom:6px;">AI model</div>
                   <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--n-100); border-radius:8px; cursor:pointer; font-size:12px;">
-                      <input type="radio" name="proposal-model" value="claude-haiku-4-5-20251001" style="margin:0;">
-                      <span><b>Haiku 4.5</b> <span style="color:var(--ink-sub);">— najlacnejší, ~3× nižšia cena, kratšie texty</span></span>
-                    </label>
                     <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--brand-500); border-radius:8px; cursor:pointer; font-size:12px;">
-                      <input type="radio" name="proposal-model" value="claude-sonnet-4-6" checked style="margin:0;">
-                      <span><b>Sonnet 4.6</b> <span style="color:var(--ink-sub);">— odporúčaný, vyvážený</span></span>
+                      <input type="radio" name="proposal-model" value="claude-haiku-4-5-20251001" checked style="margin:0;">
+                      <span><b>Haiku 4.5</b> <span style="color:var(--ink-sub);">— odporúčaný, najrýchlejší, ~$0.06</span></span>
                     </label>
                     <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--n-100); border-radius:8px; cursor:pointer; font-size:12px;">
+                      <input type="radio" name="proposal-model" value="claude-sonnet-4-6" style="margin:0;">
+                      <span><b>Sonnet 4.6</b> <span style="color:var(--ink-sub);">— ~$0.18, kratšie sekcie (10K limit)</span></span>
+                    </label>
+                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--n-100); border-radius:8px; cursor:pointer; font-size:12px; opacity:.7;">
                       <input type="radio" name="proposal-model" value="claude-opus-4-8" style="margin:0;">
-                      <span><b>Opus 4.8</b> <span style="color:var(--ink-sub);">— najlepší, ~5× drahší</span></span>
+                      <span><b>Opus 4.8</b> <span style="color:var(--ink-sub);">— ~$0.95, pomalý (môže timeout)</span></span>
                     </label>
                   </div>
                 </div>
@@ -4333,8 +4333,9 @@ info@adlify.eu | www.adlify.eu`
     const meta = document.getElementById('deep-proposal-meta');
     const output = document.getElementById('deep-proposal-output');
     const customNotes = document.getElementById('proposal-notes')?.value?.trim() || '';
-    // Model výber z radia (default sonnet-4-6)
-    const modelChoice = document.querySelector('input[name="proposal-model"]:checked')?.value || 'claude-sonnet-4-6';
+    // Model výber z radia (default haiku 4.5 — najrýchlejší, jediný čo bezpečne
+    // stihne 14K tokens v Supabase Edge 150s foreground timeout).
+    const modelChoice = document.querySelector('input[name="proposal-model"]:checked')?.value || 'claude-haiku-4-5-20251001';
 
     const origMeta = meta?.textContent || '';
     if (btn) {
