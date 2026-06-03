@@ -4717,10 +4717,92 @@ info@adlify.eu | www.adlify.eu`
   // buildProposalHTML číta: analysis.{company, analysis, onlinePresence,
   // keywords, strategy, budget, roi, proposedCampaigns, timeline,
   // recommendedPackage, competition}
+  // Poskladá presné dáta z uploadnutých MM reportov (lead.marketing_data.mm_reports).
+  // Toto sú FAKTY — kód ich vkladá verbatim do ponuky, nezávisle od toho čo
+  // vygeneroval LLM. Tým tabuľky (KW, konkurenti, SEO) vždy sedia na reálne
+  // dáta a nie sú parafrázované ani vynechané pri truncation.
+  _mmFacts(lead) {
+    const mm = (lead && lead.marketing_data && lead.marketing_data.mm_reports) || {};
+    const facts = { keywords: null, social: null, seoNote: null, seoWeaknesses: [], competitors: null, positionsByKw: {} };
+
+    // Pozície per keyword (z positions reportu) — pre stĺpec "Vaša pozícia"
+    if (mm.positions && Array.isArray(mm.positions.positions)) {
+      mm.positions.positions.forEach(pp => {
+        if (pp.keyword && pp.position) facts.positionsByKw[String(pp.keyword).toLowerCase()] = pp.position;
+      });
+    }
+
+    // 1) Keywords — presné objemy/CPC, zoradené podľa objemu
+    const kv = mm.keyword_volumes;
+    if (kv && Array.isArray(kv.keywords) && kv.keywords.length) {
+      const sorted = [...kv.keywords].filter(k => k.keyword).sort((a, b) => (b.search_volume || 0) - (a.search_volume || 0));
+      facts.keywords = sorted.map(kw => {
+        const lc = String(kw.keyword).toLowerCase();
+        const intent = kw.intent || (/\b(cena|cennik|kúp|kup|predaj|montáž|montaz|na mieru)\b/i.test(kw.keyword) ? 'buy' : '');
+        return {
+          keyword: kw.keyword,
+          search_volume: kw.search_volume,
+          cpc_eur: kw.cpc_eur,
+          intent,
+          current_ranking: facts.positionsByKw[lc] || null,
+        };
+      });
+    }
+
+    // 2) Social — presné URL z Contact Finder
+    if (mm.contact_finder && mm.contact_finder.social) {
+      const sc = mm.contact_finder.social;
+      facts.social = {
+        facebook: sc.facebook || null,
+        instagram: sc.instagram || null,
+        linkedin: sc.linkedin || null,
+        youtube: sc.youtube || null,
+        tiktok: sc.tiktok || null,
+      };
+    }
+
+    // 3) SEO zistenia — presné čísla z auditu obsahu/indexácie
+    if (mm.seo_audit && mm.seo_audit.issues) {
+      const i = mm.seo_audit.issues;
+      if (i.pages_not_indexed != null && i.total_pages) {
+        if (i.pages_not_indexed > 0) facts.seoWeaknesses.push(`Google neindexuje ${i.pages_not_indexed} z ${i.total_pages} kľúčových strán — bez toho sa nedá ranknúť ani na lokálne výrazy.`);
+      }
+      if (i.pages_without_meta != null && i.pages_without_meta > 0) facts.seoWeaknesses.push(`${i.pages_without_meta} ${i.pages_without_meta === 1 ? 'stránka nemá' : 'strán nemá'} meta description — nižšia preklikovosť z výsledkov vyhľadávania.`);
+      if (i.avg_title_score != null && i.avg_title_score < 60) facts.seoWeaknesses.push(`Priemerné skóre titulkov ${i.avg_title_score}/100 — tituly nie sú optimalizované pre vyhľadávače.`);
+    }
+    if (mm.broken_links && mm.broken_links.stats && mm.broken_links.stats.total > 0) {
+      facts.seoWeaknesses.push(`${mm.broken_links.stats.total} nefunkčných odkazov (404) — zhoršujú dôveryhodnosť a SEO.`);
+    }
+
+    // 4) Konkurenti — domény + metriky z PPC reklám a SERP
+    const compMap = {};
+    if (mm.ppc_competitors && Array.isArray(mm.ppc_competitors.top_competitors)) {
+      mm.ppc_competitors.top_competitors.forEach(c => {
+        if (!c.domain || /google\./.test(c.domain)) return;
+        compMap[c.domain] = compMap[c.domain] || { domain: c.domain };
+        compMap[c.domain].ad_count = c.ad_count;
+      });
+    }
+    if (mm.serp_analysis && Array.isArray(mm.serp_analysis.top_competitors)) {
+      mm.serp_analysis.top_competitors.forEach(c => {
+        if (!c.domain || /google\./.test(c.domain)) return;
+        compMap[c.domain] = compMap[c.domain] || { domain: c.domain };
+        compMap[c.domain].top10_count = c.top10_count;
+      });
+    }
+    const compList = Object.values(compMap);
+    if (compList.length) facts.competitors = compList.slice(0, 6);
+
+    return facts;
+  },
+
   _premiumToTemplateSchema(p, lead) {
     p = p || {};
     // lead.analysis.* obsahuje user-edity z editAnalysis modálu (priorita pred Claude).
     const u = (lead && lead.analysis) || {};
+    // MM fakty — deterministicky vložené presné dáta z reportov (najvyššia priorita
+    // pre čísla; user-edit ich môže prepísať lebo u.* sa aplikuje neskôr).
+    const mmf = this._mmFacts(lead);
     // Company: user môže edit-núť name/description/services/idealCustomer priamo
     const company = { ...(p.company || {}), ...(u.company || {}) };
     const swot = u.swot || p.swot || {};
@@ -4736,7 +4818,10 @@ info@adlify.eu | www.adlify.eu`
         ppc: { ...(base.ppc || {}), ...(ov.ppc || {}) }
       };
     })();
-    const keywordsObj = u.keywords || p.keywords || {};
+    // Keywords priorita: user-edit > MM fakty > LLM. MM má presné objemy/CPC.
+    const keywordsObj = (u.keywords && (u.keywords.primary?.length || u.keywords.topKeywords?.length))
+      ? u.keywords
+      : (mmf.keywords ? { primary: mmf.keywords } : (p.keywords || {}));
     const strategy = (() => {
       const base = p.strategy || {};
       const ov = u.strategy || {};
@@ -4755,7 +4840,35 @@ info@adlify.eu | www.adlify.eu`
       return { ...base, ...ov };
     })();
     const ourSolution = p.ourSolution || {};
-    const competitive = p.competitive_landscape || {};
+    // Konkurenti — spoj LLM prózu (their_strength/our_advantage) s presnými MM
+    // doménami + metrikami. Ak LLM nevygeneroval konkurentov ale MM ich má,
+    // poskladáme aspoň základ z dát aby sekcia nebola prázdna.
+    const competitive = (() => {
+      const base = p.competitive_landscape || {};
+      const llmComp = base.main_competitors || [];
+      if (!mmf.competitors) return base;
+      // Index LLM prózy podľa domény/mena pre spárovanie s MM metrikami
+      const llmByDomain = {};
+      llmComp.forEach(c => {
+        const dom = (c.domain || c.name || '').toLowerCase().replace(/^www\./, '');
+        if (dom) llmByDomain[dom] = c;
+      });
+      const merged = mmf.competitors.map(mc => {
+        const llm = llmByDomain[mc.domain.toLowerCase()] || {};
+        const metricBits = [];
+        if (mc.ad_count) metricBits.push(`${mc.ad_count} ${mc.ad_count === 1 ? 'reklama' : mc.ad_count < 5 ? 'reklamy' : 'reklám'} v Google vyhľadávaní`);
+        if (mc.top10_count) metricBits.push(`${mc.top10_count} pozícií v top 10`);
+        const metric = metricBits.length ? metricBits.join(' · ') : null;
+        return {
+          name: llm.name || mc.domain,
+          domain: mc.domain,
+          their_strength: llm.their_strength || (metric ? `Silná online prítomnosť — ${metric}.` : 'Aktívna online prítomnosť na vašich kľúčových slovách.'),
+          our_advantage: llm.our_advantage || 'Presnejšie cielenie a profesionálna správa kampaní s pravidelnou optimalizáciou.',
+          metric,
+        };
+      });
+      return { ...base, main_competitors: merged };
+    })();
     // Executive summary — user override má prednosť
     const execSummary = u.analysis?.humanWrittenIntro || p.executive_summary || '';
 
@@ -4782,18 +4895,27 @@ info@adlify.eu | www.adlify.eu`
     // ich extrahuje z HTML), inak fallback na status. Predtým mapoval status
     // súčasne na FB aj IG = nepresné keď firma má len IG ale nie FB.
     const soc = onlinePresence.social || {};
-    const hasFb = !!soc.facebook || (soc.status && soc.status !== 'missing');
-    const hasIg = !!soc.instagram || (soc.status && soc.status !== 'missing');
+    // Social URL priorita: MM Contact Finder (presné) > LLM > status fallback
+    const fbUrl = (mmf.social && mmf.social.facebook) || soc.facebook || null;
+    const igUrl = (mmf.social && mmf.social.instagram) || soc.instagram || null;
+    const liUrl = (mmf.social && mmf.social.linkedin) || soc.linkedin || null;
+    const hasFb = !!fbUrl || (soc.status && soc.status !== 'missing');
+    const hasIg = !!igUrl || (soc.status && soc.status !== 'missing');
+    // Website weaknesses — spoj LLM zistenia + presné SEO čísla z auditu
+    const webWeaknesses = [
+      ...(onlinePresence.website?.status === 'critical' ? [onlinePresence.website.notes || 'Web má vážne nedostatky'] : []),
+      ...mmf.seoWeaknesses,
+    ];
     const op = {
       website: {
         exists: onlinePresence.website?.status !== 'critical',
         strengths: onlinePresence.website?.notes ? [onlinePresence.website.notes] : [],
-        weaknesses: onlinePresence.website?.status === 'critical' ? [onlinePresence.website.notes || 'Web má vážne nedostatky'] : []
+        weaknesses: webWeaknesses
       },
       socialMedia: {
-        facebook: { exists: hasFb, url: soc.facebook || null },
-        instagram: { exists: hasIg, url: soc.instagram || null },
-        linkedin: { exists: !!soc.linkedin, url: soc.linkedin || null }
+        facebook: { exists: hasFb, url: fbUrl },
+        instagram: { exists: hasIg, url: igUrl },
+        linkedin: { exists: !!liUrl, url: liUrl }
       },
       paidAds: { detected: onlinePresence.ppc?.status && onlinePresence.ppc.status !== 'none' }
     };
@@ -4802,16 +4924,34 @@ info@adlify.eu | www.adlify.eu`
     const allKws = [
       ...(keywordsObj.primary || []),
       ...(keywordsObj.secondary || []),
-      ...(keywordsObj.longTail || [])
+      ...(keywordsObj.longTail || []),
+      ...(keywordsObj.topKeywords || [])
     ];
+    // Dedupe podľa keyword (case-insensitive) a zoraď podľa objemu zostupne
+    const kwSeen = new Set();
+    const kwDeduped = allKws.filter(kw => {
+      const key = String(kw.keyword || '').toLowerCase().trim();
+      if (!key || kwSeen.has(key)) return false;
+      kwSeen.add(key);
+      return true;
+    }).sort((a, b) => (Number(b.search_volume) || 0) - (Number(a.search_volume) || 0));
+    // Súhrn nad tabuľkou — celkový mesačný objem + priemerné CPC (silný argument)
+    const kwTotalVol = kwDeduped.reduce((sum, kw) => sum + (Number(kw.search_volume) || 0), 0);
+    const kwCpcVals = kwDeduped.map(kw => Number(kw.cpc_eur)).filter(v => v > 0);
+    const kwAvgCpc = kwCpcVals.length ? (kwCpcVals.reduce((a, b) => a + b, 0) / kwCpcVals.length) : 0;
+    const kwSummary = kwTotalVol > 0
+      ? `Pre vaše služby sme identifikovali kľúčové slová s celkovým objemom ${kwTotalVol.toLocaleString('sk-SK')} hľadaní mesačne${kwAvgCpc > 0 ? ` pri priemernej cene za klik ${kwAvgCpc.toFixed(2)} €` : ''}. Tu je výber tých najdôležitejších:`
+      : '';
     const k = {
-      topKeywords: allKws.slice(0, 12).map(kw => ({
+      summary: kwSummary,
+      topKeywords: kwDeduped.slice(0, 12).map(kw => ({
         keyword: kw.keyword,
         searchVolume: kw.search_volume,
         cpc: kw.cpc_eur,
-        intent: kw.intent || ''
+        intent: kw.intent || '',
+        currentRanking: kw.current_ranking || null
       })),
-      totalFound: allKws.length
+      totalFound: kwDeduped.length
     };
 
     // strategy — targetAudience + packages + CONTACT + channels
@@ -5988,6 +6128,41 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   </div>
 </section>
 
+<!-- Page 3a: Konkurenčné prostredie -->
+${comp.main_competitors && comp.main_competitors.length ? `
+<section class="page page-white">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">3</span> Konkurenčné prostredie</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${comp.positioning || 'Identifikovali sme hlavných hráčov, ktorí oslovujú vašich potenciálnych zákazníkov. Tu je ako sa voči nim vymedzíme.'}</p>
+
+    <div style="display:flex; flex-direction:column; gap:18px; margin-top:24px;">
+      ${comp.main_competitors.slice(0, 5).map(cm => `
+        <div class="card" style="border-left:4px solid #ec4899;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
+            <div>
+              <h4 style="font-size:1.15rem; font-weight:700; color:#1a1a2e; margin-bottom:2px;">${cm.name || cm.domain}</h4>
+              ${cm.domain && cm.domain !== cm.name ? `<a href="https://${cm.domain}" target="_blank" rel="noopener" style="font-size:0.85rem; color:#64748b; text-decoration:none;">${cm.domain}</a>` : ''}
+            </div>
+            ${cm.metric ? `<span class="tag tag-light" style="white-space:nowrap;">${cm.metric}</span>` : ''}
+          </div>
+          <div class="grid-2" style="gap:16px;">
+            <div>
+              <p style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:6px;">Ich sila</p>
+              <p style="color:#475569; font-size:0.95rem; line-height:1.6;">${cm.their_strength || '—'}</p>
+            </div>
+            <div>
+              <p style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:6px;">Naša výhoda</p>
+              <p style="color:#166534; font-size:0.95rem; line-height:1.6; font-weight:500;">${cm.our_advantage || '—'}</p>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+</section>
+` : ''}
+
 <!-- Page 3b: Audit existujúcich kampaní -->
 ${analysis.campaign_audit && analysis.campaign_audit.headline ? `
 <section class="page page-gray">
@@ -6085,11 +6260,16 @@ ${k.topKeywords?.length ? `
     <div class="section-divider"></div>
     <p class="section-subtitle">${k.summary || 'Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top 10:'}</p>
     
+    ${(() => {
+      // Stĺpec "Vaša pozícia" ukáž len ak máme rankingové dáta aspoň pre 1 KW
+      const hasRankings = k.topKeywords.some(kw => kw.currentRanking != null);
+      return `
     <table class="data-table">
       <thead>
         <tr>
           <th>Kľúčové slovo</th>
           <th style="text-align: center;">Mesačná hľadanosť</th>
+          ${hasRankings ? '<th style="text-align: center;">Vaša pozícia</th>' : ''}
           <th style="text-align: center;">Konkurencia</th>
           <th style="text-align: center;">Charakter dopytu</th>
           <th style="text-align: right;">Cena za klik</th>
@@ -6105,17 +6285,29 @@ ${k.topKeywords?.length ? `
           const comp = kw.competition || (cpcNum < 0.5 ? 'nízka' : cpcNum > 1.5 ? 'vysoká' : 'stredná');
           const compClass = comp === 'nízka' ? 'tag-success' : comp === 'vysoká' ? 'tag-warning' : 'tag-light';
           const cpcVal = typeof kw.cpc === 'number' ? kw.cpc.toFixed(2) + ' €' : (kw.cpc ? String(kw.cpc).replace(/€?$/, '').trim() + ' €' : '–');
+          // Pozícia — farba podľa kvality (top 3 zelená, 4-10 oranžová, 11+ červená)
+          let rankCell = '';
+          if (hasRankings) {
+            const r = kw.currentRanking;
+            if (r == null) rankCell = '<td style="text-align: center; color:#94a3b8;">—</td>';
+            else {
+              const rc = r <= 3 ? 'tag-success' : r <= 10 ? 'tag-warning' : 'tag-light';
+              const rlabel = r > 100 ? '100+' : String(r);
+              rankCell = `<td style="text-align: center;"><span class="tag ${rc}">${rlabel}.</span></td>`;
+            }
+          }
           return `
           <tr>
             <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
             <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString('sk-SK') : (kw.searchVolume || '–')}</td>
+            ${rankCell}
             <td style="text-align: center;"><span class="tag ${compClass}">${comp}</span></td>
             <td style="text-align: center;"><span class="tag ${intentClass}">${intentLabel}</span></td>
             <td style="text-align: right; font-weight: 700; color: #FF6B35;">${cpcVal}</td>
           </tr>
         `;}).join('')}
       </tbody>
-    </table>
+    </table>`;})()}
     
     <div class="note-box">
       <p>Máme pripravených ďalších <strong>${Math.max((k.totalFound || k.topKeywords?.length || 10) - 10, 30)}+</strong> kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.</p>

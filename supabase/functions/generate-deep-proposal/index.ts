@@ -1025,11 +1025,7 @@ Tvar JSON odpovede (presne tieto kľúče):
 
 POVINNÉ MINIMUM PRE OBSAH KAŽDEJ SEKCIE — žiadne preskakovanie kvôli token budgetu:
 
-keywords — MUSÍ obsahovať:
-- minimum 6 položiek v primary, 5 v secondary, 5 v longTail (spolu 16+)
-- ak v contexte sú "keyword_volumes" dáta s keywords[], POUŽIJ ICH VŠETKY (rozdeľ do primary/secondary/longTail podľa search_volume; primary >= 500, secondary 100-499, longTail < 100)
-- KAŽDÝ KW musí mať search_volume + cpc_eur (z dát alebo realistic estimate)
-- totals so súčtami a avg_cpc_eur
+keywords — POZOR: ak ti dynamická inštrukcia (nižšie v user message) povie "keywords": null, tak ho NEGENERUJ vôbec (kľúčové slová sa vkladajú z auditu automaticky). Inak: minimum 6 primary, 5 secondary, 5 long-tail, každý so search_volume + cpc_eur.
 
 onlinePresence — MUSÍ vyplniť všetky 4 statusy (website, social, seo, ppc) s 2-3 vetami notes každý. Ak máš seo_audit dáta, "seo.notes" cituje konkrétne čísla (pages_not_indexed, pages_without_meta, avg_title_score). Ak máš contact_finder, social.notes spomenie reálne URL.
 
@@ -1357,13 +1353,34 @@ function buildContext(lead: any, scrapedContent: string, customNotes: string): s
     slimReports[k] = trim(k, rest)
   }
   const mmReportsBlock = Object.keys(slimReports).length
-    ? `INTERNÉ DÁTA Z AUDITU (autoritatívne — MUSÍŠ ich čísla a fakty citovať v texte ako vlastné zistenia agentúry; NIKDY nespomeň zdroj dát menom). V analysis spomeň seo_audit issues, v keywords použij keyword_volumes čísla, v strategy menuj top_competitors, v competitive doplň main_competitors z ppc/serp dát:\n${JSON.stringify(slimReports, null, 2).slice(0, 10000)}\n`
+    ? `INTERNÉ DÁTA Z AUDITU (autoritatívne — MUSÍŠ ich čísla a fakty citovať v texte ako vlastné zistenia agentúry; NIKDY nespomeň zdroj dát menom). V analysis spomeň seo_audit issues, v strategy menuj top_competitors, v competitive doplň main_competitors z ppc/serp dát:\n${JSON.stringify(slimReports, null, 2).slice(0, 10000)}\n`
     : ''
   const legacyMMBlock = !mmReportsBlock && (mm.organicTraffic || mm.keywords)
     ? `MARKETING DATA (legacy auto-scraped):\n${JSON.stringify({
         organicTraffic: mm.organicTraffic, organicKeywords: mm.organicKeywords, backlinks: mm.backlinks
       }, null, 2).slice(0, 2000)}\n`
     : ''
+
+  // Ak máme presné keyword dáta z auditu, LLM ich NEGENERUJE — kód ich vloží
+  // verbatim (presné objemy/CPC). Ušetrí ~1500 output tokenov = rýchlejšie +
+  // bez truncation, a tabuľka KW vždy sedí na reálne dáta.
+  const hasKwData = !!(reports.keyword_volumes?.keywords?.length)
+  // Konkurenti — explicitný zoznam domén pre LLM aby písal prózu o KONKRÉTNYCH
+  const compDomains = [
+    ...((reports.ppc_competitors?.top_competitors || []).map((c: any) => c.domain)),
+    ...((reports.serp_analysis?.top_competitors || []).map((c: any) => c.domain)),
+  ].filter((d: any, i: number, arr: any[]) => d && arr.indexOf(d) === i).slice(0, 6)
+
+  const skipBlock = `
+GENEROVANIE — DÔLEŽITÉ PRE STABILITU A PRESNOSŤ:
+${hasKwData
+  ? `- Pole "keywords" NEGENERUJ vôbec (daj "keywords": null). Presné kľúčové slová s objemami a CPC sa vkladajú z auditu automaticky. Ušetri tým tokeny pre prózu a reklamné kreatívy.`
+  : `- Pole "keywords" vyplň realistickým odhadom (min 6 primary, 5 secondary, 5 long-tail).`}
+${compDomains.length
+  ? `- V "competitive_landscape.main_competitors" píš prózu (their_strength, our_advantage) PRESNE pre tieto domény: ${compDomains.join(', ')}. Metriky (počet reklám, top10 pozície) sa doplnia z auditu automaticky — ty píš len kvalitatívne hodnotenie a našu výhodu.`
+  : ''}
+- Reklamné kreatívy (proposedCampaigns) sú najdôležitejšie — venuj im najviac tokenov. Required: google.searchCampaign (2 adGroups), meta.campaign (1-2 adSets), instagram.stories (1). LinkedIn a googleDisplay daj null ak nie sú zjavne relevantné.
+- Radšej kratšie vety v každej sekcii než vynechať celú sekciu. Všetky kľúče musia byť prítomné.`
 
   return `LEAD DATA:
 Firma: ${lead.company_name || 'neuvedené'}
@@ -1380,17 +1397,14 @@ ${mmReportsBlock}${legacyMMBlock}DEEP WEB SCRAPE (homepage + 3 relevantné podst
 ${scrapedContent}
 
 ${customNotes ? `CUSTOM POŽIADAVKY OD AGENTÚRY:\n${customNotes}\n` : ''}
+${skipBlock}
 
 ÚLOHA:
-Si senior PPC stratég s 10+ rokmi skúseností na slovenskom trhu. Background mode — máš čas (do 6 min). Použij:
+Si senior PPC stratég s 10+ rokmi skúseností na slovenskom trhu. Vytvor kompletný profesionálny návrh kampane na základe:
 
-1. DETAILNÝ web scrape klientovho webu — extrahuj produkty, služby, ceny, USP, target audience, tone of voice, technologie ktoré používa
-2. Pôvodnú AI analýzu — keywords, SWOT, market context
-3. **web_search tool** — máš max 2 search dotazy, použij ich strategicky pre dva najdôležitejšie research smery:
-   a) Top 3-5 konkurentov v ${lead.industry || 'odvetví'} v lokalite ${lead.city || 'SR'} — meno, web, USP
-   b) Aktuálne CPC / market benchmarky pre tento segment na SK trhu
-
-Citácie URL ulož do "research_sources" v output JSON. main_competitors[] majú "evidence_url".
+1. Interných dát z auditu (vyššie) — keywords, SEO stav, konkurenti, pozície. Toto sú TVOJE zistenia — cituj ich čísla.
+2. Pôvodnej AI analýzy — SWOT, market context, ICP.
+3. Web scrape (ak je) — produkty, služby, USP, tone of voice.
 
 ANTI-AI VOICE: výstup nesmie vyzerať ako vygenerovaný AI. Píš ako skutočný senior konzultant — konkrétne čísla, špecifické pozorovania, nie všeobecné rady. Vyhni sa frázam ako "v dnešnej rýchlo sa meniacej digitálnej krajine", "leveraging synergies", "best practices", "kľúčové aktíva". Krátke vety, konkrétne príklady, taktické postupy.
 
