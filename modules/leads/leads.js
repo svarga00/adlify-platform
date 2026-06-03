@@ -4431,23 +4431,35 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 .data-table tr:last-child td { border-bottom: none; }
 
 /* Packages */
-.package-card { background: white; border: 2px solid #e2e8f0; border-radius: 24px; padding: 40px 30px; text-align: center; transition: all 0.3s; position: relative; display: flex; flex-direction: column; height: 100%; }
-.package-card:hover { transform: translateY(-8px); box-shadow: 0 20px 50px rgba(0,0,0,0.12); }
-.package-card.featured { border-color: #FF6B35; background: linear-gradient(135deg, #fff7ed, #fef2f2); box-shadow: 0 10px 40px rgba(255,107,53,0.15); }
-.package-card.featured::before { content: "⭐ Odporúčame"; position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; padding: 8px 24px; border-radius: 25px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 15px rgba(255,107,53,0.4); }
-.package-icon { font-size: 3.5rem; margin-bottom: 18px; }
-.package-name { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; color: #1a1a2e; }
-.package-price { font-size: 3.2rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.package-period { color: #64748b; font-size: 0.95rem; margin-bottom: 20px; }
-.package-desc { color: #64748b; font-size: 0.9rem; margin-bottom: 28px; min-height: 50px; line-height: 1.6; }
-.package-features { list-style: none; text-align: left; margin-bottom: 30px; flex-grow: 1; }
-.package-features li { padding: 14px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; display: flex; align-items: center; gap: 12px; }
-.package-features li::before { content: ""; color: #22c55e; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
-.package-btn { display: block; width: 100%; padding: 18px; border-radius: 14px; font-weight: 600; text-decoration: none; transition: all 0.3s; font-size: 1rem; margin-top: auto; cursor: pointer; }
-.package-btn-outline { border: 2px solid #e2e8f0; color: #475569; background: white; }
-.package-btn-outline:hover { border-color: #FF6B35; color: #FF6B35; }
-.package-btn-gradient { background: linear-gradient(135deg, #FF6B35, #E91E63); color: white; border: none; box-shadow: 0 4px 15px rgba(255,107,53,0.3); }
-.package-btn-gradient:hover { transform: scale(1.02); box-shadow: 0 8px 25px rgba(255,107,53,0.4); }
+.packages-meta { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin-bottom:32px; padding:16px 20px; background:#f8fafc; border-radius:14px; }
+.packages-meta-item { display:flex; align-items:center; gap:8px; font-size:13px; color:#475569; font-weight:500; }
+.packages-meta-item svg { color:#16a34a; flex-shrink:0; }
+.package-card { background:#fff; border:1.5px solid #e2e8f0; border-radius:20px; padding:36px 28px 28px; text-align:left; transition:all .3s cubic-bezier(.4,0,.2,1); position:relative; display:flex; flex-direction:column; height:100%; }
+.package-card:hover { transform:translateY(-6px); box-shadow:0 24px 48px -12px rgba(15,23,42,0.18); border-color:#cbd5e1; }
+.package-card.featured { border:2px solid transparent; background:linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#8b5cf6,#ec4899) border-box; box-shadow:0 20px 60px -15px rgba(139,92,246,0.35); transform:scale(1.03); z-index:1; }
+.package-card.featured:hover { transform:scale(1.03) translateY(-6px); }
+.package-badge { position:absolute; top:-14px; left:50%; transform:translateX(-50%); padding:7px 18px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:0.7px; text-transform:uppercase; white-space:nowrap; box-shadow:0 6px 16px -4px rgba(0,0,0,0.18); }
+.package-badge-featured { background:linear-gradient(135deg,#8b5cf6,#ec4899); color:#fff; box-shadow:0 6px 20px -4px rgba(236,72,153,0.45); }
+.package-badge-popular { background:#fef3c7; color:#92400e; }
+.package-badge-best { background:#dcfce7; color:#166534; }
+.package-name { font-size:14px; font-weight:600; color:#7c3aed; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:6px; }
+.package-card.featured .package-name { color:#7c3aed; }
+.package-price-row { display:flex; align-items:baseline; gap:6px; margin-bottom:6px; }
+.package-price { font-size:42px; font-weight:800; color:#0f172a; letter-spacing:-1.5px; line-height:1; }
+.package-card.featured .package-price { background:linear-gradient(135deg,#7c3aed,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.package-period { color:#64748b; font-size:14px; font-weight:500; }
+.package-tagline { color:#475569; font-size:13px; margin:14px 0 22px; line-height:1.55; min-height:42px; }
+.package-features { list-style:none; padding:0; margin:0 0 24px; flex-grow:1; }
+.package-features li { padding:9px 0; font-size:13px; color:#1e293b; display:flex; align-items:flex-start; gap:10px; line-height:1.5; }
+.package-features li::before { content:""; display:inline-block; width:18px; height:18px; flex-shrink:0; margin-top:1px; background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2316a34a'%3E%3Cpath fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clip-rule='evenodd'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-size:contain; }
+.package-card.featured .package-features li::before { background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%237c3aed'%3E%3Cpath fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+.package-btn { display:block; width:100%; padding:15px; border-radius:12px; font-weight:600; text-decoration:none; transition:all .25s; font-size:14px; margin-top:auto; cursor:pointer; text-align:center; letter-spacing:0.2px; }
+.package-btn-outline { border:1.5px solid #cbd5e1; color:#475569; background:#fff; }
+.package-btn-outline:hover { border-color:#7c3aed; color:#7c3aed; background:#faf5ff; }
+.package-btn-gradient { background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border:none; box-shadow:0 8px 20px -6px rgba(139,92,246,0.5); }
+.package-btn-gradient:hover { transform:translateY(-2px); box-shadow:0 12px 28px -8px rgba(139,92,246,0.55); }
+.packages-footer-note { text-align:center; margin-top:28px; padding:14px 20px; background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(236,72,153,0.06)); border-radius:12px; font-size:13px; color:#475569; }
+.packages-footer-note strong { color:#7c3aed; }
 
 /* Timeline */
 .timeline { position: relative; padding-left: 60px; margin-top: 40px; }
@@ -5366,56 +5378,83 @@ ${r.projection ? `
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">12</span> Naše balíčky</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">Na základe analýzy vám odporúčame balíček <strong style="color: #FF6B35;">${analysis.recommendedPackage || 'Pro'}</strong> pre optimálny pomer ceny a výkonu.</p>
-    
-    <div class="grid-4">
+    <p class="section-subtitle">Na základe vašej analýzy vám odporúčame balíček <strong style="background:linear-gradient(135deg,#7c3aed,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:700;">${analysis.recommendedPackage || 'Pro'}</strong> — pomer ceny a výkonu zodpovedá vášmu rozpočtu aj cieľom.</p>
+
+    <div class="packages-meta">
+      <div class="packages-meta-item">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        Bez záväzku · ukončenie kedykoľvek
+      </div>
+      <div class="packages-meta-item">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        Audit existujúcich kampaní zdarma pri 3+ mes spolupráci
+      </div>
+      <div class="packages-meta-item">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        Mesačný report a strategická konzultácia
+      </div>
+    </div>
+
+    <div class="grid-4" style="margin-top:48px;">
       <div class="package-card ${recPkg === 'starter' ? 'featured' : ''}">
-        <div class="package-icon">${this.packages.starter.icon}</div>
+        ${recPkg === 'starter' ? '<div class="package-badge package-badge-featured">Pre vás</div>' : ''}
         <div class="package-name">Starter</div>
-        <div class="package-price">149€</div>
-        <div class="package-period">/mesiac</div>
-        <div class="package-desc">${this.packages.starter.description}</div>
+        <div class="package-price-row">
+          <span class="package-price">149 €</span>
+          <span class="package-period">/ mes</span>
+        </div>
+        <div class="package-tagline">${this.packages.starter.description}</div>
         <ul class="package-features">
           ${this.packages.starter.features.map(f => `<li>${f}</li>`).join('')}
         </ul>
-        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Starter balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'starter' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Starter</a>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Starter balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'starter' ? 'package-btn-gradient' : 'package-btn-outline'}">${recPkg === 'starter' ? 'Vybrať Starter' : 'Mám záujem'}</a>
       </div>
-      
+
       <div class="package-card ${recPkg === 'pro' ? 'featured' : ''}">
-        <div class="package-icon">${this.packages.pro.icon}</div>
+        ${recPkg === 'pro' ? '<div class="package-badge package-badge-featured">Pre vás</div>' : '<div class="package-badge package-badge-popular">Najobľúbenejšie</div>'}
         <div class="package-name">Pro</div>
-        <div class="package-price">249€</div>
-        <div class="package-period">/mesiac</div>
-        <div class="package-desc">${this.packages.pro.description}</div>
+        <div class="package-price-row">
+          <span class="package-price">249 €</span>
+          <span class="package-period">/ mes</span>
+        </div>
+        <div class="package-tagline">${this.packages.pro.description}</div>
         <ul class="package-features">
           ${this.packages.pro.features.map(f => `<li>${f}</li>`).join('')}
         </ul>
-        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Pro balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'pro' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Pro</a>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Pro balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'pro' ? 'package-btn-gradient' : 'package-btn-outline'}">${recPkg === 'pro' ? 'Vybrať Pro' : 'Mám záujem'}</a>
       </div>
-      
+
       <div class="package-card ${recPkg === 'enterprise' ? 'featured' : ''}">
-        <div class="package-icon">${this.packages.enterprise.icon}</div>
+        ${recPkg === 'enterprise' ? '<div class="package-badge package-badge-featured">Pre vás</div>' : '<div class="package-badge package-badge-best">Best value</div>'}
         <div class="package-name">Enterprise</div>
-        <div class="package-price">399€</div>
-        <div class="package-period">/mesiac</div>
-        <div class="package-desc">${this.packages.enterprise.description}</div>
+        <div class="package-price-row">
+          <span class="package-price">399 €</span>
+          <span class="package-period">/ mes</span>
+        </div>
+        <div class="package-tagline">${this.packages.enterprise.description}</div>
         <ul class="package-features">
           ${this.packages.enterprise.features.map(f => `<li>${f}</li>`).join('')}
         </ul>
-        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Enterprise balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'enterprise' ? 'package-btn-gradient' : 'package-btn-outline'}">Vybrať Enterprise</a>
+        <a href="mailto:${this.CONTACT.email}?subject=Záujem o Enterprise balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'enterprise' ? 'package-btn-gradient' : 'package-btn-outline'}">${recPkg === 'enterprise' ? 'Vybrať Enterprise' : 'Mám záujem'}</a>
       </div>
-      
+
       <div class="package-card ${recPkg === 'premium' ? 'featured' : ''}">
-        <div class="package-icon">${this.packages.premium.icon}</div>
-        <div class="package-name" style="color: #FF6B35;">Premium</div>
-        <div class="package-price">od 799€</div>
-        <div class="package-period">/mesiac</div>
-        <div class="package-desc">${this.packages.premium.description}</div>
+        ${recPkg === 'premium' ? '<div class="package-badge package-badge-featured">Pre vás</div>' : ''}
+        <div class="package-name">Premium</div>
+        <div class="package-price-row">
+          <span class="package-price">od 799 €</span>
+          <span class="package-period">/ mes</span>
+        </div>
+        <div class="package-tagline">${this.packages.premium.description}</div>
         <ul class="package-features">
           ${this.packages.premium.features.map(f => `<li>${f}</li>`).join('')}
         </ul>
         <a href="mailto:${this.CONTACT.email}?subject=Záujem o Premium balíček - ${c.name || lead.company_name}" class="package-btn ${recPkg === 'premium' ? 'package-btn-gradient' : 'package-btn-outline'}">Kontaktujte nás</a>
       </div>
+    </div>
+
+    <div class="packages-footer-note">
+      Všetky ceny sú <strong>bez DPH</strong> a sú fee za správu kampaní. <strong>Reklamný rozpočet</strong> platíte priamo Google / Meta / LinkedIn — máte nad ním plnú kontrolu. Pri uzavretí spolupráce odpočítavame poplatok 350 € za úvodný audit z prvého mesiaca.
     </div>
   </div>
 </section>
