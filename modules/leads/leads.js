@@ -3696,7 +3696,7 @@ Odkaz je platný 30 dní.
         <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
           <div><strong>Mesačne:</strong> ${p.budget_breakdown.monthly_total_eur} €</div>
           <div><strong>Media spend:</strong> ${p.budget_breakdown.media_spend_eur} €</div>
-          <div><strong>Agency fee:</strong> ${p.budget_breakdown.agency_fee_eur} €</div>
+          <div><strong>Naša odmena za správu:</strong> ${p.budget_breakdown.agency_fee_eur} €</div>
           <div><strong>6 mesiacov:</strong> ${p.budget_breakdown.six_month_projection_eur} €</div>
         </div>
         ${budgetRows ? `<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:8px;">
@@ -4041,7 +4041,7 @@ Odkaz je platný 30 dní.
         ${p.campaigns.map(c=>`<div class="card"><strong>${esc(c.name)}</strong> <span style="float:right;color:#6366f1;font-weight:600;">${c.monthly_budget_eur} €/mes</span><br>${esc(c.objective)}<br><span class="muted">${esc(c.channel)} · ${esc(c.landing_page_recommendation||'')}</span>${c.expected_metrics?`<br><span class="muted">Očakávané: ${c.expected_metrics.clicks||'?'} klikov · ${c.expected_metrics.ctr_pct||'?'}% CTR · ${c.expected_metrics.conversions||'?'} konverzií · ${c.expected_metrics.cpa_eur||'?'} € CPA</span>`:''}</div>`).join('')}` : ''}
 
       ${p.budget_breakdown ? `<h2>Rozpočet</h2>
-        <p><strong>Mesačne:</strong> ${p.budget_breakdown.monthly_total_eur} € (media spend ${p.budget_breakdown.media_spend_eur} € + agency fee ${p.budget_breakdown.agency_fee_eur} €) · <strong>6 mes. projekcia:</strong> ${p.budget_breakdown.six_month_projection_eur} €</p>
+        <p><strong>Mesačne:</strong> ${p.budget_breakdown.monthly_total_eur} € (media spend ${p.budget_breakdown.media_spend_eur} € + naša odmena za správu ${p.budget_breakdown.agency_fee_eur} €) · <strong>6 mes. projekcia:</strong> ${p.budget_breakdown.six_month_projection_eur} €</p>
         ${(p.budget_breakdown.by_channel||[]).length ? `<table><thead><tr><th>Kanál</th><th style="text-align:right;">€/mes</th><th style="text-align:right;">%</th></tr></thead><tbody>${p.budget_breakdown.by_channel.map(b=>`<tr><td>${esc(b.channel)}</td><td style="text-align:right;">${b.amount_eur} €</td><td style="text-align:right;">${b.pct}%</td></tr>`).join('')}</tbody></table>` : ''}
         ${p.budget_breakdown.notes ? `<p class="muted">${esc(p.budget_breakdown.notes)}</p>` : ''}` : ''}
 
@@ -4067,12 +4067,21 @@ Odkaz je platný 30 dní.
   // HTML ponuka - otvorí v novom okne
   generateProposalHTML() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
-    if (!lead?.analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
-    
+    if (!lead?.analysis && !lead?.premium_analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
+
     const notes = document.getElementById('proposal-notes')?.value?.trim();
-    let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+
+    // PRIORITY: ak existuje premium_analysis (sectioned generation), použij ho
+    // cez adapter. Inak fallback na legacy lead.analysis (z analyze-lead Edge fn).
+    // Tým zabezpečíme že "Otvoriť ako HTML" a "Premium návrh" badge → IDENTICKÝ výsledok.
+    let analysisToUse;
+    if (lead.premium_analysis) {
+      analysisToUse = this._premiumToTemplateSchema(lead.premium_analysis, lead);
+    } else {
+      analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+    }
     if (notes) analysisToUse.customNote = notes;
-    
+
     const html = this.buildProposalHTML(lead, analysisToUse);
     const blob = new Blob([html], { type: 'text/html' });
     window.open(URL.createObjectURL(blob), '_blank');
@@ -5551,12 +5560,12 @@ ${r.projection ? `
         <div style="background:linear-gradient(135deg,#dbeafe,#eff6ff); border:1.5px solid #3b82f6; border-radius:14px; padding:20px 22px;">
           <div style="font-size:11px; font-weight:700; color:#1e40af; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">Nová spolupráca</div>
           <div style="font-size:24px; font-weight:800; color:#1e40af; margin-bottom:4px;">Prvý mesiac za <span style="background:linear-gradient(135deg,#3b82f6,#6366f1); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">polovicu</span></div>
-          <div style="font-size:13px; color:#475569; line-height:1.5;">Pre nových klientov — odskúšajte si spoluprácu so 50% zľavou na fee v prvom mesiaci. Žiadny záväzok.</div>
+          <div style="font-size:13px; color:#475569; line-height:1.5;">Pre nových klientov — odskúšajte si spoluprácu so 50% zľavou na poplatku za správu v prvom mesiaci. Žiadny záväzok.</div>
         </div>
         <div style="background:linear-gradient(135deg,#dcfce7,#f0fdf4); border:1.5px solid #16a34a; border-radius:14px; padding:20px 22px;">
           <div style="font-size:11px; font-weight:700; color:#166534; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">6-mesačná dohoda</div>
           <div style="font-size:24px; font-weight:800; color:#166534; margin-bottom:4px;">−5 % zľava</div>
-          <div style="font-size:13px; color:#475569; line-height:1.5;">Pri 6-mesačnej spolupráci znížime fee o 5%. Stabilita kampaní + lepšie cenovanie pre vás.</div>
+          <div style="font-size:13px; color:#475569; line-height:1.5;">Pri 6-mesačnej spolupráci znížime poplatok za správu o 5%. Stabilita kampaní + lepšie cenovanie pre vás.</div>
         </div>
         <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb); border:1.5px solid #f59e0b; border-radius:14px; padding:20px 22px; position:relative;">
           <div style="position:absolute; top:-10px; right:14px; background:#f59e0b; color:#fff; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.5px;">NAJVÝHODNEJŠIE</div>
@@ -5568,7 +5577,61 @@ ${r.projection ? `
     </div>
 
     <div class="packages-footer-note" style="margin-top:24px;">
-      Všetky ceny sú <strong>bez DPH</strong> a sú fee za <strong>správu kampaní</strong>. <strong>Reklamný rozpočet</strong> platíte priamo Google / Meta / LinkedIn — máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.
+      Všetky ceny sú <strong>bez DPH</strong> a predstavujú poplatok za <strong>správu kampaní</strong>. <strong>Reklamný rozpočet</strong> platíte priamo Google / Meta / LinkedIn — máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.
+    </div>
+  </div>
+</section>
+
+<!-- Page 12b: Ako funguje spolupráca -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">13</span> Ako funguje spolupráca</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Štyri jednoduché kroky od dohody po prvé výsledky. Vy sa venujete svojmu biznisu, my výkonu kampaní.</p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:18px; margin-top:32px;">
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">1</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Konzultácia</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">30 minútový hovor — preberieme tento návrh, vaše ciele a špecifiká. Bezplatne, bez záväzku.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Do 24 hodín od záujmu</div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">2</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Audit + onboarding</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Detailný audit vašich existujúcich aktivít (web, tracking, kampane) + finalizujeme stratégiu, zľadíme prístupy.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Týždeň 1</div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">3</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Spustenie kampaní</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Setup Google Ads, Meta Ads a tracking. Pilotné kampane s konzervatívnym budgetom — testujeme čo funguje.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Týždeň 2</div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">4</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Optimalizácia & scale</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Týždenná optimalizácia, A/B testy, škálovanie čo dobre performuje. Mesačný report + strategická konzultácia.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Od týždňa 3</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-top:32px;">
+      <div style="padding:18px 20px; background:#f0f9ff; border-left:4px solid #0ea5e9; border-radius:10px;">
+        <div style="font-size:12px; font-weight:700; color:#075985; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Platobné podmienky</div>
+        <p style="font-size:13px; color:#0c4a6e; line-height:1.65; margin:0;">Prvý mesiac sa platí <strong>vopred</strong> po potvrdení objednávky. Ďalšie mesiace fakturujeme so štandardnou splatnosťou <strong>14 dní</strong>.</p>
+      </div>
+      <div style="padding:18px 20px; background:#f0fdf4; border-left:4px solid #16a34a; border-radius:10px;">
+        <div style="font-size:12px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Čo dostanete po objednávke</div>
+        <p style="font-size:13px; color:#14532d; line-height:1.65; margin:0;"><strong>Podrobný návrh</strong> s hlbšou analýzou bude vypracovaný po potvrdení spolupráce. Súčasťou sú aj <strong>grafické vizuály</strong> pre prvé kampane.</p>
+      </div>
+      <div style="padding:18px 20px; background:#faf5ff; border-left:4px solid #7c3aed; border-radius:10px;">
+        <div style="font-size:12px; font-weight:700; color:#5b21b6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Komunikácia</div>
+        <p style="font-size:13px; color:#3b0764; line-height:1.65; margin:0;">Cez <strong>WhatsApp / Slack / email</strong> podľa preferencie. Reakčný čas <strong>do 4 hodín v pracovné dni</strong>.</p>
+      </div>
     </div>
   </div>
 </section>
