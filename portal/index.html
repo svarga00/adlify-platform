@@ -2229,11 +2229,17 @@
                 sender_id: user.id,
                 sender_type: 'client',
                 content,
-                // Defensive — niektoré legacy DB schémy majú messages.from_email
-                // ako NOT NULL stĺpec. Posielame user.email aj keby DB to
-                // nepotrebovala — nemá negatívny efekt.
+                // Defensive — niektoré legacy DB schémy majú messages.subject
+                // a from_email/to_email/body_html/body_text ako NOT NULL. Posielame
+                // tieto polia aj keby nový schema ich nepotreboval.
+                subject: content.length > 80 ? content.slice(0, 77) + '...' : content,
+                body_text: content,
+                body_html: content.replace(/</g, '&lt;').replace(/\n/g, '<br>'),
                 from_email: user.email || null,
                 from_name: user.user_metadata?.full_name || user.email || null,
+                to_email: 'team@adlify.sk',
+                status: 'sent',
+                type: 'portal',
             }).select().single();
             if (error) {
                 messages = messages.filter(m => m.id !== optimistic.id);
