@@ -6132,7 +6132,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 ${comp.main_competitors && comp.main_competitors.length ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">3</span> Konkurenčné prostredie</h2>
+    <h2 class="section-title"><span class="section-badge">4</span> Konkurenčné prostredie</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${comp.positioning || 'Identifikovali sme hlavných hráčov, ktorí oslovujú vašich potenciálnych zákazníkov. Tu je ako sa voči nim vymedzíme.'}</p>
 
@@ -6226,7 +6226,7 @@ ${analysis.campaign_audit && analysis.campaign_audit.headline ? `
 ${a.swot ? `
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">4</span> SWOT Analýza</h2>
+    <h2 class="section-title"><span class="section-badge">5</span> SWOT Analýza</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Strategická analýza silných a slabých stránok, príležitostí a hrozieb pre vaše podnikanie.</p>
     
@@ -6256,7 +6256,7 @@ ${a.swot ? `
 ${k.topKeywords?.length ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">5</span> Kľúčové slová</h2>
+    <h2 class="section-title"><span class="section-badge">6</span> Kľúčové slová</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${k.summary || 'Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top 10:'}</p>
     
@@ -6319,7 +6319,7 @@ ${k.topKeywords?.length ? `
 <!-- Page 6: Strategy -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">6</span> Navrhovaná stratégia</h2>
+    <h2 class="section-title"><span class="section-badge">7</span> Navrhovaná stratégia</h2>
     <div class="section-divider"></div>
     
     <div class="grid-2" style="margin-bottom: 35px;">
@@ -6361,7 +6361,7 @@ ${k.topKeywords?.length ? `
 ${camp.google || camp.meta ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">7</span> Návrhy reklám</h2>
+    <h2 class="section-title"><span class="section-badge">8</span> Návrhy reklám</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám a obsahovať profesionálne vizuály.</p>
     
@@ -6552,7 +6552,7 @@ ${camp.google || camp.meta ? `
 <!-- Page 8: Budget -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">8</span> Odporúčaný rozpočet na reklamu</h2>
+    <h2 class="section-title"><span class="section-badge">9</span> Odporúčaný rozpočet na reklamu</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${b.analysis || 'Na základe analýzy kľúčových slov a konkurencie odhadujeme optimálny rozpočet pre vaše kampane.'}</p>
     
@@ -6611,7 +6611,7 @@ ${camp.google || camp.meta ? `
 ${r.projection ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">9</span> Predpokladaná návratnosť (ROI)</h2>
+    <h2 class="section-title"><span class="section-badge">10</span> Predpokladaná návratnosť (ROI)</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${r.explanation || 'Na základe odhadov návštevnosti, konverzného pomeru a priemernej hodnoty objednávky sme vypočítali potenciálnu návratnosť vašej investície.'}</p>
     
@@ -6654,7 +6654,7 @@ ${r.projection ? `
 <!-- Page 10: Timeline -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">10</span> Časový plán</h2>
+    <h2 class="section-title"><span class="section-badge">11</span> Časový plán</h2>
     <div class="section-divider"></div>
     
     <div class="timeline">
@@ -6695,7 +6695,7 @@ ${r.projection ? `
 <!-- Page 11: Benefits -->
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">11</span> Čo vám spolupráca prinesie</h2>
+    <h2 class="section-title"><span class="section-badge">12</span> Čo vám spolupráca prinesie</h2>
     <div class="section-divider"></div>
     
     <div class="grid-2">
@@ -6726,7 +6726,7 @@ ${r.projection ? `
 <!-- Page 12: Packages -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">12</span> Naše balíčky</h2>
+    <h2 class="section-title"><span class="section-badge">13</span> Naše balíčky</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Na základe vašej analýzy vám odporúčame balíček <strong style="background:linear-gradient(135deg,#7c3aed,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:700;">${analysis.recommendedPackage || 'Pro'}</strong> — pomer ceny a výkonu zodpovedá vášmu rozpočtu aj cieľom.</p>
 
@@ -6834,7 +6834,7 @@ ${r.projection ? `
 <!-- Page 12b: Ako funguje spolupráca -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">13</span> Ako funguje spolupráca</h2>
+    <h2 class="section-title"><span class="section-badge">14</span> Ako funguje spolupráca</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Štyri jednoduché kroky od dohody po prvé výsledky. Vy sa venujete svojmu biznisu, my výkonu kampaní.</p>
 
