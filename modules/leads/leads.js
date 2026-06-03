@@ -7149,12 +7149,7 @@ ${r.projection ? `
 
     <div style="margin-top:36px;">
       <h3 style="font-size:18px; font-weight:700; color:#1a1a2e; margin:0 0 16px; text-align:center;">Špeciálne ponuky a zľavy</h3>
-      <div class="grid-3" style="gap:16px;">
-        <div style="background:linear-gradient(135deg,#dbeafe,#eff6ff); border:1.5px solid #3b82f6; border-radius:14px; padding:20px 22px;">
-          <div style="font-size:11px; font-weight:700; color:#1e40af; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">Nová spolupráca</div>
-          <div style="font-size:24px; font-weight:800; color:#1e40af; margin-bottom:4px;">Prvý mesiac za <span style="background:linear-gradient(135deg,#3b82f6,#6366f1); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">polovicu</span></div>
-          <div style="font-size:13px; color:#475569; line-height:1.5;">Pre nových klientov — odskúšajte si spoluprácu so 50% zľavou na poplatku za správu v prvom mesiaci. Žiadny záväzok.</div>
-        </div>
+      <div class="grid-2" style="gap:16px;">
         <div style="background:linear-gradient(135deg,#dcfce7,#f0fdf4); border:1.5px solid #16a34a; border-radius:14px; padding:20px 22px;">
           <div style="font-size:11px; font-weight:700; color:#166534; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">6-mesačná dohoda</div>
           <div style="font-size:24px; font-weight:800; color:#166534; margin-bottom:4px;">−10 % zľava</div>
