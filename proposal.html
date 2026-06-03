@@ -413,30 +413,14 @@
         }
         
         // Render proposal
+        // Pôvodne tu bola inline CTA karta "Páči sa Vám návrh?" + floating
+        // action-bar. Sekcia 13 v buildProposalHTML už má veľký violet
+        // gradient hero CTA, takže inline kartu sme odstránili (duplikát).
+        // Floating action-bar ostáva — má tracking "Nemám záujem" čo je
+        // signál pre agentúru že lead odpadol bez odpovede.
         app.innerHTML = `
           <div class="proposal-container">
             ${proposal.html_content}
-
-            <!-- Inline CTA panel pod proposalom -->
-            <div style="max-width: 860px; margin: 40px auto 20px; padding: 28px 24px; background: linear-gradient(135deg, #FFF4EC 0%, #FFE6D3 100%); border: 1px solid #FFCBA5; border-radius: 20px; text-align: center;">
-              <h2 style="font-size: 22px; font-weight: 700; color: #14120E; margin: 0 0 8px; letter-spacing: -0.3px;">
-                Páči sa Vám návrh?
-              </h2>
-              <p style="color: #6F6758; margin: 0 0 20px; font-size: 15px; line-height: 1.5;">
-                Vyplňte krátky formulár a do 24 hodín Vám pošleme detailný plán spolupráce.
-              </p>
-              <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <button class="btn-main" onclick="openModal('interested')" style="padding: 14px 28px; font-size: 16px; font-weight: 600; background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(34,197,94,0.3);">
-                  Mám záujem o spoluprácu
-                </button>
-                <button class="btn-secondary" onclick="openModal('question')" style="padding: 14px 20px; font-size: 15px; font-weight: 500; background: white; color: #3A352B; border: 1px solid #EAE6DE; border-radius: 12px; cursor: pointer;">
-                  Mám otázku
-                </button>
-              </div>
-              <p style="margin: 18px 0 0; font-size: 12px; color: #948B7C;">
-                Žiadne záväzky · Bez platby · Odpoveď do 24 hodín
-              </p>
-            </div>
           </div>
 
           <div class="action-bar" id="action-bar">
