@@ -3923,7 +3923,11 @@ Odkaz je platný 30 dní.
     };
 
     // Recommended package
-    const recommendedPackage = monthlyBudget < 800 ? 'Starter' : monthlyBudget < 1500 ? 'Pro' : monthlyBudget < 3000 ? 'Enterprise' : 'Premium';
+    // Recommended package — prefer user-edited z lead.analysis.recommendedPackage
+    // (z editAnalysis modal dropdown), inak vypočítaj z mesačného budgetu
+    const recommendedPackage = lead.analysis?.recommendedPackage
+      || p.recommendedPackage
+      || (monthlyBudget < 800 ? 'Starter' : monthlyBudget < 1500 ? 'Pro' : monthlyBudget < 3000 ? 'Enterprise' : 'Premium');
 
     // Timeline — template čaká timeline.{week1, week2, "weeks3-4", month2, month3plus}
     // Premium output dáva timeline.weeks[] s {week, milestone, deliverables}
@@ -3941,6 +3945,11 @@ Odkaz je platný 30 dní.
       weeks // pre future template ktorý čaká array
     };
 
+    // Custom ad image — user-edited z editAnalysis modal (lead.analysis.customAdImage)
+    const customAdImage = lead.analysis?.customAdImage || p.customAdImage || null;
+    // Custom note — z proposal modale textareu
+    const customNote = lead.analysis?.customNote || p.customNote || null;
+
     return {
       company,
       analysis: a,
@@ -3954,6 +3963,8 @@ Odkaz je platný 30 dní.
       competition: competitive,
       campaign_audit: p.campaign_audit || null,
       recommendedPackage,
+      customAdImage,
+      customNote,
       executive_summary: p.executive_summary,
       unique_insight: p.unique_insight,
       risks: p.risks,
@@ -5632,49 +5643,6 @@ ${r.projection ? `
         <div style="font-size:12px; font-weight:700; color:#5b21b6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Komunikácia</div>
         <p style="font-size:13px; color:#3b0764; line-height:1.65; margin:0;">Cez <strong>portál Adlify</strong>, <strong>WhatsApp</strong> alebo <strong>email</strong> podľa preferencie. Reakčný čas <strong>do 4 hodín v pracovné dni</strong>.</p>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- Page 12b: Ako funguje spolupráca -->
-<section class="page page-gray">
-  <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">13</span> Ako funguje spolupráca</h2>
-    <div class="section-divider"></div>
-    <p class="section-subtitle">Štyri jednoduché kroky od dohody po prvé výsledky. Vy sa venujete svojmu biznisu, my výkonu kampaní.</p>
-
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:18px; margin-top:32px;">
-      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
-        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">1</div>
-        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Konzultácia</h3>
-        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">30 minútový hovor — preberieme tento návrh, vaše ciele a špecifiká. Bezplatne, bez záväzku.</p>
-        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Do 24 hodín od záujmu</div>
-      </div>
-
-      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
-        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">2</div>
-        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Audit + onboarding</h3>
-        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Detailný audit vašich existujúcich aktivít (web, tracking, kampane) + finalizujeme stratégiu, zľadíme prístupy.</p>
-        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Týždeň 1</div>
-      </div>
-
-      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
-        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">3</div>
-        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Spustenie kampaní</h3>
-        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Setup Google Ads, Meta Ads a tracking. Pilotné kampane s konzervatívnym budgetom — testujeme čo funguje.</p>
-        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Týždeň 2</div>
-      </div>
-
-      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
-        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">4</div>
-        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Optimalizácia & scale</h3>
-        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Týždenná optimalizácia, A/B testy, škálovanie čo dobre performuje. Mesačný report + strategická konzultácia.</p>
-        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Od týždňa 3</div>
-      </div>
-    </div>
-
-    <div style="margin-top:32px; padding:18px 22px; background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(236,72,153,0.06)); border-radius:12px; text-align:center; font-size:13px; color:#475569;">
-      Komunikácia ide cez <strong>WhatsApp / Slack / email</strong> podľa vašej preferencie. Reakčný čas typicky <strong>do 4 hodín v pracovné dni</strong>.
     </div>
   </div>
 </section>
