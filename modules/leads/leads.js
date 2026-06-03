@@ -281,22 +281,8 @@ const LeadsModule = {
                   </div>
                 </div>
               </div>
-              <label>Alebo všetko naraz (background):</label>
+              <label>Ďalšie akcie:</label>
               <div class="proposal-buttons">
-                <button onclick="LeadsModule.generateDeepProposal(event)" class="proposal-option-btn primary" id="btn-deep-proposal" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;color:#fff;" title="Klik = reálna generácia (kredit). Shift+klik = test mode.">
-                  <span class="option-icon">${LI.sparkle ? LI.sparkle(22, '#fff') : ''}</span>
-                  <span class="option-text">
-                    <strong>Vygenerovať všetko naraz (background)</strong>
-                    <small id="deep-proposal-meta">Background · 1-3 min · Sonnet 4.5 · Shift+klik = test mode</small>
-                  </span>
-                </button>
-                <button onclick="LeadsModule.generateDeepProposal({ shiftKey: true })" class="proposal-option-btn" style="border:1px dashed var(--n-200);">
-                  <span class="option-icon">${LI.globe(22, 'var(--n-400)')}</span>
-                  <span class="option-text">
-                    <strong>Test mode — mock data</strong>
-                    <small>Žiadny Anthropic call, mock JSON do DB. Pre testovanie.</small>
-                  </span>
-                </button>
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">
                   <span class="option-icon">${LI.globe(22, 'var(--brand-600)')}</span>
                   <span class="option-text">
@@ -2552,23 +2538,8 @@ const LeadsModule = {
       emailBtn.disabled = true;
     }
 
-    // Auto-load existujúceho deep proposal (ak je v DB) — neminieš ďalší kredit
-    const meta = document.getElementById('deep-proposal-meta');
-    const output = document.getElementById('deep-proposal-output');
-    if (output) output.innerHTML = '';
-    if (output) output.style.display = 'none';
-    if (lead?.deep_proposal) {
-      if (meta) meta.textContent = `✓ Uložený návrh z ${new Date(lead.deep_proposal_generated_at).toLocaleString('sk-SK')} · ${lead.deep_proposal_model || 'claude'} · klik znova pre regen`;
-      try {
-        this._renderDeepProposal(lead.deep_proposal, lead.deep_proposal_model, lead.deep_proposal_generated_at);
-      } catch (e) {
-        console.error('[DeepProposal] Auto-load render failed:', e);
-      }
-    } else {
-      if (meta) meta.textContent = '12 sekcií · 30-60s · ~$0.50 / generácia';
-    }
-
-    // Renderuj sectioned checkbox list
+    // Renderuj sectioned checkbox list — ten ukáže ✓ markery pri sekciách
+    // ktoré sú už v DB. Žiadny inline render legacy modale netreba.
     this._renderSectionList();
   },
 
