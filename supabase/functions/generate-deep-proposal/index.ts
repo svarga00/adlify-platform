@@ -1204,10 +1204,12 @@ async function runPremiumGeneration(
       body: JSON.stringify({
         model,
         max_tokens: 16000,
-        // Web search 2 uses — Anthropic call s 2 search ~60-120s typicky,
-        // 5 uses bolo ~200-300s = nad Supabase Edge background 400s limit.
-        // 2 uses dáva top konkurentov + benchmarky, dostatočná research depth.
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }],
+        // web_search vypnutý — Anthropic web_search 2 uses zaberie 60-120s
+        // čo prekračuje Supabase Edge background task limit (na tomto
+        // projekte cca 60-90s podľa logov). Bez search Haiku/Sonnet dokončia
+        // call za 20-60s — bezpečne v limite.
+        // Konkurenti sa berú z MM dát (presnejšie aj tak), ak admin dodal.
+        // tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }],
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: context }],
       })
