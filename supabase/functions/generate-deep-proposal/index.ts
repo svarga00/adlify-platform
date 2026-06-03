@@ -847,14 +847,16 @@ Tvar JSON odpovede (presne tieto kľúče):
   },
   "keywords": {
     "primary": [
-      { "keyword": "...", "search_volume": 1200, "cpc_eur": 0.45, "intent": "buy|info|brand", "priority": "high" }
+      { "keyword": "...", "search_volume": 1200, "cpc_eur": 0.45, "intent": "buy|info|brand", "priority": "high", "current_ranking": "21 (mimo top 20)" }
     ],
     "secondary": [
-      { "keyword": "...", "search_volume": 300, "cpc_eur": 0.30, "intent": "info" }
+      { "keyword": "...", "search_volume": 300, "cpc_eur": 0.30, "intent": "info", "current_ranking": null }
     ],
     "longTail": [
       { "keyword": "...", "search_volume": 50, "cpc_eur": 0.18 }
-    ]
+    ],
+    "totals": { "total_volume_monthly": 12000, "avg_cpc_eur": 0.46, "primary_count": 6 },
+    "seasonality_summary": "1-2 vety o sezónnosti — kedy zvýšiť budget. Cite peak month z dát."
   },
   "strategy": {
     "overview": "1 odstavec — high-level prístup pre tohto klienta a prečo.",
@@ -1021,12 +1023,37 @@ Tvar JSON odpovede (presne tieto kľúče):
   "unique_insight": "Jeden veľmi špecifický insight ku konkrétnemu klientovi — niečo čo by konkurent neuvidel. 2-3 vety. Toto je 'wow moment' v proposale."
 }
 
+POVINNÉ MINIMUM PRE OBSAH KAŽDEJ SEKCIE — žiadne preskakovanie kvôli token budgetu:
+
+keywords — MUSÍ obsahovať:
+- minimum 6 položiek v primary, 5 v secondary, 5 v longTail (spolu 16+)
+- ak v contexte sú "keyword_volumes" dáta s keywords[], POUŽIJ ICH VŠETKY (rozdeľ do primary/secondary/longTail podľa search_volume; primary >= 500, secondary 100-499, longTail < 100)
+- KAŽDÝ KW musí mať search_volume + cpc_eur (z dát alebo realistic estimate)
+- totals so súčtami a avg_cpc_eur
+
+onlinePresence — MUSÍ vyplniť všetky 4 statusy (website, social, seo, ppc) s 2-3 vetami notes každý. Ak máš seo_audit dáta, "seo.notes" cituje konkrétne čísla (pages_not_indexed, pages_without_meta, avg_title_score). Ak máš contact_finder, social.notes spomenie reálne URL.
+
+proposedCampaigns — MUSÍ vyplniť:
+- google.searchCampaign s 2-3 adGroups (každá s 5+ KW + 3+ headlines + 2+ descriptions)
+- google.performanceMaxCampaign s 1-2 asset groups
+- meta.campaign s 2+ adSets (každý plný adCopy)
+- instagram.stories s 1-2 konceptami
+- linkedin len ak je relevantný pre tohto klienta (inak null)
+- googleDisplay s aspoň 1 banner konceptom
+
+budget — MUSÍ obsahovať allocations[] (rozdelenie per kanál sumou = 100%) a všetky 3 recommendations (conservative/moderate/aggressive)
+
+timeline — MUSÍ mať aspoň 4 milestones (week 1, 2, 3-4, 5-8) s deliverables[]
+
+competitive_landscape — MUSÍ mať minimum 3 main_competitors s name + their_strength + our_advantage. Ak máš ppc_competitors alebo serp_analysis dáta, použij top_competitors z nich menovite.
+
 PRIPOMENUTIE:
 - Žiadne emoji. Žiadne ${'```'}json wrappery.
 - Personalizácia až do detailov produktov, miest, ICP.
 - Reklamné kreatívy musia byť naozaj použiteľné — copywriter quality, žiadne lorem ipsum.
 - Pre každú sekciu min. 1-2 vety "prečo" a "ako".
-- Output JSON musí byť syntakticky validný (žiadne trailing commas).`
+- Output JSON musí byť syntakticky validný (žiadne trailing commas).
+- Ak miestami zostane už málo tokenov, RADŠEJ SKRÁŤ ad copy v campaigns než vynechať celé sekcie. Žiadne kľúče vynechané, žiadne prázdne polia ak existujú dáta.`
 
 async function fetchPage(url: string, timeoutMs = 8000): Promise<{ url: string; html: string } | null> {
   try {
@@ -1216,10 +1243,10 @@ async function runPremiumGeneration(
       },
       body: JSON.stringify({
         model,
-        // Znížené z 16K na 10K — donúti model byť stručnejší, aj zabezpečí
-        // rýchlejší response. 10K stačí pre full proposal so všetkými
-        // sekciami pri kompaktnom JSON.
-        max_tokens: 10000,
+        // 14K — kompromis: stačí pre full proposal so VŠETKÝMI sekciami
+        // (10K viedlo k "ocesanému" output kde model skracoval keywords a
+        // campaigns aby sa zmestil). Pri Haiku/Sonnet 14K = ~30-60s.
+        max_tokens: 14000,
         system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: context }],
       })
