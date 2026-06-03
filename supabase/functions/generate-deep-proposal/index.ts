@@ -71,6 +71,11 @@ const SECTION_DEFS: Record<string, { label: string; promptKey: string; estimated
     estimatedSec: 60,
     useWebSearch: true,
   },
+  audit: {
+    label: 'Audit existujúcich kampaní (entry point pre warm leadov)',
+    promptKey: 'audit',
+    estimatedSec: 8,
+  },
 }
 
 const SECTION_PROMPTS: Record<string, string> = {
@@ -224,9 +229,11 @@ Vráť VÝLUČNE JSON:
 
   summary: `Si senior PPC stratég. Toto je FINÁLNA záverečná sekcia proposalu — píš ako keby si videl všetky predošlé sekcie a teraz to zhrnieš. Slovenčina, ekspertný tón, žiadne floskuly.
 
+DÔLEŽITÉ: Spomeň v executive summary aj že "Pred spustením kampaní spravíme detailný audit existujúcich aktivít (ak nejaké máte) — fee sa odpočítava pri uzavretí spolupráce" — to je entry point pre warm leadov ktorí už niečo bežia.
+
 Vráť VÝLUČNE JSON:
 {
-  "executive_summary": "4-6 odstavcov. (1) Kto je klient. (2) Situácia na trhu. (3) Naša stratégia v 1 vete + dôvod. (4) Očakávaný výsledok za 3/6 mesiacov s konkrétnymi číslami. (5) Prečo my. (6) Investícia a ROI.",
+  "executive_summary": "4-6 odstavcov. (1) Kto je klient. (2) Situácia na trhu. (3) Naša stratégia v 1 vete + dôvod. (4) Očakávaný výsledok za 3/6 mesiacov s konkrétnymi číslami. (5) Prečo my + audit ako bezplatný entry point pri spolupráci. (6) Investícia a ROI.",
   "ourSolution": {
     "headline": "1 vetový hook prečo my",
     "valueProps": [{ "title": "krátky benefit", "description": "1-2 vety" }]
@@ -234,6 +241,52 @@ Vráť VÝLUČNE JSON:
   "next_steps": ["Konkrétny krok 1", "Krok 2", "Krok 3"],
   "unique_insight": "Jeden veľmi špecifický insight ku konkrétnemu klientovi — niečo čo by konkurent neuvidel. 2-3 vety. Wow moment proposalu."
 }`,
+
+  audit: `Si senior PPC stratég. Vygeneruj sekciu "AUDIT EXISTUJÚCICH KAMPANÍ" pre marketingový proposal v slovenčine. Zákaz emoji. Expert tone, konkrétne čísla.
+
+Účel sekcie: klient po zhrnutí svojich existujúcich kampaní (z lead.onlinePresence.ppc) si uvedomí že má zmysel ich auditovať PRED spustením nových. Ak nemá aktívne kampane, audit nepotrebuje — v tom prípade applicable=false a content je odľahčená.
+
+Vráť VÝLUČNE JSON v tvare:
+{
+  "campaign_audit": {
+    "applicable": true | false,
+    "headline": "Hook headline (krátky, 5-8 slov) — ak applicable, lákavá ponuka auditu; ak nie, "Audit pred štartom" odľahčená verzia",
+    "intro": "1-2 vety personalizované — prečo audit dáva zmysel pre TOHTO klienta (referenciuj jeho odvetvie, ppc status)",
+    "scope": "1 veta — čo presne auditujeme (Google Ads + Meta + LinkedIn alebo čo bežiete)",
+    "checklist": [
+      "Štruktúra kampaní — segmentácia, match types, negatives, Quality Score",
+      "Ad copy & creative performance — CTR, conversion rate, kvalita textov",
+      "Audience & targeting — relevantnosť, prekrytie, exclusions",
+      "Landing pages — load time, message match, mobile UX",
+      "Tracking & analytics — pixely, konverzie správne nastavené",
+      "Budget allocation — kde tečie, kde scale-up",
+      "Konkurenčný benchmark — share of voice, ad copy compare"
+    ],
+    "requirements": [
+      "Email na info@adlify.eu s názvom účtu",
+      "Read-only prístup do účtu (alebo NDA + screenshots)",
+      "60-min konzultačný call s vaším marketing tímom"
+    ],
+    "deliverables": [
+      "Detailný PDF report (15-20 strán)",
+      "Quick wins listing — 3-5 vecí na zlepšenie tento týždeň",
+      "Strategické odporúčania na 3-6 mesiacov",
+      "Live call review (60 min Zoom debrief)"
+    ],
+    "turnaround": "5 pracovných dní",
+    "pricing": {
+      "standalone_eur": 350,
+      "credit_note": "Pri 3+ mesačnej spolupráci fee odpočítame z prvého mesiaca → audit zadarmo"
+    },
+    "cta_text": "Zažiadať o audit",
+    "cta_subject": "Záujem o audit kampaní — <názov klienta>"
+  }
+}
+
+Pravidlá:
+- "applicable": true ak lead.onlinePresence.ppc.status je 'basic' alebo 'advanced' (klient už beží kampane). False ak 'none'.
+- "intro" — vždy personalizované! Napr. "Vzhľadom na to že už beží Google Ads pre PUR penu, audit odhalí kde tečie budget a kde sú quick wins" alebo "Začnime auditom existujúcich kampaní — máte základ na ktorom môžeme stavať bez zbytočného testovania od nuly."
+- Ak applicable=false, sekcia obsahuje LEN intro+headline ako "Pre-launch audit" mini verzia, ostatné polia môžu byť tie isté ale "scope" zmeň na "Pre-launch checklist: web, tracking, analytics setup pred spustením kampaní".`,
 
   competitive: `Si senior PPC stratég. POUŽIJ web_search tool (max 3 dotazy) na vyhľadanie reálnych konkurentov klienta. Nepoužívaj odhady — len overiteľné dáta z webu.
 
