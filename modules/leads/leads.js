@@ -3155,17 +3155,26 @@ info@adlify.eu | www.adlify.eu`
     try {
       const companyName = lead.analysis?.company?.name || lead.company_name || lead.domain || 'firma';
       let proposalUrl = null;
-      
+
       // 1. Skúsiť uložiť ponuku do DB (voliteľné)
-      if (lead.analysis) {
+      // Použijeme RVNAKÝ flow ako openPremiumProposal/Otvoriť HTML — adapter
+      // ak existuje premium_analysis, inak raw analysis. Tým má klient v emailu
+      // link na IDENTICKÚ ponuku ako vidíš ty v admin tooli.
+      if (lead.analysis || lead.premium_analysis || lead.deep_proposal) {
         try {
           const notes = document.getElementById('proposal-notes')?.value?.trim();
-          let analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+          let analysisToUse;
+          if (lead.premium_analysis || lead.deep_proposal) {
+            const premium = lead.premium_analysis || lead.deep_proposal;
+            analysisToUse = this._premiumToTemplateSchema(premium, lead);
+          } else {
+            analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
+          }
           if (notes) analysisToUse.customNote = notes;
-          
+
           const proposalHtml = this.buildProposalHTML(lead, analysisToUse);
           const proposalToken = this.generateToken();
-          
+
           const { data: proposal, error: proposalError } = await Database.client
             .from('proposals')
             .insert({
@@ -3179,12 +3188,11 @@ info@adlify.eu | www.adlify.eu`
             })
             .select()
             .single();
-          
+
           if (!proposalError && proposal) {
-            // Použiť aktuálnu doménu pre odkaz
             const baseUrl = window.location.origin;
             proposalUrl = `${baseUrl}/proposal.html?t=${proposalToken}`;
-            console.log('Proposal saved, URL:', proposalUrl);
+            console.log('Proposal saved (premium=' + !!(lead.premium_analysis || lead.deep_proposal) + '), URL:', proposalUrl);
           } else {
             console.warn('Proposal save failed:', proposalError?.message);
           }
@@ -3192,31 +3200,38 @@ info@adlify.eu | www.adlify.eu`
           console.warn('Proposal save error (continuing without link):', e.message);
         }
       }
-      
-      // 2. Pridať odkaz do emailu ak sa podarilo uložiť
-      if (proposalUrl) {
+
+      // 2. Pridať odkaz do emailu — IBA ak telo emailu ešte nemá CTA placeholder.
+      // Nová šablóna "Jednoduchá výchozia" obsahuje [[Otvoriť návrh|{{audit_request_url}}]]
+      // → CTA je už v tele, nepridávame duplikát "VAŠA PERSONALIZOVANÁ PONUKA" sekciu.
+      const bodyHasCTA = /\[\[.+?\|.+?\]\]|\{\{\s*(audit_request_url|proposal_url)\s*\}\}/i.test(body);
+      if (proposalUrl && !bodyHasCTA) {
         const proposalSection = `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 VAŠA PERSONALIZOVANÁ PONUKA
+VAŠA PERSONALIZOVANÁ PONUKA
 
 Pripravili sme pre Vás detailnú marketingovú ponuku.
 Kliknite na odkaz nižšie pre jej zobrazenie:
 
-🔗 ${proposalUrl}
+${proposalUrl}
 
 V ponuke nájdete:
-✓ Analýzu Vašej online prítomnosti
-✓ SWOT analýzu a odporúčania  
-✓ Návrh kľúčových slov
-✓ Odporúčaný rozpočet a ROI
-✓ Balíčky služieb
+- Analýzu Vašej online prítomnosti
+- SWOT analýzu a odporúčania
+- Návrh kľúčových slov
+- Odporúčaný rozpočet a ROI
+- Balíčky služieb
 
 Odkaz je platný 30 dní.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
         body = body + proposalSection;
+      } else if (proposalUrl && bodyHasCTA) {
+        // Nahrad placeholder {{audit_request_url}} / {{proposal_url}} skutočným URL
+        body = body
+          .replace(/\{\{\s*(audit_request_url|proposal_url)\s*\}\}/gi, proposalUrl);
       }
       
       // 3. Konvertovať plain text na HTML

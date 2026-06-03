@@ -277,16 +277,47 @@ window.EmailTemplates = {
   leadProposal: function(data) {
     var self = this;
     var body = data.body || '';
+    // Detekcia [[text|url]] CTA placeholderu v tele \u2014 ak je, vykresl\u00edme ho
+    // ako button a NEPRIDAVAME auto "Zobrazi\u0165 ponuku" + "Odkaz platn\u00fd" (duplik\u00e1t).
+    var ctaRegex = /\[\[(.+?)\|(.+?)\]\]/g;
+    var hasInlineCTA = ctaRegex.test(body);
+    ctaRegex.lastIndex = 0;
+    // Bullet items (- ...) \u2014 render ako check list
     var paragraphs = body.split('\n\n').map(function(p) {
       if (!p.trim() || p.indexOf('\u2501') >= 0 || p.indexOf('\ud83d\udd17') >= 0) return '';
+      // [[Text|URL]] CTA \u2192 button
+      var ctaMatch = /^\s*\[\[(.+?)\|(.+?)\]\]\s*$/.exec(p);
+      if (ctaMatch) {
+        var ctaText = ctaMatch[1].trim();
+        var ctaUrl = ctaMatch[2].trim();
+        // {{audit_request_url}} v URL \u2192 substituuj data.proposalUrl
+        if (/\{\{\s*(audit_request_url|proposal_url)\s*\}\}/.test(ctaUrl)) {
+          ctaUrl = data.proposalUrl || '#';
+        }
+        return self._button(ctaText, ctaUrl);
+      }
+      // \u2713 check list (legacy)
       if (p.indexOf('\u2713') >= 0) {
         var items = p.split('\n').filter(function(l) { return l.indexOf('\u2713') >= 0; });
         return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0;">' +
           items.map(function(i) { return '<tr><td style="padding:4px 8px 4px 0;color:#48bb78;">\u2713</td><td style="padding:4px 0;font-size:14px;color:#555;">' + i.replace('\u2713','').trim() + '</td></tr>'; }).join('') + '</table>';
       }
+      // - bullet list \u2192 check list
+      var bulletLines = p.split('\n').filter(function(l) { return /^\s*[-\u2022]\s/.test(l); });
+      if (bulletLines.length >= 2) {
+        return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:12px 0;">' +
+          bulletLines.map(function(l) {
+            var text = l.replace(/^\s*[-\u2022]\s+/, '').trim();
+            return '<tr><td style="padding:4px 8px 4px 0;color:#48bb78;vertical-align:top;">\u2713</td><td style="padding:4px 0;font-size:14px;color:#555;line-height:1.55;">' + text + '</td></tr>';
+          }).join('') + '</table>';
+      }
       return self._p(p.replace(/\n/g, '<br>'));
     }).join('');
-    var content = [paragraphs, data.proposalUrl ? this._button('Zobrazi\u0165 ponuku', data.proposalUrl) : '', data.proposalUrl ? this._note('Odkaz je platn\u00fd 30 dn\u00ed.') : ''].join('');
+    var autoCTA = (data.proposalUrl && !hasInlineCTA) ? [
+      this._button('Zobrazi\u0165 ponuku', data.proposalUrl),
+      this._note('Odkaz je platn\u00fd 30 dn\u00ed.')
+    ].join('') : '';
+    var content = [paragraphs, autoCTA].join('');
     return this._baseLayout(content);
   },
 
