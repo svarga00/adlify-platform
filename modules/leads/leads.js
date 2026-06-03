@@ -3682,11 +3682,16 @@ info@adlify.eu | www.adlify.eu`
       return true;
     } catch (err) {
       console.error(`[Section] Error ${sectionKey}:`, err);
-      // Rate limit má vlastnú hlášku — user vie že treba počkať a nie že je niečo rozbité
       const msg = String(err.message || err);
       const isRate = /rate limit|429|exceed.*token/i.test(msg);
+      const isTruncated = /max_tokens|odseknut|truncated|token limit/i.test(msg);
+      const isParse = /JSON parse/i.test(msg);
       if (isRate) {
         Utils.toast('Anthropic rate limit (30K tokenov/min). Počkaj 60s a skús znova — alebo regeneruj sekcie postupne, nie naraz.', 'warning');
+      } else if (isTruncated) {
+        Utils.toast(`Sekcia ${sectionKey}: model dosiahol token limit (odseknutá odpoveď). Skús regen — druhý pokus typicky vyjde kratší.`, 'warning');
+      } else if (isParse) {
+        Utils.toast(`Sekcia ${sectionKey}: model vrátil neparsovateľný JSON. Skús regen.`, 'warning');
       } else {
         Utils.toast(`Sekcia ${sectionKey} zlyhala: ${msg.slice(0, 200)}`, 'error');
       }

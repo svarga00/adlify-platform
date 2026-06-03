@@ -353,17 +353,30 @@ function tryParseJson(raw: string): any | null {
       else if (ch === ']') closeSquare++
     }
     let repaired = candidate
-    // Odsekni od posledného poľa/objektu ak je v strings string ktorý nie je uzavretý
+    // Truncated mid-string → odsekni od posledného open quote
     if (inString) {
-      // posledný open quote a všetko za ním vyrež
       const lastQuote = repaired.lastIndexOf('"')
       if (lastQuote > 0) repaired = repaired.slice(0, lastQuote)
     }
-    // Odsekni trailing comma
-    repaired = repaired.replace(/,\s*$/, '')
+    // Po cutnutí stringu môžeme mať dangling property bez value (napr.
+    // `"key":` alebo `"key": "...",`). Odsekni neukončenú property až po
+    // posledný validný `,` alebo `{`/`[` na konci.
+    // Príklady ktoré opraví:
+    //   `..."rationale": "abc def` → `...` (rationale property bez value zmaž)
+    //   `..."name": "X",` → `..."name": "X"` (trailing comma)
+    //   `..."key":` → `...` (key bez value)
+    for (let i = 0; i < 5; i++) {
+      const before = repaired
+      repaired = repaired
+        .replace(/,\s*$/, '')                       // trailing comma
+        .replace(/\s*"[^"]*"\s*:\s*$/, '')          // dangling key bez value
+        .replace(/\s*"[^"]*"\s*:\s*[\d.eE+-]+\s*,?\s*$/, '') // možný čistý truncate
+        .replace(/,\s*"[^"]*"\s*:\s*\{[^{}]*$/, '') // dangling object property
+      if (before === repaired) break
+    }
     // Pridaj chýbajúce ] a }
     while (openSquare > closeSquare) { repaired += ']'; closeSquare++ }
-    while (opens > closes)         { repaired += '}'; closes++ }
+    while (opens > closes)           { repaired += '}'; closes++ }
     try { return JSON.parse(repaired) } catch {}
   }
 
@@ -388,7 +401,10 @@ async function generateSection(
 
   const apiBody: any = {
     model,
-    max_tokens: sectionKey === 'campaigns' ? 12000 : 6000,
+    // max_tokens — strategy/keywords/audit verbose Slovak responses ľahko
+    // prekročia 6K → truncated JSON. 8K je bezpečné pre väčšinu sekcií.
+    // campaigns má najviac obsahu (ad copy + 5+ kampaní) → 12K.
+    max_tokens: sectionKey === 'campaigns' ? 12000 : 8000,
     system: SECTION_PROMPTS[def.promptKey],
     messages: [{ role: 'user', content: context }],
   }
@@ -437,12 +453,25 @@ async function generateSection(
   if (json.error) return { error: json.error.message || 'Anthropic error' }
 
   const text = (json.content || []).filter((c: any) => c.type === 'text').map((c: any) => c.text || '').join('').trim()
-  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  let partial = tryParseJson(cleaned)
+  // Strip ``` wrappers — model niekedy obalí JSON markdown blokom napriek
+  // promptu. Robíme to aj middle-of-string lebo `^...$` regex zlyhá ak
+  // pred/po blocku je text.
+  const cleaned = text
+    .replace(/^[\s\S]*?```(?:json)?\s*/i, (m) => m.includes('```') ? '' : m)
+    .replace(/\s*```[\s\S]*$/i, '')
+    .trim()
+  const partial = tryParseJson(cleaned)
   if (!partial) {
-    console.error(`[section ${sectionKey}] Cannot parse JSON. First 500 chars:`, cleaned.slice(0, 500))
-    console.error(`[section ${sectionKey}] Last 300 chars:`, cleaned.slice(-300))
-    return { error: `JSON parse zlyhal pre sekciu ${sectionKey}. Skús regen — niekedy model vráti truncated alebo invalid JSON.` }
+    const stopReason = json.stop_reason || 'unknown'
+    console.error(`[section ${sectionKey}] Cannot parse JSON. stop_reason=${stopReason}, len=${cleaned.length}`)
+    console.error(`[section ${sectionKey}] First 500 chars:`, cleaned.slice(0, 500))
+    console.error(`[section ${sectionKey}] Last 500 chars:`, cleaned.slice(-500))
+    // stop_reason='max_tokens' znamená model bol odseknutý → odporuč user
+    // konkrétne — nie generický "skús regen"
+    if (stopReason === 'max_tokens') {
+      return { error: `Sekcia ${sectionKey} bola odseknutá (model dosiahol token limit). Skús regen — typicky druhý pokus vyjde kratšia odpoveď. Ak persistuje, kontaktuj support.` }
+    }
+    return { error: `JSON parse zlyhal pre sekciu ${sectionKey} (stop_reason=${stopReason}). Skús regen.` }
   }
 
   return { partial, usage: json.usage }
