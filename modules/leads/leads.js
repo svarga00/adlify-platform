@@ -3732,26 +3732,54 @@ Odkaz je platný 30 dní.
     window.open(URL.createObjectURL(blob), '_blank');
   },
 
-  // Otvor PREMIUM proposal (rozšírený analysis schema cez Claude Opus) cez existing buildProposalHTML template
+  // JEDINÁ funkcia ktorá otvára proposal HTML — volá sa z OBOCH miest:
+  //   • Hero badge "Premium návrh (dátum)" → openPremiumProposal(leadId)
+  //   • Modal tlačidlo "Otvoriť HTML" → openPremiumProposal() (default currentLeadId)
+  //   • generateProposalHTML() → redirect na openPremiumProposal()
+  // Tým máme garantovaný IDENTICKÝ výsledok — žiadny duplikát kódu, žiadne
+  // rozdielne flow, jeden adapter, jeden template.
   openPremiumProposal(leadId) {
     const id = leadId || this.currentLeadId;
     const lead = this.leads.find(l => l.id === id);
-    if (!lead?.premium_analysis && !lead?.deep_proposal) return Utils.toast('Najprv vygenerujte premium návrh', 'warning');
-    const premium = lead.premium_analysis || lead.deep_proposal;
-    // Adapter: Claude vracia obohatený schema, ale buildProposalHTML
-    // čaká konkrétne kľúče (analysis.company, analysis.analysis.swot,
-    // proposedCampaigns.google.searchCampaign.adGroups[].adCopy.headlines,
-    // strategy.targetAudience, strategy.packages, budget.recommendations,
-    // roi.projection, timeline.weekX, atď.). Adapter to mapuje.
-    const analysis = this._premiumToTemplateSchema(premium, lead);
+    if (!lead) return Utils.toast('Lead nenájdený', 'error');
+
+    // Priorita zdrojov dát:
+    // 1) premium_analysis (sectioned generation, Claude output) → adapter
+    // 2) deep_proposal (legacy alias premium_analysis) → adapter
+    // 3) analysis (raw analyze-lead Edge fn) → bez adapter, raw
+    let analysisForRender;
+    if (lead.premium_analysis || lead.deep_proposal) {
+      const premium = lead.premium_analysis || lead.deep_proposal;
+      analysisForRender = this._premiumToTemplateSchema(premium, lead);
+    } else if (lead.analysis) {
+      analysisForRender = JSON.parse(JSON.stringify(lead.analysis));
+    } else {
+      return Utils.toast('Najprv vygeneruj analýzu alebo premium návrh', 'warning');
+    }
+
+    // Custom notes z proposal-notes textareu (ak je modal otvorený)
+    const notes = document.getElementById('proposal-notes')?.value?.trim();
+    if (notes) analysisForRender.customNote = notes;
+
     try {
-      const html = this.buildProposalHTML(lead, analysis);
+      const html = this.buildProposalHTML(lead, analysisForRender);
       const blob = new Blob([html], { type: 'text/html' });
       window.open(URL.createObjectURL(blob), '_blank');
+      // Zatvor modal ak je otvorený (klik z modal "Otvoriť HTML")
+      const modal = document.getElementById('proposal-modal');
+      if (modal && modal.style.display !== 'none') {
+        this.closeProposalModal();
+        Utils.toast('Ponuka otvorená v novom okne', 'success');
+      }
     } catch (err) {
-      console.error('[Premium] buildProposalHTML failed:', err);
+      console.error('[Proposal] buildProposalHTML failed:', err);
       Utils.toast('Render zlyhal: ' + err.message, 'error');
     }
+  },
+
+  // Alias pre backwards compat — všetky volania presmerujem na openPremiumProposal
+  generateProposalHTML() {
+    return this.openPremiumProposal();
   },
 
   // Mapuj Claude premium_analysis → schema kompatibilný s buildProposalHTML.
@@ -4076,30 +4104,8 @@ Odkaz je platný 30 dní.
   },
 
   // HTML ponuka - otvorí v novom okne
-  generateProposalHTML() {
-    const lead = this.leads.find(l => l.id === this.currentLeadId);
-    if (!lead?.analysis && !lead?.premium_analysis) return Utils.toast('Najprv analyzuj lead', 'warning');
+  // (generateProposalHTML implementation moved to openPremiumProposal — JEDINÝ flow)
 
-    const notes = document.getElementById('proposal-notes')?.value?.trim();
-
-    // PRIORITY: ak existuje premium_analysis (sectioned generation), použij ho
-    // cez adapter. Inak fallback na legacy lead.analysis (z analyze-lead Edge fn).
-    // Tým zabezpečíme že "Otvoriť ako HTML" a "Premium návrh" badge → IDENTICKÝ výsledok.
-    let analysisToUse;
-    if (lead.premium_analysis) {
-      analysisToUse = this._premiumToTemplateSchema(lead.premium_analysis, lead);
-    } else {
-      analysisToUse = JSON.parse(JSON.stringify(lead.analysis));
-    }
-    if (notes) analysisToUse.customNote = notes;
-
-    const html = this.buildProposalHTML(lead, analysisToUse);
-    const blob = new Blob([html], { type: 'text/html' });
-    window.open(URL.createObjectURL(blob), '_blank');
-    this.closeProposalModal();
-    Utils.toast('Ponuka otvorená', 'success');
-  },
-  
   // PDF ponuka - otvorí v novom okne s print dialogom
   async generateProposalPDF() {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
