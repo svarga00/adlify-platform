@@ -4226,6 +4226,17 @@ info@adlify.eu | www.adlify.eu`
   async _generateOneSection(sectionKey) {
     const lead = this.leads.find(l => l.id === this.currentLeadId);
     if (!lead) return false;
+
+    // KILL SWITCH — AI section regenerácia je dočasne vypnutá kým sa nestabilizuje
+    // JSON parse / timeout flow. Každý fail = ~5-10 centov Anthropic za nič.
+    // Pre proposal text používaj zatiaľ "Upraviť analýzu" modal kde edituješ
+    // všetky sekcie ručne (texty paste z tohto chatu).
+    if (window.ALLOW_AI_SECTIONS !== true) {
+      Utils.toast('AI generovanie sekcií je dočasne vypnuté (príliš veľa fail-ov). Použi "Upraviť analýzu" pre manuálne vyplnenie sekcií.', 'warning');
+      console.warn('[Section] BLOCKED — set window.ALLOW_AI_SECTIONS = true v konzole na bypass.');
+      return false;
+    }
+
     const customNotes = document.getElementById('proposal-notes')?.value?.trim() || '';
     const session = await Database.client.auth.getSession();
     const token = session?.data?.session?.access_token || '';
