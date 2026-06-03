@@ -268,19 +268,33 @@ const LeadsModule = {
             </div>
 
             <div class="proposal-options">
-              <label>Premium návrh — generovanie po sekciách (každá 15-60s, môžete upravovať):</label>
-              <div id="section-generator" style="background:var(--n-50); border-radius:10px; padding:14px; margin:8px 0 12px;">
-                <div id="section-list" style="display:flex; flex-direction:column; gap:6px;">
-                  <!-- Vyplní LeadsModule._renderSectionList() po otvorení modalu -->
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px solid var(--n-100); flex-wrap:wrap;">
-                  <small id="section-status" style="color:var(--ink-sub); font-size:12px;">Vyberte sekcie na generovanie</small>
-                  <div style="display:flex; gap:6px;">
-                    <button onclick="LeadsModule.openPremiumProposal()" class="adl-btn adl-btn-outline adl-btn-sm" title="Otvorí proposal HTML s tým čo už je v DB">Otvoriť HTML</button>
-                    <button onclick="LeadsModule.generateSelectedSections()" class="adl-btn adl-btn-primary adl-btn-sm" id="btn-generate-sections" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;">Generovať vybrané</button>
+              <label style="display:block; margin-bottom:8px;">⚡ Najprv vygeneruj celý návrh naraz (1 Anthropic volanie ~ 2-4 min, beží na pozadí):</label>
+              <div style="background:linear-gradient(135deg, #faf5ff 0%, #fff 50%, #fef3f8 100%); border:1px solid #e9d5ff; border-radius:12px; padding:14px; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <div style="font-size:13px; color:var(--ink);">
+                    Použije všetky uploadnuté MM dáta + web scrape + AI analýzu → celý proposal v 1 kroku. Bez section regenerácií (stabilnejšie).
                   </div>
+                  <button onclick="LeadsModule.generateDeepProposal()" class="adl-btn adl-btn-primary adl-btn-sm" id="btn-deep-proposal-modal" style="background:linear-gradient(135deg,#7c3aed,#ec4899,#f97316); border:0; padding:8px 16px; font-weight:600; white-space:nowrap;">Vygenerovať naraz</button>
                 </div>
+                <small id="deep-proposal-meta" style="display:block; margin-top:8px; color:var(--ink-sub); font-size:11px;">Beží v background mode (do 6 min); frontend dostane realtime update keď je hotové.</small>
               </div>
+
+              <details style="margin:8px 0 12px;">
+                <summary style="cursor:pointer; font-size:12px; color:var(--ink-sub); font-weight:500;">⚠️ Pokročilé — generovanie po sekciách (môže zlyhať, žerie kredity)</summary>
+                <div id="section-generator" style="background:var(--n-50); border-radius:10px; padding:14px; margin:8px 0 12px;">
+                  <div id="section-list" style="display:flex; flex-direction:column; gap:6px;">
+                    <!-- Vyplní LeadsModule._renderSectionList() po otvorení modalu -->
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px solid var(--n-100); flex-wrap:wrap;">
+                    <small id="section-status" style="color:var(--ink-sub); font-size:12px;">Vyberte sekcie na generovanie</small>
+                    <div style="display:flex; gap:6px;">
+                      <button onclick="LeadsModule.openPremiumProposal()" class="adl-btn adl-btn-outline adl-btn-sm" title="Otvorí proposal HTML s tým čo už je v DB">Otvoriť HTML</button>
+                      <button onclick="LeadsModule.generateSelectedSections()" class="adl-btn adl-btn-primary adl-btn-sm" id="btn-generate-sections" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);border:0;">Generovať vybrané</button>
+                    </div>
+                  </div>
+                  <small style="display:block; margin-top:6px; color:var(--err); font-size:11px;">Aktuálne section mode zablokovaný (window.ALLOW_AI_SECTIONS na true v konzole = bypass).</small>
+                </div>
+              </details>
               <label>Ďalšie akcie:</label>
               <div class="proposal-buttons">
                 <button onclick="LeadsModule.generateProposalHTML()" class="proposal-option-btn">

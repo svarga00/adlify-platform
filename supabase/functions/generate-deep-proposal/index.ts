@@ -1203,7 +1203,7 @@ async function runPremiumGeneration(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 14000,
+        max_tokens: 16000,
         // Web search 2 uses — Anthropic call s 2 search ~60-120s typicky,
         // 5 uses bolo ~200-300s = nad Supabase Edge background 400s limit.
         // 2 uses dáva top konkurentov + benchmarky, dostatočná research depth.
@@ -1227,22 +1227,26 @@ async function runPremiumGeneration(
     const text = (claudeJson.content || [])
       .filter((c: any) => c.type === 'text')
       .map((c: any) => c.text || '').join('').trim()
-    console.log(`[premium-bg] Got ${text.length} chars + ${(claudeJson.content || []).length} content blocks`)
+    console.log(`[premium-bg] Got ${text.length} chars + ${(claudeJson.content || []).length} content blocks · stop_reason=${claudeJson.stop_reason}`)
 
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    let premium
-    try { premium = JSON.parse(cleaned) }
-    catch {
-      const match = cleaned.match(/\{[\s\S]*\}/)
-      if (!match) {
-        console.error('[premium-bg] Cannot parse JSON. Raw:', cleaned.slice(0, 1000))
-        await supabase.from('leads').update({
-          premium_analysis_status: 'error',
-          premium_analysis_error: 'Model nevrátil platný JSON',
-        }).eq('id', leadId)
-        return
-      }
-      premium = JSON.parse(match[0])
+    // Robustný parse — rovnaký repair pipeline ako v section mode (smart
+    // quotes, trailing commas, raw newlines v stringoch, unescaped quotes,
+    // truncated repair). Predtým full mode používal len basic JSON.parse →
+    // veľa zbytočných fail-ov pri verbose Slovak output.
+    const cleaned = text
+      .replace(/^[\s\S]*?```(?:json)?\s*/i, (m: string) => m.includes('```') ? '' : m)
+      .replace(/\s*```[\s\S]*$/i, '')
+      .trim()
+    const premium = tryParseJson(cleaned)
+    if (!premium) {
+      console.error(`[premium-bg] JSON parse fail. stop_reason=${claudeJson.stop_reason}, len=${cleaned.length}`)
+      console.error(`[premium-bg] First 800 chars:`, cleaned.slice(0, 800))
+      console.error(`[premium-bg] Last 800 chars:`, cleaned.slice(-800))
+      await supabase.from('leads').update({
+        premium_analysis_status: 'error',
+        premium_analysis_error: `Model nevrátil platný JSON (stop_reason=${claudeJson.stop_reason || 'unknown'}). Skús regen — typicky druhý pokus vyjde stabilný.`,
+      }).eq('id', leadId)
+      return
     }
 
     const generatedAt = new Date().toISOString()
@@ -1344,7 +1348,17 @@ Citácie URL ulož do "research_sources" v output JSON. main_competitors[] majú
 
 ANTI-AI VOICE: výstup nesmie vyzerať ako vygenerovaný AI. Píš ako skutočný senior konzultant — konkrétne čísla, špecifické pozorovania, nie všeobecné rady. Vyhni sa frázam ako "v dnešnej rýchlo sa meniacej digitálnej krajine", "leveraging synergies", "best practices", "kľúčové aktíva". Krátke vety, konkrétne príklady, taktické postupy.
 
-Output JSON presne podľa system promptu. Premysli si stratégiu HĹBAVO pred vygenerovaním — extended thinking je zapnuté, využij to.`
+Output JSON presne podľa system promptu. Premysli si stratégiu HĹBAVO pred vygenerovaním — extended thinking je zapnuté, využij to.
+
+OUTPUT FORMAT — STRIKT:
+- Iba čistý JSON. Žiadny text pred ani po. Žiadne \`\`\` markdown wrappery.
+- Žiadne trailing commas pred } alebo ].
+- Stringy MUSIA byť na jednom riadku — newlines vnútri string hodnôt nahraď "\\n" alebo " — " (pomlčkou). Žiadny literálny newline v string value.
+- Citácie a apostrofy vnútri stringu escapuj cez \\" a \\'.
+- Slovenské diakritické znaky OK (žltý, č, š, ť, ž — UTF-8).
+- Žiadne komentáre (//) v JSON.
+- Začiatok output musí byť '{', koniec '}'.
+- Ak miestami zostane už málo tokenov a hrozí truncation, radšej skráť obsah individuálnych sekcií než nedokončiť JSON.`
 }
 
 declare const EdgeRuntime: { waitUntil: (promise: Promise<any>) => void } | undefined
