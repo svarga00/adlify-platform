@@ -445,6 +445,39 @@ function tryParseJson(raw: string): any | null {
     candidate = candidate.replace(/,(\s*[}\]])/g, '$1')
     try { return JSON.parse(candidate) } catch {}
 
+    // 4b) Escape RAW newlines/tabs/CR vnútri JSON stringov.
+    // Najčastejší fail s end_turn (model dokončil ale obsah nie je validný)
+    // je že do "field": "viacriadkový\ntext" napíše doslovný newline místo \n.
+    // Iterátor: prejdem znak po znaku, sledujem či sme v stringu, a každý
+    // raw \n / \r / \t v stringu nahradím escape sekvenciou.
+    {
+      let inStr = false, esc = false
+      let out = ''
+      for (let i = 0; i < candidate.length; i++) {
+        const ch = candidate[i]
+        if (esc) { out += ch; esc = false; continue }
+        if (ch === '\\') { out += ch; esc = true; continue }
+        if (ch === '"') { inStr = !inStr; out += ch; continue }
+        if (inStr) {
+          if (ch === '\n') { out += '\\n'; continue }
+          if (ch === '\r') { out += '\\r'; continue }
+          if (ch === '\t') { out += '\\t'; continue }
+        }
+        out += ch
+      }
+      try { const parsed = JSON.parse(out); candidate = out; return parsed } catch { candidate = out }
+    }
+
+    // 4c) Unescaped doubles quotes vnútri stringu — najtažšie. Skúsime
+    // heuristiku: ak quotes po sebe nasledujú bez čiarky/dvojbodky, sú raw.
+    // Toto je risk repair — beží len ak predošlé fail-ly.
+    try {
+      const fixed = candidate.replace(/(?<=[a-záčďéíľĺňóôŕšťúýžA-Z])"(?=[a-záčďéíľĺňóôŕšťúýž])/g, '\\"')
+      const parsed = JSON.parse(fixed)
+      candidate = fixed
+      return parsed
+    } catch {}
+
     // 5) Truncated JSON — pokus uzavrieť otvorené { a [ na konci
     let opens = 0, closes = 0, openSquare = 0, closeSquare = 0
     let inString = false, escaped = false
@@ -522,9 +555,17 @@ async function generateSection(
   // Retry s exponenciálnym backoffom pri 429 (rate limit) — Anthropic vracia
   // retry-after header alebo 60s default. Max 2 retries → user nemusí čakať
   // ručne a klikať znova.
+  //
+  // Per-section timeout — campaigns produkuje ~12K tokenov verbose Slovak
+  // (ad copy + descriptions + audience), competitive používa web_search (3
+  // dotazy × ~30s). Default 130s ne stačí.
+  const sectionTimeout = sectionKey === 'campaigns' ? 240000
+    : sectionKey === 'competitive' ? 200000
+    : sectionKey === 'strategy' || sectionKey === 'summary' ? 180000
+    : 130000
   const callAnthropic = async (attempt: number): Promise<Response | { error: string }> => {
     const abort = new AbortController()
-    const timeout = setTimeout(() => abort.abort(), 130000)
+    const timeout = setTimeout(() => abort.abort(), sectionTimeout)
     try {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -729,7 +770,16 @@ ${slimAnalysis}
 
 ${mmBlock}${scrapeBlock}${coherenceBlock}${customNotes ? `CUSTOM POŽIADAVKY: ${customNotes}\n` : ''}
 
-ÚLOHA: Vygeneruj VÝLUČNE sekciu "${label}" pre marketingový proposal. Output je čistý JSON podľa system promptu.`
+ÚLOHA: Vygeneruj VÝLUČNE sekciu "${label}" pre marketingový proposal.
+
+OUTPUT FORMAT — STRIKT:
+- Iba čistý JSON. Žiadny text pred ani po. Žiadne \`\`\` markdown wrappery.
+- Žiadne trailing commas pred } alebo ].
+- Stringy MUSIA byť na jednom riadku — newlines vnútri string hodnôt nahraď "\\n" alebo " — " (pomlčkou). Žiadny literálny newline v string value.
+- Citácie a apostrofy vnútri stringu escapuj cez \\" a \\'.
+- Slovenské diakritické znaky OK (žltý, č, š, ť, ž — UTF-8).
+- Žiadne komentáre (//) v JSON.
+- Začiatok output musí byť '{', koniec '}'.`
 }
 
 
