@@ -4723,7 +4723,7 @@ info@adlify.eu | www.adlify.eu`
   // dáta a nie sú parafrázované ani vynechané pri truncation.
   _mmFacts(lead) {
     const mm = (lead && lead.marketing_data && lead.marketing_data.mm_reports) || {};
-    const facts = { keywords: null, social: null, seoNote: null, seoWeaknesses: [], competitors: null, positionsByKw: {} };
+    const facts = { keywords: null, social: null, seoNote: null, seoWeaknesses: [], competitors: null, positionsByKw: {}, techAudit: null };
 
     // Pozície per keyword (z positions reportu) — pre stĺpec "Vaša pozícia"
     if (mm.positions && Array.isArray(mm.positions.positions)) {
@@ -4792,6 +4792,102 @@ info@adlify.eu | www.adlify.eu`
     }
     const compList = Object.values(compMap);
     if (compList.length) facts.competitors = compList.slice(0, 6);
+
+    // 5) Technický audit webu — checklist s prioritou a odporúčaniami.
+    // Každý issue má: title, severity (critical/high/medium/low), finding (čo
+    // sme zistili, konkrétne číslo), recommendation (čo s tým urobiť).
+    const issues = [];
+    const sa = mm.seo_audit && mm.seo_audit.issues;
+    if (sa) {
+      if (sa.total_pages && sa.pages_not_indexed != null) {
+        const ratio = sa.total_pages > 0 ? sa.pages_not_indexed / sa.total_pages : 0;
+        if (sa.pages_not_indexed > 0) {
+          issues.push({
+            title: 'Indexácia Googlom',
+            severity: ratio >= 0.5 ? 'critical' : 'high',
+            finding: `${sa.pages_not_indexed} z ${sa.total_pages} kľúčových strán Google neindexuje — nezobrazia sa vo výsledkoch vyhľadávania.`,
+            recommendation: 'Skontrolovať canonical tagy a robots.txt, odoslať sitemap.xml do Search Console, opraviť duplicate content. Reálny dosah: bez tohto neviete ranknúť organicky.',
+          });
+        }
+      }
+      if (sa.pages_without_meta != null && sa.pages_without_meta > 0) {
+        issues.push({
+          title: 'Meta description',
+          severity: 'high',
+          finding: `${sa.pages_without_meta} ${sa.pages_without_meta === 1 ? 'stránka nemá' : 'strán nemá'} vyplnenú meta description — Google si ju napíše sám a často mimo kontextu.`,
+          recommendation: 'Doplniť unikátnu meta description (150-160 znakov) ku každej kľúčovej stránke. Zahrnúť hlavnú frázu + CTA. Očakávaný nárast CTR o 15-25 %.',
+        });
+      }
+      if (sa.avg_title_score != null) {
+        if (sa.avg_title_score < 60) {
+          issues.push({
+            title: 'Optimalizácia titulkov',
+            severity: 'medium',
+            finding: `Priemerné skóre titulkov ${sa.avg_title_score}/100 — tituly sú prikrátke, generické alebo nepoužívajú kľúčové frázy.`,
+            recommendation: 'Prepísať titulky podľa vzorca: hlavná fráza + benefit + brand (50-60 znakov). Napríklad: "Vstavané skrine na mieru za 3-4 týždne | JUNABYT".',
+          });
+        }
+      }
+    }
+    const bl = mm.broken_links && mm.broken_links.stats;
+    if (bl && bl.total > 0) {
+      issues.push({
+        title: 'Nefunkčné odkazy (404)',
+        severity: bl.total >= 10 ? 'high' : 'medium',
+        finding: `${bl.total} ${bl.total === 1 ? 'odkaz' : bl.total < 5 ? 'odkazy' : 'odkazov'} na webe vedie na neexistujúce stránky (HTTP 404).`,
+        recommendation: 'Spraviť redirect-y zo starých URL na funkčné stránky, alebo úplne odstrániť. Google penalizuje weby s vysokým počtom 404, navyše to kazí UX.',
+      });
+    }
+    const sd = mm.structured_data && mm.structured_data.stats;
+    if (sd && sd.with_errors > 0) {
+      issues.push({
+        title: 'Štruktúrované dáta (Schema.org / OpenGraph)',
+        severity: 'medium',
+        finding: `${sd.with_errors} ${sd.with_errors === 1 ? 'stránka má' : 'strán má'} chyby v štruktúrovaných dátach (OpenGraph alebo Schema markup).`,
+        recommendation: 'Doplniť Schema.org markup (LocalBusiness, Product alebo Service) a opraviť OpenGraph tagy pre zdieľanie na sociálne siete. Bez toho sa nezobrazujú rich results v Google.',
+      });
+    }
+    const vl = mm.validity && mm.validity.stats;
+    if (vl && vl.total_errors > 0) {
+      const perPage = vl.pages > 0 ? Math.round(vl.total_errors / vl.pages) : vl.total_errors;
+      if (perPage >= 3) {
+        issues.push({
+          title: 'Validita zdrojového kódu',
+          severity: perPage >= 10 ? 'medium' : 'low',
+          finding: `Priemerne ${perPage} ${perPage === 1 ? 'W3C chyba' : perPage < 5 ? 'chyby' : 'chýb'} na stránku v HTML kóde.`,
+          recommendation: 'Opraviť nevalídne HTML elementy — má vplyv na rýchlosť načítania, prístupnosť (screen readery) a niekedy aj SEO. Bežné chyby: chýbajúce alt atribúty, neuzavreté tagy.',
+        });
+      }
+    }
+    const sc = mm.status_codes && mm.status_codes.stats;
+    if (sc && sc.errors > 0) {
+      issues.push({
+        title: 'HTTP chybové kódy',
+        severity: 'high',
+        finding: `${sc.errors} z ${sc.total} kľúčových URL vracia chybový stavový kód (4xx/5xx).`,
+        recommendation: 'Identifikovať a opraviť. Tieto stránky nevidí ani používateľ ani Google — strácate na nich kľúčové slová a backlinks.',
+      });
+    }
+    // Status indexácie ako pozitívny signál (ak je všetko OK)
+    const wins = [];
+    if (sa && sa.total_pages && sa.pages_not_indexed === 0) {
+      wins.push(`Všetkých ${sa.total_pages} kľúčových strán je správne indexovaných Googlom.`);
+    }
+    if (mm.contact_finder && mm.contact_finder.social && (mm.contact_finder.social.facebook || mm.contact_finder.social.instagram)) {
+      const present = ['facebook','instagram','linkedin'].filter(p => mm.contact_finder.social[p]);
+      if (present.length) wins.push(`Aktívna prítomnosť na sociálnych sieťach: ${present.map(p => p.charAt(0).toUpperCase()+p.slice(1)).join(', ')}.`);
+    }
+    if (mm.tech_detection && Array.isArray(mm.tech_detection.technologies) && mm.tech_detection.technologies.length) {
+      const techs = mm.tech_detection.technologies.slice(0, 3).map(t => t.name).filter(Boolean);
+      if (techs.length) wins.push(`Web beží na modernej technológii: ${techs.join(', ')}.`);
+    }
+
+    if (issues.length || wins.length) {
+      // Zoraď issues podľa severity (critical → high → medium → low)
+      const sevRank = { critical: 0, high: 1, medium: 2, low: 3 };
+      issues.sort((a, b) => (sevRank[a.severity] ?? 9) - (sevRank[b.severity] ?? 9));
+      facts.techAudit = { issues, wins, scannedPages: sa && sa.total_pages };
+    }
 
     return facts;
   },
@@ -5138,6 +5234,7 @@ info@adlify.eu | www.adlify.eu`
       proposedCampaigns: camp,
       timeline: templateTimeline,
       competition: competitive,
+      techAudit: mmf.techAudit,
       campaign_audit: p.campaign_audit || null,
       recommendedPackage,
       customAdImage,
@@ -6128,11 +6225,66 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   </div>
 </section>
 
-<!-- Page 3a: Konkurenčné prostredie -->
+<!-- Page 4: Technický audit webu — len ak máme MM seo_audit dáta -->
+${analysis.techAudit && (analysis.techAudit.issues?.length || analysis.techAudit.wins?.length) ? (() => {
+  const ta = analysis.techAudit;
+  const sevMap = {
+    critical: { label: 'Kritické', color: '#dc2626', bg: '#fef2f2' },
+    high:     { label: 'Vysoká',  color: '#ea580c', bg: '#fff7ed' },
+    medium:   { label: 'Stredná', color: '#ca8a04', bg: '#fefce8' },
+    low:      { label: 'Nízka',   color: '#0891b2', bg: '#ecfeff' },
+  };
+  return `
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">4</span> Technický audit webu</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">${ta.scannedPages ? `Skontrolovali sme ${ta.scannedPages} kľúčových stránok vášho webu` : 'Analyzovali sme váš web'} a identifikovali konkrétne body, ktoré ovplyvňujú vašu viditeľnosť v Google a používateľský zážitok. Tu je čo treba opraviť a v akom poradí.</p>
+
+    ${ta.issues?.length ? `
+    <div style="display:flex; flex-direction:column; gap:14px; margin-top:24px;">
+      ${ta.issues.map((it, i) => {
+        const s = sevMap[it.severity] || sevMap.medium;
+        return `
+        <div class="card" style="border-left:4px solid ${s.color}; padding:24px 28px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="width:36px; height:36px; border-radius:50%; background:${s.bg}; color:${s.color}; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:0.95rem;">${i+1}</div>
+              <h4 style="font-size:1.1rem; font-weight:700; color:#1a1a2e;">${it.title}</h4>
+            </div>
+            <span class="tag" style="background:${s.bg}; color:${s.color}; font-weight:600; white-space:nowrap;">Priorita: ${s.label}</span>
+          </div>
+          <div style="display:grid; grid-template-columns:auto 1fr; gap:8px 14px; padding-left:50px;">
+            <div style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; padding-top:2px;">Zistenie</div>
+            <div style="color:#475569; font-size:0.95rem; line-height:1.6;">${it.finding}</div>
+            <div style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; padding-top:2px;">Odporúčanie</div>
+            <div style="color:#166534; font-size:0.95rem; line-height:1.6; font-weight:500;">${it.recommendation}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ` : ''}
+
+    ${ta.wins?.length ? `
+    <div class="card" style="margin-top:24px; border-left:4px solid #22c55e; background:linear-gradient(135deg, #f0fdf4, #ffffff);">
+      <h4 style="color:#166534; margin-bottom:14px; font-weight:700; font-size:1.05rem;">Čo už funguje</h4>
+      <ul style="list-style:none; padding:0; margin:0;">
+        ${ta.wins.map(w => `<li style="padding:8px 0; display:flex; align-items:flex-start; gap:12px; color:#475569; font-size:0.95rem; line-height:1.5;"><span style="color:#22c55e; font-weight:700; flex-shrink:0;">✓</span><span>${w}</span></li>`).join('')}
+      </ul>
+    </div>
+    ` : ''}
+
+    <div class="note-box" style="margin-top:24px;">
+      <p>Body s prioritou <strong style="color:#dc2626;">Kritické</strong> a <strong style="color:#ea580c;">Vysoká</strong> odporúčame opraviť v prvom mesiaci spolupráce — ich vplyv na výsledky kampaní je okamžitý.</p>
+    </div>
+  </div>
+</section>`;})() : ''}
+
+<!-- Page 5a: Konkurenčné prostredie -->
 ${comp.main_competitors && comp.main_competitors.length ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">4</span> Konkurenčné prostredie</h2>
+    <h2 class="section-title"><span class="section-badge">5</span> Konkurenčné prostredie</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${comp.positioning || 'Identifikovali sme hlavných hráčov, ktorí oslovujú vašich potenciálnych zákazníkov. Tu je ako sa voči nim vymedzíme.'}</p>
 
@@ -6226,7 +6378,7 @@ ${analysis.campaign_audit && analysis.campaign_audit.headline ? `
 ${a.swot ? `
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">5</span> SWOT Analýza</h2>
+    <h2 class="section-title"><span class="section-badge">6</span> SWOT Analýza</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Strategická analýza silných a slabých stránok, príležitostí a hrozieb pre vaše podnikanie.</p>
     
@@ -6256,7 +6408,7 @@ ${a.swot ? `
 ${k.topKeywords?.length ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">6</span> Kľúčové slová</h2>
+    <h2 class="section-title"><span class="section-badge">7</span> Kľúčové slová</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${k.summary || 'Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top 10:'}</p>
     
@@ -6319,7 +6471,7 @@ ${k.topKeywords?.length ? `
 <!-- Page 6: Strategy -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">7</span> Navrhovaná stratégia</h2>
+    <h2 class="section-title"><span class="section-badge">8</span> Navrhovaná stratégia</h2>
     <div class="section-divider"></div>
     
     <div class="grid-2" style="margin-bottom: 35px;">
@@ -6361,7 +6513,7 @@ ${k.topKeywords?.length ? `
 ${camp.google || camp.meta ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">8</span> Návrhy reklám</h2>
+    <h2 class="section-title"><span class="section-badge">9</span> Návrhy reklám</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám a obsahovať profesionálne vizuály.</p>
     
@@ -6552,7 +6704,7 @@ ${camp.google || camp.meta ? `
 <!-- Page 8: Budget -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">9</span> Odporúčaný rozpočet na reklamu</h2>
+    <h2 class="section-title"><span class="section-badge">10</span> Odporúčaný rozpočet na reklamu</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${b.analysis || 'Na základe analýzy kľúčových slov a konkurencie odhadujeme optimálny rozpočet pre vaše kampane.'}</p>
     
@@ -6611,7 +6763,7 @@ ${camp.google || camp.meta ? `
 ${r.projection ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">10</span> Predpokladaná návratnosť (ROI)</h2>
+    <h2 class="section-title"><span class="section-badge">11</span> Predpokladaná návratnosť (ROI)</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${r.explanation || 'Na základe odhadov návštevnosti, konverzného pomeru a priemernej hodnoty objednávky sme vypočítali potenciálnu návratnosť vašej investície.'}</p>
     
@@ -6654,7 +6806,7 @@ ${r.projection ? `
 <!-- Page 10: Timeline -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">11</span> Časový plán</h2>
+    <h2 class="section-title"><span class="section-badge">12</span> Časový plán</h2>
     <div class="section-divider"></div>
     
     <div class="timeline">
@@ -6695,7 +6847,7 @@ ${r.projection ? `
 <!-- Page 11: Benefits -->
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">12</span> Čo vám spolupráca prinesie</h2>
+    <h2 class="section-title"><span class="section-badge">13</span> Čo vám spolupráca prinesie</h2>
     <div class="section-divider"></div>
     
     <div class="grid-2">
@@ -6726,7 +6878,7 @@ ${r.projection ? `
 <!-- Page 12: Packages -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">13</span> Naše balíčky</h2>
+    <h2 class="section-title"><span class="section-badge">14</span> Naše balíčky</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Na základe vašej analýzy vám odporúčame balíček <strong style="background:linear-gradient(135deg,#7c3aed,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:700;">${analysis.recommendedPackage || 'Pro'}</strong> — pomer ceny a výkonu zodpovedá vášmu rozpočtu aj cieľom.</p>
 
@@ -6834,7 +6986,7 @@ ${r.projection ? `
 <!-- Page 12b: Ako funguje spolupráca -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">14</span> Ako funguje spolupráca</h2>
+    <h2 class="section-title"><span class="section-badge">15</span> Ako funguje spolupráca</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Štyri jednoduché kroky od dohody po prvé výsledky. Vy sa venujete svojmu biznisu, my výkonu kampaní.</p>
 
