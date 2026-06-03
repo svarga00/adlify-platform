@@ -3889,18 +3889,40 @@ Odkaz je platný 30 dní.
     const aggressive = userBudget.aggressive?.adSpend
       || budgetRec.aggressive?.totalBudget
       || Math.round(moderate * 1.7);
+    // avgCpc — priemerný CPC pre prepočet klikov z budgetu.
+    // Priorita: user-edited budget.avgCpc → premium budget.avgCpc → average z keywords
+    const avgCpcCalc = Number(lead.analysis?.budget?.avgCpc)
+      || Number(budget.avgCpc)
+      || (allKws.length ? +(allKws.reduce((a, x) => a + (x.cpc_eur || x.cpc || 0), 0) / allKws.length).toFixed(2) : 0.50);
+
+    // Helper: prepočítaj kliky/leady/CPA pre konkrétny spend
+    // (rovnaký vzorec ako v editAnalysis.calcBudget — konzistencia)
+    const calcBudgetStats = (spend) => {
+      const clicks = Math.round(spend / avgCpcCalc);
+      const leadsMin = Math.round(clicks * 0.03);
+      const leadsMax = Math.round(clicks * 0.05);
+      const cpaMin = leadsMax > 0 ? Math.round(spend / leadsMax) : 0;
+      const cpaMax = leadsMin > 0 ? Math.round(spend / leadsMin) : 0;
+      return {
+        adSpend: spend,
+        expectedClicks: clicks,
+        expectedLeads: `${leadsMin}-${leadsMax}`,
+        cpa: `${cpaMin}-${cpaMax}€`,
+      };
+    };
+
     const b = {
       summary: budget.summary || '',
       recommendations: {
-        // legacy keys ktoré používa template
-        starter:     { adSpend: conservative, leads: budgetRec.conservative?.leads || 15 },
-        recommended: { adSpend: moderate,     leads: budgetRec.moderate?.leads     || 30 },
-        aggressive:  { adSpend: aggressive,   leads: budgetRec.aggressive?.leads   || 60 },
+        // legacy keys ktoré používa template — s plnými budget stats
+        starter:     { ...calcBudgetStats(conservative), leads: budgetRec.conservative?.leads || 15 },
+        recommended: { ...calcBudgetStats(moderate),     leads: budgetRec.moderate?.leads     || 30 },
+        aggressive:  { ...calcBudgetStats(aggressive),   leads: budgetRec.aggressive?.leads   || 60 },
         // nové keys ktoré používa generate-deep-proposal output (zachované pre backwards)
         conservative: { totalBudget: conservative, leads: budgetRec.conservative?.leads || 15 },
         moderate:     { totalBudget: moderate,     leads: budgetRec.moderate?.leads     || 30 },
       },
-      avgCpc: budget.avgCpc || (allKws.length ? (allKws.reduce((a, x) => a + (x.cpc_eur || 0), 0) / allKws.length).toFixed(2) : 0.50),
+      avgCpc: avgCpcCalc,
       allocations: budget.allocations || [],
       sixMonthProjection: budget.six_month_projection_eur || moderate * 6
     };
@@ -5372,6 +5394,16 @@ ${camp.google || camp.meta ? `
       </div>
     </div>
     
+    <div style="margin: 24px 0 16px; padding: 16px 20px; background: #f8fafc; border-left: 3px solid #94a3b8; border-radius: 8px; font-size: 13px; color: #475569; line-height: 1.7;">
+      <strong style="color:#1a1a2e;">Ako sme dospeli k týmto číslam:</strong>
+      <ul style="margin: 6px 0 0; padding-left: 22px;">
+        <li><strong>Očakávané kliky</strong> = mesačný rozpočet ÷ priemerná cena za klik (${b.avgCpc} € — vyrátané z keywords v sekcii 5)</li>
+        <li><strong>Očakávané dopyty</strong> = kliky × 3-5 % web-to-lead konverzia (typický rozsah pre B2C služby)</li>
+        <li><strong>Cena za dopyt</strong> = rozpočet ÷ počet dopytov</li>
+      </ul>
+      Čísla sú orientačné — pri spustení kampaní sa korigujú na základe reálnej performance prvých 2-4 týždňov.
+    </div>
+
     <div class="info-box">
       <p><strong>Dôležité:</strong> Reklamný rozpočet platíte priamo Google alebo Facebook. <strong>Nie je súčasťou ceny za správu kampaní.</strong> Máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.</p>
     </div>
