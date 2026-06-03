@@ -97,7 +97,7 @@ Vráť VÝLUČNE JSON v tvare:
   },
   "onlinePresence": {
     "website": { "status": "good|needs_work|critical", "notes": "..." },
-    "social": { "status": "good|needs_work|missing", "notes": "..." },
+    "social": { "status": "good|needs_work|missing", "notes": "...", "facebook": "URL alebo null", "instagram": "URL alebo null", "linkedin": "URL alebo null" },
     "seo": { "status": "good|needs_work|critical", "notes": "..." },
     "ppc": { "status": "none|basic|advanced", "notes": "..." }
   },
@@ -105,7 +105,14 @@ Vráť VÝLUČNE JSON v tvare:
     "strengths": ["3-5"], "weaknesses": ["2-4"],
     "opportunities": ["3-5"], "threats": ["2-4"]
   }
-}`,
+}
+
+DÔLEŽITÉ pre onlinePresence:
+- Pozri sa do contextu na blok "DETECTED SIGNALS FROM HTML". Tam sú reálne social linky a tracking pixely extrahované z HTML klienta.
+- Ak v "Social profiles" sú nájdené FB/IG/LinkedIn URL → social.status = "good" alebo "needs_work" (nikdy nie "missing"). Vyplň aj facebook/instagram/linkedin URL polia.
+- Ak "Social profiles: NONE FOUND" → social.status = "missing".
+- Ak v "Ad/tracking pixels" je Meta Pixel alebo Google Ads conversion → ppc.status = "basic" alebo "advanced". Ak iba GA/GTM bez ad pixela → "none" (majú analytics ale neinzerujú).
+- Toto má prednosť pred tvojím vlastným odhadom z body textu — HTML scrape vidí veci ktoré v text body nie sú (footer ikony, JS skripty).`,
 
   keywords: `Si PPC stratég. Vygeneruj sekciu "KĽÚČOVÉ SLOVÁ" pre proposal v slovenčine. Použij Marketing Miner dáta ak sú, inak realistic estimate pre SR (mestá 5-50K: 50-500 hľadaní/mes, CPC 0.20-2.50 €).
 
@@ -719,6 +726,43 @@ H3: ${h3s.join(' | ')}
 Body: ${bodyText}`
 }
 
+// Extrahuj social/PPC stopy priamo z HTML — Claude inak nevidí <a href="...">
+// tagy lebo extractPageContent strihá všetky tagy. Bez toho marketingoví signály
+// (FB, IG, GA, Pixel...) sú pre LLM neviditeľné aj keď fyzicky v HTML sú.
+function extractSocialLinks(html: string): {
+  facebook: string | null,
+  instagram: string | null,
+  linkedin: string | null,
+  youtube: string | null,
+  tiktok: string | null,
+} {
+  const find = (re: RegExp) => {
+    const m = html.match(re)
+    return m ? (m[0].match(/https?:\/\/[^"'<>\s)]+/)?.[0] || null) : null
+  }
+  return {
+    facebook:  find(/https?:\/\/(www\.)?facebook\.com\/[A-Za-z0-9_.\-/]+/i),
+    instagram: find(/https?:\/\/(www\.)?instagram\.com\/[A-Za-z0-9_.\-/]+/i),
+    linkedin:  find(/https?:\/\/(www\.)?linkedin\.com\/(company|in)\/[A-Za-z0-9_.\-/]+/i),
+    youtube:   find(/https?:\/\/(www\.)?youtube\.com\/(channel|c|user|@)[A-Za-z0-9_.\-/]+/i),
+    tiktok:    find(/https?:\/\/(www\.)?tiktok\.com\/@[A-Za-z0-9_.\-/]+/i),
+  }
+}
+
+// Detekuj základné tracking pixely / ad platforms — pomôže Claude správne
+// klasifikovať PPC status (basic|advanced vs none).
+function detectAdPixels(html: string): string[] {
+  const found: string[] = []
+  if (/googletagmanager\.com\/gtag\/js|gtag\s*\(/i.test(html)) found.push('Google Analytics (GA4)')
+  if (/googletagmanager\.com\/gtm\.js|GTM-[A-Z0-9]+/i.test(html)) found.push('Google Tag Manager')
+  if (/connect\.facebook\.net|fbq\s*\(\s*['"]init['"]/i.test(html)) found.push('Meta Pixel')
+  if (/static\.ads-twitter\.com|twq\s*\(/i.test(html)) found.push('Twitter/X Pixel')
+  if (/snap\.licdn\.com|_linkedin_partner_id/i.test(html)) found.push('LinkedIn Insight Tag')
+  if (/analytics\.tiktok\.com|ttq\.load/i.test(html)) found.push('TikTok Pixel')
+  if (/googleadservices\.com\/pagead|gtag\(['"]config['"],\s*['"]AW-/i.test(html)) found.push('Google Ads conversion')
+  return [...new Set(found)]
+}
+
 // Multi-page scrape — homepage + relevantné internal linky (sluzby/produkty/o-nas/referencie/cennik)
 async function deepScrape(domain: string): Promise<string> {
   if (!domain) return ''
@@ -762,7 +806,22 @@ async function deepScrape(domain: string): Promise<string> {
     if (r.status === 'fulfilled' && r.value) pages.push(r.value)
   }
 
+  // Social linky a ad pixely hľadáme v homepage HTML (footer býva spravidla tam,
+  // GTM/GA/Pixel skripty taktiež). Bez tohto Claude social/ppc status uhádne
+  // z body textu = nepresné (text často "facebook" neobsahuje, ikona ano).
+  const social = extractSocialLinks(homeHtml)
+  const adPixels = detectAdPixels(homeHtml)
+  const socialFound = Object.entries(social)
+    .filter(([, url]) => !!url)
+    .map(([net, url]) => `${net}: ${url}`)
+  console.log(`[scrape] Social links found: ${socialFound.length}, ad pixels: ${adPixels.length}`)
+
+  const detectedBlock = `DETECTED SIGNALS FROM HTML (extrahované z linkov + scriptov, nie z text body):
+Social profiles: ${socialFound.length ? socialFound.join(' | ') : 'NONE FOUND'}
+Ad/tracking pixels: ${adPixels.length ? adPixels.join(' | ') : 'NONE FOUND'}`
+
   return pages.map(p => extractPageContent(p.url, p.html)).join('\n\n---\n\n')
+    + '\n\n---\n\n' + detectedBlock
 }
 
 // Background worker — beží do 400s cez EdgeRuntime.waitUntil.

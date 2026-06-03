@@ -4095,6 +4095,12 @@ info@adlify.eu | www.adlify.eu`
     };
 
     // onlinePresence.{website, socialMedia, paidAds}
+    // Pre FB/IG/LinkedIn preferuj presné URL z extractSocialLinks (Edge function
+    // ich extrahuje z HTML), inak fallback na status. Predtým mapoval status
+    // súčasne na FB aj IG = nepresné keď firma má len IG ale nie FB.
+    const soc = onlinePresence.social || {};
+    const hasFb = !!soc.facebook || (soc.status && soc.status !== 'missing');
+    const hasIg = !!soc.instagram || (soc.status && soc.status !== 'missing');
     const op = {
       website: {
         exists: onlinePresence.website?.status !== 'critical',
@@ -4102,10 +4108,11 @@ info@adlify.eu | www.adlify.eu`
         weaknesses: onlinePresence.website?.status === 'critical' ? [onlinePresence.website.notes || 'Web má vážne nedostatky'] : []
       },
       socialMedia: {
-        facebook: { exists: onlinePresence.social?.status !== 'missing' },
-        instagram: { exists: onlinePresence.social?.status !== 'missing' }
+        facebook: { exists: hasFb, url: soc.facebook || null },
+        instagram: { exists: hasIg, url: soc.instagram || null },
+        linkedin: { exists: !!soc.linkedin, url: soc.linkedin || null }
       },
-      paidAds: { detected: onlinePresence.ppc?.status !== 'none' }
+      paidAds: { detected: onlinePresence.ppc?.status && onlinePresence.ppc.status !== 'none' }
     };
 
     // keywords.topKeywords[] — objects {keyword, search_volume, cpc, intent}
