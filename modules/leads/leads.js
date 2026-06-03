@@ -4861,9 +4861,30 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     <p class="section-subtitle">Krátky prehľad toho čo robíte a kde vidíme najväčší potenciál pre rast cez online reklamu.</p>
 
     ${analysis.executive_summary || c.idealCustomer ? `
-    <div class="card" style="background:linear-gradient(135deg, #f8fafc, #fff); border-left:4px solid #7c3aed; margin-bottom: 24px;">
-      <h3 class="card-title">Náš pohľad a prvý dojem</h3>
-      <p style="color:#475569; font-size:0.98rem; line-height:1.75;">${(analysis.executive_summary || '').split('\n\n').slice(0,2).join('<br><br>') || c.description || c.idealCustomer || 'Firma má silné základy pre rast cez výkonnostný marketing.'}</p>
+    <div style="position:relative; background:linear-gradient(135deg, #faf5ff 0%, #fff 50%, #fef3f8 100%); border:1px solid #e9d5ff; border-radius:20px; padding:36px 40px 32px; margin-bottom:28px; box-shadow:0 4px 20px -8px rgba(124,58,237,0.15); overflow:hidden;">
+      <div style="position:absolute; top:0; left:0; width:100%; height:5px; background:linear-gradient(90deg, #7c3aed, #ec4899, #f97316);"></div>
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" style="position:absolute; top:24px; right:28px; opacity:0.12;">
+        <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" stroke="#7c3aed" stroke-width="2"/>
+        <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 .992 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" stroke="#7c3aed" stroke-width="2"/>
+      </svg>
+      <div style="display:inline-flex; align-items:center; gap:8px; padding:5px 12px; background:rgba(124,58,237,0.1); border-radius:99px; font-size:11px; font-weight:700; color:#7c3aed; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:14px;">
+        Náš pohľad a prvý dojem
+      </div>
+      <div style="color:#334155; font-size:15px; line-height:1.85; font-weight:400;">
+        ${(analysis.executive_summary || '')
+          .split(/\n\n+/)
+          .filter(p => p.trim())
+          .slice(0, 4)
+          .map(p => `<p style="margin:0 0 14px;">${p.trim()}</p>`)
+          .join('') || `<p style="margin:0;">${c.description || c.idealCustomer || 'Firma má silné základy pre rast cez výkonnostný marketing.'}</p>`}
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:20px; padding-top:18px; border-top:1px solid rgba(124,58,237,0.15); font-size:12px; color:#64748b;">
+        <div style="width:32px; height:32px; border-radius:99px; background:linear-gradient(135deg, #7c3aed, #ec4899); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px;">A</div>
+        <div>
+          <div style="font-weight:600; color:#1a1a2e;">Tím Adlify</div>
+          <div style="font-size:11px;">Senior PPC stratégovia · 10+ rokov skúseností</div>
+        </div>
+      </div>
     </div>
     ` : ''}
 
