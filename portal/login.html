@@ -270,7 +270,7 @@
           console.log('client_users link chýba, pokúšam sa auto-link cez email match…');
           const { data: matchingClient } = await db
             .from('clients')
-            .select('id, name')
+            .select('id, company_name')
             .eq('email', email)
             .maybeSingle();
 
