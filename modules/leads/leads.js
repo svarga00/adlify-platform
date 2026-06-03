@@ -2166,16 +2166,23 @@ const LeadsModule = {
   // Mapovanie sheet names → typ reportu. MM používa anglické názvy sheetov
   // konzistentne naprieč jazykmi UI.
   MM_REPORT_DETECTORS: [
-    { key: 'contact_finder',   sheets: ['Contact Finder', 'Data'],         label: 'Contact Finder' },
+    { key: 'contact_finder',   sheets: ['Contact Finder'],                  label: 'Contact Finder' },
     { key: 'keyword_volumes',  sheets: ['Search Volume', 'Hľadanosť fráz', 'Hledanost frází'], label: 'Hľadanosť fráz' },
-    { key: 'ppc_competitors',  sheets: ['PPC', 'PPC reklamy', 'PPC Ads'],  label: 'PPC reklamy' },
+    { key: 'ppc_competitors',  sheets: ['PPC', 'PPC reklamy', 'PPC Ads'],   label: 'PPC reklamy' },
     { key: 'serp_analysis',    sheets: ['SERP', 'Analýza SERP', 'SERP Analysis'], label: 'Analýza SERP' },
-    { key: 'positions',        sheets: ['Position', 'Pozícia vo vyhľadávačoch', 'Position Check'], label: 'Pozícia vo vyhľadávačoch' },
+    { key: 'positions',        sheets: ['Position', 'Pozícia vo vyhľadávačoch', 'Position Check', 'Positions'], label: 'Pozícia vo vyhľadávačoch', csvHeaderMatch: ['keyword', 'position'] },
     { key: 'web_category',     sheets: ['Website Categorization', 'Kategorizácia webu'], label: 'Kategorizácia webu' },
     { key: 'tech_detection',   sheets: ['Technology Detection', 'Detekcia technológií'], label: 'Detekcia technológií' },
     { key: 'dns_info',         sheets: ['DNS Info'], label: 'DNS info' },
     { key: 'keyword_suggest',  sheets: ['Suggestions', 'Návrhy kľúčových slov', 'Keyword Suggestions'], label: 'Návrhy kľúčových slov' },
     { key: 'majestic_domain',  sheets: ['Majestic', 'Majestic (Domain)'], label: 'Majestic (autorita domény)' },
+    // SEO audit bundle — MM kombinuje viaceré checks do jedného XLSX
+    { key: 'seo_audit',        sheets: ['Content Analysis', 'Indexability Checker', 'Index Checker'], label: 'SEO audit (obsah + indexácia)' },
+    { key: 'broken_links',     sheets: ['Broken Link Checker'], label: 'Nefunkčné odkazy (404)' },
+    { key: 'backlinks',        sheets: ['Backlink Checker'], label: 'Interné odkazy / Backlinky' },
+    { key: 'structured_data',  sheets: ['Structured Data Checker'], label: 'Structured Data' },
+    { key: 'status_codes',     sheets: ['Status Code'], label: 'Stavové kódy' },
+    { key: 'validity',         sheets: ['Validity Checker'], label: 'Validácia W3C' },
   ],
 
   _renderMMReports(lead) {
@@ -2224,8 +2231,9 @@ const LeadsModule = {
         <div style="font-size:12px; color:var(--ink-sub); margin-bottom:12px;">Alebo klikni na tlačidlo. Systém auto-detekuje typ reportu zo sheet names.</div>
         <label class="adl-btn adl-btn-outline adl-btn-sm" style="cursor:pointer;">
           ${I.Folder({size:13})} Vybrať súbory
-          <input type="file" accept=".xlsx,.xls" multiple style="display:none;" onchange="LeadsModule.handleMMUpload(this.files); this.value='';">
+          <input type="file" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="LeadsModule.handleMMUpload(this.files); this.value='';">
         </label>
+        <div style="font-size:11px; color:var(--ink-mute); margin-top:8px;">Podporované: .xlsx, .csv (Pozícia vo vyhľadávačoch). Jeden XLSX môže obsahovať viacero reportov (SEO audit bundle = 5 reportov naraz).</div>
       </div>
 
       ${missingList ? `
@@ -2235,22 +2243,43 @@ const LeadsModule = {
         </div>
       ` : ''}
 
-      <details style="margin-top:16px;">
-        <summary style="cursor:pointer; font-size:12px; color:var(--ink-sub); font-weight:500;">📋 Postup ako vygenerovať reporty v MM (klikni)</summary>
-        <ol style="font-size:13px; color:var(--ink); line-height:1.7; margin-top:10px; padding-left:20px;">
-          <li>Otvor <a href="https://app.marketingminer.com/" target="_blank" style="color:var(--brand-600);">app.marketingminer.com</a> a prihlás sa</li>
-          <li><b>Contact Finder</b> (3 kr) — input: doména klienta (napr. <code>${lead.domain || 'firma.sk'}</code>) → Generovať → Stiahnuť XLSX</li>
-          <li><b>Kategorizácia webu</b> (1 kr) — input: doména → Stiahnuť</li>
-          <li><b>Detekcia technológií</b> (1 kr) — input: doména → Stiahnuť</li>
-          <li>Pozri si KW z AI analýzy (sekcia "Kľúčové slová" v Náhľade ponuky) a skopíruj top 10-15</li>
-          <li><b>Hľadanosť fráz</b> (3 kr) — input: zoznam KW → Stiahnuť</li>
-          <li><b>PPC reklamy</b> (10 kr) — input: top 5-8 KW → Stiahnuť</li>
-          <li><b>Analýza SERP</b> (10 kr) — input: top 5 KW → Stiahnuť</li>
-          <li><b>Pozícia vo vyhľadávačoch</b> (10 kr) — input: doména + 10 KW → Stiahnuť</li>
-          <li>Všetky XLSX súbory sem pretiahni — systém ich automaticky rozpozná a uloží</li>
-          <li>Regeneruj proposal — AI dostane reálne čísla namiesto hádania</li>
-        </ol>
-        <p style="font-size:12px; color:var(--ink-sub); margin-top:8px;">Celkový kredit: ~<b>40 kr/lead</b>. Čas: ~2-3 min.</p>
+      <details style="margin-top:16px;" open>
+        <summary style="cursor:pointer; font-size:13px; color:var(--ink); font-weight:600;">📋 Postup ako vygenerovať reporty v MM</summary>
+        <div style="font-size:13px; color:var(--ink); line-height:1.7; margin-top:10px;">
+          <p style="margin:0 0 8px;"><b>A. Per-doména reporty</b> (input = <code>${lead.domain || 'firma.sk'}</code>, spolu ~7 kreditov)</p>
+          <ol style="padding-left:20px; margin:0 0 16px;">
+            <li><b>Contact Finder</b> (3 kr) → XLSX (emails + social URL)</li>
+            <li><b>Kategorizácia webu</b> (1 kr)</li>
+            <li><b>Detekcia technológií</b> (1 kr)</li>
+            <li><b>Majestic (Domain)</b> (1 kr) — autorita / backlinks</li>
+            <li><b>DNS Info</b> (1 kr) — voliteľné</li>
+          </ol>
+
+          <p style="margin:0 0 8px;"><b>B. SEO audit</b> (input = doména alebo URL podstránok, spolu ~25 kreditov, dostaneš 1 bundle XLSX)</p>
+          <ol style="padding-left:20px; margin:0 0 16px;">
+            <li><b>Analýza obsahu</b> (3 kr) — title, meta, words per page</li>
+            <li><b>Kontrola indexácie</b> (15 kr) — či Google indexuje stránky</li>
+            <li><b>Stavový kód</b> (1 kr) — HTTP 200/404/...</li>
+            <li><b>Structured Data Checker</b> (3 kr)</li>
+            <li><b>Validácia zdrojového kódu</b> (1 kr) — W3C errors</li>
+            <li><b>Kontrola nefunkčných odkazov</b> (10 kr) — broken 404</li>
+            <li><b>Kontrola odkazov</b> (3 kr) — backlink overview</li>
+          </ol>
+
+          <p style="margin:0 0 8px;"><b>C. Keyword research</b> (input = zoznam KW, spolu ~33 kreditov)</p>
+          <ol style="padding-left:20px; margin:0 0 16px;">
+            <li>Pozri si KW v AI analýze leadu (sekcia "Kľúčové slová" v náhľade ponuky) — skopíruj top 10-15</li>
+            <li><b>Hľadanosť fráz</b> (3 kr) → XLSX</li>
+            <li><b>Pozícia vo vyhľadávačoch</b> (10 kr) → CSV (uložiť ako CSV, nie XLSX)</li>
+            <li><b>PPC reklamy</b> (10 kr) — top 5-8 KW</li>
+            <li><b>Analýza SERP</b> (10 kr) — top 5 KW</li>
+          </ol>
+
+          <p style="margin:8px 0; padding:10px 12px; background:var(--brand-50); border-radius:8px; color:var(--ink); font-size:12px;">
+            <b>Spolu: ~65 kreditov · ~5-7 min per lead.</b> Všetky súbory pretiahni naraz do dropzóny vyššie — systém ich rozpozná automaticky.
+            Potom klikni „Vygenerovať návrh kampane" v hornom paneli — AI dostane MM dáta ako autoritatívne a vytvorí proposal s reálnymi číslami a menami konkurentov.
+          </p>
+        </div>
       </details>
     `;
   },
@@ -2269,22 +2298,36 @@ const LeadsModule = {
 
     let processed = 0;
     let unrecognized = 0;
+    let multiBundleDetected = 0;
     for (const file of fileList) {
       try {
-        const data = await file.arrayBuffer();
-        const wb = XLSX.read(data, { type: 'array' });
-        const detected = this._detectMMReport(wb, file.name);
-        if (!detected) {
-          console.warn('[MM] Unrecognized file:', file.name, 'sheets:', wb.SheetNames);
+        const isCSV = /\.csv$/i.test(file.name);
+        let detections;
+        if (isCSV) {
+          const text = await file.text();
+          detections = this._detectMMReportCSV(text, file.name);
+        } else {
+          const data = await file.arrayBuffer();
+          const wb = XLSX.read(data, { type: 'array' });
+          detections = this._detectMMReportXLSX(wb, file.name);
+        }
+        if (!detections || detections.length === 0) {
+          console.warn('[MM] Unrecognized file:', file.name);
           unrecognized++;
           continue;
         }
-        md.mm_reports[detected.key] = {
-          uploaded_at: new Date().toISOString(),
-          filename: file.name,
-          ...detected.data,
-        };
-        processed++;
+        // Jeden XLSX môže obsahovať viacero reportov (napr. SEO audit bundle =
+        // Content Analysis + Indexability + Broken Links + Backlinks + Structured Data...)
+        // Uložíme všetky detegované typy.
+        for (const det of detections) {
+          md.mm_reports[det.key] = {
+            uploaded_at: new Date().toISOString(),
+            filename: file.name,
+            ...det.data,
+          };
+          processed++;
+        }
+        if (detections.length > 1) multiBundleDetected++;
       } catch (err) {
         console.error('[MM] Parse error:', file.name, err);
         Utils.toast(`Chyba pri parsovaní ${file.name}: ${err.message}`, 'error');
@@ -2303,23 +2346,62 @@ const LeadsModule = {
     }
   },
 
-  // Detekcia typu reportu zo sheet names + extract štruktúrovaných dát
-  _detectMMReport(wb, filename) {
+  // XLSX môže obsahovať viacero reportov (SEO audit bundle, Contact bundle).
+  // Vraciame ARRAY detekcií — všetky reporty s ktorými majú zhodu sheet names.
+  _detectMMReportXLSX(wb, filename) {
     const sheetNames = wb.SheetNames || [];
+    const detected = [];
+    for (const def of this.MM_REPORT_DETECTORS) {
+      const matchingSheet = def.sheets.find(s => sheetNames.includes(s));
+      if (!matchingSheet) continue;
+      const sheet = wb.Sheets[matchingSheet];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+      // Skip ak sheet je prázdny (len header bez riadkov)
+      const nonEmpty = rows.filter(r => Object.values(r).some(v => v !== null && v !== ''));
+      if (nonEmpty.length === 0 && def.key !== 'dns_info') continue;
+      detected.push({
+        key: def.key,
+        data: this._parseMMReportData(def.key, rows, wb),
+      });
+    }
+    return detected;
+  },
+
+  // CSV detekcia — MM exportuje niektoré reporty (Positions) ako CSV.
+  // Detekujeme typ z header riadku — keyword,position,... → positions report.
+  _detectMMReportCSV(text, filename) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const header = lines[0].toLowerCase();
     const def = this.MM_REPORT_DETECTORS.find(d =>
-      d.sheets.some(s => sheetNames.includes(s))
+      d.csvHeaderMatch && d.csvHeaderMatch.every(col => header.includes(col))
     );
-    if (!def) return null;
-
-    // Primárny sheet — prvý zo zoznamu ktorý existuje
-    const primarySheet = def.sheets.find(s => sheetNames.includes(s));
-    const sheet = wb.Sheets[primarySheet];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
-
-    return {
-      key: def.key,
-      data: this._parseMMReportData(def.key, rows, wb),
+    if (!def) return [];
+    // Jednoduchý CSV parser — handluje quoted fieldy s čiarkou vnútri
+    const parseCsvLine = (line) => {
+      const result = [];
+      let cur = '';
+      let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+          else inQ = !inQ;
+        } else if (c === ',' && !inQ) {
+          result.push(cur); cur = '';
+        } else cur += c;
+      }
+      result.push(cur);
+      return result;
     };
+    const headers = parseCsvLine(lines[0]);
+    const rows = lines.slice(1).map(line => {
+      const cells = parseCsvLine(line);
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = cells[i] === '' ? null : cells[i]; });
+      return obj;
+    });
+    return [{ key: def.key, data: this._parseMMReportData(def.key, rows, null) }];
   },
 
   _parseMMReportData(key, rows, wb) {
@@ -2420,6 +2502,147 @@ const LeadsModule = {
       case 'keyword_suggest': {
         const kws = slim.map(r => r['Keyword'] || r['Kľúčové slovo'] || Object.values(r)[0]).filter(Boolean);
         return { rows: slim, suggestions: kws, summary: `${kws.length} návrhov KW` };
+      }
+      case 'positions': {
+        // CSV z MM: keyword, url, position, position_change, total_position,
+        // difficulty, search_volume, estimated_traffic, result_type, serp_features
+        const pos = slim.map(r => ({
+          keyword: r.keyword || r['Keyword'],
+          url: r.url || r['URL'],
+          position: parseInt(r.position || r['Position'] || 0, 10) || null,
+          position_change: parseInt(r.position_change || 0, 10) || 0,
+          difficulty: r.difficulty ? parseInt(r.difficulty, 10) : null,
+          search_volume: r.search_volume ? parseInt(r.search_volume, 10) : null,
+          estimated_traffic: r.estimated_traffic ? parseInt(r.estimated_traffic, 10) : 0,
+          result_type: r.result_type || null,
+          serp_features: r.serp_features || null,
+        })).filter(p => p.keyword);
+        const top10 = pos.filter(p => p.position && p.position <= 10);
+        const top3 = pos.filter(p => p.position && p.position <= 3);
+        const totalTraffic = pos.reduce((a, p) => a + (p.estimated_traffic || 0), 0);
+        const totalVolume = pos.reduce((a, p) => a + (p.search_volume || 0), 0);
+        return {
+          rows: slim,
+          positions: pos,
+          top_10: top10,
+          stats: { total: pos.length, top_3: top3.length, top_10: top10.length, est_monthly_traffic: totalTraffic, total_search_volume: totalVolume },
+          summary: `${top10.length}/${pos.length} v top 10 · ${totalTraffic} traffic/mes · ${totalVolume.toLocaleString('sk-SK')} celkový volume`
+        };
+      }
+      case 'seo_audit': {
+        // Bundle: Content Analysis + Indexability + Index Checker — kombinujeme do jedného
+        const contentSheet = wb?.Sheets?.['Content Analysis'];
+        const indexabilitySheet = wb?.Sheets?.['Indexability Checker'];
+        const indexCheckSheet = wb?.Sheets?.['Index Checker'];
+        const content = contentSheet ? XLSX.utils.sheet_to_json(contentSheet, { defval: null }) : [];
+        const indexability = indexabilitySheet ? XLSX.utils.sheet_to_json(indexabilitySheet, { defval: null }) : [];
+        const indexCheck = indexCheckSheet ? XLSX.utils.sheet_to_json(indexCheckSheet, { defval: null }) : [];
+
+        const pages = content.filter(r => r['Input']).map(r => {
+          const url = r['Input'];
+          const idx = indexability.find(i => i['Input'] === url) || {};
+          const gIdx = indexCheck.find(i => i['Input'] === url) || {};
+          return {
+            url,
+            title: r['Title'],
+            title_score: r['Title score'] ? parseInt(r['Title score'], 10) : null,
+            h1: r['H1'],
+            meta_description: r['Meta description'] || null,
+            words: r['Words'] ? parseInt(r['Words'], 10) : null,
+            paragraphs: r['Paragraphs'] ? parseInt(r['Paragraphs'], 10) : null,
+            links: r['Links'] ? parseInt(r['Links'], 10) : null,
+            indexability: idx['Indexability Status'] || null,
+            robots_txt: idx['Robots.txt'] || null,
+            canonical: idx['Link Canonical'] || null,
+            meta_robots: idx['Meta robots'] || null,
+            indexed_by_google: gIdx['Indexed by Google'] || null,
+          };
+        });
+        const noMeta = pages.filter(p => !p.meta_description).length;
+        const notIndexed = pages.filter(p => p.indexed_by_google && /not indexed|canonicalized/i.test(p.indexed_by_google)).length;
+        const avgTitle = pages.length ? Math.round(pages.reduce((a, p) => a + (p.title_score || 0), 0) / pages.length) : 0;
+        return {
+          rows: slim,
+          pages,
+          issues: {
+            pages_without_meta: noMeta,
+            pages_not_indexed: notIndexed,
+            avg_title_score: avgTitle,
+            total_pages: pages.length,
+          },
+          summary: `${pages.length} strán · ${noMeta} bez meta desc · ${notIndexed} neindexovaných · ⌀ title ${avgTitle}/100`
+        };
+      }
+      case 'broken_links': {
+        const broken = slim.map(r => ({
+          source: r['Input'],
+          destination: r['Destination'],
+          status_code: r['Status Code'] ? parseInt(r['Status Code'], 10) : null,
+          type: r['Type'],
+          anchor: r['Anchor'],
+        })).filter(b => b.destination);
+        const byDomain = {};
+        broken.forEach(b => {
+          try { const d = new URL(b.destination).hostname; byDomain[d] = (byDomain[d] || 0) + 1; } catch {}
+        });
+        return {
+          rows: slim,
+          broken_links: broken,
+          stats: { total: broken.length, unique_destinations: Object.keys(byDomain).length },
+          top_broken_domains: Object.entries(byDomain).sort((a, b) => b[1] - a[1]).slice(0, 5),
+          summary: `${broken.length} broken linkov · ${Object.keys(byDomain).length} externých domén`
+        };
+      }
+      case 'backlinks': {
+        const links = slim.map(r => ({
+          source: r['Input'],
+          domain: r['Domain'],
+          exists: r['Backlink existence'] === 'yes',
+          landing: r['Landing page'],
+          position: r['Estimated position'],
+          anchor: r['Anchor text'],
+          nofollow: r['Nofollow'],
+        })).filter(l => l.landing);
+        return {
+          rows: slim,
+          backlinks: links,
+          summary: `${links.length} interných odkazov analyzovaných`
+        };
+      }
+      case 'structured_data': {
+        const pages = slim.map(r => ({
+          url: r['Input'],
+          found: r['Structured data found'] === 'yes',
+          markup_type: r['Markup type'],
+          entities: r['Found entities'],
+        })).filter(p => p.url);
+        const withErrors = pages.filter(p => p.entities && /error/i.test(p.entities)).length;
+        return {
+          rows: slim,
+          pages,
+          stats: { total: pages.length, with_errors: withErrors },
+          summary: `${pages.length} strán · ${withErrors} s chybami v structured data`
+        };
+      }
+      case 'status_codes': {
+        const codes = slim.map(r => ({
+          url: r['Input'],
+          first: r['First Status Code'],
+          last: r['Last Status Code'],
+        })).filter(c => c.url);
+        const ok = codes.filter(c => c.last == 200 || c.last === '200').length;
+        const errors = codes.filter(c => c.last >= 400 || /^[45]\d\d$/.test(String(c.last))).length;
+        return { rows: slim, codes, stats: { ok, errors, total: codes.length }, summary: `${ok}/${codes.length} OK · ${errors} chýb` };
+      }
+      case 'validity': {
+        const checks = slim.map(r => ({
+          url: r['Input'],
+          warnings: r['Validation warnings'] ? parseInt(r['Validation warnings'], 10) : 0,
+          errors: r['Validation errors'] ? parseInt(r['Validation errors'], 10) : 0,
+        })).filter(c => c.url);
+        const totalErrors = checks.reduce((a, c) => a + c.errors, 0);
+        const totalWarnings = checks.reduce((a, c) => a + c.warnings, 0);
+        return { rows: slim, checks, stats: { total_errors: totalErrors, total_warnings: totalWarnings, pages: checks.length }, summary: `${totalErrors} W3C chýb · ${totalWarnings} warning na ${checks.length} stranách` };
       }
       default:
         return { rows: slim, summary: `${slim.length} riadkov` };
