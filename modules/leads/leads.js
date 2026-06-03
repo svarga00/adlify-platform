@@ -2591,7 +2591,7 @@ V návrhu nájdete:
 • Konkrétne reklamné kampane pre Google Ads, Meta, LinkedIn
 • 3 budget varianty s očakávanou ROI
 • Časový plán prvých 60 dní
-• Audit existujúcich kampaní zdarma pri spolupráci 3+ mesiace
+• Audit existujúcich kampaní v cene od balíčka PRO
 
 Stačí napísať email späť alebo si rezervovať konzultáciu.
 
@@ -4816,12 +4816,12 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">1</span> O vašej firme</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">${c.description || analysis.executive_summary?.split('\n\n')[0] || 'Spoločnosť pôsobí na slovenskom trhu a ponúka svoje služby zákazníkom.'}</p>
+    <p class="section-subtitle">Krátky prehľad toho čo robíte a kde vidíme najväčší potenciál pre rast cez online reklamu.</p>
 
-    ${c.idealCustomer || analysis.executive_summary ? `
+    ${analysis.executive_summary || c.idealCustomer ? `
     <div class="card" style="background:linear-gradient(135deg, #f8fafc, #fff); border-left:4px solid #7c3aed; margin-bottom: 24px;">
       <h3 class="card-title">Náš pohľad a prvý dojem</h3>
-      <p style="color:#475569; font-size:0.98rem; line-height:1.75;">${(analysis.executive_summary || '').split('\n\n').slice(0,2).join('<br><br>') || c.idealCustomer || 'Firma má silné základy pre rast cez výkonnostný marketing.'}</p>
+      <p style="color:#475569; font-size:0.98rem; line-height:1.75;">${(analysis.executive_summary || '').split('\n\n').slice(0,2).join('<br><br>') || c.description || c.idealCustomer || 'Firma má silné základy pre rast cez výkonnostný marketing.'}</p>
     </div>
     ` : ''}
 
@@ -4853,7 +4853,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
   <div class="page-content">
     <h2 class="section-title"><span class="section-badge">2</span> Čo sme zistili</h2>
     <div class="section-divider"></div>
-    <p class="section-subtitle">${a.humanWrittenIntro || o.summary || 'Na základe našej analýzy sme identifikovali silné stránky aj príležitosti na zlepšenie.'}</p>
+    <p class="section-subtitle">Detailne sme prešli vašu doménu, recenzie a verejné dáta. Tu sú konkrétne pozorovania — čo funguje a kde sú príležitosti na rýchle zlepšenie.</p>
     
     ${a.strengths?.length ? `
     <h3 style="margin-bottom: 25px; font-size: 1.3rem; font-weight: 700; color: #1a1a2e;">Vaše silné stránky</h3>
@@ -5488,7 +5488,7 @@ ${r.projection ? `
       </div>
       <div class="packages-meta-item">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        Audit existujúcich kampaní zdarma pri 3+ mes spolupráci
+        Audit existujúcich kampaní v cene od balíčka PRO
       </div>
       <div class="packages-meta-item">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
@@ -5564,14 +5564,14 @@ ${r.projection ? `
         </div>
         <div style="background:linear-gradient(135deg,#dcfce7,#f0fdf4); border:1.5px solid #16a34a; border-radius:14px; padding:20px 22px;">
           <div style="font-size:11px; font-weight:700; color:#166534; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">6-mesačná dohoda</div>
-          <div style="font-size:24px; font-weight:800; color:#166534; margin-bottom:4px;">−5 % zľava</div>
-          <div style="font-size:13px; color:#475569; line-height:1.5;">Pri 6-mesačnej spolupráci znížime poplatok za správu o 5%. Stabilita kampaní + lepšie cenovanie pre vás.</div>
+          <div style="font-size:24px; font-weight:800; color:#166534; margin-bottom:4px;">−10 % zľava</div>
+          <div style="font-size:13px; color:#475569; line-height:1.5;">Pri 6-mesačnej spolupráci platenej <strong>vopred</strong> znížime poplatok za správu o 10 %. Stabilita + úspora.</div>
         </div>
         <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb); border:1.5px solid #f59e0b; border-radius:14px; padding:20px 22px; position:relative;">
           <div style="position:absolute; top:-10px; right:14px; background:#f59e0b; color:#fff; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.5px;">NAJVÝHODNEJŠIE</div>
           <div style="font-size:11px; font-weight:700; color:#92400e; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">12-mesačná dohoda</div>
-          <div style="font-size:24px; font-weight:800; color:#92400e; margin-bottom:4px;">−10 % zľava</div>
-          <div style="font-size:13px; color:#78350f; line-height:1.5;">Pri ročnej spolupráci 10% zľava + bezplatný audit + štvrťročné strategické stretnutia.</div>
+          <div style="font-size:24px; font-weight:800; color:#92400e; margin-bottom:4px;">−20 % zľava</div>
+          <div style="font-size:13px; color:#78350f; line-height:1.5;">Pri ročnej spolupráci platenej <strong>vopred</strong> 20 % zľava + audit zdarma + štvrťročné strategické stretnutia.</div>
         </div>
       </div>
     </div>
@@ -5630,7 +5630,7 @@ ${r.projection ? `
       </div>
       <div style="padding:18px 20px; background:#faf5ff; border-left:4px solid #7c3aed; border-radius:10px;">
         <div style="font-size:12px; font-weight:700; color:#5b21b6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Komunikácia</div>
-        <p style="font-size:13px; color:#3b0764; line-height:1.65; margin:0;">Cez <strong>WhatsApp / Slack / email</strong> podľa preferencie. Reakčný čas <strong>do 4 hodín v pracovné dni</strong>.</p>
+        <p style="font-size:13px; color:#3b0764; line-height:1.65; margin:0;">Cez <strong>portál Adlify</strong>, <strong>WhatsApp</strong> alebo <strong>email</strong> podľa preferencie. Reakčný čas <strong>do 4 hodín v pracovné dni</strong>.</p>
       </div>
     </div>
   </div>
