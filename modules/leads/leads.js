@@ -2384,49 +2384,195 @@ const LeadsModule = {
     modal.style.display = 'flex';
     const a = this.editedAnalysis;
     const lead = this.leads.find(l => l.id === this.currentLeadId) || {};
+
+    // Pomocné gettery — pre každú sekciu uprednostníme to čo už user editoval
+    // (uložené priamo v lead.analysis.*), inak fallback na premium_analysis.
+    const esc = (v) => (v == null ? '' : String(v).replace(/"/g, '&quot;'));
+    const linesFrom = (arr) => Array.isArray(arr)
+      ? arr.map(x => typeof x === 'string' ? x : (x?.title ? `${x.title}${x.description ? ' — ' + x.description : ''}` : '')).filter(Boolean).join('\n')
+      : '';
+    const services = Array.isArray(a.company?.services) ? a.company.services.join('\n') : '';
+    const idealCustomer = a.company?.idealCustomer
+      || a.strategy?.targetAudience?.demographics
+      || '';
+    const findings = a.ourFindings || {};
+    const strengthsTxt = linesFrom(findings.strengths || a.analysis?.swot?.strengths);
+    const opportunitiesTxt = linesFrom(findings.opportunities || a.analysis?.swot?.opportunities);
+    const sw = a.swot || a.analysis?.swot || {};
+    const swotS = (sw.strengths || []).join('\n');
+    const swotW = (sw.weaknesses || []).join('\n');
+    const swotO = (sw.opportunities || []).join('\n');
+    const swotT = (sw.threats || []).join('\n');
+    const onlineSummary = a.onlinePresence?.summary || '';
+    const onlineWeb = a.onlinePresence?.website?.notes || '';
+    const onlineSocial = a.onlinePresence?.social?.notes || '';
+    const onlinePpc = a.onlinePresence?.ppc?.notes || '';
+    const strategyOverview = a.strategy?.overview || '';
+    const strategyCreative = a.strategy?.creativeApproach || '';
+    const taInterests = Array.isArray(a.strategy?.targetAudience?.interests) ? a.strategy.targetAudience.interests.join(', ') : '';
+    const taBehaviors = Array.isArray(a.strategy?.targetAudience?.behaviors) ? a.strategy.targetAudience.behaviors.join(', ') : '';
+    const kwList = (() => {
+      const k = a.keywords || {};
+      const all = [...(k.primary || []), ...(k.secondary || []), ...(k.longTail || []), ...(k.topKeywords || [])];
+      return all.map(kw => kw?.keyword || '').filter(Boolean).join('\n');
+    })();
+    const tl = a.timeline || {};
+    const findWeekTxt = (key) => {
+      const w = (tl.weeks || []).find(x => String(x.week || '').toLowerCase().includes(key.toLowerCase()));
+      return w?.milestone || tl[`week${key}`] || '';
+    };
+    const tlW1 = a.timeline?.week1 || findWeekTxt('1');
+    const tlW2 = a.timeline?.week2 || findWeekTxt('2');
+    const tlW34 = a.timeline?.['weeks3-4'] || findWeekTxt('3') || findWeekTxt('4');
+    const tlM2 = a.timeline?.month2 || (tl.weeks || [])[3]?.milestone || '';
+    const tlM3 = a.timeline?.month3plus || (tl.weeks || [])[4]?.milestone || '';
+
+    const section = (id, title, openByDefault, inner) => `
+      <details ${openByDefault ? 'open' : ''} class="analysis-section" style="margin-bottom:1rem; padding:1rem; border:1px solid var(--n-100); border-radius:8px;">
+        <summary style="cursor:pointer; font-weight:600; font-size:14px; color:var(--ink); list-style:none; display:flex; align-items:center; justify-content:space-between;">
+          <span>${title}</span>
+          <span style="font-size:11px; color:var(--ink-sub); font-weight:400;">▾ klik pre rozbalenie</span>
+        </summary>
+        <div style="margin-top:1rem;">${inner}</div>
+      </details>
+    `;
+
     content.innerHTML = `
-      <div class="form-grid" style="margin-bottom:1rem;">
-        <div class="form-group"><label>Názov firmy</label><input type="text" id="edit-company-name" value="${a.company?.name || ''}"></div>
-        <div class="form-group"><label>Odporúčaný balíček</label><select id="edit-package"><option value="Starter" ${a.recommendedPackage === 'Starter' ? 'selected' : ''}>Starter (149€)</option><option value="Pro" ${a.recommendedPackage === 'Pro' ? 'selected' : ''}>Pro (249€)</option><option value="Enterprise" ${a.recommendedPackage === 'Enterprise' ? 'selected' : ''}>Enterprise (399€)</option><option value="Premium" ${a.recommendedPackage === 'Premium' ? 'selected' : ''}>Premium (799€)</option></select></div>
-      </div>
-      <div class="analysis-section" style="margin-bottom:1rem;">
-        <h3 style="margin:0 0 1rem;">📧 Kontaktné údaje</h3>
+      ${section('sec-basic', '🏢 Firma a balíček', true, `
+        <div class="form-grid" style="margin-bottom:1rem;">
+          <div class="form-group"><label>Názov firmy</label><input type="text" id="edit-company-name" value="${esc(a.company?.name)}"></div>
+          <div class="form-group"><label>Odporúčaný balíček</label><select id="edit-package">
+            <option value="Starter" ${a.recommendedPackage === 'Starter' ? 'selected' : ''}>Starter (149€)</option>
+            <option value="Pro" ${a.recommendedPackage === 'Pro' ? 'selected' : ''}>Pro (249€)</option>
+            <option value="Enterprise" ${a.recommendedPackage === 'Enterprise' ? 'selected' : ''}>Enterprise (399€)</option>
+            <option value="Premium" ${a.recommendedPackage === 'Premium' ? 'selected' : ''}>Premium (799€)</option>
+          </select></div>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem;"><label>Popis firmy</label><textarea id="edit-company-desc" rows="3">${a.company?.description || ''}</textarea></div>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label>Vaše služby a produkty</label>
+          <textarea id="edit-services" rows="4" placeholder="Jedna služba na riadok&#10;Napr.:&#10;Predaj interiérových dverí&#10;Laminátové podlahy">${services}</textarea>
+          <small style="color:#64748b;font-size:0.8rem;">Jedna položka na riadok — zobrazí sa v proposal sekcii "Vaše služby a produkty".</small>
+        </div>
+        <div class="form-group">
+          <label>Vaši ideálni zákazníci</label>
+          <textarea id="edit-ideal-customer" rows="3" placeholder="Napr.: Majitelia rodinných domov 35–55 rokov v procese rekonštrukcie...">${idealCustomer}</textarea>
+        </div>
+      `)}
+
+      ${section('sec-contact', '📧 Kontaktné údaje', false, `
         <div class="form-grid">
-          <div class="form-group"><label>Email</label><input type="email" id="edit-email" value="${lead.email || ''}" placeholder="email@firma.sk"></div>
-          <div class="form-group"><label>Telefón</label><input type="text" id="edit-phone" value="${lead.phone || ''}" placeholder="+421..."></div>
+          <div class="form-group"><label>Email</label><input type="email" id="edit-email" value="${esc(lead.email)}" placeholder="email@firma.sk"></div>
+          <div class="form-group"><label>Telefón</label><input type="text" id="edit-phone" value="${esc(lead.phone)}" placeholder="+421..."></div>
           <div class="form-group" style="grid-column: span 2;">
             <label>🖼️ Logo URL</label>
-            <input type="url" id="edit-logo" value="${lead.logo_url || ''}" placeholder="https://firma.sk/logo.png">
+            <input type="url" id="edit-logo" value="${esc(lead.logo_url)}" placeholder="https://firma.sk/logo.png">
             <small style="color:#64748b;font-size:0.8rem;">Ak nevyplníte, použije sa favicon z domény</small>
           </div>
         </div>
-      </div>
-      <div class="form-group" style="margin-bottom:1rem;"><label>Popis firmy</label><textarea id="edit-company-desc" rows="3">${a.company?.description || ''}</textarea></div>
-      <div class="form-group" style="margin-bottom:1rem;"><label>Úvodný text analýzy</label><textarea id="edit-intro" rows="4">${a.analysis?.humanWrittenIntro || ''}</textarea></div>
-      <div class="form-group"><label>Poznámka pre klienta</label><textarea id="edit-custom-note" rows="3">${a.customNote || ''}</textarea></div>
-      <div class="analysis-section" style="margin-bottom:1rem;">
-        <h3 style="margin:0 0 1rem;">Rozpočet na reklamu (mesačne)</h3>
+      `)}
+
+      ${section('sec-view', '✨ Náš pohľad a prvý dojem', true, `
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label>Náš pohľad na firmu</label>
+          <textarea id="edit-intro" rows="5">${a.analysis?.humanWrittenIntro || ''}</textarea>
+          <small style="color:#64748b;font-size:0.8rem;">Toto je executive summary — zobrazuje sa hneď na začiatku proposalu v citácii.</small>
+        </div>
+        <div class="form-group">
+          <label>Poznámka pre klienta</label>
+          <textarea id="edit-custom-note" rows="3">${a.customNote || ''}</textarea>
+        </div>
+      `)}
+
+      ${section('sec-findings', '💡 Naše zistenia', false, `
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label>Silné stránky firmy</label>
+          <textarea id="edit-findings-strengths" rows="5" placeholder="Jedna položka na riadok">${strengthsTxt}</textarea>
+          <small style="color:#64748b;font-size:0.8rem;">Jedna položka na riadok. Môžeš použiť formát "Titulok — popis".</small>
+        </div>
+        <div class="form-group">
+          <label>Príležitosti pre rast</label>
+          <textarea id="edit-findings-opportunities" rows="5" placeholder="Jedna položka na riadok">${opportunitiesTxt}</textarea>
+        </div>
+      `)}
+
+      ${section('sec-swot', '📊 SWOT analýza', false, `
         <div class="form-grid">
+          <div class="form-group"><label>💪 Silné stránky</label><textarea id="edit-swot-s" rows="4" placeholder="Jedna na riadok">${swotS}</textarea></div>
+          <div class="form-group"><label>⚠️ Slabé stránky</label><textarea id="edit-swot-w" rows="4" placeholder="Jedna na riadok">${swotW}</textarea></div>
+          <div class="form-group"><label>🚀 Príležitosti</label><textarea id="edit-swot-o" rows="4" placeholder="Jedna na riadok">${swotO}</textarea></div>
+          <div class="form-group"><label>⚡ Hrozby</label><textarea id="edit-swot-t" rows="4" placeholder="Jedna na riadok">${swotT}</textarea></div>
+        </div>
+      `)}
+
+      ${section('sec-online', '🌐 Online prítomnosť', false, `
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label>Zhrnutie online prítomnosti</label>
+          <textarea id="edit-online-summary" rows="3">${onlineSummary}</textarea>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Poznámky k webu</label><textarea id="edit-online-web" rows="3">${onlineWeb}</textarea></div>
+          <div class="form-group"><label>Poznámky k sociálnym sieťam</label><textarea id="edit-online-social" rows="3">${onlineSocial}</textarea></div>
+          <div class="form-group" style="grid-column: span 2;"><label>Poznámky k plateným reklamám</label><textarea id="edit-online-ppc" rows="2">${onlinePpc}</textarea></div>
+        </div>
+      `)}
+
+      ${section('sec-strategy', '🎯 Stratégia a cieľová skupina', false, `
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label>Prehľad stratégie</label>
+          <textarea id="edit-strategy-overview" rows="4">${strategyOverview}</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label>Kreatívny prístup</label>
+          <textarea id="edit-strategy-creative" rows="3">${strategyCreative}</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label>Záujmy cieľovej skupiny</label>
+          <input type="text" id="edit-ta-interests" value="${esc(taInterests)}" placeholder="oddelené čiarkou">
+          <small style="color:#64748b;font-size:0.8rem;">Napr.: Domov a bývanie, Rekonštrukcia, DIY projekty</small>
+        </div>
+        <div class="form-group">
+          <label>Správanie cieľovej skupiny</label>
+          <input type="text" id="edit-ta-behaviors" value="${esc(taBehaviors)}" placeholder="oddelené čiarkou">
+        </div>
+      `)}
+
+      ${section('sec-keywords', '🔍 Kľúčové slová', false, `
+        <div class="form-group">
+          <label>Top kľúčové slová</label>
+          <textarea id="edit-keywords" rows="8" placeholder="Jedno kľúčové slovo na riadok">${kwList}</textarea>
+          <small style="color:#64748b;font-size:0.8rem;">Jedno kľúčové slovo na riadok. Pre podrobné editovanie objemov/CPC použi vygenerovanú analýzu.</small>
+        </div>
+      `)}
+
+      ${section('sec-budget', '💰 Rozpočet a ROI', false, `
+        <h4 style="margin:0 0 .5rem; font-size:13px; color:var(--ink-sub);">Rozpočet na reklamu (mesačne)</h4>
+        <div class="form-grid" style="margin-bottom:1rem;">
           <div class="form-group"><label>Štart (€)</label><input type="number" id="edit-budget-starter" value="${a.budget?.recommendations?.starter?.adSpend || 300}"></div>
           <div class="form-group"><label>Odporúčaný (€)</label><input type="number" id="edit-budget-recommended" value="${a.budget?.recommendations?.recommended?.adSpend || 500}"></div>
           <div class="form-group"><label>Agresívny (€)</label><input type="number" id="edit-budget-aggressive" value="${a.budget?.recommendations?.aggressive?.adSpend || 800}"></div>
         </div>
-        <small style="color:#64748b;font-size:0.8rem;">Tieto čísla idú do proposalu (sekcia 8 Rozpočet) a ROI sa vypočíta z "Odporúčaný" automaticky.</small>
-      </div>
-      <div class="analysis-section" style="margin-bottom:1rem;">
-        <h3 style="margin:0 0 1rem;">ROI predpoklady</h3>
+        <h4 style="margin:1rem 0 .5rem; font-size:13px; color:var(--ink-sub);">ROI predpoklady</h4>
         <div class="form-grid">
           <div class="form-group"><label>Priemerná hodnota objednávky (€)</label><input type="number" id="edit-roi-aov" value="${a.roi?.assumptions?.averageOrderValue || a.roi?.assumptions?.avg_order_value_eur || 2500}"></div>
           <div class="form-group"><label>Konverzný pomer (%)</label><input type="number" step="0.1" id="edit-roi-cr" value="${parseFloat(String(a.roi?.assumptions?.conversionRate || a.roi?.assumptions?.conversion_rate_pct || 5).replace('%','')) || 5}"></div>
           <div class="form-group"><label>LTV multiplikátor</label><input type="number" step="0.1" id="edit-roi-ltv" value="${a.roi?.assumptions?.ltv_multiplier || 1.5}"></div>
         </div>
-        <small style="color:#64748b;font-size:0.8rem;">ROI sa počíta: leady = rozpočet / 50€ CPL · revenue = leady × CR% × AOV × LTV multiplier</small>
-      </div>
-      <div class="analysis-section" style="margin-bottom:1rem;">
-        <h3 style="margin:0 0 1rem;">Obrázok v ponuke</h3>
-        <div class="form-group"><label>URL obrázka</label><input type="url" id="edit-ad-image" value="${a.customAdImage || ''}" placeholder="https://images.unsplash.com/photo-..."></div>
+        <small style="color:#64748b;font-size:0.8rem;">ROI = leady (z rozpočtu/CPC × 4 %) × CR% × AOV × LTV multiplier.</small>
+      `)}
+
+      ${section('sec-timeline', '📅 Časový plán', false, `
+        <div class="form-group" style="margin-bottom:1rem;"><label>Týždeň 1</label><textarea id="edit-tl-w1" rows="2">${tlW1}</textarea></div>
+        <div class="form-group" style="margin-bottom:1rem;"><label>Týždeň 2</label><textarea id="edit-tl-w2" rows="2">${tlW2}</textarea></div>
+        <div class="form-group" style="margin-bottom:1rem;"><label>Týždne 3–4</label><textarea id="edit-tl-w34" rows="2">${tlW34}</textarea></div>
+        <div class="form-group" style="margin-bottom:1rem;"><label>Mesiac 2</label><textarea id="edit-tl-m2" rows="2">${tlM2}</textarea></div>
+        <div class="form-group"><label>Mesiac 3+</label><textarea id="edit-tl-m3" rows="2">${tlM3}</textarea></div>
+      `)}
+
+      ${section('sec-image', '🖼️ Obrázok v ponuke', false, `
+        <div class="form-group"><label>URL obrázka</label><input type="url" id="edit-ad-image" value="${esc(a.customAdImage)}" placeholder="https://images.unsplash.com/photo-..."></div>
         <small style="color:#64748b;font-size:0.8rem;">Nájdi na <a href="https://unsplash.com" target="_blank" style="color:#f97316;">unsplash.com</a> a vlož URL</small>
-      </div>
+      `)}
     `;
   },
 
@@ -2482,6 +2628,118 @@ const LeadsModule = {
       ltv_multiplier: ltvInput,
       ltv_eur: Math.round(aovInput * ltvInput),
     };
+
+    // ============ Nové edit polia — všetky proposal sekcie ============
+    const val = (id) => (document.getElementById(id)?.value || '').trim();
+    const lines = (id) => val(id).split('\n').map(s => s.trim()).filter(Boolean);
+    const csv = (id) => val(id).split(',').map(s => s.trim()).filter(Boolean);
+
+    // Firma — služby + ideálny zákazník
+    const servicesArr = lines('edit-services');
+    if (servicesArr.length) this.editedAnalysis.company.services = servicesArr;
+    else delete this.editedAnalysis.company.services;
+    const idealCust = val('edit-ideal-customer');
+    if (idealCust) this.editedAnalysis.company.idealCustomer = idealCust;
+    else delete this.editedAnalysis.company.idealCustomer;
+
+    // Naše zistenia — strengths / opportunities (parse "Titulok — popis")
+    const parseFinding = (line) => {
+      const m = line.match(/^(.+?)\s*[—–-]\s*(.+)$/);
+      return m ? { title: m[1].trim(), description: m[2].trim() } : { title: line, description: '' };
+    };
+    const sArr = lines('edit-findings-strengths').map(parseFinding);
+    const oArr = lines('edit-findings-opportunities').map(parseFinding);
+    if (sArr.length || oArr.length) {
+      this.editedAnalysis.ourFindings = this.editedAnalysis.ourFindings || {};
+      if (sArr.length) this.editedAnalysis.ourFindings.strengths = sArr;
+      if (oArr.length) this.editedAnalysis.ourFindings.opportunities = oArr;
+    }
+
+    // SWOT
+    const swotS = lines('edit-swot-s');
+    const swotW = lines('edit-swot-w');
+    const swotO = lines('edit-swot-o');
+    const swotT = lines('edit-swot-t');
+    if (swotS.length || swotW.length || swotO.length || swotT.length) {
+      this.editedAnalysis.swot = {
+        strengths: swotS,
+        weaknesses: swotW,
+        opportunities: swotO,
+        threats: swotT
+      };
+    }
+
+    // Online prítomnosť
+    const onlineSummary = val('edit-online-summary');
+    const onlineWeb = val('edit-online-web');
+    const onlineSocial = val('edit-online-social');
+    const onlinePpc = val('edit-online-ppc');
+    if (onlineSummary || onlineWeb || onlineSocial || onlinePpc) {
+      this.editedAnalysis.onlinePresence = this.editedAnalysis.onlinePresence || {};
+      if (onlineSummary) this.editedAnalysis.onlinePresence.summary = onlineSummary;
+      if (onlineWeb) {
+        this.editedAnalysis.onlinePresence.website = this.editedAnalysis.onlinePresence.website || {};
+        this.editedAnalysis.onlinePresence.website.notes = onlineWeb;
+      }
+      if (onlineSocial) {
+        this.editedAnalysis.onlinePresence.social = this.editedAnalysis.onlinePresence.social || {};
+        this.editedAnalysis.onlinePresence.social.notes = onlineSocial;
+      }
+      if (onlinePpc) {
+        this.editedAnalysis.onlinePresence.ppc = this.editedAnalysis.onlinePresence.ppc || {};
+        this.editedAnalysis.onlinePresence.ppc.notes = onlinePpc;
+      }
+    }
+
+    // Stratégia + cieľová skupina
+    const stratOv = val('edit-strategy-overview');
+    const stratCr = val('edit-strategy-creative');
+    const taInts = csv('edit-ta-interests');
+    const taBehs = csv('edit-ta-behaviors');
+    if (stratOv || stratCr || taInts.length || taBehs.length) {
+      this.editedAnalysis.strategy = this.editedAnalysis.strategy || {};
+      if (stratOv) this.editedAnalysis.strategy.overview = stratOv;
+      if (stratCr) this.editedAnalysis.strategy.creativeApproach = stratCr;
+      if (taInts.length || taBehs.length) {
+        this.editedAnalysis.strategy.targetAudience = this.editedAnalysis.strategy.targetAudience || {};
+        if (taInts.length) this.editedAnalysis.strategy.targetAudience.interests = taInts;
+        if (taBehs.length) this.editedAnalysis.strategy.targetAudience.behaviors = taBehs;
+        if (idealCust) this.editedAnalysis.strategy.targetAudience.demographics = idealCust;
+      }
+    }
+
+    // Keywords — len keyword stringy, bez objemu/CPC (zachovaj pôvodné metadáta ak existujú)
+    const kwLines = lines('edit-keywords');
+    if (kwLines.length) {
+      const existing = [
+        ...(this.editedAnalysis.keywords?.primary || []),
+        ...(this.editedAnalysis.keywords?.secondary || []),
+        ...(this.editedAnalysis.keywords?.longTail || []),
+        ...(this.editedAnalysis.keywords?.topKeywords || [])
+      ];
+      const lookup = new Map(existing.map(k => [String(k.keyword || '').toLowerCase(), k]));
+      const merged = kwLines.map(kw => lookup.get(kw.toLowerCase()) || { keyword: kw, search_volume: null, cpc_eur: null, intent: '' });
+      this.editedAnalysis.keywords = this.editedAnalysis.keywords || {};
+      this.editedAnalysis.keywords.topKeywords = merged;
+      delete this.editedAnalysis.keywords.primary;
+      delete this.editedAnalysis.keywords.secondary;
+      delete this.editedAnalysis.keywords.longTail;
+    }
+
+    // Timeline
+    const tlW1 = val('edit-tl-w1');
+    const tlW2 = val('edit-tl-w2');
+    const tlW34 = val('edit-tl-w34');
+    const tlM2 = val('edit-tl-m2');
+    const tlM3 = val('edit-tl-m3');
+    if (tlW1 || tlW2 || tlW34 || tlM2 || tlM3) {
+      this.editedAnalysis.timeline = this.editedAnalysis.timeline || {};
+      if (tlW1) this.editedAnalysis.timeline.week1 = tlW1;
+      if (tlW2) this.editedAnalysis.timeline.week2 = tlW2;
+      if (tlW34) this.editedAnalysis.timeline['weeks3-4'] = tlW34;
+      if (tlM2) this.editedAnalysis.timeline.month2 = tlM2;
+      if (tlM3) this.editedAnalysis.timeline.month3plus = tlM3;
+    }
 
     // Custom ad image
     const customImg = document.getElementById('edit-ad-image')?.value.trim();
@@ -3778,18 +4036,45 @@ info@adlify.eu | www.adlify.eu`
   // recommendedPackage, competition}
   _premiumToTemplateSchema(p, lead) {
     p = p || {};
-    const company = p.company || {};
-    const swot = p.swot || {};
-    const findings = p.ourFindings || {};
-    const onlinePresence = p.onlinePresence || {};
-    const keywordsObj = p.keywords || {};
-    const strategy = p.strategy || {};
+    // lead.analysis.* obsahuje user-edity z editAnalysis modálu (priorita pred Claude).
+    const u = (lead && lead.analysis) || {};
+    // Company: user môže edit-núť name/description/services/idealCustomer priamo
+    const company = { ...(p.company || {}), ...(u.company || {}) };
+    const swot = u.swot || p.swot || {};
+    const findings = u.ourFindings || p.ourFindings || {};
+    const onlinePresence = (() => {
+      const base = p.onlinePresence || {};
+      const ov = u.onlinePresence || {};
+      return {
+        ...base,
+        ...ov,
+        website: { ...(base.website || {}), ...(ov.website || {}) },
+        social: { ...(base.social || {}), ...(ov.social || {}) },
+        ppc: { ...(base.ppc || {}), ...(ov.ppc || {}) }
+      };
+    })();
+    const keywordsObj = u.keywords || p.keywords || {};
+    const strategy = (() => {
+      const base = p.strategy || {};
+      const ov = u.strategy || {};
+      return {
+        ...base,
+        ...ov,
+        targetAudience: { ...(base.targetAudience || {}), ...(ov.targetAudience || {}) }
+      };
+    })();
     const budget = p.budget || {};
     const roi = p.roi || {};
     const campaigns = p.proposedCampaigns || {};
-    const timeline = p.timeline || {};
+    const timeline = (() => {
+      const base = p.timeline || {};
+      const ov = u.timeline || {};
+      return { ...base, ...ov };
+    })();
     const ourSolution = p.ourSolution || {};
     const competitive = p.competitive_landscape || {};
+    // Executive summary — user override má prednosť
+    const execSummary = u.analysis?.humanWrittenIntro || p.executive_summary || '';
 
     // analysis.analysis — silné stránky, príležitosti, SWOT
     const a = {
@@ -3805,7 +4090,7 @@ info@adlify.eu | www.adlify.eu`
         opportunities: swot.opportunities || (findings.opportunities || []).map(o => typeof o === 'string' ? o : o.title || ''),
         threats: swot.threats || []
       },
-      humanWrittenIntro: p.executive_summary || '',
+      humanWrittenIntro: execSummary,
       recommendation: ourSolution.headline || p.unique_insight || ''
     };
 
@@ -3840,16 +4125,23 @@ info@adlify.eu | www.adlify.eu`
     };
 
     // strategy — targetAudience + packages + CONTACT + channels
-    // target_audience môže prísť z analysis sekcie (Sonnet), inak fallback z company.idealCustomer
+    // Priorita zdrojov pre TA:
+    //   1) user edit (strategy.targetAudience.* — už po merge v `strategy` vyššie)
+    //   2) Claude p.target_audience.primary
+    //   3) company.idealCustomer (po merge má user edit prednosť)
+    //   4) hardcoded fallback
     const ta = p.target_audience?.primary || {};
+    const taOverride = strategy.targetAudience || {};
     const s = {
       overview: strategy.overview || '',
       creativeApproach: strategy.creativeApproach || '',
       channels: strategy.channels || [],
       targetAudience: {
-        demographics: ta.demographics || company.idealCustomer || 'Konkrétny ideálny zákazník',
-        interests: ta.interests && ta.interests.length ? ta.interests : ['Domov a bývanie', 'Rekonštrukcia', 'DIY projekty', 'Energetické úspory'],
-        behaviors: ta.behaviors && ta.behaviors.length ? ta.behaviors : ['Vyhľadávajú odporúčania', 'Porovnávajú cenníky', 'Žiadajú nezáväznú konzultáciu']
+        demographics: taOverride.demographics || ta.demographics || company.idealCustomer || 'Konkrétny ideálny zákazník',
+        interests: (taOverride.interests && taOverride.interests.length) ? taOverride.interests
+          : (ta.interests && ta.interests.length ? ta.interests : ['Domov a bývanie', 'Rekonštrukcia', 'DIY projekty', 'Energetické úspory']),
+        behaviors: (taOverride.behaviors && taOverride.behaviors.length) ? taOverride.behaviors
+          : (ta.behaviors && ta.behaviors.length ? ta.behaviors : ['Vyhľadávajú odporúčania', 'Porovnávajú cenníky', 'Žiadajú nezáväznú konzultáciu'])
       },
       mainGoal: ourSolution.headline || 'Získať kvalitných leadov cez výkonnostný marketing',
       platforms: (strategy.channels || []).map(ch => ch.name || ch.channel || '').filter(Boolean),
@@ -3983,18 +4275,20 @@ info@adlify.eu | www.adlify.eu`
       || (monthlyBudget < 800 ? 'Starter' : monthlyBudget < 1500 ? 'Pro' : monthlyBudget < 3000 ? 'Enterprise' : 'Premium');
 
     // Timeline — template čaká timeline.{week1, week2, "weeks3-4", month2, month3plus}
-    // Premium output dáva timeline.weeks[] s {week, milestone, deliverables}
+    // Premium output dáva timeline.weeks[] s {week, milestone, deliverables}.
+    // Po merge s user editmi má `timeline` direct properties (week1, week2, ...)
+    // ktoré uprednostníme.
     const weeks = timeline.weeks || [];
     const findWeek = (key) => {
       const w = weeks.find(x => String(x.week || '').toLowerCase().includes(key.toLowerCase()));
       return w ? `${w.milestone}${w.deliverables?.length ? ' — ' + w.deliverables.slice(0, 2).join(', ') : ''}` : null;
     };
     const templateTimeline = {
-      week1: findWeek('1') || 'Onboarding, audit konkurencie, setup tracking',
-      week2: findWeek('2') || 'Spustenie pilotných Search kampaní, prvé A/B testy',
-      'weeks3-4': findWeek('3') || findWeek('4') || 'Optimalizácia na základe prvých dát, rozšírenie KW listu',
-      month2: weeks[3]?.milestone || 'Spustenie Performance Max + Meta kampaní, remarketing',
-      month3plus: weeks[4]?.milestone || 'Škálovanie výkonných kampaní, mesačné reporty, strategické odporúčania',
+      week1: timeline.week1 || findWeek('1') || 'Onboarding, audit konkurencie, setup tracking',
+      week2: timeline.week2 || findWeek('2') || 'Spustenie pilotných Search kampaní, prvé A/B testy',
+      'weeks3-4': timeline['weeks3-4'] || findWeek('3') || findWeek('4') || 'Optimalizácia na základe prvých dát, rozšírenie KW listu',
+      month2: timeline.month2 || weeks[3]?.milestone || 'Spustenie Performance Max + Meta kampaní, remarketing',
+      month3plus: timeline.month3plus || weeks[4]?.milestone || 'Škálovanie výkonných kampaní, mesačné reporty, strategické odporúčania',
       weeks // pre future template ktorý čaká array
     };
 
@@ -4018,7 +4312,7 @@ info@adlify.eu | www.adlify.eu`
       recommendedPackage,
       customAdImage,
       customNote,
-      executive_summary: p.executive_summary,
+      executive_summary: execSummary,
       unique_insight: p.unique_insight,
       risks: p.risks,
       next_steps: p.next_steps
