@@ -3919,10 +3919,13 @@ Odkaz je platný 30 dní.
     const ltvEur = Number(userROIAssump.ltv_eur) || Number(assumptions.ltv_eur) || Math.round(aovEur * ltvMul);
     const cplEur = Number(roiMid.cpl_eur) || 50;
     const monthlyBudget = moderate; // z budget sekcie (b.recommendations.recommended.adSpend)
-    const computedLeads = roiMid.leads || Math.round(monthlyBudget / cplEur);
+    // ROI musí VŽDY vychádzať z aktuálneho rozpočtu, nie z Claude-precomputed
+    // hodnôt (tie boli vypočítané s iným budgetom než user teraz nastavil).
+    // Tým keď user zmení Odporúčaný 600 → 1000, ROI sekcia sa lineárne prepočíta.
+    const computedLeads = Math.round(monthlyBudget / cplEur);
     const computedConversions = Math.round(computedLeads * (crPct / 100));
-    const computedRevenue = roiMid.revenue_eur || Math.round(computedConversions * aovEur * ltvMul);
-    const computedROI = roiMid.roi_pct || Math.round((computedRevenue / monthlyBudget) * 100);
+    const computedRevenue = Math.round(computedConversions * aovEur * ltvMul);
+    const computedROI = monthlyBudget > 0 ? Math.round((computedRevenue / monthlyBudget) * 100) : 0;
 
     const r = {
       projection: {
@@ -3938,7 +3941,7 @@ Odkaz je platný 30 dní.
       month_1: roi.month_1,
       month_3: roi.month_3,
       month_6: roi.month_6,
-      explanation: roi.explanation || `ROI kalkulácia vychádza z mesačného rozpočtu ${monthlyBudget.toLocaleString('sk-SK')} €, priemernej hodnoty objednávky ${aovEur.toLocaleString('sk-SK')} €, konverzného pomeru ${crPct}% z leadov na zákazku a LTV multiplikátora ${ltvMul}× (opakované objednávky, referraly). Pri ${computedLeads} leadoch mesačne a ${crPct}% konverzii dosiahneme ROI ${computedROI}%.`
+      explanation: `ROI kalkulácia vychádza z mesačného rozpočtu ${monthlyBudget.toLocaleString('sk-SK')} €, priemernej hodnoty objednávky ${aovEur.toLocaleString('sk-SK')} €, konverzného pomeru ${crPct}% z leadov na zákazku a LTV multiplikátora ${ltvMul}× (opakované objednávky, referraly). Pri ${computedLeads} leadoch mesačne a ${crPct}% konverzii dosiahneme ROI ${computedROI}%.`
     };
 
     // proposedCampaigns — Google, Meta, Instagram, LinkedIn, Display
