@@ -3264,13 +3264,14 @@ Odkaz je platný 30 dní.
   // ─── SECTIONED GENERATION ───
   // Definícia sekcií čo sú dostupné (zhodné s SECTION_DEFS v Edge fn).
   PROPOSAL_SECTIONS: [
-    { key: 'analysis',    label: 'Analýza firmy + SWOT',           sec: 15, defaultChecked: true },
-    { key: 'keywords',    label: 'Kľúčové slová',                  sec: 15, defaultChecked: true },
-    { key: 'strategy',    label: 'Stratégia + kanály',             sec: 20, defaultChecked: true },
+    { key: 'analysis',    label: 'Analýza firmy + SWOT + cieľová skupina',  sec: 15, defaultChecked: true },
+    { key: 'audit',       label: 'Audit existujúcich kampaní (entry point)', sec: 8,  defaultChecked: true },
+    { key: 'keywords',    label: 'Kľúčové slová',                            sec: 15, defaultChecked: true },
+    { key: 'strategy',    label: 'Stratégia + kanály',                       sec: 20, defaultChecked: true },
     { key: 'campaigns',   label: 'Reklamné kampane (Google + Meta + IG + LinkedIn)', sec: 30, defaultChecked: true },
-    { key: 'budget',      label: 'Rozpočet + ROI',                 sec: 15, defaultChecked: true },
-    { key: 'summary',     label: 'Executive summary + next steps', sec: 15, defaultChecked: true },
-    { key: 'competitive', label: 'Konkurencia (živý web search)',  sec: 60, defaultChecked: false },
+    { key: 'budget',      label: 'Rozpočet + ROI',                           sec: 15, defaultChecked: true },
+    { key: 'summary',     label: 'Executive summary + next steps',           sec: 15, defaultChecked: true },
+    { key: 'competitive', label: 'Konkurencia (živý web search)',            sec: 60, defaultChecked: false },
   ],
 
   // Renderuje checkbox zoznam sekcií + ich aktuálny status (✓ hotovo, neexistuje)
@@ -3302,6 +3303,7 @@ Odkaz je platný 30 dní.
     if (!premium) return false;
     const checks = {
       analysis: () => premium.company || premium.ourFindings || premium.swot,
+      audit: () => premium.campaign_audit && premium.campaign_audit.headline,
       keywords: () => premium.keywords && (premium.keywords.primary?.length || premium.keywords.secondary?.length),
       strategy: () => premium.strategy && premium.strategy.channels?.length,
       campaigns: () => premium.proposedCampaigns && (premium.proposedCampaigns.google || premium.proposedCampaigns.meta),
@@ -3889,6 +3891,7 @@ Odkaz je platný 30 dní.
       proposedCampaigns: camp,
       timeline: templateTimeline,
       competition: competitive,
+      campaign_audit: p.campaign_audit || null,
       recommendedPackage,
       executive_summary: p.executive_summary,
       unique_insight: p.unique_insight,
@@ -4838,6 +4841,62 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
     </div>
   </div>
 </section>
+
+<!-- Page 3b: Audit existujúcich kampaní -->
+${analysis.campaign_audit && analysis.campaign_audit.headline ? `
+<section class="page page-gray">
+  <div class="page-content">
+    <div style="background:linear-gradient(135deg,#7c3aed,#ec4899); border-radius:18px; padding:32px 36px; color:#fff; margin-bottom:28px;">
+      <div style="display:inline-block; padding:5px 12px; background:rgba(255,255,255,0.18); border-radius:99px; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:14px;">
+        ${analysis.campaign_audit.applicable ? 'BONUS · 350 € v hodnote' : 'PRE-LAUNCH'}
+      </div>
+      <h2 style="font-size:28px; margin:0 0 10px; letter-spacing:-0.5px; line-height:1.2;">${escapeHtml(analysis.campaign_audit.headline || 'Audit existujúcich kampaní')}</h2>
+      <p style="font-size:15px; line-height:1.6; opacity:0.95; margin:0;">${escapeHtml(analysis.campaign_audit.intro || '')}</p>
+    </div>
+
+    ${analysis.campaign_audit.scope ? `<p style="font-size:14px; color:#64748b; margin:0 0 24px; font-style:italic;">Rozsah: ${escapeHtml(analysis.campaign_audit.scope)}</p>` : ''}
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:24px; margin-bottom:30px;">
+      ${analysis.campaign_audit.checklist?.length ? `
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:22px;">
+        <h3 style="margin:0 0 14px; font-size:14px; font-weight:700; color:#1a1a2e; text-transform:uppercase; letter-spacing:0.5px;">Čo skontrolujeme</h3>
+        <ul style="margin:0; padding-left:0; list-style:none;">
+          ${analysis.campaign_audit.checklist.map(c => `<li style="padding:6px 0; font-size:13px; color:#475569; display:flex; gap:10px; align-items:flex-start;"><span style="color:#7c3aed; font-weight:700; flex-shrink:0;">·</span><span>${escapeHtml(c)}</span></li>`).join('')}
+        </ul>
+      </div>` : ''}
+
+      ${analysis.campaign_audit.deliverables?.length ? `
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:22px;">
+        <h3 style="margin:0 0 14px; font-size:14px; font-weight:700; color:#1a1a2e; text-transform:uppercase; letter-spacing:0.5px;">Čo dostanete</h3>
+        <ul style="margin:0; padding-left:0; list-style:none;">
+          ${analysis.campaign_audit.deliverables.map(d => `<li style="padding:6px 0; font-size:13px; color:#475569; display:flex; gap:10px; align-items:flex-start;"><span style="color:#16a34a; font-weight:700; flex-shrink:0;">✓</span><span>${escapeHtml(d)}</span></li>`).join('')}
+        </ul>
+        ${analysis.campaign_audit.turnaround ? `<div style="margin-top:14px; padding-top:14px; border-top:1px solid #e2e8f0; font-size:12px; color:#64748b;"><strong style="color:#1a1a2e;">Doba dodania:</strong> ${escapeHtml(analysis.campaign_audit.turnaround)}</div>` : ''}
+      </div>` : ''}
+    </div>
+
+    ${analysis.campaign_audit.requirements?.length ? `
+    <div style="background:#fef3c7; border-left:4px solid #f59e0b; border-radius:8px; padding:18px 22px; margin-bottom:24px;">
+      <h3 style="margin:0 0 10px; font-size:13px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.5px;">Čo potrebujeme od vás</h3>
+      <ol style="margin:0; padding-left:20px;">
+        ${analysis.campaign_audit.requirements.map(r => `<li style="padding:4px 0; font-size:13px; color:#78350f;">${escapeHtml(r)}</li>`).join('')}
+      </ol>
+    </div>` : ''}
+
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:20px; padding:20px 24px; background:#f8fafc; border-radius:12px; flex-wrap:wrap;">
+      <div>
+        <div style="font-size:13px; color:#64748b; margin-bottom:4px;">Cena samostatne</div>
+        <div style="font-size:24px; font-weight:700; color:#1a1a2e;">${analysis.campaign_audit.pricing?.standalone_eur || 350} €</div>
+        ${analysis.campaign_audit.pricing?.credit_note ? `<div style="font-size:12px; color:#16a34a; margin-top:6px; font-weight:500;">${escapeHtml(analysis.campaign_audit.pricing.credit_note)}</div>` : ''}
+      </div>
+      <a href="mailto:info@adlify.eu?subject=${encodeURIComponent(analysis.campaign_audit.cta_subject || ('Záujem o audit kampaní — ' + (lead.company_name || lead.domain)))}&body=Dobrý%20deň%2C%0A%0AmÁm%20záujem%20o%20audit%20vašich%20kampaní%20pre%20${encodeURIComponent(lead.company_name || lead.domain)}.%0AKontaktujte%20ma%20pre%20ďalšie%20kroky.%0A%0AĎakujem"
+         style="display:inline-flex; align-items:center; gap:10px; padding:14px 22px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; text-decoration:none; border-radius:10px; font-weight:600; font-size:14px;">
+        ${escapeHtml(analysis.campaign_audit.cta_text || 'Zažiadať o audit')} →
+      </a>
+    </div>
+  </div>
+</section>
+` : ''}
 
 <!-- Page 4: SWOT -->
 ${a.swot ? `
