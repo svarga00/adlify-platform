@@ -397,21 +397,41 @@ async function generateSection(
     apiBody.max_tokens = 10000
   }
 
-  const abort = new AbortController()
-  const timeout = setTimeout(() => abort.abort(), 130000)
-  let resp: Response
-  try {
-    resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: abort.signal,
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify(apiBody),
-    })
-    clearTimeout(timeout)
-  } catch (e) {
-    clearTimeout(timeout)
-    return { error: 'Anthropic timeout/network: ' + (e instanceof Error ? e.message : String(e)) }
+  // Retry s exponenciálnym backoffom pri 429 (rate limit) — Anthropic vracia
+  // retry-after header alebo 60s default. Max 2 retries → user nemusí čakať
+  // ručne a klikať znova.
+  const callAnthropic = async (attempt: number): Promise<Response | { error: string }> => {
+    const abort = new AbortController()
+    const timeout = setTimeout(() => abort.abort(), 130000)
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        signal: abort.signal,
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify(apiBody),
+      })
+      clearTimeout(timeout)
+      return r
+    } catch (e) {
+      clearTimeout(timeout)
+      return { error: 'Anthropic timeout/network: ' + (e instanceof Error ? e.message : String(e)) }
+    }
   }
+
+  let resp: Response | undefined
+  let lastErr = ''
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await callAnthropic(attempt)
+    if ('error' in r) return { error: r.error }
+    if (r.status !== 429) { resp = r; break }
+    // 429 — počkaj retry-after sekúnd, max 45s (Edge fn time budget)
+    const retryAfter = parseInt(r.headers.get('retry-after') || '0', 10)
+    const waitSec = Math.min(Math.max(retryAfter, [10, 25, 40][attempt]), 45)
+    console.warn(`[section ${sectionKey}] 429 rate limit, retry #${attempt + 1} after ${waitSec}s`)
+    lastErr = `Anthropic rate limit (429) — pokus ${attempt + 1}/3`
+    await new Promise(res => setTimeout(res, waitSec * 1000))
+  }
+  if (!resp) return { error: lastErr || 'Anthropic 429 rate limit — skús znova o minútu' }
 
   const json = await resp.json()
   if (json.error) return { error: json.error.message || 'Anthropic error' }
@@ -429,23 +449,78 @@ async function generateSection(
 }
 
 function buildSectionContext(lead: any, scrape: string, customNotes: string, sectionKey: string, label: string): string {
+  // Per-section context — len to čo daná sekcia naozaj potrebuje.
+  // Predtým každá sekcia posielala ~10K+ tokenov (lead.analysis 6K + marketing_data
+  // 3K + scrape ~15K + premium_analysis 5K) → tier rate-limit 30K/min sa minul
+  // pri 2-3 regenerát. Tu trimujeme agresívne podľa sectionKey.
+
+  // Trim lead.analysis na to čo je naozaj užitočné (vyhoď velké poľa keywords/budget
+  // pre coherence sekcie, ale nechaj company info a online presence)
+  const slimAnalysis = (() => {
+    const a = lead.analysis || {}
+    const slim: any = {
+      company: a.company,
+      onlinePresence: a.onlinePresence,
+      executive_summary: a.executive_summary,
+      unique_insight: a.unique_insight,
+    }
+    if (sectionKey === 'keywords' || sectionKey === 'strategy' || sectionKey === 'campaigns') {
+      slim.target_audience = a.target_audience
+      slim.industry = a.industry
+    }
+    if (sectionKey === 'audit' || sectionKey === 'analysis') {
+      slim.swot = a.swot
+      slim.ourFindings = a.ourFindings
+    }
+    return JSON.stringify(slim, null, 2).slice(0, 3000)
+  })()
+
+  // Marketing data — len pre keywords/strategy/campaigns/budget
+  const needsMM = ['keywords', 'strategy', 'campaigns', 'budget'].includes(sectionKey)
+  const mmBlock = needsMM && lead.marketing_data
+    ? `MARKETING MINER DATA:\n${JSON.stringify(lead.marketing_data, null, 2).slice(0, 2000)}\n`
+    : ''
+
+  // Existujúce sekcie pre coherence — iba reference k tým ktoré majú vplyv na túto sekciu.
+  // Predtým dumpovali celé premium_analysis (5K), teraz iba relevantné kľúče.
+  const coherenceMap: Record<string, string[]> = {
+    audit: ['company'],
+    keywords: ['company', 'target_audience'],
+    strategy: ['company', 'target_audience', 'keywords'],
+    campaigns: ['company', 'target_audience', 'keywords', 'strategy'],
+    budget: ['keywords', 'strategy', 'campaigns'],
+    summary: ['company', 'strategy', 'budget', 'roi'],
+    competitive: ['company'],
+    analysis: [],
+  }
+  const coherenceKeys = coherenceMap[sectionKey] || []
+  const coherence: Record<string, any> = {}
+  for (const k of coherenceKeys) {
+    if (lead.premium_analysis?.[k]) coherence[k] = lead.premium_analysis[k]
+  }
+  const coherenceBlock = Object.keys(coherence).length
+    ? `EXISTUJÚCE SEKCIE (referenčné — zachovaj koherenciu):\n${JSON.stringify(coherence, null, 2).slice(0, 2500)}\n`
+    : ''
+
+  // Scrape — competitive nepotrebuje, audit/campaigns/strategy plný, ostatné skrátený
+  const scrapeBlock = scrape
+    ? `WEB SCRAPE:\n${
+        ['analysis', 'audit', 'strategy', 'campaigns'].includes(sectionKey)
+          ? scrape.slice(0, 8000)
+          : scrape.slice(0, 4000)
+      }\n`
+    : ''
+
   return `LEAD:
 Firma: ${lead.company_name || ''}
 Doména: ${lead.domain || ''}
 Odvetvie: ${lead.industry || lead.analysis?.company?.industry || ''}
 Lokalita: ${lead.city || lead.analysis?.company?.city || ''}
 
-PÔVODNÁ ANALÝZA (analyze-lead Edge fn):
-${JSON.stringify(lead.analysis || {}, null, 2).slice(0, 6000)}
+PÔVODNÁ ANALÝZA (slim):
+${slimAnalysis}
 
-MARKETING DATA:
-${JSON.stringify(lead.marketing_data || {}, null, 2).slice(0, 3000)}
-
-${scrape ? `WEB SCRAPE:\n${scrape}\n` : ''}
-
-${lead.premium_analysis ? `EXISTUJÚCE SEKCIE V PROPOSALI (referenčné pre koherenciu):\n${JSON.stringify(lead.premium_analysis, null, 2).slice(0, 5000)}\n` : ''}
-
-${customNotes ? `CUSTOM POŽIADAVKY: ${customNotes}\n` : ''}
+${mmBlock}${scrapeBlock}${coherenceBlock}${customNotes ? `CUSTOM POŽIADAVKY: ${customNotes}\n` : ''}
 
 ÚLOHA: Vygeneruj VÝLUČNE sekciu "${label}" pre marketingový proposal. Output je čistý JSON podľa system promptu.`
 }

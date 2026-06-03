@@ -3609,13 +3609,21 @@ info@adlify.eu | www.adlify.eu`
 
     let completed = 0;
     let failed = 0;
-    for (const sectionKey of selected) {
+    for (let i = 0; i < selected.length; i++) {
+      const sectionKey = selected[i];
       const sectionDef = this.PROPOSAL_SECTIONS.find(s => s.key === sectionKey);
       status.textContent = `[${completed + 1}/${selected.length}] Generujem: ${sectionDef.label}…`;
       const ok = await this._generateOneSection(sectionKey);
       if (ok) completed++; else failed++;
       // Re-render list aby user videl ✓ check pri novom sekcii
       this._renderSectionList();
+      // Pauza medzi sekciami — Anthropic tier rate limit 30K tokenov/min.
+      // Každá sekcia ~5-8K input tokenov, takže 3-4 za sebou = blizko limitu.
+      // 6s medzi volaniami (10/min) drží nás bezpečne pod limitom.
+      if (i < selected.length - 1) {
+        status.textContent += ' (pauza 6s pre rate limit)';
+        await new Promise(res => setTimeout(res, 6000));
+      }
     }
 
     status.textContent = `Hotovo · ${completed}/${selected.length} sekcií${failed ? ` (${failed} zlyhalo)` : ''}`;
@@ -3674,7 +3682,14 @@ info@adlify.eu | www.adlify.eu`
       return true;
     } catch (err) {
       console.error(`[Section] Error ${sectionKey}:`, err);
-      Utils.toast(`Sekcia ${sectionKey} zlyhala: ${err.message}`, 'error');
+      // Rate limit má vlastnú hlášku — user vie že treba počkať a nie že je niečo rozbité
+      const msg = String(err.message || err);
+      const isRate = /rate limit|429|exceed.*token/i.test(msg);
+      if (isRate) {
+        Utils.toast('Anthropic rate limit (30K tokenov/min). Počkaj 60s a skús znova — alebo regeneruj sekcie postupne, nie naraz.', 'warning');
+      } else {
+        Utils.toast(`Sekcia ${sectionKey} zlyhala: ${msg.slice(0, 200)}`, 'error');
+      }
       return false;
     }
   },
