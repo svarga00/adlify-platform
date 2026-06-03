@@ -260,11 +260,38 @@
           .from('client_users')
           .select('*, clients(*)')
           .eq('user_id', data.user.id)
-          .single();
+          .maybeSingle();
 
         if (clientError || !clientUser) {
+          // Auto-link recovery: pri registrácii (PR pred 020 migráciou)
+          // mohol INSERT do client_users zlyhať na RLS. Pokús sa nájsť klienta
+          // s rovnakým emailom a vytvor link teraz (RLS to dovoľuje cez
+          // policy "Users can insert own client_users" — user_id = auth.uid()).
+          console.log('client_users link chýba, pokúšam sa auto-link cez email match…');
+          const { data: matchingClient } = await db
+            .from('clients')
+            .select('id, name')
+            .eq('email', email)
+            .maybeSingle();
+
+          if (matchingClient) {
+            console.log('Match found, vytváram link:', matchingClient);
+            const { error: linkErr } = await db.from('client_users').insert({
+              client_id: matchingClient.id,
+              user_id: data.user.id,
+              role: 'owner',
+              is_primary: true,
+            });
+            if (!linkErr) {
+              message.innerHTML = '<div class="msg msg-success">Prihlásenie úspešné. Presmerovávam…</div>';
+              setTimeout(() => { window.location.href = '/portal/'; }, 800);
+              return;
+            }
+            console.warn('Auto-link failed:', linkErr.message);
+          }
+
           await db.auth.signOut();
-          throw new Error('Tento účet nie je prepojený so žiadnou firmou. Kontaktujte podporu.');
+          throw new Error('Tento účet nie je prepojený so žiadnou firmou. Napíšte nám na info@adlify.eu a doprepojíme to.');
         }
 
         message.innerHTML = '<div class="msg msg-success">Prihlásenie úspešné. Presmerovávam…</div>';

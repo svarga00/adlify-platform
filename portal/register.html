@@ -549,6 +549,17 @@
         // user_profiles sa vytvára automaticky cez on_auth_user_created trigger
         // (handle_new_user v DB). Ak by sa nejaké pole zmenilo, update urobíme neskôr.
 
+        // Ak email confirmation je vypnutý (Supabase Auth settings), session
+        // už existuje a INSERT prejde. Ak je zapnutý, session = null → INSERT
+        // by zlyhal na RLS. Skús sa hneď prihlásiť (môže fail ak email
+        // confirmation povinný, vtedy klient musí potvrdiť cez email link
+        // a INSERT urobíme pri prvom login cez post-login flow).
+        if (!authData.session && authData.user) {
+          console.log('No session after signUp — pokúšam sa hneď prihlásiť');
+          const { error: signInError } = await db.auth.signInWithPassword({ email, password });
+          if (signInError) console.warn('Auto sign-in failed (možno email confirmation povinný):', signInError.message);
+        }
+
         // Prepoj user na clienta
         const { error: linkError } = await db
           .from('client_users')
