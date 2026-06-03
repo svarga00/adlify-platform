@@ -77,20 +77,21 @@ const DashboardModule = {
       const portalClients = portalClientsResult?.data || [];
       // Mapuj client_id → company_name pre rýchle zobrazenie
       const clientsData = (clients || []).reduce((acc, c) => { acc[c.id] = c.company_name; return acc; }, {});
-      // Spočítaj správy per client_id (z všetkých messages aj sender_type='team' aj 'client')
-      const msgCountByClient = clientMessages.reduce((acc, m) => {
-        acc[m.client_id] = (acc[m.client_id] || 0) + 1;
-        return acc;
-      }, {});
-      const lastMsgByClient = clientMessages.reduce((acc, m) => {
-        if (!acc[m.client_id] || new Date(m.created_at) > new Date(acc[m.client_id])) {
-          acc[m.client_id] = m.created_at;
+      // Aggregát: total messages + unread + last activity per client_id
+      const msgStatsByClient = clientMessages.reduce((acc, m) => {
+        const cid = m.client_id;
+        if (!acc[cid]) acc[cid] = { total: 0, unread: 0, lastAt: null, lastContent: '' };
+        acc[cid].total++;
+        if (!m.is_read) acc[cid].unread++;
+        if (!acc[cid].lastAt || new Date(m.created_at) > new Date(acc[cid].lastAt)) {
+          acc[cid].lastAt = m.created_at;
+          acc[cid].lastContent = m.content || '';
         }
         return acc;
       }, {});
 
       // Render
-      container.innerHTML = this.template(stats, leads, clients, hotProspects, recentEvents, clientMessages, clientsData, portalClients, msgCountByClient, lastMsgByClient);
+      container.innerHTML = this.template(stats, leads, clients, hotProspects, recentEvents, clientMessages, clientsData, portalClients, msgStatsByClient);
       
       // Initialize charts
       this.initCharts(stats);
@@ -168,13 +169,11 @@ const DashboardModule = {
   /**
    * Dashboard template
    */
-  template(stats, leads, clients, hotProspects = [], recentEvents = [], clientMessages = [], clientsData = {}, portalClients = [], msgCountByClient = {}, lastMsgByClient = {}) {
+  template(stats, leads, clients, hotProspects = [], recentEvents = [], clientMessages = [], clientsData = {}, portalClients = [], msgStatsByClient = {}) {
     const recentLeads = leads
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
-    const unreadClientMsgs = clientMessages.filter(m => !m.is_read).length;
-    const clientMessagesWidget = this._renderClientMessagesWidget(clientMessages, clientsData, unreadClientMsgs);
-    const portalClientsWidget = this._renderPortalClientsWidget(portalClients, msgCountByClient, lastMsgByClient);
+    const portalClientsWidget = this._renderPortalClientsWidget(portalClients, msgStatsByClient);
 
     const DI = this._dashIcons();
     const mrrFormatted = Utils.formatCurrency(stats.clients.mrr);
@@ -429,21 +428,15 @@ const DashboardModule = {
         }
       </style>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:24px;" class="adl-dashboard-portal-row">
-        ${clientMessagesWidget}
+      <div style="margin-top:24px;">
         ${portalClientsWidget}
       </div>
-      <style>
-        @media (max-width: 1100px) {
-          .adl-dashboard-portal-row { grid-template-columns: 1fr !important; }
-        }
-      </style>
     </div>
     `;
   },
 
-  // Widget: Klienti v portáli — kto má prístup + aktivita
-  _renderPortalClientsWidget(portalClients, msgCountByClient, lastMsgByClient) {
+  // Widget: Klienti v portáli — kto má prístup, neprečítané správy, aktivita
+  _renderPortalClientsWidget(portalClients, msgStatsByClient) {
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const formatDate = (d) => {
       if (!d) return 'žiadna';
@@ -457,24 +450,27 @@ const DashboardModule = {
       return dt.toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' });
     };
 
-    // Dedupli — viacero client_users môže byť per client (team). Zachová posledný.
+    // Dedup po client_id
     const uniqueByClient = {};
     for (const cu of portalClients) {
       if (!cu.clients) continue;
-      const cid = cu.client_id;
-      if (!uniqueByClient[cid] || new Date(cu.created_at) > new Date(uniqueByClient[cid].created_at)) {
-        uniqueByClient[cid] = cu;
+      if (!uniqueByClient[cu.client_id] || new Date(cu.created_at) > new Date(uniqueByClient[cu.client_id].created_at)) {
+        uniqueByClient[cu.client_id] = cu;
       }
     }
     const items = Object.values(uniqueByClient);
+    // Sort: klienti s unread správami prv, potom najnovšia aktivita
     items.sort((a, b) => {
-      // Najnovšia aktivita prv
-      const aLast = lastMsgByClient[a.client_id] || a.created_at;
-      const bLast = lastMsgByClient[b.client_id] || b.created_at;
+      const aStats = msgStatsByClient[a.client_id] || {};
+      const bStats = msgStatsByClient[b.client_id] || {};
+      if ((bStats.unread || 0) !== (aStats.unread || 0)) return (bStats.unread || 0) - (aStats.unread || 0);
+      const aLast = aStats.lastAt || a.created_at;
+      const bLast = bStats.lastAt || b.created_at;
       return new Date(bLast) - new Date(aLast);
     });
 
     const totalCount = items.length;
+    const totalUnread = items.reduce((sum, cu) => sum + ((msgStatsByClient[cu.client_id]?.unread) || 0), 0);
 
     return `
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;">
@@ -483,35 +479,61 @@ const DashboardModule = {
           <div style="width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, #10b981, #14b8a6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">${totalCount}</div>
           <div>
             <div style="font-size:14px; font-weight:700; color:var(--ink);">Klienti v portáli</div>
-            <div style="font-size:11px; color:var(--ink-mute);">${totalCount === 0 ? 'Zatiaľ žiadni registrovaní' : totalCount + ' ' + (totalCount === 1 ? 'klient s prístupom' : 'klientov s prístupom')}</div>
+            <div style="font-size:11px; color:var(--ink-mute);">${totalCount === 0 ? 'Zatiaľ žiadni registrovaní' : `${totalCount} ${totalCount === 1 ? 'klient' : 'klientov'} · ${totalUnread} neprečítaných správ`}</div>
           </div>
         </div>
       </div>
       ${items.length === 0 ? `
         <div style="padding:32px 20px; text-align:center; color:var(--ink-mute); font-size:13px;">
-          Klient sa zatiaľ neregistroval do portálu. Po konverzii lead → klient mu pošlete onboarding link.
+          Klient sa zatiaľ neregistroval do portálu.
         </div>
-      ` : items.slice(0, 8).map(cu => {
+      ` : items.slice(0, 10).map(cu => {
         const c = cu.clients;
         const name = c.company_name || c.email || 'Klient';
-        const msgs = msgCountByClient[cu.client_id] || 0;
-        const lastActivity = lastMsgByClient[cu.client_id];
+        const stats = msgStatsByClient[cu.client_id] || { total: 0, unread: 0, lastAt: null, lastContent: '' };
+        const lastActivity = stats.lastAt || cu.created_at;
+        const preview = stats.lastContent ? (stats.lastContent.length > 80 ? stats.lastContent.slice(0, 77) + '…' : stats.lastContent) : '';
         return `
-        <a href="#clients?id=${cu.client_id}" style="display:flex; align-items:center; gap:12px; padding:12px 20px; text-decoration:none; color:inherit; border-top:1px solid var(--n-100); transition:background .12s;" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='transparent'">
-          <div style="width:34px; height:34px; border-radius:99px; background:linear-gradient(135deg, #10b981, #14b8a6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">${(name[0] || '?').toUpperCase()}</div>
-          <div style="flex:1; min-width:0;">
-            <div style="font-size:13px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(name)}</div>
-            <div style="font-size:11px; color:var(--ink-mute); margin-top:2px;">
-              ${msgs > 0 ? `<span style="color:#7c3aed; font-weight:600;">${msgs} ${msgs === 1 ? 'správa' : msgs < 5 ? 'správy' : 'správ'}</span> · ` : ''}
-              posledná aktivita ${formatDate(lastActivity || cu.created_at)}
+        <div style="display:flex; align-items:center; gap:12px; padding:12px 20px; border-top:1px solid var(--n-100); transition:background .12s; ${stats.unread > 0 ? 'background:rgba(124,58,237,0.04);' : ''}" onmouseover="this.style.background='var(--n-50)'" onmouseout="this.style.background='${stats.unread > 0 ? 'rgba(124,58,237,0.04)' : 'transparent'}'">
+          <a href="#clients?id=${cu.client_id}" style="display:flex; align-items:center; gap:12px; flex:1; min-width:0; text-decoration:none; color:inherit;">
+            <div style="width:34px; height:34px; border-radius:99px; background:linear-gradient(135deg, #10b981, #14b8a6); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0;">${(name[0] || '?').toUpperCase()}</div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:13px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(name)}</strong>
+                ${stats.unread > 0 ? `<span style="display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:99px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; font-size:11px; font-weight:700;">${stats.unread}</span>` : ''}
+              </div>
+              <div style="font-size:11px; color:var(--ink-mute); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                ${preview ? esc(preview) + ' · ' : ''}${formatDate(lastActivity)}
+              </div>
             </div>
-          </div>
+          </a>
           <span style="font-size:10px; padding:2px 8px; border-radius:99px; background:${c.status === 'active' ? '#dcfce7' : '#fef3c7'}; color:${c.status === 'active' ? '#166534' : '#92400e'}; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">${esc(c.status || 'pending')}</span>
-        </a>
+          ${stats.total > 0 ? `
+          <button onclick="DashboardModule.deleteClientMessages('${cu.client_id}', '${esc(name).replace(/'/g, '&apos;')}')" title="Vymazať všetky správy od tohto klienta" style="background:none; border:0; color:var(--ink-mute); cursor:pointer; padding:6px 8px; border-radius:6px; transition:all .12s;" onmouseover="this.style.background='#fee2e2'; this.style.color='#dc2626'" onmouseout="this.style.background='none'; this.style.color='var(--ink-mute)'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M6 6l1 14a2 2 0 002 2h6a2 2 0 002-2l1-14"/></svg>
+          </button>` : ''}
+        </div>
         `;
       }).join('')}
     </div>
     `;
+  },
+
+  async deleteClientMessages(clientId, clientName) {
+    if (!confirm(`Vymazať VŠETKY správy od klienta "${clientName}"?\n\nTáto akcia je nevratná — odstránia sa všetky správy z DB messages tabuľky pre tohto klienta.`)) return;
+    try {
+      const { error } = await Database.client.from('messages').delete().eq('client_id', clientId);
+      if (error) throw error;
+      // Re-render dashboard
+      const container = document.getElementById('dashboard-container') || document.querySelector('[data-route="dashboard"]') || document.body.querySelector('main, #app, .content');
+      if (container) {
+        await this.render(container);
+      } else {
+        location.reload();
+      }
+    } catch (err) {
+      alert('Vymazanie zlyhalo: ' + (err.message || err));
+    }
   },
 
   // Widget: Klientske správy z portálu (sender_type='client')
