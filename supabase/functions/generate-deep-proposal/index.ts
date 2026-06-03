@@ -26,7 +26,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5'
+const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
 // ============================================================
 // SECTION MODE — generuj len konkrétnu sekciu premium_analysis.
