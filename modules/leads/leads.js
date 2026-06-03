@@ -3939,15 +3939,25 @@ Odkaz je platný 30 dní.
       || Number(assumptions.conversion_rate_pct) || Number(roi.conversion_rate) || 5;
     const ltvMul = Number(userROIAssump.ltv_multiplier) || Number(assumptions.ltv_multiplier) || 1.5;
     const ltvEur = Number(userROIAssump.ltv_eur) || Number(assumptions.ltv_eur) || Math.round(aovEur * ltvMul);
-    const cplEur = Number(roiMid.cpl_eur) || 50;
-    const monthlyBudget = moderate; // z budget sekcie (b.recommendations.recommended.adSpend)
-    // ROI musí VŽDY vychádzať z aktuálneho rozpočtu, nie z Claude-precomputed
-    // hodnôt (tie boli vypočítané s iným budgetom než user teraz nastavil).
-    // Tým keď user zmení Odporúčaný 600 → 1000, ROI sekcia sa lineárne prepočíta.
-    const computedLeads = Math.round(monthlyBudget / cplEur);
+    // ROI v sekcii 9 musí použiť ROVNAKÝ vzorec ako sekcia 8 (Rozpočet),
+    // inak sa čísla rozchádzajú a klient stratí dôveru:
+    //   Sekcia 8: leads = (rozpocet / avgCpc) × 3-5% (web-to-lead conversion z klikov)
+    //   Sekcia 9: rovnaké → použij stredú hodnotu (4 % avg) z odporúčaného rozpočtu
+    //
+    // Rozdiel oproti pôvodnému ROI vzorcu (budget / 50€ CPL):
+    //   - Pri budgete 1500€, avgCpc 0.83€: clicks=1807, leads 4%=72
+    //   - Starý vzorec dával budget/50 = 30 leadov → konflikt so sekciou 8
+    const monthlyBudget = moderate;
+    const recommendedStats = calcBudgetStats(monthlyBudget);
+    // Stredná hodnota z expectedLeads range (3-5% web-to-lead conversion)
+    const computedClicks = recommendedStats.expectedClicks;
+    const computedLeads = Math.round(computedClicks * 0.04); // 4 % avg
+    // ROI assumptions: každý lead × CR (lead-to-customer) × AOV × LTV
     const computedConversions = Math.round(computedLeads * (crPct / 100));
     const computedRevenue = Math.round(computedConversions * aovEur * ltvMul);
     const computedROI = monthlyBudget > 0 ? Math.round((computedRevenue / monthlyBudget) * 100) : 0;
+    // CPL pre transparency note
+    const cplEur = computedLeads > 0 ? Math.round(monthlyBudget / computedLeads) : 0;
 
     const r = {
       projection: {
@@ -3963,7 +3973,7 @@ Odkaz je platný 30 dní.
       month_1: roi.month_1,
       month_3: roi.month_3,
       month_6: roi.month_6,
-      explanation: `ROI kalkulácia vychádza z mesačného rozpočtu ${monthlyBudget.toLocaleString('sk-SK')} €, priemernej hodnoty objednávky ${aovEur.toLocaleString('sk-SK')} €, konverzného pomeru ${crPct}% z leadov na zákazku a LTV multiplikátora ${ltvMul}× (opakované objednávky, referraly). Pri ${computedLeads} leadoch mesačne a ${crPct}% konverzii dosiahneme ROI ${computedROI}%.`
+      explanation: `Výpočet vychádza z rovnakého rozpočtu a CPC ako sekcia 8 (Rozpočet) — pri ${monthlyBudget.toLocaleString('sk-SK')} €/mes a priemernej CPC ${b.avgCpc} € dostaneme ~${computedClicks} klikov, z toho ${computedLeads} dopytov (4 % web-to-lead konverzia). Pri konverznom pomere ${crPct} % z dopytu na zákazku, priemernej hodnote objednávky ${aovEur.toLocaleString('sk-SK')} € a LTV multiplikátore ${ltvMul}× (opakované objednávky, referraly) dosiahneme ROI ${computedROI} %.`
     };
 
     // proposedCampaigns — Google, Meta, Instagram, LinkedIn, Display
