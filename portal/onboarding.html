@@ -39,6 +39,10 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-screen h1 { font-size: 18px; font-weight: 700; color: var(--ink); margin: 12px 0 4px; }
     .error-screen p { color: var(--ink-sub); margin-bottom: 16px; max-width: 420px; }
+    /* Onboarding module používa .gradient-bg ale nedefinuje ho — bez tohto je
+       tlačidlo "Ďalej" biele na bielom pozadí = neviditeľné */
+    .gradient-bg { background: linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #f97316 100%); }
+    .gradient-bg:hover { background: linear-gradient(135deg, #6d28d9 0%, #db2777 50%, #ea580c 100%); }
   </style>
 </head>
 <body>
