@@ -4960,6 +4960,7 @@ ${k.topKeywords?.length ? `
         <tr>
           <th>Kľúčové slovo</th>
           <th style="text-align: center;">Mesačná hľadanosť</th>
+          <th style="text-align: center;">Konkurencia</th>
           <th style="text-align: center;">Charakter dopytu</th>
           <th style="text-align: right;">Cena za klik</th>
         </tr>
@@ -4967,13 +4968,18 @@ ${k.topKeywords?.length ? `
       <tbody>
         ${k.topKeywords.slice(0, 10).map(kw => {
           const intentMap = { buy: 'nákupný', info: 'informačný', brand: 'značkový', transactional: 'transakčný', commercial: 'komerčný', research: 'výskumný' };
-          const intentLabel = kw.intent ? (intentMap[kw.intent] || kw.intent) : (kw.competition || '–');
-          const intentClass = kw.intent === 'buy' || kw.competition === 'nízka' ? 'tag-success' : kw.intent === 'info' || kw.competition === 'vysoká' ? 'tag-warning' : 'tag-light';
+          const intentLabel = kw.intent ? (intentMap[kw.intent] || kw.intent) : '–';
+          const intentClass = kw.intent === 'buy' || kw.intent === 'transactional' || kw.intent === 'commercial' ? 'tag-success' : kw.intent === 'info' || kw.intent === 'research' ? 'tag-warning' : 'tag-light';
+          // Konkurencia — z MM data alebo odhad z CPC (nízka <0.5€, stredná 0.5-1.5€, vysoká >1.5€)
+          const cpcNum = typeof kw.cpc === 'number' ? kw.cpc : parseFloat(String(kw.cpc || '0').replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+          const comp = kw.competition || (cpcNum < 0.5 ? 'nízka' : cpcNum > 1.5 ? 'vysoká' : 'stredná');
+          const compClass = comp === 'nízka' ? 'tag-success' : comp === 'vysoká' ? 'tag-warning' : 'tag-light';
           const cpcVal = typeof kw.cpc === 'number' ? kw.cpc.toFixed(2) + ' €' : (kw.cpc ? String(kw.cpc).replace(/€?$/, '').trim() + ' €' : '–');
           return `
           <tr>
             <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
             <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString('sk-SK') : (kw.searchVolume || '–')}</td>
+            <td style="text-align: center;"><span class="tag ${compClass}">${comp}</span></td>
             <td style="text-align: center;"><span class="tag ${intentClass}">${intentLabel}</span></td>
             <td style="text-align: right; font-weight: 700; color: #FF6B35;">${cpcVal}</td>
           </tr>
@@ -5493,6 +5499,49 @@ ${r.projection ? `
   </div>
 </section>
 
+<!-- Page 12b: Ako funguje spolupráca -->
+<section class="page page-gray">
+  <div class="page-content">
+    <h2 class="section-title"><span class="section-badge">13</span> Ako funguje spolupráca</h2>
+    <div class="section-divider"></div>
+    <p class="section-subtitle">Štyri jednoduché kroky od dohody po prvé výsledky. Vy sa venujete svojmu biznisu, my výkonu kampaní.</p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:18px; margin-top:32px;">
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">1</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Konzultácia</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">30 minútový hovor — preberieme tento návrh, vaše ciele a špecifiká. Bezplatne, bez záväzku.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Do 24 hodín od záujmu</div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">2</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Audit + onboarding</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Detailný audit vašich existujúcich aktivít (web, tracking, kampane) + finalizujeme stratégiu, zľadíme prístupy.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Týždeň 1</div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">3</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Spustenie kampaní</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Setup Google Ads, Meta Ads a tracking. Pilotné kampane s konzervatívnym budgetom — testujeme čo funguje.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Týždeň 2</div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px 22px; position:relative;">
+        <div style="position:absolute; top:-14px; left:22px; width:34px; height:34px; background:linear-gradient(135deg,#7c3aed,#ec4899); color:#fff; border-radius:99px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">4</div>
+        <h3 style="font-size:15px; font-weight:700; margin:14px 0 8px; color:#1a1a2e;">Optimalizácia & scale</h3>
+        <p style="font-size:13px; color:#475569; line-height:1.65; margin:0;">Týždenná optimalizácia, A/B testy, škálovanie čo dobre performuje. Mesačný report + strategická konzultácia.</p>
+        <div style="margin-top:12px; font-size:11px; color:#7c3aed; font-weight:600;">Od týždňa 3</div>
+      </div>
+    </div>
+
+    <div style="margin-top:32px; padding:18px 22px; background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(236,72,153,0.06)); border-radius:12px; text-align:center; font-size:13px; color:#475569;">
+      Komunikácia ide cez <strong>WhatsApp / Slack / email</strong> podľa vašej preferencie. Reakčný čas typicky <strong>do 4 hodín v pracovné dni</strong>.
+    </div>
+  </div>
+</section>
+
 <!-- Page 13: CTA -->
 <section class="page page-white">
   <div class="page-content">
@@ -5531,7 +5580,7 @@ ${r.projection ? `
 <!-- Footer -->
 <footer class="footer">
   <img src="${this.LOGO}" alt="Adlify" class="footer-logo" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;color:#94a3b8;margin-bottom:20px;\\'>ADLIFY</div>'">
-  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s ️ pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
+  <p style="margin-bottom: 10px; color: #64748b;">© ${new Date().getFullYear()} Adlify.eu | Vytvorené s <span style="color:#ef4444;">♥</span> pre <strong style="color: #1a1a2e;">${c.name || lead.company_name}</strong></p>
   <p style="font-size: 0.85rem; color: #94a3b8;">Táto prezentácia je dôverná a je určená výhradne pre ${c.name || lead.company_name}</p>
 </footer>
 
