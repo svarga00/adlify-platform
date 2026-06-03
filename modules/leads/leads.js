@@ -2168,14 +2168,13 @@ const LeadsModule = {
   MM_REPORT_DETECTORS: [
     { key: 'contact_finder',   sheets: ['Contact Finder'],                  label: 'Contact Finder' },
     { key: 'keyword_volumes',  sheets: ['Search Volume', 'Hľadanosť fráz', 'Hledanost frází'], label: 'Hľadanosť fráz' },
-    { key: 'ppc_competitors',  sheets: ['PPC', 'PPC reklamy', 'PPC Ads'],   label: 'PPC reklamy' },
-    { key: 'serp_analysis',    sheets: ['SERP', 'Analýza SERP', 'SERP Analysis'], label: 'Analýza SERP' },
-    { key: 'positions',        sheets: ['Position', 'Pozícia vo vyhľadávačoch', 'Position Check', 'Positions'], label: 'Pozícia vo vyhľadávačoch', csvHeaderMatch: ['keyword', 'position'] },
+    { key: 'ppc_competitors',  sheets: ['SERP Ads', 'PPC', 'PPC reklamy', 'PPC Ads'],   label: 'PPC reklamy / SERP Ads' },
+    { key: 'serp_analysis',    sheets: ['SERP Analysis', 'SERP', 'Analýza SERP'], label: 'Analýza SERP' },
+    { key: 'positions',        sheets: ['SERP Position', 'Position', 'Pozícia vo vyhľadávačoch', 'Position Check', 'Positions'], label: 'Pozícia vo vyhľadávačoch', csvHeaderMatch: ['keyword', 'position'] },
     { key: 'web_category',     sheets: ['Website Categorization', 'Kategorizácia webu'], label: 'Kategorizácia webu' },
     { key: 'tech_detection',   sheets: ['Technology Detection', 'Detekcia technológií'], label: 'Detekcia technológií' },
     { key: 'dns_info',         sheets: ['DNS Info'], label: 'DNS info' },
     { key: 'keyword_suggest',  sheets: ['Suggestions', 'Návrhy kľúčových slov', 'Keyword Suggestions'], label: 'Návrhy kľúčových slov' },
-    { key: 'majestic_domain',  sheets: ['Majestic', 'Majestic (Domain)'], label: 'Majestic (autorita domény)' },
     // SEO audit bundle — MM kombinuje viaceré checks do jedného XLSX
     { key: 'seo_audit',        sheets: ['Content Analysis', 'Indexability Checker', 'Index Checker'], label: 'SEO audit (obsah + indexácia)' },
     { key: 'broken_links',     sheets: ['Broken Link Checker'], label: 'Nefunkčné odkazy (404)' },
@@ -2246,16 +2245,14 @@ const LeadsModule = {
       <details style="margin-top:16px;" open>
         <summary style="cursor:pointer; font-size:13px; color:var(--ink); font-weight:600;">📋 Postup ako vygenerovať reporty v MM</summary>
         <div style="font-size:13px; color:var(--ink); line-height:1.7; margin-top:10px;">
-          <p style="margin:0 0 8px;"><b>A. Per-doména reporty</b> (input = <code>${lead.domain || 'firma.sk'}</code>, spolu ~7 kreditov)</p>
+          <p style="margin:0 0 8px;"><b>A. Per-doména reporty</b> (input = <code>${lead.domain || 'firma.sk'}</code>, spolu ~5 kreditov — dostaneš 1 bundle XLSX)</p>
           <ol style="padding-left:20px; margin:0 0 16px;">
-            <li><b>Contact Finder</b> (3 kr) → XLSX (emails + social URL)</li>
-            <li><b>Kategorizácia webu</b> (1 kr)</li>
-            <li><b>Detekcia technológií</b> (1 kr)</li>
-            <li><b>Majestic (Domain)</b> (1 kr) — autorita / backlinks</li>
-            <li><b>DNS Info</b> (1 kr) — voliteľné</li>
+            <li><b>Contact Finder</b> (3 kr) → emails + social URL</li>
+            <li><b>Kategorizácia webu</b> (1 kr) → Company / E-shop / ...</li>
+            <li><b>Detekcia technológií</b> (1 kr) → CMS / tech stack</li>
           </ol>
 
-          <p style="margin:0 0 8px;"><b>B. SEO audit</b> (input = doména alebo URL podstránok, spolu ~25 kreditov, dostaneš 1 bundle XLSX)</p>
+          <p style="margin:0 0 8px;"><b>B. SEO audit</b> (input = doména a kľúčové podstránky, spolu ~25-35 kreditov — typicky 1 bundle XLSX so všetkými sheetmi)</p>
           <ol style="padding-left:20px; margin:0 0 16px;">
             <li><b>Analýza obsahu</b> (3 kr) — title, meta, words per page</li>
             <li><b>Kontrola indexácie</b> (15 kr) — či Google indexuje stránky</li>
@@ -2266,17 +2263,16 @@ const LeadsModule = {
             <li><b>Kontrola odkazov</b> (3 kr) — backlink overview</li>
           </ol>
 
-          <p style="margin:0 0 8px;"><b>C. Keyword research</b> (input = zoznam KW, spolu ~33 kreditov)</p>
+          <p style="margin:0 0 8px;"><b>C. Keyword research</b> (input = zoznam 10-15 KW, spolu ~23 kreditov — MM ich vyrobí v jednom bundle XLSX so 4 sheetmi: Search Volume + SERP Position + SERP Ads + SERP Analysis)</p>
           <ol style="padding-left:20px; margin:0 0 16px;">
             <li>Pozri si KW v AI analýze leadu (sekcia "Kľúčové slová" v náhľade ponuky) — skopíruj top 10-15</li>
-            <li><b>Hľadanosť fráz</b> (3 kr) → XLSX</li>
-            <li><b>Pozícia vo vyhľadávačoch</b> (10 kr) → CSV (uložiť ako CSV, nie XLSX)</li>
-            <li><b>PPC reklamy</b> (10 kr) — top 5-8 KW</li>
-            <li><b>Analýza SERP</b> (10 kr) — top 5 KW</li>
+            <li>V MM si vyber sekcie: <b>Hľadanosť fráz</b> (3) + <b>Pozícia vo vyhľadávačoch</b> (10) + <b>PPC reklamy</b> (10) + <b>Analýza SERP</b> (10) — vlož všetky KW</li>
+            <li>Po dokončení stiahni XLSX (obsahuje všetky 4 reporty v jednom)</li>
+            <li>Voliteľne: <b>Pozícia vo vyhľadávačoch</b> (10 kr) samostatne ako CSV — má detailnejší per-KW report s difficulty + estimated traffic</li>
           </ol>
 
           <p style="margin:8px 0; padding:10px 12px; background:var(--brand-50); border-radius:8px; color:var(--ink); font-size:12px;">
-            <b>Spolu: ~65 kreditov · ~5-7 min per lead.</b> Všetky súbory pretiahni naraz do dropzóny vyššie — systém ich rozpozná automaticky.
+            <b>Spolu: ~55-65 kreditov · ~5-7 min per lead.</b> Stiahnuté XLSX/CSV súbory pretiahni naraz do dropzóny vyššie — systém ich rozpozná automaticky.
             Potom klikni „Vygenerovať návrh kampane" v hornom paneli — AI dostane MM dáta ako autoritatívne a vytvorí proposal s reálnymi číslami a menami konkurentov.
           </p>
         </div>
@@ -2432,40 +2428,90 @@ const LeadsModule = {
         };
       }
       case 'keyword_volumes': {
-        const kws = slim.map(r => ({
-          keyword: r['Keyword'] || r['Kľúčové slovo'] || r['Klíčové slovo'] || Object.values(r)[0],
-          search_volume: r['Search Volume'] || r['Hľadanosť'] || r['Hledanost'] || null,
-          cpc_eur: r['CPC'] || r['CPC (EUR)'] || null,
-          competition: r['Competition'] || r['Konkurencia'] || null,
-        })).filter(k => k.keyword);
+        // MM KW report má columns: "Input" (keyword), "Google Search Volume [MM]",
+        // "Google CPC [EUR]", "Google YoY Change [%]", "Strongest Month",
+        // "Search Volatility [%]" + mesačné dáta January..December.
+        // Staršie/iné MM formáty: "Keyword" + "Search Volume" + "CPC".
+        const kws = slim.map(r => {
+          const keyword = r['Input'] || r['Keyword'] || r['Kľúčové slovo'] || r['Klíčové slovo'] || Object.values(r)[0];
+          const vol = r['Google Search Volume [MM]'] ?? r['Search Volume'] ?? r['Hľadanosť'] ?? r['Hledanost'] ?? null;
+          const cpc = r['Google CPC [EUR]'] ?? r['CPC'] ?? r['CPC (EUR)'] ?? null;
+          const yoy = r['Google YoY Change [%]'] != null ? parseFloat(r['Google YoY Change [%]']) : null;
+          const peak = r['Strongest Month'] || null;
+          const volatility = r['Search Volatility [%]'] != null ? parseFloat(r['Search Volatility [%]']) : null;
+          return {
+            keyword,
+            search_volume: vol != null ? parseInt(vol, 10) : null,
+            cpc_eur: cpc != null ? parseFloat(cpc) : null,
+            yoy_change_pct: yoy,
+            peak_month: peak,
+            volatility_pct: volatility,
+            competition: r['Competition'] || r['Konkurencia'] || null,
+          };
+        }).filter(k => k.keyword);
         const totalVol = kws.reduce((a, k) => a + (Number(k.search_volume) || 0), 0);
-        return { rows: slim, keywords: kws, summary: `${kws.length} KW · spolu ${totalVol.toLocaleString('sk-SK')} hľadaní/mes` };
+        const validCpc = kws.filter(k => k.cpc_eur != null && k.cpc_eur > 0).map(k => k.cpc_eur);
+        const avgCpc = validCpc.length ? +(validCpc.reduce((a, c) => a + c, 0) / validCpc.length).toFixed(2) : null;
+        return { rows: slim, keywords: kws, total_volume: totalVol, avg_cpc_eur: avgCpc, summary: `${kws.length} KW · ${totalVol.toLocaleString('sk-SK')} hľadaní/mes · ⌀ CPC ${avgCpc != null ? avgCpc + ' €' : '—'}` };
       }
       case 'ppc_competitors': {
-        // Konkurenti v PPC + ich ads
-        const ads = slim.map(r => ({
-          keyword: r['Keyword'] || r['Kľúčové slovo'] || null,
-          competitor_domain: r['Domain'] || r['Doména'] || r['URL'] || null,
-          ad_title: r['Title'] || r['Headline'] || r['Nadpis'] || null,
-          ad_description: r['Description'] || r['Popis'] || null,
-        })).filter(a => a.competitor_domain || a.ad_title);
-        const competitors = [...new Set(ads.map(a => a.competitor_domain).filter(Boolean))];
-        return { rows: slim, ads, competitors, summary: `${ads.length} reklám · ${competitors.length} konkurentov` };
+        // Dva formáty:
+        // A) MM SERP Ads sheet: Input (KW), Engine, Title, Description, Position
+        //    ('header'/'footer'), Rank, URL — Domain v URL treba parsenuť
+        // B) Legacy: Domain, Title, Description, Keyword
+        const getDomain = (url) => {
+          if (!url) return null;
+          try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
+        };
+        const ads = slim.map(r => {
+          const url = r['URL'] || r['Url'] || null;
+          return {
+            keyword: r['Input'] || r['Keyword'] || r['Kľúčové slovo'] || null,
+            engine: r['Engine'] || 'Google',
+            ad_position: r['Position'] || null,   // 'header' / 'footer'
+            ad_rank: r['Rank'] != null ? parseInt(r['Rank'], 10) : null,
+            url,
+            competitor_domain: r['Domain'] || r['Doména'] || getDomain(url),
+            ad_title: r['Title'] || r['Headline'] || r['Nadpis'] || null,
+            ad_description: r['Description'] || r['Popis'] || null,
+          };
+        }).filter(a => a.competitor_domain || a.ad_title || a.url);
+        const competitorCounts = {};
+        ads.forEach(a => {
+          if (a.competitor_domain && a.competitor_domain !== 'google.com') {
+            competitorCounts[a.competitor_domain] = (competitorCounts[a.competitor_domain] || 0) + 1;
+          }
+        });
+        const topCompetitors = Object.entries(competitorCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([domain, count]) => ({ domain, ad_count: count }));
+        return { rows: slim, ads, top_competitors: topCompetitors, summary: `${ads.length} reklám · top: ${topCompetitors.slice(0,3).map(c => c.domain).join(', ') || '—'}` };
       }
       case 'serp_analysis': {
+        // MM SERP Analysis sheet: Input (KW), Engine, Position, Type
+        // ('Search Results'/'Ad Results'/'Page One Extra'), Domain, URL,
+        // Features, Title, Description. Position 0 = ads/features, 1-10 organické.
         const results = slim.map(r => ({
-          keyword: r['Keyword'] || r['Kľúčové slovo'] || null,
-          position: parseInt(r['Position'] || r['Pozícia'] || 0, 10),
+          keyword: r['Input'] || r['Keyword'] || r['Kľúčové slovo'] || null,
+          engine: r['Engine'] || 'Google',
+          position: r['Position'] != null ? parseInt(r['Position'], 10) : null,
+          type: r['Type'] || null,
           url: r['URL'] || null,
           domain: r['Domain'] || r['Doména'] || null,
+          features: r['Features'] || null,
           title: r['Title'] || r['Nadpis'] || null,
+          description: r['Description'] || null,
         })).filter(r => r.url || r.domain);
+        // Top konkurenti = doména v Search Results pozícii 1-10 (nie Ad Results / Page One Extra)
         const topDomains = {};
         results.forEach(r => {
-          if (r.domain && r.position <= 10) topDomains[r.domain] = (topDomains[r.domain] || 0) + 1;
+          if (r.domain && r.type === 'Search Results' && r.position >= 1 && r.position <= 10) {
+            topDomains[r.domain] = (topDomains[r.domain] || 0) + 1;
+          }
         });
         const sortedDomains = Object.entries(topDomains).sort((a, b) => b[1] - a[1]).slice(0, 10);
-        return { rows: slim, results, top_competitors: sortedDomains.map(([d, c]) => ({ domain: d, top10_count: c })), summary: `${results.length} výsledkov · top: ${sortedDomains.slice(0,3).map(([d]) => d).join(', ')}` };
+        return { rows: slim, results, top_competitors: sortedDomains.map(([d, c]) => ({ domain: d, top10_count: c })), summary: `${results.length} SERP entries · top: ${sortedDomains.slice(0,3).map(([d]) => d).join(', ') || '—'}` };
       }
       case 'positions': {
         const pos = slim.map(r => ({
@@ -2504,19 +2550,27 @@ const LeadsModule = {
         return { rows: slim, suggestions: kws, summary: `${kws.length} návrhov KW` };
       }
       case 'positions': {
-        // CSV z MM: keyword, url, position, position_change, total_position,
-        // difficulty, search_volume, estimated_traffic, result_type, serp_features
+        // Tri zdroje:
+        // A) CSV z MM Positions: keyword,url,position,difficulty,search_volume,
+        //    estimated_traffic,result_type,serp_features
+        // B) MM SERP Position sheet (v KW report bundle): Input, Domain,
+        //    Google SERP Feature, Google Position, Google Number of results,
+        //    Google Landing Page, Google Title
+        // C) Iný MM Position Check format
         const pos = slim.map(r => ({
-          keyword: r.keyword || r['Keyword'],
-          url: r.url || r['URL'],
-          position: parseInt(r.position || r['Position'] || 0, 10) || null,
+          keyword: r.keyword || r['Keyword'] || r['Input'] || null,
+          url: r.url || r['URL'] || r['Google Landing Page'] || null,
+          domain: r.domain || r['Domain'] || null,
+          position: parseInt(r.position || r['Position'] || r['Google Position'] || 0, 10) || null,
           position_change: parseInt(r.position_change || 0, 10) || 0,
           difficulty: r.difficulty ? parseInt(r.difficulty, 10) : null,
           search_volume: r.search_volume ? parseInt(r.search_volume, 10) : null,
           estimated_traffic: r.estimated_traffic ? parseInt(r.estimated_traffic, 10) : 0,
-          result_type: r.result_type || null,
-          serp_features: r.serp_features || null,
+          result_type: r.result_type || r['Type'] || null,
+          serp_features: r.serp_features || r['Google SERP Feature'] || null,
+          title: r['Google Title'] || r['Title'] || null,
         })).filter(p => p.keyword);
+        const ranking = pos.filter(p => p.position && p.position <= 100);
         const top10 = pos.filter(p => p.position && p.position <= 10);
         const top3 = pos.filter(p => p.position && p.position <= 3);
         const totalTraffic = pos.reduce((a, p) => a + (p.estimated_traffic || 0), 0);
@@ -2525,8 +2579,8 @@ const LeadsModule = {
           rows: slim,
           positions: pos,
           top_10: top10,
-          stats: { total: pos.length, top_3: top3.length, top_10: top10.length, est_monthly_traffic: totalTraffic, total_search_volume: totalVolume },
-          summary: `${top10.length}/${pos.length} v top 10 · ${totalTraffic} traffic/mes · ${totalVolume.toLocaleString('sk-SK')} celkový volume`
+          stats: { total: pos.length, ranking_top100: ranking.length, top_3: top3.length, top_10: top10.length, est_monthly_traffic: totalTraffic, total_search_volume: totalVolume },
+          summary: `${top10.length}/${pos.length} v top 10${totalTraffic ? ` · ${totalTraffic} traffic/mes` : ''}${totalVolume ? ` · ${totalVolume.toLocaleString('sk-SK')} celkový volume` : ''}`
         };
       }
       case 'seo_audit': {

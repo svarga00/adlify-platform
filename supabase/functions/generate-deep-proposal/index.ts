@@ -514,14 +514,14 @@ function buildSectionContext(lead: any, scrape: string, customNotes: string, sec
 
   // Per-section relevance — ktoré MM reporty má daná sekcia vidieť
   const mmRelevance: Record<string, string[]> = {
-    analysis:   ['contact_finder', 'web_category', 'tech_detection', 'majestic_domain', 'seo_audit', 'positions'],
-    audit:      ['contact_finder', 'web_category', 'tech_detection', 'majestic_domain', 'seo_audit', 'broken_links', 'structured_data', 'validity', 'status_codes', 'positions'],
+    analysis:   ['contact_finder', 'web_category', 'tech_detection', 'seo_audit', 'positions'],
+    audit:      ['contact_finder', 'web_category', 'tech_detection', 'seo_audit', 'broken_links', 'structured_data', 'validity', 'status_codes', 'positions'],
     keywords:   ['keyword_volumes', 'keyword_suggest', 'serp_analysis', 'positions'],
     strategy:   ['keyword_volumes', 'ppc_competitors', 'serp_analysis', 'web_category', 'positions'],
     campaigns:  ['ppc_competitors', 'keyword_volumes', 'serp_analysis', 'positions'],
     budget:     ['keyword_volumes', 'ppc_competitors', 'positions'],
-    competitive: ['ppc_competitors', 'serp_analysis', 'majestic_domain', 'positions'],
-    summary:    ['web_category', 'majestic_domain', 'seo_audit', 'positions'],
+    competitive: ['ppc_competitors', 'serp_analysis', 'positions'],
+    summary:    ['web_category', 'seo_audit', 'positions'],
   }
   const relevantKeys = mmRelevance[sectionKey] || []
   const slimMMReports: Record<string, any> = {}
