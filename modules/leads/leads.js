@@ -2582,7 +2582,7 @@ const LeadsModule = {
       subject: 'Návrh marketingovej stratégie pre {{company}}',
       body_html: `Dobrý deň,
 
-ďakujem za záujem o spoluprácu. Po analýze webu {{company}} sme pre Vás pripravili konkrétny návrh — kde vidíme príležitosti, čo by sme spravili a aký výsledok očakávame.
+ďakujeme za záujem o spoluprácu. Po analýze webu {{company}} sme pre Vás pripravili konkrétny návrh — kde vidíme príležitosti, čo by sme spravili a aký výsledok očakávame.
 
 [[Otvoriť návrh|{{audit_request_url}}]]
 
@@ -2596,7 +2596,7 @@ V návrhu nájdete:
 Stačí napísať email späť alebo si rezervovať konzultáciu.
 
 S pozdravom,
-Štefan Varga · Adlify
+Tím Adlify
 info@adlify.eu`
     },
     {
