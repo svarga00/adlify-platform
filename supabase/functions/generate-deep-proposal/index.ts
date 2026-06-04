@@ -1228,68 +1228,138 @@ async function runPremiumGeneration(
     console.log(`[premium] Context built, len=${context.length}, lang=${lang}`)
 
     // Dynamic max_tokens podľa modelu — Edge fn má hard wall-clock 150s
-    // (Free tier). Anthropic call musí byť < 110s aby sme mali rezervu pre
-    // parse+DB. Output token rates pri SK próze:
-    //   Haiku 4.5:  150-300 tok/s → 12K = 40-80s ✓ bezpečne
-    //   Sonnet 4.6:  50-100 tok/s → 6K  = 60-120s ⚠️ tesné
-    //   Opus 4.8:    25-50 tok/s → 3K  = 60-120s ⚠️ riziko
-    const maxTokens = model.includes('haiku') ? 12000
+    // (Free tier). Output token rates:
+    //   Haiku 4.5: 150-300 tok/s → 8K = 27-53s ✓ veľká rezerva
+    //   Sonnet 4.6: 50-100 tok/s → 5K = 50-100s ⚠️ tesné
+    //   Opus 4.8:  25-50 tok/s → 3K = 60-120s ⚠️ riziko na Free tier
+    const maxTokens = model.includes('haiku') ? 8000
                     : model.includes('opus') ? 3000
-                    : 6000  // sonnet/default — znížené pre 150s Edge limit
-    console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}, starting Anthropic call`)
+                    : 5000  // sonnet/default
+    console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}, starting STREAMING Anthropic call`)
 
-    // Anthropic timeout — agresívne 110s. Ak by sa AI zaseklo, abort fires
-    // → catch handler ulží error STATUS predtým než Edge runtime nás zabije
-    // pri 150s. Predtým 135s + 5s DB write občas spadlo do 150s killer.
+    // STREAMING — kľúčový fix. Predtým sme čakali na celý response (až 110s
+    // pri Haiku 12K). Teraz tokeny prichádzajú postupne (SSE). Ak abort fire,
+    // máme čiastočnú odpoveď a parser z nej vyrobí proposal.
     const anthropicAbort = new AbortController()
     const anthropicStartMs = Date.now()
+    // Soft timeout: po 90s ABORT-neme stream, ale to čo už máme spracujeme.
+    // 60s rezerva pre parse + DB write pred 150s Edge kill.
     const anthropicTimeout = setTimeout(() => {
-      console.error(`[premium] ⛔ Anthropic timeout fired po ${(Date.now() - anthropicStartMs) / 1000}s — abortujem`)
+      console.warn(`[premium] ⚠️ Anthropic stream timeout po ${(Date.now() - anthropicStartMs) / 1000}s — abortujem stream a používam čiastočnú odpoveď`)
       anthropicAbort.abort()
-    }, 110000)
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: anthropicAbort.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: context }],
-      })
-    })
-    clearTimeout(anthropicTimeout)
+    }, 90000)
 
-    const claudeJson = await claudeRes.json()
-    if (claudeJson.error) {
-      console.error('[premium] Anthropic error:', claudeJson.error)
-      await supabase.from('leads').update({
-        premium_analysis_status: 'error',
-        premium_analysis_error: claudeJson.error.message || 'Anthropic error',
-      }).eq('id', leadId)
-      return { error: claudeJson.error.message || 'Anthropic error' }
+    let claudeRes: Response
+    try {
+      claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        signal: anthropicAbort.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          stream: true,  // ← KĽÚČOVÁ ZMENA
+          system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+          messages: [{ role: 'user', content: context }],
+        })
+      })
+    } catch (e) {
+      clearTimeout(anthropicTimeout)
+      throw e
     }
 
-    const text = (claudeJson.content || [])
-      .filter((c: any) => c.type === 'text')
-      .map((c: any) => c.text || '').join('').trim()
-    const elapsedSec = ((Date.now() - anthropicStartMs) / 1000).toFixed(1)
-    console.log(`[premium] ✓ Anthropic response za ${elapsedSec}s · ${text.length} chars · stop_reason=${claudeJson.stop_reason}`)
+    if (!claudeRes.ok) {
+      clearTimeout(anthropicTimeout)
+      const errText = await claudeRes.text()
+      console.error(`[premium] Anthropic HTTP ${claudeRes.status}:`, errText.slice(0, 500))
+      const errMsg = `Anthropic HTTP ${claudeRes.status}: ${errText.slice(0, 200)}`
+      await supabase.from('leads').update({
+        premium_analysis_status: 'error',
+        premium_analysis_error: errMsg,
+      }).eq('id', leadId)
+      return { error: errMsg }
+    }
 
-    const cleaned = text
+    // SSE stream parsing — čítame chunky, hľadáme content_block_delta eventy
+    // s text deltami a zbierame ich.
+    let collectedText = ''
+    let stopReason: string | null = null
+    let inputTokens = 0
+    let outputTokens = 0
+    const reader = claudeRes.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let abortedDuringStream = false
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const payload = line.slice(6).trim()
+          if (!payload || payload === '[DONE]') continue
+          try {
+            const ev = JSON.parse(payload)
+            if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+              collectedText += ev.delta.text || ''
+            } else if (ev.type === 'message_delta') {
+              if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason
+              if (ev.usage?.output_tokens != null) outputTokens = ev.usage.output_tokens
+            } else if (ev.type === 'message_start') {
+              if (ev.message?.usage?.input_tokens != null) inputTokens = ev.message.usage.input_tokens
+            } else if (ev.type === 'error') {
+              console.error(`[premium] Stream error event:`, ev.error)
+              throw new Error(ev.error?.message || 'Anthropic stream error')
+            }
+          } catch (parseErr) {
+            // Tichý — niektoré chunky môžu byť rozdelené, doplnia sa neskôr
+          }
+        }
+      }
+    } catch (streamErr) {
+      const errMsg = streamErr instanceof Error ? streamErr.message : String(streamErr)
+      if (errMsg.includes('aborted') || errMsg.includes('signal')) {
+        abortedDuringStream = true
+        console.warn(`[premium] Stream prerušený abort-om; máme ${collectedText.length} chars partial output`)
+      } else {
+        throw streamErr
+      }
+    } finally {
+      clearTimeout(anthropicTimeout)
+    }
+
+    const elapsedSec = ((Date.now() - anthropicStartMs) / 1000).toFixed(1)
+    console.log(`[premium] ✓ Stream done za ${elapsedSec}s · ${collectedText.length} chars · stop_reason=${stopReason || (abortedDuringStream ? 'aborted_partial' : 'unknown')} · tokens in=${inputTokens} out=${outputTokens}`)
+
+    if (!collectedText) {
+      const errMsg = 'Anthropic stream vrátil 0 chars — pravdepodobne timeout pred prvým tokenom.'
+      await supabase.from('leads').update({
+        premium_analysis_status: 'error',
+        premium_analysis_error: errMsg,
+      }).eq('id', leadId)
+      return { error: errMsg }
+    }
+
+    const cleaned = collectedText
       .replace(/^[\s\S]*?```(?:json)?\s*/i, (m: string) => m.includes('```') ? '' : m)
       .replace(/\s*```[\s\S]*$/i, '')
       .trim()
     const premium = tryParseJson(cleaned)
     if (!premium) {
-      console.error(`[premium] JSON parse fail. stop_reason=${claudeJson.stop_reason}, len=${cleaned.length}`)
+      console.error(`[premium] JSON parse fail. stop_reason=${stopReason}, len=${cleaned.length}`)
       console.error(`[premium] First 800 chars:`, cleaned.slice(0, 800))
       console.error(`[premium] Last 800 chars:`, cleaned.slice(-800))
-      const errMsg = `Model nevrátil platný JSON (stop_reason=${claudeJson.stop_reason || 'unknown'}). Skús regen.`
+      const errMsg = abortedDuringStream
+        ? `Generácia bola prerušená (timeout 90s), čiastočnú odpoveď ${cleaned.length} chars sa nepodarilo zložiť do JSON. Skús znova.`
+        : `Model nevrátil platný JSON (stop_reason=${stopReason || 'unknown'}). Skús regen.`
       await supabase.from('leads').update({
         premium_analysis_status: 'error',
         premium_analysis_error: errMsg,
@@ -1298,20 +1368,20 @@ async function runPremiumGeneration(
     }
 
     const generatedAt = new Date().toISOString()
-    console.log(`[premium] Saving to DB for lead ${leadId}`)
+    console.log(`[premium] Saving to DB for lead ${leadId}${abortedDuringStream ? ' (PARTIAL from stream abort)' : ''}`)
     await supabase.from('leads').update({
       premium_analysis: premium,
       premium_analysis_generated_at: generatedAt,
       premium_analysis_model: model,
       premium_analysis_status: 'done',
-      premium_analysis_error: null,
+      premium_analysis_error: abortedDuringStream ? 'Generované z čiastočnej odpovede (stream prerušený timeoutom).' : null,
       deep_proposal: premium,
       deep_proposal_generated_at: generatedAt,
       deep_proposal_model: model,
     }).eq('id', leadId)
 
-    console.log(`[premium] DONE lead=${leadId}`)
-    return { premium, generatedAt, usage: claudeJson.usage }
+    console.log(`[premium] DONE lead=${leadId}${abortedDuringStream ? ' (recovered from partial)' : ''}`)
+    return { premium, generatedAt, usage: { input_tokens: inputTokens, output_tokens: outputTokens } }
   } catch (err) {
     const rawMsg = err instanceof Error ? err.message : String(err)
     console.error('[premium] Fatal:', rawMsg)
