@@ -4470,6 +4470,22 @@ info@adlify.eu | www.adlify.eu`
         body: JSON.stringify({ leadId: lead.id, customNotes, testMode, model: modelChoice, lang: langChoice })
       });
       console.log('[DeepProposal] HTTP', resp.status, resp.ok);
+
+      // Edge fn wall-clock timeout (Supabase Free tier 150s). Vráti 546
+      // WORKER_RESOURCE_LIMIT s prázdnym body. JSON.parse by zlyhalo.
+      if (resp.status === 546) {
+        clearInterval(tickInterval);
+        if (meta) meta.textContent = '⛔ Edge fn timeout (150s)';
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        const usingSlowerModel = !modelChoice.includes('haiku');
+        Utils.toast(
+          usingSlowerModel
+            ? `Edge fn timeout (Supabase 150s limit). Použite Haiku 4.5 model — je 3× rýchlejší a zmestí sa.`
+            : 'Edge fn timeout. Skúste znova alebo kontaktujte support pre rozšírený timeout.',
+          'warning'
+        );
+        return;
+      }
       const data = await resp.json();
       console.log('[DeepProposal] Response data:', data);
       if (resp.status === 409 && data.status === 'already_running') {

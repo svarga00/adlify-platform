@@ -1226,21 +1226,23 @@ async function runPremiumGeneration(
 
     const context = buildContext(lead, scrapedContent, customNotes, lang)
 
-    // Dynamic max_tokens podľa modelu — output rýchlosť veľmi varíruje:
-    // - Haiku 4.5: ~150-300 tokens/sec → 14K = 47-93s ✓ vyhovuje 150s limit
-    // - Sonnet 4.6: ~50-100 tokens/sec → 14K by bolo 140-280s = nad limit
-    //   → preto Sonnet dostane 10K (100-200s) — model musí byť stručnejší
-    // - Opus 4.8: ~25-50 tokens/sec → maximum 7K (140-280s, stále tesné)
+    // Dynamic max_tokens podľa modelu — Edge fn má hard wall-clock 150s
+    // (Free tier) alebo 400s (Pro tier). Aby sme sa zmestili do 150s s
+    // bezpečným marginom pre parse+DB write, Anthropic call musí byť < 135s.
+    // Output token rates pri SK próze (~):
+    //   Haiku 4.5: 150-300 tok/s → 14K = 47-93s ✓
+    //   Sonnet 4.6: 50-100 tok/s → 8K = 80-160s ⚠️ tesné, 8K je strop
+    //   Opus 4.8:  25-50 tok/s  → 4K = 80-160s ⚠️ Opus na 150s Edge len ak Pro tier
     const maxTokens = model.includes('haiku') ? 14000
-                    : model.includes('opus') ? 7000
-                    : 10000  // sonnet/default
+                    : model.includes('opus') ? 4000
+                    : 8000  // sonnet/default — znížené z 10K kvôli 150s limit
     console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}`)
 
-    // Foreground timeout 150s — matchuje Supabase Edge foreground wall-clock
-    // limit (Free tier 150s, Pro tier viac). Background mode mal ~73s
-    // EdgeRuntime kill, foreground má viac priestoru.
+    // Anthropic timeout 135s — 15s margin pred Edge 150s wall-clock kill.
+    // Ak Anthropic neodpovie do 135s, my zachytíme abort a uložíme error
+    // ešte pred tým ako Edge runtime nás zabije (a stratíme DB write).
     const anthropicAbort = new AbortController()
-    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 150000)
+    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 135000)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: anthropicAbort.signal,
