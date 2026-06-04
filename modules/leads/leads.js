@@ -5671,6 +5671,127 @@ info@adlify.eu | www.adlify.eu`
     };
   },
 
+  // Odvetvové copy patterny — výhody, descriptions, image direction sa líšia
+  // medzi nábytkom, klimatizáciou, oknami, stavbou atď. Predtým bolo všetko
+  // hardcoded ako furniture ("vlastná výroba", "3-4 týždne dodanie") aj pre
+  // klimatizačné firmy. Teraz dynamicky podľa industry/services.
+  _industryCopy(lead) {
+    const search = [
+      lead?.industry,
+      lead?.analysis?.company?.industry,
+      ...(lead?.analysis?.company?.services || []),
+      lead?.analysis?.company?.description,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    // Klimatizácie / HVAC / tepelné čerpadlá
+    if (/klimat|tepeln[ée]\s*čerp|hvac|vetran|chlad/.test(search)) return {
+      benefits: ['Montáž do 1 týždňa', '5 rokov záruky', 'Energetická úspora 30-50 %'],
+      description: 'Profesionálna inštalácia a pravidelný servis. Originálne značky (Daikin, LG, Samsung, Mitsubishi). Záruka kvality a tichého chodu.',
+      imageDesc: 'Reálne fotografie inštalovaných klimatizačných jednotiek + interiér po inštalácii.',
+      ctaBenefit: 'Bezplatná obhliadka + cenová ponuka',
+      timing: 'Sezónna výhoda — pred letom termíny pre montáž rýchlo miznú.',
+    };
+
+    // Vykurovanie / kúrenie
+    if (/kúren|kurenie|vykur|kotl|plynár|heating|heizung/.test(search)) return {
+      benefits: ['Montáž do 1 týždňa', 'Záruka 5 rokov na prácu', 'Energetická úspora 25-40 %'],
+      description: 'Profesionálna inštalácia kvalitných značiek. Vlastný servisný tím s rýchlou reakciou. Transparentné ceny.',
+      imageDesc: 'Reálne fotografie inštalovaných kotlov/radiátorov + spokojní zákazníci.',
+      ctaBenefit: 'Bezplatná obhliadka + cenová ponuka',
+      timing: 'Pred vykurovacou sezónou si zákazníci vyberajú dodávateľa včas.',
+    };
+
+    // Okná / dvere
+    if (/okná|okna|dvere|dveře|fenster|türen|window|door|ablak|ajtó/.test(search)) return {
+      benefits: ['Montáž do 2 týždňov', '10 rokov záruka', 'Bezplatné zameranie'],
+      description: 'Kvalitné značky a profesionálna montáž. Bezplatné zameranie a transparentná cena. Energetická úspora počas celej životnosti.',
+      imageDesc: 'Pred/po montáži — viditeľná kvalita izolácie a presnosti.',
+      ctaBenefit: 'Bezplatné zameranie + ponuka',
+      timing: '',
+    };
+
+    // Nábytok na mieru
+    if (/nábytok|nabytok|skrine|skříně|kuchyn|interiér|stolarstv|möbel|furniture|bútor/.test(search)) return {
+      benefits: ['Dodanie 3-4 týždne', 'Vlastná výroba', 'Bezplatné zameranie + 3D návrh'],
+      description: 'Vlastná výroba a montáž po celom Slovensku. Bezplatné zameranie a 3D návrh. Stovky spokojných zákazníkov.',
+      imageDesc: 'Reálne fotografie realizovaných projektov — pred/po, detaily spracovania.',
+      ctaBenefit: 'Bezplatné zameranie + 3D návrh',
+      timing: '',
+    };
+
+    // Stavba / izolácie / fasády
+    if (/stavb|izolác|izolac|fasád|fasad|sanier|bau|construction|insulation/.test(search)) return {
+      benefits: ['Záruka 10 rokov na prácu', 'Vlastný tím', 'Energetická úspora'],
+      description: 'Skúsený stavebný tím s vlastnou technikou. Transparentné ceny a garancia termínu. Referencie z desiatok projektov.',
+      imageDesc: 'Reálne fotografie — pred, počas, po. Detaily kvality práce.',
+      ctaBenefit: 'Bezplatná obhliadka + odhad nákladov',
+      timing: 'Pred sezónou termíny rýchlo miznú.',
+    };
+
+    // Oplotenie / brány / pergoly
+    if (/oploten|oplocen|brán|brana|brány|plot|pergol|terasy|zaun|fence|kerítés/.test(search)) return {
+      benefits: ['Montáž do 2-3 týždňov', 'Záruka 5 rokov', 'Vlastný tím'],
+      description: 'Vlastná výroba a montáž. Materiály odolné voči poveternostným vplyvom. Garancia termínu.',
+      imageDesc: 'Realizácie — moderné brány, plotové systémy, pergoly.',
+      ctaBenefit: 'Bezplatné zameranie + ponuka',
+      timing: 'Sezóna marec-október — termíny rýchlo miznú.',
+    };
+
+    // E-shop
+    if (/e-?shop|eshop|obchod|webshop|onlineshop/.test(search)) return {
+      benefits: ['Doprava zdarma nad 50 €', 'Skladom — rýchle dodanie', 'Bezpečná platba'],
+      description: 'Široký výber overených produktov. Doručenie do 2 dní. Garancia vrátenia tovaru do 14 dní bez udania dôvodu.',
+      imageDesc: 'Lifestyle fotografie produktov v reálnom použití.',
+      ctaBenefit: 'Doprava zdarma nad 50 €',
+      timing: '',
+    };
+
+    // Auto / servis
+    if (/auto|motork|vozid|servis aut|pneuservis|kfz|werkstatt/.test(search)) return {
+      benefits: ['Servis do 24 hodín', 'Originálne diely', 'Lokálne v meste'],
+      description: 'Servis a opravy všetkých značiek. Originálne náhradné diely. Záruka na prácu.',
+      imageDesc: 'Servisná dielňa + auto v dobrom technickom stave.',
+      ctaBenefit: 'Bezplatná diagnostika',
+      timing: '',
+    };
+
+    // Kozmetika / wellness
+    if (/kozmet|salón|salon|krása|krasa|wellness|spa|estetic|dermatol|stomatol|zubn/.test(search)) return {
+      benefits: ['Certifikované produkty', 'Skúsený tím', 'Diskrétne prostredie'],
+      description: 'Profesionálne ošetrenie certifikovanými produktmi. Skúsený tím s pravidelným vzdelávaním. Komfortné prostredie.',
+      imageDesc: 'Príjemné prostredie salónu + výsledky pred/po (anonymizované).',
+      ctaBenefit: 'Bezplatná konzultácia',
+      timing: '',
+    };
+
+    // B2B služby
+    if (/účtovn|uctovn|právn|pravn|advokát|advokat|consulting|poradn|IT |webd|programovan/.test(search)) return {
+      benefits: ['Skúsení experti', 'Individuálny prístup', 'Transparentné ceny'],
+      description: 'Odborníci s preukázateľnými výsledkami. Individuálny prístup ku každému klientovi. Jasné ceny bez skrytých poplatkov.',
+      imageDesc: 'Profesionálny tím + portál/dashboard pre klienta.',
+      ctaBenefit: 'Bezplatná konzultácia',
+      timing: '',
+    };
+
+    // Reality
+    if (/realit|nehnut|nemovit|maklér|makler|immobilien|real estate/.test(search)) return {
+      benefits: ['Lokálna znalosť trhu', '100+ spokojných klientov', 'Profesionálny prístup'],
+      description: 'Hĺbková znalosť lokálneho trhu. Kompletný servis od obhliadky po podpis zmluvy. Spoľahlivý partner pre váš najdôležitejší kúpny krok.',
+      imageDesc: 'Profesionálne fotografie nehnuteľností + spokojný majiteľ.',
+      ctaBenefit: 'Bezplatná konzultácia',
+      timing: '',
+    };
+
+    // Default
+    return {
+      benefits: ['Profesionálny prístup', 'Skúsený tím', 'Bezplatná konzultácia'],
+      description: 'Spoľahlivý partner s transparentným prístupom. Bezplatná konzultácia a osobný kontakt. Stovky spokojných zákazníkov.',
+      imageDesc: 'Reálne fotografie z práce — kvalita a profesionalita.',
+      ctaBenefit: 'Bezplatná konzultácia',
+      timing: '',
+    };
+  },
+
   _industryBenchmark(lead) {
     const search = [
       lead?.industry,
@@ -6003,7 +6124,8 @@ info@adlify.eu | www.adlify.eu`
         { title: 'Možnosť dosiahnuť okamžitý dopyt cez paid search', description: `Pri rozpočte ${monthlyBudget} €/mes a CPC ${avgCpc.toFixed(2)} € získame ~${clicks.toLocaleString('sk-SK')} kliknutí mesačne, čo prinesie ${leads}+ dopytov.` },
       ].slice(0, 4),
 
-      onlineWebNotes: seoWeaknesses.length ? `Web je funkčný, ale ${seoWeaknesses.join(', ')}. Bez týchto základov je organic ranking obmedzený.` : 'Web je funkčný a indexovaný — dobrý základ pre PPC kampane.',
+      onlineWebPositive: 'Web je funkčný a načítava sa rýchlo — dobrý základ pre PPC kampane.',
+      onlineWebNotes: seoWeaknesses.length ? `Audit ukázal niekoľko technických problémov ktoré ovplyvňujú viditeľnosť v Google: ${seoWeaknesses.join(', ')}.` : '',
       onlineSocialNotes: mm.contact_finder?.social?.facebook ? `Facebook profil aktívny — môžeme na ňom stavať Meta kampane.${mm.contact_finder.social.instagram ? ' Instagram tiež dostupný.' : ' Instagram chýba — pre vizuálny obor odporúčame doplniť.'}` : 'Aktívne sociálne profily zatiaľ neidentifikované — pred Meta kampaňou ich pomôžeme založiť.',
       onlineSeoNotes: seoWeaknesses.length ? `Audit ukázal: ${seoWeaknesses.join('; ')}.` : 'SEO základy v poriadku — môžeme stavať na organickom raste paralelne s PPC.',
       onlinePpcNotes: 'Žiadne aktívne PPC kampane neidentifikované. Konkurencia tento priestor využíva — máte priestor okamžite vstúpiť na trh.',
@@ -6014,7 +6136,7 @@ info@adlify.eu | www.adlify.eu`
       strengths: [
         services.length ? `Špecializácia na ${services[0].toLowerCase()}` : 'Definovaná hlavná služba',
         c.description ? 'Vybudovaný biznis základ' : null,
-        '10+ rokov potenciálnych skúseností v odvetví',
+        services.length >= 3 ? 'Komplexný portfólio služieb' : null,
         services.length >= 3 ? 'Široký portfólio služieb' : null,
         mm.contact_finder?.social?.facebook ? 'Aktívna prítomnosť na Facebooku' : null,
       ].filter(Boolean).slice(0, 5),
@@ -6064,14 +6186,13 @@ info@adlify.eu | www.adlify.eu`
       ],
     };
 
-    // === Návrhy kampaní (templated, bohaté na varianty)
-    const description1 = services.length
-      ? `Vlastná výroba a montáž po celom Slovensku. Bezplatné zameranie a 3D návrh. Stovky spokojných zákazníkov.`
-      : `Profesionálne riešenia od overeného partnera. Bezplatná konzultácia a transparentné ceny.`;
+    // === Návrhy kampaní (templated, odvetvovo-špecifické)
+    const ic = this._industryCopy(lead);  // headlines/descriptions/image podľa odvetvia
+    const description1 = `${ic.description}`;
     const description2 = city
-      ? `Pôsobíme v ${city} a okolí. Rýchle dodanie 3-4 týždne — nie 6 mesiacov ako konkurencia. Volajte ešte dnes.`
-      : `Doprava a montáž v cene. Garancia kvality a dodania. Vyžiadajte si nezáväznú cenovú ponuku ešte dnes.`;
-    const description3 = `${(industry || 'služby').charAt(0).toUpperCase() + (industry || 'služby').slice(1).toLowerCase()} s 10+ rokmi skúseností. Stovky realizácií. Transparentné ceny.`;
+      ? `${ic.description.split('.').slice(0, 1).join('.')}. Pôsobíme v ${city} a okolí. ${ic.ctaBenefit}.`
+      : `${ic.description.split('.').slice(0, 1).join('.')}. ${ic.ctaBenefit}.`;
+    const description3 = `${(industry || 'služby').charAt(0).toUpperCase() + (industry || 'služby').slice(1).toLowerCase()} — overený partner. Transparentné ceny a kvalita.`;
     const buildAdGroupForService = (svc) => ({
       name: svc,
       keywords: [
@@ -6079,23 +6200,22 @@ info@adlify.eu | www.adlify.eu`
         `${svc.toLowerCase()} na mieru`,
         city ? `${svc.toLowerCase()} ${city.toLowerCase()}` : null,
         `${svc.toLowerCase()} cena`,
-        `${svc.toLowerCase()} výroba`,
       ].filter(Boolean),
       matchTypes: ['phrase', 'exact'],
       adCopy: {
         headlines: [
-          `${svc} na mieru`,
-          'Dodanie do 3-4 týždňov',
-          'Bezplatné zameranie + 3D návrh',
-          '10+ rokov skúseností',
+          svc,                                    // "Klimatizácia"
+          ic.benefits[0],                          // "Montáž do 1 týždňa"
+          ic.benefits[1],                          // "5 rokov záruky"
+          ic.benefits[2],                          // "Energetická úspora..."
           city ? `${svc} ${city}` : `${svc} profesionálne`,
         ].filter(Boolean),
         descriptions: [description1, description2, description3],
-        sitelinks: ['Galéria realizácií', 'Cenník služieb', 'Referencie', 'Kontakt'],
-        callouts: ['Bezplatné zameranie', 'Vlastná výroba', 'Doprava a montáž', '10+ rokov skúseností'],
+        sitelinks: ['Galéria / Referencie', 'Cenník služieb', 'O nás', 'Kontakt'],
+        callouts: ic.benefits.slice(0, 4),
       },
       landingPage: lead?.domain ? `https://${lead.domain}` : '/',
-      rationale: `Cielená Search kampaň na ${svc.toLowerCase()} so zameraním na nákupný intent. Negative keywords vylúčia DIY a hobby vyhľadávania.`,
+      rationale: `Cielená Search kampaň na ${svc.toLowerCase()} so zameraním na nákupný intent. Headliny zdôrazňujú konkrétne benefity pre toto odvetvie.`,
     });
     const proposedCampaigns = {
       google: {
@@ -6107,18 +6227,18 @@ info@adlify.eu | www.adlify.eu`
         performanceMaxCampaign: {
           name: 'Performance Max — Brand + Konverzie',
           monthly_budget_eur: Math.round(monthlyBudget * 0.20),
-          audienceSignals: ['Existujúci návštevníci webu', `Záujem o ${industry.toLowerCase()}`, 'Rekonštrukcia a bývanie', city ? `Lokalita: ${city}` : 'Slovensko'].filter(Boolean),
+          audienceSignals: ['Existujúci návštevníci webu', `Záujem o ${industry.toLowerCase()}`, city ? `Lokalita: ${city}` : 'Slovensko'].filter(Boolean),
           assetGroups: [{
             theme: services[0] || industry,
             headlines: [
-              `${services[0] || industry} na mieru`,
-              'Bezplatné zameranie + 3D návrh',
-              '10+ rokov skúseností',
-              'Dodanie 3-4 týždne',
-              city ? `${services[0] || industry} v ${city}` : `Realizácie po celom Slovensku`,
+              services[0] || industry,
+              ic.benefits[0],
+              ic.benefits[1],
+              ic.benefits[2],
+              city ? `${services[0] || industry} v ${city}` : `${services[0] || industry} po celom Slovensku`,
             ].filter(Boolean),
             descriptions: [description1, description3],
-            imageDirection: 'Realné fotografie hotových projektov + procesu výroby. Žiadne stock obrázky.',
+            imageDirection: ic.imageDesc,
           }],
         },
       },
@@ -6128,8 +6248,8 @@ info@adlify.eu | www.adlify.eu`
           monthly_budget_eur: Math.round(monthlyBudget * 0.30),
           objective: 'Leads + Conversions',
           audience: {
-            primary: `Demograficky 30-55 rokov, ${city ? city + ' a okolie 50 km' : 'celé Slovensko'}, záujem o rekonštrukciu, bývanie, dizajn`,
-            lookalike: 'LAL 1% z existujúcich zákazníkov (po 2-3 mesiacoch)',
+            primary: `Demograficky 30-55 rokov${city ? `, ${city} a okolie 50 km` : ', celé Slovensko'}, záujem o ${industry.toLowerCase()}`,
+            lookalike: 'LAL 1 % z existujúcich zákazníkov (po 2-3 mesiacoch)',
             retargeting: '30/60/90 dní od návštevy webu, exclude buyers',
           },
           adSets: [
@@ -6137,11 +6257,11 @@ info@adlify.eu | www.adlify.eu`
               name: city ? `Cold — Lookalike ${city}` : 'Cold — Lookalike SR',
               placements: ['Facebook Feed', 'Instagram Feed', 'Reels'],
               adCopy: {
-                primaryText: `${services[0] || 'Profesionálne služby'} za 3-4 týždne. Nie 6 mesiacov ako konkurencia. ${services.length > 1 ? `Ponúkame: ${services.slice(0, 3).join(', ').toLowerCase()}.` : ''} Pozrite si naše realizácie — možno tam nájdete inšpiráciu pre váš domov.`,
-                headline: `${services[0] || 'Profesionálne služby'} na mieru`,
-                description: 'Bezplatné zameranie + 3D návrh',
+                primaryText: `${services[0] || industry} — ${ic.benefits[0].toLowerCase()}, ${ic.benefits[1].toLowerCase()}. ${ic.description}${ic.timing ? ' ' + ic.timing : ''}`,
+                headline: `${services[0] || industry}${city ? ' v ' + city : ''}`,
+                description: ic.ctaBenefit,
                 cta: 'Nezáväzná konzultácia',
-                imageDescription: `Reálne fotografie realizovaných ${(services[0] || 'projektov').toLowerCase()} — pred a po.`,
+                imageDescription: ic.imageDesc,
               },
               rationale: 'Cold publikum cez lookalike audience — najlepšie zachytí potenciálnych zákazníkov ktorí ešte nepoznajú značku.',
             },
@@ -6149,11 +6269,11 @@ info@adlify.eu | www.adlify.eu`
               name: 'Warm — Retargeting webu',
               placements: ['Facebook Feed', 'Instagram Feed', 'Stories'],
               adCopy: {
-                primaryText: `Pozreli ste si naše ${(services[0] || 'realizácie').toLowerCase()} — máme pre vás špeciálnu ponuku. Bezplatná konzultácia + 3D návrh zdarma. Termín bude rezervovaný iba pre vás.`,
+                primaryText: `Pozreli ste si nás, ale ešte ste sa neozvali? ${ic.ctaBenefit} — termín si zarezervujte ešte dnes.`,
                 headline: 'Vrátili ste sa? Tu je špeciálna ponuka',
-                description: 'Konzultácia + 3D návrh zdarma',
+                description: ic.ctaBenefit,
                 cta: 'Zarezervovať termín',
-                imageDescription: 'Detail zo zákulisia výroby — kvalita materiálu, presnosť spracovania.',
+                imageDescription: ic.imageDesc,
               },
               rationale: 'Retargeting návštevníkov webu posledných 30 dní — najefektívnejšie konverzie pri najnižšej cene.',
             },
@@ -6161,11 +6281,11 @@ info@adlify.eu | www.adlify.eu`
               name: 'Hot — Engagement past 90d',
               placements: ['Facebook Feed', 'Instagram Stories', 'Reels'],
               adCopy: {
-                primaryText: `Lajkli ste náš profil, ale ešte ste sa neozvali? Pošlite nám svoju izbu — do 48h dostanete predbežný návrh a cenu zdarma.`,
-                headline: 'Pošlite nám svoju izbu',
-                description: '48h predbežný návrh a cena',
+                primaryText: `Sledujete náš profil — máme pre vás špeciálnu ponuku. ${ic.ctaBenefit}. Termín bude rezervovaný iba pre vás.`,
+                headline: 'Špeciálna ponuka pre vás',
+                description: ic.ctaBenefit,
                 cta: 'Pošlite nám správu',
-                imageDescription: 'Carousel s 3-4 reálnymi realizáciami — variabilita štýlov.',
+                imageDescription: ic.imageDesc,
               },
               rationale: 'Najteplejšie publikum — ľudia ktorí sa už zapojili. Veľmi nízky CPL.',
             },
@@ -6176,49 +6296,49 @@ info@adlify.eu | www.adlify.eu`
         stories: [
           {
             name: 'Story — Časosber realizácie',
-            concept: 'Vertikálne video (15-25s) z procesu — od prázdneho priestoru po hotový výsledok.',
-            headline: `${services[0] || 'Realizácie'}`,
-            subtext: 'Kontaktujte nás pre nezáväznú ponuku',
+            concept: `Vertikálne video (15-25s) z procesu — ${ic.imageDesc.toLowerCase()}.`,
+            headline: `${services[0] || industry}`,
+            subtext: ic.ctaBenefit,
             cta: 'Nezáväzná konzultácia',
-            imageDescription: 'Časosber montáže s úspešným záberom na hotový výsledok',
+            imageDescription: ic.imageDesc,
           },
           {
             name: 'Story — Pred a po',
-            concept: 'Vertikálne porovnanie pred/po (10-15s) — ukáže rozdiel ktorý prinesie kvalitná realizácia.',
+            concept: 'Vertikálne porovnanie pred/po (10-15s) — ukáže rozdiel ktorý prinesie kvalitná služba.',
             headline: 'Pred → Po',
             subtext: 'Vidíte ten rozdiel?',
-            cta: 'Aj váš domov môže',
-            imageDescription: 'Split-screen vertikál: vľavo prázdna stena/stará kuchyňa, vpravo finálny stav s detailmi.',
+            cta: 'Aj u vás môžeme',
+            imageDescription: `Split-screen: pred a po realizácii ${(services[0] || industry).toLowerCase()}.`,
           },
           {
             name: 'Story — Detail kvality',
-            concept: 'Slow-mo detaily materiálov a presnosti spojov. Dôraz na remeselnú prácu (10s).',
+            concept: 'Slow-mo detaily ukazujúce profesionálne spracovanie a kvalitu.',
             headline: 'Detaily robia rozdiel',
-            subtext: `Preto ${services[0] ? services[0].toLowerCase() : 'naše projekty'} vydržia desaťročia`,
-            cta: 'Ako vyrábame',
-            imageDescription: 'Close-up záber: drevené spoje, kvalitné kovanie, presné výrezy.',
+            subtext: ic.ctaBenefit,
+            cta: 'Viac o nás',
+            imageDescription: 'Close-up záber: kvalitné materiály, profesionálne spracovanie.',
           },
         ],
       },
       googleDisplay: {
         banner: {
-          concept: `Reálny záber ${services[0] ? 'realizácie ' + services[0].toLowerCase() : 'projektu'} + gradient overlay s brandingom`,
-          headline: `${services[0] || 'Riešenia'} na mieru`,
-          description: city ? `${city} a okolie` : 'Po celom Slovensku',
+          concept: `Reálny záber ${(services[0] || industry).toLowerCase()} + gradient overlay s brandingom`,
+          headline: `${services[0] || industry}${city ? ' · ' + city : ''}`,
+          description: ic.ctaBenefit,
           cta: 'Bezplatná konzultácia',
-          targeting: `In-market: rekonštrukcia, bývanie · Affinity: design enthusiasts · Custom: visitors ${lead?.domain || 'nášho webu'}`,
+          targeting: `In-market: ${industry.toLowerCase()} · Affinity: home & garden${city ? ` · Custom: visitors v okolí ${city}` : ''}`,
         },
       },
       linkedin: {
         sponsoredContent: {
-          audience: `B2B: developeri, realitné kancelárie, architekti, dizajn štúdiá${city ? ` v okolí ${city}` : ' v SR'}`,
+          audience: `B2B v ${industry.toLowerCase()}${city ? ` v okolí ${city}` : ' v SR'}`,
           monthly_budget_eur: Math.round(monthlyBudget * 0.15),
           adCopy: {
             headline: `Partneri pre projekty${city ? ' v ' + city : ''}`,
-            primaryText: `Hľadáte profesionálneho partnera pre váš projekt? ${services.length > 1 ? `Ponúkame ${services.slice(0, 3).join(', ').toLowerCase()}.` : ''} 10+ rokov skúseností, B2B referencie, transparentné ceny.`,
-            cta: 'Stiahnuť cenník',
+            primaryText: `${services.length > 1 ? `Ponúkame ${services.slice(0, 3).join(', ').toLowerCase()}.` : `${industry} pre B2B klientov.`} Skúsený tím, B2B referencie, transparentné ceny.`,
+            cta: 'Kontaktovať',
           },
-          rationale: 'B2B kanál pre developerov a architektov ktorí potrebujú spoľahlivého dodávateľa. Dlhšie obchodné cykly, vyššie zákazky.',
+          rationale: 'B2B kanál pre korporátnych zákazníkov ktorí potrebujú spoľahlivého dodávateľa.',
         },
       },
     };
@@ -6290,7 +6410,11 @@ info@adlify.eu | www.adlify.eu`
     } : { main_competitors: [], positioning: '' };
 
     const onlinePresence = {
-      website: { status: seoWeaknesses.length >= 2 ? 'needs_work' : 'good', notes: text.onlineWebNotes },
+      website: {
+        status: seoWeaknesses.length >= 2 ? 'needs_work' : 'good',
+        notes: text.onlineWebPositive,
+        weaknesses_text: text.onlineWebNotes,  // adapter zdedí cez webWeaknesses
+      },
       social: {
         status: mm.contact_finder?.social?.facebook ? (mm.contact_finder.social.instagram ? 'good' : 'needs_work') : 'missing',
         notes: text.onlineSocialNotes,
@@ -7661,7 +7785,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
       <div class="stat-box">
         <div class="stat-icon">${o.paidAds?.detected ? 'Áno' : 'Nie'}</div>
         <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">${T('paidAds')}</div>
-        <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.paidAds?.detected ? 'Aktívne kampane — spravíme audit (viď ďalej).' : 'Žiadne aktívne PPC kampane. Konkurencia tiež neinzeruje — výhoda pre rýchly štart.'}</div>
+        <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.paidAds?.detected ? 'Aktívne kampane — spravíme audit (viď ďalej).' : 'Žiadne aktívne PPC kampane — váš trh aktívne inzeruje, treba sa zapojiť.'}</div>
       </div>
     </div>
     
