@@ -6430,32 +6430,46 @@ info@adlify.eu | www.adlify.eu`
     // ale ŽIADNY z nich nemá search_volume > 0 (napr. analyze-lead dal iba
     // názvy), doplň estimated objemy podľa rovnakej heuristiky ako fallback.
     // Inak by tabuľka ukázala "–" pre všetky riadky.
-    const hasVolumeData = kwVol.some(k => Number(k.search_volume) > 0);
-    if (kwVol.length && !hasVolumeData) {
-      const baseCpc = (bench.aov > 2000) ? 0.6 : (bench.aov > 500) ? 0.45 : 0.30;
-      kwVol = kwVol.map(kw => {
-        const kwStr = String(kw.keyword || '');
-        const words = kwStr.split(' ').length;
-        const hasCity = city && kwStr.toLowerCase().includes(city.toLowerCase());
-        const hasPriceModifier = /\b(cena|cennik|cenník|price|preis|ár)\b/i.test(kwStr);
-        const hasBuyModifier = /\b(predaj|kúp|kup|servis|montáž|montaz|oprava|inštalác|instala)\b/i.test(kwStr);
-        let vol = 400;
-        if (words >= 4) vol = 80;
-        else if (words >= 3 && hasCity) vol = 90;
-        else if (hasCity) vol = 150;
-        else if (hasPriceModifier && words >= 2) vol = 200;
-        else if (words >= 3) vol = 150;
-        else if (words === 2) vol = 600;
-        else vol = 1200;
-        return {
-          ...kw,
-          search_volume: kw.search_volume || vol,
-          cpc_eur: kw.cpc_eur || +(baseCpc + (Math.random() * 0.2 - 0.1)).toFixed(2),
-          intent: kw.intent || (hasPriceModifier || hasBuyModifier ? 'buy' : ''),
-          estimated: true,
-        };
-      });
-    }
+    //
+    // BULLETPROOF: vždy bežíme cez kwVol a doplníme objem/CPC pre KAŽDÉ KW
+    // ktoré ich nemá. Nemôže prejsť cez túto funkciu KW bez čísla.
+    const baseCpcEstimate = (bench.aov > 2000) ? 0.6 : (bench.aov > 500) ? 0.45 : 0.30;
+    const estimateForKw = (kwStr) => {
+      const words = String(kwStr).split(' ').length;
+      const hasCityIn = city && String(kwStr).toLowerCase().includes(city.toLowerCase());
+      const hasPriceMod = /\b(cena|cennik|cenník|price|preis|ár)\b/i.test(kwStr);
+      const hasBuyMod = /\b(predaj|kúp|kup|servis|montáž|montaz|oprava|inštalác|instala|kauf|buy)\b/i.test(kwStr);
+      let vol = 400;
+      if (words >= 4) vol = 80;
+      else if (words >= 3 && hasCityIn) vol = 90;
+      else if (hasCityIn) vol = 150;
+      else if (hasPriceMod && words >= 2) vol = 200;
+      else if (words >= 3) vol = 150;
+      else if (words === 2) vol = 600;
+      else vol = 1200;
+      return {
+        vol,
+        cpc: +(baseCpcEstimate + (Math.random() * 0.2 - 0.1)).toFixed(2),
+        intent: hasPriceMod || hasBuyMod ? 'buy' : (words >= 3 ? 'buy' : ''),
+      };
+    };
+    kwVol = kwVol.map(kw => {
+      const hasVol = Number(kw.search_volume) > 0;
+      const hasCpc = Number(kw.cpc_eur) > 0;
+      if (hasVol && hasCpc) return kw;
+      const est = estimateForKw(kw.keyword);
+      return {
+        ...kw,
+        search_volume: hasVol ? Number(kw.search_volume) : est.vol,
+        cpc_eur: hasCpc ? Number(kw.cpc_eur) : est.cpc,
+        intent: kw.intent || est.intent,
+        estimated: !hasVol || !hasCpc,
+      };
+    });
+    // Debug log (môže pomôcť diagnostikovať keď tabuľka stále ukáže dashes)
+    try {
+      console.log('[synth] kwVol final:', kwVol.length, 'with volumes:', kwVol.filter(k => Number(k.search_volume) > 0).length, 'sample:', kwVol[0]);
+    } catch (e) {}
 
     // Rozdeľ KW do primary/secondary/longTail podľa objemu pre adapter
     const sortedKw = [...kwVol].sort((a, b) => (Number(b.search_volume) || 0) - (Number(a.search_volume) || 0));
@@ -6653,15 +6667,35 @@ info@adlify.eu | www.adlify.eu`
     const kwSummary = kwTotalVol > 0
       ? `Pre vaše služby sme identifikovali kľúčové slová s celkovým objemom ${kwTotalVol.toLocaleString('sk-SK')} hľadaní mesačne${kwAvgCpc > 0 ? ` pri priemernej cene za klik ${kwAvgCpc.toFixed(2)} €` : ''}. Tu je výber tých najdôležitejších:`
       : '';
+    // Adaptér safety-net: pre KAŽDÝ KW v tabuľke zaručene set searchVolume + cpc.
+    // Ak by sa do kwDeduped dostalo KW bez objemov (napr. priorita preferovala
+    // user-edit ktoré nemá objemy), tu doplníme estimácie.
+    const adapterBaseCpc = 0.45;
+    const adapterEstimate = (kwStr) => {
+      const words = String(kwStr || '').split(' ').length;
+      const hasPrice = /\b(cena|cennik|cenník|price|preis|ár)\b/i.test(String(kwStr || ''));
+      if (words >= 4) return { vol: 80, cpc: 0.32 };
+      if (words >= 3) return { vol: 150, cpc: 0.42 };
+      if (hasPrice) return { vol: 200, cpc: 0.40 };
+      if (words === 2) return { vol: 600, cpc: 0.45 };
+      return { vol: 1200, cpc: 0.50 };
+    };
     const k = {
       summary: kwSummary,
-      topKeywords: kwDeduped.slice(0, 12).map(kw => ({
-        keyword: kw.keyword,
-        searchVolume: kw.search_volume,
-        cpc: kw.cpc_eur,
-        intent: kw.intent || '',
-        currentRanking: kw.current_ranking || null
-      })),
+      topKeywords: kwDeduped.slice(0, 12).map(kw => {
+        const rawVol = kw.search_volume;
+        const rawCpc = kw.cpc_eur;
+        const hasVol = Number(rawVol) > 0;
+        const hasCpc = Number(rawCpc) > 0;
+        const est = (!hasVol || !hasCpc) ? adapterEstimate(kw.keyword) : null;
+        return {
+          keyword: kw.keyword,
+          searchVolume: hasVol ? Number(rawVol) : (est ? est.vol : null),
+          cpc: hasCpc ? Number(rawCpc) : (est ? est.cpc : null),
+          intent: kw.intent || '',
+          currentRanking: kw.current_ranking || null,
+        };
+      }),
       totalFound: kwDeduped.length
     };
 
