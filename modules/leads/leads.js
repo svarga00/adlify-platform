@@ -5996,45 +5996,110 @@ info@adlify.eu | www.adlify.eu`
       ],
     };
 
-    // === Návrhy kampaní (templated)
-    const headline1 = services[0] ? `${services[0]} na mieru` : 'Profesionálne služby na mieru';
-    const headline2 = 'Dodanie do 3-4 týždňov';
-    const headline3 = '10+ rokov skúseností';
+    // === Návrhy kampaní (templated, bohaté na varianty)
     const description1 = services.length
       ? `Vlastná výroba a montáž po celom Slovensku. Bezplatné zameranie a 3D návrh. Stovky spokojných zákazníkov.`
       : `Profesionálne riešenia od overeného partnera. Bezplatná konzultácia a transparentné ceny.`;
+    const description2 = city
+      ? `Pôsobíme v ${city} a okolí. Rýchle dodanie 3-4 týždne — nie 6 mesiacov ako konkurencia. Volajte ešte dnes.`
+      : `Doprava a montáž v cene. Garancia kvality a dodania. Vyžiadajte si nezáväznú cenovú ponuku ešte dnes.`;
+    const description3 = `${(industry || 'služby').charAt(0).toUpperCase() + (industry || 'služby').slice(1).toLowerCase()} s 10+ rokmi skúseností. Stovky realizácií. Transparentné ceny.`;
+    const buildAdGroupForService = (svc) => ({
+      name: svc,
+      keywords: [
+        svc.toLowerCase(),
+        `${svc.toLowerCase()} na mieru`,
+        city ? `${svc.toLowerCase()} ${city.toLowerCase()}` : null,
+        `${svc.toLowerCase()} cena`,
+        `${svc.toLowerCase()} výroba`,
+      ].filter(Boolean),
+      matchTypes: ['phrase', 'exact'],
+      adCopy: {
+        headlines: [
+          `${svc} na mieru`,
+          'Dodanie do 3-4 týždňov',
+          'Bezplatné zameranie + 3D návrh',
+          '10+ rokov skúseností',
+          city ? `${svc} ${city}` : `${svc} profesionálne`,
+        ].filter(Boolean),
+        descriptions: [description1, description2, description3],
+        sitelinks: ['Galéria realizácií', 'Cenník služieb', 'Referencie', 'Kontakt'],
+        callouts: ['Bezplatné zameranie', 'Vlastná výroba', 'Doprava a montáž', '10+ rokov skúseností'],
+      },
+      landingPage: lead?.domain ? `https://${lead.domain}` : '/',
+      rationale: `Cielená Search kampaň na ${svc.toLowerCase()} so zameraním na nákupný intent. Negative keywords vylúčia DIY a hobby vyhľadávania.`,
+    });
     const proposedCampaigns = {
       google: {
         searchCampaign: {
           name: `Search — ${services[0] || industry}`,
-          monthly_budget_eur: Math.round(monthlyBudget * 0.45),
-          adGroups: services.slice(0, 2).map((svc, i) => ({
-            name: svc,
-            keywords: [svc.toLowerCase(), `${svc.toLowerCase()} na mieru`, `${svc.toLowerCase()}${city ? ' ' + city.toLowerCase() : ''}`, `${svc.toLowerCase()} cena`].filter(Boolean),
-            matchTypes: ['phrase', 'exact'],
-            adCopy: {
-              headlines: [`${svc} na mieru`, headline2, headline3],
-              descriptions: [description1],
-            },
-            landingPage: lead?.domain ? `https://${lead.domain}` : '/',
-          })),
+          monthly_budget_eur: Math.round(monthlyBudget * 0.35),
+          adGroups: services.slice(0, 3).map(buildAdGroupForService),
+        },
+        performanceMaxCampaign: {
+          name: 'Performance Max — Brand + Konverzie',
+          monthly_budget_eur: Math.round(monthlyBudget * 0.20),
+          audienceSignals: ['Existujúci návštevníci webu', `Záujem o ${industry.toLowerCase()}`, 'Rekonštrukcia a bývanie', city ? `Lokalita: ${city}` : 'Slovensko'].filter(Boolean),
+          assetGroups: [{
+            theme: services[0] || industry,
+            headlines: [
+              `${services[0] || industry} na mieru`,
+              'Bezplatné zameranie + 3D návrh',
+              '10+ rokov skúseností',
+              'Dodanie 3-4 týždne',
+              city ? `${services[0] || industry} v ${city}` : `Realizácie po celom Slovensku`,
+            ].filter(Boolean),
+            descriptions: [description1, description3],
+            imageDirection: 'Realné fotografie hotových projektov + procesu výroby. Žiadne stock obrázky.',
+          }],
         },
       },
       meta: {
         campaign: {
-          name: `Meta — Realizácie`,
+          name: 'Meta — Brand + Konverzie',
           monthly_budget_eur: Math.round(monthlyBudget * 0.30),
           objective: 'Leads + Conversions',
+          audience: {
+            primary: `Demograficky 30-55 rokov, ${city ? city + ' a okolie 50 km' : 'celé Slovensko'}, záujem o rekonštrukciu, bývanie, dizajn`,
+            lookalike: 'LAL 1% z existujúcich zákazníkov (po 2-3 mesiacoch)',
+            retargeting: '30/60/90 dní od návštevy webu, exclude buyers',
+          },
           adSets: [
             {
-              name: city ? `Lookalike ${city}` : 'Lookalike Slovensko',
+              name: city ? `Cold — Lookalike ${city}` : 'Cold — Lookalike SR',
+              placements: ['Facebook Feed', 'Instagram Feed', 'Reels'],
               adCopy: {
-                primaryText: `${headline1} za 3-4 týždne. Nie 6 mesiacov ako konkurencia. ${services.length > 1 ? `Ponúkame ${services.slice(0, 2).join(', ')}.` : ''} Pozrite si naše realizácie.`,
-                headline: headline1,
+                primaryText: `${services[0] || 'Profesionálne služby'} za 3-4 týždne. Nie 6 mesiacov ako konkurencia. ${services.length > 1 ? `Ponúkame: ${services.slice(0, 3).join(', ').toLowerCase()}.` : ''} Pozrite si naše realizácie — možno tam nájdete inšpiráciu pre váš domov.`,
+                headline: `${services[0] || 'Profesionálne služby'} na mieru`,
                 description: 'Bezplatné zameranie + 3D návrh',
                 cta: 'Nezáväzná konzultácia',
-                imageDescription: `Reálne fotografie realizovaných ${services[0] ? services[0].toLowerCase() : 'projektov'} — pred a po, kvalitné detaily.`,
+                imageDescription: `Reálne fotografie realizovaných ${(services[0] || 'projektov').toLowerCase()} — pred a po.`,
               },
+              rationale: 'Cold publikum cez lookalike audience — najlepšie zachytí potenciálnych zákazníkov ktorí ešte nepoznajú značku.',
+            },
+            {
+              name: 'Warm — Retargeting webu',
+              placements: ['Facebook Feed', 'Instagram Feed', 'Stories'],
+              adCopy: {
+                primaryText: `Pozreli ste si naše ${(services[0] || 'realizácie').toLowerCase()} — máme pre vás špeciálnu ponuku. Bezplatná konzultácia + 3D návrh zdarma. Termín bude rezervovaný iba pre vás.`,
+                headline: 'Vrátili ste sa? Tu je špeciálna ponuka',
+                description: 'Konzultácia + 3D návrh zdarma',
+                cta: 'Zarezervovať termín',
+                imageDescription: 'Detail zo zákulisia výroby — kvalita materiálu, presnosť spracovania.',
+              },
+              rationale: 'Retargeting návštevníkov webu posledných 30 dní — najefektívnejšie konverzie pri najnižšej cene.',
+            },
+            {
+              name: 'Hot — Engagement past 90d',
+              placements: ['Facebook Feed', 'Instagram Stories', 'Reels'],
+              adCopy: {
+                primaryText: `Lajkli ste náš profil, ale ešte ste sa neozvali? Pošlite nám svoju izbu — do 48h dostanete predbežný návrh a cenu zdarma.`,
+                headline: 'Pošlite nám svoju izbu',
+                description: '48h predbežný návrh a cena',
+                cta: 'Pošlite nám správu',
+                imageDescription: 'Carousel s 3-4 reálnymi realizáciami — variabilita štýlov.',
+              },
+              rationale: 'Najteplejšie publikum — ľudia ktorí sa už zapojili. Veľmi nízky CPL.',
             },
           ],
         },
@@ -6044,14 +6109,50 @@ info@adlify.eu | www.adlify.eu`
           {
             name: 'Story — Časosber realizácie',
             concept: 'Vertikálne video (15-25s) z procesu — od prázdneho priestoru po hotový výsledok.',
-            headline: 'Od prázdnej steny po hotovo',
+            headline: `${services[0] || 'Realizácie'}`,
+            subtext: 'Kontaktujte nás pre nezáväznú ponuku',
             cta: 'Nezáväzná konzultácia',
             imageDescription: 'Časosber montáže s úspešným záberom na hotový výsledok',
           },
+          {
+            name: 'Story — Pred a po',
+            concept: 'Vertikálne porovnanie pred/po (10-15s) — ukáže rozdiel ktorý prinesie kvalitná realizácia.',
+            headline: 'Pred → Po',
+            subtext: 'Vidíte ten rozdiel?',
+            cta: 'Aj váš domov môže',
+            imageDescription: 'Split-screen vertikál: vľavo prázdna stena/stará kuchyňa, vpravo finálny stav s detailmi.',
+          },
+          {
+            name: 'Story — Detail kvality',
+            concept: 'Slow-mo detaily materiálov a presnosti spojov. Dôraz na remeselnú prácu (10s).',
+            headline: 'Detaily robia rozdiel',
+            subtext: `Preto ${services[0] ? services[0].toLowerCase() : 'naše projekty'} vydržia desaťročia`,
+            cta: 'Ako vyrábame',
+            imageDescription: 'Close-up záber: drevené spoje, kvalitné kovanie, presné výrezy.',
+          },
         ],
       },
-      linkedin: null,
-      googleDisplay: null,
+      googleDisplay: {
+        banner: {
+          concept: `Reálny záber ${services[0] ? 'realizácie ' + services[0].toLowerCase() : 'projektu'} + gradient overlay s brandingom`,
+          headline: `${services[0] || 'Riešenia'} na mieru`,
+          description: city ? `${city} a okolie` : 'Po celom Slovensku',
+          cta: 'Bezplatná konzultácia',
+          targeting: `In-market: rekonštrukcia, bývanie · Affinity: design enthusiasts · Custom: visitors ${lead?.domain || 'nášho webu'}`,
+        },
+      },
+      linkedin: {
+        sponsoredContent: {
+          audience: `B2B: developeri, realitné kancelárie, architekti, dizajn štúdiá${city ? ` v okolí ${city}` : ' v SR'}`,
+          monthly_budget_eur: Math.round(monthlyBudget * 0.15),
+          adCopy: {
+            headline: `Partneri pre projekty${city ? ' v ' + city : ''}`,
+            primaryText: `Hľadáte profesionálneho partnera pre váš projekt? ${services.length > 1 ? `Ponúkame ${services.slice(0, 3).join(', ').toLowerCase()}.` : ''} 10+ rokov skúseností, B2B referencie, transparentné ceny.`,
+            cta: 'Stiahnuť cenník',
+          },
+          rationale: 'B2B kanál pre developerov a architektov ktorí potrebujú spoľahlivého dodávateľa. Dlhšie obchodné cykly, vyššie zákazky.',
+        },
+      },
     };
 
     // === Budget recommendations
@@ -7830,6 +7931,16 @@ ${camp.google || camp.meta ? `
         <div style="margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 8px;">
           <p style="font-size: 0.85rem; color: #64748b;"><strong style="color: #1a1a2e;">${T('targetedKw')}</strong><br>${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 4).join(', ') || 'relevantné kľúčové slová pre váš biznis'}</p>
         </div>
+        ${(() => {
+          const hl = camp.google.searchCampaign.adGroups?.[0]?.adCopy?.headlines || [];
+          const dc = camp.google.searchCampaign.adGroups?.[0]?.adCopy?.descriptions || [];
+          if (hl.length <= 1 && dc.length <= 1) return '';
+          return `<div style="margin-top:12px; padding:14px 16px; background:linear-gradient(135deg,#fff7ed,#fef2f2); border:1px solid #fed7aa; border-radius:8px;">
+            <p style="font-size:0.78rem; color:#9a3412; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:10px;">Ďalšie varianty na A/B testovanie</p>
+            ${hl.length > 1 ? `<div style="margin-bottom:8px;"><p style="font-size:0.72rem; color:#64748b; font-weight:600; margin-bottom:4px;">HEADLINES:</p><div style="display:flex; flex-wrap:wrap; gap:6px;">${hl.slice(1).map(h => `<span style="font-size:0.82rem; color:#1a1a2e; padding:4px 10px; background:white; border-radius:99px; border:1px solid #fed7aa;">${escapeHtml(h)}</span>`).join('')}</div></div>` : ''}
+            ${dc.length > 1 ? `<div><p style="font-size:0.72rem; color:#64748b; font-weight:600; margin-bottom:4px;">DESCRIPTIONS:</p>${dc.slice(1).map(d => `<p style="font-size:0.85rem; color:#475569; line-height:1.5; margin:4px 0;">• ${escapeHtml(d)}</p>`).join('')}</div>` : ''}
+          </div>`;
+        })()}
       </div>
       ` : ''}
       
@@ -7872,10 +7983,63 @@ ${camp.google || camp.meta ? `
             <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg> Zdieľať</span>
           </div>
         </div>
+        ${(() => {
+          const adSets = camp.meta.campaign.adSets || [];
+          if (adSets.length <= 1) return '';
+          return `<div style="margin-top:12px; padding:14px 16px; background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1px solid #93c5fd; border-radius:8px;">
+            <p style="font-size:0.78rem; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:10px;">Ďalšie Meta ad sety</p>
+            ${adSets.slice(1, 4).map(as => `<div style="padding:8px 0; border-top:1px solid #bfdbfe;"><div style="font-weight:600; color:#1a1a2e; font-size:0.85rem; margin-bottom:4px;">${escapeHtml(as.name || 'Ďalší ad set')}</div><p style="font-size:0.82rem; color:#475569; line-height:1.5;">${escapeHtml((as.adCopy?.primaryText || '').slice(0, 180))}${(as.adCopy?.primaryText || '').length > 180 ? '…' : ''}</p></div>`).join('')}
+          </div>`;
+        })()}
       </div>
       ` : ''}
     </div>
     
+    <!-- Performance Max + Google Search adGroup #2 (ak existujú) -->
+    ${camp.google?.performanceMaxCampaign || camp.google?.searchCampaign?.adGroups?.[1] ? `
+    <div style="margin-bottom:40px;">
+      <div class="grid-2" style="gap:24px;">
+        ${camp.google?.searchCampaign?.adGroups?.[1] ? `
+        <div>
+          <h4 style="font-size:0.95rem; font-weight:700; color:#1a1a2e; margin-bottom:12px;">${escapeHtml(camp.google.searchCampaign.adGroups[1].name || 'Druhá Search Ad Group')}</h4>
+          <div class="ad-preview google-ad">
+            <div class="ad-content">
+              <div class="ad-sponsored"><span>Sponzorované</span></div>
+              <div class="ad-url-line">
+                <div class="ad-favicon" style="background: url('https://www.google.com/s2/favicons?domain=${lead.domain || 'example.sk'}&sz=32') center/cover no-repeat, #f1f3f4;"></div>
+                <div>
+                  <div class="ad-url">${c.name || lead.company_name}</div>
+                  <div class="ad-breadcrumb">www.${lead.domain || 'example.sk'}</div>
+                </div>
+              </div>
+              <div class="ad-title">${escapeHtml(camp.google.searchCampaign.adGroups[1].adCopy?.headlines?.[0] || '')}</div>
+              <div class="ad-desc">${escapeHtml(camp.google.searchCampaign.adGroups[1].adCopy?.descriptions?.[0] || '')}</div>
+            </div>
+          </div>
+          <p style="margin-top:10px; font-size:0.78rem; color:#64748b;"><strong style="color:#1a1a2e;">KW:</strong> ${(camp.google.searchCampaign.adGroups[1].keywords || []).slice(0, 4).join(', ')}</p>
+        </div>
+        ` : '<div></div>'}
+        ${camp.google?.performanceMaxCampaign ? `
+        <div>
+          <h4 style="font-size:0.95rem; font-weight:700; color:#1a1a2e; margin-bottom:12px;">Performance Max</h4>
+          <div style="background:linear-gradient(135deg,#7c3aed,#3b82f6); border-radius:12px; padding:20px; color:white; box-shadow:0 4px 12px rgba(124,58,237,0.25);">
+            <div style="display:inline-block; padding:3px 10px; background:rgba(255,255,255,0.2); border-radius:99px; font-size:0.7rem; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:10px;">${escapeHtml(camp.google.performanceMaxCampaign.name || 'PMax Campaign')}</div>
+            <p style="font-size:0.85rem; line-height:1.6; opacity:0.95; margin-bottom:14px;">Automatizovaná kampaň naprieč Google Search, Display, YouTube, Discover a Gmail.</p>
+            ${(camp.google.performanceMaxCampaign.assetGroups?.[0]?.headlines || camp.google.performanceMaxCampaign.assetGroups?.[0]?.adCopy?.headlines || []).slice(0, 3).length ? `
+            <div style="margin-top:10px;">
+              <p style="font-size:0.7rem; opacity:0.85; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Top headlines</p>
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                ${(camp.google.performanceMaxCampaign.assetGroups?.[0]?.headlines || camp.google.performanceMaxCampaign.assetGroups?.[0]?.adCopy?.headlines || []).slice(0, 3).map(h => `<span style="font-size:0.85rem; padding:6px 10px; background:rgba(255,255,255,0.15); border-radius:6px;">${escapeHtml(h)}</span>`).join('')}
+              </div>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        ` : '<div></div>'}
+      </div>
+    </div>
+    ` : ''}
+
     <!-- Row 2: Instagram Story + Display Banner + LinkedIn -->
     <h3 style="margin-bottom: 25px; font-size: 1.2rem; font-weight: 700; color: #1a1a2e; border-top: 1px solid #e2e8f0; padding-top: 40px; display: flex; align-items: center; gap: 10px;">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
