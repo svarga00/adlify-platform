@@ -598,6 +598,17 @@ const LeadsModule = {
           <div class="form-group"><label>Telefón</label><input type="text" id="add-phone" placeholder="+421..."></div>
           <div class="form-group"><label>Odvetvie</label><input type="text" id="add-industry" placeholder="E-commerce"></div>
           <div class="form-group"><label>Mesto</label><input type="text" id="add-city" placeholder="Bratislava"></div>
+          <div class="form-group" style="grid-column: span 2;">
+            <label>🌍 Jazyk leadu *</label>
+            <select id="add-lang" style="width:100%; padding:10px 12px; border:1px solid var(--n-200); border-radius:8px; background:var(--surface); font-family:inherit; font-size:14px;">
+              <option value="sk">🇸🇰 Slovenčina</option>
+              <option value="cs">🇨🇿 Čeština</option>
+              <option value="de">🇩🇪 Deutsch</option>
+              <option value="en">🇬🇧 English</option>
+              <option value="hu">🇭🇺 Magyar</option>
+            </select>
+            <small style="color:#64748b; font-size:0.8rem;">V tomto jazyku bude AI analýza, KW návrhy, ponuka aj komunikácia s klientom.</small>
+          </div>
           <div class="form-group" style="grid-column: span 2;"><label>🖼️ Logo URL (voliteľné)</label><input type="url" id="add-logo" placeholder="https://firma.sk/logo.png"><small style="color: #64748b; font-size: 0.8rem;">Ak nevyplníte, použije sa automaticky favicon z domény</small></div>
         </div>
         <div class="form-actions">
@@ -933,6 +944,7 @@ const LeadsModule = {
           <td>
             <span class="adl-chip adl-chip-${st.tone} adl-chip-sm"><span class="dot"></span>${st.label}</span>
             ${hasAnalysis ? ` <span class="adl-chip adl-chip-sm" style="margin-left:4px; background:color-mix(in oklab, var(--brand-500) 10%, transparent); color:var(--brand-700);" title="AI analýza dokončená">${I.Sparkle({size:10})} AI</span>` : ''}
+            ${lead.proposal_lang && lead.proposal_lang !== 'sk' ? ` <span class="adl-chip adl-chip-sm" style="margin-left:4px;" title="Jazyk leadu: ${lead.proposal_lang.toUpperCase()}">${({cs:'🇨🇿',de:'🇩🇪',en:'🇬🇧',hu:'🇭🇺'})[lead.proposal_lang] || lead.proposal_lang.toUpperCase()}</span>` : ''}
           </td>
           <td>
             <div style="display:flex; align-items:center; gap:10px;">
@@ -10033,18 +10045,21 @@ ${analysis.customNote ? `
     const industry = document.getElementById('add-industry').value.trim();
     const city = document.getElementById('add-city').value.trim();
     const logoUrl = document.getElementById('add-logo')?.value.trim() || null;
-    await Database.insert('leads', { 
-      domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`, 
-      company_name: name, 
+    const lang = document.getElementById('add-lang')?.value || 'sk';
+    await Database.insert('leads', {
+      domain: domain || `${name.toLowerCase().replace(/\s+/g, '-')}.local`,
+      company_name: name,
       email: email || null,
       phone: phone || null,
       logo_url: logoUrl,
-      status: 'new', 
-      score: 50, 
-      analysis: { company: { industry, location: city } } 
+      proposal_lang: lang,
+      status: 'new',
+      score: 50,
+      analysis: { company: { industry, location: city } }
     });
     Utils.toast('Lead pridaný!', 'success');
     ['add-name', 'add-domain', 'add-email', 'add-phone', 'add-industry', 'add-city', 'add-logo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const langSel = document.getElementById('add-lang'); if (langSel) langSel.value = 'sk';
     await this.loadLeads();
     this.showTab('list');
     document.getElementById('leads-list').innerHTML = this.renderLeadsList();
