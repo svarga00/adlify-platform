@@ -1225,24 +1225,28 @@ async function runPremiumGeneration(
     }
 
     const context = buildContext(lead, scrapedContent, customNotes, lang)
+    console.log(`[premium] Context built, len=${context.length}, lang=${lang}`)
 
     // Dynamic max_tokens podľa modelu — Edge fn má hard wall-clock 150s
-    // (Free tier) alebo 400s (Pro tier). Aby sme sa zmestili do 150s s
-    // bezpečným marginom pre parse+DB write, Anthropic call musí byť < 135s.
-    // Output token rates pri SK próze (~):
-    //   Haiku 4.5: 150-300 tok/s → 14K = 47-93s ✓
-    //   Sonnet 4.6: 50-100 tok/s → 8K = 80-160s ⚠️ tesné, 8K je strop
-    //   Opus 4.8:  25-50 tok/s  → 4K = 80-160s ⚠️ Opus na 150s Edge len ak Pro tier
-    const maxTokens = model.includes('haiku') ? 14000
-                    : model.includes('opus') ? 4000
-                    : 8000  // sonnet/default — znížené z 10K kvôli 150s limit
-    console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}`)
+    // (Free tier). Anthropic call musí byť < 110s aby sme mali rezervu pre
+    // parse+DB. Output token rates pri SK próze:
+    //   Haiku 4.5:  150-300 tok/s → 12K = 40-80s ✓ bezpečne
+    //   Sonnet 4.6:  50-100 tok/s → 6K  = 60-120s ⚠️ tesné
+    //   Opus 4.8:    25-50 tok/s → 3K  = 60-120s ⚠️ riziko
+    const maxTokens = model.includes('haiku') ? 12000
+                    : model.includes('opus') ? 3000
+                    : 6000  // sonnet/default — znížené pre 150s Edge limit
+    console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}, starting Anthropic call`)
 
-    // Anthropic timeout 135s — 15s margin pred Edge 150s wall-clock kill.
-    // Ak Anthropic neodpovie do 135s, my zachytíme abort a uložíme error
-    // ešte pred tým ako Edge runtime nás zabije (a stratíme DB write).
+    // Anthropic timeout — agresívne 110s. Ak by sa AI zaseklo, abort fires
+    // → catch handler ulží error STATUS predtým než Edge runtime nás zabije
+    // pri 150s. Predtým 135s + 5s DB write občas spadlo do 150s killer.
     const anthropicAbort = new AbortController()
-    const anthropicTimeout = setTimeout(() => anthropicAbort.abort(), 135000)
+    const anthropicStartMs = Date.now()
+    const anthropicTimeout = setTimeout(() => {
+      console.error(`[premium] ⛔ Anthropic timeout fired po ${(Date.now() - anthropicStartMs) / 1000}s — abortujem`)
+      anthropicAbort.abort()
+    }, 110000)
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: anthropicAbort.signal,
@@ -1273,7 +1277,8 @@ async function runPremiumGeneration(
     const text = (claudeJson.content || [])
       .filter((c: any) => c.type === 'text')
       .map((c: any) => c.text || '').join('').trim()
-    console.log(`[premium] Got ${text.length} chars + ${(claudeJson.content || []).length} content blocks · stop_reason=${claudeJson.stop_reason}`)
+    const elapsedSec = ((Date.now() - anthropicStartMs) / 1000).toFixed(1)
+    console.log(`[premium] ✓ Anthropic response za ${elapsedSec}s · ${text.length} chars · stop_reason=${claudeJson.stop_reason}`)
 
     const cleaned = text
       .replace(/^[\s\S]*?```(?:json)?\s*/i, (m: string) => m.includes('```') ? '' : m)
@@ -1308,13 +1313,25 @@ async function runPremiumGeneration(
     console.log(`[premium] DONE lead=${leadId}`)
     return { premium, generatedAt, usage: claudeJson.usage }
   } catch (err) {
-    console.error('[premium] Fatal:', err)
-    const errMsg = err instanceof Error ? err.message : String(err)
-    await supabase.from('leads').update({
-      premium_analysis_status: 'error',
-      premium_analysis_error: errMsg,
-    }).eq('id', leadId)
-    return { error: errMsg }
+    const rawMsg = err instanceof Error ? err.message : String(err)
+    console.error('[premium] Fatal:', rawMsg)
+    // Friendly error pre user — rozlíš timeout od iných chýb
+    let userMsg = rawMsg
+    if (rawMsg.includes('aborted') || rawMsg.includes('AbortError') || rawMsg.includes('signal')) {
+      userMsg = model.includes('haiku')
+        ? 'AI model nestihol odpovedať v limite (110s). Skúste znova — môže to byť dočasná záťaž Anthropic API.'
+        : `AI model "${model}" je príliš pomalý pre Supabase Edge limit. Použite Haiku 4.5 (najrýchlejší).`
+    }
+    // Try-catch DB write — ak Edge runtime nás kill-uje, neblokuj
+    try {
+      await supabase.from('leads').update({
+        premium_analysis_status: 'error',
+        premium_analysis_error: userMsg,
+      }).eq('id', leadId)
+    } catch (dbErr) {
+      console.error('[premium] DB write zlyhal pri error state:', dbErr)
+    }
+    return { error: userMsg }
   }
 }
 
