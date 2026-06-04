@@ -6426,10 +6426,41 @@ info@adlify.eu | www.adlify.eu`
       ppc: { status: 'none', notes: text.onlinePpcNotes },
     };
 
+    // Posledná záchrana — ak kwVol obsahuje KW (z analyze-lead alebo legacy)
+    // ale ŽIADNY z nich nemá search_volume > 0 (napr. analyze-lead dal iba
+    // názvy), doplň estimated objemy podľa rovnakej heuristiky ako fallback.
+    // Inak by tabuľka ukázala "–" pre všetky riadky.
+    const hasVolumeData = kwVol.some(k => Number(k.search_volume) > 0);
+    if (kwVol.length && !hasVolumeData) {
+      const baseCpc = (bench.aov > 2000) ? 0.6 : (bench.aov > 500) ? 0.45 : 0.30;
+      kwVol = kwVol.map(kw => {
+        const kwStr = String(kw.keyword || '');
+        const words = kwStr.split(' ').length;
+        const hasCity = city && kwStr.toLowerCase().includes(city.toLowerCase());
+        const hasPriceModifier = /\b(cena|cennik|cenník|price|preis|ár)\b/i.test(kwStr);
+        const hasBuyModifier = /\b(predaj|kúp|kup|servis|montáž|montaz|oprava|inštalác|instala)\b/i.test(kwStr);
+        let vol = 400;
+        if (words >= 4) vol = 80;
+        else if (words >= 3 && hasCity) vol = 90;
+        else if (hasCity) vol = 150;
+        else if (hasPriceModifier && words >= 2) vol = 200;
+        else if (words >= 3) vol = 150;
+        else if (words === 2) vol = 600;
+        else vol = 1200;
+        return {
+          ...kw,
+          search_volume: kw.search_volume || vol,
+          cpc_eur: kw.cpc_eur || +(baseCpc + (Math.random() * 0.2 - 0.1)).toFixed(2),
+          intent: kw.intent || (hasPriceModifier || hasBuyModifier ? 'buy' : ''),
+          estimated: true,
+        };
+      });
+    }
+
     // Rozdeľ KW do primary/secondary/longTail podľa objemu pre adapter
-    const sortedKw = [...kwVol].sort((a, b) => (b.search_volume || 0) - (a.search_volume || 0));
-    const kwPrimary = sortedKw.filter(k => (k.search_volume || 0) >= 500);
-    const kwSecondary = sortedKw.filter(k => (k.search_volume || 0) >= 100 && (k.search_volume || 0) < 500);
+    const sortedKw = [...kwVol].sort((a, b) => (Number(b.search_volume) || 0) - (Number(a.search_volume) || 0));
+    const kwPrimary = sortedKw.filter(k => (Number(k.search_volume) || 0) >= 500);
+    const kwSecondary = sortedKw.filter(k => (Number(k.search_volume) || 0) >= 100 && (Number(k.search_volume) || 0) < 500);
     const kwLongTail = sortedKw.filter(k => (k.search_volume || 0) < 100);
 
     return {
