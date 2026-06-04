@@ -2225,10 +2225,53 @@ const LeadsModule = {
     { key: 'validity',         sheets: ['Validity Checker'], label: 'Validácia W3C' },
   ],
 
+  // Deterministicky vygeneruje 12-20 kľúčových slov pre vloženie do MM
+  // (Hľadanosť fráz, PPC reklamy, Analýza SERP, Pozícia). Beží okamžite,
+  // žiadny AI call. Variants podľa jazyka leadu + s mestom + s modifierami.
+  _suggestKeywordsForMM(lead) {
+    const lang = (lead?.proposal_lang || 'sk').toLowerCase();
+    const a = lead?.analysis || {};
+    const services = (a.company?.services || []).filter(s => s && s.trim());
+    const city = (a.company?.city || lead?.city || '').trim();
+    const industry = (a.company?.industry || lead?.industry || '').trim();
+    // Modifiers — pre každý jazyk
+    const M = {
+      sk: ['na mieru', 'cena', 'predaj', 'výroba'],
+      cs: ['na míru', 'cena', 'prodej', 'výroba'],
+      de: ['nach Maß', 'Preis', 'kaufen', 'Hersteller'],
+      en: ['custom', 'price', 'buy', 'manufacturer'],
+      hu: ['egyedi', 'ár', 'eladás', 'gyártó'],
+    };
+    const mods = M[lang] || M.sk;
+    const kws = [];
+    const add = (kw) => {
+      const norm = String(kw).toLowerCase().trim().replace(/\s+/g, ' ');
+      if (norm && norm.length >= 3 && !kws.includes(norm)) kws.push(norm);
+    };
+    // Per-service: base + 2-3 modifiers + with city
+    for (const svc of services.slice(0, 5)) {
+      const base = String(svc).toLowerCase().trim();
+      add(base);
+      // Pridaj modifier len ak base ho už neobsahuje (zabráni "nábytok na mieru na mieru")
+      if (!base.includes(mods[0].toLowerCase())) add(`${base} ${mods[0]}`);
+      if (city) add(`${base} ${city.toLowerCase()}`);
+      if (!base.includes(mods[1].toLowerCase())) add(`${base} ${mods[1]}`);
+    }
+    // Industry seed — ak je dostupné a líši sa od services
+    if (industry && !services.some(s => industry.toLowerCase().includes(s.toLowerCase()))) {
+      const ind = industry.toLowerCase().trim();
+      add(ind);
+      if (city) add(`${ind} ${city.toLowerCase()}`);
+    }
+    return kws.slice(0, 20);
+  },
+
   _renderMMReports(lead) {
     const md = lead.marketing_data || {};
     const reports = md.mm_reports || {};
     const has = Object.keys(reports).length > 0;
+    // Krok 1 — odporúčané KW pre vloženie do MM
+    const suggestedKw = this._suggestKeywordsForMM(lead);
 
     const reportCard = (key, def) => {
       const r = reports[key];
@@ -2260,7 +2303,26 @@ const LeadsModule = {
       .map(d => `<span class="adl-chip adl-chip-sm" style="background:var(--n-50); color:var(--ink-sub);">${d.label}</span>`)
       .join('');
 
+    // Krok 1 karta — vygenerované KW na skopírovanie do MM
+    const step1Card = suggestedKw.length ? `
+      <div style="background:linear-gradient(135deg, #faf5ff 0%, #fff 50%, #fef3f8 100%); border:1.5px solid #e9d5ff; border-radius:14px; padding:18px 20px; margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+          <div>
+            <div style="display:inline-block; padding:3px 10px; background:rgba(124,58,237,0.12); color:#7c3aed; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; margin-bottom:6px;">Krok 1</div>
+            <div style="font-size:14px; font-weight:700; color:var(--ink);">Pripravené kľúčové slová pre Marketing Miner</div>
+            <div style="font-size:12px; color:var(--ink-sub); margin-top:2px;">${suggestedKw.length} návrhov vygenerovaných z analýzy leadu — skopírujte a vložte do MM</div>
+          </div>
+          <button onclick="LeadsModule.copyMMKeywords()" class="adl-btn adl-btn-outline adl-btn-sm" id="btn-copy-mm-kw" style="white-space:nowrap;">${I.Copy ? I.Copy({size:13}) : ''} Kopírovať všetky</button>
+        </div>
+        <textarea id="mm-suggested-kw" rows="${Math.min(8, Math.max(4, Math.ceil(suggestedKw.length/2)))}" style="width:100%; padding:10px 12px; background:#fff; border:1px solid var(--n-100); border-radius:8px; font-family:var(--font-mono, monospace); font-size:12px; line-height:1.6; resize:vertical; color:var(--ink);">${suggestedKw.join('\n')}</textarea>
+        <div style="margin-top:10px; padding:10px 12px; background:rgba(124,58,237,0.06); border-radius:8px; font-size:12px; color:var(--ink); line-height:1.5;">
+          <strong>Použite tieto KW v MM funkciách:</strong> Hľadanosť fráz · Pozícia vo vyhľadávačoch · PPC reklamy · Analýza SERP. Stiahnuté XLSX/CSV potom pretiahnite do dropzóny nižšie.
+        </div>
+      </div>
+    ` : '';
+
     return `
+      ${step1Card}
       ${uploadedList}
       <div id="mm-dropzone" ondragover="event.preventDefault(); this.style.borderColor='var(--brand-500)'; this.style.background='var(--brand-50)';"
            ondragleave="this.style.borderColor='var(--border)'; this.style.background='var(--n-50)';"
@@ -2319,6 +2381,28 @@ const LeadsModule = {
         </div>
       </details>
     `;
+  },
+
+  // Skopíruje obsah textareaí KW do clipboardu — Krok 1 button v MM tab-e.
+  async copyMMKeywords() {
+    const ta = document.getElementById('mm-suggested-kw');
+    if (!ta) return;
+    const text = ta.value.trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      Utils.toast(`Skopírovaných ${text.split('\n').filter(l => l.trim()).length} kľúčových slov`, 'success');
+      const btn = document.getElementById('btn-copy-mm-kw');
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✓ Skopírované';
+        setTimeout(() => { btn.innerHTML = orig; }, 1800);
+      }
+    } catch (e) {
+      // Fallback — select all v textareí pre manuálne kopírovanie
+      ta.focus(); ta.select();
+      Utils.toast('Označené v textovom poli — stlačte Ctrl+C (Cmd+C)', 'info');
+    }
   },
 
   async handleMMUpload(fileList) {
