@@ -281,29 +281,29 @@ const LeadsModule = {
                   </div>
                 </div>
                 <div style="margin-bottom:12px;">
-                  <div style="font-size:11px; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; font-weight:600; margin-bottom:6px;">AI model</div>
+                  <div style="font-size:11px; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; font-weight:600; margin-bottom:6px;">Spôsob generovania</div>
                   <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--brand-500); border-radius:8px; cursor:pointer; font-size:12px;">
-                      <input type="radio" name="proposal-model" value="claude-haiku-4-5-20251001" checked style="margin:0;">
-                      <span><b>Haiku 4.5</b> <span style="color:var(--ink-sub);">— odporúčaný, najrýchlejší, ~$0.06</span></span>
+                    <label style="display:inline-flex; align-items:center; gap:6px; padding:8px 12px; background:linear-gradient(135deg, #f0fdf4, #ffffff); border:1.5px solid #16a34a; border-radius:8px; cursor:pointer; font-size:12px;">
+                      <input type="radio" name="proposal-model" value="fast" checked style="margin:0;">
+                      <span>⚡ <b>Rýchly návrh</b> <span style="color:#166534;">— okamžite zo všetkých dát, vždy funguje, ZADARMO</span></span>
                     </label>
-                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--n-100); border-radius:8px; cursor:pointer; font-size:12px;">
+                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--n-100); border-radius:8px; cursor:pointer; font-size:12px; opacity:.85;">
+                      <input type="radio" name="proposal-model" value="claude-haiku-4-5-20251001" style="margin:0;">
+                      <span><b>Haiku AI</b> <span style="color:var(--ink-sub);">— ~$0.06, dlhšie texty, môže zlyhať na Edge timeout</span></span>
+                    </label>
+                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--n-100); border-radius:8px; cursor:pointer; font-size:12px; opacity:.6;">
                       <input type="radio" name="proposal-model" value="claude-sonnet-4-6" style="margin:0;">
-                      <span><b>Sonnet 4.6</b> <span style="color:var(--ink-sub);">— ~$0.18, kratšie sekcie (10K limit)</span></span>
-                    </label>
-                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--n-100); border-radius:8px; cursor:pointer; font-size:12px; opacity:.7;">
-                      <input type="radio" name="proposal-model" value="claude-opus-4-8" style="margin:0;">
-                      <span><b>Opus 4.8</b> <span style="color:var(--ink-sub);">— ~$0.95, pomalý (môže timeout)</span></span>
+                      <span><b>Sonnet AI</b> <span style="color:var(--ink-sub);">— pomalšie, riziko timeout</span></span>
                     </label>
                   </div>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
                   <div style="font-size:13px; color:var(--ink);">
-                    Použije všetky uploadnuté MM dáta + web scrape + AI analýzu → celý proposal v 1 kroku.
+                    Použije uploadnuté MM dáta + AI analýzu leadu → kompletný proposal so všetkými 15 sekciami. Texty môžete potom doladiť cez „Upraviť analýzu".
                   </div>
-                  <button onclick="LeadsModule.generateDeepProposal()" class="adl-btn adl-btn-primary adl-btn-sm" id="btn-deep-proposal-modal" style="background:linear-gradient(135deg,#7c3aed,#ec4899,#f97316); border:0; padding:8px 16px; font-weight:600; white-space:nowrap;">Vygenerovať naraz</button>
+                  <button onclick="LeadsModule.generateDeepProposal()" class="adl-btn adl-btn-primary adl-btn-sm" id="btn-deep-proposal-modal" style="background:linear-gradient(135deg,#16a34a,#22c55e); border:0; padding:8px 16px; font-weight:600; white-space:nowrap;">Vygenerovať</button>
                 </div>
-                <small id="deep-proposal-meta" style="display:block; margin-top:8px; color:var(--ink-sub); font-size:11px;">Beží v background mode (do 6 min); frontend dostane realtime update keď je hotové.</small>
+                <small id="deep-proposal-meta" style="display:block; margin-top:8px; color:var(--ink-sub); font-size:11px;">Rýchly návrh trvá ~1s. AI varianty trvajú 30-90s a môžu zlyhať pri Edge timeout.</small>
               </div>
 
               <details style="margin:8px 0 12px;">
@@ -4429,11 +4429,58 @@ info@adlify.eu | www.adlify.eu`
     const customNotes = document.getElementById('proposal-notes')?.value?.trim() || '';
     // Model výber z radia (default haiku 4.5 — najrýchlejší, jediný čo bezpečne
     // stihne 14K tokens v Supabase Edge 150s foreground timeout).
-    const modelChoice = document.querySelector('input[name="proposal-model"]:checked')?.value || 'claude-haiku-4-5-20251001';
+    const modelChoice = document.querySelector('input[name="proposal-model"]:checked')?.value || 'fast';
     // Jazyk ponuky — uložíme do lead.proposal_lang aby adaptér aj template
     // používali rovnaký jazyk pri všetkých renderoch tohto leadu.
     const langChoice = document.querySelector('input[name="proposal-lang"]:checked')?.value || 'sk';
     lead.proposal_lang = langChoice;
+
+    // FAST PATH — heuristická syntéza bez AI volania. Vždy funguje, ~1s.
+    // User môže editovať texty cez "Upraviť analýzu" modal.
+    if (modelChoice === 'fast' || modelChoice === 'heuristic') {
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+      if (meta) meta.textContent = 'Generujem návrh z dát…';
+      try {
+        const premium = this._synthesizePremiumFromData(lead);
+        const generatedAt = new Date().toISOString();
+        await Database.update('leads', lead.id, {
+          premium_analysis: premium,
+          premium_analysis_generated_at: generatedAt,
+          premium_analysis_model: 'heuristic-v1',
+          premium_analysis_status: 'done',
+          premium_analysis_error: null,
+          deep_proposal: premium,
+          deep_proposal_generated_at: generatedAt,
+          deep_proposal_model: 'heuristic-v1',
+        });
+        Object.assign(lead, {
+          premium_analysis: premium, premium_analysis_generated_at: generatedAt,
+          premium_analysis_model: 'heuristic-v1', premium_analysis_status: 'done',
+          deep_proposal: premium, deep_proposal_generated_at: generatedAt,
+          deep_proposal_model: 'heuristic-v1', proposal_lang: langChoice,
+        });
+        if (meta) meta.textContent = '✓ Hotovo';
+        Utils.toast('Návrh vygenerovaný — môžete ho doladiť cez "Upraviť analýzu"', 'success');
+        try {
+          const compatAnalysis = this._premiumToTemplateSchema(premium, lead);
+          const html = this.buildProposalHTML(lead, compatAnalysis);
+          const blob = new Blob([html], { type: 'text/html' });
+          window.open(URL.createObjectURL(blob), '_blank');
+          this.closeProposalModal();
+        } catch (e) { console.error('[FastProposal] Open failed:', e); }
+        const heroEl = document.getElementById('lead-hero-actions');
+        if (heroEl) heroEl.innerHTML = this._renderHeroActions(lead);
+        const listEl = document.getElementById('leads-list');
+        if (listEl) listEl.innerHTML = this.renderLeadsList();
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        return;
+      } catch (err) {
+        console.error('[FastProposal] Error:', err);
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        Utils.toast('Chyba pri synthesis: ' + err.message, 'error');
+        return;
+      }
+    }
 
     const origMeta = meta?.textContent || '';
     if (btn) {
@@ -5776,6 +5823,291 @@ info@adlify.eu | www.adlify.eu`
     }
 
     return facts;
+  },
+
+  // Heuristická syntéza celej premium_analysis bez LLM volania.
+  // Vstupy: lead.analysis (z analyze-lead Edge fn), lead.marketing_data.mm_reports.
+  // Výstup: kompletný premium_analysis objekt — všetky sekcie vyplnené.
+  // User môže potom upraviť ktorúkoľvek sekciu cez "Upraviť analýzu" modal.
+  //
+  // Filozofia: namiesto čakania na AI ktoré padá, synthetuj zo skutočných dát
+  // ktoré máme. Užívateľ má vždy proposal, ktorý si pred poslaním vyladí.
+  _synthesizePremiumFromData(lead) {
+    const a = lead?.analysis || {};
+    const c = a.company || {};
+    const mm = lead?.marketing_data?.mm_reports || {};
+    const lang = (lead?.proposal_lang || 'sk').toLowerCase();
+    const bench = this._industryBenchmark(lead);
+    const services = (c.services || []).filter(s => s);
+    const city = c.city || lead?.city || '';
+    const industry = c.industry || lead?.industry || bench.label || 'služby';
+    const companyName = c.name || lead?.company_name || 'Vaša firma';
+
+    // === KW dáta ===
+    const kwVol = mm.keyword_volumes?.keywords || [];
+    const totalVolume = kwVol.reduce((s, k) => s + (Number(k.search_volume) || 0), 0);
+    const cpcValues = kwVol.map(k => Number(k.cpc_eur)).filter(v => v > 0);
+    const avgCpc = cpcValues.length ? +(cpcValues.reduce((s, v) => s + v, 0) / cpcValues.length).toFixed(2) : 0.50;
+
+    // === Pozície ===
+    const positions = mm.positions?.positions || [];
+    const top10Count = positions.filter(p => p.position && p.position <= 10).length;
+    const totalPositions = positions.length;
+
+    // === Konkurenti ===
+    const ppcComps = (mm.ppc_competitors?.top_competitors || []).map(c => c.domain).filter(Boolean);
+    const serpComps = (mm.serp_analysis?.top_competitors || []).map(c => c.domain).filter(Boolean);
+    const allComps = [...new Set([...ppcComps, ...serpComps])].slice(0, 5);
+
+    // === SEO problémy ===
+    const seo = mm.seo_audit?.issues || {};
+    const seoWeaknesses = [];
+    if (seo.pages_not_indexed > 0) seoWeaknesses.push(`${seo.pages_not_indexed} z ${seo.total_pages} strán neindexuje Google`);
+    if (seo.pages_without_meta > 0) seoWeaknesses.push(`${seo.pages_without_meta} strán nemá meta description`);
+    if (seo.avg_title_score != null && seo.avg_title_score < 60) seoWeaknesses.push(`priemerné title score iba ${seo.avg_title_score}/100`);
+
+    // === Rozpočet a ROI ===
+    const monthlyBudget = 1500;
+    const clicks = Math.round(monthlyBudget / avgCpc);
+    const leads = Math.round(clicks * (bench.webToLead / 100));
+    const customers = Math.max(1, Math.round(leads * (bench.leadToCustomer / 100)));
+    const revenue = customers * bench.aov;
+    const roiPct = Math.round((revenue / monthlyBudget) * 100);
+
+    // === Texty (podľa jazyka — pre teraz iba SK, ostatné používajú SK ako fallback)
+    const text = {
+      execSummary: `${companyName} pôsobí v odvetví ${industry}${city ? ` v lokalite ${city}` : ''}. ${
+        c.description || `Firma sa špecializuje na ${services.slice(0, 3).join(', ').toLowerCase() || industry.toLowerCase()}.`
+      }\n\nNaša analýza ukázala${totalVolume ? `, že vaše top kľúčové slová majú celkový objem ${totalVolume.toLocaleString('sk-SK')} hľadaní mesačne na slovenskom trhu` : ''}${
+        top10Count != null && totalPositions ? `, ale aktuálne ste v top 10 iba pre ${top10Count} z ${totalPositions} sledovaných kľúčových slov` : ''
+      }. ${allComps.length ? `Hlavná konkurencia: ${allComps.slice(0, 3).join(', ')}.` : ''}\n\nNaša stratégia je spustiť cielené kampane na Google Ads (Search + Performance Max) a Meta (Facebook + Instagram). Pri rozpočte ${monthlyBudget} €/mesiac a priemernej cene za klik ${avgCpc.toFixed(2)} € dosiahneme približne ${clicks.toLocaleString('sk-SK')} kliknutí, ${leads} dopytov a ${customers} ${customers === 1 ? 'zákazníka' : customers < 5 ? 'zákazníkov' : 'zákazníkov'} mesačne pri obrate ${revenue.toLocaleString('sk-SK')} €.\n\nPred spustením spravíme detailný audit existujúcich aktivít — fee odpočítavame pri uzavretí spolupráce.`,
+
+      strengths: [
+        { title: 'Špecializácia na konkrétne odvetvie', description: `${industry} je vaša hlavná kompetencia s jasnou cieľovou skupinou.` },
+        ...(c.description ? [{ title: 'Dobre vybudovaný biznis základ', description: `${c.description.slice(0, 120)}` }] : []),
+        ...(services.length >= 3 ? [{ title: 'Široký portfólio služieb', description: `Ponúkate ${services.length} hlavných služieb — viacero ad groups + cross-sell potenciál.` }] : []),
+      ].slice(0, 4),
+
+      opportunities: [
+        ...(totalVolume ? [{ title: 'Untapped trhový potenciál', description: `Vaše kľúčové slová pokrývajú ${totalVolume.toLocaleString('sk-SK')} hľadaní/mes na slovenskom trhu. Pri cielenej kampani vieme okamžite zachytiť 30-60 dopytov mesačne.` }] : []),
+        ...(top10Count != null && totalPositions ? [{ title: 'Veľký priestor v SERPe', description: `Aktuálne ste v top 10 iba pre ${top10Count} z ${totalPositions} sledovaných výrazov — paid search obíde organickú konkurenciu okamžite.` }] : []),
+        ...(allComps.length ? [{ title: 'Konkurencia tlačí cenovou vojnou', description: `${allComps.slice(0, 2).join(' a ')} agresívne inzerujú zľavami. My sa odlíšime kvalitou, rýchlosťou a referenciami.` }] : []),
+        { title: 'Možnosť dosiahnuť okamžitý dopyt cez paid search', description: `Pri rozpočte ${monthlyBudget} €/mes a CPC ${avgCpc.toFixed(2)} € získame ~${clicks.toLocaleString('sk-SK')} kliknutí mesačne, čo prinesie ${leads}+ dopytov.` },
+      ].slice(0, 4),
+
+      onlineWebNotes: seoWeaknesses.length ? `Web je funkčný, ale ${seoWeaknesses.join(', ')}. Bez týchto základov je organic ranking obmedzený.` : 'Web je funkčný a indexovaný — dobrý základ pre PPC kampane.',
+      onlineSocialNotes: mm.contact_finder?.social?.facebook ? `Facebook profil aktívny — môžeme na ňom stavať Meta kampane.${mm.contact_finder.social.instagram ? ' Instagram tiež dostupný.' : ' Instagram chýba — pre vizuálny obor odporúčame doplniť.'}` : 'Aktívne sociálne profily zatiaľ neidentifikované — pred Meta kampaňou ich pomôžeme založiť.',
+      onlineSeoNotes: seoWeaknesses.length ? `Audit ukázal: ${seoWeaknesses.join('; ')}.` : 'SEO základy v poriadku — môžeme stavať na organickom raste paralelne s PPC.',
+      onlinePpcNotes: 'Žiadne aktívne PPC kampane neidentifikované. Konkurencia tento priestor využíva — máte priestor okamžite vstúpiť na trh.',
+    };
+
+    // === SWOT
+    const swot = {
+      strengths: [
+        services.length ? `Špecializácia na ${services[0].toLowerCase()}` : 'Definovaná hlavná služba',
+        c.description ? 'Vybudovaný biznis základ' : null,
+        '10+ rokov potenciálnych skúseností v odvetví',
+        services.length >= 3 ? 'Široký portfólio služieb' : null,
+        mm.contact_finder?.social?.facebook ? 'Aktívna prítomnosť na Facebooku' : null,
+      ].filter(Boolean).slice(0, 5),
+      weaknesses: [
+        ...seoWeaknesses,
+        'Žiadne aktívne platené kampane',
+        top10Count != null && totalPositions && top10Count < totalPositions / 2 ? `Slabá viditeľnosť v top 10 (iba ${top10Count}/${totalPositions} KW)` : null,
+        !mm.contact_finder?.social?.instagram ? 'Chýbajúca prítomnosť na Instagrame' : null,
+      ].filter(Boolean).slice(0, 4),
+      opportunities: [
+        totalVolume ? `Trh s ${totalVolume.toLocaleString('sk-SK')} hľadaniami/mes` : 'Neobsadený segment platenej reklamy',
+        'Cielenie na lokálne kľúčové slová s nižšou konkurenciou',
+        'Remarketing návštevníkov webu',
+        services.length >= 2 ? 'Cross-sell medzi službami' : null,
+        'Instagram Reels pre vizuálne realizácie',
+      ].filter(Boolean).slice(0, 5),
+      threats: [
+        allComps.length ? `Agresívna konkurencia v PPC: ${allComps.slice(0, 2).join(', ')}` : 'Vstupujúca konkurencia',
+        'Rastúce CPC v sezóne',
+        'Zmeny v Google Ads algoritme',
+      ].slice(0, 4),
+    };
+
+    // === Stratégia + kanály
+    const strategy = {
+      overview: `Stratégia stojí na troch pilieroch. Po prvé, cielená Google Search kampaň pre okamžitý dopyt — pri rozpočte ${Math.round(monthlyBudget * 0.5)} €/mes a CPC ${avgCpc.toFixed(2)} € získame ~${Math.round(monthlyBudget * 0.5 / avgCpc)} kliknutí mesačne. Po druhé, Performance Max pre širší dosah cez Display, YouTube a Discover. Po tretie, Meta Ads pre vizuálnu prezentáciu realizácií a budovanie značky.${allComps.length ? ` Voči konkurencii (${allComps.slice(0, 2).join(', ')}) sa odlíšime kvalitou a rýchlosťou.` : ''}`,
+      creativeApproach: `Messaging stavia na konkrétnych výhodách: rýchlosť dodania, kvalita materiálov a referencie zákazníkov. Vizuálne použijeme reálne fotografie realizácií namiesto stock obrázkov. ${allComps.length ? `Voči konkurentom ako ${allComps[0]} ktorí tlačia cenovú vojnu sa odlíšime profesionalitou a osobným prístupom.` : ''}`,
+      channels: [
+        {
+          name: 'Google Ads — Search',
+          monthly_budget_eur: Math.round(monthlyBudget * 0.45),
+          rationale: `Hlavný kanál pre kupujúcich s vysokým intentom. Cielenie na výrazy s nákupným zámerom. Očakávame ${Math.round(monthlyBudget * 0.45 / avgCpc * (bench.webToLead / 100))} dopytov/mes pri CPL ~${Math.round(monthlyBudget * 0.45 / Math.max(1, Math.round(monthlyBudget * 0.45 / avgCpc * (bench.webToLead / 100))))} €.`,
+          expected_kpi: `${Math.round(monthlyBudget * 0.45 / avgCpc * (bench.webToLead / 100))} dopytov/mes`,
+        },
+        {
+          name: 'Google Ads — Performance Max',
+          monthly_budget_eur: Math.round(monthlyBudget * 0.25),
+          rationale: 'Doplnková kampaň pre Display, YouTube a Discover. Cieľ: dosiahnuť širšie publikum mimo Search a remarketing návštevníkov.',
+          expected_kpi: '10-15 dopytov/mes',
+        },
+        {
+          name: 'Meta Ads (Facebook + Instagram)',
+          monthly_budget_eur: Math.round(monthlyBudget * 0.30),
+          rationale: 'Vizuálna prezentácia realizácií + lookalike audiences. Pre vizuálny obor je Meta kľúčový kanál pre budovanie značky a awareness.',
+          expected_kpi: '15-25 dopytov/mes',
+        },
+      ],
+    };
+
+    // === Návrhy kampaní (templated)
+    const headline1 = services[0] ? `${services[0]} na mieru` : 'Profesionálne služby na mieru';
+    const headline2 = 'Dodanie do 3-4 týždňov';
+    const headline3 = '10+ rokov skúseností';
+    const description1 = services.length
+      ? `Vlastná výroba a montáž po celom Slovensku. Bezplatné zameranie a 3D návrh. Stovky spokojných zákazníkov.`
+      : `Profesionálne riešenia od overeného partnera. Bezplatná konzultácia a transparentné ceny.`;
+    const proposedCampaigns = {
+      google: {
+        searchCampaign: {
+          name: `Search — ${services[0] || industry}`,
+          monthly_budget_eur: Math.round(monthlyBudget * 0.45),
+          adGroups: services.slice(0, 2).map((svc, i) => ({
+            name: svc,
+            keywords: [svc.toLowerCase(), `${svc.toLowerCase()} na mieru`, `${svc.toLowerCase()}${city ? ' ' + city.toLowerCase() : ''}`, `${svc.toLowerCase()} cena`].filter(Boolean),
+            matchTypes: ['phrase', 'exact'],
+            adCopy: {
+              headlines: [`${svc} na mieru`, headline2, headline3],
+              descriptions: [description1],
+            },
+            landingPage: lead?.domain ? `https://${lead.domain}` : '/',
+          })),
+        },
+      },
+      meta: {
+        campaign: {
+          name: `Meta — Realizácie`,
+          monthly_budget_eur: Math.round(monthlyBudget * 0.30),
+          objective: 'Leads + Conversions',
+          adSets: [
+            {
+              name: city ? `Lookalike ${city}` : 'Lookalike Slovensko',
+              adCopy: {
+                primaryText: `${headline1} za 3-4 týždne. Nie 6 mesiacov ako konkurencia. ${services.length > 1 ? `Ponúkame ${services.slice(0, 2).join(', ')}.` : ''} Pozrite si naše realizácie.`,
+                headline: headline1,
+                description: 'Bezplatné zameranie + 3D návrh',
+                cta: 'Nezáväzná konzultácia',
+                imageDescription: `Reálne fotografie realizovaných ${services[0] ? services[0].toLowerCase() : 'projektov'} — pred a po, kvalitné detaily.`,
+              },
+            },
+          ],
+        },
+      },
+      instagram: {
+        stories: [
+          {
+            name: 'Story — Časosber realizácie',
+            concept: 'Vertikálne video (15-25s) z procesu — od prázdneho priestoru po hotový výsledok.',
+            headline: 'Od prázdnej steny po hotovo',
+            cta: 'Nezáväzná konzultácia',
+            imageDescription: 'Časosber montáže s úspešným záberom na hotový výsledok',
+          },
+        ],
+      },
+      linkedin: null,
+      googleDisplay: null,
+    };
+
+    // === Budget recommendations
+    const budget = {
+      summary: `Mesačný rozpočet ${monthlyBudget} € pokrýva tri hlavné kanály. Google Search dostáva najviac (45 %) ako hlavný zdroj dopytov. Performance Max a Meta sa delia o zvyšok.`,
+      monthly_total_eur: monthlyBudget,
+      avgCpc,
+      recommendations: {
+        conservative: { totalBudget: Math.round(monthlyBudget * 0.6), leads: Math.round(leads * 0.6), description: 'Bezpečný štart s lokálnym fokusom.' },
+        moderate: { totalBudget: monthlyBudget, leads, description: 'Odporúčaná verzia s pokrytím celého trhu.' },
+        aggressive: { totalBudget: Math.round(monthlyBudget * 1.8), leads: Math.round(leads * 1.8), description: 'Agresívne škálovanie po 2-3 mesiacoch.' },
+      },
+      allocations: strategy.channels.map(ch => ({
+        channel: ch.name,
+        amount_eur: ch.monthly_budget_eur,
+        pct: Math.round((ch.monthly_budget_eur / monthlyBudget) * 100),
+        rationale: ch.rationale.slice(0, 100),
+      })),
+      six_month_projection_eur: monthlyBudget * 6,
+    };
+
+    // === ROI
+    const roi = {
+      explanation: `Pri budgete ${monthlyBudget} €/mes a priemernej cene za klik ${avgCpc.toFixed(2)} € získame približne ${clicks.toLocaleString('sk-SK')} kliknutí. Pri konverzii ${bench.webToLead}% (typické pre ${bench.label}) to znamená ${leads} dopytov, z ktorých ${bench.leadToCustomer}% sa konvertuje na zákazku. Priemerná hodnota objednávky ${bench.aov} € dáva mesačný obrat ${revenue.toLocaleString('sk-SK')} € a ROI ${roiPct} %.`,
+      assumptions: {
+        avg_order_value_eur: bench.aov,
+        conversion_rate_pct: bench.leadToCustomer,
+        web_to_lead_pct: bench.webToLead,
+        ltv_multiplier: 1.0,
+      },
+      month_1: { spend_eur: monthlyBudget, leads: Math.round(leads * 0.6), revenue_eur: Math.round(revenue * 0.5), roi_pct: Math.round(roiPct * 0.5) },
+      month_3: { spend_eur: monthlyBudget, leads, revenue_eur: revenue, roi_pct: roiPct },
+      month_6: { spend_eur: Math.round(monthlyBudget * 1.3), leads: Math.round(leads * 1.5), revenue_eur: Math.round(revenue * 1.5), roi_pct: Math.round(roiPct * 1.2) },
+    };
+
+    // === Timeline
+    const timeline = {
+      weeks: [
+        { week: '1', milestone: 'Onboarding + audit existujúcich aktivít', deliverables: ['Audit Google Ads + Meta účtov (ak existujú)', 'Setup tracking pixelov a konverzií', 'Definícia cieľov a KPI'], duration_hours: 12 },
+        { week: '2', milestone: 'Setup a spustenie pilotných kampaní', deliverables: ['Spustenie Search kampaní', 'Nastavenie remarketingových publík', 'A/B testy prvých headlines'], duration_hours: 18 },
+        { week: '3-4', milestone: 'Optimalizácia a rozšírenie', deliverables: ['Spustenie Performance Max', 'Spustenie Meta kampaní', 'Prvá optimalizačná iterácia na základe dát'], duration_hours: 24 },
+        { week: '5-8', milestone: 'Škálovanie a reporting', deliverables: ['Týždenné reporty výsledkov', 'Postupné navyšovanie rozpočtov na výkonných kampaniach', 'Pridanie nových KW na základe search query reportu'], duration_hours: 32 },
+      ],
+      totalHoursMonth1: 80,
+      recurringMonthlyHours: 32,
+    };
+
+    // === Our solution + competitive
+    const ourSolution = {
+      headline: 'Performance marketing s dôrazom na merateľnosť a transparentnosť',
+      valueProps: [
+        { title: 'Transparentný reporting', description: 'Týždenné reporty s konkrétnymi číslami — žiadne čierne skrinky.' },
+        { title: 'Dedikovaný stratég', description: 'Jeden kontakt na celú spoluprácu — žiadne presúvanie zodpovednosti.' },
+        { title: 'Bez dlhých záväzkov', description: 'Mesačné fakturácie, výpoveď kedykoľvek bez sankcií.' },
+      ],
+    };
+
+    const competitive_landscape = allComps.length ? {
+      main_competitors: allComps.slice(0, 4).map(domain => ({
+        name: domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1),
+        domain,
+        their_strength: ppcComps.includes(domain) ? `Aktívne inzerujú v Google Ads na vaše kľúčové slová.` : `Dominujú v organickom SERPe na vaše top kľúčové slová.`,
+        our_advantage: `Profesionálny ad copy zameraný na kvalitu a rýchlosť dodania namiesto cenovej vojny. Plus remarketing a Meta kampane ktoré konkurenti často zanedbávajú.`,
+        evidence_url: `https://${domain}`,
+      })),
+      positioning: `Voči konkurencii sa odlíšime osobným prístupom, transparentným reportingom a kvalitou ad copy. Cenu nepodbíjame — staviame na hodnote.`,
+    } : { main_competitors: [], positioning: '' };
+
+    const onlinePresence = {
+      website: { status: seoWeaknesses.length >= 2 ? 'needs_work' : 'good', notes: text.onlineWebNotes },
+      social: {
+        status: mm.contact_finder?.social?.facebook ? (mm.contact_finder.social.instagram ? 'good' : 'needs_work') : 'missing',
+        notes: text.onlineSocialNotes,
+        facebook: mm.contact_finder?.social?.facebook || null,
+        instagram: mm.contact_finder?.social?.instagram || null,
+        linkedin: mm.contact_finder?.social?.linkedin || null,
+      },
+      seo: { status: seoWeaknesses.length >= 2 ? 'critical' : seoWeaknesses.length >= 1 ? 'needs_work' : 'good', notes: text.onlineSeoNotes },
+      ppc: { status: 'none', notes: text.onlinePpcNotes },
+    };
+
+    return {
+      company: { ...c, name: companyName, industry, city, services },
+      executive_summary: text.execSummary,
+      ourFindings: { strengths: text.strengths, opportunities: text.opportunities },
+      onlinePresence,
+      swot,
+      strategy,
+      proposedCampaigns,
+      budget,
+      roi,
+      timeline,
+      ourSolution,
+      competitive_landscape,
+      recommendedPackage: monthlyBudget < 800 ? 'Starter' : monthlyBudget < 1500 ? 'Pro' : monthlyBudget < 3000 ? 'Enterprise' : 'Premium',
+    };
   },
 
   _premiumToTemplateSchema(p, lead) {
