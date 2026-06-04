@@ -5666,6 +5666,15 @@ info@adlify.eu | www.adlify.eu`
     return { labelKey: 'industryDefault', label: 'PPC priemer trhu', webToLead: 3.0, leadToCustomer: 20, aov: 800, salesCycleWeeks: 2 };
   },
 
+  // Vráti generický príklad titulku pre odporúčanie podľa odvetvia leadu,
+  // bez hardcoded brand-u. Používa sa v techAudit recommendations.
+  _exampleTitleForLead(lead) {
+    const services = lead?.analysis?.company?.services || [];
+    const brand = lead?.company_name || lead?.analysis?.company?.name || 'Brand';
+    const svc = services[0] || lead?.analysis?.company?.industry || 'Služba';
+    return `"${svc} na mieru za 3-4 týždne | ${brand}"`;
+  },
+
   _mmFacts(lead) {
     const mm = (lead && lead.marketing_data && lead.marketing_data.mm_reports) || {};
     const facts = { keywords: null, social: null, seoNote: null, seoWeaknesses: [], competitors: null, positionsByKw: {}, techAudit: null };
@@ -5677,10 +5686,15 @@ info@adlify.eu | www.adlify.eu`
       });
     }
 
-    // 1) Keywords — presné objemy/CPC, zoradené podľa objemu
+    // 1) Keywords — presné objemy/CPC, zoradené podľa objemu zostupne.
+    // Ak má MM aj KW s nulovým objemom (MM nemá pre ne dáta v DB), ostávajú
+    // v zozname ale na konci — adapter neskôr KW dedupne a vyberie top 12.
+    // Klient v tabuľke uvidí najsilnejšie KW na vrchu, slabé na konci.
     const kv = mm.keyword_volumes;
     if (kv && Array.isArray(kv.keywords) && kv.keywords.length) {
-      const sorted = [...kv.keywords].filter(k => k.keyword).sort((a, b) => (b.search_volume || 0) - (a.search_volume || 0));
+      const sorted = [...kv.keywords]
+        .filter(k => k.keyword)
+        .sort((a, b) => (Number(b.search_volume) || 0) - (Number(a.search_volume) || 0));
       facts.keywords = sorted.map(kw => {
         const lc = String(kw.keyword).toLowerCase();
         const intent = kw.intent || (/\b(cena|cennik|kúp|kup|predaj|montáž|montaz|na mieru)\b/i.test(kw.keyword) ? 'buy' : '');
@@ -5769,7 +5783,7 @@ info@adlify.eu | www.adlify.eu`
             title: 'Optimalizácia titulkov',
             severity: 'medium',
             finding: `Priemerné skóre titulkov ${sa.avg_title_score}/100 — tituly sú prikrátke, generické alebo nepoužívajú kľúčové frázy.`,
-            recommendation: 'Prepísať titulky podľa vzorca: hlavná fráza + benefit + brand (50-60 znakov). Napríklad: "Vstavané skrine na mieru za 3-4 týždne | JUNABYT".',
+            recommendation: `Prepísať titulky podľa vzorca: hlavná fráza + benefit + brand (50-60 znakov). Napríklad: ${this._exampleTitleForLead(lead)}.`,
           });
         }
       }
@@ -6417,14 +6431,24 @@ info@adlify.eu | www.adlify.eu`
       ...(keywordsObj.longTail || []),
       ...(keywordsObj.topKeywords || [])
     ];
-    // Dedupe podľa keyword (case-insensitive) a zoraď podľa objemu zostupne
+    // Dedupe podľa keyword (case-insensitive) a zoraď podľa objemu zostupne.
+    // Ak je viac ako 10 KW s vol > 0, KW s vol=0 (MM nemá pre ne dáta) sa
+    // do top 12 nedostanú — tabuľka tak ukáže iba relevantné výrazy.
     const kwSeen = new Set();
-    const kwDeduped = allKws.filter(kw => {
+    const kwAll = allKws.filter(kw => {
       const key = String(kw.keyword || '').toLowerCase().trim();
       if (!key || kwSeen.has(key)) return false;
       kwSeen.add(key);
       return true;
-    }).sort((a, b) => (Number(b.search_volume) || 0) - (Number(a.search_volume) || 0));
+    });
+    const kwWithVolume = kwAll.filter(kw => Number(kw.search_volume) > 0)
+      .sort((a, b) => Number(b.search_volume) - Number(a.search_volume));
+    const kwZero = kwAll.filter(kw => !(Number(kw.search_volume) > 0));
+    // Top 12 priorita: prvé sú KW s reálnymi objemmi, doplníme 0-volume iba
+    // ak nemáme dosť reálnych.
+    const kwDeduped = kwWithVolume.length >= 10
+      ? kwWithVolume
+      : [...kwWithVolume, ...kwZero];
     // Súhrn nad tabuľkou — celkový mesačný objem + priemerné CPC (silný argument)
     const kwTotalVol = kwDeduped.reduce((sum, kw) => sum + (Number(kw.search_volume) || 0), 0);
     const kwCpcVals = kwDeduped.map(kw => Number(kw.cpc_eur)).filter(v => v > 0);
@@ -7837,7 +7861,7 @@ ${k.topKeywords?.length ? `
           const cpcNum = typeof kw.cpc === 'number' ? kw.cpc : parseFloat(String(kw.cpc || '0').replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
           const comp = kw.competition || (cpcNum < 0.5 ? 'nízka' : cpcNum > 1.5 ? 'vysoká' : 'stredná');
           const compClass = comp === 'nízka' ? 'tag-success' : comp === 'vysoká' ? 'tag-warning' : 'tag-light';
-          const cpcVal = typeof kw.cpc === 'number' ? kw.cpc.toFixed(2) + ' €' : (kw.cpc ? String(kw.cpc).replace(/€?$/, '').trim() + ' €' : '–');
+          const cpcVal = typeof kw.cpc === 'number' && kw.cpc > 0 ? kw.cpc.toFixed(2) + ' €' : (kw.cpc && parseFloat(kw.cpc) > 0 ? String(kw.cpc).replace(/€?$/, '').trim() + ' €' : '–');
           // Pozícia — farba podľa kvality (top 3 zelená, 4-10 oranžová, 11+ červená)
           let rankCell = '';
           if (hasRankings) {
@@ -7852,7 +7876,7 @@ ${k.topKeywords?.length ? `
           return `
           <tr>
             <td><strong style="color: #1a1a2e;">${kw.keyword}</strong></td>
-            <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' ? kw.searchVolume.toLocaleString('sk-SK') : (kw.searchVolume || '–')}</td>
+            <td style="text-align: center; font-weight: 600;">${typeof kw.searchVolume === 'number' && kw.searchVolume > 0 ? kw.searchVolume.toLocaleString('sk-SK') : '–'}</td>
             ${rankCell}
             <td style="text-align: center;"><span class="tag ${compClass}">${comp}</span></td>
             <td style="text-align: center;"><span class="tag ${intentClass}">${intentLabel}</span></td>
