@@ -429,6 +429,37 @@ function tryParseJson(raw: string): any | null {
   // 1) Priamy parse
   try { return JSON.parse(raw) } catch {}
 
+  // 1b) NAJSPOĽAHLIVEJŠIA STRATÉGIA — truncate na posledné kompletné top-level
+  // property a uzavri. Funguje pre väčšinu truncation prípadov: model dokončil
+  // niekoľko sekcií, posledná je nedokončená → odsekneme nedokončenú, podržíme
+  // ostatné, doplníme `}` na konci. Frontend adapter potom použije defaults
+  // pre chýbajúce sekcie.
+  const lastTopRepair = (() => {
+    let depth = 0
+    let inStr = false, esc = false
+    let lastCommaAtTop = -1
+    let firstOpen = -1
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i]
+      if (esc) { esc = false; continue }
+      if (ch === '\\') { esc = true; continue }
+      if (ch === '"') { inStr = !inStr; continue }
+      if (inStr) continue
+      if (ch === '{') { if (depth === 0) firstOpen = i; depth++ }
+      else if (ch === '[') depth++
+      else if (ch === '}' || ch === ']') depth--
+      if (ch === ',' && depth === 1) lastCommaAtTop = i
+    }
+    if (firstOpen < 0 || lastCommaAtTop <= firstOpen) return null
+    const truncated = raw.slice(firstOpen, lastCommaAtTop) + '}'
+    try {
+      const result = JSON.parse(truncated)
+      console.log(`[parser] Last-top-property repair successful, kept up to position ${lastCommaAtTop} (out of ${raw.length})`)
+      return result
+    } catch { return null }
+  })()
+  if (lastTopRepair) return lastTopRepair
+
   // 2) Extract { ... } blok (najväčší match)
   const blockMatch = raw.match(/\{[\s\S]*\}/)
   if (blockMatch) {
@@ -1320,9 +1351,9 @@ async function runPremiumGeneration(
     // očakávali a JSON parser musel robiť aggressive truncation repair.
     // Znížením na 5K tokens (~16K chars) model ostane v limite, prejde
     // všetky sekcie aspoň basicky.
-    const maxTokens = model.includes('haiku') ? 5000
-                    : model.includes('opus') ? 3000
-                    : 4000  // sonnet/default
+    const maxTokens = model.includes('haiku') ? 4000
+                    : model.includes('opus') ? 2500
+                    : 3500  // sonnet/default
     console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}, starting STREAMING Anthropic call`)
 
     // STREAMING — kľúčový fix. Predtým sme čakali na celý response (až 110s
