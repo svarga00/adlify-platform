@@ -945,6 +945,7 @@ const LeadsModule = {
             <span class="adl-chip adl-chip-${st.tone} adl-chip-sm"><span class="dot"></span>${st.label}</span>
             ${hasAnalysis ? ` <span class="adl-chip adl-chip-sm" style="margin-left:4px; background:color-mix(in oklab, var(--brand-500) 10%, transparent); color:var(--brand-700);" title="AI analýza dokončená">${I.Sparkle({size:10})} AI</span>` : ''}
             ${lead.proposal_lang && lead.proposal_lang !== 'sk' ? ` <span class="adl-chip adl-chip-sm" style="margin-left:4px;" title="Jazyk leadu: ${lead.proposal_lang.toUpperCase()}">${({cs:'🇨🇿',de:'🇩🇪',en:'🇬🇧',hu:'🇭🇺'})[lead.proposal_lang] || lead.proposal_lang.toUpperCase()}</span>` : ''}
+            ${lead.proposal_bounced_at ? ` <span class="adl-chip adl-chip-sm" style="margin-left:4px; background:#fef2f2; color:#dc2626; border:1px solid #fecaca;" title="Email bounce${lead.proposal_bounce_reason ? ': ' + String(lead.proposal_bounce_reason).replace(/"/g, '&quot;').slice(0,150) : ''}">⚠️ Bounce</span>` : ''}
           </td>
           <td>
             <div style="display:flex; align-items:center; gap:10px;">
@@ -1485,8 +1486,9 @@ const LeadsModule = {
       { when: lead.created_at, label: 'Lead pridaný' + (md.importedAt ? ' · import CSV' : ''), icon: 'Plus', tone: 'mint' },
       md.importedAt && md.importedAt !== lead.created_at ? { when: md.importedAt, label: 'Import z Marketing Miner', icon: 'Chart', tone: 'lav' } : null,
       hasAnalysis ? { when: lead.updated_at || lead.created_at, label: 'AI analýza dokončená', icon: 'Sparkle', tone: 'lav' } : null,
-      lead.proposal_opened_at ? { when: lead.proposal_opened_at, label: 'Email otvorený', icon: 'Mail', tone: 'sky' } : null,
       lead.proposal_sent_at ? { when: lead.proposal_sent_at, label: `Ponuka odoslaná${lead.proposal_sent_to ? ' · ' + lead.proposal_sent_to : ''}`, icon: 'Send', tone: 'amber' } : null,
+      lead.proposal_bounced_at ? { when: lead.proposal_bounced_at, label: `⚠️ Email vrátený${lead.proposal_bounce_reason ? ' · ' + lead.proposal_bounce_reason.slice(0, 80) : ''}`, icon: 'X', tone: 'err' } : null,
+      lead.proposal_opened_at ? { when: lead.proposal_opened_at, label: 'Email otvorený', icon: 'Mail', tone: 'sky' } : null,
       lead.status === 'won' ? { when: lead.updated_at, label: 'Konvertovaný na klienta', icon: 'Check', tone: 'mint' } : null,
       lead.status === 'lost' ? { when: lead.updated_at, label: 'Označený ako prehraný', icon: 'X', tone: 'err' } : null
     ].filter(Boolean).sort((x, y) => new Date(y.when) - new Date(x.when));
@@ -1556,6 +1558,7 @@ const LeadsModule = {
                   <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
                     <span class="adl-chip adl-chip-${status.tone} adl-chip-sm"><span class="dot"></span>${status.label}</span>
                     ${score >= 80 ? `<span class="adl-chip adl-chip-brand adl-chip-sm">Vysoký potenciál</span>` : score >= 60 ? `<span class="adl-chip adl-chip-amber adl-chip-sm">Stredný potenciál</span>` : ''}
+                    ${lead.proposal_bounced_at ? `<span class="adl-chip adl-chip-sm" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca;" title="${String(lead.proposal_bounce_reason || 'Email sa vrátil').replace(/"/g, '&quot;')}">⚠️ Email vrátený</span>` : ''}
                     ${lead.source ? `<span class="adl-chip adl-chip-sm">Zdroj: ${lead.source === 'marketing_miner' ? 'Marketing Miner' : lead.source === 'import_csv' ? 'Import CSV' : lead.source}</span>` : ''}
                   </div>
                   <h3 style="font-size:18px; font-weight:600; margin:0; letter-spacing:-0.3px; color:var(--ink);">${displayName}${c.legal_form ? ' ' + c.legal_form : ''}</h3>
@@ -1570,6 +1573,23 @@ const LeadsModule = {
                 </div>
               </div>
             </div>
+
+            ${lead.proposal_bounced_at ? `
+            <!-- Bounce banner -->
+            <div style="background:linear-gradient(135deg,#fef2f2,#fff); border:1px solid #fecaca; border-left:4px solid #dc2626; border-radius:10px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:14px; flex:1; min-width:0;">
+                <div style="width:36px; height:36px; border-radius:50%; background:#fef2f2; color:#dc2626; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700;">⚠</div>
+                <div style="min-width:0;">
+                  <div style="font-size:14px; font-weight:600; color:#991b1b;">Posledný email sa nedoručil</div>
+                  <div style="font-size:12px; color:#7f1d1d; margin-top:2px;">${lead.proposal_bounced_at ? `Bounce ${new Date(lead.proposal_bounced_at).toLocaleString('sk-SK', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}` : ''}${lead.proposal_bounce_reason ? ` · ${String(lead.proposal_bounce_reason).replace(/</g, '&lt;').slice(0, 200)}` : ''}</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="adl-btn adl-btn-outline adl-btn-sm" style="border-color:#fecaca; color:#991b1b;">Upraviť email</button>
+                <button onclick="LeadsModule.resendProposalEmail('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm" style="background:#dc2626; border:0;">Poslať znova</button>
+              </div>
+            </div>
+            ` : ''}
 
             <!-- Underline tabs -->
             <div style="display:flex; gap:4px; border-bottom:1px solid var(--border);" class="adl-lead-detail-tabs">
@@ -10425,6 +10445,39 @@ Odkaz je platný 30 dní.
   },
   
   // Odoslanie ponuky emailom
+  // Opätovné odoslanie ponuky po bounce — vyčistí bounce stav a otvorí
+  // proposal modal s vopred vyplneným emailom. Adminovi pripomenie že má
+  // overiť emailovú adresu pred ďalším pokusom (často je problém v doméne).
+  async resendProposalEmail(leadId) {
+    const lead = this.leads.find(l => l.id === leadId);
+    if (!lead) return Utils.toast('Lead nenájdený', 'error');
+    if (!lead.email) return Utils.toast('Lead nemá emailovú adresu — najprv ju doplň cez „Upraviť údaje"', 'warning');
+
+    const confirmed = await Utils.confirm(
+      `Posledný email na ${lead.email} sa nedoručil. Si si istý že je adresa správna? Ak nie, najprv ju oprav cez „Upraviť email".`,
+      { title: 'Poslať znova', type: 'warning', confirmText: 'Áno, poslať znova', cancelText: 'Zrušiť' }
+    );
+    if (!confirmed) return;
+
+    // Vyčisti bounce stav (užívateľ vedome posiela znova — predošlý bounce ostáva v histórii)
+    await Database.update('leads', lead.id, {
+      proposal_bounced_at: null,
+      proposal_bounce_reason: null,
+      status: lead.status === 'bounced' ? 'contacted' : lead.status,
+    });
+    lead.proposal_bounced_at = null;
+    lead.proposal_bounce_reason = null;
+    if (lead.status === 'bounced') lead.status = 'contacted';
+
+    // Otvor proposal modal s aktuálnymi dátami — user pošle email štandardným flow
+    Utils.toast('Bounce zrušený. Skontroluj email a pošli znova.', 'info');
+    this.showProposalModal(leadId);
+
+    // Refresh detail view
+    const container = document.querySelector('.adl-lead-detail');
+    if (container) container.innerHTML = this._renderLeadDetailPage(lead);
+  },
+
   async sendProposalEmail(leadId) {
     const lead = this.leads.find(l => l.id === leadId);
     if (!lead) return Utils.toast('Lead nenájdený', 'error');
