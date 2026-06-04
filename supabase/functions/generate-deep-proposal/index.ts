@@ -519,6 +519,89 @@ function tryParseJson(raw: string): any | null {
     try { return JSON.parse(repaired) } catch {}
   }
 
+  // 6) Aggressive brute-force repair — pre extra hlboké truncation (napr.
+  // streaming sa preruší v hĺbke 6+ vnoreného objektu uprostred string-u).
+  // Iteratívne odsekni N chars z konca, ulož string-state, doplň closing
+  // brackety, skús parse. Začneme od najmenšieho cut a postupne väčšieho.
+  const blockMatch2 = raw.match(/\{[\s\S]*\}/) || raw.match(/\{[\s\S]*/)
+  if (blockMatch2) {
+    let baseText = blockMatch2[0]
+      .replace(/[‘’]/g, "'")
+      .replace(/[“”]/g, '"')
+    // Skús cuts: 0, 50, 100, 200, 400, 800, 1600... až po polovicu textu
+    const cuts = [0, 30, 60, 100, 200, 400, 800, 1500, 3000, 6000]
+    for (const cut of cuts) {
+      if (cut >= baseText.length / 2) break
+      let t = baseText.slice(0, baseText.length - cut)
+      // 1. Odsekni neukončené stringy — nájdi posledný open quote (nie escape) a cut
+      let inStr = false, esc = false
+      let lastSafeEnd = 0
+      let depth = 0, sqDepth = 0
+      for (let i = 0; i < t.length; i++) {
+        const ch = t[i]
+        if (esc) { esc = false; continue }
+        if (ch === '\\') { esc = true; continue }
+        if (ch === '"') { inStr = !inStr; continue }
+        if (inStr) continue
+        if (ch === '{') depth++
+        else if (ch === '}') { depth--; lastSafeEnd = i + 1 }
+        else if (ch === '[') sqDepth++
+        else if (ch === ']') { sqDepth--; lastSafeEnd = i + 1 }
+        else if (ch === ',' && depth >= 1) lastSafeEnd = i  // safe truncate point
+      }
+      // Ak sme v strings na konci tohto cut-u, skús cut na lastSafeEnd
+      if (inStr) {
+        t = t.slice(0, lastSafeEnd)
+        // Recalculate brackets pre čistú verziu
+        depth = 0; sqDepth = 0; inStr = false; esc = false
+        for (const ch of t) {
+          if (esc) { esc = false; continue }
+          if (ch === '\\') { esc = true; continue }
+          if (ch === '"') { inStr = !inStr; continue }
+          if (inStr) continue
+          if (ch === '{') depth++
+          else if (ch === '}') depth--
+          else if (ch === '[') sqDepth++
+          else if (ch === ']') sqDepth--
+        }
+      }
+      // Odsekni trailing comma + neúplné key:value pairs
+      for (let iter = 0; iter < 8; iter++) {
+        const before = t
+        t = t
+          .replace(/,\s*$/, '')
+          .replace(/\s*"[^"]*"\s*:\s*$/, '')
+          .replace(/\s*"[^"]*"\s*:\s*"[^"]*$/, '')
+          .replace(/\s*"[^"]*"\s*:\s*[\d.eE+-]+\s*,?\s*$/, '')
+          .replace(/\s*"[^"]*"\s*:\s*\{[^{}]*$/, '')
+          .replace(/\s*"[^"]*"\s*:\s*\[[^\[\]]*$/, '')
+          .replace(/,\s*$/, '')
+        if (before === t) break
+      }
+      // Recount po cleanup
+      depth = 0; sqDepth = 0; inStr = false; esc = false
+      for (const ch of t) {
+        if (esc) { esc = false; continue }
+        if (ch === '\\') { esc = true; continue }
+        if (ch === '"') { inStr = !inStr; continue }
+        if (inStr) continue
+        if (ch === '{') depth++
+        else if (ch === '}') depth--
+        else if (ch === '[') sqDepth++
+        else if (ch === ']') sqDepth--
+      }
+      if (inStr) continue // stále otvorený string → skús väčší cut
+      // Doplň closing brackety
+      while (sqDepth > 0) { t += ']'; sqDepth-- }
+      while (depth > 0)   { t += '}'; depth-- }
+      try {
+        const parsed = JSON.parse(t)
+        console.log(`[parser] Aggressive repair successful at cut=${cut} (final len=${t.length})`)
+        return parsed
+      } catch {}
+    }
+  }
+
   return null
 }
 
@@ -1232,9 +1315,14 @@ async function runPremiumGeneration(
     //   Haiku 4.5: 150-300 tok/s → 8K = 27-53s ✓ veľká rezerva
     //   Sonnet 4.6: 50-100 tok/s → 5K = 50-100s ⚠️ tesné
     //   Opus 4.8:  25-50 tok/s → 3K = 60-120s ⚠️ riziko na Free tier
-    const maxTokens = model.includes('haiku') ? 8000
+    // Maximum tokens — kompromis medzi obsahom a rýchlosťou response.
+    // Pri 22K chars output (Haiku 8K) Anthropic streamoval dlhšie ako sme
+    // očakávali a JSON parser musel robiť aggressive truncation repair.
+    // Znížením na 5K tokens (~16K chars) model ostane v limite, prejde
+    // všetky sekcie aspoň basicky.
+    const maxTokens = model.includes('haiku') ? 5000
                     : model.includes('opus') ? 3000
-                    : 5000  // sonnet/default
+                    : 4000  // sonnet/default
     console.log(`[premium] Model: ${model}, max_tokens: ${maxTokens}, starting STREAMING Anthropic call`)
 
     // STREAMING — kľúčový fix. Predtým sme čakali na celý response (až 110s
@@ -1513,6 +1601,25 @@ Si senior PPC stratég s 10+ rokmi skúseností na slovenskom trhu. Vytvor kompl
 ANTI-AI VOICE: výstup nesmie vyzerať ako vygenerovaný AI. Píš ako skutočný senior konzultant — konkrétne čísla, špecifické pozorovania, nie všeobecné rady. Vyhni sa frázam ako "v dnešnej rýchlo sa meniacej digitálnej krajine", "leveraging synergies", "best practices", "kľúčové aktíva". Krátke vety, konkrétne príklady, taktické postupy.
 
 Output JSON presne podľa system promptu. Premysli si stratégiu HĹBAVO pred vygenerovaním — extended thinking je zapnuté, využij to.
+
+DĹŽKA A STRUČNOSŤ — KRITICKÉ:
+Máš MAXIMUM 5000 tokenov pre celý output (~16K chars). Toto je 15 sekcií —
+priemerne ~1000 chars per sekcia. Buď STRUČNÝ:
+- executive_summary: 4-6 viet (NIE 4-6 odstavcov)
+- ourFindings.strengths/opportunities: max 3 položky každý, description 1 veta
+- onlinePresence.*.notes: 1-2 vety
+- swot: 3 položky na kvadrant, krátke
+- strategy.overview: 3-4 vety
+- strategy.channels: 2-3 kanály, rationale 1 veta
+- proposedCampaigns.google.searchCampaign: 1 adGroup s 2-3 headlines, 1-2 descriptions
+- proposedCampaigns.meta: 1 adSet s krátkym adCopy
+- proposedCampaigns.instagram.stories: 1 story
+- proposedCampaigns.linkedin: null pre väčšinu klientov
+- proposedCampaigns.googleDisplay: null
+- timeline.weeks: 4 milestones
+- competitive_landscape.main_competitors: 3 max
+
+VŠETKY KĽÚČE V SCHÉME MUSIA BYŤ VYPLNENÉ aj keď stručne. Žiadne vynechané polia.
 
 OUTPUT FORMAT — STRIKT:
 - Iba čistý JSON. Žiadny text pred ani po. Žiadne \`\`\` markdown wrappery.
