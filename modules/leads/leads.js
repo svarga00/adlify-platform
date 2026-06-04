@@ -5870,10 +5870,32 @@ info@adlify.eu | www.adlify.eu`
     const companyName = c.name || lead?.company_name || 'Vaša firma';
 
     // === KW dáta ===
-    // Priorita: 1) MM keyword_volumes (presné objemy)
-    //           2) lead.marketing_data.realKeywords (z analyze-lead)
-    //           3) suggestedKeywords + estimated volumes podľa benchmarku
+    // Priorita: 1) MM keyword_volumes (presné objemy z auditu)
+    //           2) lead.analysis.keywords.topKeywords/primary (z analyze-lead)
+    //           3) lead.marketing_data.realKeywords (legacy)
+    //           4) suggestedKeywords + estimated volumes podľa benchmarku
     let kwVol = mm.keyword_volumes?.keywords || [];
+    // 2) analyze-lead Edge fn ukladá KW do lead.analysis.keywords s formátom
+    //    { topKeywords: [{keyword, searchVolume, cpc, competition, intent}, ...] }
+    //    alebo { primary: [...], secondary: [...], longTail: [...] }
+    if (!kwVol.length) {
+      const aKw = lead?.analysis?.keywords;
+      if (aKw) {
+        const fromTop = Array.isArray(aKw.topKeywords) ? aKw.topKeywords : [];
+        const fromTier = [...(aKw.primary || []), ...(aKw.secondary || []), ...(aKw.longTail || [])];
+        const merged = fromTop.length ? fromTop : fromTier;
+        if (merged.length) {
+          kwVol = merged.map(k => ({
+            keyword: k.keyword || k.kw || k.term,
+            search_volume: k.searchVolume || k.search_volume || k.volume || k.monthlySearches,
+            cpc_eur: k.cpc || k.cpc_eur || k.cpcEur,
+            intent: k.intent,
+            competition: k.competition,
+          })).filter(k => k.keyword);
+        }
+      }
+    }
+    // 3) Legacy marketing_data fallback (staršie analýzy)
     if (!kwVol.length) {
       const legacyKw = lead?.marketing_data?.realKeywords?.keywords || lead?.marketing_data?.keywords || [];
       if (Array.isArray(legacyKw) && legacyKw.length) {
