@@ -5844,7 +5844,47 @@ info@adlify.eu | www.adlify.eu`
     const companyName = c.name || lead?.company_name || 'Vaša firma';
 
     // === KW dáta ===
-    const kwVol = mm.keyword_volumes?.keywords || [];
+    // Priorita: 1) MM keyword_volumes (presné objemy)
+    //           2) lead.marketing_data.realKeywords (z analyze-lead)
+    //           3) suggestedKeywords + estimated volumes podľa benchmarku
+    let kwVol = mm.keyword_volumes?.keywords || [];
+    if (!kwVol.length) {
+      const legacyKw = lead?.marketing_data?.realKeywords?.keywords || lead?.marketing_data?.keywords || [];
+      if (Array.isArray(legacyKw) && legacyKw.length) {
+        kwVol = legacyKw.map(k => ({
+          keyword: k.keyword || k.kw || k.term,
+          search_volume: k.search_volume || k.searchVolume || k.volume,
+          cpc_eur: k.cpc_eur || k.cpc || k.cpcEur,
+        })).filter(k => k.keyword);
+      }
+    }
+    // Fallback — vygeneruj z navrhnutých KW + odhadni objem/CPC podľa benchmarku
+    if (!kwVol.length) {
+      const suggested = this._suggestKeywordsForMM(lead);
+      const baseCpc = (bench.aov > 2000) ? 0.6 : (bench.aov > 500) ? 0.45 : 0.30;
+      // Heuristika objemov: čím konkrétnejšia fráza (viac slov + lokácia/cena),
+      // tým nižší objem. Bez konkrétnych čísel z MM dávame realistické odhady
+      // pre SK trh: hlavná služba 300-1200/mes, lokalizovaná 50-200, "cena" 80-300.
+      kwVol = suggested.slice(0, 12).map(kw => {
+        const words = kw.split(' ').length;
+        const hasCity = city && kw.toLowerCase().includes(city.toLowerCase());
+        const hasPriceModifier = /cena|price|preis|ár/i.test(kw);
+        let vol = 400;
+        if (words >= 3 && hasCity) vol = 80;          // "vstavané skrine považská bystrica"
+        else if (hasCity) vol = 150;                   // "skrine bratislava"
+        else if (hasPriceModifier) vol = 180;          // "kuchyne cena"
+        else if (words >= 3) vol = 120;                // dlhšie frázy
+        else if (words === 2) vol = 600;               // "vstavané skrine"
+        else vol = 1200;                                // "kuchyne"
+        return {
+          keyword: kw,
+          search_volume: vol,
+          cpc_eur: +(baseCpc + (Math.random() * 0.2 - 0.1)).toFixed(2),
+          intent: hasPriceModifier ? 'buy' : (words >= 3 ? 'buy' : ''),
+          estimated: true,
+        };
+      });
+    }
     const totalVolume = kwVol.reduce((s, k) => s + (Number(k.search_volume) || 0), 0);
     const cpcValues = kwVol.map(k => Number(k.cpc_eur)).filter(v => v > 0);
     const avgCpc = cpcValues.length ? +(cpcValues.reduce((s, v) => s + v, 0) / cpcValues.length).toFixed(2) : 0.50;
@@ -6093,10 +6133,17 @@ info@adlify.eu | www.adlify.eu`
       ppc: { status: 'none', notes: text.onlinePpcNotes },
     };
 
+    // Rozdeľ KW do primary/secondary/longTail podľa objemu pre adapter
+    const sortedKw = [...kwVol].sort((a, b) => (b.search_volume || 0) - (a.search_volume || 0));
+    const kwPrimary = sortedKw.filter(k => (k.search_volume || 0) >= 500);
+    const kwSecondary = sortedKw.filter(k => (k.search_volume || 0) >= 100 && (k.search_volume || 0) < 500);
+    const kwLongTail = sortedKw.filter(k => (k.search_volume || 0) < 100);
+
     return {
       company: { ...c, name: companyName, industry, city, services },
       executive_summary: text.execSummary,
       ourFindings: { strengths: text.strengths, opportunities: text.opportunities },
+      keywords: { primary: kwPrimary, secondary: kwSecondary, longTail: kwLongTail },
       onlinePresence,
       swot,
       strategy,
