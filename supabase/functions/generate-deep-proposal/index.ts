@@ -1197,6 +1197,7 @@ async function runPremiumGeneration(
   lead: any,
   model: string,
   customNotes: string,
+  lang: string = 'sk',
 ): Promise<{ premium?: any; generatedAt?: string; usage?: any; error?: string }> {
   const leadId = lead.id
   try {
@@ -1223,7 +1224,7 @@ async function runPremiumGeneration(
       console.log(`[premium-bg] Scrape done, calling Anthropic`)
     }
 
-    const context = buildContext(lead, scrapedContent, customNotes)
+    const context = buildContext(lead, scrapedContent, customNotes, lang)
 
     // Dynamic max_tokens podľa modelu — output rýchlosť veľmi varíruje:
     // - Haiku 4.5: ~150-300 tokens/sec → 14K = 47-93s ✓ vyhovuje 150s limit
@@ -1315,7 +1316,20 @@ async function runPremiumGeneration(
   }
 }
 
-function buildContext(lead: any, scrapedContent: string, customNotes: string): string {
+function buildContext(lead: any, scrapedContent: string, customNotes: string, lang: string = 'sk'): string {
+  // Jazyková inštrukcia pre LLM — celý prozaický výstup MUSÍ byť v cieľovom
+  // jazyku. Kód neskôr injektuje preložené UI labely (T() helper), AI dodá
+  // texty (executive summary, ad copy, strategy rationale, ourFindings...).
+  const langInfo: Record<string, { name: string, native: string, market: string }> = {
+    sk: { name: 'Slovak',  native: 'slovenčina', market: 'Slovakia (SR)' },
+    cs: { name: 'Czech',   native: 'čeština',    market: 'Czech Republic (ČR)' },
+    de: { name: 'German',  native: 'Deutsch',    market: 'Germany / Austria (DACH)' },
+    en: { name: 'English', native: 'English',    market: 'international / English-speaking' },
+    hu: { name: 'Hungarian', native: 'magyar',   market: 'Hungary' },
+  }
+  const li = langInfo[lang] || langInfo.sk
+  const langBlock = `OUTPUT LANGUAGE — CRITICAL: All prose, text fields, ad copy, headlines, descriptions, executive_summary, strategy rationale, ourFindings strings, swot items, idealCustomer, competitive their_strength/our_advantage MUST be written in ${li.name} (${li.native}). Target market: ${li.market}. Keep these JSON keys in English (the schema is fixed), but ALL VALUES that are human-readable text must be in ${li.name}. Numbers, prices (€), domain names, brand names stay as-is. Do not mix languages within a single text block.\n`
+
   // MM reporty uploadnuté cez admin (XLSX) — preferuj pred raw marketing_data dumpom
   const mm = lead.marketing_data || {}
   const reports = mm.mm_reports || {}
@@ -1382,7 +1396,8 @@ ${compDomains.length
 - Reklamné kreatívy (proposedCampaigns) sú najdôležitejšie — venuj im najviac tokenov. Required: google.searchCampaign (2 adGroups), meta.campaign (1-2 adSets), instagram.stories (1). LinkedIn a googleDisplay daj null ak nie sú zjavne relevantné.
 - Radšej kratšie vety v každej sekcii než vynechať celú sekciu. Všetky kľúče musia byť prítomné.`
 
-  return `LEAD DATA:
+  return `${langBlock}
+LEAD DATA:
 Firma: ${lead.company_name || 'neuvedené'}
 Doména: ${lead.domain || 'neuvedená'}
 Email: ${lead.email || '—'}
@@ -1442,7 +1457,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const body = await req.json()
-    const { leadId, model = DEFAULT_MODEL, customNotes = '', section } = body
+    const { leadId, model = DEFAULT_MODEL, customNotes = '', section, lang = 'sk' } = body
     if (!leadId) {
       return new Response(JSON.stringify({ error: 'leadId je povinný' }), {
         status: 400,
@@ -1609,7 +1624,7 @@ serve(async (req) => {
     // (na tomto projekte ~70-90s death), realtime subscription nestihla
     // dostať notifikáciu. Sync mode: client čaká v modali, response príde
     // priamo, lead row sa zaktualizuje server-side.
-    const result = await runPremiumGeneration(apiKey, supabase, lead, model, customNotes)
+    const result = await runPremiumGeneration(apiKey, supabase, lead, model, customNotes, lang)
 
     if (result.error) {
       return new Response(JSON.stringify({

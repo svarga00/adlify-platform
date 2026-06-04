@@ -271,6 +271,16 @@ const LeadsModule = {
               <label style="display:block; margin-bottom:8px;">⚡ Najprv vygeneruj celý návrh naraz (1 Anthropic volanie ~ 2-4 min, beží na pozadí):</label>
               <div style="background:linear-gradient(135deg, #faf5ff 0%, #fff 50%, #fef3f8 100%); border:1px solid #e9d5ff; border-radius:12px; padding:14px; margin-bottom:14px;">
                 <div style="margin-bottom:12px;">
+                  <div style="font-size:11px; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; font-weight:600; margin-bottom:6px;">Jazyk ponuky</div>
+                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    ${this.PROPOSAL_LANGS.map((l, i) => `
+                    <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid ${i === 0 ? 'var(--brand-500)' : 'var(--n-100)'}; border-radius:8px; cursor:pointer; font-size:12px;">
+                      <input type="radio" name="proposal-lang" value="${l.code}" ${i === 0 ? 'checked' : ''} style="margin:0;">
+                      <span>${l.flag} <b>${l.label}</b></span>
+                    </label>`).join('')}
+                  </div>
+                </div>
+                <div style="margin-bottom:12px;">
                   <div style="font-size:11px; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.6px; font-weight:600; margin-bottom:6px;">AI model</div>
                   <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--surface); border:1px solid var(--brand-500); border-radius:8px; cursor:pointer; font-size:12px;">
@@ -1376,9 +1386,9 @@ const LeadsModule = {
 
       ${a.humanWrittenIntro ? `<div class="analysis-section border-l-4 border-orange-500"><h3>💡 Naše zistenia</h3><p class="text-gray-700 leading-relaxed">${a.humanWrittenIntro}</p></div>` : ''}
       ${c.services?.length ? `<div class="analysis-section"><h3>🛠️ Služby</h3><div class="flex flex-wrap gap-2">${c.services.map(s => `<span class="tag tag-blue">${s}</span>`).join('')}</div></div>` : ''}
-      ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
+      ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">${T('facebook')}</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">${T('instagram')}</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
       ${a.swot ? `<div class="analysis-section"><h3>📊 SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">⚠️ Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">🚀 Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">⚡ Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
-      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><p class="text-sm text-gray-500 mb-3">${k.summary || ''}</p><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><p class="text-sm text-gray-500 mb-3">${k.summary || ''}</p><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">${T('kwTableKw')}</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">${T('kwTableCompetition')}</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
       ${b.recommendations ? `<div class="analysis-section"><h3>💰 Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">⭐ Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
       ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
       ${analysis.customNote ? `<div class="analysis-section border-l-4 border-purple-500 bg-purple-50"><h3>💬 Osobná poznámka</h3><p class="text-gray-700 italic">${analysis.customNote}</p></div>` : ''}
@@ -1648,8 +1658,8 @@ const LeadsModule = {
             ${hasSocials ? `
               <div id="detail-tab-social" class="detail-tab-content" style="display:none;">
                 <div class="adl-card"><div class="adl-card-body" style="display:flex; flex-direction:column; gap:10px;">
-                  ${socials.facebook ? `<a href="${socials.facebook}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#1877F2;">${I.Fb({size:18})}</span> <span style="flex:1; font-size:13px;">Facebook</span> ${I.External({size:12})}</a>` : ''}
-                  ${socials.instagram ? `<a href="${socials.instagram}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#E1306C;">${I.Instagram({size:18})}</span> <span style="flex:1; font-size:13px;">Instagram</span> ${I.External({size:12})}</a>` : ''}
+                  ${socials.facebook ? `<a href="${socials.facebook}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#1877F2;">${I.Fb({size:18})}</span> <span style="flex:1; font-size:13px;">${T('facebook')}</span> ${I.External({size:12})}</a>` : ''}
+                  ${socials.instagram ? `<a href="${socials.instagram}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#E1306C;">${I.Instagram({size:18})}</span> <span style="flex:1; font-size:13px;">${T('instagram')}</span> ${I.External({size:12})}</a>` : ''}
                   ${socials.linkedin ? `<a href="${socials.linkedin}" target="_blank" style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--n-50); border-radius:10px; text-decoration:none; color:inherit;"><span style="color:#0A66C2;">${I.Link({size:18})}</span> <span style="flex:1; font-size:13px;">LinkedIn</span> ${I.External({size:12})}</a>` : ''}
                 </div></div>
               </div>
@@ -2178,9 +2188,9 @@ const LeadsModule = {
     return `
       ${a.humanWrittenIntro ? `<div class="analysis-section border-l-4 border-orange-500"><h3>💡 Naše zistenia</h3><p class="text-gray-700 leading-relaxed">${a.humanWrittenIntro}</p></div>` : ''}
       ${c.services?.length ? `<div class="analysis-section"><h3>🛠️ Služby</h3><div class="flex flex-wrap gap-2">${c.services.map(s => `<span class="tag tag-blue">${s}</span>`).join('')}</div></div>` : ''}
-      ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">Facebook</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">Instagram</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
+      ${o.summary ? `<div class="analysis-section"><h3>🌐 Online prítomnosť</h3><p class="text-gray-600 mb-4">${o.summary}</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="stat-card"><div class="value">${o.website?.exists ? '✅' : '❌'}</div><div class="label">Web</div></div><div class="stat-card"><div class="value">${o.socialMedia?.facebook?.exists ? '✅' : '❌'}</div><div class="label">${T('facebook')}</div></div><div class="stat-card"><div class="value">${o.socialMedia?.instagram?.exists ? '✅' : '❌'}</div><div class="label">${T('instagram')}</div></div><div class="stat-card"><div class="value">${o.paidAds?.detected ? '✅' : '❌'}</div><div class="label">Reklama</div></div></div></div>` : ''}
       ${a.swot ? `<div class="analysis-section"><h3>📊 SWOT Analýza</h3><div class="grid md:grid-cols-2 gap-4"><div class="bg-green-50 rounded-lg p-4"><h4 class="font-semibold text-green-700 mb-2">💪 Silné stránky</h4><ul class="text-sm space-y-1">${a.swot.strengths?.map(s => `<li>• ${s}</li>`).join('') || ''}</ul></div><div class="bg-orange-50 rounded-lg p-4"><h4 class="font-semibold text-orange-700 mb-2">⚠️ Slabé stránky</h4><ul class="text-sm space-y-1">${a.swot.weaknesses?.map(w => `<li>• ${w}</li>`).join('') || ''}</ul></div><div class="bg-blue-50 rounded-lg p-4"><h4 class="font-semibold text-blue-700 mb-2">🚀 Príležitosti</h4><ul class="text-sm space-y-1">${a.swot.opportunities?.map(o => `<li>• ${o}</li>`).join('') || ''}</ul></div><div class="bg-red-50 rounded-lg p-4"><h4 class="font-semibold text-red-700 mb-2">⚡ Hrozby</h4><ul class="text-sm space-y-1">${a.swot.threats?.map(t => `<li>• ${t}</li>`).join('') || ''}</ul></div></div></div>` : ''}
-      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">Kľúčové slovo</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">Konkurencia</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+      ${k.topKeywords?.length ? `<div class="analysis-section"><h3>🔍 Kľúčové slová</h3><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th class="text-left p-2 rounded-l-lg">${T('kwTableKw')}</th><th class="text-center p-2">Hľadanosť</th><th class="text-center p-2">${T('kwTableCompetition')}</th><th class="text-right p-2 rounded-r-lg">CPC</th></tr></thead><tbody>${k.topKeywords.slice(0, 10).map(kw => `<tr class="border-b"><td class="p-2 font-medium">${kw.keyword}</td><td class="text-center p-2">${kw.searchVolume}</td><td class="text-center p-2"><span class="tag ${kw.competition === 'nízka' ? 'tag-green' : kw.competition === 'vysoká' ? 'tag-orange' : 'tag-blue'}">${kw.competition}</span></td><td class="text-right p-2">${kw.cpc}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
       ${b.recommendations ? `<div class="analysis-section"><h3>💰 Odporúčaný rozpočet</h3><div class="grid md:grid-cols-3 gap-4"><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Štart</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.starter?.adSpend || 300}€</p><p class="text-xs text-gray-400">mesačne</p></div><div class="bg-gradient-to-br from-orange-500 to-pink-500 rounded-xl p-5 text-center text-white transform scale-105"><p class="text-sm opacity-80 mb-1">⭐ Odporúčame</p><p class="text-3xl font-bold">${b.recommendations.recommended?.adSpend || 500}€</p><p class="text-xs opacity-80">mesačne</p></div><div class="bg-white rounded-xl p-5 border-2 border-gray-200 text-center"><p class="text-sm text-gray-500 mb-1">Agresívny</p><p class="text-3xl font-bold text-gray-700">${b.recommendations.aggressive?.adSpend || 800}€</p><p class="text-xs text-gray-400">mesačne</p></div></div></div>` : ''}
       ${r.projection ? `<div class="analysis-section bg-green-50"><h3>📈 Predpokladaná návratnosť</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyLeads}</p><p class="text-xs text-gray-500">Mesačných dopytov</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.monthlyRevenue}</p><p class="text-xs text-gray-500">Potenciálny obrat</p></div><div><p class="text-2xl font-bold text-green-600">${r.projection.roi}</p><p class="text-xs text-gray-500">ROI</p></div></div></div>` : ''}
       <div class="analysis-section bg-gradient-to-r from-orange-100 to-pink-100"><h3>🎯 Odporúčaný balíček: ${analysis.recommendedPackage || 'Pro'}</h3><p class="text-gray-600">Na základe analýzy odporúčame balíček <strong>${analysis.recommendedPackage || 'Pro'}</strong>.</p></div>
@@ -4336,6 +4346,10 @@ info@adlify.eu | www.adlify.eu`
     // Model výber z radia (default haiku 4.5 — najrýchlejší, jediný čo bezpečne
     // stihne 14K tokens v Supabase Edge 150s foreground timeout).
     const modelChoice = document.querySelector('input[name="proposal-model"]:checked')?.value || 'claude-haiku-4-5-20251001';
+    // Jazyk ponuky — uložíme do lead.proposal_lang aby adaptér aj template
+    // používali rovnaký jazyk pri všetkých renderoch tohto leadu.
+    const langChoice = document.querySelector('input[name="proposal-lang"]:checked')?.value || 'sk';
+    lead.proposal_lang = langChoice;
 
     const origMeta = meta?.textContent || '';
     if (btn) {
@@ -4369,7 +4383,7 @@ info@adlify.eu | www.adlify.eu`
           'Authorization': `Bearer ${token || supabaseAnonKey}`,
           'apikey': supabaseAnonKey,
         },
-        body: JSON.stringify({ leadId: lead.id, customNotes, testMode, model: modelChoice })
+        body: JSON.stringify({ leadId: lead.id, customNotes, testMode, model: modelChoice, lang: langChoice })
       });
       console.log('[DeepProposal] HTTP', resp.status, resp.ok);
       const data = await resp.json();
@@ -4395,6 +4409,7 @@ info@adlify.eu | www.adlify.eu`
           deep_proposal: data.premium_analysis,
           deep_proposal_generated_at: data.generated_at,
           deep_proposal_model: data.model,
+          proposal_lang: langChoice,
         });
         if (meta) meta.textContent = `✓ Hotovo · ${data.model}`;
         Utils.toast('Premium návrh hotový — otvoram v novom okne', 'success');
@@ -4726,40 +4741,680 @@ info@adlify.eu | www.adlify.eu`
   // check pre ROI výpočet (ak admin nepostuľoval vlastné hodnoty).
   // Štruktúra: webToLead = % návštev čo nechá kontakt, leadToCustomer = % dopytov
   // čo skončí objednávkou, aov = priemerná hodnota objednávky v €.
+  // ═══════════ I18N — PROPOSAL TEMPLATE PREKLADY ═══════════
+  // 5 jazykov: sk (default), cs, de, en, hu.
+  // Helper T(key, lang) vráti preložený reťazec; ak chýba kľúč v jazyku,
+  // fallback na 'sk'. Šablóna používa ${T('sectionAboutCompany', lang)} atď.
+  PROPOSAL_LANGS: [
+    { code: 'sk', label: 'Slovenčina', flag: '🇸🇰' },
+    { code: 'cs', label: 'Čeština',    flag: '🇨🇿' },
+    { code: 'de', label: 'Deutsch',    flag: '🇩🇪' },
+    { code: 'en', label: 'English',    flag: '🇬🇧' },
+    { code: 'hu', label: 'Magyar',     flag: '🇭🇺' },
+  ],
+
+  PROPOSAL_I18N: {
+    sk: {
+      // Hero
+      heroBadge: 'Marketingová stratégia na mieru',
+      heroTitleStart: 'Návrh kampane pre',
+      heroSubtitle: 'Detailný plán ako vám prinesieme nových zákazníkov cez online marketing.',
+      heroPreparedFor: 'Pripravené pre',
+      // Sections
+      s1: 'O vašej firme', s2: 'Čo sme zistili', s3: 'Vaša online prítomnosť',
+      s4: 'Technický audit webu', s5: 'Konkurenčné prostredie', s6: 'SWOT Analýza',
+      s7: 'Kľúčové slová', s8: 'Navrhovaná stratégia', s9: 'Návrhy reklám',
+      s10: 'Odporúčaný rozpočet na reklamu', s11: 'Predpokladaná návratnosť (ROI)',
+      s12: 'Časový plán', s13: 'Čo vám spolupráca prinesie', s14: 'Naše balíčky',
+      s15: 'Ako funguje spolupráca',
+      // Subtitles & common
+      yourCompany: 'Vaša firma', yourServices: 'Vaše služby a produkty',
+      yourCustomers: 'Vaši ideálni zákazníci', whatWeNoticed: 'Krátky prehľad toho čo robíte a kde vidíme najväčší potenciál pre rast cez online reklamu.',
+      ourTake: 'Náš pohľad a prvý dojem', whereWeSeePotential: 'Kde vidíme potenciál',
+      yourStrengths: 'Vaše silné stránky', growthOpportunities: 'Príležitosti pre rast',
+      onlinePresenceSummary: 'Zhodnotenie vašej aktuálnej prítomnosti na webe a sociálnych sieťach.',
+      website: 'Webstránka', facebook: 'Facebook', instagram: 'Instagram', paidAds: 'Platená reklama',
+      yes: 'Áno', no: 'Nie',
+      whatWorks: 'Čo funguje dobre', whatToImprove: 'Čo treba zlepšiť',
+      fullWebAudit: 'Kompletnú analýzu webu vrátane technického SEO auditu pripravíme po objednaní služby',
+      // Technical audit
+      techAuditSubtitle1: 'Skontrolovali sme', techAuditSubtitle2: 'kľúčových stránok vášho webu',
+      techAuditSubtitleEnd: 'a identifikovali konkrétne body, ktoré ovplyvňujú vašu viditeľnosť v Google a používateľský zážitok. Tu je čo treba opraviť a v akom poradí.',
+      priority: 'Priorita', finding: 'Zistenie', recommendation: 'Odporúčanie',
+      sevCritical: 'Kritické', sevHigh: 'Vysoká', sevMedium: 'Stredná', sevLow: 'Nízka',
+      whatAlreadyWorks: 'Čo už funguje',
+      auditFooter: 'Body s prioritou <strong style="color:#dc2626;">Kritické</strong> a <strong style="color:#ea580c;">Vysoká</strong> odporúčame opraviť v prvom mesiaci spolupráce — ich vplyv na výsledky kampaní je okamžitý.',
+      // Competitive
+      competitiveSubtitleFallback: 'Identifikovali sme hlavných hráčov, ktorí oslovujú vašich potenciálnych zákazníkov. Tu je ako sa voči nim vymedzíme.',
+      theirStrength: 'Ich sila', ourAdvantage: 'Naša výhoda',
+      // SWOT
+      swotStrengths: 'Silné stránky', swotWeaknesses: 'Slabé stránky',
+      swotOpportunities: 'Príležitosti', swotThreats: 'Hrozby',
+      // Keywords
+      kwIntro: 'Pre vaše služby sme identifikovali kľúčové slová s celkovým objemom',
+      kwSearchesMo: 'hľadaní mesačne', kwAvgCpc: 'pri priemernej cene za klik',
+      kwSelected: 'Tu je výber tých najdôležitejších:',
+      kwTableKw: 'Kľúčové slovo', kwTableVolume: 'Mesačná hľadanosť',
+      kwTablePosition: 'Vaša pozícia', kwTableCompetition: 'Konkurencia',
+      kwTableIntent: 'Charakter dopytu', kwTableCpc: 'Cena za klik',
+      compLow: 'nízka', compMedium: 'stredná', compHigh: 'vysoká',
+      intentBuy: 'nákupný', intentInfo: 'informačný', intentBrand: 'značkový',
+      intentTransactional: 'transakčný', intentCommercial: 'komerčný', intentResearch: 'výskumný',
+      kwFooter1: 'Máme pripravených ďalších', kwFooter2: 'kľúčových slov vrátane long-tail príležitostí. Kompletný zoznam dostanete po objednaní služby.',
+      // Strategy
+      recommendedPlatforms: 'Odporúčané platformy', mainGoal: 'Hlavný cieľ',
+      targetAudience: 'Cieľová skupina', demographics: 'Demografia', interests: 'Záujmy', behaviors: 'Správanie',
+      tbd: 'Bude upresnené',
+      // Ad examples
+      adsSubtitle: 'Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám a obsahovať profesionálne vizuály.',
+      googleSearch: 'Google Ads — Vyhľadávanie', sponsored: 'Sponzorované',
+      facebookFeed: 'Facebook Feed', instagramStory: 'Instagram Story',
+      targetedKw: 'Cielené kľúčové slová:',
+      learnMore: 'Zistiť viac', contactUs: 'Kontaktovať', orderNow: 'Objednať teraz',
+      // Budget
+      budgetSubtitle: 'Tri možnosti rozdelenia rozpočtu podľa vašich cieľov a tempa rastu.',
+      budgetStart: 'Štart', budgetRecommended: 'Odporúčaný', budgetAggressive: 'Agresívny rast',
+      monthly: '/ mes', leads: 'dopytov', clicks: 'kliknutí', expectedLeads: 'Očakávané dopyty',
+      expectedClicks: 'Očakávané kliky', recommendedBadge: '⭐ Odporúčame',
+      bestValue: 'Best value',
+      // ROI
+      roiSubtitle: 'Výpočet vychádza z reálnych konverzných pomerov pre obor',
+      roiSource1: 'zdroj:', roiSourceBenchmark: 'Branžový priemer pre SR', roiSourceCustom: 'Vaše vlastné údaje',
+      roiStepByStep: 'Tu je krok-za-krokom čo môžete očakávať z mesačného rozpočtu:',
+      roiMonthlyBudget: 'Mesačný rozpočet', roiVisits: 'Návštev z reklamy',
+      roiLeads: 'Dopytov (kontaktný formulár, telefón)', roiCustomers: 'Zákazníkov (objednávka, podpis zmluvy)',
+      roiRevenue: 'Mesačný obrat',
+      roiNoteAvg: 'Pri priemernej cene za klik', roiNoteQualified: 'Kvalifikovaná návštevnosť na vašom webe',
+      roiNoteCrLead: 'Pri konverznom pomere', roiNoteTypicalIndustry: '— typické pre obor',
+      roiNoteCustomerCr: 'Pri uzavretí', roiNotePerLead: 'dopytov',
+      roiNoteAvgValue: 'priemerná hodnota', roiNoteAndLtv: '× LTV',
+      cplLabel: 'Cena za dopyt (CPL)', cacLabel: 'Cena za zákazníka (CAC)', roiPct: 'Návratnosť investície',
+      concreteExample: 'Konkrétny príklad',
+      exampleHeader1: 'Predstavte si jeden týždeň kampane na výraz',
+      exampleHeader2: 'Pri rozpočte', exampleHeader3: 'dosiahneme', exampleHeader4: 'kliknutí na váš web',
+      exampleHeader5: 'Z nich približne', exampleHeader6Single: 'záujemca vás osloví',
+      exampleHeader6Few: 'záujemcovia vás oslovia', exampleHeader6Many: 'záujemcov vás osloví',
+      exampleHeader7: '(telefón, formulár, e-mail). Z tých',
+      exampleHeader8Single: 'sa stane', exampleHeader8Multi: 'sa stanú',
+      exampleHeader9: 'platiacim zákazníkom s objednávkou priemerne',
+      exampleInvestment: 'Investícia', exampleWeekRevenue: 'Obrat z týždňa',
+      assumptionsTitle: 'Predpoklady výpočtu',
+      assumpCpc: 'Cena za klik', assumpWebToLead: 'Návšteva → dopyt',
+      assumpLeadToCustomer: 'Dopyt → zákazník', assumpAov: 'Hodnota objednávky',
+      // Timeline
+      timelineWeek: 'Týždeň', timelineMonth: 'Mesiac', timelineMonth3plus: 'Mesiac 3+',
+      // Benefits
+      benefitsSubtitle: 'Konkrétne výsledky, ktoré vám prinesie naša spolupráca.',
+      benefitMoreLeads: 'Viac dopytov a zákazníkov',
+      benefitVisibility: 'Vyššia viditeľnosť v Google',
+      benefitCompetitive: 'Konkurenčná výhoda',
+      benefitCompetitiveDesc: 'Zatiaľ čo vaša konkurencia čaká na zákazníkov, vy ich aktívne oslovujete presne v momente, keď hľadajú riešenie.',
+      benefitControl: 'Flexibilita a kontrola',
+      benefitDataDriven: 'Rozhodnutia na základe dát',
+      benefitTeam: 'Skúsený tím vám kryje chrbát',
+      // Packages
+      packagesTitle: 'Vyberte si balíček, ktorý vám sedí',
+      packagesSubtitle: 'Transparentné ceny, jasný rozsah, žiadne skryté poplatky.',
+      packageMonth: '/ mes', packageContact: 'Kontaktujte nás',
+      pkgRecBadge: '⭐ Odporúčame', pkgBestValueBadge: 'Best value',
+      specialOffers: 'Špeciálne ponuky a zľavy',
+      offer6m: '6-mesačná dohoda', offer6mTitle: '−10 % zľava',
+      offer6mDesc: 'Pri 6-mesačnej spolupráci platenej <strong>vopred</strong> znížime poplatok za správu o 10 %. Stabilita + úspora.',
+      offer12m: '12-mesačná dohoda', offer12mTitle: '−20 % zľava',
+      offer12mDesc: 'Pri ročnej spolupráci platenej <strong>vopred</strong> 20 % zľava + audit zdarma + štvrťročné strategické stretnutia.',
+      bestDeal: 'NAJVÝHODNEJŠIE',
+      packageNote: 'Všetky ceny sú <strong>bez DPH</strong> a predstavujú poplatok za <strong>správu kampaní</strong>. <strong>Reklamný rozpočet</strong> platíte priamo Google / Meta / LinkedIn — máte nad ním plnú kontrolu a môžete ho kedykoľvek upraviť.',
+      // How it works
+      howSubtitle: 'Jednoduchý a transparentný proces od podpisu po prvé výsledky.',
+      stepAudit: 'Audit + onboarding', stepAuditDesc: 'Spoznáme vás, vašu firmu a doterajšie aktivity. Pripravíme detailný plán.',
+      stepSetup: 'Príprava kampaní', stepSetupDesc: 'Vytvoríme kampane, reklamné kreatívy, cieľové publikum a tracking.',
+      stepLaunch: 'Spustenie a optimalizácia', stepLaunchDesc: 'Spustíme kampane a priebežne ich optimalizujeme na základe dát.',
+      stepReporting: 'Reporting a komunikácia', stepReportingDesc: 'Pravidelný reporting, transparentné výsledky a otvorená komunikácia.',
+      ctaReady: 'Pripravení rozbehnúť kampane?',
+      ctaSubtitle: 'Dohodnime si nezáväzný hovor — preberieme detaily a odpovieme na všetky otázky.',
+      ctaContact: 'Mám záujem o spoluprácu', ctaQuestions: 'Mám otázky',
+      footer1: 'Tento návrh je platný 30 dní od dátumu odoslania.',
+      footer2: 'Cenu a rozsah služieb môžeme upraviť na základe vašich potrieb.',
+      footerCopyright: '| Vytvorené s', footerFor: 'pre',
+      savePdf: 'Uložiť ako PDF', savePdfTip: 'V tlačovom dialógu vyberte "Uložiť ako PDF"',
+      // Industry labels
+      industryFurniture: 'Nábytok na mieru', industryFencing: 'Oplotenie a exteriér',
+      industryConstruction: 'Stavebné práce', industryWindows: 'Okná a dvere',
+      industryEshop: 'E-shop', industryAuto: 'Automotive',
+      industryBeauty: 'Kozmetika a wellness', industryB2B: 'B2B služby',
+      industryRealEstate: 'Reality', industryEducation: 'Kurzy a vzdelávanie',
+      industryGastro: 'Gastronómia', industryLocalServices: 'Lokálne služby',
+      industryDefault: 'PPC priemer trhu',
+    },
+
+    cs: {
+      heroBadge: 'Marketingová strategie na míru',
+      heroTitleStart: 'Návrh kampaně pro',
+      heroSubtitle: 'Detailní plán jak vám přivedeme nové zákazníky přes online marketing.',
+      heroPreparedFor: 'Připraveno pro',
+      s1: 'O vaší firmě', s2: 'Co jsme zjistili', s3: 'Vaše online přítomnost',
+      s4: 'Technický audit webu', s5: 'Konkurenční prostředí', s6: 'SWOT Analýza',
+      s7: 'Klíčová slova', s8: 'Navržená strategie', s9: 'Návrhy reklam',
+      s10: 'Doporučený rozpočet na reklamu', s11: 'Předpokládaná návratnost (ROI)',
+      s12: 'Časový plán', s13: 'Co vám spolupráce přinese', s14: 'Naše balíčky',
+      s15: 'Jak funguje spolupráce',
+      yourCompany: 'Vaše firma', yourServices: 'Vaše služby a produkty',
+      yourCustomers: 'Vaši ideální zákazníci',
+      whatWeNoticed: 'Krátký přehled toho co děláte a kde vidíme největší potenciál pro růst přes online reklamu.',
+      ourTake: 'Náš pohled a první dojem', whereWeSeePotential: 'Kde vidíme potenciál',
+      yourStrengths: 'Vaše silné stránky', growthOpportunities: 'Příležitosti pro růst',
+      onlinePresenceSummary: 'Zhodnocení vaší aktuální přítomnosti na webu a sociálních sítích.',
+      website: 'Webové stránky', facebook: 'Facebook', instagram: 'Instagram', paidAds: 'Placená reklama',
+      yes: 'Ano', no: 'Ne',
+      whatWorks: 'Co funguje dobře', whatToImprove: 'Co je třeba zlepšit',
+      fullWebAudit: 'Kompletní analýzu webu včetně technického SEO auditu připravíme po objednání služby',
+      techAuditSubtitle1: 'Zkontrolovali jsme', techAuditSubtitle2: 'klíčových stránek vašeho webu',
+      techAuditSubtitleEnd: 'a identifikovali konkrétní body, které ovlivňují vaši viditelnost v Googlu a uživatelský zážitek. Zde je co opravit a v jakém pořadí.',
+      priority: 'Priorita', finding: 'Zjištění', recommendation: 'Doporučení',
+      sevCritical: 'Kritické', sevHigh: 'Vysoká', sevMedium: 'Střední', sevLow: 'Nízká',
+      whatAlreadyWorks: 'Co už funguje',
+      auditFooter: 'Body s prioritou <strong style="color:#dc2626;">Kritické</strong> a <strong style="color:#ea580c;">Vysoká</strong> doporučujeme opravit v prvním měsíci spolupráce — jejich vliv na výsledky kampaní je okamžitý.',
+      competitiveSubtitleFallback: 'Identifikovali jsme hlavní hráče, kteří oslovují vaše potenciální zákazníky. Zde je jak se vůči nim vymezíme.',
+      theirStrength: 'Jejich síla', ourAdvantage: 'Naše výhoda',
+      swotStrengths: 'Silné stránky', swotWeaknesses: 'Slabé stránky',
+      swotOpportunities: 'Příležitosti', swotThreats: 'Hrozby',
+      kwIntro: 'Pro vaše služby jsme identifikovali klíčová slova s celkovým objemem',
+      kwSearchesMo: 'hledání měsíčně', kwAvgCpc: 'při průměrné ceně za klik',
+      kwSelected: 'Zde je výběr těch nejdůležitějších:',
+      kwTableKw: 'Klíčové slovo', kwTableVolume: 'Měsíční hledanost',
+      kwTablePosition: 'Vaše pozice', kwTableCompetition: 'Konkurence',
+      kwTableIntent: 'Charakter poptávky', kwTableCpc: 'Cena za klik',
+      compLow: 'nízká', compMedium: 'střední', compHigh: 'vysoká',
+      intentBuy: 'nákupní', intentInfo: 'informační', intentBrand: 'značkový',
+      intentTransactional: 'transakční', intentCommercial: 'komerční', intentResearch: 'výzkumný',
+      kwFooter1: 'Máme připravených dalších', kwFooter2: 'klíčových slov včetně long-tail příležitostí. Kompletní seznam dostanete po objednání služby.',
+      recommendedPlatforms: 'Doporučené platformy', mainGoal: 'Hlavní cíl',
+      targetAudience: 'Cílová skupina', demographics: 'Demografie', interests: 'Zájmy', behaviors: 'Chování',
+      tbd: 'Bude upřesněno',
+      adsSubtitle: 'Ukázky reklam, které pro vás připravíme. Finální verze budou přizpůsobené vašim potřebám a obsahovat profesionální vizuály.',
+      googleSearch: 'Google Ads — Vyhledávání', sponsored: 'Sponzorováno',
+      facebookFeed: 'Facebook Feed', instagramStory: 'Instagram Story',
+      targetedKw: 'Cílená klíčová slova:',
+      learnMore: 'Zjistit více', contactUs: 'Kontaktovat', orderNow: 'Objednat',
+      budgetSubtitle: 'Tři možnosti rozdělení rozpočtu podle vašich cílů a tempa růstu.',
+      budgetStart: 'Start', budgetRecommended: 'Doporučený', budgetAggressive: 'Agresivní růst',
+      monthly: '/ měs', leads: 'poptávek', clicks: 'kliknutí', expectedLeads: 'Očekávané poptávky',
+      expectedClicks: 'Očekávané kliky', recommendedBadge: '⭐ Doporučujeme',
+      bestValue: 'Best value',
+      roiSubtitle: 'Výpočet vychází z reálných konverzních poměrů pro obor',
+      roiSource1: 'zdroj:', roiSourceBenchmark: 'Oborový průměr pro ČR', roiSourceCustom: 'Vaše vlastní údaje',
+      roiStepByStep: 'Zde je krok-za-krokem co můžete očekávat z měsíčního rozpočtu:',
+      roiMonthlyBudget: 'Měsíční rozpočet', roiVisits: 'Návštěv z reklamy',
+      roiLeads: 'Poptávek (kontaktní formulář, telefon)', roiCustomers: 'Zákazníků (objednávka, podpis smlouvy)',
+      roiRevenue: 'Měsíční obrat',
+      roiNoteAvg: 'Při průměrné ceně za klik', roiNoteQualified: 'Kvalifikovaná návštěvnost na vašem webu',
+      roiNoteCrLead: 'Při konverzním poměru', roiNoteTypicalIndustry: '— typické pro obor',
+      roiNoteCustomerCr: 'Při uzavření', roiNotePerLead: 'poptávek',
+      roiNoteAvgValue: 'průměrná hodnota', roiNoteAndLtv: '× LTV',
+      cplLabel: 'Cena za poptávku (CPL)', cacLabel: 'Cena za zákazníka (CAC)', roiPct: 'Návratnost investice',
+      concreteExample: 'Konkrétní příklad',
+      exampleHeader1: 'Představte si jeden týden kampaně na výraz',
+      exampleHeader2: 'Při rozpočtu', exampleHeader3: 'dosáhneme', exampleHeader4: 'kliknutí na váš web',
+      exampleHeader5: 'Z nich přibližně', exampleHeader6Single: 'zájemce vás osloví',
+      exampleHeader6Few: 'zájemci vás osloví', exampleHeader6Many: 'zájemců vás osloví',
+      exampleHeader7: '(telefon, formulář, e-mail). Z těch',
+      exampleHeader8Single: 'se stane', exampleHeader8Multi: 'se stanou',
+      exampleHeader9: 'platícím zákazníkem s objednávkou průměrně',
+      exampleInvestment: 'Investice', exampleWeekRevenue: 'Obrat z týdne',
+      assumptionsTitle: 'Předpoklady výpočtu',
+      assumpCpc: 'Cena za klik', assumpWebToLead: 'Návštěva → poptávka',
+      assumpLeadToCustomer: 'Poptávka → zákazník', assumpAov: 'Hodnota objednávky',
+      timelineWeek: 'Týden', timelineMonth: 'Měsíc', timelineMonth3plus: 'Měsíc 3+',
+      benefitsSubtitle: 'Konkrétní výsledky, které vám přinese naše spolupráce.',
+      benefitMoreLeads: 'Více poptávek a zákazníků',
+      benefitVisibility: 'Vyšší viditelnost v Googlu',
+      benefitCompetitive: 'Konkurenční výhoda',
+      benefitCompetitiveDesc: 'Zatímco vaše konkurence čeká na zákazníky, vy je aktivně oslovujete přesně v momentě, kdy hledají řešení.',
+      benefitControl: 'Flexibilita a kontrola',
+      benefitDataDriven: 'Rozhodnutí na základě dat',
+      benefitTeam: 'Zkušený tým vám kryje záda',
+      packagesTitle: 'Vyberte si balíček, který vám sedí',
+      packagesSubtitle: 'Transparentní ceny, jasný rozsah, žádné skryté poplatky.',
+      packageMonth: '/ měs', packageContact: 'Kontaktujte nás',
+      pkgRecBadge: '⭐ Doporučujeme', pkgBestValueBadge: 'Best value',
+      specialOffers: 'Speciální nabídky a slevy',
+      offer6m: '6-měsíční dohoda', offer6mTitle: '−10 % sleva',
+      offer6mDesc: 'Při 6-měsíční spolupráci placené <strong>předem</strong> snížíme poplatek za správu o 10 %. Stabilita + úspora.',
+      offer12m: '12-měsíční dohoda', offer12mTitle: '−20 % sleva',
+      offer12mDesc: 'Při roční spolupráci placené <strong>předem</strong> 20 % sleva + audit zdarma + čtvrtletní strategické schůzky.',
+      bestDeal: 'NEJVÝHODNĚJŠÍ',
+      packageNote: 'Všechny ceny jsou <strong>bez DPH</strong> a představují poplatek za <strong>správu kampaní</strong>. <strong>Reklamní rozpočet</strong> platíte přímo Google / Meta / LinkedIn — máte nad ním plnou kontrolu a můžete ho kdykoli upravit.',
+      howSubtitle: 'Jednoduchý a transparentní proces od podpisu po první výsledky.',
+      stepAudit: 'Audit + onboarding', stepAuditDesc: 'Poznáme vás, vaši firmu a dosavadní aktivity. Připravíme detailní plán.',
+      stepSetup: 'Příprava kampaní', stepSetupDesc: 'Vytvoříme kampaně, reklamní kreativy, cílové publikum a tracking.',
+      stepLaunch: 'Spuštění a optimalizace', stepLaunchDesc: 'Spustíme kampaně a průběžně je optimalizujeme na základě dat.',
+      stepReporting: 'Reporting a komunikace', stepReportingDesc: 'Pravidelný reporting, transparentní výsledky a otevřená komunikace.',
+      ctaReady: 'Připraveni rozjet kampaně?',
+      ctaSubtitle: 'Domluvme si nezávazný hovor — probereme detaily a odpovíme na všechny otázky.',
+      ctaContact: 'Mám zájem o spolupráci', ctaQuestions: 'Mám otázky',
+      footer1: 'Tento návrh je platný 30 dní od data odeslání.',
+      footer2: 'Cenu a rozsah služeb můžeme upravit na základě vašich potřeb.',
+      footerCopyright: '| Vytvořeno s', footerFor: 'pro',
+      savePdf: 'Uložit jako PDF', savePdfTip: 'V tiskovém dialogu vyberte "Uložit jako PDF"',
+      industryFurniture: 'Nábytek na míru', industryFencing: 'Oplocení a exteriér',
+      industryConstruction: 'Stavební práce', industryWindows: 'Okna a dveře',
+      industryEshop: 'E-shop', industryAuto: 'Automotive',
+      industryBeauty: 'Kosmetika a wellness', industryB2B: 'B2B služby',
+      industryRealEstate: 'Reality', industryEducation: 'Kurzy a vzdělávání',
+      industryGastro: 'Gastronomie', industryLocalServices: 'Lokální služby',
+      industryDefault: 'PPC průměr trhu',
+    },
+
+    de: {
+      heroBadge: 'Maßgeschneiderte Marketingstrategie',
+      heroTitleStart: 'Kampagnenvorschlag für',
+      heroSubtitle: 'Detaillierter Plan, wie wir Ihnen neue Kunden über Online-Marketing bringen.',
+      heroPreparedFor: 'Erstellt für',
+      s1: 'Über Ihr Unternehmen', s2: 'Was wir festgestellt haben', s3: 'Ihre Online-Präsenz',
+      s4: 'Technische Website-Analyse', s5: 'Wettbewerbsumfeld', s6: 'SWOT-Analyse',
+      s7: 'Keywords', s8: 'Vorgeschlagene Strategie', s9: 'Anzeigenvorschläge',
+      s10: 'Empfohlenes Werbebudget', s11: 'Erwartete Rendite (ROI)',
+      s12: 'Zeitplan', s13: 'Was Ihnen die Zusammenarbeit bringt', s14: 'Unsere Pakete',
+      s15: 'So funktioniert die Zusammenarbeit',
+      yourCompany: 'Ihr Unternehmen', yourServices: 'Ihre Dienstleistungen und Produkte',
+      yourCustomers: 'Ihre idealen Kunden',
+      whatWeNoticed: 'Eine kurze Übersicht darüber, was Sie tun und wo wir das größte Wachstumspotenzial durch Online-Werbung sehen.',
+      ourTake: 'Unser Eindruck und erste Einschätzung', whereWeSeePotential: 'Wo wir Potenzial sehen',
+      yourStrengths: 'Ihre Stärken', growthOpportunities: 'Wachstumschancen',
+      onlinePresenceSummary: 'Bewertung Ihrer aktuellen Präsenz im Web und in sozialen Netzwerken.',
+      website: 'Webseite', facebook: 'Facebook', instagram: 'Instagram', paidAds: 'Bezahlte Werbung',
+      yes: 'Ja', no: 'Nein',
+      whatWorks: 'Was gut funktioniert', whatToImprove: 'Was verbessert werden muss',
+      fullWebAudit: 'Eine vollständige Web-Analyse einschließlich technischem SEO-Audit erstellen wir nach Auftragserteilung',
+      techAuditSubtitle1: 'Wir haben', techAuditSubtitle2: 'wichtige Seiten Ihrer Website überprüft',
+      techAuditSubtitleEnd: 'und konkrete Punkte identifiziert, die Ihre Sichtbarkeit bei Google und das Nutzererlebnis beeinflussen. Hier ist, was in welcher Reihenfolge behoben werden sollte.',
+      priority: 'Priorität', finding: 'Feststellung', recommendation: 'Empfehlung',
+      sevCritical: 'Kritisch', sevHigh: 'Hoch', sevMedium: 'Mittel', sevLow: 'Niedrig',
+      whatAlreadyWorks: 'Was bereits funktioniert',
+      auditFooter: 'Punkte mit Priorität <strong style="color:#dc2626;">Kritisch</strong> und <strong style="color:#ea580c;">Hoch</strong> empfehlen wir im ersten Monat der Zusammenarbeit zu beheben — ihre Auswirkung auf die Kampagnenergebnisse ist sofort spürbar.',
+      competitiveSubtitleFallback: 'Wir haben die Hauptakteure identifiziert, die Ihre potenziellen Kunden ansprechen. Hier ist, wie wir uns gegen sie positionieren.',
+      theirStrength: 'Ihre Stärke', ourAdvantage: 'Unser Vorteil',
+      swotStrengths: 'Stärken', swotWeaknesses: 'Schwächen',
+      swotOpportunities: 'Chancen', swotThreats: 'Risiken',
+      kwIntro: 'Für Ihre Dienstleistungen haben wir Keywords mit einem Gesamtvolumen von',
+      kwSearchesMo: 'Suchanfragen pro Monat identifiziert', kwAvgCpc: 'bei einem durchschnittlichen Klickpreis von',
+      kwSelected: 'Hier ist eine Auswahl der wichtigsten:',
+      kwTableKw: 'Keyword', kwTableVolume: 'Monatliches Suchvolumen',
+      kwTablePosition: 'Ihre Position', kwTableCompetition: 'Wettbewerb',
+      kwTableIntent: 'Suchintention', kwTableCpc: 'Klickpreis',
+      compLow: 'niedrig', compMedium: 'mittel', compHigh: 'hoch',
+      intentBuy: 'Kaufabsicht', intentInfo: 'Information', intentBrand: 'Marke',
+      intentTransactional: 'transaktional', intentCommercial: 'kommerziell', intentResearch: 'Recherche',
+      kwFooter1: 'Wir haben weitere', kwFooter2: 'Keywords einschließlich Long-Tail-Möglichkeiten vorbereitet. Die vollständige Liste erhalten Sie nach Auftragserteilung.',
+      recommendedPlatforms: 'Empfohlene Plattformen', mainGoal: 'Hauptziel',
+      targetAudience: 'Zielgruppe', demographics: 'Demografie', interests: 'Interessen', behaviors: 'Verhalten',
+      tbd: 'Wird spezifiziert',
+      adsSubtitle: 'Beispiele für Anzeigen, die wir für Sie vorbereiten. Die finalen Versionen werden an Ihre Bedürfnisse angepasst und enthalten professionelle Grafiken.',
+      googleSearch: 'Google Ads — Suche', sponsored: 'Anzeige',
+      facebookFeed: 'Facebook Feed', instagramStory: 'Instagram Story',
+      targetedKw: 'Gezielte Keywords:',
+      learnMore: 'Mehr erfahren', contactUs: 'Kontaktieren', orderNow: 'Jetzt bestellen',
+      budgetSubtitle: 'Drei Möglichkeiten der Budgetverteilung je nach Ihren Zielen und Wachstumstempo.',
+      budgetStart: 'Start', budgetRecommended: 'Empfohlen', budgetAggressive: 'Aggressives Wachstum',
+      monthly: '/ Mo', leads: 'Anfragen', clicks: 'Klicks', expectedLeads: 'Erwartete Anfragen',
+      expectedClicks: 'Erwartete Klicks', recommendedBadge: '⭐ Empfohlen',
+      bestValue: 'Bestes Preis-Leistungs-Verhältnis',
+      roiSubtitle: 'Die Berechnung basiert auf realen Konversionsraten für die Branche',
+      roiSource1: 'Quelle:', roiSourceBenchmark: 'Branchendurchschnitt für Deutschland', roiSourceCustom: 'Ihre eigenen Daten',
+      roiStepByStep: 'Hier ist Schritt für Schritt, was Sie aus dem monatlichen Budget erwarten können:',
+      roiMonthlyBudget: 'Monatliches Budget', roiVisits: 'Besucher durch Werbung',
+      roiLeads: 'Anfragen (Kontaktformular, Telefon)', roiCustomers: 'Kunden (Bestellung, Vertragsabschluss)',
+      roiRevenue: 'Monatlicher Umsatz',
+      roiNoteAvg: 'Bei einem durchschnittlichen Klickpreis von', roiNoteQualified: 'Qualifizierter Traffic auf Ihrer Website',
+      roiNoteCrLead: 'Bei einer Konversionsrate von', roiNoteTypicalIndustry: '— typisch für die Branche',
+      roiNoteCustomerCr: 'Bei einem Abschluss von', roiNotePerLead: 'Anfragen',
+      roiNoteAvgValue: 'Durchschnittswert', roiNoteAndLtv: '× LTV',
+      cplLabel: 'Cost per Lead (CPL)', cacLabel: 'Cost per Customer (CAC)', roiPct: 'Return on Investment',
+      concreteExample: 'Konkretes Beispiel',
+      exampleHeader1: 'Stellen Sie sich eine Wochenkampagne für den Begriff vor',
+      exampleHeader2: 'Bei einem Budget von', exampleHeader3: 'erreichen wir', exampleHeader4: 'Klicks auf Ihre Website',
+      exampleHeader5: 'Davon werden ungefähr', exampleHeader6Single: 'Interessent Sie kontaktieren',
+      exampleHeader6Few: 'Interessenten Sie kontaktieren', exampleHeader6Many: 'Interessenten Sie kontaktieren',
+      exampleHeader7: '(Telefon, Formular, E-Mail). Davon werden',
+      exampleHeader8Single: 'zu einem zahlenden Kunden', exampleHeader8Multi: 'zu zahlenden Kunden',
+      exampleHeader9: 'mit einer Bestellung von durchschnittlich',
+      exampleInvestment: 'Investition', exampleWeekRevenue: 'Wochenumsatz',
+      assumptionsTitle: 'Berechnungsgrundlagen',
+      assumpCpc: 'Klickpreis', assumpWebToLead: 'Besuch → Anfrage',
+      assumpLeadToCustomer: 'Anfrage → Kunde', assumpAov: 'Bestellwert',
+      timelineWeek: 'Woche', timelineMonth: 'Monat', timelineMonth3plus: 'Monat 3+',
+      benefitsSubtitle: 'Konkrete Ergebnisse, die Ihnen unsere Zusammenarbeit bringt.',
+      benefitMoreLeads: 'Mehr Anfragen und Kunden',
+      benefitVisibility: 'Höhere Sichtbarkeit bei Google',
+      benefitCompetitive: 'Wettbewerbsvorteil',
+      benefitCompetitiveDesc: 'Während Ihre Konkurrenz auf Kunden wartet, sprechen Sie diese genau in dem Moment aktiv an, in dem sie nach einer Lösung suchen.',
+      benefitControl: 'Flexibilität und Kontrolle',
+      benefitDataDriven: 'Datenbasierte Entscheidungen',
+      benefitTeam: 'Erfahrenes Team an Ihrer Seite',
+      packagesTitle: 'Wählen Sie das passende Paket',
+      packagesSubtitle: 'Transparente Preise, klarer Umfang, keine versteckten Kosten.',
+      packageMonth: '/ Mo', packageContact: 'Kontaktieren Sie uns',
+      pkgRecBadge: '⭐ Empfohlen', pkgBestValueBadge: 'Bestes Angebot',
+      specialOffers: 'Sonderangebote und Rabatte',
+      offer6m: '6-Monats-Vertrag', offer6mTitle: '−10 % Rabatt',
+      offer6mDesc: 'Bei einer 6-monatigen Zusammenarbeit mit <strong>Vorauszahlung</strong> reduzieren wir die Managementgebühr um 10 %. Stabilität + Ersparnis.',
+      offer12m: '12-Monats-Vertrag', offer12mTitle: '−20 % Rabatt',
+      offer12mDesc: 'Bei jährlicher Zusammenarbeit mit <strong>Vorauszahlung</strong> 20 % Rabatt + Audit gratis + vierteljährliche strategische Meetings.',
+      bestDeal: 'TOPANGEBOT',
+      packageNote: 'Alle Preise sind <strong>netto</strong> und stellen die Gebühr für das <strong>Kampagnenmanagement</strong> dar. Das <strong>Werbebudget</strong> zahlen Sie direkt an Google / Meta / LinkedIn — Sie haben die volle Kontrolle und können es jederzeit anpassen.',
+      howSubtitle: 'Einfacher und transparenter Prozess von der Unterzeichnung bis zu den ersten Ergebnissen.',
+      stepAudit: 'Audit + Onboarding', stepAuditDesc: 'Wir lernen Sie, Ihr Unternehmen und Ihre bisherigen Aktivitäten kennen. Wir erstellen einen detaillierten Plan.',
+      stepSetup: 'Kampagnenvorbereitung', stepSetupDesc: 'Wir erstellen Kampagnen, Werbekreationen, Zielgruppen und Tracking.',
+      stepLaunch: 'Start und Optimierung', stepLaunchDesc: 'Wir starten die Kampagnen und optimieren sie kontinuierlich datenbasiert.',
+      stepReporting: 'Reporting und Kommunikation', stepReportingDesc: 'Regelmäßiges Reporting, transparente Ergebnisse und offene Kommunikation.',
+      ctaReady: 'Bereit, die Kampagnen zu starten?',
+      ctaSubtitle: 'Vereinbaren wir ein unverbindliches Gespräch — wir besprechen die Details und beantworten alle Fragen.',
+      ctaContact: 'Ich habe Interesse an einer Zusammenarbeit', ctaQuestions: 'Ich habe Fragen',
+      footer1: 'Dieser Vorschlag ist 30 Tage ab Versanddatum gültig.',
+      footer2: 'Preis und Leistungsumfang können wir nach Ihren Bedürfnissen anpassen.',
+      footerCopyright: '| Erstellt mit', footerFor: 'für',
+      savePdf: 'Als PDF speichern', savePdfTip: 'Im Druckdialog "Als PDF speichern" auswählen',
+      industryFurniture: 'Möbel nach Maß', industryFencing: 'Zaun und Außenbereich',
+      industryConstruction: 'Bauarbeiten', industryWindows: 'Fenster und Türen',
+      industryEshop: 'Online-Shop', industryAuto: 'Automotive',
+      industryBeauty: 'Kosmetik und Wellness', industryB2B: 'B2B-Dienstleistungen',
+      industryRealEstate: 'Immobilien', industryEducation: 'Kurse und Bildung',
+      industryGastro: 'Gastronomie', industryLocalServices: 'Lokale Dienstleistungen',
+      industryDefault: 'Marktdurchschnitt PPC',
+    },
+
+    en: {
+      heroBadge: 'Tailored Marketing Strategy',
+      heroTitleStart: 'Campaign proposal for',
+      heroSubtitle: 'A detailed plan on how we will bring you new customers through online marketing.',
+      heroPreparedFor: 'Prepared for',
+      s1: 'About Your Company', s2: 'What We Found', s3: 'Your Online Presence',
+      s4: 'Technical Website Audit', s5: 'Competitive Landscape', s6: 'SWOT Analysis',
+      s7: 'Keywords', s8: 'Proposed Strategy', s9: 'Ad Examples',
+      s10: 'Recommended Ad Budget', s11: 'Expected Return on Investment (ROI)',
+      s12: 'Timeline', s13: 'What Cooperation Brings You', s14: 'Our Packages',
+      s15: 'How Cooperation Works',
+      yourCompany: 'Your Company', yourServices: 'Your Services and Products',
+      yourCustomers: 'Your Ideal Customers',
+      whatWeNoticed: 'A brief overview of what you do and where we see the greatest potential for growth through online advertising.',
+      ourTake: 'Our Take and First Impression', whereWeSeePotential: 'Where We See Potential',
+      yourStrengths: 'Your Strengths', growthOpportunities: 'Growth Opportunities',
+      onlinePresenceSummary: 'An assessment of your current presence on the web and social media.',
+      website: 'Website', facebook: 'Facebook', instagram: 'Instagram', paidAds: 'Paid Advertising',
+      yes: 'Yes', no: 'No',
+      whatWorks: 'What Works Well', whatToImprove: 'What Needs Improvement',
+      fullWebAudit: 'A complete website analysis including technical SEO audit will be prepared after ordering the service',
+      techAuditSubtitle1: 'We reviewed', techAuditSubtitle2: 'key pages of your website',
+      techAuditSubtitleEnd: 'and identified concrete issues affecting your visibility on Google and the user experience. Here is what to fix and in what order.',
+      priority: 'Priority', finding: 'Finding', recommendation: 'Recommendation',
+      sevCritical: 'Critical', sevHigh: 'High', sevMedium: 'Medium', sevLow: 'Low',
+      whatAlreadyWorks: 'What Already Works',
+      auditFooter: 'Items with priority <strong style="color:#dc2626;">Critical</strong> and <strong style="color:#ea580c;">High</strong> we recommend fixing in the first month of cooperation — their impact on campaign results is immediate.',
+      competitiveSubtitleFallback: 'We have identified the main players targeting your potential customers. Here is how we will position ourselves against them.',
+      theirStrength: 'Their Strength', ourAdvantage: 'Our Advantage',
+      swotStrengths: 'Strengths', swotWeaknesses: 'Weaknesses',
+      swotOpportunities: 'Opportunities', swotThreats: 'Threats',
+      kwIntro: 'For your services we identified keywords with a total volume of',
+      kwSearchesMo: 'searches per month', kwAvgCpc: 'at an average cost per click of',
+      kwSelected: 'Here is a selection of the most important ones:',
+      kwTableKw: 'Keyword', kwTableVolume: 'Monthly Volume',
+      kwTablePosition: 'Your Position', kwTableCompetition: 'Competition',
+      kwTableIntent: 'Search Intent', kwTableCpc: 'Cost per Click',
+      compLow: 'low', compMedium: 'medium', compHigh: 'high',
+      intentBuy: 'buying', intentInfo: 'informational', intentBrand: 'brand',
+      intentTransactional: 'transactional', intentCommercial: 'commercial', intentResearch: 'research',
+      kwFooter1: 'We have prepared another', kwFooter2: 'keywords including long-tail opportunities. The full list will be available after ordering the service.',
+      recommendedPlatforms: 'Recommended Platforms', mainGoal: 'Main Goal',
+      targetAudience: 'Target Audience', demographics: 'Demographics', interests: 'Interests', behaviors: 'Behaviors',
+      tbd: 'To be specified',
+      adsSubtitle: 'Examples of ads we will prepare for you. Final versions will be tailored to your needs and contain professional visuals.',
+      googleSearch: 'Google Ads — Search', sponsored: 'Sponsored',
+      facebookFeed: 'Facebook Feed', instagramStory: 'Instagram Story',
+      targetedKw: 'Targeted Keywords:',
+      learnMore: 'Learn more', contactUs: 'Contact us', orderNow: 'Order now',
+      budgetSubtitle: 'Three options for budget allocation based on your goals and growth pace.',
+      budgetStart: 'Starter', budgetRecommended: 'Recommended', budgetAggressive: 'Aggressive Growth',
+      monthly: '/ mo', leads: 'leads', clicks: 'clicks', expectedLeads: 'Expected Leads',
+      expectedClicks: 'Expected Clicks', recommendedBadge: '⭐ Recommended',
+      bestValue: 'Best value',
+      roiSubtitle: 'The calculation is based on real conversion rates for the industry',
+      roiSource1: 'source:', roiSourceBenchmark: 'Industry average for the market', roiSourceCustom: 'Your own data',
+      roiStepByStep: 'Here is step-by-step what you can expect from the monthly budget:',
+      roiMonthlyBudget: 'Monthly Budget', roiVisits: 'Visitors from Ads',
+      roiLeads: 'Leads (contact form, phone)', roiCustomers: 'Customers (order, contract signed)',
+      roiRevenue: 'Monthly Revenue',
+      roiNoteAvg: 'At an average cost per click of', roiNoteQualified: 'Qualified traffic on your website',
+      roiNoteCrLead: 'At a conversion rate of', roiNoteTypicalIndustry: '— typical for the industry',
+      roiNoteCustomerCr: 'At a close rate of', roiNotePerLead: 'leads',
+      roiNoteAvgValue: 'average value', roiNoteAndLtv: '× LTV',
+      cplLabel: 'Cost per Lead (CPL)', cacLabel: 'Cost per Customer (CAC)', roiPct: 'Return on Investment',
+      concreteExample: 'Concrete Example',
+      exampleHeader1: 'Imagine one week of a campaign for the term',
+      exampleHeader2: 'With a budget of', exampleHeader3: 'we achieve', exampleHeader4: 'clicks to your website',
+      exampleHeader5: 'Of which approximately', exampleHeader6Single: 'prospect will contact you',
+      exampleHeader6Few: 'prospects will contact you', exampleHeader6Many: 'prospects will contact you',
+      exampleHeader7: '(phone, form, email). Of those',
+      exampleHeader8Single: 'becomes', exampleHeader8Multi: 'become',
+      exampleHeader9: 'a paying customer with an average order value of',
+      exampleInvestment: 'Investment', exampleWeekRevenue: 'Weekly Revenue',
+      assumptionsTitle: 'Calculation Assumptions',
+      assumpCpc: 'Cost per Click', assumpWebToLead: 'Visit → Lead',
+      assumpLeadToCustomer: 'Lead → Customer', assumpAov: 'Order Value',
+      timelineWeek: 'Week', timelineMonth: 'Month', timelineMonth3plus: 'Month 3+',
+      benefitsSubtitle: 'Concrete results that our cooperation will bring you.',
+      benefitMoreLeads: 'More Leads and Customers',
+      benefitVisibility: 'Higher Visibility on Google',
+      benefitCompetitive: 'Competitive Advantage',
+      benefitCompetitiveDesc: 'While your competition waits for customers, you actively reach them at the exact moment they are looking for a solution.',
+      benefitControl: 'Flexibility and Control',
+      benefitDataDriven: 'Data-Driven Decisions',
+      benefitTeam: 'Experienced Team Has Your Back',
+      packagesTitle: 'Choose a Package That Fits',
+      packagesSubtitle: 'Transparent pricing, clear scope, no hidden fees.',
+      packageMonth: '/ mo', packageContact: 'Contact us',
+      pkgRecBadge: '⭐ Recommended', pkgBestValueBadge: 'Best value',
+      specialOffers: 'Special Offers and Discounts',
+      offer6m: '6-month agreement', offer6mTitle: '−10 % discount',
+      offer6mDesc: 'For a 6-month cooperation paid <strong>in advance</strong> we reduce the management fee by 10 %. Stability + savings.',
+      offer12m: '12-month agreement', offer12mTitle: '−20 % discount',
+      offer12mDesc: 'For a yearly cooperation paid <strong>in advance</strong> 20 % discount + audit for free + quarterly strategic meetings.',
+      bestDeal: 'BEST DEAL',
+      packageNote: 'All prices are <strong>without VAT</strong> and represent the fee for <strong>campaign management</strong>. <strong>The advertising budget</strong> you pay directly to Google / Meta / LinkedIn — you have full control and can adjust it at any time.',
+      howSubtitle: 'A simple and transparent process from signing to first results.',
+      stepAudit: 'Audit + Onboarding', stepAuditDesc: 'We get to know you, your company and previous activities. We prepare a detailed plan.',
+      stepSetup: 'Campaign Preparation', stepSetupDesc: 'We create campaigns, ad creatives, target audiences and tracking.',
+      stepLaunch: 'Launch and Optimization', stepLaunchDesc: 'We launch the campaigns and continuously optimize them based on data.',
+      stepReporting: 'Reporting and Communication', stepReportingDesc: 'Regular reporting, transparent results and open communication.',
+      ctaReady: 'Ready to Launch Your Campaigns?',
+      ctaSubtitle: "Let's arrange a non-binding call — we will discuss the details and answer all your questions.",
+      ctaContact: 'I am interested in cooperation', ctaQuestions: 'I have questions',
+      footer1: 'This proposal is valid for 30 days from the date of submission.',
+      footer2: 'We can adjust the price and scope of services based on your needs.',
+      footerCopyright: '| Created with', footerFor: 'for',
+      savePdf: 'Save as PDF', savePdfTip: 'In the print dialog select "Save as PDF"',
+      industryFurniture: 'Custom Furniture', industryFencing: 'Fencing and Exteriors',
+      industryConstruction: 'Construction', industryWindows: 'Windows and Doors',
+      industryEshop: 'E-shop', industryAuto: 'Automotive',
+      industryBeauty: 'Beauty and Wellness', industryB2B: 'B2B Services',
+      industryRealEstate: 'Real Estate', industryEducation: 'Courses and Education',
+      industryGastro: 'Gastronomy', industryLocalServices: 'Local Services',
+      industryDefault: 'PPC market average',
+    },
+
+    hu: {
+      heroBadge: 'Személyre szabott marketingstratégia',
+      heroTitleStart: 'Kampányajánlat',
+      heroSubtitle: 'Részletes terv arról, hogyan szerzünk Önnek új ügyfeleket online marketing révén.',
+      heroPreparedFor: 'Készült számára',
+      s1: 'A cégéről', s2: 'Mit állapítottunk meg', s3: 'Az Ön online jelenléte',
+      s4: 'Műszaki webaudit', s5: 'Versenykörnyezet', s6: 'SWOT-elemzés',
+      s7: 'Kulcsszavak', s8: 'Javasolt stratégia', s9: 'Hirdetési minták',
+      s10: 'Javasolt hirdetési költségvetés', s11: 'Várható megtérülés (ROI)',
+      s12: 'Időterv', s13: 'Mit hoz Önnek az együttműködés', s14: 'Csomagjaink',
+      s15: 'Hogyan működik az együttműködés',
+      yourCompany: 'Az Ön cége', yourServices: 'Az Ön szolgáltatásai és termékei',
+      yourCustomers: 'Az Ön ideális ügyfelei',
+      whatWeNoticed: 'Rövid áttekintés arról, mit csinál és hol látjuk a legnagyobb növekedési potenciált online hirdetés révén.',
+      ourTake: 'A mi nézőpontunk és első benyomásunk', whereWeSeePotential: 'Hol látunk lehetőséget',
+      yourStrengths: 'Az Ön erősségei', growthOpportunities: 'Növekedési lehetőségek',
+      onlinePresenceSummary: 'Jelenlegi webes és közösségi médiabeli jelenlétének értékelése.',
+      website: 'Weboldal', facebook: 'Facebook', instagram: 'Instagram', paidAds: 'Fizetett hirdetés',
+      yes: 'Igen', no: 'Nem',
+      whatWorks: 'Mi működik jól', whatToImprove: 'Mit kell javítani',
+      fullWebAudit: 'Teljes webelemzést, beleértve a műszaki SEO auditot, a szolgáltatás megrendelése után készítünk',
+      techAuditSubtitle1: 'Átvizsgáltunk', techAuditSubtitle2: 'kulcsfontosságú oldalt az Ön weboldalán',
+      techAuditSubtitleEnd: 'és konkrét pontokat azonosítottunk, amelyek befolyásolják a Google-ban való láthatóságát és a felhasználói élményt. Itt van, mit kell javítani és milyen sorrendben.',
+      priority: 'Prioritás', finding: 'Megállapítás', recommendation: 'Ajánlás',
+      sevCritical: 'Kritikus', sevHigh: 'Magas', sevMedium: 'Közepes', sevLow: 'Alacsony',
+      whatAlreadyWorks: 'Mi működik már',
+      auditFooter: 'A <strong style="color:#dc2626;">Kritikus</strong> és <strong style="color:#ea580c;">Magas</strong> prioritású pontokat javasoljuk az együttműködés első hónapjában javítani — azonnali hatásuk van a kampány eredményeire.',
+      competitiveSubtitleFallback: 'Azonosítottuk a fő szereplőket, akik az Ön potenciális ügyfeleit célozzák. Itt van, hogyan pozícionálódunk velük szemben.',
+      theirStrength: 'Az ő erősségük', ourAdvantage: 'A mi előnyünk',
+      swotStrengths: 'Erősségek', swotWeaknesses: 'Gyengeségek',
+      swotOpportunities: 'Lehetőségek', swotThreats: 'Veszélyek',
+      kwIntro: 'Szolgáltatásaihoz olyan kulcsszavakat azonosítottunk, amelyek összesített volumene',
+      kwSearchesMo: 'keresés havonta', kwAvgCpc: 'átlagos kattintásonkénti költséggel',
+      kwSelected: 'Itt van a legfontosabbak válogatása:',
+      kwTableKw: 'Kulcsszó', kwTableVolume: 'Havi keresés',
+      kwTablePosition: 'Az Ön pozíciója', kwTableCompetition: 'Verseny',
+      kwTableIntent: 'Keresési szándék', kwTableCpc: 'Kattintásonkénti költség',
+      compLow: 'alacsony', compMedium: 'közepes', compHigh: 'magas',
+      intentBuy: 'vásárlási', intentInfo: 'információs', intentBrand: 'márka',
+      intentTransactional: 'tranzakciós', intentCommercial: 'kereskedelmi', intentResearch: 'kutatási',
+      kwFooter1: 'További', kwFooter2: 'kulcsszót készítettünk elő, beleértve a long-tail lehetőségeket. A teljes listát a szolgáltatás megrendelése után kapja meg.',
+      recommendedPlatforms: 'Javasolt platformok', mainGoal: 'Fő cél',
+      targetAudience: 'Célközönség', demographics: 'Demográfia', interests: 'Érdeklődési körök', behaviors: 'Viselkedés',
+      tbd: 'Egyeztetésre vár',
+      adsSubtitle: 'Hirdetésminták, amelyeket Önnek készítünk. A végleges verziókat az Ön igényeihez igazítjuk és professzionális vizuális tartalmakat tartalmaznak.',
+      googleSearch: 'Google Ads — Keresés', sponsored: 'Hirdetés',
+      facebookFeed: 'Facebook Feed', instagramStory: 'Instagram Story',
+      targetedKw: 'Célzott kulcsszavak:',
+      learnMore: 'Tudjon meg többet', contactUs: 'Vegye fel a kapcsolatot', orderNow: 'Rendelés most',
+      budgetSubtitle: 'Három költségvetés-elosztási lehetőség céljaitól és növekedési ütemétől függően.',
+      budgetStart: 'Kezdő', budgetRecommended: 'Javasolt', budgetAggressive: 'Agresszív növekedés',
+      monthly: '/ hó', leads: 'érdeklődő', clicks: 'kattintás', expectedLeads: 'Várható érdeklődők',
+      expectedClicks: 'Várható kattintások', recommendedBadge: '⭐ Ajánlott',
+      bestValue: 'Legjobb ár-érték arány',
+      roiSubtitle: 'A számítás valós konverziós arányokon alapul az iparágra',
+      roiSource1: 'forrás:', roiSourceBenchmark: 'Iparági átlag Magyarországon', roiSourceCustom: 'Az Ön saját adatai',
+      roiStepByStep: 'Itt van lépésről lépésre, mit várhat a havi költségvetésből:',
+      roiMonthlyBudget: 'Havi költségvetés', roiVisits: 'Látogatók hirdetésből',
+      roiLeads: 'Érdeklődők (űrlap, telefon)', roiCustomers: 'Ügyfelek (rendelés, szerződés)',
+      roiRevenue: 'Havi bevétel',
+      roiNoteAvg: 'Átlagos kattintásonkénti költséggel', roiNoteQualified: 'Minőségi forgalom a weboldalán',
+      roiNoteCrLead: 'Konverziós aránnyal', roiNoteTypicalIndustry: '— jellemző az iparágra',
+      roiNoteCustomerCr: 'Lezárási aránnyal', roiNotePerLead: 'érdeklődő',
+      roiNoteAvgValue: 'átlagos érték', roiNoteAndLtv: '× LTV',
+      cplLabel: 'Egy érdeklődő ára (CPL)', cacLabel: 'Egy ügyfél ára (CAC)', roiPct: 'Befektetés megtérülése',
+      concreteExample: 'Konkrét példa',
+      exampleHeader1: 'Képzeljen el egy hetes kampányt erre a kifejezésre',
+      exampleHeader2: 'költségvetéssel', exampleHeader3: 'elérünk', exampleHeader4: 'kattintást a weboldalára',
+      exampleHeader5: 'Ebből megközelítőleg', exampleHeader6Single: 'érdeklődő keresi meg Önt',
+      exampleHeader6Few: 'érdeklődő keresi meg Önt', exampleHeader6Many: 'érdeklődő keresi meg Önt',
+      exampleHeader7: '(telefon, űrlap, e-mail). Közülük',
+      exampleHeader8Single: 'lesz', exampleHeader8Multi: 'lesz',
+      exampleHeader9: 'fizető ügyféllé átlagos rendelési értékkel',
+      exampleInvestment: 'Befektetés', exampleWeekRevenue: 'Heti bevétel',
+      assumptionsTitle: 'Számítási feltételezések',
+      assumpCpc: 'Kattintásonkénti költség', assumpWebToLead: 'Látogatás → érdeklődő',
+      assumpLeadToCustomer: 'Érdeklődő → ügyfél', assumpAov: 'Rendelési érték',
+      timelineWeek: 'Hét', timelineMonth: 'Hónap', timelineMonth3plus: '3+ hónap',
+      benefitsSubtitle: 'Konkrét eredmények, amelyeket az együttműködésünk hoz Önnek.',
+      benefitMoreLeads: 'Több érdeklődő és ügyfél',
+      benefitVisibility: 'Nagyobb láthatóság a Google-ban',
+      benefitCompetitive: 'Versenyelőny',
+      benefitCompetitiveDesc: 'Míg versenytársai ügyfelekre várnak, Ön aktívan megszólítja őket pontosan abban a pillanatban, amikor megoldást keresnek.',
+      benefitControl: 'Rugalmasság és kontroll',
+      benefitDataDriven: 'Adatokon alapuló döntések',
+      benefitTeam: 'Tapasztalt csapat áll Ön mellett',
+      packagesTitle: 'Válassza ki az Önnek megfelelő csomagot',
+      packagesSubtitle: 'Átlátható árak, egyértelmű terjedelem, semmi rejtett díj.',
+      packageMonth: '/ hó', packageContact: 'Vegye fel a kapcsolatot',
+      pkgRecBadge: '⭐ Ajánlott', pkgBestValueBadge: 'Legjobb ajánlat',
+      specialOffers: 'Speciális ajánlatok és kedvezmények',
+      offer6m: '6 hónapos megállapodás', offer6mTitle: '−10 % kedvezmény',
+      offer6mDesc: '6 hónapos, <strong>előre fizetett</strong> együttműködés esetén 10 %-kal csökkentjük a kezelési díjat. Stabilitás + megtakarítás.',
+      offer12m: '12 hónapos megállapodás', offer12mTitle: '−20 % kedvezmény',
+      offer12mDesc: 'Éves, <strong>előre fizetett</strong> együttműködés esetén 20 % kedvezmény + ingyenes audit + negyedéves stratégiai találkozók.',
+      bestDeal: 'LEGJOBB AJÁNLAT',
+      packageNote: 'Minden ár <strong>nettó</strong> és a <strong>kampánykezelés</strong> díját képviseli. A <strong>hirdetési költségvetést</strong> közvetlenül a Google / Meta / LinkedIn felé fizeti — teljes irányítása van felette és bármikor módosíthatja.',
+      howSubtitle: 'Egyszerű és átlátható folyamat az aláírástól az első eredményekig.',
+      stepAudit: 'Audit + bevezetés', stepAuditDesc: 'Megismerjük Önt, cégét és eddigi tevékenységét. Részletes tervet készítünk.',
+      stepSetup: 'Kampányelőkészítés', stepSetupDesc: 'Létrehozzuk a kampányokat, hirdetési kreatívokat, célközönséget és követést.',
+      stepLaunch: 'Indítás és optimalizálás', stepLaunchDesc: 'Elindítjuk a kampányokat és folyamatosan optimalizáljuk azokat az adatok alapján.',
+      stepReporting: 'Jelentések és kommunikáció', stepReportingDesc: 'Rendszeres jelentések, átlátható eredmények és nyitott kommunikáció.',
+      ctaReady: 'Készen áll a kampányok indítására?',
+      ctaSubtitle: 'Beszéljük meg egy nem kötelező érvényű hívás során — átbeszéljük a részleteket és válaszolunk minden kérdésre.',
+      ctaContact: 'Érdekel az együttműködés', ctaQuestions: 'Vannak kérdéseim',
+      footer1: 'Ez az ajánlat 30 napig érvényes a kiküldés dátumától.',
+      footer2: 'Az árat és a szolgáltatás terjedelmét az Ön igényei alapján alakíthatjuk.',
+      footerCopyright: '| Készítette', footerFor: '—',
+      savePdf: 'Mentés PDF-ként', savePdfTip: 'A nyomtatási párbeszédpanelen válassza a "Mentés PDF-ként" lehetőséget',
+      industryFurniture: 'Egyedi bútor', industryFencing: 'Kerítés és külső tér',
+      industryConstruction: 'Építőipar', industryWindows: 'Ablakok és ajtók',
+      industryEshop: 'Webáruház', industryAuto: 'Automotive',
+      industryBeauty: 'Szépségápolás és wellness', industryB2B: 'B2B szolgáltatások',
+      industryRealEstate: 'Ingatlan', industryEducation: 'Tanfolyamok és oktatás',
+      industryGastro: 'Gasztronómia', industryLocalServices: 'Helyi szolgáltatások',
+      industryDefault: 'PPC piaci átlag',
+    },
+  },
+
+  // Helper — vráti preložený reťazec; fallback na sk ak v jazyku chýba kľúč.
+  T(key, lang) {
+    const l = (lang || 'sk').toLowerCase();
+    const dict = this.PROPOSAL_I18N[l] || this.PROPOSAL_I18N.sk;
+    return dict[key] ?? this.PROPOSAL_I18N.sk[key] ?? key;
+  },
+
+  // Industry benchmarky — match patterny rozšírené o DE/EN/HU/CS keywords,
+  // labels ako i18n kľúče (rozkódované v _industryBenchmark cez T()).
   INDUSTRY_BENCHMARKS: [
-    // High-ticket, considered purchase — nábytok, stavba, izolácie, oplotenie
-    { match: /nábytok|nabytok|skrine|kuchyn|interiér|interier|stolarstv|stolárstv/i,
-      label: 'Nábytok na mieru', webToLead: 4.0, leadToCustomer: 22, aov: 2800, salesCycleWeeks: 4 },
-    { match: /oploten|brán|brana|plot|pergol|terasy/i,
-      label: 'Oplotenie a exteriér', webToLead: 4.5, leadToCustomer: 28, aov: 3500, salesCycleWeeks: 3 },
-    { match: /izolác|izolac|stavb|rekonštrukci|rekonstrukci|pur pen|fasád|fasad|kúren|kurenie/i,
-      label: 'Stavebné práce', webToLead: 3.5, leadToCustomer: 20, aov: 4500, salesCycleWeeks: 5 },
-    { match: /okná|okna|dvere|žalúzi|zaluzi|tieneni|garáž/i,
-      label: 'Okná a dvere', webToLead: 4.0, leadToCustomer: 25, aov: 2200, salesCycleWeeks: 3 },
-    // E-shop / e-commerce
-    { match: /e-?shop|eshop|obchod|predaj online/i,
-      label: 'E-shop', webToLead: 1.8, leadToCustomer: 100, aov: 65, salesCycleWeeks: 0 },
-    // Auto / motorky
-    { match: /auto|motork|vozid|servis aut|pneuservis|prevádz/i,
-      label: 'Automotive', webToLead: 3.5, leadToCustomer: 30, aov: 800, salesCycleWeeks: 1 },
-    // Krása / zdravie
-    { match: /kozmet|salón|salon|krása|krasa|wellness|spa|estetic|dermatol|stomatol|zubn/i,
-      label: 'Kozmetika a wellness', webToLead: 6.0, leadToCustomer: 45, aov: 180, salesCycleWeeks: 0 },
-    // B2B služby
-    { match: /účtovn|uctovn|právn|pravn|advokát|advokat|consulting|poradn|outsourcing|softvér|softver|IT |webd|programovan/i,
-      label: 'B2B služby', webToLead: 3.0, leadToCustomer: 25, aov: 1500, salesCycleWeeks: 4 },
+    // Nábytok / Möbel / Furniture / Bútor / Nábytek
+    { match: /nábytok|nabytok|nábytek|skrine|skříně|kuchyn|kuchyň|kuchyne|interiér|interier|stolarstv|stolárstv|möbel|moebel|schränke|schraenke|küche|kueche|furniture|wardrobe|kitchen|bútor|butor|szekrény|szekreny|konyha/i,
+      labelKey: 'industryFurniture', label: 'Nábytok na mieru',
+      webToLead: 4.0, leadToCustomer: 22, aov: 2800, salesCycleWeeks: 4 },
+    { match: /oploten|oplocen|brán|brana|brány|plot|pergol|terasy|zaun|fence|fencing|garden|gate|kerítés|kerites|kapu/i,
+      labelKey: 'industryFencing', label: 'Oplotenie a exteriér',
+      webToLead: 4.5, leadToCustomer: 28, aov: 3500, salesCycleWeeks: 3 },
+    { match: /izolác|izolac|stavb|stavebn|rekonštrukci|rekonstrukci|pur pen|fasád|fasad|kúren|kurenie|bau|sanier|isolier|fassade|heizung|building|construction|insulation|facade|heating|épít|epit|szigetel|homlokzat|fűtés|futes/i,
+      labelKey: 'industryConstruction', label: 'Stavebné práce',
+      webToLead: 3.5, leadToCustomer: 20, aov: 4500, salesCycleWeeks: 5 },
+    { match: /okná|okna|dvere|dveře|žalúzi|zaluzi|tieneni|garáž|fenster|türen|jalousie|garage|windows|doors|blinds|ablak|ajtó|ajto|árnyékol|arnyekol|garázs|garazs/i,
+      labelKey: 'industryWindows', label: 'Okná a dvere',
+      webToLead: 4.0, leadToCustomer: 25, aov: 2200, salesCycleWeeks: 3 },
+    // E-shop
+    { match: /e-?shop|eshop|obchod|obchody|predaj online|prodej online|webshop|onlineshop|online shop|online store|webáruház|webaruhaz/i,
+      labelKey: 'industryEshop', label: 'E-shop',
+      webToLead: 1.8, leadToCustomer: 100, aov: 65, salesCycleWeeks: 0 },
+    // Automotive
+    { match: /auto|motork|vozid|vozidl|servis aut|pneuservis|prevádz|kfz|werkstatt|reifen|motorrad|car repair|tyres|tires|vehicle|autószerviz|autoszerviz|gumiszerviz/i,
+      labelKey: 'industryAuto', label: 'Automotive',
+      webToLead: 3.5, leadToCustomer: 30, aov: 800, salesCycleWeeks: 1 },
+    // Krása / Wellness
+    { match: /kozmet|kozmetik|salón|salon|krása|krasa|krása|kosmetik|wellness|spa|estetic|dermatol|stomatol|zubn|beauty|cosmetic|dental|szépség|szepseg|kozmetika|fogorvos/i,
+      labelKey: 'industryBeauty', label: 'Kozmetika a wellness',
+      webToLead: 6.0, leadToCustomer: 45, aov: 180, salesCycleWeeks: 0 },
+    // B2B
+    { match: /účtovn|uctovn|účetn|ucetn|právn|pravn|právní|pravni|advokát|advokat|consulting|poradn|outsourcing|softvér|softver|software|IT |webd|programovan|steuer|recht|kanzlei|beratung|accounting|legal|lawyer|attorney|adóügyi|adougyi|jogász|jogasz|tanácsadás|tanacsadas/i,
+      labelKey: 'industryB2B', label: 'B2B služby',
+      webToLead: 3.0, leadToCustomer: 25, aov: 1500, salesCycleWeeks: 4 },
     // Reality
-    { match: /realit|nehnut|maklér|makler/i,
-      label: 'Reality', webToLead: 2.8, leadToCustomer: 12, aov: 5000, salesCycleWeeks: 6 },
-    // Vzdelávanie / kurzy
-    { match: /kurz|vzdeláv|vzdelav|jazyk|tréning|trening|coaching/i,
-      label: 'Kurzy a vzdelávanie', webToLead: 5.0, leadToCustomer: 35, aov: 350, salesCycleWeeks: 1 },
-    // Reštaurácie / catering
-    { match: /reštaur|restaur|catering|jedál|jedal|pizz|cafe|kavi/i,
-      label: 'Gastro', webToLead: 8.0, leadToCustomer: 60, aov: 45, salesCycleWeeks: 0 },
-    // Lokálne služby — finále default
-    { match: /služb|sluzb|servis|opravy|údržb|udrzb/i,
-      label: 'Lokálne služby', webToLead: 4.0, leadToCustomer: 25, aov: 250, salesCycleWeeks: 1 },
+    { match: /realit|nehnut|nemovit|maklér|makler|makléř|immobilien|makler|real estate|realtor|ingatlan|ingatlanközvetítő/i,
+      labelKey: 'industryRealEstate', label: 'Reality',
+      webToLead: 2.8, leadToCustomer: 12, aov: 5000, salesCycleWeeks: 6 },
+    // Kurzy / vzdelávanie
+    { match: /kurz|vzdeláv|vzdelav|vzdělán|vzdelan|jazyk|tréning|trening|trénink|coaching|schule|bildung|sprachkurs|course|training|education|language|tanfolyam|nyelvtanfolyam|képzés|kepzes/i,
+      labelKey: 'industryEducation', label: 'Kurzy a vzdelávanie',
+      webToLead: 5.0, leadToCustomer: 35, aov: 350, salesCycleWeeks: 1 },
+    // Gastro
+    { match: /reštaur|restaur|catering|jedál|jedál|jídel|jidel|pizz|cafe|kavi|kávé|restaurant|gaststätte|gaststaette|cafe|étterem|etterem|kávézó|kavezo/i,
+      labelKey: 'industryGastro', label: 'Gastro',
+      webToLead: 8.0, leadToCustomer: 60, aov: 45, salesCycleWeeks: 0 },
+    // Lokálne služby
+    { match: /služb|sluzb|službami|službu|služby|služeb|sluzeb|servis|opravy|údržb|udrzb|údržba|dienst|service|repair|szolgáltatás|szolgaltatas|szerviz|javítás|javitas/i,
+      labelKey: 'industryLocalServices', label: 'Lokálne služby',
+      webToLead: 4.0, leadToCustomer: 25, aov: 250, salesCycleWeeks: 1 },
   ],
 
   // Vráti benchmark pre konkrétny lead — pokúsi sa nájsť match v industry,
@@ -4774,6 +5429,13 @@ info@adlify.eu | www.adlify.eu`
     const userAssump = lead?.analysis?.roi?.assumptions || {};
     const monthlyBudget = b?.recommendations?.recommended?.adSpend || b?.recommendations?.moderate?.totalBudget || 1500;
     const avgCpc = b?.avgCpc || 0.50;
+    const lang = (lead?.proposal_lang || lead?.analysis?.proposal_lang || 'sk').toLowerCase();
+    const T = (key) => this.T(key, lang);
+    // Locale pre formátovanie čísel
+    const localeMap = { sk: 'sk-SK', cs: 'cs-CZ', de: 'de-DE', en: 'en-US', hu: 'hu-HU' };
+    const locale = localeMap[lang] || 'sk-SK';
+    // Mena — pre EN/DE/HU stále € (klient je v EU); v budúcnosti per lead.currency
+    const cur = '€';
 
     // Conversion rates (user override > benchmark)
     const webToLeadPct = Number(userAssump.web_to_lead_pct) || bench.webToLead;
@@ -4798,15 +5460,17 @@ info@adlify.eu | www.adlify.eu`
     const exampleSpend = Math.round(exampleClicks * avgCpc);
     const exampleRevenue = exampleCustomers * aov;
 
+    const industryLabel = bench.labelKey ? T(bench.labelKey) : bench.label;
+
     return {
-      industryLabel: bench.label,
-      benchmarkSource: userAssump.conversion_rate_pct || userAssump.averageOrderValue ? 'Vaše vlastné údaje' : 'Branžový priemer pre SR',
+      industryLabel,
+      benchmarkSource: (userAssump.conversion_rate_pct || userAssump.averageOrderValue) ? T('roiSourceCustom') : T('roiSourceBenchmark'),
       steps: [
-        { label: 'Mesačný rozpočet', value: `${monthlyBudget.toLocaleString('sk-SK')} €`, note: `Pri priemernej cene za klik ${avgCpc.toFixed(2)} €` },
-        { label: 'Návštev z reklamy', value: clicks.toLocaleString('sk-SK'), note: 'Kvalifikovaná návštevnosť na vašom webe' },
-        { label: 'Dopytov (kontaktný formulár, telefón)', value: leads.toLocaleString('sk-SK'), note: `Pri konverznom pomere ${webToLeadPct} % — typické pre obor "${bench.label}"`, conversion: `${webToLeadPct} %` },
-        { label: 'Zákazníkov (objednávka, podpis zmluvy)', value: customers.toLocaleString('sk-SK'), note: `Pri uzavretí ${leadToCustomerPct} % dopytov`, conversion: `${leadToCustomerPct} %` },
-        { label: 'Mesačný obrat', value: `${revenue.toLocaleString('sk-SK')} €`, note: `${customers} × priemerná hodnota ${aov.toLocaleString('sk-SK')} €${ltvMul > 1 ? ` × LTV ${ltvMul}` : ''}`, highlight: true },
+        { label: T('roiMonthlyBudget'), value: `${monthlyBudget.toLocaleString(locale)} ${cur}`, note: `${T('roiNoteAvg')} ${avgCpc.toFixed(2)} ${cur}` },
+        { label: T('roiVisits'), value: clicks.toLocaleString(locale), note: T('roiNoteQualified') },
+        { label: T('roiLeads'), value: leads.toLocaleString(locale), note: `${T('roiNoteCrLead')} ${webToLeadPct} % ${T('roiNoteTypicalIndustry')} "${industryLabel}"`, conversion: `${webToLeadPct} %` },
+        { label: T('roiCustomers'), value: customers.toLocaleString(locale), note: `${T('roiNoteCustomerCr')} ${leadToCustomerPct} % ${T('roiNotePerLead')}`, conversion: `${leadToCustomerPct} %` },
+        { label: T('roiRevenue'), value: `${revenue.toLocaleString(locale)} ${cur}`, note: `${customers} × ${T('roiNoteAvgValue')} ${aov.toLocaleString(locale)} ${cur}${ltvMul > 1 ? ` ${T('roiNoteAndLtv')} ${ltvMul}` : ''}`, highlight: true },
       ],
       summary: {
         monthlySpend: monthlyBudget,
@@ -4839,8 +5503,8 @@ info@adlify.eu | www.adlify.eu`
     for (const b of this.INDUSTRY_BENCHMARKS) {
       if (b.match.test(search)) return b;
     }
-    // Default — všeobecné SK PPC priemery
-    return { label: 'SK PPC priemer', webToLead: 3.0, leadToCustomer: 20, aov: 800, salesCycleWeeks: 2 };
+    // Default — všeobecné PPC priemery (label sa lokalizuje cez T('industryDefault'))
+    return { labelKey: 'industryDefault', label: 'PPC priemer trhu', webToLead: 3.0, leadToCustomer: 20, aov: 800, salesCycleWeeks: 2 };
   },
 
   _mmFacts(lead) {
@@ -5426,14 +6090,14 @@ info@adlify.eu | www.adlify.eu`
 
       ${p.situation_analysis ? `<h2>Situačná analýza</h2>
         <p><strong>Aktuálny stav:</strong> ${esc(p.situation_analysis.current_state)}</p>
-        ${p.situation_analysis.opportunities ? `<h3>Príležitosti</h3><ul>${p.situation_analysis.opportunities.map(o=>`<li>${esc(o)}</li>`).join('')}</ul>` : ''}
+        ${p.situation_analysis.opportunities ? `<h3>${T('swotOpportunities')}</h3><ul>${p.situation_analysis.opportunities.map(o=>`<li>${esc(o)}</li>`).join('')}</ul>` : ''}
         ${p.situation_analysis.challenges ? `<h3>Výzvy</h3><ul>${p.situation_analysis.challenges.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>` : ''}` : ''}
 
       ${p.competitive_landscape ? `<h2>Konkurenčné prostredie</h2>
         ${(p.competitive_landscape.main_competitors||[]).map(c=>`<div class="card"><strong>${esc(c.name)}</strong><br><span class="muted">Sila: ${esc(c.strength)} · Slabina ktorú využijeme: ${esc(c.weakness_we_exploit)}</span></div>`).join('')}
         ${p.competitive_landscape.positioning ? `<p><strong>Naše pozicovanie:</strong> ${esc(p.competitive_landscape.positioning)}</p>` : ''}` : ''}
 
-      ${p.target_audience ? `<h2>Cieľová skupina</h2>
+      ${p.target_audience ? `<h2>${T('targetAudience')}</h2>
         ${p.target_audience.primary ? `<div class="card"><strong>Primárna:</strong> ${esc(p.target_audience.primary.description)}<br><span class="muted">📍 ${esc(p.target_audience.primary.geo)} · ${esc(p.target_audience.primary.estimated_size)}</span></div>` : ''}
         ${p.target_audience.secondary ? `<div class="card"><strong>Sekundárna:</strong> ${esc(p.target_audience.secondary.description)}</div>` : ''}` : ''}
 
@@ -5629,6 +6293,12 @@ info@adlify.eu | www.adlify.eu`
 
 buildProposalHTML(lead, analysis) {
   const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // Jazyk: explicitne v lead.proposal_lang, alebo v analysis.proposal_lang, alebo default 'sk'.
+  const lang = (lead?.proposal_lang || analysis?.proposal_lang || lead?.analysis?.proposal_lang || 'sk').toLowerCase();
+  const T = (key) => this.T(key, lang);
+  // HTML lang attribute mapping
+  const htmlLangMap = { sk: 'sk', cs: 'cs', de: 'de', en: 'en', hu: 'hu' };
+  const htmlLang = htmlLangMap[lang] || 'sk';
   const c = analysis.company || {};
   const a = analysis.analysis || {};
   const o = analysis.onlinePresence || {};
@@ -5792,7 +6462,7 @@ buildProposalHTML(lead, analysis) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marketingová stratégia - ${c.name || lead.company_name}</title>
+<title>${T('heroBadge')} — ${c.name || lead.company_name}</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
@@ -6200,7 +6870,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 <!-- Page 1: O firme -->
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">1</span> O vašej firme</h2>
+    <h2 class="section-title"><span class="section-badge">1</span> ${T('s1')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Krátky prehľad toho čo robíte a kde vidíme najväčší potenciál pre rast cez online reklamu.</p>
 
@@ -6258,7 +6928,7 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 <!-- Page 2: Čo sme zistili -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">2</span> Čo sme zistili</h2>
+    <h2 class="section-title"><span class="section-badge">2</span> ${T('s2')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Detailne sme prešli vašu doménu, recenzie a verejné dáta. Tu sú konkrétne pozorovania — čo funguje a kde sú príležitosti na rýchle zlepšenie.</p>
     
@@ -6294,29 +6964,29 @@ body { font-family: 'Poppins', sans-serif; background: #ffffff; color: #1a1a2e; 
 <!-- Page 3: Online Presence -->
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">3</span> Vaša online prítomnosť</h2>
+    <h2 class="section-title"><span class="section-badge">3</span> ${T('s3')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${o.summary || 'Zhodnotenie vašej aktuálnej prítomnosti na webe a sociálnych sieťach.'}</p>
     
     <div class="grid-4" style="margin-bottom: 40px;">
       <div class="stat-box">
         <div class="stat-icon">${o.website?.exists !== false ? 'Áno' : 'Nie'}</div>
-        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Webstránka</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">${T('website')}</div>
         <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.website?.exists !== false ? (o.website?.quality || 'Funkčný web') : 'Nenašli sme web — odporúčame vytvoriť landing pred štartom kampaní.'}</div>
       </div>
       <div class="stat-box">
         <div class="stat-icon">${o.socialMedia?.facebook?.exists ? 'Áno' : 'Nie'}</div>
-        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Facebook</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">${T('facebook')}</div>
         <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.socialMedia?.facebook?.exists ? 'Aktívny profil — vieme na ňom stavať Meta kampane.' : 'Nenašli sme aktívnu stránku. Pre Meta Ads ju potrebujeme — pomôžeme so založením.'}</div>
       </div>
       <div class="stat-box">
         <div class="stat-icon">${o.socialMedia?.instagram?.exists ? 'Áno' : 'Nie'}</div>
-        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Instagram</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">${T('instagram')}</div>
         <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.socialMedia?.instagram?.exists ? 'Profil online — IG Stories & Reels ready.' : 'Nenašli sme aktívne IG. Pre vizuálne odvetvia (oplotenie, izolácie) je IG silný kanál.'}</div>
       </div>
       <div class="stat-box">
         <div class="stat-icon">${o.paidAds?.detected ? 'Áno' : 'Nie'}</div>
-        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">Platená reklama</div>
+        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">${T('paidAds')}</div>
         <div class="stat-label" style="font-size:0.78rem; line-height:1.45;">${o.paidAds?.detected ? 'Aktívne kampane — spravíme audit (viď ďalej).' : 'Žiadne aktívne PPC kampane. Konkurencia tiež neinzeruje — výhoda pre rýchly štart.'}</div>
       </div>
     </div>
@@ -6360,7 +7030,7 @@ ${analysis.techAudit && (analysis.techAudit.issues?.length || analysis.techAudit
   return `
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">4</span> Technický audit webu</h2>
+    <h2 class="section-title"><span class="section-badge">4</span> ${T('s4')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${ta.scannedPages ? `Skontrolovali sme ${ta.scannedPages} kľúčových stránok vášho webu` : 'Analyzovali sme váš web'} a identifikovali konkrétne body, ktoré ovplyvňujú vašu viditeľnosť v Google a používateľský zážitok. Tu je čo treba opraviť a v akom poradí.</p>
 
@@ -6375,12 +7045,12 @@ ${analysis.techAudit && (analysis.techAudit.issues?.length || analysis.techAudit
               <div style="width:36px; height:36px; border-radius:50%; background:${s.bg}; color:${s.color}; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:0.95rem;">${i+1}</div>
               <h4 style="font-size:1.1rem; font-weight:700; color:#1a1a2e;">${it.title}</h4>
             </div>
-            <span class="tag" style="background:${s.bg}; color:${s.color}; font-weight:600; white-space:nowrap;">Priorita: ${s.label}</span>
+            <span class="tag" style="background:${s.bg}; color:${s.color}; font-weight:600; white-space:nowrap;">${T('priority')}: ${s.label}</span>
           </div>
           <div style="display:grid; grid-template-columns:auto 1fr; gap:8px 14px; padding-left:50px;">
-            <div style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; padding-top:2px;">Zistenie</div>
+            <div style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; padding-top:2px;">${T('finding')}</div>
             <div style="color:#475569; font-size:0.95rem; line-height:1.6;">${it.finding}</div>
-            <div style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; padding-top:2px;">Odporúčanie</div>
+            <div style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; padding-top:2px;">${T('recommendation')}</div>
             <div style="color:#166534; font-size:0.95rem; line-height:1.6; font-weight:500;">${it.recommendation}</div>
           </div>
         </div>`;
@@ -6390,7 +7060,7 @@ ${analysis.techAudit && (analysis.techAudit.issues?.length || analysis.techAudit
 
     ${ta.wins?.length ? `
     <div class="card" style="margin-top:24px; border-left:4px solid #22c55e; background:linear-gradient(135deg, #f0fdf4, #ffffff);">
-      <h4 style="color:#166534; margin-bottom:14px; font-weight:700; font-size:1.05rem;">Čo už funguje</h4>
+      <h4 style="color:#166534; margin-bottom:14px; font-weight:700; font-size:1.05rem;">${T('whatAlreadyWorks')}</h4>
       <ul style="list-style:none; padding:0; margin:0;">
         ${ta.wins.map(w => `<li style="padding:8px 0; display:flex; align-items:flex-start; gap:12px; color:#475569; font-size:0.95rem; line-height:1.5;"><span style="color:#22c55e; font-weight:700; flex-shrink:0;">✓</span><span>${w}</span></li>`).join('')}
       </ul>
@@ -6407,7 +7077,7 @@ ${analysis.techAudit && (analysis.techAudit.issues?.length || analysis.techAudit
 ${comp.main_competitors && comp.main_competitors.length ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">5</span> Konkurenčné prostredie</h2>
+    <h2 class="section-title"><span class="section-badge">5</span> ${T('s5')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${comp.positioning || 'Identifikovali sme hlavných hráčov, ktorí oslovujú vašich potenciálnych zákazníkov. Tu je ako sa voči nim vymedzíme.'}</p>
 
@@ -6423,11 +7093,11 @@ ${comp.main_competitors && comp.main_competitors.length ? `
           </div>
           <div class="grid-2" style="gap:16px;">
             <div>
-              <p style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:6px;">Ich sila</p>
+              <p style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:6px;">${T('theirStrength')}</p>
               <p style="color:#475569; font-size:0.95rem; line-height:1.6;">${cm.their_strength || '—'}</p>
             </div>
             <div>
-              <p style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:6px;">Naša výhoda</p>
+              <p style="color:#94a3b8; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-bottom:6px;">${T('ourAdvantage')}</p>
               <p style="color:#166534; font-size:0.95rem; line-height:1.6; font-weight:500;">${cm.our_advantage || '—'}</p>
             </div>
           </div>
@@ -6501,25 +7171,25 @@ ${analysis.campaign_audit && analysis.campaign_audit.headline ? `
 ${a.swot ? `
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">6</span> SWOT Analýza</h2>
+    <h2 class="section-title"><span class="section-badge">6</span> ${T('s6')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Strategická analýza silných a slabých stránok, príležitostí a hrozieb pre vaše podnikanie.</p>
     
     <div class="swot-grid">
       <div class="swot-box swot-strengths">
-        <h4>Silné stránky</h4>
+        <h4>${T('swotStrengths')}</h4>
         <ul>${a.swot.strengths?.map(s => `<li>${s}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-weaknesses">
-        <h4>Slabé stránky</h4>
+        <h4>${T('swotWeaknesses')}</h4>
         <ul>${a.swot.weaknesses?.map(w => `<li>${w}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-opportunities">
-        <h4>Príležitosti</h4>
+        <h4>${T('swotOpportunities')}</h4>
         <ul>${a.swot.opportunities?.map(o => `<li>${o}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
       <div class="swot-box swot-threats">
-        <h4>Hrozby</h4>
+        <h4>${T('swotThreats')}</h4>
         <ul>${a.swot.threats?.map(t => `<li>${t}</li>`).join('') || '<li>Žiadne údaje</li>'}</ul>
       </div>
     </div>
@@ -6531,7 +7201,7 @@ ${a.swot ? `
 ${k.topKeywords?.length ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">7</span> Kľúčové slová</h2>
+    <h2 class="section-title"><span class="section-badge">7</span> ${T('s7')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${k.summary || 'Identifikovali sme relevantné kľúčové slová pre vaše podnikanie. Tu je ukážka top 10:'}</p>
     
@@ -6542,12 +7212,12 @@ ${k.topKeywords?.length ? `
     <table class="data-table">
       <thead>
         <tr>
-          <th>Kľúčové slovo</th>
-          <th style="text-align: center;">Mesačná hľadanosť</th>
-          ${hasRankings ? '<th style="text-align: center;">Vaša pozícia</th>' : ''}
-          <th style="text-align: center;">Konkurencia</th>
-          <th style="text-align: center;">Charakter dopytu</th>
-          <th style="text-align: right;">Cena za klik</th>
+          <th>${T('kwTableKw')}</th>
+          <th style="text-align: center;">${T('kwTableVolume')}</th>
+          ${hasRankings ? `<th style="text-align: center;">${T('kwTablePosition')}</th>` : ''}
+          <th style="text-align: center;">${T('kwTableCompetition')}</th>
+          <th style="text-align: center;">${T('kwTableIntent')}</th>
+          <th style="text-align: right;">${T('kwTableCpc')}</th>
         </tr>
       </thead>
       <tbody>
@@ -6594,36 +7264,36 @@ ${k.topKeywords?.length ? `
 <!-- Page 6: Strategy -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">8</span> Navrhovaná stratégia</h2>
+    <h2 class="section-title"><span class="section-badge">8</span> ${T('s8')}</h2>
     <div class="section-divider"></div>
     
     <div class="grid-2" style="margin-bottom: 35px;">
       <div class="card">
-        <h4 class="card-title">Odporúčané platformy</h4>
+        <h4 class="card-title">${T('recommendedPlatforms')}</h4>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           ${(s.recommendedPlatforms || ['Google Ads', 'Facebook/Instagram']).map(p => `<span class="tag tag-gradient">${p}</span>`).join('')}
         </div>
       </div>
       <div class="card">
-        <h4 class="card-title">Hlavný cieľ</h4>
+        <h4 class="card-title">${T('mainGoal')}</h4>
         <p style="color: #64748b; font-size: 1.05rem; line-height: 1.7;">${s.primaryGoal || 'Generovanie kvalifikovaných dopytov a zvýšenie povedomia o značke'}</p>
       </div>
     </div>
     
     ${s.targetAudience ? `
     <div class="card">
-      <h4 class="card-title">Cieľová skupina</h4>
+      <h4 class="card-title">${T('targetAudience')}</h4>
       <div class="grid-3">
         <div>
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Demografia</p>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">${T('demographics')}</p>
           <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.demographics || 'Bude upresnené'}</p>
         </div>
         <div>
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Záujmy</p>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">${T('interests')}</p>
           <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.interests?.join(', ') || 'Bude upresnené'}</p>
         </div>
         <div>
-          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Správanie</p>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">${T('behaviors')}</p>
           <p style="font-weight: 600; color: #1a1a2e;">${s.targetAudience.behaviors?.join(', ') || 'Bude upresnené'}</p>
         </div>
       </div>
@@ -6636,7 +7306,7 @@ ${k.topKeywords?.length ? `
 ${camp.google || camp.meta ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">9</span> Návrhy reklám</h2>
+    <h2 class="section-title"><span class="section-badge">9</span> ${T('s9')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Ukážky reklám, ktoré pre vás pripravíme. Finálne verzie budú prispôsobené vašim potrebám a obsahovať profesionálne vizuály.</p>
     
@@ -6663,7 +7333,7 @@ ${camp.google || camp.meta ? `
           </div>
         </div>
         <div style="margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 8px;">
-          <p style="font-size: 0.85rem; color: #64748b;"><strong style="color: #1a1a2e;">Cielené kľúčové slová:</strong><br>${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 4).join(', ') || 'relevantné kľúčové slová pre váš biznis'}</p>
+          <p style="font-size: 0.85rem; color: #64748b;"><strong style="color: #1a1a2e;">${T('targetedKw')}</strong><br>${camp.google.searchCampaign.adGroups?.[0]?.keywords?.slice(0, 4).join(', ') || 'relevantné kľúčové slová pre váš biznis'}</p>
         </div>
       </div>
       ` : ''}
@@ -6827,7 +7497,7 @@ ${camp.google || camp.meta ? `
 <!-- Page 8: Budget -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">10</span> Odporúčaný rozpočet na reklamu</h2>
+    <h2 class="section-title"><span class="section-badge">10</span> ${T('s10')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${b.analysis || 'Na základe analýzy kľúčových slov a konkurencie odhadujeme optimálny rozpočet pre vaše kampane.'}</p>
     
@@ -6886,7 +7556,7 @@ ${camp.google || camp.meta ? `
 ${r.projection ? `
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">11</span> Predpokladaná návratnosť (ROI)</h2>
+    <h2 class="section-title"><span class="section-badge">11</span> ${T('s11')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">${analysis.conversionFunnel ? `Výpočet vychádza z reálnych konverzných pomerov pre obor <strong>${analysis.conversionFunnel.industryLabel}</strong> (zdroj: ${analysis.conversionFunnel.benchmarkSource}). Tu je krok-za-krokom čo môžete očakávať z mesačného rozpočtu:` : (r.explanation || 'Na základe odhadov návštevnosti, konverzného pomeru a priemernej hodnoty objednávky sme vypočítali potenciálnu návratnosť vašej investície.')}</p>
 
@@ -6920,32 +7590,32 @@ ${r.projection ? `
     <div class="grid-3" style="margin-bottom: 32px;">
       <div class="stat-box">
         <div class="stat-value">${analysis.conversionFunnel.summary.cpl.toLocaleString('sk-SK')} €</div>
-        <div class="stat-label">Cena za dopyt (CPL)</div>
+        <div class="stat-label">${T('cplLabel')}</div>
       </div>
       <div class="stat-box">
         <div class="stat-value">${analysis.conversionFunnel.summary.cac.toLocaleString('sk-SK')} €</div>
-        <div class="stat-label">Cena za zákazníka (CAC)</div>
+        <div class="stat-label">${T('cacLabel')}</div>
       </div>
       <div class="stat-box">
         <div class="stat-value">${analysis.conversionFunnel.summary.roiPct}%</div>
-        <div class="stat-label">Návratnosť investície</div>
+        <div class="stat-label">${T('roiPct')}</div>
       </div>
     </div>
 
     ${analysis.conversionFunnel.example ? `
     <!-- Mini príklad -->
     <div class="card" style="border-left:4px solid #FF6B35; background:linear-gradient(135deg, #fff7ed, #ffffff); padding:28px 32px;">
-      <div style="display:inline-block; padding:4px 12px; background:rgba(255,107,53,0.12); color:#FF6B35; border-radius:99px; font-size:0.72rem; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:14px;">Konkrétny príklad</div>
+      <div style="display:inline-block; padding:4px 12px; background:rgba(255,107,53,0.12); color:#FF6B35; border-radius:99px; font-size:0.72rem; font-weight:700; letter-spacing:0.8px; text-transform:uppercase; margin-bottom:14px;">${T('concreteExample')}</div>
       <h4 style="font-size:1.15rem; font-weight:700; color:#1a1a2e; margin-bottom:8px;">Predstavte si jeden týždeň kampane na výraz „${analysis.conversionFunnel.example.keyword}"</h4>
       <p style="color:#475569; font-size:0.95rem; line-height:1.7; margin-bottom:18px;">Pri rozpočte <strong>${analysis.conversionFunnel.example.spend.toLocaleString('sk-SK')} €</strong> dosiahneme <strong>${analysis.conversionFunnel.example.clicks} kliknutí</strong> na váš web. Z nich približne <strong>${analysis.conversionFunnel.example.leads} ${analysis.conversionFunnel.example.leads === 1 ? 'záujemca vás osloví' : analysis.conversionFunnel.example.leads < 5 ? 'záujemcovia vás oslovia' : 'záujemcov vás osloví'}</strong> (telefón, formulár, e-mail). Z tých <strong>${analysis.conversionFunnel.example.customers} ${analysis.conversionFunnel.example.customers === 1 ? 'sa stane' : 'sa stanú'} platiacim zákazníkom</strong> s objednávkou priemerne <strong>${analysis.conversionFunnel.assumptions.aov.toLocaleString('sk-SK')} €</strong>.</p>
       <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:#ffffff; border-radius:10px; gap:16px; flex-wrap:wrap;">
         <div>
-          <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Investícia</div>
+          <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">${T('exampleInvestment')}</div>
           <div style="font-size:1.4rem; font-weight:800; color:#1a1a2e;">${analysis.conversionFunnel.example.spend.toLocaleString('sk-SK')} €</div>
         </div>
         <div style="color:#cbd5e1; font-size:1.6rem; font-weight:300;">→</div>
         <div>
-          <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Obrat z týždňa</div>
+          <div style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">${T('exampleWeekRevenue')}</div>
           <div style="font-size:1.4rem; font-weight:800; background:linear-gradient(135deg, #FF6B35, #E91E63); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">${analysis.conversionFunnel.example.revenue.toLocaleString('sk-SK')} €</div>
         </div>
       </div>
@@ -6954,22 +7624,22 @@ ${r.projection ? `
 
     <!-- Predpoklady (transparency) -->
     <div class="card" style="margin-top:24px;">
-      <h4 class="card-title">Predpoklady výpočtu</h4>
+      <h4 class="card-title">${T('assumptionsTitle')}</h4>
       <div class="grid-4">
         <div style="text-align: center; padding: 18px 12px;">
-          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Cena za klik</p>
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">${T('kwTableCpc')}</p>
           <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.avgCpc.toFixed(2)} €</p>
         </div>
         <div style="text-align: center; padding: 18px 12px; border-left: 1px solid #e2e8f0;">
-          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Návšteva → dopyt</p>
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">${T('assumpWebToLead')}</p>
           <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.webToLeadPct} %</p>
         </div>
         <div style="text-align: center; padding: 18px 12px; border-left: 1px solid #e2e8f0;">
-          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Dopyt → zákazník</p>
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">${T('assumpLeadToCustomer')}</p>
           <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.leadToCustomerPct} %</p>
         </div>
         <div style="text-align: center; padding: 18px 12px; border-left: 1px solid #e2e8f0;">
-          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">Hodnota objednávky</p>
+          <p style="color: #94a3b8; font-size: 0.78rem; margin-bottom: 8px; font-weight: 600; text-transform:uppercase; letter-spacing:0.4px;">${T('assumpAov')}</p>
           <p style="font-size: 1.45rem; font-weight: 800; color: #1a1a2e;">${analysis.conversionFunnel.assumptions.aov.toLocaleString('sk-SK')} €</p>
         </div>
       </div>
@@ -6987,7 +7657,7 @@ ${r.projection ? `
       </div>
       <div class="stat-box">
         <div class="stat-value">${r.projection.roi}</div>
-        <div class="stat-label">Návratnosť investície</div>
+        <div class="stat-label">${T('roiPct')}</div>
       </div>
     </div>
     `}
@@ -6998,7 +7668,7 @@ ${r.projection ? `
 <!-- Page 10: Timeline -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">12</span> Časový plán</h2>
+    <h2 class="section-title"><span class="section-badge">12</span> ${T('s12')}</h2>
     <div class="section-divider"></div>
     
     <div class="timeline">
@@ -7039,7 +7709,7 @@ ${r.projection ? `
 <!-- Page 11: Benefits -->
 <section class="page page-white">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">13</span> Čo vám spolupráca prinesie</h2>
+    <h2 class="section-title"><span class="section-badge">13</span> ${T('s13')}</h2>
     <div class="section-divider"></div>
     
     <div class="grid-2">
@@ -7070,7 +7740,7 @@ ${r.projection ? `
 <!-- Page 12: Packages -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">14</span> Naše balíčky</h2>
+    <h2 class="section-title"><span class="section-badge">14</span> ${T('s14')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Na základe vašej analýzy vám odporúčame balíček <strong style="background:linear-gradient(135deg,#7c3aed,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:700;">${analysis.recommendedPackage || 'Pro'}</strong> — pomer ceny a výkonu zodpovedá vášmu rozpočtu aj cieľom.</p>
 
@@ -7148,16 +7818,16 @@ ${r.projection ? `
     </div>
 
     <div style="margin-top:36px;">
-      <h3 style="font-size:18px; font-weight:700; color:#1a1a2e; margin:0 0 16px; text-align:center;">Špeciálne ponuky a zľavy</h3>
+      <h3 style="font-size:18px; font-weight:700; color:#1a1a2e; margin:0 0 16px; text-align:center;">${T('specialOffers')}</h3>
       <div class="grid-2" style="gap:16px;">
         <div style="background:linear-gradient(135deg,#dcfce7,#f0fdf4); border:1.5px solid #16a34a; border-radius:14px; padding:20px 22px;">
-          <div style="font-size:11px; font-weight:700; color:#166534; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">6-mesačná dohoda</div>
+          <div style="font-size:11px; font-weight:700; color:#166534; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">${T('offer6m')}</div>
           <div style="font-size:24px; font-weight:800; color:#166534; margin-bottom:4px;">−10 % zľava</div>
           <div style="font-size:13px; color:#475569; line-height:1.5;">Pri 6-mesačnej spolupráci platenej <strong>vopred</strong> znížime poplatok za správu o 10 %. Stabilita + úspora.</div>
         </div>
         <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb); border:1.5px solid #f59e0b; border-radius:14px; padding:20px 22px; position:relative;">
-          <div style="position:absolute; top:-10px; right:14px; background:#f59e0b; color:#fff; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.5px;">NAJVÝHODNEJŠIE</div>
-          <div style="font-size:11px; font-weight:700; color:#92400e; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">12-mesačná dohoda</div>
+          <div style="position:absolute; top:-10px; right:14px; background:#f59e0b; color:#fff; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.5px;">${T('bestDeal')}</div>
+          <div style="font-size:11px; font-weight:700; color:#92400e; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:8px;">${T('offer12m')}</div>
           <div style="font-size:24px; font-weight:800; color:#92400e; margin-bottom:4px;">−20 % zľava</div>
           <div style="font-size:13px; color:#78350f; line-height:1.5;">Pri ročnej spolupráci platenej <strong>vopred</strong> 20 % zľava + audit zdarma + štvrťročné strategické stretnutia.</div>
         </div>
@@ -7173,7 +7843,7 @@ ${r.projection ? `
 <!-- Page 12b: Ako funguje spolupráca -->
 <section class="page page-gray">
   <div class="page-content">
-    <h2 class="section-title"><span class="section-badge">15</span> Ako funguje spolupráca</h2>
+    <h2 class="section-title"><span class="section-badge">15</span> ${T('s15')}</h2>
     <div class="section-divider"></div>
     <p class="section-subtitle">Štyri jednoduché kroky od dohody po prvé výsledky. Vy sa venujete svojmu biznisu, my výkonu kampaní.</p>
 
@@ -7291,7 +7961,7 @@ ${r.projection ? `
 <html lang="sk">
 <head>
 <meta charset="UTF-8">
-<title>Marketingová stratégia - ${c.name || lead.company_name}</title>
+<title>${T('heroBadge')} — ${c.name || lead.company_name}</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -7390,11 +8060,11 @@ ${r.projection ? `
     </div>
     <div class="stat">
       <div class="stat-value">${o.socialMedia?.facebook?.exists ? '✓' : '✗'}</div>
-      <div class="stat-label">Facebook</div>
+      <div class="stat-label">${T('facebook')}</div>
     </div>
     <div class="stat">
       <div class="stat-value">${o.socialMedia?.instagram?.exists ? '✓' : '✗'}</div>
-      <div class="stat-label">Instagram</div>
+      <div class="stat-label">${T('instagram')}</div>
     </div>
     <div class="stat">
       <div class="stat-value">${o.paidAds?.detected ? '✓' : '✗'}</div>
@@ -7434,7 +8104,7 @@ ${k.topKeywords?.length ? `
   <h2>4. Kľúčové slová</h2>
   <table>
     <thead>
-      <tr><th>Kľúčové slovo</th><th>Hľadanosť</th><th>Konkurencia</th><th>CPC</th></tr>
+      <tr><th>${T('kwTableKw')}</th><th>Hľadanosť</th><th>${T('kwTableCompetition')}</th><th>CPC</th></tr>
     </thead>
     <tbody>
       ${k.topKeywords.slice(0,8).map(kw => `
