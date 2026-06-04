@@ -6179,10 +6179,26 @@ info@adlify.eu | www.adlify.eu`
         ppc: { ...(base.ppc || {}), ...(ov.ppc || {}) }
       };
     })();
-    // Keywords priorita: user-edit > MM fakty > LLM. MM má presné objemy/CPC.
-    const keywordsObj = (u.keywords && (u.keywords.primary?.length || u.keywords.topKeywords?.length))
-      ? u.keywords
-      : (mmf.keywords ? { primary: mmf.keywords } : (p.keywords || {}));
+    // Keywords priorita — preferuj zdroj s reálnymi objemmi:
+    //   1) MM keyword_volumes (presné objemy/CPC z auditu) — vždy najlepšie ak existujú
+    //   2) user-edit s objemmi (admin manuálne vyplnil objemy v "Upraviť analýzu")
+    //   3) user-edit bez objemov (iba názvy KW) — len ak nemáme MM
+    //   4) premium synthesis fallback s odhadovanými objemmi
+    //   5) lead.analysis.keywords (z analyze-lead, často bez objemov)
+    const userHasRichKw = u.keywords && (
+      (u.keywords.primary?.length && u.keywords.primary.some(k => k.search_volume > 0)) ||
+      (u.keywords.topKeywords?.length && u.keywords.topKeywords.some(k => k.searchVolume > 0 || k.search_volume > 0))
+    );
+    const userHasKwNames = u.keywords && (u.keywords.primary?.length || u.keywords.topKeywords?.length);
+    const keywordsObj = mmf.keywords
+      ? { primary: mmf.keywords }                    // 1) MM má prednosť (presné dáta)
+      : userHasRichKw
+        ? u.keywords                                 // 2) user-edit s objemmi
+        : (p.keywords && Object.keys(p.keywords).length)
+          ? p.keywords                               // 3) premium synthesis (má estimated objemy)
+          : userHasKwNames
+            ? u.keywords                             // 4) user-edit bez objemov
+            : {};
     const strategy = (() => {
       const base = p.strategy || {};
       const ov = u.strategy || {};
