@@ -463,6 +463,9 @@ const TicketsModule = {
                                             <input type="checkbox" id="reply-internal" onchange="TicketsModule.toggleRecipientHint()">
                                             <span>Interná poznámka (klient neuvidí)</span>
                                         </label>
+                                        <button class="btn-secondary" id="ai-suggest-btn" onclick="TicketsModule.suggestAIReply()" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);color:white;border:none;">
+                                            <span id="ai-suggest-label">✨ AI návrh</span>
+                                        </button>
                                         <button class="btn-primary" onclick="TicketsModule.addReply()">Odpovedať</button>
                                     </div>
                                 </div>
@@ -611,6 +614,46 @@ const TicketsModule = {
         const hint = document.getElementById('reply-recipient');
         const internal = document.getElementById('reply-internal')?.checked;
         if (hint) hint.style.display = internal ? 'none' : '';
+    },
+
+    async suggestAIReply() {
+        if (!this.selectedTicket) return;
+        const btn = document.getElementById('ai-suggest-btn');
+        const label = document.getElementById('ai-suggest-label');
+        const textarea = document.getElementById('reply-content');
+        if (!btn || !textarea) return;
+
+        // Ak má user napísanú časť, použij ju ako dodatočnú inštrukciu
+        const extraInstruction = textarea.value.trim();
+        const wasEmpty = !extraInstruction;
+
+        btn.disabled = true;
+        const origLabel = label.textContent;
+        label.textContent = '✨ Generujem...';
+
+        try {
+            const res = await fetch('/.netlify/functions/suggest-ticket-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ticketId: this.selectedTicket.id,
+                    extraInstruction: wasEmpty ? null : extraInstruction,
+                }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'AI návrh zlyhal');
+            textarea.value = data.suggestion;
+            textarea.focus();
+            // posuň kurzor na koniec
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            Utils.showNotification('AI návrh vložený — uprav a odošli', 'success');
+        } catch (err) {
+            console.error('AI suggest error:', err);
+            Utils.showNotification('Chyba: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            label.textContent = origLabel;
+        }
     },
 
     async addReply() {
