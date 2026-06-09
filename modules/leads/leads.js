@@ -1586,6 +1586,7 @@ const LeadsModule = {
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button onclick="LeadsModule.editLeadBasicInfo('${lead.id}')" class="adl-btn adl-btn-outline adl-btn-sm" style="border-color:#fecaca; color:#991b1b;">Upraviť email</button>
+                <button onclick="LeadsModule.copyProposalLink('${lead.id}')" class="adl-btn adl-btn-outline adl-btn-sm" style="border-color:#fecaca; color:#991b1b;">📋 Skopírovať link</button>
                 <button onclick="LeadsModule.resendProposalEmail('${lead.id}')" class="adl-btn adl-btn-primary adl-btn-sm" style="background:#dc2626; border:0;">Poslať znova</button>
               </div>
             </div>
@@ -1761,6 +1762,7 @@ const LeadsModule = {
                   { icon: 'Phone',    label: 'Zavolať · naplánovať',   active: false, onClick: lead.phone ? `window.location.href='tel:${lead.phone}'` : `Utils.toast('Žiadne telefónne číslo','warning')` },
                   { icon: 'Sparkle',  label: hasAnalysis ? 'Vygenerovať návrh kampane' : 'Analyzovať + návrh kampane', active: true, onClick: `LeadsModule.proposalOrAnalyze('${lead.id}')` },
                   { icon: 'Template', label: 'Poslať pitch šablónu',   active: false, onClick: `LeadsModule.openEmailModal('${lead.id}')` },
+                  { icon: 'Link',     label: 'Skopírovať link ponuky', active: false, onClick: `LeadsModule.copyProposalLink('${lead.id}')` },
                   { icon: 'Calendar', label: 'Naplánovať follow-up',   active: false, onClick: `LeadsModule.openFollowUpModal('${lead.id}')` },
                   { icon: 'Edit',     label: 'Upraviť údaje leadu',    active: false, onClick: `LeadsModule.editLeadBasicInfo('${lead.id}')` },
                   { icon: 'Trash',    label: 'Zmazať lead',            active: false, onClick: `LeadsModule.deleteLead('${lead.id}')`, danger: true }
@@ -10637,6 +10639,60 @@ Odkaz je platný 30 dní.
   // Opätovné odoslanie ponuky po bounce — vyčistí bounce stav a otvorí
   // proposal modal s vopred vyplneným emailom. Adminovi pripomenie že má
   // overiť emailovú adresu pred ďalším pokusom (často je problém v doméne).
+  // Vráti hostovaný URL ponuky pre lead — najnovší token z proposals tabuľky.
+  // Null ak ešte ponuka nebola odoslaná.
+  async getProposalLink(leadId) {
+    try {
+      const { data } = await Database.client
+        .from('proposals')
+        .select('token, created_at, expires_at')
+        .eq('lead_id', leadId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data?.token) return null;
+      // Použij produkčný hostname ak je nastavený, inak current origin
+      const origin = (typeof Config !== 'undefined' && Config.get('proposal_base_url'))
+        || window.location.origin;
+      return `${origin}/proposal.html?t=${data.token}`;
+    } catch (e) {
+      console.error('[getProposalLink]', e);
+      return null;
+    }
+  },
+
+  // Skopíruje hostovaný link do clipboardu — pre prípady kde admin chce
+  // poslať ponuku ručne (napr. po bounce, alebo cez vlastný mail klient).
+  async copyProposalLink(leadId) {
+    const url = await this.getProposalLink(leadId);
+    if (!url) {
+      Utils.toast('Žiadna odoslaná ponuka — najprv ju odošli cez „Poslať email"', 'warning');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      Utils.toast(`Link skopírovaný — môžeš ho vložiť do emailu`, 'success');
+    } catch (e) {
+      // Fallback — vytvor textarea aby user mohol skopírovať ručne
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.top = '50%';
+      ta.style.left = '50%';
+      ta.style.transform = 'translate(-50%, -50%)';
+      ta.style.zIndex = '99999';
+      ta.style.width = '80%';
+      ta.style.padding = '12px';
+      document.body.appendChild(ta);
+      ta.select();
+      Utils.toast('Označené v poli — stlač Cmd/Ctrl+C, potom Esc', 'info');
+      const close = (e) => {
+        if (e.key === 'Escape') { ta.remove(); document.removeEventListener('keydown', close); }
+      };
+      document.addEventListener('keydown', close);
+    }
+  },
+
   async resendProposalEmail(leadId) {
     const lead = this.leads.find(l => l.id === leadId);
     if (!lead) return Utils.toast('Lead nenájdený', 'error');
