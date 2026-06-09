@@ -103,10 +103,11 @@ const TicketsModule = {
 
     async loadData() {
         try {
-            // Load tickets s klientom kvôli emailu (pre Resend odpovedanie)
+            // Load tickets (klientovský email doplníme lokálne z this.clients
+            // nižšie — join cez PostgREST môže padnúť na RLS / chýbajúcom FK)
             const { data: tickets, error: ticketsError } = await Database.client
                 .from('tickets')
-                .select('*, assigned:team_members!assigned_to(*), client:clients!client_id(id, company_name, email)')
+                .select('*, assigned:team_members!assigned_to(*)')
                 .order('created_at', { ascending: false });
 
             if (ticketsError) throw ticketsError;
@@ -119,11 +120,19 @@ const TicketsModule = {
                 .eq('status', 'active');
             this.teamMembers = members || [];
 
-            // Load clients (pre form/dropdown)
+            // Load clients (pre form/dropdown + email fallback v ticket modal)
             const { data: clients } = await Database.client
                 .from('clients')
                 .select('id, company_name, email');
             this.clients = clients || [];
+
+            // Map ticket → client objekt (rovnaký tvar ako keby bol join)
+            const clientById = new Map(this.clients.map(c => [c.id, c]));
+            for (const t of this.tickets) {
+                if (t.client_id && clientById.has(t.client_id)) {
+                    t.client = clientById.get(t.client_id);
+                }
+            }
 
         } catch (error) {
             console.error('Load tickets error:', error);
