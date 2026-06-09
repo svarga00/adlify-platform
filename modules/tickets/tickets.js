@@ -103,10 +103,10 @@ const TicketsModule = {
 
     async loadData() {
         try {
-            // Load tickets
+            // Load tickets s klientom kvôli emailu (pre Resend odpovedanie)
             const { data: tickets, error: ticketsError } = await Database.client
                 .from('tickets')
-                .select('*, assigned:team_members!assigned_to(*)')
+                .select('*, assigned:team_members!assigned_to(*), client:clients!client_id(id, company_name, email)')
                 .order('created_at', { ascending: false });
 
             if (ticketsError) throw ticketsError;
@@ -119,10 +119,10 @@ const TicketsModule = {
                 .eq('status', 'active');
             this.teamMembers = members || [];
 
-            // Load clients
+            // Load clients (pre form/dropdown)
             const { data: clients } = await Database.client
                 .from('clients')
-                .select('id, company_name');
+                .select('id, company_name, email');
             this.clients = clients || [];
 
         } catch (error) {
@@ -403,6 +403,10 @@ const TicketsModule = {
             other: 'Iné'
         };
 
+        // Recipient pre email odpoveď: explicit contact_email > klient email
+        const recipientEmail = ticket.contact_email || ticket.client?.email || '';
+        const recipientName = ticket.contact_name || ticket.client?.company_name || '';
+
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.innerHTML = `
@@ -430,29 +434,24 @@ const TicketsModule = {
                             <div class="ticket-conversation">
                                 <h4>Konverzácia</h4>
                                 <div class="replies-list" id="replies-list">
-                                    ${replies && replies.length > 0 ? replies.map(reply => `
-                                        <div class="reply ${reply.is_internal ? 'internal' : ''}">
-                                            <div class="reply-avatar">
-                                                ${reply.author ? reply.author.first_name[0] + reply.author.last_name[0] : '?'}
-                                            </div>
-                                            <div class="reply-content">
-                                                <div class="reply-header">
-                                                    <span class="reply-author">${reply.author ? reply.author.first_name + ' ' + reply.author.last_name : reply.author_name || 'Neznámy'}</span>
-                                                    ${reply.is_internal ? '<span class="internal-badge">Interná poznámka</span>' : ''}
-                                                    <span class="reply-time">${this.formatDateTime(reply.created_at)}</span>
-                                                </div>
-                                                <div class="reply-text">${reply.content}</div>
-                                            </div>
-                                        </div>
-                                    `).join('') : '<p class="no-replies">Zatiaľ žiadne odpovede</p>'}
+                                    ${replies && replies.length > 0 ? replies.map(reply => this.renderReply(reply)).join('') : '<p class="no-replies">Zatiaľ žiadne odpovede</p>'}
                                 </div>
-                                
+
                                 <!-- Reply form -->
                                 <div class="reply-form">
-                                    <textarea id="reply-content" placeholder="Napíš odpoveď..." rows="3"></textarea>
+                                    ${recipientEmail ? `
+                                        <div class="reply-recipient" id="reply-recipient" style="font-size:12px; color:var(--ink-sub); padding:6px 0;">
+                                            📧 Pošle sa na: <strong>${recipientEmail}</strong>
+                                        </div>
+                                    ` : `
+                                        <div class="reply-recipient" id="reply-recipient" style="font-size:12px; color:var(--err); padding:6px 0;">
+                                            ⚠️ Žiadny email kontakt — odpoveď sa uloží len interne. Doplň kontakt v ticket detaile.
+                                        </div>
+                                    `}
+                                    <textarea id="reply-content" placeholder="Napíš odpoveď. Klient ju dostane emailom..." rows="3"></textarea>
                                     <div class="reply-actions">
                                         <label class="internal-checkbox">
-                                            <input type="checkbox" id="reply-internal">
+                                            <input type="checkbox" id="reply-internal" onchange="TicketsModule.toggleRecipientHint()">
                                             <span>Interná poznámka (klient neuvidí)</span>
                                         </label>
                                         <button class="btn-primary" onclick="TicketsModule.addReply()">Odpovedať</button>
@@ -499,7 +498,19 @@ const TicketsModule = {
                                 <label>Kategória</label>
                                 <span class="sidebar-value">${categoryConfig[ticket.category] || ticket.category}</span>
                             </div>
-                            
+
+                            <div class="sidebar-item">
+                                <label>Kontakt klienta</label>
+                                <input type="email" id="ticket-contact-email" value="${recipientEmail}"
+                                    placeholder="email@klient.sk"
+                                    onchange="TicketsModule.updateTicketField('contact_email', this.value)"
+                                    style="width:100%; padding:6px 8px; font-size:12px; border:1px solid var(--border); border-radius:6px;">
+                                <input type="text" id="ticket-contact-name" value="${ticket.contact_name || ''}"
+                                    placeholder="Meno kontaktu"
+                                    onchange="TicketsModule.updateTicketField('contact_name', this.value)"
+                                    style="width:100%; padding:6px 8px; font-size:12px; border:1px solid var(--border); border-radius:6px; margin-top:4px;">
+                            </div>
+
                             <div class="sidebar-item">
                                 <label>Vytvorené</label>
                                 <span class="sidebar-value">${this.formatDateTime(ticket.created_at)}</span>
@@ -560,6 +571,39 @@ const TicketsModule = {
         }
     },
 
+    renderReply(reply) {
+        const fromClient = reply.is_from_client;
+        const authorName = fromClient
+            ? (reply.from_email || reply.author_name || 'Klient')
+            : (reply.author ? `${reply.author.first_name} ${reply.author.last_name}` : reply.author_name || 'Tím');
+        const avatarInitial = fromClient
+            ? '👤'
+            : (reply.author ? reply.author.first_name[0] + reply.author.last_name[0] : 'T');
+        const badge = reply.is_internal
+            ? '<span class="internal-badge">Interná poznámka</span>'
+            : (fromClient ? '<span class="internal-badge" style="background:#dbeafe;color:#1e40af;">📧 Odpoveď klienta</span>' : '<span class="internal-badge" style="background:#dcfce7;color:#166534;">📤 Email odoslaný</span>');
+
+        return `
+            <div class="reply ${reply.is_internal ? 'internal' : ''} ${fromClient ? 'from-client' : ''}" style="${fromClient ? 'background:#f0f9ff;border-left:3px solid #3b82f6;padding-left:12px;' : ''}">
+                <div class="reply-avatar">${avatarInitial}</div>
+                <div class="reply-content">
+                    <div class="reply-header">
+                        <span class="reply-author">${authorName}</span>
+                        ${badge}
+                        <span class="reply-time">${this.formatDateTime(reply.created_at)}</span>
+                    </div>
+                    <div class="reply-text" style="white-space:pre-line;">${reply.content}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    toggleRecipientHint() {
+        const hint = document.getElementById('reply-recipient');
+        const internal = document.getElementById('reply-internal')?.checked;
+        if (hint) hint.style.display = internal ? 'none' : '';
+    },
+
     async addReply() {
         if (!this.selectedTicket) return;
 
@@ -567,16 +611,22 @@ const TicketsModule = {
         if (!content) return;
 
         const isInternal = document.getElementById('reply-internal').checked;
+        const ticket = this.selectedTicket;
+        const recipientEmail = ticket.contact_email || ticket.client?.email || '';
+        const recipientName = ticket.contact_name || ticket.client?.company_name || '';
+        const shortId = ticket.id.slice(0, 8);
+        const willSendEmail = !isInternal && !!recipientEmail;
 
         try {
             const { data, error } = await Database.client
                 .from('ticket_replies')
                 .insert([{
-                    ticket_id: this.selectedTicket.id,
+                    ticket_id: ticket.id,
                     author_team_id: Auth.teamMember?.id,
-                    author_name: `${Auth.teamMember?.first_name} ${Auth.teamMember?.last_name}`,
+                    author_name: `${Auth.teamMember?.first_name || ''} ${Auth.teamMember?.last_name || ''}`.trim(),
                     content: content,
-                    is_internal: isInternal
+                    is_internal: isInternal,
+                    is_from_client: false
                 }])
                 .select('*, author:team_members!author_team_id(*)')
                 .single();
@@ -584,44 +634,86 @@ const TicketsModule = {
             if (error) throw error;
 
             // Update first_response_at ak je to prvá odpoveď
-            if (!this.selectedTicket.first_response_at) {
-                await Database.client
-                    .from('tickets')
-                    .update({ first_response_at: new Date().toISOString() })
-                    .eq('id', this.selectedTicket.id);
+            const ticketUpdate = {};
+            if (!ticket.first_response_at) ticketUpdate.first_response_at = new Date().toISOString();
+            // Po odoslaní externej odpovedi → status 'waiting' (čakáme reakciu klienta)
+            if (willSendEmail && ticket.status === 'open') ticketUpdate.status = 'waiting';
+            if (Object.keys(ticketUpdate).length > 0) {
+                await Database.client.from('tickets').update(ticketUpdate).eq('id', ticket.id);
+                Object.assign(ticket, ticketUpdate);
+                const statusSelect = document.getElementById('ticket-status');
+                if (statusSelect && ticketUpdate.status) statusSelect.value = ticketUpdate.status;
             }
 
             // Add reply to UI
             const repliesList = document.getElementById('replies-list');
             const noReplies = repliesList.querySelector('.no-replies');
             if (noReplies) noReplies.remove();
-
-            repliesList.insertAdjacentHTML('beforeend', `
-                <div class="reply ${data.is_internal ? 'internal' : ''}">
-                    <div class="reply-avatar">
-                        ${data.author ? data.author.first_name[0] + data.author.last_name[0] : '?'}
-                    </div>
-                    <div class="reply-content">
-                        <div class="reply-header">
-                            <span class="reply-author">${data.author ? data.author.first_name + ' ' + data.author.last_name : 'Ty'}</span>
-                            ${data.is_internal ? '<span class="internal-badge">Interná poznámka</span>' : ''}
-                            <span class="reply-time">Teraz</span>
-                        </div>
-                        <div class="reply-text">${data.content}</div>
-                    </div>
-                </div>
-            `);
+            repliesList.insertAdjacentHTML('beforeend', this.renderReply(data));
 
             // Clear form
             document.getElementById('reply-content').value = '';
             document.getElementById('reply-internal').checked = false;
+            this.toggleRecipientHint();
 
-            Utils.showNotification('Odpoveď odoslaná', 'success');
+            // Odoslať email klientovi cez Resend (ak nie je interná poznámka)
+            if (willSendEmail) {
+                try {
+                    const ownerName = `${Auth.teamMember?.first_name || ''} ${Auth.teamMember?.last_name || 'Adlify'}`.trim();
+                    const emailRes = await fetch('/.netlify/functions/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: recipientEmail,
+                            subject: `Re: [Adlify #${shortId}] ${ticket.subject}`,
+                            textBody: `${content}\n\n--\n${ownerName}\nAdlify.eu\n\n[Ticket #${shortId}] — pri odpovedi nechajte tento identifikátor v predmete, aby sa správa zaradila do správneho vlákna.`,
+                            htmlBody: this.buildReplyEmailHTML(content, ownerName, shortId, ticket.subject),
+                            replyTo: `support+ticket_${ticket.id}@adlify.eu`,
+                            clientId: ticket.client_id || null
+                        })
+                    });
+                    const emailJson = await emailRes.json();
+                    if (emailJson.success && emailJson.messageId) {
+                        await Database.client.from('ticket_replies')
+                            .update({ email_message_id: emailJson.messageId })
+                            .eq('id', data.id);
+                    } else if (!emailJson.success) {
+                        console.warn('Email send failed:', emailJson.error);
+                        Utils.showNotification(`Odpoveď uložená, ale email zlyhal: ${emailJson.error || 'neznáma chyba'}`, 'warning');
+                        return;
+                    }
+                    Utils.showNotification(`Odpoveď odoslaná emailom na ${recipientEmail}`, 'success');
+                } catch (mailErr) {
+                    console.error('Email send error:', mailErr);
+                    Utils.showNotification('Odpoveď uložená, ale email zlyhal — skontroluj sieť', 'warning');
+                }
+            } else if (isInternal) {
+                Utils.showNotification('Interná poznámka uložená', 'success');
+            } else {
+                Utils.showNotification('Odpoveď uložená (žiadny email — chýba kontakt)', 'warning');
+            }
 
         } catch (error) {
             console.error('Add reply error:', error);
             Utils.showNotification('Chyba pri odosielaní', 'error');
         }
+    },
+
+    buildReplyEmailHTML(content, ownerName, shortId, subject) {
+        const safe = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="font-family:-apple-system,Segoe UI,sans-serif;color:#1f2937;line-height:1.6;max-width:600px;margin:0 auto;padding:20px;">
+<div style="white-space:pre-line;font-size:15px;">${safe}</div>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+<div style="font-size:13px;color:#6b7280;">
+<strong>${ownerName}</strong><br>
+<a href="https://adlify.eu" style="color:#FF6B35;text-decoration:none;">adlify.eu</a>
+</div>
+<div style="margin-top:20px;padding:10px 12px;background:#f9fafb;border-left:3px solid #FF6B35;font-size:12px;color:#6b7280;">
+📌 <strong>Ticket #${shortId}</strong> — ${subject}<br>
+Pri odpovedi nechajte identifikátor v predmete, aby sa správa správne zaradila.
+</div>
+</body></html>`;
     },
 
     async deleteTicket(ticketId) {
