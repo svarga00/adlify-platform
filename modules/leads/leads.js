@@ -10651,9 +10651,11 @@ Odkaz je platný 30 dní.
         .limit(1)
         .maybeSingle();
       if (!data?.token) return null;
-      // Použij produkčný hostname ak je nastavený, inak current origin
+      // Vždy preferuj produkčný hostname (adlify.eu) lebo netlify.app preview
+      // deploy môže mať deploy issues (500 errory). Custom domain ide cez
+      // Netlify ale s vlastným DNS routing-om ktorý je stabilný.
       const origin = (typeof Config !== 'undefined' && Config.get('proposal_base_url'))
-        || window.location.origin;
+        || (window.location.hostname.includes('adlify.eu') ? window.location.origin : 'https://adlify.eu');
       return `${origin}/proposal.html?t=${data.token}`;
     } catch (e) {
       console.error('[getProposalLink]', e);
