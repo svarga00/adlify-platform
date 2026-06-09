@@ -3071,7 +3071,9 @@ const LeadsModule = {
       Utils.toast(`🎉 Klient "${newClient.company_name}" vytvorený!`, 'success');
       
       this.closeModal();
-      document.getElementById('leads-list').innerHTML = this.renderLeadsList();
+      // Guard — z lead detail page leads-list neexistuje, môže byť null
+      const listEl = document.getElementById('leads-list');
+      if (listEl) listEl.innerHTML = this.renderLeadsList();
       
       if (await Utils.confirm('Chcete otvoriť detail nového klienta?', { title: 'Klient vytvorený', type: 'success', confirmText: 'Otvoriť', cancelText: 'Zostať' })) {
         Router.navigate('clients', { id: newClient.id });
