@@ -8891,7 +8891,7 @@ ${r.projection ? `
 <html lang="sk">
 <head>
 <meta charset="UTF-8">
-<title>${T('heroBadge')} — ${c.name || lead.company_name}</title>
+<title>Marketingová stratégia — ${c.name || lead.company_name}</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
