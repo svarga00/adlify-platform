@@ -394,7 +394,12 @@ ${platforms.join(', ')}
               "type": "responsive",
               "headlines": ["Max 30 znakov"],
               "descriptions": ["Max 90 znakov"],
-              "call_to_action": "CTA"
+              "call_to_action": "CTA",
+              "final_url": "https://klient.sk/landing-page",
+              "path1": "max-15-znakov",
+              "path2": "max-15-znakov",
+              "image_prompt": "Pre Display/Meta reklamy — konkrétny prompt pre DALL·E/Midjourney/Flux. Napríklad: 'Photo, modern Slovak kitchen interior with natural light, white cabinets, marble countertop, no people, no text, professional advertising photo, shot on canon 5d, 50mm lens, --ar 1:1'. Pre Search ads nechaj null.",
+              "image_aspect_ratio": "1:1 | 1.91:1 | 4:5 | 9:16 — null pre Search ads"
             }
           ]
         }
@@ -443,6 +448,24 @@ ${platforms.join(', ')}
 - Každá kampaň 2-3 ad groups, každá ad group 2-3 reklamy
 - Rozpočet rozdel realisticky — nezabudni na denný limit per kampaň
 - Využi konkrétne data z onboardingu a research, nie generické frázy
+
+## IMAGE PROMPTS — DÔLEŽITÉ
+- Pre Google **Search** kampane (campaign_type: 'search') NEdávaj image_prompt — nech je null. Search ads obrázok nemajú.
+- Pre Google **Display, PMax, Video** a všetky **Meta** kampane povinne vygeneruj konkrétny image_prompt v angličtine pre DALL·E/Midjourney/Flux:
+  - Začni typom: "Photo" / "Illustration" / "3D render"
+  - Konkrétny subjekt (NIE generický "happy person")
+  - Lokácia/setting relevantná pre SK trh (slovenský/stredoeurópsky kontext ak má zmysel)
+  - Lighting + camera hint pre photo: "natural daylight, shot on canon 5d, 50mm lens"
+  - Štýl: "professional advertising photo, clean composition, copy space top-right"
+  - Negatívne (vždy uveď): "no text, no logos, no watermarks, no people faces clearly visible if Meta"
+  - Aspect ratio hint na konci podľa platformy (1:1 Meta feed, 1.91:1 Display, 4:5 Meta vertical, 9:16 Stories)
+- image_aspect_ratio: vyber podľa kampane (search → null, Meta feed → "1:1", Google Display → "1.91:1", Stories/Reels → "9:16")
+- Final URL musí byť konkrétny landing page (NIE homepage) — odhadni podľa obsahu ad group
+
+## FINAL URL + PATHS (Google Ads)
+- final_url: konkrétna stránka s ofertou (nie homepage), použij ${onboarding.company_website || 'klient.sk'} ako base
+- path1, path2: zobrazované za doménou (max 15 znakov každý), použij relevant keyword
+
 - Odpoveď LEN JSON, žiadny text navyše
 `
 
@@ -509,6 +532,7 @@ ${platforms.join(', ')}
         if (gErr) { console.error('Ad group insert:', gErr); continue }
 
         for (const ad of (g.ads || [])) {
+          const isSearchAd = (campaign.campaign_type || '').toLowerCase() === 'search'
           const { error: adErr } = await supabase
             .from('ads')
             .insert({
@@ -517,6 +541,12 @@ ${platforms.join(', ')}
               headlines: ad.headlines || [],
               descriptions: ad.descriptions || [],
               call_to_action: ad.call_to_action,
+              final_url: ad.final_url || onboarding.company_website || null,
+              path1: ad.path1 || null,
+              path2: ad.path2 || null,
+              image_prompt: isSearchAd ? null : (ad.image_prompt || null),
+              image_aspect_ratio: isSearchAd ? null : (ad.image_aspect_ratio || '1:1'),
+              image_status: isSearchAd ? 'skipped' : 'pending',
               status: 'draft'
             })
           if (adErr) console.error('Ad insert:', adErr)

@@ -1903,11 +1903,15 @@ const CampaignProjectsModule = {
         
       case 'internal_review':
         actions.push(`
-          <button onclick="CampaignProjectsModule.requestRevision('${project.id}')" 
+          <button onclick="CampaignProjectsModule.viewCreatives('${project.id}')"
+            class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
+            🎨 Kreatívy & prompty
+          </button>
+          <button onclick="CampaignProjectsModule.requestRevision('${project.id}')"
             class="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200">
             ✏️ Požiadať o revíziu
           </button>
-          <button onclick="CampaignProjectsModule.approveInternal('${project.id}')" 
+          <button onclick="CampaignProjectsModule.approveInternal('${project.id}')"
             class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
             ✅ Schváliť pre klienta
           </button>
@@ -1935,9 +1939,21 @@ const CampaignProjectsModule = {
         
       case 'approved':
         actions.push(`
-          <button onclick="CampaignProjectsModule.deployProject('${project.id}')" 
+          <button onclick="CampaignProjectsModule.viewCreatives('${project.id}')"
+            class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
+            🎨 Kreatívy & prompty
+          </button>
+          <button onclick="CampaignProjectsModule.exportCampaigns('${project.id}','google_editor')"
+            class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">
+            ⬇️ Google Ads Editor CSV
+          </button>
+          <button onclick="CampaignProjectsModule.exportCampaigns('${project.id}','meta_csv')"
+            class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200">
+            ⬇️ Meta Bulk CSV
+          </button>
+          <button onclick="CampaignProjectsModule.deployProject('${project.id}')"
             class="px-4 py-2 gradient-bg text-white rounded-lg hover:opacity-90">
-            🚀 Nasadiť kampane
+            🚀 Označiť ako nasadené
           </button>
         `);
         break;
@@ -2222,19 +2238,152 @@ const CampaignProjectsModule = {
   },
   
   async deployProject(projectId) {
-    Utils.toast('Nasadzovanie kampaní...', 'info');
-    
-    if (await this.updateStatus(projectId, 'deploying')) {
-      // TODO: Export to Google/Meta APIs
-      setTimeout(async () => {
-        await this.updateStatus(projectId, 'active', {
-          actual_start_date: new Date().toISOString().split('T')[0]
-        });
-        Utils.toast('Kampane nasadené!', 'success');
-        this.closeDetailModal();
-        await this.loadData();
-        document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-      }, 2000);
+    const confirmed = await Utils.confirm(
+      'Označiť ako nasadené?\n\nUisti sa že si CSV exporty importoval do Google Ads Editor / Meta Bulk Editor a kampane sú live. Status sa zmení na "Aktívna" a sync metrík začne bežať.',
+      { title: 'Nasadenie kampaní', confirmText: 'Áno, nasadené', cancelText: 'Späť' }
+    );
+    if (!confirmed) return;
+
+    if (await this.updateStatus(projectId, 'active', {
+      actual_start_date: new Date().toISOString().split('T')[0]
+    })) {
+      Utils.toast('Kampane označené ako aktívne. Sync metrík začne pri ďalšom 2h cykle.', 'success');
+      this.closeDetailModal();
+      await this.loadData();
+      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+    }
+  },
+
+  // Polo-automatický export — admin stiahne CSV a importuje manuálne do
+  // Google Ads Editor (https://ads.google.com/intl/sk_sk/home/tools/ads-editor/)
+  // alebo Meta Bulk Editor.
+  exportCampaigns(projectId, format) {
+    const url = `/.netlify/functions/export-campaigns?project_id=${encodeURIComponent(projectId)}&format=${encodeURIComponent(format)}`;
+    // Otvoríme v novom okne — prehliadač spustí download cez Content-Disposition
+    window.location.href = url;
+    Utils.toast(`Sťahujem ${format === 'google_editor' ? 'Google Ads' : 'Meta'} CSV...`, 'info');
+  },
+
+  // Kreatívy & image prompts modal — admin si tu pozrie všetky reklamy,
+  // skopíruje image_prompt do DALL·E/Midjourney/Flux a uploadne výsledok.
+  async viewCreatives(projectId) {
+    Utils.toast('Načítavam kreatívy...', 'info');
+    try {
+      const { data: campaigns } = await Database.client
+        .from('campaigns').select('id, name, platform, campaign_type').eq('project_id', projectId);
+      const campaignIds = (campaigns || []).map(c => c.id);
+      if (campaignIds.length === 0) return Utils.toast('Žiadne kampane', 'warning');
+
+      const { data: adGroups } = await Database.client
+        .from('ad_groups').select('id, name, campaign_id').in('campaign_id', campaignIds);
+      const adGroupIds = (adGroups || []).map(g => g.id);
+
+      const { data: ads } = await Database.client
+        .from('ads').select('*').in('ad_group_id', adGroupIds);
+
+      const adsByGroup = new Map();
+      for (const ad of (ads || [])) {
+        if (!adsByGroup.has(ad.ad_group_id)) adsByGroup.set(ad.ad_group_id, []);
+        adsByGroup.get(ad.ad_group_id).push(ad);
+      }
+      const groupsByCampaign = new Map();
+      for (const g of (adGroups || [])) {
+        if (!groupsByCampaign.has(g.campaign_id)) groupsByCampaign.set(g.campaign_id, []);
+        groupsByCampaign.get(g.campaign_id).push(g);
+      }
+
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+      const statusBadge = (s) => ({
+        pending:  '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:9999px;font-size:11px;">⏳ Čaká</span>',
+        uploaded: '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:9999px;font-size:11px;">📤 Nahrané</span>',
+        approved: '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9999px;font-size:11px;">✓ Schválené</span>',
+        skipped:  '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:9999px;font-size:11px;">— Search ad</span>',
+      })[s] || '';
+
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+      modal.id = 'creatives-modal';
+      modal.innerHTML = `
+        <div class="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div class="p-5 border-b flex items-center justify-between gap-4">
+            <h2 class="text-xl font-bold">🎨 Kreatívy a image prompty</h2>
+            <button onclick="document.getElementById('creatives-modal').remove()" class="text-2xl text-gray-400 hover:text-gray-700">×</button>
+          </div>
+          <div class="overflow-y-auto p-5 space-y-6 flex-1">
+            ${campaigns.map(c => `
+              <div class="border rounded-xl overflow-hidden">
+                <div class="bg-gray-50 px-4 py-2 font-semibold flex items-center gap-2">
+                  <span>${c.platform === 'google' ? '🔍' : '📘'}</span>
+                  <span>${esc(c.name)}</span>
+                  <span class="text-xs text-gray-500 ml-auto">${esc(c.campaign_type)}</span>
+                </div>
+                ${(groupsByCampaign.get(c.id) || []).map(g => `
+                  <div class="p-4 border-t">
+                    <div class="text-sm font-medium text-gray-700 mb-2">📁 ${esc(g.name)}</div>
+                    <div class="space-y-3">
+                      ${(adsByGroup.get(g.id) || []).map(ad => `
+                        <div class="border rounded-lg p-3 bg-white">
+                          <div class="flex justify-between items-start mb-2">
+                            <div class="font-medium text-sm">${esc((ad.headlines && ad.headlines[0]) || 'Reklama')}</div>
+                            ${statusBadge(ad.image_status)}
+                          </div>
+                          ${ad.image_prompt ? `
+                            <details class="mb-2">
+                              <summary class="text-xs text-purple-600 cursor-pointer">📋 Image prompt (klik na zobrazenie / kopírovanie)</summary>
+                              <div class="mt-2 p-2 bg-purple-50 rounded text-xs font-mono whitespace-pre-wrap">${esc(ad.image_prompt)}</div>
+                              <button onclick="navigator.clipboard.writeText(${JSON.stringify(ad.image_prompt)}); Utils.toast('Prompt skopírovaný', 'success');"
+                                class="mt-1 text-xs px-2 py-1 bg-purple-600 text-white rounded">Skopírovať prompt</button>
+                              <span class="text-xs text-gray-500 ml-2">Aspect: ${esc(ad.image_aspect_ratio || '1:1')}</span>
+                            </details>
+                            <div class="flex gap-2 items-center">
+                              <input type="url" id="img-url-${ad.id}" placeholder="URL obrázka (po vygenerovaní v DALL·E/Midjourney)"
+                                value="${esc(ad.image_url || '')}"
+                                class="flex-1 px-2 py-1 text-xs border rounded">
+                              <button onclick="CampaignProjectsModule.saveAdImage('${ad.id}')"
+                                class="text-xs px-3 py-1 bg-indigo-600 text-white rounded">Uložiť</button>
+                              ${ad.image_url ? `<a href="${esc(ad.image_url)}" target="_blank" class="text-xs text-blue-600 underline">Náhľad</a>` : ''}
+                            </div>
+                          ` : `
+                            <div class="text-xs text-gray-500">Search reklama — bez obrázka</div>
+                          `}
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `).join('')}
+          </div>
+          <div class="p-4 border-t bg-gray-50 flex justify-between items-center">
+            <div class="text-xs text-gray-600">
+              💡 Skopíruj prompt → vygeneruj obrázok v DALL·E / Midjourney / Flux → nahraj výsledok do Supabase Storage alebo Imgur → vlož URL sem.
+            </div>
+            <button onclick="document.getElementById('creatives-modal').remove()" class="px-4 py-2 bg-gray-200 rounded-lg">Zavrieť</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    } catch (e) {
+      console.error('viewCreatives error:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
+  async saveAdImage(adId) {
+    const input = document.getElementById(`img-url-${adId}`);
+    const url = input?.value?.trim();
+    if (!url) return Utils.toast('URL je prázdne', 'warning');
+    try { new URL(url); } catch { return Utils.toast('Neplatné URL', 'warning'); }
+    try {
+      const { error } = await Database.client
+        .from('ads')
+        .update({ image_url: url, image_status: 'uploaded' })
+        .eq('id', adId);
+      if (error) throw error;
+      Utils.toast('Obrázok uložený — môžeš schváliť', 'success');
+    } catch (e) {
+      Utils.toast('Chyba: ' + e.message, 'error');
     }
   },
   
