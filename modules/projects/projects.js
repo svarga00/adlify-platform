@@ -2323,10 +2323,10 @@ const CampaignProjectsModule = {
                     <div class="text-sm font-medium text-gray-700 mb-2">📁 ${esc(g.name)}</div>
                     <div class="space-y-3">
                       ${(adsByGroup.get(g.id) || []).map(ad => `
-                        <div class="border rounded-lg p-3 bg-white">
+                        <div class="border rounded-lg p-3 bg-white" id="ad-card-${ad.id}">
                           <div class="flex justify-between items-start mb-2">
                             <div class="font-medium text-sm">${esc((ad.headlines && ad.headlines[0]) || 'Reklama')}</div>
-                            ${statusBadge(ad.image_status)}
+                            <span id="status-${ad.id}">${statusBadge(ad.image_status)}</span>
                           </div>
                           ${ad.image_prompt ? `
                             <details class="mb-2">
@@ -2336,13 +2336,39 @@ const CampaignProjectsModule = {
                                 class="mt-1 text-xs px-2 py-1 bg-purple-600 text-white rounded">Skopírovať prompt</button>
                               <span class="text-xs text-gray-500 ml-2">Aspect: ${esc(ad.image_aspect_ratio || '1:1')}</span>
                             </details>
-                            <div class="flex gap-2 items-center">
-                              <input type="url" id="img-url-${ad.id}" placeholder="URL obrázka (po vygenerovaní v DALL·E/Midjourney)"
-                                value="${esc(ad.image_url || '')}"
-                                class="flex-1 px-2 py-1 text-xs border rounded">
-                              <button onclick="CampaignProjectsModule.saveAdImage('${ad.id}')"
-                                class="text-xs px-3 py-1 bg-indigo-600 text-white rounded">Uložiť</button>
-                              ${ad.image_url ? `<a href="${esc(ad.image_url)}" target="_blank" class="text-xs text-blue-600 underline">Náhľad</a>` : ''}
+
+                            <div id="image-zone-${ad.id}" class="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-indigo-400 transition-colors"
+                                 ondragover="event.preventDefault(); this.classList.add('border-indigo-500','bg-indigo-50');"
+                                 ondragleave="this.classList.remove('border-indigo-500','bg-indigo-50');"
+                                 ondrop="event.preventDefault(); this.classList.remove('border-indigo-500','bg-indigo-50'); CampaignProjectsModule.handleAdImageDrop('${ad.id}','${projectId}', event);">
+                              ${ad.image_url ? `
+                                <div class="flex items-start gap-3">
+                                  <img src="${esc(ad.image_url)}" alt="Ad preview" class="w-24 h-24 object-cover rounded border" onerror="this.style.display='none';">
+                                  <div class="flex-1 text-xs">
+                                    <div class="text-gray-600 break-all mb-2">${esc(ad.image_url)}</div>
+                                    <div class="flex gap-2 flex-wrap">
+                                      <label class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200">
+                                        🔄 Zmeniť
+                                        <input type="file" accept="image/*" class="hidden"
+                                          onchange="CampaignProjectsModule.uploadAdImage('${ad.id}','${projectId}', this.files[0]);">
+                                      </label>
+                                      ${ad.image_status !== 'approved' ? `
+                                        <button onclick="CampaignProjectsModule.approveAdImage('${ad.id}')"
+                                          class="text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">✓ Schváliť</button>
+                                      ` : ''}
+                                      <a href="${esc(ad.image_url)}" target="_blank" class="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded">Plný náhľad ↗</a>
+                                    </div>
+                                  </div>
+                                </div>
+                              ` : `
+                                <label class="block text-center cursor-pointer">
+                                  <div class="text-2xl mb-1">📤</div>
+                                  <div class="text-sm font-medium text-gray-700">Nahrať obrázok</div>
+                                  <div class="text-xs text-gray-500 mt-1">Klik alebo drag-drop (max 10 MB · JPG/PNG/WebP)</div>
+                                  <input type="file" accept="image/*" class="hidden"
+                                    onchange="CampaignProjectsModule.uploadAdImage('${ad.id}','${projectId}', this.files[0]);">
+                                </label>
+                              `}
                             </div>
                           ` : `
                             <div class="text-xs text-gray-500">Search reklama — bez obrázka</div>
@@ -2370,20 +2396,120 @@ const CampaignProjectsModule = {
     }
   },
 
-  async saveAdImage(adId) {
-    const input = document.getElementById(`img-url-${adId}`);
-    const url = input?.value?.trim();
-    if (!url) return Utils.toast('URL je prázdne', 'warning');
-    try { new URL(url); } catch { return Utils.toast('Neplatné URL', 'warning'); }
+  handleAdImageDrop(adId, projectId, event) {
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    this.uploadAdImage(adId, projectId, file);
+  },
+
+  // Upload obrázka do Supabase Storage bucket `assets` pod cestou
+  // ad-creatives/<project_id>/<ad_id>-<ts>.<ext>. URL sa uloží do ads.image_url.
+  // Status: pending → uploaded (admin ešte musí klik "✓ Schváliť").
+  async uploadAdImage(adId, projectId, file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return Utils.toast('Iba obrázky', 'warning');
+    if (file.size > 10 * 1024 * 1024) return Utils.toast('Max 10 MB', 'warning');
+
+    const zone = document.getElementById(`image-zone-${adId}`);
+    if (zone) zone.innerHTML = '<div class="text-center text-sm text-gray-600 py-4">⏳ Nahrávam…</div>';
+
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+      const path = `ad-creatives/${projectId}/${adId}-${Date.now()}.${ext}`;
+      const { error: upErr } = await Database.client.storage
+        .from('assets')
+        .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type });
+      if (upErr) {
+        const msg = upErr.message?.includes('Bucket not found')
+          ? 'Storage bucket "assets" neexistuje. Vytvor ho v Supabase → Storage (public read).'
+          : 'Upload zlyhal: ' + upErr.message;
+        throw new Error(msg);
+      }
+      const { data: urlData } = Database.client.storage.from('assets').getPublicUrl(path);
+      const imageUrl = urlData.publicUrl;
+
+      const { error: dbErr } = await Database.client
+        .from('ads')
+        .update({ image_url: imageUrl, image_status: 'uploaded' })
+        .eq('id', adId);
+      if (dbErr) throw dbErr;
+
+      Utils.toast('Obrázok nahraný — môžeš ho schváliť', 'success');
+      await this._refreshAdCard(adId, projectId);
+    } catch (e) {
+      Utils.toast(e.message, 'error');
+      // Reset zone aby user mohol skúsiť znova
+      await this._refreshAdCard(adId, projectId);
+    }
+  },
+
+  async approveAdImage(adId) {
     try {
       const { error } = await Database.client
         .from('ads')
-        .update({ image_url: url, image_status: 'uploaded' })
+        .update({ image_status: 'approved' })
         .eq('id', adId);
       if (error) throw error;
-      Utils.toast('Obrázok uložený — môžeš schváliť', 'success');
+      Utils.toast('Obrázok schválený', 'success');
+
+      // Update badge inline bez re-fetchu
+      const badge = document.getElementById(`status-${adId}`);
+      if (badge) badge.innerHTML = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9999px;font-size:11px;">✓ Schválené</span>';
+      // Hide "Schváliť" button v karte
+      const card = document.getElementById(`ad-card-${adId}`);
+      const approveBtn = card?.querySelector('button[onclick*="approveAdImage"]');
+      if (approveBtn) approveBtn.remove();
     } catch (e) {
       Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
+  // Re-render single ad karty po upload/zmene — vyhne sa zatvoreniu celého modal-u
+  async _refreshAdCard(adId, projectId) {
+    const card = document.getElementById(`ad-card-${adId}`);
+    if (!card) return;
+    const { data: ad } = await Database.client.from('ads').select('*').eq('id', adId).single();
+    if (!ad) return;
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const zone = document.getElementById(`image-zone-${adId}`);
+    if (!zone || !ad.image_prompt) return;
+    zone.innerHTML = ad.image_url ? `
+      <div class="flex items-start gap-3">
+        <img src="${esc(ad.image_url)}" alt="Ad preview" class="w-24 h-24 object-cover rounded border" onerror="this.style.display='none';">
+        <div class="flex-1 text-xs">
+          <div class="text-gray-600 break-all mb-2">${esc(ad.image_url)}</div>
+          <div class="flex gap-2 flex-wrap">
+            <label class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200">
+              🔄 Zmeniť
+              <input type="file" accept="image/*" class="hidden"
+                onchange="CampaignProjectsModule.uploadAdImage('${adId}','${projectId}', this.files[0]);">
+            </label>
+            ${ad.image_status !== 'approved' ? `
+              <button onclick="CampaignProjectsModule.approveAdImage('${adId}')"
+                class="text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">✓ Schváliť</button>
+            ` : ''}
+            <a href="${esc(ad.image_url)}" target="_blank" class="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded">Plný náhľad ↗</a>
+          </div>
+        </div>
+      </div>
+    ` : `
+      <label class="block text-center cursor-pointer">
+        <div class="text-2xl mb-1">📤</div>
+        <div class="text-sm font-medium text-gray-700">Nahrať obrázok</div>
+        <div class="text-xs text-gray-500 mt-1">Klik alebo drag-drop (max 10 MB · JPG/PNG/WebP)</div>
+        <input type="file" accept="image/*" class="hidden"
+          onchange="CampaignProjectsModule.uploadAdImage('${adId}','${projectId}', this.files[0]);">
+      </label>
+    `;
+    const badge = document.getElementById(`status-${adId}`);
+    if (badge) {
+      const map = {
+        pending:  '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:9999px;font-size:11px;">⏳ Čaká</span>',
+        uploaded: '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:9999px;font-size:11px;">📤 Nahrané</span>',
+        approved: '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9999px;font-size:11px;">✓ Schválené</span>',
+        skipped:  '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:9999px;font-size:11px;">— Search ad</span>',
+      };
+      badge.innerHTML = map[ad.image_status] || '';
     }
   },
   
