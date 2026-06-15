@@ -2103,42 +2103,20 @@ const OnboardingModule = {
       const { data: { session } } = await Database.client.auth.getSession();
       const token = session?.access_token || Config?.SUPABASE_ANON_KEY;
       
-      const response = await fetch(
-        `${Config?.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co'}/functions/v1/generate-campaigns`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            project_id: projectId,
-            onboarding_id: onboardingId,
-            platforms: platforms
-          })
-        }
-      );
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log(`AI generated ${result.campaigns_generated} campaigns`);
-        
-        await this.createNotification({
-          type: 'campaigns_generated',
-          title: 'Kampane vygenerované',
-          message: `AI vytvorilo ${result.campaigns_generated} kampaní. Skontrolujte a schváľte návrh.`,
-          link: `/admin/index.html#projects?id=${projectId}`,
-          project_id: projectId
-        });
-      } else {
-        console.error('AI generation failed:', result.error);
-        
-        await Database.client
-          .from('campaign_projects')
-          .update({ status: 'draft', notes: `AI error: ${result.error}` })
-          .eq('id', projectId);
-      }
+      // Background trigger — netlify funkcia beží do 15 min na pozadí.
+      // Fire-and-forget; status zmena v DB notifikuje admina cez polling
+      // alebo realtime subscription v projects.js.
+      fetch('/.netlify/functions/generate-campaigns-background', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          onboarding_id: onboardingId,
+          platforms: platforms,
+        }),
+      }).catch(err => console.warn('AI trigger network error (background continues):', err));
+
+      console.log('AI generation triggered on background for project', projectId);
       
     } catch (error) {
       console.error('AI generation trigger error:', error);

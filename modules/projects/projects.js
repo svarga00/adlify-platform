@@ -2126,7 +2126,7 @@ const CampaignProjectsModule = {
   async startGeneration(projectId) {
     const project = this.projects.find(p => p.id === projectId);
     if (!project) return;
-    
+
     // Get onboarding_id for this client
     const { data: onboarding } = await Database.client
       .from('onboarding_responses')
@@ -2134,70 +2134,69 @@ const CampaignProjectsModule = {
       .eq('client_id', project.client_id)
       .eq('status', 'submitted')
       .single();
-    
+
     if (!onboarding) {
       Utils.toast('Klient nemá vyplnený onboarding dotazník!', 'warning');
       return;
     }
-    
-    Utils.toast('Spúšťam AI generovanie... Môže trvať 30-60 sekúnd.', 'info');
-    
-    // Update UI immediately
-    if (await this.updateStatus(projectId, 'generating')) {
-      await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-      
-      try {
-        // Call Edge Function
-        const { data: { session } } = await Database.client.auth.getSession();
-        const token = session?.access_token || Config.SUPABASE_ANON_KEY;
-        
-        const response = await fetch(
-          'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/generate-campaigns',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              project_id: projectId,
-              onboarding_id: onboarding.id,
-              platforms: ['google_search', 'meta_facebook']
-            })
-          }
-        );
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          Utils.toast(`AI vygenerovalo ${result.campaigns_generated} kampaní! 🎉`, 'success');
-          
-          // Refresh data
-          await this.loadData();
-          document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-          
-          // Update detail modal if open
-          if (this.selectedProject?.id === projectId) {
-            const updatedProject = this.projects.find(p => p.id === projectId);
-            if (updatedProject) {
-              document.getElementById('detail-content').innerHTML = await this.renderDetailContent(updatedProject);
-            }
-          }
-        } else {
-          throw new Error(result.error || 'Neznáma chyba');
-        }
-        
-      } catch (error) {
-        console.error('AI generation error:', error);
-        Utils.toast('Chyba pri generovaní: ' + error.message, 'error');
-        
-        // Revert status
-        await this.updateStatus(projectId, 'draft');
+
+    Utils.toast('Spúšťam AI generovanie na pozadí... Môže trvať 1-3 minúty.', 'info');
+
+    // Set status to generating + vyčisti staré error notes
+    if (!await this.updateStatus(projectId, 'generating', { notes: null })) return;
+    await this.loadData();
+    document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+
+    // Background trigger — Netlify funkcia s -background postfixom beží
+    // do 15 min, dlhšie ako trvá Sonnet 4.6. Frontend pollne status z DB.
+    fetch('/.netlify/functions/generate-campaigns-background', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: projectId,
+        onboarding_id: onboarding.id,
+        platforms: ['google_search', 'meta_facebook'],
+      }),
+    }).catch(err => console.warn('[startGeneration] trigger error (expected for background):', err));
+
+    // Poll DB každých 4s, max 5 minút
+    const startTime = Date.now();
+    const maxWaitMs = 5 * 60 * 1000;
+    const poll = async () => {
+      if (Date.now() - startTime > maxWaitMs) {
+        Utils.toast('Generovanie trvá dlho — skontroluj #projects o pár minút', 'warning');
+        return;
+      }
+      const { data: fresh } = await Database.client
+        .from('campaign_projects')
+        .select('status, notes')
+        .eq('id', projectId)
+        .single();
+      if (!fresh) return;
+
+      if (fresh.status === 'internal_review') {
+        Utils.toast('AI dokončila generovanie 🎉', 'success');
         await this.loadData();
         document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+        if (this.selectedProject?.id === projectId) {
+          const updated = this.projects.find(p => p.id === projectId);
+          if (updated) {
+            this.selectedProject = updated;
+            document.getElementById('detail-content').innerHTML = await this.renderDetailContent(updated);
+          }
+        }
+        return;
       }
-    }
+      if (fresh.status === 'draft' && fresh.notes?.startsWith('AI error:')) {
+        Utils.toast('AI generovanie zlyhalo: ' + fresh.notes.replace(/^AI error:\s*/, ''), 'error');
+        await this.loadData();
+        document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+        return;
+      }
+      // Stále 'generating' → ďalší pokus
+      setTimeout(poll, 4000);
+    };
+    setTimeout(poll, 6000);  // prvý check po 6s (Claude + research zaberie čas)
   },
   
   async approveInternal(projectId) {
