@@ -1908,7 +1908,7 @@ const CampaignProjectsModule = {
         
       case 'internal_review':
         actions.push(`
-          <button onclick="CampaignProjectsModule.viewCreatives('${project.id}')"
+          <button onclick="CampaignProjectsModule.openCreativesPage('${project.id}')"
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
             🎨 Kreatívy & prompty
           </button>
@@ -1944,7 +1944,7 @@ const CampaignProjectsModule = {
         
       case 'approved':
         actions.push(`
-          <button onclick="CampaignProjectsModule.viewCreatives('${project.id}')"
+          <button onclick="CampaignProjectsModule.openCreativesPage('${project.id}')"
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
             🎨 Kreatívy & prompty
           </button>
@@ -2330,6 +2330,12 @@ const CampaignProjectsModule = {
     // Otvoríme v novom okne — prehliadač spustí download cez Content-Disposition
     window.location.href = url;
     Utils.toast(`Sťahujem ${format === 'google_editor' ? 'Google Ads' : 'Meta'} CSV...`, 'info');
+  },
+
+  // Otvorí celú stránku kreatív (wizard) — namiesto modal-u (modules/creatives/creatives.js).
+  openCreativesPage(projectId) {
+    this.closeDetailModal?.();
+    Router.navigate('creatives', { project_id: projectId });
   },
 
   // Kreatívy & image prompts modal — admin si tu pozrie všetky reklamy,
