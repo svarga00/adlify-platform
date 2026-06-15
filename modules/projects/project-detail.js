@@ -555,6 +555,94 @@ const ProjectDetailModule = {
     });
     // Lazy load tracking summary (len keď user otvorí tab)
     if (tabId === 'tracking') this._loadConversionsSummary?.();
+    if (tabId === 'strategy') this._loadProposalVersions?.();
+  },
+
+  // História verzií návrhu (snapshoty pred regeneráciou)
+  async _loadProposalVersions() {
+    let host = document.getElementById('proposal-versions-host');
+    if (!host) {
+      // Vlož kartu na koniec strategy tabu
+      const strategyTab = document.querySelector('[data-tab-content="strategy"]');
+      if (!strategyTab) return;
+      host = document.createElement('div');
+      host.id = 'proposal-versions-host';
+      strategyTab.appendChild(host);
+    }
+    host.innerHTML = '<div class="card"><div style="color:#9ca3af;font-size:13px;">⏳ Načítavam históriu verzií…</div></div>';
+
+    try {
+      const { data: versions, error } = await Database.client
+        .from('proposal_versions')
+        .select('id, version, trigger, feedback, created_at, strategy_summary, business_analysis')
+        .eq('project_id', this.projectId)
+        .order('version', { ascending: false });
+      if (error) throw error;
+
+      const current = window.CampaignProjectsModule.selectedProject?.proposal_version || 1;
+      const triggerLabel = (t) => ({ initial: 'Pôvodný návrh', regenerate: 'Pregenerované s pripomienkami', client_revision: 'Po revízii klienta' }[t] || t);
+
+      host.innerHTML = `
+        <div class="card">
+          <h4>📜 História verzií</h4>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:14px;">Aktuálne verzia <strong>v${current}</strong>. Pred pregenerovaním sa staré dáta automaticky archivujú.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;border-left:3px solid #FF6B35;">
+              <div style="background:#FF6B35;color:white;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;">v${current}</div>
+              <div style="flex:1;font-size:13px;color:#14120e;">Aktuálna verzia</div>
+              <div style="font-size:11px;color:#9a3412;">v sidebari →</div>
+            </div>
+            ${(versions || []).map(v => `
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:#fafaf8;border:1px solid #eae6de;border-radius:10px;">
+                <div style="background:#fff;color:#14120e;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #eae6de;">v${v.version}</div>
+                <div style="flex:1;">
+                  <div style="font-size:13px;color:#14120e;font-weight:500;">${this._esc(triggerLabel(v.trigger))}</div>
+                  ${v.feedback ? `<div style="font-size:12px;color:#6b7280;margin-top:4px;font-style:italic;">"${this._esc(v.feedback.slice(0, 180))}${v.feedback.length > 180 ? '…' : ''}"</div>` : ''}
+                  ${v.strategy_summary ? `<div style="font-size:12px;color:#9ca3af;margin-top:6px;">${this._esc(v.strategy_summary.slice(0, 220))}…</div>` : ''}
+                </div>
+                <div style="font-size:11px;color:#9ca3af;white-space:nowrap;">${this._formatDate(v.created_at)}</div>
+                <button onclick="ProjectDetailModule.viewProposalVersion('${v.id}')"
+                  style="background:#fff;border:1px solid #eae6de;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;color:#14120e;font-weight:600;">
+                  Pozrieť
+                </button>
+              </div>
+            `).join('') || '<div style="color:#9ca3af;font-size:12px;text-align:center;padding:12px;">Toto je prvá verzia — žiadne staršie snapshoty.</div>'}
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      console.error('[proposal-versions]', e);
+      host.innerHTML = `<div class="card" style="color:#dc2626;font-size:12px;">Chyba: ${this._esc(e.message)} <br><span style="color:#9ca3af;">Spusti migráciu 030 v Supabase SQL Editor.</span></div>`;
+    }
+  },
+
+  async viewProposalVersion(versionId) {
+    try {
+      const { data: v } = await Database.client.from('proposal_versions').select('*').eq('id', versionId).single();
+      if (!v) return Utils.toast('Verzia nenájdená', 'error');
+
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4';
+      modal.id = 'version-view-modal';
+      modal.innerHTML = `
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div class="p-5 border-b flex items-center justify-between">
+            <h2 class="text-lg font-bold">📜 Verzia ${v.version} · ${this._formatDate(v.created_at)}</h2>
+            <button onclick="document.getElementById('version-view-modal').remove()" class="text-2xl text-gray-400 hover:text-gray-700">×</button>
+          </div>
+          <div class="overflow-y-auto flex-1 p-6 space-y-4">
+            ${v.feedback ? `<div style="background:#fff7ed;border-left:3px solid #FF6B35;padding:12px 16px;border-radius:0 8px 8px 0;"><strong>Pripomienka:</strong> ${this._esc(v.feedback)}</div>` : ''}
+            ${v.strategy_summary ? `<div><h4 style="font-size:13px;font-weight:600;color:#14120e;margin-bottom:8px;">🎯 Stratégia</h4><p style="font-size:13px;line-height:1.6;color:#374151;white-space:pre-line;">${this._esc(v.strategy_summary)}</p></div>` : ''}
+            ${v.business_analysis?.summary ? `<div><h4 style="font-size:13px;font-weight:600;color:#14120e;margin-bottom:8px;">💼 Analýza biznisu</h4><p style="font-size:13px;line-height:1.6;color:#374151;">${this._esc(v.business_analysis.summary)}</p></div>` : ''}
+            ${v.campaigns_snapshot?.length ? `<div><h4 style="font-size:13px;font-weight:600;color:#14120e;margin-bottom:8px;">📣 Kampane (${v.campaigns_snapshot.length})</h4><ul style="font-size:13px;color:#374151;line-height:1.7;">${v.campaigns_snapshot.map(c => `<li>• ${this._esc(c.name)} <span style="color:#9ca3af;">(${c.platform}, ${c.budget_daily}€/deň)</span></li>`).join('')}</ul></div>` : ''}
+            <details><summary style="cursor:pointer;font-size:12px;color:#6b7280;font-weight:600;">📋 Plný JSON snapshot</summary><pre style="background:#fafaf8;border:1px solid #eae6de;padding:12px;border-radius:8px;font-size:11px;overflow-x:auto;max-height:300px;margin-top:8px;">${this._esc(JSON.stringify(v, null, 2))}</pre></details>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    } catch (e) {
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
   },
 
   // Helpers

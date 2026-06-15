@@ -1264,6 +1264,13 @@
                     entity_id: project.id
                 });
 
+                // Email + per-user in-app notifikácie pre owner/admin/manager
+                fetch('/.netlify/functions/notify-proposal-event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project_id: project.id, event_type: 'client_approved' }),
+                }).catch(() => {});
+
                 project.status = 'approved';
                 render();
 
@@ -1302,6 +1309,13 @@
                     entity_type: 'project',
                     entity_id: project.id
                 });
+
+                // Email + per-user in-app notifikácie pre owner/admin/manager
+                fetch('/.netlify/functions/notify-proposal-event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project_id: project.id, event_type: 'client_revision', feedback: comment }),
+                }).catch(() => {});
 
                 project.status = 'revision';
                 project.client_feedback = comment;

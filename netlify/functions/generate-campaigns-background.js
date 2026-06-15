@@ -642,7 +642,47 @@ KRITICKÉ PRAVIDLÁ:
   console.log(`[generate-campaigns] generated: ${(googleDoc?.campaigns || []).length} Google + ${(metaDoc?.campaigns || []).length} Meta = ${campaignsArr.length} total`);
   if (campaignsArr.length === 0) throw new Error('AI nevygenerovala žiadne kampane');
 
-  // 5. Re-run guard + save
+  // 5. Snapshot predošlej verzie do proposal_versions PRED zmazaním kampaní
+  // — admin si vie pozrieť čo AI vygenerovala minule a porovnať.
+  try {
+    const { data: prevProject } = await supabase.from('campaign_projects')
+      .select('proposal_version, strategy_summary, business_analysis, research_data, expected_results, timeline, budget_breakdown, next_steps')
+      .eq('id', project_id).maybeSingle();
+
+    if (prevProject?.proposal_version > 0 && prevProject?.strategy_summary) {
+      // Snapshot existujúcich kampaní + ad_groups + ads ako JSONB
+      const { data: oldCampaigns } = await supabase.from('campaigns')
+        .select('name, platform, campaign_type, objective, budget_daily, targeting, metrics')
+        .eq('project_id', project_id).eq('ai_generated', true);
+      const campaignsSnapshot = oldCampaigns || [];
+      for (const c of campaignsSnapshot) {
+        const { data: groups } = await supabase.from('ad_groups').select('id, name, keywords, negative_keywords')
+          .in('campaign_id', (oldCampaigns || []).map(x => x.id || '00000000-0000-0000-0000-000000000000'));
+        c.ad_groups = groups || [];
+      }
+
+      const snapErr = (await supabase.from('proposal_versions').insert({
+        project_id,
+        version: prevProject.proposal_version,
+        strategy_summary: prevProject.strategy_summary,
+        business_analysis: prevProject.business_analysis,
+        research_data: prevProject.research_data,
+        expected_results: prevProject.expected_results,
+        timeline: prevProject.timeline,
+        budget_breakdown: prevProject.budget_breakdown,
+        next_steps: prevProject.next_steps,
+        campaigns_snapshot: campaignsSnapshot,
+        trigger: extra_instruction ? 'regenerate' : 'initial',
+        feedback: extra_instruction || null,
+      })).error;
+      if (snapErr) console.warn('[snapshot] failed (migration 030 chýba?):', snapErr.message);
+      else console.log(`[snapshot] saved v${prevProject.proposal_version} for project ${project_id}`);
+    }
+  } catch (e) {
+    console.warn('[snapshot] skipped:', e.message);
+  }
+
+  // 6. Re-run guard + save
   await deleteOldDraftCampaigns(project_id);
 
   // Načítaj client_id z projektu (potrebné pre campaigns.client_id)
