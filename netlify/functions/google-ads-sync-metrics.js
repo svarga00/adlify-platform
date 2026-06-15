@@ -74,26 +74,54 @@ exports.handler = async (event) => {
 
     const results = d.results || [];
     let synced = 0;
+    const today = new Date().toISOString().slice(0, 10);
     for (const row of results) {
       const c = row.campaign;
       const m = row.metrics;
+      const cost = Number(m.costMicros || 0) / 1000000;
+      const conversions = Number(m.conversions || 0);
+      const clicks = Number(m.clicks || 0);
       const metrics = {
         impressions: Number(m.impressions || 0),
-        clicks: Number(m.clicks || 0),
-        cost: Number(m.costMicros || 0) / 1000000,
-        conversions: Number(m.conversions || 0),
+        clicks,
+        cost,
+        conversions,
         ctr: Number(m.ctr || 0),
         avg_cpc: Number(m.averageCpc || 0) / 1000000,
+        cpa: conversions > 0 ? cost / conversions : 0,
       };
-      await supabase.from('campaigns').upsert({
-        platform: 'google_ads',
+      // Upsert campaign cache + napoj na klienta z platform_connections
+      const { data: upserted } = await supabase.from('campaigns').upsert({
+        platform: 'google',
         external_id: String(c.id),
         name: c.name,
         status: String(c.status).toLowerCase(),
+        client_id: conn.client_id || null,
         platform_connection_id: conn.id,
         metrics,
         metrics_updated_at: new Date().toISOString(),
-      }, { onConflict: 'platform,external_id' });
+      }, { onConflict: 'platform,external_id' }).select('id').single();
+
+      // Daily snapshot — last 30d cumulative; pre presnejší denný trend
+      // by sme volali GAQL s segments.date a robili row-per-day, ale to
+      // znamená ~30× viac riadkov a vyšší API quota cost. Pre weekly report
+      // je ale rolling cumulative dostatočný (delta vs. predchádzajúci snapshot).
+      if (upserted?.id) {
+        await supabase.from('campaign_metrics_daily').upsert({
+          campaign_id: upserted.id,
+          client_id: conn.client_id || null,
+          snapshot_date: today,
+          impressions: metrics.impressions,
+          clicks: metrics.clicks,
+          cost: metrics.cost,
+          conversions: metrics.conversions,
+          ctr: metrics.ctr,
+          avg_cpc: metrics.avg_cpc,
+          cpa: metrics.cpa,
+          source: 'google_ads',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'campaign_id,snapshot_date' });
+      }
       synced++;
     }
 

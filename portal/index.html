@@ -1756,6 +1756,7 @@
         let tourActive = false;
         let projects = [];
         let campaigns = [];
+        let dailyMetrics = [];
         let invoices = [];
         let documents = [];
         let tickets = [];
@@ -2082,7 +2083,7 @@
                     return;
                 }
 
-                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments(), loadTickets(), loadMessages(), loadReports(), loadApprovals()]);
+                await Promise.all([loadProjects(), loadCampaigns(), loadDailyMetrics(), loadInvoices(), loadDocuments(), loadTickets(), loadMessages(), loadReports(), loadApprovals()]);
                 render();
                 subscribeToMessages();
                 subscribeToApprovals();
@@ -2110,7 +2111,43 @@
 
         async function loadCampaigns() {
             const { data } = await db.from('campaigns').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
-            campaigns = data || [];
+            // Normalizuj metrics JSONB na top-level — render očakáva c.budget, c.conversions, c.roi, c.platform_label
+            campaigns = (data || []).map(c => {
+                const m = c.metrics || {};
+                const platformLabel = c.platform === 'meta' ? 'Facebook + Instagram'
+                                    : c.platform === 'google' ? 'Google Ads'
+                                    : c.platform === 'tiktok' ? 'TikTok'
+                                    : c.platform === 'linkedin' ? 'LinkedIn'
+                                    : (c.platform_label || 'Multi-platform');
+                const conversionValue = Number(m.conversion_value || 0);
+                const cost = Number(m.cost || 0);
+                const roi = (m.roas != null && m.roas !== 0) ? Number(m.roas)
+                          : (conversionValue > 0 && cost > 0) ? conversionValue / cost
+                          : null;
+                return {
+                    ...c,
+                    platform_label: c.platform_label || platformLabel,
+                    budget: Number(m.cost || c.budget_daily || 0),  // spent v aktuálnom období
+                    budget_total: Number(c.budget_total || (c.budget_daily ? c.budget_daily * 30 : 0)),
+                    conversions: Number(m.conversions || 0),
+                    impressions: Number(m.impressions || 0),
+                    clicks: Number(m.clicks || 0),
+                    ctr: Number(m.ctr || 0),
+                    cpa: Number(m.cpa || 0),
+                    roi,
+                };
+            });
+        }
+
+        async function loadDailyMetrics() {
+            // Posledných 30 dní pre trend graf
+            const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+            const { data } = await db.from('campaign_metrics_daily')
+                .select('snapshot_date, impressions, clicks, cost, conversions')
+                .eq('client_id', client.id)
+                .gte('snapshot_date', since)
+                .order('snapshot_date', { ascending: true });
+            dailyMetrics = data || [];
         }
 
         async function loadInvoices() {
@@ -3067,7 +3104,6 @@
 
         // ─── Reports (PR E1) ───
         function renderReports() {
-            const kpis = client?.dashboard_kpis || {};
             const fmtNum = n => new Intl.NumberFormat('sk-SK').format(Math.round(n || 0));
             const fmtMoney = n => fmtNum(n) + ' €';
             const fmtBytes = bytes => {
@@ -3085,7 +3121,51 @@
                 return `${fmt(s, !sameYear)} – ${fmt(e, true)}`;
             };
 
-            const trend = Array.isArray(kpis.trend) ? kpis.trend : [];
+            // Live KPI agregované z campaigns.metrics (sync runs every 2h)
+            // Active + paused (paused má historické dáta), wszystkie ostatné ignorujeme
+            const liveCamps = campaigns.filter(c => ['active', 'paused'].includes(c.status));
+            const sum = (k) => liveCamps.reduce((s, c) => s + Number(c[k] || 0), 0);
+            const totalConversions = sum('conversions');
+            const totalClicks = sum('clicks');
+            const totalImpressions = sum('impressions');
+            const totalCost = sum('budget');  // budget == cost po normalizácii v loadCampaigns
+            const avgCpa = totalConversions > 0 ? totalCost / totalConversions : 0;
+            const avgRoi = liveCamps.length
+                ? liveCamps.reduce((s, c) => s + (c.roi || 0), 0) / liveCamps.filter(c => c.roi != null).length || 0
+                : 0;
+            const lastSync = liveCamps
+                .map(c => c.metrics_updated_at).filter(Boolean)
+                .sort().pop();
+
+            // Trend graf z campaign_metrics_daily — agregátor po dňoch
+            // dailyMetrics má row per (campaign, date); my potrebujeme sum per date
+            const byDate = new Map();
+            for (const d of dailyMetrics) {
+                const cur = byDate.get(d.snapshot_date) || { date: d.snapshot_date, conv: 0, cost: 0, clicks: 0 };
+                cur.conv += Number(d.conversions || 0);
+                cur.cost += Number(d.cost || 0);
+                cur.clicks += Number(d.clicks || 0);
+                byDate.set(d.snapshot_date, cur);
+            }
+            const trendRows = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+            // sparkline berie pole čísel — pošleme konverzie
+            const trend = trendRows.map(r => r.conv);
+            // Konverzie pred 7 dňami vs. posledných 7 — delta %
+            const last7 = trendRows.slice(-7).reduce((s, r) => s + r.conv, 0);
+            const prev7 = trendRows.slice(-14, -7).reduce((s, r) => s + r.conv, 0);
+            const conversionsDeltaPct = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : null;
+
+            const kpis = {
+                conversions: totalConversions,
+                conversions_delta_pct: conversionsDeltaPct,
+                roi: avgRoi,
+                conversion_value: liveCamps.reduce((s, c) => s + Number(c.metrics?.conversion_value || 0), 0),
+                reach: totalImpressions,
+                clicks: totalClicks,
+                spent: totalCost,
+                budget: liveCamps.reduce((s, c) => s + Number(c.budget_total || 0), 0),
+                cpa: avgCpa,
+            };
 
             // Top kampane podľa konverzií
             const topCamps = [...campaigns]
@@ -3099,9 +3179,12 @@
                 <div class="pt-rep-hero">
                     <div class="pt-rep-hero-head">
                         <div>
-                            <div class="pt-rep-hero-eyebrow">Aktuálny mesiac</div>
+                            <div class="pt-rep-hero-eyebrow">Posledných 30 dní</div>
                             <div class="pt-rep-hero-title">Výkonnostný prehľad</div>
-                            <div class="pt-rep-hero-sub">${escapeHtml(client?.company_name || '')} · live KPI z kampaní</div>
+                            <div class="pt-rep-hero-sub">
+                                ${escapeHtml(client?.company_name || '')} · live z reklamných platforiem
+                                ${lastSync ? ` · sync ${new Date(lastSync).toLocaleString('sk-SK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
+                            </div>
                         </div>
                         ${trend.length ? `<div class="pt-rep-spark">${sparkline(trend, 220, 60, '#fff')}</div>` : ''}
                     </div>
@@ -3112,9 +3195,9 @@
                             ${typeof kpis.conversions_delta_pct === 'number' ? `<div class="pt-rep-kpi-delta ${kpis.conversions_delta_pct >= 0 ? 'is-up' : 'is-down'}">${kpis.conversions_delta_pct >= 0 ? '+' : ''}${kpis.conversions_delta_pct}%</div>` : ''}
                         </div>
                         <div class="pt-rep-kpi">
-                            <div class="pt-rep-kpi-label">ROI</div>
-                            <div class="pt-rep-kpi-value">${(kpis.roi || 0).toFixed(1)}×</div>
-                            <div class="pt-rep-kpi-delta">${fmtMoney(kpis.conversion_value)} hodnota</div>
+                            <div class="pt-rep-kpi-label">${kpis.cpa > 0 ? 'CPA' : 'ROI'}</div>
+                            <div class="pt-rep-kpi-value">${kpis.cpa > 0 ? fmtMoney(kpis.cpa) : (kpis.roi || 0).toFixed(1) + '×'}</div>
+                            <div class="pt-rep-kpi-delta">${kpis.conversion_value > 0 ? fmtMoney(kpis.conversion_value) + ' hodnota' : (totalConversions + ' konverzií')}</div>
                         </div>
                         <div class="pt-rep-kpi">
                             <div class="pt-rep-kpi-label">Dosah</div>
