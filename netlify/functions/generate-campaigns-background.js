@@ -249,66 +249,168 @@ async function runGeneration({ project_id, onboarding_id, platforms }) {
   const monthlyBudget = Number(onboarding.monthly_budget_max || onboarding.monthly_budget_min || 300) || 300;
   const dailyBudget = Math.round(monthlyBudget / 30);
 
-  const prompt = `Si senior PPC stratég pre slovenskú marketingovú agentúru Adlify. Pripravuješ návrh kampane pre klienta po onboardingu. Píš ako skúsený človek — NIKDY nespomínaj AI ani automatizáciu.
+  // Helper — formátuje pole/object/string konzistentne, dáva '—' pre prázdne
+  const fmt = (v) => {
+    if (v === null || v === undefined || v === '' || v === '-') return '—';
+    if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+  };
 
-## ONBOARDING KLIENTA
-Názov: ${onboarding.company_name || '—'}
-Web: ${onboarding.company_website || '—'}
-Odvetvie: ${onboarding.company_industry || '—'}
-Lokalita: ${onboarding.company_location || 'Slovensko'}
-Popis: ${onboarding.company_description || '—'}
+  // Geografia — onboarding ju má v target_audience.geographic { regions, countries }
+  const geo = onboarding.target_audience?.geographic || {};
+  const regions = Array.isArray(geo.regions) ? geo.regions : [];
+  const countries = Array.isArray(geo.countries) ? geo.countries : ['Slovensko'];
+  const geoTargeting = regions.length
+    ? `${regions.join(', ')} (${countries.join(', ')})`
+    : countries.join(', ');
 
-Produkty/služby:
-${(onboarding.products_services || []).map(p => `- ${p.name}: ${p.description || ''}`).join('\n') || '—'}
+  // Produkty — formát: pole objektov { name, description, price_range }
+  const productsList = (onboarding.products_services || [])
+    .map(p => {
+      if (typeof p === 'string') return `- ${p}`;
+      const name = p?.name || 'Neuvedené';
+      const desc = p?.description ? ` — ${p.description}` : '';
+      const price = p?.price_range ? ` (${p.price_range})` : '';
+      return `- ${name}${desc}${price}`;
+    }).join('\n') || '—';
 
-USP: ${(onboarding.unique_selling_points || []).join(', ') || '—'}
-Výhody: ${onboarding.competitive_advantages || '—'}
+  // Sezónnosť — kritické pre HVAC a podobné biznisy
+  const seasonalNote = onboarding.seasonal_business
+    ? `SEZÓNNY BIZNIS — peak: ${fmt(onboarding.peak_seasons)}. NÁVRH MUSÍ obsahovať sezónne kampane (rozdelenie podľa ročných období) alebo aspoň upozorniť na potrebu eskalovať budget v špičkách.`
+    : 'Celoročný biznis';
 
-Cieľovka: B2B=${onboarding.target_audience?.b2b ? 'áno' : 'nie'}, B2C=${onboarding.target_audience?.b2c ? 'áno' : 'nie'}, vek ${onboarding.target_audience?.demographics?.age_from || 18}-${onboarding.target_audience?.demographics?.age_to || 65}, pohlavie ${onboarding.target_audience?.demographics?.gender || 'všetci'}, lokácie ${(onboarding.target_audience?.locations || ['Slovensko']).join(', ')}
-Ideálny zákazník: ${onboarding.ideal_customer_description || '—'}
+  const prompt = `Si senior PPC stratég pre slovenskú marketingovú agentúru Adlify. Pripravuješ NÁVRH KAMPANE pre reálneho klienta po onboardingu.
 
-Ciele: ${(onboarding.primary_goals || []).join(', ') || '—'}
-Očakávané CPA: ${onboarding.expected_cpa || '—'}€
+ABSOLÚTNE PRAVIDLO: Píšeš ako skúsený človek, nie AI. NIKDY nespomínaj AI, automatizáciu, algoritmy ani že návrh bol generovaný. Klient si myslí že to píše senior stratég.
 
-Rozpočet: ${monthlyBudget}€/mes (~${dailyBudget}€/deň)
+KRITICKÉ: Návrh MUSÍ vychádzať z konkrétnych dát klienta nižšie. Žiadne všeobecné frázy typu "vaše služby pomôžu zákazníkom". Cituj USP doslova, používaj reálne názvy produktov, rešpektuj geografiu a sezónnosť. Ak klient predáva klimatizácie v Liptove — kampaň je o klimatizáciách v Liptove, nie o "vašich kvalitných službách".
 
-## RESEARCH DÁTA
-Top KW (${keywordData.length}): ${keywordData.slice(0, 20).map(k => `"${k.keyword}" (${k.search_volume}/mes, CPC ${(k.cpc || 0).toFixed(2)}€)`).join(', ') || '(nedostupné)'}
+## ZÁKLADNÉ INFO
+- Firma: ${fmt(onboarding.company_name)}
+- Web: ${fmt(onboarding.company_website)}
+- Odvetvie (sebadefinícia): ${fmt(onboarding.company_industry)}
+- Veľkosť: ${fmt(onboarding.company_size)} zamestnancov
+- Založené: ${fmt(onboarding.company_founded_year)}
+- Sídlo: ${fmt(onboarding.company_location)}
+- Popis čo robí: ${fmt(onboarding.company_description)}
 
-Konkurencia: ${allCompetitors.map(c => c.domain).join(', ') || '(nedostupná)'}
+## PRODUKTY A SLUŽBY (čo kampaň propaguje)
+${productsList}
 
-Reklamné texty konkurentov: ${paidAdsInsights.slice(0, 5).map(a => `[${a.query}] "${a.title}"`).join(' | ') || '(žiadne)'}
+## USP — UNIKÁTNE PREDAJNÉ ARGUMENTY (cituj ich DOSLOVA v ad textoch)
+${fmt(onboarding.unique_selling_points)}
 
-## PLATFORMY: ${platforms.join(', ')}
+## KONKURENČNÉ VÝHODY (cituj v descriptions)
+${fmt(onboarding.competitive_advantages)}
 
-## VÝSTUP — strict JSON, žiadny markdown, žiadny text okolo:
+## CIEĽOVÁ SKUPINA
+- B2B: ${onboarding.target_audience?.b2b ? 'áno' : 'nie'} | B2C: ${onboarding.target_audience?.b2c ? 'áno' : 'nie'}
+- Vek: ${onboarding.target_audience?.demographics?.age_from || 18}-${onboarding.target_audience?.demographics?.age_to || 65}
+- Pohlavie: ${onboarding.target_audience?.demographics?.gender || 'všetci'}
+- GEOGRAFIA (KRITICKÉ — kampaň MUSÍ cieliť presne tieto regióny): ${geoTargeting}
+- Ideálny zákazník (popis vlastnými slovami klienta): "${fmt(onboarding.ideal_customer_description)}"
+
+## ŠPECIÁLNE POŽIADAVKY OD KLIENTA (rešpektovať)
+${fmt(onboarding.special_requirements)}
+
+## SEZÓNNOSŤ
+${seasonalNote}
+
+## CIELE & METRIKY
+- Primárne ciele: ${fmt(onboarding.primary_goals)}
+- Sekundárne ciele: ${fmt(onboarding.secondary_goals)}
+- Očakávané CPA: ${fmt(onboarding.expected_cpa)}€
+- Očakávané ROAS: ${fmt(onboarding.expected_roas)}x
+- AOV (priemerná hodnota objednávky): ${fmt(onboarding.average_order_value)}€
+- CLV: ${fmt(onboarding.customer_lifetime_value)}€
+
+## ROZPOČET
+- Mesačný budget na reklamu: ${monthlyBudget}€ (~${dailyBudget}€/deň)
+- Predošlý mesačný budget: ${fmt(onboarding.previous_monthly_budget)}€
+- Balíček: ${fmt(onboarding.selected_package)}
+- Billing: ${fmt(onboarding.billing_period)}
+
+## PREDOŠLÉ SKÚSENOSTI (poučenie pre návrh)
+- Predošlá reklamná skúsenosť: ${fmt(onboarding.previous_ad_experience)}
+- Čo fungovalo predtým: ${fmt(onboarding.what_worked)}
+- Čo nefungovalo: ${fmt(onboarding.what_didnt_work)}
+- Súčasné marketingové kanály: ${fmt(onboarding.current_marketing_channels)}
+
+## BRAND & TÓN
+- Tón komunikácie: ${fmt(onboarding.brand_tone_of_voice)}
+- Preferovaný štýl reklám: ${fmt(onboarding.preferred_ad_style)}
+- Má brand guidelines: ${onboarding.has_brand_guidelines ? 'áno' : 'nie'}
+
+## ASSETS K DISPOZÍCII
+- Logo: ${onboarding.existing_assets?.has_logo ? 'áno' : 'nie'}
+- Fotky: ${onboarding.existing_assets?.has_photos ? 'áno' : 'nie'}
+- Videá: ${onboarding.existing_assets?.has_videos ? 'áno' : 'nie'}
+
+## TRACKING & TECH PRIPRAVENOSŤ
+- Tracking codes vie pridať: ${fmt(onboarding.can_add_tracking_codes)}
+- Existujúce ad účty: ${fmt(onboarding.has_existing_accounts)}
+- Platformy v rozsahu: ${platforms.join(', ')}
+
+## OTÁZKY KLIENTA NA NÁS (zohľadni v "next_steps")
+${fmt(onboarding.questions_for_us)}
+
+## RESEARCH DÁTA (Marketing Miner + Serper SERP)
+Top kľúčové slová (${keywordData.length}):
+${keywordData.slice(0, 25).map(k => `- "${k.keyword}" (${k.search_volume}/mes, CPC ${(k.cpc || 0).toFixed(2)}€${k.competition ? `, konkur. ${k.competition}` : ''})`).join('\n') || '(MM data nedostupná)'}
+
+Konkurencia v odvetví:
+${allCompetitors.map(c => `- ${c.domain}${c.is_paid ? ' [aktívne platí reklamy]' : ''}${c.titles?.[0] ? ` — "${c.titles[0]}"` : ''}`).join('\n') || '(nedostupná)'}
+
+Čo reálne píšu konkurenti v platených reklamách (inšpirácia, NIE kopírovať):
+${paidAdsInsights.slice(0, 8).map(a => `- "${a.title}" — ${(a.snippet || '').substring(0, 80)}`).join('\n') || '(žiadne)'}
+
+## VÝSTUP — strict JSON, žiadny markdown fence, žiadny text okolo:
 
 {
-  "business_analysis": { "summary": "2-3 vety", "key_insights": ["3 insights"], "challenges": ["2 výzvy"], "opportunities": ["2 príležitosti"] },
-  "strategy_summary": "3-5 viet",
-  "research_insights": { "market_analysis": "2-3 vety", "competitor_analysis": "2-3 vety", "keyword_strategy": "2 vety", "recommended_approach": "krátky odsek" },
+  "business_analysis": {
+    "summary": "2-3 vety čo klient skutočne robí, pre koho, prečo má zmysel u neho robiť PPC",
+    "key_insights": ["3 konkrétne zistenia o jeho biznise — sezónnosť, lokálna pôsobnosť, USP, atď."],
+    "challenges": ["2 reálne výzvy — limit budgetu, konkurencia, regionalita, atď."],
+    "opportunities": ["2 príležitosti — neobsadený segment, sezónne špičky, lokálna prevaha"]
+  },
+  "strategy_summary": "3-5 viet o celkovej PPC stratégii pre tohto klienta. Spomeň konkrétne: cielenie na regióny, sezónnosť, USP ktoré budeme tlačiť, mix platforiem a prečo.",
+  "research_insights": {
+    "market_analysis": "2-3 vety o dopyte v jeho odvetví/regióne na základe MM keywords",
+    "competitor_analysis": "2-3 vety o tom čo robí konkurencia a kde je priestor",
+    "keyword_strategy": "2 vety o tom aké KW témy cielime a prečo",
+    "recommended_approach": "krátky odsek (3-4 vety) — odporúčaný štart, kedy škálovať, na čo dať pozor"
+  },
   "campaigns": [
     {
-      "name": "Názov",
+      "name": "Konkrétny názov vrátane regiónu/sezóny (nie 'Search Campaign 1')",
       "platform": "google" | "meta",
       "campaign_type": "search" | "display" | "pmax" | "traffic" | "conversions" | "awareness" | "video",
-      "objective": "cieľ",
-      "rationale": "1-2 vety",
+      "objective": "konkrétny cieľ (napr. 'Lead generation cez kontaktný formulár a telefonáty')",
+      "rationale": "1-2 vety prečo PRÁVE TÁTO kampaň pre tohto klienta",
       "daily_budget": 10,
-      "targeting": { "locations": ["Slovensko"], "age_from": 18, "age_to": 65, "gender": "all|male|female", "keywords": ["KW"], "interests": ["záujmy"], "audiences": [] },
+      "targeting": {
+        "locations": ${JSON.stringify(regions.length ? regions : countries)},
+        "age_from": ${onboarding.target_audience?.demographics?.age_from || 28},
+        "age_to": ${onboarding.target_audience?.demographics?.age_to || 65},
+        "gender": "${onboarding.target_audience?.demographics?.gender || 'all'}",
+        "keywords": ["reálne KW z research vyššie alebo logické nové"],
+        "interests": ["záujmy len pre Meta — konkrétne podľa biznisu klienta"],
+        "audiences": []
+      },
       "ad_groups": [
         {
-          "name": "Názov AG",
-          "theme": "1 veta",
-          "keywords": ["KW"],
-          "negative_keywords": ["neg"],
+          "name": "Konkrétny názov AG (nie 'Ad Group 1')",
+          "theme": "1 veta čo táto AG rieši",
+          "keywords": ["KW relevantné pre tento ad group"],
+          "negative_keywords": ["neg KW — práca/zamestnanie/kariéra, free/zdarma, atď. podľa logiky"],
           "ads": [
             {
               "type": "responsive",
-              "headlines": ["max 30 znakov", "..."],
-              "descriptions": ["max 90 znakov", "..."],
-              "call_to_action": "CTA",
-              "final_url": "https://klient.sk/page",
+              "headlines": ["max 30 znakov — citujú USP klienta", "...", "..."],
+              "descriptions": ["max 90 znakov — opis výhody + CTA", "..."],
+              "call_to_action": "konkrétna CTA (Získať obhliadku zdarma / Zavolajte / Vyžiadať cenu)",
+              "final_url": "https://klient.sk/konkretna-stranka",
               "path1": "max-15",
               "path2": "max-15",
               "image_prompt": "EN prompt pre DALL·E (len pre display/meta/video, search ads = null)",
@@ -320,22 +422,48 @@ Reklamné texty konkurentov: ${paidAdsInsights.slice(0, 5).map(a => `[${a.query}
       "estimated_results": { "impressions": 0, "clicks": 0, "ctr": 0, "conversions": 0, "cpa": 0 }
     }
   ],
-  "budget_breakdown": { "total_monthly": 0, "by_platform": [], "by_campaign": [], "reasoning": "1-2 vety" },
-  "expected_results": { "day_30": {}, "day_90": {}, "day_180": {}, "notes": "1-2 vety" },
-  "timeline": { "phases": [{ "name": "Príprava", "duration_days": 7, "activities": ["..."] }] },
-  "next_steps": { "client_needs_to_provide": ["..."], "our_next_actions": ["..."], "launch_readiness": ["..."] }
+  "budget_breakdown": {
+    "total_monthly": ${monthlyBudget},
+    "by_platform": [{ "platform": "google", "monthly": 0, "percentage": 0 }],
+    "by_campaign": [{ "campaign_name": "...", "monthly": 0 }],
+    "reasoning": "1-2 vety prečo takéto rozdelenie pre tohto klienta"
+  },
+  "expected_results": {
+    "day_30": { "impressions": 0, "clicks": 0, "conversions": 0, "cpa": 0, "roas": 0 },
+    "day_90": { "impressions": 0, "clicks": 0, "conversions": 0, "cpa": 0, "roas": 0 },
+    "day_180": { "impressions": 0, "clicks": 0, "conversions": 0, "cpa": 0, "roas": 0 },
+    "notes": "1-2 vety — kedy sa prejavia optimalizácie, ako klient pozná že to funguje"
+  },
+  "timeline": {
+    "phases": [
+      { "name": "Príprava + tracking setup", "duration_days": 7, "activities": ["konkrétne aktivity"] },
+      { "name": "Spustenie kampaní", "duration_days": 3, "activities": ["..."] },
+      { "name": "Optimalizácia (1-3 mesiac)", "duration_days": 60, "activities": ["..."] },
+      { "name": "Škálovanie (od 4. mesiaca)", "duration_days": 90, "activities": ["..."] }
+    ]
+  },
+  "next_steps": {
+    "client_needs_to_provide": ["konkrétne čo klient musí dodať — prístupy, fotky, USP, ...", "..."],
+    "our_next_actions": ["čo my spravíme po jeho schválení"],
+    "launch_readiness": ["checklist pred spustením — pixel, GA, ciele, ..."]
+  }
 }
 
-PRAVIDLÁ:
-- Všetko v slovenčine, vykáme
-- Min 2 kampane (Google + Meta ak obe v platforms)
-- Každá kampaň 2-3 ad groups, každá ad group 2-3 reklamy
-- Headlines max 30 znakov, descriptions max 90 znakov
-- Pre search ads image_prompt = null, image_aspect_ratio = null
-- Pre display/meta povinne image_prompt v angličtine (Photo/Illustration + konkrétna scéna + "no text, no logos" + aspect ratio na konci)
-- final_url konkrétna stránka (base ${onboarding.company_website || 'klient.sk'})
-- Žiadne výmysly — používaj len konkrétne dáta z onboardingu a research
-- LEN JSON, nič okolo`;
+## TVRDÉ PRAVIDLÁ
+1. Všetko v slovenčine, vykáme klientovi
+2. Min 2 kampane: jedna na Google Search (lebo dopyt), jedna na Meta (lebo brand/local awareness)
+3. Každá kampaň 2-3 ad groups, každá AG 2-3 reklamy
+4. Headlines MAX 30 znakov, descriptions MAX 90 znakov (Google limit). Pred zápisom skontroluj dĺžku.
+5. final_url konkrétna stránka klienta (base: ${onboarding.company_website || 'klient.sk'})
+6. Targeting locations: použij regióny z geografie vyššie, NIE celé Slovensko ak klient špecifikoval regióny
+7. KW: kombinuj reálne MM keywords z research s logickými novými (lokálne varianty s mestami)
+8. Headlines a descriptions MUSIA obsahovať USP klienta — cituj doslova jeho výhody (rýchle dodanie, obhliadky zdarma, atď.)
+9. Negative keywords pre lead-gen kampane: práca, kariéra, zamestnanie, návod, free, zdarma, kurz, školenie
+10. Pre Search ads: image_prompt = null, image_aspect_ratio = null
+11. Pre Display/Meta: image_prompt v EN pre DALL·E — konkrétna scéna z odvetvia klienta + "no text, no logos, no watermarks" + aspect ratio na konci
+12. Ak je biznis sezónny — buď kampaň rozdeľ na sezóny, alebo daj poznámku v rationale
+13. Žiadne výmysly: ak chýba dáta, povedz to v challenges, NEvymýšľaj si čísla
+14. ODPOVEĎ LEN JSON — žiadny text okolo, žiadne markdown fence, žiadny "Tu je návrh:"`;
 
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_KEY) throw new Error('Missing ANTHROPIC_API_KEY env var na Netlify');
