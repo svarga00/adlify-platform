@@ -330,16 +330,19 @@ const ProjectDetailModule = {
         break;
       case 'internal_review':
         buttons.push(btn(c.purple, `CampaignProjectsModule.openCreativesPage('${id}')`, '🎨 Kreatívy & prompty'));
+        buttons.push(btn(c.blue,   `window.open('/.netlify/functions/proposal-html?project_id=${id}', '_blank')`, '📄 Zobraziť PDF náhľad'));
         buttons.push(btn(c.orange, `CampaignProjectsModule.regenerateWithFeedback('${id}')`, '✏️ Pregenerovať s pripomienkami'));
         buttons.push(btn(c.green,  `CampaignProjectsModule.approveInternal('${id}')`, '✅ Schváliť pre klienta'));
         break;
       case 'client_review':
         buttons.push(btn(c.purple, `CampaignProjectsModule.generateClientLink('${id}')`, project.client_portal_token ? '🔗 Kopírovať odkaz' : '🔗 Generovať odkaz'));
         buttons.push(btn(c.green,  `CampaignProjectsModule.sendProposalToClient('${id}')`, '📧 Poslať klientovi email'));
+        buttons.push(btn(c.blue,   `window.open('/.netlify/functions/proposal-html?project_id=${id}', '_blank')`, '📄 PDF náhľad'));
         buttons.push(btn(c.blue,   `CampaignProjectsModule.previewAsClient('${id}')`, '👁️ Náhľad portálu'));
         break;
       case 'approved':
         buttons.push(btn(c.purple, `CampaignProjectsModule.openCreativesPage('${id}')`, '🎨 Kreatívy & prompty'));
+        buttons.push(btn(c.blue,   `window.open('/.netlify/functions/proposal-html?project_id=${id}', '_blank')`, '📄 Stiahnuť PDF'));
         buttons.push(btn(c.blue,   `CampaignProjectsModule.exportCampaigns('${id}','google_editor')`, '⬇️ Google Ads CSV'));
         buttons.push(btn(c.indigo, `CampaignProjectsModule.exportCampaigns('${id}','meta_csv')`, '⬇️ Meta Bulk CSV'));
         buttons.push(btn(c.grad,   `CampaignProjectsModule.deployProject('${id}')`, '🚀 Označiť ako nasadené'));

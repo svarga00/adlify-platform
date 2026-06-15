@@ -719,6 +719,18 @@
                 ${renderTimeline(project.timeline)}
                 ${renderNextSteps(project.next_steps)}
 
+                <!-- PDF download (vždy dostupné) -->
+                <div style="background:#fff;border:1px solid #eae6de;border-radius:14px;padding:20px;margin-top:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+                    <div>
+                        <div style="font-size:14px;font-weight:600;color:#14120e;margin-bottom:4px;">📄 Návrh ako PDF dokument</div>
+                        <div style="font-size:12px;color:#6b7280;">Stiahnite si návrh pre offline prezeranie alebo zdielanie.</div>
+                    </div>
+                    <button onclick="downloadProposalPDF()"
+                        style="background:#14120e;color:white;border:none;padding:12px 22px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">
+                        📥 Stiahnuť PDF
+                    </button>
+                </div>
+
                 <!-- Actions -->
                 ${isEditable ? `
                     <div class="action-section">
@@ -1213,6 +1225,15 @@
 
         function openRevisionModal() {
             document.getElementById('revision-modal').classList.add('active');
+        }
+
+        // PDF stiahnutie — otvorí premium HTML návrh + auto-trigger tlače
+        // (browser ponúkne Save as PDF). Token z URL = autorizácia (rovnaký
+        // ako proposal.html).
+        function downloadProposalPDF() {
+            const token = new URLSearchParams(window.location.search).get('t');
+            if (!token) return alert('Chýba token v URL');
+            window.open(`/.netlify/functions/proposal-html?token=${encodeURIComponent(token)}&print=1`, '_blank');
         }
 
         function closeModal() {
