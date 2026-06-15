@@ -2109,6 +2109,51 @@
             projects = data || [];
         }
 
+        // Automatické action items z reálnych stavov projektov.
+        // Klient v dashboarde hneď vidí čo má spraviť — nemusí čakať na
+        // manuálne client.action_items v DB.
+        function computeProjectActionItems() {
+            const items = [];
+            for (const p of projects) {
+                if (p.status === 'client_review' && p.client_portal_token) {
+                    items.push({
+                        title: `📋 Návrh kampane čaká na vaše schválenie`,
+                        sub: p.name || 'Marketingová stratégia',
+                        icon: 'Docs',
+                        tone: 'brand',
+                        action_url: `/portal/proposal.html?t=${p.client_portal_token}`,
+                        _external: true,
+                    });
+                } else if (p.status === 'revision') {
+                    items.push({
+                        title: `✏️ Pracujeme na úpravách návrhu`,
+                        sub: p.name || 'Marketingová stratégia',
+                        icon: 'Clock',
+                        tone: 'amber',
+                        action_url: p.client_portal_token ? `/portal/proposal.html?t=${p.client_portal_token}` : null,
+                        _external: !!p.client_portal_token,
+                    });
+                } else if (p.status === 'approved') {
+                    items.push({
+                        title: `✅ Návrh schválený — pripravujeme nasadenie`,
+                        sub: p.name || 'Marketingová stratégia',
+                        icon: 'Check',
+                        tone: 'mint',
+                        action_url: p.client_portal_token ? `/portal/proposal.html?t=${p.client_portal_token}` : null,
+                        _external: !!p.client_portal_token,
+                    });
+                } else if (p.status === 'generating') {
+                    items.push({
+                        title: `🤖 Pripravujeme váš strategický návrh`,
+                        sub: 'Náš tím momentálne dolaďuje detail kampaní. Dáme vám vedieť keď bude pripravené.',
+                        icon: 'Cog',
+                        tone: 'sky',
+                    });
+                }
+            }
+            return items;
+        }
+
         async function loadCampaigns() {
             const { data } = await db.from('campaigns').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
             // Normalizuj metrics JSONB na top-level — render očakáva c.budget, c.conversions, c.roi, c.platform_label
@@ -2538,10 +2583,15 @@
             const value = k.conversion_value ?? 0;
             const valueDelta = k.conversion_value_delta_pct;
             const trend = k.trend || [];
-            const actionItems = client.action_items || [];
+            // Auto-compute action items z reálnych projekt-stavov (klient
+            // hneď vidí čo má spraviť, namiesto čakania na manuálne klient.action_items).
+            const dynamicActions = computeProjectActionItems();
+            const actionItems = [...dynamicActions, ...(client.action_items || [])];
             const teamMember = client.account_manager || null;
             const upcomingEvents = client.upcoming_events || [];
             const activeCamps = campaigns.filter(c => c.status === 'active' || c.status === 'paused').slice(0, 3);
+            // Projekty čakajúce na klienta — proposal banner
+            const pendingProposals = projects.filter(p => p.status === 'client_review' && p.client_portal_token);
 
             const fmtNum = (n) => new Intl.NumberFormat('sk-SK').format(Math.round(n));
             const fmtMoney = (n) => new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €';
@@ -2551,6 +2601,19 @@
             const statusLabel = (s) => s === 'active' ? 'Aktívna' : s === 'paused' ? 'Pauza' : (s || '—');
 
             return `
+                ${pendingProposals.length > 0 ? `
+                <a href="/portal/proposal.html?t=${pendingProposals[0].client_portal_token}"
+                   style="display:flex; align-items:center; gap:18px; padding:22px 26px; background:linear-gradient(135deg, #FF6B35, #E91E63); color:white; border-radius:18px; margin-bottom:20px; text-decoration:none; box-shadow:0 10px 30px -10px rgba(255,107,53,0.4);">
+                    <div style="width:56px; height:56px; border-radius:14px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;">📋</div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; opacity:0.85; margin-bottom:4px;">Nový návrh kampane</div>
+                        <div style="font-size:18px; font-weight:700; line-height:1.3; margin-bottom:3px;">Pripravili sme pre vás strategický návrh</div>
+                        <div style="font-size:13px; opacity:0.92;">${escapeHtml(pendingProposals[0].name)} · čaká na vaše schválenie</div>
+                    </div>
+                    <div style="background:white; color:#E91E63; padding:11px 20px; border-radius:10px; font-weight:700; font-size:13px; white-space:nowrap;">Pozrieť návrh →</div>
+                </a>
+                ` : ''}
+
                 <div class="pt-hero">
                     <div class="pt-hero-row">
                         <div style="flex:1; min-width:0;">
@@ -2614,18 +2677,24 @@
                             <div class="pt-card-title">Vyžaduje vašu akciu</div>
                         </div>
                         <div class="pt-card-body">
-                            ${actionItems.length > 0 ? actionItems.map((a, i) => `
-                                <div class="pt-action" onclick="${a.target_tab ? `switchTab('${a.target_tab}')` : ''}" style="${i === 0 ? 'background:var(--brand-50);' : ''}">
+                            ${actionItems.length > 0 ? actionItems.map((a, i) => {
+                                let clickHandler = '';
+                                if (a._external && a.action_url) clickHandler = `window.open('${a.action_url}', '_blank')`;
+                                else if (a.action_url) clickHandler = `window.location.href='${a.action_url}'`;
+                                else if (a.target_tab) clickHandler = `switchTab('${a.target_tab}')`;
+                                const icon = (I[a.icon] || I.Info);
+                                return `
+                                <div class="pt-action" onclick="${clickHandler}" style="${i === 0 ? 'background:var(--brand-50);' : ''}; ${clickHandler ? 'cursor:pointer;' : ''}">
                                     <div class="pt-action-icon" style="background:${a.tone === 'brand' ? 'var(--brand-500)' : `var(--acc-${a.tone || 'sky'})`}; color:${a.tone === 'brand' ? '#fff' : `var(--acc-${a.tone || 'sky'}-ink)`};">
-                                        ${I[a.icon || 'Info']({size:15})}
+                                        ${icon({size:15})}
                                     </div>
                                     <div class="pt-action-body">
                                         <div class="pt-action-title">${escapeHtml(a.title)}</div>
                                         <div class="pt-action-sub">${escapeHtml(a.sub || '')}</div>
                                     </div>
                                     ${I.Chevron({size:14, color:'var(--ink-mute)'})}
-                                </div>
-                            `).join('') : `<div style="text-align:center; padding:20px; color:var(--ink-sub); font-size:13px;">${I.Check({size:24})}<div style="margin-top:8px;">Žiadne akcie nečakajú</div></div>`}
+                                </div>`;
+                            }).join('') : `<div style="text-align:center; padding:20px; color:var(--ink-sub); font-size:13px;">${I.Check({size:24})}<div style="margin-top:8px;">Žiadne akcie nečakajú</div></div>`}
                         </div>
                     </div>
                 </div>

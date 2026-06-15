@@ -2888,11 +2888,47 @@ const CampaignProjectsModule = {
     }
     
     const proposalUrl = `${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}`;
-    
+    const pdfUrl = `${window.location.origin}/.netlify/functions/proposal-html?token=${project.client_portal_token}&print=1`;
+
+    // Spočítaj zhrnutie pre premium email — kampane, reklamy, mesačný rozpočet, platformy
+    let campaignsCount = 0, adsCount = 0, monthlyBudget = 0, platforms = '';
+    try {
+      const { data: camps } = await Database.client
+        .from('campaigns').select('id, platform, budget_daily').eq('project_id', projectId);
+      campaignsCount = (camps || []).length;
+      const platformSet = new Set();
+      for (const c of (camps || [])) {
+        monthlyBudget += (Number(c.budget_daily) || 0) * 30;
+        if (c.platform === 'google') platformSet.add('Google Ads');
+        else if (c.platform === 'meta') platformSet.add('Meta (Facebook + Instagram)');
+        else if (c.platform) platformSet.add(c.platform);
+      }
+      platforms = Array.from(platformSet).join(' · ');
+      monthlyBudget = Math.round(monthlyBudget);
+      if (camps?.length) {
+        const { count } = await Database.client.from('ad_groups')
+          .select('id, ads(id)', { count: 'exact', head: false })
+          .in('campaign_id', camps.map(c => c.id));
+        // count tu reprezentuje ad_groups; pre presný počet reklám:
+        const { data: ags } = await Database.client.from('ad_groups').select('id').in('campaign_id', camps.map(c => c.id));
+        if (ags?.length) {
+          const { count: adsTotal } = await Database.client.from('ads')
+            .select('id', { count: 'exact', head: true }).in('ad_group_id', ags.map(g => g.id));
+          adsCount = adsTotal || 0;
+        }
+      }
+    } catch (e) { console.warn('Email summary fetch failed:', e); }
+
     // HTML email
     if (window.EmailTemplates) await EmailTemplates.ensureSettings();
     const htmlBody = window.EmailTemplates
-      ? EmailTemplates.campaignProposal({ contactName: client.contact_person, companyName: client.company_name, projectName: project.name, proposalUrl })
+      ? EmailTemplates.campaignProposal({
+          contactName: client.contact_person,
+          companyName: client.company_name,
+          projectName: project.name,
+          proposalUrl, pdfUrl,
+          campaignsCount, adsCount, monthlyBudget, platforms,
+        })
       : '<p>Pozrite si návrh kampane: <a href="' + proposalUrl + '">' + proposalUrl + '</a></p>';
     
     try {

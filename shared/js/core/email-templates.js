@@ -260,15 +260,49 @@ window.EmailTemplates = {
 
     if (o.greeting && name) greetText = greetText.replace(name, '<strong>' + name + '</strong>');
 
+    // Premium prezent\u00e1cia \u2014 zhrnutie obsahu n\u00e1vrhu + mockup karty platforiem
+    // + Stiahnu\u0165 PDF link (ak je pdfUrl k dispoz\u00edcii).
+    var hasMeta = data.campaignsCount || data.adsCount || data.monthlyBudget;
+    var summaryCard = hasMeta ? (
+      '<div style="background:linear-gradient(135deg,#fafaf8,#f5f1ea);border:1px solid #eae6de;border-radius:14px;padding:22px;margin:18px 0;">' +
+        '<div style="font-size:11px;color:#948b7c;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px;">' +
+        (data.projectName || 'Marketingov\u00fd n\u00e1vrh') + '</div>' +
+        '<div style="display:flex;gap:18px;flex-wrap:wrap;">' +
+          (data.campaignsCount ? '<div><div style="font-size:22px;font-weight:700;color:#14120e;">' + data.campaignsCount + '</div><div style="font-size:11px;color:#948b7c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Kampane</div></div>' : '') +
+          (data.adsCount ? '<div><div style="font-size:22px;font-weight:700;color:#14120e;">' + data.adsCount + '</div><div style="font-size:11px;color:#948b7c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Reklamy</div></div>' : '') +
+          (data.monthlyBudget ? '<div><div style="font-size:22px;font-weight:700;color:#FF6B35;">' + data.monthlyBudget + ' \u20ac</div><div style="font-size:11px;color:#948b7c;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Mesa\u010dne</div></div>' : '') +
+        '</div>' +
+        (data.platforms ? '<div style="margin-top:14px;padding-top:14px;border-top:1px solid #eae6de;font-size:13px;color:#374151;"><strong>Platformy:</strong> ' + data.platforms + '</div>' : '') +
+      '</div>'
+    ) : '';
+
+    var whatYouGet = (
+      '<div style="background:#fff7ed;border-left:3px solid #FF6B35;padding:14px 18px;border-radius:0 10px 10px 0;margin:16px 0;">' +
+        '<div style="font-size:11px;font-weight:700;color:#9a3412;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">V n\u00e1vrhu n\u00e1jdete</div>' +
+        '<div style="font-size:13.5px;color:#7c2d12;line-height:1.7;">' +
+          '\ud83c\udfaf Strategick\u00fa anal\u00fdzu v\u00e1\u0161ho biznisu a trhu<br>' +
+          '\ud83d\udcca Konkr\u00e9tne kampane s rozpo\u010dtami a cielen\u00edm<br>' +
+          '\u2728 Realistick\u00e9 n\u00e1h\u013eady rekl\u00e1m (Google + Meta)<br>' +
+          '\ud83d\udcc5 \u010casov\u00fd pl\u00e1n nasadenia a o\u010dak\u00e1van\u00e9 v\u00fdsledky<br>' +
+          '\ud83c\udfa8 N\u00e1vrhy kreat\u00edv a k\u013e\u00fa\u010dov\u00fdch slov' +
+        '</div>' +
+      '</div>'
+    );
+
+    var pdfButton = data.pdfUrl ? (
+      '<div style="margin-top:8px;text-align:center;">' +
+        '<a href="' + data.pdfUrl + '" style="display:inline-block;color:#FF6B35;font-size:13px;font-weight:600;text-decoration:none;border-bottom:1px solid #FF6B35;padding-bottom:2px;">\ud83d\udce5 Alebo si stiahnite n\u00e1vrh ako PDF</a>' +
+      '</div>'
+    ) : '';
+
     var content = [
       this._heading(headingText),
       this._p(greetText),
       this._p(bodyText),
-      data.projectName ? this._card(
-        '<p style="margin:0 0 8px;font-weight:600;color:#333;">' + data.projectName + '</p>' +
-        '<p style="margin:0;color:#777;font-size:14px;line-height:1.8;">\u2022 Cielen\u00e9 kampane pre v\u00e1\u0161 biznis<br>\u2022 O\u010dak\u00e1van\u00e9 v\u00fdsledky a metriky<br>\u2022 Optimalizovan\u00fd rozpo\u010det</p>'
-      ) : '',
+      summaryCard,
+      whatYouGet,
       this._button(btnText, data.proposalUrl),
+      pdfButton,
       noteText ? this._p(noteText, {size:'14px',color:'#999'}) : ''
     ].join('');
     return this._baseLayout(content);
