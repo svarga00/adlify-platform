@@ -64,14 +64,25 @@ const CreativesModule = {
   },
 
   async _loadData() {
-    // Project
-    const { data: project } = await Database.client
+    // Project — bez embed-u clients (PostgREST 400 ak FK nie je explicitne
+    // pomenovaná). Klienta načítame separátne.
+    const { data: project, error: projectErr } = await Database.client
       .from('campaign_projects')
-      .select('*, client:clients!client_id(id, company_name, company_website, email)')
+      .select('*')
       .eq('id', this.projectId)
-      .single();
-    if (!project) throw new Error('Projekt nenájdený');
+      .maybeSingle();
+    if (projectErr) throw new Error('Načítanie projektu zlyhalo: ' + projectErr.message);
+    if (!project) throw new Error('Projekt nenájdený (id=' + this.projectId + ')');
     this.project = project;
+
+    if (project.client_id) {
+      const { data: clientRow } = await Database.client
+        .from('clients')
+        .select('id, company_name, website, email')
+        .eq('id', project.client_id)
+        .maybeSingle();
+      this.project.client = clientRow || null;
+    }
 
     // Campaigns
     const { data: campaigns } = await Database.client
