@@ -41,6 +41,152 @@ const fmtDate = (d) => {
   catch { return d; }
 };
 
+// ───── REKLAMNÉ MOCKUPY ─────
+// Realistické náhľady reklám per platforma. Vyzerá ako keby admin spravil
+// screenshot z reálneho Google / Meta / IG feedu. Premium impact pre klienta.
+
+function mockupGoogleSearch(ad, c, client) {
+  const headlines = ad.headlines?.length ? ad.headlines.slice(0, 3) : ['Headline 1'];
+  const desc = ad.descriptions?.[0] || '';
+  const url = ad.final_url || (client?.website || 'https://klient.sk');
+  const path1 = ad.path1 ? '/' + esc(ad.path1) : '';
+  const path2 = ad.path2 ? '/' + esc(ad.path2) : '';
+  let displayUrl = url;
+  try { displayUrl = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+
+  return `
+    <div class="mockup mockup-google">
+      <div class="mockup-label">Google Search · náhľad reklamy</div>
+      <div class="mockup-google-content">
+        <div class="mockup-google-ad-tag">Sponzorované</div>
+        <div class="mockup-google-url">${esc(displayUrl)}${path1}${path2}</div>
+        <div class="mockup-google-title">${headlines.map(h => esc(h)).join(' | ')}</div>
+        <div class="mockup-google-desc">${esc(desc)}</div>
+      </div>
+    </div>`;
+}
+
+function mockupMetaFeed(ad, c, client) {
+  const primaryText = ad.descriptions?.[0] || '';
+  const headline = ad.headlines?.[0] || ad.descriptions?.[1] || '';
+  const url = ad.final_url || (client?.website || 'klient.sk');
+  let displayUrl = url;
+  try { displayUrl = new URL(url).hostname.replace(/^www\./, '').toUpperCase(); } catch {}
+  const ctaMap = {
+    'LEARN_MORE': 'Viac informácií', 'SHOP_NOW': 'Nakúpiť', 'SIGN_UP': 'Zaregistrovať sa',
+    'CONTACT_US': 'Kontaktovať', 'GET_QUOTE': 'Získať cenovú ponuku', 'CALL_NOW': 'Zavolať',
+    'BOOK_TRAVEL': 'Rezervovať', 'GET_OFFER': 'Získať ponuku',
+  };
+  const ctaLabel = ctaMap[(ad.call_to_action || '').toUpperCase()] || (ad.call_to_action || 'Viac informácií');
+  const brand = client?.company_name || 'Vaša firma';
+  const imageHTML = ad.image_url
+    ? `<img src="${esc(ad.image_url)}" class="mockup-meta-image" alt="">`
+    : `<div class="mockup-meta-image mockup-meta-placeholder">
+        <div class="mockup-meta-placeholder-content">
+          <div style="font-size: 32pt;">🖼️</div>
+          <div style="font-size: 8pt; opacity: 0.6; margin-top: 6px;">Obrázok podľa promptu</div>
+        </div>
+      </div>`;
+
+  return `
+    <div class="mockup mockup-meta">
+      <div class="mockup-label">Facebook · náhľad v News Feed</div>
+      <div class="mockup-meta-content">
+        <div class="mockup-meta-header">
+          <div class="mockup-meta-avatar">${esc(brand[0] || 'A')}</div>
+          <div>
+            <div class="mockup-meta-brand">${esc(brand)}</div>
+            <div class="mockup-meta-sub">Sponzorované · <span style="opacity:0.6;">🌐</span></div>
+          </div>
+        </div>
+        <div class="mockup-meta-text">${esc(primaryText)}</div>
+        ${imageHTML}
+        <div class="mockup-meta-footer">
+          <div class="mockup-meta-footer-left">
+            <div class="mockup-meta-domain">${esc(displayUrl)}</div>
+            <div class="mockup-meta-headline">${esc(headline)}</div>
+          </div>
+          <div class="mockup-meta-cta">${esc(ctaLabel)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function mockupInstagramStory(ad, c, client) {
+  const brand = client?.company_name || 'Vaša firma';
+  const headline = ad.headlines?.[0] || '';
+  const desc = ad.descriptions?.[0] || '';
+  const ctaMap = { 'LEARN_MORE': 'Viac', 'SHOP_NOW': 'Nakúpte', 'SIGN_UP': 'Registrácia', 'CONTACT_US': 'Kontakt', 'GET_QUOTE': 'Cenová ponuka' };
+  const ctaLabel = ctaMap[(ad.call_to_action || '').toUpperCase()] || 'Viac';
+  const imageHTML = ad.image_url
+    ? `<img src="${esc(ad.image_url)}" class="mockup-story-bg" alt="">`
+    : `<div class="mockup-story-bg mockup-story-placeholder"></div>`;
+
+  return `
+    <div class="mockup mockup-story">
+      <div class="mockup-label">Instagram Story · náhľad 9:16</div>
+      <div class="mockup-story-phone">
+        ${imageHTML}
+        <div class="mockup-story-overlay">
+          <div class="mockup-story-top">
+            <div class="mockup-story-progress"></div>
+            <div class="mockup-story-brand">
+              <div class="mockup-story-avatar">${esc(brand[0] || 'A')}</div>
+              <span>${esc(brand)}</span>
+              <span style="opacity:0.7;font-size:7.5pt;">· Sponzorované</span>
+            </div>
+          </div>
+          <div class="mockup-story-bottom">
+            ${headline ? `<div class="mockup-story-headline">${esc(headline)}</div>` : ''}
+            ${desc ? `<div class="mockup-story-desc">${esc(desc.slice(0, 80))}${desc.length > 80 ? '…' : ''}</div>` : ''}
+            <div class="mockup-story-cta">↑ ${esc(ctaLabel)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function mockupGoogleDisplay(ad, c, client) {
+  const brand = client?.company_name || 'Vaša firma';
+  const headline = ad.headlines?.[0] || '';
+  const desc = ad.descriptions?.[0] || '';
+  const ctaLabel = ad.call_to_action || 'Viac informácií';
+  const imageHTML = ad.image_url
+    ? `<img src="${esc(ad.image_url)}" class="mockup-display-img" alt="">`
+    : `<div class="mockup-display-img mockup-display-placeholder">🖼️</div>`;
+
+  return `
+    <div class="mockup mockup-display">
+      <div class="mockup-label">Google Display · banner 1.91:1</div>
+      <div class="mockup-display-banner">
+        ${imageHTML}
+        <div class="mockup-display-text">
+          <div class="mockup-display-brand">${esc(brand)}</div>
+          <div class="mockup-display-headline">${esc(headline)}</div>
+          ${desc ? `<div class="mockup-display-desc">${esc(desc.slice(0, 100))}</div>` : ''}
+          <div class="mockup-display-cta">${esc(ctaLabel)} →</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Vyber správny mockup podľa platformy + campaign type
+function mockupForAd(ad, campaign, client) {
+  const platform = (campaign.platform || '').toLowerCase();
+  const type = (campaign.campaign_type || '').toLowerCase();
+  const aspect = ad.image_aspect_ratio || '1:1';
+
+  if (platform === 'google') {
+    if (type === 'search') return mockupGoogleSearch(ad, campaign, client);
+    return mockupGoogleDisplay(ad, campaign, client);
+  }
+  if (platform === 'meta') {
+    if (aspect === '9:16') return mockupInstagramStory(ad, campaign, client);
+    return mockupMetaFeed(ad, campaign, client);
+  }
+  return mockupMetaFeed(ad, campaign, client);
+}
+
 async function loadProject(query) {
   // Project podľa id alebo client_portal_token
   let q = supabase.from('campaign_projects').select('*');
@@ -245,22 +391,119 @@ function renderHTML({ project, client, campaigns }) {
   .ad-group-name { font-size: 10pt; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
   .ad-group-keywords { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
 
-  /* Ad preview */
-  .ad-preview {
-    background: white; border: 1px solid #eae6de; border-radius: 10px;
-    padding: 14px; margin-bottom: 10px; page-break-inside: avoid;
+  /* ───── MOCKUPY ───── */
+  .mockup {
+    background: white; border: 1px solid #eae6de; border-radius: 14px;
+    padding: 16px; margin-bottom: 14px; page-break-inside: avoid;
   }
-  .ad-headlines { font-size: 11pt; line-height: 1.4; color: #1a0dab; font-weight: 500; margin-bottom: 4px; }
-  .ad-url { font-size: 9pt; color: #006621; margin-bottom: 6px; }
-  .ad-desc { font-size: 9.5pt; color: #4b5563; line-height: 1.4; }
-  .ad-cta { display: inline-block; margin-top: 8px; padding: 4px 10px; background: #FF6B35; color: white; border-radius: 6px; font-size: 9pt; font-weight: 600; }
+  .mockup-label {
+    font-size: 8pt; color: #948b7c; text-transform: uppercase;
+    letter-spacing: 1.2px; font-weight: 700; margin-bottom: 12px;
+  }
+
+  /* Google Search SERP */
+  .mockup-google-content {
+    background: white; padding: 14px 18px; border-radius: 8px;
+    font-family: arial, sans-serif; max-width: 600px;
+  }
+  .mockup-google-ad-tag {
+    display: inline-block; background: white; color: #202124;
+    font-size: 8pt; font-weight: 700; padding: 1px 4px;
+    border: 1px solid #202124; border-radius: 4px; margin-bottom: 6px;
+  }
+  .mockup-google-url { font-size: 9pt; color: #202124; margin-bottom: 4px; }
+  .mockup-google-title {
+    font-size: 13pt; color: #1a0dab; line-height: 1.3;
+    margin-bottom: 4px; font-weight: 400;
+  }
+  .mockup-google-desc { font-size: 10pt; color: #4d5156; line-height: 1.5; }
+
+  /* Meta News Feed */
+  .mockup-meta-content {
+    background: white; border: 1px solid #dadde1; border-radius: 8px;
+    max-width: 500px; overflow: hidden;
+  }
+  .mockup-meta-header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
+  .mockup-meta-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #1877F2, #4267B2);
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 11pt;
+  }
+  .mockup-meta-brand { font-weight: 600; font-size: 10pt; color: #050505; }
+  .mockup-meta-sub { font-size: 8.5pt; color: #65676b; }
+  .mockup-meta-text { padding: 0 14px 12px; font-size: 10pt; color: #050505; line-height: 1.4; }
+  .mockup-meta-image { width: 100%; max-height: 340px; object-fit: cover; display: block; background: #f0f2f5; }
+  .mockup-meta-placeholder {
+    aspect-ratio: 1.91/1; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #f0f2f5, #e4e6eb); color: #65676b;
+  }
+  .mockup-meta-placeholder-content { text-align: center; }
+  .mockup-meta-footer {
+    background: #f0f2f5; padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .mockup-meta-domain { font-size: 8pt; color: #65676b; text-transform: uppercase; letter-spacing: 0.3px; }
+  .mockup-meta-headline { font-size: 10.5pt; color: #050505; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+  .mockup-meta-cta {
+    background: #e4e6eb; color: #050505; padding: 6px 12px;
+    border-radius: 6px; font-size: 9pt; font-weight: 600; white-space: nowrap;
+  }
+
+  /* Instagram Story */
+  .mockup-story-phone {
+    width: 220px; aspect-ratio: 9/16; border-radius: 18px; overflow: hidden;
+    position: relative; margin: 0 auto; background: #14120e; box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+  }
+  .mockup-story-bg { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mockup-story-placeholder {
+    background: linear-gradient(135deg, #833AB4, #FD1D1D, #F77737);
+  }
+  .mockup-story-overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between;
+    padding: 12px; color: white;
+  }
+  .mockup-story-progress { height: 2px; background: rgba(255,255,255,0.9); border-radius: 2px; width: 35%; margin-bottom: 10px; }
+  .mockup-story-brand { display: flex; align-items: center; gap: 6px; font-size: 8.5pt; font-weight: 600; }
+  .mockup-story-avatar {
+    width: 22px; height: 22px; border-radius: 50%; background: white; color: #14120e;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 8.5pt;
+  }
+  .mockup-story-bottom { background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); padding: 14px 0 4px; margin: 0 -12px -12px; padding-left: 12px; padding-right: 12px; }
+  .mockup-story-headline { font-size: 11pt; font-weight: 700; line-height: 1.3; margin-bottom: 6px; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  .mockup-story-desc { font-size: 8.5pt; opacity: 0.9; line-height: 1.4; margin-bottom: 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+  .mockup-story-cta {
+    background: rgba(255,255,255,0.95); color: #14120e; padding: 8px 16px;
+    border-radius: 9999px; font-size: 9pt; font-weight: 700; text-align: center;
+  }
+
+  /* Google Display banner */
+  .mockup-display-banner {
+    display: grid; grid-template-columns: 1fr 1fr;
+    border: 1px solid #dadce0; border-radius: 8px; overflow: hidden;
+    background: white; max-width: 540px;
+  }
+  .mockup-display-img { width: 100%; height: 100%; min-height: 140px; object-fit: cover; background: #f1f3f4; }
+  .mockup-display-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #FF6B35, #E55A2A); color: white; font-size: 32pt;
+  }
+  .mockup-display-text { padding: 16px; display: flex; flex-direction: column; justify-content: space-between; }
+  .mockup-display-brand { font-size: 8.5pt; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .mockup-display-headline { font-size: 12pt; color: #14120e; font-weight: 700; line-height: 1.3; margin: 4px 0 6px; }
+  .mockup-display-desc { font-size: 9.5pt; color: #5f6368; line-height: 1.4; }
+  .mockup-display-cta {
+    margin-top: 10px; align-self: flex-start; background: #1a73e8; color: white;
+    padding: 6px 14px; border-radius: 6px; font-size: 9pt; font-weight: 600;
+  }
+
+  /* Image prompt block (zostáva ako fallback ak nemá image_url) */
   .ad-image-prompt {
     margin-top: 10px; padding: 10px 12px;
     background: #faf5ff; border: 1px solid #ede9fe; border-radius: 8px;
     font-family: monospace; font-size: 8.5pt; color: #581c87;
     white-space: pre-wrap; line-height: 1.4;
   }
-  .ad-image { max-width: 200px; max-height: 200px; border-radius: 8px; margin-top: 10px; border: 1px solid #eae6de; }
 
   /* Timeline */
   .timeline-phase {
@@ -457,15 +700,7 @@ ${(ri.market_analysis || ri.competitor_analysis || ri.keyword_strategy || ri.rec
                 </div>
               ` : ''}
 
-              ${(g.ads || []).map(ad => `
-                <div class="ad-preview">
-                  ${ad.headlines?.length ? `<div class="ad-headlines">${ad.headlines.slice(0, 3).map(h => esc(h)).join(' · ')}</div>` : ''}
-                  ${ad.final_url ? `<div class="ad-url">${esc(ad.final_url)}${ad.path1 ? '/' + esc(ad.path1) : ''}${ad.path2 ? '/' + esc(ad.path2) : ''}</div>` : ''}
-                  ${ad.descriptions?.[0] ? `<div class="ad-desc">${esc(ad.descriptions[0])}</div>` : ''}
-                  ${ad.call_to_action ? `<div class="ad-cta">${esc(ad.call_to_action)}</div>` : ''}
-                  ${ad.image_url ? `<img src="${esc(ad.image_url)}" class="ad-image" alt="">` : ad.image_prompt ? `<div class="ad-image-prompt"><strong>Image:</strong> ${esc(ad.image_prompt.slice(0, 220))}${ad.image_prompt.length > 220 ? '…' : ''}</div>` : ''}
-                </div>
-              `).join('')}
+              ${(g.ads || []).map(ad => mockupForAd(ad, c, client)).join('')}
             </div>
           `).join('')}
         </div>
