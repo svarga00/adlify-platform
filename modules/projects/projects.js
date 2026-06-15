@@ -536,23 +536,26 @@ const CampaignProjectsModule = {
   },
   
   async showDetail(projectId) {
+    // Detail projektu je teraz celá podstránka (modules/projects/project-detail.js),
+    // nie modal — Router.navigate na #project?id=X otvorí page layout
+    // s sidebarom a tabmi, rovnako ako #creatives.
     const project = this.projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    this.selectedProject = project;
-    
-    document.getElementById('detail-title').textContent = project.name;
-    document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
-    
-    const modal = document.getElementById('detail-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    if (project) this.selectedProject = project;
+    Router.navigate('project', { id: projectId });
   },
   
   closeDetailModal() {
+    // Detail je teraz celá podstránka (Router #project?id=X) — nie modal.
+    // Ak je nejaký aktívny page detail, vráť sa na zoznam projektov.
+    // Ak (legacy) modal existuje a je viditeľný, schovaj ho.
     const modal = document.getElementById('detail-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+    if (modal && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    if (window.Router?.currentRoute === 'project') {
+      window.location.hash = 'projects';
+    }
     this.selectedProject = null;
   },
   
@@ -1326,7 +1329,7 @@ const CampaignProjectsModule = {
       project.deployment_notes = note;
       if (this.selectedProject?.id === projectId) {
         this.selectedProject.deployment_notes = note;
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(project); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
       Utils.toast('Poznámka uložená', 'success');
@@ -1359,7 +1362,7 @@ const CampaignProjectsModule = {
       Utils.toast('🚀 Projekt nasadený a aktívny!', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
     } catch (error) {
       console.error('Mark deployed error:', error);
@@ -1823,7 +1826,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -1858,7 +1861,7 @@ const CampaignProjectsModule = {
       
       // Refresh detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
     } catch (error) {
       console.error('Delete campaign error:', error);
@@ -2001,14 +2004,14 @@ const CampaignProjectsModule = {
     if (await this.updateStatus(projectId, newStatus)) {
       Utils.toast(`Status zmenený na: ${this.STATUSES[newStatus]?.label || newStatus}`, 'success');
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
       // Update detail if open
       if (this.selectedProject?.id === projectId) {
         const project = this.projects.find(p => p.id === projectId);
         if (project) {
           this.selectedProject = project;
-          document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+          { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(project); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
         }
       }
     }
@@ -2018,13 +2021,13 @@ const CampaignProjectsModule = {
     if (await this.updateStatus(projectId, 'active')) {
       Utils.toast('Projekt obnovený', 'success');
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
       if (this.selectedProject?.id === projectId) {
         const project = this.projects.find(p => p.id === projectId);
         if (project) {
           this.selectedProject = project;
-          document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+          { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(project); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
         }
       }
     }
@@ -2066,7 +2069,7 @@ const CampaignProjectsModule = {
       Utils.toast('Projekt vytvorený!', 'success');
       this.closeCreateModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
     } catch (error) {
       console.error('Create error:', error);
@@ -2086,7 +2089,7 @@ const CampaignProjectsModule = {
       Utils.toast('Projekt zmazaný', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
     } catch (error) {
       console.error('Delete error:', error);
@@ -2252,7 +2255,7 @@ const CampaignProjectsModule = {
       Utils.toast('Projekt schválený pre klienta', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
     }
   },
   
@@ -2301,7 +2304,7 @@ const CampaignProjectsModule = {
       Utils.toast('Klient schválil projekt!', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
     }
   },
   
@@ -2318,7 +2321,7 @@ const CampaignProjectsModule = {
       Utils.toast('Kampane označené ako aktívne. Sync metrík začne pri ďalšom 2h cykle.', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
     }
   },
 
@@ -2592,7 +2595,7 @@ const CampaignProjectsModule = {
       Utils.toast('Projekt pozastavený', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
     }
   },
   
@@ -2643,7 +2646,7 @@ const CampaignProjectsModule = {
       // Refresh detail if open
       if (this.selectedProject?.id === projectId) {
         this.selectedProject.client_portal_token = token;
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -2994,7 +2997,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3118,7 +3121,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3389,7 +3392,7 @@ const CampaignProjectsModule = {
       this.closeAdEditModal();
       
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
     } catch (error) {
       console.error('Delete ad error:', error);
@@ -3470,7 +3473,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3527,7 +3530,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3577,7 +3580,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3615,7 +3618,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
