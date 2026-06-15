@@ -89,7 +89,13 @@ const ProjectDetailModule = {
         ${this._renderSidebar(project, statusMeta)}
         <main id="project-detail-main" style="overflow-y:auto;padding:24px 32px;">
           ${this._renderBreadcrumb(project, statusMeta)}
-          <div id="detail-content">${contentHTML}</div>
+          <div id="detail-content">
+            ${contentHTML}
+            <!-- Tracking tab — injected ako extra tab content -->
+            <div data-tab-content="tracking" class="space-y-6 hidden">
+              ${this._renderTrackingTab(project)}
+            </div>
+          </div>
         </main>
       </div>
     `;
@@ -240,6 +246,7 @@ const ProjectDetailModule = {
       { id: 'overview',    icon: '⬛', label: 'Prehľad' },
       { id: 'strategy',    icon: '🎯', label: 'Stratégia' },
       { id: 'campaigns',   icon: '📣', label: 'Kampane' },
+      { id: 'tracking',    icon: '📈', label: 'Tracking' },
       { id: 'onboarding',  icon: '🛬', label: 'Onboarding' },
       { id: 'deployment',  icon: '🚀', label: 'Deployment' },
     ];
@@ -378,6 +385,158 @@ const ProjectDetailModule = {
     this._switchTabUI(tabId);
   },
 
+  // Tracking tab — pixel snippet ktorý admin pošle klientovi na vloženie
+  // na web (cez GTM alebo priamo do <head>). Loguje konverzie cez
+  // /.netlify/functions/track-conversion → tabuľka conversions →
+  // campaign_metrics_daily → real-time portal reports.
+  _renderTrackingTab(project) {
+    const baseUrl = window.location.origin;
+    const pixelSnippet = `<!-- Adlify konverzný pixel — ${this._esc(project.name)} -->
+<script>
+(function(){
+  window.adlify = window.adlify || function(){(window.adlify.q=window.adlify.q||[]).push(arguments)};
+  adlify.pid = '${project.id}';
+  adlify.endpoint = '${baseUrl}/.netlify/functions/track-conversion';
+  adlify.send = function(event, opts){
+    opts = opts || {};
+    var data = Object.assign({
+      project_id: adlify.pid,
+      event_type: event,
+      page_url: location.href,
+      gclid: new URLSearchParams(location.search).get('gclid'),
+      fbclid: new URLSearchParams(location.search).get('fbclid'),
+      utm_source: new URLSearchParams(location.search).get('utm_source'),
+      utm_medium: new URLSearchParams(location.search).get('utm_medium'),
+      utm_campaign: new URLSearchParams(location.search).get('utm_campaign'),
+    }, opts);
+    fetch(adlify.endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data), keepalive: true}).catch(function(){});
+  };
+  // Auto-track page view
+  adlify.send('page_view');
+})();
+</script>
+<!-- /Adlify -->`;
+
+    const usageExamples = `<!-- Príklady použitia po vložení snippetu vyššie -->
+
+<!-- 1. Form submit (lead generation) -->
+<form onsubmit="adlify.send('lead', {value: 50, content: 'kontakt-formular'})">
+  ...
+</form>
+
+<!-- 2. Click-to-call -->
+<a href="tel:+421900123456" onclick="adlify.send('call', {value: 30})">Zavolajte</a>
+
+<!-- 3. Purchase (e-shop) -->
+<script>
+  // Na thank-you stránke po nákupe:
+  adlify.send('purchase', {
+    value: 250.00,        // suma objednávky
+    currency: 'EUR',
+    client_ref: 'ORD-12345'
+  });
+</script>
+
+<!-- 4. Custom event -->
+<button onclick="adlify.send('newsletter_signup')">Prihlásiť na newsletter</button>`;
+
+    const pixelBeacon = `<!-- Alternatívne — pixel beacon (1×1 GIF) ak nemôžete použiť JS -->
+<img src="${baseUrl}/.netlify/functions/track-conversion?p=${project.id}&t=page_view"
+     width="1" height="1" alt="" style="display:none;">`;
+
+    return `
+      <div class="card">
+        <h4>📈 Konverzný tracking</h4>
+        <p style="color:#374151;margin-bottom:16px;">
+          Vložením tohto kódu na klientov web budeme vedieť presne čo na ňom funguje. Konverzie z Google
+          a Meta reklám sa pripoja automaticky cez <code>gclid</code> a <code>fbclid</code> parametre v URL.
+          Posiela sa do <strong>conversions</strong> tabuľky a denne agreguje do <strong>campaign_metrics_daily</strong>.
+        </p>
+
+        <div style="background:#fff7ed;border-left:3px solid #f97316;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:18px;font-size:13px;color:#9a3412;">
+          <strong>Návod pre klienta:</strong>
+          <ol style="margin:6px 0 0 18px;padding:0;line-height:1.7;">
+            <li>Skopírujte snippet nižšie</li>
+            <li>Vložte ho do <code>&lt;head&gt;</code> tagu na všetkých stránkach (najlepšie cez Google Tag Manager)</li>
+            <li>Na stránkach po konverzii (thank-you, potvrdenie objednávky) volajte <code>adlify.send('purchase', {value: 100})</code></li>
+          </ol>
+        </div>
+
+        <h5 style="margin-top:16px;">1. Hlavný snippet</h5>
+        <div style="position:relative;margin-bottom:8px;">
+          <pre style="background:#14120e;color:#e5e7eb;padding:14px;border-radius:8px;overflow-x:auto;font-size:11.5px;line-height:1.5;max-height:280px;white-space:pre-wrap;word-break:break-all;"><code>${this._esc(pixelSnippet)}</code></pre>
+          <button onclick="navigator.clipboard.writeText(${JSON.stringify(pixelSnippet)}); Utils.toast('Snippet skopírovaný do clipboardu', 'success');"
+            style="position:absolute;top:8px;right:8px;background:#FF6B35;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
+            📋 Kopírovať
+          </button>
+        </div>
+
+        <h5 style="margin-top:24px;">2. Príklady použitia</h5>
+        <div style="position:relative;margin-bottom:8px;">
+          <pre style="background:#fafaf8;color:#14120e;padding:14px;border-radius:8px;overflow-x:auto;font-size:11.5px;line-height:1.5;border:1px solid #eae6de;max-height:300px;white-space:pre-wrap;"><code>${this._esc(usageExamples)}</code></pre>
+          <button onclick="navigator.clipboard.writeText(${JSON.stringify(usageExamples)}); Utils.toast('Príklady skopírované', 'success');"
+            style="position:absolute;top:8px;right:8px;background:white;color:#14120e;border:1px solid #eae6de;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">
+            📋 Kopírovať
+          </button>
+        </div>
+
+        <details style="margin-top:18px;">
+          <summary style="cursor:pointer;font-size:13px;color:#6b7280;font-weight:600;">Alternatíva — pixel beacon (GIF) pre weby bez JavaScriptu</summary>
+          <pre style="background:#fafaf8;color:#14120e;padding:14px;border-radius:8px;overflow-x:auto;font-size:11.5px;margin-top:8px;border:1px solid #eae6de;white-space:pre-wrap;word-break:break-all;"><code>${this._esc(pixelBeacon)}</code></pre>
+        </details>
+      </div>
+
+      <div class="card">
+        <h4>📊 Konverzie projektu</h4>
+        <div id="tracking-conversions-summary" style="color:#6b7280;font-size:13px;">⏳ Načítavam…</div>
+      </div>
+    `;
+  },
+
+  async _loadConversionsSummary() {
+    const el = document.getElementById('tracking-conversions-summary');
+    if (!el) return;
+    try {
+      const since = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data, error } = await Database.client
+        .from('conversions')
+        .select('event_type, event_value, created_at')
+        .eq('project_id', this.projectId)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      if (!data?.length) {
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:#9ca3af;">Zatiaľ žiadne konverzie. Po vložení pixelu na web sa tu objavia.</div>';
+        return;
+      }
+      const byType = new Map();
+      let totalValue = 0;
+      for (const c of data) {
+        const cur = byType.get(c.event_type) || { count: 0, value: 0 };
+        cur.count++;
+        cur.value += Number(c.event_value) || 0;
+        byType.set(c.event_type, cur);
+        totalValue += Number(c.event_value) || 0;
+      }
+      el.innerHTML = `
+        <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:8px;">Posledných 30 dní</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+          ${Array.from(byType.entries()).map(([type, m]) => `
+            <div style="background:#fafaf8;border:1px solid #eae6de;border-radius:10px;padding:14px;">
+              <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${this._esc(type)}</div>
+              <div style="font-size:22px;font-weight:700;color:#14120e;margin-top:4px;">${m.count}</div>
+              ${m.value > 0 ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;">${Math.round(m.value)} €</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (e) {
+      console.error('[tracking-summary]', e);
+      el.innerHTML = `<div style="color:#dc2626;font-size:12px;">Chyba: ${this._esc(e.message)}</div>`;
+    }
+  },
+
   _switchTabUI(tabId) {
     // Skry všetky tab kontentu, zobraz vybraný
     document.querySelectorAll('[data-tab-content]').forEach(el => {
@@ -394,6 +553,8 @@ const ProjectDetailModule = {
       el.style.color = isActive ? '#fff' : '#374151';
       el.style.fontWeight = isActive ? '600' : '500';
     });
+    // Lazy load tracking summary (len keď user otvorí tab)
+    if (tabId === 'tracking') this._loadConversionsSummary?.();
   },
 
   // Helpers
