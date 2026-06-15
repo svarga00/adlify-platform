@@ -2249,14 +2249,38 @@ const CampaignProjectsModule = {
   },
   
   async approveInternal(projectId) {
-    if (await this.updateStatus(projectId, 'client_review', {
+    // Pýtaj sa či poslať email klientovi — default ÁNO, ale ak admin chce
+    // ešte review portál layout pred odoslaním, môže dať Nie a poslať
+    // ručne neskôr tlačidlom „Poslať klientovi email".
+    const sendEmail = await Utils.confirm(
+      'Po schválení automaticky pošleme klientovi email s odkazom na portál.\n\nPoslať email teraz?',
+      { title: 'Schváliť pre klienta', confirmText: 'Áno, schváliť + poslať email', cancelText: 'Nie, len schváliť' }
+    );
+    // Utils.confirm vráti true/false — false = "len schváliť" (nezrušiť celú akciu)
+
+    if (!await this.updateStatus(projectId, 'client_review', {
       internal_approved_at: new Date().toISOString()
-    })) {
-      Utils.toast('Projekt schválený pre klienta', 'success');
-      this.closeDetailModal();
-      await this.loadData();
-      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
+    })) return;
+
+    Utils.toast('Projekt schválený pre klienta', 'success');
+
+    if (sendEmail) {
+      // Generuj token ak chýba, pošli email
+      try {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project && !project.client_portal_token) {
+          await this.generateClientLink(projectId);
+        }
+        await this.sendProposalToClient(projectId);
+      } catch (e) {
+        console.warn('Auto-email after approval failed:', e);
+        Utils.toast('Schválené, ale email sa nepodarilo poslať: ' + e.message, 'warning');
+      }
     }
+
+    this.closeDetailModal();
+    await this.loadData();
+    { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
   },
   
   // Interná revízia — admin napíše vlastnými slovami čo chce zmeniť a AI
@@ -2604,7 +2628,127 @@ const CampaignProjectsModule = {
   // ==========================================
   
   editProject(projectId) {
-    Utils.toast('Editácia projektu - pripravuje sa', 'info');
+    const project = this.projects.find(p => p.id === projectId) || this.selectedProject;
+    if (!project) return Utils.toast('Projekt nenájdený', 'error');
+
+    const modal = document.createElement('div');
+    modal.id = 'edit-project-modal';
+    modal.className = 'fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="p-5 border-b flex items-center justify-between">
+          <h2 class="text-lg font-bold">✏️ Upraviť projekt</h2>
+          <button onclick="document.getElementById('edit-project-modal').remove()"
+            class="text-2xl text-gray-400 hover:text-gray-700">×</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Názov projektu</label>
+            <input type="text" id="ep-name" value="${(project.name || '').replace(/"/g, '&quot;')}"
+              class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Popis</label>
+            <textarea id="ep-description" rows="3"
+              class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">${project.description || ''}</textarea>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Rozpočet na reklamu (€/mes)</label>
+              <input type="number" min="0" step="10" id="ep-ad-spend" value="${Number(project.ad_spend_budget) || 0}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Poplatok za správu (€/mes)</label>
+              <input type="number" min="0" step="10" id="ep-mgmt-fee" value="${Number(project.management_fee) || 0}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Plánovaný štart</label>
+              <input type="date" id="ep-start" value="${project.planned_start_date || ''}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Plánovaný koniec</label>
+              <input type="date" id="ep-end" value="${project.planned_end_date || ''}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+          </div>
+          <div class="p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
+            💡 Celkový mesačný náklad: <strong id="ep-total" class="text-gray-900">${(Number(project.ad_spend_budget) || 0) + (Number(project.management_fee) || 0)}€/mes</strong>
+          </div>
+        </div>
+        <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button onclick="document.getElementById('edit-project-modal').remove()"
+            class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Zrušiť</button>
+          <button onclick="CampaignProjectsModule.saveProjectEdit('${projectId}')"
+            class="px-5 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium">💾 Uložiť</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Live total budget update
+    const updateTotal = () => {
+      const a = Number(document.getElementById('ep-ad-spend').value) || 0;
+      const m = Number(document.getElementById('ep-mgmt-fee').value) || 0;
+      const t = document.getElementById('ep-total');
+      if (t) t.textContent = `${a + m}€/mes`;
+    };
+    document.getElementById('ep-ad-spend')?.addEventListener('input', updateTotal);
+    document.getElementById('ep-mgmt-fee')?.addEventListener('input', updateTotal);
+
+    setTimeout(() => document.getElementById('ep-name')?.focus(), 50);
+  },
+
+  async saveProjectEdit(projectId) {
+    const name = document.getElementById('ep-name')?.value?.trim();
+    const description = document.getElementById('ep-description')?.value?.trim() || null;
+    const adSpend = Number(document.getElementById('ep-ad-spend')?.value) || 0;
+    const mgmtFee = Number(document.getElementById('ep-mgmt-fee')?.value) || 0;
+    const plannedStart = document.getElementById('ep-start')?.value || null;
+    const plannedEnd = document.getElementById('ep-end')?.value || null;
+
+    if (!name) return Utils.toast('Názov je povinný', 'warning');
+
+    try {
+      const { error } = await Database.client.from('campaign_projects').update({
+        name,
+        description,
+        ad_spend_budget: adSpend,
+        management_fee: mgmtFee,
+        total_monthly_budget: adSpend + mgmtFee,
+        planned_start_date: plannedStart,
+        planned_end_date: plannedEnd,
+        updated_at: new Date().toISOString(),
+      }).eq('id', projectId);
+
+      if (error) throw error;
+
+      // Update lokálny cache
+      const idx = this.projects.findIndex(p => p.id === projectId);
+      if (idx >= 0) Object.assign(this.projects[idx], {
+        name, description, ad_spend_budget: adSpend, management_fee: mgmtFee,
+        total_monthly_budget: adSpend + mgmtFee, planned_start_date: plannedStart, planned_end_date: plannedEnd
+      });
+      if (this.selectedProject?.id === projectId) Object.assign(this.selectedProject, this.projects[idx] || {});
+
+      document.getElementById('edit-project-modal')?.remove();
+      Utils.toast('Projekt uložený', 'success');
+
+      // Refresh page (project-detail je open) alebo grid
+      if (window.Router?.currentRoute === 'project') {
+        await window.ProjectDetailModule?._renderApp?.();
+      } else {
+        const g = document.getElementById('projects-grid');
+        if (g) g.innerHTML = this.renderProjectsGrid();
+      }
+    } catch (e) {
+      console.error('saveProjectEdit:', e);
+      Utils.toast('Chyba pri ukladaní: ' + e.message, 'error');
+    }
   },
   
   addCampaign(projectId) {
