@@ -1488,6 +1488,56 @@ const CampaignProjectsModule = {
         
         <!-- Campaign Details (expandable) -->
         <div id="campaign-expand-${campaign.id}" class="hidden">
+          <!-- Inline edit fields (click to edit, blur saves) -->
+          <div class="p-4 border-b bg-white">
+            <div class="text-xs font-bold text-gray-500 uppercase mb-3 tracking-wider">Rýchla úprava</div>
+            <div class="grid md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Názov</label>
+                <input type="text" value="${(campaign.name || '').replace(/"/g, '&quot;')}"
+                  data-camp-id="${campaign.id}" data-camp-field="name"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'name', this.value)">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Denný rozpočet (€)</label>
+                <input type="number" min="0" step="1" value="${campaign.budget_daily || 0}"
+                  data-camp-id="${campaign.id}" data-camp-field="budget_daily"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'budget_daily', Number(this.value) || 0)">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Objective / cieľ</label>
+                <input type="text" value="${(campaign.objective || '').replace(/"/g, '&quot;')}"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'objective', this.value)">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Status</label>
+                <select onchange="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'status', this.value)"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors">
+                  <option value="draft" ${campaign.status === 'draft' ? 'selected' : ''}>Draft</option>
+                  <option value="active" ${campaign.status === 'active' ? 'selected' : ''}>Aktívna</option>
+                  <option value="paused" ${campaign.status === 'paused' ? 'selected' : ''}>Pozastavená</option>
+                  <option value="ended" ${campaign.status === 'ended' ? 'selected' : ''}>Ukončená</option>
+                </select>
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">Lokality <span class="text-gray-400">(oddelené čiarkou)</span></label>
+                <input type="text" value="${(targeting.locations || []).join(', ').replace(/"/g, '&quot;')}"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveTargeting('${campaign.id}', 'locations', this.value)">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">Hlavné kľúčové slová <span class="text-gray-400">(oddelené čiarkou)</span></label>
+                <input type="text" value="${(targeting.keywords || []).join(', ').replace(/"/g, '&quot;')}"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveTargeting('${campaign.id}', 'keywords', this.value)">
+              </div>
+            </div>
+            <div class="text-xs text-gray-400 mt-2">💡 Klik na pole, napíš, klik mimo (alebo Tab) uloží automaticky.</div>
+          </div>
+
           <!-- Quick Stats -->
           <div class="p-4 bg-gray-50 border-b grid grid-cols-2 md:grid-cols-4 gap-3">
             ${targeting.locations?.length ? `
@@ -2900,6 +2950,40 @@ const CampaignProjectsModule = {
   // CAMPAIGN EDITING
   // ==========================================
   
+  // Inline edit pre kampaň (názov, budget, status, objective)
+  async inlineSaveCampaign(campaignId, field, value) {
+    try {
+      const { error } = await Database.client.from('campaigns')
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq('id', campaignId);
+      if (error) throw error;
+      Utils.toast('Uložené', 'success');
+    } catch (e) {
+      console.error('inlineSaveCampaign:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
+  // Inline edit pre targeting JSONB pole (locations, keywords)
+  async inlineSaveTargeting(campaignId, key, csvValue) {
+    const arr = String(csvValue || '').split(',').map(s => s.trim()).filter(Boolean);
+    try {
+      // Načítaj aktuálne targeting
+      const { data: row } = await Database.client.from('campaigns')
+        .select('targeting').eq('id', campaignId).single();
+      const targeting = row?.targeting || {};
+      targeting[key] = arr;
+      const { error } = await Database.client.from('campaigns')
+        .update({ targeting, updated_at: new Date().toISOString() })
+        .eq('id', campaignId);
+      if (error) throw error;
+      Utils.toast(`Uložené (${arr.length})`, 'success');
+    } catch (e) {
+      console.error('inlineSaveTargeting:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
   async editCampaign(campaignId) {
     // Load campaign data
     const { data: campaign, error } = await Database.client
