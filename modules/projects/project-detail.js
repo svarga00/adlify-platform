@@ -84,7 +84,8 @@ const ProjectDetailModule = {
     const contentHTML = await window.CampaignProjectsModule.renderDetailContent(project);
 
     this._container.innerHTML = `
-      <div style="display:grid;grid-template-columns:280px 1fr;gap:0;min-height:calc(100vh - 100px);background:#f7f5f1;">
+      ${this._modernThemeCSS()}
+      <div class="adl-pd" style="display:grid;grid-template-columns:280px 1fr;gap:0;min-height:calc(100vh - 100px);background:#f7f5f1;">
         ${this._renderSidebar(project, statusMeta)}
         <main id="project-detail-main" style="overflow-y:auto;padding:24px 32px;">
           ${this._renderBreadcrumb(project, statusMeta)}
@@ -97,6 +98,141 @@ const ProjectDetailModule = {
     this._switchTabUI(this.currentTab);
     // Ak existujú lucide ikonky, refresh
     if (window.lucide?.createIcons) window.lucide.createIcons();
+  },
+
+  // Modern theme — tvrdo override-uje farebné triedy z renderDetailContent
+  // ktoré používa Tailwind-like utility (bg-purple-50 atď). Cieľom je jednotný
+  // tichý monochromatický vzhľad s len jednou akcentnou farbou (brand orange),
+  // jemné borders namiesto color blokov, lepšia typografia.
+  _modernThemeCSS() {
+    return `<style>
+      /* === MODERN PROJECT DETAIL THEME === */
+      .adl-pd { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; color: #14120e; }
+      .adl-pd #detail-content { letter-spacing: -0.005em; }
+
+      /* Karty — tichá biela s jemným borderom */
+      .adl-pd .card,
+      .adl-pd [class*='bg-gray-50'],
+      .adl-pd [class*='bg-purple-50'],
+      .adl-pd [class*='bg-green-50'],
+      .adl-pd [class*='bg-amber-50'],
+      .adl-pd [class*='bg-blue-50'],
+      .adl-pd [class*='bg-yellow-50'],
+      .adl-pd [class*='bg-orange-50'],
+      .adl-pd [class*='bg-red-50'],
+      .adl-pd [class*='bg-indigo-50'] {
+        background: #ffffff !important;
+        border: 1px solid #eae6de !important;
+        border-radius: 12px !important;
+        box-shadow: none !important;
+      }
+
+      /* Vnorené sekcie (insights v karte) — ešte tichšie */
+      .adl-pd .card .bg-gray-50,
+      .adl-pd .card [class*='bg-purple-50'],
+      .adl-pd .card [class*='bg-green-50'],
+      .adl-pd .card [class*='bg-amber-50'],
+      .adl-pd .card [class*='bg-blue-50'] {
+        background: #fafaf8 !important;
+        border: 1px solid #f0ebe2 !important;
+      }
+
+      /* Levostranný akcent pre semantické bloky — Zistenia / Príležitosti / Výzvy */
+      .adl-pd [class*='bg-green-50']:not(.card) { border-left: 3px solid #84cc16 !important; }
+      .adl-pd [class*='bg-amber-50']:not(.card) { border-left: 3px solid #f59e0b !important; }
+      .adl-pd [class*='bg-purple-50']:not(.card) { border-left: 3px solid #FF6B35 !important; }
+      .adl-pd [class*='bg-blue-50']:not(.card) { border-left: 3px solid #3b82f6 !important; }
+
+      /* Text farby — všetko jednotná tmavá, akcenty jemné */
+      .adl-pd .text-purple-700, .adl-pd .text-purple-800,
+      .adl-pd .text-green-700, .adl-pd .text-green-800,
+      .adl-pd .text-amber-700, .adl-pd .text-amber-900,
+      .adl-pd .text-blue-700, .adl-pd .text-blue-800, .adl-pd .text-blue-900,
+      .adl-pd .text-orange-700, .adl-pd .text-orange-800,
+      .adl-pd .text-yellow-700, .adl-pd .text-yellow-800 {
+        color: #14120e !important;
+      }
+      .adl-pd .text-gray-500 { color: #6b7280 !important; font-weight: 500; }
+      .adl-pd .text-gray-600 { color: #4b5563 !important; }
+
+      /* Typografia — väčšie nadpisy, lepšia hierarchia */
+      .adl-pd .card h4 { font-size: 13px !important; font-weight: 600 !important; color: #14120e !important; letter-spacing: -0.005em; margin-bottom: 14px !important; padding-bottom: 12px; border-bottom: 1px solid #f0ebe2; }
+      .adl-pd .card h5 { font-size: 10px !important; font-weight: 700 !important; color: #9ca3af !important; text-transform: uppercase; letter-spacing: 0.6px !important; }
+      .adl-pd p { line-height: 1.6 !important; color: #374151; font-size: 13.5px; }
+      .adl-pd .card p { margin-bottom: 0; }
+
+      /* Chips — minimalistické, žiadne bujaré farby */
+      .adl-pd .rounded-full {
+        background: #f7f5f1 !important;
+        color: #14120e !important;
+        border: 1px solid #eae6de !important;
+        font-weight: 500 !important;
+        font-size: 11.5px !important;
+      }
+      /* Sémantické chips — len jemný akcent v texte */
+      .adl-pd .bg-green-100, .adl-pd .bg-yellow-100, .adl-pd .bg-blue-100, .adl-pd .bg-purple-100, .adl-pd .bg-red-50 {
+        background: #f7f5f1 !important;
+        color: #14120e !important;
+      }
+      .adl-pd .bg-red-50 { color: #b91c1c !important; }
+
+      /* KPI cards v Prehľade */
+      .adl-pd .grid > .bg-white.border {
+        background: #ffffff !important;
+        border: 1px solid #eae6de !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+        transition: border-color 0.15s;
+      }
+      .adl-pd .grid > .bg-white.border:hover { border-color: #d4cebe !important; }
+      .adl-pd .text-xl.font-bold { font-size: 22px !important; font-weight: 700 !important; letter-spacing: -0.02em; color: #14120e !important; }
+      .adl-pd .text-xs.text-gray-500 { font-size: 11px !important; color: #9ca3af !important; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; margin-top: 4px; }
+
+      /* Status pill v overview — schovať (máme ho v sidebari) */
+      .adl-pd #detail-content > .space-y-6 > .bg-gray-50.rounded-xl:first-child { display: none; }
+
+      /* Tab nav — schovať pôvodný (máme sidebar) */
+      .adl-pd #detail-content .border-b.overflow-x-auto { display: none !important; }
+
+      /* Spacing */
+      .adl-pd #detail-content > .space-y-6 > * { margin-bottom: 16px; }
+      .adl-pd .card { padding: 18px 20px !important; }
+
+      /* Tabuľky */
+      .adl-pd table thead tr { border-bottom: 1px solid #eae6de !important; }
+      .adl-pd table th { color: #9ca3af !important; font-size: 10.5px !important; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 6px !important; }
+      .adl-pd table td { border-bottom: 1px solid #f5f1ea !important; padding: 10px 6px !important; font-size: 13px; }
+      .adl-pd table tr:hover td { background: #faf8f4 !important; }
+
+      /* Tlačidlá v obsahu — jemnejšie */
+      .adl-pd .bg-purple-600, .adl-pd .bg-blue-600, .adl-pd .bg-green-600 {
+        background: #14120e !important; color: white !important;
+      }
+      .adl-pd .bg-purple-600:hover, .adl-pd .bg-blue-600:hover, .adl-pd .bg-green-600:hover {
+        background: #FF6B35 !important;
+      }
+
+      /* Klient portal link — prominentnejší akcent */
+      .adl-pd .bg-blue-50.border.border-blue-200 {
+        background: linear-gradient(135deg, #fff7ed, #fef3e6) !important;
+        border: 1px solid #fed7aa !important;
+        border-left: 3px solid #FF6B35 !important;
+      }
+
+      /* Feedback od klienta */
+      .adl-pd .bg-orange-50.border.border-orange-200 {
+        background: #fff7ed !important;
+        border: 1px solid #fed7aa !important;
+        border-left: 3px solid #f97316 !important;
+      }
+
+      /* Onboarding warning */
+      .adl-pd .bg-yellow-50.border.border-yellow-200 {
+        background: #fffbeb !important;
+        border: 1px solid #fde68a !important;
+        border-left: 3px solid #f59e0b !important;
+      }
+    </style>`;
   },
 
   _renderSidebar(project, statusMeta) {
