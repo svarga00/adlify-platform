@@ -2157,11 +2157,9 @@ const CampaignProjectsModule = {
 
     // Set status to generating (notes vyčistí background fn po úspechu)
     if (!await this.updateStatus(projectId, 'generating')) return;
-    await this.loadData();
-    document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
 
-    // Background trigger — Netlify funkcia s -background postfixom beží
-    // do 15 min, dlhšie ako trvá Sonnet 4.6. Frontend pollne status z DB.
+    // Background trigger HNEĎ — aby žiadny DOM problém neblokoval spustenie.
+    // Netlify funkcia s -background postfixom beží do 15 min.
     fetch('/.netlify/functions/generate-campaigns-background', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2171,6 +2169,19 @@ const CampaignProjectsModule = {
         platforms: ['google_search', 'meta_facebook'],
       }),
     }).catch(err => console.warn('[startGeneration] trigger error (expected for background):', err));
+
+    // UI refresh — null-safe (grid nemusí existovať keď sme v modáli)
+    await this.loadData();
+    const gridEl = document.getElementById('projects-grid');
+    if (gridEl) gridEl.innerHTML = this.renderProjectsGrid();
+    if (this.selectedProject?.id === projectId) {
+      const updated = this.projects.find(p => p.id === projectId);
+      const detailEl = document.getElementById('detail-content');
+      if (updated && detailEl) {
+        this.selectedProject = updated;
+        detailEl.innerHTML = await this.renderDetailContent(updated);
+      }
+    }
 
     // Poll DB každých 4s, max 5 minút
     const startTime = Date.now();
@@ -2190,12 +2201,14 @@ const CampaignProjectsModule = {
       if (fresh.status === 'internal_review') {
         Utils.toast('AI dokončila generovanie 🎉', 'success');
         await this.loadData();
-        document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+        const g = document.getElementById('projects-grid');
+        if (g) g.innerHTML = this.renderProjectsGrid();
         if (this.selectedProject?.id === projectId) {
           const updated = this.projects.find(p => p.id === projectId);
-          if (updated) {
+          const d = document.getElementById('detail-content');
+          if (updated && d) {
             this.selectedProject = updated;
-            document.getElementById('detail-content').innerHTML = await this.renderDetailContent(updated);
+            d.innerHTML = await this.renderDetailContent(updated);
           }
         }
         return;
@@ -2203,7 +2216,8 @@ const CampaignProjectsModule = {
       if (fresh.status === 'draft' && fresh.notes?.startsWith('AI error:')) {
         Utils.toast('AI generovanie zlyhalo: ' + fresh.notes.replace(/^AI error:\s*/, ''), 'error');
         await this.loadData();
-        document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+        const g2 = document.getElementById('projects-grid');
+        if (g2) g2.innerHTML = this.renderProjectsGrid();
         return;
       }
       // Stále 'generating' → ďalší pokus
