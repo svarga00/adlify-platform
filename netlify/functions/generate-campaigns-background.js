@@ -197,9 +197,29 @@ async function runGeneration({ project_id, onboarding_id, platforms }) {
   console.log('[generate-campaigns] start project', project_id);
 
   // 1. Load onboarding
-  const { data: onboarding, error: oErr } = await supabase
+  const { data: onboardingRow, error: oErr } = await supabase
     .from('onboarding_responses').select('*').eq('id', onboarding_id).single();
-  if (oErr || !onboarding) throw new Error('Onboarding not found: ' + (oErr?.message || 'no row'));
+  if (oErr || !onboardingRow) throw new Error('Onboarding not found: ' + (oErr?.message || 'no row'));
+
+  // Onboarding sa ukladá ako celý formData do JSONB stĺpca `data`
+  // (modules/onboarding/onboarding.js: row.data = cleanData).
+  // Predchádzajúce verzie tejto funkcie hľadali polia priamo na rootu
+  // (onboarding.company_name), čo bolo undefined → Claude dostal prázdny
+  // prompt a vrátil placeholder/generický template.
+  // Fallback na root rieši aj prípadné staré onboardingy s flat schémou.
+  const onboarding = (onboardingRow.data && typeof onboardingRow.data === 'object')
+    ? onboardingRow.data
+    : onboardingRow;
+
+  console.log('[generate-campaigns] onboarding loaded:', {
+    project_id, onboarding_id,
+    company: onboarding.company_name,
+    industry: onboarding.company_industry,
+    has_usp: !!(onboarding.unique_selling_points?.length),
+    has_geo: !!(onboarding.target_audience?.geographic?.regions?.length),
+    has_products: !!(onboarding.products_services?.length),
+    raw_keys: Object.keys(onboarding).slice(0, 30),
+  });
 
   // 2. KEYWORDS
   const MM_KEY = process.env.MARKETINGMINER_API_KEY;
