@@ -568,12 +568,17 @@ const CampaignProjectsModule = {
       .eq('project_id', project.id)
       .order('created_at');
 
-    // Load onboarding data
-    const { data: onboarding } = await Database.client
+    // Load onboarding data — polia sú v JSONB stĺpci `data` (onboarding.js
+    // ukladá celý formData tam). Unwrap aby onboarding tab nezobrazoval pomlčky.
+    const { data: onboardingRow } = await Database.client
       .from('onboarding_responses')
       .select('*')
       .eq('client_id', project.client_id)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const onboardingData = (onboardingRow?.data && typeof onboardingRow.data === 'object') ? onboardingRow.data : {};
+    const onboarding = onboardingRow ? { ...onboardingRow, ...onboardingData } : null;
 
     // Load ad groups + ads count
     let totalAds = 0;
