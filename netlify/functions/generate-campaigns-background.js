@@ -193,8 +193,8 @@ function buildSeedKeywords(onboarding) {
 
 // ───── Main worker (runs after 202 response) ─────
 
-async function runGeneration({ project_id, onboarding_id, platforms }) {
-  console.log('[generate-campaigns] start project', project_id);
+async function runGeneration({ project_id, onboarding_id, platforms, extra_instruction }) {
+  console.log('[generate-campaigns] start project', project_id, extra_instruction ? '(s pripomienkami)' : '');
 
   // 1. Load onboarding
   const { data: onboardingRow, error: oErr } = await supabase
@@ -300,9 +300,15 @@ async function runGeneration({ project_id, onboarding_id, platforms }) {
     ? `SEZÓNNY BIZNIS — peak: ${fmt(onboarding.peak_seasons)}. NÁVRH MUSÍ obsahovať sezónne kampane (rozdelenie podľa ročných období) alebo aspoň upozorniť na potrebu eskalovať budget v špičkách.`
     : 'Celoročný biznis';
 
+  // Pripomienky admina pri pregenerovaní (revízia) — majú NAJVYŠŠIU prioritu
+  const revisionBlock = extra_instruction
+    ? `\n## ⚠️ PRIPOMIENKY STRATÉGA NA PREPRACOVANIE (NAJVYŠŠIA PRIORITA)\nPredchádzajúci návrh sa prepracúva. Zapracuj DOSLOVA tieto pripomienky, majú prednosť pred všetkým ostatným:\n"${extra_instruction}"\n`
+    : '';
+
   const prompt = `Si senior PPC stratég pre slovenskú marketingovú agentúru Adlify. Pripravuješ NÁVRH KAMPANE pre reálneho klienta po onboardingu.
 
 ABSOLÚTNE PRAVIDLO: Píšeš ako skúsený človek, nie AI. NIKDY nespomínaj AI, automatizáciu, algoritmy ani že návrh bol generovaný. Klient si myslí že to píše senior stratég.
+${revisionBlock}
 
 KRITICKÉ: Návrh MUSÍ vychádzať z konkrétnych dát klienta nižšie. Žiadne všeobecné frázy typu "vaše služby pomôžu zákazníkom". Cituj USP doslova, používaj reálne názvy produktov, rešpektuj geografiu a sezónnosť. Ak klient predáva klimatizácie v Liptove — kampaň je o klimatizáciách v Liptove, nie o "vašich kvalitných službách".
 
@@ -394,7 +400,7 @@ ${paidAdsInsights.slice(0, 8).map(a => `- "${a.title}" — ${(a.snippet || '').s
     "challenges": ["2 reálne výzvy — limit budgetu, konkurencia, regionalita, atď."],
     "opportunities": ["2 príležitosti — neobsadený segment, sezónne špičky, lokálna prevaha"]
   },
-  "strategy_summary": "3-5 viet o celkovej PPC stratégii pre tohto klienta. Spomeň konkrétne: cielenie na regióny, sezónnosť, USP ktoré budeme tlačiť, mix platforiem a prečo.",
+  "strategy_summary": "OBSIAHLY profesionálny strategický text — 2-3 odstavce (6-10 viet). Štruktúra: (1) Východisková situácia klienta a hlavná príležitosť na trhu. (2) Konkrétny strategický prístup — prečo tento mix platforiem, ako využijeme USP klienta, ako riešime sezónnosť a regionalitu, aká je rola Google Search (zachytenie aktívneho dopytu) vs Meta (budovanie povedomia + remarketing). (3) Ako budeme merať úspech a postupne škálovať. Píš ako keď senior stratég prezentuje klientovi — sebavedomo, konkrétne, s číslami kde dávajú zmysel. ŽIADNE klišé.",
   "research_insights": {
     "market_analysis": "2-3 vety o dopyte v jeho odvetví/regióne na základe MM keywords",
     "competitor_analysis": "2-3 vety o tom čo robí konkurencia a kde je priestor",
@@ -471,7 +477,7 @@ ${paidAdsInsights.slice(0, 8).map(a => `- "${a.title}" — ${(a.snippet || '').s
 
 ## TVRDÉ PRAVIDLÁ
 1. Všetko v slovenčine, vykáme klientovi
-2. Min 2 kampane: jedna na Google Search (lebo dopyt), jedna na Meta (lebo brand/local awareness)
+2. POVINNÉ: ak sú v platformách "google_search" AJ "meta_facebook", MUSÍŠ vygenerovať MINIMÁLNE jednu Google kampaň (platform: "google") A minimálne jednu Meta kampaň (platform: "meta"). Klient si zaplatil obe platformy — nesmie chýbať ani jedna. Ideálne 2-4 kampane spolu.
 3. Každá kampaň 2-3 ad groups, každá AG 2-3 reklamy
 4. Headlines MAX 30 znakov, descriptions MAX 90 znakov (Google limit). Pred zápisom skontroluj dĺžku.
 5. final_url konkrétna stránka klienta (base: ${onboarding.company_website || 'klient.sk'})
@@ -625,7 +631,7 @@ exports.handler = async (event) => {
   try { payload = JSON.parse(event.body || '{}'); }
   catch { return { statusCode: 400, headers: cors, body: 'Bad JSON' }; }
 
-  const { project_id, onboarding_id, platforms = ['google_search', 'meta_facebook'] } = payload;
+  const { project_id, onboarding_id, platforms = ['google_search', 'meta_facebook'], extra_instruction } = payload;
   if (!project_id || !onboarding_id) {
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Missing project_id or onboarding_id' }) };
   }
@@ -633,7 +639,7 @@ exports.handler = async (event) => {
   // Background function — beží do 15 min po vrátení response. Worker beží v rámci
   // tej istej invocation, nie asynchronne — Netlify mu dá 15 minút na dobehnutie.
   try {
-    await runGeneration({ project_id, onboarding_id, platforms });
+    await runGeneration({ project_id, onboarding_id, platforms, extra_instruction });
     return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true }) };
   } catch (error) {
     console.error('[generate-campaigns] error:', error);

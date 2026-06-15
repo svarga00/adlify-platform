@@ -1907,9 +1907,9 @@ const CampaignProjectsModule = {
             class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
             🎨 Kreatívy & prompty
           </button>
-          <button onclick="CampaignProjectsModule.requestRevision('${project.id}')"
+          <button onclick="CampaignProjectsModule.regenerateWithFeedback('${project.id}')"
             class="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200">
-            ✏️ Požiadať o revíziu
+            ✏️ Pregenerovať s pripomienkami
           </button>
           <button onclick="CampaignProjectsModule.approveInternal('${project.id}')"
             class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
@@ -2136,24 +2136,37 @@ const CampaignProjectsModule = {
     }
   },
   
-  async startGeneration(projectId) {
+  async startGeneration(projectId, extraInstruction = null) {
     const project = this.projects.find(p => p.id === projectId);
     if (!project) return;
 
-    // Get onboarding_id for this client
-    const { data: onboarding } = await Database.client
+    // Get onboarding_id for this client (status submitted alebo akýkoľvek
+    // posledný — niektorí klienti môžu mať draft onboarding)
+    let { data: onboarding } = await Database.client
       .from('onboarding_responses')
       .select('id')
       .eq('client_id', project.client_id)
       .eq('status', 'submitted')
-      .single();
+      .maybeSingle();
+    if (!onboarding) {
+      const { data: any } = await Database.client
+        .from('onboarding_responses')
+        .select('id')
+        .eq('client_id', project.client_id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      onboarding = any;
+    }
 
     if (!onboarding) {
       Utils.toast('Klient nemá vyplnený onboarding dotazník!', 'warning');
       return;
     }
 
-    Utils.toast('Spúšťam AI generovanie na pozadí... Môže trvať 1-3 minúty.', 'info');
+    Utils.toast(extraInstruction
+      ? 'Pregenerovávam návrh s vašimi pripomienkami... 1-3 min.'
+      : 'Spúšťam AI generovanie na pozadí... Môže trvať 1-3 minúty.', 'info');
 
     // Set status to generating (notes vyčistí background fn po úspechu)
     if (!await this.updateStatus(projectId, 'generating')) return;
@@ -2167,6 +2180,7 @@ const CampaignProjectsModule = {
         project_id: projectId,
         onboarding_id: onboarding.id,
         platforms: ['google_search', 'meta_facebook'],
+        extra_instruction: extraInstruction || undefined,
       }),
     }).catch(err => console.warn('[startGeneration] trigger error (expected for background):', err));
 
@@ -2237,19 +2251,42 @@ const CampaignProjectsModule = {
     }
   },
   
+  // Interná revízia — admin napíše vlastnými slovami čo chce zmeniť a AI
+  // pregeneruje celý návrh so zapracovaním pripomienok.
+  regenerateWithFeedback(projectId) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.id = 'regen-modal';
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6">
+        <h2 class="text-xl font-bold mb-2">✏️ Pregenerovať s pripomienkami</h2>
+        <p class="text-sm text-gray-600 mb-4">Napíšte vlastnými slovami čo chcete na návrhu zmeniť. AI prepracuje celý návrh a zapracuje vaše pripomienky. Pôvodné kampane sa nahradia novými.</p>
+        <textarea id="regen-feedback" rows="6" class="w-full p-3 border rounded-xl text-sm"
+          placeholder="Napr.: Pridaj samostatnú kampaň na tepelné čerpadlá na zimnú sezónu. Headlines nech viac tlačia bezplatnú obhliadku. Daj väčší budget na Google ako na Meta. Cieli viac na okres Liptovský Mikuláš."></textarea>
+        <div class="flex justify-end gap-3 mt-4">
+          <button onclick="document.getElementById('regen-modal').remove()"
+            class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">Zrušiť</button>
+          <button onclick="CampaignProjectsModule.submitRegeneration('${projectId}')"
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">🤖 Pregenerovať</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('regen-feedback')?.focus(), 50);
+  },
+
+  async submitRegeneration(projectId) {
+    const feedback = document.getElementById('regen-feedback')?.value?.trim();
+    document.getElementById('regen-modal')?.remove();
+    // Spustí to isté generovanie ako pri prvom behu, ale s pripomienkami.
+    // startGeneration nastaví status na generating + pollne výsledok.
+    await this.startGeneration(projectId, feedback || null);
+  },
+
+  // Pôvodná revízia bez pregenerovania (len vráti status — ponechané pre
+  // kompatibilitu, ale UI teraz preferuje regenerateWithFeedback)
   async requestRevision(projectId) {
-    const reason = prompt('Dôvod revízie:');
-    if (!reason) return;
-    
-    if (await this.updateStatus(projectId, 'revision', {
-      internal_notes: reason,
-      revision_count: (this.selectedProject?.revision_count || 0) + 1
-    })) {
-      Utils.toast('Projekt vrátený na revíziu', 'success');
-      this.closeDetailModal();
-      await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-    }
+    return this.regenerateWithFeedback(projectId);
   },
   
   async simulateClientApproval(projectId) {
