@@ -687,15 +687,15 @@ const CampaignProjectsModule = {
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500">Rozpočet na reklamu</span>
-                <span class="font-medium">${project.ad_spend_budget || 0}€/mes</span>
+                <span class="font-medium">${Number(project.ad_spend_budget) || 0}€/mes</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500">Poplatok za správu</span>
-                <span class="font-medium">${project.management_fee || 0}€/mes</span>
+                <span class="font-medium">${Number(project.management_fee) || 0}€/mes</span>
               </div>
               <div class="flex justify-between border-t pt-2">
                 <span class="text-gray-500">Celkom</span>
-                <span class="font-bold text-lg">${project.total_monthly_budget || 0}€/mes</span>
+                <span class="font-bold text-lg">${(Number(project.ad_spend_budget) || 0) + (Number(project.management_fee) || 0)}€/mes</span>
               </div>
             </div>
           </div>

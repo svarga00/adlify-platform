@@ -2040,9 +2040,11 @@ const OnboardingModule = {
         return null;
       }
       
-      const adBudget = this.formData.monthly_budget_max || this.formData.monthly_budget_min || 300;
-      const managementFee = this.formData.package_price || 249;
-      
+      // Number() coercion — formData hodnoty z inputov sú stringy, bez toho
+      // by total_monthly_budget bol string concat ("300" + "249" = "300249")
+      const adBudget = Number(this.formData.monthly_budget_max || this.formData.monthly_budget_min || 300) || 300;
+      const managementFee = Number(this.formData.package_price || 249) || 249;
+
       const projectData = {
         client_id: this.clientId,
         onboarding_id: this.onboardingId,
