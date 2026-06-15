@@ -2097,24 +2097,37 @@ const CampaignProjectsModule = {
     try {
       const { error } = await Database.client
         .from('campaign_projects')
-        .update({ 
+        .update({
           status: newStatus,
           updated_at: new Date().toISOString(),
           ...additionalData
         })
         .eq('id', projectId);
-      
+
       if (error) throw error;
-      
-      // Log to approval history
-      await Database.client.from('approval_history').insert({
-        entity_type: 'project',
-        entity_id: projectId,
-        action: 'status_change',
-        to_status: newStatus,
-        performer_type: 'admin'
-      });
-      
+
+      // Log to approval history — NEPOVINNÉ. Ak tabuľka approval_history
+      // neexistuje, nesmie to zhodiť celý status change (predtým to vracalo
+      // false → modál sa neprerenderoval + startGeneration sa nespustil).
+      try {
+        await Database.client.from('approval_history').insert({
+          entity_type: 'project',
+          entity_id: projectId,
+          action: 'status_change',
+          to_status: newStatus,
+          performer_type: 'admin'
+        });
+      } catch (histErr) {
+        console.warn('approval_history insert skipped:', histErr?.message);
+      }
+
+      // Update lokálny cache aby re-render videl nový status
+      const idx = this.projects.findIndex(p => p.id === projectId);
+      if (idx >= 0) this.projects[idx] = { ...this.projects[idx], status: newStatus, ...additionalData };
+      if (this.selectedProject?.id === projectId) {
+        this.selectedProject = { ...this.selectedProject, status: newStatus, ...additionalData };
+      }
+
       return true;
     } catch (error) {
       console.error('Status update error:', error);
@@ -2142,8 +2155,8 @@ const CampaignProjectsModule = {
 
     Utils.toast('Spúšťam AI generovanie na pozadí... Môže trvať 1-3 minúty.', 'info');
 
-    // Set status to generating + vyčisti staré error notes
-    if (!await this.updateStatus(projectId, 'generating', { notes: null })) return;
+    // Set status to generating (notes vyčistí background fn po úspechu)
+    if (!await this.updateStatus(projectId, 'generating')) return;
     await this.loadData();
     document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
 

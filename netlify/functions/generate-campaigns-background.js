@@ -421,13 +421,27 @@ PRAVIDLÁ:
     }
   }
 
-  // 6. Update project — povýš na internal_review
+  // 6. Update project — KRITICKÝ status flip najprv (minimálne stĺpce
+  // status + updated_at vždy existujú). Kampane sú už uložené, takže
+  // aj keby bohatý update nižšie zlyhal na chýbajúcom stĺpci, projekt
+  // sa správne zobrazí v internal_review s kampaňami.
+  const { error: statusErr } = await supabase
+    .from('campaign_projects')
+    .update({ status: 'internal_review', updated_at: new Date().toISOString() })
+    .eq('id', project_id);
+  if (statusErr) {
+    console.error('[generate-campaigns] CRITICAL status update failed:', statusErr.message);
+    throw new Error('Status update zlyhal: ' + statusErr.message);
+  }
+
+  // 7. Rich data — NEPOVINNÉ. Ak migrácia 028 nebola spustená a stĺpce
+  // chýbajú, kampane aj tak existujú a status je správny. Skúšame polia
+  // po skupinách aby jedno chýbajúce nezhodilo všetky.
   const { data: currentProject } = await supabase
     .from('campaign_projects').select('proposal_version').eq('id', project_id).maybeSingle();
   const nextVersion = (currentProject?.proposal_version || 0) + 1;
 
-  await supabase.from('campaign_projects').update({
-    status: 'internal_review',
+  const richUpdate = {
     strategy_summary: doc.strategy_summary || null,
     business_analysis: doc.business_analysis || null,
     research_data: { ...researchData, insights: doc.research_insights || null, model_used: 'claude-sonnet-4-6', generator_version: 3, runtime: 'netlify' },
@@ -437,8 +451,13 @@ PRAVIDLÁ:
     next_steps: doc.next_steps || null,
     total_monthly_budget: doc.budget_breakdown?.total_monthly || monthlyBudget,
     proposal_version: nextVersion,
-    notes: null,  // vyčisti prípadný predošlý error
-  }).eq('id', project_id);
+    notes: null,
+  };
+  const { error: richErr } = await supabase
+    .from('campaign_projects').update(richUpdate).eq('id', project_id);
+  if (richErr) {
+    console.warn('[generate-campaigns] rich data update skipped (chýbajúce stĺpce? spusti migráciu 028):', richErr.message);
+  }
 
   console.log(`[generate-campaigns] DONE project ${project_id} — ${campaignsGenerated} campaigns`);
   return { campaigns_generated: campaignsGenerated };
@@ -470,14 +489,21 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: cors, body: JSON.stringify({ success: true }) };
   } catch (error) {
     console.error('[generate-campaigns] error:', error);
-    // Reset projektu na draft s error notes
+    // Reset projektu na draft s error notes. Ak notes stĺpec neexistuje
+    // (migrácia 028 nespustená), fallback na status-only reset.
     try {
-      await supabase.from('campaign_projects')
+      const { error: resetErr } = await supabase.from('campaign_projects')
         .update({ status: 'draft', notes: `AI error: ${error.message}`.slice(0, 500) })
         .eq('id', project_id)
         .eq('status', 'generating');
-    } catch (resetErr) {
-      console.error('Status reset failed:', resetErr.message);
+      if (resetErr) {
+        await supabase.from('campaign_projects')
+          .update({ status: 'draft' })
+          .eq('id', project_id)
+          .eq('status', 'generating');
+      }
+    } catch (e) {
+      console.error('Status reset failed:', e.message);
     }
     return { statusCode: 500, headers: cors, body: JSON.stringify({ error: error.message }) };
   }
