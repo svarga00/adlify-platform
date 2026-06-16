@@ -103,6 +103,10 @@ const ProjectDetailModule = {
             <div data-tab-content="tracking" class="space-y-6 hidden">
               ${this._renderTrackingTab(project)}
             </div>
+            <!-- Brand tab — farby, logo, font pre AI generovanie -->
+            <div data-tab-content="brand" class="space-y-6 hidden">
+              <div id="brand-tab-host"><div style="padding:24px;color:#9ca3af;text-align:center;">⏳ Načítavam…</div></div>
+            </div>
           </div>
         </main>
       </div>
@@ -266,6 +270,7 @@ const ProjectDetailModule = {
       { id: 'overview',    icon: '⬛', label: 'Prehľad' },
       { id: 'strategy',    icon: '🎯', label: 'Stratégia' },
       { id: 'campaigns',   icon: '📣', label: 'Kampane' },
+      { id: 'brand',       icon: '🎨', label: 'Brand' },
       { id: 'tracking',    icon: '📈', label: 'Tracking' },
       { id: 'onboarding',  icon: '🛬', label: 'Onboarding' },
       { id: 'deployment',  icon: '🚀', label: 'Deployment' },
@@ -589,6 +594,128 @@ const ProjectDetailModule = {
     // Lazy load tracking summary (len keď user otvorí tab)
     if (tabId === 'tracking') this._loadConversionsSummary?.();
     if (tabId === 'strategy') this._loadProposalVersions?.();
+    if (tabId === 'brand') this._loadBrandTab?.();
+  },
+
+  // ─────────────────────────────────────────────────────────
+  // BRAND TAB — farby, logo, font, voice notes (per klient)
+  // Tieto sa použijú v AI prompte pri generovaní image_prompt
+  // a image_text_overlay.
+  // ─────────────────────────────────────────────────────────
+  async _loadBrandTab() {
+    const host = document.getElementById('brand-tab-host');
+    if (!host) return;
+    const project = window.CampaignProjectsModule.selectedProject;
+    if (!project?.client_id) {
+      host.innerHTML = '<div class="card" style="color:#9ca3af;">Projekt nemá priradeného klienta.</div>';
+      return;
+    }
+    try {
+      const { data: client, error } = await Database.client
+        .from('clients')
+        .select('id, company_name, brand_colors, brand_font, brand_logo_url, brand_voice_notes')
+        .eq('id', project.client_id)
+        .single();
+      if (error) throw error;
+      host.innerHTML = this._renderBrandForm(client);
+    } catch (e) {
+      console.error('[brand]', e);
+      host.innerHTML = `<div class="card" style="color:#dc2626;">Chyba: ${this._esc(e.message)} — spustil si migráciu 036?</div>`;
+    }
+  },
+
+  _renderBrandForm(client) {
+    const colors = Array.isArray(client.brand_colors) ? client.brand_colors : [];
+    const c0 = colors[0] || '';
+    const c1 = colors[1] || '';
+    const c2 = colors[2] || '';
+    return `
+      <div class="card">
+        <h4>🎨 Brand assets — ${this._esc(client.company_name)}</h4>
+        <p style="color:#374151;font-size:13px;margin-bottom:18px;">
+          Tieto údaje sa použijú v <strong>image promptoch</strong> (color palette),
+          <strong>text overlay</strong> (farba textu) a <strong>PDF prezentácii</strong>.
+          AI ich automaticky zahrnie pri ďalšom generovaní.
+        </p>
+
+        <h5 style="margin-top:0;">Brand farby</h5>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;">
+          ${[0,1,2].map(i => {
+            const v = colors[i] || '';
+            const labels = ['Primary (hlavná)', 'Secondary (doplnková)', 'Accent (akcent)'];
+            return `
+              <div>
+                <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${labels[i]}</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <input type="color" id="brand-color-${i}" value="${v || '#FF6B35'}"
+                    style="width:40px;height:40px;border:1px solid #eae6de;border-radius:8px;cursor:pointer;padding:2px;background:white;">
+                  <input type="text" id="brand-color-text-${i}" value="${this._esc(v)}" placeholder="#FF6B35"
+                    style="flex:1;padding:8px 10px;border:1px solid #eae6de;border-radius:8px;font-family:monospace;font-size:13px;"
+                    oninput="document.getElementById('brand-color-${i}').value = this.value;">
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <h5>Font</h5>
+        <input type="text" id="brand-font" value="${this._esc(client.brand_font || '')}"
+          placeholder="napr. Inter / Poppins / vlastný custom font"
+          style="width:100%;padding:10px 12px;border:1px solid #eae6de;border-radius:8px;font-size:13px;margin-bottom:18px;">
+
+        <h5>Logo URL</h5>
+        <input type="url" id="brand-logo-url" value="${this._esc(client.brand_logo_url || '')}"
+          placeholder="https://klient.sk/logo.png alebo Supabase Storage URL"
+          style="width:100%;padding:10px 12px;border:1px solid #eae6de;border-radius:8px;font-size:13px;margin-bottom:6px;">
+        ${client.brand_logo_url ? `<div style="margin-bottom:18px;"><img src="${this._esc(client.brand_logo_url)}" alt="Logo" style="max-height:60px;border:1px solid #eae6de;border-radius:8px;padding:8px;background:white;" onerror="this.style.display='none';"></div>` : '<div style="margin-bottom:12px;"></div>'}
+
+        <h5>Brand voice & extra inštrukcie</h5>
+        <textarea id="brand-voice" rows="4"
+          placeholder="Napr.: 'Vykáme, profesionálne ale nie korporátne, emoji NIE. Zakázané témy: politika, náboženstvo. Vyhýbať sa slovám: revolučný, najlepší.'"
+          style="width:100%;padding:10px 12px;border:1px solid #eae6de;border-radius:8px;font-size:13px;line-height:1.5;margin-bottom:18px;">${this._esc(client.brand_voice_notes || '')}</textarea>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="ProjectDetailModule._saveBrand('${client.id}')"
+            style="padding:10px 22px;background:#FF6B35;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:13px;">
+            💾 Uložiť brand
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="background:#fff7ed;border-left:3px solid #FF6B35;">
+        <h4 style="color:#9a3412;">💡 Ako to funguje</h4>
+        <ul style="color:#7c2d12;line-height:1.7;">
+          <li>Po uložení tieto údaje pôjdu do AI promptu pri ďalšom generovaní/pregenerovaní.</li>
+          <li>AI vyrobí image prompty so spomenutím tvojich farieb: <code style="background:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">color palette of [tvoje farby]</code></li>
+          <li>Text overlay color: "brand" → použije sa tvoja primary farba.</li>
+          <li>Brand voice notes idú do prompt-u ako extra konštrikcia pre copywriting.</li>
+        </ul>
+      </div>
+    `;
+  },
+
+  async _saveBrand(clientId) {
+    const colors = [];
+    for (let i = 0; i < 3; i++) {
+      const text = document.getElementById(`brand-color-text-${i}`)?.value?.trim();
+      if (text && /^#[0-9a-fA-F]{6}$/.test(text)) colors.push(text);
+    }
+    const brand_font = document.getElementById('brand-font')?.value?.trim() || null;
+    const brand_logo_url = document.getElementById('brand-logo-url')?.value?.trim() || null;
+    const brand_voice_notes = document.getElementById('brand-voice')?.value?.trim() || null;
+
+    try {
+      const { error } = await Database.client.from('clients').update({
+        brand_colors: colors.length ? colors : null,
+        brand_font, brand_logo_url, brand_voice_notes,
+      }).eq('id', clientId);
+      if (error) throw error;
+      Utils.toast(`✓ Brand uložený (${colors.length} farby)`, 'success');
+      // Reload tab aby ukázal aktuálne dáta + logo preview
+      await this._loadBrandTab();
+    } catch (e) {
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
   },
 
   // História verzií návrhu (snapshoty pred regeneráciou)

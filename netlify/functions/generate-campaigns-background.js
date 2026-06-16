@@ -212,6 +212,34 @@ async function runGeneration({ project_id, onboarding_id, platforms, extra_instr
     ? onboardingRow.data
     : onboardingRow;
 
+  // Načítaj brand assets z klienta (per-klient, doplnok ku onboarding)
+  let brandAssets = { colors: [], font: null, logo_url: null, voice_notes: null };
+  if (onboardingRow.client_id) {
+    try {
+      const { data: clientRow } = await supabase
+        .from('clients')
+        .select('brand_colors, brand_font, brand_logo_url, brand_voice_notes')
+        .eq('id', onboardingRow.client_id)
+        .maybeSingle();
+      if (clientRow) {
+        brandAssets = {
+          colors: Array.isArray(clientRow.brand_colors) ? clientRow.brand_colors : [],
+          font: clientRow.brand_font || null,
+          logo_url: clientRow.brand_logo_url || null,
+          voice_notes: clientRow.brand_voice_notes || null,
+        };
+      }
+    } catch (e) {
+      console.warn('[brand] load skipped (migrácia 036 chýba?):', e.message);
+    }
+  }
+  console.log('[brand assets]', {
+    colors_count: brandAssets.colors.length,
+    has_font: !!brandAssets.font,
+    has_logo: !!brandAssets.logo_url,
+    has_voice_notes: !!brandAssets.voice_notes,
+  });
+
   console.log('[generate-campaigns] onboarding loaded:', {
     project_id, onboarding_id,
     company: onboarding.company_name,
@@ -355,6 +383,10 @@ ${seasonalNote}
 ## BRAND
 - Tón: ${fmt(onboarding.brand_tone_of_voice)}
 - Štýl reklám: ${fmt(onboarding.preferred_ad_style)}
+${brandAssets.colors.length > 0 ? `- BRAND FARBY (POVINNE použij v image_prompt color palette + image_text_overlay color="brand"): ${brandAssets.colors.join(', ')}` : ''}
+${brandAssets.font ? `- Brand font: ${brandAssets.font}` : ''}
+${brandAssets.logo_url ? `- Logo k dispozícii: ${brandAssets.logo_url} (POZNÁMKA do image_style_notes — dizajnér nechá copy_space na vloženie loga)` : ''}
+${brandAssets.voice_notes ? `- Brand voice extra inštrukcie (POVINNE dodržať): ${brandAssets.voice_notes}` : ''}
 
 ## RESEARCH DÁTA (Marketing Miner + SERP)
 Top kľúčové slová:
