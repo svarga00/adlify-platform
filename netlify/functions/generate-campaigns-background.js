@@ -733,47 +733,104 @@ KRITICKÉ PRAVIDLÁ:
     console.warn('[snapshot] skipped:', e.message);
   }
 
-  // 6. Re-run guard + save
-  await deleteOldDraftCampaigns(project_id);
+  // 6. ATOMICKÉ save — najprv overíme že vieme inserovať, AŽ POTOM zmažeme staré.
+  // Predtým bug: delete šiel pred insertom, ak insert padol (napr. chýbajúca
+  // migrácia 034 → unknown column "image_text_overlay"), staré dáta sa stratili
+  // ale nové nevznikli → projekt vyzeral prázdny v draft state.
+  //
+  // Nový flow:
+  //   1) Načítaj clientId
+  //   2) Pre prvú kampaň urob "probe insert" — ak prejde, vieme že schéma sedí
+  //      a pokračujeme. Ak padne na unknown column, zopakujeme insert BEZ
+  //      voliteľných polí (image_text_overlay, image_style_notes, image_format,
+  //      variant_*) — fallback pre prípady kde admin nespustil migrácie 032/034.
+  //   3) Až keď je prvá kampaň úspešne uložená, mažeme staré (re-run guard).
+  //   4) Zvyšok kampaní + ad_groups + ads ide rovnakým atomic spôsobom.
 
-  // Načítaj client_id z projektu (potrebné pre campaigns.client_id)
+  // Načítaj client_id z projektu
   const { data: projRow } = await supabase
     .from('campaign_projects').select('client_id').eq('id', project_id).single();
   const clientId = projRow?.client_id || null;
 
-  let campaignsGenerated = 0;
-  for (const c of campaignsArr) {
-    const { data: savedCampaign, error: cErr } = await supabase
-      .from('campaigns').insert({
-        project_id,
-        client_id: clientId,
-        name: c.name,
-        platform: c.platform,
-        campaign_type: c.campaign_type,
-        objective: c.objective,
-        budget_daily: Number(c.daily_budget) || 0,
-        status: 'draft',
-        targeting: c.targeting || {},
-        metrics: { estimated: c.estimated_results || {}, rationale: c.rationale || '' },
-        ai_generated: true,
-      }).select().single();
-    if (cErr) { console.error('Campaign insert:', cErr.message); continue; }
+  // Helper — insert s automatickým retry bez nepovinných stĺpcov pri PGRST204
+  // (column not found). Vracia { data, error }.
+  async function insertWithFallback(table, fullRow, optionalCols) {
+    let { data, error } = await supabase.from(table).insert(fullRow).select().single();
+    if (error && /column .* does not exist|could not find .* column|PGRST204/i.test(error.message || '')) {
+      console.warn(`[insertWithFallback] ${table} — chýbajúci stĺpec, retry bez:`, optionalCols, '(spusti chýbajúce migrácie)');
+      const minimal = { ...fullRow };
+      for (const col of optionalCols) delete minimal[col];
+      ({ data, error } = await supabase.from(table).insert(minimal).select().single());
+    }
+    return { data, error };
+  }
+
+  // PROBE: skús prvú kampaň — ak prejde, vieme že schéma je OK
+  const firstCampaign = campaignsArr[0];
+  const firstCampaignRow = {
+    project_id, client_id: clientId,
+    name: firstCampaign.name,
+    platform: firstCampaign.platform,
+    campaign_type: firstCampaign.campaign_type,
+    objective: firstCampaign.objective,
+    budget_daily: Number(firstCampaign.daily_budget) || 0,
+    status: 'draft',
+    targeting: firstCampaign.targeting || {},
+    metrics: { estimated: firstCampaign.estimated_results || {}, rationale: firstCampaign.rationale || '' },
+    ai_generated: true,
+  };
+  const probe = await insertWithFallback('campaigns', firstCampaignRow, ['client_id', 'ai_generated']);
+  if (probe.error) {
+    throw new Error('Insert kampane zlyhal: ' + probe.error.message + '. Skontroluj že migrácie 028 (campaigns/campaign_projects stĺpce) sú spustené.');
+  }
+
+  // ✅ Schéma OK — teraz bezpečne zmaž staré kampane
+  await deleteOldDraftCampaigns(project_id);
+
+  // Re-vytvor prvú kampaň (snapshot mohla zostať v staršej verzii, alebo
+  // bola v tej istej "draft + ai_generated" sade ktorú sme práve zmazali)
+  // POZNÁMKA: deleteOldDraftCampaigns mažed AI draft kampane vrátane tej čo
+  // sme práve insertli. Insertujeme ju znova po delete.
+  const savedFirst = await insertWithFallback('campaigns', firstCampaignRow, ['client_id', 'ai_generated']);
+  if (savedFirst.error) throw new Error('Re-insert prvej kampane zlyhal: ' + savedFirst.error.message);
+
+  let campaignsGenerated = 1;
+
+  // Insert ad_groups + ads pre prvú kampaň
+  await insertAdGroupsAndAds(firstCampaign, savedFirst.data, onboarding, insertWithFallback);
+
+  // Insert zostávajúce kampane (i = 1 lebo prvá je už hotová)
+  for (let i = 1; i < campaignsArr.length; i++) {
+    const c = campaignsArr[i];
+    const row = {
+      project_id, client_id: clientId,
+      name: c.name, platform: c.platform, campaign_type: c.campaign_type,
+      objective: c.objective, budget_daily: Number(c.daily_budget) || 0,
+      status: 'draft', targeting: c.targeting || {},
+      metrics: { estimated: c.estimated_results || {}, rationale: c.rationale || '' },
+      ai_generated: true,
+    };
+    const saved = await insertWithFallback('campaigns', row, ['client_id', 'ai_generated']);
+    if (saved.error) { console.error('Campaign insert:', saved.error.message); continue; }
     campaignsGenerated++;
+    await insertAdGroupsAndAds(c, saved.data, onboarding, insertWithFallback);
+  }
 
+  // Helper — vloží všetky ad_groups a ads pre danú kampaň (s fallback na
+  // chýbajúce voliteľné stĺpce z migrácií 032/034).
+  async function insertAdGroupsAndAds(c, savedCampaign, onboarding, insertWithFallback) {
     for (const g of (c.ad_groups || [])) {
-      const { data: savedAG, error: gErr } = await supabase
-        .from('ad_groups').insert({
-          campaign_id: savedCampaign.id,
-          name: g.name,
-          keywords: g.keywords || [],
-          negative_keywords: g.negative_keywords || [],
-          status: 'draft',
-        }).select().single();
-      if (gErr) { console.error('AG insert:', gErr.message); continue; }
+      const agRes = await insertWithFallback('ad_groups', {
+        campaign_id: savedCampaign.id,
+        name: g.name,
+        keywords: g.keywords || [],
+        negative_keywords: g.negative_keywords || [],
+        status: 'draft',
+      }, []);
+      if (agRes.error) { console.error('AG insert:', agRes.error.message); continue; }
+      const savedAG = agRes.data;
 
-      // Generuj variant_group_id pre celú ad group (všetky varianty reklamy
-      // v tom istom ad group s rovnakým group_id = patria k tomu istému A/B testu).
-      // crypto.randomUUID() je nodejs 19+, fallback na manuálne
+      // Variant group ID — všetky varianty v tom istom ad group sú spojené
       const variantGroupId = (typeof crypto !== 'undefined' && crypto.randomUUID)
         ? crypto.randomUUID()
         : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
@@ -781,12 +838,14 @@ KRITICKÉ PRAVIDLÁ:
           });
 
       const adsArr = g.ads || [];
-      // Ak AI nevyrobila variantyA/B (single ad), variant_label ostane null
       const hasVariants = adsArr.length > 1 && adsArr.some(a => a.variant_label);
 
       for (const ad of adsArr) {
         const isSearchAd = (c.campaign_type || '').toLowerCase() === 'search';
-        const { error: adErr } = await supabase.from('ads').insert({
+        // Voliteľné stĺpce z mig 032 (variant_*) a 034 (image_text_overlay,
+        // image_style_notes, image_format) — ak chýbajú v DB, insertWithFallback
+        // ich vyhodí a skúsi insert znova bez nich.
+        const adRow = {
           ad_group_id: savedAG.id,
           ad_type: ad.type || 'responsive',
           headlines: ad.headlines || [],
@@ -805,8 +864,14 @@ KRITICKÉ PRAVIDLÁ:
           variant_group_id: hasVariants ? variantGroupId : null,
           variant_hook: ad.variant_hook || null,
           status: 'draft',
-        });
-        if (adErr) console.error('Ad insert:', adErr.message);
+        };
+        const adRes = await insertWithFallback('ads', adRow, [
+          'image_text_overlay', 'image_style_notes', 'image_format',
+          'variant_label', 'variant_group_id', 'variant_hook',
+          'image_prompt', 'image_aspect_ratio', 'image_status',
+          'final_url', 'path1', 'path2',
+        ]);
+        if (adRes.error) console.error('Ad insert:', adRes.error.message);
       }
     }
   }
