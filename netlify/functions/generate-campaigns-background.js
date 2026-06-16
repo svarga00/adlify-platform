@@ -851,20 +851,31 @@ KRITICKÉ PRAVIDLÁ:
     return { data, error };
   }
 
+  // Helper — orežem textové polia na bezpečnú dĺžku (defenzívny net
+  // pre prípad keď schéma má varchar(100) na nejakom stĺpci. Migrácia
+  // 035 by mala TEXT, ale fallback je istota).
+  const safeTrim = (s, max) => {
+    if (s == null) return null;
+    const str = String(s).trim();
+    return str.length > max ? str.slice(0, max - 1) + '…' : str;
+  };
+
+  const buildCampaignRow = (c) => ({
+    project_id, client_id: clientId,
+    name: safeTrim(c.name, 250),
+    platform: c.platform,
+    campaign_type: safeTrim(c.campaign_type, 80),
+    objective: safeTrim(c.objective, 250),
+    budget_daily: Number(c.daily_budget) || 0,
+    status: 'draft',
+    targeting: c.targeting || {},
+    metrics: { estimated: c.estimated_results || {}, rationale: c.rationale || '' },
+    ai_generated: true,
+  });
+
   // PROBE: skús prvú kampaň — ak prejde, vieme že schéma je OK
   const firstCampaign = campaignsArr[0];
-  const firstCampaignRow = {
-    project_id, client_id: clientId,
-    name: firstCampaign.name,
-    platform: firstCampaign.platform,
-    campaign_type: firstCampaign.campaign_type,
-    objective: firstCampaign.objective,
-    budget_daily: Number(firstCampaign.daily_budget) || 0,
-    status: 'draft',
-    targeting: firstCampaign.targeting || {},
-    metrics: { estimated: firstCampaign.estimated_results || {}, rationale: firstCampaign.rationale || '' },
-    ai_generated: true,
-  };
+  const firstCampaignRow = buildCampaignRow(firstCampaign);
   const probe = await insertWithFallback('campaigns', firstCampaignRow, ['client_id', 'ai_generated']);
   if (probe.error) {
     throw new Error('Insert kampane zlyhal: ' + probe.error.message + '. Skontroluj že migrácie 028 (campaigns/campaign_projects stĺpce) sú spustené.');
@@ -888,14 +899,7 @@ KRITICKÉ PRAVIDLÁ:
   // Insert zostávajúce kampane (i = 1 lebo prvá je už hotová)
   for (let i = 1; i < campaignsArr.length; i++) {
     const c = campaignsArr[i];
-    const row = {
-      project_id, client_id: clientId,
-      name: c.name, platform: c.platform, campaign_type: c.campaign_type,
-      objective: c.objective, budget_daily: Number(c.daily_budget) || 0,
-      status: 'draft', targeting: c.targeting || {},
-      metrics: { estimated: c.estimated_results || {}, rationale: c.rationale || '' },
-      ai_generated: true,
-    };
+    const row = buildCampaignRow(c);
     const saved = await insertWithFallback('campaigns', row, ['client_id', 'ai_generated']);
     if (saved.error) { console.error('Campaign insert:', saved.error.message); continue; }
     campaignsGenerated++;
@@ -906,9 +910,10 @@ KRITICKÉ PRAVIDLÁ:
   // chýbajúce voliteľné stĺpce z migrácií 032/034).
   async function insertAdGroupsAndAds(c, savedCampaign, onboarding, insertWithFallback) {
     for (const g of (c.ad_groups || [])) {
+      const safeAGName = String(g.name || 'Ad Group').trim().slice(0, 250);
       const agRes = await insertWithFallback('ad_groups', {
         campaign_id: savedCampaign.id,
-        name: g.name,
+        name: safeAGName,
         keywords: g.keywords || [],
         negative_keywords: g.negative_keywords || [],
         status: 'draft',
@@ -946,22 +951,22 @@ KRITICKÉ PRAVIDLÁ:
         // ich vyhodí a skúsi insert znova bez nich.
         const adRow = {
           ad_group_id: savedAG.id,
-          ad_type: ad.type || 'responsive',
+          ad_type: String(ad.type || 'responsive').slice(0, 50),
           headlines: safeHeadlines,
           descriptions: safeDescriptions,
-          call_to_action: ad.call_to_action,
+          call_to_action: safeTrim(ad.call_to_action, 100),
           final_url: ad.final_url || onboarding.company_website || null,
-          path1: ad.path1 || null,
-          path2: ad.path2 || null,
+          path1: ad.path1 ? String(ad.path1).slice(0, 15) : null,
+          path2: ad.path2 ? String(ad.path2).slice(0, 15) : null,
           image_prompt: isSearchAd ? null : (ad.image_prompt || null),
-          image_aspect_ratio: isSearchAd ? null : (ad.image_aspect_ratio || '1:1'),
+          image_aspect_ratio: isSearchAd ? null : safeTrim(ad.image_aspect_ratio || '1:1', 20),
           image_status: isSearchAd ? 'skipped' : 'pending',
           image_text_overlay: isSearchAd ? null : (ad.image_text_overlay || null),
           image_style_notes: isSearchAd ? null : (ad.image_style_notes || null),
-          image_format: isSearchAd ? null : (ad.image_format || 'photo'),
-          variant_label: hasVariants ? (ad.variant_label || null) : null,
+          image_format: isSearchAd ? null : safeTrim(ad.image_format || 'photo', 30),
+          variant_label: hasVariants ? (ad.variant_label ? String(ad.variant_label).slice(0, 10) : null) : null,
           variant_group_id: hasVariants ? variantGroupId : null,
-          variant_hook: ad.variant_hook || null,
+          variant_hook: safeTrim(ad.variant_hook, 250),
           status: 'draft',
         };
         const adRes = await insertWithFallback('ads', adRow, [
