@@ -190,12 +190,15 @@ const CreativesModule = {
                   const label = (ad.headlines?.[0]) || 'Reklama';
                   const status = ad.image_status;
                   const statusDot = status === 'approved' ? '🟢' : status === 'uploaded' ? '🔵' : status === 'skipped' ? '⚪' : '🟡';
+                  const variantChip = ad.variant_label
+                    ? `<span style="background:${isCurrent ? 'rgba(255,255,255,0.3)' : '#ede9fe'};color:${isCurrent ? '#fff' : '#6b21a8'};padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-right:4px;">${this._esc(ad.variant_label)}</span>`
+                    : '';
                   return `
                     <button onclick="CreativesModule.goToAd('${ad.id}')"
                       style="display:block;width:100%;text-align:left;padding:6px 8px;margin:1px 0;border-radius:6px;font-size:12px;border:none;cursor:pointer;
                         background:${isCurrent ? '#FF6B35' : 'transparent'};
                         color:${isCurrent ? '#fff' : '#374151'};">
-                      ${statusDot} ${this._esc(label.slice(0, 28))}${label.length > 28 ? '…' : ''}
+                      ${statusDot} ${variantChip}${this._esc(label.slice(0, 24))}${label.length > 24 ? '…' : ''}
                     </button>
                   `;
                 }).join('')}
@@ -250,14 +253,18 @@ const CreativesModule = {
         </div>
 
         <!-- Status pill -->
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
           ${this._statusPill(ad.image_status)}
+          ${ad.variant_label ? `<span style="background:linear-gradient(135deg,#8b5cf6,#ec4899);color:white;padding:3px 12px;border-radius:9999px;font-size:11px;font-weight:700;letter-spacing:0.5px;">🅰 Variant ${this._esc(ad.variant_label)}</span>` : ''}
+          ${ad.variant_hook ? `<span style="background:#fafaf8;border:1px solid #eae6de;color:#14120e;padding:3px 12px;border-radius:9999px;font-size:11px;font-weight:500;">Hook: ${this._esc(ad.variant_hook)}</span>` : ''}
           <span style="font-size:12px;color:#6b7280;">${this._esc(c.campaign_type || '')} · daily ${c.budget_daily || 0}€</span>
           <button onclick="CreativesModule.regenerateAd('${ad.id}')"
             style="margin-left:auto;padding:6px 12px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
             ✨ Pregenerovať s pripomienkami
           </button>
         </div>
+
+        ${this._renderVariantSwitcher(ad)}
 
         <!-- HEADLINES -->
         <section style="background:#fff;border:1px solid #eae6de;border-radius:14px;padding:20px;margin-bottom:16px;">
@@ -423,6 +430,35 @@ const CreativesModule = {
         <span class="char-counter" style="font-size:11px;min-width:48px;text-align:right;color:${tooLong ? '#ef4444' : '#9ca3af'};">${value.length}/${limit}</span>
         <button onclick="CreativesModule.removeLine('${kind}', '${adId}', ${idx})"
           style="padding:4px 8px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;" title="Zmazať">✕</button>
+      </div>
+    `;
+  },
+
+  // Variant switcher — ak má reklama variant_group_id, zobrazí tlačidlá pre
+  // rýchle prepínanie medzi A / B / C variantmi v tej istej ad group.
+  _renderVariantSwitcher(currentAd) {
+    if (!currentAd.variant_group_id) return '';
+    const siblings = this.flatAds
+      .filter(a => a.variant_group_id === currentAd.variant_group_id)
+      .sort((a, b) => (a.variant_label || '').localeCompare(b.variant_label || ''));
+    if (siblings.length < 2) return '';
+    return `
+      <div style="background:linear-gradient(135deg,#faf5ff,#fdf2f8);border:1px solid #e9d5ff;border-radius:14px;padding:14px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="font-size:11px;font-weight:700;color:#6b21a8;text-transform:uppercase;letter-spacing:1.2px;">A/B test — ${siblings.length} varianty</div>
+          <div style="display:flex;gap:6px;">
+            ${siblings.map(s => `
+              <button onclick="CreativesModule.goToAd('${s.id}')"
+                style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+                  background:${s.id === currentAd.id ? 'linear-gradient(135deg,#8b5cf6,#ec4899)' : 'white'};
+                  color:${s.id === currentAd.id ? 'white' : '#6b21a8'};
+                  border:1px solid ${s.id === currentAd.id ? 'transparent' : '#e9d5ff'};">
+                Variant ${this._esc(s.variant_label || '?')}
+                ${s.variant_hook ? `<span style="opacity:0.8;font-weight:500;margin-left:4px;">· ${this._esc(s.variant_hook.slice(0, 24))}</span>` : ''}
+              </button>
+            `).join('')}
+          </div>
+        </div>
       </div>
     `;
   },

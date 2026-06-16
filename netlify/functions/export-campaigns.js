@@ -211,7 +211,7 @@ function buildMetaCSV({ project, campaigns, adGroups, ads }) {
           'Age Max': targeting.age_to || 65,
           Gender: targeting.gender || 'all',
           Interests: (targeting.interests || []).join(';'),
-          'Ad Name': `${grp.name} — ${(ad.headlines?.[0] || 'ad').slice(0, 30)}`,
+          'Ad Name': `${grp.name}${ad.variant_label ? ` [Variant ${ad.variant_label}]` : ''} — ${(ad.headlines?.[0] || 'ad').slice(0, 30)}`,
           'Ad Status': 'PAUSED',
           'Ad Creative Type': 'SINGLE_IMAGE',
           'Primary Text': (ad.descriptions?.[0] || '').slice(0, 125),

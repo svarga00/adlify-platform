@@ -14,6 +14,7 @@
 //                SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -480,8 +481,10 @@ Spolu 2-3 kampane × 2-3 ad groups × 3-4 reklamy.
           "ads": [
             {
               "type": "responsive",
+              "variant_label": "A",
+              "variant_hook": "Krátky popis tohto uhla — napr. 'Cena + akcia' alebo 'Bezplatná obhliadka'",
               "headlines": [
-                "10-12 unikátnych headlines, každý max 30 znakov, cituje USP klienta, lokalitu, CTA. Príklady: 'Klimatizácie Liptov', 'Obhliadka zdarma', 'Daikin / LG / Samsung', '5★ recenzie'"
+                "10-12 unikátnych headlines pre variant A, každý max 30 znakov, cituje USP klienta, lokalitu, CTA. Príklady: 'Klimatizácie Liptov', 'Obhliadka zdarma', 'Daikin / LG / Samsung', '5★ recenzie'"
               ],
               "descriptions": [
                 "3-4 descriptions, každý max 90 znakov, obsahuje USP + CTA"
@@ -490,6 +493,23 @@ Spolu 2-3 kampane × 2-3 ad groups × 3-4 reklamy.
               "final_url": "https://klient.sk/konkretna-stranka",
               "path1": "max-15-znakov",
               "path2": "max-15-znakov",
+              "image_prompt": null,
+              "image_aspect_ratio": null
+            },
+            {
+              "type": "responsive",
+              "variant_label": "B",
+              "variant_hook": "Iný hook angle — testujeme čo viac rezonuje. Napr. ak A je 'Cena', B môže byť 'Garancia / Dôvera'",
+              "headlines": [
+                "10-12 unikátnych headlines pre variant B, ÚPLNE INÝ ANGLE než variant A. Nie len synonymá, ale iné copy logiky."
+              ],
+              "descriptions": [
+                "3-4 descriptions s odlišným prístupom než variant A"
+              ],
+              "call_to_action": "CTA pre variant B",
+              "final_url": "rovnaká URL ako variant A",
+              "path1": "max-15",
+              "path2": "max-15",
               "image_prompt": null,
               "image_aspect_ratio": null
             }
@@ -555,8 +575,10 @@ Spolu 1-2 kampane × 2-3 ad sets × 3-4 reklamy.
           "ads": [
             {
               "type": "responsive",
+              "variant_label": "A",
+              "variant_hook": "Hook angle pre variant A — napr. 'Emocionálny benefit' alebo 'Sociálny dôkaz'",
               "headlines": [
-                "5 headlines, každý max 40 znakov (Meta limit). Cituj USP."
+                "5 headlines pre variant A, každý max 40 znakov (Meta limit). Cituj USP."
               ],
               "descriptions": [
                 "3-4 primary texts (descriptions). Prvý je dlhší (max 125 znakov), ostatné kratšie variácie."
@@ -565,7 +587,24 @@ Spolu 1-2 kampane × 2-3 ad sets × 3-4 reklamy.
               "final_url": "https://klient.sk/konkretna-stranka",
               "path1": null,
               "path2": null,
-              "image_prompt": "EN prompt pre DALL·E/Midjourney. Konkrétna scéna z odvetvia klienta. Vzor: 'Photo, modern Slovak family living room with white split-AC unit, sunny summer afternoon, natural daylight, no people, professional advertising photo, copy space top-right, no text, no logos, no watermarks, --ar 1:1'",
+              "image_prompt": "EN prompt pre DALL·E/Midjourney pre variant A. Konkrétna scéna z odvetvia klienta. Vzor: 'Photo, modern Slovak family living room with white split-AC unit, sunny summer afternoon, natural daylight, no people, professional advertising photo, copy space top-right, no text, no logos, no watermarks, --ar 1:1'",
+              "image_aspect_ratio": "1:1"
+            },
+            {
+              "type": "responsive",
+              "variant_label": "B",
+              "variant_hook": "INÝ hook angle pre variant B — napr. ak A je emocionálny, B môže byť racionálny (cena/funkcia)",
+              "headlines": [
+                "5 headlines pre variant B s ODLIŠNÝM prístupom než A"
+              ],
+              "descriptions": [
+                "3-4 primary texts s odlišným storytelling než variant A"
+              ],
+              "call_to_action": "iný CTA ak má zmysel",
+              "final_url": "rovnaká URL ako A",
+              "path1": null,
+              "path2": null,
+              "image_prompt": "EN prompt pre variant B — INÁ vizuálna kompozícia/scéna než A (napr. ak A je interiér, B môže byť detail produktu)",
               "image_aspect_ratio": "1:1"
             }
           ]
@@ -720,7 +759,20 @@ KRITICKÉ PRAVIDLÁ:
         }).select().single();
       if (gErr) { console.error('AG insert:', gErr.message); continue; }
 
-      for (const ad of (g.ads || [])) {
+      // Generuj variant_group_id pre celú ad group (všetky varianty reklamy
+      // v tom istom ad group s rovnakým group_id = patria k tomu istému A/B testu).
+      // crypto.randomUUID() je nodejs 19+, fallback na manuálne
+      const variantGroupId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
+            const r = Math.random()*16|0; return (ch==='x'?r:(r&0x3|0x8)).toString(16);
+          });
+
+      const adsArr = g.ads || [];
+      // Ak AI nevyrobila variantyA/B (single ad), variant_label ostane null
+      const hasVariants = adsArr.length > 1 && adsArr.some(a => a.variant_label);
+
+      for (const ad of adsArr) {
         const isSearchAd = (c.campaign_type || '').toLowerCase() === 'search';
         const { error: adErr } = await supabase.from('ads').insert({
           ad_group_id: savedAG.id,
@@ -734,6 +786,9 @@ KRITICKÉ PRAVIDLÁ:
           image_prompt: isSearchAd ? null : (ad.image_prompt || null),
           image_aspect_ratio: isSearchAd ? null : (ad.image_aspect_ratio || '1:1'),
           image_status: isSearchAd ? 'skipped' : 'pending',
+          variant_label: hasVariants ? (ad.variant_label || null) : null,
+          variant_group_id: hasVariants ? variantGroupId : null,
+          variant_hook: ad.variant_hook || null,
           status: 'draft',
         });
         if (adErr) console.error('Ad insert:', adErr.message);
