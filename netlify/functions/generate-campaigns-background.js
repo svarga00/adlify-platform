@@ -529,8 +529,9 @@ KRITICKÉ PRAVIDLÁ:
 5. final_url: konkrétna stránka (base ${onboarding.company_website || 'klient.sk'})
 6. Targeting locations: ${JSON.stringify(regions.length ? regions : countries)}
 7. KW: kombinuj reálne MM keywords s lokálnymi variantami (s mestami)
-8. Pre Display/PMax: image_prompt v angličtine pre DALL·E (Photo + konkrétna scéna + "no text, no logos" + aspect ratio)
+8. Pre Display/PMax: PODROBNÝ image_prompt v angličtine (60-100 slov) so štruktúrou [ŠTÝL][SCÉNA][SUBJEKT][KOMPOZÍCIA][LIGHTING][KAMERA][PALETA][MOOD] + negatívne "no text, no logos, no watermarks". Aspect ratio --ar 1.91:1 pre Display. Inšpiruj sa konkrétnym príkladom z Meta promptu nižšie.
 9. Pre Search: image_prompt = null
+10. image_text_overlay: pre Display kampane navrhni text ktorý by sa mal pridať NA OBRÁZOK v post-processingu (krátky 2-4 slovný hook + CTA). Pre Search = null.
 10. ODPOVEĎ LEN JSON`;
 
   // ─── PROMPT 3: META ADS KAMPANE ───
@@ -587,7 +588,15 @@ Spolu 1-2 kampane × 2-3 ad sets × 3-4 reklamy.
               "final_url": "https://klient.sk/konkretna-stranka",
               "path1": null,
               "path2": null,
-              "image_prompt": "EN prompt pre DALL·E/Midjourney pre variant A. Konkrétna scéna z odvetvia klienta. Vzor: 'Photo, modern Slovak family living room with white split-AC unit, sunny summer afternoon, natural daylight, no people, professional advertising photo, copy space top-right, no text, no logos, no watermarks, --ar 1:1'",
+              "image_prompt": "PODROBNÝ EN prompt pre Nano Banana 2 / DALL·E / Midjourney / Flux pre variant A. Použij tento format (3-5 viet, 60-100 slov):\\n\\n[ŠTÝL]: Professional advertising photography / Cinematic / Editorial. [SCÉNA]: konkrétna lokácia + denná doba + atmosféra. [SUBJEKT]: čo je hlavný prvok (produkt / situácia / interiér klienta) — popíš materiály, farby, detaily. [KOMPOZÍCIA]: rule of thirds / centered / dynamic angle + copy space pozícia (top-left/right pre headline overlay). [LIGHTING]: golden hour / soft natural / dramatic side light + popis. [KAMERA]: shot on Canon EOS R5, 50mm f/1.8 lens, shallow depth of field. [FAREBNÁ PALETA]: 2-3 dominantné farby. [MOOD]: emócia ktorú má vyvolať. Negatívne (povinne na konci): no text, no logos, no watermarks, no people faces clearly visible, no stock photo cliché. Aspect ratio: --ar 1:1.\\n\\nPríklad pre klimatizácie: 'Professional advertising photography, modern Slovak family living room interior at golden hour summer afternoon, sleek white split-AC unit mounted on light grey wall, minimalist Scandinavian decor with natural oak wood floors and beige linen sofa, rule of thirds composition with AC unit upper-right and large copy space on left side, soft warm sunset light streaming through floor-to-ceiling windows creating long shadows, shot on Canon EOS R5 with 35mm f/2 lens at f/4, shallow depth of field, color palette of warm beige, soft white, and natural wood tones, mood of comfort and relaxed luxury, no text, no logos, no watermarks, no people faces visible, --ar 1:1'",
+              "image_text_overlay": {
+                "headline": "2-4 SK slov hook ktorý sa pridá NA obrázok ako overlay text (napr. 'Chlaďte za 1 týždeň' alebo 'Obhliadka zdarma')",
+                "cta": "1-2 SK slov call to action (napr. 'Objednať', 'Zistite viac', 'Zavolajte')",
+                "position": "top-left | top-right | bottom-left | bottom-right | center — vyber podľa copy_space pozície v image_prompte",
+                "color": "white | dark | brand — odporúčaná farba textu pre overlay"
+              },
+              "image_style_notes": "Krátky SK tip pre dizajnéra/admina ako môže obrázok ďalej vylepšiť (napr. 'Pridať jemný light leak v ľavom hornom rohu pre teplý feel', 'Color grading: oranžové vintage tóny', 'Logo klienta umiestniť do pravého dolného rohu')",
+              "image_format": "photo | illustration | 3d_render | minimal_banner | cinematic | lifestyle — vyber best fit",
               "image_aspect_ratio": "1:1"
             },
             {
@@ -604,7 +613,10 @@ Spolu 1-2 kampane × 2-3 ad sets × 3-4 reklamy.
               "final_url": "rovnaká URL ako A",
               "path1": null,
               "path2": null,
-              "image_prompt": "EN prompt pre variant B — INÁ vizuálna kompozícia/scéna než A (napr. ak A je interiér, B môže byť detail produktu)",
+              "image_prompt": "PODROBNÝ EN prompt pre variant B — rovnaký format ako variant A (3-5 viet, 60-100 slov) ale INÁ vizuálna kompozícia. Ak A je wide-shot interiér, B môže byť close-up detail produktu / lifestyle situation. Ak A je deň, B môže byť večer. Cieľ: testovať VIZUÁLNY hook (nie len text). Použij rovnakú štruktúru [ŠTÝL][SCÉNA][SUBJEKT][KOMPOZÍCIA][LIGHTING][KAMERA][PALETA][MOOD] + negatívne na konci.",
+              "image_text_overlay": { "headline": "iný hook než variant A", "cta": "iné CTA", "position": "iná pozícia", "color": "white|dark|brand" },
+              "image_style_notes": "Krátky SK tip pre úpravy variantu B",
+              "image_format": "photo | illustration | 3d_render | minimal_banner | cinematic | lifestyle",
               "image_aspect_ratio": "1:1"
             }
           ]
@@ -786,6 +798,9 @@ KRITICKÉ PRAVIDLÁ:
           image_prompt: isSearchAd ? null : (ad.image_prompt || null),
           image_aspect_ratio: isSearchAd ? null : (ad.image_aspect_ratio || '1:1'),
           image_status: isSearchAd ? 'skipped' : 'pending',
+          image_text_overlay: isSearchAd ? null : (ad.image_text_overlay || null),
+          image_style_notes: isSearchAd ? null : (ad.image_style_notes || null),
+          image_format: isSearchAd ? null : (ad.image_format || 'photo'),
           variant_label: hasVariants ? (ad.variant_label || null) : null,
           variant_group_id: hasVariants ? variantGroupId : null,
           variant_hook: ad.variant_hook || null,

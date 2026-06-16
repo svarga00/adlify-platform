@@ -328,20 +328,30 @@ const CreativesModule = {
         ${!isSearchAd ? `
         <!-- IMAGE PROMPT + UPLOAD -->
         <section style="background:#fff;border:1px solid #eae6de;border-radius:14px;padding:20px;margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <h3 style="margin:0;font-size:14px;font-weight:700;color:#14120e;">🖼️ Obrázok</h3>
-            <span style="font-size:12px;color:#6b7280;">Aspect: <strong>${this._esc(ad.image_aspect_ratio || '1:1')}</strong></span>
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#6b7280;">
+              ${ad.image_format ? `<span style="background:#fafaf8;border:1px solid #eae6de;padding:3px 9px;border-radius:9999px;font-weight:600;">${this._esc(ad.image_format)}</span>` : ''}
+              <span>Aspect: <strong>${this._esc(ad.image_aspect_ratio || '1:1')}</strong></span>
+            </div>
           </div>
           <div style="margin-bottom:12px;">
-            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Image prompt pre DALL·E / Midjourney / Flux:</div>
-            <div contenteditable="true" data-save="image_prompt" data-ad-id="${ad.id}"
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Image prompt pre Nano Banana 2 / DALL·E / Midjourney / Flux:</div>
+            <div contenteditable="true" data-save="image_prompt" data-ad-id="${ad.id}" id="prompt-${ad.id}"
               style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;font-size:12px;font-family:monospace;color:#581c87;min-height:60px;white-space:pre-wrap;cursor:text;"
               placeholder="Photo, modern slovak kitchen, natural light, no text, no logos, --ar 1:1">${this._esc(ad.image_prompt || '')}</div>
-            <button onclick="navigator.clipboard.writeText(${JSON.stringify(ad.image_prompt || '')}); Utils.toast('Skopírované do clipboardu', 'success');"
-              style="margin-top:6px;font-size:11px;padding:4px 10px;background:#a855f7;color:#fff;border:none;border-radius:5px;cursor:pointer;">
+            <button onclick="CreativesModule.copyPrompt('${ad.id}', this)"
+              style="margin-top:6px;font-size:11px;padding:6px 14px;background:#a855f7;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">
               📋 Skopírovať prompt
             </button>
           </div>
+
+          ${this._renderTextOverlay(ad)}
+          ${ad.image_style_notes ? `
+            <div style="margin-bottom:12px;padding:10px 14px;background:#fff7ed;border-left:3px solid #FF6B35;border-radius:0 8px 8px 0;font-size:12px;color:#9a3412;">
+              <strong style="color:#7c2d12;">💡 Tip pre úpravy:</strong> ${this._esc(ad.image_style_notes)}
+            </div>
+          ` : ''}
 
           ${ad.image_url ? `
             <div style="display:flex;align-items:flex-start;gap:14px;padding:14px;background:#f9fafb;border-radius:10px;">
@@ -580,6 +590,78 @@ const CreativesModule = {
       this._renderApp();
     } catch (e) {
       Utils.toast('Upload zlyhal: ' + e.message, 'error');
+    }
+  },
+
+  // Renderuje text overlay info — AI navrhne headline/CTA ktoré sa pridá
+  // NA obrázok ako overlay (cez Canvas/Figma/Photoshop pri post-processingu).
+  // Obrázok samotný nemá text (Nano Banana generuje "no text in image").
+  _renderTextOverlay(ad) {
+    const overlay = ad.image_text_overlay;
+    if (!overlay || typeof overlay !== 'object') return '';
+    const positionLabels = {
+      'top-left': '↖ vľavo hore', 'top-right': '↗ vpravo hore',
+      'bottom-left': '↙ vľavo dole', 'bottom-right': '↘ vpravo dole',
+      'center': '⊕ stred',
+    };
+    const colorChip = {
+      'white': '⚪ biela', 'dark': '⚫ tmavá', 'brand': '🟠 brand'
+    }[overlay.color] || overlay.color || '';
+    return `
+      <div style="margin-bottom:12px;padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #a7f3d0;border-radius:10px;">
+        <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">✨ Text overlay (na obrázok)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
+          ${overlay.headline ? `<div><div style="color:#065f46;font-weight:600;margin-bottom:3px;">Hook (headline)</div><div style="background:white;padding:8px 12px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-weight:600;">${this._esc(overlay.headline)}</div></div>` : ''}
+          ${overlay.cta ? `<div><div style="color:#065f46;font-weight:600;margin-bottom:3px;">CTA</div><div style="background:white;padding:8px 12px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-weight:600;">${this._esc(overlay.cta)}</div></div>` : ''}
+        </div>
+        <div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:#065f46;">
+          ${overlay.position ? `<span><strong>Pozícia:</strong> ${this._esc(positionLabels[overlay.position] || overlay.position)}</span>` : ''}
+          ${overlay.color ? `<span><strong>Farba:</strong> ${this._esc(colorChip)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  },
+
+  // Kopíruje image prompt do clipboardu — robí to z DOM elementu (nie z
+  // JS escape stringu), takže funguje aj keď prompt obsahuje úvodzovky,
+  // newlines a špeciálne znaky. Fallback na document.execCommand pre staršie
+  // browsery alebo non-HTTPS kontexty kde navigator.clipboard nie je dostupný.
+  async copyPrompt(adId, btn) {
+    const el = document.getElementById(`prompt-${adId}`);
+    if (!el) return Utils.toast('Prompt nenájdený', 'error');
+    const text = el.innerText.trim();
+    if (!text) return Utils.toast('Prompt je prázdny', 'warning');
+
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      } else {
+        // Fallback: dočasný textarea + execCommand
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    } catch (e) {
+      console.error('copyPrompt:', e);
+    }
+
+    if (ok) {
+      Utils.toast('✓ Prompt skopírovaný — vlož do Nano Banana 2', 'success');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Skopírované';
+        btn.style.background = '#16a34a';
+        setTimeout(() => { btn.textContent = orig; btn.style.background = '#a855f7'; }, 1500);
+      }
+    } else {
+      Utils.toast('Skopírovanie zlyhalo — vyber text manuálne a Ctrl+C', 'error');
     }
   },
 
