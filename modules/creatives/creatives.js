@@ -675,7 +675,10 @@ const CreativesModule = {
     const overlay = ad.image_text_overlay || {};
     return `
       <div style="margin-bottom:12px;padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #a7f3d0;border-radius:10px;">
-        <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">✨ Text overlay (na obrázok)</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:1px;">✨ Text v obrázku</div>
+          <span style="font-size:10px;color:#065f46;background:white;padding:2px 8px;border-radius:9999px;border:1px solid #d1fae5;">Nano Banana 2 generuje text priamo</span>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
           <div>
             <label style="display:block;color:#065f46;font-weight:600;font-size:11px;margin-bottom:3px;">Hook (headline)</label>

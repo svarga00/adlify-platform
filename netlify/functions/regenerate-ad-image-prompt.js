@@ -98,14 +98,18 @@ ${client?.brand_voice_notes ? `- Brand voice notes: ${client.brand_voice_notes}`
 ${(onboarding?.unique_selling_points || []).map(u => `- ${u}`).join('\n') || '—'}
 
 ## ÚLOHA
-Vyrob 60-100 slovný EN image prompt pre ${ad.image_format || 'photo'} (aspect ${ad.image_aspect_ratio || '1:1'}) ktorý:
-1. Zobrazuje scenu ktorá vizuálne podporí HEADLINES vyššie
-2. Má copy_space na pozícii "${overlay.position || 'top-right'}" pre TEXT OVERLAY ktorý sa pridá v post-processingu
-3. Používa brand farby v color palette (ak sú definované)
-4. Štýl ${ad.image_format || 'photo'} (interpretuj — photo = realistic photography, illustration = vector/flat, atď.)
-5. POVINNÉ na konci: "no text, no logos, no watermarks, no people faces clearly visible, --ar ${ad.image_aspect_ratio || '1:1'}"
+Vyrob 60-100 slovný EN image prompt pre ${ad.image_format || 'photo'} (aspect ${ad.image_aspect_ratio || '1:1'}) ktorý INCLUDES TEXT OVERLAY priamo v obrázku — Nano Banana 2 generuje text v obrázku dobre, takže ho začleni do prompt-u.
 
-Format prompt-u: [ŠTÝL]: ... [SCÉNA]: ... [SUBJEKT]: ... [KOMPOZÍCIA]: ... + copy_space pozícia ... [LIGHTING]: ... [KAMERA] (pre photo): shot on Canon EOS R5 50mm f/1.8 shallow DOF ... [PALETA]: ${brandColors.length > 0 ? brandColors.join(' + ') + ' (brand)' : '2-3 dominantné farby'} ... [MOOD]: ... + negatívne na konci.
+1. Scéna podporujúca HEADLINES vyššie
+2. EXPLICIT TEXT v obrázku:
+   ${overlay.headline ? `- Headline text "${overlay.headline}" pozícia ${overlay.position || 'top-right'}, ${overlay.color || 'white'} farba, bold sans-serif font` : ''}
+   ${overlay.cta ? `- CTA text "${overlay.cta}" bottom-center na pill button (kontrastná farba)` : ''}
+3. Brand farby v color palette ${brandColors.length > 0 ? `(POVINNE: ${brandColors.join(', ')})` : '(univerzálne)'}
+4. Štýl ${ad.image_format || 'photo'} — photo = realistic photography, illustration = vector/flat clean, 3d_render = stylized 3D, minimal_banner = abstract geometric, cinematic = movie-like dramatic, lifestyle = natural everyday situation
+5. POVINNÉ na konci: "no logos, no watermarks, no people faces clearly visible, --ar ${ad.image_aspect_ratio || '1:1'}"
+6. NEUVÁDZAJ "no text" — text je súčasť obrázka
+
+Format prompt-u: [ŠTÝL]: ... [SCÉNA]: ... [SUBJEKT]: ... [TEXT OVERLAY]: bold sans-serif "${overlay.headline || 'HEADLINE'}" ${overlay.position || 'top-right'}, plus pill "${overlay.cta || 'CTA'}" bottom-center ... [KOMPOZÍCIA]: rule of thirds + text-friendly background area ... [LIGHTING]: ... [KAMERA] (pre photo): shot on Canon EOS R5 50mm f/1.8 shallow DOF ... [PALETA]: ${brandColors.length > 0 ? brandColors.join(' + ') + ' (brand)' : '2-3 dominantné farby'} ... [MOOD]: ... + negatívne na konci.
 
 Vráť LEN JSON v tomto formáte:
 {

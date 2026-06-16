@@ -561,9 +561,9 @@ KRITICKÉ PRAVIDLÁ:
 7. KW: kombinuj reálne MM keywords s lokálnymi variantami (s mestami)
 8. Pre Search ads: image_prompt = null, image_aspect_ratio = null, image_text_overlay = null, image_style_notes = null, image_format = null
 9. Pre Display/PMax ads — všetky tieto polia POVINNÉ:
-   - image_prompt: 60-100 slovný EN prompt vo formáte: "[ŠTÝL] Professional advertising photography, [SCÉNA] konkrétna lokácia + denná doba, [SUBJEKT] hlavný prvok s materiálmi/farbami/detailmi, [KOMPOZÍCIA] rule of thirds + copy_space pozícia, [LIGHTING] golden hour/soft natural/dramatic, [KAMERA] shot on Canon EOS R5 50mm f/1.8 shallow DOF, [PALETA] 2-3 farby, [MOOD] emócia. NA KONCI: no text, no logos, no watermarks, no people faces visible, --ar 1.91:1"
-   - image_text_overlay: { headline: "2-4 SK slov hook na overlay napr. 'Obhliadka zdarma'", cta: "1-2 SK slov napr. 'Zavolajte'", position: "top-left|top-right|bottom-left|bottom-right|center podľa copy_space pozície v image_prompt", color: "white|dark|brand" }
-   - image_style_notes: krátky SK tip pre dizajnéra na úpravy (napr. "Color grading: oranžové vintage tóny", "Light leak v ľavom hornom rohu pre teplý feel")
+   - image_text_overlay (vyrob prvé!) { headline: "2-4 SK slov hook na obrázok napr. 'Obhliadka zdarma'", cta: "1-2 SK slov napr. 'Zavolajte'", position: "top-left|top-right|bottom-left|bottom-right|center", color: "white|dark|brand" }
+   - image_prompt: 60-100 slovný EN prompt ktorý INCLUDES TEXT OVERLAY priamo v obrázku (Nano Banana 2 generuje text dobre). Format: "[ŠTÝL] Professional advertising photography / illustration, [SCÉNA] konkrétna lokácia + denná doba, [SUBJEKT] hlavný prvok s materiálmi/farbami/detailmi, [TEXT OVERLAY] bold sans-serif text 'HEADLINE_VALUE' positioned [POSITION_FROM_OVERLAY] in [COLOR_FROM_OVERLAY], plus pill button text 'CTA_VALUE' bottom-center, [KOMPOZÍCIA] rule of thirds + text-friendly background area, [LIGHTING] golden hour / soft natural, [KAMERA] shot on Canon EOS R5 50mm f/1.8, [PALETA] 2-3 farby ${brandAssets.colors.length > 0 ? `(POVINNE: ${brandAssets.colors.join(', ')})` : ''}, [MOOD] emócia. NA KONCI: no logos, no watermarks, no people faces visible, --ar 1.91:1". NEUVÁDZAJ "no text" (text je súčasť obrázka).
+   - image_style_notes: krátky SK tip pre dizajnéra na úpravy (napr. "Color grading: oranžové vintage tóny", "Text môže mať jemný shadow pre lepšie čitateľnosť")
    - image_format: vyber jeden — "photo" | "illustration" | "3d_render" | "minimal_banner" | "cinematic" | "lifestyle"
 10. ODPOVEĎ LEN JSON, žiadny text okolo`;
 
@@ -667,10 +667,10 @@ KRITICKÉ PRAVIDLÁ:
 4. final_url: konkrétna stránka
 5. Targeting locations: ${JSON.stringify(regions.length ? regions : countries)}
 6. interests: konkrétne Meta záujmy v angličtine (Meta používa EN názvy)
-7. POVINNÉ polia pre KAŽDÚ Meta reklamu (variant A aj B):
-   - image_prompt: 60-100 slovný EN prompt vo formáte: "[ŠTÝL] Professional advertising photography, [SCÉNA] konkrétna lokácia + denná doba, [SUBJEKT] hlavný prvok s materiálmi/farbami/detailmi, [KOMPOZÍCIA] rule of thirds + copy_space pozícia, [LIGHTING] golden hour/soft natural/dramatic, [KAMERA] shot on Canon EOS R5 50mm f/1.8 shallow DOF, [PALETA] 2-3 farby, [MOOD] emócia. NA KONCI: no text, no logos, no watermarks, no people faces visible, --ar 1:1"
-   - image_text_overlay: { headline, cta, position, color } — SK slová, povinné
-   - image_style_notes: SK tip pre dizajnéra (Color grading, Light leak, atď.)
+7. POVINNÉ polia pre KAŽDÚ Meta reklamu (variant A aj B) — najprv vyrob overlay, potom image_prompt s text-om:
+   - image_text_overlay: { headline: "2-4 SK slov hook na obrázok", cta: "1-2 SK slov CTA", position: "top-left|top-right|bottom-left|bottom-right|center", color: "white|dark|brand" } — všetky povinné
+   - image_prompt: 60-100 slovný EN prompt ktorý INCLUDES TEXT OVERLAY priamo v obrázku (Nano Banana 2 zvláda text dobre). Format: "[ŠTÝL] Professional advertising photography / cinematic, [SCÉNA] lokácia + denná doba, [SUBJEKT] hlavný prvok s materiálmi/detailmi, [TEXT OVERLAY] bold sans-serif text 'HEADLINE_VALUE' positioned [POSITION_FROM_OVERLAY] in [COLOR_FROM_OVERLAY] color, plus pill button text 'CTA_VALUE' bottom-center, [KOMPOZÍCIA] rule of thirds + text-friendly area, [LIGHTING] soft natural/golden hour, [KAMERA] shot on Canon EOS R5 50mm f/1.8 shallow DOF, [PALETA] ${brandAssets.colors.length > 0 ? `POVINNE brand colors: ${brandAssets.colors.join(', ')}` : '2-3 dominantné farby'}, [MOOD] emócia. NA KONCI: no logos, no watermarks, no people faces visible, --ar 1:1". NEUVÁDZAJ "no text" (text je súčasť obrázka, Nano Banana ho generuje).
+   - image_style_notes: SK tip pre dizajnéra (Color grading, text shadow pre čitateľnosť, atď.)
    - image_format: "photo" | "illustration" | "3d_render" | "minimal_banner" | "cinematic" | "lifestyle"
 8. image_aspect_ratio: "1:1" pre feed, "4:5" pre vertical feed, "9:16" pre Stories/Reels
 9. ODPOVEĎ LEN JSON, žiadny text okolo`;
