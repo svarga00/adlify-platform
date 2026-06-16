@@ -41,6 +41,81 @@ const fmtDate = (d) => {
   catch { return d; }
 };
 
+// Mini markdown parser pre strategy_summary a podobné štruktúrované texty.
+// Podporuje:
+//   ## Nadpis       → <h4 class="md-h">
+//   ### Podnadpis   → <h5 class="md-h2">
+//   **tučne**       → <strong>
+//   *kurzíva*       → <em>
+//   - bullet        → <ul><li>
+//   prázdny riadok  → odsek <p>
+// Bez nested mark-up, žiadne tabuľky / odkazy — len to čo AI typicky generuje.
+function renderMarkdown(text) {
+  if (!text) return '';
+  const lines = String(text).split(/\r?\n/);
+  const out = [];
+  let inList = false;
+  let paraBuf = [];
+
+  const flushPara = () => {
+    if (paraBuf.length) {
+      const para = paraBuf.join(' ').trim();
+      if (para) out.push(`<p class="md-p">${inlineFormat(para)}</p>`);
+      paraBuf = [];
+    }
+  };
+  const closeList = () => {
+    if (inList) { out.push('</ul>'); inList = false; }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    // Prázdny riadok = koniec odseku
+    if (!line) {
+      flushPara();
+      closeList();
+      continue;
+    }
+
+    // ## Nadpis (sekcia)
+    if (/^##\s+/.test(line)) {
+      flushPara(); closeList();
+      out.push(`<h4 class="md-h">${inlineFormat(line.replace(/^##\s+/, ''))}</h4>`);
+      continue;
+    }
+    // ### Podnadpis
+    if (/^###\s+/.test(line)) {
+      flushPara(); closeList();
+      out.push(`<h5 class="md-h2">${inlineFormat(line.replace(/^###\s+/, ''))}</h5>`);
+      continue;
+    }
+    // - bullet
+    if (/^[-•*]\s+/.test(line)) {
+      flushPara();
+      if (!inList) { out.push('<ul class="md-ul">'); inList = true; }
+      out.push(`<li class="md-li">${inlineFormat(line.replace(/^[-•*]\s+/, ''))}</li>`);
+      continue;
+    }
+    // Bežný text → akumuluj do odseku
+    closeList();
+    paraBuf.push(line);
+  }
+  flushPara();
+  closeList();
+  return out.join('\n');
+}
+
+function inlineFormat(s) {
+  // Esc HTML najprv (lebo strategy_summary môže mať náhodné < > & znaky)
+  let r = esc(s);
+  // **tučne**
+  r = r.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // *kurzíva* (pozor — len ak nie je súčasť **)
+  r = r.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  return r;
+}
+
 // ───── REKLAMNÉ MOCKUPY ─────
 // Realistické náhľady reklám per platforma. Vyzerá ako keby admin spravil
 // screenshot z reálneho Google / Meta / IG feedu. Premium impact pre klienta.
@@ -331,6 +406,30 @@ function renderHTML({ project, client, campaigns }) {
   p { font-size: 11pt; line-height: 1.65; color: #374151; margin-bottom: 10px; }
   p strong { color: #14120e; }
   p.lead { font-size: 13pt; line-height: 1.55; color: #14120e; font-weight: 500; }
+
+  /* Markdown render — vizuálne hierarchické sekcie v strategy_summary */
+  .md-content { display: block; }
+  .md-content > * + * { margin-top: 12px; }
+  .md-h {
+    font-size: 11pt; font-weight: 700; color: #FF6B35;
+    letter-spacing: -0.005em; line-height: 1.3;
+    margin: 22px 0 10px; padding-bottom: 8px; border-bottom: 1px solid #f0ebe2;
+    text-transform: none;
+  }
+  .md-h:first-child { margin-top: 0; }
+  .md-h2 { font-size: 10.5pt; font-weight: 700; color: #14120e; margin: 16px 0 6px; }
+  .md-p { font-size: 11pt; line-height: 1.65; color: #374151; }
+  .md-p strong { color: #14120e; font-weight: 600; }
+  .md-ul { list-style: none; padding-left: 0; margin: 6px 0 12px; }
+  .md-li {
+    font-size: 11pt; line-height: 1.6; color: #374151;
+    padding: 4px 0 4px 22px; position: relative;
+  }
+  .md-li::before {
+    content: ''; position: absolute; left: 6px; top: 13px;
+    width: 5px; height: 5px; border-radius: 50%; background: #FF6B35;
+  }
+  .md-li strong { color: #14120e; font-weight: 600; }
   ul, ol { padding-left: 0; list-style: none; }
   ul li, ol li {
     font-size: 11pt; line-height: 1.6; color: #374151;
@@ -585,9 +684,7 @@ ${project.strategy_summary ? `
   <section>
     <h2 class="section-title">01 · Stratégia</h2>
     <h3 class="section-heading">Náš prístup pre ${esc(client?.company_name || 'vás')}</h3>
-    <div style="white-space: pre-line;">
-      <p class="lead">${esc(project.strategy_summary)}</p>
-    </div>
+    <div class="md-content">${renderMarkdown(project.strategy_summary)}</div>
   </section>
 
   <!-- KPI summary -->

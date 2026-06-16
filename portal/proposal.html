@@ -136,6 +136,18 @@
 
         .card-body { padding: 1.5rem; }
 
+        /* ───── Markdown rendered strategy text ───── */
+        .md-content > * + * { margin-top: 0.75rem; }
+        .md-h { font-size: 1.05rem; font-weight: 700; color: #FF6B35; letter-spacing: -0.005em; line-height: 1.3; margin: 1.5rem 0 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f0ebe2; }
+        .md-content > .md-h:first-child { margin-top: 0; }
+        .md-h2 { font-size: 0.95rem; font-weight: 700; color: #14120e; margin: 1rem 0 0.4rem; }
+        .md-p { font-size: 0.95rem; line-height: 1.7; color: #374151; }
+        .md-p strong { color: #14120e; font-weight: 600; }
+        .md-ul { list-style: none; padding-left: 0; margin: 0.4rem 0 0.8rem; }
+        .md-li { font-size: 0.95rem; line-height: 1.65; color: #374151; padding: 0.3rem 0 0.3rem 1.4rem; position: relative; }
+        .md-li::before { content: ''; position: absolute; left: 0.4rem; top: 0.85rem; width: 6px; height: 6px; border-radius: 50%; background: #FF6B35; }
+        .md-li strong { color: #14120e; font-weight: 600; }
+
         /* Summary grid */
         .summary-grid {
             display: grid;
@@ -829,6 +841,36 @@
 
         // ============ NEW RENDER HELPERS ============
 
+        // Mini-markdown parser pre strategy_summary (## nadpis, ** ** bold,
+        // - bullet, prázdny riadok = nový odsek)
+        function renderMd(text) {
+            if (!text) return '';
+            const lines = String(text).split(/\r?\n/);
+            const out = [];
+            let inList = false;
+            let buf = [];
+            const flush = () => {
+                if (buf.length) { out.push('<p class="md-p">' + inlineFmt(buf.join(' ').trim()) + '</p>'); buf = []; }
+            };
+            const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+            for (const raw of lines) {
+                const line = raw.trim();
+                if (!line) { flush(); closeList(); continue; }
+                if (/^##\s+/.test(line)) { flush(); closeList(); out.push('<h3 class="md-h">' + inlineFmt(line.replace(/^##\s+/, '')) + '</h3>'); continue; }
+                if (/^###\s+/.test(line)) { flush(); closeList(); out.push('<h4 class="md-h2">' + inlineFmt(line.replace(/^###\s+/, '')) + '</h4>'); continue; }
+                if (/^[-•*]\s+/.test(line)) { flush(); if (!inList) { out.push('<ul class="md-ul">'); inList = true; } out.push('<li class="md-li">' + inlineFmt(line.replace(/^[-•*]\s+/, '')) + '</li>'); continue; }
+                closeList(); buf.push(line);
+            }
+            flush(); closeList();
+            return out.join('');
+        }
+        function inlineFmt(s) {
+            let r = String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            r = r.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            r = r.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+            return r;
+        }
+
         function renderExecutiveSummary(project) {
             if (!project.strategy_summary) return '';
             return `
@@ -837,7 +879,7 @@
                         <h2>🎯 Naša stratégia</h2>
                     </div>
                     <div class="card-body">
-                        <p style="line-height: 1.7; font-size: 1rem;">${project.strategy_summary}</p>
+                        <div class="md-content">${renderMd(project.strategy_summary)}</div>
                     </div>
                 </div>
             `;

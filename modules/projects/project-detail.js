@@ -238,6 +238,18 @@ const ProjectDetailModule = {
         border: 1px solid #fde68a !important;
         border-left: 3px solid #f59e0b !important;
       }
+
+      /* ───── Markdown rendered stratégia ───── */
+      .adl-pd .md-content > * + * { margin-top: 12px; }
+      .adl-pd .md-h { font-size: 14px !important; font-weight: 700 !important; color: #FF6B35 !important; letter-spacing: -0.005em; line-height: 1.3; margin: 22px 0 8px !important; padding-bottom: 8px; border-bottom: 1px solid #f0ebe2; text-transform: none !important; }
+      .adl-pd .md-content > .md-h:first-child { margin-top: 0 !important; }
+      .adl-pd .md-h2 { font-size: 13px !important; font-weight: 700 !important; color: #14120e !important; margin: 16px 0 6px !important; }
+      .adl-pd .md-p { font-size: 13.5px !important; line-height: 1.65 !important; color: #374151 !important; margin-bottom: 0 !important; }
+      .adl-pd .md-p strong { color: #14120e !important; font-weight: 600 !important; }
+      .adl-pd .md-ul { list-style: none !important; padding-left: 0 !important; margin: 6px 0 12px !important; }
+      .adl-pd .md-li { font-size: 13.5px !important; line-height: 1.6 !important; color: #374151 !important; padding: 4px 0 4px 22px !important; position: relative; }
+      .adl-pd .md-li::before { content: ''; position: absolute; left: 6px; top: 13px; width: 5px; height: 5px; border-radius: 50%; background: #FF6B35; }
+      .adl-pd .md-li strong { color: #14120e !important; font-weight: 600 !important; }
     </style>`;
   },
 

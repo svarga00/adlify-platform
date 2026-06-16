@@ -563,6 +563,29 @@ const CampaignProjectsModule = {
   // PROJECT DETAIL
   // ==========================================
   
+  // Mini-markdown parser pre štruktúrované texty (strategy_summary).
+  // Podporuje: ## nadpis, ** tučné **, - bullet, prázdny riadok = odsek.
+  renderMd(text) {
+    if (!text) return '';
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const inlineFmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+    const lines = String(text).split(/\r?\n/);
+    const out = [];
+    let inList = false, buf = [];
+    const flush = () => { if (buf.length) { out.push('<p class="md-p">' + inlineFmt(buf.join(' ').trim()) + '</p>'); buf = []; } };
+    const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { flush(); closeList(); continue; }
+      if (/^##\s+/.test(line)) { flush(); closeList(); out.push('<h4 class="md-h">' + inlineFmt(line.replace(/^##\s+/, '')) + '</h4>'); continue; }
+      if (/^###\s+/.test(line)) { flush(); closeList(); out.push('<h5 class="md-h2">' + inlineFmt(line.replace(/^###\s+/, '')) + '</h5>'); continue; }
+      if (/^[-•*]\s+/.test(line)) { flush(); if (!inList) { out.push('<ul class="md-ul">'); inList = true; } out.push('<li class="md-li">' + inlineFmt(line.replace(/^[-•*]\s+/, '')) + '</li>'); continue; }
+      closeList(); buf.push(line);
+    }
+    flush(); closeList();
+    return out.join('');
+  },
+
   async renderDetailContent(project) {
     // Load campaigns for this project
     const { data: campaigns } = await Database.client
@@ -741,9 +764,9 @@ const CampaignProjectsModule = {
         <!-- Tab content: STRATEGY -->
         <div data-tab-content="strategy" class="space-y-6 hidden">
           ${project.strategy_summary ? `
-          <div class="card p-4 bg-purple-50">
-            <h4 class="font-semibold mb-2 text-purple-800">🎯 Stratégia</h4>
-            <p class="text-purple-700">${project.strategy_summary}</p>
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">🎯 Stratégia</h4>
+            <div class="md-content">${this.renderMd(project.strategy_summary)}</div>
           </div>
           ` : '<div class="text-gray-400 text-sm text-center py-8">Stratégia ešte nebola vygenerovaná</div>'}
 
