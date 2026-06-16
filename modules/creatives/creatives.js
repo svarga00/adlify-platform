@@ -347,11 +347,44 @@ const CreativesModule = {
           </div>
 
           ${this._renderTextOverlay(ad)}
-          ${ad.image_style_notes ? `
-            <div style="margin-bottom:12px;padding:10px 14px;background:#fff7ed;border-left:3px solid #FF6B35;border-radius:0 8px 8px 0;font-size:12px;color:#9a3412;">
-              <strong style="color:#7c2d12;">💡 Tip pre úpravy:</strong> ${this._esc(ad.image_style_notes)}
+          <div style="margin-bottom:12px;padding:10px 14px;background:#fff7ed;border-left:3px solid #FF6B35;border-radius:0 8px 8px 0;">
+            <div style="font-size:11px;font-weight:700;color:#7c2d12;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">💡 Tip pre úpravy</div>
+            <textarea rows="2" placeholder="napr. Color grading: teplé jantárové tóny, kontrast s chladnou modrou..."
+              onblur="CreativesModule.saveField('${ad.id}', 'image_style_notes', this.value)"
+              style="width:100%;background:white;padding:8px 10px;border-radius:6px;border:1px solid #fed7aa;color:#9a3412;font-size:12px;line-height:1.5;resize:vertical;">${this._esc(ad.image_style_notes || '')}</textarea>
+          </div>
+
+          <div style="margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Formát kreatívy</label>
+              <select onchange="CreativesModule.saveField('${ad.id}', 'image_format', this.value)"
+                style="width:100%;padding:8px 10px;border:1px solid #eae6de;border-radius:6px;font-size:12px;background:white;">
+                <option value="photo" ${ad.image_format === 'photo' ? 'selected' : ''}>📸 Photo (realistická foto)</option>
+                <option value="illustration" ${ad.image_format === 'illustration' ? 'selected' : ''}>🎨 Illustration</option>
+                <option value="3d_render" ${ad.image_format === '3d_render' ? 'selected' : ''}>🧊 3D render</option>
+                <option value="minimal_banner" ${ad.image_format === 'minimal_banner' ? 'selected' : ''}>▭ Minimal banner</option>
+                <option value="cinematic" ${ad.image_format === 'cinematic' ? 'selected' : ''}>🎬 Cinematic</option>
+                <option value="lifestyle" ${ad.image_format === 'lifestyle' ? 'selected' : ''}>👥 Lifestyle</option>
+              </select>
             </div>
-          ` : ''}
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Aspect ratio</label>
+              <select onchange="CreativesModule.saveField('${ad.id}', 'image_aspect_ratio', this.value)"
+                style="width:100%;padding:8px 10px;border:1px solid #eae6de;border-radius:6px;font-size:12px;background:white;">
+                <option value="1:1" ${ad.image_aspect_ratio === '1:1' ? 'selected' : ''}>⊞ 1:1 (Meta feed)</option>
+                <option value="1.91:1" ${ad.image_aspect_ratio === '1.91:1' ? 'selected' : ''}>▭ 1.91:1 (Display banner)</option>
+                <option value="4:5" ${ad.image_aspect_ratio === '4:5' ? 'selected' : ''}>▯ 4:5 (Meta vertical)</option>
+                <option value="9:16" ${ad.image_aspect_ratio === '9:16' ? 'selected' : ''}>📱 9:16 (IG Story / Reels)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+            <button onclick="CreativesModule.regenerateImagePrompt('${ad.id}', this)"
+              style="padding:8px 16px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
+              ✨ Pregenerovať len image prompt (po úprave hooku/farby)
+            </button>
+          </div>
 
           ${ad.image_url ? `
             <div style="display:flex;align-items:flex-start;gap:14px;padding:14px;background:#f9fafb;border-radius:10px;">
@@ -546,6 +579,48 @@ const CreativesModule = {
     await this._save(adId, { [field]: value });
   },
 
+  // Save nested pole v image_text_overlay JSONB (headline/cta/position/color)
+  async saveOverlayField(adId, key, value) {
+    const ad = this.flatAds.find(a => a.id === adId);
+    if (!ad) return;
+    const overlay = { ...(ad.image_text_overlay || {}) };
+    overlay[key] = value || null;
+    await this._save(adId, { image_text_overlay: overlay });
+  },
+
+  // Micro-regenerate — pošle aktuálny stav reklamy (headline/desc/overlay/format/
+  // brand farby) AI a získa nový image_prompt + image_style_notes. Žiadne Claude
+  // calls pre strategy/google/meta — len 1 short call (~300 tokens output).
+  // Cena ~$0.01 per reklama vs ~$0.50 za celý projekt.
+  async regenerateImagePrompt(adId, btn) {
+    const ad = this.flatAds.find(a => a.id === adId);
+    if (!ad) return;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generujem...';
+    try {
+      const r = await fetch('/.netlify/functions/regenerate-ad-image-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ad_id: adId, project_id: this.projectId }),
+      });
+      const data = await r.json();
+      if (!data.success) throw new Error(data.error || 'Generate failed');
+      Object.assign(ad, {
+        image_prompt: data.image_prompt,
+        image_style_notes: data.image_style_notes || ad.image_style_notes,
+      });
+      this._renderApp();
+      Utils.toast('✓ Image prompt regenerovaný', 'success');
+    } catch (e) {
+      console.error('regenerateImagePrompt:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+  },
+
   async addHeadline(adId) {
     const ad = this.flatAds.find(a => a.id === adId);
     if (!ad) return;
@@ -597,26 +672,47 @@ const CreativesModule = {
   // NA obrázok ako overlay (cez Canvas/Figma/Photoshop pri post-processingu).
   // Obrázok samotný nemá text (Nano Banana generuje "no text in image").
   _renderTextOverlay(ad) {
-    const overlay = ad.image_text_overlay;
-    if (!overlay || typeof overlay !== 'object') return '';
-    const positionLabels = {
-      'top-left': '↖ vľavo hore', 'top-right': '↗ vpravo hore',
-      'bottom-left': '↙ vľavo dole', 'bottom-right': '↘ vpravo dole',
-      'center': '⊕ stred',
-    };
-    const colorChip = {
-      'white': '⚪ biela', 'dark': '⚫ tmavá', 'brand': '🟠 brand'
-    }[overlay.color] || overlay.color || '';
+    const overlay = ad.image_text_overlay || {};
     return `
       <div style="margin-bottom:12px;padding:14px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #a7f3d0;border-radius:10px;">
-        <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">✨ Text overlay (na obrázok)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
-          ${overlay.headline ? `<div><div style="color:#065f46;font-weight:600;margin-bottom:3px;">Hook (headline)</div><div style="background:white;padding:8px 12px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-weight:600;">${this._esc(overlay.headline)}</div></div>` : ''}
-          ${overlay.cta ? `<div><div style="color:#065f46;font-weight:600;margin-bottom:3px;">CTA</div><div style="background:white;padding:8px 12px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-weight:600;">${this._esc(overlay.cta)}</div></div>` : ''}
+        <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">✨ Text overlay (na obrázok)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+          <div>
+            <label style="display:block;color:#065f46;font-weight:600;font-size:11px;margin-bottom:3px;">Hook (headline)</label>
+            <input type="text" value="${this._esc(overlay.headline || '')}" placeholder="napr. Bezpečný zámok — dnes"
+              onblur="CreativesModule.saveOverlayField('${ad.id}', 'headline', this.value)"
+              style="width:100%;background:white;padding:8px 12px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-weight:600;font-size:13px;">
+          </div>
+          <div>
+            <label style="display:block;color:#065f46;font-weight:600;font-size:11px;margin-bottom:3px;">CTA</label>
+            <input type="text" value="${this._esc(overlay.cta || '')}" placeholder="napr. Zavolajte"
+              onblur="CreativesModule.saveOverlayField('${ad.id}', 'cta', this.value)"
+              style="width:100%;background:white;padding:8px 12px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-weight:600;font-size:13px;">
+          </div>
         </div>
-        <div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:#065f46;">
-          ${overlay.position ? `<span><strong>Pozícia:</strong> ${this._esc(positionLabels[overlay.position] || overlay.position)}</span>` : ''}
-          ${overlay.color ? `<span><strong>Farba:</strong> ${this._esc(colorChip)}</span>` : ''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px;color:#065f46;">
+          <div>
+            <label style="display:block;font-weight:600;margin-bottom:3px;">Pozícia</label>
+            <select onchange="CreativesModule.saveOverlayField('${ad.id}', 'position', this.value)"
+              style="width:100%;background:white;padding:7px 10px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-size:12px;">
+              <option value="">— vyber —</option>
+              <option value="top-left" ${overlay.position === 'top-left' ? 'selected' : ''}>↖ vľavo hore</option>
+              <option value="top-right" ${overlay.position === 'top-right' ? 'selected' : ''}>↗ vpravo hore</option>
+              <option value="bottom-left" ${overlay.position === 'bottom-left' ? 'selected' : ''}>↙ vľavo dole</option>
+              <option value="bottom-right" ${overlay.position === 'bottom-right' ? 'selected' : ''}>↘ vpravo dole</option>
+              <option value="center" ${overlay.position === 'center' ? 'selected' : ''}>⊕ stred</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-weight:600;margin-bottom:3px;">Farba textu</label>
+            <select onchange="CreativesModule.saveOverlayField('${ad.id}', 'color', this.value)"
+              style="width:100%;background:white;padding:7px 10px;border-radius:6px;border:1px solid #d1fae5;color:#14120e;font-size:12px;">
+              <option value="">— vyber —</option>
+              <option value="white" ${overlay.color === 'white' ? 'selected' : ''}>⚪ biela</option>
+              <option value="dark" ${overlay.color === 'dark' ? 'selected' : ''}>⚫ tmavá</option>
+              <option value="brand" ${overlay.color === 'brand' ? 'selected' : ''}>🟠 brand (primary)</option>
+            </select>
+          </div>
         </div>
       </div>
     `;
