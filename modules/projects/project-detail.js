@@ -65,6 +65,14 @@ const ProjectDetailModule = {
       } else {
         window.CampaignProjectsModule.selectedProject = project;
       }
+      // Načítaj počet kampaní — slúži na rozhodnutie ktoré tlačidlá ukázať
+      // v sidebar-i (Kreatívy & PDF dostupné len ak existujú kampane)
+      try {
+        const { count } = await Database.client.from('campaigns')
+          .select('id', { count: 'exact', head: true })
+          .eq('project_id', this.projectId);
+        this._campaignsCount = count || 0;
+      } catch { this._campaignsCount = 0; }
       await this._renderApp();
     } catch (e) {
       console.error('[project-detail] render error:', e);
@@ -343,25 +351,38 @@ const ProjectDetailModule = {
     };
 
     const buttons = [];
+
+    // Kreatívy & PDF — dostupné VŽDY keď projekt má vygenerované kampane,
+    // bez ohľadu na status. Predtým bolo viazané len na internal_review +
+    // approved → ak status zostal 'draft' po neúspešnom flip-e, admin nevedel
+    // editovať kreatívy.
+    const hasCampaigns = (this._campaignsCount || 0) > 0;
+    if (hasCampaigns) {
+      buttons.push(btn(c.purple, `CampaignProjectsModule.openCreativesPage('${id}')`, '🎨 Kreatívy & prompty'));
+      buttons.push(btn(c.blue,   `window.open('/.netlify/functions/proposal-html?project_id=${id}', '_blank')`, '📄 PDF náhľad'));
+    }
+
     switch (project.status) {
       case 'draft':
-        buttons.push(btn(c.purple, `CampaignProjectsModule.startGeneration('${id}')`, '🤖 Spustiť AI generovanie'));
+        if (hasCampaigns) {
+          // Projekt už má kampane (po prvom AI runu), ale status sa nepovýšil.
+          // Daj adminovi quick action na povýšenie + možnosť pregenerovať.
+          buttons.push(btn(c.green,  `CampaignProjectsModule.promoteToReview('${id}')`, '✅ Povýšiť na Kontrolu'));
+          buttons.push(btn(c.orange, `CampaignProjectsModule.regenerateWithFeedback('${id}')`, '✏️ Pregenerovať s pripomienkami'));
+        } else {
+          buttons.push(btn(c.purple, `CampaignProjectsModule.startGeneration('${id}')`, '🤖 Spustiť AI generovanie'));
+        }
         break;
       case 'internal_review':
-        buttons.push(btn(c.purple, `CampaignProjectsModule.openCreativesPage('${id}')`, '🎨 Kreatívy & prompty'));
-        buttons.push(btn(c.blue,   `window.open('/.netlify/functions/proposal-html?project_id=${id}', '_blank')`, '📄 Zobraziť PDF náhľad'));
         buttons.push(btn(c.orange, `CampaignProjectsModule.regenerateWithFeedback('${id}')`, '✏️ Pregenerovať s pripomienkami'));
         buttons.push(btn(c.green,  `CampaignProjectsModule.approveInternal('${id}')`, '✅ Schváliť pre klienta'));
         break;
       case 'client_review':
         buttons.push(btn(c.purple, `CampaignProjectsModule.generateClientLink('${id}')`, project.client_portal_token ? '🔗 Kopírovať odkaz' : '🔗 Generovať odkaz'));
         buttons.push(btn(c.green,  `CampaignProjectsModule.sendProposalToClient('${id}')`, '📧 Poslať klientovi email'));
-        buttons.push(btn(c.blue,   `window.open('/.netlify/functions/proposal-html?project_id=${id}', '_blank')`, '📄 PDF náhľad'));
         buttons.push(btn(c.blue,   `CampaignProjectsModule.previewAsClient('${id}')`, '👁️ Náhľad portálu'));
         break;
       case 'approved':
-        buttons.push(btn(c.purple, `CampaignProjectsModule.openCreativesPage('${id}')`, '🎨 Kreatívy & prompty'));
-        buttons.push(btn(c.blue,   `window.open('/.netlify/functions/proposal-html?project_id=${id}', '_blank')`, '📄 Stiahnuť PDF'));
         buttons.push(btn(c.blue,   `CampaignProjectsModule.exportCampaigns('${id}','google_editor')`, '⬇️ Google Ads CSV'));
         buttons.push(btn(c.indigo, `CampaignProjectsModule.exportCampaigns('${id}','meta_csv')`, '⬇️ Meta Bulk CSV'));
         buttons.push(btn(c.grad,   `CampaignProjectsModule.deployProject('${id}')`, '🚀 Označiť ako nasadené'));

@@ -2321,6 +2321,22 @@ const CampaignProjectsModule = {
     setTimeout(poll, 6000);  // prvý check po 6s (Claude + research zaberie čas)
   },
   
+  // Quick action — projekt má kampane ale zostal v draft (background fn
+  // úspešne uložila kampane ale status flip zlyhal, alebo admin si stratil
+  // checkbox stav). Manuálne povýšenie na internal_review aby sa otvoril
+  // schvaľovací flow.
+  async promoteToReview(projectId) {
+    if (!await this.updateStatus(projectId, 'internal_review')) return;
+    Utils.toast('Projekt povýšený na Internú kontrolu', 'success');
+    if (window.Router?.currentRoute === 'project') {
+      await window.ProjectDetailModule?._renderApp?.();
+    } else {
+      await this.loadData();
+      const g = document.getElementById('projects-grid');
+      if (g) g.innerHTML = this.renderProjectsGrid();
+    }
+  },
+
   async approveInternal(projectId) {
     // Pýtaj sa či poslať email klientovi — default ÁNO, ale ak admin chce
     // ešte review portál layout pred odoslaním, môže dať Nie a poslať
