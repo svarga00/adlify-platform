@@ -626,10 +626,9 @@ const ProjectDetailModule = {
 
   _renderBrandForm(client) {
     const colors = Array.isArray(client.brand_colors) ? client.brand_colors : [];
-    const c0 = colors[0] || '';
-    const c1 = colors[1] || '';
-    const c2 = colors[2] || '';
     return `
+      ${this._renderClientPortalAccess(client)}
+
       <div class="card">
         <h4>🎨 Brand assets — ${this._esc(client.company_name)}</h4>
         <p style="color:#374151;font-size:13px;margin-bottom:18px;">
@@ -695,6 +694,102 @@ const ProjectDetailModule = {
         </ul>
       </div>
     `;
+  },
+
+  // Sekcia "Klient portál prístup" — vytvorí test login (auth user + client_users
+  // prepojenie). Admin si potom vie otvoriť portál ako klient a testovať
+  // všetko real-time.
+  _renderClientPortalAccess(client) {
+    return `
+      <div class="card" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-left:3px solid #2563eb;">
+        <h4 style="color:#1e3a8a;">👤 Klientsky portál prístup</h4>
+        <p style="color:#1e40af;font-size:13px;margin-bottom:14px;">
+          Vytvoríme klientovi prístup do <code style="background:white;padding:2px 6px;border-radius:4px;">/portal/</code> aby si vedel testovať
+          ako vyzerá jeho dashboard, reporty, návrh kampane, atď. Magic link
+          alebo skopírovaný login URL.
+        </p>
+
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:#1e40af;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;">Email klienta (login)</label>
+            <input type="email" id="portal-user-email" placeholder="napr. test@${this._esc((client.company_name || 'klient').toLowerCase().replace(/[^a-z0-9]/g, ''))}.sk"
+              style="width:100%;padding:10px 12px;border:1px solid #93c5fd;border-radius:8px;font-size:13px;background:white;">
+          </div>
+          <button onclick="ProjectDetailModule._createClientPortalUser('${client.id}')"
+            style="padding:11px 22px;background:#2563eb;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">
+            ✨ Vytvoriť prístup
+          </button>
+        </div>
+
+        <div id="portal-user-result" style="margin-top:12px;"></div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#1e40af;cursor:pointer;">
+            <input type="checkbox" id="portal-send-magic-link" checked>
+            Poslať magic link emailom
+          </label>
+        </div>
+      </div>
+    `;
+  },
+
+  async _createClientPortalUser(clientId) {
+    const email = document.getElementById('portal-user-email')?.value?.trim();
+    const sendMagicLink = document.getElementById('portal-send-magic-link')?.checked;
+    const result = document.getElementById('portal-user-result');
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Utils.toast('Zadaj platný email', 'warning');
+      document.getElementById('portal-user-email')?.focus();
+      return;
+    }
+
+    if (result) result.innerHTML = '<div style="color:#1e40af;font-size:12px;">⏳ Vytváram prístup...</div>';
+
+    try {
+      const r = await fetch('/.netlify/functions/create-client-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, email, send_magic_link: sendMagicLink }),
+      });
+      const data = await r.json();
+      if (!data.success) throw new Error(data.error || 'Vytvorenie zlyhalo');
+
+      const portalUrl = (window.location.origin || '') + '/portal/login.html';
+      result.innerHTML = `
+        <div style="background:white;border:1px solid #93c5fd;border-radius:10px;padding:14px;font-size:13px;">
+          <div style="color:#065f46;font-weight:700;margin-bottom:8px;">
+            ${data.created ? '✓ Prístup vytvorený' : '✓ Prístup aktualizovaný (user existoval)'}
+          </div>
+          <div style="color:#374151;line-height:1.7;">
+            <strong>Email:</strong> <code style="background:#fafaf8;padding:2px 6px;border-radius:4px;">${this._esc(data.email)}</code><br>
+            <strong>Portál:</strong> <a href="${portalUrl}" target="_blank" style="color:#2563eb;">${portalUrl} ↗</a><br>
+            ${data.magic_link_sent ? '<strong>Magic link:</strong> ✉️ Odoslaný na email' : ''}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+            <button onclick="window.open('${portalUrl}', '_blank')"
+              style="padding:8px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+              🚀 Otvoriť portál login
+            </button>
+            <button onclick="navigator.clipboard.writeText('${portalUrl}'); Utils.toast('URL skopírovaný', 'success');"
+              style="padding:8px 16px;background:white;color:#2563eb;border:1px solid #93c5fd;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+              📋 Kopírovať URL
+            </button>
+          </div>
+          ${!data.magic_link_sent ? `
+            <div style="margin-top:10px;padding:10px;background:#fff7ed;border-radius:6px;font-size:11px;color:#9a3412;">
+              💡 Magic link nebol odoslaný (alebo si checkbox vypol). Klient sa môže prihlásiť cez
+              <strong>"Poslať mi prihlasovací link"</strong> v portál login formulári s tým istým emailom.
+            </div>
+          ` : ''}
+        </div>
+      `;
+      Utils.toast('✓ Klient prístup vytvorený', 'success');
+    } catch (e) {
+      console.error('[portal-user]', e);
+      if (result) result.innerHTML = `<div style="color:#dc2626;font-size:12px;">Chyba: ${this._esc(e.message)}</div>`;
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
   },
 
   async _saveBrand(clientId) {
