@@ -482,36 +482,34 @@ Spolu 2-3 kampane × 2-3 ad groups × 3-4 reklamy.
             {
               "type": "responsive",
               "variant_label": "A",
-              "variant_hook": "Krátky popis tohto uhla — napr. 'Cena + akcia' alebo 'Bezplatná obhliadka'",
-              "headlines": [
-                "10-12 unikátnych headlines pre variant A, každý max 30 znakov, cituje USP klienta, lokalitu, CTA. Príklady: 'Klimatizácie Liptov', 'Obhliadka zdarma', 'Daikin / LG / Samsung', '5★ recenzie'"
-              ],
-              "descriptions": [
-                "3-4 descriptions, každý max 90 znakov, obsahuje USP + CTA"
-              ],
+              "variant_hook": "Krátky popis hook angle (napr. 'Cena + akcia', 'Bezplatná obhliadka')",
+              "headlines": ["10-12 unikátnych headlines pre variant A, max 30 znakov"],
+              "descriptions": ["3-4 descriptions, max 90 znakov, USP + CTA"],
               "call_to_action": "konkrétna CTA",
               "final_url": "https://klient.sk/konkretna-stranka",
               "path1": "max-15-znakov",
               "path2": "max-15-znakov",
-              "image_prompt": null,
-              "image_aspect_ratio": null
+              "image_prompt": "PRE SEARCH KAMPANE: null. PRE DISPLAY/PMAX: 60-100 slovný EN prompt (formát v PRAVIDLÁCH).",
+              "image_aspect_ratio": "null pre Search, '1.91:1' pre Display, '1:1' pre PMax",
+              "image_text_overlay": { "headline": "2-4 SK slov hook na overlay", "cta": "1-2 SK slov", "position": "top-left|top-right|bottom-left|bottom-right|center", "color": "white|dark|brand" },
+              "image_style_notes": "SK tip pre dizajnéra (napr. 'Color grading: teplé tóny')",
+              "image_format": "photo|illustration|3d_render|minimal_banner|cinematic|lifestyle"
             },
             {
               "type": "responsive",
               "variant_label": "B",
-              "variant_hook": "Iný hook angle — testujeme čo viac rezonuje. Napr. ak A je 'Cena', B môže byť 'Garancia / Dôvera'",
-              "headlines": [
-                "10-12 unikátnych headlines pre variant B, ÚPLNE INÝ ANGLE než variant A. Nie len synonymá, ale iné copy logiky."
-              ],
-              "descriptions": [
-                "3-4 descriptions s odlišným prístupom než variant A"
-              ],
+              "variant_hook": "INÝ angle než A (napr. ak A je 'Cena', B je 'Garancia / Dôvera')",
+              "headlines": ["10-12 headlines pre variant B s ÚPLNE INÝM angle"],
+              "descriptions": ["3-4 descriptions s odlišným prístupom"],
               "call_to_action": "CTA pre variant B",
-              "final_url": "rovnaká URL ako variant A",
+              "final_url": "rovnaká URL ako A",
               "path1": "max-15",
               "path2": "max-15",
-              "image_prompt": null,
-              "image_aspect_ratio": null
+              "image_prompt": "PRE SEARCH: null. PRE DISPLAY: INÝ vizuál než A.",
+              "image_aspect_ratio": "rovnaký ako A",
+              "image_text_overlay": { "headline": "iný hook", "cta": "iné CTA", "position": "iná pozícia", "color": "white|dark|brand" },
+              "image_style_notes": "SK tip pre úpravy variantu B",
+              "image_format": "photo|illustration|3d_render|minimal_banner|cinematic|lifestyle"
             }
           ]
         }
@@ -529,10 +527,13 @@ KRITICKÉ PRAVIDLÁ:
 5. final_url: konkrétna stránka (base ${onboarding.company_website || 'klient.sk'})
 6. Targeting locations: ${JSON.stringify(regions.length ? regions : countries)}
 7. KW: kombinuj reálne MM keywords s lokálnymi variantami (s mestami)
-8. Pre Display/PMax: PODROBNÝ image_prompt v angličtine (60-100 slov) so štruktúrou [ŠTÝL][SCÉNA][SUBJEKT][KOMPOZÍCIA][LIGHTING][KAMERA][PALETA][MOOD] + negatívne "no text, no logos, no watermarks". Aspect ratio --ar 1.91:1 pre Display. Inšpiruj sa konkrétnym príkladom z Meta promptu nižšie.
-9. Pre Search: image_prompt = null
-10. image_text_overlay: pre Display kampane navrhni text ktorý by sa mal pridať NA OBRÁZOK v post-processingu (krátky 2-4 slovný hook + CTA). Pre Search = null.
-10. ODPOVEĎ LEN JSON`;
+8. Pre Search ads: image_prompt = null, image_aspect_ratio = null, image_text_overlay = null, image_style_notes = null, image_format = null
+9. Pre Display/PMax ads — všetky tieto polia POVINNÉ:
+   - image_prompt: 60-100 slovný EN prompt vo formáte: "[ŠTÝL] Professional advertising photography, [SCÉNA] konkrétna lokácia + denná doba, [SUBJEKT] hlavný prvok s materiálmi/farbami/detailmi, [KOMPOZÍCIA] rule of thirds + copy_space pozícia, [LIGHTING] golden hour/soft natural/dramatic, [KAMERA] shot on Canon EOS R5 50mm f/1.8 shallow DOF, [PALETA] 2-3 farby, [MOOD] emócia. NA KONCI: no text, no logos, no watermarks, no people faces visible, --ar 1.91:1"
+   - image_text_overlay: { headline: "2-4 SK slov hook na overlay napr. 'Obhliadka zdarma'", cta: "1-2 SK slov napr. 'Zavolajte'", position: "top-left|top-right|bottom-left|bottom-right|center podľa copy_space pozície v image_prompt", color: "white|dark|brand" }
+   - image_style_notes: krátky SK tip pre dizajnéra na úpravy (napr. "Color grading: oranžové vintage tóny", "Light leak v ľavom hornom rohu pre teplý feel")
+   - image_format: vyber jeden — "photo" | "illustration" | "3d_render" | "minimal_banner" | "cinematic" | "lifestyle"
+10. ODPOVEĎ LEN JSON, žiadny text okolo`;
 
   // ─── PROMPT 3: META ADS KAMPANE ───
   const metaPrompt = `Si senior Meta Ads (Facebook + Instagram) špecialista pre slovenský trh. Pripravuješ KAMPANE pre klienta agentúry Adlify.
@@ -588,7 +589,7 @@ Spolu 1-2 kampane × 2-3 ad sets × 3-4 reklamy.
               "final_url": "https://klient.sk/konkretna-stranka",
               "path1": null,
               "path2": null,
-              "image_prompt": "PODROBNÝ EN prompt pre Nano Banana 2 / DALL·E / Midjourney / Flux pre variant A. Použij tento format (3-5 viet, 60-100 slov):\\n\\n[ŠTÝL]: Professional advertising photography / Cinematic / Editorial. [SCÉNA]: konkrétna lokácia + denná doba + atmosféra. [SUBJEKT]: čo je hlavný prvok (produkt / situácia / interiér klienta) — popíš materiály, farby, detaily. [KOMPOZÍCIA]: rule of thirds / centered / dynamic angle + copy space pozícia (top-left/right pre headline overlay). [LIGHTING]: golden hour / soft natural / dramatic side light + popis. [KAMERA]: shot on Canon EOS R5, 50mm f/1.8 lens, shallow depth of field. [FAREBNÁ PALETA]: 2-3 dominantné farby. [MOOD]: emócia ktorú má vyvolať. Negatívne (povinne na konci): no text, no logos, no watermarks, no people faces clearly visible, no stock photo cliché. Aspect ratio: --ar 1:1.\\n\\nPríklad pre klimatizácie: 'Professional advertising photography, modern Slovak family living room interior at golden hour summer afternoon, sleek white split-AC unit mounted on light grey wall, minimalist Scandinavian decor with natural oak wood floors and beige linen sofa, rule of thirds composition with AC unit upper-right and large copy space on left side, soft warm sunset light streaming through floor-to-ceiling windows creating long shadows, shot on Canon EOS R5 with 35mm f/2 lens at f/4, shallow depth of field, color palette of warm beige, soft white, and natural wood tones, mood of comfort and relaxed luxury, no text, no logos, no watermarks, no people faces visible, --ar 1:1'",
+              "image_prompt": "60-100 slovný EN prompt pre Nano Banana 2 (formát v PRAVIDLÁCH).",
               "image_text_overlay": {
                 "headline": "2-4 SK slov hook ktorý sa pridá NA obrázok ako overlay text (napr. 'Chlaďte za 1 týždeň' alebo 'Obhliadka zdarma')",
                 "cta": "1-2 SK slov call to action (napr. 'Objednať', 'Zistite viac', 'Zavolajte')",
@@ -613,7 +614,7 @@ Spolu 1-2 kampane × 2-3 ad sets × 3-4 reklamy.
               "final_url": "rovnaká URL ako A",
               "path1": null,
               "path2": null,
-              "image_prompt": "PODROBNÝ EN prompt pre variant B — rovnaký format ako variant A (3-5 viet, 60-100 slov) ale INÁ vizuálna kompozícia. Ak A je wide-shot interiér, B môže byť close-up detail produktu / lifestyle situation. Ak A je deň, B môže byť večer. Cieľ: testovať VIZUÁLNY hook (nie len text). Použij rovnakú štruktúru [ŠTÝL][SCÉNA][SUBJEKT][KOMPOZÍCIA][LIGHTING][KAMERA][PALETA][MOOD] + negatívne na konci.",
+              "image_prompt": "60-100 slov, INÝ vizuálny prístup než A (wide vs close-up, deň vs večer).",
               "image_text_overlay": { "headline": "iný hook než variant A", "cta": "iné CTA", "position": "iná pozícia", "color": "white|dark|brand" },
               "image_style_notes": "Krátky SK tip pre úpravy variantu B",
               "image_format": "photo | illustration | 3d_render | minimal_banner | cinematic | lifestyle",
@@ -634,9 +635,13 @@ KRITICKÉ PRAVIDLÁ:
 4. final_url: konkrétna stránka
 5. Targeting locations: ${JSON.stringify(regions.length ? regions : countries)}
 6. interests: konkrétne Meta záujmy v angličtine (Meta používa EN názvy)
-7. image_prompt POVINNÝ — Meta reklamy bez obrázka neexistujú
-8. image_aspect_ratio podľa formátu: "1:1" pre feed, "4:5" pre vertical feed, "9:16" pre Stories/Reels
-9. ODPOVEĎ LEN JSON`;
+7. POVINNÉ polia pre KAŽDÚ Meta reklamu (variant A aj B):
+   - image_prompt: 60-100 slovný EN prompt vo formáte: "[ŠTÝL] Professional advertising photography, [SCÉNA] konkrétna lokácia + denná doba, [SUBJEKT] hlavný prvok s materiálmi/farbami/detailmi, [KOMPOZÍCIA] rule of thirds + copy_space pozícia, [LIGHTING] golden hour/soft natural/dramatic, [KAMERA] shot on Canon EOS R5 50mm f/1.8 shallow DOF, [PALETA] 2-3 farby, [MOOD] emócia. NA KONCI: no text, no logos, no watermarks, no people faces visible, --ar 1:1"
+   - image_text_overlay: { headline, cta, position, color } — SK slová, povinné
+   - image_style_notes: SK tip pre dizajnéra (Color grading, Light leak, atď.)
+   - image_format: "photo" | "illustration" | "3d_render" | "minimal_banner" | "cinematic" | "lifestyle"
+8. image_aspect_ratio: "1:1" pre feed, "4:5" pre vertical feed, "9:16" pre Stories/Reels
+9. ODPOVEĎ LEN JSON, žiadny text okolo`;
 
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_KEY) throw new Error('Missing ANTHROPIC_API_KEY env var na Netlify');
@@ -692,6 +697,22 @@ KRITICKÉ PRAVIDLÁ:
   const campaignsArr = doc.campaigns;
   console.log(`[generate-campaigns] generated: ${(googleDoc?.campaigns || []).length} Google + ${(metaDoc?.campaigns || []).length} Meta = ${campaignsArr.length} total`);
   if (campaignsArr.length === 0) throw new Error('AI nevygenerovala žiadne kampane');
+
+  // Diagnostika obsahu — ktoré polia AI naozaj vygenerovala (debug pre prípady
+  // keď Claude vynechá voliteľné polia ako image_text_overlay)
+  let withOverlay = 0, withStyleNotes = 0, withFormat = 0, withVariants = 0, totalAds = 0;
+  for (const c of campaignsArr) {
+    for (const g of (c.ad_groups || [])) {
+      for (const ad of (g.ads || [])) {
+        totalAds++;
+        if (ad.image_text_overlay && typeof ad.image_text_overlay === 'object') withOverlay++;
+        if (ad.image_style_notes) withStyleNotes++;
+        if (ad.image_format) withFormat++;
+        if (ad.variant_label) withVariants++;
+      }
+    }
+  }
+  console.log(`[generate-campaigns] field coverage: ${totalAds} ads | overlay=${withOverlay} | style_notes=${withStyleNotes} | format=${withFormat} | variants=${withVariants}`);
 
   // 5. Snapshot predošlej verzie do proposal_versions PRED zmazaním kampaní
   // — admin si vie pozrieť čo AI vygenerovala minule a porovnať.
