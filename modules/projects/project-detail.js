@@ -643,15 +643,18 @@ const ProjectDetailModule = {
           ${[0,1,2].map(i => {
             const v = colors[i] || '';
             const labels = ['Primary (hlavná)', 'Secondary (doplnková)', 'Accent (akcent)'];
+            const defaults = ['#FF6B35', '#14120e', '#fafaf8'];
+            const cv = v || defaults[i];
             return `
               <div>
                 <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${labels[i]}</label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                  <input type="color" id="brand-color-${i}" value="${v || '#FF6B35'}"
-                    style="width:40px;height:40px;border:1px solid #eae6de;border-radius:8px;cursor:pointer;padding:2px;background:white;">
-                  <input type="text" id="brand-color-text-${i}" value="${this._esc(v)}" placeholder="#FF6B35"
-                    style="flex:1;padding:8px 10px;border:1px solid #eae6de;border-radius:8px;font-family:monospace;font-size:13px;"
-                    oninput="document.getElementById('brand-color-${i}').value = this.value;">
+                  <input type="color" id="brand-color-${i}" value="${cv}"
+                    style="width:40px;height:40px;border:1px solid #eae6de;border-radius:8px;cursor:pointer;padding:2px;background:white;flex-shrink:0;"
+                    oninput="document.getElementById('brand-color-text-${i}').value = this.value.toUpperCase();">
+                  <input type="text" id="brand-color-text-${i}" value="${this._esc(v)}" placeholder="${defaults[i]}"
+                    style="flex:1;min-width:0;padding:8px 10px;border:1px solid #eae6de;border-radius:8px;font-family:monospace;font-size:13px;text-transform:uppercase;"
+                    oninput="if(/^#?[0-9a-fA-F]{6}$/.test(this.value.trim())){const v=this.value.trim().startsWith('#')?this.value.trim():'#'+this.value.trim(); document.getElementById('brand-color-${i}').value = v; this.value = v.toUpperCase();}">
                 </div>
               </div>
             `;
@@ -695,26 +698,41 @@ const ProjectDetailModule = {
   },
 
   async _saveBrand(clientId) {
+    // Číta z OBOCH inputov — text input má prednosť, ak prázdny tak color
+    // picker (browser color picker vždy má hodnotu, takže fallback funguje).
     const colors = [];
     for (let i = 0; i < 3; i++) {
-      const text = document.getElementById(`brand-color-text-${i}`)?.value?.trim();
-      if (text && /^#[0-9a-fA-F]{6}$/.test(text)) colors.push(text);
+      let val = document.getElementById(`brand-color-text-${i}`)?.value?.trim() || '';
+      if (!val) val = document.getElementById(`brand-color-${i}`)?.value?.trim() || '';
+      if (!val) continue;
+      // Normalizuj — pridaj # ak chýba
+      if (!val.startsWith('#')) val = '#' + val;
+      val = val.toUpperCase();
+      if (/^#[0-9A-F]{6}$/.test(val)) colors.push(val);
     }
     const brand_font = document.getElementById('brand-font')?.value?.trim() || null;
     const brand_logo_url = document.getElementById('brand-logo-url')?.value?.trim() || null;
     const brand_voice_notes = document.getElementById('brand-voice')?.value?.trim() || null;
 
+    console.log('[brand save]', { clientId, colors, brand_font, brand_logo_url, brand_voice_notes });
+
     try {
-      const { error } = await Database.client.from('clients').update({
+      const { data, error } = await Database.client.from('clients').update({
         brand_colors: colors.length ? colors : null,
         brand_font, brand_logo_url, brand_voice_notes,
-      }).eq('id', clientId);
+      }).eq('id', clientId).select();
       if (error) throw error;
-      Utils.toast(`✓ Brand uložený (${colors.length} farby)`, 'success');
+      if (!data?.length) throw new Error('Update nevrátil žiadne riadky (RLS / chýbajúce stĺpce?)');
+      console.log('[brand save] OK:', data[0]);
+      Utils.toast(`✓ Brand uložený (${colors.length} ${colors.length === 1 ? 'farba' : 'farby'})`, 'success');
       // Reload tab aby ukázal aktuálne dáta + logo preview
       await this._loadBrandTab();
     } catch (e) {
-      Utils.toast('Chyba: ' + e.message, 'error');
+      console.error('[brand save] error:', e);
+      const msg = e.message?.includes('column') || e.message?.includes('schema')
+        ? 'Chýba migrácia 036 — spusti SQL v Supabase'
+        : e.message;
+      Utils.toast('Chyba: ' + msg, 'error');
     }
   },
 
