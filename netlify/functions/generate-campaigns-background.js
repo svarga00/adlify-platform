@@ -863,14 +863,27 @@ KRITICKÉ PRAVIDLÁ:
 
       for (const ad of adsArr) {
         const isSearchAd = (c.campaign_type || '').toLowerCase() === 'search';
+        // Hard-limit guard — Claude občas prekročí limity. Pre Google Search
+        // máme 30/90, pre Meta 40/125. Ak prekročí, skrátime (lepšie ako
+        // odmietnutie v Google Ads Editor / Meta Bulk pri importe).
+        const isGoogle = (c.platform || '').toLowerCase() === 'google';
+        const headlineLimit = isGoogle ? 30 : 40;
+        const descLimit = isGoogle ? 90 : 125;
+        const trimList = (arr, limit) => (Array.isArray(arr) ? arr : [])
+          .map(s => String(s || '').trim())
+          .filter(Boolean)
+          .map(s => s.length > limit ? s.slice(0, limit - 1).trimEnd() + '…' : s);
+        const safeHeadlines = trimList(ad.headlines, headlineLimit);
+        const safeDescriptions = trimList(ad.descriptions, descLimit);
+
         // Voliteľné stĺpce z mig 032 (variant_*) a 034 (image_text_overlay,
         // image_style_notes, image_format) — ak chýbajú v DB, insertWithFallback
         // ich vyhodí a skúsi insert znova bez nich.
         const adRow = {
           ad_group_id: savedAG.id,
           ad_type: ad.type || 'responsive',
-          headlines: ad.headlines || [],
-          descriptions: ad.descriptions || [],
+          headlines: safeHeadlines,
+          descriptions: safeDescriptions,
           call_to_action: ad.call_to_action,
           final_url: ad.final_url || onboarding.company_website || null,
           path1: ad.path1 || null,
