@@ -648,47 +648,110 @@ KRITICKÉ PRAVIDLÁ:
 
   // Helper na 1 paralelné volanie Claude s parsovaním
   async function callClaude(prompt, label) {
-    console.log(`[generate-campaigns] calling Claude (${label})...`);
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 12000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    const j = await r.json();
-    if (j.error) throw new Error(`Claude API (${label}): ` + j.error.message);
-    if (!j.content?.[0]?.text) throw new Error(`Claude vrátil prázdny content (${label})`);
-    return parseClaudeJSON(j.content[0].text);
+    const promptLen = prompt.length;
+    const startTs = Date.now();
+    console.log(`[generate-campaigns] [${label}] calling Claude — prompt ${promptLen} chars`);
+    let r;
+    try {
+      r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 12000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error(`[generate-campaigns] [${label}] fetch failed:`, fetchErr.message);
+      throw new Error(`Network fetch (${label}): ${fetchErr.message}`);
+    }
+    const elapsed = Date.now() - startTs;
+    console.log(`[generate-campaigns] [${label}] HTTP ${r.status} po ${elapsed}ms`);
+
+    let j;
+    try { j = await r.json(); }
+    catch (jsonErr) {
+      console.error(`[generate-campaigns] [${label}] failed to parse response JSON:`, jsonErr.message);
+      throw new Error(`Response JSON parse (${label}): ${jsonErr.message}`);
+    }
+
+    if (j.error) {
+      console.error(`[generate-campaigns] [${label}] Claude API error:`, JSON.stringify(j.error));
+      throw new Error(`Claude API (${label}): ${j.error.message || JSON.stringify(j.error)}`);
+    }
+    if (!j.content?.[0]?.text) {
+      console.error(`[generate-campaigns] [${label}] empty content. Full response keys:`, Object.keys(j));
+      throw new Error(`Claude vrátil prázdny content (${label}). Stop reason: ${j.stop_reason || 'unknown'}`);
+    }
+
+    const outputText = j.content[0].text;
+    const usage = j.usage || {};
+    console.log(`[generate-campaigns] [${label}] OK — input=${usage.input_tokens || '?'}t output=${usage.output_tokens || '?'}t · response=${outputText.length} chars`);
+
+    try {
+      return parseClaudeJSON(outputText);
+    } catch (parseErr) {
+      console.error(`[generate-campaigns] [${label}] JSON parse failed. First 500 chars of output:`, outputText.slice(0, 500));
+      throw new Error(`JSON parse (${label}): ${parseErr.message}. Vidíš prvých 500 znakov v Netlify logoch.`);
+    }
   }
 
   // 3 paralelné volania — Strategy, Google kampane, Meta kampane.
-  // Výhody: (1) Meta sa nemôže "zabudnúť" lebo má vlastný call,
-  // (2) každý prompt sa môže venovať platformovo-špecifickým detailom,
-  // (3) paralelne ~30-60s namiesto sériovo ~90s.
+  // Promise.allSettled — partial success je OK, jeden zlyhaný call
+  // nezhodí celé generovanie (predtým Promise.all rejectovala všetko ak
+  // jeden call zlyhal, čo znamenalo stratu kreditu za 2 úspešné callz).
   const wantsGoogle = platforms.some(p => /google/i.test(p));
   const wantsMeta = platforms.some(p => /meta|facebook/i.test(p));
 
-  const tasks = [callClaude(strategyPrompt, 'strategy')];
-  if (wantsGoogle) tasks.push(callClaude(googlePrompt, 'google'));
-  if (wantsMeta) tasks.push(callClaude(metaPrompt, 'meta'));
+  console.log(`[generate-campaigns] starting 3 parallel Claude calls — wantsGoogle=${wantsGoogle} wantsMeta=${wantsMeta}`);
 
-  const results = await Promise.all(tasks);
-  const strategyDoc = results[0];
-  let googleDoc = null, metaDoc = null;
-  let idx = 1;
-  if (wantsGoogle) { googleDoc = results[idx++]; }
-  if (wantsMeta) { metaDoc = results[idx++]; }
+  const taskNames = ['strategy'];
+  const tasks = [callClaude(strategyPrompt, 'strategy')];
+  if (wantsGoogle) { taskNames.push('google'); tasks.push(callClaude(googlePrompt, 'google')); }
+  if (wantsMeta) { taskNames.push('meta'); tasks.push(callClaude(metaPrompt, 'meta')); }
+
+  const settled = await Promise.allSettled(tasks);
+  let strategyDoc = null, googleDoc = null, metaDoc = null;
+  let failedCalls = [];
+  for (let i = 0; i < settled.length; i++) {
+    const name = taskNames[i];
+    const r = settled[i];
+    if (r.status === 'fulfilled') {
+      console.log(`[generate-campaigns] ✓ ${name} call succeeded`);
+      if (name === 'strategy') strategyDoc = r.value;
+      else if (name === 'google') googleDoc = r.value;
+      else if (name === 'meta') metaDoc = r.value;
+    } else {
+      console.error(`[generate-campaigns] ✗ ${name} call FAILED:`, r.reason?.message || r.reason);
+      failedCalls.push(`${name}: ${r.reason?.message || 'unknown'}`);
+    }
+  }
+
+  // Ak zlyhali VŠETKY callz, throw — inak partial success
+  if (settled.every(r => r.status === 'rejected')) {
+    throw new Error('Všetky 3 Claude calls zlyhali: ' + failedCalls.join(' | '));
+  }
+  if (failedCalls.length > 0) {
+    console.warn(`[generate-campaigns] partial success — ${failedCalls.length} calls failed:`, failedCalls);
+  }
 
   // Spojenie do final doc — strategický dokument + kampane z oboch platforiem
+  // Ak strategy zlyhal ale Google/Meta prejdú, použij empty strategy fallback
   const doc = {
-    ...strategyDoc,
+    ...(strategyDoc || {
+      strategy_summary: null,
+      business_analysis: null,
+      research_insights: null,
+      budget_breakdown: null,
+      expected_results: null,
+      timeline: null,
+      next_steps: null,
+    }),
     campaigns: [
       ...(googleDoc?.campaigns || []).map(c => ({ ...c, platform: 'google' })),
       ...(metaDoc?.campaigns || []).map(c => ({ ...c, platform: 'meta' })),
@@ -696,7 +759,9 @@ KRITICKÉ PRAVIDLÁ:
   };
   const campaignsArr = doc.campaigns;
   console.log(`[generate-campaigns] generated: ${(googleDoc?.campaigns || []).length} Google + ${(metaDoc?.campaigns || []).length} Meta = ${campaignsArr.length} total`);
-  if (campaignsArr.length === 0) throw new Error('AI nevygenerovala žiadne kampane');
+  if (campaignsArr.length === 0) {
+    throw new Error('AI nevygenerovala žiadne kampane. Zlyhalo: ' + (failedCalls.join(', ') || 'unknown'));
+  }
 
   // Diagnostika obsahu — ktoré polia AI naozaj vygenerovala (debug pre prípady
   // keď Claude vynechá voliteľné polia ako image_text_overlay)
@@ -955,6 +1020,15 @@ KRITICKÉ PRAVIDLÁ:
 // ───── Netlify Background Function entry ─────
 
 exports.handler = async (event) => {
+  console.log('[generate-campaigns] ===== HANDLER ENTRY =====', {
+    method: event.httpMethod,
+    has_body: !!event.body,
+    body_len: (event.body || '').length,
+    has_anthropic_key: !!process.env.ANTHROPIC_API_KEY,
+    has_supabase_url: !!process.env.SUPABASE_URL,
+    has_service_key: !!(process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
+  });
+
   const cors = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -964,10 +1038,16 @@ exports.handler = async (event) => {
 
   let payload;
   try { payload = JSON.parse(event.body || '{}'); }
-  catch { return { statusCode: 400, headers: cors, body: 'Bad JSON' }; }
+  catch (e) {
+    console.error('[generate-campaigns] bad JSON body:', e.message);
+    return { statusCode: 400, headers: cors, body: 'Bad JSON' };
+  }
 
   const { project_id, onboarding_id, platforms = ['google_search', 'meta_facebook'], extra_instruction } = payload;
+  console.log('[generate-campaigns] payload:', { project_id, onboarding_id, platforms, has_extra: !!extra_instruction });
+
   if (!project_id || !onboarding_id) {
+    console.error('[generate-campaigns] missing required IDs');
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Missing project_id or onboarding_id' }) };
   }
 
