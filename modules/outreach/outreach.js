@@ -1116,15 +1116,19 @@ const OutreachModule = {
     const hasRows = this.importRows.length > 0;
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:24px;">
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;color:#14120E;">Import CSV</h2>
-        <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">Nahraj CSV s prospektmi. Stĺpce môžu byť v akomkoľvek poradí — priradíš ich v kroku 2.</p>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;color:#14120E;">Import prospektov</h2>
+        <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">
+          Nahraj CSV alebo XLSX. Outscraper export sa rozpozná automaticky (104 stĺpcov)
+          a stĺpce sa namapujú samé. Inak ich priradíš ručne v kroku 2.
+        </p>
 
         ${!hasRows ? `
           <div style="border:2px dashed #EAE6DE;border-radius:12px;padding:32px;text-align:center;">
-            <input type="file" id="outreach-csv-file" accept=".csv" style="display:none" onchange="OutreachModule.parseCsv(event)">
-            <button class="adl-btn adl-btn-primary" onclick="document.getElementById('outreach-csv-file').click()">Vybrať CSV súbor</button>
+            <input type="file" id="outreach-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="OutreachModule.parseUpload(event)">
+            <button class="adl-btn adl-btn-primary" onclick="document.getElementById('outreach-csv-file').click()">Vybrať súbor (CSV / XLSX)</button>
             <p style="margin:12px 0 0;font-size:13px;color:#948B7C;">
-              Očakávané stĺpce: company_name, domain, email, contact_person, phone, city, industry<br>
+              <strong>Outscraper Excel</strong>: 104 stĺpcov, auto-mapping (name → company_name, website → domain, email, phone, ...)<br>
+              <strong>Generický CSV</strong>: company_name, domain, email, contact_person, phone, city, industry — v ľubovoľnom poradí<br>
               Dedup: rovnaká doména alebo email sa preskočí.
             </p>
           </div>
@@ -1190,6 +1194,68 @@ const OutreachModule = {
     this.rerender();
   },
 
+  // Univerzálny upload — rozozná .csv vs .xlsx/.xls a parsuje vhodne.
+  // Pre Outscraper XLSX (104 stĺpcov vrátane "email.emails_validator.status")
+  // auto-mapuje stĺpce a rovno zobrazí mapper s vyplnenými field-mi.
+  parseUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const name = (file.name || '').toLowerCase();
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      this._parseXlsx(file);
+    } else {
+      this.parseCsv(event);
+    }
+  },
+
+  _parseXlsx(file) {
+    if (typeof XLSX === 'undefined') {
+      Utils.toast('XLSX library nie je načítaná', 'danger');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        if (!rows.length) return Utils.toast('Prázdny XLSX', 'warning');
+        this.importRows = rows;
+        // Outscraper detekcia: header obsahuje 'email.emails_validator.status' + 'place_id'
+        const headers = Object.keys(rows[0] || {});
+        const isOutscraper = headers.includes('email.emails_validator.status') || headers.includes('place_id');
+        if (isOutscraper) {
+          this.importMap = this._outscraperAutoMap(headers);
+          Utils.toast(`✓ Rozpoznaný Outscraper export — ${rows.length} riadkov, auto-mapping hotový`, 'success');
+        } else {
+          this.importMap = null;
+        }
+        this.rerender();
+      } catch (err) {
+        console.error('xlsx parse:', err);
+        Utils.toast('Chyba pri čítaní XLSX: ' + err.message, 'danger');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
+  // Pre Outscraper export: name → company_name, website → domain (cleaned later),
+  // email → email, phone → phone, city → city, category → industry, query → segment.
+  _outscraperAutoMap(headers) {
+    const pick = (n) => headers.includes(n) ? n : '';
+    return {
+      company_name: pick('name'),
+      domain: pick('website') || pick('domain'),
+      email: pick('email'),
+      contact_person: pick('full_name'),
+      phone: pick('phone'),
+      city: pick('city'),
+      industry: pick('category') || pick('subtypes'),
+      source: '', // nastavíme 'outscraper' pri inserte
+      notes: '',
+    };
+  },
+
   parseCsv(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1244,38 +1310,95 @@ const OutreachModule = {
     const existingDomains = new Set((existing || []).map(x => (x.domain || '').toLowerCase()).filter(Boolean));
     const existingEmails = new Set((existing || []).map(x => (x.email || '').toLowerCase()).filter(Boolean));
 
+    // Outscraper export: rozpoznáme cez prítomnosť 'email.emails_validator.status'
+    // v ľubovoľnom riadku → použijeme rich import (drop INVALID, analysis JSONB).
+    const isOutscraper = this.importRows.length > 0
+      && Object.prototype.hasOwnProperty.call(this.importRows[0], 'email.emails_validator.status');
+
     const mapped = [];
     let skipped = 0;
+    let droppedInvalid = 0;
+    let rejNoDomain = 0;
     for (const r of this.importRows) {
       const get = (k) => {
         const col = this.importMap[k];
         return col ? String(r[col] || '').trim() : '';
       };
-      const email = get('email').toLowerCase();
+      let email = get('email').toLowerCase();
       const domain = this._normalizeDomain(get('domain'));
       const company = get('company_name');
-      if (!company && !domain && !email) { skipped++; continue; }
-      if (domain && existingDomains.has(domain)) { skipped++; continue; }
+
+      // Web (doména) povinný — bez webu prospekt nezakladáme
+      if (!domain) { rejNoDomain++; continue; }
+      if (existingDomains.has(domain)) { skipped++; continue; }
       if (email && existingEmails.has(email)) { skipped++; continue; }
+
+      // Outscraper drop INVALID emails — keep RECEIVING + UNKNOWN
+      let emailStatus = null;
+      let analysis = null;
+      let tags = null;
+      let source = get('source') || 'csv_import';
+      if (isOutscraper) {
+        emailStatus = String(r['email.emails_validator.status'] || '').toUpperCase();
+        if (email && emailStatus === 'INVALID') {
+          droppedInvalid++;
+          email = ''; // ostane prospekt, ale email zahodíme
+        }
+        const reviews = Number(r['reviews'] || 0);
+        const rating = Number(r['rating'] || 0);
+        const tier = reviews < 20 ? 'small' : reviews <= 80 ? 'medium' : 'large';
+        tags = [`reviews:${reviews}`, `rating:${rating}`, `size:${tier}`];
+        analysis = {
+          reviews, rating, size_tier: tier,
+          place_id: r['place_id'] || r['google_id'] || null,
+          address: r['address'] || r['full_address'] || '',
+          category: r['category'] || r['subtypes'] || '',
+          full_name: r['full_name'] || null,
+          title: r['title'] || null,
+          linkedin: r['company_linkedin'] || null,
+          facebook: r['company_facebook'] || null,
+          instagram: r['company_instagram'] || null,
+          website_title: r['website_title'] || null,
+          website_description: r['website_description'] || null,
+          has_gtm: !!r['website_has_gtm'],
+          has_fb_pixel: !!r['website_has_fb_pixel'],
+          employees: r['company_insights.employees'] || null,
+          revenue: r['company_insights.revenue'] || null,
+          founded_year: r['company_insights.founded_year'] || null,
+          email_status: emailStatus,
+          query: r['query'] || null,
+        };
+        source = 'outscraper';
+      }
+
       mapped.push({
         company_name: company || domain || email,
-        domain: domain || null,
+        domain,
         email: email || null,
         contact_person: get('contact_person') || null,
         phone: get('phone') || null,
         city: get('city') || null,
         industry: get('industry') || null,
-        source: get('source') || 'csv_import',
+        segment: (r['query'] || '').toString().split(' ')[0].toLowerCase() || null,
+        source,
+        source_url: isOutscraper ? (r['location_link'] || null) : null,
+        tags: tags || undefined,
+        analysis: analysis || undefined,
         notes: get('notes') || null,
         outreach_stage: 'pending',
         score: 50,
       });
-      if (domain) existingDomains.add(domain);
+      existingDomains.add(domain);
       if (email) existingEmails.add(email);
     }
 
+    const extraInfo = [];
+    if (rejNoDomain > 0) extraInfo.push(`${rejNoDomain}× bez webu (vynechané)`);
+    if (droppedInvalid > 0) extraInfo.push(`${droppedInvalid}× INVALID email (vynechané, prospekt ostáva)`);
+    const extraText = extraInfo.length > 0 ? ' · ' + extraInfo.join(', ') : '';
+
     if (!mapped.length) {
-      log.innerHTML = `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:12px 16px;color:#92400E;">Nič na import (všetko duplicitné alebo prázdne). Preskočených: ${skipped}</div>`;
+      log.innerHTML = `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:12px 16px;color:#92400E;">Nič na import (všetko duplicitné alebo bez webu). Preskočených: ${skipped}${extraText}</div>`;
       return;
     }
 
@@ -1289,7 +1412,7 @@ const OutreachModule = {
     }
 
     log.innerHTML = `<div style="background:#DCFCE7;border:1px solid #BBF7D0;border-radius:10px;padding:12px 16px;color:#166534;">
-      Import hotový: <strong>${inserted}</strong> pridaných · ${skipped} preskočených (duplicita) ${failed ? `· ${failed} chýb` : ''}
+      Import hotový: <strong>${inserted}</strong> pridaných · ${skipped} preskočených (duplicita) ${failed ? `· ${failed} chýb` : ''}${extraText}
     </div>`;
     Utils.toast(`Importovaných ${inserted} prospektov`, 'success');
     setTimeout(() => {
