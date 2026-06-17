@@ -2173,9 +2173,22 @@ const OutreachModule = {
 
       // Outscraper sám ukladá do DB (response má inserted/skipped) → zobraz súhrn a zatvor
       if (src === 'outscraper' && typeof data.inserted === 'number') {
-        status.style.background = '#DCFCE7';
-        status.style.color = '#166534';
-        status.textContent = `✓ Pridaných ${data.inserted} prospektov · preskočených ${data.skipped} duplicít (zo ${data.count} nájdených)`;
+        const rej = data.rejected || {};
+        const rejParts = [];
+        if (rej.noEmail) rejParts.push(`${rej.noEmail}× bez emailu`);
+        if (rej.noDomain) rejParts.push(`${rej.noDomain}× bez webu`);
+        if (rej.closed) rejParts.push(`${rej.closed}× zatvorené`);
+        const rejText = rejParts.length > 0 ? ` · vyfiltrované: ${rejParts.join(', ')}` : '';
+
+        if (data.inserted === 0 && rej.rawTotal > 0) {
+          status.style.background = '#FEF3C7';
+          status.style.color = '#92400E';
+          status.textContent = `⚠ Outscraper našiel ${rej.rawTotal} firiem, ale ${rejText.slice(15)}. Skús iné mesto / iný segment.`;
+        } else {
+          status.style.background = '#DCFCE7';
+          status.style.color = '#166534';
+          status.textContent = `✓ Pridaných ${data.inserted} prospektov · preskočených ${data.skipped} duplicít (zo ${data.count} nájdených)${rejText}`;
+        }
         // Refresh prospects list na pozadí
         if (this._container && typeof this.render === 'function') {
           this.render(this._container).catch(() => {});

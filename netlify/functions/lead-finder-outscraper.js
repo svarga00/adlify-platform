@@ -156,21 +156,37 @@ exports.handler = async (event) => {
     if (flat.length === 0) {
       console.warn('[outscraper] empty — job.data type:', Array.isArray(job.data) ? `array(${job.data.length})` : typeof job.data);
       console.warn('[outscraper] first 500 chars of job:', JSON.stringify(job).slice(0, 500));
+    } else {
+      // Diagnostika prvého place — aké polia má, či má email/site
+      const first = flat[0];
+      console.log('[outscraper] sample place keys:', Object.keys(first).join(','));
+      console.log('[outscraper] sample name=%s site=%s email_1=%s emails_validator=%s',
+        first.name || '?', first.site || first.website || '—',
+        first.email_1 || '—', JSON.stringify(first.emails_validator || first.emails || null).slice(0, 200));
     }
+
+    // Štatistika filtra
+    let rejNoEmail = 0, rejNoDomain = 0, rejClosed = 0;
 
     // 2. Mapovanie + filtre
     const prospects = [];
     for (const p of flat) {
       // Filter zatvorené prevádzky
       const status = String(p.business_status || p.businessStatus || '').toUpperCase();
-      if (status === 'CLOSED_PERMANENTLY') continue;
+      if (status === 'CLOSED_PERMANENTLY') { rejClosed++; continue; }
 
-      const email = pickEmail(p.emails_validator || p.email_1 || p.emails);
-      if (!email) continue; // bez emailu nemá zmysel cold mail
+      // Outscraper emails_validator_service vracia rôzne tvary:
+      // - emails_validator: [{email, status}, ...]
+      // - email_1, email_2, email_3: stringy priamo
+      // - emails: pole emailov ako string
+      let email = pickEmail(p.emails_validator);
+      if (!email) email = p.email_1 || p.email_2 || p.email_3 || null;
+      if (!email && Array.isArray(p.emails) && p.emails[0]) email = p.emails[0];
+      if (!email) { rejNoEmail++; continue; }
 
       const website = p.site || p.website || p.domain || '';
       const domain = cleanDomain(website);
-      if (!domain) continue;
+      if (!domain) { rejNoDomain++; continue; }
 
       const reviews = Number(p.reviews || p.user_ratings_total || 0);
       const rating = Number(p.rating || 0);
@@ -223,6 +239,7 @@ exports.handler = async (event) => {
       }
     }
 
+    console.log('[outscraper] filter rejects — noEmail=%d noDomain=%d closed=%d', rejNoEmail, rejNoDomain, rejClosed);
     console.log('[outscraper] done: %d total, %d inserted, %d skipped (dup)', prospects.length, inserted, skipped);
 
     return {
@@ -233,6 +250,7 @@ exports.handler = async (event) => {
         count: prospects.length,
         inserted,
         skipped,
+        rejected: { noEmail: rejNoEmail, noDomain: rejNoDomain, closed: rejClosed, rawTotal: flat.length },
       }),
     };
   } catch (err) {
