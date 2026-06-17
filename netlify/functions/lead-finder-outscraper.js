@@ -112,38 +112,51 @@ exports.handler = async (event) => {
     params.set('limit', String(limit));
     params.set('region', 'SK');
     params.set('language', 'sk');
-    params.set('async', 'false');
+    // NOTE: async=true je default a stabilný — vracia request_id, my poll-neme.
+    // async=false občas vracia prázdne výsledky bez chyby, takže to neuvádzame.
     params.set('dropDuplicates', 'true');
     // enrichment pre emaily (Email Validator Service ~$3/1000)
     params.append('enrichment', 'emails_validator_service');
 
     const url = `https://api.app.outscraper.com/maps/search-v3?${params.toString()}`;
     console.log('[outscraper] start %d queries limit=%d per query', queries.length, limit);
+    console.log('[outscraper] queries:', queries.join(' | '));
 
     const r = await fetch(url, {
       headers: { 'X-API-KEY': apiKey, 'Accept': 'application/json' },
     });
     const initial = await r.json().catch(() => ({}));
+    console.log('[outscraper] initial response status=%d keys=%s', r.status, Object.keys(initial || {}).join(','));
 
     if (!r.ok && r.status !== 202) {
+      console.error('[outscraper] error body:', JSON.stringify(initial).slice(0, 500));
       throw new Error('Outscraper API: ' + (initial?.error || initial?.message || `HTTP ${r.status}`));
     }
 
     // Buď vráti dáta priamo, alebo asynchrónny request_id + results_location
     let job = initial;
-    if (!Array.isArray(initial.data) && initial.results_location) {
+    const hasInlineData = Array.isArray(initial.data) && initial.data.length > 0;
+    if (!hasInlineData && initial.results_location) {
       // Dlhšie čakanie pri viacerých mestách — Outscraper paralelne ale stále potrebuje čas
       const pollMs = Math.min(24000, 18000 + queries.length * 1000);
-      console.log('[outscraper] async job, polling… max %d ms', pollMs);
+      console.log('[outscraper] async job, polling…', initial.id, 'max', pollMs, 'ms');
       job = await pollResults(initial.results_location, apiKey, pollMs);
+      console.log('[outscraper] poll done, job keys=%s status=%s', Object.keys(job || {}).join(','), job?.status);
+    } else if (!hasInlineData) {
+      console.warn('[outscraper] no data and no results_location! response:', JSON.stringify(initial).slice(0, 500));
     }
 
     // data je 2D pole: [[place1, place2, ...]] (jeden query = jedno pole)
     const flat = [];
     for (const arr of (job.data || [])) {
       if (Array.isArray(arr)) flat.push(...arr);
+      else if (arr && typeof arr === 'object') flat.push(arr); // fallback ak je len 1D
     }
     console.log('[outscraper] got %d raw places', flat.length);
+    if (flat.length === 0) {
+      console.warn('[outscraper] empty — job.data type:', Array.isArray(job.data) ? `array(${job.data.length})` : typeof job.data);
+      console.warn('[outscraper] first 500 chars of job:', JSON.stringify(job).slice(0, 500));
+    }
 
     // 2. Mapovanie + filtre
     const prospects = [];
