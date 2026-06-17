@@ -13,10 +13,10 @@
 -- v outreach_senders nie je v repe definovaný. Ak by si chcel,
 -- pridaj predtým: ALTER TABLE outreach_senders ADD CONSTRAINT outreach_senders_email_unique UNIQUE (email);
 INSERT INTO outreach_senders (
-  provider, email, reply_to, is_active,
+  name, provider, email, reply_to, is_active,
   daily_limit, warmup_current, sent_today
 )
-SELECT 'resend', 'info@adlify-agency.online', 'info@adlify.eu', true, 20, 5, 0
+SELECT 'Adlify Agency (cold outreach)', 'resend', 'info@adlify-agency.online', 'info@adlify.eu', true, 20, 5, 0
 WHERE NOT EXISTS (
   SELECT 1 FROM outreach_senders WHERE email = 'info@adlify-agency.online'
 );
@@ -25,6 +25,7 @@ WHERE NOT EXISTS (
 UPDATE outreach_senders
 SET is_active = true,
     reply_to = 'info@adlify.eu',
+    name = COALESCE(name, 'Adlify Agency (cold outreach)'),
     daily_limit = COALESCE(daily_limit, 20)
 WHERE email = 'info@adlify-agency.online';
 
