@@ -2078,7 +2078,12 @@
                 userProfile = prof || {};
 
                 // Check if onboarding completed
-                if (client.onboarding_status && client.onboarding_status !== 'completed') {
+                // 'completed' = klient vyplnil cez portál, 'submitted' = vyplnené adminom
+                // alebo cez API. Oba stavy ho oprávňujú vidieť dashboard.
+                const onboardingDone = !client.onboarding_status
+                  || client.onboarding_status === 'completed'
+                  || client.onboarding_status === 'submitted';
+                if (!onboardingDone) {
                     window.location.href = '/portal/onboarding.html';
                     return;
                 }

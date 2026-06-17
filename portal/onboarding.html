@@ -116,7 +116,10 @@
               return;
             }
 
-            if (clientUser.clients?.onboarding_status === 'completed') {
+            // Onboarding je dokončený ak status = 'completed' (cez portál)
+            // alebo 'submitted' (admin/API vyplnil). Oba stavy presmerujú na dashboard.
+            const status = clientUser.clients?.onboarding_status;
+            if (status === 'completed' || status === 'submitted') {
               window.location.href = '/portal/';
               return;
             }
