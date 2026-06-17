@@ -202,12 +202,13 @@ exports.handler = async (event) => {
         source: 'outscraper',
         source_url: p.location_link || p.url || p.google_id ? `https://www.google.com/maps/place/?q=place_id:${p.place_id || p.google_id}` : null,
         tags: [`reviews:${reviews}`, `rating:${rating}`, `size:${tier}`],
-        metadata: {
+        analysis: {
           reviews,
           rating,
           size_tier: tier,
           place_id: p.place_id || p.google_id || null,
           address: p.full_address || p.address || '',
+          category: p.category || p.type || '',
         },
       });
     }
