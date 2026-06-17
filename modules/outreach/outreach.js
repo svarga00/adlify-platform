@@ -2072,7 +2072,8 @@ const OutreachModule = {
                 style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
             </label>
             <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">
-              Google Maps + email enrichment cez Outscraper. <strong>Len firmy s validným emailom</strong>, dedup podľa domény, automaticky uloží do prospects.
+              Google Maps + email enrichment cez Outscraper. <strong>Web (doména) povinný</strong>, email voliteľný — doplníš ručne ak Outscraper neobjavil.
+              Dedup podľa domény, automaticky uloží do prospects.
               Cena ~$0.02–0.05 / lead × počet miest × počet výsledkov. Max 20 miest naraz. Vyžaduje <code>OUTSCRAPER_API_KEY</code>.
             </p>
           ` : `
@@ -2174,20 +2175,20 @@ const OutreachModule = {
       // Outscraper sám ukladá do DB (response má inserted/skipped) → zobraz súhrn a zatvor
       if (src === 'outscraper' && typeof data.inserted === 'number') {
         const rej = data.rejected || {};
-        const rejParts = [];
-        if (rej.noEmail) rejParts.push(`${rej.noEmail}× bez emailu`);
-        if (rej.noDomain) rejParts.push(`${rej.noDomain}× bez webu`);
-        if (rej.closed) rejParts.push(`${rej.closed}× zatvorené`);
-        const rejText = rejParts.length > 0 ? ` · vyfiltrované: ${rejParts.join(', ')}` : '';
+        const infoParts = [];
+        if (rej.noEmail) infoParts.push(`${rej.noEmail}× chýba email (doplníš ručne)`);
+        if (rej.noDomain) infoParts.push(`${rej.noDomain}× vyradených (bez webu)`);
+        if (rej.closed) infoParts.push(`${rej.closed}× zatvorené`);
+        const infoText = infoParts.length > 0 ? ` · ${infoParts.join(', ')}` : '';
 
         if (data.inserted === 0 && rej.rawTotal > 0) {
           status.style.background = '#FEF3C7';
           status.style.color = '#92400E';
-          status.textContent = `⚠ Outscraper našiel ${rej.rawTotal} firiem, ale ${rejText.slice(15)}. Skús iné mesto / iný segment.`;
+          status.textContent = `⚠ Outscraper našiel ${rej.rawTotal} firiem, ale žiadna nemá web. Skús iné mesto / iný segment.`;
         } else {
           status.style.background = '#DCFCE7';
           status.style.color = '#166534';
-          status.textContent = `✓ Pridaných ${data.inserted} prospektov · preskočených ${data.skipped} duplicít (zo ${data.count} nájdených)${rejText}`;
+          status.textContent = `✓ Pridaných ${data.inserted} prospektov · preskočených ${data.skipped} duplicít${infoText}`;
         }
         // Refresh prospects list na pozadí
         if (this._container && typeof this.render === 'function') {

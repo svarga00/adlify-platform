@@ -175,18 +175,17 @@ exports.handler = async (event) => {
       const status = String(p.business_status || p.businessStatus || '').toUpperCase();
       if (status === 'CLOSED_PERMANENTLY') { rejClosed++; continue; }
 
-      // Outscraper emails_validator_service vracia rôzne tvary:
-      // - emails_validator: [{email, status}, ...]
-      // - email_1, email_2, email_3: stringy priamo
-      // - emails: pole emailov ako string
-      let email = pickEmail(p.emails_validator);
-      if (!email) email = p.email_1 || p.email_2 || p.email_3 || null;
-      if (!email && Array.isArray(p.emails) && p.emails[0]) email = p.emails[0];
-      if (!email) { rejNoEmail++; continue; }
-
+      // Web POVINNÝ — bez webu nemáme čo cold-mailovať.
+      // Email voliteľný — admin si ho doplní ručne (LinkedIn, hunter.io, manuálne).
       const website = p.site || p.website || p.domain || '';
       const domain = cleanDomain(website);
       if (!domain) { rejNoDomain++; continue; }
+
+      // Email z enrichmentu (rôzne tvary podľa Outscraper)
+      let email = pickEmail(p.emails_validator);
+      if (!email) email = p.email_1 || p.email_2 || p.email_3 || null;
+      if (!email && Array.isArray(p.emails) && p.emails[0]) email = p.emails[0];
+      if (!email) rejNoEmail++; // počítame info-only, neodmietame prospekt
 
       const reviews = Number(p.reviews || p.user_ratings_total || 0);
       const rating = Number(p.rating || 0);
@@ -195,7 +194,7 @@ exports.handler = async (event) => {
       prospects.push({
         company_name: p.name || p.title || '',
         domain,
-        email: String(email).toLowerCase().trim(),
+        email: email ? String(email).toLowerCase().trim() : null,
         phone: p.phone || p.phone_1 || p.international_phone_number || '',
         city: p.city || p.locality || city || '',
         industry: p.subtypes || p.type || p.category || query,
