@@ -379,10 +379,16 @@ const CreativesModule = {
             </div>
           </div>
 
-          <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+          <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
             <button onclick="CreativesModule.regenerateImagePrompt('${ad.id}', this)"
               style="padding:8px 16px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">
-              ✨ Pregenerovať len image prompt (po úprave hooku/farby)
+              Pregenerovať image prompt
+            </button>
+            <button onclick="CreativesModule.generateImage('${ad.id}', this)"
+              ${ad.image_prompt ? '' : 'disabled'}
+              title="${ad.image_prompt ? 'Vygenerovať obrázok cez Nano Banana 2 (Gemini 3 Pro Image)' : 'Najprv vygeneruj image prompt'}"
+              style="padding:8px 16px;background:${ad.image_prompt ? 'linear-gradient(135deg,#f97316,#ea580c)' : '#e5e7eb'};color:${ad.image_prompt ? 'white' : '#9ca3af'};border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:${ad.image_prompt ? 'pointer' : 'not-allowed'};">
+              ${ad.image_url ? 'Pregenerovať obrázok' : 'Vygenerovať obrázok'} (Nano Banana 2)
             </button>
           </div>
 
@@ -614,6 +620,44 @@ const CreativesModule = {
       Utils.toast('✓ Image prompt regenerovaný', 'success');
     } catch (e) {
       console.error('regenerateImagePrompt:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+  },
+
+  // Pošle aktuálny image_prompt do Gemini 3 Pro Image (Nano Banana 2),
+  // dostane PNG, ten sa nahrá do Supabase Storage a image_url sa uloží
+  // do ads.image_url. Latencia 8-15s. Cena ~$0.04-0.10 per obrázok.
+  async generateImage(adId, btn) {
+    const ad = this.flatAds.find(a => a.id === adId);
+    if (!ad) return;
+    if (!ad.image_prompt) {
+      Utils.toast('Najprv vygeneruj image prompt', 'warning');
+      return;
+    }
+    if (ad.image_url && !confirm('Reklama už má obrázok. Pregenerovať a nahradiť?')) return;
+
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generujem obrázok (8-15s)...';
+    try {
+      const r = await fetch('/.netlify/functions/generate-ad-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ad_id: adId }),
+      });
+      const data = await r.json();
+      if (!data.success) throw new Error(data.error || 'Generate failed');
+      Object.assign(ad, {
+        image_url: data.image_url,
+        image_status: data.image_status || 'generated',
+      });
+      this._renderApp();
+      Utils.toast('✓ Obrázok vygenerovaný', 'success');
+    } catch (e) {
+      console.error('generateImage:', e);
       Utils.toast('Chyba: ' + e.message, 'error');
     } finally {
       btn.disabled = false;
