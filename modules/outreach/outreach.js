@@ -2004,9 +2004,10 @@ const OutreachModule = {
         <!-- Source picker -->
         <div style="padding:14px 24px 0;display:flex;gap:6px;flex-wrap:wrap;">
           ${[
-            { k: 'ai',      label: '🤖 AI návrh',          hint: 'Claude' },
-            { k: 'places',  label: '📍 Google Maps',        hint: 'reálne firmy' },
-            { k: 'finstat', label: '📋 FinStat',            hint: 'SK register' },
+            { k: 'ai',         label: '🤖 AI návrh',          hint: 'Claude' },
+            { k: 'places',     label: '📍 Google Maps',        hint: 'reálne firmy' },
+            { k: 'outscraper', label: '✉️ Outscraper',         hint: 'firmy + emaily' },
+            { k: 'finstat',    label: '📋 FinStat',            hint: 'SK register' },
           ].map(s => `
             <button type="button" onclick="OutreachModule._setFindSource('${s.k}')"
               style="padding:8px 14px;border:1.5px solid ${this._findSource === s.k ? '#F97316' : '#E5E0D7'};background:${this._findSource === s.k ? '#FFF7ED' : '#fff'};border-radius:10px;font-size:13px;font-weight:600;color:${this._findSource === s.k ? '#F97316' : '#3A352B'};cursor:pointer;">
@@ -2042,6 +2043,20 @@ const OutreachModule = {
                 style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
             </label>
             <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">Reálne Google Maps firmy vrátane telefónu + webu. Vyžaduje <code>GOOGLE_MAPS_API_KEY</code>.</p>
+          ` : this._findSource === 'outscraper' ? `
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
+              ${this._field('query', 'Hľadaj (fotovoltika, autoservis, e-shop) *', 'text', true)}
+              ${this._field('city', 'Mesto / región', 'text')}
+            </div>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Počet výsledkov (max 20 per request)
+              <input type="number" name="maxResults" min="1" max="20" value="10"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+            </label>
+            <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">
+              Google Maps + email enrichment cez Outscraper. <strong>Len firmy s validným emailom</strong>, dedup podľa domény, automaticky uloží do prospects.
+              Cena ~$0.02–0.05 / lead. Trvá 15–25s. Vyžaduje <code>OUTSCRAPER_API_KEY</code>.
+            </p>
           ` : `
             <div style="display:grid;grid-template-columns:1fr;gap:12px;">
               ${this._field('query', 'Názov firmy alebo IČO *', 'text', true)}
@@ -2074,12 +2089,15 @@ const OutreachModule = {
     const status = document.getElementById('find-status');
     const btn = form.querySelector('button[type=submit]');
     const src = this._findSource || 'ai';
-    const endpoint = src === 'ai' ? 'find-prospects' : src === 'places' ? 'lead-finder-places' : 'lead-finder-finstat';
+    const endpoint = src === 'ai' ? 'find-prospects'
+      : src === 'places' ? 'lead-finder-places'
+      : src === 'outscraper' ? 'lead-finder-outscraper'
+      : 'lead-finder-finstat';
 
     status.style.display = 'block';
     status.style.background = '#F7F5F1';
     status.style.color = '#6F6758';
-    status.textContent = `⏳ Hľadám cez ${src === 'ai' ? 'AI (15-30s)' : src === 'places' ? 'Google Maps' : 'FinStat'}…`;
+    status.textContent = `⏳ Hľadám cez ${src === 'ai' ? 'AI (15-30s)' : src === 'places' ? 'Google Maps' : src === 'outscraper' ? 'Outscraper (15-25s, hľadám aj emaily)' : 'FinStat'}…`;
     btn.disabled = true;
     try {
       const r = await fetch(`/.netlify/functions/${endpoint}`, {
@@ -2089,6 +2107,19 @@ const OutreachModule = {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+
+      // Outscraper sám ukladá do DB (response má inserted/skipped) → zobraz súhrn a zatvor
+      if (src === 'outscraper' && typeof data.inserted === 'number') {
+        status.style.background = '#DCFCE7';
+        status.style.color = '#166534';
+        status.textContent = `✓ Pridaných ${data.inserted} prospektov · preskočených ${data.skipped} duplicít (zo ${data.count} nájdených)`;
+        // Refresh prospects list na pozadí
+        if (this._container && typeof this.render === 'function') {
+          this.render(this._container).catch(() => {});
+        }
+        return;
+      }
+
       this._findResults = data.prospects || [];
       this._findSelection = new Set(this._findResults.map((_, i) => i));
       status.style.display = 'none';
