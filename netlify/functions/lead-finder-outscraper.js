@@ -89,28 +89,36 @@ exports.handler = async (event) => {
   try { payload = JSON.parse(event.body || '{}'); }
   catch { return { statusCode: 400, headers: cors, body: 'Bad JSON' }; }
 
-  const { query = '', city = '', maxResults = 20 } = payload;
+  const { query = '', city = '', cities = null, maxResults = 20 } = payload;
   if (!query) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'query required' }) };
 
   // Strop kreditov — nikdy unlimited.
   const limit = Math.min(20, Math.max(1, parseInt(maxResults) || 20));
-  const textQuery = city ? `${query} ${city}` : query;
+
+  // cities[] override single city. Strop 20 miest naraz (ochrana proti
+  // nechcenému $$$ pri "všetky okresné mestá" — 79 × 20 = 1580 placeov).
+  const citiesList = Array.isArray(cities)
+    ? cities.map(c => String(c || '').trim()).filter(Boolean).slice(0, 20)
+    : [];
+  const queries = citiesList.length > 0
+    ? citiesList.map(c => `${query} ${c}`)
+    : [city ? `${query} ${city}` : query];
 
   try {
     // 1. Volaj Outscraper Google Maps search s enrichment pre emaily
-    const params = new URLSearchParams({
-      query: textQuery,
-      limit: String(limit),
-      region: 'SK',
-      language: 'sk',
-      async: 'false',
-      dropDuplicates: 'true',
-    });
+    // Multiple query= params → Outscraper paralelne pre každý query
+    const params = new URLSearchParams();
+    for (const q of queries) params.append('query', q);
+    params.set('limit', String(limit));
+    params.set('region', 'SK');
+    params.set('language', 'sk');
+    params.set('async', 'false');
+    params.set('dropDuplicates', 'true');
     // enrichment pre emaily (Email Validator Service ~$3/1000)
     params.append('enrichment', 'emails_validator_service');
 
     const url = `https://api.app.outscraper.com/maps/search-v3?${params.toString()}`;
-    console.log('[outscraper] start query="%s" limit=%d', textQuery, limit);
+    console.log('[outscraper] start %d queries limit=%d per query', queries.length, limit);
 
     const r = await fetch(url, {
       headers: { 'X-API-KEY': apiKey, 'Accept': 'application/json' },
@@ -124,8 +132,10 @@ exports.handler = async (event) => {
     // Buď vráti dáta priamo, alebo asynchrónny request_id + results_location
     let job = initial;
     if (!Array.isArray(initial.data) && initial.results_location) {
-      console.log('[outscraper] async job, polling…', initial.id);
-      job = await pollResults(initial.results_location, apiKey);
+      // Dlhšie čakanie pri viacerých mestách — Outscraper paralelne ale stále potrebuje čas
+      const pollMs = Math.min(24000, 18000 + queries.length * 1000);
+      console.log('[outscraper] async job, polling… max %d ms', pollMs);
+      job = await pollResults(initial.results_location, apiKey, pollMs);
     }
 
     // data je 2D pole: [[place1, place2, ...]] (jeden query = jedno pole)

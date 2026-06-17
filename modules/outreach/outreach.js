@@ -2044,18 +2044,36 @@ const OutreachModule = {
             </label>
             <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">Reálne Google Maps firmy vrátane telefónu + webu. Vyžaduje <code>GOOGLE_MAPS_API_KEY</code>.</p>
           ` : this._findSource === 'outscraper' ? `
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
+            <div style="display:grid;grid-template-columns:1fr;gap:12px;">
               ${this._field('query', 'Hľadaj (fotovoltika, autoservis, e-shop) *', 'text', true)}
-              ${this._field('city', 'Mesto / región', 'text')}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="font-size:13px;color:#6F6758;font-weight:600;">Mestá (oddelené čiarkou alebo nový riadok)</label>
+              <textarea name="cities" id="outscraper-cities" rows="2" placeholder="Bratislava, Žilina, Košice…"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" onclick="OutreachModule._fillCities('regional')"
+                  style="padding:6px 12px;border:1px solid #EAE6DE;background:#fff;border-radius:8px;font-size:12px;cursor:pointer;color:#3A352B;">
+                  + Krajské mestá (8)
+                </button>
+                <button type="button" onclick="OutreachModule._fillCities('major')"
+                  style="padding:6px 12px;border:1px solid #EAE6DE;background:#fff;border-radius:8px;font-size:12px;cursor:pointer;color:#3A352B;">
+                  + Väčšie mestá SK (30)
+                </button>
+                <button type="button" onclick="OutreachModule._fillCities('clear')"
+                  style="padding:6px 12px;border:1px solid #EAE6DE;background:#fff;border-radius:8px;font-size:12px;cursor:pointer;color:#948B7C;">
+                  Vyčistiť
+                </button>
+              </div>
             </div>
             <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
-              Počet výsledkov (max 20 per request)
+              Počet výsledkov per mesto (max 20)
               <input type="number" name="maxResults" min="1" max="20" value="10"
                 style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
             </label>
             <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">
               Google Maps + email enrichment cez Outscraper. <strong>Len firmy s validným emailom</strong>, dedup podľa domény, automaticky uloží do prospects.
-              Cena ~$0.02–0.05 / lead. Trvá 15–25s. Vyžaduje <code>OUTSCRAPER_API_KEY</code>.
+              Cena ~$0.02–0.05 / lead × počet miest × počet výsledkov. Max 20 miest naraz. Vyžaduje <code>OUTSCRAPER_API_KEY</code>.
             </p>
           ` : `
             <div style="display:grid;grid-template-columns:1fr;gap:12px;">
@@ -2081,6 +2099,33 @@ const OutreachModule = {
     this.openFindProspects();
   },
 
+  // Predefinované zoznamy slovenských miest pre Outscraper batch search
+  _CITY_PRESETS: {
+    regional: [
+      'Bratislava', 'Trnava', 'Trenčín', 'Nitra',
+      'Žilina', 'Banská Bystrica', 'Prešov', 'Košice',
+    ],
+    major: [
+      'Bratislava', 'Košice', 'Prešov', 'Žilina', 'Banská Bystrica',
+      'Nitra', 'Trnava', 'Trenčín', 'Martin', 'Poprad',
+      'Prievidza', 'Zvolen', 'Považská Bystrica', 'Michalovce', 'Nové Zámky',
+      'Spišská Nová Ves', 'Komárno', 'Levice', 'Humenné', 'Bardejov',
+      'Liptovský Mikuláš', 'Ružomberok', 'Trebišov', 'Dubnica nad Váhom', 'Hlohovec',
+      'Senica', 'Brezno', 'Šaľa', 'Snina', 'Pezinok',
+    ],
+  },
+
+  _fillCities(kind) {
+    const ta = document.getElementById('outscraper-cities');
+    if (!ta) return;
+    if (kind === 'clear') { ta.value = ''; return; }
+    const list = this._CITY_PRESETS[kind] || [];
+    // Spojiť s existujúcimi (ak user už nejaké zadal), dedup
+    const existing = ta.value.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+    const merged = Array.from(new Set([...existing, ...list]));
+    ta.value = merged.join(', ');
+  },
+
   async runFindProspects() {
     const form = document.getElementById('find-form');
     if (!form) return;
@@ -2089,6 +2134,20 @@ const OutreachModule = {
     const status = document.getElementById('find-status');
     const btn = form.querySelector('button[type=submit]');
     const src = this._findSource || 'ai';
+
+    // Outscraper: rozparsuj cities textarea na array, ak je vyplnená
+    if (src === 'outscraper' && payload.cities) {
+      const parsed = String(payload.cities).split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+      if (parsed.length > 20) {
+        status.style.display = 'block';
+        status.style.background = '#FEE2E2';
+        status.style.color = '#991B1B';
+        status.textContent = `✕ Max 20 miest naraz (zadal si ${parsed.length}). Zníž počet alebo rozbi na viac behov.`;
+        return;
+      }
+      payload.cities = parsed;
+      delete payload.city; // jeden alebo druhý, nie oba
+    }
     const endpoint = src === 'ai' ? 'find-prospects'
       : src === 'places' ? 'lead-finder-places'
       : src === 'outscraper' ? 'lead-finder-outscraper'
@@ -2097,7 +2156,11 @@ const OutreachModule = {
     status.style.display = 'block';
     status.style.background = '#F7F5F1';
     status.style.color = '#6F6758';
-    status.textContent = `⏳ Hľadám cez ${src === 'ai' ? 'AI (15-30s)' : src === 'places' ? 'Google Maps' : src === 'outscraper' ? 'Outscraper (15-25s, hľadám aj emaily)' : 'FinStat'}…`;
+    const citiesCount = Array.isArray(payload.cities) ? payload.cities.length : 0;
+    const outscraperHint = citiesCount > 1
+      ? `Outscraper (${citiesCount} miest, ~${15 + citiesCount}s, hľadám aj emaily)`
+      : 'Outscraper (15-25s, hľadám aj emaily)';
+    status.textContent = `⏳ Hľadám cez ${src === 'ai' ? 'AI (15-30s)' : src === 'places' ? 'Google Maps' : src === 'outscraper' ? outscraperHint : 'FinStat'}…`;
     btn.disabled = true;
     try {
       const r = await fetch(`/.netlify/functions/${endpoint}`, {
