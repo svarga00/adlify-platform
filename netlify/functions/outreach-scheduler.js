@@ -248,7 +248,8 @@ function _rewriteLinks(html, auditToken, unsubscribeUrl) {
   });
 }
 
-async function sendEmail(to, subject, html, text, sender) {
+async function sendEmail(to, subject, html, text, sender, prospect) {
+  const auditToken = prospect?.audit_token || null;
   // Gmail provider — cez Gmail API
   if (sender?.provider === 'gmail') {
     const res = await fetch(`${BASE_URL}/.netlify/functions/gmail-send`, {
@@ -257,6 +258,7 @@ async function sendEmail(to, subject, html, text, sender) {
       body: JSON.stringify({
         senderId: sender.id,
         to, subject, htmlBody: html, textBody: text,
+        unsubscribeToken: auditToken,
       }),
     });
     if (!res.ok) {
@@ -267,7 +269,11 @@ async function sendEmail(to, subject, html, text, sender) {
   }
 
   // Default: Resend cez send-email
-  const payload = { to, subject, htmlBody: html, textBody: text };
+  const payload = {
+    to, subject, htmlBody: html, textBody: text,
+    unsubscribeToken: auditToken,
+    prospectId: prospect?.id || null,
+  };
   if (sender?.email) {
     payload.fromEmail = sender.email;
     payload.fromName = sender.name;
@@ -415,7 +421,7 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
       return { sent: false, skipped: true, reason: 'sender_throttled' };
     }
     const email = await renderEmailFromTemplate(variantSlug, prospect);
-    await sendEmail(prospect.email, email.subject, email.html, email.text, sender);
+    await sendEmail(prospect.email, email.subject, email.html, email.text, sender, prospect);
     if (sender?.id) {
       senderId = sender.id;
       await bumpSenderCounters(sender.id);

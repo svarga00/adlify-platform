@@ -502,7 +502,8 @@ const OutreachModule = {
         <td style="padding:14px 16px;text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
           <button onclick="OutreachModule.composeForOne('${prospect.id}')" title="Poslať email" style="background:var(--brand-50);border:1px solid var(--brand-100);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--brand-700);margin-right:3px;">${I.mailSm}</button>
           <button onclick="OutreachModule.openProspectDetail('${prospect.id}')" title="Detail" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);margin-right:3px;">${I.eye}</button>
-          <button onclick="OutreachModule.openEditProspect && OutreachModule.openEditProspect('${prospect.id}')" title="Upraviť" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);">${I.edit}</button>
+          <button onclick="OutreachModule.openEditProspect && OutreachModule.openEditProspect('${prospect.id}')" title="Upraviť" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);margin-right:3px;">${I.edit}</button>
+          ${prospect.outreach_stage !== 'unsubscribed' ? `<button onclick="OutreachModule.markUnsubscribedFromRow('${prospect.id}')" title="Pridať do opt-out (nekontaktovať)" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:#6F6758;">🚫</button>` : ''}
         </td>
       </tr>
     `;
@@ -1032,10 +1033,13 @@ const OutreachModule = {
             htmlBody: email.html,
             textBody: email.text,
             prospectId: prospect.id,
+            // RFC 8058 — natívny Gmail/Outlook unsubscribe button
+            unsubscribeToken: prospect.audit_token || null,
           };
           if (sender) {
             payload.fromEmail = sender.email;
             payload.fromName = sender.name;
+            if (sender.reply_to) payload.replyTo = sender.reply_to;
           }
           r = await fetch('/.netlify/functions/send-email', {
             method: 'POST',
@@ -3134,15 +3138,22 @@ const OutreachModule = {
             <p style="font-size:13px;color:#6F6758;margin:0;">Emails na tomto zozname <strong>nikdy nedostanú</strong> žiadny outreach mail. Platí naprieč všetkými kampaňami.</p>
           </div>
           <div class="adl-toolbar">
-            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.openBulkSuppressionImport()">📥 Importovať odhlásených</button>
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.openBulkSuppressionImport()">📥 Bulk import</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.exportSuppressionsCsv()">⬇ Export CSV</button>
           </div>
         </div>
 
-        <div style="padding:14px 24px;background:#F7F5F1;border-bottom:1px solid #EAE6DE;">
-          <input type="search" placeholder="Hľadať podľa emailu, dôvodu, poznámky..." value="${this.esc(filter)}"
+        <div style="padding:14px 24px;background:#F7F5F1;border-bottom:1px solid #EAE6DE;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <form onsubmit="event.preventDefault();OutreachModule.quickAddSuppression(event);" style="display:flex;gap:6px;flex:1;min-width:300px;max-width:480px;">
+            <input id="quick-add-email" type="email" required placeholder="email@firma.sk — pridať jeden naraz (Enter)"
+              style="flex:1;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+            <input id="quick-add-notes" type="text" placeholder="poznámka (nepovinné)"
+              style="flex:1;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+            <button type="submit" class="adl-btn adl-btn-sm adl-btn-ink" title="Pridať jeden email">+ Pridať</button>
+          </form>
+          <input type="search" placeholder="Hľadať..." value="${this.esc(filter)}"
             oninput="OutreachModule.suppressionsFilter=this.value;OutreachModule.rerender();"
-            style="width:100%;max-width:420px;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+            style="width:240px;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
         </div>
 
         ${!this.suppressionsLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam…</div>`
@@ -3279,6 +3290,55 @@ const OutreachModule = {
       await this.openSuppressions();
     } catch (e) {
       Utils.toast('Chyba importu: ' + (e.message || ''), 'danger');
+    }
+  },
+
+  // Pridať jeden email opt-out priamo z header riadku (bez modalu) — pre prípady
+  // keď user pri prehľadávaní zistí že firma má rozbité stránky / nezáujem.
+  async quickAddSuppression(ev) {
+    const emailEl = document.getElementById('quick-add-email');
+    const notesEl = document.getElementById('quick-add-notes');
+    const email = (emailEl?.value || '').trim().toLowerCase();
+    const notes = (notesEl?.value || '').trim() || null;
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return Utils.toast('Neplatný email', 'warning');
+    }
+    const adminEmail = window.Auth?.user?.email || 'unknown';
+    try {
+      const { error: e1 } = await Database.client
+        .from('email_suppressions')
+        .upsert({
+          email,
+          reason: 'manual_opt_out',
+          source: 'quick_add',
+          notes,
+          created_by: adminEmail,
+        }, { onConflict: 'email' });
+      if (e1) throw e1;
+
+      // Existujúci prospekt s týmto emailom → unsubscribed
+      const { data: matching } = await Database.client
+        .from('prospects')
+        .select('id')
+        .eq('email', email)
+        .limit(50);
+      const ids = (matching || []).map(p => p.id);
+      let marked = 0;
+      if (ids.length) {
+        await Database.client.from('prospects').update({
+          outreach_stage: 'unsubscribed',
+        }).in('id', ids);
+        await Database.client.from('outreach_campaign_enrollments').update({
+          status: 'stopped', stop_reason: 'unsubscribed_quick_add',
+        }).in('prospect_id', ids).eq('status', 'active');
+        marked = ids.length;
+      }
+      Utils.toast(`+ ${email}${marked ? ` · ${marked} prospektov označených` : ''}`, 'success');
+      if (emailEl) emailEl.value = '';
+      if (notesEl) notesEl.value = '';
+      await this.openSuppressions();
+    } catch (e) {
+      Utils.toast('Chyba: ' + (e.message || ''), 'danger');
     }
   },
 
@@ -4787,6 +4847,45 @@ const OutreachModule = {
     const id = this._detailProspectId;
     this.closeModal();
     await this.deleteProspect(id);
+  },
+
+  // Rýchle označenie z riadku tabuľky — pre prípady kde web nefunguje, firma
+  // už neexistuje atď. Aj zapíše email do globálneho suppression listu (aby
+  // sa pri budúcich Outscraper importoch už nestiahol).
+  async markUnsubscribedFromRow(id) {
+    const p = this.prospects.find(x => x.id === id);
+    if (!p) return;
+    const ok = await Utils.confirm(
+      `Pridať <strong>${p.company_name || p.domain}</strong> do opt-out zoznamu?<br><br>` +
+      `<small style="color:#6F6758;">Prospekt sa označí ako unsubscribed a jeho email (ak je) sa zapíše do globálneho suppression listu. Pri budúcich Outscraper importoch sa už nikdy nezaeviduje na odoslanie.</small>`,
+      { type: 'warning', confirmText: 'Pridať do opt-out', cancelText: 'Zrušiť', html: true }
+    );
+    if (!ok) return;
+    const adminEmail = window.Auth?.user?.email || 'unknown';
+    try {
+      await Database.client.from('prospects').update({
+        outreach_stage: 'unsubscribed',
+      }).eq('id', id);
+      await Database.client.from('outreach_campaign_enrollments').update({
+        status: 'stopped', stop_reason: 'unsubscribed_row_quick',
+      }).eq('prospect_id', id).eq('status', 'active');
+      if (p.email) {
+        await Database.client.from('email_suppressions').upsert({
+          email: p.email.toLowerCase(),
+          reason: 'manual_opt_out',
+          source: 'row_quick_action',
+          notes: `${p.company_name || p.domain || ''} — broken web / nezáujem`,
+          created_by: adminEmail,
+        }, { onConflict: 'email' });
+      }
+      // Update local cache
+      const idx = this.prospects.findIndex(x => x.id === id);
+      if (idx >= 0) this.prospects[idx].outreach_stage = 'unsubscribed';
+      Utils.toast(`${p.company_name || p.domain} → opt-out`, 'success');
+      this.rerender();
+    } catch (e) {
+      Utils.toast('Chyba: ' + (e.message || ''), 'danger');
+    }
   },
 
   // Manuálne označenie odhláseného prospekta (napr. keď napísal "STOP" / "nezaujíma"
