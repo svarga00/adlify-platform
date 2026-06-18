@@ -1,36 +1,32 @@
--- Master cold outreach template: cold_audit_v1
--- Založený na používateľovom Brevo-style HTML, prerobený na Adlify tokens +
--- enrichment-based personalizáciu (Outscraper analysis).
+-- Prepíše existujúci `cold_outreach_audit` template Brevo dizajnom od usera.
+-- Pôvodný cold_outreach_audit (systémový) sa upgrade-ne na pekný oranžový
+-- card-based layout. Slug ostáva ten istý → všetky existujúce kampane,
+-- enrollmenty a sequence steps fungujú ďalej bez zmeny.
 --
--- Tokens:
+-- Tokens (auto-fill zo scheduler-a):
 --   {{greeting}}              "Dobrý deň, Marek" alebo "Dobrý deň"
 --   {{company}}               názov firmy
 --   {{domain}}                doména
---   {{city_hook}}             " Bratislave" ak vieme mesto, inak ''
---   {{reviews_hook}}          "Všimol som si že máte 87 recenzií Google..."
---   {{tracking_hook}}         "Vidím že máte GTM nasadený..."
---   {{enrichment_hook}}       kombinácia reviews+tracking (alebo prázdne)
---   {{audit_request_url}}     CTA link s tokenom
---   {{unsubscribe_url}}       opt-out link
+--   {{industry}}              odvetvie
+--   {{city_hook}}             " Bratislave" / ""
+--   {{enrichment_hook}}       "Všimol som si 87 recenzií Google s ratingom 4.8★..."
+--   {{audit_request_url}}     CTA link s audit_token
+--   {{unsubscribe_url}}       opt-out trackovaný
 --   {{sender_name}}           "Štefan Varga"
---   {{sender_email_reply}}    "info@adlify.eu" (reply-to)
+--   {{sender_title}}          "Adlify"
+--   {{sender_email_reply}}    "info@adlify.eu"
 --   {{sender_phone}}          telefón
---   {{sender_domain_marketing}} "adlify-agency.online" (footer + sender from)
+--   {{sender_domain_main}}    "adlify.eu"
 --
--- Subject randomization — 4 varianty cez template_variants v outreach_campaign_steps
--- (ak používaš A/B testing). Bez variantov scheduler vezme prvý subject_variants[0].
+-- Idempotent — môžeš spustiť opakovane.
 
--- Tabuľka email_templates sa predpokladá z migrations 003+.
--- Idempotent INSERT.
-
-INSERT INTO email_templates (slug, name, category, subject, html_content, plain_text, is_active, created_at, updated_at)
-SELECT
-  'cold_audit_v1',
-  'Cold outreach — bezplatný audit (master)',
-  'outreach',
-  -- 4 subject varianty — random pick pri každom maile (cez _subject_variants splitter)
-  'Viac zákazníkov pre {{company}} — audit zadarmo',
-  $html$<!DOCTYPE html>
+UPDATE email_templates
+SET
+  name = 'Cold outreach — bezplatný audit',
+  category = 'outreach',
+  subject = 'Viac zákazníkov pre {{company}} — audit zadarmo',
+  is_active = true,
+  html_content = $html$<!DOCTYPE html>
 <html lang="sk" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="utf-8">
@@ -192,8 +188,7 @@ SELECT
 
 </body>
 </html>$html$,
-  -- Plain text fallback — multipart povinný pre dobrú deliverability
-  $text${{greeting}},
+  plain_text = $text${{greeting}},
 
 som zo slovenskej marketingovej agentúry Adlify — spravujeme reklamné kampane na Google a Meta pre firmy ako je {{company}}. Žiadne sľuby o zázrakoch, len merateľné výsledky.
 
@@ -220,22 +215,15 @@ S pozdravom,
 ——
 Adlify Agency · {{sender_domain_main}} · {{sender_email_reply}} · {{sender_phone}}
 Odhlásiť z odberu: {{unsubscribe_url}}$text$,
-  true,
-  NOW(),
-  NOW()
-WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE slug = 'cold_audit_v1');
-
--- Ak template už existuje (re-run), UPDATE namiesto skip — aby si dostal najnovšiu verziu
-UPDATE email_templates
-SET
-  name = 'Cold outreach — bezplatný audit (master)',
-  category = 'outreach',
-  subject = 'Viac zákazníkov pre {{company}} — audit zadarmo',
-  is_active = true,
   updated_at = NOW()
-WHERE slug = 'cold_audit_v1';
+WHERE slug = 'cold_outreach_audit';
+
+-- Vyčisti duplicitu z predchádzajúceho 042 (ak si spustil pôvodnú verziu)
+DELETE FROM email_templates WHERE slug = 'cold_audit_v1';
 
 -- Diagnostika
-SELECT slug, name, category, is_active, length(html_content) AS html_chars, length(plain_text) AS text_chars
+SELECT slug, name, category, is_active,
+       length(html_content) AS html_chars,
+       length(plain_text) AS text_chars
 FROM email_templates
-WHERE slug = 'cold_audit_v1';
+WHERE slug = 'cold_outreach_audit';
