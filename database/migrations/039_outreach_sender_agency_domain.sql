@@ -16,7 +16,7 @@ INSERT INTO outreach_senders (
   name, provider, email, reply_to, is_active,
   daily_limit, warmup_current, sent_today
 )
-SELECT 'Adlify Agency (cold outreach)', 'resend', 'info@adlify-agency.online', 'info@adlify.eu', true, 20, 5, 0
+SELECT 'Adlify Agency', 'resend', 'info@adlify-agency.online', 'info@adlify.eu', true, 20, 5, 0
 WHERE NOT EXISTS (
   SELECT 1 FROM outreach_senders WHERE email = 'info@adlify-agency.online'
 );
@@ -25,7 +25,7 @@ WHERE NOT EXISTS (
 UPDATE outreach_senders
 SET is_active = true,
     reply_to = 'info@adlify.eu',
-    name = COALESCE(name, 'Adlify Agency (cold outreach)'),
+    name = COALESCE(name, 'Adlify Agency'),
     daily_limit = COALESCE(daily_limit, 20)
 WHERE email = 'info@adlify-agency.online';
 
