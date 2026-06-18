@@ -1588,10 +1588,9 @@ const OutreachModule = {
             </div>
             <textarea id="tpl-text" rows="18" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-top:0;border-radius:0 0 10px 10px;font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6;resize:vertical;">${this.esc(t.plain_text || t.body_text || '')}</textarea>
           ` : `
-            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (rich editor, prepíše brand wrapper)</label>
-            <div id="tpl-html-editor" style="background:#fff;border:1.5px solid #EAE6DE;border-radius:10px;min-height:360px;"></div>
-            <textarea id="tpl-html" style="display:none;">${this.esc(t.html_content || t.body_html || '')}</textarea>
-            <p style="font-size:12px;color:#948B7C;margin:6px 0 0;">Nechaj prázdne pre auto-generovanie HTML z plain textu s brandom. Pre CTA tlačidlo vlož link na samostatný riadok a pred/za neho <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">[[Text|url]]</code>.</p>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (raw — môžeš vložiť celý &lt;!DOCTYPE html&gt; blok aj s &lt;style&gt;, MSO komentármi)</label>
+            <textarea id="tpl-html" rows="22" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;white-space:pre;overflow-wrap:normal;overflow-x:auto;">${this.esc(t.html_content || t.body_html || '')}</textarea>
+            <p style="font-size:12px;color:#948B7C;margin:6px 0 0;">Tokens fungujú aj v HTML: <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">{{company}}</code>, <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">{{greeting}}</code>, <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">{{audit_request_url}}</code>… Nechaj prázdne pre auto-generovanie z plain textu.</p>
           `}
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px;flex-wrap:wrap;">
@@ -1628,65 +1627,27 @@ const OutreachModule = {
   setEditorMode(mode) {
     const subj = document.getElementById('tpl-subject')?.value;
     const plain = document.getElementById('tpl-text')?.value;
-    const html = this._readQuillHtml() ?? document.getElementById('tpl-html')?.value;
+    const html = document.getElementById('tpl-html')?.value;
     if (this.editingTemplate) {
       if (subj != null) this.editingTemplate.subject = subj;
       if (plain != null) { this.editingTemplate.plain_text = plain; this.editingTemplate.body_text = plain; }
       if (html != null) { this.editingTemplate.html_content = html; this.editingTemplate.body_html = html; }
     }
-    this._quillEditor = null;
     this.editorMode = mode;
     this.rerender();
-    // Po renderi inicializuj Quill pre HTML mode
-    if (mode === 'html') {
-      setTimeout(() => this._initQuillEditor(), 30);
-    }
   },
 
-  _initQuillEditor() {
-    const host = document.getElementById('tpl-html-editor');
-    if (!host || !window.Quill) return;
-    if (this._quillEditor) return;
-    const initial = document.getElementById('tpl-html')?.value || '';
-    this._quillEditor = new Quill(host, {
-      theme: 'snow',
-      placeholder: 'Začni písať HTML šablónu… alebo vlož celý <!DOCTYPE html> blok',
-      modules: {
-        toolbar: [
-          [{ header: [1, 2, 3, false] }],
-          ['bold', 'italic', 'underline', 'strike'],
-          [{ color: [] }, { background: [] }],
-          [{ list: 'ordered' }, { list: 'bullet' }],
-          [{ align: [] }],
-          ['link', 'image', 'blockquote', 'code-block'],
-          ['clean'],
-        ],
-      },
-    });
-    if (initial) {
-      // Ak obsahuje <html> alebo <!DOCTYPE> — nastavujeme ako innerHTML, inak pasteHTML
-      if (/<html|<!DOCTYPE/i.test(initial)) {
-        this._quillEditor.root.innerHTML = initial;
-      } else {
-        this._quillEditor.clipboard.dangerouslyPasteHTML(initial);
-      }
-    }
-  },
-
-  _readQuillHtml() {
-    if (!this._quillEditor) return null;
-    return this._quillEditor.root.innerHTML;
-  },
+  // Quill rich editor sme nahradili raw textareou — Quill rozbíja email HTML
+  // (strpe DOCTYPE, style bloky, MSO komentáre, mso-* atribúty).
+  _readQuillHtml() { return null; },
 
   editTemplate(id) {
     const t = this.templates.find(x => x.id === id);
     if (!t) return;
     this.editingTemplate = { ...t };
-    this._quillEditor = null;
+    // Ak má template HTML obsah, otvor priamo HTML mode (Brevo / cold templates)
+    if (t.html_content || t.body_html) this.editorMode = 'html';
     this.rerender();
-    if (this.editorMode === 'html') {
-      setTimeout(() => this._initQuillEditor(), 30);
-    }
   },
 
   cancelEdit() {
