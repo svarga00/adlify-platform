@@ -123,6 +123,7 @@ const OutreachModule = {
     else if (this.currentView === 'campaigns') body = this.renderCampaigns();
     else if (this.currentView === 'analytics') body = this.renderAnalytics();
     else if (this.currentView === 'senders') body = this.renderSenders();
+    else if (this.currentView === 'suppressions') body = this.renderSuppressions();
     else if (this.currentView === 'calendar') body = this.renderCalendar();
     else if (this.currentView === 'automations') body = this.renderAutomations();
     else if (this.currentView === 'import') body = this.renderImport();
@@ -231,6 +232,7 @@ const OutreachModule = {
       { view: 'campaigns',   label: 'Kampane',       icon: I.campaign, onClick: 'OutreachModule.openCampaigns()' },
       { view: 'templates',   label: 'Šablóny',       icon: I.mail,     onClick: 'OutreachModule.openTemplates()' },
       { view: 'senders',     label: 'Odosielatelia', icon: I.send,     onClick: 'OutreachModule.openSenders()' },
+      { view: 'suppressions',label: 'Opt-out zoznam',icon: I.mailSm,   onClick: 'OutreachModule.openSuppressions()' },
       { view: 'calendar',    label: 'Kalendár',      icon: I.calendar, onClick: 'OutreachModule.openCalendar()' },
       { view: 'fb-groups',   label: 'FB Skupiny',    icon: I.users,    onClick: 'OutreachModule.openFbGroups && OutreachModule.openFbGroups()' },
       { view: 'import',      label: 'Import',        icon: I.upload,   onClick: 'OutreachModule.openImport()' },
@@ -3083,6 +3085,234 @@ const OutreachModule = {
     Utils.toast('Pracovné hodiny uložené', 'success');
     this.closeModal();
     await this._loadWorkingHours(); this.rerender();
+  },
+
+  // ========== SUPPRESSIONS (opt-out zoznam) ==========
+  // Globálny zoznam emailov ktoré sa NIKDY neposielajú. User môže naimportovať
+  // starý opt-out zoznam (napr. z Brevo) a všetci v ňom sa zaznamenajú navždy.
+  // Pri importe matching prospects sa rovno označia ako unsubscribed.
+
+  suppressions: [],
+  suppressionsLoaded: false,
+  suppressionsFilter: '',
+
+  async openSuppressions() {
+    this.currentView = 'suppressions';
+    this.suppressions = [];
+    this.suppressionsLoaded = false;
+    this.rerender();
+    try {
+      const { data, error } = await Database.client
+        .from('email_suppressions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      this.suppressions = data || [];
+    } catch (e) {
+      Utils.toast('Chyba načítania suppression list: ' + (e.message || ''), 'danger');
+      this.suppressions = [];
+    }
+    this.suppressionsLoaded = true;
+    this.rerender();
+  },
+
+  renderSuppressions() {
+    const rows = this.suppressions;
+    const filter = (this.suppressionsFilter || '').toLowerCase();
+    const filtered = filter ? rows.filter(r =>
+      (r.email || '').toLowerCase().includes(filter) ||
+      (r.reason || '').toLowerCase().includes(filter) ||
+      (r.notes || '').toLowerCase().includes(filter)
+    ) : rows;
+
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+        <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Opt-out zoznam (${rows.length})</h2>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Emails na tomto zozname <strong>nikdy nedostanú</strong> žiadny outreach mail. Platí naprieč všetkými kampaňami.</p>
+          </div>
+          <div class="adl-toolbar">
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.openBulkSuppressionImport()">📥 Importovať odhlásených</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.exportSuppressionsCsv()">⬇ Export CSV</button>
+          </div>
+        </div>
+
+        <div style="padding:14px 24px;background:#F7F5F1;border-bottom:1px solid #EAE6DE;">
+          <input type="search" placeholder="Hľadať podľa emailu, dôvodu, poznámky..." value="${this.esc(filter)}"
+            oninput="OutreachModule.suppressionsFilter=this.value;OutreachModule.rerender();"
+            style="width:100%;max-width:420px;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+        </div>
+
+        ${!this.suppressionsLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam…</div>`
+          : filtered.length === 0 ? `
+            <div style="padding:40px;text-align:center;color:#6F6758;">
+              <div style="font-size:14px;margin-bottom:6px;">${rows.length === 0 ? 'Zatiaľ žiadne opt-out emails.' : 'Nič nezodpovedá filtru.'}</div>
+              ${rows.length === 0 ? '<div style="font-size:12px;">Klik <strong>"Importovať odhlásených"</strong> a vlož starý zoznam (po riadkoch alebo CSV).</div>' : ''}
+            </div>
+          ` : `
+            <div style="max-height:600px;overflow-y:auto;">
+              ${filtered.map(r => `
+                <div style="padding:12px 24px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:14px;">
+                  <div style="min-width:0;flex:1;">
+                    <div style="font-size:14px;font-weight:600;color:#14120E;font-family:ui-monospace,monospace;">${this.esc(r.email)}</div>
+                    <div style="font-size:11px;color:#948B7C;margin-top:3px;">
+                      ${r.reason ? `<span style="background:#FEF3C7;color:#92400E;padding:1px 7px;border-radius:999px;font-weight:600;margin-right:6px;">${this.esc(r.reason)}</span>` : ''}
+                      ${r.source ? `via ${this.esc(r.source)} · ` : ''}${this._formatDate(r.created_at)}${r.created_by ? ' · ' + this.esc(r.created_by) : ''}
+                    </div>
+                    ${r.notes ? `<div style="font-size:12px;color:#6F6758;margin-top:4px;">${this.esc(r.notes)}</div>` : ''}
+                  </div>
+                  <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.removeSuppression('${r.id}', '${this.esc(r.email)}')" title="Odstrániť (povoliť kontakt)">Odobrať</button>
+                </div>
+              `).join('')}
+            </div>
+          `}
+      </div>
+    `;
+  },
+
+  _formatDate(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch { return iso; }
+  },
+
+  openBulkSuppressionImport() {
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:600px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">📥 Importovať opt-out emails</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="suppression-bulk-form" onsubmit="event.preventDefault();OutreachModule.runBulkSuppressionImport();" style="padding:20px 24px;display:grid;gap:14px;">
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:#6F6758;margin-bottom:6px;">Emails (po jednom na riadok alebo oddelené čiarkou)</label>
+            <textarea name="emails" rows="10" placeholder="jan@example.com&#10;peter@firma.sk&#10;&#10;Alebo skopíruj zo starého Brevo exportu — z buniek vytiahneme len emails."
+              required
+              style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:13px;font-family:ui-monospace,monospace;line-height:1.5;resize:vertical;"></textarea>
+            <p style="font-size:11px;color:#948B7C;margin:4px 0 0;">Akceptuje 1 email/riadok, CSV, alebo paste z Excelu. Duplicity sa filtrujú.</p>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Dôvod
+              <select name="reason" style="padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+                <option value="imported_legacy">imported_legacy (starý opt-out zoznam)</option>
+                <option value="manual_opt_out">manual_opt_out (sám si nepraje)</option>
+                <option value="spam_complaint">spam_complaint (označil ako spam)</option>
+                <option value="bounced_hard">bounced_hard (neexistujúca schránka)</option>
+                <option value="gdpr_request">gdpr_request (právo na výmaz)</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Zdroj
+              <input type="text" name="source" value="brevo_export" placeholder="brevo_export, csv_import..."
+                style="padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+            </label>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Poznámka (voliteľné)
+            <input type="text" name="notes" placeholder="napr. 'Export z Brevo, jún 2026'"
+              style="padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+          </label>
+          <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400E;">
+            <strong>Pozor:</strong> existujúci prospekti s týmto emailom sa rovno označia ako <em>unsubscribed</em> a všetky aktívne kampane sa zastavia. Akcia je vratná (cez "Odobrať" v zozname).
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">Importovať</button>
+          </div>
+        </form>
+      </div>
+    `;
+    this._openModal(modal);
+  },
+
+  async runBulkSuppressionImport() {
+    const form = document.getElementById('suppression-bulk-form');
+    if (!form) return;
+    const fd = new FormData(form);
+    const raw = (fd.get('emails') || '').toString();
+    const reason = (fd.get('reason') || 'imported_legacy').toString();
+    const source = (fd.get('source') || '').toString().trim() || null;
+    const notes = (fd.get('notes') || '').toString().trim() || null;
+
+    // Extract emails — split on whitespace/comma/semicolon, regex validation
+    const emailRegex = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+    const matches = raw.match(emailRegex) || [];
+    const emails = [...new Set(matches.map(e => e.toLowerCase()))];
+
+    if (emails.length === 0) return Utils.toast('Žiadny platný email v texte', 'warning');
+
+    const adminEmail = window.Auth?.user?.email || 'unknown';
+    const payload = emails.map(email => ({ email, reason, source, notes, created_by: adminEmail }));
+
+    try {
+      // 1. Upsert do email_suppressions (idempotent)
+      const { error: e1 } = await Database.client
+        .from('email_suppressions')
+        .upsert(payload, { onConflict: 'email' });
+      if (e1) throw e1;
+
+      // 2. Existujúce prospects s týmto emailom → unsubscribed
+      const { data: matchingProspects } = await Database.client
+        .from('prospects')
+        .select('id')
+        .in('email', emails);
+      const prospectIds = (matchingProspects || []).map(p => p.id);
+      let marked = 0;
+      if (prospectIds.length) {
+        await Database.client.from('prospects').update({
+          outreach_stage: 'unsubscribed',
+        }).in('id', prospectIds);
+        // Stop aktívne enrollments
+        await Database.client.from('outreach_campaign_enrollments').update({
+          status: 'stopped', stop_reason: 'unsubscribed_bulk_import',
+        }).in('prospect_id', prospectIds).eq('status', 'active');
+        marked = prospectIds.length;
+      }
+
+      Utils.toast(`Importovaných ${emails.length} emails · ${marked} existujúcich prospektov označených ako unsubscribed`, 'success');
+      this.closeModal();
+      await this.openSuppressions();
+    } catch (e) {
+      Utils.toast('Chyba importu: ' + (e.message || ''), 'danger');
+    }
+  },
+
+  async removeSuppression(id, email) {
+    const ok = await Utils.confirm(
+      `Odobrať <strong>${email}</strong> z opt-out zoznamu?<br><br>` +
+      `<small style="color:#6F6758;">Po odobratí im môžeme znova posielať maily. Pre úplné rešpektovanie GDPR čl. 7 odporúčam ponechať pokiaľ explicitne nenapísali že chcú znova dostávať maily.</small>`,
+      { type: 'warning', confirmText: 'Odobrať', cancelText: 'Zrušiť', html: true }
+    );
+    if (!ok) return;
+    try {
+      await Database.client.from('email_suppressions').delete().eq('id', id);
+      Utils.toast('Odstránené', 'success');
+      this.suppressions = this.suppressions.filter(s => s.id !== id);
+      this.rerender();
+    } catch (e) {
+      Utils.toast('Chyba: ' + (e.message || ''), 'danger');
+    }
+  },
+
+  exportSuppressionsCsv() {
+    const rows = this.suppressions || [];
+    if (rows.length === 0) return Utils.toast('Žiadne dáta na export', 'warning');
+    const header = 'email,reason,source,notes,created_at,created_by\n';
+    const csv = header + rows.map(r => [
+      r.email, r.reason || '', r.source || '', r.notes || '', r.created_at || '', r.created_by || ''
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `opt-out-list-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   },
 
   // ========== SENDERS (rotation + warm-up) ==========

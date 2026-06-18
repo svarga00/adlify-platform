@@ -220,8 +220,22 @@ exports.handler = async (event) => {
       : { data: [] };
     const existingSet = new Set((existing || []).map(x => (x.domain || '').toLowerCase()));
 
-    const toInsert = prospects.filter(p => !existingSet.has(p.domain));
+    // 3b. Opt-out (suppression) guard — ak email/domain je na globálnom opt-out
+    //     zozname, importujeme ich rovno ako 'unsubscribed' (ostávajú v evidencii
+    //     pre audit ale scheduler ani Compose im nepošlú nič).
+    const emails = prospects.map(p => (p.email || '').toLowerCase()).filter(Boolean);
+    const { data: suppressed } = emails.length > 0
+      ? await supabase.from('email_suppressions').select('email').in('email', emails)
+      : { data: [] };
+    const suppressedSet = new Set((suppressed || []).map(x => (x.email || '').toLowerCase()));
+
+    const toInsert = prospects
+      .filter(p => !existingSet.has(p.domain))
+      .map(p => suppressedSet.has((p.email || '').toLowerCase())
+        ? { ...p, outreach_stage: 'unsubscribed' }
+        : p);
     const skipped = prospects.length - toInsert.length;
+    const importedAsOptOut = toInsert.filter(p => p.outreach_stage === 'unsubscribed').length;
 
     let inserted = 0;
     if (toInsert.length > 0) {
@@ -240,7 +254,7 @@ exports.handler = async (event) => {
     }
 
     console.log('[outscraper] filter rejects — noEmail=%d noDomain=%d closed=%d', rejNoEmail, rejNoDomain, rejClosed);
-    console.log('[outscraper] done: %d total, %d inserted, %d skipped (dup)', prospects.length, inserted, skipped);
+    console.log('[outscraper] done: %d total, %d inserted, %d skipped (dup), %d marked opt-out', prospects.length, inserted, skipped, importedAsOptOut);
 
     return {
       statusCode: 200,
@@ -250,6 +264,7 @@ exports.handler = async (event) => {
         count: prospects.length,
         inserted,
         skipped,
+        imported_as_opt_out: importedAsOptOut,
         rejected: { noEmail: rejNoEmail, noDomain: rejNoDomain, closed: rejClosed, rawTotal: flat.length },
       }),
     };
