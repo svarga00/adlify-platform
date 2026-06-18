@@ -1034,10 +1034,11 @@ const OutreachModule = {
               subject: email.subject,
               htmlBody: email.html,
               textBody: email.text,
+              unsubscribeToken: prospect.audit_token || null,
             }),
           });
         } else {
-          // Resend (default)
+          // Resend (default) ALEBO Mailjet — payload je identický, líši sa endpoint
           const payload = {
             to: prospect.email,
             subject: email.subject,
@@ -1052,7 +1053,10 @@ const OutreachModule = {
             payload.fromName = sender.name;
             if (sender.reply_to) payload.replyTo = sender.reply_to;
           }
-          r = await fetch('/.netlify/functions/send-email', {
+          const endpoint = sender?.provider === 'mailjet'
+            ? '/.netlify/functions/send-email-mailjet'
+            : '/.netlify/functions/send-email';
+          r = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -3538,9 +3542,10 @@ const OutreachModule = {
     const limit = s.warmup_current || s.daily_limit || 40;
     const sentPct = Math.min(100, Math.round(((s.sent_today || 0) / limit) * 100));
     const providerBadge = {
-      gmail:  { label: 'Gmail API', bg: '#DBEAFE', color: '#1E3A8A' },
-      resend: { label: 'Resend',    bg: '#F7F5F1', color: '#6F6758' },
-      smtp:   { label: 'SMTP',      bg: '#F7F5F1', color: '#6F6758' },
+      gmail:   { label: 'Gmail API', bg: '#DBEAFE', color: '#1E3A8A' },
+      resend:  { label: 'Resend',    bg: '#F7F5F1', color: '#6F6758' },
+      mailjet: { label: 'Mailjet',   bg: '#FEF3C7', color: '#92400E' },
+      smtp:    { label: 'SMTP',      bg: '#F7F5F1', color: '#6F6758' },
     }[s.provider || 'resend'];
     const linked = s.provider === 'gmail' && !!s.platform_connection_id;
     return `
@@ -3601,13 +3606,23 @@ const OutreachModule = {
           <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
         </div>
         <form id="sender-form" onsubmit="event.preventDefault();OutreachModule.saveSender('${s.id || ''}');" style="padding:20px 24px;display:grid;gap:12px;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Provider
+            <select name="provider" required
+              style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
+              <option value="resend"  ${(s.provider || 'resend') === 'resend' ? 'selected' : ''}>Resend (transakčné, prísnejšie ToS)</option>
+              <option value="mailjet" ${s.provider === 'mailjet' ? 'selected' : ''}>Mailjet (marketing, bulk-friendly)</option>
+              <option value="smtp"    ${s.provider === 'smtp' ? 'selected' : ''}>SMTP (vlastný server)</option>
+            </select>
+            <span style="font-size:11px;color:#948B7C;margin-top:2px;">Gmail sa pripája cez OAuth tlačidlom „+ Pripojiť Gmail" hore.</span>
+          </label>
           ${this._field('name', 'Meno *', 'text', true)}
           ${this._field('email', 'Email *', 'email', true)}
           ${this._field('reply_to', 'Reply-to (voliteľné)', 'email')}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
               Denný limit (warm-up current)
-              <input type="number" name="warmup_current" min="1" max="500" value="${s.warmup_current || 40}" required
+              <input type="number" name="warmup_current" min="1" max="5000" value="${s.warmup_current || 40}" required
                 style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
             </label>
             <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
@@ -3645,6 +3660,7 @@ const OutreachModule = {
       name: row.name.trim(),
       email: row.email.trim().toLowerCase(),
       reply_to: row.reply_to?.trim() || null,
+      provider: row.provider || 'resend',
       warmup_current: parseInt(row.warmup_current) || 40,
       daily_limit: parseInt(row.warmup_current) || 40,
       throttle_seconds: parseInt(row.throttle_seconds) || 60,

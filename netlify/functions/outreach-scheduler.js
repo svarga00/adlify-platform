@@ -268,6 +268,30 @@ async function sendEmail(to, subject, html, text, sender, prospect) {
     return;
   }
 
+  // Mailjet provider — bulk-friendly, marketing-allowed
+  if (sender?.provider === 'mailjet') {
+    const payload = {
+      to, subject, htmlBody: html, textBody: text,
+      unsubscribeToken: auditToken,
+      prospectId: prospect?.id || null,
+    };
+    if (sender.email) {
+      payload.fromEmail = sender.email;
+      payload.fromName = sender.name;
+      if (sender.reply_to) payload.replyTo = sender.reply_to;
+    }
+    const res = await fetch(`${BASE_URL}/.netlify/functions/send-email-mailjet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new Error(`mailjet-send ${res.status}: ${t}`);
+    }
+    return;
+  }
+
   // Default: Resend cez send-email
   const payload = {
     to, subject, htmlBody: html, textBody: text,
