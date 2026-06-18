@@ -476,7 +476,16 @@ const OutreachModule = {
           style="border-top:1px solid var(--border);cursor:pointer;${isConverted ? 'opacity:.6;' : ''}transition:background .1s;"
           onmouseenter="this.style.background='var(--n-25)'" onmouseleave="this.style.background=''">
         <td style="padding:14px 16px;" onclick="event.stopPropagation()">
-          <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')" style="accent-color:var(--brand-500);width:18px;height:18px;cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')" style="accent-color:var(--brand-500);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
+            ${domain ? `
+              <button onclick="event.stopPropagation();OutreachModule.openSitePreview('${this.esc(domain)}','${this.esc(company)}','${prospect.id}')"
+                title="Náhľad stránky (bez otvorenia novej karty)"
+                style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--n-50);border:1px solid var(--border);border-radius:8px;color:var(--ink-sub);cursor:pointer;padding:0;flex-shrink:0;transition:background .12s, color .12s, border-color .12s;"
+                onmouseover="this.style.background='var(--brand-50)';this.style.borderColor='var(--brand-200)';this.style.color='var(--brand-700)'"
+                onmouseout="this.style.background='var(--n-50)';this.style.borderColor='var(--border)';this.style.color='var(--ink-sub)'">${I.eye}</button>
+            ` : ''}
+          </div>
         </td>
         <td style="padding:14px 16px;">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -486,7 +495,6 @@ const OutreachModule = {
               ${domain ? `
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                   <a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>
-                  <button onclick="event.stopPropagation();OutreachModule.openSitePreview('${this.esc(domain)}','${this.esc(company)}','${prospect.id}')" title="Náhľad stránky bez otvárania v novej karte" style="background:transparent;border:0;cursor:pointer;color:var(--ink-mute);padding:2px;font-size:13px;line-height:1;" onmouseover="this.style.color='var(--brand-700)'" onmouseout="this.style.color='var(--ink-mute)'">👁</button>
                   ${this._socialIcons(prospect)}
                 </div>
               ` : ''}
