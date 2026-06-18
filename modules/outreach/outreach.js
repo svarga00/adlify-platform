@@ -3092,18 +3092,34 @@ const OutreachModule = {
 
   renderSenders() {
     const rows = this.senders;
+
+    // Bezpečnostný audit: kto je aktívny pre cold outreach?
+    const active = rows.filter(s => s.is_active);
+    const transactionalActive = active.filter(s => /@adlify\.eu$/i.test(s.email || ''));
+    const coldSafeActive = active.filter(s => !/@adlify\.eu$/i.test(s.email || ''));
+    const safetyBanner = transactionalActive.length > 0
+      ? `<div style="padding:14px 24px;background:#FEE2E2;border-bottom:1px solid #FCA5A5;font-size:13px;color:#991B1B;">
+          <strong>⚠ Rizikový sender:</strong> <code>${transactionalActive.map(s => s.email).join(', ')}</code> je @adlify.eu — tá je transakčná doména klientom (onboarding, proposal). Cold mail z nej môže zabrániť doručeniu týchto emailov klientom. Spusti <strong>migráciu 039</strong> (pridá <code>info@adlify-agency.online</code> a deaktivuje .eu senderov) alebo to vypni ručne.
+         </div>`
+      : coldSafeActive.length === 0 && this.sendersLoaded
+        ? `<div style="padding:14px 24px;background:#FEF3C7;border-bottom:1px solid #FDE68A;font-size:13px;color:#92400E;">
+            <strong>⚠ Žiadny aktívny sender:</strong> bez sendera scheduler nič nepošle. Pridaj cez <em>+ Pripojiť Gmail</em> alebo spusti migráciu 039 (vytvorí <code>info@adlify-agency.online</code> cez Resend).
+           </div>`
+        : '';
+
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
         <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
           <div>
             <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Odosielatelia a warm-up</h2>
-            <p style="font-size:13px;color:#6F6758;margin:0;">Gmail / Google Workspace je odporúčaný pre cold outreach (menšie riziko blokácie než Resend).</p>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Cold outreach posielame z <strong>adlify-agency.online</strong>. Hlavnú doménu <strong>adlify.eu</strong> chránime pre transakčné maily klientom.</p>
           </div>
           <div class="adl-toolbar">
             <button class="adl-btn adl-btn-primary" onclick="OutreachModule.connectGmailSender()">+ Pripojiť Gmail</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.newSender()">+ Manuálny (Resend / SMTP)</button>
           </div>
         </div>
+        ${safetyBanner}
         <div style="padding:14px 24px;background:#FFF7ED;border-bottom:1px solid #FED7AA;font-size:12px;color:#92400E;">
           <strong>Tip:</strong> Resend zakazuje cold outreach (ToS) — pre masové posielanie využi Gmail API
           (limit 500/deň per účet, pripoj si 2-3 Workspace mailboxy). Resend necháš pre transactional
@@ -3170,7 +3186,9 @@ const OutreachModule = {
     this.connectGmailSender();
   },
 
-  newSender() { this._senderModal({ is_active: true, daily_limit: 40, warmup_current: 40, throttle_seconds: 60 }); },
+  // Default sender: bezpečný warm-up štart (5/deň → manuálne zvyšuj).
+  // Plný target 40-60/deň dosahuj postupne po 1-2 týždňoch warmup-u.
+  newSender() { this._senderModal({ is_active: true, daily_limit: 40, warmup_current: 5, throttle_seconds: 120 }); },
   editSender(id) {
     const s = this.senders.find(x => x.id === id);
     if (s) this._senderModal(s);
