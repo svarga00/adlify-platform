@@ -5053,6 +5053,40 @@ const OutreachModule = {
     return icons;
   },
 
+  // Inline save z site-preview modálu — keď user nájde email/meno/telefón
+  // na stránke firmy, môže prepísať bez zatvárania modalu.
+  async saveSitePreviewEdit(prospectId) {
+    const form = document.getElementById('site-preview-edit');
+    const status = document.getElementById('site-preview-edit-status');
+    if (!form) return;
+    const fd = new FormData(form);
+    const payload = {
+      email: (fd.get('email') || '').toString().trim().toLowerCase() || null,
+      contact_person: (fd.get('contact_person') || '').toString().trim() || null,
+      phone: (fd.get('phone') || '').toString().trim() || null,
+    };
+    try {
+      const { data, error } = await Database.client
+        .from('prospects')
+        .update(payload)
+        .eq('id', prospectId)
+        .select()
+        .single();
+      if (error) throw error;
+      // Update local cache
+      const idx = this.prospects.findIndex(p => p.id === prospectId);
+      if (idx >= 0) this.prospects[idx] = { ...this.prospects[idx], ...data };
+      if (status) {
+        status.textContent = '✓ Uložené';
+        setTimeout(() => { if (status) status.textContent = ''; }, 2500);
+      }
+      // Soft refresh tabuľky v pozadí (bez zatvorenia modalu)
+      this.rerender();
+    } catch (e) {
+      if (status) { status.style.color = '#DC2626'; status.textContent = '✕ ' + (e.message || 'chyba'); }
+    }
+  },
+
   // Náhľad stránky v iframe modale — pre rýchle posúdenie "funguje vôbec?" /
   // "vyzerá to ako serious business?" bez otvárania v novej karte. Niektoré
   // stránky majú X-Frame-Options: DENY → iframe nedovolí načítanie. V tom
@@ -5061,6 +5095,10 @@ const OutreachModule = {
     if (!domain) return;
     const url = `https://${domain}`;
     const safeUrl = String(url).replace(/['"<>]/g, '');
+    const prospect = prospectId ? this.prospects.find(p => p.id === prospectId) : null;
+    const curEmail = prospect?.email || '';
+    const curContact = prospect?.contact_person || '';
+    const curPhone = prospect?.phone || '';
     const modal = this._ensureModal('outreach-modal');
     modal.innerHTML = `
       <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
@@ -5079,6 +5117,24 @@ const OutreachModule = {
             <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()" title="Zavrieť (Esc)">✕</button>
           </div>
         </div>
+        ${prospectId ? `
+          <div style="padding:10px 20px;background:#FAFAF7;border-bottom:1px solid #EAE6DE;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:8px;">
+              <span>✏ Upraviť kontakt</span>
+              <span style="background:#FEF3C7;color:#92400E;padding:1px 7px;border-radius:999px;text-transform:none;letter-spacing:0;font-weight:600;font-size:10px;">našiel si lepšie dáta? prepíš</span>
+            </div>
+            <form id="site-preview-edit" onsubmit="event.preventDefault();OutreachModule.saveSitePreviewEdit('${prospectId}');" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="email" name="email" placeholder="email" value="${this.esc(curEmail)}"
+                style="flex:1;min-width:200px;padding:7px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+              <input type="text" name="contact_person" placeholder="meno kontaktu" value="${this.esc(curContact)}"
+                style="flex:1;min-width:160px;padding:7px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+              <input type="text" name="phone" placeholder="telefón" value="${this.esc(curPhone)}"
+                style="flex:0 1 160px;padding:7px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+              <button type="submit" class="adl-btn adl-btn-sm adl-btn-primary" style="flex-shrink:0;">💾 Uložiť</button>
+              <span id="site-preview-edit-status" style="font-size:11px;color:#1F6E3D;font-weight:600;"></span>
+            </form>
+          </div>
+        ` : ''}
         <div style="position:relative;flex:1;background:#F7F5F1;overflow:hidden;">
           <div id="site-preview-fallback" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#6F6758;padding:40px;text-align:center;">
             <div style="font-size:42px;">⏳</div>
