@@ -3250,9 +3250,19 @@ const OutreachModule = {
       ({ error: err } = await Database.client.from('outreach_senders').update(payload).eq('id', id));
     } else {
       payload.is_active = true;
-      ({ error: err } = await Database.client.from('outreach_senders').insert(payload));
+      // Upsert na email — ak sender s týmto emailom už existuje (napr. z migrácie 039),
+      // namiesto 409 conflict rovno updatne a reaktivuje
+      ({ error: err } = await Database.client
+        .from('outreach_senders')
+        .upsert(payload, { onConflict: 'email' }));
     }
-    if (err) return Utils.toast('Chyba: ' + err.message, 'danger');
+    if (err) {
+      // Friendly hint pre duplicate
+      const msg = /duplicate|unique|conflict|409/i.test(err.message || '')
+        ? `Sender s emailom ${payload.email} už existuje. Pozri zoznam → klik "Zapnúť" alebo "Upraviť".`
+        : 'Chyba: ' + err.message;
+      return Utils.toast(msg, 'danger');
+    }
     this.closeModal();
     Utils.toast('Uložené', 'success');
     await this.openSenders();
