@@ -107,19 +107,46 @@ async function renderEmailFromTemplate(templateSlug, prospect) {
   // 3. Premenné
   const company = prospect.company_name || prospect.domain || '';
   const industryHook = _industryHook(prospect.industry, prospect.city);
+
+  // Enrichment-based personalizácia (z Outscraper → prospect.analysis)
+  const an = (prospect.analysis && typeof prospect.analysis === 'object') ? prospect.analysis : {};
+  // Kontaktné meno: prospect.contact_person ALEBO analysis.full_name z webcrawlu
+  const contactName = prospect.contact_person || an.full_name || '';
+  const firstName = (contactName || '').trim().split(/\s+/)[0] || '';
+  // Reviews hook — len ak má 20+ recenzií s ratingom 4+
+  const reviewsHook = (an.reviews >= 20 && an.rating >= 4.0)
+    ? `Všimol som si že máte ${an.reviews} recenzií Google s ratingom ${an.rating}★ — pekná stopa.`
+    : '';
+  // Tracking hook — "už používate" alebo "ešte nemáte"
+  const trackingHook = (an.has_gtm || an.has_fb_pixel)
+    ? `Vidím že máte ${[an.has_gtm ? 'GTM' : '', an.has_fb_pixel ? 'FB Pixel' : ''].filter(Boolean).join(' + ')} nasadený — postavíme na tom.`
+    : '';
+  // Lokácia hook
+  const cityHook = prospect.city ? ` ${prospect.city}` : '';
+
   const vars = {
-    greeting: prospect.contact_person ? `Pán ${prospect.contact_person}` : 'Dobrý deň',
-    contact_name: prospect.contact_person || '',
+    greeting: firstName ? `Dobrý deň, ${firstName}` : 'Dobrý deň',
+    contact_name: contactName,
+    first_name: firstName,
     company,
     domain: prospect.domain || '',
     industry: prospect.industry || '',
     industry_hook: industryHook ? ` — ${industryHook}` : '',
     city: prospect.city || '',
+    city_hook: cityHook,
+    reviews_hook: reviewsHook,
+    tracking_hook: trackingHook,
+    enrichment_hook: [reviewsHook, trackingHook].filter(Boolean).join(' '),
     audit_token: prospect.audit_token || '',
     audit_request_url: prospect.audit_token ? `${BASE_URL}/audit-request.html?t=${prospect.audit_token}` : '',
     audit_url: prospect.audit_token ? `${BASE_URL}/audit.html?t=${prospect.audit_token}` : '',
+    unsubscribe_url: prospect.audit_token ? `${BASE_URL}/unsubscribe.html?t=${prospect.audit_token}` : `${BASE_URL}/unsubscribe.html`,
     sender_name: s.sender_name || 'Štefan Varga',
     sender_title: s.sender_title || s.company_name || 'Adlify',
+    sender_email_reply: 'info@adlify.eu',
+    sender_phone: s.email_phone || '+421 944 184 045',
+    sender_domain_marketing: 'adlify-agency.online',
+    sender_domain_main: 'adlify.eu',
   };
 
   const subject = _substitute(tpl.subject, vars);
