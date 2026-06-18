@@ -479,8 +479,18 @@ const OutreachModule = {
           <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')" style="accent-color:var(--brand-500);">
         </td>
         <td style="padding:14px 16px;">
-          <div style="font-weight:600;color:var(--ink);">${this.esc(company)}</div>
-          ${domain ? `<a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>` : ''}
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${domain ? `<img src="https://www.google.com/s2/favicons?domain=${this.esc(domain)}&sz=32" width="20" height="20" style="border-radius:4px;flex-shrink:0;background:#F7F5F1;" onerror="this.style.display='none'" alt="">` : ''}
+            <div style="min-width:0;">
+              <div style="font-weight:600;color:var(--ink);">${this.esc(company)}</div>
+              ${domain ? `
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>
+                  <button onclick="event.stopPropagation();OutreachModule.openSitePreview('${this.esc(domain)}','${this.esc(company)}','${prospect.id}')" title="Náhľad stránky bez otvárania v novej karte" style="background:transparent;border:0;cursor:pointer;color:var(--ink-mute);padding:2px;font-size:13px;line-height:1;" onmouseover="this.style.color='var(--brand-700)'" onmouseout="this.style.color='var(--ink-mute)'">👁</button>
+                </div>
+              ` : ''}
+            </div>
+          </div>
         </td>
         <td style="padding:14px 16px;font-size:12px;" onclick="event.stopPropagation()">
           ${prospect.email
@@ -4847,6 +4857,68 @@ const OutreachModule = {
     const id = this._detailProspectId;
     this.closeModal();
     await this.deleteProspect(id);
+  },
+
+  // Náhľad stránky v iframe modale — pre rýchle posúdenie "funguje vôbec?" /
+  // "vyzerá to ako serious business?" bez otvárania v novej karte. Niektoré
+  // stránky majú X-Frame-Options: DENY → iframe nedovolí načítanie. V tom
+  // prípade modal ukáže fallback hlášku s tlačidlom otvorenia v novej karte.
+  openSitePreview(domain, company, prospectId) {
+    if (!domain) return;
+    const url = `https://${domain}`;
+    const safeUrl = String(url).replace(/['"<>]/g, '');
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:1100px;width:min(94vw,1100px);height:min(88vh,820px);display:flex;flex-direction:column;">
+        <div class="adl-modal-head" style="padding:14px 20px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <img src="https://www.google.com/s2/favicons?domain=${this.esc(domain)}&sz=64" width="24" height="24" style="border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'" alt="">
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:#14120E;">${this.esc(company || domain)}</div>
+              <a href="${safeUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#6F6758;">${this.esc(domain)} ↗</a>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <a href="${safeUrl}" target="_blank" rel="noopener" class="adl-btn adl-btn-sm adl-btn-outline">Nová karta ↗</a>
+            ${prospectId ? `<button class="adl-btn adl-btn-sm" style="background:#F7F5F1;border:1px solid #EAE6DE;color:#6F6758;" onclick="OutreachModule.markUnsubscribedFromRow('${prospectId}');OutreachModule.closeModal();">🚫 Opt-out</button>` : ''}
+            <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()" title="Zavrieť (Esc)">✕</button>
+          </div>
+        </div>
+        <div style="position:relative;flex:1;background:#F7F5F1;overflow:hidden;">
+          <div id="site-preview-fallback" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#6F6758;padding:40px;text-align:center;">
+            <div style="font-size:42px;">⏳</div>
+            <div style="font-size:14px;">Načítavam <strong>${this.esc(domain)}</strong>…</div>
+            <div style="font-size:12px;color:#948B7C;max-width:380px;">Ak sa stránka neobjaví do 5s, server pravdepodobne blokuje vloženie (X-Frame-Options) alebo web nefunguje.</div>
+          </div>
+          <iframe id="site-preview-iframe"
+            src="${safeUrl}"
+            style="position:relative;width:100%;height:100%;border:0;background:#fff;display:block;"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            referrerpolicy="no-referrer"
+            onload="document.getElementById('site-preview-fallback').style.display='none'"></iframe>
+        </div>
+      </div>
+    `;
+    this._openModalWide(modal);
+    // Watchdog 5s — ak iframe nedoload-uje, ukáž fallback s linkom
+    setTimeout(() => {
+      const fb = document.getElementById('site-preview-fallback');
+      const iframe = document.getElementById('site-preview-iframe');
+      if (fb && iframe && fb.style.display !== 'none') {
+        fb.innerHTML = `
+          <div style="font-size:42px;">🚫</div>
+          <div style="font-size:14px;color:#14120E;font-weight:600;">Stránku sa nepodarilo načítať</div>
+          <div style="font-size:12px;color:#6F6758;max-width:420px;line-height:1.5;">
+            ${this.esc(domain)} buď blokuje iframe (X-Frame-Options / CSP), je offline alebo nemá funkčný HTTPS.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <a href="${safeUrl}" target="_blank" rel="noopener" class="adl-btn adl-btn-sm adl-btn-outline">Skús v novej karte ↗</a>
+            ${prospectId ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.markUnsubscribedFromRow('${prospectId}');OutreachModule.closeModal();">🚫 Vyradiť (opt-out)</button>` : ''}
+          </div>
+        `;
+      }
+    }, 5000);
   },
 
   // Rýchle označenie z riadku tabuľky — pre prípady kde web nefunguje, firma
