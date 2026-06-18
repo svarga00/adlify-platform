@@ -19,7 +19,73 @@ const supabase = createClient(
 );
 
 const BASE_URL = process.env.URL || 'https://adlify.eu';
-const MAX_BATCH = 100;
+const MAX_BATCH = 200;
+
+// ─── COLD OUTREACH SENDING WINDOWS ────────────────────────────────────
+// SK timezone (Europe/Bratislava). Cold mail posielame LEN cez pracovné
+// hodiny — mimo neho push next_send_at do najbližšieho okna. Mimo okna
+// nepostavíme proti spam filtrom (príjemca to nečíta v noci, a "noc"
+// posielanie = lacný spam pattern).
+const SEND_HOUR_START = 8;   // 08:00 SK
+const SEND_HOUR_END   = 18;  // 18:00 SK (posledné odoslanie pred 18:00)
+const SKIP_WEEKENDS   = true;
+
+// Per-mail random jitter aby všetky maily neišli presne v rovnaký čas
+// (cron beží :05 → bez jitter-u všetko 13:05, 14:05... = predikovateľné).
+const JITTER_MAX_SEC  = 540;  // 0-9 minút random offset
+
+// Vráti najbližší prípustný čas odoslania ≥ given Date. Ak vstup je
+// uprostred pracovných hodín, vráti ten istý čas. Inak posunie na 8:00
+// najbližšieho pracovného dňa.
+function nextSendingWindow(d) {
+  // Konverzia do SK timezone — JS Date je UTC, použijeme manuálny offset.
+  // SK = UTC+1 (winter) / +2 (summer DST). Pre cron-relevant precision
+  // si nemusíme drviť DST — používame Intl.DateTimeFormat pre presný hour/day.
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Bratislava',
+    hour: '2-digit', minute: '2-digit', weekday: 'short',
+    hour12: false,
+  }).formatToParts(d);
+  const hour = parseInt(fmt.find(p => p.type === 'hour').value, 10);
+  const wd = fmt.find(p => p.type === 'weekday').value; // Mon, Tue, ..., Sun
+  const isWeekend = wd === 'Sat' || wd === 'Sun';
+
+  // Ak sme v pracovných hodinách a nie je víkend → OK
+  if (!isWeekend && hour >= SEND_HOUR_START && hour < SEND_HOUR_END) return d;
+
+  // Inak posuň na najbližší pracovný deň 8:00 SK
+  // Najjednoduchšie: prirátaj hodiny dopredu kým nepadne do okna
+  let next = new Date(d.getTime());
+  for (let i = 0; i < 96; i++) { // max 4 dni dopredu
+    next = new Date(next.getTime() + 30 * 60 * 1000); // +30 min iter
+    const p = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Bratislava',
+      hour: '2-digit', minute: '2-digit', weekday: 'short', hour12: false,
+    }).formatToParts(next);
+    const h = parseInt(p.find(x => x.type === 'hour').value, 10);
+    const m = parseInt(p.find(x => x.type === 'minute').value, 10);
+    const w = p.find(x => x.type === 'weekday').value;
+    const weekend = w === 'Sat' || w === 'Sun';
+    if (!SKIP_WEEKENDS) {
+      if (h >= SEND_HOUR_START && h < SEND_HOUR_END) return next;
+    } else {
+      if (!weekend && h >= SEND_HOUR_START && h < SEND_HOUR_END) return next;
+    }
+    // Skok cez celé dni keď sme v noci/víkende — efektívnejšie
+    if (h < SEND_HOUR_START || h >= SEND_HOUR_END || weekend) {
+      // Posuň na 8:00 ďalšieho dňa (UTC približne — fine pre cold mail)
+      const tomorrow = new Date(next.getTime() + 24 * 60 * 60 * 1000);
+      tomorrow.setUTCHours(7, 0, 0, 0); // 8:00 SK letný čas = 6:00 UTC, zimný = 7:00. Stred ~7:00 UTC.
+      next = tomorrow;
+    }
+  }
+  return next;
+}
+
+function applyJitter(d) {
+  const offsetMs = Math.floor(Math.random() * JITTER_MAX_SEC * 1000);
+  return new Date(d.getTime() + offsetMs);
+}
 
 async function renderEmailFromTemplate(templateSlug, prospect) {
   // 1. Načítať šablónu
@@ -297,6 +363,17 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
     return { sent: false, stopped: true, reason: 'no_email' };
   }
 
+  // 3b. Business hours / weekend window — ak sme mimo, push do okna a return
+  const now = new Date();
+  const windowStart = nextSendingWindow(now);
+  if (windowStart.getTime() > now.getTime() + 60 * 1000) {
+    const withJitter = applyJitter(windowStart);
+    await supabase.from('outreach_campaign_enrollments').update({
+      next_send_at: withJitter.toISOString(),
+    }).eq('id', enrollment.id);
+    return { sent: false, skipped: true, reason: 'outside_window', next_at: withJitter.toISOString() };
+  }
+
   // 4. Pošli email
   let senderId = null;
   try {
@@ -349,10 +426,14 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
   let enrollPatch;
   if (futureStep) {
     const delayMs = (futureStep.delay_days || 0) * 24 * 60 * 60 * 1000;
+    // Cieľový čas + window check + jitter (aby každý prospekt mal mierne iný plán)
+    const targetTime = new Date(now.getTime() + delayMs);
+    const inWindow = nextSendingWindow(targetTime);
+    const scheduled = applyJitter(inWindow);
     enrollPatch = {
       current_step: nextStepOrder,
       last_sent_at: now.toISOString(),
-      next_send_at: new Date(now.getTime() + delayMs).toISOString(),
+      next_send_at: scheduled.toISOString(),
       variant_history: variantHistoryPatch,
       last_sender_id: senderId,
     };
