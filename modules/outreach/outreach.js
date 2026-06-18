@@ -290,6 +290,11 @@ const OutreachModule = {
     const to = Math.min(from + pageSize, total);
     const pageRows = filtered.slice(from, to);
 
+    // Dropdown options odvodené zo všetkých prospects (nie len filtered) —
+    // aby si user mohol prepnúť filter aj na zdroj/mesto ktoré aktuálne nemá výsledky.
+    this._sources = Array.from(new Set(this.prospects.map(p => p.source).filter(Boolean))).sort();
+    this._cities = Array.from(new Set(this.prospects.map(p => p.city).filter(Boolean))).sort().slice(0, 50);
+
     // Smart lists chipy
     if (!this.smartListsLoaded) this.loadSmartLists();
 
@@ -317,6 +322,33 @@ const OutreachModule = {
         <select onchange="OutreachModule.setFilter('stage', this.value)"
           style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
           ${Object.entries(stageLabels).map(([k, v]) => `<option value="${k}" ${f.stage===k?'selected':''}>${v}</option>`).join('')}
+        </select>
+        <select onchange="OutreachModule.setFilter('email', this.value)" title="Filter podľa emailu"
+          style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
+          <option value="all" ${!f.email || f.email==='all'?'selected':''}>Email: všetci</option>
+          <option value="has" ${f.email==='has'?'selected':''}>✓ Má email</option>
+          <option value="missing" ${f.email==='missing'?'selected':''}>⚠ Chýba email</option>
+        </select>
+        ${this._sources.length > 1 ? `
+          <select onchange="OutreachModule.setFilter('source', this.value)" title="Filter podľa zdroja"
+            style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
+            <option value="all" ${!f.source || f.source==='all'?'selected':''}>Zdroj: všetky</option>
+            ${this._sources.map(s => `<option value="${this.esc(s)}" ${f.source===s?'selected':''}>${this.esc(s)}</option>`).join('')}
+          </select>
+        ` : ''}
+        ${this._cities.length > 1 ? `
+          <select onchange="OutreachModule.setFilter('city', this.value)" title="Filter podľa mesta"
+            style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);max-width:200px;">
+            <option value="all" ${!f.city || f.city==='all'?'selected':''}>Mesto: všetky</option>
+            ${this._cities.map(c => `<option value="${this.esc(c)}" ${f.city===c?'selected':''}>${this.esc(c)}</option>`).join('')}
+          </select>
+        ` : ''}
+        <select onchange="OutreachModule.setFilter('size', this.value)" title="Veľkosť firmy (z recenzií)"
+          style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
+          <option value="all" ${!f.size || f.size==='all'?'selected':''}>Veľkosť: všetky</option>
+          <option value="small" ${f.size==='small'?'selected':''}>Small (&lt;20 rev.)</option>
+          <option value="medium" ${f.size==='medium'?'selected':''}>Medium (20-80)</option>
+          <option value="large" ${f.size==='large'?'selected':''}>Large (&gt;80)</option>
         </select>
         <select onchange="OutreachModule.setPageSize(this.value)"
           style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);" title="Počet na stránku">
@@ -350,6 +382,7 @@ const OutreachModule = {
                   <input type="checkbox" ${this._allPageChecked(pageRows) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)" style="accent-color:var(--brand-500);">
                 </th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Firma · stránka</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Email</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Kategória</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Zdroj</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Status</th>
@@ -360,7 +393,7 @@ const OutreachModule = {
             </thead>
             <tbody>
               ${pageRows.length === 0 ? `
-                <tr><td colspan="8" style="padding:40px;text-align:center;color:var(--ink-sub);">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
+                <tr><td colspan="9" style="padding:40px;text-align:center;color:var(--ink-sub);">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
               ` : pageRows.map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
@@ -422,6 +455,11 @@ const OutreachModule = {
         <td style="padding:14px 16px;">
           <div style="font-weight:600;color:var(--ink);">${this.esc(company)}</div>
           ${domain ? `<a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>` : ''}
+        </td>
+        <td style="padding:14px 16px;font-size:12px;" onclick="event.stopPropagation()">
+          ${prospect.email
+            ? `<span title="${this.esc(prospect.email)}" style="color:var(--ink-sub);max-width:180px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;">${this.esc(prospect.email)}</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#FEF3C7;color:#92400E;border-radius:6px;font-size:11px;font-weight:500;" title="Chýba email — doplň ručne">⚠ chýba</span>`}
         </td>
         <td style="padding:14px 16px;color:var(--ink-sub);">${category ? this.esc(category) : '—'}</td>
         <td style="padding:14px 16px;">
@@ -702,7 +740,7 @@ const OutreachModule = {
 
   applyFilters() {
     let out = this.prospects;
-    const { stage, search } = this.filters;
+    const { stage, search, email: emailFilter, source: srcFilter, size: sizeFilter, city: cityFilter } = this.filters;
     if (stage && stage !== 'all') {
       if (stage === 'pending') out = out.filter(p => !p.outreach_stage || p.outreach_stage === 'pending');
       else if (stage === 'email_opened') out = out.filter(p => p.outreach_email_opened_at);
@@ -710,13 +748,22 @@ const OutreachModule = {
       else if (stage === 'audit_viewed') out = out.filter(p => p.audit_viewed_at);
       else out = out.filter(p => p.outreach_stage === stage);
     }
+    if (emailFilter === 'has') out = out.filter(p => !!p.email);
+    else if (emailFilter === 'missing') out = out.filter(p => !p.email);
+    if (srcFilter && srcFilter !== 'all') out = out.filter(p => (p.source || '') === srcFilter);
+    if (sizeFilter && sizeFilter !== 'all') out = out.filter(p => {
+      const t = p.tags || [];
+      return t.includes(`size:${sizeFilter}`);
+    });
+    if (cityFilter && cityFilter !== 'all') out = out.filter(p => (p.city || '') === cityFilter);
     if (search) {
       const s = search.toLowerCase();
       out = out.filter(p =>
         (p.company_name || '').toLowerCase().includes(s) ||
         (p.domain || '').toLowerCase().includes(s) ||
         (p.email || '').toLowerCase().includes(s) ||
-        (p.industry || '').toLowerCase().includes(s)
+        (p.industry || '').toLowerCase().includes(s) ||
+        (p.city || '').toLowerCase().includes(s)
       );
     }
     return out;
