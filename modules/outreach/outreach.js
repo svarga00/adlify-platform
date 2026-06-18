@@ -148,6 +148,9 @@ const OutreachModule = {
       audit_requested: p.filter(x => x.audit_requested_at).length,
       audit_viewed: p.filter(x => x.audit_viewed_at).length,
       converted: p.filter(x => x.outreach_stage === 'converted').length,
+      unsubscribed: p.filter(x => x.outreach_stage === 'unsubscribed').length,
+      bounced: p.filter(x => x.outreach_stage === 'bounced').length,
+      lost: p.filter(x => x.outreach_stage === 'lost').length,
     };
   },
 
@@ -260,8 +263,14 @@ const OutreachModule = {
       { label: 'Lead',            value: stats.converted,        color: '#1F6E3D', stage: 'converted' },
     ];
     const activeStage = this.filters?.stage;
+    // Vyradení (mimo funnel-u, ale stále evidovaní pre audit + suppression):
+    const exclusions = [
+      { label: 'Odhlásení (opt-out)', value: stats.unsubscribed, stage: 'unsubscribed', color: '#6F6758' },
+      { label: 'Bouncly',             value: stats.bounced,      stage: 'bounced',      color: '#DC2626' },
+      { label: 'Stratené',            value: stats.lost,         stage: 'lost',         color: '#94837A' },
+    ];
     return `
-      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:10px;">
         ${steps.map(s => {
           const active = activeStage === s.stage;
           return `
@@ -271,6 +280,21 @@ const OutreachModule = {
               onmouseenter="if(!${active})this.style.borderColor='var(--border-strong)'" onmouseleave="if(!${active})this.style.borderColor='var(--border)'">
               <div style="font-size:10.5px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;margin-bottom:8px;">${s.label}</div>
               <div style="font-size:32px;font-weight:700;color:${s.color};letter-spacing:-0.8px;line-height:1;">${s.value}</div>
+            </button>
+          `;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:11px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;margin-right:4px;">Vyradení:</span>
+        ${exclusions.map(e => {
+          const active = activeStage === e.stage;
+          return `
+            <button type="button"
+              onclick="OutreachModule.setFilter('stage', '${e.stage}')"
+              title="${e.label} — kliknutím filtruj zoznam"
+              style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:${active ? e.color + '15' : '#fff'};border:1px solid ${active ? e.color : 'var(--border)'};border-radius:999px;cursor:pointer;font-family:inherit;font-size:12px;color:${e.color};font-weight:600;">
+              <span>${e.label}</span>
+              <span style="background:${e.color};color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;min-width:18px;text-align:center;">${e.value}</span>
             </button>
           `;
         }).join('')}
@@ -589,8 +613,12 @@ const OutreachModule = {
 
   renderCompose() {
     const selected = Array.from(this.selectedIds).map(id => this.prospects.find(p => p.id === id)).filter(Boolean);
-    const ready = selected.filter(p => p.email);
-    const noEmail = selected.filter(p => !p.email);
+    // Opt-out filter — odhlásení sa NIKDY neposielajú (legal + brand safety).
+    // Schválne ich vyradíme zo `ready` a zobrazíme v upozornení.
+    const optedOut = selected.filter(p => p.outreach_stage === 'unsubscribed');
+    const eligible = selected.filter(p => p.outreach_stage !== 'unsubscribed');
+    const ready = eligible.filter(p => p.email);
+    const noEmail = eligible.filter(p => !p.email);
 
     const outreachTpls = (this.templates || []).filter(t => t.category === 'outreach' && t.is_active !== false);
     const currentTpl = outreachTpls.find(t => t.slug === this.selectedTemplateSlug) || outreachTpls[0];
@@ -604,7 +632,8 @@ const OutreachModule = {
         <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:24px;">
           <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;color:#14120E;">Poslať kampaň</h2>
           <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">${ready.length} príjemcov · personalizované (meno, firma, odvetvie, mesto).</p>
-          ${noEmail.length ? `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:16px;">${noEmail.length} firiem nemá email → bude preskočených.</div>` : ''}
+          ${noEmail.length ? `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:10px;">${noEmail.length} firiem nemá email → bude preskočených.</div>` : ''}
+          ${optedOut.length ? `<div style="background:#F7F5F1;border:1px solid #EAE6DE;border-radius:10px;padding:10px 14px;font-size:13px;color:#6F6758;margin-bottom:16px;">🚫 ${optedOut.length} odhlásených (opt-out) → vyradených zo zoznamu na odoslanie.</div>` : ''}
 
           <div style="margin-bottom:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -3953,7 +3982,10 @@ const OutreachModule = {
         </div>
 
         <div style="padding:16px 24px;border-top:1px solid #EAE6DE;background:#FAFAF7;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteProspectFromDetail()">✕ Zmazať</button>
+          <div class="adl-toolbar">
+            <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteProspectFromDetail()">✕ Zmazať</button>
+            ${p.outreach_stage !== 'unsubscribed' ? `<button class="adl-btn adl-btn-outline" style="color:#6F6758;" onclick="OutreachModule.markUnsubscribedFromDetail()" title="Prospekt si nepraje dostávať maily">🚫 Označiť ako odhlásený</button>` : `<span style="font-size:13px;color:#6F6758;padding:8px 12px;">🚫 Odhlásený (opt-out)</span>`}
+          </div>
           <div class="adl-toolbar">
             ${!isConverted ? `<button class="adl-btn adl-btn-outline" onclick="OutreachModule.promoteFromDetail()">→ Lead</button>` : ''}
             ${isConverted && p.converted_to_lead_id ? `<a class="adl-btn adl-btn-soft" href="#/leads?id=${p.converted_to_lead_id}">Otvoriť lead ↗</a>` : ''}
@@ -4525,6 +4557,44 @@ const OutreachModule = {
     const id = this._detailProspectId;
     this.closeModal();
     await this.deleteProspect(id);
+  },
+
+  // Manuálne označenie odhláseného prospekta (napr. keď napísal "STOP" / "nezaujíma"
+  // v reply). Reflektuje 3 zmeny: stage='unsubscribed', stop aktívnych enrollments,
+  // event log. Scheduler + Compose ich potom skipuje (pozri scheduler.js logic).
+  async markUnsubscribedFromDetail() {
+    const id = this._detailProspectId;
+    const p = this.prospects.find(x => x.id === id);
+    if (!p) return;
+    const confirmOk = await Utils.confirm(
+      `Označiť "${p.company_name || p.domain}" ako odhláseného?<br><br>` +
+      `<small style="color:#6F6758;">Prospekt sa zaradí do opt-out zoznamu. Scheduler ani Compose mu už nepošlú žiadny mail. Akcia je vratná cez tlačidlo "Pending" v stage filtri.</small>`,
+      { type: 'warning', confirmText: 'Označiť odhláseného', cancelText: 'Zrušiť', html: true }
+    );
+    if (!confirmOk) return;
+    try {
+      await Database.client.from('prospects').update({
+        outreach_stage: 'unsubscribed',
+      }).eq('id', id);
+      // Stop aktívne enrollments
+      await Database.client.from('outreach_campaign_enrollments').update({
+        status: 'stopped', stop_reason: 'unsubscribed_manual',
+      }).eq('prospect_id', id).eq('status', 'active');
+      // Event log (audit trail)
+      await Database.client.from('prospect_events').insert({
+        prospect_id: id,
+        event_type: 'unsubscribed',
+        meta: { source: 'manual_admin', marked_by: window.Auth?.user?.email || 'unknown' },
+      });
+      // Update local cache
+      const idx = this.prospects.findIndex(x => x.id === id);
+      if (idx >= 0) this.prospects[idx].outreach_stage = 'unsubscribed';
+      Utils.toast('Označený ako odhlásený, kampane zastavené', 'success');
+      this.closeModal();
+      this.rerender();
+    } catch (e) {
+      Utils.toast('Chyba: ' + e.message, 'danger');
+    }
   },
 
   _openModalWide(el) {
