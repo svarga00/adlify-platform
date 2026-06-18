@@ -392,7 +392,7 @@ const OutreachModule = {
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.clearSelection()">Zrušiť výber</button>
             <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.bulkAssign()">Priradiť</button>
-            <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeFromSelected()">Poslať kampaň (${selCount})</button>
+            <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.startCompose()">Poslať kampaň (${selCount})</button>
             <button class="adl-btn adl-btn-sm adl-btn-danger" onclick="OutreachModule.deleteSelected()">Zmazať (${selCount})</button>
           </div>
         </div>
@@ -5172,15 +5172,8 @@ const OutreachModule = {
     this.rerender();
   },
 
-  composeFromSelected() {
-    const hasEmail = Array.from(this.selectedIds)
-      .map(id => this.prospects.find(p => p.id === id))
-      .filter(p => p && p.email);
-    if (hasEmail.length === 0) return Utils.toast('Žiadny z vybraných nemá email', 'warning');
-    this.drafts.clear();
-    this.currentView = 'compose';
-    this.rerender();
-  },
+  // Legacy alias — všetky cesty cez startCompose() ktorý reload-uje šablóny + senders
+  composeFromSelected() { return this.startCompose(); },
 
   async deleteProspect(id) {
     const p = this.prospects.find(x => x.id === id);
