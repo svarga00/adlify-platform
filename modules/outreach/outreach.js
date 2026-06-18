@@ -649,10 +649,12 @@ const OutreachModule = {
             </div>
           ` : ''}
 
+          ${this._outsideBusinessHoursHint(ready.length)}
+
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('templates')">✏ Upraviť šablóny</button>
             <button class="adl-btn adl-btn-primary" onclick="OutreachModule.sendCampaign()" ${ready.length === 0 || !currentTpl ? 'disabled' : ''}>
-              ▶ Odoslať ${ready.length} emailov
+              ▶ Odoslať ${ready.length} emailov hneď
             </button>
           </div>
 
@@ -2268,6 +2270,35 @@ const OutreachModule = {
   _setFindSource(k) {
     this._findSource = k;
     this.openFindProspects();
+  },
+
+  // Subtle hint pri Compose: ak posielame mimo pracovných hodín alebo cez víkend,
+  // pri väčšom počte (5+) zobraz nenápadné upozornenie. Manuálny send ide hneď
+  // (klient čaká), ale pri 50+ mailoch o polnoci hrozí spam pattern.
+  _outsideBusinessHoursHint(count) {
+    if (count < 5) return ''; // pri 1-4 mailoch hint netreba
+    try {
+      const fmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Bratislava',
+        hour: '2-digit', weekday: 'short', hour12: false,
+      }).formatToParts(new Date());
+      const hour = parseInt(fmt.find(p => p.type === 'hour').value, 10);
+      const wd = fmt.find(p => p.type === 'weekday').value;
+      const isWeekend = wd === 'Sat' || wd === 'Sun';
+      const offHours = hour < 8 || hour >= 18;
+      if (!isWeekend && !offHours) return '';
+      const why = isWeekend ? 'víkend' : 'mimo 8-18 SK';
+      return `
+        <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="font-size:14px;">⏰</span>
+          <div>
+            <strong>${why}</strong> — posielanie ${count} mailov teraz môže pôsobiť ako spam.
+            Pre väčšie bulk dávky radšej použij <a href="#" onclick="event.preventDefault();OutreachModule.setView('sequences');" style="color:#92400E;text-decoration:underline;">kampaň/sekvenciu</a>
+            ktorá automaticky čaká na pracovné okno + pridá jitter. Manuálny send ide vždy hneď.
+          </div>
+        </div>
+      `;
+    } catch { return ''; }
   },
 
   // Predefinované zoznamy slovenských miest pre Outscraper batch search
