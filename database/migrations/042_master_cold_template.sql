@@ -23,10 +23,11 @@
 -- Tabuľka email_templates sa predpokladá z migrations 003+.
 -- Idempotent INSERT.
 
-INSERT INTO email_templates (slug, name, subject, html_content, plain_text, is_active, created_at, updated_at)
+INSERT INTO email_templates (slug, name, category, subject, html_content, plain_text, is_active, created_at, updated_at)
 SELECT
   'cold_audit_v1',
   'Cold outreach — bezplatný audit (master)',
+  'outreach',
   -- 4 subject varianty — random pick pri každom maile (cez _subject_variants splitter)
   'Viac zákazníkov pre {{company}} — audit zadarmo',
   $html$<!DOCTYPE html>
@@ -228,12 +229,13 @@ WHERE NOT EXISTS (SELECT 1 FROM email_templates WHERE slug = 'cold_audit_v1');
 UPDATE email_templates
 SET
   name = 'Cold outreach — bezplatný audit (master)',
+  category = 'outreach',
   subject = 'Viac zákazníkov pre {{company}} — audit zadarmo',
   is_active = true,
   updated_at = NOW()
 WHERE slug = 'cold_audit_v1';
 
 -- Diagnostika
-SELECT slug, name, is_active, length(html_content) AS html_chars, length(plain_text) AS text_chars
+SELECT slug, name, category, is_active, length(html_content) AS html_chars, length(plain_text) AS text_chars
 FROM email_templates
 WHERE slug = 'cold_audit_v1';
