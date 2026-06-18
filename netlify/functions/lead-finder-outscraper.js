@@ -55,6 +55,28 @@ function pickEmail(emailsField) {
   return ok?.email || ok?.value || null;
 }
 
+// Outscraper vracia sociálne siete v rôznych poliach (social_links, social_media,
+// alebo arrays). Pokúsi sa extrahovať konkrétnu sieť z čohokoľvek čo prišlo.
+function extractSocial(p, network) {
+  const needle = network.toLowerCase();
+  // Pole social_links (array of objects {type, url})
+  if (Array.isArray(p.social_links)) {
+    const found = p.social_links.find(s => String(s?.type || s?.network || '').toLowerCase().includes(needle));
+    if (found) return found.url || found.link || null;
+  }
+  // Object social_media s keys
+  if (p.social_media && typeof p.social_media === 'object') {
+    for (const [k, v] of Object.entries(p.social_media)) {
+      if (k.toLowerCase().includes(needle) && v) return typeof v === 'string' ? v : v?.url;
+    }
+  }
+  // Scan všetkých kľúčov pre URLs obsahujúce needle (fallback)
+  for (const [k, v] of Object.entries(p)) {
+    if (typeof v === 'string' && v.includes(needle + '.com')) return v;
+  }
+  return null;
+}
+
 async function pollResults(resultsLocation, apiKey, maxMs = 22000) {
   const start = Date.now();
   let delay = 2000;
@@ -191,6 +213,26 @@ exports.handler = async (event) => {
       const rating = Number(p.rating || 0);
       const tier = sizeTier(reviews);
 
+      // Outscraper vracia social siete v rôznych poliach podľa enrichment kategórie
+      const socials = {
+        facebook:  p.facebook  || p.facebook_url  || extractSocial(p, 'facebook'),
+        instagram: p.instagram || p.instagram_url || extractSocial(p, 'instagram'),
+        linkedin:  p.linkedin  || p.linkedin_url  || extractSocial(p, 'linkedin'),
+        twitter:   p.twitter   || p.twitter_url   || p.x_url || extractSocial(p, 'twitter'),
+        youtube:   p.youtube   || p.youtube_url   || extractSocial(p, 'youtube'),
+        tiktok:    p.tiktok    || p.tiktok_url    || extractSocial(p, 'tiktok'),
+      };
+      // Odstráň prázdne keys
+      Object.keys(socials).forEach(k => { if (!socials[k]) delete socials[k]; });
+
+      // Tags pre rýchle vizuálne indikátory v UI
+      const tagsList = [`reviews:${reviews}`, `rating:${rating}`, `size:${tier}`];
+      if (socials.facebook)  tagsList.push('has:facebook');
+      if (socials.instagram) tagsList.push('has:instagram');
+      if (socials.linkedin)  tagsList.push('has:linkedin');
+      if (p.working_hours || p.opening_hours) tagsList.push('has:hours');
+      if (p.description || p.about) tagsList.push('has:description');
+
       prospects.push({
         company_name: p.name || p.title || '',
         domain,
@@ -200,8 +242,10 @@ exports.handler = async (event) => {
         industry: p.subtypes || p.type || p.category || query,
         segment: (query || '').toLowerCase(),
         source: 'outscraper',
-        source_url: p.location_link || p.url || p.google_id ? `https://www.google.com/maps/place/?q=place_id:${p.place_id || p.google_id}` : null,
-        tags: [`reviews:${reviews}`, `rating:${rating}`, `size:${tier}`],
+        source_url: p.location_link || p.url || (p.google_id ? `https://www.google.com/maps/place/?q=place_id:${p.place_id || p.google_id}` : null),
+        // Najčastejšie používaný social → priamy stĺpec (existujúce schema má linkedin_url)
+        linkedin_url: socials.linkedin || null,
+        tags: tagsList,
         analysis: {
           reviews,
           rating,
@@ -209,6 +253,18 @@ exports.handler = async (event) => {
           place_id: p.place_id || p.google_id || null,
           address: p.full_address || p.address || '',
           category: p.category || p.type || '',
+          subtypes: p.subtypes || null,
+          // Sociálne siete (kompletné z Outscraper enrichmentu)
+          socials,
+          // Ďalšie obohatené dáta
+          description: p.description || p.about || null,
+          working_hours: p.working_hours || p.opening_hours || null,
+          price_level: p.price_level || null,
+          photo: p.photo || p.photos_count || null,
+          coordinates: (p.latitude && p.longitude) ? { lat: p.latitude, lng: p.longitude } : null,
+          owner_name: p.owner_name || null,
+          // Tracking pre debug v UI (vidieť čo Outscraper vrátil)
+          outscraper_raw_keys: Object.keys(p),
         },
       });
     }
