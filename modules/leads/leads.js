@@ -3030,7 +3030,7 @@ const LeadsModule = {
     
     const analysis = lead.analysis || {};
     const company = analysis.company || {};
-    
+
     try {
       const clientData = {
         company_name: lead.company_name || company.name || lead.domain,
@@ -3045,7 +3045,11 @@ const LeadsModule = {
         source: 'lead_conversion',
         status: 'active',
         onboarding_status: 'pending',
-        notes: lead.notes || ''
+        notes: lead.notes || '',
+        // Outscraper enrichment (reviews, employees, linkedin, website tech, ...)
+        // ostáva v clients aby ho AI generate-campaigns mohol použiť pre
+        // stratégiu/kampane (social proof, channel mix, sizing). Migrácia 040.
+        lead_enrichment: analysis || null,
       };
       
       const { data: newClient, error } = await Database.client

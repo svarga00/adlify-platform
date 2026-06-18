@@ -214,11 +214,12 @@ async function runGeneration({ project_id, onboarding_id, platforms, extra_instr
 
   // Načítaj brand assets z klienta (per-klient, doplnok ku onboarding)
   let brandAssets = { colors: [], font: null, logo_url: null, voice_notes: null };
+  let leadEnrichment = null;
   if (onboardingRow.client_id) {
     try {
       const { data: clientRow } = await supabase
         .from('clients')
-        .select('brand_colors, brand_font, brand_logo_url, brand_voice_notes')
+        .select('brand_colors, brand_font, brand_logo_url, brand_voice_notes, lead_enrichment')
         .eq('id', onboardingRow.client_id)
         .maybeSingle();
       if (clientRow) {
@@ -228,9 +229,13 @@ async function runGeneration({ project_id, onboarding_id, platforms, extra_instr
           logo_url: clientRow.brand_logo_url || null,
           voice_notes: clientRow.brand_voice_notes || null,
         };
+        if (clientRow.lead_enrichment && typeof clientRow.lead_enrichment === 'object'
+            && Object.keys(clientRow.lead_enrichment).length > 0) {
+          leadEnrichment = clientRow.lead_enrichment;
+        }
       }
     } catch (e) {
-      console.warn('[brand] load skipped (migrácia 036 chýba?):', e.message);
+      console.warn('[brand] load skipped (migrácia 036/040 chýba?):', e.message);
     }
   }
   console.log('[brand assets]', {
@@ -238,6 +243,7 @@ async function runGeneration({ project_id, onboarding_id, platforms, extra_instr
     has_font: !!brandAssets.font,
     has_logo: !!brandAssets.logo_url,
     has_voice_notes: !!brandAssets.voice_notes,
+    has_enrichment: !!leadEnrichment,
   });
 
   console.log('[generate-campaigns] onboarding loaded:', {
@@ -388,6 +394,24 @@ ${brandAssets.font ? `- Brand font: ${brandAssets.font}` : ''}
 ${brandAssets.logo_url ? `- Logo k dispozícii: ${brandAssets.logo_url} (POZNÁMKA do image_style_notes — dizajnér nechá copy_space na vloženie loga)` : ''}
 ${brandAssets.voice_notes ? `- Brand voice extra inštrukcie (POVINNE dodržať): ${brandAssets.voice_notes}` : ''}
 
+${leadEnrichment ? `## EXTERNAL ENRICHMENT (z Outscraper Google Maps + web scrape — PRAVÉ DÁTA o klientovi)
+${leadEnrichment.reviews != null ? `- Recenzie Google: ${leadEnrichment.reviews}× (rating ${leadEnrichment.rating || '?'}/5) — POUŽI ako social proof v reklamách ak je >20 recenzií a rating >=4.0` : ''}
+${leadEnrichment.size_tier ? `- Veľkosť firmy (podľa recenzií): ${leadEnrichment.size_tier} — small=lokálny živnostník (low budget, hyper-local), medium=etablovaná firma, large=brand (vlastný marketing)` : ''}
+${leadEnrichment.employees ? `- Zamestnanci: ${leadEnrichment.employees}` : ''}
+${leadEnrichment.revenue ? `- Odhad obratu: ${leadEnrichment.revenue}` : ''}
+${leadEnrichment.founded_year ? `- Založené: ${leadEnrichment.founded_year}` : ''}
+${leadEnrichment.category ? `- Google kategória: ${leadEnrichment.category}` : ''}
+${leadEnrichment.address ? `- Adresa: ${leadEnrichment.address}` : ''}
+${leadEnrichment.has_gtm || leadEnrichment.has_fb_pixel ? `- TRACKING ROZBEHANÉ na webe: ${leadEnrichment.has_gtm ? 'GTM ✓' : ''}${leadEnrichment.has_fb_pixel ? ' FB Pixel ✓' : ''} — klient už beží reklamy, my optimalizujeme. Spomeň to v stratégii ako "máte základ — postavíme na ňom".` : '- TRACKING CHÝBA (žiadny GTM/FB Pixel) — v stratégii zaraď setup ako kritický prvý krok'}
+${leadEnrichment.linkedin ? `- LinkedIn firma: ${leadEnrichment.linkedin}` : ''}
+${leadEnrichment.facebook ? `- Facebook stránka: ${leadEnrichment.facebook} — over že je aktívna, ak áno → ${leadEnrichment.facebook.includes('facebook') ? 'môžu robiť Meta ads zo svojho page' : 'organic FB priblížiť cez ads'}` : ''}
+${leadEnrichment.instagram ? `- Instagram: ${leadEnrichment.instagram}` : ''}
+${leadEnrichment.website_title ? `- Web title: "${leadEnrichment.website_title}"` : ''}
+${leadEnrichment.website_description ? `- Web meta description: "${leadEnrichment.website_description}"` : ''}
+${leadEnrichment.full_name ? `- Kontaktná osoba: ${leadEnrichment.full_name}${leadEnrichment.title ? ' (' + leadEnrichment.title + ')' : ''} — POUŽI v personalizácii ad copy ak je vhodné` : ''}
+
+POUŽI tieto dáta v stratégii (audit/zistenia/odporúčania) a v ad copy (social proof, lokalita, brand reputácia). NEKOPÍRUJ ich doslova — interpretuj a vplyv na rozhodnutia.
+` : ''}
 ## RESEARCH DÁTA (Marketing Miner + SERP)
 Top kľúčové slová:
 ${keywordData.slice(0, 25).map(k => `- "${k.keyword}" (${k.search_volume}/mes, CPC ${(k.cpc || 0).toFixed(2)}€${k.competition ? `, konk. ${k.competition}` : ''})`).join('\n') || '(nedostupné)'}
