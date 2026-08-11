@@ -59,13 +59,31 @@ async function noteOnce(entityType, entityId, key, body) {
   return true;
 }
 
+/** Existuje tabuľka? Migrácie nemusia byť spustené všetky. */
+async function tableExists(name) {
+  const { error } = await supabase.from(name).select('id', { head: true, count: 'exact' }).limit(1);
+  return !error;
+}
+
+/** Založí automatickú pripomienku, ak s rovnakým kľúčom ešte neexistuje. */
+async function upsertAutoTask(t) {
+  const { data: existing } = await supabase
+    .from('danubra_tasks').select('id, status').eq('source_key', t.source_key).maybeSingle();
+  if (existing) return false;
+  const { error } = await supabase.from('danubra_tasks').insert({
+    ...t, level: 'auto', source: 'cron', status: 'open',
+  });
+  return !error;
+}
+
 exports.handler = async (event) => {
   if (!authorized(event)) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Neautorizované' }) };
   }
   const today = todaySk();
   const s = { today, toInProgress: 0, toEndingSoon: 0, toCompleted: 0,
-    paymentReminders: 0, overdue: 0, listings: 0, staleRequests: 0, expiredOffers: 0, errors: [] };
+    paymentReminders: 0, overdue: 0, listings: 0, staleRequests: 0, expiredOffers: 0,
+    autoTasks: 0, errors: [] };
 
   try {
     // ── 1. Prechody stavov podľa dátumov ────────────────────────────────────
@@ -149,6 +167,86 @@ exports.handler = async (event) => {
     for (const r of stale || []) {
       if (await noteOnce('order', r.order_id, `req${r.id.slice(0, 8)}`,
         `Požiadavka „${r.title}" čaká viac ako 24 hodín`)) s.staleRequests++;
+    }
+
+    // ── 4b. Automatické pripomienky (úroveň 2) ──────────────────────────────
+    // Generujú sa z dátumových polí naprieč modulmi. Idempotencia je zaistená
+    // jedinečným source_key, takže opakované spustenie nič nezduplikuje.
+    if (await tableExists('danubra_tasks')) {
+      const horizon = addDays(today, 45);
+
+      // A1 pracovníkov, ktoré končia
+      const { data: docs } = await supabase
+        .from('danubra_worker_documents')
+        .select('id, worker_id, kind, valid_to')
+        .eq('kind', 'a1').not('valid_to', 'is', null).lte('valid_to', horizon);
+      for (const d of (docs || [])) {
+        const { data: w } = await supabase
+          .from('danubra_workers').select('full_name, status').eq('id', d.worker_id).maybeSingle();
+        if (!w || !['ready', 'deployed'].includes(w.status)) continue;
+        const expired = d.valid_to < today;
+        await upsertAutoTask({
+          source_key: `a1:${d.id}:${d.valid_to}`,
+          source_field: 'danubra_worker_documents.valid_to',
+          title: expired ? `A1 pre ${w.full_name} je neplatné` : `Požiadať o nové A1 pre ${w.full_name}`,
+          description: `Platnosť ${expired ? 'skončila' : 'končí'} ${d.valid_to}. `
+            + 'Sociálna poisťovňa vystavuje A1 až 45 dní.',
+          entity_type: 'worker', entity_id: d.worker_id, entity_label: w.full_name,
+          priority: 'high', due_date: expired ? today : addDays(d.valid_to, -45),
+        });
+      }
+
+      // firemné compliance položky pred koncom platnosti
+      const { data: comp } = await supabase
+        .from('danubra_compliance').select('id, kind, valid_to, scope')
+        .eq('scope', 'company').not('valid_to', 'is', null).lte('valid_to', horizon);
+      const KIND_LABEL = {
+        freistellung_48b: 'Freistellungsbescheinigung §48b', ust_idnr: 'USt-IdNr',
+        soka_registration: 'Registrácia SOKA-BAU', handwerksrolle: 'Oznámenie §9 HwO',
+        insurance: 'Betriebshaftpflicht',
+      };
+      for (const c of (comp || [])) {
+        await upsertAutoTask({
+          source_key: `compliance:${c.id}:${c.valid_to}`,
+          source_field: 'danubra_compliance.valid_to',
+          title: `Obnoviť ${KIND_LABEL[c.kind] || c.kind}`,
+          description: `Platnosť končí ${c.valid_to}.`,
+          entity_type: null, entity_id: null, entity_label: null,
+          priority: 'high', due_date: addDays(c.valid_to, -30),
+        });
+      }
+
+      // inzeráty na obnovenie
+      const { data: lst } = await supabase
+        .from('danubra_marketing_listings').select('id, platform, renew_at')
+        .eq('status', 'to_renew').not('renew_at', 'is', null);
+      for (const l of (lst || [])) {
+        await upsertAutoTask({
+          source_key: `listing:${l.id}:${l.renew_at}`,
+          source_field: 'danubra_marketing_listings.renew_at',
+          title: `Obnoviť inzerát ${l.platform || ''}`.trim(),
+          description: `Platnosť končí ${l.renew_at}.`,
+          entity_type: null, entity_id: null, entity_label: null,
+          priority: 'normal', due_date: l.renew_at,
+        });
+      }
+
+      // kandidáti bez prvej reakcie
+      if (await tableExists('danubra_candidates')) {
+        const { data: cands } = await supabase
+          .from('danubra_candidates').select('id, full_name, received_at')
+          .eq('status', 'new').is('first_contact_at', null);
+        for (const c of (cands || [])) {
+          await upsertAutoTask({
+            source_key: `candidate:${c.id}`,
+            source_field: 'danubra_candidates.first_contact_at',
+            title: `Ozvať sa kandidátovi ${c.full_name}`,
+            description: 'Cieľ je prvá reakcia do desiatich minút od prijatia.',
+            entity_type: 'candidate', entity_id: c.id, entity_label: c.full_name,
+            priority: 'high', due_date: today,
+          });
+        }
+      }
     }
 
     // ── 5. Expirované ponuky ────────────────────────────────────────────────

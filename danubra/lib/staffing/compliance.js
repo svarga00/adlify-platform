@@ -128,6 +128,16 @@
           `A1 do ${day(a1.valid_to)}, nasadenie do ${day(asg.date_to)}`, 'Predĺžiť A1');
       }
 
+      // Regulované remeslo → oznámenie Handwerkskammer (§9 HwO)
+      if (w?.regulated_trade) {
+        const hwk = (ctx.companyItems || []).find(c => c.kind === 'handwerksrolle');
+        if (docState(hwk, today) !== 'valid') {
+          add('blocker', `${name}: regulované remeslo bez oznámenia Handwerkskammer`,
+            'Pri zápisových remeslách treba pred prvým výkonom podať Dienstleistungsanzeige §9 HwO',
+            'Podať oznámenie na príslušnej HWK — poplatok okolo 100 €');
+        }
+      }
+
       // Maximálna dĺžka vyslania 24 mesiacov
       if (asg.date_from && asg.date_to) {
         const months = daysBetween(day(asg.date_from), day(asg.date_to)) / 30.44;
@@ -144,6 +154,7 @@
           const chk = M.minWageCheck({
             grossMonthly: asg.gross_monthly, hours: num(ctx.monthlyHours, 160),
             workType: sc.work_type, skillLevel: w?.skill_level,
+            legalForm: w?.legal_form,
           }, ctx.settings);
           if (!chk.ok) {
             add('blocker', `${name}: mzda pod ${chk.basis}`,

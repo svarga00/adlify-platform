@@ -26,35 +26,44 @@
   /**
    * Spočíta ekonomiku jedného nasadenia za obdobie.
    *
-   * @param {Object} a  nasadenie: { charge_rate, gross_monthly, per_diem_daily,
+   * Rozlišuje dve formy spolupráce:
+   *   employee — zamestnanec: hrubá mzda + odvody + prípadná SOKA-BAU
+   *   szco     — živnostník: fakturuje nám hodinovú sadzbu, žiadne odvody
+   *              ani SOKA, diéty si rieši sám (ak ich neplatíme zvlášť)
+   *
+   * @param {Object} a  nasadenie: { charge_rate, legal_form, gross_monthly,
+   *                                 hourly_cost, per_diem_daily,
    *                                 accommodation_monthly, transport_monthly }
    * @param {Object} p  obdobie:  { hours, workDays, workType: 'construction'|'workshop',
    *                                freistellungOk: bool }
    * @param {Object} s  nastavenia (nepovinné, dopĺňajú sa predvolenými)
-   * @returns {{ revenue, costs:{...}, totalCost, margin, marginPct,
-   *             withholding, netAfterWithholding, breakdown:[] }}
    */
   function assignmentMargin(a = {}, p = {}, s = {}) {
     const cfg = { ...DEFAULTS, ...(s || {}) };
     const hours = num(p.hours);
     const workDays = num(p.workDays);
     const isConstruction = p.workType === 'construction';
+    const isSzco = a.legal_form === 'szco';
 
     // ── Tržba ────────────────────────────────────────────────────────────────
     const rate = num(a.charge_rate);
     const revenue = hours * rate;
 
     // ── Náklady ──────────────────────────────────────────────────────────────
-    const gross = num(a.gross_monthly);
-    const contrib = gross * (num(cfg.employer_contrib_pct) / 100);
-    const perDiemRate = a.per_diem_daily != null ? num(a.per_diem_daily) : num(cfg.per_diem_de);
+    // Živnostník nám fakturuje hodiny, zamestnanec stojí hrubú mzdu s odvodmi.
+    const subcontractorCost = isSzco ? num(a.hourly_cost) * hours : 0;
+    const gross = isSzco ? 0 : num(a.gross_monthly);
+    const contrib = isSzco ? 0 : gross * (num(cfg.employer_contrib_pct) / 100);
+    const perDiemRate = a.per_diem_daily != null ? num(a.per_diem_daily) : (isSzco ? 0 : num(cfg.per_diem_de));
     const perDiem = perDiemRate * workDays;
     const accommodation = num(a.accommodation_monthly);
     const transport = num(a.transport_monthly);
-    // SOKA-BAU sa platí len pri stavebných prácach spadajúcich pod VTV
-    const soka = isConstruction ? gross * (num(cfg.soka_pct) / 100) : 0;
+    // SOKA-BAU sa odvádza z hrubej mzdy zamestnancov — živnostníkov sa netýka
+    const soka = (!isSzco && isConstruction) ? gross * (num(cfg.soka_pct) / 100) : 0;
 
     const costs = {
+      legalForm: isSzco ? 'szco' : 'employee',
+      subcontractor: r2(subcontractorCost),
       gross: r2(gross),
       contributions: r2(contrib),
       perDiem: r2(perDiem),
@@ -62,7 +71,7 @@
       transport: r2(transport),
       soka: r2(soka),
     };
-    const totalCost = gross + contrib + perDiem + accommodation + transport + soka;
+    const totalCost = subcontractorCost + gross + contrib + perDiem + accommodation + transport + soka;
     const margin = revenue - totalCost;
 
     // ── Zrážka 15 % bez Freistellungsbescheinigung §48b ──────────────────────
@@ -70,12 +79,14 @@
     const withholdingApplies = isConstruction && p.freistellungOk === false;
     const withholding = withholdingApplies ? revenue * (num(cfg.withholding_pct) / 100) : 0;
 
-    const breakdown = [
-      ['Tržba', `${hours} h × ${r2(rate)} €`, r2(revenue)],
-      ['Hrubá mzda', '', -costs.gross],
-      ['Odvody zamestnávateľa', `${cfg.employer_contrib_pct} %`, -costs.contributions],
-      ['Diéty', `${workDays} dní × ${r2(perDiemRate)} €`, -costs.perDiem],
-    ];
+    const breakdown = [['Tržba', `${hours} h × ${r2(rate)} €`, r2(revenue)]];
+    if (isSzco) {
+      breakdown.push(['Fakturácia živnostníka', `${hours} h × ${r2(num(a.hourly_cost))} €`, -costs.subcontractor]);
+    } else {
+      breakdown.push(['Hrubá mzda', '', -costs.gross]);
+      breakdown.push(['Odvody zamestnávateľa', `${cfg.employer_contrib_pct} %`, -costs.contributions]);
+    }
+    if (perDiem) breakdown.push(['Diéty', `${workDays} dní × ${r2(perDiemRate)} €`, -costs.perDiem]);
     if (accommodation) breakdown.push(['Ubytovanie', '', -costs.accommodation]);
     if (transport) breakdown.push(['Doprava', '', -costs.transport]);
     if (soka) breakdown.push(['SOKA-BAU', `${cfg.soka_pct} % z hrubej`, -costs.soka]);
@@ -101,6 +112,11 @@
    */
   function minWageCheck(o = {}, s = {}) {
     const cfg = { ...DEFAULTS, ...(s || {}) };
+    // Živnostník nie je zamestnanec — minimálna mzda sa naňho nevzťahuje.
+    // Pozor: ak reálne pracuje ako zamestnanec, hrozí prekvalifikovanie.
+    if (o.legalForm === 'szco') {
+      return { required: 0, effective: 0, ok: true, shortfall: 0, basis: 'živnostník — minimálna mzda sa neuplatňuje' };
+    }
     const hours = num(o.hours);
     const gross = num(o.grossMonthly);
     const effective = hours > 0 ? gross / hours : 0;

@@ -6,35 +6,88 @@ window.Danubra = {
   user: null,
   route: 'dashboard',
 
-  // Zoskupená navigácia podľa návrhu. [key, label, badge]
+  // Dve hlavné oblasti — prepínač pod logom. Navigácia sa podľa nich filtruje.
+  areas: [
+    ['accommodation', 'Ubytovanie', 'bed'],
+    ['staffing', 'Rekruting', 'workers'],
+  ],
+  area: 'accommodation',
+
+  // Navigácia. Položka bez oblasti je spoločná pre obe.
+  // [key, label, ikona, oblasť?]
   navGroups: [
-    ['PREHĽAD',  [['dashboard', 'Dashboard', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks'], ['active', 'Aktívne zákazky', 'active']]],
-    ['UBYTOVANIE', [['inquiries', 'Dopyty', 'inquiries'], ['offers', 'Ponuky', 'offers'], ['orders', 'Objednávky', 'orders']]],
-    ['SUBDODÁVKY', [['subcontracts', 'Zákazky', 'site'], ['workers', 'Pracovníci', 'workers'],
-                    ['timesheets', 'Hodiny', 'clock'], ['partners', 'Odberatelia DE', 'clients']]],
-    ['NÁBOR',    [['recruiting', 'AI nábor', 'note']]],
-    ['PENIAZE',  [['invoices', 'Faktúry', 'invoices']]],
-    ['DATABÁZA', [['accommodations', 'Ubytovania', 'bed'], ['clients', 'Firmy a kontakty', 'clients']]],
-    ['RAST',     [['marketing', 'Marketing', 'marketing']]],
-    ['SYSTÉM',   [['compliance', 'Compliance', 'shield'], ['rules', 'Cenník a pravidlá', 'rules'],
-                  ['settings', 'Nastavenia', 'settings']]],
+    ['PREHĽAD',    [['dashboard', 'Dashboard', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks']]],
+    ['ZÁKAZKY',    [['active', 'Aktívne pobyty', 'active', 'accommodation'],
+                    ['inquiries', 'Dopyty', 'inquiries', 'accommodation'],
+                    ['offers', 'Ponuky', 'offers', 'accommodation'],
+                    ['orders', 'Objednávky', 'orders', 'accommodation'],
+                    ['subcontracts', 'Zákazky', 'site', 'staffing'],
+                    ['timesheets', 'Odpracované hodiny', 'clock', 'staffing']]],
+    ['ĽUDIA',      [['candidates', 'Nábor', 'user', 'staffing'],
+                    ['workers', 'Pracovníci', 'workers', 'staffing'],
+                    ['recruiting', 'Zápisy z hovorov', 'note', 'staffing']]],
+    ['DATABÁZA',   [['accommodations', 'Ubytovania', 'bed', 'accommodation'],
+                    ['clients', 'Firmy a kontakty', 'clients', 'accommodation'],
+                    ['partners', 'Odberatelia v Nemecku', 'clients', 'staffing']]],
+    ['PENIAZE',    [['invoices', 'Faktúry', 'invoices']]],
+    ['RAST',       [['marketing', 'Marketing', 'marketing']]],
+    ['SYSTÉM',     [['compliance', 'Compliance', 'shield', 'staffing'],
+                    ['rules', 'Cenník a pravidlá', 'rules'],
+                    ['settings', 'Nastavenia', 'settings']]],
   ],
 
+  /** Patrí položka do práve zvolenej oblasti? */
+  inArea(item) { return !item[3] || item[3] === this.area; },
+
+  /** Oblasť, do ktorej patrí daná obrazovka (null = spoločná). */
+  areaOf(key) {
+    for (const [, items] of this.navGroups) {
+      const it = items.find(x => x[0] === key);
+      if (it) return it[3] || null;
+    }
+    return null;
+  },
+
+  setArea(a) {
+    if (this.area === a) return;
+    this.area = a;
+    try { localStorage.setItem('danubra_area', a); } catch {}
+    // ak práve otvorená obrazovka do novej oblasti nepatrí, vráť sa na prehľad
+    const cur = this.areaOf(this.route);
+    this._buildNav();
+    if (cur && cur !== a) this.go('dashboard');
+    else this.renderRoute();
+  },
+
   // Spodné taby na mobile (stred = rýchle pridanie)
-  tabs: [
-    { key: 'dashboard', label: 'Dashboard', ico: 'dashboard' },
-    { key: 'active', label: 'Aktívne', ico: 'active' },
-    { key: '__plus', label: '', plus: true },
-    { key: 'inquiries', label: 'Dopyty', ico: 'inquiries' },
-    { key: 'accommodations', label: 'Ubytovania', ico: 'bed' },
-  ],
+  tabsByArea: {
+    accommodation: [
+      { key: 'dashboard', label: 'Prehľad', ico: 'dashboard' },
+      { key: 'active', label: 'Aktívne', ico: 'active' },
+      { key: '__plus', label: '', plus: true },
+      { key: 'inquiries', label: 'Dopyty', ico: 'inquiries' },
+      { key: 'accommodations', label: 'Ubytovania', ico: 'bed' },
+    ],
+    staffing: [
+      { key: 'dashboard', label: 'Prehľad', ico: 'dashboard' },
+      { key: 'subcontracts', label: 'Zákazky', ico: 'site' },
+      { key: '__plus', label: '', plus: true },
+      { key: 'timesheets', label: 'Hodiny', ico: 'clock' },
+      { key: 'candidates', label: 'Nábor', ico: 'user' },
+    ],
+  },
 
   badges: {},   // { routeKey: number } — napĺňa dashboard
 
   allNav() { return this.navGroups.flatMap(g => g[1]); },
+  visibleNav() { return this.allNav().filter(i => this.inArea(i)); },
   labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'DANUBRA'; },
 
   async init() {
+    try {
+      const saved = localStorage.getItem('danubra_area');
+      if (saved && this.areas.some(a => a[0] === saved)) this.area = saved;
+    } catch {}
     this.user = await DB.currentUser();
     DB.onAuth((user) => {
       const was = !!this.user;
@@ -90,17 +143,26 @@ window.Danubra = {
   },
 
   _buildNav() {
-    document.getElementById('sidebar-nav').innerHTML = this.navGroups.map(([glabel, items]) => `
-      <div class="nav-group">${glabel}</div>
-      ${items.map(([key, label, ico]) => {
+    // prepínač oblastí
+    const sw = document.getElementById('area-switch');
+    if (sw) sw.innerHTML = this.areas.map(([key, label, ico]) =>
+      `<button class="area-btn${this.area === key ? ' active' : ''}" onclick="Danubra.setArea('${key}')">
+        ${Icon(ico, 16)}<span>${label}</span></button>`).join('');
+
+    document.getElementById('sidebar-nav').innerHTML = this.navGroups.map(([glabel, items]) => {
+      const visible = items.filter(i => this.inArea(i));
+      if (!visible.length) return '';
+      return `<div class="nav-group">${glabel}</div>
+      ${visible.map(([key, label, ico]) => {
         const b = this.badges[key];
         return `<button class="nav-item${key === this.route ? ' active' : ''}" data-key="${key}" onclick="Danubra.go('${key}')">
           ${Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
         </button>`;
-      }).join('')}
-    `).join('');
+      }).join('')}`;
+    }).join('');
 
-    document.getElementById('bottom-nav').innerHTML = this.tabs.map(t => t.plus
+    const tabs = this.tabsByArea[this.area] || this.tabsByArea.accommodation;
+    document.getElementById('bottom-nav').innerHTML = tabs.map(t => t.plus
       ? `<button class="tab tab-plus" onclick="Danubra.quickAdd()" aria-label="Pridať">
            <span class="tab-ico">${Icon('plus', 22)}</span></button>`
       : `<button class="tab${t.key === this.route ? ' active' : ''}" data-key="${t.key}" onclick="Danubra.go('${t.key}')">
@@ -111,15 +173,29 @@ window.Danubra = {
   go(key) { location.hash = '#/' + key; },
 
   quickAdd() {
-    // rýchle pridanie podľa kontextu
-    if (this.route === 'clients' && window.Cli) return Cli.form();
-    if (window.Acc) return Acc.form();
+    // rýchle pridanie podľa toho, kde práve stojíme
+    const map = {
+      clients: () => Cli.form(), accommodations: () => Acc.form(),
+      inquiries: () => Inq.form(), workers: () => Wrk.form(),
+      subcontracts: () => Sub.form(), partners: () => Prt.form(),
+      timesheets: () => Tms.form(), tasks: () => Tsk.form(),
+      invoices: () => Inv.newInvoice(), marketing: () => Mkt.listingForm(),
+    };
+    if (map[this.route]) return map[this.route]();
+    return this.area === 'staffing' ? Wrk.form() : Acc.form();
   },
 
   _syncRoute() {
     const m = (location.hash || '').match(/^#\/([a-z-]+)/);
     const key = m ? m[1] : 'dashboard';
     this.route = this.allNav().some(n => n[0] === key) ? key : 'dashboard';
+    // odkaz na obrazovku z druhej oblasti prepne aj prepínač
+    const ar = this.areaOf(this.route);
+    if (ar && ar !== this.area) {
+      this.area = ar;
+      try { localStorage.setItem('danubra_area', ar); } catch {}
+      this._buildNav();
+    }
     this.closeSidebar();
     if (this.user) this.renderRoute();
     document.querySelectorAll('.nav-item, .tab').forEach(el => {

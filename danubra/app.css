@@ -468,3 +468,42 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 
 .comm-sms { color: var(--brand-dark); }
+
+/* ── Prepínač hlavných oblastí ───────────────────────────────────────────── */
+.area-switch {
+  display: flex; gap: 3px; background: rgba(255,255,255,.07);
+  border-radius: 11px; padding: 3px; margin: 0 2px 6px;
+}
+.area-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 6px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--nav-text); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: background .12s, color .12s; min-width: 0;
+}
+.area-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.area-btn:hover { color: #fff; }
+.area-btn.active { background: var(--brand); color: #fff; font-weight: 700; }
+.area-btn.active .ico { opacity: 1; }
+
+/* ── Kanban náborovej pipeline ───────────────────────────────────────────── */
+.kanban { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; }
+.kanban-col {
+  flex: 1 0 190px; min-width: 190px; background: var(--field);
+  border: 1px solid var(--border); border-radius: 14px; padding: 10px;
+}
+.kanban-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-sub); margin-bottom: 8px; padding: 0 2px;
+}
+.kanban-count {
+  background: #fff; border: 1px solid var(--border); border-radius: 999px;
+  padding: 1px 7px; font-size: 11px; color: var(--ink-sub);
+}
+.kanban-body { display: flex; flex-direction: column; gap: 7px; }
+.kanban-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 11px; cursor: pointer; transition: border-color .12s, box-shadow .12s;
+}
+.kanban-card:hover { border-color: #C9D6F2; box-shadow: 0 6px 18px -10px rgba(10,27,61,.25); }
+.kanban-empty { font-size: 12px; color: var(--ink-mute); padding: 8px 2px; }
