@@ -60,6 +60,31 @@
       return client.from(t(table)).delete().eq('id', id);
     },
 
+    // ── Úložisko nahrávok ────────────────────────────────────────────────
+    // Bucket je privátny — von ide vždy len krátkodobo podpísaný odkaz.
+    CALLS_BUCKET: 'danubra-calls',
+
+    async uploadCall(blob, filename) {
+      const safe = String(filename || 'hovor')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'hovor';
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const path = `${new Date().getFullYear()}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+      const { data, error } = await client.storage.from(this.CALLS_BUCKET)
+        .upload(path, blob, { contentType: blob.type || 'audio/mpeg', upsert: false });
+      return { path: data?.path || null, error };
+    },
+
+    async signedCallUrl(path, seconds = 600) {
+      const { data, error } = await client.storage.from(this.CALLS_BUCKET)
+        .createSignedUrl(path, seconds);
+      return { url: data?.signedUrl || null, error };
+    },
+
+    async removeCall(path) {
+      return client.storage.from(this.CALLS_BUCKET).remove([path]);
+    },
+
     async count(table, filters = {}) {
       let q = client.from(t(table)).select('id', { count: 'exact', head: true });
       for (const [k, v] of Object.entries(filters)) if (v != null) q = q.eq(k, v);

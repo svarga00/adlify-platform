@@ -56,7 +56,41 @@ const EXTRACTION_SCHEMA = {
   },
 };
 
-async function transcribe(audioUrl, language) {
+const CALLS_BUCKET = 'danubra-calls';
+
+/**
+ * Nahrávka v privátnom buckete sa nesprístupňuje verejne — funkcia si vyrobí
+ * podpísaný odkaz s krátkou platnosťou a použije ho len na jedno stiahnutie.
+ */
+async function resolveAudio(rec) {
+  if (rec.audio_path) {
+    const { data, error } = await supabase.storage
+      .from(CALLS_BUCKET).createSignedUrl(rec.audio_path, 600);
+    if (error || !data?.signedUrl) {
+      throw new Error(`Nahrávku sa nepodarilo otvoriť z úložiska: ${error?.message || 'chýba'}`);
+    }
+    return data.signedUrl;
+  }
+  if (rec.audio_url) return rec.audio_url;
+  throw new Error('Nahrávka nemá zvukový súbor');
+}
+
+// Whisper si vyberá dekodér podľa prípony — nesmie to byť naslepo m4a.
+const EXT_BY_MIME = {
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/mp4': 'm4a', 'audio/m4a': 'm4a',
+  'audio/x-m4a': 'm4a', 'audio/aac': 'm4a', 'audio/ogg': 'ogg', 'audio/opus': 'ogg',
+  'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/webm': 'webm', 'audio/flac': 'flac',
+  'video/mp4': 'mp4', 'video/webm': 'webm',
+};
+
+function audioFilename(rec) {
+  const mime = (rec.audio_mime || '').split(';')[0].toLowerCase();
+  const fromPath = (rec.audio_path || rec.audio_url || '').split('?')[0].match(/\.([a-z0-9]{2,4})$/i);
+  const ext = EXT_BY_MIME[mime] || (fromPath ? fromPath[1].toLowerCase() : 'm4a');
+  return `call.${ext}`;
+}
+
+async function transcribe(audioUrl, language, filename) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error('Chýba OPENAI_API_KEY pre prepis');
 
@@ -65,7 +99,7 @@ async function transcribe(audioUrl, language) {
   const buf = Buffer.from(await audioRes.arrayBuffer());
 
   const form = new FormData();
-  form.append('file', new Blob([buf]), 'call.m4a');
+  form.append('file', new Blob([buf]), filename || 'call.m4a');
   form.append('model', 'whisper-1');
   if (language) form.append('language', language);
 
@@ -149,12 +183,12 @@ exports.handler = async (event) => {
           body: JSON.stringify({ error: 'Súhlas bol odvolaný — nahrávku treba zmazať, nie spracovať' }) };
       }
     }
-    if (!rec.audio_url) throw new Error('Nahrávka nemá zvukový súbor');
+    const audioUrl = await resolveAudio(rec);
 
     // ── Prepis ────────────────────────────────────────────────────────────
     await supabase.from('danubra_call_recordings')
       .update({ status: 'transcribing', error: null }).eq('id', recordingId);
-    const transcript = await transcribe(rec.audio_url, rec.language || 'sk');
+    const transcript = await transcribe(audioUrl, rec.language || 'sk', audioFilename(rec));
 
     await supabase.from('danubra_call_recordings').update({
       status: 'extracting', transcript, transcript_provider: 'whisper',
