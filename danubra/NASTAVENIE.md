@@ -24,6 +24,7 @@ Poradie je záväzné, každý súbor stavia na predchádzajúcom:
 | 6 | `danubra/database/migrations/006_seed_demo.sql` | vzorové dáta (voliteľné, ale odporúčam) |
 | 7 | `danubra/database/migrations/007_recruiting_pipeline.sql` | nábor: kandidáti, checklist nástupu, ubytovanie na zákazke |
 | 8 | `danubra/database/migrations/008_call_capture.sql` | úložisko nahrávok hovorov |
+| 9 | `danubra/database/migrations/009_recruiting_playbook.sql` | príručka remesiel, skríningové otázky, náborové plány |
 
 Šiestku spusti, ak chceš appku hneď vidieť naplnenú. Je idempotentná — dá sa
 spustiť opakovane a nič nezduplikuje. Na jej konci je pripravený mazací príkaz,

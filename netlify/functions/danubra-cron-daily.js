@@ -257,7 +257,37 @@ exports.handler = async (event) => {
       s.expiredOffers++;
     }
 
-    // ── 6. Retencia nahrávok hovorov ────────────────────────────────────────
+    // ── 6. Nábory, ktoré nestíhajú ──────────────────────────────────────────
+    // Termín nástupu sa blíži a ľudí nie je dosť. Toto je moment, keď sa buď
+    // pritlačí na nábor, alebo sa s odberateľom preloží začiatok — obe sa dajú
+    // len vopred.
+    if (await tableExists('danubra_recruitment_plans')) {
+      const { data: plans } = await supabase
+        .from('danubra_recruitment_plans')
+        .select('id, title, headcount, deadline, start_date').eq('status', 'active');
+      for (const p of plans || []) {
+        const due = p.deadline || p.start_date;
+        if (!due) continue;
+        const left = daysBetween(today, due);
+        if (left > 10 || left < -30) continue;
+        const { data: mine } = await supabase
+          .from('danubra_candidates').select('id, status').eq('plan_id', p.id);
+        const have = (mine || []).filter(c => ['ready', 'placed'].includes(c.status)).length;
+        if (have >= (p.headcount || 0)) continue;
+        await upsertAutoTask({
+          source_key: `plan:${p.id}:${due}`,
+          source_field: 'danubra_recruitment_plans.deadline',
+          title: `Nábor ${p.title} nestíha — chýba ${p.headcount - have} z ${p.headcount}`,
+          description: left >= 0
+            ? `Do termínu zostáva ${left} dní. Buď pridať kanál, alebo preložiť nástup s odberateľom.`
+            : `Termín bol pred ${-left} dňami a ľudia stále nie sú.`,
+          entity_type: null, entity_id: null, entity_label: null,
+          priority: left <= 3 ? 'high' : 'normal', due_date: today,
+        });
+      }
+    }
+
+    // ── 7. Retencia nahrávok hovorov ────────────────────────────────────────
     // Sľúbili sme, že nahrávku po dohodnutej lehote zmažeme — musí sa to stať
     // samo, nie „keď si niekto spomenie". Prepis a zachytené dohody ostávajú,
     // maže sa zvuk, teda ten najcitlivejší kus.

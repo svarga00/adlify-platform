@@ -7,11 +7,13 @@ window.Danubra = {
   route: 'dashboard',
 
   // Dve hlavné oblasti — prepínač pod logom. Navigácia sa podľa nich filtruje.
+  // Poradie určuje, čo je hlavný biznis. Vysielanie ľudí na stavby je prvé
+  // a je aj predvolené — ubytovanie ho dopĺňa, nie naopak.
   areas: [
-    ['accommodation', 'Ubytovanie', 'bed'],
     ['staffing', 'Rekruting', 'workers'],
+    ['accommodation', 'Ubytovanie', 'bed'],
   ],
-  area: 'accommodation',
+  area: 'staffing',
 
   // Navigácia. Položka bez oblasti je spoločná pre obe.
   // [key, label, ikona, oblasť?]
@@ -23,8 +25,10 @@ window.Danubra = {
                     ['orders', 'Objednávky', 'orders', 'accommodation'],
                     ['subcontracts', 'Zákazky', 'site', 'staffing'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing']]],
-    ['ĽUDIA',      [['candidates', 'Nábor', 'user', 'staffing'],
+    ['ĽUDIA',      [['hiring', 'Náborové plány', 'zap', 'staffing'],
+                    ['candidates', 'Kandidáti', 'user', 'staffing'],
                     ['workers', 'Pracovníci', 'workers', 'staffing'],
+                    ['trades', 'Remeslá a otázky', 'wrench', 'staffing'],
                     ['recruiting', 'Zápisy z hovorov', 'note', 'staffing']]],
     ['DATABÁZA',   [['accommodations', 'Ubytovania', 'bed', 'accommodation'],
                     ['clients', 'Firmy a kontakty', 'clients', 'accommodation'],
@@ -72,8 +76,8 @@ window.Danubra = {
       { key: 'dashboard', label: 'Prehľad', ico: 'dashboard' },
       { key: 'subcontracts', label: 'Zákazky', ico: 'site' },
       { key: '__plus', label: '', plus: true },
-      { key: 'timesheets', label: 'Hodiny', ico: 'clock' },
-      { key: 'candidates', label: 'Nábor', ico: 'user' },
+      { key: 'hiring', label: 'Nábor', ico: 'zap' },
+      { key: 'candidates', label: 'Kandidáti', ico: 'user' },
     ],
   },
 
@@ -161,7 +165,7 @@ window.Danubra = {
       }).join('')}`;
     }).join('');
 
-    const tabs = this.tabsByArea[this.area] || this.tabsByArea.accommodation;
+    const tabs = this.tabsByArea[this.area] || this.tabsByArea.staffing;
     document.getElementById('bottom-nav').innerHTML = tabs.map(t => t.plus
       ? `<button class="tab tab-plus" onclick="Danubra.quickAdd()" aria-label="Pridať">
            <span class="tab-ico">${Icon('plus', 22)}</span></button>`
@@ -179,6 +183,8 @@ window.Danubra = {
       inquiries: () => Inq.form(), workers: () => Wrk.form(),
       subcontracts: () => Sub.form(), partners: () => Prt.form(),
       timesheets: () => Tms.form(), tasks: () => Tsk.form(),
+      candidates: () => Cand.form(), hiring: () => Hire.wizard(),
+      trades: () => Trades.tForm(),
       invoices: () => Inv.newInvoice(), marketing: () => Mkt.listingForm(),
     };
     if (map[this.route]) return map[this.route]();
@@ -282,7 +288,28 @@ window.Danubra = {
       this.badges = { inquiries: inqNew, active: active, invoices: invOverdue + invDraft };
       this._buildNav();
 
-      const kpis = [
+      // Nábor: koľko ľudí ešte treba a kto čaká na prvý telefonát
+      let candWaiting = 0, plansActive = 0, needPeople = 0;
+      try {
+        const [{ data: cands }, { data: plans }] = await Promise.all([
+          DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
+          DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
+        ]);
+        candWaiting = (cands || []).filter(c => c.status === 'new' && !c.first_contact_at).length;
+        const act = (plans || []).filter(p => p.status === 'active');
+        plansActive = act.length;
+        needPeople = act.reduce((s, p) => s + (p.headcount || 0), 0);
+      } catch (e) { /* náborový playbook ešte nemusí byť namigrovaný */ }
+
+      const staffingKpis = [
+        ['Ľudia vonku', deployed, `${subsActive} ${subsActive === 1 ? 'zákazka' : 'zákaziek'}`, ''],
+        ['Treba dobrať', needPeople, `${plansActive} ${plansActive === 1 ? 'bežiaci nábor' : 'bežiacich náborov'}`, needPeople ? 'warn' : ''],
+        ['Čaká na prvý telefonát', candWaiting, candWaiting ? 'cieľ do 10 minút' : 'nikto nečaká', candWaiting ? 'warn' : 'up'],
+        ['Po splatnosti', invOverdue, invOverdue ? 'urgovať' : 'v poriadku', invOverdue ? 'warn' : 'up'],
+        ['Faktúry na schválenie', invDraft, invDraft ? 'vyžaduje potvrdenie' : 'žiadne', invDraft ? 'warn' : ''],
+        ['Prebiehajúce pobyty', active, 'ubytovacia agenda', ''],
+      ];
+      const accommodationKpis = [
         ['Nové dopyty', inqNew, inqNew ? 'čakajú na reakciu' : 'všetko vybavené', inqNew ? 'warn' : ''],
         ['Prebiehajúce pobyty', active, 'ubytovanie', ''],
         ['Ľudia vonku', deployed, `${subsActive} ${subsActive === 1 ? 'zákazka' : 'zákaziek'}`, ''],
@@ -290,8 +317,11 @@ window.Danubra = {
         ['Faktúry na schválenie', invDraft, invDraft ? 'vyžaduje potvrdenie' : 'žiadne', invDraft ? 'warn' : ''],
         ['Po splatnosti', invOverdue, invOverdue ? 'urgovať' : 'v poriadku', invOverdue ? 'warn' : 'up'],
       ];
+      const kpis = this.area === 'staffing' ? staffingKpis : accommodationKpis;
 
       const actions = [];
+      if (candWaiting) actions.push(['red',
+        `${candWaiting} ${candWaiting === 1 ? 'kandidát čaká' : 'kandidátov čaká'} na prvý telefonát`, 'candidates']);
       if (inqNew) actions.push(['red', `${inqNew} nových dopytov čaká na reakciu`, 'inquiries']);
       if (invDraft) actions.push(['amber', `${invDraft} faktúr čaká na schválenie`, 'invoices']);
       if (invOverdue) actions.push(['red', `${invOverdue} faktúr po splatnosti`, 'invoices']);
@@ -348,9 +378,16 @@ window.Danubra = {
           <div class="card card-pad">
             <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;">
+              ${this.area === 'staffing' ? `
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('trades')">${Icon('wrench')} Príručka remesiel a otázok</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('compliance')">${Icon('shield')} Compliance pred nasadením</button>
+              ` : `
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Acc.form()">${Icon('plus')} Nové ubytovanie</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cli.form()">${Icon('plus')} Nový klient</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('accommodations')">${Icon('bed')} Databáza ubytovaní</button>
+              `}
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('subcontracts')">${Icon('site')} Zákazky subdodávok</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('timesheets')">${Icon('clock')} Zapísať hodiny</button>
             </div>
