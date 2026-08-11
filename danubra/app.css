@@ -375,3 +375,18 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(10,27,61,.45); z-index: 39; }
 .sidebar-backdrop.show { display: block; }
+
+/* ── Panel zhôd (§6.5) ───────────────────────────────────────────────────── */
+.match-row {
+  display: flex; align-items: flex-start; gap: 12px; padding: 11px 2px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.match-row:last-child { border-bottom: 0; }
+.match-score {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+  border: 2px solid var(--ink-mute); display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.match-reasons { display: flex; flex-wrap: wrap; gap: 4px 9px; margin-top: 5px; font-size: 11.5px; }
+.match-reasons .ok { color: var(--green); }
+.match-reasons .no { color: var(--ink-mute); }
