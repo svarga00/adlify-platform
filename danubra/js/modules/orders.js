@@ -219,10 +219,19 @@
           <span style="color:var(--ink-mute);font-size:11.5px;">${UI.date(x.created_at)}</span>
         </div>`).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne záznamy.</div>'}
 
+        <div class="form-section">Dokumenty</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="Ord.doc('order_confirmation')">${Icon('doc')} Potvrdenie objednávky</button>
+          <button class="btn btn-outline btn-sm" onclick="Ord.doc('payment_request')">${Icon('receipt')} Výzva na platbu</button>
+          ${unlocked ? `<button class="btn btn-outline btn-sm" onclick="Ord.doc('owner_confirmation')">${Icon('doc')} Potvrdenie majiteľovi (DE)</button>
+          <button class="btn btn-outline btn-sm" onclick="Ord.doc('handover')">${Icon('shield')} Pokyny na ubytovanie</button>` : ''}
+        </div>
+
         <div class="modal-actions">
           ${o.status !== 'cancelled' && o.status !== 'completed'
             ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Ord.cancel()">Zrušiť zákazku</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Ord.extend()">Predĺžiť pobyt</button>
+          ${unlocked ? `<button class="btn btn-primary btn-sm" onclick="Ord.invoice()">${Icon('receipt')} Vystaviť faktúru</button>` : ''}
         </div>`;
     },
 
@@ -401,6 +410,29 @@
     async resumeService() {
       const res = await OrdersService.changeServiceSegment(this._cur, { paused: false });
       if (res.ok) { UI.toast('Služba obnovená', 'ok'); await this._refresh(); }
+    },
+
+    /** Otvorí dokument objednávky (§8). */
+    async doc(kind) {
+      const o = this._cur;
+      const handover = this._docs.find(d => d.type === 'handover');
+      await Invoicing.openOrderDocument(kind, {
+        order: o,
+        client: this.clientOf(o.client_id),
+        accommodation: this.accOf(o.accommodation_id),
+        persons: this._persons,
+        payload: handover?.payload || this.accOf(o.accommodation_id) || {},
+      });
+    },
+
+    /** Vystaví faktúru za sprostredkovateľský poplatok priamo zo spisu. */
+    async invoice() {
+      const o = this._cur;
+      try {
+        const { invoice } = await Invoicing.createServiceFee(o, this.clientOf(o.client_id));
+        UI.toast(`Faktúra ${invoice.invoice_number} vystavená`, 'ok');
+        await this._refresh();
+      } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
     },
 
     copy(text) {

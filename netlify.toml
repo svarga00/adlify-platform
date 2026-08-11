@@ -65,6 +65,15 @@
 [functions."ads-scheduled-sync"]
   schedule = "15 */2 * * *"
 
+# DANUBRA — denný cron (stavy, pripomienky, po splatnosti) 04:00 UTC
+[functions."danubra-cron-daily"]
+  schedule = "0 4 * * *"
+
+# DANUBRA — mesačné návrhy faktúr za priebežnú službu.
+# Beží 28.–31. o 20:00 UTC, funkcia si sama overí, či je posledný deň mesiaca.
+[functions."danubra-cron-monthly"]
+  schedule = "0 20 28-31 * *"
+
 # Plugin pre inštaláciu dependencies vo functions
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
