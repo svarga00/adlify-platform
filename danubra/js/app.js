@@ -9,11 +9,14 @@ window.Danubra = {
   // Zoskupená navigácia podľa návrhu. [key, label, badge]
   navGroups: [
     ['PREHĽAD',  [['dashboard', 'Dashboard', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks'], ['active', 'Aktívne zákazky', 'active']]],
-    ['PREDAJ',   [['inquiries', 'Dopyty', 'inquiries'], ['offers', 'Ponuky', 'offers'], ['orders', 'Objednávky', 'orders']]],
+    ['UBYTOVANIE', [['inquiries', 'Dopyty', 'inquiries'], ['offers', 'Ponuky', 'offers'], ['orders', 'Objednávky', 'orders']]],
+    ['SUBDODÁVKY', [['subcontracts', 'Zákazky', 'site'], ['workers', 'Pracovníci', 'workers'],
+                    ['partners', 'Odberatelia DE', 'clients']]],
     ['PENIAZE',  [['invoices', 'Faktúry', 'invoices']]],
     ['DATABÁZA', [['accommodations', 'Ubytovania', 'bed'], ['clients', 'Firmy a kontakty', 'clients']]],
     ['RAST',     [['marketing', 'Marketing', 'marketing']]],
-    ['SYSTÉM',   [['rules', 'Cenník a pravidlá', 'rules'], ['settings', 'Nastavenia', 'settings']]],
+    ['SYSTÉM',   [['compliance', 'Compliance', 'shield'], ['rules', 'Cenník a pravidlá', 'rules'],
+                  ['settings', 'Nastavenia', 'settings']]],
   ],
 
   // Spodné taby na mobile (stred = rýchle pridanie)
