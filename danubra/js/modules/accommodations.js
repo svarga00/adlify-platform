@@ -237,7 +237,7 @@
         return o;
       }).filter(o => o.name && o.city);
       if (rows.length === 0) return UI.toast('Žiadne platné riadky (name + city povinné)', 'err');
-      const { error } = await DB.client.from('accommodations').insert(rows);
+      const { error } = await DB.from('accommodations').insert(rows);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast(`Importovaných ${rows.length}`, 'ok');
       await this.load(); Danubra.renderRoute();
