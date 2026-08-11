@@ -51,6 +51,11 @@ node danubra/lib/staffing/staffing.test.js         # 58 testov
 node danubra/lib/sms/sms.test.js                   # 47 testov
 ```
 
+## Spustenie
+
+Postup, čo kam nahrať, je v [NASTAVENIE.md](NASTAVENIE.md) — migrácie,
+prihlasovací účet, fakturačné údaje a premenné prostredia.
+
 ## Kontext
 
 Biznisové pozadie, kľúčové čísla a pravidlá, ktoré sa nesmú porušiť, sú
