@@ -23,6 +23,8 @@ danubra/
       state-machine.js    stavový automat objednávky (§6.2)  ✅ testy
     numbering.js          číselné rady OBJ-.../faktúry (§6.1) ✅ testy
     matching.js           panel zhôd dopyt → ubytovania (§6.5)  ✅ testy
+  js/services/
+    orders-service.js     stavové prechody + vedľajšie efekty (§6.2), predĺženia, segmenty
     *.test.js             unit testy (node, bez frameworku)
   (ďalšie: app shell, moduly obrazoviek, netlify funkcie — pribúdajú po milestonoch)
 ```
@@ -39,9 +41,10 @@ node danubra/lib/matching.test.js                  # 23 testov
 
 - [x] **M1** — dátový model (schéma, RLS, triggery, indexy, seed)
 - [x] **M4/M6 core** — algoritmy priebežnej služby, stavový automat, číselné rady, fakturačný režim + testy
-- [ ] **M2** — ubytovania + klienti CRUD
+- [x] **M2** — ubytovania + klienti CRUD
+- [x] **Dizajn** — rozhranie podľa schváleného návrhu (Archivo, zoskupená navigácia, KPI)
 - [x] **M3** — dopyty + ponuky (panel zhôd §6.5, wizard, text pre klienta)
-- [ ] **M5** — spis zákazky (8 sekcií, prístupové kódy, ticketing, os)
+- [x] **M4/M5** — objednávky + spis zákazky (stavový automat, prístupové kódy, ticketing, priebežná služba)
 - [ ] **M6** — fakturácia, PDF, QR, mesačný cron
 - [ ] **M7** — SMS vrstva + šablóny + denný cron
 - [ ] **M8** — marketing + KPI dashboard
