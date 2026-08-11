@@ -45,7 +45,7 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
       const countries = [...new Set(this.items.map(c => c.country).filter(Boolean))];
-      el.innerHTML = `
+      el.innerHTML = Danubra.header('Firmy a kontakty', `${this.items.length} klientov · ${this.items.filter(c => c.retainer).length} s retainerom`) + `
         <div class="filterbar">
           <input class="fb-search" placeholder="Hľadať meno, kontakt, e-mail…" value="${UI.esc(this.filters.q)}"
             oninput="Cli.setF('q',this.value)">
@@ -58,7 +58,7 @@
             ${countries.map(c => `<option value="${c}" ${this.filters.country === c ? 'selected' : ''}>${c}</option>`).join('')}
           </select>
         </div>
-        <div style="color:var(--ink-mute);font-size:13px;margin:2px 2px 12px;">${rows.length} klientov</div>
+        <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
           ? UI.empty('👥', 'Žiadni klienti', 'Pridaj prvého klienta.',
               `<button class="btn btn-primary" onclick="Cli.form()">+ Pridať klienta</button>`)
