@@ -51,7 +51,7 @@
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[1]; return UI.badge(m[1], m[2]); },
 
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Inv.pickOrder()">${Icon('plus')} Nová faktúra</button>`);
+      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filters.status ? this.items.filter(x => x.status === this.filters.status) : this.items;
 
@@ -73,8 +73,8 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('invoices', 'Žiadne faktúry', 'Faktúru vystavíš z uhradenej objednávky.',
-              `<button class="btn btn-primary" onclick="Inv.pickOrder()">${Icon('plus')} Nová faktúra</button>`)
+          ? UI.empty('invoices', 'Žiadne faktúry', 'Vystaviť sa dá z objednávky, z dopytu alebo úplne voľne.',
+              `<button class="btn btn-primary" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`)
           : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
     },
 
@@ -185,12 +185,29 @@
       Danubra.renderRoute();
     },
 
-    // ── Nová faktúra z objednávky ─────────────────────────────────────────
-    async pickOrder() {
+    // ── Nová faktúra: voľba zdroja ────────────────────────────────────────
+    // Faktúra nie je viazaná na predchádzajúci doklad — vystaviť sa dá
+    // z objednávky, z dopytu, alebo úplne voľne pre klienta.
+    async newInvoice() {
       if (!this.loaded) await this.load();
-      const cand = this.orders.filter(o => !['new', 'cancelled'].includes(o.status));
+      const opt = (ico, title, sub, action) => `
+        <button class="list-row" onclick="${action}">
+          <span style="color:var(--ink-mute);display:flex;">${Icon(ico, 18)}</span>
+          <span style="flex:1;"><strong>${title}</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">${sub}</span></span>
+          <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+      UI.modal('Z čoho vystaviť faktúru?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${opt('orders', 'Z objednávky', 'Poplatok za sprostredkovanie alebo priebežná služba', 'Inv.pickOrder()')}
+          ${opt('inquiries', 'Z dopytu', 'Ešte pred objednávkou — napríklad záloha alebo rezervácia', 'Inv.pickInquiry()')}
+          ${opt('clients', 'Voľná faktúra', 'Vlastné položky pre ľubovoľného klienta', 'Inv.manual()')}
+        </div>`);
+    },
+
+    async pickOrder() {
+      const cand = this.orders.filter(o => !['cancelled'].includes(o.status));
       if (!cand.length) return UI.toast('Žiadne objednávky na fakturáciu', 'err');
-      UI.modal('Faktúra z ktorej objednávky?', `
+      UI.modal('Z ktorej objednávky?', `
         <div style="display:flex;flex-direction:column;gap:2px;">
           ${cand.map(o => {
             const c = this.clientOf(o.client_id);
@@ -215,7 +232,147 @@
             <span style="flex:1;"><strong>Priebežná služba za aktuálny mesiac</strong>
             <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Vytvorí sa ako návrh na schválenie</span></span>
             <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>` : ''}
+          <button class="list-row" onclick="Inv.manual(null,'${orderId}')">
+            <span style="flex:1;"><strong>Vlastné položky</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Faktúra naviazaná na objednávku, obsah si určíš sám</span></span>
+            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>
         </div>`);
+    },
+
+    async pickInquiry() {
+      const { data: inqs } = await DB.list('inquiries', {
+        select: 'id,target_city,persons,date_from,date_to,client_id,budget_per_bed,status',
+        order: { column: 'received_at', ascending: false }, limit: 200 });
+      const open = (inqs || []).filter(i => !['lost'].includes(i.status));
+      if (!open.length) return UI.toast('Žiadne dopyty', 'err');
+      UI.modal('Z ktorého dopytu?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${open.map(i => {
+            const c = this.clientOf(i.client_id);
+            return `<button class="list-row" onclick="Inv.manualFromInquiry('${i.id}')">
+              <span style="flex:1;"><strong>${UI.esc(i.target_city || '—')}</strong>
+              <span style="color:var(--ink-mute);"> · ${c ? UI.esc(c.name) : 'bez klienta'} · ${i.persons || '?'} os.</span></span>
+              <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+          }).join('')}
+        </div>`);
+    },
+
+    async manualFromInquiry(inquiryId) {
+      const { data: inq } = await DB.getById('inquiries', inquiryId);
+      if (!inq) return UI.toast('Dopyt nenájdený', 'err');
+      this._srcInquiry = inq;
+      const nights = UI.nights(inq.date_from, inq.date_to);
+      const desc = `Ubytovanie ${inq.target_city || ''}`
+        + (inq.date_from ? ` · ${UI.date(inq.date_from)} – ${UI.date(inq.date_to)}` : '')
+        + (nights ? ` · ${nights} nocí` : '');
+      this.manual(inq.client_id, null, [{
+        description: desc.trim(), quantity: inq.persons || 1, unit: 'os.',
+        unit_price: inq.budget_per_bed && nights ? Number(inq.budget_per_bed) * nights : 0,
+      }]);
+    },
+
+    /** Editor voľnej faktúry s vlastnými položkami. */
+    manual(clientId, orderId, prefill) {
+      this._srcOrder = orderId || null;
+      this._rows = (prefill && prefill.length) ? prefill.slice()
+        : [{ description: '', quantity: 1, unit: 'ks', unit_price: 0 }];
+      const c = clientId || '';
+      UI.modal('Voľná faktúra', `
+        <form id="man-form" onsubmit="event.preventDefault();Inv.saveManual()">
+          <div class="form-grid">
+            ${UI.field('client_id', 'Klient', { value: c, required: true,
+              options: [['', '— vyber klienta —'], ...this.clients.map(x => [x.id, x.name])] })}
+            ${UI.field('type', 'Typ', { value: 'other', options: [
+              ['other', 'Iné'], ['service_fee', 'Sprostredkovanie'],
+              ['ongoing_service', 'Priebežná služba'], ['retainer', 'Retainer']] })}
+            ${UI.field('due_days', 'Splatnosť (dní)', { type: 'number', value: 14 })}
+          </div>
+          <div id="regime-hint" class="regimebox" style="margin-bottom:6px;"></div>
+          <div class="form-section">Položky</div>
+          <div id="item-rows"></div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="Inv.addRow()">${Icon('plus')} Pridať položku</button>
+          <div class="service-total" style="background:var(--field);border-color:var(--border);margin-top:14px;">
+            <div style="font-weight:700;">Spolu</div>
+            <div id="man-total" style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">0,00 €</div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Vystaviť faktúru</button>
+          </div>
+        </form>`, { wide: true });
+      this.renderRows();
+      const form = document.getElementById('man-form');
+      form.addEventListener('input', () => { this.syncRows(); this.updateRegime(); });
+      this.updateRegime();
+    },
+
+    renderRows() {
+      const box = document.getElementById('item-rows');
+      if (!box) return;
+      box.innerHTML = this._rows.map((r, i) => `
+        <div class="item-row">
+          <input placeholder="Popis položky" data-i="${i}" data-f="description" value="${UI.esc(r.description)}">
+          <input type="number" step="0.01" placeholder="Množ." data-i="${i}" data-f="quantity" value="${r.quantity}">
+          <input placeholder="MJ" data-i="${i}" data-f="unit" value="${UI.esc(r.unit)}">
+          <input type="number" step="0.01" placeholder="Cena" data-i="${i}" data-f="unit_price" value="${r.unit_price}">
+          <span class="item-sum">${UI.money((Number(r.quantity) || 0) * (Number(r.unit_price) || 0))}</span>
+          <button type="button" class="btn btn-ghost btn-sm" style="color:var(--red);"
+            onclick="Inv.delRow(${i})" ${this._rows.length === 1 ? 'disabled' : ''}>${Icon('x', 15)}</button>
+        </div>`).join('');
+      this.updateTotal();
+    },
+
+    syncRows() {
+      document.querySelectorAll('#item-rows [data-i]').forEach(el => {
+        const i = Number(el.dataset.i), f = el.dataset.f;
+        if (this._rows[i]) this._rows[i][f] = el.value;
+      });
+      document.querySelectorAll('#item-rows .item-row').forEach((row, i) => {
+        const r = this._rows[i];
+        const sum = row.querySelector('.item-sum');
+        if (sum && r) sum.textContent = UI.money((Number(r.quantity) || 0) * (Number(r.unit_price) || 0));
+      });
+      this.updateTotal();
+    },
+
+    updateTotal() {
+      const t = this._rows.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
+      const el = document.getElementById('man-total');
+      if (el) el.textContent = UI.money(t);
+    },
+
+    updateRegime() {
+      const sel = document.querySelector('#man-form [name=client_id]');
+      const el = document.getElementById('regime-hint');
+      if (!sel || !el) return;
+      const c = this.clientOf(sel.value);
+      if (!c) { el.textContent = 'Vyber klienta — podľa jeho krajiny a IČ DPH sa určí režim.'; return; }
+      const r = Invoicing.regimeFor(c);
+      el.innerHTML = `Režim: <strong>${REGIME[r.regime] || r.regime}</strong> — ${UI.esc(r.note || '')}`
+        + (r.warning ? ` <span style="color:var(--amber);">${UI.esc(r.warning)}</span>` : '');
+    },
+
+    addRow() { this.syncRows(); this._rows.push({ description: '', quantity: 1, unit: 'ks', unit_price: 0 }); this.renderRows(); },
+    delRow(i) { this.syncRows(); this._rows.splice(i, 1); this.renderRows(); },
+
+    async saveManual() {
+      this.syncRows();
+      const d = UI.formData(document.getElementById('man-form'));
+      const client = this.clientOf(d.client_id);
+      if (!client) return UI.toast('Vyber klienta', 'err');
+      let order = null;
+      if (this._srcOrder) { const { data } = await DB.getById('orders', this._srcOrder); order = data; }
+      try {
+        const { invoice } = await Invoicing.createManual({
+          client, items: this._rows, type: d.type || 'other',
+          dueDays: Number(d.due_days) || 14,
+          order, inquiry: this._srcInquiry || null,
+        });
+        UI.closeModal();
+        UI.toast(`Faktúra ${invoice.invoice_number} vystavená`, 'ok');
+        this._srcOrder = null; this._srcInquiry = null;
+        await this.load(); Danubra.renderRoute();
+      } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
     },
 
     async create(orderId, type) {

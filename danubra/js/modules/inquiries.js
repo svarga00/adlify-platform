@@ -133,6 +133,7 @@
         <div class="modal-actions">
           <button class="btn btn-danger btn-sm" onclick="Inq.del('${i.id}')">Zmazať</button>
           <button class="btn btn-outline btn-sm" onclick="Inq.form('${i.id}')">Upraviť</button>
+          <button class="btn btn-outline btn-sm" onclick="Inq.invoice('${i.id}')">${Icon('receipt')} Faktúra</button>
           <button class="btn btn-primary btn-sm" onclick="Offers.fromInquiry('${i.id}')">Vytvoriť ponuku ${Icon('chevron', 14)}</button>
         </div>`;
       UI.modal(`Dopyt · ${i.target_city || '—'}`, body, { wide: true });
@@ -167,6 +168,14 @@
             </div>
           </div>`;
       }).join('');
+    },
+
+    /** Vystaví faktúru priamo z dopytu (napr. záloha pred objednávkou). */
+    async invoice(id) {
+      if (!window.Inv) return UI.toast('Modul faktúr sa nenačítal', 'err');
+      if (!Inv.loaded) await Inv.load();
+      UI.closeModal();
+      await Inv.manualFromInquiry(id);
     },
 
     async setStatus(id, status) {
