@@ -109,6 +109,7 @@
         <div class="modal-actions">
           <button class="btn btn-danger btn-sm" onclick="Cli.del('${c.id}')">Zmazať</button>
           <button class="btn btn-outline btn-sm" onclick="Cli.form('${c.id}')">Upraviť</button>
+          <button class="btn btn-primary btn-sm" onclick="Cli.invoice('${c.id}')">${Icon('receipt')} Vystaviť faktúru</button>
         </div>`;
       UI.modal(c.name, body, { wide: true });
     },
@@ -165,6 +166,14 @@
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
       await this.load(); Danubra.renderRoute();
+    },
+
+    /** Voľná faktúra pre tohto klienta. */
+    async invoice(id) {
+      if (!window.Inv) return UI.toast('Modul faktúr sa nenačítal', 'err');
+      if (!Inv.loaded) await Inv.load();
+      UI.closeModal();
+      Inv.manual(id);
     },
 
     async del(id) {

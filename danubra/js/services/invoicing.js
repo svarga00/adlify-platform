@@ -78,14 +78,38 @@ window.Invoicing = {
     });
   },
 
-  async _create({ order, client, type, items, total, regime, status, billing_period_from, billing_period_to }) {
+  /**
+   * Voľná faktúra s vlastnými položkami — nie je viazaná na objednávku.
+   * Zdrojom môže byť klient, dopyt alebo nič (úplne ručná).
+   * @param {Object} opts { client, items, type, dueDays, note, order?, inquiry? }
+   */
+  async createManual({ client, items, type = 'other', dueDays = 14, order = null, inquiry = null }) {
+    const clean = (items || [])
+      .filter(i => i.description && Number(i.quantity) > 0)
+      .map(i => ({
+        description: String(i.description).trim(),
+        quantity: Number(i.quantity) || 0,
+        unit: i.unit || 'ks',
+        unit_price: Number(i.unit_price) || 0,
+        total: Math.round(((Number(i.quantity) || 0) * (Number(i.unit_price) || 0) + Number.EPSILON) * 100) / 100,
+      }));
+    if (!clean.length) throw new Error('Faktúra musí mať aspoň jednu položku');
+    const total = Math.round((clean.reduce((s, i) => s + i.total, 0) + Number.EPSILON) * 100) / 100;
+    const r = this.regimeFor(client);
+    return this._create({
+      order, inquiry, client, type, items: clean, total,
+      regime: r.regime, status: 'issued', dueDays,
+    });
+  },
+
+  async _create({ order, inquiry, client, type, items, total, regime, status, billing_period_from, billing_period_to, dueDays = 14 }) {
     const number = await this.nextNumber();
     const issue = new Date().toISOString().slice(0, 10);
     const { data: inv, error } = await DB.insert('invoices', {
       invoice_number: number,
       client_id: client?.id || order?.client_id || null,
       order_id: order?.id || null,
-      type, issue_date: issue, due_date: this._plusDays(14, issue),
+      type, issue_date: issue, due_date: this._plusDays(dueDays, issue),
       delivery_date: billing_period_to || issue,
       total, currency: 'EUR', vat_regime: regime,
       status, billing_period_from: billing_period_from || null,
@@ -96,11 +120,15 @@ window.Invoicing = {
     const rows = items.map(i => ({ ...i, invoice_id: inv.id }));
     await DB.from('invoice_items').insert(rows);
 
-    if (order?.id) {
+    // Záznam do osi tam, kde faktúra vznikla (objednávka, dopyt alebo klient)
+    const note = `Vystavená faktúra ${number} na ${window.DanubraDocs.money(total)}`
+      + (status === 'draft_pending_approval' ? ' (čaká na schválenie)' : '');
+    const target = order?.id ? ['order', order.id]
+      : inquiry?.id ? ['inquiry', inquiry.id]
+      : client?.id ? ['client', client.id] : null;
+    if (target) {
       await DB.insert('activities', {
-        entity_type: 'order', entity_id: order.id, type: 'system',
-        body: `Vystavená faktúra ${number} na ${window.DanubraDocs.money(total)}`
-          + (status === 'draft_pending_approval' ? ' (čaká na schválenie)' : ''),
+        entity_type: target[0], entity_id: target[1], type: 'system', body: note,
       }).catch(() => {});
     }
     return { invoice: inv, items: rows };

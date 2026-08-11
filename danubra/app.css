@@ -449,3 +449,28 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   background: var(--green-50); border: 1px solid #BEE3CE; border-radius: 12px;
   padding: 12px 15px; margin-bottom: 8px;
 }
+
+/* ── Editor položiek faktúry ─────────────────────────────────────────────── */
+.item-row {
+  display: grid; grid-template-columns: 1fr 74px 62px 92px 92px 34px;
+  gap: 6px; align-items: center; margin-bottom: 6px;
+}
+.item-row input {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; background: var(--field); width: 100%; font-family: inherit;
+}
+.item-row input:focus { outline: none; border-color: var(--brand); background: #fff; }
+.item-row input[type=number] { text-align: right; font-variant-numeric: tabular-nums; }
+.item-sum {
+  text-align: right; font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--navy);
+}
+@media (max-width: 640px) {
+  .item-row { grid-template-columns: 1fr 1fr; grid-template-areas: 'd d' 'q u' 'p s' 'x x'; }
+  .item-row input[data-f=description] { grid-area: d; }
+  .item-row input[data-f=quantity] { grid-area: q; }
+  .item-row input[data-f=unit] { grid-area: u; }
+  .item-row input[data-f=unit_price] { grid-area: p; }
+  .item-sum { grid-area: s; }
+  .item-row button { grid-area: x; justify-self: end; }
+}
