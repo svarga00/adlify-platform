@@ -250,6 +250,17 @@
     },
 
     // ── Nahrávka ──────────────────────────────────────────────────────────
+    // Tri cesty, ako sa zvuk dostane dnu:
+    //   file    — súbor z mobilu (záznamník hovorov, WhatsApp export)
+    //   browser — nahrávka priamo tu (hlasitý odposluch, osobný pohovor)
+    //   url     — odkaz od VoIP operátora alebo z iného úložiska
+    _mode: 'file',
+    _blob: null,
+    _rec: null,      // MediaRecorder
+    _chunks: [],
+    _t0: 0,
+    _timer: null,
+
     uploadForm() {
       const withConsent = this.consents.filter(c => c.granted && !c.revoked_at);
       if (!withConsent.length) {
@@ -261,44 +272,185 @@
             <button class="btn btn-primary" onclick="Rec.consentForm()">${Icon('shield')} Zaznamenať súhlas</button>
           </div>`);
       }
-      UI.modal('Pridať nahrávku hovoru', `
+      this._mode = 'file'; this._blob = null; this._stopRecorder();
+      UI.modal('Pridať hovor', `
         <form id="rec-form" onsubmit="event.preventDefault();Rec.saveRecording()">
-          <div class="form-grid">
+          <div class="pillbar" style="margin-bottom:14px;width:max-content;">
+            <button type="button" class="pill active" data-mode="file" onclick="Rec.setMode('file')">Súbor z mobilu</button>
+            <button type="button" class="pill" data-mode="browser" onclick="Rec.setMode('browser')">Nahrať teraz</button>
+            <button type="button" class="pill" data-mode="url" onclick="Rec.setMode('url')">Odkaz</button>
+          </div>
+
+          <div id="rec-src"></div>
+
+          <div class="form-grid" style="margin-top:14px;">
             ${UI.field('consent_id', 'Súhlas', { required: true, options: withConsent.map(c => {
               const w = this.workerOf(c.subject_id);
               return [c.id, `${w?.full_name || c.subject_name || c.subject_phone} · ${UI.date(c.granted_at)}`];
             }) })}
             ${UI.field('recorded_at', 'Kedy sa volalo', { type: 'date', value: new Date().toISOString().slice(0, 10) })}
             ${UI.field('language', 'Jazyk hovoru', { value: 'sk', options: [['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['de', 'DE']] })}
-            ${UI.field('duration_seconds', 'Dĺžka (sekundy)', { type: 'number' })}
+            ${UI.field('direction', 'Smer', { value: 'out', options: [['out', 'Volali sme my'], ['in', 'Volali nám']] })}
           </div>
-          ${UI.field('audio_url', 'Odkaz na nahrávku', { type: 'url', required: true,
-            placeholder: 'https://… (súbor v Supabase Storage alebo iné dostupné úložisko)' })}
+
           <div class="regimebox">Po uložení sa nahrávka prepíše a systém z nej vytiahne,
-          čo sa sľúbilo — mzda, ubytovanie, termín nástupu, diéty a doprava.</div>
+          čo sa sľúbilo — mzda, ubytovanie, termín nástupu, diéty a doprava.
+          Súbor leží v privátnom úložisku, verejný odkaz naň nevzniká.</div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-            <button type="submit" class="btn btn-primary">Uložiť a spracovať</button>
+            <button type="submit" class="btn btn-primary" id="rec-save">Uložiť a spracovať</button>
           </div>
         </form>`, { wide: true });
+      this._renderSource();
+    },
+
+    setMode(m) {
+      if (m !== 'browser') this._stopRecorder();
+      this._mode = m; this._blob = null;
+      document.querySelectorAll('#rec-form .pill[data-mode]').forEach(b =>
+        b.classList.toggle('active', b.dataset.mode === m));
+      this._renderSource();
+    },
+
+    _renderSource() {
+      const box = document.getElementById('rec-src');
+      if (!box) return;
+      const hint = 'display:block;margin-top:6px;color:var(--ink-mute);font-size:12px;';
+      if (this._mode === 'file') {
+        box.innerHTML = `
+          <label class="fld"><span>Zvukový súbor</span>
+            <input type="file" id="rec-file" accept="audio/*,video/mp4" onchange="Rec.pickFile(this)">
+          </label>
+          <span id="rec-file-info" style="${hint}">
+            Vezme sa čokoľvek — m4a, mp3, ogg, opus, wav, aj hlasovka z WhatsAppu.
+            Na Androide záznamník hovorov (napr. Cube ACR), na iPhone hovor na hlasitý
+            odposluch a nahratie diktafónom.</span>`;
+      } else if (this._mode === 'browser') {
+        box.innerHTML = `
+          <div class="notebox" id="rec-live" style="display:flex;align-items:center;gap:12px;">
+            <button type="button" class="btn btn-primary btn-sm" id="rec-toggle"
+              onclick="Rec.toggleRecorder()">${Icon('phone')} Spustiť nahrávanie</button>
+            <span id="rec-elapsed" style="font-variant-numeric:tabular-nums;color:var(--ink-sub);">0:00</span>
+          </div>
+          <div id="rec-preview"></div>
+          <span style="${hint}">
+            Nahráva mikrofón tohto zariadenia — daj hovor na hlasitý odposluch.
+            Súhlas si vypýtaj skôr, než klikneš na spustenie.</span>`;
+      } else {
+        box.innerHTML = `
+          <label class="fld"><span>Odkaz na nahrávku</span>
+            <input type="url" id="rec-url" placeholder="https://… (VoIP operátor alebo iné úložisko)">
+          </label>
+          <span style="${hint}">
+            Odkaz musí byť dostupný zo servera — použije sa raz pri prepise a ďalej sa neukladá.</span>`;
+      }
+    },
+
+    pickFile(input) {
+      const f = input.files?.[0];
+      this._blob = f || null;
+      const info = document.getElementById('rec-file-info');
+      if (f && info) {
+        info.innerHTML = `${UI.esc(f.name)} · ${(f.size / 1048576).toFixed(1)} MB`;
+      }
+    },
+
+    async toggleRecorder() {
+      if (this._rec && this._rec.state === 'recording') return this._stopRecorder();
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        return UI.toast('Tento prehliadač nevie nahrávať — použi súbor z mobilu', 'err');
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        return UI.toast('Mikrofón nie je dostupný: ' + e.message, 'err');
+      }
+      this._chunks = [];
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+        .find(m => MediaRecorder.isTypeSupported?.(m)) || '';
+      this._rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      this._rec.ondataavailable = e => { if (e.data.size) this._chunks.push(e.data); };
+      this._rec.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        this._blob = new Blob(this._chunks, { type: this._rec.mimeType || 'audio/webm' });
+        const prev = document.getElementById('rec-preview');
+        if (prev) {
+          prev.innerHTML = `<audio controls src="${URL.createObjectURL(this._blob)}"
+            style="width:100%;margin-top:10px;"></audio>`;
+        }
+      };
+      this._rec.start();
+      this._t0 = Date.now();
+      this._timer = setInterval(() => {
+        const el = document.getElementById('rec-elapsed');
+        if (!el) return;
+        const s = Math.floor((Date.now() - this._t0) / 1000);
+        el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      }, 500);
+      const btn = document.getElementById('rec-toggle');
+      if (btn) { btn.innerHTML = `${Icon('x')} Zastaviť nahrávanie`; btn.classList.add('btn-danger'); }
+    },
+
+    _stopRecorder() {
+      if (this._timer) { clearInterval(this._timer); this._timer = null; }
+      if (this._rec && this._rec.state === 'recording') this._rec.stop();
+      this._rec = null;
+      const btn = document.getElementById('rec-toggle');
+      if (btn) { btn.innerHTML = `${Icon('phone')} Spustiť nahrávanie`; btn.classList.remove('btn-danger'); }
+    },
+
+    _elapsedSeconds() {
+      return this._t0 ? Math.round((Date.now() - this._t0) / 1000) : null;
     },
 
     async saveRecording() {
+      this._stopRecorder();
       const d = UI.formData(document.getElementById('rec-form'));
       const consent = this.consents.find(c => c.id === d.consent_id);
       if (!consent) return UI.toast('Vyber súhlas', 'err');
+
+      const url = document.getElementById('rec-url')?.value.trim() || '';
+      if (this._mode === 'url' && !url) return UI.toast('Zadaj odkaz na nahrávku', 'err');
+      if (this._mode !== 'url' && !this._blob) {
+        return UI.toast(this._mode === 'file' ? 'Vyber zvukový súbor' : 'Najprv nahraj hovor', 'err');
+      }
+
+      const btn = document.getElementById('rec-save');
+      if (btn) { btn.disabled = true; btn.textContent = 'Nahrávam…'; }
+
+      let audio_path = null;
+      if (this._blob) {
+        const name = this._blob.name || `hovor.${(this._blob.type.split('/')[1] || 'webm').split(';')[0]}`;
+        const { path, error } = await DB.uploadCall(this._blob, name);
+        if (error) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Uložiť a spracovať'; }
+          return UI.toast('Nahratie zlyhalo: ' + error.message, 'err');
+        }
+        audio_path = path;
+      }
+
       const payload = {
         subject_type: 'worker', subject_id: consent.subject_id || null,
         subject_name: consent.subject_name || null, subject_phone: consent.subject_phone || null,
         consent_id: consent.id, consent_confirmed: true,
-        audio_url: d.audio_url, language: d.language,
-        duration_seconds: d.duration_seconds === '' ? null : Number(d.duration_seconds),
+        audio_path, audio_url: audio_path ? null : url,
+        audio_mime: this._blob?.type || null,
+        audio_bytes: this._blob?.size || null,
+        source: this._mode === 'browser' ? 'browser' : this._mode === 'file' ? 'upload' : 'url',
+        direction: d.direction || null,
+        language: d.language,
+        duration_seconds: this._mode === 'browser' ? this._elapsedSeconds() : null,
         recorded_at: d.recorded_at ? new Date(d.recorded_at).toISOString() : new Date().toISOString(),
         delete_after: consent.retention_until || null,
         status: 'uploaded',
       };
       const { data: rec, error } = await DB.insert('call_recordings', payload);
-      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      if (error) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Uložiť a spracovať'; }
+        return UI.toast('Chyba: ' + error.message, 'err');
+      }
+      this._blob = null; this._t0 = 0;
       UI.closeModal();
       UI.toast('Nahrávka uložená, spracúvam…', 'ok');
       await this.load(); Danubra.renderRoute();
@@ -337,6 +489,9 @@
           ${r.duration_seconds ? `<div><span>Dĺžka</span><strong>${Math.round(r.duration_seconds / 60)} min</strong></div>` : ''}
           ${r.delete_after ? `<div><span>Zmazať po</span><strong>${UI.date(r.delete_after)}</strong></div>` : ''}
         </div>
+        ${r.audio_path || r.audio_url ? `<div class="form-section">Nahrávka</div>
+          <div id="rec-audio-${r.id}"><button class="btn btn-outline btn-sm"
+            onclick="Rec.play('${r.id}')">${Icon('phone')} Prehrať</button></div>` : ''}
         ${r.summary ? `<div class="form-section">Zhrnutie</div><div class="notebox">${UI.esc(r.summary)}</div>` : ''}
         ${oq.length ? `<div class="form-section">Zostalo nedohodnuté</div>
           ${oq.map(q => `<div class="list-row" style="cursor:default;">
@@ -363,8 +518,24 @@
       UI.toast('Uložené', 'ok');
     },
 
+    /** Privátny bucket → krátkodobo podpísaný odkaz, nikdy nie verejná URL. */
+    async play(id) {
+      const r = this.recordings.find(x => x.id === id);
+      const box = document.getElementById(`rec-audio-${id}`);
+      if (!r || !box) return;
+      let src = r.audio_url;
+      if (r.audio_path) {
+        const { url, error } = await DB.signedCallUrl(r.audio_path);
+        if (error || !url) return UI.toast('Nahrávka sa nedá otvoriť: ' + (error?.message || 'chýba'), 'err');
+        src = url;
+      }
+      box.innerHTML = `<audio controls autoplay src="${UI.esc(src)}" style="width:100%;"></audio>`;
+    },
+
     async delRecording(id) {
       if (!confirm('Zmazať nahrávku aj s prepisom? Zachytené dohody ostanú zapísané.')) return;
+      const r = this.recordings.find(x => x.id === id);
+      if (r?.audio_path) await DB.removeCall(r.audio_path);
       await DB.remove('call_recordings', id);
       this.recordings = this.recordings.filter(x => x.id !== id);
       UI.closeModal(); UI.toast('Nahrávka zmazaná', 'ok');

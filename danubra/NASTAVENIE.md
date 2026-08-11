@@ -22,6 +22,8 @@ Poradie je záväzné, každý súbor stavia na predchádzajúcom:
 | 4 | `danubra/database/migrations/004_recruiting_ai.sql` | AI nábor: súhlasy, hovory, sľuby |
 | 5 | `danubra/database/migrations/005_tasks.sql` | úlohy a pripomienky |
 | 6 | `danubra/database/migrations/006_seed_demo.sql` | vzorové dáta (voliteľné, ale odporúčam) |
+| 7 | `danubra/database/migrations/007_recruiting_pipeline.sql` | nábor: kandidáti, checklist nástupu, ubytovanie na zákazke |
+| 8 | `danubra/database/migrations/008_call_capture.sql` | úložisko nahrávok hovorov |
 
 Šiestku spusti, ak chceš appku hneď vidieť naplnenú. Je idempotentná — dá sa
 spustiť opakovane a nič nezduplikuje. Na jej konci je pripravený mazací príkaz,
@@ -106,8 +108,27 @@ zapíše. Hodí sa na skúšanie.
 
 ## 5. Úložisko na nahrávky (len pre AI nábor)
 
-Supabase → **Storage** → **New bucket** → názov `danubra-calls`.
-Nechaj ho **privátny**. Nahrávky doň nahráš a v aplikácii zadáš odkaz.
+Migrácia `008_call_capture.sql` sa ho pokúsi založiť sama. Ak v jej výstupe
+uvidíš hlášku, že na to nemá práva, sprav to ručne:
+
+Supabase → **Storage** → **New bucket** → názov `danubra-calls`,
+**Public bucket vypnuté**. Potom v *Policies* povoľ prihláseným používateľom
+`select`, `insert`, `update`, `delete`.
+
+Nahrávky do neho nahráva samotná aplikácia — `AI nábor` → *Pridať hovor*.
+Verejný odkaz na nahrávku nikdy nevzniká; prehráva sa cez odkaz, ktorý
+platí desať minút.
+
+### Ako sa zvuk dostane dnu
+
+| Cesta | Kedy | Čo treba |
+|---|---|---|
+| **Súbor z mobilu** | bežný telefonát z mobilu | záznamník hovorov v telefóne (Android: napr. Cube ACR; iPhone: hovor na hlasitý odposluch + Diktafón), potom súbor vyberieš v appke |
+| **Nahrať teraz** | pohovor naživo alebo hovor na hlasitý odposluch | nič, nahráva mikrofón zariadenia priamo v prehliadači |
+| **Odkaz** | ak neskôr pribudne VoIP ústredňa s nahrávaním | odkaz na súbor dostupný zo servera |
+
+Nahrávka sa po dátume v poli *Uchovávať do* zmaže automaticky (denný cron).
+Prepis a zachytené dohody ostanú, mizne len zvuk.
 
 ---
 

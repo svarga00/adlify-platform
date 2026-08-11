@@ -83,7 +83,7 @@ exports.handler = async (event) => {
   const today = todaySk();
   const s = { today, toInProgress: 0, toEndingSoon: 0, toCompleted: 0,
     paymentReminders: 0, overdue: 0, listings: 0, staleRequests: 0, expiredOffers: 0,
-    autoTasks: 0, errors: [] };
+    autoTasks: 0, purgedRecordings: 0, errors: [] };
 
   try {
     // ── 1. Prechody stavov podľa dátumov ────────────────────────────────────
@@ -255,6 +255,27 @@ exports.handler = async (event) => {
     for (const o of offers || []) {
       await supabase.from('danubra_offers').update({ status: 'expired' }).eq('id', o.id);
       s.expiredOffers++;
+    }
+
+    // ── 6. Retencia nahrávok hovorov ────────────────────────────────────────
+    // Sľúbili sme, že nahrávku po dohodnutej lehote zmažeme — musí sa to stať
+    // samo, nie „keď si niekto spomenie". Prepis a zachytené dohody ostávajú,
+    // maže sa zvuk, teda ten najcitlivejší kus.
+    if (await tableExists('danubra_call_recordings')) {
+      const { data: expired } = await supabase
+        .from('danubra_call_recordings').select('id, audio_path')
+        .lte('delete_after', today).neq('status', 'deleted');
+      for (const r of expired || []) {
+        if (r.audio_path) {
+          const { error } = await supabase.storage.from('danubra-calls').remove([r.audio_path]);
+          if (error) { s.errors.push(`storage ${r.id}: ${error.message}`); continue; }
+        }
+        await supabase.from('danubra_call_recordings').update({
+          status: 'deleted', audio_path: null, audio_url: null,
+          deleted_at: new Date().toISOString(),
+        }).eq('id', r.id);
+        s.purgedRecordings++;
+      }
     }
   } catch (err) {
     s.fatal = err.message;

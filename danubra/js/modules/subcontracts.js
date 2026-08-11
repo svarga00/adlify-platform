@@ -18,7 +18,7 @@
   const BILLING = [['hourly', 'Po hodinách'], ['unit', 'Za jednotku'], ['fixed', 'Pevná cena']];
 
   const Sub = {
-    items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [],
+    items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [],
     loaded: false, filters: { status: '', work_type: '' },
     _cur: null,
 
@@ -33,8 +33,14 @@
       ]);
       this.items = s.data || []; this.partners = p.data || []; this.assignments = a.data || [];
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
-      const ch = await DB.list('checklist_items', { order: { column: 'step_order' }, limit: 3000 });
+      const [ch, sa, accs] = await Promise.all([
+        DB.list('checklist_items', { order: { column: 'step_order' }, limit: 3000 }),
+        DB.list('subcontract_accommodations', { limit: 1000 }),
+        DB.list('accommodations', { select: 'id,name,city,address,max_persons,price_month,lat,lng', limit: 500 }),
+      ]);
       this.checklist = ch.data || [];
+      this.lodging = sa.data || [];
+      this.accommodations = accs.data || [];
       this.loaded = true;
     },
 
@@ -225,6 +231,49 @@
               </span></div>`).join('')}`;
         }).join('')}
 
+        <div class="form-section">Ubytovanie a doprava</div>
+        ${(() => {
+          const rows = this.lodging.filter(l => l.subcontract_id === sc.id);
+          const people = asg.filter(a => a.status !== 'cancelled').length;
+          const capacity = rows.reduce((n, l) => n + (Number(l.capacity) || 0), 0);
+          const short = people - capacity;
+          return `
+          ${rows.length ? rows.map(l => {
+            const acc = this.accommodations.find(a => a.id === l.accommodation_id);
+            const name = l.name || acc?.name || 'Ubytovanie';
+            const addr = [l.address || acc?.address, l.city || acc?.city].filter(Boolean).join(', ');
+            const maps = l.maps_url || (acc?.lat && acc?.lng ? `https://maps.google.com/?q=${acc.lat},${acc.lng}`
+              : addr ? `https://maps.google.com/?q=${encodeURIComponent(addr)}` : null);
+            const full = (Number(l.occupied) || 0) >= (Number(l.capacity) || 0) && l.capacity;
+            return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+              <span class="dot ${full ? 'amber' : 'green'}" style="margin-top:5px;"></span>
+              <span style="flex:1;font-size:13px;">
+                <strong>${UI.esc(name)}</strong>
+                ${acc ? UI.badge('z databázy', 'blue') : ''}
+                <span style="display:block;color:var(--ink-mute);font-size:12px;">
+                  ${UI.esc(addr || 'bez adresy')}
+                  ${l.capacity ? ` · obsadené ${l.occupied || 0} z ${l.capacity}` : ''}
+                  ${l.price_monthly ? ` · ${UI.money(l.price_monthly)}/mes` : ''}
+                  ${l.date_from ? ` · ${UI.dateRange(l.date_from, l.date_to)}` : ''}</span>
+                ${l.note ? `<span style="display:block;color:var(--ink-sub);font-size:12px;">${UI.esc(l.note)}</span>` : ''}
+              </span>
+              ${maps ? `<a class="btn btn-ghost btn-sm" href="${UI.esc(maps)}" target="_blank" rel="noopener"
+                title="Otvoriť v mapách">${Icon('site', 15)}</a>` : ''}
+              <button class="btn btn-ghost btn-sm" style="color:var(--red);"
+                onclick="Sub.delLodging('${l.id}')">${Icon('x', 15)}</button>
+            </div>`;
+          }).join('') : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne ubytovanie.</div>'}
+          ${rows.length && short > 0 ? `<div class="warnbox" style="margin-top:8px;">
+            ${Icon('alert', 14)} Kapacita nestačí — nasadených ${people}, lôžok ${capacity}.
+            Chýba miesto pre ${short} ${short === 1 ? 'človeka' : 'ľudí'}.</div>` : ''}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <button class="btn btn-outline btn-sm" onclick="Sub.addLodging('${sc.id}')">${Icon('plus')} Pridať ubytovanie</button>
+            <button class="btn btn-outline btn-sm" onclick="Sub.editTransport('${sc.id}')">${Icon('van')} Doprava</button>
+          </div>
+          ${sc.transport_note ? `<div class="notebox" style="margin-top:8px;">
+            <strong>Doprava${sc.transport_provided ? ' (zabezpečujeme)' : ''}:</strong> ${UI.esc(sc.transport_note)}</div>` : ''}`;
+        })()}
+
         ${eco.length ? `
         <div class="form-section">Ekonomika (mesačne, orientačne pri 160 h a 21 dňoch)</div>
         <div class="service-total">
@@ -336,6 +385,98 @@
           </div>
         </form>`;
       UI.modal('Nasadiť pracovníka', body, { wide: true });
+    },
+
+    /** Ubytovanie na zákazke — buď z databázy, alebo voľne zapísané. */
+    addLodging(scId) {
+      const sc = this.items.find(x => x.id === scId);
+      const city = sc?.site_city || '';
+      // ponúkni najprv ubytovania v tom istom meste
+      const sorted = [...this.accommodations].sort((a, b) => {
+        const am = (a.city || '').toLowerCase() === city.toLowerCase() ? 0 : 1;
+        const bm = (b.city || '').toLowerCase() === city.toLowerCase() ? 0 : 1;
+        return am - bm || String(a.name).localeCompare(String(b.name));
+      });
+      UI.modal('Pridať ubytovanie', `
+        <form id="lodg-form" onsubmit="event.preventDefault();Sub.saveLodging('${scId}')">
+          ${UI.field('accommodation_id', 'Z databázy ubytovaní', {
+            options: [['', '— zapíšem ručne —'], ...sorted.map(a => [a.id,
+              `${a.name}${a.city ? ` · ${a.city}` : ''}${a.max_persons ? ` · ${a.max_persons} os.` : ''}`])] })}
+          <div class="regimebox" style="margin:10px 0;">Ubytovanie sa berie z tej istej databázy ako
+          v ubytovacej agende — čo si zháňal pre klientov, môžeš použiť aj pre vlastných ľudí.</div>
+          <div class="form-grid">
+            ${UI.field('name', 'Názov (ak nie je v databáze)', {})}
+            ${UI.field('city', 'Mesto', { value: city })}
+            ${UI.field('address', 'Adresa', {})}
+            ${UI.field('maps_url', 'Odkaz na mapu', { type: 'url' })}
+            ${UI.field('capacity', 'Lôžok', { type: 'number' })}
+            ${UI.field('occupied', 'Obsadené', { type: 'number', value: 0 })}
+            ${UI.field('price_monthly', 'Cena €/mes', { type: 'number' })}
+            ${UI.field('date_from', 'Od', { type: 'date', value: sc?.date_from })}
+            ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to })}
+          </div>
+          ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+            <button type="submit" class="btn btn-primary">Pridať</button>
+          </div>
+        </form>`, { wide: true });
+    },
+
+    async saveLodging(scId) {
+      const d = UI.formData(document.getElementById('lodg-form'));
+      const acc = this.accommodations.find(a => a.id === d.accommodation_id);
+      if (!acc && !d.name && !d.address) return UI.toast('Vyber ubytovanie alebo zapíš názov', 'err');
+      const payload = {
+        subcontract_id: scId,
+        accommodation_id: d.accommodation_id || null,
+        name: d.name || null, city: d.city || null, address: d.address || null,
+        maps_url: d.maps_url || null, note: d.note || null,
+        date_from: d.date_from || null, date_to: d.date_to || null,
+      };
+      ['capacity', 'occupied', 'price_monthly'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
+      // ak je z databázy a kapacita nie je zadaná, vezmi ju odtiaľ
+      if (acc && payload.capacity == null) payload.capacity = acc.max_persons ?? null;
+      if (acc && payload.price_monthly == null) payload.price_monthly = acc.price_month ?? null;
+      const { error } = await DB.insert('subcontract_accommodations', payload);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Ubytovanie pridané', 'ok');
+      await this.load(); this.detail(scId);
+    },
+
+    async delLodging(id) {
+      const l = this.lodging.find(x => x.id === id);
+      if (!confirm('Odobrať toto ubytovanie zo zákazky?')) return;
+      await DB.remove('subcontract_accommodations', id);
+      this.lodging = this.lodging.filter(x => x.id !== id);
+      if (l) this.detail(l.subcontract_id);
+    },
+
+    editTransport(scId) {
+      const sc = this.items.find(x => x.id === scId);
+      UI.modal('Doprava', `
+        <form id="tr-form" onsubmit="event.preventDefault();Sub.saveTransport('${scId}')">
+          <div class="chk-row">
+            ${UI.field('transport_provided', '', { type: 'checkbox', value: sc?.transport_provided,
+              placeholder: 'Dopravu zabezpečujeme my' })}
+          </div>
+          ${UI.field('transport_note', 'Ako je doprava vyriešená', { type: 'textarea', rows: 3,
+            value: sc?.transport_note,
+            placeholder: 'Kto vezie, akým autom, kto hradí cestu tam a späť, ako sa dostávajú na stavbu…' })}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+            <button type="submit" class="btn btn-primary">Uložiť</button>
+          </div>
+        </form>`);
+    },
+
+    async saveTransport(scId) {
+      const d = UI.formData(document.getElementById('tr-form'));
+      const patch = { transport_note: d.transport_note || null, transport_provided: !!d.transport_provided };
+      await DB.update('subcontracts', scId, patch);
+      Object.assign(this.items.find(x => x.id === scId), patch);
+      UI.toast('Uložené', 'ok');
+      this.detail(scId);
     },
 
     async toggleCheck(id) {
