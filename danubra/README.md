@@ -16,6 +16,8 @@ danubra/
     001_schema.sql        všetkých 18 tabuliek + RLS + triggery + indexy + seed settings
     002_numbering.sql     atomická RPC danubra_next_number() pre číselné rady (§6.1)
     004_recruiting_ai.sql AI nábor: súhlasy, nahrávky hovorov, zachytené sľuby
+    005_tasks.sql         úlohy a pripomienky
+    006_seed_demo.sql     vzorové dáta naprieč všetkými sekciami (dajú sa zmazať)
     003_staffing.sql      subdodávky: pracovníci, odberatelia DE, zákazky, nasadenia,
                           hodiny, compliance register + rad ZAK-2026-0001
   (crony: netlify/functions/danubra-cron-daily.js, danubra-cron-monthly.js)
@@ -49,6 +51,11 @@ node danubra/lib/staffing/staffing.test.js         # 58 testov
 node danubra/lib/sms/sms.test.js                   # 47 testov
 ```
 
+## Kontext
+
+Biznisové pozadie, kľúčové čísla a pravidlá, ktoré sa nesmú porušiť, sú
+v [BIZNIS-KONTEXT.md](BIZNIS-KONTEXT.md). Pri úpravách sa treba držať ich.
+
 ## Dve agendy
 
 Aplikácia obsluhuje dva oddelené biznisy so spoločným prostredím:
@@ -77,6 +84,8 @@ Spoločné ostáva: prihlásenie, nastavenia, faktúry, komunikačné záznamy a
 - [x] **M8** — marketing: inzeráty s obnovením, výdavky voči rozpočtu
 - [x] **M9** — príjem dopytov z webu (tolerantné mapovanie SK/CS/HU formulárov)
 - [x] **AI nábor** — súhlasy, nahrávky, prepis a extrakcia sľubov
+- [x] **Zvyšné sekcie** — úlohy, compliance register, cenník a pravidlá, nastavenia
+- [x] **Vzorové dáta** — prepojené ukážky vo všetkých sekciách
 
 ## Kritické pravidlá (§5) — dodržiavané v logike
 
