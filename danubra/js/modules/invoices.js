@@ -200,6 +200,7 @@
         <div style="display:flex;flex-direction:column;gap:2px;">
           ${opt('orders', 'Z objednávky', 'Poplatok za sprostredkovanie alebo priebežná služba', 'Inv.pickOrder()')}
           ${opt('inquiries', 'Z dopytu', 'Ešte pred objednávkou — napríklad záloha alebo rezervácia', 'Inv.pickInquiry()')}
+          ${opt('site', 'Zo zákazky (subdodávky)', 'Z potvrdených hodín, reverse charge §13b', 'Inv.pickSubcontract()')}
           ${opt('clients', 'Voľná faktúra', 'Vlastné položky pre ľubovoľného klienta', 'Inv.manual()')}
         </div>`);
     },
@@ -269,6 +270,53 @@
         description: desc.trim(), quantity: inq.persons || 1, unit: 'os.',
         unit_price: inq.budget_per_bed && nights ? Number(inq.budget_per_bed) * nights : 0,
       }]);
+    },
+
+    /** Faktúra zo zákazky — z potvrdených, ešte nefakturovaných hodín. */
+    async pickSubcontract() {
+      const [{ data: subs }, { data: ts }] = await Promise.all([
+        DB.list('subcontracts', { select: 'id,title,contract_number,partner_id,charge_rate,status,work_type', limit: 300 }),
+        DB.list('timesheets', { limit: 3000 }),
+      ]);
+      const { data: asg } = await DB.list('assignments', { select: 'id,subcontract_id', limit: 1000 });
+      const asgMap = new Map((asg || []).map(a => [a.id, a.subcontract_id]));
+      const openBySub = new Map();
+      for (const t of (ts || [])) {
+        if (!t.approved || t.invoiced_at) continue;
+        const sid = asgMap.get(t.assignment_id);
+        if (!sid) continue;
+        openBySub.set(sid, (openBySub.get(sid) || 0) + Number(t.hours || 0));
+      }
+      const cand = (subs || []).filter(s => openBySub.has(s.id));
+      if (!cand.length) return UI.toast('Žiadne potvrdené nefakturované hodiny — najprv potvrď hodiny', 'err');
+
+      this._subs = subs; this._allTs = ts; this._asgMap = asgMap;
+      UI.modal('Z ktorej zákazky?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${cand.map(s => `<button class="list-row" onclick="Inv.createFromSubcontract('${s.id}')">
+            <span style="flex:1;"><strong>${UI.esc(s.title)}</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">
+              ${Math.round(openBySub.get(s.id))} h nefakturovaných${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}</span></span>
+            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`).join('')}
+        </div>`);
+    },
+
+    async createFromSubcontract(scId) {
+      UI.closeModal();
+      const sc = (this._subs || []).find(s => s.id === scId);
+      if (!sc) return UI.toast('Zákazka nenájdená', 'err');
+      const { data: partner } = await DB.getById('partners', sc.partner_id);
+      if (!partner) return UI.toast('Zákazka nemá priradeného odberateľa', 'err');
+      if (!partner.ust_idnr) {
+        if (!confirm('Odberateľ nemá USt-IdNr — reverse charge §13b sa nedá uplatniť.\nPokračovať?')) return;
+      }
+      const ts = (this._allTs || []).filter(t => this._asgMap.get(t.assignment_id) === scId);
+      try {
+        const res = await Invoicing.createSubcontractInvoice({ subcontract: sc, partner, timesheets: ts });
+        if (res.skipped) return UI.toast('Nie je čo fakturovať', 'err');
+        UI.toast(`Faktúra ${res.invoice.invoice_number} vystavená`, 'ok');
+        await this.load(); Danubra.go('invoices'); Danubra.renderRoute();
+      } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
     },
 
     /** Editor voľnej faktúry s vlastnými položkami. */
