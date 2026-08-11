@@ -102,7 +102,57 @@ window.Invoicing = {
     });
   },
 
-  async _create({ order, inquiry, client, type, items, total, regime, status, billing_period_from, billing_period_to, dueDays = 14 }) {
+  /**
+   * Faktúra za subdodávku — z potvrdených, ešte nefakturovaných hodín.
+   * Nemeckým odberateľom sa fakturuje netto v režime reverse charge §13b.
+   */
+  async createSubcontractInvoice({ subcontract, partner, timesheets, dueDays }) {
+    const open = (timesheets || []).filter(t => t.approved && !t.invoiced_at);
+    if (!open.length) return { skipped: 'žiadne potvrdené nefakturované hodiny' };
+
+    // zoskup podľa sadzby a činnosti, nech je faktúra čitateľná
+    const groups = new Map();
+    for (const t of open) {
+      const rate = Number(t._rate ?? subcontract.charge_rate) || 0;
+      const key = `${t.activity_type}|${rate}`;
+      if (!groups.has(key)) groups.set(key, { activity: t.activity_type, rate, hours: 0, dates: [] });
+      const g = groups.get(key);
+      g.hours += Number(t.hours) || 0;
+      g.dates.push(t.work_date);
+    }
+    const ACT = { construction: 'stavebné práce', workshop: 'dielenské práce', travel: 'doprava' };
+    const items = [...groups.values()].map(g => {
+      const from = g.dates.slice().sort()[0];
+      const to = g.dates.slice().sort().slice(-1)[0];
+      return {
+        description: `${subcontract.title} · ${ACT[g.activity] || g.activity} · `
+          + `${window.DanubraDocs.date(from)} – ${window.DanubraDocs.date(to)}`,
+        quantity: Math.round(g.hours * 100) / 100, unit: 'h',
+        unit_price: g.rate,
+        total: Math.round((g.hours * g.rate + Number.EPSILON) * 100) / 100,
+      };
+    });
+    const total = Math.round((items.reduce((s, i) => s + i.total, 0) + Number.EPSILON) * 100) / 100;
+
+    // Nemecký odberateľ s USt-IdNr → reverse charge (§13b UStG)
+    const regime = (partner?.country || 'DE') !== 'SK' && partner?.ust_idnr
+      ? 'eu_reverse_charge' : 'other';
+
+    const res = await this._create({
+      client: partner, type: 'other', items, total, regime, status: 'issued',
+      dueDays: dueDays ?? partner?.payment_terms_days ?? 30,
+      subcontract,
+    });
+
+    // označ hodiny ako vyfakturované
+    const now = new Date().toISOString();
+    for (const t of open) {
+      await DB.update('timesheets', t.id, { invoiced_at: now }).catch(() => {});
+    }
+    return res;
+  },
+
+  async _create({ order, inquiry, client, subcontract, type, items, total, regime, status, billing_period_from, billing_period_to, dueDays = 14 }) {
     const number = await this.nextNumber();
     const issue = new Date().toISOString().slice(0, 10);
     const { data: inv, error } = await DB.insert('invoices', {
@@ -124,6 +174,7 @@ window.Invoicing = {
     const note = `Vystavená faktúra ${number} na ${window.DanubraDocs.money(total)}`
       + (status === 'draft_pending_approval' ? ' (čaká na schválenie)' : '');
     const target = order?.id ? ['order', order.id]
+      : subcontract?.id ? ['subcontract', subcontract.id]
       : inquiry?.id ? ['inquiry', inquiry.id]
       : client?.id ? ['client', client.id] : null;
     if (target) {

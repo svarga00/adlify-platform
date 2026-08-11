@@ -69,7 +69,7 @@ Spoločné ostáva: prihlásenie, nastavenia, faktúry, komunikačné záznamy a
 - [x] **M4/M5** — objednávky + spis zákazky (stavový automat, prístupové kódy, ticketing, priebežná služba)
 - [x] **M6** — fakturácia, dokumenty s QR platbou, denný a mesačný cron
 - [x] **Fáza 2 základ** — dátový model, ekonomika, compliance, pracovníci, zákazky
-- [ ] **Fáza 2 pokračovanie** — odberatelia DE, hodiny, fakturácia subdodávok, cash-flow panel
+- [x] **Fáza 2 pokračovanie** — odberatelia DE, hodiny, fakturácia subdodávok, cash-flow panel
 - [ ] **M7** — SMS vrstva + šablóny + denný cron
 - [ ] **M8** — marketing + KPI dashboard
 - [ ] **M9** — príjem dopytov z webu (webhook)

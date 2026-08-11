@@ -11,7 +11,7 @@ window.Danubra = {
     ['PREHĽAD',  [['dashboard', 'Dashboard', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks'], ['active', 'Aktívne zákazky', 'active']]],
     ['UBYTOVANIE', [['inquiries', 'Dopyty', 'inquiries'], ['offers', 'Ponuky', 'offers'], ['orders', 'Objednávky', 'orders']]],
     ['SUBDODÁVKY', [['subcontracts', 'Zákazky', 'site'], ['workers', 'Pracovníci', 'workers'],
-                    ['partners', 'Odberatelia DE', 'clients']]],
+                    ['timesheets', 'Hodiny', 'clock'], ['partners', 'Odberatelia DE', 'clients']]],
     ['PENIAZE',  [['invoices', 'Faktúry', 'invoices']]],
     ['DATABÁZA', [['accommodations', 'Ubytovania', 'bed'], ['clients', 'Firmy a kontakty', 'clients']]],
     ['RAST',     [['marketing', 'Marketing', 'marketing']]],
@@ -177,23 +177,39 @@ window.Danubra = {
       const today = new Date().toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' });
       view.innerHTML = this.header('Dashboard', UI.esc(today.charAt(0).toUpperCase() + today.slice(1))) + UI.loading();
 
-      const [inqNew, active, acc, cli, invOverdue, invDraft] = await Promise.all([
+      const [inqNew, active, acc, cli, invOverdue, invDraft, deployed, subsActive] = await Promise.all([
         DB.count('inquiries', { status: 'new' }),
         DB.count('orders', { status: 'in_progress' }),
         DB.count('accommodations'),
         DB.count('clients'),
         DB.count('invoices', { status: 'overdue' }),
         DB.count('invoices', { status: 'draft_pending_approval' }),
-      ]).catch(() => [0, 0, 0, 0, 0, 0]);
+        DB.count('assignments', { status: 'active' }),
+        DB.count('subcontracts', { status: 'active' }),
+      ]).catch(() => [0, 0, 0, 0, 0, 0, 0, 0]);
+
+      // cash-flow — podľa plánu najpravdepodobnejší dôvod zlyhania
+      let cf = null, payroll = 0;
+      try {
+        const [{ data: invAll }, { data: asg }] = await Promise.all([
+          DB.list('invoices', { select: 'id,total,status,issue_date,due_date,paid_at', limit: 1000 }),
+          DB.list('assignments', { select: 'gross_monthly,status', limit: 500 }),
+        ]);
+        payroll = (asg || []).filter(a => a.status === 'active')
+          .reduce((s, a) => s + Number(a.gross_monthly || 0) * 1.362, 0);
+        cf = DanubraCompliance.cashflowCheck({
+          invoices: invAll || [], monthlyPayroll: payroll, factoring: false,
+        });
+      } catch (e) { /* subdodávky ešte nemusia byť namigrované */ }
 
       this.badges = { inquiries: inqNew, active: active, invoices: invOverdue + invDraft };
       this._buildNav();
 
       const kpis = [
         ['Nové dopyty', inqNew, inqNew ? 'čakajú na reakciu' : 'všetko vybavené', inqNew ? 'warn' : ''],
-        ['Prebiehajúce pobyty', active, 'aktívne zákazky', ''],
+        ['Prebiehajúce pobyty', active, 'ubytovanie', ''],
+        ['Ľudia vonku', deployed, `${subsActive} ${subsActive === 1 ? 'zákazka' : 'zákaziek'}`, ''],
         ['Ubytovania v DB', acc, 'databáza', ''],
-        ['Firmy a kontakty', cli, 'databáza', ''],
         ['Faktúry na schválenie', invDraft, invDraft ? 'vyžaduje potvrdenie' : 'žiadne', invDraft ? 'warn' : ''],
         ['Po splatnosti', invOverdue, invOverdue ? 'urgovať' : 'v poriadku', invOverdue ? 'warn' : 'up'],
       ];
@@ -204,6 +220,9 @@ window.Danubra = {
       if (invOverdue) actions.push(['red', `${invOverdue} faktúr po splatnosti`, 'invoices']);
       if (!acc) actions.push(['amber', 'Databáza ubytovaní je prázdna — pridaj prvé', 'accommodations']);
       if (!cli) actions.push(['amber', 'Žiadni klienti — pridaj prvého', 'clients']);
+      for (const w of (cf?.warnings || [])) {
+        if (w.severity === 'blocker') actions.push(['red', w.label, 'invoices']);
+      }
 
       view.innerHTML =
         this.header('Dashboard', UI.esc(today.charAt(0).toUpperCase() + today.slice(1)) +
@@ -231,13 +250,32 @@ window.Danubra = {
                   </button>`).join('')
               : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">Nič nečaká — všetko je vybavené.</div>`}
           </div>
+          ${cf ? `<div class="card card-pad">
+            <div class="card-head">
+              <div class="card-title">Cash-flow</div>
+              ${UI.badge(cf.scaleSafe ? 'možno škálovať' : 'nezvyšovať počty', cf.scaleSafe ? 'green' : 'red')}
+            </div>
+            <div class="kv" style="margin:0 0 10px;">
+              <div><span>Doba inkasa</span><strong>${cf.dso != null ? `${cf.dso} dní` : 'zatiaľ bez dát'}</strong></div>
+              <div><span>Neuhradené</span><strong>${UI.money(cf.outstanding)}</strong></div>
+              <div><span>Po splatnosti</span><strong style="color:${cf.overdueSum ? 'var(--red)' : 'inherit'};">${UI.money(cf.overdueSum)}</strong></div>
+              <div><span>Potrebný kapitál</span><strong>${UI.money(cf.workingCapitalNeeded)}</strong></div>
+            </div>
+            ${cf.warnings.filter(w => w.severity !== 'info').map(w => `
+              <div class="list-row" style="cursor:default;align-items:flex-start;">
+                <span class="dot ${w.severity === 'blocker' ? 'red' : 'amber'}" style="margin-top:5px;"></span>
+                <span style="flex:1;font-size:12.5px;"><strong>${UI.esc(w.label)}</strong>
+                  <span style="color:var(--ink-mute);display:block;">${UI.esc(w.fix)}</span></span>
+              </div>`).join('') || `<div style="color:var(--ink-mute);font-size:12.5px;">Splatnosti sú v poriadku.</div>`}
+          </div>` : ''}
           <div class="card card-pad">
             <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;">
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Acc.form()">${Icon('plus')} Nové ubytovanie</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cli.form()">${Icon('plus')} Nový klient</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('accommodations')">${Icon('bed')} Databáza ubytovaní</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('clients')">${Icon('clients')} Firmy a kontakty</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('subcontracts')">${Icon('site')} Zákazky subdodávok</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('timesheets')">${Icon('clock')} Zapísať hodiny</button>
             </div>
           </div>
         </div>`;
