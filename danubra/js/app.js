@@ -108,6 +108,12 @@ window.Danubra = {
     else { view.innerHTML = UI.empty('🚧', 'Pripravujeme', 'Táto sekcia pribudne v ďalšom milestone.'); }
   },
 
+  // Moduly volajú na naplnenie akcií v topbare (pravý horný roh)
+  setActions(html) {
+    const el = document.getElementById('topbar-actions');
+    if (el) el.innerHTML = html || '';
+  },
+
   toggleSidebar() {
     const sb = document.querySelector('.sidebar');
     sb.classList.toggle('open');

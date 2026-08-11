@@ -183,3 +183,89 @@ a { color: var(--blue); text-decoration: none; }
   display: none; position: fixed; inset: 0; background: rgba(10,27,61,.4); z-index: 39;
 }
 .sidebar-backdrop.show { display: block; }
+
+/* ============================================================================
+   M2 — karty, filtre, modal, formuláre, komunikačný panel
+   ============================================================================ */
+.filterbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+.filterbar .fb-search { flex:1; min-width:180px; }
+.filterbar input, .filterbar select {
+  padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:14px;
+  font-family:inherit; background:#fff;
+}
+.filterbar input:focus, .filterbar select:focus { outline:none; border-color:var(--brand); }
+
+.cards { display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); }
+.acc-card { padding:15px 17px; cursor:pointer; transition:border-color .12s, box-shadow .12s; }
+.acc-card:hover { border-color:var(--border-strong); box-shadow:var(--shadow-lg); }
+.acc-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px; }
+.acc-name { font-weight:700; font-size:15px; color:var(--navy); }
+.acc-loc { font-size:12.5px; color:var(--ink-mute); margin-top:2px; }
+.acc-meta { display:flex; flex-wrap:wrap; gap:6px 12px; font-size:12.5px; color:var(--ink-sub); }
+
+/* ── Modal ─────────────────────────────────────────────────────────────── */
+.modal-backdrop {
+  position:fixed; inset:0; background:rgba(10,27,61,.5); z-index:60; display:flex;
+  align-items:flex-end; justify-content:center; padding:0;
+}
+.modal-card {
+  background:#fff; width:100%; max-width:520px; max-height:92dvh; overflow:auto;
+  border-radius:18px 18px 0 0; box-shadow:var(--shadow-lg);
+}
+.modal-wide { max-width:720px; }
+.modal-head {
+  position:sticky; top:0; background:#fff; display:flex; justify-content:space-between;
+  align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); z-index:1;
+}
+.modal-head h3 { margin:0; font-size:17px; font-weight:700; color:var(--navy); }
+.modal-x { background:none; border:0; font-size:18px; cursor:pointer; color:var(--ink-mute); }
+.modal-body { padding:18px 20px 24px; }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+@media (min-width:861px) {
+  .modal-backdrop { align-items:center; }
+  .modal-card { border-radius:18px; }
+}
+
+/* ── Formuláre ─────────────────────────────────────────────────────────── */
+.form-grid { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+@media (max-width:560px) { .form-grid { grid-template-columns:1fr; } }
+.fld { display:grid; gap:5px; font-size:13px; }
+.fld > span { font-weight:600; color:var(--ink-sub); }
+.fld input, .fld select, .fld textarea {
+  padding:10px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:14px;
+  font-family:inherit; width:100%; background:#fff;
+}
+.fld input:focus, .fld select:focus, .fld textarea:focus { outline:none; border-color:var(--brand); }
+.fld-chk { display:flex; align-items:center; }
+.chk { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:500; color:var(--ink); cursor:pointer; }
+.chk input { width:18px; height:18px; accent-color:var(--brand); }
+.chk-row { display:flex; flex-wrap:wrap; gap:14px; margin:14px 0; }
+
+/* ── Detail ────────────────────────────────────────────────────────────── */
+.detail-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.verif-sel { padding:6px 10px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; }
+.kv { display:grid; grid-template-columns:1fr 1fr; gap:10px 18px; margin:16px 0; }
+@media (max-width:560px) { .kv { grid-template-columns:1fr; } }
+.kv > div { display:flex; flex-direction:column; gap:1px; }
+.kv span { font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--ink-mute); font-weight:700; }
+.kv strong { font-size:14px; color:var(--ink); font-weight:600; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.chip { background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:3px 11px; font-size:12px; color:var(--ink-sub); }
+.notebox { background:var(--bg); border-radius:10px; padding:11px 14px; font-size:13.5px; color:var(--ink-sub); margin-top:10px; line-height:1.5; white-space:pre-wrap; }
+.warnbox { background:var(--amber-50); border:1px solid #F1D8A6; color:var(--amber); padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:12px; }
+.regimebox { background:var(--blue-50); border-radius:10px; padding:10px 14px; font-size:12.5px; color:var(--ink-sub); margin-top:12px; }
+
+/* ── Komunikačný panel ─────────────────────────────────────────────────── */
+.comm-panel { display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 14px; }
+.comm-btn { display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-radius:10px;
+  font-size:14px; font-weight:600; cursor:pointer; border:1.5px solid var(--border); background:#fff;
+  color:var(--ink); text-decoration:none; font-family:inherit; }
+.comm-btn .comm-ico { font-size:16px; }
+.comm-call { border-color:#BEE3CE; color:var(--green); }
+.comm-wa   { border-color:#B9E6C4; color:#128C3E; }
+.comm-mail { border-color:#C3D3FA; color:var(--blue); }
+.comm-note { border-color:var(--border-strong); color:var(--ink-sub); }
+.comm-disabled { opacity:.4; cursor:not-allowed; }
+@media (max-width:860px) {
+  .comm-btn { flex:1; justify-content:center; padding:12px 8px; }
+}

@@ -61,4 +61,57 @@ window.UI = {
   loading() {
     return `<div class="empty"><div class="empty-ico">⏳</div><div>Načítavam…</div></div>`;
   },
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  modal(title, bodyHtml, { wide = false } = {}) {
+    this.closeModal();
+    const el = document.createElement('div');
+    el.className = 'modal-backdrop';
+    el.id = 'ui-modal';
+    el.innerHTML = `
+      <div class="modal-card${wide ? ' modal-wide' : ''}">
+        <div class="modal-head">
+          <h3>${this.esc(title)}</h3>
+          <button class="modal-x" onclick="UI.closeModal()" aria-label="Zavrieť">✕</button>
+        </div>
+        <div class="modal-body">${bodyHtml}</div>
+      </div>`;
+    el.addEventListener('click', (e) => { if (e.target === el) this.closeModal(); });
+    document.body.appendChild(el);
+    document.body.style.overflow = 'hidden';
+    return el;
+  },
+  closeModal() {
+    document.getElementById('ui-modal')?.remove();
+    document.body.style.overflow = '';
+  },
+
+  // Form field helper
+  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows } = {}) {
+    const v = this.esc(value);
+    let input;
+    if (options) {
+      input = `<select name="${name}" ${required ? 'required' : ''}>${options.map(o => {
+        const [val, lbl] = Array.isArray(o) ? o : [o, o];
+        return `<option value="${this.esc(val)}" ${String(val) === String(value) ? 'selected' : ''}>${this.esc(lbl)}</option>`;
+      }).join('')}</select>`;
+    } else if (type === 'textarea') {
+      input = `<textarea name="${name}" rows="${rows || 3}" placeholder="${this.esc(placeholder)}">${v}</textarea>`;
+    } else if (type === 'checkbox') {
+      input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>`;
+      return `<div class="fld fld-chk">${input}</div>`;
+    } else {
+      input = `<input type="${type}" name="${name}" value="${v}" ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
+    }
+    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}</label>`;
+  },
+
+  formData(form) {
+    const fd = new FormData(form);
+    const out = {};
+    for (const [k, v] of fd.entries()) out[k] = typeof v === 'string' ? v.trim() : v;
+    // checkboxy: nezaškrtnuté nie sú v FormData → doplň false
+    form.querySelectorAll('input[type=checkbox]').forEach(c => { out[c.name] = c.checked; });
+    return out;
+  },
 };
