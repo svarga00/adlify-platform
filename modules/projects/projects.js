@@ -536,23 +536,26 @@ const CampaignProjectsModule = {
   },
   
   async showDetail(projectId) {
+    // Detail projektu je teraz celá podstránka (modules/projects/project-detail.js),
+    // nie modal — Router.navigate na #project?id=X otvorí page layout
+    // s sidebarom a tabmi, rovnako ako #creatives.
     const project = this.projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    this.selectedProject = project;
-    
-    document.getElementById('detail-title').textContent = project.name;
-    document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
-    
-    const modal = document.getElementById('detail-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    if (project) this.selectedProject = project;
+    Router.navigate('project', { id: projectId });
   },
   
   closeDetailModal() {
+    // Detail je teraz celá podstránka (Router #project?id=X) — nie modal.
+    // Ak je nejaký aktívny page detail, vráť sa na zoznam projektov.
+    // Ak (legacy) modal existuje a je viditeľný, schovaj ho.
     const modal = document.getElementById('detail-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+    if (modal && !modal.classList.contains('hidden')) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    if (window.Router?.currentRoute === 'project') {
+      window.location.hash = 'projects';
+    }
     this.selectedProject = null;
   },
   
@@ -560,6 +563,29 @@ const CampaignProjectsModule = {
   // PROJECT DETAIL
   // ==========================================
   
+  // Mini-markdown parser pre štruktúrované texty (strategy_summary).
+  // Podporuje: ## nadpis, ** tučné **, - bullet, prázdny riadok = odsek.
+  renderMd(text) {
+    if (!text) return '';
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const inlineFmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+    const lines = String(text).split(/\r?\n/);
+    const out = [];
+    let inList = false, buf = [];
+    const flush = () => { if (buf.length) { out.push('<p class="md-p">' + inlineFmt(buf.join(' ').trim()) + '</p>'); buf = []; } };
+    const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { flush(); closeList(); continue; }
+      if (/^##\s+/.test(line)) { flush(); closeList(); out.push('<h4 class="md-h">' + inlineFmt(line.replace(/^##\s+/, '')) + '</h4>'); continue; }
+      if (/^###\s+/.test(line)) { flush(); closeList(); out.push('<h5 class="md-h2">' + inlineFmt(line.replace(/^###\s+/, '')) + '</h5>'); continue; }
+      if (/^[-•*]\s+/.test(line)) { flush(); if (!inList) { out.push('<ul class="md-ul">'); inList = true; } out.push('<li class="md-li">' + inlineFmt(line.replace(/^[-•*]\s+/, '')) + '</li>'); continue; }
+      closeList(); buf.push(line);
+    }
+    flush(); closeList();
+    return out.join('');
+  },
+
   async renderDetailContent(project) {
     // Load campaigns for this project
     const { data: campaigns } = await Database.client
@@ -568,12 +594,17 @@ const CampaignProjectsModule = {
       .eq('project_id', project.id)
       .order('created_at');
 
-    // Load onboarding data
-    const { data: onboarding } = await Database.client
+    // Load onboarding data — polia sú v JSONB stĺpci `data` (onboarding.js
+    // ukladá celý formData tam). Unwrap aby onboarding tab nezobrazoval pomlčky.
+    const { data: onboardingRow } = await Database.client
       .from('onboarding_responses')
       .select('*')
       .eq('client_id', project.client_id)
-      .single();
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const onboardingData = (onboardingRow?.data && typeof onboardingRow.data === 'object') ? onboardingRow.data : {};
+    const onboarding = onboardingRow ? { ...onboardingRow, ...onboardingData } : null;
 
     // Load ad groups + ads count
     let totalAds = 0;
@@ -687,15 +718,15 @@ const CampaignProjectsModule = {
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500">Rozpočet na reklamu</span>
-                <span class="font-medium">${project.ad_spend_budget || 0}€/mes</span>
+                <span class="font-medium">${Number(project.ad_spend_budget) || 0}€/mes</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500">Poplatok za správu</span>
-                <span class="font-medium">${project.management_fee || 0}€/mes</span>
+                <span class="font-medium">${Number(project.management_fee) || 0}€/mes</span>
               </div>
               <div class="flex justify-between border-t pt-2">
                 <span class="text-gray-500">Celkom</span>
-                <span class="font-bold text-lg">${project.total_monthly_budget || 0}€/mes</span>
+                <span class="font-bold text-lg">${(Number(project.ad_spend_budget) || 0) + (Number(project.management_fee) || 0)}€/mes</span>
               </div>
             </div>
           </div>
@@ -733,9 +764,9 @@ const CampaignProjectsModule = {
         <!-- Tab content: STRATEGY -->
         <div data-tab-content="strategy" class="space-y-6 hidden">
           ${project.strategy_summary ? `
-          <div class="card p-4 bg-purple-50">
-            <h4 class="font-semibold mb-2 text-purple-800">🎯 Stratégia</h4>
-            <p class="text-purple-700">${project.strategy_summary}</p>
+          <div class="card p-4">
+            <h4 class="font-semibold mb-3">🎯 Stratégia</h4>
+            <div class="md-content">${this.renderMd(project.strategy_summary)}</div>
           </div>
           ` : '<div class="text-gray-400 text-sm text-center py-8">Stratégia ešte nebola vygenerovaná</div>'}
 
@@ -1321,7 +1352,7 @@ const CampaignProjectsModule = {
       project.deployment_notes = note;
       if (this.selectedProject?.id === projectId) {
         this.selectedProject.deployment_notes = note;
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(project); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
       Utils.toast('Poznámka uložená', 'success');
@@ -1354,7 +1385,7 @@ const CampaignProjectsModule = {
       Utils.toast('🚀 Projekt nasadený a aktívny!', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
     } catch (error) {
       console.error('Mark deployed error:', error);
@@ -1480,6 +1511,56 @@ const CampaignProjectsModule = {
         
         <!-- Campaign Details (expandable) -->
         <div id="campaign-expand-${campaign.id}" class="hidden">
+          <!-- Inline edit fields (click to edit, blur saves) -->
+          <div class="p-4 border-b bg-white">
+            <div class="text-xs font-bold text-gray-500 uppercase mb-3 tracking-wider">Rýchla úprava</div>
+            <div class="grid md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Názov</label>
+                <input type="text" value="${(campaign.name || '').replace(/"/g, '&quot;')}"
+                  data-camp-id="${campaign.id}" data-camp-field="name"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'name', this.value)">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Denný rozpočet (€)</label>
+                <input type="number" min="0" step="1" value="${campaign.budget_daily || 0}"
+                  data-camp-id="${campaign.id}" data-camp-field="budget_daily"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'budget_daily', Number(this.value) || 0)">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Objective / cieľ</label>
+                <input type="text" value="${(campaign.objective || '').replace(/"/g, '&quot;')}"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'objective', this.value)">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Status</label>
+                <select onchange="CampaignProjectsModule.inlineSaveCampaign('${campaign.id}', 'status', this.value)"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors">
+                  <option value="draft" ${campaign.status === 'draft' ? 'selected' : ''}>Draft</option>
+                  <option value="active" ${campaign.status === 'active' ? 'selected' : ''}>Aktívna</option>
+                  <option value="paused" ${campaign.status === 'paused' ? 'selected' : ''}>Pozastavená</option>
+                  <option value="ended" ${campaign.status === 'ended' ? 'selected' : ''}>Ukončená</option>
+                </select>
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">Lokality <span class="text-gray-400">(oddelené čiarkou)</span></label>
+                <input type="text" value="${(targeting.locations || []).join(', ').replace(/"/g, '&quot;')}"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveTargeting('${campaign.id}', 'locations', this.value)">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-xs text-gray-500 mb-1">Hlavné kľúčové slová <span class="text-gray-400">(oddelené čiarkou)</span></label>
+                <input type="text" value="${(targeting.keywords || []).join(', ').replace(/"/g, '&quot;')}"
+                  class="w-full p-2 text-sm border rounded-lg hover:border-orange-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  onblur="CampaignProjectsModule.inlineSaveTargeting('${campaign.id}', 'keywords', this.value)">
+              </div>
+            </div>
+            <div class="text-xs text-gray-400 mt-2">💡 Klik na pole, napíš, klik mimo (alebo Tab) uloží automaticky.</div>
+          </div>
+
           <!-- Quick Stats -->
           <div class="p-4 bg-gray-50 border-b grid grid-cols-2 md:grid-cols-4 gap-3">
             ${targeting.locations?.length ? `
@@ -1818,7 +1899,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -1853,7 +1934,7 @@ const CampaignProjectsModule = {
       
       // Refresh detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
     } catch (error) {
       console.error('Delete campaign error:', error);
@@ -1903,11 +1984,15 @@ const CampaignProjectsModule = {
         
       case 'internal_review':
         actions.push(`
-          <button onclick="CampaignProjectsModule.requestRevision('${project.id}')" 
-            class="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200">
-            ✏️ Požiadať o revíziu
+          <button onclick="CampaignProjectsModule.openCreativesPage('${project.id}')"
+            class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
+            🎨 Kreatívy & prompty
           </button>
-          <button onclick="CampaignProjectsModule.approveInternal('${project.id}')" 
+          <button onclick="CampaignProjectsModule.regenerateWithFeedback('${project.id}')"
+            class="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200">
+            ✏️ Pregenerovať s pripomienkami
+          </button>
+          <button onclick="CampaignProjectsModule.approveInternal('${project.id}')"
             class="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">
             ✅ Schváliť pre klienta
           </button>
@@ -1935,9 +2020,21 @@ const CampaignProjectsModule = {
         
       case 'approved':
         actions.push(`
-          <button onclick="CampaignProjectsModule.deployProject('${project.id}')" 
+          <button onclick="CampaignProjectsModule.openCreativesPage('${project.id}')"
+            class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200">
+            🎨 Kreatívy & prompty
+          </button>
+          <button onclick="CampaignProjectsModule.exportCampaigns('${project.id}','google_editor')"
+            class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">
+            ⬇️ Google Ads Editor CSV
+          </button>
+          <button onclick="CampaignProjectsModule.exportCampaigns('${project.id}','meta_csv')"
+            class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200">
+            ⬇️ Meta Bulk CSV
+          </button>
+          <button onclick="CampaignProjectsModule.deployProject('${project.id}')"
             class="px-4 py-2 gradient-bg text-white rounded-lg hover:opacity-90">
-            🚀 Nasadiť kampane
+            🚀 Označiť ako nasadené
           </button>
         `);
         break;
@@ -1980,14 +2077,14 @@ const CampaignProjectsModule = {
     if (await this.updateStatus(projectId, newStatus)) {
       Utils.toast(`Status zmenený na: ${this.STATUSES[newStatus]?.label || newStatus}`, 'success');
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
       // Update detail if open
       if (this.selectedProject?.id === projectId) {
         const project = this.projects.find(p => p.id === projectId);
         if (project) {
           this.selectedProject = project;
-          document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+          { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(project); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
         }
       }
     }
@@ -1997,13 +2094,13 @@ const CampaignProjectsModule = {
     if (await this.updateStatus(projectId, 'active')) {
       Utils.toast('Projekt obnovený', 'success');
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
       if (this.selectedProject?.id === projectId) {
         const project = this.projects.find(p => p.id === projectId);
         if (project) {
           this.selectedProject = project;
-          document.getElementById('detail-content').innerHTML = await this.renderDetailContent(project);
+          { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(project); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
         }
       }
     }
@@ -2045,7 +2142,7 @@ const CampaignProjectsModule = {
       Utils.toast('Projekt vytvorený!', 'success');
       this.closeCreateModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
     } catch (error) {
       console.error('Create error:', error);
@@ -2065,7 +2162,7 @@ const CampaignProjectsModule = {
       Utils.toast('Projekt zmazaný', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
       
     } catch (error) {
       console.error('Delete error:', error);
@@ -2081,24 +2178,37 @@ const CampaignProjectsModule = {
     try {
       const { error } = await Database.client
         .from('campaign_projects')
-        .update({ 
+        .update({
           status: newStatus,
           updated_at: new Date().toISOString(),
           ...additionalData
         })
         .eq('id', projectId);
-      
+
       if (error) throw error;
-      
-      // Log to approval history
-      await Database.client.from('approval_history').insert({
-        entity_type: 'project',
-        entity_id: projectId,
-        action: 'status_change',
-        to_status: newStatus,
-        performer_type: 'admin'
-      });
-      
+
+      // Log to approval history — NEPOVINNÉ. Ak tabuľka approval_history
+      // neexistuje, nesmie to zhodiť celý status change (predtým to vracalo
+      // false → modál sa neprerenderoval + startGeneration sa nespustil).
+      try {
+        await Database.client.from('approval_history').insert({
+          entity_type: 'project',
+          entity_id: projectId,
+          action: 'status_change',
+          to_status: newStatus,
+          performer_type: 'admin'
+        });
+      } catch (histErr) {
+        console.warn('approval_history insert skipped:', histErr?.message);
+      }
+
+      // Update lokálny cache aby re-render videl nový status
+      const idx = this.projects.findIndex(p => p.id === projectId);
+      if (idx >= 0) this.projects[idx] = { ...this.projects[idx], status: newStatus, ...additionalData };
+      if (this.selectedProject?.id === projectId) {
+        this.selectedProject = { ...this.selectedProject, status: newStatus, ...additionalData };
+      }
+
       return true;
     } catch (error) {
       console.error('Status update error:', error);
@@ -2107,107 +2217,197 @@ const CampaignProjectsModule = {
     }
   },
   
-  async startGeneration(projectId) {
+  async startGeneration(projectId, extraInstruction = null) {
     const project = this.projects.find(p => p.id === projectId);
     if (!project) return;
-    
-    // Get onboarding_id for this client
-    const { data: onboarding } = await Database.client
+
+    // Get onboarding_id for this client (status submitted alebo akýkoľvek
+    // posledný — niektorí klienti môžu mať draft onboarding)
+    let { data: onboarding } = await Database.client
       .from('onboarding_responses')
       .select('id')
       .eq('client_id', project.client_id)
       .eq('status', 'submitted')
-      .single();
-    
+      .maybeSingle();
+    if (!onboarding) {
+      const { data: any } = await Database.client
+        .from('onboarding_responses')
+        .select('id')
+        .eq('client_id', project.client_id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      onboarding = any;
+    }
+
     if (!onboarding) {
       Utils.toast('Klient nemá vyplnený onboarding dotazník!', 'warning');
       return;
     }
-    
-    Utils.toast('Spúšťam AI generovanie... Môže trvať 30-60 sekúnd.', 'info');
-    
-    // Update UI immediately
-    if (await this.updateStatus(projectId, 'generating')) {
-      await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-      
-      try {
-        // Call Edge Function
-        const { data: { session } } = await Database.client.auth.getSession();
-        const token = session?.access_token || Config.SUPABASE_ANON_KEY;
-        
-        const response = await fetch(
-          'https://eidkljfaeqvvegiponwl.supabase.co/functions/v1/generate-campaigns',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              project_id: projectId,
-              onboarding_id: onboarding.id,
-              platforms: ['google_search', 'meta_facebook']
-            })
-          }
-        );
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          Utils.toast(`AI vygenerovalo ${result.campaigns_generated} kampaní! 🎉`, 'success');
-          
-          // Refresh data
-          await this.loadData();
-          document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-          
-          // Update detail modal if open
-          if (this.selectedProject?.id === projectId) {
-            const updatedProject = this.projects.find(p => p.id === projectId);
-            if (updatedProject) {
-              document.getElementById('detail-content').innerHTML = await this.renderDetailContent(updatedProject);
-            }
-          }
-        } else {
-          throw new Error(result.error || 'Neznáma chyba');
-        }
-        
-      } catch (error) {
-        console.error('AI generation error:', error);
-        Utils.toast('Chyba pri generovaní: ' + error.message, 'error');
-        
-        // Revert status
-        await this.updateStatus(projectId, 'draft');
-        await this.loadData();
-        document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+
+    Utils.toast(extraInstruction
+      ? 'Pregenerovávam návrh s vašimi pripomienkami... 1-3 min.'
+      : 'Spúšťam AI generovanie na pozadí... Môže trvať 1-3 minúty.', 'info');
+
+    // Set status to generating (notes vyčistí background fn po úspechu)
+    if (!await this.updateStatus(projectId, 'generating')) return;
+
+    // Background trigger HNEĎ — aby žiadny DOM problém neblokoval spustenie.
+    // Netlify funkcia s -background postfixom beží do 15 min.
+    fetch('/.netlify/functions/generate-campaigns-background', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: projectId,
+        onboarding_id: onboarding.id,
+        platforms: ['google_search', 'meta_facebook'],
+        extra_instruction: extraInstruction || undefined,
+      }),
+    }).catch(err => console.warn('[startGeneration] trigger error (expected for background):', err));
+
+    // UI refresh — null-safe (grid nemusí existovať keď sme v modáli)
+    await this.loadData();
+    const gridEl = document.getElementById('projects-grid');
+    if (gridEl) gridEl.innerHTML = this.renderProjectsGrid();
+    if (this.selectedProject?.id === projectId) {
+      const updated = this.projects.find(p => p.id === projectId);
+      const detailEl = document.getElementById('detail-content');
+      if (updated && detailEl) {
+        this.selectedProject = updated;
+        detailEl.innerHTML = await this.renderDetailContent(updated);
       }
     }
+
+    // Poll DB každých 4s, max 5 minút
+    const startTime = Date.now();
+    const maxWaitMs = 5 * 60 * 1000;
+    const poll = async () => {
+      if (Date.now() - startTime > maxWaitMs) {
+        Utils.toast('Generovanie trvá dlho — skontroluj #projects o pár minút', 'warning');
+        return;
+      }
+      const { data: fresh } = await Database.client
+        .from('campaign_projects')
+        .select('status, notes')
+        .eq('id', projectId)
+        .single();
+      if (!fresh) return;
+
+      if (fresh.status === 'internal_review') {
+        Utils.toast('AI dokončila generovanie 🎉', 'success');
+        await this.loadData();
+        const g = document.getElementById('projects-grid');
+        if (g) g.innerHTML = this.renderProjectsGrid();
+        if (this.selectedProject?.id === projectId) {
+          const updated = this.projects.find(p => p.id === projectId);
+          const d = document.getElementById('detail-content');
+          if (updated && d) {
+            this.selectedProject = updated;
+            d.innerHTML = await this.renderDetailContent(updated);
+          }
+        }
+        return;
+      }
+      if (fresh.status === 'draft' && fresh.notes?.startsWith('AI error:')) {
+        Utils.toast('AI generovanie zlyhalo: ' + fresh.notes.replace(/^AI error:\s*/, ''), 'error');
+        await this.loadData();
+        const g2 = document.getElementById('projects-grid');
+        if (g2) g2.innerHTML = this.renderProjectsGrid();
+        return;
+      }
+      // Stále 'generating' → ďalší pokus
+      setTimeout(poll, 4000);
+    };
+    setTimeout(poll, 6000);  // prvý check po 6s (Claude + research zaberie čas)
   },
   
+  // Quick action — projekt má kampane ale zostal v draft (background fn
+  // úspešne uložila kampane ale status flip zlyhal, alebo admin si stratil
+  // checkbox stav). Manuálne povýšenie na internal_review aby sa otvoril
+  // schvaľovací flow.
+  async promoteToReview(projectId) {
+    if (!await this.updateStatus(projectId, 'internal_review')) return;
+    Utils.toast('Projekt povýšený na Internú kontrolu', 'success');
+    if (window.Router?.currentRoute === 'project') {
+      await window.ProjectDetailModule?._renderApp?.();
+    } else {
+      await this.loadData();
+      const g = document.getElementById('projects-grid');
+      if (g) g.innerHTML = this.renderProjectsGrid();
+    }
+  },
+
   async approveInternal(projectId) {
-    if (await this.updateStatus(projectId, 'client_review', {
+    // Pýtaj sa či poslať email klientovi — default ÁNO, ale ak admin chce
+    // ešte review portál layout pred odoslaním, môže dať Nie a poslať
+    // ručne neskôr tlačidlom „Poslať klientovi email".
+    const sendEmail = await Utils.confirm(
+      'Po schválení automaticky pošleme klientovi email s odkazom na portál.\n\nPoslať email teraz?',
+      { title: 'Schváliť pre klienta', confirmText: 'Áno, schváliť + poslať email', cancelText: 'Nie, len schváliť' }
+    );
+    // Utils.confirm vráti true/false — false = "len schváliť" (nezrušiť celú akciu)
+
+    if (!await this.updateStatus(projectId, 'client_review', {
       internal_approved_at: new Date().toISOString()
-    })) {
-      Utils.toast('Projekt schválený pre klienta', 'success');
-      this.closeDetailModal();
-      await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+    })) return;
+
+    Utils.toast('Projekt schválený pre klienta', 'success');
+
+    if (sendEmail) {
+      // Generuj token ak chýba, pošli email
+      try {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project && !project.client_portal_token) {
+          await this.generateClientLink(projectId);
+        }
+        await this.sendProposalToClient(projectId);
+      } catch (e) {
+        console.warn('Auto-email after approval failed:', e);
+        Utils.toast('Schválené, ale email sa nepodarilo poslať: ' + e.message, 'warning');
+      }
     }
+
+    this.closeDetailModal();
+    await this.loadData();
+    { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
   },
   
+  // Interná revízia — admin napíše vlastnými slovami čo chce zmeniť a AI
+  // pregeneruje celý návrh so zapracovaním pripomienok.
+  regenerateWithFeedback(projectId) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.id = 'regen-modal';
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6">
+        <h2 class="text-xl font-bold mb-2">✏️ Pregenerovať s pripomienkami</h2>
+        <p class="text-sm text-gray-600 mb-4">Napíšte vlastnými slovami čo chcete na návrhu zmeniť. AI prepracuje celý návrh a zapracuje vaše pripomienky. Pôvodné kampane sa nahradia novými.</p>
+        <textarea id="regen-feedback" rows="6" class="w-full p-3 border rounded-xl text-sm"
+          placeholder="Napr.: Pridaj samostatnú kampaň na tepelné čerpadlá na zimnú sezónu. Headlines nech viac tlačia bezplatnú obhliadku. Daj väčší budget na Google ako na Meta. Cieli viac na okres Liptovský Mikuláš."></textarea>
+        <div class="flex justify-end gap-3 mt-4">
+          <button onclick="document.getElementById('regen-modal').remove()"
+            class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200">Zrušiť</button>
+          <button onclick="CampaignProjectsModule.submitRegeneration('${projectId}')"
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">🤖 Pregenerovať</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('regen-feedback')?.focus(), 50);
+  },
+
+  async submitRegeneration(projectId) {
+    const feedback = document.getElementById('regen-feedback')?.value?.trim();
+    document.getElementById('regen-modal')?.remove();
+    // Spustí to isté generovanie ako pri prvom behu, ale s pripomienkami.
+    // startGeneration nastaví status na generating + pollne výsledok.
+    await this.startGeneration(projectId, feedback || null);
+  },
+
+  // Pôvodná revízia bez pregenerovania (len vráti status — ponechané pre
+  // kompatibilitu, ale UI teraz preferuje regenerateWithFeedback)
   async requestRevision(projectId) {
-    const reason = prompt('Dôvod revízie:');
-    if (!reason) return;
-    
-    if (await this.updateStatus(projectId, 'revision', {
-      internal_notes: reason,
-      revision_count: (this.selectedProject?.revision_count || 0) + 1
-    })) {
-      Utils.toast('Projekt vrátený na revíziu', 'success');
-      this.closeDetailModal();
-      await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-    }
+    return this.regenerateWithFeedback(projectId);
   },
   
   async simulateClientApproval(projectId) {
@@ -2217,24 +2417,289 @@ const CampaignProjectsModule = {
       Utils.toast('Klient schválil projekt!', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
     }
   },
   
   async deployProject(projectId) {
-    Utils.toast('Nasadzovanie kampaní...', 'info');
-    
-    if (await this.updateStatus(projectId, 'deploying')) {
-      // TODO: Export to Google/Meta APIs
-      setTimeout(async () => {
-        await this.updateStatus(projectId, 'active', {
-          actual_start_date: new Date().toISOString().split('T')[0]
-        });
-        Utils.toast('Kampane nasadené!', 'success');
-        this.closeDetailModal();
-        await this.loadData();
-        document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
-      }, 2000);
+    const confirmed = await Utils.confirm(
+      'Označiť ako nasadené?\n\nUisti sa že si CSV exporty importoval do Google Ads Editor / Meta Bulk Editor a kampane sú live. Status sa zmení na "Aktívna" a sync metrík začne bežať.',
+      { title: 'Nasadenie kampaní', confirmText: 'Áno, nasadené', cancelText: 'Späť' }
+    );
+    if (!confirmed) return;
+
+    if (await this.updateStatus(projectId, 'active', {
+      actual_start_date: new Date().toISOString().split('T')[0]
+    })) {
+      Utils.toast('Kampane označené ako aktívne. Sync metrík začne pri ďalšom 2h cykle.', 'success');
+      this.closeDetailModal();
+      await this.loadData();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
+    }
+  },
+
+  // Polo-automatický export — admin stiahne CSV a importuje manuálne do
+  // Google Ads Editor (https://ads.google.com/intl/sk_sk/home/tools/ads-editor/)
+  // alebo Meta Bulk Editor.
+  exportCampaigns(projectId, format) {
+    const url = `/.netlify/functions/export-campaigns?project_id=${encodeURIComponent(projectId)}&format=${encodeURIComponent(format)}`;
+    // Otvoríme v novom okne — prehliadač spustí download cez Content-Disposition
+    window.location.href = url;
+    Utils.toast(`Sťahujem ${format === 'google_editor' ? 'Google Ads' : 'Meta'} CSV...`, 'info');
+  },
+
+  // Otvorí celú stránku kreatív (wizard) — namiesto modal-u (modules/creatives/creatives.js).
+  openCreativesPage(projectId) {
+    this.closeDetailModal?.();
+    Router.navigate('creatives', { project_id: projectId });
+  },
+
+  // Kreatívy & image prompts modal — admin si tu pozrie všetky reklamy,
+  // skopíruje image_prompt do DALL·E/Midjourney/Flux a uploadne výsledok.
+  async viewCreatives(projectId) {
+    Utils.toast('Načítavam kreatívy...', 'info');
+    try {
+      const { data: campaigns } = await Database.client
+        .from('campaigns').select('id, name, platform, campaign_type').eq('project_id', projectId);
+      const campaignIds = (campaigns || []).map(c => c.id);
+      if (campaignIds.length === 0) return Utils.toast('Žiadne kampane', 'warning');
+
+      const { data: adGroups } = await Database.client
+        .from('ad_groups').select('id, name, campaign_id').in('campaign_id', campaignIds);
+      const adGroupIds = (adGroups || []).map(g => g.id);
+
+      const { data: ads } = await Database.client
+        .from('ads').select('*').in('ad_group_id', adGroupIds);
+
+      const adsByGroup = new Map();
+      for (const ad of (ads || [])) {
+        if (!adsByGroup.has(ad.ad_group_id)) adsByGroup.set(ad.ad_group_id, []);
+        adsByGroup.get(ad.ad_group_id).push(ad);
+      }
+      const groupsByCampaign = new Map();
+      for (const g of (adGroups || [])) {
+        if (!groupsByCampaign.has(g.campaign_id)) groupsByCampaign.set(g.campaign_id, []);
+        groupsByCampaign.get(g.campaign_id).push(g);
+      }
+
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+      const statusBadge = (s) => ({
+        pending:  '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:9999px;font-size:11px;">⏳ Čaká</span>',
+        uploaded: '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:9999px;font-size:11px;">📤 Nahrané</span>',
+        approved: '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9999px;font-size:11px;">✓ Schválené</span>',
+        skipped:  '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:9999px;font-size:11px;">— Search ad</span>',
+      })[s] || '';
+
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+      modal.id = 'creatives-modal';
+      modal.innerHTML = `
+        <div class="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div class="p-5 border-b flex items-center justify-between gap-4">
+            <h2 class="text-xl font-bold">🎨 Kreatívy a image prompty</h2>
+            <button onclick="document.getElementById('creatives-modal').remove()" class="text-2xl text-gray-400 hover:text-gray-700">×</button>
+          </div>
+          <div class="overflow-y-auto p-5 space-y-6 flex-1">
+            ${campaigns.map(c => `
+              <div class="border rounded-xl overflow-hidden">
+                <div class="bg-gray-50 px-4 py-2 font-semibold flex items-center gap-2">
+                  <span>${c.platform === 'google' ? '🔍' : '📘'}</span>
+                  <span>${esc(c.name)}</span>
+                  <span class="text-xs text-gray-500 ml-auto">${esc(c.campaign_type)}</span>
+                </div>
+                ${(groupsByCampaign.get(c.id) || []).map(g => `
+                  <div class="p-4 border-t">
+                    <div class="text-sm font-medium text-gray-700 mb-2">📁 ${esc(g.name)}</div>
+                    <div class="space-y-3">
+                      ${(adsByGroup.get(g.id) || []).map(ad => `
+                        <div class="border rounded-lg p-3 bg-white" id="ad-card-${ad.id}">
+                          <div class="flex justify-between items-start mb-2">
+                            <div class="font-medium text-sm">${esc((ad.headlines && ad.headlines[0]) || 'Reklama')}</div>
+                            <span id="status-${ad.id}">${statusBadge(ad.image_status)}</span>
+                          </div>
+                          ${ad.image_prompt ? `
+                            <details class="mb-2">
+                              <summary class="text-xs text-purple-600 cursor-pointer">📋 Image prompt (klik na zobrazenie / kopírovanie)</summary>
+                              <div class="mt-2 p-2 bg-purple-50 rounded text-xs font-mono whitespace-pre-wrap">${esc(ad.image_prompt)}</div>
+                              <button onclick="navigator.clipboard.writeText(${JSON.stringify(ad.image_prompt)}); Utils.toast('Prompt skopírovaný', 'success');"
+                                class="mt-1 text-xs px-2 py-1 bg-purple-600 text-white rounded">Skopírovať prompt</button>
+                              <span class="text-xs text-gray-500 ml-2">Aspect: ${esc(ad.image_aspect_ratio || '1:1')}</span>
+                            </details>
+
+                            <div id="image-zone-${ad.id}" class="border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-indigo-400 transition-colors"
+                                 ondragover="event.preventDefault(); this.classList.add('border-indigo-500','bg-indigo-50');"
+                                 ondragleave="this.classList.remove('border-indigo-500','bg-indigo-50');"
+                                 ondrop="event.preventDefault(); this.classList.remove('border-indigo-500','bg-indigo-50'); CampaignProjectsModule.handleAdImageDrop('${ad.id}','${projectId}', event);">
+                              ${ad.image_url ? `
+                                <div class="flex items-start gap-3">
+                                  <img src="${esc(ad.image_url)}" alt="Ad preview" class="w-24 h-24 object-cover rounded border" onerror="this.style.display='none';">
+                                  <div class="flex-1 text-xs">
+                                    <div class="text-gray-600 break-all mb-2">${esc(ad.image_url)}</div>
+                                    <div class="flex gap-2 flex-wrap">
+                                      <label class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200">
+                                        🔄 Zmeniť
+                                        <input type="file" accept="image/*" class="hidden"
+                                          onchange="CampaignProjectsModule.uploadAdImage('${ad.id}','${projectId}', this.files[0]);">
+                                      </label>
+                                      ${ad.image_status !== 'approved' ? `
+                                        <button onclick="CampaignProjectsModule.approveAdImage('${ad.id}')"
+                                          class="text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">✓ Schváliť</button>
+                                      ` : ''}
+                                      <a href="${esc(ad.image_url)}" target="_blank" class="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded">Plný náhľad ↗</a>
+                                    </div>
+                                  </div>
+                                </div>
+                              ` : `
+                                <label class="block text-center cursor-pointer">
+                                  <div class="text-2xl mb-1">📤</div>
+                                  <div class="text-sm font-medium text-gray-700">Nahrať obrázok</div>
+                                  <div class="text-xs text-gray-500 mt-1">Klik alebo drag-drop (max 10 MB · JPG/PNG/WebP)</div>
+                                  <input type="file" accept="image/*" class="hidden"
+                                    onchange="CampaignProjectsModule.uploadAdImage('${ad.id}','${projectId}', this.files[0]);">
+                                </label>
+                              `}
+                            </div>
+                          ` : `
+                            <div class="text-xs text-gray-500">Search reklama — bez obrázka</div>
+                          `}
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `).join('')}
+          </div>
+          <div class="p-4 border-t bg-gray-50 flex justify-between items-center">
+            <div class="text-xs text-gray-600">
+              💡 Skopíruj prompt → vygeneruj obrázok v DALL·E / Midjourney / Flux → nahraj výsledok do Supabase Storage alebo Imgur → vlož URL sem.
+            </div>
+            <button onclick="document.getElementById('creatives-modal').remove()" class="px-4 py-2 bg-gray-200 rounded-lg">Zavrieť</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    } catch (e) {
+      console.error('viewCreatives error:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
+  handleAdImageDrop(adId, projectId, event) {
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    this.uploadAdImage(adId, projectId, file);
+  },
+
+  // Upload obrázka do Supabase Storage bucket `assets` pod cestou
+  // ad-creatives/<project_id>/<ad_id>-<ts>.<ext>. URL sa uloží do ads.image_url.
+  // Status: pending → uploaded (admin ešte musí klik "✓ Schváliť").
+  async uploadAdImage(adId, projectId, file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return Utils.toast('Iba obrázky', 'warning');
+    if (file.size > 10 * 1024 * 1024) return Utils.toast('Max 10 MB', 'warning');
+
+    const zone = document.getElementById(`image-zone-${adId}`);
+    if (zone) zone.innerHTML = '<div class="text-center text-sm text-gray-600 py-4">⏳ Nahrávam…</div>';
+
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+      const path = `ad-creatives/${projectId}/${adId}-${Date.now()}.${ext}`;
+      const { error: upErr } = await Database.client.storage
+        .from('assets')
+        .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type });
+      if (upErr) {
+        const msg = upErr.message?.includes('Bucket not found')
+          ? 'Storage bucket "assets" neexistuje. Vytvor ho v Supabase → Storage (public read).'
+          : 'Upload zlyhal: ' + upErr.message;
+        throw new Error(msg);
+      }
+      const { data: urlData } = Database.client.storage.from('assets').getPublicUrl(path);
+      const imageUrl = urlData.publicUrl;
+
+      const { error: dbErr } = await Database.client
+        .from('ads')
+        .update({ image_url: imageUrl, image_status: 'uploaded' })
+        .eq('id', adId);
+      if (dbErr) throw dbErr;
+
+      Utils.toast('Obrázok nahraný — môžeš ho schváliť', 'success');
+      await this._refreshAdCard(adId, projectId);
+    } catch (e) {
+      Utils.toast(e.message, 'error');
+      // Reset zone aby user mohol skúsiť znova
+      await this._refreshAdCard(adId, projectId);
+    }
+  },
+
+  async approveAdImage(adId) {
+    try {
+      const { error } = await Database.client
+        .from('ads')
+        .update({ image_status: 'approved' })
+        .eq('id', adId);
+      if (error) throw error;
+      Utils.toast('Obrázok schválený', 'success');
+
+      // Update badge inline bez re-fetchu
+      const badge = document.getElementById(`status-${adId}`);
+      if (badge) badge.innerHTML = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9999px;font-size:11px;">✓ Schválené</span>';
+      // Hide "Schváliť" button v karte
+      const card = document.getElementById(`ad-card-${adId}`);
+      const approveBtn = card?.querySelector('button[onclick*="approveAdImage"]');
+      if (approveBtn) approveBtn.remove();
+    } catch (e) {
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
+  // Re-render single ad karty po upload/zmene — vyhne sa zatvoreniu celého modal-u
+  async _refreshAdCard(adId, projectId) {
+    const card = document.getElementById(`ad-card-${adId}`);
+    if (!card) return;
+    const { data: ad } = await Database.client.from('ads').select('*').eq('id', adId).single();
+    if (!ad) return;
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const zone = document.getElementById(`image-zone-${adId}`);
+    if (!zone || !ad.image_prompt) return;
+    zone.innerHTML = ad.image_url ? `
+      <div class="flex items-start gap-3">
+        <img src="${esc(ad.image_url)}" alt="Ad preview" class="w-24 h-24 object-cover rounded border" onerror="this.style.display='none';">
+        <div class="flex-1 text-xs">
+          <div class="text-gray-600 break-all mb-2">${esc(ad.image_url)}</div>
+          <div class="flex gap-2 flex-wrap">
+            <label class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200">
+              🔄 Zmeniť
+              <input type="file" accept="image/*" class="hidden"
+                onchange="CampaignProjectsModule.uploadAdImage('${adId}','${projectId}', this.files[0]);">
+            </label>
+            ${ad.image_status !== 'approved' ? `
+              <button onclick="CampaignProjectsModule.approveAdImage('${adId}')"
+                class="text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700">✓ Schváliť</button>
+            ` : ''}
+            <a href="${esc(ad.image_url)}" target="_blank" class="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded">Plný náhľad ↗</a>
+          </div>
+        </div>
+      </div>
+    ` : `
+      <label class="block text-center cursor-pointer">
+        <div class="text-2xl mb-1">📤</div>
+        <div class="text-sm font-medium text-gray-700">Nahrať obrázok</div>
+        <div class="text-xs text-gray-500 mt-1">Klik alebo drag-drop (max 10 MB · JPG/PNG/WebP)</div>
+        <input type="file" accept="image/*" class="hidden"
+          onchange="CampaignProjectsModule.uploadAdImage('${adId}','${projectId}', this.files[0]);">
+      </label>
+    `;
+    const badge = document.getElementById(`status-${adId}`);
+    if (badge) {
+      const map = {
+        pending:  '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:9999px;font-size:11px;">⏳ Čaká</span>',
+        uploaded: '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:9999px;font-size:11px;">📤 Nahrané</span>',
+        approved: '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:9999px;font-size:11px;">✓ Schválené</span>',
+        skipped:  '<span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:9999px;font-size:11px;">— Search ad</span>',
+      };
+      badge.innerHTML = map[ad.image_status] || '';
     }
   },
   
@@ -2243,7 +2708,7 @@ const CampaignProjectsModule = {
       Utils.toast('Projekt pozastavený', 'success');
       this.closeDetailModal();
       await this.loadData();
-      document.getElementById('projects-grid').innerHTML = this.renderProjectsGrid();
+      { const g = document.getElementById('projects-grid'); if (g) g.innerHTML = this.renderProjectsGrid(); }
     }
   },
   
@@ -2252,7 +2717,127 @@ const CampaignProjectsModule = {
   // ==========================================
   
   editProject(projectId) {
-    Utils.toast('Editácia projektu - pripravuje sa', 'info');
+    const project = this.projects.find(p => p.id === projectId) || this.selectedProject;
+    if (!project) return Utils.toast('Projekt nenájdený', 'error');
+
+    const modal = document.createElement('div');
+    modal.id = 'edit-project-modal';
+    modal.className = 'fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col">
+        <div class="p-5 border-b flex items-center justify-between">
+          <h2 class="text-lg font-bold">✏️ Upraviť projekt</h2>
+          <button onclick="document.getElementById('edit-project-modal').remove()"
+            class="text-2xl text-gray-400 hover:text-gray-700">×</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Názov projektu</label>
+            <input type="text" id="ep-name" value="${(project.name || '').replace(/"/g, '&quot;')}"
+              class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Popis</label>
+            <textarea id="ep-description" rows="3"
+              class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">${project.description || ''}</textarea>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Rozpočet na reklamu (€/mes)</label>
+              <input type="number" min="0" step="10" id="ep-ad-spend" value="${Number(project.ad_spend_budget) || 0}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Poplatok za správu (€/mes)</label>
+              <input type="number" min="0" step="10" id="ep-mgmt-fee" value="${Number(project.management_fee) || 0}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Plánovaný štart</label>
+              <input type="date" id="ep-start" value="${project.planned_start_date || ''}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Plánovaný koniec</label>
+              <input type="date" id="ep-end" value="${project.planned_end_date || ''}"
+                class="w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+            </div>
+          </div>
+          <div class="p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
+            💡 Celkový mesačný náklad: <strong id="ep-total" class="text-gray-900">${(Number(project.ad_spend_budget) || 0) + (Number(project.management_fee) || 0)}€/mes</strong>
+          </div>
+        </div>
+        <div class="p-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button onclick="document.getElementById('edit-project-modal').remove()"
+            class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Zrušiť</button>
+          <button onclick="CampaignProjectsModule.saveProjectEdit('${projectId}')"
+            class="px-5 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium">💾 Uložiť</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Live total budget update
+    const updateTotal = () => {
+      const a = Number(document.getElementById('ep-ad-spend').value) || 0;
+      const m = Number(document.getElementById('ep-mgmt-fee').value) || 0;
+      const t = document.getElementById('ep-total');
+      if (t) t.textContent = `${a + m}€/mes`;
+    };
+    document.getElementById('ep-ad-spend')?.addEventListener('input', updateTotal);
+    document.getElementById('ep-mgmt-fee')?.addEventListener('input', updateTotal);
+
+    setTimeout(() => document.getElementById('ep-name')?.focus(), 50);
+  },
+
+  async saveProjectEdit(projectId) {
+    const name = document.getElementById('ep-name')?.value?.trim();
+    const description = document.getElementById('ep-description')?.value?.trim() || null;
+    const adSpend = Number(document.getElementById('ep-ad-spend')?.value) || 0;
+    const mgmtFee = Number(document.getElementById('ep-mgmt-fee')?.value) || 0;
+    const plannedStart = document.getElementById('ep-start')?.value || null;
+    const plannedEnd = document.getElementById('ep-end')?.value || null;
+
+    if (!name) return Utils.toast('Názov je povinný', 'warning');
+
+    try {
+      const { error } = await Database.client.from('campaign_projects').update({
+        name,
+        description,
+        ad_spend_budget: adSpend,
+        management_fee: mgmtFee,
+        total_monthly_budget: adSpend + mgmtFee,
+        planned_start_date: plannedStart,
+        planned_end_date: plannedEnd,
+        updated_at: new Date().toISOString(),
+      }).eq('id', projectId);
+
+      if (error) throw error;
+
+      // Update lokálny cache
+      const idx = this.projects.findIndex(p => p.id === projectId);
+      if (idx >= 0) Object.assign(this.projects[idx], {
+        name, description, ad_spend_budget: adSpend, management_fee: mgmtFee,
+        total_monthly_budget: adSpend + mgmtFee, planned_start_date: plannedStart, planned_end_date: plannedEnd
+      });
+      if (this.selectedProject?.id === projectId) Object.assign(this.selectedProject, this.projects[idx] || {});
+
+      document.getElementById('edit-project-modal')?.remove();
+      Utils.toast('Projekt uložený', 'success');
+
+      // Refresh page (project-detail je open) alebo grid
+      if (window.Router?.currentRoute === 'project') {
+        await window.ProjectDetailModule?._renderApp?.();
+      } else {
+        const g = document.getElementById('projects-grid');
+        if (g) g.innerHTML = this.renderProjectsGrid();
+      }
+    } catch (e) {
+      console.error('saveProjectEdit:', e);
+      Utils.toast('Chyba pri ukladaní: ' + e.message, 'error');
+    }
   },
   
   addCampaign(projectId) {
@@ -2294,7 +2879,7 @@ const CampaignProjectsModule = {
       // Refresh detail if open
       if (this.selectedProject?.id === projectId) {
         this.selectedProject.client_portal_token = token;
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -2342,11 +2927,47 @@ const CampaignProjectsModule = {
     }
     
     const proposalUrl = `${window.location.origin}/portal/proposal.html?t=${project.client_portal_token}`;
-    
+    const pdfUrl = `${window.location.origin}/.netlify/functions/proposal-html?token=${project.client_portal_token}&print=1`;
+
+    // Spočítaj zhrnutie pre premium email — kampane, reklamy, mesačný rozpočet, platformy
+    let campaignsCount = 0, adsCount = 0, monthlyBudget = 0, platforms = '';
+    try {
+      const { data: camps } = await Database.client
+        .from('campaigns').select('id, platform, budget_daily').eq('project_id', projectId);
+      campaignsCount = (camps || []).length;
+      const platformSet = new Set();
+      for (const c of (camps || [])) {
+        monthlyBudget += (Number(c.budget_daily) || 0) * 30;
+        if (c.platform === 'google') platformSet.add('Google Ads');
+        else if (c.platform === 'meta') platformSet.add('Meta (Facebook + Instagram)');
+        else if (c.platform) platformSet.add(c.platform);
+      }
+      platforms = Array.from(platformSet).join(' · ');
+      monthlyBudget = Math.round(monthlyBudget);
+      if (camps?.length) {
+        const { count } = await Database.client.from('ad_groups')
+          .select('id, ads(id)', { count: 'exact', head: false })
+          .in('campaign_id', camps.map(c => c.id));
+        // count tu reprezentuje ad_groups; pre presný počet reklám:
+        const { data: ags } = await Database.client.from('ad_groups').select('id').in('campaign_id', camps.map(c => c.id));
+        if (ags?.length) {
+          const { count: adsTotal } = await Database.client.from('ads')
+            .select('id', { count: 'exact', head: true }).in('ad_group_id', ags.map(g => g.id));
+          adsCount = adsTotal || 0;
+        }
+      }
+    } catch (e) { console.warn('Email summary fetch failed:', e); }
+
     // HTML email
     if (window.EmailTemplates) await EmailTemplates.ensureSettings();
     const htmlBody = window.EmailTemplates
-      ? EmailTemplates.campaignProposal({ contactName: client.contact_person, companyName: client.company_name, projectName: project.name, proposalUrl })
+      ? EmailTemplates.campaignProposal({
+          contactName: client.contact_person,
+          companyName: client.company_name,
+          projectName: project.name,
+          proposalUrl, pdfUrl,
+          campaignsCount, adsCount, monthlyBudget, platforms,
+        })
       : '<p>Pozrite si návrh kampane: <a href="' + proposalUrl + '">' + proposalUrl + '</a></p>';
     
     try {
@@ -2404,6 +3025,40 @@ const CampaignProjectsModule = {
   // CAMPAIGN EDITING
   // ==========================================
   
+  // Inline edit pre kampaň (názov, budget, status, objective)
+  async inlineSaveCampaign(campaignId, field, value) {
+    try {
+      const { error } = await Database.client.from('campaigns')
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq('id', campaignId);
+      if (error) throw error;
+      Utils.toast('Uložené', 'success');
+    } catch (e) {
+      console.error('inlineSaveCampaign:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
+  // Inline edit pre targeting JSONB pole (locations, keywords)
+  async inlineSaveTargeting(campaignId, key, csvValue) {
+    const arr = String(csvValue || '').split(',').map(s => s.trim()).filter(Boolean);
+    try {
+      // Načítaj aktuálne targeting
+      const { data: row } = await Database.client.from('campaigns')
+        .select('targeting').eq('id', campaignId).single();
+      const targeting = row?.targeting || {};
+      targeting[key] = arr;
+      const { error } = await Database.client.from('campaigns')
+        .update({ targeting, updated_at: new Date().toISOString() })
+        .eq('id', campaignId);
+      if (error) throw error;
+      Utils.toast(`Uložené (${arr.length})`, 'success');
+    } catch (e) {
+      console.error('inlineSaveTargeting:', e);
+      Utils.toast('Chyba: ' + e.message, 'error');
+    }
+  },
+
   async editCampaign(campaignId) {
     // Load campaign data
     const { data: campaign, error } = await Database.client
@@ -2645,7 +3300,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -2769,7 +3424,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3040,7 +3695,7 @@ const CampaignProjectsModule = {
       this.closeAdEditModal();
       
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
     } catch (error) {
       console.error('Delete ad error:', error);
@@ -3121,7 +3776,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3178,7 +3833,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3228,7 +3883,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {
@@ -3266,7 +3921,7 @@ const CampaignProjectsModule = {
       
       // Refresh project detail
       if (this.selectedProject) {
-        document.getElementById('detail-content').innerHTML = await this.renderDetailContent(this.selectedProject);
+        { const d = document.getElementById('detail-content'); if (d) { d.innerHTML = await this.renderDetailContent(this.selectedProject); window.ProjectDetailModule?._switchTabUI?.(window.ProjectDetailModule.currentTab); } }
       }
       
     } catch (error) {

@@ -41,6 +41,41 @@ async function findProspectByEmail(email) {
   return data;
 }
 
+async function findLeadByEmail(email) {
+  if (!email) return null;
+  const { data } = await supabase
+    .from('leads')
+    .select('id, company_name, email, proposal_bounced_at')
+    .ilike('email', email)
+    .maybeSingle();
+  return data;
+}
+
+// Bounce/complaint update na lead — webhook môže pre rovnaký email
+// nájsť aj prospecta aj lead (rovnaký kontakt v outreach + v leadoch).
+// Update oboje aby user videl status na obi miestach.
+async function updateLeadFromWebhook(eventType, lead, data) {
+  if (!lead) return;
+  const now = new Date().toISOString();
+  if (eventType === 'email.bounced' || eventType === 'email.complained') {
+    const reason = data?.bounce?.message
+      || data?.bounce?.subType
+      || data?.reason
+      || (eventType === 'email.complained' ? 'Spam complaint' : 'Email bounced');
+    await supabase.from('leads').update({
+      proposal_bounced_at: now,
+      proposal_bounce_reason: String(reason).slice(0, 500),
+      status: 'bounced',
+    }).eq('id', lead.id);
+    console.log('[resend-webhook] Lead', lead.id, 'marked bounced:', reason);
+  } else if (eventType === 'email.opened' && !lead.proposal_opened_at) {
+    // Iba prvé otvorenie — aby sa updated_at nepretláčal pri každom open
+    await supabase.from('leads').update({
+      proposal_opened_at: now,
+    }).eq('id', lead.id);
+  }
+}
+
 exports.handler = async (event) => {
   const cors = { 'Access-Control-Allow-Origin': '*' };
 
@@ -59,13 +94,23 @@ exports.handler = async (event) => {
   const now = new Date().toISOString();
 
   try {
-    const prospect = await findProspectByEmail(to);
-    if (!prospect) {
-      console.log('[resend-webhook]', type, 'no prospect for', to);
-      return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true, matched: false }) };
-    }
-
     const eventType = String(type || '').toLowerCase();
+    // Paralelný lookup: rovnaký email môže byť v prospects (outreach) aj v
+    // leads (po konverzii / manuálnom pridaní). Update na oboch tabuľkách
+    // aby sa user dozvedel o bounce/complaint/open bez ohľadu na to
+    // odkiaľ lead vidí.
+    const [prospect, lead] = await Promise.all([
+      findProspectByEmail(to),
+      findLeadByEmail(to),
+    ]);
+
+    // Vždy updatuj lead ak existuje (nezávislé od prospect-u)
+    await updateLeadFromWebhook(eventType, lead, data);
+
+    if (!prospect) {
+      console.log('[resend-webhook]', type, 'no prospect for', to, lead ? `(but lead ${lead.id} updated)` : '');
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true, matched_prospect: false, matched_lead: !!lead }) };
+    }
 
     if (eventType === 'email.bounced' || eventType === 'email.complained') {
       await supabase.from('prospects').update({

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Klientský portál | Adlify</title>
-    <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+    <link rel="icon" type="image/png" href="https://eidkljfaeqvvegiponwl.supabase.co/storage/v1/object/public/assets/brand/logo_url_1771774258989.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -441,10 +441,16 @@
 
         /* ===== Profile header (settings) ===== */
         .pt-profile-head {
-            display: flex; gap: 20px; align-items: center;
+            display: flex; flex-wrap: wrap; gap: 20px; align-items: center;
             margin-bottom: 20px; padding-bottom: 20px;
             border-bottom: 1px solid var(--border);
         }
+        .pt-profile-head-info { flex: 1 1 200px; min-width: 0; }
+        .pt-profile-head-actions {
+            display: flex; flex-direction: column; gap: 6px;
+            flex-shrink: 0; align-items: stretch;
+        }
+        .pt-profile-head-actions .adl-btn { white-space: nowrap; }
         .pt-profile-avatar-lg {
             width: 70px; height: 70px;
             border-radius: 99px;
@@ -1756,6 +1762,7 @@
         let tourActive = false;
         let projects = [];
         let campaigns = [];
+        let dailyMetrics = [];
         let invoices = [];
         let documents = [];
         let tickets = [];
@@ -2077,12 +2084,17 @@
                 userProfile = prof || {};
 
                 // Check if onboarding completed
-                if (client.onboarding_status && client.onboarding_status !== 'completed') {
+                // 'completed' = klient vyplnil cez portál, 'submitted' = vyplnené adminom
+                // alebo cez API. Oba stavy ho oprávňujú vidieť dashboard.
+                const onboardingDone = !client.onboarding_status
+                  || client.onboarding_status === 'completed'
+                  || client.onboarding_status === 'submitted';
+                if (!onboardingDone) {
                     window.location.href = '/portal/onboarding.html';
                     return;
                 }
 
-                await Promise.all([loadProjects(), loadCampaigns(), loadInvoices(), loadDocuments(), loadTickets(), loadMessages(), loadReports(), loadApprovals()]);
+                await Promise.all([loadProjects(), loadCampaigns(), loadDailyMetrics(), loadInvoices(), loadDocuments(), loadTickets(), loadMessages(), loadReports(), loadApprovals()]);
                 render();
                 subscribeToMessages();
                 subscribeToApprovals();
@@ -2108,9 +2120,90 @@
             projects = data || [];
         }
 
+        // Automatické action items z reálnych stavov projektov.
+        // Klient v dashboarde hneď vidí čo má spraviť — nemusí čakať na
+        // manuálne client.action_items v DB.
+        function computeProjectActionItems() {
+            const items = [];
+            for (const p of projects) {
+                if (p.status === 'client_review' && p.client_portal_token) {
+                    items.push({
+                        title: `📋 Návrh kampane čaká na vaše schválenie`,
+                        sub: p.name || 'Marketingová stratégia',
+                        icon: 'Docs',
+                        tone: 'brand',
+                        action_url: `/portal/proposal.html?t=${p.client_portal_token}`,
+                        _external: true,
+                    });
+                } else if (p.status === 'revision') {
+                    items.push({
+                        title: `✏️ Pracujeme na úpravách návrhu`,
+                        sub: p.name || 'Marketingová stratégia',
+                        icon: 'Clock',
+                        tone: 'amber',
+                        action_url: p.client_portal_token ? `/portal/proposal.html?t=${p.client_portal_token}` : null,
+                        _external: !!p.client_portal_token,
+                    });
+                } else if (p.status === 'approved') {
+                    items.push({
+                        title: `✅ Návrh schválený — pripravujeme nasadenie`,
+                        sub: p.name || 'Marketingová stratégia',
+                        icon: 'Check',
+                        tone: 'mint',
+                        action_url: p.client_portal_token ? `/portal/proposal.html?t=${p.client_portal_token}` : null,
+                        _external: !!p.client_portal_token,
+                    });
+                } else if (p.status === 'generating') {
+                    items.push({
+                        title: `🤖 Pripravujeme váš strategický návrh`,
+                        sub: 'Náš tím momentálne dolaďuje detail kampaní. Dáme vám vedieť keď bude pripravené.',
+                        icon: 'Cog',
+                        tone: 'sky',
+                    });
+                }
+            }
+            return items;
+        }
+
         async function loadCampaigns() {
             const { data } = await db.from('campaigns').select('*').eq('client_id', client.id).order('created_at', { ascending: false });
-            campaigns = data || [];
+            // Normalizuj metrics JSONB na top-level — render očakáva c.budget, c.conversions, c.roi, c.platform_label
+            campaigns = (data || []).map(c => {
+                const m = c.metrics || {};
+                const platformLabel = c.platform === 'meta' ? 'Facebook + Instagram'
+                                    : c.platform === 'google' ? 'Google Ads'
+                                    : c.platform === 'tiktok' ? 'TikTok'
+                                    : c.platform === 'linkedin' ? 'LinkedIn'
+                                    : (c.platform_label || 'Multi-platform');
+                const conversionValue = Number(m.conversion_value || 0);
+                const cost = Number(m.cost || 0);
+                const roi = (m.roas != null && m.roas !== 0) ? Number(m.roas)
+                          : (conversionValue > 0 && cost > 0) ? conversionValue / cost
+                          : null;
+                return {
+                    ...c,
+                    platform_label: c.platform_label || platformLabel,
+                    budget: Number(m.cost || c.budget_daily || 0),  // spent v aktuálnom období
+                    budget_total: Number(c.budget_total || (c.budget_daily ? c.budget_daily * 30 : 0)),
+                    conversions: Number(m.conversions || 0),
+                    impressions: Number(m.impressions || 0),
+                    clicks: Number(m.clicks || 0),
+                    ctr: Number(m.ctr || 0),
+                    cpa: Number(m.cpa || 0),
+                    roi,
+                };
+            });
+        }
+
+        async function loadDailyMetrics() {
+            // Posledných 30 dní pre trend graf
+            const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+            const { data } = await db.from('campaign_metrics_daily')
+                .select('snapshot_date, impressions, clicks, cost, conversions')
+                .eq('client_id', client.id)
+                .gte('snapshot_date', since)
+                .order('snapshot_date', { ascending: true });
+            dailyMetrics = data || [];
         }
 
         async function loadInvoices() {
@@ -2501,10 +2594,15 @@
             const value = k.conversion_value ?? 0;
             const valueDelta = k.conversion_value_delta_pct;
             const trend = k.trend || [];
-            const actionItems = client.action_items || [];
+            // Auto-compute action items z reálnych projekt-stavov (klient
+            // hneď vidí čo má spraviť, namiesto čakania na manuálne klient.action_items).
+            const dynamicActions = computeProjectActionItems();
+            const actionItems = [...dynamicActions, ...(client.action_items || [])];
             const teamMember = client.account_manager || null;
             const upcomingEvents = client.upcoming_events || [];
             const activeCamps = campaigns.filter(c => c.status === 'active' || c.status === 'paused').slice(0, 3);
+            // Projekty čakajúce na klienta — proposal banner
+            const pendingProposals = projects.filter(p => p.status === 'client_review' && p.client_portal_token);
 
             const fmtNum = (n) => new Intl.NumberFormat('sk-SK').format(Math.round(n));
             const fmtMoney = (n) => new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €';
@@ -2514,6 +2612,19 @@
             const statusLabel = (s) => s === 'active' ? 'Aktívna' : s === 'paused' ? 'Pauza' : (s || '—');
 
             return `
+                ${pendingProposals.length > 0 ? `
+                <a href="/portal/proposal.html?t=${pendingProposals[0].client_portal_token}"
+                   style="display:flex; align-items:center; gap:18px; padding:22px 26px; background:linear-gradient(135deg, #FF6B35, #E91E63); color:white; border-radius:18px; margin-bottom:20px; text-decoration:none; box-shadow:0 10px 30px -10px rgba(255,107,53,0.4);">
+                    <div style="width:56px; height:56px; border-radius:14px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;">📋</div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; opacity:0.85; margin-bottom:4px;">Nový návrh kampane</div>
+                        <div style="font-size:18px; font-weight:700; line-height:1.3; margin-bottom:3px;">Pripravili sme pre vás strategický návrh</div>
+                        <div style="font-size:13px; opacity:0.92;">${escapeHtml(pendingProposals[0].name)} · čaká na vaše schválenie</div>
+                    </div>
+                    <div style="background:white; color:#E91E63; padding:11px 20px; border-radius:10px; font-weight:700; font-size:13px; white-space:nowrap;">Pozrieť návrh →</div>
+                </a>
+                ` : ''}
+
                 <div class="pt-hero">
                     <div class="pt-hero-row">
                         <div style="flex:1; min-width:0;">
@@ -2577,18 +2688,24 @@
                             <div class="pt-card-title">Vyžaduje vašu akciu</div>
                         </div>
                         <div class="pt-card-body">
-                            ${actionItems.length > 0 ? actionItems.map((a, i) => `
-                                <div class="pt-action" onclick="${a.target_tab ? `switchTab('${a.target_tab}')` : ''}" style="${i === 0 ? 'background:var(--brand-50);' : ''}">
+                            ${actionItems.length > 0 ? actionItems.map((a, i) => {
+                                let clickHandler = '';
+                                if (a._external && a.action_url) clickHandler = `window.open('${a.action_url}', '_blank')`;
+                                else if (a.action_url) clickHandler = `window.location.href='${a.action_url}'`;
+                                else if (a.target_tab) clickHandler = `switchTab('${a.target_tab}')`;
+                                const icon = (I[a.icon] || I.Info);
+                                return `
+                                <div class="pt-action" onclick="${clickHandler}" style="${i === 0 ? 'background:var(--brand-50);' : ''}; ${clickHandler ? 'cursor:pointer;' : ''}">
                                     <div class="pt-action-icon" style="background:${a.tone === 'brand' ? 'var(--brand-500)' : `var(--acc-${a.tone || 'sky'})`}; color:${a.tone === 'brand' ? '#fff' : `var(--acc-${a.tone || 'sky'}-ink)`};">
-                                        ${I[a.icon || 'Info']({size:15})}
+                                        ${icon({size:15})}
                                     </div>
                                     <div class="pt-action-body">
                                         <div class="pt-action-title">${escapeHtml(a.title)}</div>
                                         <div class="pt-action-sub">${escapeHtml(a.sub || '')}</div>
                                     </div>
                                     ${I.Chevron({size:14, color:'var(--ink-mute)'})}
-                                </div>
-                            `).join('') : `<div style="text-align:center; padding:20px; color:var(--ink-sub); font-size:13px;">${I.Check({size:24})}<div style="margin-top:8px;">Žiadne akcie nečakajú</div></div>`}
+                                </div>`;
+                            }).join('') : `<div style="text-align:center; padding:20px; color:var(--ink-sub); font-size:13px;">${I.Check({size:24})}<div style="margin-top:8px;">Žiadne akcie nečakajú</div></div>`}
                         </div>
                     </div>
                 </div>
@@ -3067,7 +3184,6 @@
 
         // ─── Reports (PR E1) ───
         function renderReports() {
-            const kpis = client?.dashboard_kpis || {};
             const fmtNum = n => new Intl.NumberFormat('sk-SK').format(Math.round(n || 0));
             const fmtMoney = n => fmtNum(n) + ' €';
             const fmtBytes = bytes => {
@@ -3085,7 +3201,51 @@
                 return `${fmt(s, !sameYear)} – ${fmt(e, true)}`;
             };
 
-            const trend = Array.isArray(kpis.trend) ? kpis.trend : [];
+            // Live KPI agregované z campaigns.metrics (sync runs every 2h)
+            // Active + paused (paused má historické dáta), wszystkie ostatné ignorujeme
+            const liveCamps = campaigns.filter(c => ['active', 'paused'].includes(c.status));
+            const sum = (k) => liveCamps.reduce((s, c) => s + Number(c[k] || 0), 0);
+            const totalConversions = sum('conversions');
+            const totalClicks = sum('clicks');
+            const totalImpressions = sum('impressions');
+            const totalCost = sum('budget');  // budget == cost po normalizácii v loadCampaigns
+            const avgCpa = totalConversions > 0 ? totalCost / totalConversions : 0;
+            const avgRoi = liveCamps.length
+                ? liveCamps.reduce((s, c) => s + (c.roi || 0), 0) / liveCamps.filter(c => c.roi != null).length || 0
+                : 0;
+            const lastSync = liveCamps
+                .map(c => c.metrics_updated_at).filter(Boolean)
+                .sort().pop();
+
+            // Trend graf z campaign_metrics_daily — agregátor po dňoch
+            // dailyMetrics má row per (campaign, date); my potrebujeme sum per date
+            const byDate = new Map();
+            for (const d of dailyMetrics) {
+                const cur = byDate.get(d.snapshot_date) || { date: d.snapshot_date, conv: 0, cost: 0, clicks: 0 };
+                cur.conv += Number(d.conversions || 0);
+                cur.cost += Number(d.cost || 0);
+                cur.clicks += Number(d.clicks || 0);
+                byDate.set(d.snapshot_date, cur);
+            }
+            const trendRows = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+            // sparkline berie pole čísel — pošleme konverzie
+            const trend = trendRows.map(r => r.conv);
+            // Konverzie pred 7 dňami vs. posledných 7 — delta %
+            const last7 = trendRows.slice(-7).reduce((s, r) => s + r.conv, 0);
+            const prev7 = trendRows.slice(-14, -7).reduce((s, r) => s + r.conv, 0);
+            const conversionsDeltaPct = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : null;
+
+            const kpis = {
+                conversions: totalConversions,
+                conversions_delta_pct: conversionsDeltaPct,
+                roi: avgRoi,
+                conversion_value: liveCamps.reduce((s, c) => s + Number(c.metrics?.conversion_value || 0), 0),
+                reach: totalImpressions,
+                clicks: totalClicks,
+                spent: totalCost,
+                budget: liveCamps.reduce((s, c) => s + Number(c.budget_total || 0), 0),
+                cpa: avgCpa,
+            };
 
             // Top kampane podľa konverzií
             const topCamps = [...campaigns]
@@ -3099,9 +3259,12 @@
                 <div class="pt-rep-hero">
                     <div class="pt-rep-hero-head">
                         <div>
-                            <div class="pt-rep-hero-eyebrow">Aktuálny mesiac</div>
+                            <div class="pt-rep-hero-eyebrow">Posledných 30 dní</div>
                             <div class="pt-rep-hero-title">Výkonnostný prehľad</div>
-                            <div class="pt-rep-hero-sub">${escapeHtml(client?.company_name || '')} · live KPI z kampaní</div>
+                            <div class="pt-rep-hero-sub">
+                                ${escapeHtml(client?.company_name || '')} · live z reklamných platforiem
+                                ${lastSync ? ` · sync ${new Date(lastSync).toLocaleString('sk-SK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
+                            </div>
                         </div>
                         ${trend.length ? `<div class="pt-rep-spark">${sparkline(trend, 220, 60, '#fff')}</div>` : ''}
                     </div>
@@ -3112,9 +3275,9 @@
                             ${typeof kpis.conversions_delta_pct === 'number' ? `<div class="pt-rep-kpi-delta ${kpis.conversions_delta_pct >= 0 ? 'is-up' : 'is-down'}">${kpis.conversions_delta_pct >= 0 ? '+' : ''}${kpis.conversions_delta_pct}%</div>` : ''}
                         </div>
                         <div class="pt-rep-kpi">
-                            <div class="pt-rep-kpi-label">ROI</div>
-                            <div class="pt-rep-kpi-value">${(kpis.roi || 0).toFixed(1)}×</div>
-                            <div class="pt-rep-kpi-delta">${fmtMoney(kpis.conversion_value)} hodnota</div>
+                            <div class="pt-rep-kpi-label">${kpis.cpa > 0 ? 'CPA' : 'ROI'}</div>
+                            <div class="pt-rep-kpi-value">${kpis.cpa > 0 ? fmtMoney(kpis.cpa) : (kpis.roi || 0).toFixed(1) + '×'}</div>
+                            <div class="pt-rep-kpi-delta">${kpis.conversion_value > 0 ? fmtMoney(kpis.conversion_value) + ' hodnota' : (totalConversions + ' konverzií')}</div>
                         </div>
                         <div class="pt-rep-kpi">
                             <div class="pt-rep-kpi-label">Dosah</div>
@@ -3922,11 +4085,11 @@
                     <div class="pt-card-body">
                         <div class="pt-profile-head">
                             <div class="pt-profile-avatar-lg" id="pt-profile-avatar">${userProfile.avatar_url ? `<img src="${escapeHtml(userProfile.avatar_url)}" alt="">` : initials(contactName || client.company_name)}</div>
-                            <div style="flex:1; min-width:0;">
+                            <div class="pt-profile-head-info">
                                 <div style="font-size:16px; font-weight:600; letter-spacing:-0.2px;">${escapeHtml(contactName || 'Klient')}</div>
                                 <div style="font-size:12px; color:var(--ink-sub); margin-top:2px;">${escapeHtml(client?.position || 'Konateľ/ka')} · ${escapeHtml(client?.company_name || '')}</div>
                             </div>
-                            <div style="display:flex; flex-direction:column; gap:6px;">
+                            <div class="pt-profile-head-actions">
                                 <input id="avatar-file" type="file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">
                                 <button class="adl-btn adl-btn-outline adl-btn-sm" onclick="document.getElementById('avatar-file').click()">${I.Upload({size:14})} ${userProfile.avatar_url ? 'Zmeniť' : 'Nahrať'} foto</button>
                                 ${userProfile.avatar_url ? `<button class="adl-btn adl-btn-ghost adl-btn-sm" style="color:var(--err);" onclick="removeAvatar()">${I.Trash({size:13})} Odstrániť</button>` : ''}

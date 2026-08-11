@@ -123,6 +123,7 @@ const OutreachModule = {
     else if (this.currentView === 'campaigns') body = this.renderCampaigns();
     else if (this.currentView === 'analytics') body = this.renderAnalytics();
     else if (this.currentView === 'senders') body = this.renderSenders();
+    else if (this.currentView === 'suppressions') body = this.renderSuppressions();
     else if (this.currentView === 'calendar') body = this.renderCalendar();
     else if (this.currentView === 'automations') body = this.renderAutomations();
     else if (this.currentView === 'import') body = this.renderImport();
@@ -148,6 +149,9 @@ const OutreachModule = {
       audit_requested: p.filter(x => x.audit_requested_at).length,
       audit_viewed: p.filter(x => x.audit_viewed_at).length,
       converted: p.filter(x => x.outreach_stage === 'converted').length,
+      unsubscribed: p.filter(x => x.outreach_stage === 'unsubscribed').length,
+      bounced: p.filter(x => x.outreach_stage === 'bounced').length,
+      lost: p.filter(x => x.outreach_stage === 'lost').length,
     };
   },
 
@@ -228,6 +232,7 @@ const OutreachModule = {
       { view: 'campaigns',   label: 'Kampane',       icon: I.campaign, onClick: 'OutreachModule.openCampaigns()' },
       { view: 'templates',   label: 'Šablóny',       icon: I.mail,     onClick: 'OutreachModule.openTemplates()' },
       { view: 'senders',     label: 'Odosielatelia', icon: I.send,     onClick: 'OutreachModule.openSenders()' },
+      { view: 'suppressions',label: 'Opt-out zoznam',icon: I.mailSm,   onClick: 'OutreachModule.openSuppressions()' },
       { view: 'calendar',    label: 'Kalendár',      icon: I.calendar, onClick: 'OutreachModule.openCalendar()' },
       { view: 'fb-groups',   label: 'FB Skupiny',    icon: I.users,    onClick: 'OutreachModule.openFbGroups && OutreachModule.openFbGroups()' },
       { view: 'import',      label: 'Import',        icon: I.upload,   onClick: 'OutreachModule.openImport()' },
@@ -260,8 +265,14 @@ const OutreachModule = {
       { label: 'Lead',            value: stats.converted,        color: '#1F6E3D', stage: 'converted' },
     ];
     const activeStage = this.filters?.stage;
+    // Vyradení (mimo funnel-u, ale stále evidovaní pre audit + suppression):
+    const exclusions = [
+      { label: 'Odhlásení (opt-out)', value: stats.unsubscribed, stage: 'unsubscribed', color: '#6F6758' },
+      { label: 'Bouncly',             value: stats.bounced,      stage: 'bounced',      color: '#DC2626' },
+      { label: 'Stratené',            value: stats.lost,         stage: 'lost',         color: '#94837A' },
+    ];
     return `
-      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:10px;">
         ${steps.map(s => {
           const active = activeStage === s.stage;
           return `
@@ -271,6 +282,21 @@ const OutreachModule = {
               onmouseenter="if(!${active})this.style.borderColor='var(--border-strong)'" onmouseleave="if(!${active})this.style.borderColor='var(--border)'">
               <div style="font-size:10.5px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;margin-bottom:8px;">${s.label}</div>
               <div style="font-size:32px;font-weight:700;color:${s.color};letter-spacing:-0.8px;line-height:1;">${s.value}</div>
+            </button>
+          `;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:11px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;margin-right:4px;">Vyradení:</span>
+        ${exclusions.map(e => {
+          const active = activeStage === e.stage;
+          return `
+            <button type="button"
+              onclick="OutreachModule.setFilter('stage', '${e.stage}')"
+              title="${e.label} — kliknutím filtruj zoznam"
+              style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:${active ? e.color + '15' : '#fff'};border:1px solid ${active ? e.color : 'var(--border)'};border-radius:999px;cursor:pointer;font-family:inherit;font-size:12px;color:${e.color};font-weight:600;">
+              <span>${e.label}</span>
+              <span style="background:${e.color};color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;min-width:18px;text-align:center;">${e.value}</span>
             </button>
           `;
         }).join('')}
@@ -289,6 +315,11 @@ const OutreachModule = {
     const from = (this.page - 1) * pageSize;
     const to = Math.min(from + pageSize, total);
     const pageRows = filtered.slice(from, to);
+
+    // Dropdown options odvodené zo všetkých prospects (nie len filtered) —
+    // aby si user mohol prepnúť filter aj na zdroj/mesto ktoré aktuálne nemá výsledky.
+    this._sources = Array.from(new Set(this.prospects.map(p => p.source).filter(Boolean))).sort();
+    this._cities = Array.from(new Set(this.prospects.map(p => p.city).filter(Boolean))).sort().slice(0, 50);
 
     // Smart lists chipy
     if (!this.smartListsLoaded) this.loadSmartLists();
@@ -318,6 +349,33 @@ const OutreachModule = {
           style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
           ${Object.entries(stageLabels).map(([k, v]) => `<option value="${k}" ${f.stage===k?'selected':''}>${v}</option>`).join('')}
         </select>
+        <select onchange="OutreachModule.setFilter('email', this.value)" title="Filter podľa emailu"
+          style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
+          <option value="all" ${!f.email || f.email==='all'?'selected':''}>Email: všetci</option>
+          <option value="has" ${f.email==='has'?'selected':''}>✓ Má email</option>
+          <option value="missing" ${f.email==='missing'?'selected':''}>⚠ Chýba email</option>
+        </select>
+        ${this._sources.length > 1 ? `
+          <select onchange="OutreachModule.setFilter('source', this.value)" title="Filter podľa zdroja"
+            style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
+            <option value="all" ${!f.source || f.source==='all'?'selected':''}>Zdroj: všetky</option>
+            ${this._sources.map(s => `<option value="${this.esc(s)}" ${f.source===s?'selected':''}>${this.esc(s)}</option>`).join('')}
+          </select>
+        ` : ''}
+        ${this._cities.length > 1 ? `
+          <select onchange="OutreachModule.setFilter('city', this.value)" title="Filter podľa mesta"
+            style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);max-width:200px;">
+            <option value="all" ${!f.city || f.city==='all'?'selected':''}>Mesto: všetky</option>
+            ${this._cities.map(c => `<option value="${this.esc(c)}" ${f.city===c?'selected':''}>${this.esc(c)}</option>`).join('')}
+          </select>
+        ` : ''}
+        <select onchange="OutreachModule.setFilter('size', this.value)" title="Veľkosť firmy (z recenzií)"
+          style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);">
+          <option value="all" ${!f.size || f.size==='all'?'selected':''}>Veľkosť: všetky</option>
+          <option value="small" ${f.size==='small'?'selected':''}>Small (&lt;20 rev.)</option>
+          <option value="medium" ${f.size==='medium'?'selected':''}>Medium (20-80)</option>
+          <option value="large" ${f.size==='large'?'selected':''}>Large (&gt;80)</option>
+        </select>
         <select onchange="OutreachModule.setPageSize(this.value)"
           style="padding:0 32px 0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:13px;background:#fff;height:42px;cursor:pointer;font-family:inherit;color:var(--ink);" title="Počet na stránku">
           <option value="25" ${pageSize===25?'selected':''}>25 / strana</option>
@@ -334,7 +392,7 @@ const OutreachModule = {
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.clearSelection()">Zrušiť výber</button>
             <button class="adl-btn adl-btn-sm adl-btn-outline" onclick="OutreachModule.bulkAssign()">Priradiť</button>
-            <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.composeFromSelected()">Poslať kampaň (${selCount})</button>
+            <button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.startCompose()">Poslať kampaň (${selCount})</button>
             <button class="adl-btn adl-btn-sm adl-btn-danger" onclick="OutreachModule.deleteSelected()">Zmazať (${selCount})</button>
           </div>
         </div>
@@ -347,9 +405,10 @@ const OutreachModule = {
             <thead>
               <tr style="background:var(--n-50);">
                 <th style="padding:11px 16px;text-align:left;width:40px;border-bottom:1px solid var(--border);">
-                  <input type="checkbox" ${this._allPageChecked(pageRows) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)" style="accent-color:var(--brand-500);">
+                  <input type="checkbox" ${this._allPageChecked(pageRows) ? 'checked' : ''} onchange="OutreachModule.toggleAllProspects(this.checked)" style="accent-color:var(--brand-500);width:18px;height:18px;cursor:pointer;">
                 </th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Firma · stránka</th>
+                <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Email</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Kategória</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Zdroj</th>
                 <th style="padding:11px 16px;text-align:left;font-weight:600;color:var(--ink-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.6px;border-bottom:1px solid var(--border);">Status</th>
@@ -360,7 +419,7 @@ const OutreachModule = {
             </thead>
             <tbody>
               ${pageRows.length === 0 ? `
-                <tr><td colspan="8" style="padding:40px;text-align:center;color:var(--ink-sub);">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
+                <tr><td colspan="9" style="padding:40px;text-align:center;color:var(--ink-sub);">${total === 0 ? 'Žiadni prospekti podľa filtra.' : 'Na tejto stránke nie sú záznamy.'}</td></tr>
               ` : pageRows.map(p => this.renderRow(p)).join('')}
             </tbody>
           </table>
@@ -417,11 +476,35 @@ const OutreachModule = {
           style="border-top:1px solid var(--border);cursor:pointer;${isConverted ? 'opacity:.6;' : ''}transition:background .1s;"
           onmouseenter="this.style.background='var(--n-25)'" onmouseleave="this.style.background=''">
         <td style="padding:14px 16px;" onclick="event.stopPropagation()">
-          <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')" style="accent-color:var(--brand-500);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" ${checked ? 'checked' : ''} onchange="OutreachModule.toggleSelect('${prospect.id}')" style="accent-color:var(--brand-500);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
+            ${domain ? `
+              <button onclick="event.stopPropagation();OutreachModule.openSitePreview('${this.esc(domain)}','${this.esc(company)}','${prospect.id}')"
+                title="Náhľad stránky (bez otvorenia novej karty)"
+                style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--n-50);border:1px solid var(--border);border-radius:8px;color:var(--ink-sub);cursor:pointer;padding:0;flex-shrink:0;transition:background .12s, color .12s, border-color .12s;"
+                onmouseover="this.style.background='var(--brand-50)';this.style.borderColor='var(--brand-200)';this.style.color='var(--brand-700)'"
+                onmouseout="this.style.background='var(--n-50)';this.style.borderColor='var(--border)';this.style.color='var(--ink-sub)'">${I.eye}</button>
+            ` : ''}
+          </div>
         </td>
         <td style="padding:14px 16px;">
-          <div style="font-weight:600;color:var(--ink);">${this.esc(company)}</div>
-          ${domain ? `<a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>` : ''}
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${domain ? `<img src="https://www.google.com/s2/favicons?domain=${this.esc(domain)}&sz=32" width="20" height="20" style="border-radius:4px;flex-shrink:0;background:#F7F5F1;" onerror="this.style.display='none'" alt="">` : ''}
+            <div style="min-width:0;">
+              <div style="font-weight:600;color:var(--ink);">${this.esc(company)}</div>
+              ${domain ? `
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                  <a href="https://${this.esc(domain)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:12px;color:var(--ink-mute);text-decoration:underline;text-underline-offset:2px;">${this.esc(domain)}</a>
+                  ${this._socialIcons(prospect)}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </td>
+        <td style="padding:14px 16px;font-size:12px;" onclick="event.stopPropagation()">
+          ${prospect.email
+            ? `<span title="${this.esc(prospect.email)}" style="color:var(--ink-sub);max-width:180px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;">${this.esc(prospect.email)}</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#FEF3C7;color:#92400E;border-radius:6px;font-size:11px;font-weight:500;" title="Chýba email — doplň ručne">⚠ chýba</span>`}
         </td>
         <td style="padding:14px 16px;color:var(--ink-sub);">${category ? this.esc(category) : '—'}</td>
         <td style="padding:14px 16px;">
@@ -438,7 +521,8 @@ const OutreachModule = {
         <td style="padding:14px 16px;text-align:right;white-space:nowrap;" onclick="event.stopPropagation()">
           <button onclick="OutreachModule.composeForOne('${prospect.id}')" title="Poslať email" style="background:var(--brand-50);border:1px solid var(--brand-100);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--brand-700);margin-right:3px;">${I.mailSm}</button>
           <button onclick="OutreachModule.openProspectDetail('${prospect.id}')" title="Detail" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);margin-right:3px;">${I.eye}</button>
-          <button onclick="OutreachModule.openEditProspect && OutreachModule.openEditProspect('${prospect.id}')" title="Upraviť" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);">${I.edit}</button>
+          <button onclick="OutreachModule.openEditProspect('${prospect.id}')" title="Upraviť" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:var(--ink-sub);margin-right:3px;">${I.edit}</button>
+          ${prospect.outreach_stage !== 'unsubscribed' ? `<button onclick="OutreachModule.markUnsubscribedFromRow('${prospect.id}')" title="Pridať do opt-out (nekontaktovať)" style="background:var(--n-50);border:1px solid var(--border);cursor:pointer;padding:6px 8px;border-radius:8px;color:#6F6758;">🚫</button>` : ''}
         </td>
       </tr>
     `;
@@ -551,8 +635,12 @@ const OutreachModule = {
 
   renderCompose() {
     const selected = Array.from(this.selectedIds).map(id => this.prospects.find(p => p.id === id)).filter(Boolean);
-    const ready = selected.filter(p => p.email);
-    const noEmail = selected.filter(p => !p.email);
+    // Opt-out filter — odhlásení sa NIKDY neposielajú (legal + brand safety).
+    // Schválne ich vyradíme zo `ready` a zobrazíme v upozornení.
+    const optedOut = selected.filter(p => p.outreach_stage === 'unsubscribed');
+    const eligible = selected.filter(p => p.outreach_stage !== 'unsubscribed');
+    const ready = eligible.filter(p => p.email);
+    const noEmail = eligible.filter(p => !p.email);
 
     const outreachTpls = (this.templates || []).filter(t => t.category === 'outreach' && t.is_active !== false);
     const currentTpl = outreachTpls.find(t => t.slug === this.selectedTemplateSlug) || outreachTpls[0];
@@ -566,7 +654,8 @@ const OutreachModule = {
         <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:24px;">
           <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;color:#14120E;">Poslať kampaň</h2>
           <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">${ready.length} príjemcov · personalizované (meno, firma, odvetvie, mesto).</p>
-          ${noEmail.length ? `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:16px;">${noEmail.length} firiem nemá email → bude preskočených.</div>` : ''}
+          ${noEmail.length ? `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:10px;">${noEmail.length} firiem nemá email → bude preskočených.</div>` : ''}
+          ${optedOut.length ? `<div style="background:#F7F5F1;border:1px solid #EAE6DE;border-radius:10px;padding:10px 14px;font-size:13px;color:#6F6758;margin-bottom:16px;">🚫 ${optedOut.length} odhlásených (opt-out) → vyradených zo zoznamu na odoslanie.</div>` : ''}
 
           <div style="margin-bottom:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -611,10 +700,12 @@ const OutreachModule = {
             </div>
           ` : ''}
 
+          ${this._outsideBusinessHoursHint(ready.length)}
+
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.setView('templates')">✏ Upraviť šablóny</button>
             <button class="adl-btn adl-btn-primary" onclick="OutreachModule.sendCampaign()" ${ready.length === 0 || !currentTpl ? 'disabled' : ''}>
-              ▶ Odoslať ${ready.length} emailov
+              ▶ Odoslať ${ready.length} emailov hneď
             </button>
           </div>
 
@@ -702,7 +793,7 @@ const OutreachModule = {
 
   applyFilters() {
     let out = this.prospects;
-    const { stage, search } = this.filters;
+    const { stage, search, email: emailFilter, source: srcFilter, size: sizeFilter, city: cityFilter } = this.filters;
     if (stage && stage !== 'all') {
       if (stage === 'pending') out = out.filter(p => !p.outreach_stage || p.outreach_stage === 'pending');
       else if (stage === 'email_opened') out = out.filter(p => p.outreach_email_opened_at);
@@ -710,13 +801,22 @@ const OutreachModule = {
       else if (stage === 'audit_viewed') out = out.filter(p => p.audit_viewed_at);
       else out = out.filter(p => p.outreach_stage === stage);
     }
+    if (emailFilter === 'has') out = out.filter(p => !!p.email);
+    else if (emailFilter === 'missing') out = out.filter(p => !p.email);
+    if (srcFilter && srcFilter !== 'all') out = out.filter(p => (p.source || '') === srcFilter);
+    if (sizeFilter && sizeFilter !== 'all') out = out.filter(p => {
+      const t = p.tags || [];
+      return t.includes(`size:${sizeFilter}`);
+    });
+    if (cityFilter && cityFilter !== 'all') out = out.filter(p => (p.city || '') === cityFilter);
     if (search) {
       const s = search.toLowerCase();
       out = out.filter(p =>
         (p.company_name || '').toLowerCase().includes(s) ||
         (p.domain || '').toLowerCase().includes(s) ||
         (p.email || '').toLowerCase().includes(s) ||
-        (p.industry || '').toLowerCase().includes(s)
+        (p.industry || '').toLowerCase().includes(s) ||
+        (p.city || '').toLowerCase().includes(s)
       );
     }
     return out;
@@ -942,22 +1042,29 @@ const OutreachModule = {
               subject: email.subject,
               htmlBody: email.html,
               textBody: email.text,
+              unsubscribeToken: prospect.audit_token || null,
             }),
           });
         } else {
-          // Resend (default)
+          // Resend (default) ALEBO Mailjet — payload je identický, líši sa endpoint
           const payload = {
             to: prospect.email,
             subject: email.subject,
             htmlBody: email.html,
             textBody: email.text,
             prospectId: prospect.id,
+            // RFC 8058 — natívny Gmail/Outlook unsubscribe button
+            unsubscribeToken: prospect.audit_token || null,
           };
           if (sender) {
             payload.fromEmail = sender.email;
             payload.fromName = sender.name;
+            if (sender.reply_to) payload.replyTo = sender.reply_to;
           }
-          r = await fetch('/.netlify/functions/send-email', {
+          const endpoint = sender?.provider === 'mailjet'
+            ? '/.netlify/functions/send-email-mailjet'
+            : '/.netlify/functions/send-email';
+          r = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -1103,6 +1210,81 @@ const OutreachModule = {
     this.rerender();
   },
 
+  // Edit existujúceho prospektu — re-use new prospect modal s pre-fill + UPDATE namiesto INSERT
+  openEditProspect(id) {
+    const p = this.prospects.find(x => x.id === id);
+    if (!p) return Utils.toast('Prospect nenájdený', 'warning');
+    const modal = this._ensureModal('outreach-modal');
+    const v = (k) => this.esc(p[k] || '');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:560px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">✏ Upraviť prospekta</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="outreach-edit-form" onsubmit="event.preventDefault();OutreachModule.saveEditProspect('${p.id}');" style="padding:20px 24px 24px;display:grid;gap:12px;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Názov firmy *
+            <input type="text" name="company_name" required value="${v('company_name')}" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Doména
+            <input type="text" name="domain" value="${v('domain')}" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Kontaktná osoba
+              <input type="text" name="contact_person" value="${v('contact_person')}" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Email
+              <input type="email" name="email" value="${v('email')}" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Telefón
+              <input type="text" name="phone" value="${v('phone')}" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Mesto
+              <input type="text" name="city" value="${v('city')}" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Odvetvie
+              <input type="text" name="industry" value="${v('industry')}" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">LinkedIn
+              <input type="url" name="linkedin_url" value="${v('linkedin_url')}" placeholder="https://linkedin.com/in/..." style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;"></label>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">Poznámka
+            <textarea name="notes" rows="3" style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;resize:vertical;">${v('notes')}</textarea></label>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">Uložiť zmeny</button>
+          </div>
+        </form>
+      </div>
+    `;
+    this._openModal(modal);
+    setTimeout(() => modal.querySelector('[name=company_name]')?.focus(), 30);
+  },
+
+  async saveEditProspect(id) {
+    const form = document.getElementById('outreach-edit-form');
+    if (!form) return;
+    const fd = new FormData(form);
+    const row = Object.fromEntries(fd.entries());
+    if (!row.company_name?.trim()) return Utils.toast('Názov firmy je povinný', 'warning');
+    const payload = {
+      company_name: row.company_name.trim(),
+      domain: this._normalizeDomain(row.domain),
+      contact_person: row.contact_person?.trim() || null,
+      email: row.email?.trim().toLowerCase() || null,
+      phone: row.phone?.trim() || null,
+      city: row.city?.trim() || null,
+      industry: row.industry?.trim() || null,
+      linkedin_url: row.linkedin_url?.trim() || null,
+      notes: row.notes?.trim() || null,
+    };
+    const { data, error } = await Database.client.from('prospects').update(payload).eq('id', id).select().single();
+    if (error) return Utils.toast('Chyba: ' + error.message, 'danger');
+    Utils.toast('Uložené', 'success');
+    this.closeModal();
+    const idx = this.prospects.findIndex(x => x.id === id);
+    if (idx >= 0) this.prospects[idx] = { ...this.prospects[idx], ...data };
+    this.rerender();
+  },
+
   // ========== IMPORT CSV ==========
 
   openImport() {
@@ -1116,15 +1298,19 @@ const OutreachModule = {
     const hasRows = this.importRows.length > 0;
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;padding:24px;">
-        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;color:#14120E;">Import CSV</h2>
-        <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">Nahraj CSV s prospektmi. Stĺpce môžu byť v akomkoľvek poradí — priradíš ich v kroku 2.</p>
+        <h2 style="font-size:20px;font-weight:700;margin:0 0 8px;color:#14120E;">Import prospektov</h2>
+        <p style="color:#6F6758;font-size:14px;margin:0 0 16px;">
+          Nahraj CSV alebo XLSX. Outscraper export sa rozpozná automaticky (104 stĺpcov)
+          a stĺpce sa namapujú samé. Inak ich priradíš ručne v kroku 2.
+        </p>
 
         ${!hasRows ? `
           <div style="border:2px dashed #EAE6DE;border-radius:12px;padding:32px;text-align:center;">
-            <input type="file" id="outreach-csv-file" accept=".csv" style="display:none" onchange="OutreachModule.parseCsv(event)">
-            <button class="adl-btn adl-btn-primary" onclick="document.getElementById('outreach-csv-file').click()">Vybrať CSV súbor</button>
+            <input type="file" id="outreach-csv-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="OutreachModule.parseUpload(event)">
+            <button class="adl-btn adl-btn-primary" onclick="document.getElementById('outreach-csv-file').click()">Vybrať súbor (CSV / XLSX)</button>
             <p style="margin:12px 0 0;font-size:13px;color:#948B7C;">
-              Očakávané stĺpce: company_name, domain, email, contact_person, phone, city, industry<br>
+              <strong>Outscraper Excel</strong>: 104 stĺpcov, auto-mapping (name → company_name, website → domain, email, phone, ...)<br>
+              <strong>Generický CSV</strong>: company_name, domain, email, contact_person, phone, city, industry — v ľubovoľnom poradí<br>
               Dedup: rovnaká doména alebo email sa preskočí.
             </p>
           </div>
@@ -1190,6 +1376,68 @@ const OutreachModule = {
     this.rerender();
   },
 
+  // Univerzálny upload — rozozná .csv vs .xlsx/.xls a parsuje vhodne.
+  // Pre Outscraper XLSX (104 stĺpcov vrátane "email.emails_validator.status")
+  // auto-mapuje stĺpce a rovno zobrazí mapper s vyplnenými field-mi.
+  parseUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const name = (file.name || '').toLowerCase();
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      this._parseXlsx(file);
+    } else {
+      this.parseCsv(event);
+    }
+  },
+
+  _parseXlsx(file) {
+    if (typeof XLSX === 'undefined') {
+      Utils.toast('XLSX library nie je načítaná', 'danger');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        if (!rows.length) return Utils.toast('Prázdny XLSX', 'warning');
+        this.importRows = rows;
+        // Outscraper detekcia: header obsahuje 'email.emails_validator.status' + 'place_id'
+        const headers = Object.keys(rows[0] || {});
+        const isOutscraper = headers.includes('email.emails_validator.status') || headers.includes('place_id');
+        if (isOutscraper) {
+          this.importMap = this._outscraperAutoMap(headers);
+          Utils.toast(`✓ Rozpoznaný Outscraper export — ${rows.length} riadkov, auto-mapping hotový`, 'success');
+        } else {
+          this.importMap = null;
+        }
+        this.rerender();
+      } catch (err) {
+        console.error('xlsx parse:', err);
+        Utils.toast('Chyba pri čítaní XLSX: ' + err.message, 'danger');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
+  // Pre Outscraper export: name → company_name, website → domain (cleaned later),
+  // email → email, phone → phone, city → city, category → industry, query → segment.
+  _outscraperAutoMap(headers) {
+    const pick = (n) => headers.includes(n) ? n : '';
+    return {
+      company_name: pick('name'),
+      domain: pick('website') || pick('domain'),
+      email: pick('email'),
+      contact_person: pick('full_name'),
+      phone: pick('phone'),
+      city: pick('city'),
+      industry: pick('category') || pick('subtypes'),
+      source: '', // nastavíme 'outscraper' pri inserte
+      notes: '',
+    };
+  },
+
   parseCsv(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1244,38 +1492,95 @@ const OutreachModule = {
     const existingDomains = new Set((existing || []).map(x => (x.domain || '').toLowerCase()).filter(Boolean));
     const existingEmails = new Set((existing || []).map(x => (x.email || '').toLowerCase()).filter(Boolean));
 
+    // Outscraper export: rozpoznáme cez prítomnosť 'email.emails_validator.status'
+    // v ľubovoľnom riadku → použijeme rich import (drop INVALID, analysis JSONB).
+    const isOutscraper = this.importRows.length > 0
+      && Object.prototype.hasOwnProperty.call(this.importRows[0], 'email.emails_validator.status');
+
     const mapped = [];
     let skipped = 0;
+    let droppedInvalid = 0;
+    let rejNoDomain = 0;
     for (const r of this.importRows) {
       const get = (k) => {
         const col = this.importMap[k];
         return col ? String(r[col] || '').trim() : '';
       };
-      const email = get('email').toLowerCase();
+      let email = get('email').toLowerCase();
       const domain = this._normalizeDomain(get('domain'));
       const company = get('company_name');
-      if (!company && !domain && !email) { skipped++; continue; }
-      if (domain && existingDomains.has(domain)) { skipped++; continue; }
+
+      // Web (doména) povinný — bez webu prospekt nezakladáme
+      if (!domain) { rejNoDomain++; continue; }
+      if (existingDomains.has(domain)) { skipped++; continue; }
       if (email && existingEmails.has(email)) { skipped++; continue; }
+
+      // Outscraper drop INVALID emails — keep RECEIVING + UNKNOWN
+      let emailStatus = null;
+      let analysis = null;
+      let tags = null;
+      let source = get('source') || 'csv_import';
+      if (isOutscraper) {
+        emailStatus = String(r['email.emails_validator.status'] || '').toUpperCase();
+        if (email && emailStatus === 'INVALID') {
+          droppedInvalid++;
+          email = ''; // ostane prospekt, ale email zahodíme
+        }
+        const reviews = Number(r['reviews'] || 0);
+        const rating = Number(r['rating'] || 0);
+        const tier = reviews < 20 ? 'small' : reviews <= 80 ? 'medium' : 'large';
+        tags = [`reviews:${reviews}`, `rating:${rating}`, `size:${tier}`];
+        analysis = {
+          reviews, rating, size_tier: tier,
+          place_id: r['place_id'] || r['google_id'] || null,
+          address: r['address'] || r['full_address'] || '',
+          category: r['category'] || r['subtypes'] || '',
+          full_name: r['full_name'] || null,
+          title: r['title'] || null,
+          linkedin: r['company_linkedin'] || null,
+          facebook: r['company_facebook'] || null,
+          instagram: r['company_instagram'] || null,
+          website_title: r['website_title'] || null,
+          website_description: r['website_description'] || null,
+          has_gtm: !!r['website_has_gtm'],
+          has_fb_pixel: !!r['website_has_fb_pixel'],
+          employees: r['company_insights.employees'] || null,
+          revenue: r['company_insights.revenue'] || null,
+          founded_year: r['company_insights.founded_year'] || null,
+          email_status: emailStatus,
+          query: r['query'] || null,
+        };
+        source = 'outscraper';
+      }
+
       mapped.push({
         company_name: company || domain || email,
-        domain: domain || null,
+        domain,
         email: email || null,
         contact_person: get('contact_person') || null,
         phone: get('phone') || null,
         city: get('city') || null,
         industry: get('industry') || null,
-        source: get('source') || 'csv_import',
+        segment: (r['query'] || '').toString().split(' ')[0].toLowerCase() || null,
+        source,
+        source_url: isOutscraper ? (r['location_link'] || null) : null,
+        tags: tags || undefined,
+        analysis: analysis || undefined,
         notes: get('notes') || null,
         outreach_stage: 'pending',
         score: 50,
       });
-      if (domain) existingDomains.add(domain);
+      existingDomains.add(domain);
       if (email) existingEmails.add(email);
     }
 
+    const extraInfo = [];
+    if (rejNoDomain > 0) extraInfo.push(`${rejNoDomain}× bez webu (vynechané)`);
+    if (droppedInvalid > 0) extraInfo.push(`${droppedInvalid}× INVALID email (vynechané, prospekt ostáva)`);
+    const extraText = extraInfo.length > 0 ? ' · ' + extraInfo.join(', ') : '';
+
     if (!mapped.length) {
-      log.innerHTML = `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:12px 16px;color:#92400E;">Nič na import (všetko duplicitné alebo prázdne). Preskočených: ${skipped}</div>`;
+      log.innerHTML = `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:12px 16px;color:#92400E;">Nič na import (všetko duplicitné alebo bez webu). Preskočených: ${skipped}${extraText}</div>`;
       return;
     }
 
@@ -1289,7 +1594,7 @@ const OutreachModule = {
     }
 
     log.innerHTML = `<div style="background:#DCFCE7;border:1px solid #BBF7D0;border-radius:10px;padding:12px 16px;color:#166534;">
-      Import hotový: <strong>${inserted}</strong> pridaných · ${skipped} preskočených (duplicita) ${failed ? `· ${failed} chýb` : ''}
+      Import hotový: <strong>${inserted}</strong> pridaných · ${skipped} preskočených (duplicita) ${failed ? `· ${failed} chýb` : ''}${extraText}
     </div>`;
     Utils.toast(`Importovaných ${inserted} prospektov`, 'success');
     setTimeout(() => {
@@ -1416,10 +1721,9 @@ const OutreachModule = {
             </div>
             <textarea id="tpl-text" rows="18" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-top:0;border-radius:0 0 10px 10px;font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6;resize:vertical;">${this.esc(t.plain_text || t.body_text || '')}</textarea>
           ` : `
-            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (rich editor, prepíše brand wrapper)</label>
-            <div id="tpl-html-editor" style="background:#fff;border:1.5px solid #EAE6DE;border-radius:10px;min-height:360px;"></div>
-            <textarea id="tpl-html" style="display:none;">${this.esc(t.html_content || t.body_html || '')}</textarea>
-            <p style="font-size:12px;color:#948B7C;margin:6px 0 0;">Nechaj prázdne pre auto-generovanie HTML z plain textu s brandom. Pre CTA tlačidlo vlož link na samostatný riadok a pred/za neho <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">[[Text|url]]</code>.</p>
+            <label style="display:block;font-size:12px;font-weight:600;color:#6F6758;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">HTML obsah (raw — môžeš vložiť celý &lt;!DOCTYPE html&gt; blok aj s &lt;style&gt;, MSO komentármi)</label>
+            <textarea id="tpl-html" rows="22" spellcheck="false" style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5;resize:vertical;white-space:pre;overflow-wrap:normal;overflow-x:auto;">${this.esc(t.html_content || t.body_html || '')}</textarea>
+            <p style="font-size:12px;color:#948B7C;margin:6px 0 0;">Tokens fungujú aj v HTML: <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">{{company}}</code>, <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">{{greeting}}</code>, <code style="background:#F7F5F1;padding:1px 4px;border-radius:3px;">{{audit_request_url}}</code>… Nechaj prázdne pre auto-generovanie z plain textu.</p>
           `}
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px;flex-wrap:wrap;">
@@ -1456,65 +1760,27 @@ const OutreachModule = {
   setEditorMode(mode) {
     const subj = document.getElementById('tpl-subject')?.value;
     const plain = document.getElementById('tpl-text')?.value;
-    const html = this._readQuillHtml() ?? document.getElementById('tpl-html')?.value;
+    const html = document.getElementById('tpl-html')?.value;
     if (this.editingTemplate) {
       if (subj != null) this.editingTemplate.subject = subj;
       if (plain != null) { this.editingTemplate.plain_text = plain; this.editingTemplate.body_text = plain; }
       if (html != null) { this.editingTemplate.html_content = html; this.editingTemplate.body_html = html; }
     }
-    this._quillEditor = null;
     this.editorMode = mode;
     this.rerender();
-    // Po renderi inicializuj Quill pre HTML mode
-    if (mode === 'html') {
-      setTimeout(() => this._initQuillEditor(), 30);
-    }
   },
 
-  _initQuillEditor() {
-    const host = document.getElementById('tpl-html-editor');
-    if (!host || !window.Quill) return;
-    if (this._quillEditor) return;
-    const initial = document.getElementById('tpl-html')?.value || '';
-    this._quillEditor = new Quill(host, {
-      theme: 'snow',
-      placeholder: 'Začni písať HTML šablónu… alebo vlož celý <!DOCTYPE html> blok',
-      modules: {
-        toolbar: [
-          [{ header: [1, 2, 3, false] }],
-          ['bold', 'italic', 'underline', 'strike'],
-          [{ color: [] }, { background: [] }],
-          [{ list: 'ordered' }, { list: 'bullet' }],
-          [{ align: [] }],
-          ['link', 'image', 'blockquote', 'code-block'],
-          ['clean'],
-        ],
-      },
-    });
-    if (initial) {
-      // Ak obsahuje <html> alebo <!DOCTYPE> — nastavujeme ako innerHTML, inak pasteHTML
-      if (/<html|<!DOCTYPE/i.test(initial)) {
-        this._quillEditor.root.innerHTML = initial;
-      } else {
-        this._quillEditor.clipboard.dangerouslyPasteHTML(initial);
-      }
-    }
-  },
-
-  _readQuillHtml() {
-    if (!this._quillEditor) return null;
-    return this._quillEditor.root.innerHTML;
-  },
+  // Quill rich editor sme nahradili raw textareou — Quill rozbíja email HTML
+  // (strpe DOCTYPE, style bloky, MSO komentáre, mso-* atribúty).
+  _readQuillHtml() { return null; },
 
   editTemplate(id) {
     const t = this.templates.find(x => x.id === id);
     if (!t) return;
     this.editingTemplate = { ...t };
-    this._quillEditor = null;
+    // Ak má template HTML obsah, otvor priamo HTML mode (Brevo / cold templates)
+    if (t.html_content || t.body_html) this.editorMode = 'html';
     this.rerender();
-    if (this.editorMode === 'html') {
-      setTimeout(() => this._initQuillEditor(), 30);
-    }
   },
 
   cancelEdit() {
@@ -2004,9 +2270,10 @@ const OutreachModule = {
         <!-- Source picker -->
         <div style="padding:14px 24px 0;display:flex;gap:6px;flex-wrap:wrap;">
           ${[
-            { k: 'ai',      label: '🤖 AI návrh',          hint: 'Claude' },
-            { k: 'places',  label: '📍 Google Maps',        hint: 'reálne firmy' },
-            { k: 'finstat', label: '📋 FinStat',            hint: 'SK register' },
+            { k: 'ai',         label: '🤖 AI návrh',          hint: 'Claude' },
+            { k: 'places',     label: '📍 Google Maps',        hint: 'reálne firmy' },
+            { k: 'outscraper', label: '✉️ Outscraper',         hint: 'firmy + emaily' },
+            { k: 'finstat',    label: '📋 FinStat',            hint: 'SK register' },
           ].map(s => `
             <button type="button" onclick="OutreachModule._setFindSource('${s.k}')"
               style="padding:8px 14px;border:1.5px solid ${this._findSource === s.k ? '#F97316' : '#E5E0D7'};background:${this._findSource === s.k ? '#FFF7ED' : '#fff'};border-radius:10px;font-size:13px;font-weight:600;color:${this._findSource === s.k ? '#F97316' : '#3A352B'};cursor:pointer;">
@@ -2042,6 +2309,39 @@ const OutreachModule = {
                 style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
             </label>
             <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">Reálne Google Maps firmy vrátane telefónu + webu. Vyžaduje <code>GOOGLE_MAPS_API_KEY</code>.</p>
+          ` : this._findSource === 'outscraper' ? `
+            <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+              ${this._field('query', 'Hľadaj (fotovoltika, autoservis, e-shop) *', 'text', true)}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label style="font-size:13px;color:#6F6758;font-weight:600;">Mestá (oddelené čiarkou alebo nový riadok)</label>
+              <textarea name="cities" id="outscraper-cities" rows="2" placeholder="Bratislava, Žilina, Košice…"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" onclick="OutreachModule._fillCities('regional')"
+                  style="padding:6px 12px;border:1px solid #EAE6DE;background:#fff;border-radius:8px;font-size:12px;cursor:pointer;color:#3A352B;">
+                  + Krajské mestá (8)
+                </button>
+                <button type="button" onclick="OutreachModule._fillCities('major')"
+                  style="padding:6px 12px;border:1px solid #EAE6DE;background:#fff;border-radius:8px;font-size:12px;cursor:pointer;color:#3A352B;">
+                  + Väčšie mestá SK (30)
+                </button>
+                <button type="button" onclick="OutreachModule._fillCities('clear')"
+                  style="padding:6px 12px;border:1px solid #EAE6DE;background:#fff;border-radius:8px;font-size:12px;cursor:pointer;color:#948B7C;">
+                  Vyčistiť
+                </button>
+              </div>
+            </div>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Počet výsledkov per mesto (max 20)
+              <input type="number" name="maxResults" min="1" max="20" value="10"
+                style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
+            </label>
+            <p style="font-size:11px;color:#948B7C;margin:0;line-height:1.5;">
+              Google Maps + email enrichment cez Outscraper. <strong>Web (doména) povinný</strong>, email voliteľný — doplníš ručne ak Outscraper neobjavil.
+              Dedup podľa domény, automaticky uloží do prospects.
+              Cena ~$0.02–0.05 / lead × počet miest × počet výsledkov. Max 20 miest naraz. Vyžaduje <code>OUTSCRAPER_API_KEY</code>.
+            </p>
           ` : `
             <div style="display:grid;grid-template-columns:1fr;gap:12px;">
               ${this._field('query', 'Názov firmy alebo IČO *', 'text', true)}
@@ -2066,6 +2366,62 @@ const OutreachModule = {
     this.openFindProspects();
   },
 
+  // Subtle hint pri Compose: ak posielame mimo pracovných hodín alebo cez víkend,
+  // pri väčšom počte (5+) zobraz nenápadné upozornenie. Manuálny send ide hneď
+  // (klient čaká), ale pri 50+ mailoch o polnoci hrozí spam pattern.
+  _outsideBusinessHoursHint(count) {
+    if (count < 5) return ''; // pri 1-4 mailoch hint netreba
+    try {
+      const fmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Bratislava',
+        hour: '2-digit', weekday: 'short', hour12: false,
+      }).formatToParts(new Date());
+      const hour = parseInt(fmt.find(p => p.type === 'hour').value, 10);
+      const wd = fmt.find(p => p.type === 'weekday').value;
+      const isWeekend = wd === 'Sat' || wd === 'Sun';
+      const offHours = hour < 8 || hour >= 18;
+      if (!isWeekend && !offHours) return '';
+      const why = isWeekend ? 'víkend' : 'mimo 8-18 SK';
+      return `
+        <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="font-size:14px;">⏰</span>
+          <div>
+            <strong>${why}</strong> — posielanie ${count} mailov teraz môže pôsobiť ako spam.
+            Pre väčšie bulk dávky radšej použij <a href="#" onclick="event.preventDefault();OutreachModule.setView('sequences');" style="color:#92400E;text-decoration:underline;">kampaň/sekvenciu</a>
+            ktorá automaticky čaká na pracovné okno + pridá jitter. Manuálny send ide vždy hneď.
+          </div>
+        </div>
+      `;
+    } catch { return ''; }
+  },
+
+  // Predefinované zoznamy slovenských miest pre Outscraper batch search
+  _CITY_PRESETS: {
+    regional: [
+      'Bratislava', 'Trnava', 'Trenčín', 'Nitra',
+      'Žilina', 'Banská Bystrica', 'Prešov', 'Košice',
+    ],
+    major: [
+      'Bratislava', 'Košice', 'Prešov', 'Žilina', 'Banská Bystrica',
+      'Nitra', 'Trnava', 'Trenčín', 'Martin', 'Poprad',
+      'Prievidza', 'Zvolen', 'Považská Bystrica', 'Michalovce', 'Nové Zámky',
+      'Spišská Nová Ves', 'Komárno', 'Levice', 'Humenné', 'Bardejov',
+      'Liptovský Mikuláš', 'Ružomberok', 'Trebišov', 'Dubnica nad Váhom', 'Hlohovec',
+      'Senica', 'Brezno', 'Šaľa', 'Snina', 'Pezinok',
+    ],
+  },
+
+  _fillCities(kind) {
+    const ta = document.getElementById('outscraper-cities');
+    if (!ta) return;
+    if (kind === 'clear') { ta.value = ''; return; }
+    const list = this._CITY_PRESETS[kind] || [];
+    // Spojiť s existujúcimi (ak user už nejaké zadal), dedup
+    const existing = ta.value.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+    const merged = Array.from(new Set([...existing, ...list]));
+    ta.value = merged.join(', ');
+  },
+
   async runFindProspects() {
     const form = document.getElementById('find-form');
     if (!form) return;
@@ -2074,12 +2430,33 @@ const OutreachModule = {
     const status = document.getElementById('find-status');
     const btn = form.querySelector('button[type=submit]');
     const src = this._findSource || 'ai';
-    const endpoint = src === 'ai' ? 'find-prospects' : src === 'places' ? 'lead-finder-places' : 'lead-finder-finstat';
+
+    // Outscraper: rozparsuj cities textarea na array, ak je vyplnená
+    if (src === 'outscraper' && payload.cities) {
+      const parsed = String(payload.cities).split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+      if (parsed.length > 20) {
+        status.style.display = 'block';
+        status.style.background = '#FEE2E2';
+        status.style.color = '#991B1B';
+        status.textContent = `✕ Max 20 miest naraz (zadal si ${parsed.length}). Zníž počet alebo rozbi na viac behov.`;
+        return;
+      }
+      payload.cities = parsed;
+      delete payload.city; // jeden alebo druhý, nie oba
+    }
+    const endpoint = src === 'ai' ? 'find-prospects'
+      : src === 'places' ? 'lead-finder-places'
+      : src === 'outscraper' ? 'lead-finder-outscraper'
+      : 'lead-finder-finstat';
 
     status.style.display = 'block';
     status.style.background = '#F7F5F1';
     status.style.color = '#6F6758';
-    status.textContent = `⏳ Hľadám cez ${src === 'ai' ? 'AI (15-30s)' : src === 'places' ? 'Google Maps' : 'FinStat'}…`;
+    const citiesCount = Array.isArray(payload.cities) ? payload.cities.length : 0;
+    const outscraperHint = citiesCount > 1
+      ? `Outscraper (${citiesCount} miest, ~${15 + citiesCount}s, hľadám aj emaily)`
+      : 'Outscraper (15-25s, hľadám aj emaily)';
+    status.textContent = `⏳ Hľadám cez ${src === 'ai' ? 'AI (15-30s)' : src === 'places' ? 'Google Maps' : src === 'outscraper' ? outscraperHint : 'FinStat'}…`;
     btn.disabled = true;
     try {
       const r = await fetch(`/.netlify/functions/${endpoint}`, {
@@ -2089,6 +2466,32 @@ const OutreachModule = {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+
+      // Outscraper sám ukladá do DB (response má inserted/skipped) → zobraz súhrn a zatvor
+      if (src === 'outscraper' && typeof data.inserted === 'number') {
+        const rej = data.rejected || {};
+        const infoParts = [];
+        if (rej.noEmail) infoParts.push(`${rej.noEmail}× chýba email (doplníš ručne)`);
+        if (rej.noDomain) infoParts.push(`${rej.noDomain}× vyradených (bez webu)`);
+        if (rej.closed) infoParts.push(`${rej.closed}× zatvorené`);
+        const infoText = infoParts.length > 0 ? ` · ${infoParts.join(', ')}` : '';
+
+        if (data.inserted === 0 && rej.rawTotal > 0) {
+          status.style.background = '#FEF3C7';
+          status.style.color = '#92400E';
+          status.textContent = `⚠ Outscraper našiel ${rej.rawTotal} firiem, ale žiadna nemá web. Skús iné mesto / iný segment.`;
+        } else {
+          status.style.background = '#DCFCE7';
+          status.style.color = '#166534';
+          status.textContent = `✓ Pridaných ${data.inserted} prospektov · preskočených ${data.skipped} duplicít${infoText}`;
+        }
+        // Refresh prospects list na pozadí
+        if (this._container && typeof this.render === 'function') {
+          this.render(this._container).catch(() => {});
+        }
+        return;
+      }
+
       this._findResults = data.prospects || [];
       this._findSelection = new Set(this._findResults.map((_, i) => i));
       status.style.display = 'none';
@@ -2786,6 +3189,290 @@ const OutreachModule = {
     await this._loadWorkingHours(); this.rerender();
   },
 
+  // ========== SUPPRESSIONS (opt-out zoznam) ==========
+  // Globálny zoznam emailov ktoré sa NIKDY neposielajú. User môže naimportovať
+  // starý opt-out zoznam (napr. z Brevo) a všetci v ňom sa zaznamenajú navždy.
+  // Pri importe matching prospects sa rovno označia ako unsubscribed.
+
+  suppressions: [],
+  suppressionsLoaded: false,
+  suppressionsFilter: '',
+
+  async openSuppressions() {
+    this.currentView = 'suppressions';
+    this.suppressions = [];
+    this.suppressionsLoaded = false;
+    this.rerender();
+    try {
+      const { data, error } = await Database.client
+        .from('email_suppressions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      this.suppressions = data || [];
+    } catch (e) {
+      Utils.toast('Chyba načítania suppression list: ' + (e.message || ''), 'danger');
+      this.suppressions = [];
+    }
+    this.suppressionsLoaded = true;
+    this.rerender();
+  },
+
+  renderSuppressions() {
+    const rows = this.suppressions;
+    const filter = (this.suppressionsFilter || '').toLowerCase();
+    const filtered = filter ? rows.filter(r =>
+      (r.email || '').toLowerCase().includes(filter) ||
+      (r.reason || '').toLowerCase().includes(filter) ||
+      (r.notes || '').toLowerCase().includes(filter)
+    ) : rows;
+
+    return `
+      <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
+        <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div>
+            <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Opt-out zoznam (${rows.length})</h2>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Emails na tomto zozname <strong>nikdy nedostanú</strong> žiadny outreach mail. Platí naprieč všetkými kampaňami.</p>
+          </div>
+          <div class="adl-toolbar">
+            <button class="adl-btn adl-btn-primary" onclick="OutreachModule.openBulkSuppressionImport()">📥 Bulk import</button>
+            <button class="adl-btn adl-btn-outline" onclick="OutreachModule.exportSuppressionsCsv()">⬇ Export CSV</button>
+          </div>
+        </div>
+
+        <div style="padding:14px 24px;background:#F7F5F1;border-bottom:1px solid #EAE6DE;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <form onsubmit="event.preventDefault();OutreachModule.quickAddSuppression(event);" style="display:flex;gap:6px;flex:1;min-width:300px;max-width:480px;">
+            <input id="quick-add-email" type="email" required placeholder="email@firma.sk — pridať jeden naraz (Enter)"
+              style="flex:1;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+            <input id="quick-add-notes" type="text" placeholder="poznámka (nepovinné)"
+              style="flex:1;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+            <button type="submit" class="adl-btn adl-btn-sm adl-btn-ink" title="Pridať jeden email">+ Pridať</button>
+          </form>
+          <input type="search" placeholder="Hľadať..." value="${this.esc(filter)}"
+            oninput="OutreachModule.suppressionsFilter=this.value;OutreachModule.rerender();"
+            style="width:240px;padding:8px 14px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+        </div>
+
+        ${!this.suppressionsLoaded ? `<div style="padding:40px;text-align:center;color:#6F6758;">Načítavam…</div>`
+          : filtered.length === 0 ? `
+            <div style="padding:40px;text-align:center;color:#6F6758;">
+              <div style="font-size:14px;margin-bottom:6px;">${rows.length === 0 ? 'Zatiaľ žiadne opt-out emails.' : 'Nič nezodpovedá filtru.'}</div>
+              ${rows.length === 0 ? '<div style="font-size:12px;">Klik <strong>"Importovať odhlásených"</strong> a vlož starý zoznam (po riadkoch alebo CSV).</div>' : ''}
+            </div>
+          ` : `
+            <div style="max-height:600px;overflow-y:auto;">
+              ${filtered.map(r => `
+                <div style="padding:12px 24px;border-bottom:1px solid #F7F5F1;display:flex;justify-content:space-between;align-items:center;gap:14px;">
+                  <div style="min-width:0;flex:1;">
+                    <div style="font-size:14px;font-weight:600;color:#14120E;font-family:ui-monospace,monospace;">${this.esc(r.email)}</div>
+                    <div style="font-size:11px;color:#948B7C;margin-top:3px;">
+                      ${r.reason ? `<span style="background:#FEF3C7;color:#92400E;padding:1px 7px;border-radius:999px;font-weight:600;margin-right:6px;">${this.esc(r.reason)}</span>` : ''}
+                      ${r.source ? `via ${this.esc(r.source)} · ` : ''}${this._formatDate(r.created_at)}${r.created_by ? ' · ' + this.esc(r.created_by) : ''}
+                    </div>
+                    ${r.notes ? `<div style="font-size:12px;color:#6F6758;margin-top:4px;">${this.esc(r.notes)}</div>` : ''}
+                  </div>
+                  <button class="adl-btn adl-btn-sm adl-btn-ghost" style="color:#DC2626;" onclick="OutreachModule.removeSuppression('${r.id}', '${this.esc(r.email)}')" title="Odstrániť (povoliť kontakt)">Odobrať</button>
+                </div>
+              `).join('')}
+            </div>
+          `}
+      </div>
+    `;
+  },
+
+  _formatDate(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch { return iso; }
+  },
+
+  openBulkSuppressionImport() {
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:600px;">
+        <div class="adl-modal-head">
+          <h3 style="margin:0;font-size:18px;font-weight:700;">📥 Importovať opt-out emails</h3>
+          <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
+        </div>
+        <form id="suppression-bulk-form" onsubmit="event.preventDefault();OutreachModule.runBulkSuppressionImport();" style="padding:20px 24px;display:grid;gap:14px;">
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:#6F6758;margin-bottom:6px;">Emails (po jednom na riadok alebo oddelené čiarkou)</label>
+            <textarea name="emails" rows="10" placeholder="jan@example.com&#10;peter@firma.sk&#10;&#10;Alebo skopíruj zo starého Brevo exportu — z buniek vytiahneme len emails."
+              required
+              style="width:100%;padding:12px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:13px;font-family:ui-monospace,monospace;line-height:1.5;resize:vertical;"></textarea>
+            <p style="font-size:11px;color:#948B7C;margin:4px 0 0;">Akceptuje 1 email/riadok, CSV, alebo paste z Excelu. Duplicity sa filtrujú.</p>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Dôvod
+              <select name="reason" style="padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+                <option value="imported_legacy">imported_legacy (starý opt-out zoznam)</option>
+                <option value="manual_opt_out">manual_opt_out (sám si nepraje)</option>
+                <option value="spam_complaint">spam_complaint (označil ako spam)</option>
+                <option value="bounced_hard">bounced_hard (neexistujúca schránka)</option>
+                <option value="gdpr_request">gdpr_request (právo na výmaz)</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+              Zdroj
+              <input type="text" name="source" value="brevo_export" placeholder="brevo_export, csv_import..."
+                style="padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+            </label>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Poznámka (voliteľné)
+            <input type="text" name="notes" placeholder="napr. 'Export z Brevo, jún 2026'"
+              style="padding:8px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;">
+          </label>
+          <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400E;">
+            <strong>Pozor:</strong> existujúci prospekti s týmto emailom sa rovno označia ako <em>unsubscribed</em> a všetky aktívne kampane sa zastavia. Akcia je vratná (cez "Odobrať" v zozname).
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button type="button" class="adl-btn adl-btn-outline" onclick="OutreachModule.closeModal()">Zrušiť</button>
+            <button type="submit" class="adl-btn adl-btn-primary">Importovať</button>
+          </div>
+        </form>
+      </div>
+    `;
+    this._openModal(modal);
+  },
+
+  async runBulkSuppressionImport() {
+    const form = document.getElementById('suppression-bulk-form');
+    if (!form) return;
+    const fd = new FormData(form);
+    const raw = (fd.get('emails') || '').toString();
+    const reason = (fd.get('reason') || 'imported_legacy').toString();
+    const source = (fd.get('source') || '').toString().trim() || null;
+    const notes = (fd.get('notes') || '').toString().trim() || null;
+
+    // Extract emails — split on whitespace/comma/semicolon, regex validation
+    const emailRegex = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+    const matches = raw.match(emailRegex) || [];
+    const emails = [...new Set(matches.map(e => e.toLowerCase()))];
+
+    if (emails.length === 0) return Utils.toast('Žiadny platný email v texte', 'warning');
+
+    const adminEmail = window.Auth?.user?.email || 'unknown';
+    const payload = emails.map(email => ({ email, reason, source, notes, created_by: adminEmail }));
+
+    try {
+      // 1. Upsert do email_suppressions (idempotent)
+      const { error: e1 } = await Database.client
+        .from('email_suppressions')
+        .upsert(payload, { onConflict: 'email' });
+      if (e1) throw e1;
+
+      // 2. Existujúce prospects s týmto emailom → unsubscribed
+      const { data: matchingProspects } = await Database.client
+        .from('prospects')
+        .select('id')
+        .in('email', emails);
+      const prospectIds = (matchingProspects || []).map(p => p.id);
+      let marked = 0;
+      if (prospectIds.length) {
+        await Database.client.from('prospects').update({
+          outreach_stage: 'unsubscribed',
+        }).in('id', prospectIds);
+        // Stop aktívne enrollments
+        await Database.client.from('outreach_campaign_enrollments').update({
+          status: 'stopped', stop_reason: 'unsubscribed_bulk_import',
+        }).in('prospect_id', prospectIds).eq('status', 'active');
+        marked = prospectIds.length;
+      }
+
+      Utils.toast(`Importovaných ${emails.length} emails · ${marked} existujúcich prospektov označených ako unsubscribed`, 'success');
+      this.closeModal();
+      await this.openSuppressions();
+    } catch (e) {
+      Utils.toast('Chyba importu: ' + (e.message || ''), 'danger');
+    }
+  },
+
+  // Pridať jeden email opt-out priamo z header riadku (bez modalu) — pre prípady
+  // keď user pri prehľadávaní zistí že firma má rozbité stránky / nezáujem.
+  async quickAddSuppression(ev) {
+    const emailEl = document.getElementById('quick-add-email');
+    const notesEl = document.getElementById('quick-add-notes');
+    const email = (emailEl?.value || '').trim().toLowerCase();
+    const notes = (notesEl?.value || '').trim() || null;
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return Utils.toast('Neplatný email', 'warning');
+    }
+    const adminEmail = window.Auth?.user?.email || 'unknown';
+    try {
+      const { error: e1 } = await Database.client
+        .from('email_suppressions')
+        .upsert({
+          email,
+          reason: 'manual_opt_out',
+          source: 'quick_add',
+          notes,
+          created_by: adminEmail,
+        }, { onConflict: 'email' });
+      if (e1) throw e1;
+
+      // Existujúci prospekt s týmto emailom → unsubscribed
+      const { data: matching } = await Database.client
+        .from('prospects')
+        .select('id')
+        .eq('email', email)
+        .limit(50);
+      const ids = (matching || []).map(p => p.id);
+      let marked = 0;
+      if (ids.length) {
+        await Database.client.from('prospects').update({
+          outreach_stage: 'unsubscribed',
+        }).in('id', ids);
+        await Database.client.from('outreach_campaign_enrollments').update({
+          status: 'stopped', stop_reason: 'unsubscribed_quick_add',
+        }).in('prospect_id', ids).eq('status', 'active');
+        marked = ids.length;
+      }
+      Utils.toast(`+ ${email}${marked ? ` · ${marked} prospektov označených` : ''}`, 'success');
+      if (emailEl) emailEl.value = '';
+      if (notesEl) notesEl.value = '';
+      await this.openSuppressions();
+    } catch (e) {
+      Utils.toast('Chyba: ' + (e.message || ''), 'danger');
+    }
+  },
+
+  async removeSuppression(id, email) {
+    const ok = await Utils.confirm(
+      `Odobrať <strong>${email}</strong> z opt-out zoznamu?<br><br>` +
+      `<small style="color:#6F6758;">Po odobratí im môžeme znova posielať maily. Pre úplné rešpektovanie GDPR čl. 7 odporúčam ponechať pokiaľ explicitne nenapísali že chcú znova dostávať maily.</small>`,
+      { type: 'warning', confirmText: 'Odobrať', cancelText: 'Zrušiť', html: true }
+    );
+    if (!ok) return;
+    try {
+      await Database.client.from('email_suppressions').delete().eq('id', id);
+      Utils.toast('Odstránené', 'success');
+      this.suppressions = this.suppressions.filter(s => s.id !== id);
+      this.rerender();
+    } catch (e) {
+      Utils.toast('Chyba: ' + (e.message || ''), 'danger');
+    }
+  },
+
+  exportSuppressionsCsv() {
+    const rows = this.suppressions || [];
+    if (rows.length === 0) return Utils.toast('Žiadne dáta na export', 'warning');
+    const header = 'email,reason,source,notes,created_at,created_by\n';
+    const csv = header + rows.map(r => [
+      r.email, r.reason || '', r.source || '', r.notes || '', r.created_at || '', r.created_by || ''
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `opt-out-list-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
   // ========== SENDERS (rotation + warm-up) ==========
 
   senders: [],
@@ -2814,18 +3501,34 @@ const OutreachModule = {
 
   renderSenders() {
     const rows = this.senders;
+
+    // Bezpečnostný audit: kto je aktívny pre cold outreach?
+    const active = rows.filter(s => s.is_active);
+    const transactionalActive = active.filter(s => /@adlify\.eu$/i.test(s.email || ''));
+    const coldSafeActive = active.filter(s => !/@adlify\.eu$/i.test(s.email || ''));
+    const safetyBanner = transactionalActive.length > 0
+      ? `<div style="padding:14px 24px;background:#FEE2E2;border-bottom:1px solid #FCA5A5;font-size:13px;color:#991B1B;">
+          <strong>⚠ Rizikový sender:</strong> <code>${transactionalActive.map(s => s.email).join(', ')}</code> je @adlify.eu — tá je transakčná doména klientom (onboarding, proposal). Cold mail z nej môže zabrániť doručeniu týchto emailov klientom. Spusti <strong>migráciu 039</strong> (pridá <code>info@adlify-agency.online</code> a deaktivuje .eu senderov) alebo to vypni ručne.
+         </div>`
+      : coldSafeActive.length === 0 && this.sendersLoaded
+        ? `<div style="padding:14px 24px;background:#FEF3C7;border-bottom:1px solid #FDE68A;font-size:13px;color:#92400E;">
+            <strong>⚠ Žiadny aktívny sender:</strong> bez sendera scheduler nič nepošle. Pridaj cez <em>+ Pripojiť Gmail</em> alebo spusti migráciu 039 (vytvorí <code>info@adlify-agency.online</code> cez Resend).
+           </div>`
+        : '';
+
     return `
       <div style="background:#fff;border:1px solid #EAE6DE;border-radius:16px;overflow:hidden;">
         <div style="padding:18px 24px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
           <div>
             <h2 style="font-size:20px;font-weight:700;margin:0 0 4px;">Odosielatelia a warm-up</h2>
-            <p style="font-size:13px;color:#6F6758;margin:0;">Gmail / Google Workspace je odporúčaný pre cold outreach (menšie riziko blokácie než Resend).</p>
+            <p style="font-size:13px;color:#6F6758;margin:0;">Cold outreach posielame z <strong>adlify-agency.online</strong>. Hlavnú doménu <strong>adlify.eu</strong> chránime pre transakčné maily klientom.</p>
           </div>
           <div class="adl-toolbar">
             <button class="adl-btn adl-btn-primary" onclick="OutreachModule.connectGmailSender()">+ Pripojiť Gmail</button>
             <button class="adl-btn adl-btn-outline" onclick="OutreachModule.newSender()">+ Manuálny (Resend / SMTP)</button>
           </div>
         </div>
+        ${safetyBanner}
         <div style="padding:14px 24px;background:#FFF7ED;border-bottom:1px solid #FED7AA;font-size:12px;color:#92400E;">
           <strong>Tip:</strong> Resend zakazuje cold outreach (ToS) — pre masové posielanie využi Gmail API
           (limit 500/deň per účet, pripoj si 2-3 Workspace mailboxy). Resend necháš pre transactional
@@ -2847,9 +3550,10 @@ const OutreachModule = {
     const limit = s.warmup_current || s.daily_limit || 40;
     const sentPct = Math.min(100, Math.round(((s.sent_today || 0) / limit) * 100));
     const providerBadge = {
-      gmail:  { label: 'Gmail API', bg: '#DBEAFE', color: '#1E3A8A' },
-      resend: { label: 'Resend',    bg: '#F7F5F1', color: '#6F6758' },
-      smtp:   { label: 'SMTP',      bg: '#F7F5F1', color: '#6F6758' },
+      gmail:   { label: 'Gmail API', bg: '#DBEAFE', color: '#1E3A8A' },
+      resend:  { label: 'Resend',    bg: '#F7F5F1', color: '#6F6758' },
+      mailjet: { label: 'Mailjet',   bg: '#FEF3C7', color: '#92400E' },
+      smtp:    { label: 'SMTP',      bg: '#F7F5F1', color: '#6F6758' },
     }[s.provider || 'resend'];
     const linked = s.provider === 'gmail' && !!s.platform_connection_id;
     return `
@@ -2892,7 +3596,9 @@ const OutreachModule = {
     this.connectGmailSender();
   },
 
-  newSender() { this._senderModal({ is_active: true, daily_limit: 40, warmup_current: 40, throttle_seconds: 60 }); },
+  // Default sender: bezpečný warm-up štart (5/deň → manuálne zvyšuj).
+  // Plný target 40-60/deň dosahuj postupne po 1-2 týždňoch warmup-u.
+  newSender() { this._senderModal({ is_active: true, daily_limit: 40, warmup_current: 5, throttle_seconds: 120 }); },
   editSender(id) {
     const s = this.senders.find(x => x.id === id);
     if (s) this._senderModal(s);
@@ -2908,13 +3614,23 @@ const OutreachModule = {
           <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()">✕</button>
         </div>
         <form id="sender-form" onsubmit="event.preventDefault();OutreachModule.saveSender('${s.id || ''}');" style="padding:20px 24px;display:grid;gap:12px;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
+            Provider
+            <select name="provider" required
+              style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;background:#fff;">
+              <option value="resend"  ${(s.provider || 'resend') === 'resend' ? 'selected' : ''}>Resend (transakčné, prísnejšie ToS)</option>
+              <option value="mailjet" ${s.provider === 'mailjet' ? 'selected' : ''}>Mailjet (marketing, bulk-friendly)</option>
+              <option value="smtp"    ${s.provider === 'smtp' ? 'selected' : ''}>SMTP (vlastný server)</option>
+            </select>
+            <span style="font-size:11px;color:#948B7C;margin-top:2px;">Gmail sa pripája cez OAuth tlačidlom „+ Pripojiť Gmail" hore.</span>
+          </label>
           ${this._field('name', 'Meno *', 'text', true)}
           ${this._field('email', 'Email *', 'email', true)}
           ${this._field('reply_to', 'Reply-to (voliteľné)', 'email')}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
               Denný limit (warm-up current)
-              <input type="number" name="warmup_current" min="1" max="500" value="${s.warmup_current || 40}" required
+              <input type="number" name="warmup_current" min="1" max="5000" value="${s.warmup_current || 40}" required
                 style="padding:10px 14px;border:1.5px solid #EAE6DE;border-radius:10px;font-size:14px;">
             </label>
             <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#6F6758;font-weight:600;">
@@ -2952,6 +3668,7 @@ const OutreachModule = {
       name: row.name.trim(),
       email: row.email.trim().toLowerCase(),
       reply_to: row.reply_to?.trim() || null,
+      provider: row.provider || 'resend',
       warmup_current: parseInt(row.warmup_current) || 40,
       daily_limit: parseInt(row.warmup_current) || 40,
       throttle_seconds: parseInt(row.throttle_seconds) || 60,
@@ -2962,9 +3679,19 @@ const OutreachModule = {
       ({ error: err } = await Database.client.from('outreach_senders').update(payload).eq('id', id));
     } else {
       payload.is_active = true;
-      ({ error: err } = await Database.client.from('outreach_senders').insert(payload));
+      // Upsert na email — ak sender s týmto emailom už existuje (napr. z migrácie 039),
+      // namiesto 409 conflict rovno updatne a reaktivuje
+      ({ error: err } = await Database.client
+        .from('outreach_senders')
+        .upsert(payload, { onConflict: 'email' }));
     }
-    if (err) return Utils.toast('Chyba: ' + err.message, 'danger');
+    if (err) {
+      // Friendly hint pre duplicate
+      const msg = /duplicate|unique|conflict|409/i.test(err.message || '')
+        ? `Sender s emailom ${payload.email} už existuje. Pozri zoznam → klik "Zapnúť" alebo "Upraviť".`
+        : 'Chyba: ' + err.message;
+      return Utils.toast(msg, 'danger');
+    }
     this.closeModal();
     Utils.toast('Uložené', 'success');
     await this.openSenders();
@@ -3655,7 +4382,10 @@ const OutreachModule = {
         </div>
 
         <div style="padding:16px 24px;border-top:1px solid #EAE6DE;background:#FAFAF7;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteProspectFromDetail()">✕ Zmazať</button>
+          <div class="adl-toolbar">
+            <button class="adl-btn adl-btn-danger" onclick="OutreachModule.deleteProspectFromDetail()">✕ Zmazať</button>
+            ${p.outreach_stage !== 'unsubscribed' ? `<button class="adl-btn adl-btn-outline" style="color:#6F6758;" onclick="OutreachModule.markUnsubscribedFromDetail()" title="Prospekt si nepraje dostávať maily">🚫 Označiť ako odhlásený</button>` : `<span style="font-size:13px;color:#6F6758;padding:8px 12px;">🚫 Odhlásený (opt-out)</span>`}
+          </div>
           <div class="adl-toolbar">
             ${!isConverted ? `<button class="adl-btn adl-btn-outline" onclick="OutreachModule.promoteFromDetail()">→ Lead</button>` : ''}
             ${isConverted && p.converted_to_lead_id ? `<a class="adl-btn adl-btn-soft" href="#/leads?id=${p.converted_to_lead_id}">Otvoriť lead ↗</a>` : ''}
@@ -4060,6 +4790,7 @@ const OutreachModule = {
           </div>
         `).join('')}
       </div>
+      ${this._renderEnrichmentPanel(p)}
       ${p.notes ? `
         <div style="margin-top:20px;">
           <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Poznámka</div>
@@ -4067,6 +4798,74 @@ const OutreachModule = {
         </div>
       ` : ''}
       ${linkedInActions}
+    `;
+  },
+
+  // Detailný prehľad dát z Outscraper enrichmentu — socials, reviews, hours, atď.
+  // Vidíš všetko čo systém o prospektovi vie, aby si nemusel hádať.
+  _renderEnrichmentPanel(p) {
+    const an = p.analysis || {};
+    if (!an || Object.keys(an).length === 0) return '';
+    const socials = an.socials || {};
+    const socialEntries = Object.entries(socials).filter(([, v]) => v);
+    const socialMap = {
+      facebook: '#1877F2', instagram: '#E4405F', linkedin: '#0A66C2',
+      twitter: '#000000', youtube: '#FF0000', tiktok: '#000000',
+    };
+
+    return `
+      <div style="margin-top:20px;background:#FAFAF7;border:1px solid #EAE6DE;border-radius:12px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">📊 Obohatené dáta (Outscraper)</span>
+          ${p.source ? `<span style="font-size:10px;background:#FFEDD5;color:#9A3412;padding:2px 7px;border-radius:999px;font-weight:600;">${this.esc(p.source)}</span>` : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px 14px;font-size:13px;">
+          ${an.reviews != null ? `<div><span style="color:#948B7C;font-size:11px;">Recenzie</span><br><strong>${an.reviews}</strong> ${an.rating ? `· ★ ${an.rating}` : ''}</div>` : ''}
+          ${an.size_tier ? `<div><span style="color:#948B7C;font-size:11px;">Veľkosť</span><br><strong>${this.esc(an.size_tier)}</strong></div>` : ''}
+          ${an.category ? `<div><span style="color:#948B7C;font-size:11px;">Kategória</span><br><strong>${this.esc(an.category)}</strong></div>` : ''}
+          ${an.price_level ? `<div><span style="color:#948B7C;font-size:11px;">Cenová úroveň</span><br><strong>${this.esc(an.price_level)}</strong></div>` : ''}
+          ${an.address ? `<div style="grid-column:span 2;"><span style="color:#948B7C;font-size:11px;">Adresa</span><br><strong>${this.esc(an.address)}</strong></div>` : ''}
+          ${an.owner_name ? `<div><span style="color:#948B7C;font-size:11px;">Vlastník</span><br><strong>${this.esc(an.owner_name)}</strong></div>` : ''}
+        </div>
+
+        ${an.description ? `
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Popis (z Google)</div>
+            <div style="font-size:13px;color:#3A352B;line-height:1.5;">${this.esc(an.description)}</div>
+          </div>` : ''}
+
+        ${socialEntries.length > 0 ? `
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px;">Sociálne siete</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${socialEntries.map(([k, v]) => `
+                <a href="${this.esc(String(v))}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#fff;border:1px solid #EAE6DE;border-radius:8px;text-decoration:none;font-size:12px;color:${socialMap[k] || '#14120E'};font-weight:600;">
+                  <span style="text-transform:capitalize;">${k}</span>
+                  <span style="color:#948B7C;font-size:10px;">↗</span>
+                </a>
+              `).join('')}
+            </div>
+          </div>` : ''}
+
+        ${an.working_hours ? `
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;">Otváracie hodiny</div>
+            <pre style="margin:0;padding:8px 10px;background:#fff;border:1px solid #EAE6DE;border-radius:8px;font-size:12px;line-height:1.5;white-space:pre-wrap;color:#3A352B;font-family:ui-monospace,monospace;">${this.esc(typeof an.working_hours === 'string' ? an.working_hours : JSON.stringify(an.working_hours, null, 2))}</pre>
+          </div>` : ''}
+
+        ${an.place_id ? `
+          <div style="margin-top:12px;font-size:11px;color:#948B7C;display:flex;gap:14px;flex-wrap:wrap;">
+            <span>Place ID: <code style="font-family:ui-monospace,monospace;font-size:11px;color:#3A352B;background:#fff;padding:1px 4px;border-radius:3px;">${this.esc(an.place_id)}</code></span>
+            ${an.coordinates ? `<span>GPS: ${an.coordinates.lat?.toFixed(4)}, ${an.coordinates.lng?.toFixed(4)}</span>` : ''}
+            ${p.source_url ? `<a href="${this.esc(p.source_url)}" target="_blank" rel="noopener" style="color:#F97316;">Otvoriť na Google Maps ↗</a>` : ''}
+          </div>` : ''}
+
+        ${an.outscraper_raw_keys && Array.isArray(an.outscraper_raw_keys) ? `
+          <details style="margin-top:12px;">
+            <summary style="font-size:11px;color:#948B7C;cursor:pointer;">🔍 Debug — všetky polia z Outscraper (${an.outscraper_raw_keys.length})</summary>
+            <div style="margin-top:6px;padding:8px 10px;background:#fff;border:1px solid #EAE6DE;border-radius:6px;font-size:11px;color:#6F6758;font-family:ui-monospace,monospace;line-height:1.6;word-break:break-all;">${an.outscraper_raw_keys.join(', ')}</div>
+          </details>` : ''}
+      </div>
     `;
   },
 
@@ -4227,6 +5026,256 @@ const OutreachModule = {
     const id = this._detailProspectId;
     this.closeModal();
     await this.deleteProspect(id);
+  },
+
+  // Renderuje malé ikony sociálnych sietí (FB, IG, LI, atď.) ktoré Outscraper
+  // vrátil v analysis.socials JSONB. Kliknuteľné — otvoria profil v novej karte.
+  _socialIcons(prospect) {
+    const socials = (prospect.analysis && prospect.analysis.socials) || {};
+    const linkedinFromCol = prospect.linkedin_url;
+    if (linkedinFromCol && !socials.linkedin) socials.linkedin = linkedinFromCol;
+    const map = {
+      facebook:  { color: '#1877F2', emoji: 'ⓕ', label: 'Facebook' },
+      instagram: { color: '#E4405F', emoji: '◉', label: 'Instagram' },
+      linkedin:  { color: '#0A66C2', emoji: 'in', label: 'LinkedIn' },
+      twitter:   { color: '#000000', emoji: '𝕏', label: 'X (Twitter)' },
+      youtube:   { color: '#FF0000', emoji: '▶', label: 'YouTube' },
+      tiktok:    { color: '#000000', emoji: '♪', label: 'TikTok' },
+    };
+    const icons = Object.entries(socials)
+      .filter(([k, v]) => v && map[k])
+      .map(([k, v]) => {
+        const m = map[k];
+        const safeUrl = String(v).replace(/['"<>]/g, '');
+        return `<a href="${safeUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${m.label}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${m.color};color:#fff;font-size:9px;font-weight:700;text-decoration:none;line-height:1;flex-shrink:0;">${m.emoji}</a>`;
+      })
+      .join('');
+    return icons;
+  },
+
+  // Inline save z site-preview modálu — keď user nájde email/meno/telefón
+  // na stránke firmy, môže prepísať bez zatvárania modalu.
+  async saveSitePreviewEdit(prospectId) {
+    const form = document.getElementById('site-preview-edit');
+    const status = document.getElementById('site-preview-edit-status');
+    if (!form) return;
+    const fd = new FormData(form);
+    const payload = {
+      email: (fd.get('email') || '').toString().trim().toLowerCase() || null,
+      contact_person: (fd.get('contact_person') || '').toString().trim() || null,
+      phone: (fd.get('phone') || '').toString().trim() || null,
+    };
+    try {
+      const { data, error } = await Database.client
+        .from('prospects')
+        .update(payload)
+        .eq('id', prospectId)
+        .select()
+        .single();
+      if (error) throw error;
+      // Update local cache
+      const idx = this.prospects.findIndex(p => p.id === prospectId);
+      if (idx >= 0) this.prospects[idx] = { ...this.prospects[idx], ...data };
+      if (status) {
+        status.textContent = '✓ Uložené';
+        setTimeout(() => { if (status) status.textContent = ''; }, 2500);
+      }
+      // Soft refresh tabuľky v pozadí (bez zatvorenia modalu)
+      this.rerender();
+    } catch (e) {
+      if (status) { status.style.color = '#DC2626'; status.textContent = '✕ ' + (e.message || 'chyba'); }
+    }
+  },
+
+  // Náhľad stránky v iframe modale — pre rýchle posúdenie "funguje vôbec?" /
+  // "vyzerá to ako serious business?" bez otvárania v novej karte. Niektoré
+  // stránky majú X-Frame-Options: DENY → iframe nedovolí načítanie. V tom
+  // prípade modal ukáže fallback hlášku s tlačidlom otvorenia v novej karte.
+  openSitePreview(domain, company, prospectId) {
+    if (!domain) return;
+    const url = `https://${domain}`;
+    const safeUrl = String(url).replace(/['"<>]/g, '');
+    const prospect = prospectId ? this.prospects.find(p => p.id === prospectId) : null;
+    const curEmail = prospect?.email || '';
+    const curContact = prospect?.contact_person || '';
+    const curPhone = prospect?.phone || '';
+    const modal = this._ensureModal('outreach-modal');
+    modal.innerHTML = `
+      <div class="adl-modal-backdrop" onclick="OutreachModule.closeModal()"></div>
+      <div class="adl-modal-card" style="max-width:1100px;width:min(94vw,1100px);height:min(88vh,820px);display:flex;flex-direction:column;">
+        <div class="adl-modal-head" style="padding:14px 20px;border-bottom:1px solid #EAE6DE;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <img src="https://www.google.com/s2/favicons?domain=${this.esc(domain)}&sz=64" width="24" height="24" style="border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'" alt="">
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:#14120E;">${this.esc(company || domain)}</div>
+              <a href="${safeUrl}" target="_blank" rel="noopener" style="font-size:11px;color:#6F6758;">${this.esc(domain)} ↗</a>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <a href="${safeUrl}" target="_blank" rel="noopener" class="adl-btn adl-btn-sm adl-btn-outline">Nová karta ↗</a>
+            ${prospectId ? `<button class="adl-btn adl-btn-sm" style="background:#F7F5F1;border:1px solid #EAE6DE;color:#6F6758;" onclick="OutreachModule.markUnsubscribedFromRow('${prospectId}');OutreachModule.closeModal();">🚫 Opt-out</button>` : ''}
+            <button class="adl-btn adl-btn-sm adl-btn-ghost" onclick="OutreachModule.closeModal()" title="Zavrieť (Esc)">✕</button>
+          </div>
+        </div>
+        ${prospectId ? `
+          <div style="padding:10px 20px;background:#FAFAF7;border-bottom:1px solid #EAE6DE;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#948B7C;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:8px;">
+              <span>✏ Upraviť kontakt</span>
+              <span style="background:#FEF3C7;color:#92400E;padding:1px 7px;border-radius:999px;text-transform:none;letter-spacing:0;font-weight:600;font-size:10px;">našiel si lepšie dáta? prepíš</span>
+            </div>
+            <form id="site-preview-edit" onsubmit="event.preventDefault();OutreachModule.saveSitePreviewEdit('${prospectId}');" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="email" name="email" placeholder="email" value="${this.esc(curEmail)}"
+                style="flex:1;min-width:200px;padding:7px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+              <input type="text" name="contact_person" placeholder="meno kontaktu" value="${this.esc(curContact)}"
+                style="flex:1;min-width:160px;padding:7px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+              <input type="text" name="phone" placeholder="telefón" value="${this.esc(curPhone)}"
+                style="flex:0 1 160px;padding:7px 12px;border:1.5px solid #EAE6DE;border-radius:8px;font-size:13px;background:#fff;">
+              <button type="submit" class="adl-btn adl-btn-sm adl-btn-primary" style="flex-shrink:0;">💾 Uložiť</button>
+              <span id="site-preview-edit-status" style="font-size:11px;color:#1F6E3D;font-weight:600;"></span>
+            </form>
+          </div>
+        ` : ''}
+        <div style="position:relative;flex:1;background:#F7F5F1;overflow:hidden;">
+          <div id="site-preview-fallback" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#6F6758;padding:40px;text-align:center;">
+            <div style="font-size:42px;">⏳</div>
+            <div style="font-size:14px;">Načítavam <strong>${this.esc(domain)}</strong>…</div>
+            <div style="font-size:12px;color:#948B7C;max-width:380px;">Ak sa stránka neobjaví do 5s, server pravdepodobne blokuje vloženie (X-Frame-Options) alebo web nefunguje.</div>
+          </div>
+          <iframe id="site-preview-iframe"
+            src="${safeUrl}"
+            style="position:relative;width:100%;height:100%;border:0;background:#fff;display:block;"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            referrerpolicy="no-referrer"
+            onload="document.getElementById('site-preview-fallback').style.display='none'"></iframe>
+        </div>
+      </div>
+    `;
+    this._openModalWide(modal);
+    // Watchdog 6s — ak iframe nedoload-uje, paralelne overíme favicon
+    // (Google favicon servis vráti default ikonu len ak doména reálne nexistuje).
+    // Rozlišujeme medzi "neexistuje" vs "blokuje iframe (existuje)".
+    setTimeout(async () => {
+      const fb = document.getElementById('site-preview-fallback');
+      const iframe = document.getElementById('site-preview-iframe');
+      if (!fb || !iframe || fb.style.display === 'none') return;
+
+      // Check favicon — ak existuje funkčný favicon, doména žije ale len blokuje iframe
+      let domainAlive = false;
+      try {
+        const probe = new Image();
+        const loaded = await new Promise(res => {
+          probe.onload = () => res(probe.naturalWidth > 1);
+          probe.onerror = () => res(false);
+          probe.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+          setTimeout(() => res(false), 3500);
+        });
+        domainAlive = loaded;
+      } catch { domainAlive = false; }
+
+      if (domainAlive) {
+        // Site existuje, len iframe blokuje
+        fb.innerHTML = `
+          <img src="https://www.google.com/s2/favicons?domain=${this.esc(domain)}&sz=64" width="40" height="40" style="border-radius:8px;" alt="">
+          <div style="font-size:14px;color:#14120E;font-weight:600;">Stránka funguje, ale blokuje náhľad</div>
+          <div style="font-size:12px;color:#6F6758;max-width:440px;line-height:1.5;">
+            <strong>${this.esc(domain)}</strong> má X-Frame-Options alebo CSP hlavičku ktorá zakazuje vloženie do iframe-u. Bežné u bánk, e-shopov, WordPress sites za Cloudflare. <strong>Doména je živá</strong>.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <a href="${safeUrl}" target="_blank" rel="noopener" class="adl-btn adl-btn-sm adl-btn-primary">Otvoriť v novej karte ↗</a>
+          </div>
+        `;
+      } else {
+        // Site reálne nefunguje / neexistuje
+        fb.innerHTML = `
+          <div style="font-size:42px;">🚫</div>
+          <div style="font-size:14px;color:#14120E;font-weight:600;">Doména nereaguje</div>
+          <div style="font-size:12px;color:#6F6758;max-width:440px;line-height:1.5;">
+            <strong>${this.esc(domain)}</strong> sa nepodarilo načítať ani jej favicon overiť. Pravdepodobne neexistuje, je offline, alebo nemá HTTPS.
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <a href="${safeUrl}" target="_blank" rel="noopener" class="adl-btn adl-btn-sm adl-btn-outline">Skús v novej karte ↗</a>
+            ${prospectId ? `<button class="adl-btn adl-btn-sm adl-btn-primary" onclick="OutreachModule.markUnsubscribedFromRow('${prospectId}');OutreachModule.closeModal();">🚫 Vyradiť (opt-out)</button>` : ''}
+          </div>
+        `;
+      }
+    }, 6000);
+  },
+
+  // Rýchle označenie z riadku tabuľky — pre prípady kde web nefunguje, firma
+  // už neexistuje atď. Aj zapíše email do globálneho suppression listu (aby
+  // sa pri budúcich Outscraper importoch už nestiahol).
+  async markUnsubscribedFromRow(id) {
+    const p = this.prospects.find(x => x.id === id);
+    if (!p) return;
+    const ok = await Utils.confirm(
+      `Pridať <strong>${p.company_name || p.domain}</strong> do opt-out zoznamu?<br><br>` +
+      `<small style="color:#6F6758;">Prospekt sa označí ako unsubscribed a jeho email (ak je) sa zapíše do globálneho suppression listu. Pri budúcich Outscraper importoch sa už nikdy nezaeviduje na odoslanie.</small>`,
+      { type: 'warning', confirmText: 'Pridať do opt-out', cancelText: 'Zrušiť', html: true }
+    );
+    if (!ok) return;
+    const adminEmail = window.Auth?.user?.email || 'unknown';
+    try {
+      await Database.client.from('prospects').update({
+        outreach_stage: 'unsubscribed',
+      }).eq('id', id);
+      await Database.client.from('outreach_campaign_enrollments').update({
+        status: 'stopped', stop_reason: 'unsubscribed_row_quick',
+      }).eq('prospect_id', id).eq('status', 'active');
+      if (p.email) {
+        await Database.client.from('email_suppressions').upsert({
+          email: p.email.toLowerCase(),
+          reason: 'manual_opt_out',
+          source: 'row_quick_action',
+          notes: `${p.company_name || p.domain || ''} — broken web / nezáujem`,
+          created_by: adminEmail,
+        }, { onConflict: 'email' });
+      }
+      // Update local cache
+      const idx = this.prospects.findIndex(x => x.id === id);
+      if (idx >= 0) this.prospects[idx].outreach_stage = 'unsubscribed';
+      Utils.toast(`${p.company_name || p.domain} → opt-out`, 'success');
+      this.rerender();
+    } catch (e) {
+      Utils.toast('Chyba: ' + (e.message || ''), 'danger');
+    }
+  },
+
+  // Manuálne označenie odhláseného prospekta (napr. keď napísal "STOP" / "nezaujíma"
+  // v reply). Reflektuje 3 zmeny: stage='unsubscribed', stop aktívnych enrollments,
+  // event log. Scheduler + Compose ich potom skipuje (pozri scheduler.js logic).
+  async markUnsubscribedFromDetail() {
+    const id = this._detailProspectId;
+    const p = this.prospects.find(x => x.id === id);
+    if (!p) return;
+    const confirmOk = await Utils.confirm(
+      `Označiť "${p.company_name || p.domain}" ako odhláseného?<br><br>` +
+      `<small style="color:#6F6758;">Prospekt sa zaradí do opt-out zoznamu. Scheduler ani Compose mu už nepošlú žiadny mail. Akcia je vratná cez tlačidlo "Pending" v stage filtri.</small>`,
+      { type: 'warning', confirmText: 'Označiť odhláseného', cancelText: 'Zrušiť', html: true }
+    );
+    if (!confirmOk) return;
+    try {
+      await Database.client.from('prospects').update({
+        outreach_stage: 'unsubscribed',
+      }).eq('id', id);
+      // Stop aktívne enrollments
+      await Database.client.from('outreach_campaign_enrollments').update({
+        status: 'stopped', stop_reason: 'unsubscribed_manual',
+      }).eq('prospect_id', id).eq('status', 'active');
+      // Event log (audit trail)
+      await Database.client.from('prospect_events').insert({
+        prospect_id: id,
+        event_type: 'unsubscribed',
+        meta: { source: 'manual_admin', marked_by: window.Auth?.user?.email || 'unknown' },
+      });
+      // Update local cache
+      const idx = this.prospects.findIndex(x => x.id === id);
+      if (idx >= 0) this.prospects[idx].outreach_stage = 'unsubscribed';
+      Utils.toast('Označený ako odhlásený, kampane zastavené', 'success');
+      this.closeModal();
+      this.rerender();
+    } catch (e) {
+      Utils.toast('Chyba: ' + e.message, 'danger');
+    }
   },
 
   _openModalWide(el) {
@@ -4574,15 +5623,8 @@ const OutreachModule = {
     this.rerender();
   },
 
-  composeFromSelected() {
-    const hasEmail = Array.from(this.selectedIds)
-      .map(id => this.prospects.find(p => p.id === id))
-      .filter(p => p && p.email);
-    if (hasEmail.length === 0) return Utils.toast('Žiadny z vybraných nemá email', 'warning');
-    this.drafts.clear();
-    this.currentView = 'compose';
-    this.rerender();
-  },
+  // Legacy alias — všetky cesty cez startCompose() ktorý reload-uje šablóny + senders
+  composeFromSelected() { return this.startCompose(); },
 
   async deleteProspect(id) {
     const p = this.prospects.find(x => x.id === id);

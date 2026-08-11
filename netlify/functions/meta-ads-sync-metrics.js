@@ -31,26 +31,48 @@ exports.handler = async (event) => {
 
     const rows = d.data || [];
     let synced = 0;
+    const today = new Date().toISOString().slice(0, 10);
     for (const row of rows) {
       const conversions = (row.actions || []).filter(a => /lead|purchase|complete_registration/i.test(a.action_type))
         .reduce((s, a) => s + Number(a.value || 0), 0);
+      const cost = Number(row.spend || 0);
+      const clicks = Number(row.clicks || 0);
       const metrics = {
         impressions: Number(row.impressions || 0),
-        clicks: Number(row.clicks || 0),
-        cost: Number(row.spend || 0),
+        clicks,
+        cost,
         conversions,
         ctr: Number(row.ctr || 0) / 100,
         avg_cpc: Number(row.cpc || 0),
+        cpa: conversions > 0 ? cost / conversions : 0,
       };
-      await supabase.from('campaigns').upsert({
-        platform: 'meta_ads',
+      const { data: upserted } = await supabase.from('campaigns').upsert({
+        platform: 'meta',
         external_id: row.campaign_id,
         name: row.campaign_name,
         status: 'active',
+        client_id: conn.client_id || null,
         platform_connection_id: conn.id,
         metrics,
         metrics_updated_at: new Date().toISOString(),
-      }, { onConflict: 'platform,external_id' });
+      }, { onConflict: 'platform,external_id' }).select('id').single();
+
+      if (upserted?.id) {
+        await supabase.from('campaign_metrics_daily').upsert({
+          campaign_id: upserted.id,
+          client_id: conn.client_id || null,
+          snapshot_date: today,
+          impressions: metrics.impressions,
+          clicks: metrics.clicks,
+          cost: metrics.cost,
+          conversions: metrics.conversions,
+          ctr: metrics.ctr,
+          avg_cpc: metrics.avg_cpc,
+          cpa: metrics.cpa,
+          source: 'meta_ads',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'campaign_id,snapshot_date' });
+      }
       synced++;
     }
 

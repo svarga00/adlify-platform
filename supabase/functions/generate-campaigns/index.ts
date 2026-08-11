@@ -29,26 +29,35 @@ async function fetchMarketingMinerKeywords(apiKey: string, seeds: string[]): Pro
 
 async function enrichKeywordVolumes(apiKey: string, keywords: string[]): Promise<any[]> {
   if (keywords.length === 0) return []
-  try {
-    const uniq = [...new Set(keywords)].slice(0, 50)
-    const url = `https://profilers-api.marketingminer.com/keywords/search-volume-data?api_token=${apiKey}&lang=sk&${uniq.map(k => `keyword=${encodeURIComponent(k)}`).join('&')}`
-    const r = await fetch(url)
-    if (!r.ok) return uniq.map(k => ({ keyword: k, search_volume: 0, cpc: 0 }))
-    const j = await r.json()
-    const map = new Map((j.data || []).map((v: any) => [v.keyword, v]))
-    return uniq.map(kw => {
-      const vol: any = map.get(kw) || {}
-      return {
-        keyword: kw,
-        search_volume: vol.search_volume || 0,
-        cpc: vol.cpc || 0,
-        competition: vol.competition || null
-      }
-    }).sort((a, b) => b.search_volume - a.search_volume)
-  } catch (e) {
-    console.error('MM volume error:', e)
-    return keywords.map(k => ({ keyword: k, search_volume: 0, cpc: 0 }))
+  const uniq = [...new Set(keywords)].slice(0, 50)
+  // Chunkuj po 10 KW — dlhý query string (50× keyword=...) MM API odmieta
+  const chunks: string[][] = []
+  for (let i = 0; i < uniq.length; i += 10) chunks.push(uniq.slice(i, i + 10))
+  const map = new Map<string, any>()
+  const results = await Promise.all(chunks.map(async (chunk) => {
+    try {
+      const url = `https://profilers-api.marketingminer.com/keywords/search-volume-data?api_token=${apiKey}&lang=sk&${chunk.map(k => `keyword=${encodeURIComponent(k)}`).join('&')}`
+      const r = await fetch(url)
+      if (!r.ok) return []
+      const j = await r.json()
+      return j.data || []
+    } catch (e) {
+      console.error('MM volume chunk error:', e)
+      return []
+    }
+  }))
+  for (const vols of results) {
+    for (const v of vols) if (v?.keyword) map.set(v.keyword, v)
   }
+  return uniq.map(kw => {
+    const vol: any = map.get(kw) || {}
+    return {
+      keyword: kw,
+      search_volume: vol.search_volume || 0,
+      cpc: vol.cpc || 0,
+      competition: vol.competition || null
+    }
+  }).sort((a, b) => b.search_volume - a.search_volume)
 }
 
 async function fetchSerperSERP(apiKey: string, query: string, location = 'Slovakia'): Promise<any> {
@@ -116,6 +125,70 @@ function extractPaidAdsInsights(serpResults: any[]): any[] {
   return ads.slice(0, 15)
 }
 
+// Viacstupňový JSON parse — Claude občas vráti smart quotes, trailing commas
+// alebo orezaný output. Rovnaký prístup ako v generate-deep-proposal.
+function parseClaudeJSON(content: string): any {
+  // 1. Priamy parse
+  try { return JSON.parse(content) } catch { /* continue */ }
+  // 2. Code fence
+  const m = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+  if (m) { try { return JSON.parse(m[1]) } catch { /* continue */ } }
+  // 3. Substring { ... }
+  const s = content.indexOf('{')
+  const e = content.lastIndexOf('}')
+  if (s === -1 || e === -1) throw new Error('No JSON object in Claude output')
+  let raw = content.slice(s, e + 1)
+  try { return JSON.parse(raw) } catch { /* continue */ }
+  // 4. Opravy: smart quotes, trailing commas
+  raw = raw
+    .replace(/[“”„]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, '$1')
+  try { return JSON.parse(raw) } catch { /* continue */ }
+  // 5. Truncation repair — dorovnaj neuzavreté zátvorky/úvodzovky
+  let repaired = raw
+  const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length
+  if (quoteCount % 2 === 1) repaired += '"'
+  const opens = (repaired.match(/[{[]/g) || []).length
+  const closes = (repaired.match(/[}\]]/g) || []).length
+  if (opens > closes) {
+    const stack: string[] = []
+    for (const ch of repaired) {
+      if (ch === '{') stack.push('}')
+      else if (ch === '[') stack.push(']')
+      else if (ch === '}' || ch === ']') stack.pop()
+    }
+    repaired += stack.reverse().join('')
+  }
+  return JSON.parse(repaired)
+}
+
+// Zmaž predošlé AI-generované draft kampane projektu (re-run guard).
+// Iba draft + ai_generated — spustené/manuálne kampane nikdy nemažeme.
+// ad_groups/ads nemajú garantovaný CASCADE, mažeme explicitne zdola hore.
+async function deleteOldDraftCampaigns(supabase: any, projectId: string) {
+  const { data: oldCampaigns } = await supabase
+    .from('campaigns')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('ai_generated', true)
+    .eq('status', 'draft')
+  if (!oldCampaigns?.length) return 0
+  const campaignIds = oldCampaigns.map((c: any) => c.id)
+  const { data: oldGroups } = await supabase
+    .from('ad_groups')
+    .select('id')
+    .in('campaign_id', campaignIds)
+  const groupIds = (oldGroups || []).map((g: any) => g.id)
+  if (groupIds.length) {
+    await supabase.from('ads').delete().in('ad_group_id', groupIds)
+    await supabase.from('ad_groups').delete().in('id', groupIds)
+  }
+  await supabase.from('campaigns').delete().in('id', campaignIds)
+  console.log(`Deleted ${campaignIds.length} old draft campaigns for project ${projectId}`)
+  return campaignIds.length
+}
+
 function buildSeedKeywords(onboarding: any): string[] {
   const seeds = new Set<string>()
   if (onboarding.selected_keywords?.length) {
@@ -136,6 +209,12 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Mimo try — catch blok potrebuje supabase klienta a project_id na reset
+  // statusu pri chybe (frontend nastavil 'generating' pred volaním; ak user
+  // medzitým zavrie tab, projekt by ostal visieť navždy)
+  let supabase: any = null
+  let projectIdForError: string | null = null
+
   try {
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
     const MARKETINGMINER_API_KEY = Deno.env.get('MARKETINGMINER_API_KEY')
@@ -146,10 +225,11 @@ serve(async (req) => {
     if (!ANTHROPIC_API_KEY) throw new Error('Missing ANTHROPIC_API_KEY')
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('Missing Supabase config')
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     const { project_id, onboarding_id, platforms = ['google_search', 'meta_facebook'] } = await req.json()
     if (!project_id || !onboarding_id) throw new Error('Missing project_id or onboarding_id')
+    projectIdForError = project_id
 
     // 1. Load onboarding
     const { data: onboarding, error: oErr } = await supabase
@@ -314,7 +394,12 @@ ${platforms.join(', ')}
               "type": "responsive",
               "headlines": ["Max 30 znakov"],
               "descriptions": ["Max 90 znakov"],
-              "call_to_action": "CTA"
+              "call_to_action": "CTA",
+              "final_url": "https://klient.sk/landing-page",
+              "path1": "max-15-znakov",
+              "path2": "max-15-znakov",
+              "image_prompt": "Pre Display/Meta reklamy — konkrétny prompt pre DALL·E/Midjourney/Flux. Napríklad: 'Photo, modern Slovak kitchen interior with natural light, white cabinets, marble countertop, no people, no text, professional advertising photo, shot on canon 5d, 50mm lens, --ar 1:1'. Pre Search ads nechaj null.",
+              "image_aspect_ratio": "1:1 | 1.91:1 | 4:5 | 9:16 — null pre Search ads"
             }
           ]
         }
@@ -363,6 +448,24 @@ ${platforms.join(', ')}
 - Každá kampaň 2-3 ad groups, každá ad group 2-3 reklamy
 - Rozpočet rozdel realisticky — nezabudni na denný limit per kampaň
 - Využi konkrétne data z onboardingu a research, nie generické frázy
+
+## IMAGE PROMPTS — DÔLEŽITÉ
+- Pre Google **Search** kampane (campaign_type: 'search') NEdávaj image_prompt — nech je null. Search ads obrázok nemajú.
+- Pre Google **Display, PMax, Video** a všetky **Meta** kampane povinne vygeneruj konkrétny image_prompt v angličtine pre DALL·E/Midjourney/Flux:
+  - Začni typom: "Photo" / "Illustration" / "3D render"
+  - Konkrétny subjekt (NIE generický "happy person")
+  - Lokácia/setting relevantná pre SK trh (slovenský/stredoeurópsky kontext ak má zmysel)
+  - Lighting + camera hint pre photo: "natural daylight, shot on canon 5d, 50mm lens"
+  - Štýl: "professional advertising photo, clean composition, copy space top-right"
+  - Negatívne (vždy uveď): "no text, no logos, no watermarks, no people faces clearly visible if Meta"
+  - Aspect ratio hint na konci podľa platformy (1:1 Meta feed, 1.91:1 Display, 4:5 Meta vertical, 9:16 Stories)
+- image_aspect_ratio: vyber podľa kampane (search → null, Meta feed → "1:1", Google Display → "1.91:1", Stories/Reels → "9:16")
+- Final URL musí byť konkrétny landing page (NIE homepage) — odhadni podľa obsahu ad group
+
+## FINAL URL + PATHS (Google Ads)
+- final_url: konkrétna stránka s ofertou (nie homepage), použij ${onboarding.company_website || 'klient.sk'} ako base
+- path1, path2: zobrazované za doménou (max 15 znakov každý), použij relevant keyword
+
 - Odpoveď LEN JSON, žiadny text navyše
 `
 
@@ -375,7 +478,7 @@ ${platforms.join(', ')}
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-sonnet-4-6',
         max_tokens: 16000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -383,27 +486,18 @@ ${platforms.join(', ')}
     const claudeJson = await claudeRes.json()
     if (claudeJson.error) throw new Error(claudeJson.error.message)
 
-    // 6. Parse
-    let doc: any
+    // 6. Parse (viacstupňový repair — smart quotes, trailing commas, truncation)
     const content = claudeJson.content[0].text
-    try {
-      doc = JSON.parse(content)
-    } catch {
-      const m = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
-      if (m) {
-        doc = JSON.parse(m[1])
-      } else {
-        const s = content.indexOf('{')
-        const e = content.lastIndexOf('}')
-        if (s === -1 || e === -1) throw new Error('Could not parse JSON')
-        doc = JSON.parse(content.slice(s, e + 1))
-      }
-    }
+    const doc: any = parseClaudeJSON(content)
 
     const campaigns = doc.campaigns || []
     if (campaigns.length === 0) throw new Error('No campaigns generated')
 
-    // 7. Save campaigns hierarchy
+    // 7. Re-run guard: zmaž staré AI draft kampane, inak by re-generácia
+    // vytvorila duplicitnú sadu
+    await deleteOldDraftCampaigns(supabase, project_id)
+
+    // 8. Save campaigns hierarchy
     let campaignsGenerated = 0
     for (const campaign of campaigns) {
       const { data: savedCampaign, error: cErr } = await supabase
@@ -438,6 +532,7 @@ ${platforms.join(', ')}
         if (gErr) { console.error('Ad group insert:', gErr); continue }
 
         for (const ad of (g.ads || [])) {
+          const isSearchAd = (campaign.campaign_type || '').toLowerCase() === 'search'
           const { error: adErr } = await supabase
             .from('ads')
             .insert({
@@ -446,6 +541,12 @@ ${platforms.join(', ')}
               headlines: ad.headlines || [],
               descriptions: ad.descriptions || [],
               call_to_action: ad.call_to_action,
+              final_url: ad.final_url || onboarding.company_website || null,
+              path1: ad.path1 || null,
+              path2: ad.path2 || null,
+              image_prompt: isSearchAd ? null : (ad.image_prompt || null),
+              image_aspect_ratio: isSearchAd ? null : (ad.image_aspect_ratio || '1:1'),
+              image_status: isSearchAd ? 'skipped' : 'pending',
               status: 'draft'
             })
           if (adErr) console.error('Ad insert:', adErr)
@@ -453,20 +554,33 @@ ${platforms.join(', ')}
       }
     }
 
-    // 8. Save strategy document on project
+    // 9. Save strategy document on project
+    // proposal_version inkrementuj pri re-rune (debug: ktorú verziu klient videl)
+    const { data: currentProject } = await supabase
+      .from('campaign_projects')
+      .select('proposal_version')
+      .eq('id', project_id)
+      .maybeSingle()
+    const nextVersion = (currentProject?.proposal_version || 0) + 1
+
     await supabase
       .from('campaign_projects')
       .update({
         status: 'internal_review',
         strategy_summary: doc.strategy_summary || null,
         business_analysis: doc.business_analysis || null,
-        research_data: { ...researchData, insights: doc.research_insights || null },
+        research_data: {
+          ...researchData,
+          insights: doc.research_insights || null,
+          model_used: 'claude-sonnet-4-6',
+          generator_version: 2
+        },
         expected_results: doc.expected_results || null,
         timeline: doc.timeline || null,
         budget_breakdown: doc.budget_breakdown || null,
         next_steps: doc.next_steps || null,
         total_monthly_budget: doc.budget_breakdown?.total_monthly || monthlyBudget,
-        proposal_version: 1
+        proposal_version: nextVersion
       })
       .eq('id', project_id)
 
@@ -483,6 +597,18 @@ ${platforms.join(', ')}
 
   } catch (error) {
     console.error('Generate campaigns error:', error)
+    // Server-side reset statusu — nezávislé od toho či frontend ešte žije
+    if (supabase && projectIdForError) {
+      try {
+        await supabase
+          .from('campaign_projects')
+          .update({ status: 'draft', notes: `AI error: ${(error as Error).message}`.slice(0, 500) })
+          .eq('id', projectIdForError)
+          .eq('status', 'generating')
+      } catch (resetErr) {
+        console.error('Status reset failed:', resetErr)
+      }
+    }
     return new Response(
       JSON.stringify({ success: false, error: (error as Error).message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }

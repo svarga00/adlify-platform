@@ -47,7 +47,11 @@ exports.handler = async (event) => {
             leadId,
             clientId,
             fromEmail: overrideFromEmail,
-            fromName: overrideFromName
+            fromName: overrideFromName,
+            // RFC 8058 — natívny Gmail/Outlook unsubscribe button + lepšia deliverability
+            unsubscribeToken,      // audit_token prospekta — vloží do List-Unsubscribe linky
+            unsubscribeUrl,        // alternatíva: priamy URL ak token nie je k dispozícii
+            prospectId             // pre opt-out guard pred odoslaním (cold outreach)
         } = JSON.parse(event.body || '{}');
 
         // Validácia
@@ -87,7 +91,49 @@ exports.handler = async (event) => {
         if (overrideFromEmail) fromEmail = overrideFromEmail;
         if (overrideFromName) fromName = overrideFromName;
 
+        // Opt-out guard — globálny suppression list bráni pred poslaním pred
+        // tým než sa mail dostane k Resendu (legal + saves API call).
+        const toAddresses = Array.isArray(to) ? to : [to];
+        const recipientEmails = toAddresses.map(e => String(e).toLowerCase());
+        try {
+            const { data: suppressed } = await supabase
+                .from('email_suppressions')
+                .select('email')
+                .in('email', recipientEmails);
+            if (suppressed && suppressed.length > 0) {
+                const blocked = suppressed.map(s => s.email).join(', ');
+                console.warn(`🚫 Opt-out guard blocked send to: ${blocked}`);
+                return {
+                    statusCode: 200,
+                    headers: { 'Access-Control-Allow-Origin': '*' },
+                    body: JSON.stringify({
+                        success: false,
+                        skipped: 'opt_out',
+                        suppressed_emails: suppressed.map(s => s.email),
+                        message: 'Príjemca je na opt-out zozname'
+                    })
+                };
+            }
+        } catch (suppErr) {
+            // Ak suppression check padne (table missing), pokračuj — nezablokujeme
+            // legitímny mail kvôli chybe v guardе.
+            console.warn('Suppression check failed (non-fatal):', suppErr.message);
+        }
+
         console.log(`📤 Sending email from ${fromEmail} to ${to}`);
+
+        // List-Unsubscribe hlavičky (RFC 8058) — Gmail/Outlook zobrazia natívne
+        // tlačidlo "Unsubscribe" vedľa odosielateľa + spam filtre to milujú.
+        // Resend podporuje vlastné MIME headers cez `headers` param.
+        const baseUrl = process.env.URL || 'https://adlify.eu';
+        const optOutUrl = unsubscribeUrl || (unsubscribeToken
+            ? `${baseUrl}/.netlify/functions/unsubscribe?t=${encodeURIComponent(unsubscribeToken)}`
+            : null);
+        const customHeaders = {};
+        if (optOutUrl) {
+            customHeaders['List-Unsubscribe'] = `<${optOutUrl}>, <mailto:unsubscribe@adlify.eu?subject=unsubscribe>`;
+            customHeaders['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+        }
 
         // Odoslanie cez Resend API
         const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -98,13 +144,14 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
                 from: `${fromName} <${fromEmail}>`,
-                to: Array.isArray(to) ? to : [to],
+                to: toAddresses,
                 cc: cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
                 bcc: bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : undefined,
                 reply_to: replyTo || fromEmail,
                 subject: subject,
                 html: htmlBody || undefined,
                 text: textBody || undefined,
+                headers: Object.keys(customHeaders).length > 0 ? customHeaders : undefined,
                 attachments: attachments ? attachments.map(a => ({
                     filename: a.filename,
                     content: a.content // base64

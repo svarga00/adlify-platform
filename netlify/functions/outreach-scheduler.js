@@ -19,7 +19,73 @@ const supabase = createClient(
 );
 
 const BASE_URL = process.env.URL || 'https://adlify.eu';
-const MAX_BATCH = 100;
+const MAX_BATCH = 200;
+
+// ─── COLD OUTREACH SENDING WINDOWS ────────────────────────────────────
+// SK timezone (Europe/Bratislava). Cold mail posielame LEN cez pracovné
+// hodiny — mimo neho push next_send_at do najbližšieho okna. Mimo okna
+// nepostavíme proti spam filtrom (príjemca to nečíta v noci, a "noc"
+// posielanie = lacný spam pattern).
+const SEND_HOUR_START = 8;   // 08:00 SK
+const SEND_HOUR_END   = 18;  // 18:00 SK (posledné odoslanie pred 18:00)
+const SKIP_WEEKENDS   = true;
+
+// Per-mail random jitter aby všetky maily neišli presne v rovnaký čas
+// (cron beží :05 → bez jitter-u všetko 13:05, 14:05... = predikovateľné).
+const JITTER_MAX_SEC  = 540;  // 0-9 minút random offset
+
+// Vráti najbližší prípustný čas odoslania ≥ given Date. Ak vstup je
+// uprostred pracovných hodín, vráti ten istý čas. Inak posunie na 8:00
+// najbližšieho pracovného dňa.
+function nextSendingWindow(d) {
+  // Konverzia do SK timezone — JS Date je UTC, použijeme manuálny offset.
+  // SK = UTC+1 (winter) / +2 (summer DST). Pre cron-relevant precision
+  // si nemusíme drviť DST — používame Intl.DateTimeFormat pre presný hour/day.
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Bratislava',
+    hour: '2-digit', minute: '2-digit', weekday: 'short',
+    hour12: false,
+  }).formatToParts(d);
+  const hour = parseInt(fmt.find(p => p.type === 'hour').value, 10);
+  const wd = fmt.find(p => p.type === 'weekday').value; // Mon, Tue, ..., Sun
+  const isWeekend = wd === 'Sat' || wd === 'Sun';
+
+  // Ak sme v pracovných hodinách a nie je víkend → OK
+  if (!isWeekend && hour >= SEND_HOUR_START && hour < SEND_HOUR_END) return d;
+
+  // Inak posuň na najbližší pracovný deň 8:00 SK
+  // Najjednoduchšie: prirátaj hodiny dopredu kým nepadne do okna
+  let next = new Date(d.getTime());
+  for (let i = 0; i < 96; i++) { // max 4 dni dopredu
+    next = new Date(next.getTime() + 30 * 60 * 1000); // +30 min iter
+    const p = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Bratislava',
+      hour: '2-digit', minute: '2-digit', weekday: 'short', hour12: false,
+    }).formatToParts(next);
+    const h = parseInt(p.find(x => x.type === 'hour').value, 10);
+    const m = parseInt(p.find(x => x.type === 'minute').value, 10);
+    const w = p.find(x => x.type === 'weekday').value;
+    const weekend = w === 'Sat' || w === 'Sun';
+    if (!SKIP_WEEKENDS) {
+      if (h >= SEND_HOUR_START && h < SEND_HOUR_END) return next;
+    } else {
+      if (!weekend && h >= SEND_HOUR_START && h < SEND_HOUR_END) return next;
+    }
+    // Skok cez celé dni keď sme v noci/víkende — efektívnejšie
+    if (h < SEND_HOUR_START || h >= SEND_HOUR_END || weekend) {
+      // Posuň na 8:00 ďalšieho dňa (UTC približne — fine pre cold mail)
+      const tomorrow = new Date(next.getTime() + 24 * 60 * 60 * 1000);
+      tomorrow.setUTCHours(7, 0, 0, 0); // 8:00 SK letný čas = 6:00 UTC, zimný = 7:00. Stred ~7:00 UTC.
+      next = tomorrow;
+    }
+  }
+  return next;
+}
+
+function applyJitter(d) {
+  const offsetMs = Math.floor(Math.random() * JITTER_MAX_SEC * 1000);
+  return new Date(d.getTime() + offsetMs);
+}
 
 async function renderEmailFromTemplate(templateSlug, prospect) {
   // 1. Načítať šablónu
@@ -41,19 +107,46 @@ async function renderEmailFromTemplate(templateSlug, prospect) {
   // 3. Premenné
   const company = prospect.company_name || prospect.domain || '';
   const industryHook = _industryHook(prospect.industry, prospect.city);
+
+  // Enrichment-based personalizácia (z Outscraper → prospect.analysis)
+  const an = (prospect.analysis && typeof prospect.analysis === 'object') ? prospect.analysis : {};
+  // Kontaktné meno: prospect.contact_person ALEBO analysis.full_name z webcrawlu
+  const contactName = prospect.contact_person || an.full_name || '';
+  const firstName = (contactName || '').trim().split(/\s+/)[0] || '';
+  // Reviews hook — len ak má 20+ recenzií s ratingom 4+
+  const reviewsHook = (an.reviews >= 20 && an.rating >= 4.0)
+    ? `Všimol som si že máte ${an.reviews} recenzií Google s ratingom ${an.rating}★ — pekná stopa.`
+    : '';
+  // Tracking hook — "už používate" alebo "ešte nemáte"
+  const trackingHook = (an.has_gtm || an.has_fb_pixel)
+    ? `Vidím že máte ${[an.has_gtm ? 'GTM' : '', an.has_fb_pixel ? 'FB Pixel' : ''].filter(Boolean).join(' + ')} nasadený — postavíme na tom.`
+    : '';
+  // Lokácia hook
+  const cityHook = prospect.city ? ` ${prospect.city}` : '';
+
   const vars = {
-    greeting: prospect.contact_person ? `Pán ${prospect.contact_person}` : 'Dobrý deň',
-    contact_name: prospect.contact_person || '',
+    greeting: firstName ? `Dobrý deň, ${firstName}` : 'Dobrý deň',
+    contact_name: contactName,
+    first_name: firstName,
     company,
     domain: prospect.domain || '',
     industry: prospect.industry || '',
     industry_hook: industryHook ? ` — ${industryHook}` : '',
     city: prospect.city || '',
+    city_hook: cityHook,
+    reviews_hook: reviewsHook,
+    tracking_hook: trackingHook,
+    enrichment_hook: [reviewsHook, trackingHook].filter(Boolean).join(' '),
     audit_token: prospect.audit_token || '',
     audit_request_url: prospect.audit_token ? `${BASE_URL}/audit-request.html?t=${prospect.audit_token}` : '',
     audit_url: prospect.audit_token ? `${BASE_URL}/audit.html?t=${prospect.audit_token}` : '',
+    unsubscribe_url: prospect.audit_token ? `${BASE_URL}/unsubscribe.html?t=${prospect.audit_token}` : `${BASE_URL}/unsubscribe.html`,
     sender_name: s.sender_name || 'Štefan Varga',
     sender_title: s.sender_title || s.company_name || 'Adlify',
+    sender_email_reply: 'info@adlify.eu',
+    sender_phone: s.email_phone || '+421 944 184 045',
+    sender_domain_marketing: 'adlify-agency.online',
+    sender_domain_main: 'adlify.eu',
   };
 
   const subject = _substitute(tpl.subject, vars);
@@ -155,7 +248,8 @@ function _rewriteLinks(html, auditToken, unsubscribeUrl) {
   });
 }
 
-async function sendEmail(to, subject, html, text, sender) {
+async function sendEmail(to, subject, html, text, sender, prospect) {
+  const auditToken = prospect?.audit_token || null;
   // Gmail provider — cez Gmail API
   if (sender?.provider === 'gmail') {
     const res = await fetch(`${BASE_URL}/.netlify/functions/gmail-send`, {
@@ -164,6 +258,7 @@ async function sendEmail(to, subject, html, text, sender) {
       body: JSON.stringify({
         senderId: sender.id,
         to, subject, htmlBody: html, textBody: text,
+        unsubscribeToken: auditToken,
       }),
     });
     if (!res.ok) {
@@ -173,8 +268,36 @@ async function sendEmail(to, subject, html, text, sender) {
     return;
   }
 
+  // Mailjet provider — bulk-friendly, marketing-allowed
+  if (sender?.provider === 'mailjet') {
+    const payload = {
+      to, subject, htmlBody: html, textBody: text,
+      unsubscribeToken: auditToken,
+      prospectId: prospect?.id || null,
+    };
+    if (sender.email) {
+      payload.fromEmail = sender.email;
+      payload.fromName = sender.name;
+      if (sender.reply_to) payload.replyTo = sender.reply_to;
+    }
+    const res = await fetch(`${BASE_URL}/.netlify/functions/send-email-mailjet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new Error(`mailjet-send ${res.status}: ${t}`);
+    }
+    return;
+  }
+
   // Default: Resend cez send-email
-  const payload = { to, subject, htmlBody: html, textBody: text };
+  const payload = {
+    to, subject, htmlBody: html, textBody: text,
+    unsubscribeToken: auditToken,
+    prospectId: prospect?.id || null,
+  };
   if (sender?.email) {
     payload.fromEmail = sender.email;
     payload.fromName = sender.name;
@@ -297,6 +420,17 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
     return { sent: false, stopped: true, reason: 'no_email' };
   }
 
+  // 3b. Business hours / weekend window — ak sme mimo, push do okna a return
+  const now = new Date();
+  const windowStart = nextSendingWindow(now);
+  if (windowStart.getTime() > now.getTime() + 60 * 1000) {
+    const withJitter = applyJitter(windowStart);
+    await supabase.from('outreach_campaign_enrollments').update({
+      next_send_at: withJitter.toISOString(),
+    }).eq('id', enrollment.id);
+    return { sent: false, skipped: true, reason: 'outside_window', next_at: withJitter.toISOString() };
+  }
+
   // 4. Pošli email
   let senderId = null;
   try {
@@ -311,7 +445,7 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
       return { sent: false, skipped: true, reason: 'sender_throttled' };
     }
     const email = await renderEmailFromTemplate(variantSlug, prospect);
-    await sendEmail(prospect.email, email.subject, email.html, email.text, sender);
+    await sendEmail(prospect.email, email.subject, email.html, email.text, sender, prospect);
     if (sender?.id) {
       senderId = sender.id;
       await bumpSenderCounters(sender.id);
@@ -349,10 +483,14 @@ async function processOneEnrollment(enrollment, campaign, steps, prospect) {
   let enrollPatch;
   if (futureStep) {
     const delayMs = (futureStep.delay_days || 0) * 24 * 60 * 60 * 1000;
+    // Cieľový čas + window check + jitter (aby každý prospekt mal mierne iný plán)
+    const targetTime = new Date(now.getTime() + delayMs);
+    const inWindow = nextSendingWindow(targetTime);
+    const scheduled = applyJitter(inWindow);
     enrollPatch = {
       current_step: nextStepOrder,
       last_sent_at: now.toISOString(),
-      next_send_at: new Date(now.getTime() + delayMs).toISOString(),
+      next_send_at: scheduled.toISOString(),
       variant_history: variantHistoryPatch,
       last_sender_id: senderId,
     };

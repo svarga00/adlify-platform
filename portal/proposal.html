@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Návrh kampane | Adlify</title>
-    <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+    <link rel="icon" type="image/png" href="https://eidkljfaeqvvegiponwl.supabase.co/storage/v1/object/public/assets/brand/logo_url_1771774258989.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -136,6 +136,18 @@
 
         .card-body { padding: 1.5rem; }
 
+        /* ───── Markdown rendered strategy text ───── */
+        .md-content > * + * { margin-top: 0.75rem; }
+        .md-h { font-size: 1.05rem; font-weight: 700; color: #FF6B35; letter-spacing: -0.005em; line-height: 1.3; margin: 1.5rem 0 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f0ebe2; }
+        .md-content > .md-h:first-child { margin-top: 0; }
+        .md-h2 { font-size: 0.95rem; font-weight: 700; color: #14120e; margin: 1rem 0 0.4rem; }
+        .md-p { font-size: 0.95rem; line-height: 1.7; color: #374151; }
+        .md-p strong { color: #14120e; font-weight: 600; }
+        .md-ul { list-style: none; padding-left: 0; margin: 0.4rem 0 0.8rem; }
+        .md-li { font-size: 0.95rem; line-height: 1.65; color: #374151; padding: 0.3rem 0 0.3rem 1.4rem; position: relative; }
+        .md-li::before { content: ''; position: absolute; left: 0.4rem; top: 0.85rem; width: 6px; height: 6px; border-radius: 50%; background: #FF6B35; }
+        .md-li strong { color: #14120e; font-weight: 600; }
+
         /* Summary grid */
         .summary-grid {
             display: grid;
@@ -221,7 +233,69 @@
             font-size: 0.9rem;
         }
 
-        /* Ad preview */
+        /* ───── REALISTIC AD MOCKUPS ───── */
+        .mockup-card {
+            background: linear-gradient(135deg, #fafaf8, #f5f1ea);
+            border: 1px solid #eae6de;
+            border-radius: 14px;
+            padding: 18px;
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .mockup-label {
+            font-size: 0.7rem;
+            color: #948b7c;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        /* Google Search SERP */
+        .mockup-google { background: white; padding: 16px 20px; border-radius: 10px; font-family: arial, sans-serif; max-width: 600px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .g-tag { display: inline-block; background: white; color: #202124; font-size: 11px; font-weight: 700; padding: 1px 4px; border: 1px solid #202124; border-radius: 4px; margin-bottom: 6px; }
+        .g-url { font-size: 13px; color: #202124; margin-bottom: 4px; }
+        .g-title { font-size: 18px; color: #1a0dab; line-height: 1.3; margin-bottom: 4px; font-weight: 400; }
+        .g-desc { font-size: 14px; color: #4d5156; line-height: 1.5; }
+
+        /* Meta News Feed */
+        .mockup-meta { background: white; border: 1px solid #dadde1; border-radius: 10px; max-width: 500px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin: 0 auto; }
+        .m-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+        .m-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #1877F2, #4267B2); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; }
+        .m-brand { font-weight: 600; font-size: 14px; color: #050505; }
+        .m-sub { font-size: 12px; color: #65676b; }
+        .m-text { padding: 0 14px 12px; font-size: 14px; color: #050505; line-height: 1.4; }
+        .m-image { width: 100%; max-height: 360px; object-fit: cover; display: block; background: #f0f2f5; }
+        .m-placeholder { aspect-ratio: 1.91/1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #f0f2f5, #e4e6eb); color: #65676b; }
+        .m-footer { background: #f0f2f5; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .m-domain { font-size: 11px; color: #65676b; text-transform: uppercase; letter-spacing: 0.3px; }
+        .m-headline { font-size: 14px; color: #050505; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+        .m-cta { background: #e4e6eb; color: #050505; padding: 7px 13px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+        /* Instagram Story */
+        .mockup-story { width: 260px; aspect-ratio: 9/16; border-radius: 22px; overflow: hidden; position: relative; margin: 12px auto 0; background: #14120e; box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+        .s-bg { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .s-placeholder { background: linear-gradient(135deg, #833AB4, #FD1D1D, #F77737); }
+        .s-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 14px; color: white; }
+        .s-progress { height: 2px; background: rgba(255,255,255,0.9); border-radius: 2px; width: 35%; margin-bottom: 12px; }
+        .s-brand { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+        .s-avatar { width: 26px; height: 26px; border-radius: 50%; background: white; color: #14120e; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; border: 2px solid white; }
+        .s-bottom { background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); padding: 18px 0 4px; margin: 0 -14px -14px; padding-left: 14px; padding-right: 14px; }
+        .s-headline { font-size: 15px; font-weight: 700; line-height: 1.3; margin-bottom: 6px; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+        .s-desc { font-size: 12px; opacity: 0.95; line-height: 1.4; margin-bottom: 16px; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+        .s-cta { background: rgba(255,255,255,0.95); color: #14120e; padding: 10px 16px; border-radius: 9999px; font-size: 13px; font-weight: 700; text-align: center; }
+
+        /* Google Display */
+        .mockup-display { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #dadce0; border-radius: 10px; overflow: hidden; background: white; max-width: 580px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+        .d-img { width: 100%; height: 100%; min-height: 160px; object-fit: cover; background: #f1f3f4; }
+        .d-placeholder { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FF6B35, #E55A2A); color: white; font-size: 48px; }
+        .d-text { padding: 16px 18px; display: flex; flex-direction: column; justify-content: space-between; }
+        .d-brand { font-size: 11px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .d-headline { font-size: 16px; color: #14120e; font-weight: 700; line-height: 1.3; margin: 4px 0 6px; }
+        .d-desc { font-size: 13px; color: #5f6368; line-height: 1.5; }
+        .d-cta { margin-top: 12px; align-self: flex-start; background: #1a73e8; color: white; padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+
+        /* Legacy ad-preview (zostáva ale nepoužíva sa) */
         .ad-preview {
             background: white;
             border: 1px solid #e2e8f0;
@@ -719,6 +793,18 @@
                 ${renderTimeline(project.timeline)}
                 ${renderNextSteps(project.next_steps)}
 
+                <!-- PDF download (vždy dostupné) -->
+                <div style="background:#fff;border:1px solid #eae6de;border-radius:14px;padding:20px;margin-top:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+                    <div>
+                        <div style="font-size:14px;font-weight:600;color:#14120e;margin-bottom:4px;">📄 Návrh ako PDF dokument</div>
+                        <div style="font-size:12px;color:#6b7280;">Stiahnite si návrh pre offline prezeranie alebo zdielanie.</div>
+                    </div>
+                    <button onclick="downloadProposalPDF()"
+                        style="background:#14120e;color:white;border:none;padding:12px 22px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">
+                        📥 Stiahnuť PDF
+                    </button>
+                </div>
+
                 <!-- Actions -->
                 ${isEditable ? `
                     <div class="action-section">
@@ -755,6 +841,36 @@
 
         // ============ NEW RENDER HELPERS ============
 
+        // Mini-markdown parser pre strategy_summary (## nadpis, ** ** bold,
+        // - bullet, prázdny riadok = nový odsek)
+        function renderMd(text) {
+            if (!text) return '';
+            const lines = String(text).split(/\r?\n/);
+            const out = [];
+            let inList = false;
+            let buf = [];
+            const flush = () => {
+                if (buf.length) { out.push('<p class="md-p">' + inlineFmt(buf.join(' ').trim()) + '</p>'); buf = []; }
+            };
+            const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+            for (const raw of lines) {
+                const line = raw.trim();
+                if (!line) { flush(); closeList(); continue; }
+                if (/^##\s+/.test(line)) { flush(); closeList(); out.push('<h3 class="md-h">' + inlineFmt(line.replace(/^##\s+/, '')) + '</h3>'); continue; }
+                if (/^###\s+/.test(line)) { flush(); closeList(); out.push('<h4 class="md-h2">' + inlineFmt(line.replace(/^###\s+/, '')) + '</h4>'); continue; }
+                if (/^[-•*]\s+/.test(line)) { flush(); if (!inList) { out.push('<ul class="md-ul">'); inList = true; } out.push('<li class="md-li">' + inlineFmt(line.replace(/^[-•*]\s+/, '')) + '</li>'); continue; }
+                closeList(); buf.push(line);
+            }
+            flush(); closeList();
+            return out.join('');
+        }
+        function inlineFmt(s) {
+            let r = String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            r = r.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            r = r.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+            return r;
+        }
+
         function renderExecutiveSummary(project) {
             if (!project.strategy_summary) return '';
             return `
@@ -763,7 +879,7 @@
                         <h2>🎯 Naša stratégia</h2>
                     </div>
                     <div class="card-body">
-                        <p style="line-height: 1.7; font-size: 1rem;">${project.strategy_summary}</p>
+                        <div class="md-content">${renderMd(project.strategy_summary)}</div>
                     </div>
                 </div>
             `;
@@ -1040,51 +1156,136 @@
             }
         }
 
-        function renderAdPreview(ad, platform, companyName) {
-            const isMeta = platform === 'meta' || (platform && platform.includes('meta'));
-            const allHeadlines = (ad.headlines || []).filter(Boolean);
-            const allDescriptions = (ad.descriptions || []).filter(Boolean);
-            const domain = (companyName || 'firma').toLowerCase().replace(/\s+/g, '-');
-            if (isMeta) {
-                return `
-                    <div class="ad-preview meta">
-                        <div class="ad-preview-header">📱 Meta Ads (Facebook / Instagram)</div>
-                        <div class="ad-url">${companyName || 'Adlify'} · Sponzorované</div>
-                        ${allHeadlines.length ? `
-                            <div class="ad-multi-headlines" style="margin-top: 0.5rem;">
-                                ${allHeadlines.map(h => `<div class="variant"><strong>${h}</strong></div>`).join('')}
-                            </div>` : ''}
-                        ${allDescriptions.length ? `
-                            <div style="margin-top: 0.5rem; color: #4d5156; font-size: 0.9rem; line-height: 1.4;">
-                                ${allDescriptions.map(d => `<div style="padding: 0.2rem 0;">${d}</div>`).join('')}
-                            </div>` : ''}
-                        ${ad.call_to_action ? `<div class="meta-cta">${ad.call_to_action}</div>` : ''}
-                    </div>
-                `;
+        // Realistické platformové mockupy reklám pre klienta — vyzerá ako keď
+        // niekto spravil screenshot z reálneho Google SERP / Meta feed / IG Story.
+        function renderAdPreview(ad, platform, companyName, campaignType, aspectRatio) {
+            const p = (platform || '').toLowerCase();
+            const t = (campaignType || '').toLowerCase();
+            const aspect = aspectRatio || ad.image_aspect_ratio || '1:1';
+            if (p === 'google') {
+                if (t === 'search') return mockupGoogleSearch(ad, companyName);
+                return mockupGoogleDisplay(ad, companyName);
             }
+            if (p === 'meta' || p.includes('meta')) {
+                if (aspect === '9:16') return mockupInstagramStory(ad, companyName);
+                return mockupMetaFeed(ad, companyName);
+            }
+            return mockupMetaFeed(ad, companyName);
+        }
+
+        function escHtml(s) {
+            if (s == null) return '';
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function mockupGoogleSearch(ad, companyName) {
+            const headlines = (ad.headlines || []).slice(0, 3).filter(Boolean);
+            const desc = ad.descriptions?.[0] || '';
+            const url = ad.final_url || 'https://klient.sk';
+            let displayUrl = url;
+            try { displayUrl = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+            const path = (ad.path1 ? '/' + escHtml(ad.path1) : '') + (ad.path2 ? '/' + escHtml(ad.path2) : '');
             return `
-                <div class="ad-preview">
-                    <div class="ad-preview-header">🔍 Google Search Ad</div>
-                    ${allHeadlines.length > 0 ? `
-                        <div class="ad-headline">${allHeadlines[0]}</div>
-                        ${allHeadlines.length > 1 ? `
-                            <div class="ad-multi-headlines" style="margin: 0.25rem 0;">
-                                ${allHeadlines.slice(1).map(h => `<div class="variant">${h}</div>`).join('')}
+                <div class="mockup-card">
+                    <div class="mockup-label">Google Search · náhľad reklamy v SERP</div>
+                    <div class="mockup-google">
+                        <div class="g-tag">Sponzorované</div>
+                        <div class="g-url">${escHtml(displayUrl)}${path}</div>
+                        <div class="g-title">${headlines.map(escHtml).join(' | ')}</div>
+                        <div class="g-desc">${escHtml(desc)}</div>
+                    </div>
+                </div>`;
+        }
+
+        function mockupMetaFeed(ad, companyName) {
+            const primaryText = ad.descriptions?.[0] || '';
+            const headline = ad.headlines?.[0] || ad.descriptions?.[1] || '';
+            const url = ad.final_url || 'klient.sk';
+            let displayUrl = url; try { displayUrl = new URL(url).hostname.replace(/^www\./, '').toUpperCase(); } catch {}
+            const ctaMap = { 'LEARN_MORE': 'Viac informácií', 'SHOP_NOW': 'Nakúpiť', 'SIGN_UP': 'Zaregistrovať', 'CONTACT_US': 'Kontaktovať', 'GET_QUOTE': 'Cenová ponuka', 'CALL_NOW': 'Zavolať', 'GET_OFFER': 'Získať ponuku' };
+            const ctaLabel = ctaMap[(ad.call_to_action || '').toUpperCase()] || (ad.call_to_action || 'Viac informácií');
+            const brand = companyName || 'Vaša firma';
+            const imageHTML = ad.image_url
+                ? `<img src="${escHtml(ad.image_url)}" class="m-image">`
+                : `<div class="m-image m-placeholder"><div style="font-size:48px;opacity:0.4;">🖼️</div><div style="font-size:11px;opacity:0.55;margin-top:8px;">Obrázok podľa promptu</div></div>`;
+            return `
+                <div class="mockup-card">
+                    <div class="mockup-label">Facebook · náhľad v News Feed</div>
+                    <div class="mockup-meta">
+                        <div class="m-header">
+                            <div class="m-avatar">${escHtml(brand[0] || 'A')}</div>
+                            <div>
+                                <div class="m-brand">${escHtml(brand)}</div>
+                                <div class="m-sub">Sponzorované · 🌐</div>
                             </div>
-                        ` : ''}
-                    ` : ''}
-                    <div class="ad-url">adlify.eu › ${domain}</div>
-                    ${allDescriptions.length > 0 ? `
-                        <div class="ad-description">${allDescriptions[0]}</div>
-                        ${allDescriptions.length > 1 ? `
-                            <div class="ad-multi-headlines" style="margin-top: 0.25rem;">
-                                ${allDescriptions.slice(1).map(d => `<div class="variant">${d}</div>`).join('')}
+                        </div>
+                        <div class="m-text">${escHtml(primaryText)}</div>
+                        ${imageHTML}
+                        <div class="m-footer">
+                            <div>
+                                <div class="m-domain">${escHtml(displayUrl)}</div>
+                                <div class="m-headline">${escHtml(headline)}</div>
                             </div>
-                        ` : ''}
-                    ` : ''}
-                    ${ad.call_to_action ? `<div style="margin-top: 0.5rem; font-size: 0.85rem; color: #1a73e8; font-weight: 500;">${ad.call_to_action}</div>` : ''}
-                </div>
-            `;
+                            <div class="m-cta">${escHtml(ctaLabel)}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function mockupInstagramStory(ad, companyName) {
+            const brand = companyName || 'Vaša firma';
+            const headline = ad.headlines?.[0] || '';
+            const desc = ad.descriptions?.[0] || '';
+            const ctaMap = { 'LEARN_MORE': 'Viac', 'SHOP_NOW': 'Nakúpte', 'SIGN_UP': 'Registrácia', 'CONTACT_US': 'Kontakt', 'GET_QUOTE': 'Cenová ponuka' };
+            const ctaLabel = ctaMap[(ad.call_to_action || '').toUpperCase()] || 'Viac';
+            const bgHTML = ad.image_url
+                ? `<img src="${escHtml(ad.image_url)}" class="s-bg">`
+                : `<div class="s-bg s-placeholder"></div>`;
+            return `
+                <div class="mockup-card" style="display:flex;flex-direction:column;align-items:center;">
+                    <div class="mockup-label" style="align-self:flex-start;">Instagram Story · náhľad 9:16</div>
+                    <div class="mockup-story">
+                        ${bgHTML}
+                        <div class="s-overlay">
+                            <div class="s-top">
+                                <div class="s-progress"></div>
+                                <div class="s-brand">
+                                    <div class="s-avatar">${escHtml(brand[0] || 'A')}</div>
+                                    <span>${escHtml(brand)}</span>
+                                    <span style="opacity:0.6;font-size:10px;">· Sponzorované</span>
+                                </div>
+                            </div>
+                            <div class="s-bottom">
+                                ${headline ? `<div class="s-headline">${escHtml(headline)}</div>` : ''}
+                                ${desc ? `<div class="s-desc">${escHtml(desc.slice(0,90))}${desc.length > 90 ? '…' : ''}</div>` : ''}
+                                <div class="s-cta">↑ ${escHtml(ctaLabel)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function mockupGoogleDisplay(ad, companyName) {
+            const brand = companyName || 'Vaša firma';
+            const headline = ad.headlines?.[0] || '';
+            const desc = ad.descriptions?.[0] || '';
+            const ctaLabel = ad.call_to_action || 'Viac informácií';
+            const imageHTML = ad.image_url
+                ? `<img src="${escHtml(ad.image_url)}" class="d-img">`
+                : `<div class="d-img d-placeholder">🖼️</div>`;
+            return `
+                <div class="mockup-card">
+                    <div class="mockup-label">Google Display · banner 1.91:1</div>
+                    <div class="mockup-display">
+                        ${imageHTML}
+                        <div class="d-text">
+                            <div class="d-brand">${escHtml(brand)}</div>
+                            <div class="d-headline">${escHtml(headline)}</div>
+                            ${desc ? `<div class="d-desc">${escHtml(desc.slice(0, 110))}</div>` : ''}
+                            <div class="d-cta">${escHtml(ctaLabel)} →</div>
+                        </div>
+                    </div>
+                </div>`;
         }
 
         function renderCampaign(campaign, idx) {
@@ -1189,7 +1390,7 @@
                                             ${g.negative_keywords.map(kw => `<span class="kw-tag neg">${kw}</span>`).join('')}
                                         </div>
                                     ` : ''}
-                                    ${(g.ads || []).map(ad => renderAdPreview(ad, campaign.platform, client?.company_name)).join('')}
+                                    ${(g.ads || []).map(ad => renderAdPreview(ad, campaign.platform, client?.company_name, campaign.campaign_type)).join('')}
                                 </div>
                             `).join('')}
                         </div>
@@ -1213,6 +1414,15 @@
 
         function openRevisionModal() {
             document.getElementById('revision-modal').classList.add('active');
+        }
+
+        // PDF stiahnutie — otvorí premium HTML návrh + auto-trigger tlače
+        // (browser ponúkne Save as PDF). Token z URL = autorizácia (rovnaký
+        // ako proposal.html).
+        function downloadProposalPDF() {
+            const token = new URLSearchParams(window.location.search).get('t');
+            if (!token) return alert('Chýba token v URL');
+            window.open(`/.netlify/functions/proposal-html?token=${encodeURIComponent(token)}&print=1`, '_blank');
         }
 
         function closeModal() {
@@ -1242,6 +1452,13 @@
                     entity_type: 'project',
                     entity_id: project.id
                 });
+
+                // Email + per-user in-app notifikácie pre owner/admin/manager
+                fetch('/.netlify/functions/notify-proposal-event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project_id: project.id, event_type: 'client_approved' }),
+                }).catch(() => {});
 
                 project.status = 'approved';
                 render();
@@ -1281,6 +1498,13 @@
                     entity_type: 'project',
                     entity_id: project.id
                 });
+
+                // Email + per-user in-app notifikácie pre owner/admin/manager
+                fetch('/.netlify/functions/notify-proposal-event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project_id: project.id, event_type: 'client_revision', feedback: comment }),
+                }).catch(() => {});
 
                 project.status = 'revision';
                 project.client_feedback = comment;

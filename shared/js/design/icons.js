@@ -36,16 +36,10 @@
     // Brand mark — gradient A so šípkou (purple → pink → orange) podľa Adlify wordmark
     Logo: function (opts) {
       const { size = 28, id = 'd' } = opts || {};
-      return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Adlify">
-        <defs><linearGradient id="adlMark-${id}" x1="15%" y1="85%" x2="85%" y2="15%">
-          <stop offset="0%"   stop-color="#A855F7"/>
-          <stop offset="35%"  stop-color="#EC4899"/>
-          <stop offset="75%"  stop-color="#F97316"/>
-          <stop offset="100%" stop-color="#FB923C"/>
-        </linearGradient></defs>
-        <path d="M50 6 C46 6 42 9 40 14 L12 84 C10 88 13 92 17 92 L26 92 C28 92 30 91 31 88 L36 76 L64 76 L69 88 C70 91 72 92 74 92 L83 92 C87 92 90 88 88 84 L60 14 C58 9 54 6 50 6 Z M44 62 L50 46 L56 62 Z" fill="url(#adlMark-${id})"/>
-        <path d="M28 78 L60 30 M60 30 L46 30 M60 30 L60 44" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>`;
+      // Brand PNG z Supabase storage — centralizovaný zdroj pre admin, portál,
+      // proposal, email templates atď. Všetko ide cez I.Logo({size}).
+      const url = 'https://eidkljfaeqvvegiponwl.supabase.co/storage/v1/object/public/assets/brand/logo_url_1771774258989.png';
+      return `<img src="${url}" alt="Adlify" width="${size}" height="${size}" style="display:inline-block; object-fit:contain;" />`;
     },
 
     LogoWord: function (opts) {
