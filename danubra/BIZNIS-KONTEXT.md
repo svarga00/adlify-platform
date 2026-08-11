@@ -77,6 +77,38 @@ dáva priamo odberateľ, chýba náš predák, pracuje sa výhradne s cudzím n�
 dovolenky sa hlásia odberateľovi, naši ľudia nosia menovky odberateľa alebo sú
 zaradení v jeho štruktúre. Aplikácia má na to interaktívny test.
 
+## Nábor je hlavný biznis, nie doplnok
+
+Vysielanie ľudí na stavby je od augusta 2026 **primárna agenda** — prepínač
+oblastí ju má prvú a aplikácia sa v nej otvára. Ubytovanie ju dopĺňa (vlastné
+ubytovanie znižuje náklad na vyslaného človeka a je najsilnejší argument
+v inzeráte), nie naopak.
+
+Nábor sa nezačína inzerátom, ale rozhodnutím — preto **náborový plán**
+(`danubra_recruitment_plans`) v piatich krokoch: koho a koľko · kam a kedy ·
+za koľko · čo si overím · kde to zverejním. Plán sa nedá spustiť, kým
+sadzba nie je nad stavebnou minimálnou mzdou a kým nie je jasná marža.
+
+## Ako sa overuje, či človek remeslo naozaj vie
+
+Príručka remesiel (`danubra_trades`) drží pre každé remeslo to, čo musí vedieť
+ten, kto naberá: čo sa na stavbe reálne robí, s akým materiálom, aké náradie má
+mať vlastné, čo musí doložiť a **reálny denný výkon** ako meradlo na kontrolu
+nafúknutých tvrdení.
+
+Otázky (`danubra_screening_questions`) majú päť typov; kľúčový je typ
+**`hidden` — overovacia otázka**. Znie ako bežná odborná otázka, kandidát
+netuší, že sa ňou preveruje, a odpoveď sa buď dá overiť (meno poliera), alebo
+ju z inzerátu nenaučíš (rozteč profilov 625, zelená GKBI, číslo zváracej metódy
+na certifikáte). Nové otázky sa majú držať toho istého princípu — konkrétne
+číslo alebo názov, ktorý si človek z praxe pamätá.
+
+Skóre je vážený podiel z maxima za zodpovedané otázky. Dve pravidlá sú tvrdé:
+- **právne varovanie = zamietnutie** bez ohľadu na skóre (bez A1 alebo živnosti
+  sa nedá nasadiť, aj keby remeslo vedel dokonale),
+- **nedokončený skríning nie je zlý skríning** — pri pokrytí pod polovicu sa
+  nevynáša verdikt, aby sa nezamietali ľudia, ktorých sme sa nedopýtali.
+
 ## Deľba práce
 
 Michaela komunikuje s nemeckými odberateľmi po nemecky, Štefan rieši operatívu,
