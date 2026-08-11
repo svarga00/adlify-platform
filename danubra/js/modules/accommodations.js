@@ -51,7 +51,7 @@
         <button class="btn btn-primary btn-sm" onclick="Acc.form()">+ Pridať</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
-      el.innerHTML = `
+      el.innerHTML = Danubra.header('Ubytovania', `${this.items.length} v databáze · ${this.items.filter(a => a.verification_status === 'verified').length} overených`) + `
         <div class="filterbar">
           <input class="fb-search" placeholder="Hľadať názov, mesto, majiteľ…" value="${UI.esc(this.filters.q)}"
             oninput="Acc.setF('q',this.value)">
@@ -64,7 +64,7 @@
             ${VERIF.map(v => `<option value="${v[0]}" ${this.filters.verification_status === v[0] ? 'selected' : ''}>${v[1]}</option>`).join('')}
           </select>
         </div>
-        <div style="color:var(--ink-mute);font-size:13px;margin:2px 2px 12px;">${rows.length} ubytovaní</div>
+        <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
           ? UI.empty('🛏️', 'Žiadne ubytovania', 'Pridaj prvé alebo importuj CSV.',
               `<button class="btn btn-primary" onclick="Acc.form()">+ Pridať ubytovanie</button>`)
@@ -165,7 +165,7 @@
             ${UI.field('owner_whatsapp', '', { type: 'checkbox', value: a.owner_whatsapp, placeholder: 'Majiteľ má WhatsApp' })}
             ${UI.field('invoice_payment', '', { type: 'checkbox', value: a.invoice_payment, placeholder: 'Platba na faktúru' })}
           </div>
-          <div style="margin-top:10px;font-size:12px;font-weight:700;color:var(--ink-mute);text-transform:uppercase;">Prístupové údaje (skopírujú sa do spisu po platbe)</div>
+          <div class="form-section">Prístupové údaje · skopírujú sa do spisu po platbe</div>
           <div class="form-grid">
             ${UI.field('access_door_code', 'Kód dverí', { value: a.access_door_code })}
             ${UI.field('gate_code', 'Kód brány', { value: a.gate_code })}
