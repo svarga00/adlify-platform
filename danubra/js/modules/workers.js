@@ -133,7 +133,10 @@
         ['Mesto', w.city], ['Jazyk', (w.language || '').toUpperCase()],
         ['Nemčina', w.german_level], ['Vodičský', w.driving_licence ? 'Áno' : null],
         ['Vlastné náradie', w.own_tools ? 'Áno' : null],
-        ['Hrubá mzda', w.gross_monthly ? UI.money(w.gross_monthly) : null],
+        ['Forma spolupráce', w.legal_form === 'szco' ? 'Živnostník' : 'Zamestnanec'],
+        ['Spolupracuje', this.cooperationLength(w)],
+        ['Hrubá mzda', w.legal_form !== 'szco' && w.gross_monthly ? UI.money(w.gross_monthly) : null],
+        ['Sadzba živnostníka', w.legal_form === 'szco' && w.hourly_cost ? `${UI.money(w.hourly_cost)} / h` : null],
         ['Diéty', w.per_diem_daily ? `${UI.money(w.per_diem_daily)} / deň` : null],
         ['Dostupný od', w.available_from ? UI.date(w.available_from) : null],
         ['Zdroj', w.source],
@@ -167,6 +170,9 @@
         ${(w.skills || []).length ? `<div class="chips">${w.skills.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
         ${w.notes ? `<div class="notebox">${UI.esc(w.notes)}</div>` : ''}
 
+        <div class="form-section">História nasadení</div>
+        <div id="wrk-history">${UI.loading()}</div>
+
         <div class="form-section">Doklady a platnosti</div>
         ${docs.length ? docs.map(docRow).join('') : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
         <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Wrk.addDoc('${w.id}')">${Icon('plus')} Pridať doklad</button>
@@ -176,6 +182,48 @@
           <button class="btn btn-outline btn-sm" onclick="Wrk.form('${w.id}')">Upraviť</button>
         </div>`;
       UI.modal(w.full_name, body, { wide: true });
+      this.renderHistory(id);
+    },
+
+    async renderHistory(workerId) {
+      const box = document.getElementById('wrk-history');
+      if (!box) return;
+      const rows = await this.history(workerId);
+      box.innerHTML = rows.length ? rows.map(a => `
+        <div class="list-row" style="cursor:default;">
+          <span class="dot ${a.status === 'active' ? 'green' : ''}"></span>
+          <span style="flex:1;font-size:13px;">
+            <strong>${UI.esc(a.sub?.title || 'Zákazka')}</strong>
+            ${a.role === 'predak' ? UI.badge('predák', 'blue') : ''}
+            <span style="display:block;color:var(--ink-mute);font-size:12px;">
+              ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}
+              ${a.sub?.site_city ? ` · ${UI.esc(a.sub.site_city)}` : ''}
+              ${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
+          </span>
+        </div>`).join('')
+        : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne nasadenie.</div>';
+    },
+
+    /** Ako dlho už s nami spolupracuje. */
+    cooperationLength(w) {
+      if (!w.cooperating_since) return null;
+      const days = Math.floor((Date.now() - new Date(w.cooperating_since)) / 86400000);
+      if (days < 31) return `${days} dní`;
+      const months = Math.floor(days / 30.44);
+      if (months < 12) return `${months} ${months === 1 ? 'mesiac' : months < 5 ? 'mesiace' : 'mesiacov'}`;
+      const years = Math.floor(months / 12), rest = months % 12;
+      return `${years} ${years === 1 ? 'rok' : years < 5 ? 'roky' : 'rokov'}${rest ? ` a ${rest} mes.` : ''}`;
+    },
+
+    /** História nasadení pracovníka. */
+    async history(workerId) {
+      const [{ data: asg }, { data: subs }] = await Promise.all([
+        DB.list('assignments', { filters: { worker_id: workerId }, limit: 200 }),
+        DB.list('subcontracts', { select: 'id,title,site_city,contract_number', limit: 500 }),
+      ]);
+      const byId = new Map((subs || []).map(s => [s.id, s]));
+      return (asg || []).map(a => ({ ...a, sub: byId.get(a.subcontract_id) }))
+        .sort((x, y) => String(y.date_from || '').localeCompare(String(x.date_from || '')));
     },
 
     async setStatus(id, status) {
@@ -204,13 +252,17 @@
           <div class="form-grid">
             ${UI.field('gross_monthly', 'Hrubá mzda €/mes', { type: 'number', value: w.gross_monthly })}
             ${UI.field('per_diem_daily', 'Diéty €/deň', { type: 'number', value: w.per_diem_daily ?? 45 })}
-            ${UI.field('employment_type', 'Pracovný pomer', { value: w.employment_type, options: [['', '—'], ['tpp', 'TPP'], ['dohoda', 'Dohoda'], ['zivnost', 'Živnosť']] })}
-            ${UI.field('source', 'Zdroj', { value: w.source, placeholder: 'referral, profesia.sk, FB…' })}
+            ${UI.field('legal_form', 'Forma spolupráce', { value: w.legal_form || 'employee',
+              options: [['employee', 'Zamestnanec (mzda + odvody)'], ['szco', 'Živnostník (fakturuje nám)']] })}
+            ${UI.field('hourly_cost', 'Sadzba živnostníka €/h', { type: 'number', value: w.hourly_cost })}
+            ${UI.field('cooperating_since', 'Spolupracuje od', { type: 'date', value: w.cooperating_since })}
+            ${UI.field('source', 'Zdroj', { value: w.source, placeholder: 'odporúčanie, profesia.sk…' })}
           </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: w.whatsapp, placeholder: 'Má WhatsApp' })}
             ${UI.field('driving_licence', '', { type: 'checkbox', value: w.driving_licence, placeholder: 'Vodičský preukaz' })}
             ${UI.field('own_tools', '', { type: 'checkbox', value: w.own_tools, placeholder: 'Vlastné náradie' })}
+            ${UI.field('regulated_trade', '', { type: 'checkbox', value: w.regulated_trade, placeholder: 'Regulované remeslo (§9 HwO)' })}
           </div>
           ${UI.field('skills_csv', 'Zručnosti (čiarkou)', { value: (w.skills || []).join(', ') })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: w.notes })}
@@ -226,7 +278,8 @@
       const d = UI.formData(document.getElementById('wrk-form'));
       if (!d.full_name) return UI.toast('Meno je povinné', 'err');
       const payload = { ...d };
-      ['gross_monthly', 'per_diem_daily'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
+      ['gross_monthly', 'per_diem_daily', 'hourly_cost'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
+      if (payload.cooperating_since === '') payload.cooperating_since = null;
       if (payload.available_from === '') payload.available_from = null;
       payload.skills = (d.skills_csv || '').split(',').map(s => s.trim()).filter(Boolean);
       delete payload.skills_csv;

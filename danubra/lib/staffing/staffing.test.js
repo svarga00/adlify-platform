@@ -64,8 +64,45 @@ console.log('Jednotková ekonomika (Fáza 2)');
   eq(r.withholding, 0, 'dielenské práce nepodliehajú Bauabzugsteuer');
 }
 
+// ── Živnostník (SZČO) namiesto zamestnanca ──────────────────────────────────
+{
+  // 160 h × 38 € = 6 080 tržba; živnostník fakturuje 26 €/h = 4 160
+  // žiadne odvody, žiadna SOKA; ubytovanie 350 platíme my
+  const a = { charge_rate: 38, legal_form: 'szco', hourly_cost: 26,
+    accommodation_monthly: 350, per_diem_daily: 0 };
+  const r = M.assignmentMargin(a, { hours: 160, workDays: 21, workType: 'construction' });
+  eq(r.revenue, 6080, 'tržba je rovnaká bez ohľadu na formu spolupráce');
+  eq(r.costs.subcontractor, 4160, 'živnostník fakturuje 160 h × 26 € = 4 160 €');
+  eq(r.costs.contributions, 0, 'pri živnostníkovi sa neplatia odvody');
+  eq(r.costs.soka, 0, 'živnostníka sa netýka SOKA-BAU ani na stavbe');
+  eq(r.margin, 1570, 'marža 6 080 − 4 160 − 350 = 1 570 €');
+  ok(r.breakdown.some(b => b[0].includes('živnostníka')), 'rozpis uvádza fakturáciu živnostníka');
+}
+{
+  // pri rovnakých vstupoch je zamestnanec drahší o odvody a SOKA
+  const base = { charge_rate: 38, accommodation_monthly: 350 };
+  const szco = M.assignmentMargin({ ...base, legal_form: 'szco', hourly_cost: 26, per_diem_daily: 0 },
+    { hours: 160, workDays: 21, workType: 'construction' });
+  const emp = M.assignmentMargin({ ...base, legal_form: 'employee', gross_monthly: 2000, per_diem_daily: 45 },
+    { hours: 160, workDays: 21, workType: 'construction' });
+  ok(szco.totalCost < emp.totalCost + 1000, 'obe formy sú porovnateľné, líšia sa štruktúrou nákladov');
+  ok(emp.costs.soka > 0 && szco.costs.soka === 0, 'SOKA platí len pri zamestnancovi');
+}
+{
+  // živnostník bez zadanej hodinovej sadzby → náklad nula, marža = celá tržba
+  const r = M.assignmentMargin({ charge_rate: 30, legal_form: 'szco' },
+    { hours: 100, workDays: 20, workType: 'workshop' });
+  eq(r.costs.subcontractor, 0, 'bez sadzby je náklad nula');
+  eq(r.margin, 3000, 'marža sa rovná tržbe — treba doplniť sadzbu');
+}
+
 // ── Minimálna mzda ──────────────────────────────────────────────────────────
 console.log('\nMinimálna mzda');
+{
+  const r = M.minWageCheck({ legalForm: 'szco', grossMonthly: 0, hours: 160, workType: 'construction' });
+  ok(r.ok, 'na živnostníka sa minimálna mzda nevzťahuje');
+  ok(r.basis.includes('živnostník'), 'dôvod je uvedený');
+}
 {
   // 2 000 € / 160 h = 12,50 €/h → pod LG1 (15,86)
   const r = M.minWageCheck({ grossMonthly: 2000, hours: 160, workType: 'construction', skillLevel: 'werker' });
@@ -203,6 +240,32 @@ const TODAY = '2026-08-11';
       { kind: 'soka_registration' }, { kind: 'freistellung_48b', valid_to: '2027-01-01' }],
   });
   ok(r.blockers.some(b => b.label.includes('pod')), 'mzda pod Bau-Mindestlohn je blokátor');
+}
+
+// ── Regulované remeslo a §9 HwO ─────────────────────────────────────────────
+{
+  const base = {
+    today: TODAY,
+    subcontract: { work_type: 'workshop', scope: 'Elektroinštalácie v hale podľa projektovej dokumentácie' },
+    assignments: [{ worker_id: 'w1', status: 'planned', role: 'predak' }],
+    workerDocs: [{ worker_id: 'w1', kind: 'a1', valid_to: '2027-06-01' }],
+    companyItems: [{ kind: 'ust_idnr' }, { kind: 'insurance' }],
+  };
+  const bez = C.checkSubcontract({ ...base,
+    workers: [{ id: 'w1', full_name: 'Elektrikár Novák', regulated_trade: true }] });
+  ok(bez.blockers.some(b => b.label.includes('Handwerkskammer')),
+    'regulované remeslo bez oznámenia HWK je blokátor');
+
+  const s = C.checkSubcontract({ ...base,
+    workers: [{ id: 'w1', full_name: 'Elektrikár Novák', regulated_trade: true }],
+    companyItems: [...base.companyItems, { kind: 'handwerksrolle', valid_to: '2027-01-01' }] });
+  ok(!s.blockers.some(b => b.label.includes('Handwerkskammer')),
+    's platným oznámením HWK blokátor zmizne');
+
+  const nereg = C.checkSubcontract({ ...base,
+    workers: [{ id: 'w1', full_name: 'Zvárač Kováč', regulated_trade: false }] });
+  ok(!nereg.items.some(b => b.label.includes('Handwerkskammer')),
+    'neregulované remeslo HWK nerieši');
 }
 
 // ── Riziko skrytej ANÜ ──────────────────────────────────────────────────────

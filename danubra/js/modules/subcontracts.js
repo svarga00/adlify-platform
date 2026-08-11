@@ -18,7 +18,7 @@
   const BILLING = [['hourly', 'Po hodinách'], ['unit', 'Za jednotku'], ['fixed', 'Pevná cena']];
 
   const Sub = {
-    items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [],
+    items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [],
     loaded: false, filters: { status: '', work_type: '' },
     _cur: null,
 
@@ -27,12 +27,14 @@
         DB.list('subcontracts', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('partners', { limit: 300 }),
         DB.list('assignments', { limit: 1000 }),
-        DB.list('workers', { select: 'id,full_name,profession,skill_level,phone,gross_monthly,per_diem_daily,status', limit: 500 }),
+        DB.list('workers', { select: 'id,full_name,profession,skill_level,phone,gross_monthly,per_diem_daily,status,legal_form,hourly_cost,regulated_trade', limit: 500 }),
         DB.list('worker_documents', { limit: 2000 }),
         DB.list('compliance', { limit: 500 }),
       ]);
       this.items = s.data || []; this.partners = p.data || []; this.assignments = a.data || [];
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
+      const ch = await DB.list('checklist_items', { order: { column: 'step_order' }, limit: 3000 });
+      this.checklist = ch.data || [];
       this.loaded = true;
     },
 
@@ -130,6 +132,8 @@
         const w = this.workerOf(a.worker_id);
         return DanubraMargin.assignmentMargin({
           charge_rate: a.charge_rate ?? sc.charge_rate,
+          legal_form: w?.legal_form,
+          hourly_cost: w?.hourly_cost,
           gross_monthly: a.gross_monthly ?? w?.gross_monthly,
           per_diem_daily: a.per_diem_daily ?? w?.per_diem_daily,
           accommodation_monthly: a.accommodation_monthly,
@@ -202,6 +206,25 @@
         }).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ nikto nenasadený.</div>'}
         <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Sub.addAsg('${sc.id}')">${Icon('plus')} Nasadiť pracovníka</button>
 
+        ${asg.filter(a => a.status !== 'cancelled').map(a => {
+          const w = this.workerOf(a.worker_id);
+          const ch = this.checklist.filter(x => x.assignment_id === a.id);
+          if (!ch.length) return '';
+          const done = ch.filter(x => x.done).length;
+          const blocking = ch.filter(x => x.required && !x.done).length;
+          return `<div class="form-section">Pred nasadením · ${UI.esc(w?.full_name || '')}
+              <span style="float:right;font-family:inherit;letter-spacing:0;text-transform:none;
+                color:${blocking ? 'var(--red)' : 'var(--green)'};">${done}/${ch.length}</span></div>
+            ${ch.map(x => `<div class="list-row" style="align-items:flex-start;">
+              <button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${x.done ? 'var(--green)' : 'var(--ink-mute)'};"
+                onclick="Sub.toggleCheck('${x.id}')">${Icon('check', 17)}</button>
+              <span style="flex:1;font-size:13px;">
+                <strong style="${x.done ? 'text-decoration:line-through;opacity:.55;' : ''}">${UI.esc(x.title)}</strong>
+                ${x.required ? '' : UI.badge('voliteľné', 'gray')}
+                ${x.description ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(x.description)}</span>` : ''}
+              </span></div>`).join('')}`;
+        }).join('')}
+
         ${eco.length ? `
         <div class="form-section">Ekonomika (mesačne, orientačne pri 160 h a 21 dňoch)</div>
         <div class="service-total">
@@ -219,6 +242,13 @@
           <button class="btn btn-outline btn-sm" onclick="Sub.form('${sc.id}')">Upraviť</button>
         </div>`;
       UI.modal(sc.title, body, { wide: true });
+    },
+
+    async _settings() {
+      if (this._set) return this._set;
+      const { data } = await DB.list('settings', { limit: 1 });
+      this._set = (data && data[0]) || {};
+      return this._set;
     },
 
     async setStatus(id, status) {
@@ -308,6 +338,15 @@
       UI.modal('Nasadiť pracovníka', body, { wide: true });
     },
 
+    async toggleCheck(id) {
+      const x = this.checklist.find(c => c.id === id);
+      if (!x) return;
+      const on = !x.done;
+      await DB.update('checklist_items', id, { done: on, done_at: on ? new Date().toISOString() : null });
+      x.done = on;
+      this.detail(this._cur.id);
+    },
+
     async saveAsg(scId) {
       const d = UI.formData(document.getElementById('asg-form'));
       const payload = {
@@ -317,10 +356,23 @@
       };
       ['charge_rate', 'gross_monthly', 'per_diem_daily', 'accommodation_monthly', 'transport_monthly']
         .forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
-      const { error } = await DB.insert('assignments', payload);
+      const { data: asg, error } = await DB.insert('assignments', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       await DB.update('workers', d.worker_id, { status: 'deployed' }).catch(() => {});
-      UI.toast('Pracovník nasadený', 'ok');
+
+      // založ pre-deployment checklist z predvolených krokov
+      try {
+        const st = await this._settings();
+        const steps = st?.staffing?.checklist_default || [];
+        if (steps.length && asg?.id) {
+          await DB.from('checklist_items').insert(steps.map((x, i) => ({
+            assignment_id: asg.id, step_order: i, title: x.title,
+            description: x.description || null, required: x.required !== false,
+          })));
+        }
+      } catch (e) { console.warn('[subcontracts] checklist:', e.message); }
+
+      UI.toast('Pracovník nasadený, checklist založený', 'ok');
       await this.load(); this.detail(scId);
     },
 
