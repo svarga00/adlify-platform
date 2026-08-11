@@ -57,7 +57,7 @@
           <b id="user-name">—</b>
           <span id="user-email"></span>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="Danubra.logout()" title="Odhlásiť">↪</button>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.logout()" title="Odhlásiť" id="btn-logout"></button>
       </div>
     </aside>
 
@@ -65,7 +65,7 @@
       <!-- desktop topbar -->
       <header class="topbar">
         <div class="searchbox">
-          <span>⌕</span>
+          <span class="search-ico"></span>
           <input id="global-search" placeholder="Hľadať mesto, meno, telefón, číslo objednávky…">
         </div>
         <div id="topbar-actions" class="topbar-actions"></div>
@@ -74,9 +74,9 @@
       <!-- mobile head -->
       <div class="mobile-head">
         <div class="mh-row">
-          <button class="btn btn-ghost btn-sm" style="color:#fff;padding:6px 8px;" onclick="Danubra.toggleSidebar()" aria-label="Menu">☰</button>
+          <button class="btn btn-ghost btn-sm" style="color:#fff;padding:6px 8px;" onclick="Danubra.toggleSidebar()" aria-label="Menu" id="btn-menu"></button>
           <div class="mh-search">
-            <span>⌕</span>
+            <span class="search-ico"></span>
             <input placeholder="Hľadať…">
           </div>
           <div class="avatar" id="user-initial-m">·</div>
@@ -91,6 +91,7 @@
 
   <div id="toast" class="toast" hidden></div>
 
+  <script src="./js/icons.js"></script>
   <script src="./js/config.js"></script>
   <script src="./js/db.js"></script>
   <script src="./js/ui.js"></script>
@@ -99,12 +100,16 @@
   <script src="./js/app.js"></script>
   <script src="./lib/orders/state-machine.js"></script>
   <script src="./lib/billing/ongoing-service.js"></script>
+  <script src="./lib/qr.js"></script>
+  <script src="./lib/documents/templates.js"></script>
   <script src="./js/services/orders-service.js"></script>
+  <script src="./js/services/invoicing.js"></script>
   <script src="./js/components/comm-panel.js"></script>
   <script src="./js/modules/accommodations.js"></script>
   <script src="./js/modules/clients.js"></script>
   <script src="./js/modules/inquiries.js"></script>
   <script src="./js/modules/offers.js"></script>
   <script src="./js/modules/orders.js"></script>
+  <script src="./js/modules/invoices.js"></script>
 </body>
 </html>

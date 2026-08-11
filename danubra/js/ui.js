@@ -51,7 +51,7 @@ window.UI = {
 
   empty(ico, title, sub, cta) {
     return `<div class="empty">
-      <div class="empty-ico">${ico}</div>
+      <div class="empty-ico">${window.Icon && Icon.has(ico) ? Icon(ico, 34) : ''}</div>
       <div style="font-size:15px;font-weight:600;color:var(--ink-sub);margin-bottom:4px;">${this.esc(title)}</div>
       ${sub ? `<div style="font-size:13px;margin-bottom:14px;">${this.esc(sub)}</div>` : ''}
       ${cta || ''}
@@ -59,7 +59,7 @@ window.UI = {
   },
 
   loading() {
-    return `<div class="empty"><div class="empty-ico">⏳</div><div>Načítavam…</div></div>`;
+    return `<div class="empty"><div class="empty-ico">${window.Icon ? Icon('clock', 30) : ''}</div><div>Načítavam…</div></div>`;
   },
 
   // ── Modal ─────────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ window.UI = {
       <div class="modal-card${wide ? ' modal-wide' : ''}">
         <div class="modal-head">
           <h3>${this.esc(title)}</h3>
-          <button class="modal-x" onclick="UI.closeModal()" aria-label="Zavrieť">✕</button>
+          <button class="modal-x" onclick="UI.closeModal()" aria-label="Zavrieť">${window.Icon ? Icon("x", 17) : ""}</button>
         </div>
         <div class="modal-body">${bodyHtml}</div>
       </div>`;

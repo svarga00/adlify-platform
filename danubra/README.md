@@ -15,6 +15,7 @@ danubra/
   database/migrations/    SQL migrácie (spustiť v Supabase SQL Editor)
     001_schema.sql        všetkých 18 tabuliek + RLS + triggery + indexy + seed settings
     002_numbering.sql     atomická RPC danubra_next_number() pre číselné rady (§6.1)
+  (crony: netlify/functions/danubra-cron-daily.js, danubra-cron-monthly.js)
   lib/
     billing/
       ongoing-service.js  výpočet priebežnej služby (§6.4)  ✅ testy
@@ -23,6 +24,8 @@ danubra/
       state-machine.js    stavový automat objednávky (§6.2)  ✅ testy
     numbering.js          číselné rady OBJ-.../faktúry (§6.1) ✅ testy
     matching.js           panel zhôd dopyt → ubytovania (§6.5)  ✅ testy
+    qr.js                 QR kodér + SEPA platobný reťazec        ✅ testy
+    documents/templates.js  dokumenty §8 (faktúra, potvrdenia, pokyny)
   js/services/
     orders-service.js     stavové prechody + vedľajšie efekty (§6.2), predĺženia, segmenty
     *.test.js             unit testy (node, bez frameworku)
@@ -35,6 +38,7 @@ danubra/
 node danubra/lib/billing/ongoing-service.test.js   # 19 testov
 node danubra/lib/core.test.js                      # 35 testov
 node danubra/lib/matching.test.js                  # 23 testov
+node danubra/lib/qr.test.js                        # 39 testov
 ```
 
 ## Stav (milestones)
@@ -45,7 +49,7 @@ node danubra/lib/matching.test.js                  # 23 testov
 - [x] **Dizajn** — rozhranie podľa schváleného návrhu (Archivo, zoskupená navigácia, KPI)
 - [x] **M3** — dopyty + ponuky (panel zhôd §6.5, wizard, text pre klienta)
 - [x] **M4/M5** — objednávky + spis zákazky (stavový automat, prístupové kódy, ticketing, priebežná služba)
-- [ ] **M6** — fakturácia, PDF, QR, mesačný cron
+- [x] **M6** — fakturácia, dokumenty s QR platbou, denný a mesačný cron
 - [ ] **M7** — SMS vrstva + šablóny + denný cron
 - [ ] **M8** — marketing + KPI dashboard
 - [ ] **M9** — príjem dopytov z webu (webhook)

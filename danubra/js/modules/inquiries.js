@@ -45,7 +45,7 @@
     },
 
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Inq.form()">+ Nový dopyt</button>`);
+      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Inq.form()">${Icon('plus')} Nový dopyt</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
       const open = this.items.filter(i => ['new', 'qualified'].includes(i.status || 'new')).length;
@@ -66,8 +66,8 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('📥', 'Žiadne dopyty', 'Pridaj prvý dopyt alebo počkaj na webový formulár.',
-              `<button class="btn btn-primary" onclick="Inq.form()">+ Nový dopyt</button>`)
+          ? UI.empty('inquiries', 'Žiadne dopyty', 'Pridaj prvý dopyt alebo počkaj na webový formulár.',
+              `<button class="btn btn-primary" onclick="Inq.form()">${Icon('plus')} Nový dopyt</button>`)
           : `<div class="cards">${rows.map(i => this.card(i)).join('')}</div>`}`;
     },
 
@@ -79,16 +79,16 @@
         <div class="acc-card card" onclick="Inq.detail('${i.id}')">
           <div class="acc-card-head">
             <div>
-              <div class="acc-name">${UI.esc(i.target_city || 'Bez mesta')}${i.urgent ? ' <span style="color:var(--red)">⚡</span>' : ''}</div>
+              <div class="acc-name">${UI.esc(i.target_city || 'Bez mesta')}${i.urgent ? ` <span style="color:var(--red);">${Icon('zap', 14)}</span>` : ''}</div>
               <div class="acc-loc">${c ? UI.esc(c.name) : 'Bez klienta'} · ${UI.date(i.received_at)}</div>
             </div>
             ${this.statusBadge(i.status)}
           </div>
           <div class="acc-meta">
-            <span>👤 ${i.persons || '?'} os.</span>
-            ${i.date_from ? `<span>📅 ${UI.dateRange(i.date_from, i.date_to)}${nights ? ` (${nights} n.)` : ''}</span>` : ''}
-            ${i.budget_per_bed ? `<span>💶 do ${UI.money(i.budget_per_bed)}/lôžko</span>` : ''}
-            ${noReply ? `<span style="color:var(--amber);font-weight:700;">⏱ bez reakcie</span>` : ''}
+            <span>${Icon('user', 14)} ${i.persons || '?'} os.</span>
+            ${i.date_from ? `<span>${Icon('calendar', 14)} ${UI.dateRange(i.date_from, i.date_to)}${nights ? ` (${nights} n.)` : ''}</span>` : ''}
+            ${i.budget_per_bed ? `<span>${Icon('euro', 14)} do ${UI.money(i.budget_per_bed)}/lôžko</span>` : ''}
+            ${noReply ? `<span style="color:var(--amber);font-weight:700;">${Icon('clock', 14)} bez reakcie</span>` : ''}
           </div>
         </div>`;
     },
@@ -116,12 +116,12 @@
       const body = `
         <div class="detail-head">
           ${this.statusBadge(i.status)}
-          ${i.urgent ? UI.badge('⚡ Súrne', 'red') : ''}
+          ${i.urgent ? UI.badge('Súrne', 'red') : ''}
           <select class="verif-sel" onchange="Inq.setStatus('${i.id}',this.value)">
             ${STATUS.map(s => `<option value="${s[0]}" ${(i.status || 'new') === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
           </select>
         </div>
-        ${!i.first_response_at ? `<div class="warnbox">⏱ Dopyt zatiaľ nemá zaznamenanú prvú reakciu — kontaktuj klienta.</div>` : ''}
+        ${!i.first_response_at ? `<div class="warnbox">${Icon('clock', 14)} Dopyt zatiaľ nemá zaznamenanú prvú reakciu — kontaktuj klienta.</div>` : ''}
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'inquiry', id: i.id } }) : ''}
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${reqLabels.length ? `<div class="chips">${reqLabels.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
@@ -133,7 +133,7 @@
         <div class="modal-actions">
           <button class="btn btn-danger btn-sm" onclick="Inq.del('${i.id}')">Zmazať</button>
           <button class="btn btn-outline btn-sm" onclick="Inq.form('${i.id}')">Upraviť</button>
-          <button class="btn btn-primary btn-sm" onclick="Offers.fromInquiry('${i.id}')">Vytvoriť ponuku →</button>
+          <button class="btn btn-primary btn-sm" onclick="Offers.fromInquiry('${i.id}')">Vytvoriť ponuku ${Icon('chevron', 14)}</button>
         </div>`;
       UI.modal(`Dopyt · ${i.target_city || '—'}`, body, { wide: true });
       this.renderMatches(i);
@@ -202,7 +202,7 @@
             ${REQS.map(r => `<label class="chk"><input type="checkbox" name="req_${r[0]}" ${reqs.includes(r[0]) ? 'checked' : ''}> ${r[1]}</label>`).join('')}
           </div>
           <div class="chk-row">
-            ${UI.field('urgent', '', { type: 'checkbox', value: i.urgent, placeholder: '⚡ Súrny dopyt' })}
+            ${UI.field('urgent', '', { type: 'checkbox', value: i.urgent, placeholder: 'Súrny dopyt' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: i.notes })}
           <div class="modal-actions">

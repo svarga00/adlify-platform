@@ -8,21 +8,21 @@ window.Danubra = {
 
   // Zoskupená navigácia podľa návrhu. [key, label, badge]
   navGroups: [
-    ['PREHĽAD',  [['dashboard', 'Dashboard'], ['tasks', 'Úlohy a pripomienky'], ['active', 'Aktívne zákazky']]],
-    ['PREDAJ',   [['inquiries', 'Dopyty'], ['offers', 'Ponuky'], ['orders', 'Objednávky']]],
-    ['PENIAZE',  [['invoices', 'Faktúry']]],
-    ['DATABÁZA', [['accommodations', 'Ubytovania'], ['clients', 'Firmy a kontakty']]],
-    ['RAST',     [['marketing', 'Marketing']]],
-    ['SYSTÉM',   [['rules', 'Cenník a pravidlá'], ['settings', 'Nastavenia']]],
+    ['PREHĽAD',  [['dashboard', 'Dashboard', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks'], ['active', 'Aktívne zákazky', 'active']]],
+    ['PREDAJ',   [['inquiries', 'Dopyty', 'inquiries'], ['offers', 'Ponuky', 'offers'], ['orders', 'Objednávky', 'orders']]],
+    ['PENIAZE',  [['invoices', 'Faktúry', 'invoices']]],
+    ['DATABÁZA', [['accommodations', 'Ubytovania', 'bed'], ['clients', 'Firmy a kontakty', 'clients']]],
+    ['RAST',     [['marketing', 'Marketing', 'marketing']]],
+    ['SYSTÉM',   [['rules', 'Cenník a pravidlá', 'rules'], ['settings', 'Nastavenia', 'settings']]],
   ],
 
   // Spodné taby na mobile (stred = rýchle pridanie)
   tabs: [
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'active', label: 'Aktívne' },
+    { key: 'dashboard', label: 'Dashboard', ico: 'dashboard' },
+    { key: 'active', label: 'Aktívne', ico: 'active' },
     { key: '__plus', label: '', plus: true },
-    { key: 'inquiries', label: 'Dopyty' },
-    { key: 'accommodations', label: 'Viac' },
+    { key: 'inquiries', label: 'Dopyty', ico: 'inquiries' },
+    { key: 'accommodations', label: 'Ubytovania', ico: 'bed' },
   ],
 
   badges: {},   // { routeKey: number } — napĺňa dashboard
@@ -38,6 +38,9 @@ window.Danubra = {
       if (!!user !== was) this._render();
     });
     document.getElementById('login-form').addEventListener('submit', (e) => this._onLogin(e));
+    document.querySelectorAll('.search-ico').forEach(el => { el.innerHTML = Icon('search', 15); });
+    const lo = document.getElementById('btn-logout'); if (lo) lo.innerHTML = Icon('logout', 16);
+    const mn = document.getElementById('btn-menu'); if (mn) mn.innerHTML = Icon('menu', 20);
     this._buildNav();
     this._render();
     window.addEventListener('hashchange', () => this._syncRoute());
@@ -85,19 +88,19 @@ window.Danubra = {
   _buildNav() {
     document.getElementById('sidebar-nav').innerHTML = this.navGroups.map(([glabel, items]) => `
       <div class="nav-group">${glabel}</div>
-      ${items.map(([key, label]) => {
+      ${items.map(([key, label, ico]) => {
         const b = this.badges[key];
         return `<button class="nav-item${key === this.route ? ' active' : ''}" data-key="${key}" onclick="Danubra.go('${key}')">
-          <span>${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
+          ${Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
         </button>`;
       }).join('')}
     `).join('');
 
     document.getElementById('bottom-nav').innerHTML = this.tabs.map(t => t.plus
       ? `<button class="tab tab-plus" onclick="Danubra.quickAdd()" aria-label="Pridať">
-           <span class="tab-ico">+</span></button>`
+           <span class="tab-ico">${Icon('plus', 22)}</span></button>`
       : `<button class="tab${t.key === this.route ? ' active' : ''}" data-key="${t.key}" onclick="Danubra.go('${t.key}')">
-           <span class="tab-ico"></span><span class="tab-label">${t.label}</span></button>`
+           <span class="tab-ico">${Icon(t.ico, 20)}</span><span class="tab-label">${t.label}</span></button>`
     ).join('');
   },
 
@@ -126,7 +129,7 @@ window.Danubra = {
     const fn = this.views[this.route];
     if (fn) fn.call(this, view);
     else view.innerHTML = this.header(this.labelOf(this.route), 'Pripravujeme v ďalšom kroku.') +
-      UI.empty('🚧', 'Táto sekcia zatiaľ nie je hotová', 'Pribudne v nasledujúcom milestone.');
+      UI.empty('wrench', 'Táto sekcia zatiaľ nie je hotová', 'Pribudne v nasledujúcom milestone.');
   },
 
   // Jednotná hlavička stránky
@@ -221,17 +224,17 @@ window.Danubra = {
                   <button class="list-row" onclick="Danubra.go('${go}')">
                     <span class="dot ${dot}"></span>
                     <span style="flex:1;font-weight:500;">${UI.esc(label)}</span>
-                    <span style="color:var(--ink-mute);">›</span>
+                    <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span>
                   </button>`).join('')
-              : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">Nič nečaká — všetko je vybavené. 👌</div>`}
+              : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">Nič nečaká — všetko je vybavené.</div>`}
           </div>
           <div class="card card-pad">
             <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;">
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Acc.form()">+ Nové ubytovanie</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cli.form()">+ Nový klient</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('accommodations')">Databáza ubytovaní ›</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('clients')">Firmy a kontakty ›</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Acc.form()">${Icon('plus')} Nové ubytovanie</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cli.form()">${Icon('plus')} Nový klient</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('accommodations')">${Icon('bed')} Databáza ubytovaní</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('clients')">${Icon('clients')} Firmy a kontakty</button>
             </div>
           </div>
         </div>`;
