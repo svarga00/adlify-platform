@@ -15,6 +15,7 @@ danubra/
   database/migrations/    SQL migrácie (spustiť v Supabase SQL Editor)
     001_schema.sql        všetkých 18 tabuliek + RLS + triggery + indexy + seed settings
     002_numbering.sql     atomická RPC danubra_next_number() pre číselné rady (§6.1)
+    004_recruiting_ai.sql AI nábor: súhlasy, nahrávky hovorov, zachytené sľuby
     003_staffing.sql      subdodávky: pracovníci, odberatelia DE, zákazky, nasadenia,
                           hodiny, compliance register + rad ZAK-2026-0001
   (crony: netlify/functions/danubra-cron-daily.js, danubra-cron-monthly.js)
@@ -26,6 +27,7 @@ danubra/
       state-machine.js    stavový automat objednávky (§6.2)  ✅ testy
     numbering.js          číselné rady OBJ-.../faktúry (§6.1) ✅ testy
     matching.js           panel zhôd dopyt → ubytovania (§6.5)  ✅ testy
+    sms/provider.js       E.164, segmenty GSM-7/Unicode, diakritika  ✅ testy
     staffing/margin.js      jednotková ekonomika vyslaného pracovníka  ✅ testy
     staffing/compliance.js  A1, §48b, SOKA, ANÜ, cash-flow prahy       ✅ testy
     qr.js                 QR kodér + SEPA platobný reťazec        ✅ testy
@@ -44,6 +46,7 @@ node danubra/lib/core.test.js                      # 35 testov
 node danubra/lib/matching.test.js                  # 23 testov
 node danubra/lib/qr.test.js                        # 39 testov
 node danubra/lib/staffing/staffing.test.js         # 58 testov
+node danubra/lib/sms/sms.test.js                   # 47 testov
 ```
 
 ## Dve agendy
@@ -70,9 +73,10 @@ Spoločné ostáva: prihlásenie, nastavenia, faktúry, komunikačné záznamy a
 - [x] **M6** — fakturácia, dokumenty s QR platbou, denný a mesačný cron
 - [x] **Fáza 2 základ** — dátový model, ekonomika, compliance, pracovníci, zákazky
 - [x] **Fáza 2 pokračovanie** — odberatelia DE, hodiny, fakturácia subdodávok, cash-flow panel
-- [ ] **M7** — SMS vrstva + šablóny + denný cron
-- [ ] **M8** — marketing + KPI dashboard
-- [ ] **M9** — príjem dopytov z webu (webhook)
+- [x] **M7** — SMS vrstva so segmentmi a diakritikou, odosielanie, limity
+- [x] **M8** — marketing: inzeráty s obnovením, výdavky voči rozpočtu
+- [x] **M9** — príjem dopytov z webu (tolerantné mapovanie SK/CS/HU formulárov)
+- [x] **AI nábor** — súhlasy, nahrávky, prepis a extrakcia sľubov
 
 ## Kritické pravidlá (§5) — dodržiavané v logike
 

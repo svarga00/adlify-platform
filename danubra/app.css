@@ -474,3 +474,5 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .item-sum { grid-area: s; }
   .item-row button { grid-area: x; justify-self: end; }
 }
+
+.comm-sms { color: var(--brand-dark); }

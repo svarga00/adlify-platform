@@ -30,6 +30,8 @@ window.CommPanel = {
         ${btn(telHref, 'phone', 'Volať', 'call', 'call')}
         ${btn(c.whatsapp !== false ? waHref : null, 'whatsapp', 'WhatsApp', 'wa', 'whatsapp')}
         ${btn(mailHref, 'mail', 'E-mail', 'mail', 'email')}
+        ${phone ? `<button class="comm-btn comm-sms" onclick="CommPanel.smsDialog('${meta}','${String(phone).replace(/'/g, "")}')">
+          <span class="comm-ico">${Icon('inbox')}</span><span>SMS</span></button>` : ''}
         <button class="comm-btn comm-note" onclick="CommPanel._notePrompt('${meta}')">
           <span class="comm-ico">${Icon('note')}</span><span>Poznámka</span></button>
       </div>`;
@@ -48,6 +50,66 @@ window.CommPanel = {
         body: body || `${channel} kontakt`,
       });
     } catch (e) { /* ticho — kontakt sa aj tak otvoril */ }
+  },
+
+  /** Dialóg na odoslanie SMS s náhľadom segmentov a diakritiky (§9). */
+  smsDialog(metaEnc, phone) {
+    let entity = {};
+    try { entity = JSON.parse(decodeURIComponent(metaEnc)); } catch {}
+    this._smsEntity = entity; this._smsPhone = phone;
+    UI.modal('Odoslať SMS', `
+      <form id="sms-form" onsubmit="event.preventDefault();CommPanel.smsSend()">
+        <div class="fld"><span>Príjemca</span>
+          <input name="to" value="${UI.esc(phone)}" required></div>
+        <div class="fld" style="margin-top:12px;"><span>Text správy</span>
+          <textarea name="body" rows="5" oninput="CommPanel.smsPreview()"
+            placeholder="Kod dveri 1234. Nastup 1.9. Kontakt na mieste 0176..."></textarea></div>
+        <label class="chk" style="margin-top:10px;">
+          <input type="checkbox" name="stripDia" checked onchange="CommPanel.smsPreview()">
+          Odoslať bez diakritiky (zmestí sa viac textu)</label>
+        <div id="sms-info" class="regimebox" style="margin-top:12px;"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          <button type="submit" class="btn btn-primary" id="sms-send-btn">Odoslať</button>
+        </div>
+      </form>`, { wide: true });
+    this.smsPreview();
+  },
+
+  smsPreview() {
+    const form = document.getElementById('sms-form');
+    const info = document.getElementById('sms-info');
+    if (!form || !info || !window.DanubraSms) return;
+    const d = UI.formData(form);
+    const r = DanubraSms.prepare({ to: d.to, body: d.body, stripDia: !!d.stripDia });
+    const warn = r.warnings.map(w =>
+      `<div style="color:${w.severity === 'blocker' ? 'var(--red)' : 'var(--amber)'};margin-top:4px;">${UI.esc(w.text)}</div>`).join('');
+    info.innerHTML = `${r.length} znakov · ${r.segments} ${r.segments === 1 ? 'segment' : 'segmentov'} · `
+      + `${r.encoding === 'gsm7' ? 'GSM-7' : 'Unicode'} · ostáva ${r.remaining}`
+      + (r.to ? ` · ${UI.esc(r.to)}` : '') + warn;
+    const btn = document.getElementById('sms-send-btn');
+    if (btn) btn.disabled = !r.ok;
+  },
+
+  async smsSend() {
+    const form = document.getElementById('sms-form');
+    const d = UI.formData(form);
+    const btn = document.getElementById('sms-send-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Odosielam…'; }
+    try {
+      const res = await fetch('/.netlify/functions/danubra-sms-send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: d.to, body: d.body, stripDia: !!d.stripDia, entity: this._smsEntity }),
+      });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error || 'Odoslanie zlyhalo');
+      UI.closeModal();
+      UI.toast(`SMS odoslaná (${out.segments} ${out.segments === 1 ? 'segment' : 'segmentov'})`, 'ok');
+      if (window.Danubra) Danubra.renderRoute();
+    } catch (e) {
+      UI.toast('Chyba: ' + e.message, 'err');
+      if (btn) { btn.disabled = false; btn.textContent = 'Odoslať'; }
+    }
   },
 
   async _notePrompt(metaEnc) {
