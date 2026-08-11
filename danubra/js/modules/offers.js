@@ -32,7 +32,7 @@
     isExpired(o) { return o.valid_until && o.status === 'sent' && new Date(o.valid_until) < new Date(); },
 
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Offers.pickInquiry()">+ Nová ponuka</button>`);
+      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Offers.pickInquiry()">${Icon('plus')} Nová ponuka</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filters.status ? this.items.filter(o => o.status === this.filters.status) : this.items;
 
@@ -47,8 +47,8 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('📄', 'Žiadne ponuky', 'Ponuku vytvoríš z dopytu.',
-              `<button class="btn btn-primary" onclick="Offers.pickInquiry()">+ Nová ponuka</button>`)
+          ? UI.empty('offers', 'Žiadne ponuky', 'Ponuku vytvoríš z dopytu.',
+              `<button class="btn btn-primary" onclick="Offers.pickInquiry()">${Icon('plus')} Nová ponuka</button>`)
           : `<div class="cards">${rows.map(o => this.card(o)).join('')}</div>`}`;
     },
 
@@ -66,9 +66,9 @@
             ${expired ? UI.badge('Expirovaná', 'red') : this.statusBadge(o.status)}
           </div>
           <div class="acc-meta">
-            ${o.service_fee != null ? `<span>💼 poplatok ${UI.money(o.service_fee)}</span>` : ''}
-            ${o.ongoing_service_enabled ? `<span>🔁 ${UI.money(o.ongoing_service_rate || 0)}/os./deň</span>` : ''}
-            ${o.valid_until ? `<span>⏳ do ${UI.date(o.valid_until)}</span>` : ''}
+            ${o.service_fee != null ? `<span>${Icon('euro', 14)} poplatok ${UI.money(o.service_fee)}</span>` : ''}
+            ${o.ongoing_service_enabled ? `<span>${Icon('repeat', 14)} ${UI.money(o.ongoing_service_rate || 0)}/os./deň</span>` : ''}
+            ${o.valid_until ? `<span>${Icon('clock', 14)} do ${UI.date(o.valid_until)}</span>` : ''}
           </div>
         </div>`;
     },
@@ -88,7 +88,7 @@
               <span style="flex:1;">
                 <strong>${UI.esc(i.target_city || '—')}</strong>
                 <span style="color:var(--ink-mute);"> · ${c ? UI.esc(c.name) : 'bez klienta'} · ${i.persons || '?'} os.</span>
-              </span><span style="color:var(--ink-mute);">›</span></button>`;
+              </span><span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
           }).join('')}
         </div>`);
     },
@@ -257,7 +257,7 @@
           </select>
         </div>
         <div class="warnbox" style="background:var(--blue-50);border-color:#C3D3FA;color:var(--blue);">
-          🔒 V ponuke sa uvádza len mesto a typ ubytovania. Adresa a kontakt na ubytovateľa
+          ${Icon('lock', 14)} V ponuke sa uvádza len mesto a typ ubytovania. Adresa a kontakt na ubytovateľa
           sa klientovi sprístupnia až po úhrade poplatku.
         </div>
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'inquiry', id: o.inquiry_id } }) : ''}
@@ -267,11 +267,11 @@
         <div class="form-section">Text pre klienta (WhatsApp / e-mail)</div>
         <textarea id="offer-text" rows="12" readonly
           style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.6;background:var(--field);resize:vertical;">${UI.esc(this.buildText(o, vs, accs, c, inq))}</textarea>
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Offers.copyText()">📋 Skopírovať text</button>
+        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Offers.copyText()">${Icon('copy')} Skopírovať text</button>
         <div class="modal-actions">
           <button class="btn btn-danger btn-sm" onclick="Offers.del('${o.id}')">Zmazať</button>
           ${o.status !== 'accepted'
-            ? `<button class="btn btn-primary btn-sm" onclick="Offers.accept('${o.id}')">Akceptovaná → objednávka</button>`
+            ? `<button class="btn btn-primary btn-sm" onclick="Offers.accept('${o.id}')">Akceptovaná ${Icon('chevron', 14)} objednávka</button>`
             : ''}
         </div>`;
       UI.modal('Ponuka', body, { wide: true });
@@ -385,7 +385,7 @@
               return `<button class="list-row" onclick="Offers._resolvePick('${v.id}')">
                 <span style="flex:1;"><strong>${i + 1}) ${UI.esc(a.name || '—')}</strong>
                 <span style="color:var(--ink-mute);"> · ${UI.money(v.total_accommodation || 0)}</span></span>
-                <span style="color:var(--ink-mute);">›</span></button>`;
+                <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
             }).join('')}
           </div>`);
         this._pickResolver = (id) => { UI.closeModal(); resolve(vs.find(v => v.id === id) || null); };

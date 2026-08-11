@@ -22,16 +22,16 @@ window.CommPanel = {
     const btn = (href, ico, label, kind, chan) => href
       ? `<a href="${href}" target="_blank" rel="noopener" class="comm-btn comm-${kind}"
            onclick="CommPanel._log('${chan}','${meta}')">
-           <span class="comm-ico">${ico}</span><span>${label}</span></a>`
-      : `<span class="comm-btn comm-disabled"><span class="comm-ico">${ico}</span><span>${label}</span></span>`;
+           <span class="comm-ico">${Icon(ico)}</span><span>${label}</span></a>`
+      : `<span class="comm-btn comm-disabled"><span class="comm-ico">${Icon(ico)}</span><span>${label}</span></span>`;
 
     return `
       <div class="comm-panel${opts.sticky ? ' comm-sticky' : ''}">
-        ${btn(telHref, '📞', 'Volať', 'call', 'call')}
-        ${btn(c.whatsapp !== false ? waHref : null, '💬', 'WhatsApp', 'wa', 'whatsapp')}
-        ${btn(mailHref, '✉️', 'E-mail', 'mail', 'email')}
+        ${btn(telHref, 'phone', 'Volať', 'call', 'call')}
+        ${btn(c.whatsapp !== false ? waHref : null, 'whatsapp', 'WhatsApp', 'wa', 'whatsapp')}
+        ${btn(mailHref, 'mail', 'E-mail', 'mail', 'email')}
         <button class="comm-btn comm-note" onclick="CommPanel._notePrompt('${meta}')">
-          <span class="comm-ico">📝</span><span>Poznámka</span></button>
+          <span class="comm-ico">${Icon('note')}</span><span>Poznámka</span></button>
       </div>`;
   },
 

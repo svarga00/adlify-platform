@@ -78,7 +78,7 @@
         </div>`) + `
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('🏠', activeOnly ? 'Žiadne aktívne zákazky' : 'Žiadne objednávky',
+          ? UI.empty('active', activeOnly ? 'Žiadne aktívne zákazky' : 'Žiadne objednávky',
               'Objednávka vznikne akceptovaním ponuky.',
               `<button class="btn btn-outline" onclick="Danubra.go('offers')">Prejsť na ponuky</button>`)
           : `<div class="cards">${rows.map(o => this.card(o)).join('')}</div>`}`;
@@ -97,9 +97,9 @@
           </div>
           ${this.timeline(o)}
           <div class="acc-meta" style="margin-top:8px;">
-            <span>👤 ${o.persons || '?'} os.</span>
-            <span>📅 ${UI.dateRange(o.date_from, o.date_to)}</span>
-            ${o.ongoing_service_enabled ? `<span>🔁 ${UI.money(o.ongoing_service_rate || 0)}/os./deň</span>` : ''}
+            <span>${Icon('user', 14)} ${o.persons || '?'} os.</span>
+            <span>${Icon('calendar', 14)} ${UI.dateRange(o.date_from, o.date_to)}</span>
+            ${o.ongoing_service_enabled ? `<span>${Icon('repeat', 14)} ${UI.money(o.ongoing_service_rate || 0)}/os./deň</span>` : ''}
           </div>
         </div>`;
     },
@@ -189,7 +189,7 @@
         <!-- 4. Prístupové údaje (§5.1) -->
         <div class="form-section">Prístupové údaje</div>
         ${unlocked && acc ? this._accessBlock(acc) : `
-          <div class="warnbox">🔒 Adresa a kontakt na ubytovateľa sú uzamknuté, kým nie je uhradený poplatok.
+          <div class="warnbox">${Icon('lock', 14)} Adresa a kontakt na ubytovateľa sú uzamknuté, kým nie je uhradený poplatok.
             Klientovi sa nesmú poslať skôr.</div>`}
 
         <!-- 5. Osoby -->
@@ -197,10 +197,10 @@
         ${this._persons.map(p => `<div class="list-row" style="cursor:default;">
           <span style="flex:1;"><strong>${UI.esc(p.full_name || '—')}</strong>
           ${p.phone ? `<span style="color:var(--ink-mute);"> · ${UI.esc(p.phone)}</span>` : ''}</span>
-          ${p.phone ? `<a class="btn btn-ghost btn-sm" href="tel:${UI.esc(p.phone.replace(/\\s/g, ''))}">📞</a>` : ''}
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Ord.delPerson('${p.id}')">✕</button>
+          ${p.phone ? `<a class="btn btn-ghost btn-sm" href="tel:${UI.esc(p.phone.replace(/\\s/g, ''))}">${Icon('phone', 15)}</a>` : ''}
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Ord.delPerson('${p.id}')">${Icon('x', 15)}</button>
         </div>`).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ nikto nezapísaný.</div>'}
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Ord.addPerson()">+ Pridať osobu</button>
+        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Ord.addPerson()">${Icon('plus')} Pridať osobu</button>
 
         <!-- 6. Priebežná služba (§6.4) -->
         ${o.ongoing_service_enabled ? this._serviceBlock(o) : ''}
@@ -208,7 +208,7 @@
         <!-- 7. Požiadavky (mini-ticketing) -->
         <div class="form-section">Požiadavky počas pobytu</div>
         ${this._requests.map(r => this._reqRow(r)).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Žiadne požiadavky.</div>'}
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Ord.addRequest()">+ Nová požiadavka</button>
+        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Ord.addRequest()">${Icon('plus')} Nová požiadavka</button>
 
         <!-- 8. Komunikácia -->
         <div class="form-section">Komunikácia a záznamy</div>
@@ -248,7 +248,7 @@
         completed: 'Ukončiť zákazku',
       }[next] || `Posunúť na ${LABEL[next]}`;
       return `<button class="btn btn-primary btn-block" style="margin-bottom:14px;"
-        onclick="Ord.advance('${next}')">${cta} →</button>`;
+        onclick="Ord.advance('${next}')">${cta} ${Icon('chevron', 14)}</button>`;
     },
 
     _accessBlock(acc) {

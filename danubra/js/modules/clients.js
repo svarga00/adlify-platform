@@ -41,7 +41,7 @@
     },
 
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Cli.form()">+ Pridať</button>`);
+      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Cli.form()">${Icon('plus')} Pridať</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
       const countries = [...new Set(this.items.map(c => c.country).filter(Boolean))];
@@ -60,8 +60,8 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('👥', 'Žiadni klienti', 'Pridaj prvého klienta.',
-              `<button class="btn btn-primary" onclick="Cli.form()">+ Pridať klienta</button>`)
+          ? UI.empty('clients', 'Žiadni klienti', 'Pridaj prvého klienta.',
+              `<button class="btn btn-primary" onclick="Cli.form()">${Icon('plus')} Pridať klienta</button>`)
           : `<div class="cards">${rows.map(c => this.card(c)).join('')}</div>`}`;
     },
 
@@ -72,13 +72,13 @@
           <div class="acc-card-head">
             <div>
               <div class="acc-name">${UI.esc(c.name)}</div>
-              <div class="acc-loc">${c.contact_person ? UI.esc(c.contact_person) + ' · ' : ''}${c.country || ''}${c.retainer ? ' · 🔁 retainer' : ''}</div>
+              <div class="acc-loc">${c.contact_person ? UI.esc(c.contact_person) + ' · ' : ''}${c.country || ''}${c.retainer ? ' · retainer' : ''}</div>
             </div>
             ${this.typeBadge(c.type)}
           </div>
           <div class="acc-meta">
-            ${c.phone ? `<span>📞 ${UI.esc(c.phone)}</span>` : ''}
-            ${c.email ? `<span>✉️ ${UI.esc(c.email)}</span>` : ''}
+            ${c.phone ? `<span>${Icon('phone', 14)} ${UI.esc(c.phone)}</span>` : ''}
+            ${c.email ? `<span>${Icon('mail', 14)} ${UI.esc(c.email)}</span>` : ''}
             <span>${UI.badge(r.regime === 'sk_no_vat' ? 'SK bez DPH' : r.regime === 'eu_reverse_charge' ? 'Reverse charge' : 'Režim ?', r.regime === 'other' ? 'amber' : 'gray')}</span>
           </div>
         </div>`;
@@ -97,7 +97,7 @@
         ['Retainer', c.retainer ? `Áno${c.retainer_rate ? ' · ' + UI.money(c.retainer_rate) : ''}` : 'Nie'],
         ['Zdroj', c.source],
       ].filter(x => x[1] != null && x[1] !== '');
-      const warn = r.warning ? `<div class="warnbox">⚠ ${UI.esc(r.warning)}</div>` : '';
+      const warn = r.warning ? `<div class="warnbox">${Icon('alert',14)} ${UI.esc(r.warning)}</div>` : '';
       const body = `
         <div class="detail-head">${this.typeBadge(c.type)}
           ${UI.badge(r.regime === 'sk_no_vat' ? 'SK — nie sme platiteľmi DPH' : r.regime === 'eu_reverse_charge' ? 'EU reverse charge' : 'Režim na kontrolu', r.regime === 'other' ? 'amber' : 'green')}</div>
@@ -151,7 +151,7 @@
         const d = UI.formData(form);
         const r = regime(d);
         document.getElementById('regime-preview').innerHTML =
-          `Fakturačný režim: <strong>${r.regime}</strong> — ${UI.esc(r.note || '')} ${r.warning ? `<span style="color:var(--amber)">⚠ ${UI.esc(r.warning)}</span>` : ''}`;
+          `Fakturačný režim: <strong>${r.regime}</strong> — ${UI.esc(r.note || '')} ${r.warning ? `<span style="color:var(--amber)">${UI.esc(r.warning)}</span>` : ''}`;
       };
       form.addEventListener('input', upd); upd();
     },

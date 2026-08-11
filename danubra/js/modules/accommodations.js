@@ -48,7 +48,7 @@
     async view(el) {
       Danubra.setActions(`
         <button class="btn btn-outline btn-sm" onclick="Acc.importCsv()">Import CSV</button>
-        <button class="btn btn-primary btn-sm" onclick="Acc.form()">+ Pridať</button>`);
+        <button class="btn btn-primary btn-sm" onclick="Acc.form()">${Icon('plus')} Pridať</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
       el.innerHTML = Danubra.header('Ubytovania', `${this.items.length} v databáze · ${this.items.filter(a => a.verification_status === 'verified').length} overených`) + `
@@ -66,8 +66,8 @@
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
-          ? UI.empty('🛏️', 'Žiadne ubytovania', 'Pridaj prvé alebo importuj CSV.',
-              `<button class="btn btn-primary" onclick="Acc.form()">+ Pridať ubytovanie</button>`)
+          ? UI.empty('bed', 'Žiadne ubytovania', 'Pridaj prvé alebo importuj CSV.',
+              `<button class="btn btn-primary" onclick="Acc.form()">${Icon('plus')} Pridať ubytovanie</button>`)
           : `<div class="cards">${rows.map(a => this.card(a)).join('')}</div>`}`;
     },
 
@@ -83,11 +83,11 @@
             ${this.verifBadge(a.verification_status)}
           </div>
           <div class="acc-meta">
-            <span>💶 ${price}</span>
-            ${a.max_persons ? `<span>👤 max ${a.max_persons}</span>` : ''}
-            ${a.beds ? `<span>🛏️ ${a.beds} lôžok</span>` : ''}
-            ${a.van_parking ? '<span>🚐 parkovanie</span>' : ''}
-            ${a.invoice_payment ? '<span>🧾 na faktúru</span>' : ''}
+            <span>${Icon('euro', 14)} ${price}</span>
+            ${a.max_persons ? `<span>${Icon('user', 14)} max ${a.max_persons}</span>` : ''}
+            ${a.beds ? `<span>${Icon('bed', 14)} ${a.beds} lôžok</span>` : ''}
+            ${a.van_parking ? `<span>${Icon('van', 14)} parkovanie</span>` : ''}
+            ${a.invoice_payment ? `<span>${Icon('receipt', 14)} na faktúru</span>` : ''}
           </div>
         </div>`;
     },
