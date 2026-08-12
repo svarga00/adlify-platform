@@ -168,9 +168,10 @@ begin
       'access_door_code', '4721', 'wifi_ssid', 'Linden-Gast', 'wifi_password', 'gast2026',
       'access_key_location', 'V schránke pri vchode, kód 4721', 'deposit_amount', 300));
 
+    -- entity_type je typ entity, nie jej id — inak sa záznamy v detaile nezobrazia
     insert into danubra_activities (entity_type, entity_id, type, direction, body) values
-      (ord_berlin, ord_berlin, 'system', null, 'Stav: awaiting_payment → paid'),
-      (ord_berlin, ord_berlin, 'whatsapp', 'out', 'Poslané pokyny na ubytovanie vrátane kódu dverí.');
+      ('order', ord_berlin, 'system', null, 'Stav: awaiting_payment → paid'),
+      ('order', ord_berlin, 'whatsapp', 'out', 'Poslané pokyny na ubytovanie vrátane kódu dverí.');
   end if;
 
   select id into ord_berlin from danubra_orders where order_number = 'OBJ-2026-0042' limit 1;
