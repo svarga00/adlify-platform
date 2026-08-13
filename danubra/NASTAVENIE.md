@@ -32,10 +32,6 @@ Poradie je záväzné, každý súbor stavia na predchádzajúcom:
 > `eidkljfaeqvvegiponwl` nasadené vrátane vzorových dát a bucketu
 > `danubra-calls`. **Migráciu 011 ešte treba spustiť.** Tabuľka nižšie je pre prípad novej inštalácie.
 
-> **Stav k 12. 8. 2026:** všetky migrácie 001–009 sú už na projekte
-> `eidkljfaeqvvegiponwl` nasadené vrátane vzorových dát a bucketu
-> `danubra-calls`. **Migráciu 011 ešte treba spustiť.** Tabuľka nižšie je pre prípad novej inštalácie.
-
 Šiestku spusti, ak chceš appku hneď vidieť naplnenú. Je idempotentná — dá sa
 spustiť opakovane a nič nezduplikuje. Na jej konci je pripravený mazací príkaz,
 keď budeš ukážky chcieť preč.
