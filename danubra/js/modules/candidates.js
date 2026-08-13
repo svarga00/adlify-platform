@@ -34,13 +34,26 @@
     legal: ['právna', 'red'], logistics: ['logistika', 'gray'], motivation: ['motivácia', 'amber'] };
 
   const Cand = {
-    items: [], loaded: false, view_: 'kanban', filters: { source: '', q: '' },
+    items: [], loaded: false, view_: 'kanban', filters: { source: '', q: '', outcome: 'active' },
     questions: [], answers: [], plans: [], playbookLoaded: false,
+    allChecks: [],
 
     async load() {
-      const { data } = await DB.list('candidates', { order: { column: 'received_at', ascending: false }, limit: 500 });
-      this.items = data || [];
+      const [c, ch] = await Promise.all([
+        DB.list('candidates', { order: { column: 'received_at', ascending: false }, limit: 500 }),
+        DB.list('candidate_checks', { select: 'candidate_id,step_key,item_index,checked', limit: 5000 }),
+      ]);
+      this.items = c.data || [];
+      this.allChecks = ch.data || [];
       this.loaded = true;
+    },
+
+    checksOf(id) { return this.allChecks.filter(x => x.candidate_id === id); },
+
+    /** Postup kandidáta cez šesť krokov. Bez knižnice vráti prázdny stav. */
+    progressOf(c) {
+      if (!window.DanubraProcess) return { percent: 0, flagCount: 0, currentStep: null, done: 0, total: 0 };
+      return DanubraProcess.candidateProgress(c, this.checksOf(c.id));
     },
 
     /** Otázky a plány sa načítajú, až keď treba — nezdržujú zoznam kandidátov. */
@@ -74,6 +87,9 @@
     filtered() {
       const f = this.filters;
       return this.items.filter(c => {
+        if (f.outcome === 'active' && c.outcome) return false;
+        if (f.outcome === 'hired' && c.outcome !== 'hired') return false;
+        if (f.outcome === 'rejected' && c.outcome !== 'rejected') return false;
         if (f.source && c.source !== f.source) return false;
         if (f.q) {
           const hay = `${c.full_name} ${c.phone || ''} ${c.city || ''} ${this.professionLabel(c.profession)}`.toLowerCase();
@@ -119,6 +135,10 @@
         <div class="filterbar">
           <input class="fb-search" placeholder="Hľadať meno, telefón, mesto…" value="${UI.esc(this.filters.q)}"
             oninput="Cand.setF('q',this.value)">
+          <select onchange="Cand.setF('outcome',this.value)">
+            ${[['active', 'V procese'], ['hired', 'Nastúpení'], ['rejected', 'Zamietnutí'], ['', 'Všetci']]
+              .map(([v, l]) => `<option value="${v}" ${this.filters.outcome === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
           <select onchange="Cand.setF('source',this.value)">
             <option value="">Všetky zdroje</option>
             ${SOURCES.map(s => `<option value="${s[0]}" ${this.filters.source === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
@@ -134,6 +154,7 @@
               `<button class="btn btn-primary" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`)
           : this.view_ === 'kanban' ? this.kanban(rows) : this.table(rows)}
 
+        ${this.closedHtml()}
         ${this.sourcesHtml()}`;
     },
 
@@ -156,10 +177,25 @@
     kanbanCard(c) {
       const mins = this.responseMinutes(c);
       const waiting = c.status === 'new' && !c.first_contact_at;
-      return `<div class="kanban-card" onclick="Cand.detail('${c.id}')">
-        <div style="font-weight:700;font-size:13px;">${UI.esc(c.full_name)}</div>
+      const pr = this.progressOf(c);
+      return `<div class="kanban-card${c.outcome ? ' is-closed' : ''}" onclick="Cand.detail('${c.id}')">
+        <div style="font-weight:700;font-size:13px;">
+          ${UI.esc(c.full_name)}
+          ${c.type === 'crew' ? UI.badge(`partia ${c.crew_size || ''}`.trim(), 'blue') : ''}
+          ${pr.flagCount ? `<span style="color:var(--red);font-weight:700;">${Icon('alert', 12)} ${pr.flagCount}</span>` : ''}
+        </div>
         <div style="font-size:12px;color:var(--ink-mute);margin-top:2px;">
           ${this.professionLabel(c.profession)}${c.city ? ` · ${UI.esc(c.city)}` : ''}</div>
+        ${pr.total ? `<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+          <span class="stay-bar" style="flex:1;height:5px;">
+            <span class="stay-fill" style="display:block;height:5px;width:${pr.percent}%;
+              background:${pr.flagCount ? 'var(--red)' : pr.percent === 100 ? 'var(--green)' : 'var(--brand)'};"></span>
+          </span>
+          <span style="font-size:11px;color:var(--ink-mute);">${pr.percent} %</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--ink-mute);margin-top:3px;">
+          ${c.outcome === 'hired' ? 'nastúpil' : c.outcome === 'rejected' ? 'zamietnutý'
+            : pr.currentStep ? UI.esc(pr.currentStep.title) : 'proces hotový'}</div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;align-items:center;">
           <span style="color:var(--ink-sub);">${this.sourceLabel(c.source)}</span>
           ${c.screening_score != null ? UI.badge(`${Math.round(c.screening_score)} %`,
@@ -174,18 +210,34 @@
     table(rows) {
       return rows.map(c => {
         const mins = this.responseMinutes(c);
-        return `<div class="list-row" onclick="Cand.detail('${c.id}')">
-          <span class="dot ${['ready', 'placed'].includes(c.status) ? 'green' : c.status === 'new' && !c.first_contact_at ? 'amber' : ''}"></span>
+        const pr = this.progressOf(c);
+        return `<div class="list-row${c.outcome ? ' is-closed' : ''}" onclick="Cand.detail('${c.id}')">
+          <span class="dot ${pr.flagCount ? 'red' : ['ready', 'placed'].includes(c.status) ? 'green'
+            : c.status === 'new' && !c.first_contact_at ? 'amber' : ''}"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(c.full_name)}</strong>
+            ${c.type === 'crew' ? UI.badge(`partia ${c.crew_size || ''}`.trim(), 'blue') : ''}
             <span style="color:var(--ink-mute);"> · ${this.professionLabel(c.profession)}</span>
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
               ${this.sourceLabel(c.source)} · ${UI.date(c.received_at)}
-              ${mins != null ? ` · reakcia ${mins} min` : ' · zatiaľ bez reakcie'}</span>
+              ${mins != null ? ` · reakcia ${mins} min` : ' · zatiaľ bez reakcie'}
+              ${pr.total ? ` · ${pr.percent} %${pr.currentStep && !c.outcome ? ` · ${UI.esc(pr.currentStep.title)}` : ''}` : ''}</span>
           </span>
-          ${this.badge(c.status)}
+          ${pr.flagCount ? UI.badge(`${pr.flagCount} 🚩`.replace('🚩', 'vlajky'), 'red') : ''}
+          ${c.outcome === 'hired' ? UI.badge('nastúpil', 'green')
+            : c.outcome === 'rejected' ? UI.badge('zamietnutý', 'gray') : this.badge(c.status)}
         </div>`;
       }).join('');
+    },
+
+    /** Uzavretí kandidáti — vizuálne stlmení, ale dohľadateľní. */
+    closedHtml() {
+      if (this.filters.outcome !== 'active') return '';
+      const closed = this.items.filter(c => c.outcome);
+      if (!closed.length) return '';
+      const hired = closed.filter(c => c.outcome === 'hired').length;
+      return `<div class="form-section">Uzavretí — ${hired} nastúpených, ${closed.length - hired} zamietnutých</div>
+        <div style="opacity:.62;">${this.table(closed)}</div>`;
     },
 
     /** Ktorý kanál koľko priniesol — na vyhodnotenie marketingu. */
@@ -225,6 +277,11 @@
       const regulated = REGULATED.includes(c.profession);
 
       const rows = [
+        ['Typ', c.type === 'crew' ? `Partia${c.crew_size ? ` — ${c.crew_size} ľudí` : ''}` : 'Jednotlivec'],
+        ['Živnosť', { active: 'Aktívna', willing: 'Ochotný si založiť', none: 'Nemá' }[c.trade_license_status] || null],
+        ['Nemčina v partii', c.german_speaker == null ? null : c.german_speaker ? 'Áno' : 'Nie'],
+        ['Vlastné auto', c.has_car == null ? null : c.has_car ? 'Áno' : 'Nie'],
+        ['Možný nástup', c.expected_start ? UI.date(c.expected_start) : null],
         ['Profesia', this.professionLabel(c.profession)],
         ['Forma spolupráce', c.legal_form === 'szco' ? 'Živnostník' : 'Zamestnanec'],
         ['Telefón', c.phone], ['E-mail', c.email], ['Mesto', c.city],
@@ -249,7 +306,17 @@
           výrazne zvyšuje šancu, že nastúpi.</div>` : ''}
         ${regulated ? `<div class="warnbox">${Icon('alert', 14)}
           Regulované remeslo — pred nasadením treba oznámenie Handwerkskammer podľa §9 HwO.</div>` : ''}
+        ${c.outcome ? `<div class="regimebox">
+          ${c.outcome === 'hired' ? 'Kandidát nastúpil.' : 'Kandidát bol zamietnutý.'}
+          ${c.outcome_reason ? UI.esc(c.outcome_reason) : ''}
+          <button class="btn btn-ghost btn-sm" style="margin-left:6px;"
+            onclick="CandProc.reopen('${c.id}')">Vrátiť do procesu</button></div>` : ''}
         ${CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.full_name }, entity: { type: 'candidate', id: c.id } })}
+
+        <div class="form-section">Náborový proces</div>
+        <div id="cand-process">${UI.loading()}</div>
+
+        <div class="form-section">Údaje</div>
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${c.screening_score != null ? `<div class="form-section">Skríning</div>
           <div class="kpi-grid">
@@ -272,10 +339,17 @@
             ${Icon('check')} Ozval som sa</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Cand.screening('${c.id}')">
             ${Icon('shield')} ${c.screening_score != null ? 'Skríning' : 'Spustiť skríning'}</button>
-          ${!c.converted_worker_id ? `<button class="btn btn-primary btn-sm" onclick="Cand.convert('${c.id}')">
-            Previesť na pracovníka ${Icon('chevron', 14)}</button>` : ''}
+          ${!c.outcome ? `
+            <button class="btn btn-outline btn-sm" onclick="CandProc.rejectForm()">Zamietnuť</button>
+            <button class="btn btn-primary btn-sm" onclick="CandProc.hireForm()">
+              ${Icon('check')} Nastúpený</button>` : ''}
         </div>`;
       UI.modal(c.full_name, body, { wide: true });
+
+      // proces sa dotiahne až po otvorení, nech sa modal zobrazí okamžite
+      await CandProc.load(id);
+      CandProc.open = null;
+      CandProc.rerender();
     },
 
     // ── Skríning ──────────────────────────────────────────────────────────
@@ -443,10 +517,10 @@
     },
 
     /** Prevedie kandidáta na pracovníka a zachová väzbu. */
-    async convert(id) {
+    async convert(id, { silent = false } = {}) {
       const c = this.items.find(x => x.id === id);
       if (!c) return;
-      if (!confirm(`Previesť ${c.full_name} medzi pracovníkov?`)) return;
+      if (!silent && !confirm(`Previesť ${c.full_name} medzi pracovníkov?`)) return;
       const payload = {
         full_name: c.full_name, phone: c.phone, email: c.email, whatsapp: c.whatsapp,
         language: c.language, city: c.city, country: c.country,
@@ -461,14 +535,16 @@
         notes: c.notes,
       };
       const { data: w, error } = await DB.insert('workers', payload);
-      if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      await DB.update('candidates', id, {
-        converted_worker_id: w.id, converted_at: new Date().toISOString(), status: 'ready',
-      });
-      Object.assign(c, { converted_worker_id: w.id, status: 'ready' });
+      if (error) { UI.toast('Chyba: ' + error.message, 'err'); return null; }
+      // pri nastúpení stav prepisuje volajúci — nezhadzuj 'placed' späť na 'ready'
+      const patch = { converted_worker_id: w.id, converted_at: new Date().toISOString() };
+      if (!silent) patch.status = 'ready';
+      await DB.update('candidates', id, patch);
+      Object.assign(c, patch);
+      if (window.Wrk) { Wrk.loaded = false; }
+      if (silent) return w;
       UI.closeModal();
       UI.toast(`${c.full_name} je medzi pracovníkmi`, 'ok');
-      if (window.Wrk) { Wrk.loaded = false; }
       await this.load(); Danubra.renderRoute();
     },
 
@@ -479,7 +555,10 @@
       const body = `
         <form id="cand-form" onsubmit="event.preventDefault();Cand.save('${id || ''}')">
           <div class="form-grid">
-            ${UI.field('full_name', 'Meno a priezvisko', { value: c.full_name, required: true })}
+            ${UI.field('full_name', 'Meno alebo názov partie', { value: c.full_name, required: true })}
+            ${UI.field('type', 'Typ', { value: c.type || 'individual',
+              options: [['individual', 'Jednotlivec'], ['crew', 'Partia']] })}
+            ${UI.field('crew_size', 'Koľkí sú (pri partii)', { type: 'number', value: c.crew_size })}
             ${UI.field('status', 'Stav', { value: c.status || 'new', options: STAGES.map(s => [s[0], s[1]]) })}
             ${UI.field('phone', 'Telefón', { value: c.phone })}
             ${UI.field('email', 'E-mail', { type: 'email', value: c.email })}
@@ -497,11 +576,16 @@
               options: [['', '— žiadny konkrétny —'], ...openPlans.map(p => [p.id, p.title])] })}
             ${UI.field('last_site', 'Posledná stavba', { value: c.last_site, placeholder: 'mesto, firma' })}
             ${UI.field('last_foreman', 'Polier, ktorý ho potvrdí', { value: c.last_foreman, placeholder: 'meno a telefón' })}
+            ${UI.field('trade_license_status', 'Živnosť', { value: c.trade_license_status || '',
+              options: [['', '—'], ['active', 'Aktívna'], ['willing', 'Ochotný si založiť'], ['none', 'Nemá']] })}
+            ${UI.field('expected_start', 'Možný nástup', { type: 'date', value: c.expected_start })}
           </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: c.whatsapp, placeholder: 'Má WhatsApp' })}
             ${UI.field('driving_licence', '', { type: 'checkbox', value: c.driving_licence, placeholder: 'Vodičský preukaz' })}
             ${UI.field('own_tools', '', { type: 'checkbox', value: c.own_tools, placeholder: 'Vlastné náradie' })}
+            ${UI.field('german_speaker', '', { type: 'checkbox', value: c.german_speaker, placeholder: 'Hovorí po nemecky' })}
+            ${UI.field('has_car', '', { type: 'checkbox', value: c.has_car, placeholder: 'Má vlastné auto' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: c.notes })}
           <div class="modal-actions">
@@ -519,6 +603,10 @@
       payload.expected_rate = d.expected_rate === '' ? null : Number(d.expected_rate);
       if (payload.available_from === '') payload.available_from = null;
       if (payload.plan_id === '') payload.plan_id = null;
+      if (payload.expected_start === '') payload.expected_start = null;
+      if (payload.trade_license_status === '') payload.trade_license_status = null;
+      payload.crew_size = d.crew_size === '' ? null : Number(d.crew_size);
+      if (payload.type !== 'crew') payload.crew_size = null;
       const res = id ? await DB.update('candidates', id, payload) : await DB.insert('candidates', payload);
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');

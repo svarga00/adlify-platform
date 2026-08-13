@@ -25,6 +25,11 @@ Poradie je záväzné, každý súbor stavia na predchádzajúcom:
 | 7 | `danubra/database/migrations/007_recruiting_pipeline.sql` | nábor: kandidáti, checklist nástupu, ubytovanie na zákazke |
 | 8 | `danubra/database/migrations/008_call_capture.sql` | úložisko nahrávok hovorov |
 | 9 | `danubra/database/migrations/009_recruiting_playbook.sql` | príručka remesiel, skríningové otázky, náborové plány |
+| 10 | `danubra/database/migrations/010_candidate_process.sql` | náborový proces kandidáta v šiestich krokoch |
+
+> **Stav k 12. 8. 2026:** všetky migrácie 001–010 sú už na projekte
+> `eidkljfaeqvvegiponwl` nasadené vrátane vzorových dát a bucketu
+> `danubra-calls`. Tabuľka nižšie je pre prípad novej inštalácie.
 
 > **Stav k 12. 8. 2026:** všetky migrácie 001–009 sú už na projekte
 > `eidkljfaeqvvegiponwl` nasadené vrátane vzorových dát a bucketu
