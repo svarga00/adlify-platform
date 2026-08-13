@@ -507,3 +507,25 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .kanban-card:hover { border-color: #C9D6F2; box-shadow: 0 6px 18px -10px rgba(10,27,61,.25); }
 .kanban-empty { font-size: 12px; color: var(--ink-mute); padding: 8px 2px; }
+
+/* ── Accordion náborového procesu ─────────────────────────────────────────── */
+.acc { border: 1px solid var(--border); border-radius: 11px; margin-bottom: 8px; overflow: hidden; background: #fff; }
+.acc-done { border-color: #BFE3CC; }
+.acc-warn { border-color: #F3C4C4; }
+.acc-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 13px; background: none; border: 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.acc-head:hover { background: #F9FAFB; }
+.acc-mark {
+  flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+  color: #fff;
+}
+.acc-mark.done { background: var(--green); border-color: var(--green); }
+.acc-mark.warn { background: var(--red); border-color: var(--red); }
+.acc-body { padding: 4px 13px 13px; border-top: 1px solid var(--border-soft); }
+/* Zaškrtávanie počas telefonátu — väčší cieľ pre prst */
+.chk-lg input { width: 21px; height: 21px; margin-top: 1px; flex: 0 0 21px; }
+.is-closed { opacity: .62; }
