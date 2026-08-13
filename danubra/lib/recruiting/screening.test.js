@@ -108,6 +108,13 @@ console.log('\nVAROVANIA');
   eq(r.answered, 0, 'cudzia odpoveď sa nezapočíta');
 }
 {
+  // varovanie označené bez hodnotenia sa nesmie stratiť
+  const r = S.scoreScreening(ALL, [{ question_id: 'q1', flagged: true }]);
+  eq(r.redFlags.length, 1, 'varovanie bez hodnotenia sa započíta');
+  eq(r.answered, 0, 'ale ako zodpovedaná otázka sa neráta');
+  eq(r.max, 0, 'a neskresľuje skóre');
+}
+{
   // hodnotenie mimo rozsahu sa oreže
   const r = S.scoreScreening([Q.know], [{ question_id: 'q1', rating: 9 }]);
   eq(r.percent, 100, 'rating nad 3 sa oreže na 3');

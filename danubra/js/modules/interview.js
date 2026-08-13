@@ -4,7 +4,8 @@
 // Toto sa používa s telefónom pri uchu. Preto celá obrazovka, jedna otázka
 // veľkým písmom a tlačidlá, ktoré sa dajú trafiť palcom bez pozerania.
 //
-// Dva režimy v tom istom plášti:
+// Tri režimy v tom istom plášti:
+//   call      — živý nábor: človek zavolal na inzerát a rovno ho naberáme
 //   process   — kroky K1–K6 (áno / zatiaľ nie)
 //   screening — odborné a overovacie otázky (hodnotenie 0–3 s nápovedou)
 //
@@ -12,9 +13,11 @@
 // ============================================================================
 (function () {
   const P = window.DanubraProcess;
+  const CS = window.DanubraCallScript;
 
   const Guide = {
-    mode: null,          // 'process' | 'screening'
+    mode: null,          // 'call' | 'process' | 'screening'
+    trades: [], trade: null, script: null, setup: false,
     cand: null,
     stepKey: null,
     items: [],           // { index, text } alebo otázka skríningu
@@ -81,6 +84,111 @@
       this.open();
     },
 
+    // ── Živý nábor ────────────────────────────────────────────────────────
+    // Zvoní telefón. Dve klepnutia a si v hovore: remeslo a meno.
+    async startCall() {
+      await Cand.loadPlaybook();
+      if (!Trades.loaded) await Trades.load();
+      this.trades = Trades.trades.filter(t => t.active !== false);
+      this.mode = 'call';
+      this.cand = null;
+      this.trade = null;
+      this.setup = true;
+      this.answers = new Map();
+      this.notes = [];
+      this.pos = 0;
+      this.title = 'Nový hovor';
+      this.open();
+    },
+
+    pickTrade(key) {
+      this.trade = this.trades.find(t => t.key === key) || null;
+      this.render();
+    },
+
+    /** Založí kandidáta a hneď prejde do scenára — bez medzikrokov. */
+    async beginCall() {
+      if (!this.trade) return UI.toast('Vyber remeslo', 'err');
+      const name = document.getElementById('call-name')?.value.trim();
+      if (!name) return UI.toast('Zapíš aspoň meno', 'err');
+      const phone = document.getElementById('call-phone')?.value.trim() || null;
+      const crew = document.getElementById('call-crew')?.checked;
+
+      const btn = document.getElementById('call-go');
+      if (btn) { btn.disabled = true; btn.textContent = 'Zakladám…'; }
+
+      const { data: cand, error } = await DB.insert('candidates', {
+        full_name: name, phone, type: crew ? 'crew' : 'individual',
+        profession: this.trade.key, legal_form: 'szco',
+        source: 'inzerat', status: 'contacted',
+        received_at: new Date().toISOString(),
+        first_contact_at: new Date().toISOString(),
+      });
+      if (error) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Začať hovor'; }
+        return UI.toast('Chyba: ' + error.message, 'err');
+      }
+
+      Cand.items.unshift(cand);
+      this.cand = cand;
+      await CandProc.load(cand.id);
+
+      this.script = CS.buildCallScript({
+        tradeKey: this.trade.key,
+        questions: Cand.questions,
+        processItems: P.applicableItems(P.STEPS[0], cand.type),
+      });
+      this.items = this.script;
+      this.setup = false;
+      this.pos = 0;
+      this.answers = new Map();
+      this.render();
+    },
+
+    setupHtml() {
+      return `
+        <div class="guide-q">Koho hľadá?</div>
+        <div class="trade-grid">
+          ${this.trades.map(t => `
+            <button class="trade-tile${this.trade?.key === t.key ? ' on' : ''}"
+              onclick="Guide.pickTrade('${t.key}')">
+              <span class="tt-name">${UI.esc(t.name_sk)}</span>
+              <span class="tt-rate">${t.rate_worker_min}–${t.rate_worker_max} €/h</span>
+            </button>`).join('')}
+        </div>
+        ${this.trade ? `<div class="guide-hint guide-hint-ok" style="margin-top:14px;">
+          ${(this.trade.pitch || []).length
+            ? `<b>Čo mu povedať o práci:</b><br>${(this.trade.pitch || []).map(x => '· ' + UI.esc(x)).join('<br>')}`
+            : UI.esc(this.trade.summary || '')}</div>` : ''}
+
+        <input id="call-name" class="guide-note" style="margin-top:14px;" placeholder="Ako sa volá?"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.beginCall()}">
+        <input id="call-phone" class="guide-note" style="margin-top:10px;" placeholder="Telefón (nepovinné)">
+        <label class="chk chk-lg" style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+          <input type="checkbox" id="call-crew"> <span style="font-size:15px;">Je to partia, nie jednotlivec</span>
+        </label>
+
+        <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:18px;"
+          onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>`;
+    },
+
+    /** Čo mu povedať o práci — vysunie sa kedykoľvek počas hovoru. */
+    togglePitch() {
+      this._pitch = !this._pitch;
+      this.render();
+    },
+
+    pitchHtml() {
+      const lines = this.trade?.pitch || [];
+      if (!lines.length) return '';
+      return `
+        <button class="guide-pitch-btn" onclick="Guide.togglePitch()">
+          ${Icon('note', 15)} ${this._pitch ? 'Skryť' : 'Čo mu povedať o práci'}
+        </button>
+        ${this._pitch ? `<div class="guide-hint guide-hint-ok">
+          ${lines.map(x => '· ' + UI.esc(x)).join('<br>')}</div>` : ''}`;
+    },
+
     // ── Plášť ─────────────────────────────────────────────────────────────
     open() {
       this.close(true);
@@ -109,19 +217,42 @@
     },
 
     answered() {
-      return this.items.filter(it => this.answers.has(this.mode === 'screening' ? it.id : it.index)).length;
+      return this.items.filter(it => this.answers.has(this.keyOf(it))).length;
+    },
+
+    /** Kľúč odpovede: otázky podľa id, položky kroku podľa poradia. */
+    keyOf(it) {
+      if (this.mode === 'screening') return it.id;
+      if (this.mode === 'call') return it.type === 'process' ? `p${it.index}` : it.question.id;
+      return it.index;
     },
 
     render() {
       const el = document.getElementById('guide');
       if (!el) return;
+
+      if (this.setup) {
+        el.innerHTML = `
+          <div class="guide-head">
+            <button class="guide-x" onclick="Guide.close()" aria-label="Zavrieť">${Icon('x', 20)}</button>
+            <div class="guide-who"><strong>Zdvihol som telefón</strong>
+              <span>nový kandidát z inzerátu</span></div>
+          </div>
+          <div class="guide-bar"><span style="width:0%"></span></div>
+          <div class="guide-body">${this.setupHtml()}</div>`;
+        setTimeout(() => document.getElementById('call-name')?.focus({ preventScroll: true }), 30);
+        return;
+      }
+
       const done = this.pos >= this.items.length;
+      const cur = done ? null : this.items[this.pos];
+      const seg = cur && cur.segment ? CS.segmentTitle(cur.segment) : this.title;
       el.innerHTML = `
         <div class="guide-head">
           <button class="guide-x" onclick="Guide.close()" aria-label="Zavrieť">${Icon('x', 20)}</button>
           <div class="guide-who">
             <strong>${UI.esc(this.cand.full_name)}</strong>
-            <span>${UI.esc(this.title)}</span>
+            <span>${UI.esc(seg)}</span>
           </div>
           <div class="guide-count">${done ? '' : `${this.pos + 1}/${this.items.length}`}</div>
         </div>
@@ -132,12 +263,20 @@
 
     questionHtml() {
       const it = this.items[this.pos];
+      if (this.mode === 'call') {
+        const seg = CS.SEGMENTS.find(x => x.key === it.segment);
+        const lead = seg ? `<div class="guide-lead">${UI.esc(seg.lead)}</div>` : '';
+        const body = it.type === 'process'
+          ? this.processHtml({ index: it.index, text: it.text })
+          : this.screeningHtml(it.question);
+        return lead + body + (it.segment === 'trade' ? '' : '');
+      }
       return this.mode === 'screening' ? this.screeningHtml(it) : this.processHtml(it);
     },
 
     // ── Režim: kroky procesu ──────────────────────────────────────────────
     processHtml(it) {
-      const a = this.answers.get(it.index);
+      const a = this.answers.get(this.mode === 'call' ? `p${it.index}` : it.index);
       const isFlags = this.stepKey === 'flags';
       return `
         <div class="guide-q">${UI.esc(it.text)}</div>
@@ -196,6 +335,7 @@
 
     navHtml() {
       return `
+        ${this.mode === 'call' ? this.pitchHtml() : ''}
         <div class="guide-nav">
           <button class="guide-nav-btn" onclick="Guide.prev()" ${this.pos === 0 ? 'disabled' : ''}>
             ${Icon('chevron', 16)} Späť</button>
@@ -210,6 +350,19 @@
       const it = this.items[this.pos];
       const text = document.getElementById('guide-note')?.value.trim() || '';
 
+      if (this.mode === 'call') {
+        if (it.type === 'process') {
+          this.answers.set(`p${it.index}`, { value });
+          await CandProc.toggle('k1', it.index, value);
+          if (text) await this.saveNote('k1', `${it.text} — ${text}`);
+        } else {
+          const prev = this.answers.get(it.question.id) || {};
+          this.answers.set(it.question.id, { value, flagged: !!prev.flagged, text });
+          await this.saveScreening(it.question, value, !!prev.flagged, text);
+        }
+        return this.next(true);
+      }
+
       if (this.mode === 'process') {
         this.answers.set(it.index, { value });
         await CandProc.toggle(this.stepKey, it.index, value);
@@ -223,7 +376,8 @@
     },
 
     async toggleFlag() {
-      const q = this.items[this.pos];
+      const cur = this.items[this.pos];
+      const q = this.mode === 'call' ? cur.question : cur;
       const a = this.answers.get(q.id) || { value: null, text: '' };
       a.flagged = !a.flagged;
       a.text = document.getElementById('guide-note')?.value.trim() || a.text || '';
@@ -258,6 +412,14 @@
       const text = document.getElementById('guide-note')?.value.trim();
       if (!text) return;
       const it = this.items[this.pos];
+      if (!it) return;
+
+      if (this.mode === 'call') {
+        if (it.type === 'process') return this.saveNote('k1', `${it.text} — ${text}`);
+        const a = this.answers.get(it.question.id) || {};
+        this.answers.set(it.question.id, { ...a, text });
+        return this.saveScreening(it.question, a.value ?? null, !!a.flagged, text);
+      }
       if (this.mode === 'process') {
         await this.saveNote(this.stepKey, `${it.text} — ${text}`);
       } else {
@@ -286,19 +448,19 @@
       if (e.key === 'ArrowRight') { e.preventDefault(); return this.next(); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); return this.prev(); }
       if (this.pos >= this.items.length) return;
-      if (this.mode === 'screening' && ['0', '1', '2', '3'].includes(e.key)) {
+      const it = this.items[this.pos];
+      const rating = this.mode === 'screening' || (this.mode === 'call' && it?.type === 'question');
+      const yesNo = this.mode === 'process' || (this.mode === 'call' && it?.type === 'process');
+      if (rating && ['0', '1', '2', '3'].includes(e.key)) {
         e.preventDefault(); return this.answer(Number(e.key));
       }
-      if (this.mode === 'process' && (e.key === 'a' || e.key === 'A')) {
-        e.preventDefault(); return this.answer(true);
-      }
-      if (this.mode === 'process' && (e.key === 'n' || e.key === 'N')) {
-        e.preventDefault(); return this.answer(false);
-      }
+      if (yesNo && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); return this.answer(true); }
+      if (yesNo && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); return this.answer(false); }
     },
 
     // ── Záver ─────────────────────────────────────────────────────────────
     summaryHtml() {
+      if (this.mode === 'call') return this.callSummary();
       if (this.mode === 'screening') return this.screeningSummary();
 
       const missing = this.items.filter(it => this.answers.get(it.index)?.value !== true);
@@ -356,6 +518,65 @@
               ${Icon('check', 18)} Uložiť výsledok</button>
           </div>
         </div>`;
+    },
+
+    /** Záver hovoru: skóre, varovania a jedno odporúčanie, čo ďalej. */
+    callSummary() {
+      const r = CS.callOutcome({
+        script: this.script, answers: this.answers, scoreFn: DanubraScreening.scoreScreening,
+      });
+      const good = r.verdict === 'strong' || r.verdict === 'ok';
+      return `
+        <div class="guide-done">
+          <div class="guide-done-ico ${good ? 'ok' : 'warn'}">
+            ${Icon(good ? 'check' : 'alert', 30)}</div>
+          <div class="guide-score">${r.percent} %</div>
+          <div class="guide-q" style="margin-bottom:6px;">${UI.esc(r.nextAction.label)}</div>
+          <div class="guide-hint" style="text-align:left;">${UI.esc(r.nextAction.hint)}</div>
+
+          <div class="guide-hint" style="text-align:left;background:var(--field);color:var(--ink-sub);">
+            Zodpovedaných ${r.answered} odborných otázok · úvod ${r.introDone} z ${r.introTotal}
+            ${r.redFlags.length ? ` · <b style="color:var(--red);">${r.redFlags.length} varovaní</b>` : ''}
+          </div>
+          ${r.redFlags.length ? `<div class="guide-missing">
+            ${r.redFlags.map(f => `<div class="raised">${Icon('alert', 13)} ${UI.esc(f.question)}</div>`).join('')}
+          </div>` : ''}
+
+          <div class="guide-end-actions">
+            ${r.nextAction.key === 'reject'
+              ? `<button class="guide-btn guide-btn-red" onclick="Guide.finishCall('reject')">
+                  Zamietnuť a zapísať dôvod</button>`
+              : `<button class="guide-btn guide-btn-yes" onclick="Guide.finishCall('advance')">
+                  ${Icon('check', 18)} Ísť na overenie</button>`}
+            <button class="guide-btn guide-btn-no" onclick="Guide.finishCall('continue')">
+              Uložiť a pokračovať neskôr</button>
+          </div>
+        </div>`;
+    },
+
+    async finishCall(action) {
+      const r = CS.callOutcome({
+        script: this.script, answers: this.answers, scoreFn: DanubraScreening.scoreScreening,
+      });
+      await DB.update('candidates', this.cand.id, {
+        screening_score: r.answered ? r.percent : null,
+        screening_verdict: r.verdict,
+        screening_done_at: new Date().toISOString(),
+        status: action === 'reject' ? 'rejected' : 'interview',
+      });
+      if (action === 'reject') {
+        const reason = prompt('Prečo ho nechceme? (zapíše sa, aby sa o pol roka vedelo)') || null;
+        await DB.update('candidates', this.cand.id, { outcome: 'rejected', outcome_reason: reason });
+        UI.toast('Zamietnutý a zapísaný', 'ok');
+      } else if (action === 'advance') {
+        CandProc.open = 'k3';
+        UI.toast('Uložené — pokračuj krokom Overenie', 'ok');
+      } else {
+        UI.toast('Uložené', 'ok');
+      }
+      const id = this.cand.id;
+      this.close();
+      setTimeout(() => Cand.detail(id), 260);
     },
 
     async saveVerdict() {

@@ -31,23 +31,29 @@
   function scoreScreening(questions, answers) {
     const qs = (questions || []).filter(q => q.active !== false);
     const byId = new Map(qs.map(q => [q.id, q]));
-    const given = (answers || []).filter(a => byId.has(a.question_id) && a.rating != null);
+    // Varovná odpoveď sa počíta aj bez hodnotenia — pri živom hovore sa označí
+    // skôr, než sa stihne ohodnotiť, a stratiť ju je to najhoršie, čo sa môže stať.
+    const touched = (answers || []).filter(a => byId.has(a.question_id) && (a.rating != null || a.flagged));
+    const given = touched.filter(a => a.rating != null);
 
     let score = 0, max = 0;
     const byKind = {};
     const redFlags = [];
 
-    for (const a of given) {
+    for (const a of touched) {
       const q = byId.get(a.question_id);
       const w = q.weight || 1;
-      score += Math.max(0, Math.min(RATING_MAX, a.rating)) * w;
-      max += RATING_MAX * w;
-
       const k = q.kind || 'knowledge';
-      byKind[k] = byKind[k] || { score: 0, max: 0, answered: 0 };
-      byKind[k].score += Math.max(0, Math.min(RATING_MAX, a.rating)) * w;
-      byKind[k].max += RATING_MAX * w;
-      byKind[k].answered++;
+
+      if (a.rating != null) {
+        const points = Math.max(0, Math.min(RATING_MAX, a.rating)) * w;
+        score += points;
+        max += RATING_MAX * w;
+        byKind[k] = byKind[k] || { score: 0, max: 0, answered: 0 };
+        byKind[k].score += points;
+        byKind[k].max += RATING_MAX * w;
+        byKind[k].answered++;
+      }
 
       // varovanie: buď ho tak označil človek, alebo nulová odpoveď na kritickú otázku
       if (a.flagged || (a.rating === 0 && isCritical(q))) {
