@@ -62,6 +62,10 @@
             ? ` · teraz: <strong>${UI.esc(prog.currentStep.title)}</strong>`
             : ' · proces je hotový'}</div>
 
+        ${prog.currentStep ? `<button type="button" class="btn btn-primary btn-block guide-cta"
+          onclick="Guide.start('${cand.id}','${prog.currentStep.key}')">
+          ${Icon('zap', 18)} Viesť ma pohovorom — ${UI.esc(prog.currentStep.title)}</button>` : ''}
+
         ${P.STEPS.map((step, i) => this.stepHtml(cand, step, prog.steps[i])).join('')}
         ${this.flagsHtml(cand)}`;
     },
@@ -84,6 +88,9 @@
           </button>
           ${isOpen ? `<div class="acc-body">
             <div style="font-size:12px;color:var(--ink-mute);margin-bottom:10px;">${UI.esc(step.hint)}</div>
+            <button type="button" class="btn btn-primary btn-block" style="margin-bottom:12px;"
+              onclick="Guide.start('${cand.id}','${step.key}')">
+              ${Icon('zap')} Viesť ma týmto krokom</button>
             ${items.map(it => this.itemHtml(step.key, it)).join('')}
             ${this.notesBlock(step.key, notes)}
           </div>` : ''}
@@ -141,6 +148,9 @@
           </button>
           ${isOpen ? `<div class="acc-body">
             <div style="font-size:12px;color:var(--ink-mute);margin-bottom:10px;">${UI.esc(P.FLAGS.hint)}</div>
+            <button type="button" class="btn btn-outline btn-block" style="margin-bottom:12px;"
+              onclick="Guide.start('${cand.id}','flags')">
+              ${Icon('alert')} Prejsť vlajky jednu po druhej</button>
             ${P.FLAGS.items.map((text, index) =>
               this.itemHtml('flags', { index, text })).join('')}
             ${this.notesBlock('flags', this.notesOf('flags'))}

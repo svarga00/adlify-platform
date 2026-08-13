@@ -337,8 +337,10 @@
           <button class="btn btn-outline btn-sm" onclick="Cand.form('${c.id}')">Upraviť</button>
           ${!c.first_contact_at ? `<button class="btn btn-outline btn-sm" onclick="Cand.markContacted('${c.id}')">
             ${Icon('check')} Ozval som sa</button>` : ''}
-          <button class="btn btn-outline btn-sm" onclick="Cand.screening('${c.id}')">
-            ${Icon('shield')} ${c.screening_score != null ? 'Skríning' : 'Spustiť skríning'}</button>
+          <button class="btn btn-outline btn-sm" onclick="Guide.startScreening('${c.id}')">
+            ${Icon('shield')} ${c.screening_score != null ? 'Skríning znova' : 'Odborný skríning'}</button>
+          ${c.screening_score != null ? `<button class="btn btn-ghost btn-sm" onclick="Cand.screening('${c.id}')">
+            Prehľad odpovedí</button>` : ''}
           ${!c.outcome ? `
             <button class="btn btn-outline btn-sm" onclick="CandProc.rejectForm()">Zamietnuť</button>
             <button class="btn btn-primary btn-sm" onclick="CandProc.hireForm()">

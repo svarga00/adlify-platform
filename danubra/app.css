@@ -529,3 +529,124 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Zaškrtávanie počas telefonátu — väčší cieľ pre prst */
 .chk-lg input { width: 21px; height: 21px; margin-top: 1px; flex: 0 0 21px; }
 .is-closed { opacity: .62; }
+
+/* ── Sprievodca pohovorom ─────────────────────────────────────────────────── */
+/* Používa sa s telefónom pri uchu: jedna otázka, veľké písmo, tlačidlá,
+   ktoré sa dajú trafiť palcom bez pozerania na obrazovku. */
+.guide {
+  position: fixed; inset: 0; z-index: 120; background: var(--bg, #F4F6FA);
+  display: flex; flex-direction: column; overscroll-behavior: contain;
+}
+.guide-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+  background: var(--navy, #0A1B3D); color: #fff;
+}
+.guide-x {
+  width: 40px; height: 40px; border: 0; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,.12); color: #fff; display: flex;
+  align-items: center; justify-content: center; flex: 0 0 40px;
+}
+.guide-x:hover { background: rgba(255,255,255,.2); }
+.guide-who { flex: 1; min-width: 0; line-height: 1.25; }
+.guide-who strong { display: block; font-size: 15px; }
+.guide-who span { display: block; font-size: 12.5px; opacity: .72; }
+.guide-count { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; opacity: .85; }
+.guide-bar { height: 4px; background: rgba(10,27,61,.12); }
+.guide-bar span { display: block; height: 100%; background: var(--brand, #F07E22); transition: width .25s; }
+
+.guide-body {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 26px 18px max(22px, env(safe-area-inset-bottom));
+  max-width: 620px; width: 100%; margin: 0 auto;
+}
+.guide-tags { display: flex; gap: 6px; margin-bottom: 12px; }
+.guide-q {
+  font-size: 25px; line-height: 1.32; font-weight: 700; color: var(--ink, #101828);
+  margin-bottom: 18px; letter-spacing: -.01em;
+}
+.guide-hint {
+  font-size: 14px; line-height: 1.5; border-radius: 11px;
+  padding: 11px 13px; margin-bottom: 10px;
+}
+.guide-hint-ok { background: var(--green-50, #E8F5EC); color: #1B7A3E; }
+.guide-hint-warn { background: var(--red-50, #FDECEC); color: #B42318; }
+
+.guide-actions { display: flex; flex-direction: column; gap: 10px; margin: 20px 0 14px; }
+.guide-btn {
+  min-height: 62px; border-radius: 14px; border: 2px solid transparent;
+  font-size: 18px; font-weight: 700; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; gap: 10px; padding: 0 18px;
+  transition: transform .06s, box-shadow .12s;
+}
+.guide-btn:active { transform: scale(.985); }
+.guide-btn-yes { background: var(--green, #159A4C); color: #fff; }
+.guide-btn-no { background: #fff; color: var(--ink-sub, #475467); border-color: var(--border, #E4E7EC); }
+.guide-btn-red { background: var(--red, #D32F2F); color: #fff; }
+.guide-btn.on { box-shadow: 0 0 0 4px rgba(10,27,61,.16); }
+
+/* Hodnotenie 0–3 — štyri veľké dlaždice */
+.guide-rate { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 18px 0 14px; }
+.guide-rb {
+  min-height: 78px; border-radius: 14px; border: 2px solid var(--border, #E4E7EC);
+  background: #fff; cursor: pointer; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+}
+.guide-rb:active { transform: scale(.985); }
+.rb-num { font-size: 24px; font-weight: 800; line-height: 1; }
+.rb-lbl { font-size: 13px; color: var(--ink-sub, #475467); font-weight: 600; }
+.guide-rb.rb-0 .rb-num { color: #B42318; }
+.guide-rb.rb-1 .rb-num { color: #B54708; }
+.guide-rb.rb-2 .rb-num { color: #175CD3; }
+.guide-rb.rb-3 .rb-num { color: #1B7A3E; }
+.guide-rb.on { border-color: var(--navy, #0A1B3D); box-shadow: 0 0 0 3px rgba(10,27,61,.12); }
+
+.guide-note {
+  width: 100%; min-height: 54px; border-radius: 12px; font-size: 16px;
+  border: 1.5px solid var(--border, #E4E7EC); padding: 14px 15px; background: #fff;
+}
+.guide-note:focus { outline: none; border-color: var(--brand, #F07E22); }
+
+.guide-flag {
+  width: 100%; margin-top: 10px; min-height: 50px; border-radius: 12px; cursor: pointer;
+  background: #fff; border: 1.5px dashed var(--border, #E4E7EC); color: var(--ink-sub, #475467);
+  font-size: 14.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.guide-flag.on { background: var(--red-50, #FDECEC); border-style: solid; border-color: var(--red, #D32F2F); color: #B42318; }
+
+.guide-nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border, #E4E7EC);
+}
+.guide-nav-btn {
+  min-height: 46px; padding: 0 16px; border-radius: 11px; cursor: pointer;
+  background: none; border: 1.5px solid var(--border, #E4E7EC); color: var(--ink-sub, #475467);
+  font-size: 14.5px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+}
+.guide-nav-btn:disabled { opacity: .38; cursor: default; }
+.guide-nav-btn:first-child svg { transform: rotate(180deg); }
+.guide-nav-mid { font-size: 12.5px; color: var(--ink-mute, #667085); text-align: center; }
+
+.guide-done { text-align: center; padding-top: 12px; }
+.guide-done-ico {
+  width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 16px;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+}
+.guide-done-ico.ok { background: var(--green, #159A4C); }
+.guide-done-ico.warn { background: var(--amber, #B54708); }
+.guide-score { font-size: 46px; font-weight: 800; line-height: 1; margin-bottom: 6px; }
+.guide-missing { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; text-align: left; }
+.guide-missing button, .guide-missing .raised {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  background: #fff; border: 1px solid var(--border, #E4E7EC); border-radius: 11px;
+  padding: 12px 14px; font-size: 14px; color: var(--ink-sub, #475467); cursor: pointer;
+}
+.guide-missing .raised { color: #B42318; background: var(--red-50, #FDECEC); border-color: #F3C4C4; cursor: default; }
+.guide-end-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+
+@media (min-width: 640px) {
+  .guide-q { font-size: 29px; }
+  .guide-rate { grid-template-columns: repeat(4, 1fr); }
+  .guide-end-actions { flex-direction: row-reverse; }
+  .guide-end-actions .guide-btn { flex: 1; }
+}
