@@ -650,3 +650,23 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .guide-end-actions { flex-direction: row-reverse; }
   .guide-end-actions .guide-btn { flex: 1; }
 }
+
+/* Živý nábor — výber remesla a odkaz na to, čo mu povedať */
+.trade-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.trade-tile {
+  min-height: 68px; border-radius: 13px; border: 2px solid var(--border); background: #fff;
+  cursor: pointer; display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center; gap: 3px; padding: 10px 12px; text-align: left;
+}
+.trade-tile:active { transform: scale(.985); }
+.trade-tile.on { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(10,27,61,.12); }
+.tt-name { font-size: 15px; font-weight: 700; line-height: 1.2; }
+.tt-rate { font-size: 12.5px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.guide-lead { font-size: 13px; color: var(--ink-mute); margin-bottom: 8px; }
+.guide-pitch-btn {
+  width: 100%; margin-top: 14px; min-height: 46px; border-radius: 12px; cursor: pointer;
+  background: #fff; border: 1.5px solid var(--border); color: var(--ink-sub);
+  font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+@media (min-width: 640px) { .trade-grid { grid-template-columns: repeat(3, 1fr); } }
+.call-cta { min-height: 52px; font-size: 15.5px; margin-bottom: 14px; }

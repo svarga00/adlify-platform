@@ -379,6 +379,7 @@ window.Danubra = {
             <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;">
               ${this.area === 'staffing' ? `
+              <button class="btn btn-primary" style="justify-content:flex-start;" onclick="Guide.startCall()">${Icon('phone')} Zdvihol som telefón</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('trades')">${Icon('wrench')} Príručka remesiel a otázok</button>

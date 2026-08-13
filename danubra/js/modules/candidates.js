@@ -100,7 +100,9 @@
     },
 
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`);
+      Danubra.setActions(`
+        <button class="btn btn-outline btn-sm" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>
+        <button class="btn btn-primary btn-sm" onclick="Guide.startCall()">${Icon('phone')} Zdvihol som telefón</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
 
@@ -131,6 +133,9 @@
             <div class="kpi-value">${this.items.filter(c => ['rejected', 'lost'].includes(c.status)).length}</div>
             <div class="kpi-delta">mimo pipeline</div></div>
         </div>
+
+        <button class="btn btn-primary btn-block call-cta" onclick="Guide.startCall()">
+          ${Icon('phone', 18)} Zdvihol som telefón — naberať rovno teraz</button>
 
         <div class="filterbar">
           <input class="fb-search" placeholder="Hľadať meno, telefón, mesto…" value="${UI.esc(this.filters.q)}"
