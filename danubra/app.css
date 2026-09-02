@@ -670,3 +670,29 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 @media (min-width: 640px) { .trade-grid { grid-template-columns: repeat(3, 1fr); } }
 .call-cta { min-height: 52px; font-size: 15.5px; margin-bottom: 14px; }
+
+/* ── Zaškrtávacie polia hovoru ────────────────────────────────────────────── */
+/* Klepá sa to palcom počas telefonátu, takže veľké a s rozostupmi. */
+.chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 9px 14px; border-radius: 999px;
+  border: 1.5px solid var(--border); background: #fff; cursor: pointer;
+  font-size: 14.5px; font-weight: 600; color: var(--ink-sub); line-height: 1.25;
+  text-align: left;
+}
+.chip:active { transform: scale(.97); }
+.chip.static { cursor: default; min-height: 30px; padding: 5px 11px; font-size: 13px; }
+.chip-plus.on    { background: var(--green-50); border-color: var(--green); color: #14713C; }
+.chip-minus.on   { background: var(--amber-50); border-color: var(--amber); color: #8A4308; }
+.chip-flag       { border-style: dashed; }
+.chip-flag.on    { background: var(--red-50); border-color: var(--red); color: #A81F1F; border-style: solid; }
+.chip-neutral.on { background: var(--field); border-color: var(--ink-mute); color: var(--ink); }
+.chip-add { border-style: dashed; color: var(--ink-mute); font-weight: 500; }
+.guide-textarea { min-height: 118px; resize: vertical; line-height: 1.5; font-family: inherit; }
+.guide-note-hint { font-size: 12px; color: var(--ink-mute); margin-top: 6px; }
+.guide-nav-next { border-color: var(--navy); color: var(--navy); font-weight: 700; }
+.sum-cols { display: grid; gap: 12px; margin-top: 16px; text-align: left; }
+.sum-cols ul { margin: 6px 0 0 16px; font-size: 13px; color: var(--ink-sub); }
+.sum-cols p { margin: 6px 0 0; font-size: 13px; color: var(--ink-mute); }
+@media (min-width: 640px) { .sum-cols { grid-template-columns: 1fr 1fr; } }

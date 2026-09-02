@@ -16,33 +16,42 @@
   const PHASE = { phone: 'Telefón', interview: 'Pohovor', onsite: 'Na stavbe' };
 
   const Trades = {
-    trades: [], questions: [], loaded: false, tab: 'trades', filterTrade: '',
+    trades: [], questions: [], chips: [], loaded: false, tab: 'chips', filterTrade: '',
 
     async load() {
-      const [t, q] = await Promise.all([
+      const [t, q, c] = await Promise.all([
         DB.list('trades', { order: { column: 'sort_order', ascending: true }, limit: 100 }),
         DB.list('screening_questions', { order: { column: 'sort_order', ascending: true }, limit: 500 }),
+        DB.list('call_chips', { limit: 800 }),
       ]);
-      this.trades = t.data || []; this.questions = q.data || [];
+      this.trades = t.data || []; this.questions = q.data || []; this.chips = c.data || [];
       this.loaded = true;
     },
+
+    pending() { return this.chips.filter(c => c.active === false); },
 
     tradeName(key) { return this.trades.find(t => t.key === key)?.name_sk || (key ? key : 'Univerzálna'); },
 
     async view(el) {
       Danubra.setActions(`
-        <button class="btn btn-outline btn-sm" onclick="Trades.qForm()">${Icon('plus')} Otázka</button>
-        <button class="btn btn-primary btn-sm" onclick="Trades.tForm()">${Icon('plus')} Remeslo</button>`);
+        <button class="btn btn-outline btn-sm" onclick="Trades.tForm()">${Icon('plus')} Remeslo</button>
+        <button class="btn btn-primary btn-sm" onclick="Trades.chipForm()">${Icon('plus')} Pole</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
-      const hidden = this.questions.filter(q => q.kind === 'hidden');
-      el.innerHTML = Danubra.header('Remeslá a otázky',
-        `${this.trades.length} remesiel · ${this.questions.length} otázok · ${hidden.length} overovacích`) + `
-        <div class="pillbar" style="margin-bottom:14px;width:max-content;">
+      const pend = this.pending();
+      el.innerHTML = Danubra.header('Remeslá a polia',
+        `${this.trades.length} remesiel · ${this.chips.filter(c => c.active !== false).length} polí`
+        + (pend.length ? ` · ${pend.length} čaká na potvrdenie` : '')) +
+        (pend.length ? `<div class="warnbox" style="margin-bottom:14px;">
+          ${Icon('zap', 14)} Z poznámok vzniklo ${pend.length}
+          ${pend.length === 1 ? 'nové pole' : 'nových polí'} — potvrď, čo chceš používať.</div>` : '') + `
+        <div class="pillbar" style="margin-bottom:14px;width:max-content;flex-wrap:wrap;">
+          <button class="pill${this.tab === 'chips' ? ' active' : ''}" onclick="Trades.setTab('chips')">Polia do hovoru</button>
           <button class="pill${this.tab === 'trades' ? ' active' : ''}" onclick="Trades.setTab('trades')">Remeslá</button>
-          <button class="pill${this.tab === 'questions' ? ' active' : ''}" onclick="Trades.setTab('questions')">Otázky</button>
+          <button class="pill${this.tab === 'questions' ? ' active' : ''}" onclick="Trades.setTab('questions')">Otázky (referencia)</button>
         </div>
-        ${this.tab === 'trades' ? this.tradesHtml() : this.questionsHtml()}`;
+        ${this.tab === 'trades' ? this.tradesHtml()
+          : this.tab === 'chips' ? this.chipsHtml() : this.questionsHtml()}`;
     },
 
     setTab(t) { this.tab = t; Danubra.renderRoute(); },
@@ -92,6 +101,105 @@
           </select>
         </div>
         ${rows.map(q => this.qRow(q)).join('') || UI.empty('note', 'Žiadne otázky', 'Pridaj prvú otázku.')}`;
+    },
+
+    // ── Polia do hovoru ───────────────────────────────────────────────────
+    chipsHtml() {
+      const SEG = { intro: 'Úvod', trade: 'Remeslo', verify: 'Overenie',
+        legal: 'Papiere', logistics: 'Logistika', money: 'Peniaze' };
+      const rows = this.chips.filter(c => !this.filterTrade
+        || (this.filterTrade === '_univ' ? !c.trade_key : c.trade_key === this.filterTrade));
+      const pend = rows.filter(c => c.active === false);
+      const live = rows.filter(c => c.active !== false);
+
+      const row = (c) => `<div class="list-row" onclick="Trades.chipForm('${c.id}')" style="align-items:center;">
+        <span class="chip chip-${c.polarity} on static" style="margin-right:8px;">${UI.esc(c.label)}</span>
+        <span style="flex:1;font-size:12px;color:var(--ink-mute);">
+          ${SEG[c.segment] || c.segment} · ${UI.esc(this.tradeName(c.trade_key))}
+          ${c.use_count ? ` · použité ${c.use_count}×` : ''}
+          ${c.source === 'ai' ? ' · návrh z poznámok' : c.source === 'manual' ? ' · pridané pri hovore' : ''}
+        </span>
+        ${c.active === false ? `
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();Trades.acceptChip('${c.id}')">
+            ${Icon('check')} Použiť</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();Trades.chipDel('${c.id}', true)">
+            Zahodiť</button>` : ''}
+      </div>`;
+
+      return `
+        <div class="filterbar">
+          <select onchange="Trades.setFilter(this.value)">
+            <option value="">Všetky polia</option>
+            <option value="_univ" ${this.filterTrade === '_univ' ? 'selected' : ''}>Univerzálne</option>
+            ${this.trades.map(t => `<option value="${t.key}" ${this.filterTrade === t.key ? 'selected' : ''}>${UI.esc(t.name_sk)}</option>`).join('')}
+          </select>
+        </div>
+        ${pend.length ? `<div class="form-section">Čaká na potvrdenie — ${pend.length}</div>
+          ${pend.map(row).join('')}` : ''}
+        ${live.length ? `<div class="form-section">Používané — ${live.length}</div>
+          ${live.map(row).join('')}`
+          : UI.empty('note', 'Žiadne polia', 'Spusti migráciu 012 — polia sa naplnia samy.')}`;
+    },
+
+    async acceptChip(id) {
+      const { error } = await DB.update('call_chips', id, { active: true });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const c = this.chips.find(x => x.id === id); if (c) c.active = true;
+      UI.toast('Pole sa už používa', 'ok');
+      Danubra.renderRoute();
+    },
+
+    chipForm(id) {
+      const c = id ? this.chips.find(x => x.id === id) || {} : {};
+      UI.modal(id ? 'Upraviť pole' : 'Nové pole', `
+        <form id="chip-form" onsubmit="event.preventDefault();Trades.chipSave('${id || ''}')">
+          ${c.suggested_from ? `<div class="regimebox">Návrh vznikol z poznámky:
+            „${UI.esc(c.suggested_from)}"</div>` : ''}
+          ${UI.field('label', 'Text poľa (2–6 slov)', { value: c.label, required: true,
+            placeholder: 'napr. vie rozteč 625' })}
+          <div class="form-grid">
+            ${UI.field('segment', 'Kde v hovore', { value: c.segment || 'trade', options: [
+              ['intro', 'Úvod'], ['trade', 'Remeslo'], ['verify', 'Overenie'],
+              ['legal', 'Papiere'], ['logistics', 'Logistika'], ['money', 'Peniaze']] })}
+            ${UI.field('trade_key', 'Pre remeslo', { value: c.trade_key || '',
+              options: [['', 'Univerzálne'], ...this.trades.map(t => [t.key, t.name_sk])] })}
+            ${UI.field('polarity', 'Znamienko', { value: c.polarity || 'plus', options: [
+              ['plus', 'Plus — dobré znamenie'], ['minus', 'Mínus — zlé znamenie'],
+              ['flag', 'Varovanie'], ['neutral', 'Bez hodnotenia']] })}
+            ${UI.field('weight', 'Váha (3 = rozhodujúce)', { type: 'number', value: c.weight || 1 })}
+          </div>
+          ${UI.field('hint', 'Nápoveda pre teba', { type: 'textarea', rows: 2, value: c.hint })}
+          <div class="regimebox">Varovanie s váhou 3 zamieta kandidáta samo osebe — napríklad
+          „tvrdí, že A1 netreba". Používaj ho striedmo.</div>
+          <div class="modal-actions">
+            ${id ? `<button type="button" class="btn btn-danger btn-sm" onclick="Trades.chipDel('${id}')">Zmazať</button>` : ''}
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
+          </div>
+        </form>`, { wide: true });
+    },
+
+    async chipSave(id) {
+      const d = UI.formData(document.getElementById('chip-form'));
+      if (!d.label) return UI.toast('Text poľa je povinný', 'err');
+      const payload = {
+        label: d.label.trim(), segment: d.segment, polarity: d.polarity,
+        trade_key: d.trade_key || null, weight: Number(d.weight) || 1,
+        hint: d.hint || null, active: true,
+      };
+      if (!id) payload.source = 'manual';
+      const res = id ? await DB.update('call_chips', id, payload)
+                     : await DB.insert('call_chips', payload);
+      if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
+      UI.closeModal(); UI.toast('Uložené', 'ok');
+      await this.load(); Danubra.renderRoute();
+    },
+
+    async chipDel(id, quiet) {
+      if (!quiet && !confirm('Zmazať toto pole? Zápisy pri kandidátoch zostanú.')) return;
+      await DB.remove('call_chips', id);
+      this.chips = this.chips.filter(x => x.id !== id);
+      UI.closeModal(); Danubra.renderRoute();
     },
 
     qRow(q) {
