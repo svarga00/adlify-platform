@@ -195,17 +195,20 @@
           <div class="guide-count">${count}</div>
         </div>
         <div class="guide-bar"><span style="width:${progress}%"></span></div>
+        ${aside ? `<div class="guide-mini" id="guide-mini">${this.miniHtml()}</div>` : ''}
         <div class="guide-cols">
           <div class="guide-body">${body}</div>
-          ${aside ? `<aside class="guide-aside">${aside}</aside>` : ''}
+          ${aside ? `<aside class="guide-aside" id="guide-aside">${aside}</aside>` : ''}
         </div>`;
     },
 
     // ── Bočný panel: o akú zákazku ide a čo z hovoru zatiaľ vyšlo ──────────
     asideHtml() {
+      // Priebeh je hore, lebo sa mení pri každom klepnutí. Kontext zákazky
+      // sa nemení, takže môže byť pod ním.
       return `<div class="aside-inner">
+        ${this.cand ? this.liveHtml() : ''}
         ${this.contextHtml()}
-        ${this.liveHtml()}
       </div>`;
     },
 
@@ -358,7 +361,7 @@
         <div class="guide-nav">
           <button class="guide-nav-btn" onclick="Guide.prevSegment()" ${this.segIndex === 0 ? 'disabled' : ''}>
             ${Icon('chevron', 16)} Späť</button>
-          <span class="guide-nav-mid">${this.ticked.size} zaškrtnutých</span>
+          <span class="guide-nav-mid" id="tick-count">${this.ticked.size} zaškrtnutých</span>
           <button class="guide-nav-btn guide-nav-next" onclick="Guide.nextSegment()">
             ${this.segIndex === this.segments.length - 1 ? 'Ukončiť hovor' : 'Ďalej'} ${Icon('chevron', 16)}</button>
         </div>`;
@@ -366,10 +369,9 @@
 
     chipHtml(c) {
       const on = this.ticked.has(c.id);
-      return `<button class="chip chip-${c.polarity}${on ? ' on' : ''}"
-        onclick="Guide.toggleChip('${c.id}')" ${c.hint ? `title="${UI.esc(c.hint)}"` : ''}>
-        ${on ? Icon('check', 13) : ''}${UI.esc(c.label)}
-      </button>`;
+      return `<button class="chip chip-${c.polarity}${on ? ' on' : ''}" id="chip-${c.id}"
+        onclick="Guide.toggleChip('${c.id}')" ${c.hint ? `title="${UI.esc(c.hint)}"` : ''}
+        >${on ? Icon('check', 13) : ''}${UI.esc(c.label)}</button>`;
     },
 
     pitchHtml() {
@@ -387,28 +389,85 @@
     noteChanged(segKey, value) { this.notes.set(segKey, value); },
 
     // ── Zaškrtávanie ──────────────────────────────────────────────────────
-    async toggleChip(chipId) {
+    /**
+     * Klepnutie musí byť vidieť okamžite. Preto sa najprv prekreslí obrazovka
+     * a až potom sa to ukladá — pri hovore sa nedá čakať na server. Keby zápis
+     * zlyhal, pole sa vráti späť a povie sa to nahlas.
+     */
+    toggleChip(chipId) {
       const chip = this.chips.find(c => c.id === chipId);
       if (!chip) return;
+      const turningOn = !this.ticked.has(chipId);
 
-      if (this.ticked.has(chipId)) {
-        this.ticked.delete(chipId);
-        await DB.from('candidate_chips').delete()
-          .eq('candidate_id', this.cand.id).eq('chip_id', chipId);
-      } else {
-        this.ticked.set(chipId, chip);
-        const { error } = await DB.from('candidate_chips').upsert({
-          candidate_id: this.cand.id, chip_id: chipId,
+      if (turningOn) this.ticked.set(chipId, chip);
+      else this.ticked.delete(chipId);
+      this.paintChip(chip, turningOn);
+      this.refreshAside();
+      if (turningOn && chip.polarity === 'flag') UI.toast('Varovanie zaznamenané', 'err');
+
+      this.persistChip(chip, turningOn);
+    },
+
+    /** Prefarbí jedno pole a prepíše počítadlo — bez prekreslenia obrazovky. */
+    paintChip(chip, on) {
+      const el = document.getElementById(`chip-${chip.id}`);
+      if (el) {
+        el.classList.toggle('on', on);
+        el.innerHTML = `${on ? Icon('check', 13) : ''}${UI.esc(chip.label)}`;
+      }
+      const count = document.getElementById('tick-count');
+      if (count) count.textContent = `${this.ticked.size} zaškrtnutých`;
+    },
+
+    /** Prekreslí priebeh — bočný panel na širokej obrazovke, lištu na mobile. */
+    refreshAside() {
+      const aside = document.getElementById('guide-aside');
+      if (aside) aside.innerHTML = this.asideHtml();
+      const mini = document.getElementById('guide-mini');
+      if (mini) mini.innerHTML = this.miniHtml();
+      for (const el of document.querySelectorAll('.live-score, .mini-score')) {
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 420);
+      }
+    },
+
+    /** Úzka lišta pre mobil: skóre, počet zaškrtnutých a varovania. */
+    miniHtml() {
+      const ticked = [...this.ticked.values()];
+      const r = CH.scoreChips(ticked);
+      const V = { strong: 'ok', ok: 'ok', weak: 'warn', reject: 'bad', unknown: 'mute' };
+      const flags = ticked.filter(c => c.polarity === 'flag').length;
+      return `
+        <span class="mini-score verdict-${V[r.verdict] || 'mute'}">
+          ${r.percent == null ? '—' : r.percent + ' %'}</span>
+        <span class="mini-count">${ticked.length} zaškrtnutých</span>
+        ${flags ? `<span class="mini-flags">${Icon('alert', 12)} ${flags}</span>` : ''}`;
+    },
+
+    async persistChip(chip, on) {
+      let error;
+      if (on) {
+        ({ error } = await DB.from('candidate_chips').upsert({
+          candidate_id: this.cand.id, chip_id: chip.id,
           label: chip.label, polarity: chip.polarity, weight: chip.weight, segment: chip.segment,
           checked_by: Danubra.user?.id || null,
-        }, { onConflict: 'candidate_id,chip_id' });
-        if (error) UI.toast('Chyba: ' + error.message, 'err');
-        // učenie: čo používaš, ide nabudúce hore
-        DB.client.rpc('danubra_chip_used', { p_chip: chipId }).catch(() => {});
-        chip.use_count = (chip.use_count || 0) + 1;
-        if (chip.polarity === 'flag') UI.toast('Varovanie zaznamenané', 'err');
+        }, { onConflict: 'candidate_id,chip_id' }));
+        if (!error) {
+          // učenie: čo používaš, ide nabudúce hore
+          DB.client.rpc('danubra_chip_used', { p_chip: chip.id }).catch(() => {});
+          chip.use_count = (chip.use_count || 0) + 1;
+        }
+      } else {
+        ({ error } = await DB.from('candidate_chips').delete()
+          .eq('candidate_id', this.cand.id).eq('chip_id', chip.id));
       }
-      this.render();
+      if (!error) return;
+
+      // zápis zlyhal — vráť pole do pôvodného stavu, nech obrazovka neklame
+      if (on) this.ticked.delete(chip.id); else this.ticked.set(chip.id, chip);
+      this.paintChip(chip, !on);
+      this.refreshAside();
+      UI.toast('Neuložilo sa: ' + error.message, 'err');
     },
 
     /** Vlastné pole priamo počas hovoru — nabudúce ho už máš. */
@@ -431,7 +490,9 @@
       this.segments = CH.buildCallSegments({
         tradeKey: this.trade?.key || this.cand?.profession, chips: this.chips,
       });
-      await this.toggleChip(data.id);
+      this.ticked.set(data.id, data);
+      this.render();                      // nové pole sa musí objaviť v zozname
+      this.persistChip(data, true);
       UI.toast('Pole pridané — nabudúce ho už máš', 'ok');
     },
 
