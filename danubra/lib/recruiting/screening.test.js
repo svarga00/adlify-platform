@@ -1,5 +1,5 @@
 // ============================================================================
-// Testy: vyhodnotenie skríningu a náborového plánu
+// Testy: náborový plán — marža, minimálna mzda, kroky, inzerát
 // Spustenie:  node danubra/lib/recruiting/screening.test.js
 // ============================================================================
 global.window = global;
@@ -12,115 +12,6 @@ function eq(actual, expected, msg) {
   else { failed++; console.log(`  ✗ ${msg}\n    expected: ${e}\n    actual:   ${a}`); }
 }
 function ok(c, msg) { eq(!!c, true, msg); }
-
-const Q = {
-  know: { id: 'q1', kind: 'knowledge', weight: 1, question_sk: 'Q2 a Q3?' },
-  hidden: { id: 'q2', kind: 'hidden', weight: 3, question_sk: 'Rozteč profilov?' },
-  legal: { id: 'q3', kind: 'legal', weight: 3, question_sk: 'A1?' },
-  log: { id: 'q4', kind: 'logistics', weight: 1, question_sk: 'Nástup?' },
-  mot: { id: 'q5', kind: 'motivation', weight: 2, question_sk: 'Záloha?' },
-};
-const ALL = Object.values(Q);
-
-console.log('\nSKÓRE SKRÍNINGU');
-{
-  const r = S.scoreScreening(ALL, []);
-  eq(r.verdict, 'unknown', 'bez odpovedí sa nedá rozhodnúť');
-  eq(r.percent, 0, 'skóre je nula, nie NaN');
-}
-{
-  // všetko na tri → 100 %
-  const answers = ALL.map(q => ({ question_id: q.id, rating: 3 }));
-  const r = S.scoreScreening(ALL, answers);
-  eq(r.percent, 100, 'samé presné odpovede = 100 %');
-  eq(r.verdict, 'strong', 'verdikt strong');
-  eq(r.redFlags.length, 0, 'žiadne varovania');
-}
-{
-  // váha sa počíta: nula na váhu 3 stiahne viac než nula na váhu 1
-  const a1 = [{ question_id: 'q1', rating: 0 }, { question_id: 'q4', rating: 3 }];
-  const a2 = [{ question_id: 'q1', rating: 3 }, { question_id: 'q4', rating: 0 }];
-  eq(S.scoreScreening([Q.know, Q.log], a1).percent, 50, 'rovnaké váhy dajú 50 %');
-  eq(S.scoreScreening([Q.know, Q.log], a2).percent, 50, 'symetricky rovnako');
-  const heavy = S.scoreScreening([Q.know, Q.hidden],
-    [{ question_id: 'q1', rating: 3 }, { question_id: 'q2', rating: 0 }]);
-  eq(heavy.percent, 25, 'nula na trojnásobnej váhe stiahne skóre na 25 %');
-}
-{
-  // nezodpovedané otázky skóre neznižujú, len znižujú pokrytie
-  const r = S.scoreScreening(ALL, [{ question_id: 'q1', rating: 3 }]);
-  eq(r.percent, 100, 'jedna dobrá odpoveď = 100 % z toho, čo sa pýtalo');
-  eq(r.coverage, 20, 'pokrytie je 20 %');
-  eq(r.verdict, 'unknown', 'pri nízkom pokrytí sa nerozhoduje');
-}
-
-console.log('\nVAROVANIA');
-{
-  const r = S.scoreScreening(ALL, [
-    { question_id: 'q2', rating: 0 },                      // kritická overovacia
-    { question_id: 'q1', rating: 3 }, { question_id: 'q4', rating: 3 },
-    { question_id: 'q5', rating: 3 },
-  ]);
-  eq(r.redFlags.length, 1, 'nula na kritickej otázke je varovanie');
-  eq(r.verdict, 'weak', 'jedno varovanie = weak, nie reject');
-}
-{
-  const r = S.scoreScreening(ALL, [
-    { question_id: 'q3', rating: 0 },                      // chýba A1
-    { question_id: 'q1', rating: 3 }, { question_id: 'q4', rating: 3 },
-  ]);
-  eq(r.verdict, 'reject', 'právne varovanie je tvrdé zamietnutie');
-  ok(/predpoklad/.test(r.reason), 'dôvod hovorí o právnom predpoklade');
-}
-{
-  // vysoké skóre nezachráni právny problém
-  const r = S.scoreScreening(ALL, [
-    { question_id: 'q1', rating: 3 }, { question_id: 'q2', rating: 3 },
-    { question_id: 'q4', rating: 3 }, { question_id: 'q5', rating: 3 },
-    { question_id: 'q3', rating: 0 },
-  ]);
-  eq(r.percent, 70, 'skóre je slušných 70 %');
-  eq(r.verdict, 'reject', 'a napriek tomu zamietnutý');
-}
-{
-  const r = S.scoreScreening(ALL, [
-    { question_id: 'q1', rating: 2, flagged: true },
-    { question_id: 'q4', rating: 2, flagged: true },
-    { question_id: 'q5', rating: 2 },
-  ]);
-  eq(r.redFlags.length, 2, 'ručne označené varovania sa počítajú');
-  eq(r.verdict, 'reject', 'dve varovania = zamietnutie');
-}
-{
-  const r = S.scoreScreening(ALL, ALL.map(q => ({ question_id: q.id, rating: 2 })));
-  eq(r.verdict, 'ok', 'samé dvojky sú použiteľný kandidát');
-  const w = S.scoreScreening(ALL, ALL.map(q => ({ question_id: q.id, rating: 1 })));
-  eq(w.verdict, 'weak', 'samé jednotky sú slabé');
-}
-{
-  const r = S.scoreScreening(ALL, ALL.map(q => ({ question_id: q.id, rating: 3 })));
-  eq(r.byKind.hidden.percent, 100, 'rozpad podľa typu otázky funguje');
-  eq(r.byKind.legal.max, 9, 'maximum za právne otázky je váha × 3');
-}
-{
-  // odpoveď na otázku, ktorá v zozname nie je, sa ignoruje
-  const r = S.scoreScreening([Q.know], [{ question_id: 'neexistuje', rating: 3 }]);
-  eq(r.answered, 0, 'cudzia odpoveď sa nezapočíta');
-}
-{
-  // varovanie označené bez hodnotenia sa nesmie stratiť
-  const r = S.scoreScreening(ALL, [{ question_id: 'q1', flagged: true }]);
-  eq(r.redFlags.length, 1, 'varovanie bez hodnotenia sa započíta');
-  eq(r.answered, 0, 'ale ako zodpovedaná otázka sa neráta');
-  eq(r.max, 0, 'a neskresľuje skóre');
-}
-{
-  // hodnotenie mimo rozsahu sa oreže
-  const r = S.scoreScreening([Q.know], [{ question_id: 'q1', rating: 9 }]);
-  eq(r.percent, 100, 'rating nad 3 sa oreže na 3');
-  const n = S.scoreScreening([Q.know], [{ question_id: 'q1', rating: -5 }]);
-  eq(n.percent, 0, 'záporný rating sa oreže na 0');
-}
 
 console.log('\nMARŽA PLÁNU');
 {

@@ -29,14 +29,11 @@
     strong: ['Sedí', 'green'], ok: ['Použiteľný', 'blue'], weak: ['Slabý', 'amber'],
     reject: ['Nebrať', 'red'], unknown: ['Nedokončené', 'gray'],
   };
-  const PHASE_LABEL = { phone: 'Telefonát', interview: 'Pohovor', onsite: 'Na stavbe' };
-  const KIND_LABEL = { knowledge: ['odborná', 'blue'], hidden: ['overovacia', 'brand'],
-    legal: ['právna', 'red'], logistics: ['logistika', 'gray'], motivation: ['motivácia', 'amber'] };
 
   const Cand = {
     items: [], loaded: false, view_: 'kanban', filters: { source: '', q: '', outcome: 'active' },
-    questions: [], answers: [], plans: [], playbookLoaded: false,
-    allChecks: [],
+    plans: [], playbookLoaded: false,
+    allChecks: [], allChips: [], candChips: [], chipsLoaded: false,
 
     async load() {
       const [c, ch] = await Promise.all([
@@ -56,21 +53,12 @@
       return DanubraProcess.candidateProgress(c, this.checksOf(c.id));
     },
 
-    /** Otázky a plány sa načítajú, až keď treba — nezdržujú zoznam kandidátov. */
+    /** Náborové plány sa načítajú, až keď treba — nezdržujú zoznam kandidátov. */
     async loadPlaybook() {
       if (this.playbookLoaded) return;
-      const [q, p] = await Promise.all([
-        DB.list('screening_questions', { order: { column: 'sort_order', ascending: true }, limit: 500 }),
-        DB.list('recruitment_plans', { select: 'id,title,trade_key,status', limit: 200 }),
-      ]);
-      this.questions = q.data || []; this.plans = p.data || [];
+      const { data } = await DB.list('recruitment_plans', { select: 'id,title,trade_key,status', limit: 200 });
+      this.plans = data || [];
       this.playbookLoaded = true;
-    },
-
-    questionsFor(tradeKey) {
-      return this.questions
-        .filter(q => q.active !== false && (!q.trade_key || q.trade_key === tradeKey))
-        .sort((a, b) => (a.trade_key ? 1 : 0) - (b.trade_key ? 1 : 0) || (a.sort_order || 0) - (b.sort_order || 0));
     },
 
     stageMeta(s) { return STAGES.find(x => x[0] === s) || STAGES[0]; },
@@ -323,7 +311,9 @@
 
         <div class="form-section">Údaje</div>
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
-        ${c.screening_score != null ? `<div class="form-section">Skríning</div>
+        <div class="form-section">Čo pri hovore zaznelo</div>
+        <div id="cand-chips">${UI.loading()}</div>
+        ${c.screening_score != null ? `<div class="form-section">Výsledok hovoru</div>
           <div class="kpi-grid">
             <div class="kpi"><div class="kpi-label">Skóre</div>
               <div class="kpi-value" style="color:${c.screening_score >= 80 ? 'var(--green)' : c.screening_score >= 60 ? 'var(--ink)' : 'var(--amber)'};">
@@ -342,10 +332,8 @@
           <button class="btn btn-outline btn-sm" onclick="Cand.form('${c.id}')">Upraviť</button>
           ${!c.first_contact_at ? `<button class="btn btn-outline btn-sm" onclick="Cand.markContacted('${c.id}')">
             ${Icon('check')} Ozval som sa</button>` : ''}
-          <button class="btn btn-outline btn-sm" onclick="Guide.startScreening('${c.id}')">
-            ${Icon('shield')} ${c.screening_score != null ? 'Skríning znova' : 'Odborný skríning'}</button>
-          ${c.screening_score != null ? `<button class="btn btn-ghost btn-sm" onclick="Cand.screening('${c.id}')">
-            Prehľad odpovedí</button>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="Guide.continueCall('${c.id}')">
+            ${Icon('phone')} ${c.screening_score != null ? 'Pokračovať v hovore' : 'Prejsť hovor'}</button>
           ${!c.outcome ? `
             <button class="btn btn-outline btn-sm" onclick="CandProc.rejectForm()">Zamietnuť</button>
             <button class="btn btn-primary btn-sm" onclick="CandProc.hireForm()">
@@ -353,154 +341,44 @@
         </div>`;
       UI.modal(c.full_name, body, { wide: true });
 
-      // proces sa dotiahne až po otvorení, nech sa modal zobrazí okamžite
+      // proces a polia sa dotiahnu až po otvorení, nech sa modal zobrazí okamžite
+      await this.loadChips(id);
+      const chipBox = document.getElementById('cand-chips');
+      if (chipBox) chipBox.innerHTML = this.chipsHtml();
       await CandProc.load(id);
       CandProc.open = null;
       CandProc.rerender();
     },
 
-    // ── Skríning ──────────────────────────────────────────────────────────
-    // Scenár otázok pre dané remeslo. Hodnotí sa 0–3; overovacie otázky majú
-    // vyššiu váhu, lebo práve tie odhalia vymyslenú prax.
-    async screening(id) {
-      const c = this.items.find(x => x.id === id);
-      if (!c) return;
-      await this.loadPlaybook();
-      const qs = this.questionsFor(c.profession);
-      if (!qs.length) {
-        return UI.modal('Chýbajú otázky', `<div class="warnbox">${Icon('alert', 14)}
-          Pre toto remeslo zatiaľ nie sú žiadne otázky. Spusti migráciu 009 alebo ich doplň v príručke.</div>
-          <div class="modal-actions">
-            <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('trades')">
-              ${Icon('wrench')} Otvoriť príručku</button></div>`);
+    /** Čo pri hovore zaznelo — zaškrtnuté polia so znamienkom. */
+    async loadChips(id) {
+      const [c, all] = await Promise.all([
+        DB.list('candidate_chips', { filters: { candidate_id: id }, limit: 300 }),
+        this.chipsLoaded ? Promise.resolve({ data: this.allChips })
+          : DB.list('call_chips', { limit: 800 }),
+      ]);
+      if (!this.chipsLoaded) { this.allChips = all.data || []; this.chipsLoaded = true; }
+      this.candChips = c.data || [];
+      return this.candChips;
+    },
+
+    chipsHtml() {
+      const ticked = this.candChips || [];
+      if (!ticked.length) {
+        return `<div style="font-size:13px;color:var(--ink-mute);">Zatiaľ nič — spusti hovor.</div>`;
       }
-      const { data } = await DB.list('screening_answers', { filters: { candidate_id: id }, limit: 500 });
-      this.answers = data || [];
-      this._renderScreening(c, qs);
-    },
-
-    _renderScreening(c, qs) {
-      const byQ = new Map(this.answers.map(a => [a.question_id, a]));
-      const groups = ['phone', 'interview', 'onsite'].filter(p => qs.some(q => q.phase === p));
-      const S = window.DanubraScreening;
-      const res = S.scoreScreening(qs, this.answers);
-
-      const rows = groups.map(ph => `
-        <div class="form-section">${PHASE_LABEL[ph]} — ${qs.filter(q => q.phase === ph).length} otázok</div>
-        ${qs.filter(q => q.phase === ph).map(q => {
-          const a = byQ.get(q.id) || {};
-          const k = KIND_LABEL[q.kind] || KIND_LABEL.knowledge;
-          return `<div class="scr-q" data-q="${q.id}" style="padding:10px 0;border-bottom:1px solid var(--line);">
-            <div style="display:flex;gap:8px;align-items:flex-start;">
-              <span style="flex:1;font-size:13px;font-weight:600;">${UI.esc(q.question_sk)}</span>
-              ${UI.badge(k[0], k[1])}${q.weight >= 3 ? UI.badge('kľúčová', 'red') : ''}
-            </div>
-            ${q.good_answer ? `<div style="font-size:12px;color:var(--green);margin-top:3px;">✓ ${UI.esc(q.good_answer)}</div>` : ''}
-            ${q.red_flag_answer ? `<div style="font-size:12px;color:var(--red);">! ${UI.esc(q.red_flag_answer)}</div>` : ''}
-            <div style="display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap;">
-              <select class="verif-sel scr-rating">
-                <option value="" ${a.rating == null ? 'selected' : ''}>— nehodnotené —</option>
-                <option value="0" ${a.rating === 0 ? 'selected' : ''}>0 · nevie</option>
-                <option value="1" ${a.rating === 1 ? 'selected' : ''}>1 · slabé</option>
-                <option value="2" ${a.rating === 2 ? 'selected' : ''}>2 · dobré</option>
-                <option value="3" ${a.rating === 3 ? 'selected' : ''}>3 · presné</option>
-              </select>
-              <label class="chk" style="font-size:12px;">
-                <input type="checkbox" class="scr-flag" ${a.flagged ? 'checked' : ''}> varovná odpoveď</label>
-              <input class="scr-answer" placeholder="čo odpovedal" value="${UI.esc(a.answer_text || '')}"
-                style="flex:1;min-width:180px;">
-            </div>
-          </div>`;
-        }).join('')}`).join('');
-
-      UI.modal(`Skríning — ${c.full_name}`, `
-        <div id="scr-summary">${this._screeningSummary(res)}</div>
-        <div class="form-grid" style="margin-top:12px;">
-          <label class="fld"><span>Posledná stavba</span>
-            <input id="scr-site" value="${UI.esc(c.last_site || '')}" placeholder="mesto, firma"></label>
-          <label class="fld"><span>Polier, ktorý ho potvrdí</span>
-            <input id="scr-foreman" value="${UI.esc(c.last_foreman || '')}" placeholder="meno a telefón"></label>
-        </div>
-        <label class="chk" style="margin-top:8px;">
-          <input type="checkbox" id="scr-refcheck" ${c.reference_checked ? 'checked' : ''}>
-          Referenciu som si overil — volal som poliera</label>
-        <div id="scr-body">${rows}</div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-          <button type="button" class="btn btn-outline" onclick="Cand.recalcScreening('${c.id}')">${Icon('repeat')} Prepočítať</button>
-          <button type="button" class="btn btn-primary" onclick="Cand.saveScreening('${c.id}')">Uložiť skríning</button>
-        </div>`, { wide: true });
-    },
-
-    _screeningSummary(res) {
-      const v = VERDICT[res.verdict] || VERDICT.unknown;
-      return `
-        <div class="kpi-grid">
-          <div class="kpi"><div class="kpi-label">Skóre</div>
-            <div class="kpi-value" style="color:${res.percent >= 80 ? 'var(--green)' : res.percent >= 60 ? 'var(--ink)' : 'var(--amber)'};">
-              ${res.percent} %</div>
-            <div class="kpi-delta">zodpovedaných ${res.answered} z ${res.total}</div></div>
-          <div class="kpi"><div class="kpi-label">Odporúčanie</div>
-            <div class="kpi-value" style="font-size:20px;">${v[0]}</div>
-            <div class="kpi-delta">${UI.esc(res.reason)}</div></div>
-          <div class="kpi"><div class="kpi-label">Varovania</div>
-            <div class="kpi-value" style="color:${res.redFlags.length ? 'var(--red)' : 'var(--green)'};">
-              ${res.redFlags.length}</div>
-            <div class="kpi-delta">${res.redFlags.length ? 'pozri nižšie' : 'čisté'}</div></div>
-        </div>
-        ${res.redFlags.length ? `<div class="warnbox" style="margin-top:12px;">
-          ${Icon('alert', 14)} ${res.redFlags.map(f => UI.esc(f.question)).join(' · ')}</div>` : ''}`;
-    },
-
-    /** Prečíta formulár do poľa odpovedí — bez zápisu do databázy. */
-    _collectAnswers(candidateId) {
-      const out = [];
-      document.querySelectorAll('#scr-body .scr-q').forEach(el => {
-        const rating = el.querySelector('.scr-rating').value;
-        const answer = el.querySelector('.scr-answer').value.trim();
-        const flagged = el.querySelector('.scr-flag').checked;
-        if (rating === '' && !answer && !flagged) return;
-        out.push({
-          candidate_id: candidateId, question_id: el.dataset.q,
-          rating: rating === '' ? null : Number(rating),
-          answer_text: answer || null, flagged,
-        });
-      });
-      return out;
-    },
-
-    recalcScreening(id) {
-      const c = this.items.find(x => x.id === id);
-      this.answers = this._collectAnswers(id);
-      const res = window.DanubraScreening.scoreScreening(this.questionsFor(c.profession), this.answers);
-      const box = document.getElementById('scr-summary');
-      if (box) box.innerHTML = this._screeningSummary(res);
-    },
-
-    async saveScreening(id) {
-      const c = this.items.find(x => x.id === id);
-      const rows = this._collectAnswers(id);
-      if (rows.length) {
-        const { error } = await DB.from('screening_answers')
-          .upsert(rows, { onConflict: 'candidate_id,question_id' });
-        if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      }
-      this.answers = rows;
-      const res = window.DanubraScreening.scoreScreening(this.questionsFor(c.profession), rows);
-      const patch = {
-        screening_score: res.answered ? res.percent : null,
-        screening_verdict: res.verdict,
-        screening_done_at: new Date().toISOString(),
-        last_site: document.getElementById('scr-site')?.value.trim() || null,
-        last_foreman: document.getElementById('scr-foreman')?.value.trim() || null,
-        reference_checked: !!document.getElementById('scr-refcheck')?.checked,
-      };
-      const { error } = await DB.update('candidates', id, patch);
-      if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      Object.assign(c, patch);
-      UI.closeModal();
-      UI.toast(`Skríning uložený — ${res.percent} %, ${(VERDICT[res.verdict] || VERDICT.unknown)[0].toLowerCase()}`, 'ok');
-      Danubra.renderRoute();
+      const s = DanubraChips.summarize(ticked);
+      const col = (title, items, cls) => items.length ? `<div>
+        <b style="font-size:12px;color:var(--ink-sub);">${title}</b>
+        <div class="chip-list" style="margin-top:6px;">
+          ${items.map(x => `<span class="chip chip-${cls} on static">${UI.esc(x)}</span>`).join('')}
+        </div></div>` : '';
+      return `<div style="display:flex;flex-direction:column;gap:10px;">
+        ${col('Hovorí pre neho', s.good, 'plus')}
+        ${col('Hovorí proti', s.bad, 'minus')}
+        ${col('Varovania', s.flags, 'flag')}
+        ${col('Poznámky', s.notes, 'neutral')}
+      </div>`;
     },
 
     async markContacted(id) {

@@ -27,10 +27,11 @@ Poradie je záväzné, každý súbor stavia na predchádzajúcom:
 | 9 | `danubra/database/migrations/009_recruiting_playbook.sql` | príručka remesiel, skríningové otázky, náborové plány |
 | 10 | `danubra/database/migrations/010_candidate_process.sql` | náborový proces kandidáta v šiestich krokoch |
 | 11 | `danubra/database/migrations/011_trade_depth.sql` | hlbšie odborné otázky a čo povedať o práci |
+| 12 | `danubra/database/migrations/012_call_chips.sql` | zaškrtávacie polia do hovoru namiesto známkovania |
 
 > **Stav k 12. 8. 2026:** migrácie 001–010 sú už na projekte
 > `eidkljfaeqvvegiponwl` nasadené vrátane vzorových dát a bucketu
-> `danubra-calls`. **Migráciu 011 ešte treba spustiť.** Tabuľka nižšie je pre prípad novej inštalácie.
+> `danubra-calls`. **Migrácie 011 a 012 ešte treba spustiť.** Tabuľka nižšie je pre prípad novej inštalácie.
 
 Šiestku spusti, ak chceš appku hneď vidieť naplnenú. Je idempotentná — dá sa
 spustiť opakovane a nič nezduplikuje. Na jej konci je pripravený mazací príkaz,

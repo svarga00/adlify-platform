@@ -3,102 +3,11 @@
 // ============================================================================
 // Čisté funkcie bez závislostí, aby sa dali otestovať.
 //
-// Hodnotenie odpovede: 0 nevie · 1 slabé · 2 dobré · 3 presné.
-// Skóre je vážený percentuálny podiel z maxima za zodpovedané otázky —
-// nezodpovedané sa nepočítajú, inak by nedokončený skríning vyzeral ako zlý.
-//
-// Varovanie (red flag) váži viac než skóre. Človek môže mať 80 % a aj tak
-// nesmie nastúpiť, ak nemá A1 alebo si vymyslel prax — preto sa varovania
-// vracajú zvlášť a verdikt ich rešpektuje.
+// Vyhodnotenie samotného hovoru sa presunulo do chips.js — tam sa neznámkuje,
+// ale odškrtáva. Tu zostalo to, čo počíta peniaze a kroky náborového plánu.
 // ============================================================================
 (function () {
-  const RATING_MAX = 3;
-
-  /** Kritická otázka: váha 3, alebo overovacia s váhou aspoň 2. */
-  function isCritical(q) {
-    return (q.weight || 1) >= 3 || (q.kind === 'hidden' && (q.weight || 1) >= 2);
-  }
-
   function r1(n) { return Math.round(n * 10) / 10; }
-
-  /**
-   * Vyhodnotí skríning.
-   * @param {Array} questions zoznam otázok { id, kind, weight, question_sk }
-   * @param {Array} answers   odpovede { question_id, rating, flagged }
-   * @returns {{answered:number,total:number,score:number,max:number,percent:number,
-   *            coverage:number,byKind:Object,redFlags:Array,verdict:string,reason:string}}
-   */
-  function scoreScreening(questions, answers) {
-    const qs = (questions || []).filter(q => q.active !== false);
-    const byId = new Map(qs.map(q => [q.id, q]));
-    // Varovná odpoveď sa počíta aj bez hodnotenia — pri živom hovore sa označí
-    // skôr, než sa stihne ohodnotiť, a stratiť ju je to najhoršie, čo sa môže stať.
-    const touched = (answers || []).filter(a => byId.has(a.question_id) && (a.rating != null || a.flagged));
-    const given = touched.filter(a => a.rating != null);
-
-    let score = 0, max = 0;
-    const byKind = {};
-    const redFlags = [];
-
-    for (const a of touched) {
-      const q = byId.get(a.question_id);
-      const w = q.weight || 1;
-      const k = q.kind || 'knowledge';
-
-      if (a.rating != null) {
-        const points = Math.max(0, Math.min(RATING_MAX, a.rating)) * w;
-        score += points;
-        max += RATING_MAX * w;
-        byKind[k] = byKind[k] || { score: 0, max: 0, answered: 0 };
-        byKind[k].score += points;
-        byKind[k].max += RATING_MAX * w;
-        byKind[k].answered++;
-      }
-
-      // varovanie: buď ho tak označil človek, alebo nulová odpoveď na kritickú otázku
-      if (a.flagged || (a.rating === 0 && isCritical(q))) {
-        redFlags.push({
-          question_id: q.id,
-          question: q.question_sk,
-          kind: q.kind,
-          reason: a.flagged ? 'označené ako varovná odpoveď' : 'nevedel odpovedať na kritickú otázku',
-        });
-      }
-    }
-
-    for (const k of Object.keys(byKind)) {
-      byKind[k].percent = byKind[k].max ? r1((byKind[k].score / byKind[k].max) * 100) : 0;
-    }
-
-    const percent = max ? r1((score / max) * 100) : 0;
-    const coverage = qs.length ? r1((given.length / qs.length) * 100) : 0;
-
-    // Neúplný skríning nie je zlý skríning — nedá sa z neho rozhodnúť.
-    let verdict, reason;
-    const legalFlag = redFlags.some(f => f.kind === 'legal');
-    if (given.length === 0) {
-      verdict = 'unknown'; reason = 'Skríning zatiaľ neprebehol.';
-    } else if (legalFlag) {
-      verdict = 'reject'; reason = 'Chýba právny predpoklad nasadenia — bez toho nesmie nastúpiť.';
-    } else if (redFlags.length >= 2) {
-      verdict = 'reject'; reason = `Viacero varovaní (${redFlags.length}) — riziko je vyššie než prínos.`;
-    } else if (coverage < 50) {
-      verdict = 'unknown'; reason = 'Zodpovedaná menej než polovica otázok — treba dokončiť.';
-    } else if (redFlags.length === 1) {
-      verdict = 'weak'; reason = 'Jedno varovanie — pred nasadením si to over.';
-    } else if (percent >= 80) {
-      verdict = 'strong'; reason = 'Odbornosť sedí, bez varovaní.';
-    } else if (percent >= 60) {
-      verdict = 'ok'; reason = 'Použiteľný, slabšie miesta doučí na stavbe.';
-    } else {
-      verdict = 'weak'; reason = 'Znalosti pod úrovňou remesla — skôr na pomocné práce.';
-    }
-
-    return {
-      answered: given.length, total: qs.length,
-      score, max, percent, coverage, byKind, redFlags, verdict, reason,
-    };
-  }
 
   /**
    * Hodinová marža plánu — či sa nábor vôbec oplatí.
@@ -191,10 +100,7 @@
     return lines.join('\n');
   }
 
-  const API = {
-    scoreScreening, planMargin, planProgress, checkOfferRate, adText,
-    isCritical, PLAN_STEPS, MIN_WAGE, RATING_MAX,
-  };
+  const API = { planMargin, planProgress, checkOfferRate, adText, PLAN_STEPS, MIN_WAGE };
   if (typeof window !== 'undefined') window.DanubraScreening = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

@@ -103,11 +103,26 @@ ju z inzerátu nenaučíš (rozteč profilov 625, zelená GKBI, číslo zvárace
 na certifikáte). Nové otázky sa majú držať toho istého princípu — konkrétne
 číslo alebo názov, ktorý si človek z praxe pamätá.
 
-Skóre je vážený podiel z maxima za zodpovedané otázky. Dve pravidlá sú tvrdé:
-- **právne varovanie = zamietnutie** bez ohľadu na skóre (bez A1 alebo živnosti
-  sa nedá nasadiť, aj keby remeslo vedel dokonale),
-- **nedokončený skríning nie je zlý skríning** — pri pokrytí pod polovicu sa
-  nevynáša verdikt, aby sa nezamietali ľudia, ktorých sme sa nedopýtali.
+**Pri živom hovore sa neznámkuje.** Človek zavolá na inzerát a naberá sa hneď —
+na hodnotenie dvadsiatich otázok stupnicou tam nie je čas. Preto zaškrtávacie
+polia (`danubra_call_chips`): krátke tvrdenia so znamienkom (plus, mínus,
+varovanie), jedna obrazovka na segment hovoru a pod tým voľná poznámka.
+Skóre vzniká ako pomer dobrých a zlých znamení, nie ako percento zo splnených
+otázok — kto sa nestihol opýtať na všetko, nesmie tým byť potrestaný.
+
+Polia sa učia: čo zaškrtávaš často, ide nabudúce hore; vlastné pole si pridáš
+počas hovoru; z poznámok ich navrhne Claude, ale **nič sa nepridá samo** —
+návrh je neaktívny, kým ho nepotvrdíš. Zoznam polí je to, podľa čoho sa
+rozhoduje o ľuďoch, takže doň nesmie pribudnúť nič, čo si nevidel.
+
+Otázky s nápovedami (migrácie 009 a 011) zostávajú ako referencia v príručke —
+čo sa pýtať a čo chcem počuť.
+
+Pri vyhodnotení sú dve pravidlá tvrdé:
+- **rozhodujúce varovanie zamieta bez ohľadu na skóre** (kto tvrdí, že A1
+  netreba, sa nedá nasadiť, aj keby remeslo vedel dokonale),
+- **málo zaškrtnutého nie je zlý kandidát** — pod štyri polia sa verdikt
+  nevynáša, aby sa nezamietali ľudia, ktorých sme sa nedopýtali.
 
 ## Deľba práce
 
