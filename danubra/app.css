@@ -696,3 +696,74 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .sum-cols ul { margin: 6px 0 0 16px; font-size: 13px; color: var(--ink-sub); }
 .sum-cols p { margin: 6px 0 0; font-size: 13px; color: var(--ink-mute); }
 @media (min-width: 640px) { .sum-cols { grid-template-columns: 1fr 1fr; } }
+
+/* ── Sprievodca: dva stĺpce — vľavo hovor, vpravo kontext a priebeh ──────── */
+.guide-cols { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+.guide-cols > .guide-body { flex: 1; }
+.guide-aside { display: none; }
+
+@media (min-width: 1000px) {
+  .guide-aside {
+    display: block; width: 340px; flex: 0 0 340px;
+    border-left: 1px solid var(--border); background: #fff;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .aside-inner { padding: 18px 16px max(18px, env(safe-area-inset-bottom)); }
+}
+/* Na mobile sa panel nezmestí vedľa — zhrnutie je na záverečnej obrazovke. */
+
+.aside-card {
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 13px; margin-bottom: 12px; background: #fff;
+}
+.aside-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 700; color: var(--ink);
+  margin-bottom: 9px; text-transform: uppercase; letter-spacing: .03em;
+}
+.aside-kv { display: flex; flex-direction: column; gap: 5px; }
+.aside-kv > div { display: flex; gap: 10px; font-size: 12.5px; line-height: 1.35; }
+.aside-kv span { flex: 0 0 92px; color: var(--ink-mute); }
+.aside-kv strong { flex: 1; color: var(--ink); font-weight: 600; }
+.aside-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.atag {
+  font-size: 11.5px; padding: 3px 8px; border-radius: 999px;
+  background: var(--green-50); color: #14713C; font-weight: 600;
+}
+.aside-note {
+  margin-top: 9px; font-size: 12px; line-height: 1.45;
+  color: #8A4308; background: var(--amber-50); border-radius: 9px; padding: 8px 10px;
+}
+.aside-list { margin: 0 0 0 16px; font-size: 12.5px; color: var(--ink-sub); line-height: 1.5; }
+.aside-live { position: sticky; top: 0; }
+.live-score {
+  display: flex; align-items: baseline; gap: 9px;
+  padding: 9px 11px; border-radius: 10px; background: var(--field); margin-bottom: 10px;
+}
+.ls-num { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.ls-lbl { font-size: 13px; font-weight: 700; }
+.verdict-ok   { background: var(--green-50); } .verdict-ok .ls-num,   .verdict-ok .ls-lbl   { color: #14713C; }
+.verdict-warn { background: var(--amber-50); } .verdict-warn .ls-num, .verdict-warn .ls-lbl { color: #8A4308; }
+.verdict-bad  { background: var(--red-50); }   .verdict-bad .ls-num,  .verdict-bad .ls-lbl  { color: #A81F1F; }
+.verdict-mute .ls-num, .verdict-mute .ls-lbl { color: var(--ink-mute); }
+.aside-flags {
+  background: var(--red-50); border-radius: 9px; padding: 8px 10px; margin-bottom: 10px;
+  font-size: 12px; color: #A81F1F; font-weight: 600; line-height: 1.5;
+}
+.aside-flags > div { display: flex; align-items: center; gap: 6px; }
+.aside-group { margin-top: 10px; }
+.aside-group > b { font-size: 11.5px; color: var(--ink-sub); text-transform: uppercase; letter-spacing: .03em; }
+.aside-empty { font-size: 12.5px; color: var(--ink-mute); }
+
+/* Dlaždice bežiacich náborov */
+.plan-grid { display: grid; gap: 9px; }
+.plan-tile {
+  border: 2px solid var(--border); background: #fff; border-radius: 13px;
+  padding: 12px 14px; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 3px; min-height: 66px;
+}
+.plan-tile:active { transform: scale(.99); }
+.plan-tile.on { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(10,27,61,.12); }
+.pt-name { font-size: 15px; font-weight: 700; line-height: 1.25; }
+.pt-meta { font-size: 12.5px; color: var(--ink-mute); }
+@media (min-width: 640px) { .plan-grid { grid-template-columns: 1fr 1fr; } }

@@ -4,9 +4,8 @@
 // Toto sa používa s telefónom pri uchu. Nič sa neznámkuje — odškrtáva sa, čo
 // zaznelo, a zvyšok sa zapíše vlastnými slovami.
 //
-// Dva režimy v tom istom plášti:
-//   call    — živý nábor: jedna obrazovka na segment, polia + poznámka
-//   process — kroky K1–K6 pri už založenom kandidátovi (áno / zatiaľ nie)
+// Vľavo prebieha hovor, vpravo je celý čas vidieť, o akú zákazku ide a čo
+// z hovoru zatiaľ vyšlo. Nič sa nemusí pamätať ani listovať späť.
 //
 // Všetko sa ukladá hneď po klepnutí. Keď hovor spadne, nič sa nestratí.
 // ============================================================================
@@ -15,36 +14,61 @@
   const CH = window.DanubraChips;
 
   const Guide = {
-    mode: null,               // 'call' | 'process'
     cand: null,
-    // živý nábor
-    trades: [], trade: null, segments: [], segIndex: 0, setup: false,
+    trades: [], trade: null, chips: [],
+    plans: [], plan: null, subcontracts: [], partners: [],
+    segments: [], segIndex: 0, setup: false, pickMode: 'plan',
     ticked: new Map(),        // chip_id → chip
     notes: new Map(),         // segment → rozpísaná poznámka
-    // kroky procesu
-    stepKey: null, items: [], pos: 0, answers: new Map(),
 
     // ── Živý nábor ────────────────────────────────────────────────────────
     async startCall() {
-      if (!Trades.loaded) await Trades.load();
-      this.trades = Trades.trades.filter(t => t.active !== false);
-      await this.loadChips();
-
-      this.mode = 'call';
-      this.cand = null; this.trade = null;
+      await this.loadContext();
+      this.cand = null; this.trade = null; this.plan = null;
       this.setup = true; this.segIndex = 0;
+      this.pickMode = this.plans.length ? 'plan' : 'trade';
       this.ticked = new Map(); this.notes = new Map();
       this.open();
     },
 
-    async loadChips() {
-      const { data } = await DB.list('call_chips', { limit: 800 });
-      this.chips = (data || []).filter(c => c.active !== false);
+    /** Všetko, čo treba mať po ruke počas hovoru — naraz, nie po kúskoch. */
+    async loadContext() {
+      if (!Trades.loaded) await Trades.load();
+      this.trades = Trades.trades.filter(t => t.active !== false);
+      const [chips, plans, subs, parts] = await Promise.all([
+        DB.list('call_chips', { limit: 800 }),
+        DB.list('recruitment_plans', { limit: 200 }),
+        DB.list('subcontracts', { limit: 200 }),
+        DB.list('partners', { select: 'id,name,city,payment_terms_days', limit: 200 }),
+      ]);
+      this.chips = (chips.data || []).filter(c => c.active !== false);
+      this.plans = (plans.data || []).filter(p => p.status === 'active');
+      this.subcontracts = subs.data || [];
+      this.partners = parts.data || [];
     },
 
     pickTrade(key) {
       this.trade = this.trades.find(t => t.key === key) || null;
+      this.plan = null;
       this.render();
+    },
+
+    pickPlan(id) {
+      this.plan = this.plans.find(p => p.id === id) || null;
+      this.trade = this.plan ? this.trades.find(t => t.key === this.plan.trade_key) || null : null;
+      this.render();
+    },
+
+    setPickMode(m) { this.pickMode = m; this.render(); },
+
+    /** Zákazka, na ktorú sa naberá — cez plán, alebo priamo z kandidáta. */
+    subcontract() {
+      const id = this.plan?.subcontract_id || this.cand?.subcontract_id;
+      return id ? this.subcontracts.find(s => s.id === id) : null;
+    },
+
+    partnerOf(sub) {
+      return sub?.partner_id ? this.partners.find(p => p.id === sub.partner_id) : null;
     },
 
     /** Založí kandidáta a hneď prejde do hovoru — bez medzikrokov. */
@@ -60,8 +84,12 @@
 
       const { data: cand, error } = await DB.insert('candidates', {
         full_name: name, phone, type: crew ? 'crew' : 'individual',
-        profession: this.trade.key, legal_form: 'szco',
+        profession: this.trade.key, legal_form: this.plan?.legal_form || 'szco',
         source: 'inzerat', status: 'contacted',
+        plan_id: this.plan?.id || null,
+        city: this.plan?.city || null,
+        expected_rate: this.plan?.offer_rate ?? null,
+        expected_start: this.plan?.start_date || null,
         received_at: new Date().toISOString(),
         first_contact_at: new Date().toISOString(),
       });
@@ -73,6 +101,11 @@
       Cand.items.unshift(cand);
       this.cand = cand;
       this.segments = CH.buildCallSegments({ tradeKey: this.trade.key, chips: this.chips });
+      if (!this.segments.length) {
+        UI.toast('Pre toto remeslo nie sú žiadne polia', 'err');
+        if (btn) { btn.disabled = false; btn.textContent = 'Začať hovor'; }
+        return;
+      }
       this.setup = false;
       this.segIndex = 0;
       this.render();
@@ -82,9 +115,7 @@
     async continueCall(candidateId) {
       const cand = Cand.items.find(c => c.id === candidateId);
       if (!cand) return;
-      if (!Trades.loaded) await Trades.load();
-      this.trades = Trades.trades.filter(t => t.active !== false);
-      await this.loadChips();
+      await this.loadContext();
 
       const { data } = await DB.list('candidate_chips', { filters: { candidate_id: candidateId }, limit: 300 });
       this.ticked = new Map();
@@ -93,9 +124,9 @@
         this.ticked.set(t.chip_id, chip || { id: t.chip_id, label: t.label, polarity: t.polarity, weight: t.weight });
       }
 
-      this.mode = 'call';
       this.cand = cand;
       this.trade = this.trades.find(t => t.key === cand.profession) || null;
+      this.plan = this.plans.find(p => p.id === cand.plan_id) || null;
       this.segments = CH.buildCallSegments({ tradeKey: cand.profession, chips: this.chips });
       this.notes = new Map();
       this.setup = false;
@@ -131,12 +162,11 @@
     render() {
       const el = document.getElementById('guide');
       if (!el) return;
-      if (this.mode === 'process') return this.renderProcess(el);
-
       if (this.setup) {
         el.innerHTML = this.shell({
           title: 'Zdvihol som telefón', sub: 'nový kandidát z inzerátu',
           progress: 0, body: this.setupHtml(),
+          aside: (this.plan || this.trade) ? this.contextHtml() : '',
         });
         setTimeout(() => document.getElementById('call-name')?.focus({ preventScroll: true }), 30);
         return;
@@ -150,10 +180,11 @@
         count: done ? '' : `${this.segIndex + 1}/${this.segments.length}`,
         progress: Math.round((Math.min(this.segIndex, this.segments.length) / this.segments.length) * 100),
         body: done ? this.callSummary() : this.segmentHtml(seg),
+        aside: this.asideHtml(),
       });
     },
 
-    shell({ title, sub, count = '', progress = 0, body }) {
+    shell({ title, sub, count = '', progress = 0, body, aside }) {
       return `
         <div class="guide-head">
           <button class="guide-x" onclick="Guide.close()" aria-label="Zavrieť">${Icon('x', 20)}</button>
@@ -164,27 +195,133 @@
           <div class="guide-count">${count}</div>
         </div>
         <div class="guide-bar"><span style="width:${progress}%"></span></div>
-        <div class="guide-body">${body}</div>`;
+        <div class="guide-cols">
+          <div class="guide-body">${body}</div>
+          ${aside ? `<aside class="guide-aside">${aside}</aside>` : ''}
+        </div>`;
     },
 
-    // ── Výber remesla ─────────────────────────────────────────────────────
-    setupHtml() {
+    // ── Bočný panel: o akú zákazku ide a čo z hovoru zatiaľ vyšlo ──────────
+    asideHtml() {
+      return `<div class="aside-inner">
+        ${this.contextHtml()}
+        ${this.liveHtml()}
+      </div>`;
+    },
+
+    contextHtml() {
+      const p = this.plan, sub = this.subcontract(), partner = this.partnerOf(sub);
+      if (!p && !sub && !this.trade) return '';
+      const row = (k, v) => v ? `<div><span>${k}</span><strong>${UI.esc(v)}</strong></div>` : '';
       return `
-        <div class="guide-q">Koho hľadá?</div>
-        <div class="trade-grid">
+        <div class="aside-card">
+          <div class="aside-title">${Icon('site', 14)} ${UI.esc(p?.title || this.trade?.name_sk || 'Nábor')}</div>
+          <div class="aside-kv">
+            ${row('Remeslo', this.trade?.name_sk)}
+            ${row('Kde', [p?.city || sub?.site_city, p?.country === 'DE' ? 'Nemecko' : p?.country].filter(Boolean).join(', '))}
+            ${row('Nástup', p?.start_date ? UI.date(p.start_date) : null)}
+            ${row('Treba ľudí', p?.headcount ? String(p.headcount) : null)}
+            ${row('Ponúkame', p?.offer_rate ? `${p.offer_rate} €/h` : null)}
+            ${row('Forma', p ? (p.legal_form === 'employee' ? 'zamestnanec' : 'živnosť') : null)}
+          </div>
+          ${p ? `<div class="aside-tags">
+            ${p.accommodation_provided ? '<span class="atag">ubytovanie platíme</span>' : ''}
+            ${p.transport_provided ? '<span class="atag">doprava zabezpečená</span>' : ''}
+            ${p.advance_possible ? '<span class="atag">záloha možná</span>' : ''}
+          </div>` : ''}
+        </div>
+
+        ${sub ? `<div class="aside-card">
+          <div class="aside-title">${Icon('doc', 14)} ${UI.esc(sub.contract_number || 'Zákazka')}</div>
+          <div class="aside-kv">
+            ${row('Zákazka', sub.title)}
+            ${row('Odberateľ', partner?.name)}
+            ${row('Stavba', [sub.site_name, sub.site_address, sub.site_city].filter(Boolean).join(', '))}
+            ${row('Termín', sub.date_from ? `${UI.date(sub.date_from)} – ${sub.date_to ? UI.date(sub.date_to) : '…'}` : null)}
+            ${row('Fakturujeme', sub.charge_rate ? `${sub.charge_rate} €/h` : null)}
+          </div>
+          ${sub.work_type === 'construction'
+            ? `<div class="aside-note">Stavebné práce — platí Bau-Mindestlohn, SOKA a hlásenie Zoll.</div>` : ''}
+        </div>` : ''}
+
+        ${(this.trade?.pitch || []).length ? `<div class="aside-card">
+          <div class="aside-title">${Icon('note', 14)} Čo mu povedať</div>
+          <ul class="aside-list">${this.trade.pitch.map(x => `<li>${UI.esc(x)}</li>`).join('')}</ul>
+        </div>` : ''}`;
+    },
+
+    /** Priebežné zhrnutie — vidíš ho celý hovor, netreba listovať späť. */
+    liveHtml() {
+      const ticked = [...this.ticked.values()];
+      const r = CH.scoreChips(ticked);
+      const s = CH.summarize(ticked);
+      const V = { strong: ['Sedí', 'ok'], ok: ['Použiteľný', 'ok'], weak: ['Slabý', 'warn'],
+        reject: ['Nebrať', 'bad'], unknown: ['Zatiaľ nejasné', 'mute'] };
+      const v = V[r.verdict] || V.unknown;
+      const group = (title, items, cls) => items.length ? `
+        <div class="aside-group">
+          <b>${title}</b>
+          <div class="chip-list" style="margin:6px 0 0;">
+            ${items.map(x => `<span class="chip chip-${cls} on static">${UI.esc(x)}</span>`).join('')}
+          </div>
+        </div>` : '';
+      return `
+        <div class="aside-card aside-live">
+          <div class="aside-title">${Icon('check', 14)} Zatiaľ z hovoru</div>
+          <div class="live-score verdict-${v[1]}">
+            <span class="ls-num">${r.percent == null ? '—' : r.percent + ' %'}</span>
+            <span class="ls-lbl">${v[0]}</span>
+          </div>
+          ${s.flags.length ? `<div class="aside-flags">
+            ${s.flags.map(f => `<div>${Icon('alert', 12)} ${UI.esc(f)}</div>`).join('')}</div>` : ''}
+          ${group('Hovorí pre neho', s.good, 'plus')}
+          ${group('Hovorí proti', s.bad, 'minus')}
+          ${group('Zapísané', s.notes, 'neutral')}
+          ${!ticked.length ? `<div class="aside-empty">Zatiaľ nič zaškrtnuté.</div>` : ''}
+        </div>`;
+    },
+
+    // ── Na aký nábor volá ─────────────────────────────────────────────────
+    setupHtml() {
+      const byPlan = this.pickMode === 'plan' && this.plans.length;
+      if (!this.chips.length) {
+        return `<div class="guide-q">Chýbajú polia do hovoru</div>
+          <div class="guide-hint guide-hint-warn">
+            V databáze nie je ani jedno pole, takže by hovor začal prázdny.
+            Spusti migráciu <b>012_call_chips.sql</b> v Supabase SQL editore —
+            naplní 90 predpripravených polí.</div>
+          <button class="guide-btn guide-btn-no" style="margin-top:16px;"
+            onclick="Guide.close()">Zavrieť</button>`;
+      }
+      return `
+        <div class="guide-q">Na čo volá?</div>
+        ${this.plans.length ? `<div class="pillbar" style="margin-bottom:12px;width:max-content;">
+          <button class="pill${byPlan ? ' active' : ''}" onclick="Guide.setPickMode('plan')">Bežiaci nábor</button>
+          <button class="pill${!byPlan ? ' active' : ''}" onclick="Guide.setPickMode('trade')">Do zásoby</button>
+        </div>` : ''}
+
+        ${byPlan ? `<div class="plan-grid">
+          ${this.plans.map(p => {
+            const t = this.trades.find(x => x.key === p.trade_key);
+            const sub = p.subcontract_id ? this.subcontracts.find(s => s.id === p.subcontract_id) : null;
+            return `<button class="plan-tile${this.plan?.id === p.id ? ' on' : ''}"
+              onclick="Guide.pickPlan('${p.id}')">
+              <span class="pt-name">${UI.esc(p.title)}</span>
+              <span class="pt-meta">${UI.esc(t?.name_sk || p.trade_key || '')}${p.headcount ? ` · treba ${p.headcount}` : ''}${p.city ? ` · ${UI.esc(p.city)}` : ''}</span>
+              <span class="pt-meta">${p.offer_rate ? `${p.offer_rate} €/h` : ''}${p.start_date ? ` · nástup ${UI.date(p.start_date)}` : ''}${sub?.contract_number ? ` · ${UI.esc(sub.contract_number)}` : ''}</span>
+            </button>`;
+          }).join('')}
+        </div>`
+        : `<div class="trade-grid">
           ${this.trades.map(t => `
             <button class="trade-tile${this.trade?.key === t.key ? ' on' : ''}"
               onclick="Guide.pickTrade('${t.key}')">
               <span class="tt-name">${UI.esc(t.name_sk)}</span>
               <span class="tt-rate">${t.rate_worker_min}–${t.rate_worker_max} €/h</span>
             </button>`).join('')}
-        </div>
-        ${this.trade ? `<div class="guide-hint guide-hint-ok" style="margin-top:14px;">
-          ${(this.trade.pitch || []).length
-            ? `<b>Čo mu povedať o práci:</b><br>${this.trade.pitch.map(x => '· ' + UI.esc(x)).join('<br>')}`
-            : UI.esc(this.trade.summary || '')}</div>` : ''}
+        </div>`}
 
-        <input id="call-name" class="guide-note" style="margin-top:14px;" placeholder="Ako sa volá?"
+        <input id="call-name" class="guide-note" style="margin-top:16px;" placeholder="Ako sa volá?"
           onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.beginCall()}">
         <input id="call-phone" class="guide-note" style="margin-top:10px;" placeholder="Telefón (nepovinné)">
         <label class="chk chk-lg" style="margin-top:12px;display:flex;gap:10px;align-items:center;">
@@ -192,7 +329,9 @@
         </label>
 
         <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:18px;"
-          onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>`;
+          onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>
+        ${!this.trade ? `<div class="guide-note-hint">Vyber nábor alebo remeslo — podľa toho sa
+          poskladajú polia a vpravo uvidíš, o akú zákazku ide.</div>` : ''}`;
     },
 
     // ── Jedna obrazovka = jeden segment ───────────────────────────────────
@@ -412,136 +551,10 @@
       }).catch(() => {});
     },
 
-    // ── Kroky K1–K6 pri založenom kandidátovi ─────────────────────────────
-    async start(candidateId, stepKey) {
-      const cand = Cand.items.find(c => c.id === candidateId);
-      if (!cand) return;
-      if (CandProc.candidateId !== candidateId) await CandProc.load(candidateId);
-
-      const step = stepKey === 'flags' ? P.FLAGS : P.STEPS.find(s => s.key === stepKey);
-      if (!step) return;
-
-      this.mode = 'process';
-      this.cand = cand;
-      this.stepKey = stepKey;
-      this.items = stepKey === 'flags'
-        ? P.FLAGS.items.map((text, index) => ({ index, text }))
-        : P.applicableItems(step, cand.type || 'individual');
-      this.title = step.title;
-      this.hint = step.hint;
-
-      this.answers = new Map();
-      for (const it of this.items) {
-        const c = CandProc.checkOf(stepKey, it.index);
-        if (c) this.answers.set(it.index, { value: !!c.checked });
-      }
-      const first = this.items.findIndex(it => !this.answers.has(it.index));
-      this.pos = first === -1 ? 0 : first;
-      this.open();
-    },
-
-    renderProcess(el) {
-      const done = this.pos >= this.items.length;
-      el.innerHTML = this.shell({
-        title: this.cand.full_name, sub: this.title,
-        count: done ? '' : `${this.pos + 1}/${this.items.length}`,
-        progress: Math.round((Math.min(this.pos, this.items.length) / this.items.length) * 100),
-        body: done ? this.processSummary() : this.processHtml(this.items[this.pos]),
-      });
-      if (!done) setTimeout(() => document.getElementById('guide-note')?.focus({ preventScroll: true }), 30);
-    },
-
-    processHtml(it) {
-      const a = this.answers.get(it.index);
-      const isFlags = this.stepKey === 'flags';
-      return `
-        <div class="guide-q">${UI.esc(it.text)}</div>
-        ${isFlags ? `<div class="guide-hint guide-hint-warn">
-          ${Icon('alert', 14)} Zaškrtni, len ak to naozaj nastalo.</div>` : ''}
-        <div class="guide-actions">
-          <button class="guide-btn ${isFlags ? 'guide-btn-red' : 'guide-btn-yes'}${a?.value === true ? ' on' : ''}"
-            onclick="Guide.answerProcess(true)">
-            ${Icon('check', 22)} ${isFlags ? 'Áno, nastalo' : 'Áno, hotové'}</button>
-          <button class="guide-btn guide-btn-no${a?.value === false ? ' on' : ''}"
-            onclick="Guide.answerProcess(false)">${isFlags ? 'Nie' : 'Zatiaľ nie'}</button>
-        </div>
-        <input id="guide-note" class="guide-note" placeholder="Čo povedal? (nepovinné)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.nextProcess()}">
-        <div class="guide-nav">
-          <button class="guide-nav-btn" onclick="Guide.prevProcess()" ${this.pos === 0 ? 'disabled' : ''}>
-            ${Icon('chevron', 16)} Späť</button>
-          <span class="guide-nav-mid">${this.answers.size} z ${this.items.length}</span>
-          <button class="guide-nav-btn guide-nav-next" onclick="Guide.nextProcess()">
-            ${this.pos === this.items.length - 1 ? 'Ukončiť' : 'Preskočiť'} ${Icon('chevron', 16)}</button>
-        </div>`;
-    },
-
-    async answerProcess(value) {
-      const it = this.items[this.pos];
-      const text = document.getElementById('guide-note')?.value.trim() || '';
-      this.answers.set(it.index, { value });
-      await CandProc.toggle(this.stepKey, it.index, value);
-      if (text) {
-        await DB.insert('candidate_notes', {
-          candidate_id: this.cand.id, step_key: this.stepKey,
-          body: `${it.text} — ${text}`,
-          created_by: Danubra.user?.id || null, author_name: CandProc.authorName(),
-        });
-      }
-      this.pos = Math.min(this.pos + 1, this.items.length);
-      this.render();
-    },
-
-    async nextProcess() {
-      const it = this.items[this.pos];
-      const text = document.getElementById('guide-note')?.value.trim();
-      if (it && text) {
-        await DB.insert('candidate_notes', {
-          candidate_id: this.cand.id, step_key: this.stepKey,
-          body: `${it.text} — ${text}`,
-          created_by: Danubra.user?.id || null, author_name: CandProc.authorName(),
-        });
-      }
-      this.pos = Math.min(this.pos + 1, this.items.length);
-      this.render();
-    },
-
-    prevProcess() { this.pos = Math.max(0, this.pos - 1); this.render(); },
-    goTo(i) { this.pos = i; this.render(); },
-
-    processSummary() {
-      const missing = this.items.filter(it => this.answers.get(it.index)?.value !== true);
-      const nextStep = P.STEPS[P.STEPS.findIndex(s => s.key === this.stepKey) + 1];
-      return `
-        <div class="guide-done">
-          <div class="guide-done-ico ${missing.length ? 'warn' : 'ok'}">
-            ${Icon(missing.length ? 'alert' : 'check', 30)}</div>
-          <div class="guide-q" style="margin-bottom:6px;">
-            ${missing.length ? `Zostáva ${missing.length} ${missing.length === 1 ? 'položka' : 'položiek'}` : 'Krok je hotový'}</div>
-          ${missing.length ? `<div class="guide-missing">
-            ${missing.map(m => `<button onclick="Guide.goTo(${this.items.indexOf(m)})">
-              ${Icon('chevron', 13)} ${UI.esc(m.text)}</button>`).join('')}
-          </div>` : ''}
-          <div class="guide-end-actions">
-            <button class="guide-btn guide-btn-no" onclick="Guide.close()">Zavrieť</button>
-            ${nextStep && this.stepKey !== 'flags'
-              ? `<button class="guide-btn guide-btn-yes" onclick="Guide.start('${this.cand.id}','${nextStep.key}')">
-                  Ďalší krok: ${UI.esc(nextStep.title)} ${Icon('chevron', 18)}</button>` : ''}
-          </div>
-        </div>`;
-    },
-
     // ── Klávesnica ────────────────────────────────────────────────────────
     onKey(e) {
       if (e.key === 'Escape') return this.close();
       if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-      if (this.mode === 'process') {
-        if (e.key === 'ArrowRight') { e.preventDefault(); return this.nextProcess(); }
-        if (e.key === 'ArrowLeft') { e.preventDefault(); return this.prevProcess(); }
-        if (e.key === 'a' || e.key === 'A') { e.preventDefault(); return this.answerProcess(true); }
-        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); return this.answerProcess(false); }
-        return;
-      }
       if (e.key === 'ArrowRight') { e.preventDefault(); return this.nextSegment(); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); return this.prevSegment(); }
     },
