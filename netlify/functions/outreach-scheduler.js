@@ -434,3 +434,11 @@ exports.handler = async () => {
 exports.config = {
   schedule: '5 * * * *',
 };
+
+// Export helperov pre reuse v ďalších netlify functions (send-template-to-prospect,
+// prípadne budúce). Handler ostáva `exports.handler` — Netlify volá iba tú;
+// pridané properties sa pri require ('./outreach-scheduler') dostanú do modulu.
+module.exports.renderEmailFromTemplate = renderEmailFromTemplate;
+module.exports.sendEmail = sendEmail;
+module.exports.pickSender = pickSender;
+module.exports.bumpSenderCounters = bumpSenderCounters;
