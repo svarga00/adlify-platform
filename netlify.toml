@@ -1,79 +1,31 @@
-# Admin redirecty
+# ============================================================================
+# DANUBRA Hub — nasadenie
+# ============================================================================
+# Aplikácia býva v /danubra/, koreň na ňu presmeruje, nech sa netreba trafiť
+# do podadresára.
+
 [[redirects]]
   from = "/"
-  to = "/admin/index.html"
+  to = "/danubra/index.html"
   status = 200
 [[redirects]]
-  from = "/admin"
-  to = "/admin/index.html"
-  status = 200
-[[redirects]]
-  from = "/admin/*"
-  to = "/admin/index.html"
+  from = "/danubra"
+  to = "/danubra/index.html"
   status = 200
 
-# Portal - špecifické stránky (MUSIA byť PRED wildcardom!)
-[[redirects]]
-  from = "/portal/login.html"
-  to = "/portal/login.html"
-  status = 200
-[[redirects]]
-  from = "/portal/register.html"
-  to = "/portal/register.html"
-  status = 200
-[[redirects]]
-  from = "/portal/onboarding.html"
-  to = "/portal/onboarding.html"
-  status = 200
-[[redirects]]
-  from = "/portal/proposal.html"
-  to = "/portal/proposal.html"
-  status = 200
-[[redirects]]
-  from = "/portal/reset-password.html"
-  to = "/portal/reset-password.html"
-  status = 200
-
-# Portal - SPA fallback pre dashboard
-[[redirects]]
-  from = "/portal"
-  to = "/portal/index.html"
-  status = 200
-[[redirects]]
-  from = "/portal/"
-  to = "/portal/index.html"
-  status = 200
-
-# Funkcie
 [functions]
   directory = "netlify/functions"
 
-# Scheduled function — outreach scheduler (posiela ďalšie kroky kampaní)
-# Cron: každú hodinu o :05. Scheduler dnes rešpektuje business hours
-# (8-18 SK, skip víkendov) a per-mail jitter, takže väčšina behov mimo
-# pracovných hodín bude no-op.
-[functions."outreach-scheduler"]
-  schedule = "5 * * * *"
-
-# Auto warm-up rampa — raz denne ráno 7:00 UTC (~8-9 SK podľa DST).
-# Posunie warmup_current o +20% kým nedosiahne daily_limit, pri vysokom
-# bounce rate (>5%) namiesto rampu spraví -50% pause.
-[functions."outreach-warmup-rampa"]
-  schedule = "0 7 * * *"
-
-# Scheduled function — sync Google/Meta Ads metrík každé 2 hodiny o :15
-[functions."ads-scheduled-sync"]
-  schedule = "15 */2 * * *"
-
-# DANUBRA — denný cron (stavy, pripomienky, po splatnosti) 04:00 UTC
+# Denný cron — prechody stavov, pripomienky, faktúry po splatnosti,
+# nábory, ktoré nestíhajú, a mazanie nahrávok po uplynutí retencie.
+# 04:00 UTC ≈ 06:00 SK v lete, 05:00 v zime.
 [functions."danubra-cron-daily"]
   schedule = "0 4 * * *"
 
-# DANUBRA — mesačné návrhy faktúr za priebežnú službu.
+# Mesačné návrhy faktúr za priebežnú službu.
 # Beží 28.–31. o 20:00 UTC, funkcia si sama overí, či je posledný deň mesiaca.
 [functions."danubra-cron-monthly"]
   schedule = "0 20 28-31 * *"
 
-# Plugin pre inštaláciu dependencies vo functions
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
