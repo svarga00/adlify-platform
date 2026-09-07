@@ -1,10 +1,9 @@
 {
-  "name": "adlify-platform",
+  "name": "danubra-hub",
   "version": "1.0.0",
-  "description": "Adlify Marketing Platform",
+  "description": "DANUBRA Hub — nábor, subdodávky do Nemecka a sprostredkovanie ubytovania",
   "private": true,
   "dependencies": {
-    "nodemailer": "^6.9.8",
     "@supabase/supabase-js": "^2.39.0"
   }
 }
