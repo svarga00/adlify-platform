@@ -793,3 +793,77 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .pulse { animation: danubra-pulse .4s ease; }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+/* ── Mega menu — obe agendy naraz ─────────────────────────────────────────── */
+.mega-btn {
+  display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto;
+  height: 38px; padding: 0 14px; border-radius: 10px; cursor: pointer;
+  background: #fff; border: 1.5px solid var(--border); color: var(--ink);
+  font-size: 13.5px; font-weight: 600;
+}
+.mega-btn:hover { border-color: var(--navy); }
+.mega-btn-ico { display: flex; color: var(--ink-mute); }
+
+.mega {
+  position: fixed; inset: 0; z-index: 130; background: rgba(10,27,61,.42);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: max(14px, env(safe-area-inset-top)) 14px 14px;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.mega-inner {
+  width: 100%; max-width: 1100px; background: var(--bg);
+  border-radius: 16px; overflow: hidden; box-shadow: 0 24px 64px -20px rgba(10,27,61,.5);
+}
+.mega-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 15px 18px; background: var(--navy); color: #fff; font-size: 15px;
+}
+.mega-x {
+  width: 34px; height: 34px; border: 0; border-radius: 9px; cursor: pointer;
+  background: rgba(255,255,255,.12); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.mega-x:hover { background: rgba(255,255,255,.22); }
+
+.mega-cols { display: grid; gap: 1px; background: var(--border); }
+.mega-col { background: #fff; padding: 16px 16px 20px; }
+.mega-col.current { background: #FCFDFF; }
+.mega-col-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14.5px; font-weight: 800; color: var(--ink); margin-bottom: 4px;
+}
+.mega-col.current .mega-col-head { color: var(--brand-dark, #B45309); }
+.mega-col-head em {
+  font-style: normal; font-size: 11px; font-weight: 700; margin-left: auto;
+  background: var(--brand-50); color: var(--brand-dark, #B45309);
+  padding: 2px 8px; border-radius: 999px;
+}
+.mega-group {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--ink-mute); margin: 14px 0 5px;
+}
+.mega-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 9px 10px; border: 0; border-radius: 9px; background: none;
+  cursor: pointer; font-size: 13.5px; color: var(--ink-sub); text-align: left;
+}
+.mega-item:hover { background: var(--field); color: var(--ink); }
+.mega-item.active { background: var(--navy); color: #fff; font-weight: 600; }
+.mega-item > span:first-of-type { flex: 1; }
+
+@media (min-width: 860px) { .mega-cols { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 859px) { .mega-btn span:last-child { display: none; } }
+
+.mega-areas { display: flex; gap: 8px; padding: 14px 18px; background: #fff; border-bottom: 1px solid var(--border); }
+.mega-area {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; border-radius: 11px; cursor: pointer;
+  background: var(--field); border: 1.5px solid transparent; color: var(--ink-sub);
+  font-size: 14px; font-weight: 700;
+}
+.mega-area.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+.mega-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 18px; background: #fff; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--ink-mute);
+}

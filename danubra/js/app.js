@@ -1,19 +1,25 @@
 // ============================================================================
-// DANUBRA Hub — app bootstrap, auth gate, navigácia, router
-// Dizajn podľa schváleného návrhu rozhrania (zoskupená navigácia, KPI karty).
+// DANUBRA — app bootstrap, auth gate, navigácia, router
+// ============================================================================
+// Firma robí dve veci: posiela ľudí na nemecké stavby a zháňa im ubytovanie.
+// Preto dve agendy s vlastnou navigáciou — a mega menu, v ktorom je vidieť
+// všetko naraz, aby sa druhá polovica appky neschovávala za prepínačom.
 // ============================================================================
 window.Danubra = {
   user: null,
   route: 'dashboard',
 
-  // Dve hlavné oblasti — prepínač pod logom. Navigácia sa podľa nich filtruje.
-  // Poradie určuje, čo je hlavný biznis. Vysielanie ľudí na stavby je prvé
-  // a je aj predvolené — ubytovanie ho dopĺňa, nie naopak.
+  // Dve agendy — prepínač pod logom. Navigácia sa podľa nich filtruje.
+  // Poradie určuje, čo je hlavný biznis: vysielanie ľudí je prvé a predvolené,
+  // ubytovanie ho dopĺňa, nie naopak.
+  // Kľúče zostávajú pôvodné, menia sa len názvy — inak by sa stratilo, čo má
+  // človek uložené v prehliadači.
   areas: [
-    ['staffing', 'Rekruting', 'workers'],
+    ['staffing', 'Nábor a stavby', 'workers'],
     ['accommodation', 'Ubytovanie', 'bed'],
   ],
   area: 'staffing',
+  areaTitle(key) { const a = this.areas.find(x => x[0] === key); return a ? a[1] : 'Spoločné'; },
 
   // Navigácia. Položka bez oblasti je spoločná pre obe.
   // [key, label, ikona, oblasť?]
@@ -102,6 +108,7 @@ window.Danubra = {
     document.querySelectorAll('.search-ico').forEach(el => { el.innerHTML = Icon('search', 15); });
     const lo = document.getElementById('btn-logout'); if (lo) lo.innerHTML = Icon('logout', 16);
     const mn = document.getElementById('btn-menu'); if (mn) mn.innerHTML = Icon('menu', 20);
+    const mi = document.querySelector('.mega-btn-ico'); if (mi) mi.innerHTML = Icon('menu', 16);
     this._buildNav();
     this._render();
     window.addEventListener('hashchange', () => this._syncRoute());
@@ -174,6 +181,86 @@ window.Danubra = {
     ).join('');
   },
 
+  // ── Mega menu ─────────────────────────────────────────────────────────────
+  // Prepínač agend zobrazuje vždy len polovicu appky. Toto ukáže obe naraz,
+  // aby sa nemuselo hádať, kde čo je.
+  toggleMega(force) {
+    const open = force != null ? force : !document.getElementById('mega');
+    document.getElementById('mega')?.remove();
+    if (!open) { document.body.style.overflow = ''; this._megaKeys && document.removeEventListener('keydown', this._megaKeys); return; }
+
+    const el = document.createElement('div');
+    el.id = 'mega';
+    el.className = 'mega';
+    el.innerHTML = `<div class="mega-inner">${this.megaHtml()}</div>`;
+    el.addEventListener('click', (e) => { if (e.target === el) this.toggleMega(false); });
+    document.body.appendChild(el);
+    document.body.style.overflow = 'hidden';
+    this._megaKeys = (e) => { if (e.key === 'Escape') this.toggleMega(false); };
+    document.addEventListener('keydown', this._megaKeys);
+  },
+
+  megaHtml() {
+    const column = (areaKey) => {
+      const groups = this.navGroups
+        .map(([glabel, items]) => [glabel, items.filter(i => (i[3] || null) === areaKey)])
+        .filter(([, items]) => items.length);
+      if (!groups.length) return '';
+      const isCurrent = areaKey && areaKey === this.area;
+      return `
+        <div class="mega-col${isCurrent ? ' current' : ''}">
+          <div class="mega-col-head">
+            ${areaKey ? Icon(this.areas.find(a => a[0] === areaKey)[2], 16) : Icon('rules', 16)}
+            <span>${UI.esc(this.areaTitle(areaKey))}</span>
+            ${isCurrent ? '<em>práve tu</em>' : ''}
+          </div>
+          ${groups.map(([glabel, items]) => `
+            <div class="mega-group">${glabel}</div>
+            ${items.map(([key, label, ico]) => {
+              const b = this.badges[key];
+              return `<button class="mega-item${key === this.route ? ' active' : ''}"
+                onclick="Danubra.goFromMega('${key}')">
+                ${Icon(ico, 16)}<span>${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
+              </button>`;
+            }).join('')}`).join('')}
+        </div>`;
+    };
+    const email = this.user?.email || '';
+    return `
+      <div class="mega-head">
+        <strong>Kam chceš ísť?</strong>
+        <button class="mega-x" onclick="Danubra.toggleMega(false)" aria-label="Zavrieť">${Icon('x', 18)}</button>
+      </div>
+      <div class="mega-areas">
+        ${this.areas.map(([key, label, ico]) => `
+          <button class="mega-area${this.area === key ? ' active' : ''}"
+            onclick="Danubra.setAreaFromMega('${key}')">
+            ${Icon(ico, 17)}<span>${label}</span></button>`).join('')}
+      </div>
+      <div class="mega-cols">
+        ${this.areas.map(a => column(a[0])).join('')}
+        ${column(null)}
+      </div>
+      <div class="mega-foot">
+        <span>${UI.esc(email)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.logout()">
+          ${Icon('logout', 15)} Odhlásiť sa</button>
+      </div>`;
+  },
+
+  /** Skok z mega menu — ak obrazovka patrí druhej agende, prepne aj ju. */
+  goFromMega(key) {
+    this.toggleMega(false);
+    this.go(key);
+  },
+
+  /** Prepnutie agendy z mega menu — menu zostane otvorené, nech je vidieť zmenu. */
+  setAreaFromMega(key) {
+    this.setArea(key);
+    const inner = document.querySelector('#mega .mega-inner');
+    if (inner) inner.innerHTML = this.megaHtml();
+  },
+
   go(key) { location.hash = '#/' + key; },
 
   quickAdd() {
@@ -202,7 +289,6 @@ window.Danubra = {
       try { localStorage.setItem('danubra_area', ar); } catch {}
       this._buildNav();
     }
-    this.closeSidebar();
     if (this.user) this.renderRoute();
     document.querySelectorAll('.nav-item, .tab').forEach(el => {
       if (el.dataset.key) el.classList.toggle('active', el.dataset.key === this.route);
@@ -234,25 +320,6 @@ window.Danubra = {
     if (el) el.innerHTML = html || '';
   },
 
-  toggleSidebar() {
-    const sb = document.querySelector('.sidebar');
-    sb.classList.toggle('open');
-    this._backdrop(sb.classList.contains('open'));
-  },
-  closeSidebar() {
-    document.querySelector('.sidebar')?.classList.remove('open');
-    this._backdrop(false);
-  },
-  _backdrop(show) {
-    let bd = document.querySelector('.sidebar-backdrop');
-    if (!bd) {
-      bd = document.createElement('div');
-      bd.className = 'sidebar-backdrop';
-      bd.onclick = () => this.closeSidebar();
-      document.body.appendChild(bd);
-    }
-    bd.classList.toggle('show', show);
-  },
 
   // ── VIEWS ────────────────────────────────────────────────────────────────
   views: {

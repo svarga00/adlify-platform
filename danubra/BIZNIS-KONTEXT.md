@@ -80,9 +80,14 @@ zaradení v jeho štruktúre. Aplikácia má na to interaktívny test.
 ## Nábor je hlavný biznis, nie doplnok
 
 Vysielanie ľudí na stavby je od augusta 2026 **primárna agenda** — prepínač
-oblastí ju má prvú a aplikácia sa v nej otvára. Ubytovanie ju dopĺňa (vlastné
+agend ju má prvú a aplikácia sa v nej otvára. Ubytovanie ju dopĺňa (vlastné
 ubytovanie znižuje náklad na vyslaného človeka a je najsilnejší argument
 v inzeráte), nie naopak.
+
+Agendy sa volajú **Nábor a stavby** a **Ubytovanie**. V hornej lište je
+**mega menu**, ktoré ukáže obe naraz — prepínač totiž vždy schová polovicu
+appky a hľadať sa v nej potom nedá. Na mobile mega menu nahrádza bočný panel,
+takže v ňom musí byť aj prepínač agend a odhlásenie.
 
 Nábor sa nezačína inzerátom, ale rozhodnutím — preto **náborový plán**
 (`danubra_recruitment_plans`) v piatich krokoch: koho a koľko · kam a kedy ·
