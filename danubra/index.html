@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#0A1B3D">
-  <title>DANUBRA Hub</title>
+  <title>DANUBRA — nábor a ubytovanie</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-14 -14 124 128'><rect x='-14' y='-14' width='124' height='128' rx='22' fill='%230A1B3D'/><rect x='0' y='0' width='15' height='100' rx='7.5' fill='%23fff'/><path d='M 30 8.5 L 52 8.5 A 41.5 41.5 0 0 1 52 91.5 L 30 91.5' fill='none' stroke='%23F07E22' stroke-width='17' stroke-linecap='round'/></svg>">
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -63,6 +63,9 @@
     <div class="main">
       <!-- desktop topbar -->
       <header class="topbar">
+        <button class="mega-btn" onclick="Danubra.toggleMega()" title="Všetky sekcie">
+          <span class="mega-btn-ico"></span><span>Všetko</span>
+        </button>
         <div class="searchbox">
           <span class="search-ico"></span>
           <input id="global-search" placeholder="Hľadať mesto, meno, telefón, číslo objednávky…">
@@ -73,7 +76,7 @@
       <!-- mobile head -->
       <div class="mobile-head">
         <div class="mh-row">
-          <button class="btn btn-ghost btn-sm" style="color:#fff;padding:6px 8px;" onclick="Danubra.toggleSidebar()" aria-label="Menu" id="btn-menu"></button>
+          <button class="btn btn-ghost btn-sm" style="color:#fff;padding:6px 8px;" onclick="Danubra.toggleMega()" aria-label="Všetky sekcie" id="btn-menu"></button>
           <div class="mh-search">
             <span class="search-ico"></span>
             <input placeholder="Hľadať…">
