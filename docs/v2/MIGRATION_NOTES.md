@@ -1,12 +1,16 @@
 # DANUBRA Hub v2 — poznámky k migrácii (FÁZA F0)
 
-Stav k 16. 9. 2026. Tento dokument je **neúplný** — chýbajú tri vstupné
-dokumenty, bez ktorých sa polovica F0 spraviť nedá. Čo sa dalo zistiť
-z repozitára a z databázy, je nižšie; čo je zablokované, je označené.
+Stav k 16. 9. 2026, doplnené po napísaní zadania.
+
+Pôvodné tri dokumenty sa nenašli (bod 1), tak boli **napísané nanovo** —
+`01_DANUBRA_Hub_v2_navrh.md`, `02_DANUBRA_Hub_v2_schema.sql`,
+`03_DANUBRA_Hub_v2_superfaktura.md`. Rozhodnutia, ktoré pri tom padli, sú
+v `DECISIONS.md`. Tento dokument teda už nie je zablokovaný — treba ho len
+prejsť a povedať, čo nesedí.
 
 ---
 
-## 1. Čo blokuje dokončenie F0
+## 1. Čo chýbalo a ako sa to vyriešilo
 
 ### 1.1 Zadávacie dokumenty neexistujú
 
@@ -27,18 +31,10 @@ V histórii je commit `a79ee9c` s názvom „V2", ale ide o
 Adresár `docs/` bol odstránený pri čistke Adlify v PR #112 — obsahoval však len
 `audit-intake-integration.md` a `gmail-oauth-setup.md`, žiadne v2 dokumenty.
 
-**Bez nich sa nedá spraviť:** cieľový dátový model, mapovanie tabuliek v1 → v2,
-rozdiely oproti `02_schema.sql`, rozdelenie na fázy F1–F9 (odvolávka na
-„kapitolu 10" a „kapitoly 2–4"), ani obchodné pravidlá z kapitoly 8.
-
-Odhadnúť to z jedného odstavca zhrnutia by znamenalo vymyslieť si dátový model,
-stavové automaty a integráciu platobného API — a potom podľa toho migrovať
-produkčnú databázu. To nie.
+**Vyriešené:** dokumenty boli napísané nanovo na základe v1, `BIZNIS-KONTEXT.md`
+a oficiálnej dokumentácie SuperFaktúry.
 
 ### 1.2 Zadanie predpokladá iný stack, než aký appka má
-
-Toto je väčšia vec než chýbajúce súbory a treba ju rozhodnúť skôr, než sa čokoľvek
-začne písať.
 
 | Zadanie predpokladá | Skutočnosť |
 |---|---|
@@ -48,22 +44,9 @@ začne písať.
 | `supabase/migrations/YYYYMMDD_v2_fX_*.sql` (CLI) | `NNN_nazov.sql`, spúšťané ručne v SQL editore |
 | framework s komponentmi (kap. 2–4) | vlastný render cez template stringy, ~40 súborov |
 
-Sú to dve rôzne zadania:
-
-**A. Zostať na dnešnom stacku.** v2 sa spraví ako doteraz — vanilla JS, migrácie
-číslované ďalej (013+), peniaze cez `numeric` v DB a vlastný zaokrúhľovací helper
-namiesto decimal.js. Rýchle, nič sa nezahadzuje, ale žiadne TS typy.
-
-**B. Prepísať na Next.js + TypeScript.** Zodpovedá zneniu zadania (typy zo
-Supabase, decimal.js, komponenty). Znamená to ale nový projekt a prepísanie
-všetkého, čo dnes funguje — vrátane živého náboru, ktorý sa práve ladil podľa
-reálnych hovorov.
-
-Moje odporúčanie je **A**, a to aj keby dokumenty existovali: appka sa používa,
-má 360 testov a v databáze sú reálne dáta. Prepis na TS je práca na týždne bez
-jediného nového prínosu pre používateľa. Ak je za bodom B dôvod, ktorý nevidím
-(napríklad že to má robiť niekto ďalší, alebo to má byť produkt pre viac firiem),
-poviem si to a prispôsobím sa.
+**Vyriešené (R1 v `DECISIONS.md`):** beh zostáva vanilla JS, ale typy zo Supabase
+sa vygenerujú a kontrolujú cez JSDoc + `tsc --checkJs --noEmit`. Úžitok
+z typov bez jediného prepísaného súboru.
 
 ---
 
@@ -113,8 +96,8 @@ Overené v kóde aj v databáze, nie podľa plánu.
 
 ## 3. Tabuľky v databáze
 
-40 tabuliek, 2,9 MB. Zaradenie do skupín je **predbežné** — vychádza len
-z jedného odstavca zadania, nie z `02_schema.sql`.
+40 tabuliek, 2,9 MB. Zaradenie do skupín zodpovedá `02_schema.sql`;
+podrobné mapovanie je v kapitole 4.
 
 ### 3.1 Ubytovanie → podľa zadania archivovať
 
@@ -158,8 +141,7 @@ ubytovania teda nie je len skrytie menu — treba rozhodnúť, čo s týmito st�
 
 ### 3.4 Skutočné stĺpce tabuliek, ktoré zadanie spomína
 
-Zadanie hovorí o „rozdieloch v názvoch stĺpcov v `partners`". Bez `02_schema.sql`
-ich porovnať neviem, tak sem dávam, čo je dnes v databáze:
+Toto je skutočný stav databázy — `02_schema.sql` je písaná proti nemu:
 
 **`danubra_partners`** — `id`, `name`, `ust_idnr`, `registration_no`, `address`,
 `city`, `postal_code`, `country`, `contact_person`, `phone`, `email`, `language`,
@@ -202,30 +184,79 @@ v databáze **neexistujú** — to je celé nové.
 
 ---
 
-## 4. Čo je zablokované
+## 4. Mapovanie tabuliek v1 → v2
 
-| Bod zadania | Prečo sa nedá |
+Podľa `02_DANUBRA_Hub_v2_schema.sql`.
+
+### 4.1 Ponechať a rozšíriť
+
+| Tabuľka | Čo pribúda | Fáza |
+|---|---|---|
+| `danubra_settings` | `modules` (ktoré agendy sú zapnuté) | F1 |
+| `danubra_workers` | fakturačné údaje živnosti, `sf_client_id`, `crew_id` | F2 |
+| `danubra_worker_documents` | `storage_path`, `notify_days_before`, `required_for` | F2 |
+| `danubra_partners` | `sf_client_id`, `reverse_charge`, `avg_days_to_pay` | F3 |
+| `danubra_subcontracts` | `contract_id`, `quote_id`, `hwo_notified_at`, `soka_registered_at` | F5 |
+| `danubra_assignments` | `crew_id`, `worker_rate`, `overhead_per_hour` | F5 |
+| `danubra_timesheets` | `period_id`, `rate_used`, `source` | F5 |
+| `danubra_invoices` | `partner_id`, `period_id`, schvaľovanie, §48b, SuperFaktúra | F6 |
+| `danubra_tasks` | `rule_id`, `snoozed_until` | F9 |
+
+### 4.2 Nové tabuľky
+
+| Tabuľka | Načo | Fáza |
+|---|---|---|
+| `danubra_enums` | číselníky, dnes rozsypané ako reťazce | F1 |
+| `danubra_overrides` | zapísané výnimky z blokátorov | F2 |
+| `danubra_crews`, `danubra_crew_members` | partie s trvaním členstva | F3 |
+| `danubra_quotes` | ponuky s prepočtom marže | F4 |
+| `danubra_contracts`, `danubra_contract_amendments` | zmluvy a dodatky | F4 |
+| `danubra_periods` | uzávierka hodín → podklad na faktúru | F5 |
+| `danubra_assignment_checks` | checklist pred nástupom naviazaný na pravidlá | F5 |
+| `danubra_bills` | prijaté faktúry od živnostníkov | F7 |
+| `danubra_costs` | ostatné náklady vrátane opakovaných | F7 |
+| `danubra_bank_transactions` | výpis a párovanie | F8 |
+| `danubra_task_rules` | pravidlá úloh ako dáta, nie v kóde | F9 |
+
+### 4.3 Archivovať
+
+`danubra_inquiries`, `danubra_offers`, `danubra_offer_variants`,
+`danubra_orders`, `danubra_order_persons`, `danubra_order_requests`,
+`danubra_order_service_periods`, `danubra_order_extensions`, `danubra_clients`
+
+Zostávajú v databáze aj s dátami, mizne len navigácia.
+
+### 4.4 Zostávajú aktívne napriek archivácii ubytovania
+
+`danubra_accommodations` a `danubra_subcontract_accommodations` — ubytovanie je
+naďalej náklad zákazky a argument v inzeráte (R4 v `DECISIONS.md`).
+
+### 4.5 Nepoužité tabuľky z v1
+
+| Tabuľka | Rozhodnutie |
 |---|---|
-| mapovanie tabuliek v1 → v2 (ponechať / rozšíriť / archivovať) | chýba `02_schema.sql` |
-| rozdiely medzi `02_schema.sql` a databázou | chýba `02_schema.sql` |
-| plán migrácií podľa fáz F1–F8 | chýba kapitola 10 z `01_navrh.md` |
-| obchodné pravidlá do testov | chýba kapitola 8 |
-| UI podľa kapitol 2–4 | chýbajú kapitoly 2–4 |
-| SuperFaktúra (F6, F7) | chýba `03_superfaktura.md` |
-
-Dokumentáciu SuperFaktúry z GitHubu si stiahnuť viem, ale bez `03_...md` neviem,
-**ktoré** jej časti sa majú použiť a ako má vyzerať schvaľovací tok.
+| `danubra_checklist_items` | nahrádza ju `danubra_assignment_checks`; stará zostane prázdna |
+| `danubra_message_templates` | ponechať, príde k nej použitie pri komunikácii |
 
 ---
 
-## 5. Čo potrebujem od teba
+## 5. Rozdiely oproti cieľovej schéme
 
-1. **Tie tri dokumenty.** Stačí ich hodiť do `docs/v2/` a pushnúť, alebo vložiť
-   sem do chatu — prečítam si ich odtiaľ rovnako dobre.
-2. **Rozhodnutie o stacku** (A alebo B z bodu 1.2). Toto viem rozhodnúť aj sám,
-   ale mení to rozsah práce z dní na týždne, tak sa radšej spýtam.
+Keďže `02_schema.sql` je písaná proti skutočnej databáze, „rozdiely" sú presne
+zoznam `alter table` príkazov v nej. Dve veci ale stoja za zvýraznenie:
 
-Keď to bude, dopíšem zvyšok F0 a ukážem plán fáz predtým, než sa čohokoľvek dotknem.
+**`danubra_workers` má mzdový model, v2 je živnostnícky.** Dnes tam sú
+`employment_type`, `gross_monthly`, `hourly_gross`. v2 pridáva
+`hourly_cost` (čo nám fakturuje) a údaje živnosti. Staré stĺpce sa **nemažú** —
+5 existujúcich pracovníkov ich má vyplnené a model zamestnanca zostáva možný.
+
+**`danubra_invoices` visí na ubytovaní.** `client_id` + `order_id` sú z v1.
+v2 pridáva `partner_id` + `subcontract_id` + `period_id`. Staré stĺpce zostanú
+pre jednu historickú faktúru.
+
+**Názvy v `danubra_partners` sedia** s tým, čo v2 potrebuje — pribúdajú len
+nové stĺpce, nič sa nepremenúva. (Zadanie spomínalo rozdiely v názvoch; pri
+skutočnej tabuľke žiadne nie sú.)
 
 ---
 
