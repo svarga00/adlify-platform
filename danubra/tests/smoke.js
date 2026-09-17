@@ -347,6 +347,32 @@ if (Bl) {
     Bl.economics({ bills: [{ amount: 1000, status: 'disputed' }] }).bills === 0);
 }
 
+// ── Banka a cash-flow ──────────────────────────────────────────────────────
+const Bnk = sandbox.DanubraBank;
+t('knižnica DanubraBank je načítaná', Bnk);
+t('modul Bank', sandbox.Bank);
+if (Bnk) {
+  // Import musí zvládnuť to, čo naozaj vypadne z internet bankingu.
+  const r = Bnk.parseCsv('﻿Dátum;Suma;VS\n05.10.2026;1 234,56;2026001');
+  t('výpis sa prečíta aj s BOM a slovenským zápisom čísla',
+    r.rows.length === 1 && r.rows[0].amount === 123456);
+  t('každý pohyb dostane odtlačok', !!r.rows[0].import_hash);
+  // Ten istý riadok dvakrát v jednom súbore sa naimportuje raz.
+  const dup = Bnk.parseCsv('Datum;Suma\n05.10.2026;100,00\n05.10.2026;100,00');
+  t('duplicita v jednom súbore sa zachytí', dup.rows.length === 1);
+  // Nečitateľné riadky sa nezahadzujú ticho.
+  t('nečitateľný riadok sa vypíše, nezahodí',
+    Bnk.parseCsv('Datum;Suma\n05.10.2026;nezmysel').skipped.length === 1);
+  // Toto je tá otázka, na ktorú cash-flow odpovedá.
+  const tight = Bnk.forecast({
+    balance: 100000, weeks: 4, today: '2026-10-01',
+    items: [{ expected_on: '2026-10-03', amount: -5000 }],
+  });
+  t('chýbajúce peniaze na výplaty sa ukážu dopredu', !!tight.negativeFrom);
+  t('a škálovanie sa zablokuje',
+    Bnk.scaleCheck(tight, {}).reasons.some(r2 => r2.rule === 'cash_negative'));
+}
+
 // ── Serverové funkcie ──────────────────────────────────────────────────────
 // Netlify robí z každého súboru v `netlify/functions/` funkciu a názov smie
 // mať len písmená, číslice, pomlčky a podčiarkovníky. Súbor s bodkou

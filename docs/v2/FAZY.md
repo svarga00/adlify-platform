@@ -598,3 +598,94 @@ faktúry beží živý prepočet.
 ### Testy
 
 1089 testov v dvadsiatich jednej sade a smoke test nad 54 súbormi.
+
+---
+
+## F8 — Banka a cash-flow
+
+**Stav:** hotová · 17. 9. 2026 · migrácia 020 je aplikovaná v produkcii
+
+### Prečo je to tu
+
+Podľa biznis plánu je **likvidita najpravdepodobnejší dôvod zlyhania** — nie
+nedostatok dopytu. Odberateľ platí za 30–60 dní, živnostníkom sa platí do 14.
+Rozdiel treba vidieť dopredu, nie v deň, keď nie je na výplaty.
+
+Preto je prvé, čo na obrazovke vidíš, odpoveď na otázku **„bude na výplaty?"**
+— nie tabuľka pohybov.
+
+### Čo je hotové
+
+**Databáza** (`020_v2_f8_banka_cashflow.sql`)
+
+- `danubra_bank_transactions` s unikátnym `import_hash`.
+- **Trigger `danubra_bank_match_marks_paid()`** — spárovaný pohyb označí
+  doklad ako uhradený. Peniaze na účte sú tvrdší fakt než klik v appke.
+- `danubra_bank_automatch()` — príjmy podľa variabilného symbolu, výdaje
+  podľa IBAN-u a sumy.
+- `danubra_v_cashflow` — čo má prísť a čo odísť, aj s dátumom.
+- Dva unikátne indexy: **jedna faktúra, jeden pohyb.**
+
+**Kód**
+
+- `lib/bank.js` — import výpisu, odtlačok riadku, výhľad a prah škálovania.
+  91 testov.
+- `js/modules/bank.js` — cash-flow panel a pohyby s párovaním.
+
+### Tri veci, ktoré drží databáza
+
+1. **Ten istý výpis sa nenaimportuje dvakrát.** `import_hash` je unikátny.
+   Bez toho by sa dvakrát naimportovaný výpis tváril ako dvojnásobný príjem —
+   a to je presne tá chyba, po ktorej sa rozhoduje o škálovaní naslepo.
+2. **Spárovaný pohyb označí doklad ako uhradený**, nie naopak.
+3. **Dva pohyby na tú istú faktúru** sú spravidla chyba párovania
+   a databáza ich nepustí.
+
+### Ďalšie rozhodnutia
+
+**Import je tolerantný k formátu.** Každá banka exportuje CSV inak: iný
+oddeľovač, iné názvy stĺpcov, iný zápis čísla, BOM na začiatku. Parser hľadá
+stĺpce podľa významu, nie podľa poradia — zvláda slovenské, anglické aj
+nemecké hlavičky.
+
+**Riadky, ktoré sa nedali prečítať, sa vypíšu.** Nezahadzujú sa ticho, lebo
+inak by sa stratil pohyb a nikto by nevedel prečo.
+
+**Automatické párovanie radšej nespáruje, než spáruje zle.** Príjem chce
+variabilný symbol zhodný s číslom faktúry; výdaj IBAN aj sumu. Čo si nie je
+isté, nechá človeku.
+
+**V cash-flow sa počíta suma po zrážke §48b**, nie fakturovaná — na účet
+príde ona.
+
+### Čo treba otestovať rukami
+
+1. **Import** — nahraj CSV z internet bankingu. Pred uložením musí byť
+   vidieť príjmy, výdaje, obdobie a počet riadkov, ktoré sa nedali prečítať.
+2. **Dvojitý import** — nahraj ten istý súbor druhýkrát. Musí povedať,
+   koľko pohybov už bolo v systéme, a nepridať nič.
+3. **Párovanie** — „Spárovať automaticky". Faktúra s variabilným symbolom sa
+   spáruje a sama sa označí ako uhradená.
+4. **Výhľad** — cash-flow panel. Ak by účet mal spadnúť do mínusu, musí to
+   byť napísané hore ako blokátor, nie schované v tabuľke.
+
+### Čo zostalo otvorené
+
+- **Zostatok sa počíta zo všetkých naimportovaných pohybov**, nie z toho, čo
+  hlási banka. Kým sa naimportuje celá história, bude to číslo nižšie než
+  skutočnosť. Počiatočný zostatok sa dá doplniť ako jeden ručný pohyb.
+- **Náklady sa automaticky nepárujú.** Stĺpec `matched_cost_id` existuje
+  a ručne sa priradiť dá, ale automat rieši len faktúry — pri nákladoch
+  nie je čo spoľahlivo porovnať.
+- **Windows-1250 sa nerozpozná.** Súbor sa číta ako UTF-8; pri inom kódovaní
+  sa rozsypú názvy protistrán, ale sumy ani dátumy nie.
+- **Výhľad je osem týždňov.** Dlhší by pri 30–60-dňovej splatnosti dával
+  falošnú istotu.
+
+### Testy
+
+1180 testov v dvadsiatich dvoch sadách a smoke test nad 56 súbormi.
+
+Proti reálnej databáze je overené: automatické spárovanie príjmu aj výdaja
+(2 z 2), obe strany sa označili ako uhradené, dvojitý import zablokovaný
+a druhý pohyb na tú istú faktúru tiež.
