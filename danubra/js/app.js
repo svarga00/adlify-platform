@@ -64,7 +64,8 @@ window.Danubra = {
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts']]],
     ['ĽUDIA',      [['hiring', 'Náborové plány', 'zap', 'staffing', 'recruiting'],
                     ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
-                    ['workers', 'Pracovníci', 'workers', 'staffing', null],
+                    ['workers', 'Živnostníci', 'workers', 'staffing', null],
+                    ['crews', 'Partie', 'workers', 'staffing', null],
                     ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
                     ['recruiting', 'Zápisy z hovorov', 'note', 'staffing', 'recruiting']]],
     // Ubytovania sú bez agendy zámerne — po archivácii obchodnej časti

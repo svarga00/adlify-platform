@@ -44,6 +44,8 @@
     docsOf(id) { return this.docs.filter(d => d.worker_id === id); },
     statusBadge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
     professionLabel(p) { const x = PROFESSIONS.find(y => y[0] === p); return x ? x[1] : (p || '—'); },
+    /** Zoznam remesiel pre iné moduly (partie), nech ho nemajú dvakrát. */
+    professions() { return PROFESSIONS.slice(); },
 
     /** Stav dokladov pracovníka — A1 je kritické pre vyslanie. */
     docStatus(workerId) {

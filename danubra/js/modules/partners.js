@@ -16,7 +16,7 @@
       const [p, s, i] = await Promise.all([
         DB.list('partners', { order: { column: 'created_at', ascending: false }, limit: 300 }),
         DB.list('subcontracts', { select: 'id,partner_id,title,status,charge_rate', limit: 500 }),
-        DB.list('invoices', { select: 'id,client_id,total,status,issue_date,due_date,paid_at,type', limit: 1000 }),
+        DB.list('invoices', { select: 'id,partner_id,client_id,total,status,issue_date,due_date,paid_at,type', limit: 1000 }),
       ]);
       this.items = p.data || []; this.subcontracts = s.data || []; this.invoices = i.data || [];
       this.loaded = true;
@@ -91,9 +91,12 @@
       const p = this.items.find(x => x.id === id);
       if (!p) return UI.toast('Nenájdené', 'err');
       const subs = this.subsOf(id);
-      // doba inkasa počítaná z faktúr tomuto odberateľovi
-      const inv = this.invoices.filter(i => i.client_id === id);
-      const cf = DanubraCompliance.cashflowCheck({ invoices: inv, alertDays: p.payment_terms_days || 45 });
+      // Faktúry sa viažu cez `partner_id`. Do F3 sa tu filtrovalo cez
+      // `client_id`, ktorý ukazuje na klientov z agendy ubytovania — takže
+      // tento panel nikdy nemal čo zobraziť a ticho ukazoval nulu.
+      const inv = this.invoices.filter(i => i.partner_id === id);
+      const disc = DanubraPayment.discipline(inv);
+      const suggested = DanubraPayment.suggestRating(disc, { termsDays: p.payment_terms_days });
 
       const rows = [
         ['USt-IdNr', p.ust_idnr], ['Kontakt', p.contact_person],
@@ -116,14 +119,32 @@
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${p.notes ? `<div class="notebox">${UI.esc(p.notes)}</div>` : ''}
 
-        ${inv.length ? `
         <div class="form-section">Platobná disciplína</div>
-        <div class="service-total" style="background:${cf.scaleSafe ? 'var(--green-50)' : 'var(--amber-50)'};border-color:${cf.scaleSafe ? '#BEE3CE' : '#F1D8A6'};">
-          <div><div class="code-label">Priemerná doba inkasa</div>
-            <div style="font-size:22px;font-weight:800;">${cf.dso != null ? `${cf.dso} dní` : '—'}</div></div>
-          <div style="text-align:right;"><div class="code-label">Neuhradené</div>
-            <div style="font-weight:700;">${UI.money(cf.outstanding)}${cf.overdueCount ? ` · ${cf.overdueCount} po splatnosti` : ''}</div></div>
-        </div>` : ''}
+        ${disc.total ? `
+          <div class="kv">
+            <div><span>Priemerne platí za</span><strong>${
+              disc.avgDaysToPay != null
+                ? `${disc.avgDaysToPay} ${DanubraPayment.plural(disc.avgDaysToPay, 'deň', 'dni', 'dní')}`
+                : '—'}</strong></div>
+            <div><span>Do splatnosti</span><strong>${
+              disc.onTimePct != null ? `${disc.onTimePct} %` : '—'}</strong></div>
+            <div><span>Faktúr</span><strong>${disc.paid} z ${disc.total} uhradených</strong></div>
+            ${disc.overdue ? `<div><span>Po splatnosti</span><strong style="color:var(--red);">${
+              disc.overdue} · najdlhšie ${disc.oldestOverdueDays} ${
+              DanubraPayment.plural(disc.oldestOverdueDays, 'deň', 'dni', 'dní')}</strong></div>` : ''}
+          </div>
+          ${Shell.sums({ lines: DanubraPayment.sumLines(disc), totalLabel: 'Visí u odberateľa' })}
+          ${suggested.rating && suggested.rating !== p.rating ? `
+            <div class="regimebox" style="margin-top:10px;">
+              Z faktúr vychádza hodnotenie <strong>${suggested.rating.toUpperCase()}</strong>,
+              uložené je ${p.rating ? `<strong>${String(p.rating).toUpperCase()}</strong>` : 'prázdne'}.
+              ${UI.esc(suggested.reason)}
+              ${suggested.confident ? '' : ' (zatiaľ málo faktúr na istý záver)'}
+              <button class="btn btn-outline btn-sm" style="margin-top:8px;"
+                onclick="Prt.applyRating('${p.id}','${suggested.rating}')">Prepísať na ${suggested.rating.toUpperCase()}</button>
+            </div>` : ''}
+        ` : `<div style="color:var(--ink-mute);font-size:13px;">
+            Zatiaľ žiadna faktúra tomuto odberateľovi — nie je z čoho počítať.</div>`}
 
         <div class="form-section">Zákazky (${subs.length})</div>
         ${subs.map(s => `<button class="list-row" onclick="UI.closeModal();Danubra.go('subcontracts');setTimeout(()=>Sub.detail('${s.id}'),300)">
@@ -182,6 +203,19 @@
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
       await this.load(); Danubra.renderRoute();
+    },
+
+    /**
+     * Prepíše hodnotenie na to, čo vychádza z faktúr. Robí sa to na kliknutie,
+     * nie automaticky — hodnotenie je obchodné rozhodnutie a niekedy vieš
+     * o odberateľovi viac než jeho platobný kalendár.
+     */
+    async applyRating(id, rating) {
+      const { error } = await DB.update('partners', id, { rating });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const p = this.items.find(x => x.id === id); if (p) p.rating = rating;
+      UI.toast('Hodnotenie prepísané', 'ok');
+      this.detail(id);
     },
 
     async del(id) {

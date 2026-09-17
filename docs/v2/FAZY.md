@@ -160,3 +160,81 @@ Spustenie: `npm test`.
 ### Testy
 
 679 testov v štrnástich sadách a smoke test nad 44 súbormi.
+
+---
+
+## F3 — Partie a odberatelia
+
+**Stav:** hotová · 17. 9. 2026 · migrácia 015 je aplikovaná v produkcii
+
+### Čo je hotové
+
+**Databáza** (`015_v2_f3_partie_odberatelia.sql`)
+
+- `danubra_crews` a `danubra_crew_members` — partia a členstvo s trvaním.
+  Odchod sa zapisuje cez `left_at`, riadok sa nemaže: RLS má select, insert
+  a update, nie delete.
+- Trigger `danubra_crew_leader_is_member()` — predák je vždy aj členom
+  a je vždy len jeden. Drží sa to v databáze, nie v UI, lebo partiu môže
+  založiť aj import alebo skript.
+- `danubra_workers.crew_id` konečne dostal cudzí kľúč (v F2 ostal bez neho,
+  lebo tabuľka partií ešte nebola).
+- Odberatelia: `sf_client_id`, `default_charge_rate`, `invoice_language`,
+  `reverse_charge`, `status`.
+- **`danubra_invoices.partner_id`** — chýbajúca väzba, pozri nižšie.
+- `danubra_v_partner_payment` — platobná disciplína počítaná v SQL.
+
+**Kód**
+
+- `lib/staffing/crews.js` — kto je v partii **ku dňu**, zloženie partie
+  a pravidlo R5. 52 testov.
+- `lib/partners/payment.js` — doba inkasy, podiel úhrad načas, návrh
+  hodnotenia s dôvodom. 52 testov.
+- `js/modules/crews.js` — nová obrazovka Partie.
+- `js/modules/partners.js` — platobná disciplína z reálnych dát.
+
+### Čo sa cestou opravilo
+
+**Vydané faktúry nemali väzbu na nemeckého odberateľa.** Modul odberateľov
+filtroval faktúry cez `client_id`, ktorý ukazuje na `danubra_clients` —
+agendu ubytovania. Panel „Platobná disciplína" preto nikdy nemal čo
+zobraziť a ticho ukazoval nulu; vyzeralo to, že odberateľ nemá faktúry.
+Pribudol `partner_id`, `client_id` zostáva pre historické záznamy (R4).
+Zapísané ako R10.
+
+### Čo treba otestovať rukami
+
+1. **Nová partia** — ĽUDIA → Partie → Nová partia. Predák sa dá zvoliť až
+   pri úprave, keď má partia členov.
+2. **Predák sa pridá sám** — zvoľ za predáka niekoho, kto v partii je.
+   Pri zmene predáka musí ten starý spadnúť na „člen" a predák zostať jeden.
+3. **Ukončenie členstva** — človek zmizne z „Členovia" a objaví sa v „Boli
+   v partii" aj s obdobím. Nič sa nezmaže.
+4. **Fakturácia partie** — v detaile nie je a nesmie pribudnúť tlačidlo na
+   spoločnú faktúru. Je tam vysvetlenie prečo a zoznam členov, ktorým chýbajú
+   fakturačné údaje.
+5. **Odberateľ** — panel platobnej disciplíny. Zatiaľ ukáže „zatiaľ žiadna
+   faktúra", lebo jediná faktúra v databáze patrí klientovi z ubytovania.
+   Pribudne obsah, keď sa vo F6 začnú vystavovať faktúry cez `partner_id`.
+
+### Čo zostalo otvorené
+
+- **Nasadenie partie na zákazku** ešte nie je — partia sa zatiaľ nedá
+  priradiť k zákazke ako celok. Patrí to k nasadeniam vo F5.
+- **`default_charge_rate` a `reverse_charge` sa zatiaľ nikde nepoužívajú.**
+  Stĺpce sú pripravené pre ponuky (F4) a fakturáciu (F6).
+- **Hodnotenie odberateľa sa neprepisuje samo.** Appka navrhne, čo vychádza
+  z faktúr, aj s dôvodom — prepísať to treba kliknutím. Je to obchodné
+  rozhodnutie, nie výpočet.
+- **`crew_id` na pracovníkovi je duplicita** k `danubra_crew_members`.
+  Zatiaľ ho nikto nezapisuje; členstvo drží tabuľka, lebo má trvanie.
+  Stĺpec sa buď začne plniť ako skratka na aktuálnu partiu, alebo padne —
+  rozhodne sa vo F5, keď sa ukáže, ako sa partie nasadzujú.
+
+### Testy
+
+783 testov v šestnástich sadách a smoke test nad 47 súbormi.
+
+Zhodu JS a SQL overili dva testy proti reálnej databáze v transakcii, ktorá
+sa zrolovala: trigger predáka a platobná disciplína (5/3/1 faktúr,
+3 500 € neuhradených, 31,0 dňa priemer, 67 % načas — identicky v oboch).

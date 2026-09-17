@@ -129,3 +129,41 @@ Dokumentácia to nehovorí jednoznačne:
 - či sa dá priložiť súbor rovno pri `POST /expenses/add`.
 
 Zistí sa pri F6/F7 a dopíše sem.
+
+---
+
+## R9 — `avg_days_to_pay` je pohľad, nie stĺpec
+
+**Dátum:** 17. 9. 2026
+**Zadanie hovorilo:** `alter table danubra_partners add column avg_days_to_pay
+numeric; -- počíta sa`
+
+**Rozhodnutie:** nepridáva sa stĺpec. Platobná disciplína je
+`danubra_v_partner_payment` — pohľad, ktorý sa počíta z faktúr pri každom
+dotaze.
+
+Dôvod: uložené číslo, ktoré „sa počíta", sa v praxi prepočítava niekde
+v crone a medzi dvomi behmi klame. Pri piatich faktúrach na odberateľa nie
+je čo optimalizovať; keď ich raz budú tisíce, dá sa z pohľadu spraviť
+materializovaný bez zmeny volajúceho kódu.
+
+Rovnaké pravidlá sú aj v `lib/partners/payment.js`, aby sedeli čísla na
+dashboarde a v detaile. Zhodu overuje test proti reálnej databáze.
+
+---
+
+## R10 — Faktúra dostáva `partner_id`
+
+**Dátum:** 17. 9. 2026 · nájdené pri F3
+
+**Zistenie:** `danubra_invoices` nemala väzbu na nemeckého odberateľa.
+Modul odberateľov filtroval faktúry cez `client_id`, ktorý ukazuje na
+`danubra_clients` — agenda ubytovania. Panel platobnej disciplíny preto
+nikdy nemal čo zobraziť a ticho ukazoval nulu.
+
+**Rozhodnutie:** pribudol `danubra_invoices.partner_id`. `client_id` zostáva
+pre historické záznamy podľa R4 a oba stĺpce sú okomentované priamo
+v databáze, aby si to niekto nevyložil ako duplicitu.
+
+Existujúcu faktúru nikto neprepisuje — jediná v databáze naozaj patrí
+klientovi z ubytovania.

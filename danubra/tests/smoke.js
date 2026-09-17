@@ -196,6 +196,40 @@ t('DB má rpc helper', sandbox.DB && typeof sandbox.DB.rpc === 'function');
 t('typy dokladov sa berú z číselníka',
   sandbox.Wrk && typeof sandbox.Wrk.docKinds === 'function' && sandbox.Wrk.docKinds().length > 0);
 
+// ── Partie ─────────────────────────────────────────────────────────────────
+const Cr = sandbox.DanubraCrews;
+t('knižnica DanubraCrews je načítaná', Cr);
+t('modul Crews', sandbox.Crews);
+if (Cr) {
+  // R5 je tvrdé pravidlo — nesmie sa dať prepnúť.
+  t('za partiu fakturuje každý sám (R5)',
+    Cr.invoicePlan({ members: [], workers: [] }).perMember === true);
+  t('a je napísané prečo',
+    Cr.invoicePlan({ members: [], workers: [] }).note.includes('Arbeitnehmerüberlassung'));
+  t('prázdna partia sa nenasadzuje', Cr.review({}).ok === false);
+  // Členstvo má trvanie — bez toho by sa spätne nedalo povedať, kto kde bol.
+  const hist = [{ worker_id: 'w1', joined_at: '2026-01-01', left_at: '2026-06-01' }];
+  t('bývalý člen sa v minulosti nájde', Cr.wasMember(hist, 'w1', '2026-03-01'));
+  t('a v prítomnosti už nie', !Cr.wasMember(hist, 'w1', '2026-09-01'));
+}
+t('partie nemajú ako vystaviť spoločnú faktúru',
+  sandbox.Crews && !/faktúr[au] za partiu/i.test(String(sandbox.Crews.detail)));
+
+// ── Platobná disciplína odberateľa ─────────────────────────────────────────
+const Pay = sandbox.DanubraPayment;
+t('knižnica DanubraPayment je načítaná', Pay);
+if (Pay) {
+  t('bez uhradenej faktúry sa nehodnotí',
+    Pay.suggestRating(Pay.discipline([])).rating === null);
+  t('disciplína počíta v centoch',
+    Pay.discipline([{ total: 0.1, status: 'sent', due_date: '2099-01-01' },
+                    { total: 0.2, status: 'sent', due_date: '2099-01-01' }]).outstanding === 30);
+}
+// Faktúry sa viažu na odberateľa cez partner_id, nie cez client_id —
+// ten patrí agende ubytovania (R4).
+t('odberateľ číta faktúry cez partner_id',
+  sandbox.Prt && /i\.partner_id === id/.test(String(sandbox.Prt.detail)));
+
 // ── Prepínač agend v nastaveniach ──────────────────────────────────────────
 // Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
 const Cfg = sandbox.Cfg;
