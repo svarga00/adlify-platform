@@ -7,9 +7,15 @@
 //
 // Prihlasovacia obrazovka aj appka sú v HTML skryté a odkrýva ich až kód.
 // Keď sa predtým čokoľvek pokazí, stránka zostane úplne biela a bez hlášky.
-// Presne to sa stalo v prevádzke, keď sa nenačítal klient Supabase.
 //
-// Tento test teda spustí naozajstný prehliadač a pozrie sa, či je tam text.
+// Test preto beží nad **nasadeným usporiadaním**: servíruje koreň repozitára
+// a uplatní presmerovania z `netlify.toml`, presne ako Netlify. Prvá verzia
+// tohto testu načítavala rovno `danubra/index.html` — a práve preto prehliadla
+// chybu, pre ktorú bola stránka biela: koreň „/" sa prepisoval na obsah
+// `/danubra/index.html`, ale adresa zostala „/", takže sa relatívne cesty
+// vyhodnotili o úroveň vyššie a **všetko skončilo na 404**.
+//
+// Testovať treba to, čo je nasadené, nie pohodlný podadresár.
 //
 // Bez `playwright-core` sa preskočí — nie je to dôvod zhodiť `npm test`
 // na stroji, kde prehliadač nie je.
@@ -18,7 +24,8 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
-const ROOT = path.join(__dirname, '..');
+const APP = path.join(__dirname, '..');           // danubra/
+const REPO = path.join(APP, '..');                // koreň repozitára
 
 let chromium;
 try {
@@ -49,12 +56,34 @@ const MIME = {
   '.svg': 'image/svg+xml', '.png': 'image/png',
 };
 
-function serve() {
+/** Presmerovania z netlify.toml, aby test nebežal na inom nastavení než ostro. */
+function readRedirects() {
+  const toml = fs.readFileSync(path.join(REPO, 'netlify.toml'), 'utf8');
+  const out = [];
+  const re = /\[\[redirects\]\][^[]*?from\s*=\s*"([^"]+)"[^[]*?to\s*=\s*"([^"]+)"[^[]*?status\s*=\s*(\d+)/g;
+  let m;
+  while ((m = re.exec(toml))) out.push({ from: m[1], to: m[2], status: Number(m[3]) });
+  return out;
+}
+
+function serve(redirects) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      const rel = decodeURIComponent(req.url.split('?')[0]);
-      const file = path.join(ROOT, rel === '/' ? 'index.html' : rel);
-      if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+      let rel = decodeURIComponent(req.url.split('?')[0]);
+
+      const r = redirects.find(x => x.from === rel);
+      if (r) {
+        if (r.status >= 300 && r.status < 400) {
+          res.writeHead(r.status, { Location: r.to });
+          return res.end();
+        }
+        rel = r.to;   // prepis (200) — adresa sa nemení
+      }
+      // Netlify servíruje index.html pre adresár.
+      if (rel.endsWith('/')) rel += 'index.html';
+
+      const file = path.join(REPO, rel);
+      if (!file.startsWith(REPO) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
         res.writeHead(404); return res.end('nenájdené');
       }
       res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
@@ -80,8 +109,11 @@ console.log('Prehliadač');
     process.exit(0);
   }
 
-  const { server, port } = await serve();
-  const url = `http://127.0.0.1:${port}/index.html`;
+  const redirects = readRedirects();
+  const { server, port } = await serve(redirects);
+  const base = `http://127.0.0.1:${port}`;
+  // Vstupná adresa je koreň — presne to, čo si človek napíše do prehliadača.
+  const url = `${base}/`;
   const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 
   try {
@@ -106,6 +138,24 @@ console.log('Prehliadač');
         `body.innerText je prázdny — biela stránka`);
       ok(!state.loginHidden, 'prihlasovacia obrazovka je viditeľná');
       ok(state.text.includes('Prihlásiť sa'), 'a dá sa na nej prihlásiť');
+      await page.close();
+    }
+
+    // ── Každá vstupná adresa musí fungovať ────────────────────────────────
+    // Koreň, adresár bez lomky aj priama cesta. Keď sa relatívne cesty
+    // vyhodnotia o úroveň vyššie, stránka je biela a nič to nepovie.
+    for (const entry of ['/', '/danubra', '/danubra/', '/danubra/index.html']) {
+      const page = await browser.newPage();
+      const notFound = [];
+      page.on('response', r => { if (r.status() === 404) notFound.push(r.url()); });
+      await page.goto(base + entry, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      const text = (await page.evaluate(() => (document.body.innerText || '').trim()));
+
+      ok(text.includes('Prihlásiť sa'), `adresa „${entry}" appku zobrazí`,
+        notFound.length ? `404: ${notFound.slice(0, 3).map(u => u.replace(base, '')).join(', ')}` : 'prázdna stránka');
+      ok(notFound.length === 0, `adresa „${entry}" nemá ani jeden 404`,
+        notFound.slice(0, 5).map(u => u.replace(base, '')).join(', '));
       await page.close();
     }
 
