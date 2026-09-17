@@ -261,6 +261,38 @@ t('dodatok sa zapisuje pred úpravou zmluvy', sandbox.Con && (() => {
   return src.indexOf("insert('contract_amendments'") < src.indexOf("update('contracts'");
 })());
 
+// ── Uzávierka obdobia ──────────────────────────────────────────────────────
+const Per = sandbox.DanubraPeriods;
+t('knižnica DanubraPeriods je načítaná', Per);
+if (Per) {
+  const asg = [{ id: 'a1', charge_rate: 34, worker_rate: 26 }];
+  const rows = [
+    { id: '1', assignment_id: 'a1', worker_id: 'w1', work_date: '2026-09-05',
+      hours: 8, activity_type: 'construction', approved: true },
+    { id: '2', assignment_id: 'a1', worker_id: 'w1', work_date: '2026-09-06',
+      hours: 8, activity_type: 'construction', approved: false },
+  ];
+  const pv = Per.preview({ timesheets: rows, assignments: asg,
+    from: '2026-09-01', to: '2026-09-30' });
+  // Do podkladu idú len schválené hodiny — rovnako ako v danubra_close_period().
+  t('do podkladu idú len schválené hodiny', pv.hours.construction === 8);
+  t('podklad počíta v centoch', pv.charged === 27200 && pv.cost === 20800);
+  t('neschválené hodiny sa nestratia, len sa vyčlenia', pv.unapproved.length === 1);
+  t('prázdne obdobie sa neuzatvára',
+    Per.review({ timesheets: [], assignments: asg, from: '2026-09-01', to: '2026-09-30' }).ok === false);
+  t('obdobie je celý kalendárny mesiac',
+    Per.nextPeriod([], '2026-09-17').to === '2026-09-30');
+  t('február sa počíta správne', Per.lastOfMonth('2028-02-01') === '2028-02-29');
+}
+// Uzávierka aj otvorenie späť idú cez databázu — v UI by sa nedalo zaručiť,
+// že sa súčty zmrazia v tej istej transakcii ako zmena stavu.
+t('uzávierka ide cez databázu',
+  sandbox.Sub && /rpc\('close_period'/.test(String(sandbox.Sub.closePeriod)));
+t('otvorenie späť pýta dôvod',
+  sandbox.Sub && /p_reason/.test(String(sandbox.Sub.reopenPeriod)));
+t('partia sa nasadzuje jednou operáciou',
+  sandbox.Sub && /rpc\('assign_crew'/.test(String(sandbox.Sub.assignCrew)));
+
 // ── Prepínač agend v nastaveniach ──────────────────────────────────────────
 // Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
 const Cfg = sandbox.Cfg;

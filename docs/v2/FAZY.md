@@ -318,3 +318,95 @@ existujúcu funkciu namiesto obchádzania.
 Trigger dodatkov je overený proti reálnej databáze v transakcii, ktorá sa
 zrolovala: rozpracovaná zmluva sa mení voľne, podpísaná bez dodatku neprejde,
 s dodatkom prejde, sadzba je chránená rovnako.
+
+---
+
+## F5 — Zákazky, nasadenia, výkazy hodín
+
+**Stav:** hotová · 17. 9. 2026 · migrácia 017 je aplikovaná v produkcii
+
+### Čo je hotové
+
+**Databáza** (`017_v2_f5_zakazky_nasadenia_hodiny.sql`)
+
+- Zákazka sa viaže na zmluvu (`contract_id`) a pozná `hwo_notified_at`
+  a `soka_registered_at`.
+- Nasadenie pozná `crew_id`, `worker_rate` a `overhead_per_hour` — takže
+  marža sa dá počítať na nasadení, nie len v ponuke.
+- `danubra_periods` — uzávierka obdobia. Súčty sa **ukladajú**, nie
+  dopočítavajú.
+- `danubra_assignment_checks` — checklist viazaný na kľúče pravidiel.
+  v1 mala `danubra_checklist_items` s voľným textom a nepoužila sa.
+- **Trigger `danubra_timesheet_period_frozen()`** — hodiny v uzavretom alebo
+  vyfakturovanom období sa nedajú zmeniť ani zmazať.
+- `danubra_assign_crew()` — nasadí celú partiu naraz, idempotentne.
+- `danubra_close_period()` a `danubra_reopen_period()`.
+- `danubra_v_subcontract_status` — zoznam zákaziek nemusí robiť päť dotazov
+  na riadok.
+
+**Kód**
+
+- `lib/staffing/periods.js` — náhľad uzávierky. 60 testov.
+- `js/modules/subcontracts.js` — obdobia, podklady a nasadenie partie.
+
+### Tri rozhodnutia, ktoré stoja za zmienku
+
+**Súčty sa ukladajú, nie dopočítavajú.** Keby sa dopočítavali, neskoršia
+zmena sadzby by spätne zmenila to, čo už bolo vyfakturované — a pri kontrole
+by sa nedalo povedať, ktoré číslo platilo.
+
+**Náhľad pred uzávierkou počíta to isté, čo potom zmrazí databáza.**
+Uzávierka je bod, po ktorom sa hodiny už nemenia, takže sa nesmie uzatvárať
+naslepo. Zhoda JS a SQL je overená proti reálnej databáze.
+
+**Neschválené hodiny neblokujú uzávierku, ale upozornia.** Sú to peniaze,
+ktoré sa nechávajú na stole — človek to má vidieť skôr, než podklad zmrazí.
+Nestratia sa: zarátajú sa, keď ich niekto schváli, prípadne v nasledujúcom
+období.
+
+### Uzavretá otázka z F2 a F3
+
+**`danubra_workers.crew_id`** prestal byť druhým zdrojom pravdy. Udržiava ho
+trigger podľa `danubra_crew_members`, takže je to cache, nie informácia,
+ktorú treba ručne synchronizovať. Podrobne ako R11 v `DECISIONS.md`.
+
+### Čo treba otestovať rukami
+
+1. **Nasadenie partie** — v detaile zákazky „Nasadiť celú partiu". Všetci
+   aktívni členovia pribudnú naraz. Spusti to druhýkrát — musí povedať, že
+   všetci už na zákazke boli, a nič nepridať.
+2. **Náhľad uzávierky** — „Nové obdobie" a potom „Uzavrieť". Pred kliknutím
+   musí byť vidieť hodiny po druhoch, fakturovanú sumu, náklad a maržu,
+   plus upozornenie na neschválené hodiny.
+3. **Zmrazenie** — po uzavretí skús v Odpracovaných hodinách zmeniť alebo
+   zmazať výkaz z toho obdobia. Musí to odmietnuť. To isté skús priamo
+   v SQL editore.
+4. **Otvorenie späť** — pýta dôvod a ten sa pripíše do poznámky obdobia.
+5. **Voľné hodiny** — hodiny, ktoré nie sú v žiadnom období, sa vypíšu ako
+   upozornenie. To je presne to, čo sa najľahšie prehliadne a zostane
+   nevyfakturované.
+
+### Čo zostalo otvorené
+
+- **`danubra_assignment_checks` sa zatiaľ nikde nekreslí.** Tabuľka je
+  hotová a viazaná na kľúče pravidiel, ale detail zákazky stále ukazuje
+  starý `danubra_checklist_items` z v1. Prepísať to znamená prerobiť celú
+  sekciu „Pred nasadením"; patrí to k F9, keď sa budú riešiť úlohy.
+- **`danubra_overrides` stále nikto nezapisuje.** Blokátor v kartotéke
+  živnostníka výnimku zatiaľ neponúka — `Shell.blocker` ju vie vykresliť,
+  ale zápis treba doplniť pri nasadení.
+- **Obdobie sa nedá vytvoriť inak než na celý mesiac.** Návrh hraníc je
+  mesačný; ručne sa dá prepísať až v databáze. Ak sa ukáže, že sa fakturuje
+  po týždňoch, pribudne to.
+- **Zákazka sa na zmluvu zatiaľ neviaže z UI.** Stĺpec `contract_id` existuje
+  a je okomentovaný, ale formulár zákazky ho neponúka.
+
+### Testy
+
+905 testov v osemnástich sadách a smoke test nad 51 súbormi.
+
+Proti reálnej databáze v transakcii, ktorá sa zrolovala, sú overené:
+nasadenie partie (2 prvýkrát, 0 druhýkrát), uzávierka (16 h stavebných,
+4,5 h cesta, 697 € fakturujeme, 517 € náklad — identicky v JS aj v SQL),
+zmrazenie období (zmena aj mazanie odmietnuté), otvorenie späť bez dôvodu
+odmietnuté a automatické dorovnanie `crew_id`.

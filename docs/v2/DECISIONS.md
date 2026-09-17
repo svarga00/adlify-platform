@@ -167,3 +167,26 @@ v databáze, aby si to niekto nevyložil ako duplicitu.
 
 Existujúcu faktúru nikto neprepisuje — jediná v databáze naozaj patrí
 klientovi z ubytovania.
+
+---
+
+## R11 — `danubra_workers.crew_id` je udržiavaná skratka, nie druhý zdroj pravdy
+
+**Dátum:** 17. 9. 2026 · uzavretá otázka z F2 a F3
+
+Stĺpec pribudol vo F2 podľa zadania a nikto ho nezapisoval. Otvorená otázka
+znela: stane sa z neho skratka, alebo padne?
+
+**Rozhodnutie:** zostáva, ale nedrží ho človek — drží ho trigger
+`danubra_worker_crew_sync()` podľa `danubra_crew_members`.
+
+Dôvod: pravda o členstve musí zostať v `danubra_crew_members`, lebo tam má
+trvanie — bez toho sa spätne nedá povedať, kto na ktorej stavbe bol. Ale
+otázka „v ktorej partii je tento človek teraz" sa pýta v každom zozname
+a dopočítavať ju zakaždým je zbytočné.
+
+Tým, že ho plní trigger, prestáva byť druhým zdrojom pravdy a stáva sa
+cache. Rozísť sa nemá ako. Stĺpec je okomentovaný priamo v databáze
+poznámkou „nezapisuj to ručne".
+
+Zmazať ho by znamenalo mazať, a zadanie hovorí opak.
