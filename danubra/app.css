@@ -867,3 +867,180 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   padding: 12px 18px; background: #fff; border-top: 1px solid var(--border);
   font-size: 12.5px; color: var(--ink-mute);
 }
+
+/* ============================================================================
+   v2 — zdieľané komponenty (js/components/shell.js)
+   ============================================================================ */
+
+/* ── Detail s bočným panelom ─────────────────────────────────────────────── */
+.dt-head {
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px 14px;
+  margin-bottom: 16px;
+}
+.dt-back {
+  display: flex; align-items: center; gap: 4px; padding: 6px 10px 6px 6px;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--card);
+  cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-sub);
+}
+.dt-back:hover { color: var(--ink); border-color: var(--ink-mute); }
+.dt-title { flex: 1; min-width: 0; }
+.dt-title h2 { margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+.dt-title span { display: block; margin-top: 2px; font-size: 13.5px; color: var(--ink-sub); }
+.dt-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.dt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.dt-cols { display: grid; gap: 16px; align-items: start; }
+.dt-main { min-width: 0; }
+.dt-aside { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.dt-aside-head {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  color: var(--ink-mute); text-transform: uppercase;
+}
+@media (min-width: 1000px) {
+  .dt-cols { grid-template-columns: minmax(0, 1fr) 320px; }
+  .dt-cols.dt-solo { grid-template-columns: minmax(0, 1fr); }
+  /* Bočný panel má pri telefonáte zostať na oku aj pri dlhom obsahu. */
+  .dt-aside { position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow-y: auto; }
+}
+
+.dt-block {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.dt-block-head {
+  font-size: 12px; font-weight: 700; color: var(--ink-sub);
+  margin-bottom: 8px; letter-spacing: .02em;
+}
+.dt-block-body { font-size: 13.5px; line-height: 1.5; }
+.dt-block.dt-warn { background: var(--amber-50); border-color: #F3D4B6; }
+.dt-block.dt-stop { background: var(--red-50); border-color: #F6CFCF; }
+.dt-block.dt-ok { background: var(--green-50); border-color: #C9EBD8; }
+
+.dt-fact {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 4px 0; font-size: 13px;
+}
+.dt-fact + .dt-fact { border-top: 1px solid var(--border-soft); }
+.dt-fact span { color: var(--ink-sub); }
+.dt-fact b { font-weight: 600; text-align: right; }
+.dt-fact b.mono { font-family: var(--mono); font-size: 12.5px; }
+
+/* Na mobile bočný panel skončí až pod obsahom, preto krátky pás dole. */
+.dt-mini {
+  position: sticky; bottom: 0; z-index: 5; margin: 12px -14px -14px;
+  padding: 10px 14px; background: var(--navy); color: #fff; font-size: 13px;
+}
+@media (min-width: 1000px) { .dt-mini { display: none; } }
+
+/* ── Zoznam s filtrom ────────────────────────────────────────────────────── */
+.rows { display: flex; flex-direction: column; gap: 10px; }
+.fb-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card); cursor: pointer; font-size: 13px; color: var(--ink-sub);
+}
+.fb-chip:hover { border-color: var(--ink-mute); color: var(--ink); }
+.fb-chip.active { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
+.fb-chip em {
+  font-style: normal; font-size: 11.5px; font-weight: 700;
+  padding: 1px 6px; border-radius: 999px; background: var(--field); color: var(--ink-sub);
+}
+.fb-chip.active em { background: rgba(255,255,255,.18); color: #fff; }
+.fb-count {
+  align-self: center; font-size: 12.5px; color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+.fb-right { margin-left: auto; display: flex; gap: 8px; }
+
+/* ── Poznámky (append-only) ──────────────────────────────────────────────── */
+.notes-rule { font-size: 11.5px; color: var(--ink-mute); }
+.notes-add { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 14px; }
+.notes-add textarea {
+  flex: 1; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--field); padding: 9px 11px; font: inherit; font-size: 13.5px;
+  resize: vertical; min-height: 44px;
+}
+.notes-add textarea:focus { outline: none; border-color: var(--brand); background: #fff; }
+.notes-list { display: flex; flex-direction: column; }
+.note { padding: 10px 0; }
+.note + .note { border-top: 1px solid var(--border-soft); }
+.note-meta {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 12px; color: var(--ink-mute); margin-bottom: 3px;
+}
+.note-meta b { font-size: 12.5px; font-weight: 700; color: var(--ink-sub); }
+.note-meta em {
+  font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 999px;
+  background: var(--field); color: var(--ink-sub);
+}
+.note-body { font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; }
+.notes-empty { font-size: 13px; color: var(--ink-mute); }
+
+/* ── Prehľad súm ─────────────────────────────────────────────────────────── */
+.sums {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.sums-compact { border: 0; padding: 0; background: none; }
+.sum-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 5px 0; font-size: 13.5px;
+}
+.sum-row span { color: var(--ink-sub); }
+.sum-row span em {
+  display: block; font-style: normal; font-size: 11.5px; color: var(--ink-mute);
+}
+.sum-row b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sum-row.sum-minus b { color: var(--red); }
+.sum-row.sum-info { opacity: .72; }
+.sum-row.sum-info b { font-weight: 500; }
+.sum-row.sum-total {
+  margin-top: 6px; padding-top: 9px; border-top: 1.5px solid var(--border);
+  font-size: 15px;
+}
+.sum-row.sum-total span { color: var(--ink); font-weight: 700; }
+.sum-row.sum-total b { font-size: 17px; font-weight: 800; }
+.sums-note { margin-top: 8px; font-size: 11.5px; color: var(--ink-mute); line-height: 1.5; }
+
+/* ── Blokátor ────────────────────────────────────────────────────────────── */
+.blocker { border-radius: var(--radius-sm); padding: 13px 15px; border: 1px solid; }
+.blocker-stop { background: var(--red-50); border-color: #F6CFCF; }
+.blocker-ok { background: var(--green-50); border-color: #C9EBD8; }
+.bl-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 14.5px; margin-bottom: 4px;
+}
+.blocker-stop .bl-head { color: var(--red); }
+.blocker-ok .bl-head { color: var(--green); }
+.bl-head span { font-size: 12.5px; font-weight: 500; color: var(--ink-sub); }
+.bl-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.bl-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+.bl-list li > svg { flex: none; margin-top: 2px; }
+.bl-list li b { display: block; font-weight: 600; }
+.bl-list li span { display: block; font-size: 12.5px; color: var(--ink-sub); margin-top: 1px; }
+.bl-list li em { font-style: normal; font-size: 11.5px; color: var(--green); font-weight: 600; }
+.bl-stop > svg { color: var(--red); }
+.bl-warn > svg { color: var(--amber); }
+.bl-waived > svg { color: var(--green); }
+.bl-ovr { margin-top: 12px; border-top: 1px solid rgba(220,42,42,.18); padding-top: 10px; }
+.bl-ovr summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-sub); }
+.bl-ovr p { margin: 8px 0; font-size: 12.5px; color: var(--ink-sub); line-height: 1.5; }
+.bl-ovr textarea {
+  width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; padding: 9px 11px; font: inherit; font-size: 13.5px;
+  resize: vertical; margin-bottom: 8px;
+}
+.bl-ovr textarea:focus { outline: none; border-color: var(--red); }
+.bl-noovr { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-sub); }
+.blocker .btn { margin-top: 10px; }
+
+/* ── Prepínač agend v Nastaveniach ───────────────────────────────────────── */
+.mod-row { padding: 10px 0; }
+.mod-row + .mod-row { border-top: 1px solid var(--border-soft); }
+.mod-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.mod-toggle input { width: 17px; height: 17px; accent-color: var(--brand); cursor: pointer; }
+.mod-toggle b { font-size: 14px; font-weight: 700; }
+.mod-row > span {
+  display: block; margin: 3px 0 0 26px;
+  font-size: 12.5px; color: var(--ink-sub); line-height: 1.5;
+}

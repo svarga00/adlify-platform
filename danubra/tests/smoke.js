@@ -153,10 +153,38 @@ if (D) {
   D.modules = restore; D.area = area;
 }
 
-// ── Peniaze ────────────────────────────────────────────────────────────────
+// ── Peniaze a číselníky ────────────────────────────────────────────────────
 t('knižnica Money je načítaná', sandbox.Money);
 t('Money počíta v centoch',
   sandbox.Money && sandbox.Money.add(sandbox.Money.toCents('0,1'), sandbox.Money.toCents('0,2')) === 30);
+t('knižnica Enums je načítaná', sandbox.Enums);
+t('Enums majú jednotky aj bez databázy',
+  sandbox.Enums && sandbox.Enums.label('unit', 'h') === 'hodina');
+
+// ── Zdieľané komponenty ────────────────────────────────────────────────────
+const Sh = sandbox.Shell;
+t('komponenty Shell sú načítané', Sh);
+if (Sh) {
+  t('detail sa poskladá s bočným panelom',
+    Sh.detail({ title: 'x', body: 'b', aside: 'a' }).includes('dt-aside'));
+  t('poznámky nemajú ako zmazať',
+    !Sh.notes({ notes: [{ body: 'x' }], onAdd: 'f()' }).includes('trash'));
+  t('súčty formátujú sumy cez Money',
+    Sh.sums({ lines: [{ label: 'x', cents: 873600 }] }).includes('8 736,00'));
+  t('blokátor povie prečo',
+    Sh.blocker({ reasons: [{ rule: 'missing_a1', label: 'Chýba A1' }] }).includes('Chýba A1'));
+  t('dôvod výnimky sedí s CHECK v migrácii 013', Sh.REASON_MIN === 5);
+}
+
+// ── Prepínač agend v nastaveniach ──────────────────────────────────────────
+// Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
+const Cfg = sandbox.Cfg;
+t('nastavenia vedia prepínať agendy', Cfg && typeof Cfg.toggleModule === 'function');
+t('prepínač pozná všetky agendy',
+  Cfg && D && Cfg.MODULES.length === Object.keys(D.modules).length);
+t('každá agenda z prepínača má význam v navigácii',
+  Cfg && D && Cfg.MODULES.every(([k]) =>
+    D.allNav().some(n => D.moduleOf(n) === k) || D.areas.some(a => a[0] === k)));
 
 let bad = 0;
 for (const [name, ok] of checks) { console.log((ok ? '  ✓ ' : '  ✗ ') + name); if (!ok) bad++; }
