@@ -1,17 +1,19 @@
 // ============================================================================
 // DANUBRA — app bootstrap, auth gate, navigácia, router
 // ============================================================================
-// Firma robí dve veci: posiela ľudí na nemecké stavby a zháňa im ubytovanie.
-// Preto dve agendy s vlastnou navigáciou — a mega menu, v ktorom je vidieť
-// všetko naraz, aby sa druhá polovica appky neschovávala za prepínačom.
+// Hlavný biznis je posielanie slovenských živnostníkov na nemecké stavby.
+// Sprostredkovanie ubytovania bolo v v1 druhá agenda; od v2 je archivované —
+// vypína sa príznakom `settings.modules.accommodation`, nie mazaním, takže
+// dáta aj väzby zostávajú a agenda sa dá kedykoľvek vrátiť.
+//
+// Databáza ubytovaní zostáva zapnutá vždy: ubytovanie je naďalej náklad
+// zákazky a argument v náborovom inzeráte (rozhodnutie R4).
 // ============================================================================
 window.Danubra = {
   user: null,
   route: 'dashboard',
 
-  // Dve agendy — prepínač pod logom. Navigácia sa podľa nich filtruje.
-  // Poradie určuje, čo je hlavný biznis: vysielanie ľudí je prvé a predvolené,
-  // ubytovanie ho dopĺňa, nie naopak.
+  // Agendy — prepínač pod logom. Navigácia sa podľa nich filtruje.
   // Kľúče zostávajú pôvodné, menia sa len názvy — inak by sa stratilo, čo má
   // človek uložené v prehliadači.
   areas: [
@@ -21,33 +23,67 @@ window.Danubra = {
   area: 'staffing',
   areaTitle(key) { const a = this.areas.find(x => x[0] === key); return a ? a[1] : 'Spoločné'; },
 
-  // Navigácia. Položka bez oblasti je spoločná pre obe.
-  // [key, label, ikona, oblasť?]
+  // ── Zapnuté moduly ───────────────────────────────────────────────────────
+  // Predvolené hodnoty sedia s tým, čo migrácia 013 zapísala do databázy,
+  // aby navigácia vyzerala správne už pri prvom vykreslení a neposkočila,
+  // keď dobehne dotaz.
+  modules: { recruiting: true, contracts: true, finance: true, accommodation: false },
+
+  /** Je modul zapnutý? Položka bez modulu je zapnutá vždy. */
+  moduleOn(key) { return key == null || this.modules[key] !== false; },
+
+  /** Modul, ktorý danú položku zapína — buď zapísaný, alebo podľa agendy. */
+  moduleOf(item) {
+    if (item[4] !== undefined) return item[4];
+    return item[3] === 'accommodation' ? 'accommodation' : null;
+  },
+
+  async _loadModules() {
+    try {
+      const { data } = await DB.list('settings', { select: 'modules', limit: 1 });
+      const m = data && data[0] && data[0].modules;
+      if (m && typeof m === 'object') this.modules = { ...this.modules, ...m };
+    } catch {
+      // Bez nastavení sa appka nezasekne — zostanú predvolené moduly.
+    }
+  },
+
+  /** Agendy, ktoré sa majú zobraziť. Agenda vypnutého modulu zmizne celá. */
+  visibleAreas() { return this.areas.filter(([key]) => this.moduleOn(key)); },
+
+  // Navigácia. Položka bez oblasti je spoločná pre všetky agendy.
+  // [key, label, ikona, oblasť?, modul?]
+  // Modul sa dá zapísať piatym prvkom; `null` znamená „nikdy sa neskrýva".
   navGroups: [
     ['PREHĽAD',    [['dashboard', 'Dashboard', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks']]],
     ['ZÁKAZKY',    [['active', 'Aktívne pobyty', 'active', 'accommodation'],
                     ['inquiries', 'Dopyty', 'inquiries', 'accommodation'],
                     ['offers', 'Ponuky', 'offers', 'accommodation'],
                     ['orders', 'Objednávky', 'orders', 'accommodation'],
-                    ['subcontracts', 'Zákazky', 'site', 'staffing'],
-                    ['timesheets', 'Odpracované hodiny', 'clock', 'staffing']]],
-    ['ĽUDIA',      [['hiring', 'Náborové plány', 'zap', 'staffing'],
-                    ['candidates', 'Kandidáti', 'user', 'staffing'],
-                    ['workers', 'Pracovníci', 'workers', 'staffing'],
-                    ['trades', 'Remeslá a otázky', 'wrench', 'staffing'],
-                    ['recruiting', 'Zápisy z hovorov', 'note', 'staffing']]],
-    ['DATABÁZA',   [['accommodations', 'Ubytovania', 'bed', 'accommodation'],
-                    ['clients', 'Firmy a kontakty', 'clients', 'accommodation'],
-                    ['partners', 'Odberatelia v Nemecku', 'clients', 'staffing']]],
-    ['PENIAZE',    [['invoices', 'Faktúry', 'invoices']]],
+                    ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
+                    ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts']]],
+    ['ĽUDIA',      [['hiring', 'Náborové plány', 'zap', 'staffing', 'recruiting'],
+                    ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
+                    ['workers', 'Pracovníci', 'workers', 'staffing', null],
+                    ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
+                    ['recruiting', 'Zápisy z hovorov', 'note', 'staffing', 'recruiting']]],
+    // Ubytovania sú bez agendy zámerne — po archivácii obchodnej časti
+    // zostávajú dostupné ako náklad zákazky (R4).
+    ['DATABÁZA',   [['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
+                    ['accommodations', 'Ubytovania', 'bed', undefined, null],
+                    ['clients', 'Firmy a kontakty', 'clients', 'accommodation']]],
+    ['PENIAZE',    [['invoices', 'Faktúry', 'invoices', undefined, 'finance']]],
     ['RAST',       [['marketing', 'Marketing', 'marketing']]],
-    ['SYSTÉM',     [['compliance', 'Compliance', 'shield', 'staffing'],
+    ['SYSTÉM',     [['compliance', 'Compliance', 'shield', 'staffing', null],
                     ['rules', 'Cenník a pravidlá', 'rules'],
                     ['settings', 'Nastavenia', 'settings']]],
   ],
 
-  /** Patrí položka do práve zvolenej oblasti? */
-  inArea(item) { return !item[3] || item[3] === this.area; },
+  /** Patrí položka do práve zvolenej oblasti a je jej modul zapnutý? */
+  inArea(item) {
+    if (!this.moduleOn(this.moduleOf(item))) return false;
+    return !item[3] || item[3] === this.area;
+  },
 
   /** Oblasť, do ktorej patrí daná obrazovka (null = spoločná). */
   areaOf(key) {
@@ -58,8 +94,14 @@ window.Danubra = {
     return null;
   },
 
+  /** Je obrazovka dostupná? Archivovaná obrazovka sa nesmie otvoriť ani z odkazu. */
+  routeAvailable(key) {
+    const it = this.allNav().find(x => x[0] === key);
+    return !!it && this.moduleOn(this.moduleOf(it));
+  },
+
   setArea(a) {
-    if (this.area === a) return;
+    if (this.area === a || !this.moduleOn(a)) return;
     this.area = a;
     try { localStorage.setItem('danubra_area', a); } catch {}
     // ak práve otvorená obrazovka do novej oblasti nepatrí, vráť sa na prehľad
@@ -94,11 +136,14 @@ window.Danubra = {
   labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'DANUBRA'; },
 
   async init() {
+    this.user = await DB.currentUser();
+    if (this.user) await this._loadModules();
     try {
       const saved = localStorage.getItem('danubra_area');
-      if (saved && this.areas.some(a => a[0] === saved)) this.area = saved;
+      if (saved && this.visibleAreas().some(a => a[0] === saved)) this.area = saved;
     } catch {}
-    this.user = await DB.currentUser();
+    // Uložená agenda mohla medzitým zmiznúť — stoj na prvej zapnutej.
+    if (!this.moduleOn(this.area)) this.area = (this.visibleAreas()[0] || ['staffing'])[0];
     DB.onAuth((user) => {
       const was = !!this.user;
       this.user = user;
@@ -144,6 +189,11 @@ window.Danubra = {
     btn.disabled = false; btn.textContent = 'Prihlásiť sa';
     if (error) { err.textContent = 'Nesprávny e-mail alebo heslo.'; err.hidden = false; return; }
     this.user = await DB.currentUser();
+    // Nastavenia sa dajú prečítať až po prihlásení — dovtedy platia predvolené
+    // moduly. Preto sa navigácia po prihlásení postaví znova.
+    await this._loadModules();
+    if (!this.moduleOn(this.area)) this.area = (this.visibleAreas()[0] || ['staffing'])[0];
+    this._buildNav();
     this._render();
   },
 
@@ -154,11 +204,16 @@ window.Danubra = {
   },
 
   _buildNav() {
-    // prepínač oblastí
+    // Prepínač oblastí. Pri jedinej zapnutej agende nemá čo prepínať — zmizne,
+    // aby sa nad navigáciou nevisel mŕtvy ovládač.
     const sw = document.getElementById('area-switch');
-    if (sw) sw.innerHTML = this.areas.map(([key, label, ico]) =>
-      `<button class="area-btn${this.area === key ? ' active' : ''}" onclick="Danubra.setArea('${key}')">
-        ${Icon(ico, 16)}<span>${label}</span></button>`).join('');
+    const areas = this.visibleAreas();
+    if (sw) {
+      sw.hidden = areas.length < 2;
+      sw.innerHTML = areas.length < 2 ? '' : areas.map(([key, label, ico]) =>
+        `<button class="area-btn${this.area === key ? ' active' : ''}" onclick="Danubra.setArea('${key}')">
+          ${Icon(ico, 16)}<span>${label}</span></button>`).join('');
+    }
 
     document.getElementById('sidebar-nav').innerHTML = this.navGroups.map(([glabel, items]) => {
       const visible = items.filter(i => this.inArea(i));
@@ -203,7 +258,8 @@ window.Danubra = {
   megaHtml() {
     const column = (areaKey) => {
       const groups = this.navGroups
-        .map(([glabel, items]) => [glabel, items.filter(i => (i[3] || null) === areaKey)])
+        .map(([glabel, items]) => [glabel, items.filter(i =>
+          (i[3] || null) === areaKey && this.moduleOn(this.moduleOf(i)))])
         .filter(([, items]) => items.length);
       if (!groups.length) return '';
       const isCurrent = areaKey && areaKey === this.area;
@@ -231,14 +287,15 @@ window.Danubra = {
         <strong>Kam chceš ísť?</strong>
         <button class="mega-x" onclick="Danubra.toggleMega(false)" aria-label="Zavrieť">${Icon('x', 18)}</button>
       </div>
+      ${this.visibleAreas().length < 2 ? '' : `
       <div class="mega-areas">
-        ${this.areas.map(([key, label, ico]) => `
+        ${this.visibleAreas().map(([key, label, ico]) => `
           <button class="mega-area${this.area === key ? ' active' : ''}"
             onclick="Danubra.setAreaFromMega('${key}')">
             ${Icon(ico, 17)}<span>${label}</span></button>`).join('')}
-      </div>
+      </div>`}
       <div class="mega-cols">
-        ${this.areas.map(a => column(a[0])).join('')}
+        ${this.visibleAreas().map(a => column(a[0])).join('')}
         ${column(null)}
       </div>
       <div class="mega-foot">
@@ -281,10 +338,12 @@ window.Danubra = {
   _syncRoute() {
     const m = (location.hash || '').match(/^#\/([a-z-]+)/);
     const key = m ? m[1] : 'dashboard';
-    this.route = this.allNav().some(n => n[0] === key) ? key : 'dashboard';
+    // Archivovaná obrazovka sa nesmie otvoriť ani starým odkazom alebo
+    // záložkou — inak by sa vypnutý modul dal obísť adresným riadkom.
+    this.route = this.routeAvailable(key) ? key : 'dashboard';
     // odkaz na obrazovku z druhej oblasti prepne aj prepínač
     const ar = this.areaOf(this.route);
-    if (ar && ar !== this.area) {
+    if (ar && ar !== this.area && this.moduleOn(ar)) {
       this.area = ar;
       try { localStorage.setItem('danubra_area', ar); } catch {}
       this._buildNav();
