@@ -504,8 +504,94 @@ t('každá agenda z prepínača má význam v navigácii',
   Cfg && D && Cfg.MODULES.every(([k]) =>
     D.allNav().some(n => D.moduleOf(n) === k) || D.areas.some(a => a[0] === k)));
 
-let bad = 0;
-for (const [name, ok] of checks) { console.log((ok ? '  ✓ ' : '  ✗ ') + name); if (!ok) bad++; }
-for (const f of failures) console.log('  ! ' + f);
-console.log(bad ? `\n${bad} zlyhalo\n` : `\nrozhranie sa poskladá (${loaded} súborov)\n`);
-process.exit(bad ? 1 : 0);
+// ── Prvá obrazovka po prihlásení ───────────────────────────────────────────
+// Prehľad je jediná obrazovka, ktorú človek uvidí vždy. Keď ukazuje čísla
+// z v1 — pobyty, ubytovania, mzdové odvody zamestnanca — celá appka pôsobí,
+// že sa nič nezmenilo, aj keď je pod tým všetko nové. Presne to sa stalo.
+//
+// Preto sa prehľad vykreslí naozaj, na vymyslených dátach, a skontroluje sa,
+// čo v ňom je a čo v ňom už nemá byť.
+async function dashboardCheck() {
+  if (!D) return;
+  const FIX = {
+    v_today: [
+      { id: '1', title: 'Doplniť A1', due_date: '1999-01-01', priority: 'high', entity_label: 'J. Novák' },
+      { id: '2', title: 'Zavolať odberateľovi', due_date: '2099-01-01', priority: 'normal' },
+    ],
+    v_subcontract_status: [
+      { id: 's1', status: 'active', active_assignments: 3, crews: 1, hours_open: 120 },
+    ],
+    periods: [{ id: 'p1', status: 'open', period_from: '1999-01-01', period_to: '1999-01-31' }],
+    invoices: [
+      { id: 'i1', status: 'pending_approval', total: '1000', due_date: '2099-01-01' },
+      { id: 'i2', status: 'sent', total: '500', due_date: '1999-01-01' },
+    ],
+    bills: [
+      { id: 'b1', status: 'received', amount: '200', due_date: '2099-01-01' },
+      { id: 'b2', status: 'disputed', amount: '50', due_date: '2099-01-01' },
+    ],
+    costs: [{ id: 'c1', amount: '80', cost_date: '2020-01-01' }],
+    v_worker_documents: [
+      { id: 'd1', validity: 'expired', worker_name: 'J. Novák', doc_type: 'a1' },
+      { id: 'd2', validity: 'expiring', worker_name: 'P. Kováč', doc_type: 'trade_licence' },
+    ],
+    candidates: [{ id: 'k1', status: 'new', first_contact_at: null }],
+    recruitment_plans: [{ id: 'r1', status: 'active', headcount: 5 }],
+    bank_transactions: [{ amount: '10000' }],
+    v_cashflow: [
+      { direction: 'in', amount: '500', expected_on: '1999-01-01', overdue: true, label: 'F1' },
+    ],
+  };
+  const asked = [];
+  const origList = sandbox.DB.list;
+  sandbox.DB.list = async (table) => { asked.push(table); return { data: FIX[table] || [] }; };
+  if (sandbox.Cfg) sandbox.Cfg.loaded = true;
+
+  const view = el();
+  try {
+    D.area = 'staffing';
+    await D.views.dashboard.call(D, view);
+  } finally {
+    sandbox.DB.list = origList;
+  }
+  const h = view.innerHTML;
+
+  // Tri otázky, kvôli ktorým prehľad existuje.
+  t('prehľad odpovedá, čo treba spraviť', /Čo treba spraviť/.test(h));
+  t('prehľad odpovedá, či bude na výplaty', /Bude na výplaty\?/.test(h));
+  t('prehľad odpovedá, či sa na tom zarába', /Zarábame na tom\?/.test(h));
+
+  // Čerpá z v2 dát, nie z počtov riadkov v starých tabuľkách.
+  for (const table of ['v_today', 'v_subcontract_status', 'periods', 'bills', 'v_cashflow',
+    'v_worker_documents', 'bank_transactions']) {
+    t(`prehľad sa pýta na ${table}`, asked.includes(table));
+  }
+
+  // Konkrétne veci, ktoré blokujú biznis, sú vidieť hneď.
+  t('neplatný doklad je na prehľade vidieť', /po platnosti/.test(h));
+  t('neuzavreté obdobie je na prehľade vidieť', /na uzavretie/.test(h));
+  t('faktúra čakajúca na schválenie je vidieť', /na schválenie/.test(h));
+  t('sporná prijatá faktúra je vidieť', /sporn/.test(h));
+  t('úloha z pravidla je vidieť', /Doplniť A1/.test(h));
+
+  // A to, čo tam už nepatrí, tam naozaj nie je.
+  t('prehľad už nehovorí o ubytovacej agende', !/ubytovacia agenda/i.test(h));
+  t('prehľad už neráta mzdu zamestnanca',
+    !/1\.362/.test(String(D.views.dashboard)) && !/1\.362/.test(String(D._dashLoad)));
+
+  // Odznaky v navigácii napĺňa prehľad — inak by ich nemal kto napísať.
+  t('prehľad napĺňa odznaky v navigácii',
+    D.badges && D.badges.invoices === 2 && D.badges.workers === 1 && D.badges.costs === 2);
+}
+
+dashboardCheck()
+  .catch((e) => { failures.push(`prehľad — ${e && e.message}`); })
+  .then(() => {
+    let bad = 0;
+    for (const [name, ok] of checks) { console.log((ok ? '  ✓ ' : '  ✗ ') + name); if (!ok) bad++; }
+    for (const f of failures) console.log('  ! ' + f);
+    console.log(bad || failures.length
+      ? `\n${bad + failures.length} zlyhalo\n`
+      : `\nrozhranie sa poskladá (${loaded} súborov)\n`);
+    process.exit(bad || failures.length ? 1 : 0);
+  });

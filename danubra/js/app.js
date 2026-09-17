@@ -55,7 +55,7 @@ window.Danubra = {
   // [key, label, ikona, oblasť?, modul?]
   // Modul sa dá zapísať piatym prvkom; `null` znamená „nikdy sa neskrýva".
   navGroups: [
-    ['PREHĽAD',    [['dashboard', 'Dashboard', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks']]],
+    ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks']]],
     ['ZÁKAZKY',    [['active', 'Aktívne pobyty', 'active', 'accommodation'],
                     ['inquiries', 'Dopyty', 'inquiries', 'accommodation'],
                     ['offers', 'Ponuky', 'offers', 'accommodation'],
@@ -88,7 +88,7 @@ window.Danubra = {
   // Jedna veta ku každej položke. Ukazuje sa v mega menu, aby človek, ktorý
   // appku nepostavil, nemusel hádať, čo sa pod názvom skrýva.
   navHints: {
-    dashboard: 'Čo dnes treba spraviť a čo horí',
+    dashboard: 'Čo dnes treba spraviť, či bude na výplaty a či sa na tom zarába',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
     quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',
     contracts: 'Zmluvy o dielo a dodatky. Dohodnuté podmienky sa neprepisujú',
@@ -494,87 +494,300 @@ window.Danubra = {
     if (el) el.innerHTML = html || '';
   },
 
+  // ── Prehľad: dáta ──────────────────────────────────────────────────────────
+  // Prvá obrazovka po prihlásení nemá byť prehliadka databázy. Má odpovedať
+  // na tri otázky, ktoré sa v tomto biznise pýtajú každý deň:
+  //
+  //   1. Čo dnes treba spraviť?
+  //   2. Bude na výplaty?
+  //   3. Zarábame na tom?
+  //
+  // Všetko ostatné je až za nimi. Preto sa počíta z v2 dát — obdobia, prijaté
+  // faktúry, banka, doklady — nie z počtov riadkov v tabuľkách.
+
+  _dayISO() { return new Date().toISOString().slice(0, 10); },
+
+  /**
+   * Jeden Promise.all, nech obrazovka naskočí naraz. `DB.list` chyby nehádže,
+   * ale zbiera — router ich pod hlavičkou vypíše, takže prázdny prehľad sa
+   * nikdy netvári ako „nič tu nemáš".
+   */
+  async _dashLoad() {
+    const [today, subs, per, inv, bills, costs, docs, cands, plans, tx, cf] = await Promise.all([
+      DB.list('v_today', { limit: 200 }),
+      DB.list('v_subcontract_status', { limit: 200 }),
+      DB.list('periods', { select: 'id,subcontract_id,period_from,period_to,status', limit: 300 }),
+      DB.list('invoices', {
+        select: 'id,invoice_number,total,amount_net,withholding_amount,status,due_date,partner_id',
+        limit: 500,
+      }),
+      DB.list('bills', { select: 'id,bill_number,amount,status,due_date,worker_id', limit: 500 }),
+      DB.list('costs', { select: 'id,amount,cost_date', limit: 500 }),
+      DB.list('v_worker_documents', {
+        select: 'id,worker_id,worker_name,doc_type,validity,days_left,valid_to', limit: 1000,
+      }),
+      DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
+      DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
+      DB.list('bank_transactions', { select: 'amount', limit: 2000 }),
+      DB.list('v_cashflow', { limit: 1000 }),
+    ]);
+    if (window.Cfg && !Cfg.loaded) { try { await Cfg.load(); } catch {} }
+
+    const d = this._dayISO();
+    const S = (r) => r.data || [];
+    const openInv = (i) => !['paid', 'cancelled', 'draft'].includes(i.status);
+
+    const subsAll = S(subs);
+    const sites = subsAll.filter(s => s.status === 'active');
+    const invoices = S(inv);
+    const billsAll = S(bills);
+    const documents = S(docs);
+    const periods = S(per);
+    const candidates = S(cands);
+    const activePlans = S(plans).filter(p => p.status === 'active');
+
+    const f = DanubraBank.forecast({
+      balance: Money.sum(S(tx).map(t => Money.toCents(t.amount))),
+      items: S(cf), weeks: 8,
+    });
+
+    return {
+      today: d,
+      tasks: S(today),
+      sites,
+      deployed: sites.reduce((s, x) => s + Number(x.active_assignments || 0), 0),
+      crewsOut: sites.reduce((s, x) => s + Number(x.crews || 0), 0),
+      hoursOpen: sites.reduce((s, x) => s + Number(x.hours_open || 0), 0),
+      periodsDue: periods.filter(p => p.status === 'open' && p.period_to < d),
+      periodsClosed: periods.filter(p => p.status === 'closed'),
+      invApprove: invoices.filter(i => i.status === 'pending_approval'),
+      invOverdue: invoices.filter(i => openInv(i) && i.due_date && i.due_date < d),
+      billsToCheck: billsAll.filter(b => ['received', 'checked'].includes(b.status)),
+      billsDisputed: billsAll.filter(b => b.status === 'disputed'),
+      docsExpired: documents.filter(x => x.validity === 'expired'),
+      docsExpiring: documents.filter(x => x.validity === 'expiring'),
+      candWaiting: candidates.filter(c => c.status === 'new' && !c.first_contact_at),
+      plansActive: activePlans.length,
+      needPeople: activePlans.reduce((s, p) => s + (p.headcount || 0), 0),
+      forecast: f,
+      scale: DanubraBank.scaleCheck(f, window.Cfg ? Cfg.j('staffing') : {}),
+      econ: DanubraBills.economics({ invoices, bills: billsAll, costs: S(costs) }),
+    };
+  },
+
+  /**
+   * Veci, ktoré sa nedajú prehliadnuť. Úlohy sem nepatria — tie majú vlastnú
+   * kartu. Sem patrí len to, čo vypočítame z dát a na čo sa dá kliknúť.
+   */
+  _dashAlerts(x) {
+    const a = [];
+    const push = (dot, label, why, go) => a.push({ dot, label, why, go });
+
+    if (x.docsExpired.length) push('red',
+      `${x.docsExpired.length} ${Shell.plural(x.docsExpired.length, 'doklad je', 'doklady sú', 'dokladov je')} po platnosti`,
+      'Bez platného A1 alebo živnostenského nesmie nikto na stavbu.', 'workers');
+    if (x.periodsDue.length) push('red',
+      `${x.periodsDue.length} ${Shell.plural(x.periodsDue.length, 'obdobie čaká', 'obdobia čakajú', 'období čaká')} na uzavretie`,
+      'Kým sa obdobie neuzavrie, nevznikne podklad na faktúru.', 'subcontracts');
+    if (x.invApprove.length) push('amber',
+      `${x.invApprove.length} ${Shell.plural(x.invApprove.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} na schválenie`,
+      'Bez schválenia sa nevystaví ani neodošle.', 'invoices');
+    if (x.invOverdue.length) push('red',
+      `${x.invOverdue.length} ${Shell.plural(x.invOverdue.length, 'faktúra je', 'faktúry sú', 'faktúr je')} po splatnosti`,
+      'Zavolať skôr, než sa to natiahne na ďalší mesiac.', 'invoices');
+    if (x.billsToCheck.length) push('amber',
+      `${x.billsToCheck.length} ${Shell.plural(x.billsToCheck.length, 'prijatá faktúra čaká', 'prijaté faktúry čakajú', 'prijatých faktúr čaká')} na kontrolu`,
+      'Porovnať s odpracovanými hodinami, potom schváliť.', 'costs');
+    if (x.billsDisputed.length) push('red',
+      `${x.billsDisputed.length} ${Shell.plural(x.billsDisputed.length, 'prijatá faktúra je', 'prijaté faktúry sú', 'prijatých faktúr je')} sporná`,
+      'Rozdiel oproti hodinám treba dohodnúť so živnostníkom.', 'costs');
+    if (x.docsExpiring.length) push('amber',
+      `${x.docsExpiring.length} ${Shell.plural(x.docsExpiring.length, 'dokladu čoskoro skončí', 'dokladom čoskoro skončí', 'dokladom čoskoro skončí')} platnosť`,
+      'Vybaviť teraz, nie v deň, keď vyprší.', 'workers');
+    if (x.candWaiting.length) push('red',
+      `${x.candWaiting.length} ${Shell.plural(x.candWaiting.length, 'kandidát čaká', 'kandidáti čakajú', 'kandidátov čaká')} na prvý telefonát`,
+      'Cieľ je do desiatich minút — potom už berie prácu inde.', 'candidates');
+    return a;
+  },
+
+  _dashAlertsHtml(alerts) {
+    if (!alerts.length) {
+      return `<div class="card card-pad">
+        <div class="card-head"><div class="card-title">Vyžaduje pozornosť</div></div>
+        <div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">
+          Doklady platia, obdobia sú uzavreté, faktúry vybavené. Nič tu nevisí.
+        </div></div>`;
+    }
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Vyžaduje pozornosť</div>
+        <span class="badge" style="background:var(--amber-50);color:var(--amber);">${alerts.length}</span>
+      </div>
+      ${alerts.map(r => `
+        <button class="list-row" style="align-items:flex-start;" onclick="Danubra.go('${r.go}')">
+          <span class="dot ${r.dot}" style="margin-top:6px;"></span>
+          <span style="flex:1;">
+            <span style="font-weight:500;display:block;">${UI.esc(r.label)}</span>
+            <span style="color:var(--ink-mute);font-size:12.5px;">${UI.esc(r.why)}</span>
+          </span>
+          <span style="color:var(--ink-mute);display:flex;margin-top:4px;">${Icon('chevron', 15)}</span>
+        </button>`).join('')}
+    </div>`;
+  },
+
+  /** Úlohy z pravidiel (F9). Zobrazuje sa len to, čo horí — zvyšok je v Úlohách. */
+  _dashTasksHtml(x) {
+    const groups = DanubraTasks.group(x.tasks, x.today)
+      .filter(g => g.key === 'overdue' || g.key === 'today' || g.key === 'week');
+    let left = 6;
+    const shown = [];
+    for (const g of groups) {
+      if (left <= 0) break;
+      shown.push({ ...g, tasks: g.tasks.slice(0, left) });
+      left -= shown[shown.length - 1].tasks.length;
+    }
+    const rest = DanubraTasks.counts(x.tasks, x.today).total - (6 - Math.max(left, 0));
+
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Čo treba spraviť</div>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.go('tasks')">Všetky úlohy</button>
+      </div>
+      ${shown.length ? shown.map(g => `
+        <div class="form-section" style="margin-top:10px;">${UI.esc(g.label)}</div>
+        ${g.tasks.map(t => `
+          <button class="list-row" style="align-items:flex-start;" onclick="Danubra.go('tasks')">
+            <span class="dot ${g.tone === 'red' ? 'red' : g.tone === 'amber' ? 'amber' : ''}"
+                  style="margin-top:6px;"></span>
+            <span style="flex:1;">
+              <span style="font-weight:500;display:block;">${UI.esc(t.title || 'Úloha')}</span>
+              <span style="color:var(--ink-mute);font-size:12.5px;">
+                ${t.entity_label ? UI.esc(t.entity_label) + ' · ' : ''}${t.due_date ? UI.date(t.due_date) : 'bez termínu'}
+              </span>
+            </span>
+            <span style="color:var(--ink-mute);display:flex;margin-top:4px;">${Icon('chevron', 15)}</span>
+          </button>`).join('')}`).join('')
+        : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">
+             Žiadna úloha na dnes ani na tento týždeň.
+           </div>`}
+      ${rest > 0 ? `<div style="color:var(--ink-mute);font-size:12.5px;padding:8px 2px 0;">
+        a ${rest} ${Shell.plural(rest, 'ďalšia neskôr', 'ďalšie neskôr', 'ďalších neskôr')}</div>` : ''}
+    </div>`;
+  },
+
+  /** „Bude na výplaty?" — otázka, ktorá sa inak rieši pocitom. */
+  _dashCashHtml(x) {
+    const f = x.forecast, s = x.scale;
+    const tone = s.reasons.length ? 'red' : (s.warnings.length ? 'amber' : 'green');
+    const verdict = s.reasons.length
+      ? 'Ďalších ľudí zatiaľ neber'
+      : (s.warnings.length ? 'Vyjde to, ale tesne' : 'Na výplaty aj na ďalších ľudí to vyjde');
+
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Bude na výplaty?</div>
+        ${UI.badge(verdict, tone)}
+      </div>
+      <div class="kv" style="margin:0 0 10px;">
+        <div><span>Na účte dnes</span><strong>${Money.format(f.startBalance)}</strong></div>
+        <div><span>Najnižší bod (8 týždňov)</span><strong style="${f.lowest.balance < 0 ? 'color:var(--red);' : ''}">${
+          Money.format(f.lowest.balance)}</strong></div>
+        <div><span>Po splatnosti čaká</span><strong>${Money.format(f.overdue.in)}</strong></div>
+        <div><span>O osem týždňov</span><strong>${Money.format(f.endBalance)}</strong></div>
+      </div>
+      ${[...s.reasons, ...s.warnings].slice(0, 3).map(r => `
+        <div class="list-row" style="cursor:default;align-items:flex-start;">
+          <span class="dot ${r.severity === 'block' ? 'red' : 'amber'}" style="margin-top:5px;"></span>
+          <span style="flex:1;font-size:12.5px;"><strong>${UI.esc(r.label)}</strong>
+            <span style="color:var(--ink-mute);display:block;">${UI.esc(r.detail || '')}</span></span>
+        </div>`).join('')}
+      <button class="btn btn-outline btn-sm" style="margin-top:10px;"
+        onclick="Danubra.go('bank')">Celý výhľad</button>
+    </div>`;
+  },
+
+  /** „Zarábame na tom?" — fakturované mínus to, čo sa na to minulo. */
+  _dashMarginHtml(x) {
+    const e = x.econ;
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Zarábame na tom?</div>
+        ${e.marginPct != null ? UI.badge(`marža ${e.marginPct} %`,
+          e.marginPct >= 15 ? 'green' : (e.marginPct >= 8 ? 'amber' : 'red')) : ''}
+      </div>
+      <div class="kv" style="margin:0;">
+        <div><span>Vyfakturované odberateľom</span><strong>${Money.format(e.invoiced)}</strong></div>
+        <div><span>Faktúry od živnostníkov</span><strong>−${Money.format(e.bills)}</strong></div>
+        <div><span>Ostatné náklady</span><strong>−${Money.format(e.costs)}</strong></div>
+        <div><span>Zostáva</span><strong style="${e.margin < 0 ? 'color:var(--red);' : ''}">${
+          Money.format(e.margin)}</strong></div>
+      </div>
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-mute);">
+        Za celé obdobie. Sporné prijaté faktúry sa sem nerátajú${
+          x.billsDisputed.length ? ` (${x.billsDisputed.length} ${
+            Shell.plural(x.billsDisputed.length, 'je sporná', 'sú sporné', 'je sporných')})` : ''}.
+        ${e.withheld ? `Zrážka §48b ${Money.format(e.withheld)} je vo fakturovanom, na účet nepríde.` : ''}
+      </p>
+    </div>`;
+  },
 
   // ── VIEWS ────────────────────────────────────────────────────────────────
   views: {
     async dashboard(view) {
       const today = new Date().toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' });
-      view.innerHTML = this.header('Dashboard', UI.esc(today.charAt(0).toUpperCase() + today.slice(1))) + UI.loading();
+      const datum = UI.esc(today.charAt(0).toUpperCase() + today.slice(1));
+      view.innerHTML = this.header('Prehľad', datum) + UI.loading();
 
-      const [inqNew, active, acc, cli, invOverdue, invDraft, deployed, subsActive] = await Promise.all([
-        DB.count('inquiries', { status: 'new' }),
-        DB.count('orders', { status: 'in_progress' }),
-        DB.count('accommodations'),
-        DB.count('clients'),
-        DB.count('invoices', { status: 'overdue' }),
-        DB.count('invoices', { status: 'draft_pending_approval' }),
-        DB.count('assignments', { status: 'active' }),
-        DB.count('subcontracts', { status: 'active' }),
-      ]).catch(() => [0, 0, 0, 0, 0, 0, 0, 0]);
+      if (this.area === 'accommodation') return this._dashAccommodation(view, datum);
 
-      // cash-flow — podľa plánu najpravdepodobnejší dôvod zlyhania
-      let cf = null, payroll = 0;
-      try {
-        const [{ data: invAll }, { data: asg }] = await Promise.all([
-          DB.list('invoices', { select: 'id,total,status,issue_date,due_date,paid_at', limit: 1000 }),
-          DB.list('assignments', { select: 'gross_monthly,status', limit: 500 }),
-        ]);
-        payroll = (asg || []).filter(a => a.status === 'active')
-          .reduce((s, a) => s + Number(a.gross_monthly || 0) * 1.362, 0);
-        cf = DanubraCompliance.cashflowCheck({
-          invoices: invAll || [], monthlyPayroll: payroll, factoring: false,
-        });
-      } catch (e) { /* subdodávky ešte nemusia byť namigrované */ }
+      const x = await this._dashLoad();
 
-      this.badges = { inquiries: inqNew, active: active, invoices: invOverdue + invDraft };
+      // Odznaky v navigácii sa napĺňajú tu — prehľad je jediná obrazovka,
+      // ktorá vidí naraz na všetko.
+      const tc = DanubraTasks.counts(x.tasks, x.today);
+      this.badges = {
+        tasks: tc.overdue + tc.today,
+        invoices: x.invApprove.length + x.invOverdue.length,
+        costs: x.billsToCheck.length + x.billsDisputed.length,
+        workers: x.docsExpired.length,
+        candidates: x.candWaiting.length,
+        subcontracts: x.periodsDue.length,
+      };
       this._buildNav();
 
-      // Nábor: koľko ľudí ešte treba a kto čaká na prvý telefonát
-      let candWaiting = 0, plansActive = 0, needPeople = 0;
-      try {
-        const [{ data: cands }, { data: plans }] = await Promise.all([
-          DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
-          DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
-        ]);
-        candWaiting = (cands || []).filter(c => c.status === 'new' && !c.first_contact_at).length;
-        const act = (plans || []).filter(p => p.status === 'active');
-        plansActive = act.length;
-        needPeople = act.reduce((s, p) => s + (p.headcount || 0), 0);
-      } catch (e) { /* náborový playbook ešte nemusí byť namigrovaný */ }
+      // Prvá veta na obrazovke. Nie graf, nie číslo — veta.
+      const head = DanubraTasks.headline(x.tasks, x.today);
+      const alerts = this._dashAlerts(x);
+      const line = alerts.length && head.tone === 'ok'
+        ? { tone: 'warn', text: `Úlohy sú vybavené, ale ${alerts.length} ${
+            Shell.plural(alerts.length, 'vec potrebuje', 'veci potrebujú', 'vecí potrebuje')} pozornosť.` }
+        : head;
 
-      const staffingKpis = [
-        ['Ľudia vonku', deployed, `${subsActive} ${subsActive === 1 ? 'zákazka' : 'zákaziek'}`, ''],
-        ['Treba dobrať', needPeople, `${plansActive} ${plansActive === 1 ? 'bežiaci nábor' : 'bežiacich náborov'}`, needPeople ? 'warn' : ''],
-        ['Čaká na prvý telefonát', candWaiting, candWaiting ? 'cieľ do 10 minút' : 'nikto nečaká', candWaiting ? 'warn' : 'up'],
-        ['Po splatnosti', invOverdue, invOverdue ? 'urgovať' : 'v poriadku', invOverdue ? 'warn' : 'up'],
-        ['Faktúry na schválenie', invDraft, invDraft ? 'vyžaduje potvrdenie' : 'žiadne', invDraft ? 'warn' : ''],
-        ['Prebiehajúce pobyty', active, 'ubytovacia agenda', ''],
+      const kpis = [
+        ['Ľudia na stavbách', x.deployed,
+          `${x.sites.length} ${Shell.plural(x.sites.length, 'zákazka', 'zákazky', 'zákaziek')}${
+            x.crewsOut ? ` · ${x.crewsOut} ${Shell.plural(x.crewsOut, 'partia', 'partie', 'partií')}` : ''}`, ''],
+        ['Nezúčtované hodiny', Math.round(x.hoursOpen),
+          x.hoursOpen ? 'čakajú na uzavretie obdobia' : 'všetko zúčtované', x.periodsDue.length ? 'warn' : ''],
+        ['Faktúry na schválenie', x.invApprove.length,
+          x.invApprove.length ? 'bez schválenia neodídu' : 'žiadne', x.invApprove.length ? 'warn' : ''],
+        ['Po splatnosti', x.invOverdue.length,
+          x.invOverdue.length ? 'urgovať' : 'v poriadku', x.invOverdue.length ? 'warn' : 'up'],
+        ['Doklady po platnosti', x.docsExpired.length,
+          x.docsExpiring.length ? `${x.docsExpiring.length} sa blíži ku koncu` : 'všetko platí',
+          x.docsExpired.length ? 'warn' : 'up'],
+        ['Treba dobrať ľudí', x.needPeople,
+          `${x.plansActive} ${Shell.plural(x.plansActive, 'bežiaci nábor', 'bežiace nábory', 'bežiacich náborov')}`,
+          x.needPeople ? 'warn' : ''],
       ];
-      const accommodationKpis = [
-        ['Nové dopyty', inqNew, inqNew ? 'čakajú na reakciu' : 'všetko vybavené', inqNew ? 'warn' : ''],
-        ['Prebiehajúce pobyty', active, 'ubytovanie', ''],
-        ['Ľudia vonku', deployed, `${subsActive} ${subsActive === 1 ? 'zákazka' : 'zákaziek'}`, ''],
-        ['Ubytovania v DB', acc, 'databáza', ''],
-        ['Faktúry na schválenie', invDraft, invDraft ? 'vyžaduje potvrdenie' : 'žiadne', invDraft ? 'warn' : ''],
-        ['Po splatnosti', invOverdue, invOverdue ? 'urgovať' : 'v poriadku', invOverdue ? 'warn' : 'up'],
-      ];
-      const kpis = this.area === 'staffing' ? staffingKpis : accommodationKpis;
-
-      const actions = [];
-      if (candWaiting) actions.push(['red',
-        `${candWaiting} ${candWaiting === 1 ? 'kandidát čaká' : 'kandidátov čaká'} na prvý telefonát`, 'candidates']);
-      if (inqNew) actions.push(['red', `${inqNew} nových dopytov čaká na reakciu`, 'inquiries']);
-      if (invDraft) actions.push(['amber', `${invDraft} faktúr čaká na schválenie`, 'invoices']);
-      if (invOverdue) actions.push(['red', `${invOverdue} faktúr po splatnosti`, 'invoices']);
-      if (!acc) actions.push(['amber', 'Databáza ubytovaní je prázdna — pridaj prvé', 'accommodations']);
-      if (!cli) actions.push(['amber', 'Žiadni klienti — pridaj prvého', 'clients']);
-      for (const w of (cf?.warnings || [])) {
-        if (w.severity === 'blocker') actions.push(['red', w.label, 'invoices']);
-      }
 
       view.innerHTML =
-        this.header('Dashboard', UI.esc(today.charAt(0).toUpperCase() + today.slice(1)) +
-          ` · ${active} ${active === 1 ? 'prebiehajúci pobyt' : 'prebiehajúce pobyty'}`) + `
+        this.header('Prehľad', `${datum} · ${x.deployed} ${
+          Shell.plural(x.deployed, 'človek na stavbách', 'ľudia na stavbách', 'ľudí na stavbách')}`) + `
+        <div class="headline headline-${line.tone === 'bad' ? 'bad' : line.tone === 'warn' ? 'warn' : 'ok'}">
+          ${Icon(line.tone === 'bad' ? 'alert' : line.tone === 'warn' ? 'clock' : 'check', 18)}
+          <span>${UI.esc(line.text)}</span>
+        </div>
         <div class="kpi-grid">
           ${kpis.map(([l, v, d, k]) => `
             <div class="kpi">
@@ -584,58 +797,146 @@ window.Danubra = {
             </div>`).join('')}
         </div>
         <div class="panels">
-          <div class="card card-pad">
-            <div class="card-head">
-              <div class="card-title">Vyžaduje akciu</div>
-              ${actions.length ? `<span class="badge" style="background:var(--amber-50);color:var(--amber);">${actions.length}</span>` : ''}
-            </div>
-            ${actions.length
-              ? actions.map(([dot, label, go]) => `
-                  <button class="list-row" onclick="Danubra.go('${go}')">
-                    <span class="dot ${dot}"></span>
-                    <span style="flex:1;font-weight:500;">${UI.esc(label)}</span>
-                    <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span>
-                  </button>`).join('')
-              : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">Nič nečaká — všetko je vybavené.</div>`}
-          </div>
-          ${cf ? `<div class="card card-pad">
-            <div class="card-head">
-              <div class="card-title">Cash-flow</div>
-              ${UI.badge(cf.scaleSafe ? 'možno škálovať' : 'nezvyšovať počty', cf.scaleSafe ? 'green' : 'red')}
-            </div>
-            <div class="kv" style="margin:0 0 10px;">
-              <div><span>Doba inkasa</span><strong>${cf.dso != null ? `${cf.dso} dní` : 'zatiaľ bez dát'}</strong></div>
-              <div><span>Neuhradené</span><strong>${UI.money(cf.outstanding)}</strong></div>
-              <div><span>Po splatnosti</span><strong style="color:${cf.overdueSum ? 'var(--red)' : 'inherit'};">${UI.money(cf.overdueSum)}</strong></div>
-              <div><span>Potrebný kapitál</span><strong>${UI.money(cf.workingCapitalNeeded)}</strong></div>
-            </div>
-            ${cf.warnings.filter(w => w.severity !== 'info').map(w => `
-              <div class="list-row" style="cursor:default;align-items:flex-start;">
-                <span class="dot ${w.severity === 'blocker' ? 'red' : 'amber'}" style="margin-top:5px;"></span>
-                <span style="flex:1;font-size:12.5px;"><strong>${UI.esc(w.label)}</strong>
-                  <span style="color:var(--ink-mute);display:block;">${UI.esc(w.fix)}</span></span>
-              </div>`).join('') || `<div style="color:var(--ink-mute);font-size:12.5px;">Splatnosti sú v poriadku.</div>`}
-          </div>` : ''}
+          ${this._dashTasksHtml(x)}
+          ${this._dashAlertsHtml(alerts)}
+          ${this._dashCashHtml(x)}
+          ${this._dashMarginHtml(x)}
           <div class="card card-pad">
             <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;">
-              ${this.area === 'staffing' ? `
               <button class="btn btn-primary" style="justify-content:flex-start;" onclick="Guide.startCall()">${Icon('phone')} Zdvihol som telefón</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('trades')">${Icon('wrench')} Príručka remesiel a otázok</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('compliance')">${Icon('shield')} Compliance pred nasadením</button>
-              ` : `
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Acc.form()">${Icon('plus')} Nové ubytovanie</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cli.form()">${Icon('plus')} Nový klient</button>
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('accommodations')">${Icon('bed')} Databáza ubytovaní</button>
-              `}
-              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('subcontracts')">${Icon('site')} Zákazky subdodávok</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('timesheets')">${Icon('clock')} Zapísať hodiny</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('quotes')">${Icon('offers')} Nová ponuka odberateľovi</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('bank')">${Icon('upload')} Načítať výpis z účtu</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Hire.wizard()">${Icon('zap')} Nový nábor</button>
+              <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('compliance')">${Icon('shield')} Compliance pred nasadením</button>
             </div>
           </div>
         </div>`;
     },
+  },
+
+  // ── Prehľad archivovanej ubytovacej agendy ───────────────────────────────
+  // Zostáva tak, ako bol. Agenda je vypnutá príznakom, nie zmazaná (R4), a keď
+  // sa zapne, má dávať zmysel to isté, čo dávalo predtým.
+  async _dashAccommodation(view, datum) {
+    const [inqNew, active, acc, cli, invOverdue, invDraft, deployed, subsActive] = await Promise.all([
+      DB.count('inquiries', { status: 'new' }),
+      DB.count('orders', { status: 'in_progress' }),
+      DB.count('accommodations'),
+      DB.count('clients'),
+      DB.count('invoices', { status: 'overdue' }),
+      DB.count('invoices', { status: 'draft_pending_approval' }),
+      DB.count('assignments', { status: 'active' }),
+      DB.count('subcontracts', { status: 'active' }),
+    ]).catch(() => [0, 0, 0, 0, 0, 0, 0, 0]);
+
+    // cash-flow — podľa plánu najpravdepodobnejší dôvod zlyhania
+    let cf = null, payroll = 0;
+    try {
+      const [{ data: invAll }, { data: asg }] = await Promise.all([
+        DB.list('invoices', { select: 'id,total,status,issue_date,due_date,paid_at', limit: 1000 }),
+        DB.list('assignments', { select: 'gross_monthly,status', limit: 500 }),
+      ]);
+      payroll = (asg || []).filter(a => a.status === 'active')
+        .reduce((s, a) => s + Number(a.gross_monthly || 0) * 1.362, 0);
+      cf = DanubraCompliance.cashflowCheck({
+        invoices: invAll || [], monthlyPayroll: payroll, factoring: false,
+      });
+    } catch (e) { /* subdodávky ešte nemusia byť namigrované */ }
+
+    this.badges = { inquiries: inqNew, active: active, invoices: invOverdue + invDraft };
+    this._buildNav();
+
+    // Nábor: koľko ľudí ešte treba a kto čaká na prvý telefonát
+    let candWaiting = 0, plansActive = 0, needPeople = 0;
+    try {
+      const [{ data: cands }, { data: plans }] = await Promise.all([
+        DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
+        DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
+      ]);
+      candWaiting = (cands || []).filter(c => c.status === 'new' && !c.first_contact_at).length;
+      const act = (plans || []).filter(p => p.status === 'active');
+      plansActive = act.length;
+      needPeople = act.reduce((s, p) => s + (p.headcount || 0), 0);
+    } catch (e) { /* náborový playbook ešte nemusí byť namigrovaný */ }
+
+    const kpis = [
+      ['Nové dopyty', inqNew, inqNew ? 'čakajú na reakciu' : 'všetko vybavené', inqNew ? 'warn' : ''],
+      ['Prebiehajúce pobyty', active, 'ubytovanie', ''],
+      ['Ľudia vonku', deployed, `${subsActive} ${subsActive === 1 ? 'zákazka' : 'zákaziek'}`, ''],
+      ['Ubytovania v DB', acc, 'databáza', ''],
+      ['Faktúry na schválenie', invDraft, invDraft ? 'vyžaduje potvrdenie' : 'žiadne', invDraft ? 'warn' : ''],
+      ['Po splatnosti', invOverdue, invOverdue ? 'urgovať' : 'v poriadku', invOverdue ? 'warn' : 'up'],
+    ];
+
+    const actions = [];
+    if (candWaiting) actions.push(['red',
+      `${candWaiting} ${candWaiting === 1 ? 'kandidát čaká' : 'kandidátov čaká'} na prvý telefonát`, 'candidates']);
+    if (inqNew) actions.push(['red', `${inqNew} nových dopytov čaká na reakciu`, 'inquiries']);
+    if (invDraft) actions.push(['amber', `${invDraft} faktúr čaká na schválenie`, 'invoices']);
+    if (invOverdue) actions.push(['red', `${invOverdue} faktúr po splatnosti`, 'invoices']);
+    if (!acc) actions.push(['amber', 'Databáza ubytovaní je prázdna — pridaj prvé', 'accommodations']);
+    if (!cli) actions.push(['amber', 'Žiadni klienti — pridaj prvého', 'clients']);
+    for (const w of (cf?.warnings || [])) {
+      if (w.severity === 'blocker') actions.push(['red', w.label, 'invoices']);
+    }
+
+    view.innerHTML =
+      this.header('Prehľad', `${datum} · ${active} ${
+        active === 1 ? 'prebiehajúci pobyt' : 'prebiehajúce pobyty'}`) + `
+      <div class="kpi-grid">
+        ${kpis.map(([l, v, d, k]) => `
+          <div class="kpi">
+            <div class="kpi-label">${l}</div>
+            <div class="kpi-value">${v}</div>
+            <div class="kpi-delta ${k}">${d}</div>
+          </div>`).join('')}
+      </div>
+      <div class="panels">
+        <div class="card card-pad">
+          <div class="card-head">
+            <div class="card-title">Vyžaduje akciu</div>
+            ${actions.length ? `<span class="badge" style="background:var(--amber-50);color:var(--amber);">${actions.length}</span>` : ''}
+          </div>
+          ${actions.length
+            ? actions.map(([dot, label, go]) => `
+                <button class="list-row" onclick="Danubra.go('${go}')">
+                  <span class="dot ${dot}"></span>
+                  <span style="flex:1;font-weight:500;">${UI.esc(label)}</span>
+                  <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span>
+                </button>`).join('')
+            : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">Nič nečaká — všetko je vybavené.</div>`}
+        </div>
+        ${cf ? `<div class="card card-pad">
+          <div class="card-head">
+            <div class="card-title">Cash-flow</div>
+            ${UI.badge(cf.scaleSafe ? 'možno škálovať' : 'nezvyšovať počty', cf.scaleSafe ? 'green' : 'red')}
+          </div>
+          <div class="kv" style="margin:0 0 10px;">
+            <div><span>Doba inkasa</span><strong>${cf.dso != null ? `${cf.dso} dní` : 'zatiaľ bez dát'}</strong></div>
+            <div><span>Neuhradené</span><strong>${UI.money(cf.outstanding)}</strong></div>
+            <div><span>Po splatnosti</span><strong style="color:${cf.overdueSum ? 'var(--red)' : 'inherit'};">${UI.money(cf.overdueSum)}</strong></div>
+            <div><span>Potrebný kapitál</span><strong>${UI.money(cf.workingCapitalNeeded)}</strong></div>
+          </div>
+          ${cf.warnings.filter(w => w.severity !== 'info').map(w => `
+            <div class="list-row" style="cursor:default;align-items:flex-start;">
+              <span class="dot ${w.severity === 'blocker' ? 'red' : 'amber'}" style="margin-top:5px;"></span>
+              <span style="flex:1;font-size:12.5px;"><strong>${UI.esc(w.label)}</strong>
+                <span style="color:var(--ink-mute);display:block;">${UI.esc(w.fix)}</span></span>
+            </div>`).join('') || `<div style="color:var(--ink-mute);font-size:12.5px;">Splatnosti sú v poriadku.</div>`}
+        </div>` : ''}
+        <div class="card card-pad">
+          <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Acc.form()">${Icon('plus')} Nové ubytovanie</button>
+            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cli.form()">${Icon('plus')} Nový klient</button>
+            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('accommodations')">${Icon('bed')} Databáza ubytovaní</button>
+            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('subcontracts')">${Icon('site')} Zákazky subdodávok</button>
+            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('timesheets')">${Icon('clock')} Zapísať hodiny</button>
+          </div>
+        </div>
+      </div>`;
   },
 };
 

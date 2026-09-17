@@ -190,3 +190,41 @@ cache. Rozísť sa nemá ako. Stĺpec je okomentovaný priamo v databáze
 poznámkou „nezapisuj to ručne".
 
 Zmazať ho by znamenalo mazať, a zadanie hovorí opak.
+
+---
+
+## R12 — prehľad odpovedá na tri otázky, nie že ukazuje počty riadkov
+
+**Dátum:** 17. 9. 2026 · nájdené v prevádzke
+
+Deväť fáz bolo hotových, databáza plná v2 tabuliek — a appka pôsobila, že
+sa nič nezmenilo. Dôvod bol jednoduchý: **prvá obrazovka po prihlásení
+zostala z v1.** Počítala dopyty, objednávky, ubytovania a klientov, mzdu
+rátala modelom zamestnanca (`gross_monthly * 1.362`) a v texte mala
+„ubytovacia agenda". Kto sa prihlásil, videl starú appku, nech bolo pod
+tým čokoľvek.
+
+**Rozhodnutie:** prehľad neukazuje, koľko je v ktorej tabuľke riadkov.
+Odpovedá na tri otázky, ktoré sa v tomto biznise pýtajú každý deň:
+
+1. **Čo dnes treba spraviť?** — úlohy z pravidiel (F9) plus veci, ktoré
+   sa dopočítajú z dát: neplatné doklady, neuzavreté obdobia, faktúry
+   čakajúce na schválenie, sporné prijaté faktúry.
+2. **Bude na výplaty?** — osemtýždňový výhľad z banky a `v_cashflow`
+   (F8), vrátane najnižšieho bodu. Nie „neuhradené spolu".
+3. **Zarábame na tom?** — fakturované mínus faktúry od živnostníkov
+   mínus náklady (F7).
+
+Dôsledky:
+
+- Prehľad je jediná obrazovka, ktorá vidí naraz na všetko, takže **len on
+  napĺňa odznaky v navigácii**. Inak by ich nemal kto napísať.
+- Ubytovací prehľad sa nezmazal — presunul sa do `_dashAccommodation()`
+  a vykreslí sa, keď je agenda zapnutá (R4). Keď sa zapne späť, má dávať
+  zmysel to isté, čo dávalo predtým.
+- Smoke test prehľad naozaj vykreslí na vymyslených dátach a kontroluje
+  aj to, **čo v ňom už nemá byť** — model mzdy zamestnanca a ubytovaciu
+  agendu. Bez toho sa taká vec vráti pri najbližšom refaktore.
+
+Poučenie, ktoré stojí za zapísanie: hotová fáza neznamená, že to človek
+vidí. Keď zostane stará vstupná obrazovka, zostane stará appka.
