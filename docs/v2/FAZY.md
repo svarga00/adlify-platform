@@ -512,3 +512,89 @@ kým to sám neodsúhlasíš.
 Proti reálnej databáze je overené: automat faktúru neschváli, z draftu sa
 nevystaví, odoslanie pred vystavením neprejde, zrážka §48b je 510 € z 3 400 €,
 a tok v1 sa nerozbil.
+
+---
+
+## F7 — Prijaté faktúry a náklady
+
+**Stav:** hotová v kóde · 17. 9. 2026 · migrácia 019 je aplikovaná v produkcii
+**Výdavky do SuperFaktúry neoverené** — chýbajú kľúče, rovnako ako pri F6.
+
+### Čo je hotové
+
+**Databáza** (`019_v2_f7_prijate_faktury_naklady.sql`)
+
+- `danubra_bills` — faktúry od živnostníkov s kontrolou na hodiny.
+- `danubra_costs` — ostatné náklady vrátane opakovaných.
+- **Trigger `danubra_bill_check()`** — jadro fázy, pozri nižšie.
+- `danubra_generate_recurring_costs()` — mesačné náklady vznikajú samy,
+  idempotentne. Volá to denný cron.
+- `danubra_v_subcontract_economics` — čo zákazka zarobila.
+- **Privátny bucket `danubra-docs`** — skeny prijatých faktúr, doklady
+  pracovníkov (čakali od F2) a PDF zmlúv (od F4). Jedno úložisko,
+  `public = false`, prístup len pre prihláseného.
+
+**Kód**
+
+- `lib/billing/bills.js` — kontrola na hodiny, náklady, ekonomika zákazky.
+  68 testov.
+- `js/modules/costs.js` — obrazovka Náklady s dvomi záložkami.
+
+### Jadro fázy
+
+Toto je miesto, kde sa v tomto biznise najčastejšie strácajú peniaze:
+**živnostník vyfakturuje viac hodín, než odrobil, a pri desiatich ľuďoch to
+nikto nezachytí.**
+
+Appka vie, koľko schválených hodín má za obdobie, takže rozdiel dopočíta
+sama. Faktúra s rozdielom sa **sama preklopí do sporu** a **nedá sa schváliť
+bez poznámky**. Drží to trigger, nie obrazovka — faktúry môžu prísť aj
+importom.
+
+Overené proti reálnej databáze: pri 100 odrobených hodinách × 26 € sa
+faktúra na 3 200 € preklopila do sporu s rozdielom 600 €, bez poznámky sa
+schváliť nedala a s poznámkou prešla.
+
+Tolerancia je jeden cent. Kryje zaokrúhľovanie, nie „skoro sedí".
+
+Keď živnostník fakturuje **menej**, appka to tiež povie — ale rada je iná:
+možno zabudol na časť hodín, over to s ním skôr, než to schváliš.
+
+### Ďalšie rozhodnutia
+
+**Sporné faktúry sa nepočítajú do nákladov zákazky.** Ešte nie sú záväzok
+a započítať ich by znamenalo tváriť sa, že marža je nižšia, než je.
+
+**Rozdiel sa ukáže pri písaní**, nie až po uložení — vo formulári prijatej
+faktúry beží živý prepočet.
+
+### Čo treba otestovať rukami
+
+1. **Kontrola na hodiny** — zadaj prijatú faktúru, naviaž ju na uzavreté
+   obdobie a daj sumu vyššiu, než vychádza z hodín. Ešte pri písaní musí
+   vyskočiť, o koľko sa líši.
+2. **Schválenie sporu** — sporná faktúra sa nedá schváliť bez poznámky,
+   a poznámka zostane pri faktúre.
+3. **Opakovaný náklad** — zadaj ubytovanie s opakovaním. Ďalšie mesiace
+   vzniknú pri najbližšom dennom crone, vždy k tomu istému dňu.
+4. **Trigger proti SQL** — skús v SQL editore `update danubra_bills set
+   status='approved'` na spornej faktúre bez poznámky. Musí to odmietnuť.
+
+### Čo zostalo otvorené
+
+- **Výdavky sa nezapisujú do SuperFaktúry.** Stĺpce `sf_expense_id`
+  a `sf_error` sú pripravené, ale serverová funkcia
+  `danubra-sf-expense.js` nie je — nemá zmysel ju písať, kým sa
+  `danubra-sf-invoice.js` neoverí proti sandboxu. Bez kľúčov by to bol
+  druhý neotestovaný kus.
+- **Nahrávanie skenov ešte nie je v UI.** Bucket a politiky existujú,
+  `storage_path` tiež, ale formulár súbor zatiaľ neprijíma. Je to posledná
+  chýbajúca časť F7 a dá sa doplniť nezávisle od SuperFaktúry.
+- **Doklady pracovníkov a PDF zmlúv stále nemajú nahrávanie**, hoci teraz
+  už majú kam. To isté ako vyššie.
+- **Kontrola na hodiny funguje len pri naviazaní na obdobie.** Bez neho sa
+  faktúra schvaľuje naslepo a appka to povie, ale nezabráni tomu.
+
+### Testy
+
+1089 testov v dvadsiatich jednej sade a smoke test nad 54 súbormi.

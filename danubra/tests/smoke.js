@@ -320,6 +320,33 @@ t('v prehliadači nie je kľúč SuperFaktúry',
 t('vystavenie ide cez serverovú funkciu',
   sandbox.Inv && /netlify\/functions\/danubra-sf-invoice/.test(String(sandbox.Inv.sfAction)));
 
+// ── Prijaté faktúry a náklady ──────────────────────────────────────────────
+const Bl = sandbox.DanubraBills;
+t('knižnica DanubraBills je načítaná', Bl);
+t('modul Cost', sandbox.Cost);
+if (Bl) {
+  const ctx = {
+    assignments: [{ id: 'a1', worker_rate: 26 }],
+    timesheets: [{ assignment_id: 'a1', worker_id: 'w1', period_id: 'p1',
+      hours: 100, approved: true }],
+    worker: { id: 'w1' },
+  };
+  // Jadro F7: živnostník vyfakturuje viac, než odrobil.
+  const more = Bl.check({ worker_id: 'w1', period_id: 'p1', amount: 3200 }, ctx);
+  t('rozdiel voči odrobeným hodinám sa dopočíta', more.variance === 60000);
+  t('faktúra s rozdielom ide do sporu', more.status === 'disputed');
+  t('a nedá sa len tak schváliť',
+    Bl.review({ bill: { worker_id: 'w1', period_id: 'p1', amount: 3200 }, ...ctx })
+      .reasons.some(r => r.rule === 'bill_variance'));
+  t('sediaca faktúra prejde',
+    Bl.check({ worker_id: 'w1', period_id: 'p1', amount: 2600 }, ctx).matches === true);
+  // Tolerancia kryje zaokrúhľovanie, nie „skoro sedí".
+  t('tolerancia je jeden cent', Bl.TOLERANCE === 1);
+  // Sporná faktúra ešte nie je záväzok.
+  t('sporné faktúry sa nepočítajú do nákladov',
+    Bl.economics({ bills: [{ amount: 1000, status: 'disputed' }] }).bills === 0);
+}
+
 // ── Serverové funkcie ──────────────────────────────────────────────────────
 // Netlify robí z každého súboru v `netlify/functions/` funkciu a názov smie
 // mať len písmená, číslice, pomlčky a podčiarkovníky. Súbor s bodkou
