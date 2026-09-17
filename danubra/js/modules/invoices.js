@@ -4,9 +4,15 @@
 // §5.2: návrhy za priebežnú službu vyžadujú ľudské schválenie pred odoslaním.
 // ============================================================================
 (function () {
+  // Stavy z v1 (`draft_pending_approval`) aj z v2. Faktúry v1 majú vlastný
+  // tok a bežia v prevádzke — nové pravidlá sa na ne nevzťahujú.
   const STATUS = [
+    ['draft', 'Rozpracovaná', 'gray'],
     ['draft_pending_approval', 'Čaká na schválenie', 'amber'],
+    ['pending_approval', 'Čaká na schválenie', 'amber'],
+    ['approved', 'Schválená', 'blue'],
     ['issued', 'Vystavená', 'blue'],
+    ['sent', 'Odoslaná', 'blue'],
     ['paid', 'Uhradená', 'green'],
     ['overdue', 'Po splatnosti', 'red'],
     ['cancelled', 'Stornovaná', 'gray'],
@@ -101,9 +107,13 @@
 
     setF(v) { this.filters.status = v; Danubra.renderRoute(); },
 
+    /** Faktúra v2 pozná odberateľa alebo podklad; v1 má klienta z ubytovania. */
+    isV2(x) { return !!(x.partner_id || x.period_id || x.subcontract_id); },
+
     async detail(id) {
       const x = this.items.find(i => i.id === id);
       if (!x) return UI.toast('Nenájdené', 'err');
+      if (this.isV2(x)) return this.detailV2(x);
       const c = this.clientOf(x.client_id);
       const items = this.linesOf(id);
       const ord = this.orders.find(o => o.id === x.order_id);
@@ -448,6 +458,169 @@
       }
     },
   };
+
+
+  // ── Faktúra v2: podklad → schválenie → vystavenie → odoslanie ───────────
+  // Schválenie a odoslanie sú dve samostatné rozhodnutia. Pravdu o tom drží
+  // trigger v databáze; tu sa len nekreslí tlačidlo, ktoré by databáza
+  // odmietla.
+  Object.assign(Inv, {
+    v2: { partners: [], subcontracts: [], periods: [], loaded: false },
+
+    async loadV2() {
+      if (this.v2.loaded) return;
+      const [p, s, per] = await Promise.all([
+        DB.list('partners', { limit: 300 }),
+        DB.list('subcontracts', { select: 'id,title,work_type,freistellung_verified,partner_id', limit: 500 }),
+        DB.list('periods', { limit: 500 }),
+      ]);
+      this.v2 = { partners: p.data || [], subcontracts: s.data || [],
+        periods: per.data || [], loaded: true };
+    },
+
+    ctxOf(x) {
+      return {
+        invoice: x,
+        partner: this.v2.partners.find(p => p.id === x.partner_id) || {},
+        subcontract: this.v2.subcontracts.find(s => s.id === x.subcontract_id) || {},
+        period: this.v2.periods.find(p => p.id === x.period_id) || {},
+      };
+    },
+
+    async detailV2(x) {
+      await this.loadV2();
+      const ctx = this.ctxOf(x);
+      const rev = DanubraInvoice.reviewBeforeApproval(ctx);
+      const w = rev.withholding;
+      const steps = DanubraInvoice.nextSteps(x);
+
+      const act = (to) => {
+        const map = {
+          pending_approval: ['Poslať na schválenie', 'btn-outline'],
+          approved: ['Schváliť', 'btn-primary'],
+          draft: ['Vrátiť na prepracovanie', 'btn-ghost'],
+          issued: ['Vystaviť v SuperFaktúre', 'btn-primary'],
+          sent: ['Odoslať odberateľovi', 'btn-primary'],
+          paid: ['Označiť uhradenú', 'btn-outline'],
+          overdue: ['Po splatnosti', 'btn-ghost'],
+        }[to];
+        if (!map) return '';
+        // Schváliť sa nedá, kým niečo blokuje.
+        if (to === 'approved' && !rev.ok) {
+          return `<button class="btn btn-primary btn-sm" disabled title="Najprv oprav, čo blokuje">${map[0]}</button>`;
+        }
+        const fn = to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
+          : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
+          : to === 'paid' ? `Inv.sfAction('${x.id}','pay')`
+          : `Inv.setStatusV2('${x.id}','${to}')`;
+        return `<button class="btn ${map[1]} btn-sm" onclick="${fn}">${map[0]}</button>`;
+      };
+
+      const rows = [
+        ['Odberateľ', ctx.partner.name],
+        ['Zákazka', ctx.subcontract.title],
+        ['Obdobie', x.billing_period_from
+          ? UI.dateRange(x.billing_period_from, x.billing_period_to) : null],
+        ['Vystavená', x.issue_date ? UI.date(x.issue_date) : null],
+        ['Splatnosť', x.due_date ? UI.date(x.due_date) : null],
+        ['Režim DPH', x.vat_regime === 'reverse_charge'
+          ? 'Reverse charge §13b' : 'Bežný'],
+        ['Schválil', x.approved_at
+          ? `${new Date(x.approved_at).toLocaleString('sk-SK')}` : null],
+        ['V SuperFaktúre', x.sf_invoice_id
+          ? `${x.sf_invoice_id} (${x.sf_environment || 'sandbox'})` : null],
+      ].filter(r => r[1] != null && r[1] !== '');
+
+      const body = `
+        <div class="detail-head">
+          ${this.badge(x.status)}
+          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(x.invoice_number || '')}</span>
+        </div>
+
+        ${x.sf_error ? `<div class="warnbox">${Icon('alert', 14)}
+          Posledný pokus zlyhal: ${UI.esc(x.sf_error)}</div>` : ''}
+
+        <div class="form-section">Suma</div>
+        ${Shell.sums({
+          lines: DanubraInvoice.sumLines(x),
+          totalLabel: w.withheld ? 'Na účet príde' : 'Na úhradu',
+          note: w.withheld
+            ? 'Do SuperFaktúry ide plná suma — zrážka nie je zľava, je to '
+              + 'daňová povinnosť odberateľa.' : '',
+        })}
+
+        <div class="form-section">Pred schválením</div>
+        ${Shell.blocker({
+          reasons: [...rev.reasons, ...rev.warnings],
+          okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
+            + 'Suma sedí s podkladom a odberateľ má všetko, čo treba.</p>',
+        })}
+
+        <div class="kv" style="margin-top:14px;">
+          ${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
+        </div>
+
+        <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+          ${steps.map(act).join('')}
+        </div>`;
+      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
+    },
+
+    async setStatusV2(id, to) {
+      const x = this.items.find(i => i.id === id);
+      if (!x || !DanubraInvoice.canGo(x.status, to)) {
+        return UI.toast('Tento krok sa z aktuálneho stavu nedá spraviť', 'err');
+      }
+      const { error } = await DB.update('invoices', id, { status: to });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Stav uložený', 'ok');
+      this.loaded = false; await this.load();
+      this.detail(id); Danubra.renderRoute();
+    },
+
+    /**
+     * Vystavenie, odoslanie a úhrada idú cez serverovú funkciu. API kľúč
+     * SuperFaktúry nikdy neopustí server a funkcia si stav overí v databáze —
+     * poslať `{action:'issue'}` z konzoly schvaľovanie neobíde.
+     */
+    async sfAction(id, action) {
+      const labels = { issue: 'Vystavujem…', send: 'Odosielam…', pay: 'Zapisujem úhradu…' };
+      UI.toast(labels[action] || 'Pracujem…');
+      let res, json;
+      try {
+        res = await fetch('/.netlify/functions/danubra-sf-invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoice_id: id, action }),
+        });
+        json = await res.json();
+      } catch (e) {
+        return UI.toast('Server neodpovedal: ' + e.message, 'err');
+      }
+      if (json && json.skipped) {
+        return UI.toast(json.message, 'err');
+      }
+      if (!res.ok) {
+        return UI.toast(json && json.error ? json.error : 'Nepodarilo sa', 'err');
+      }
+      UI.toast({ issue: 'Faktúra vystavená', send: 'Faktúra odoslaná',
+        pay: 'Označená ako uhradená' }[action] || 'Hotovo', 'ok');
+      this.loaded = false; await this.load();
+      this.detail(id); Danubra.renderRoute();
+    },
+
+    /** Faktúra z uzavretého podkladu. Sumy pochádzajú z obdobia, nie z ruky. */
+    async fromPeriod(periodId) {
+      const { data, error } = await DB.rpc('invoice_from_period', { p_period_id: periodId });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Faktúra vytvorená z podkladu', 'ok');
+      this.loaded = false; this.v2.loaded = false;
+      await this.load();
+      Danubra.go('invoices');
+      const inv = Array.isArray(data) ? data[0] : data;
+      if (inv && inv.id) setTimeout(() => this.detail(inv.id), 300);
+    },
+  });
 
   window.Inv = Inv;
   Danubra.views.invoices = function (el) { Inv.view(el); };

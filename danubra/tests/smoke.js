@@ -293,6 +293,33 @@ t('otvorenie späť pýta dôvod',
 t('partia sa nasadzuje jednou operáciou',
   sandbox.Sub && /rpc\('assign_crew'/.test(String(sandbox.Sub.assignCrew)));
 
+// ── Vydaná faktúra ─────────────────────────────────────────────────────────
+const Ivc = sandbox.DanubraInvoice;
+t('knižnica DanubraInvoice je načítaná', Ivc);
+if (Ivc) {
+  // Tvrdé pravidlo zo zadania. Musí sedieť s triggerom v migrácii 018.
+  t('faktúra sa nevystaví bez schválenia', !Ivc.canGo('draft', 'issued')
+    && !Ivc.canGo('pending_approval', 'issued'));
+  t('schválená faktúra sa neodošle sama', !Ivc.canGo('approved', 'sent'));
+  t('vystavená sa nevracia do rozpracovaných', !Ivc.canGo('issued', 'draft'));
+  // §48b: do dokladu ide plná suma, zrážka sa zobrazuje zvlášť.
+  const w = Ivc.withholding({ total: 8736, withholding_pct: 15 });
+  t('zrážka §48b sa počíta z plnej sumy', w.withheld === 131040 && w.net === 742560);
+  t('zrážka a zvyšok dajú presne celok', w.withheld + w.net === w.gross);
+  t('reverse charge má nulovú sadzbu',
+    Ivc.sfPayload({ invoice: { total: 100, vat_regime: 'reverse_charge' },
+      partner: { name: 'X' } }).InvoiceItem[0].tax === 0);
+}
+t('faktúra v2 sa pozná podľa odberateľa alebo podkladu',
+  sandbox.Inv && sandbox.Inv.isV2({ partner_id: 'x' })
+  && !sandbox.Inv.isV2({ client_id: 'y' }));
+// Kľúč SuperFaktúry nesmie byť nikde v prehliadači.
+t('v prehliadači nie je kľúč SuperFaktúry',
+  !files.some(f => /SF_API_KEY|SFAPI /.test(
+    fs.readFileSync(path.join(root, f), 'utf8'))));
+t('vystavenie ide cez serverovú funkciu',
+  sandbox.Inv && /netlify\/functions\/danubra-sf-invoice/.test(String(sandbox.Inv.sfAction)));
+
 // ── Prepínač agend v nastaveniach ──────────────────────────────────────────
 // Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
 const Cfg = sandbox.Cfg;

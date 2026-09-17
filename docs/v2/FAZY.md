@@ -410,3 +410,105 @@ nasadenie partie (2 prvýkrát, 0 druhýkrát), uzávierka (16 h stavebných,
 4,5 h cesta, 697 € fakturujeme, 517 € náklad — identicky v JS aj v SQL),
 zmrazenie období (zmena aj mazanie odmietnuté), otvorenie späť bez dôvodu
 odmietnuté a automatické dorovnanie `crew_id`.
+
+---
+
+## F6 — Vydané faktúry a SuperFaktúra
+
+**Stav:** hotová v kóde · 17. 9. 2026 · migrácia 018 je aplikovaná v produkcii
+**Neoverené proti sandboxu** — chýbajú kľúče, pozri nižšie.
+
+### Čo je hotové
+
+**Databáza** (`018_v2_f6_vydane_faktury.sql`)
+
+- Faktúra sa viaže na podklad: `period_id`, `subcontract_id`, `contract_id`.
+- Schvaľovanie: `approved_by`, `approved_at`, `sent_at`.
+- §48b: `withholding_pct`, `withholding_amount`, `amount_net`.
+- SuperFaktúra: `sf_invoice_id`, `sf_token`, `sf_environment`, `sf_error`.
+- **Trigger `danubra_invoice_approval_flow()`** — jadro fázy.
+- `danubra_invoice_marks_period()` — po vystavení sa obdobie uzamkne natrvalo.
+- `danubra_invoice_from_period()` — faktúra zo sumy podkladu, nie z ruky.
+- Faktúra sa nemaže: RLS má select, insert a update, nie delete. Zlá faktúra
+  sa stornuje.
+
+**Kód**
+
+- `lib/billing/invoice.js` — tok, §48b a payload pre SuperFaktúru. 84 testov.
+- `netlify/functions/danubra-sf-invoice.js` — vystavenie, odoslanie, úhrada.
+  32 testov bez siete a bez kľúča.
+- `js/modules/invoices.js` — schvaľovacia obrazovka pre faktúry v2.
+
+### Tvrdé pravidlo a ako je zaistené
+
+**Faktúra sa nikdy nevystaví ani neodošle bez schválenia.** Zaistené na
+troch miestach, ale rozhodujúce je to prvé:
+
+1. **Trigger v databáze.** Schváliť môže len prihlásený človek — cron beží
+   pod `service_role`, ktorý nemá `auth.uid()`, takže automat faktúru
+   fyzicky nemá ako schváliť, ani keby to niekto do cronu napísal.
+   Overené proti reálnej databáze.
+2. **Serverová funkcia si stav overí v databáze**, nie podľa toho, čo
+   poslal prehliadač. Poslať `{action:'issue'}` z konzoly schvaľovanie
+   neobíde.
+3. UI nekreslí tlačidlo, ktoré by databáza odmietla.
+
+**Schválenie a odoslanie sú dve samostatné rozhodnutia.** Schválená faktúra
+sa neodošle sama.
+
+**Vrátenie na prepracovanie zmaže schválenie** — inak by sa zmenená faktúra
+tvárila, že ju niekto schválil v tejto podobe.
+
+### Čo sa cestou takmer pokazilo
+
+Prvá verzia triggera by bola **rozbila fungujúci tok v1.** Faktúry za
+priebežnú službu používajú stav `draft_pending_approval` a idú rovno na
+`issued`; nové pravidlá by to odmietli. Trigger sa preto vzťahuje len na
+faktúry v2 (tie, čo majú `partner_id`, `period_id` alebo `subcontract_id`).
+Overené, že tok v1 stále funguje.
+
+### Čo treba na dokončenie
+
+**Potrebujem od teba `SF_EMAIL` a `SF_API_KEY` v Netlify.** Bez nich
+serverová funkcia ticho skončí a povie to — nič sa nerozbije, ale faktúra
+sa reálne nevystaví. Sandbox účet sa zakladá na
+`https://sandbox.superfaktura.sk`; token je v Nástroje → API.
+
+Premenné: `SF_EMAIL`, `SF_API_KEY`, voliteľne `SF_COMPANY_ID`.
+`SF_ENV` nechaj nenastavené — predvolene je sandbox a tak to má zostať,
+kým to sám neodsúhlasíš.
+
+### Čo treba otestovať rukami
+
+1. **Faktúra z podkladu** — v zákazke uzavri obdobie a klikni „Fakturovať".
+   Suma musí sedieť s podkladom na cent.
+2. **§48b** — pri stavebných prácach bez Freistellungu sa musí ukázať
+   „Na účet príde X, nie Y" aj so zrážkou.
+3. **Schvaľovanie** — tlačidlo „Schváliť" je zablokované, kým niečo blokuje
+   (napríklad odberateľ bez USt-IdNr pri reverse charge).
+4. **Obídenie** — skús v SQL editore `update danubra_invoices set
+   status='issued'` na neschválenej faktúre v2. Musí to odmietnuť.
+
+### Čo zostalo otvorené
+
+- **Nič neprešlo sandboxom.** Payload je otestovaný ako čistá funkcia, ale
+  SuperFaktúra ho ešte nevidela. Otvorené body z R8 (`country_id` pre
+  Nemecko, formát stránkovania, príloha pri výdavku) sa dajú overiť až
+  s kľúčmi.
+- **Payload sa skladá na dvoch miestach** — v prehliadači (na náhľad)
+  a v serverovej funkcii (na odoslanie). Funkcia nesmie veriť tomu, čo jej
+  pošle frontend, takže si ho musí poskladať sama. Zhodu zatiaľ nič
+  nestráži; keď sa ukáže, že sa rozchádzajú, presunie sa do zdieľaného
+  modulu, ktorý načíta aj funkcia.
+- **Dobropis a storno nie sú.** Stav `cancelled` existuje, ale dobropis
+  v SuperFaktúre sa nevytvára.
+- **Položky faktúry sú jedna.** Pri zmiešaných sadzbách v jednom období by
+  bolo správnejšie rozpísať ich po ľuďoch alebo po druhoch práce.
+
+### Testy
+
+1021 testov v dvadsiatich sadách a smoke test nad 52 súbormi.
+
+Proti reálnej databáze je overené: automat faktúru neschváli, z draftu sa
+nevystaví, odoslanie pred vystavením neprejde, zrážka §48b je 510 € z 3 400 €,
+a tok v1 sa nerozbil.

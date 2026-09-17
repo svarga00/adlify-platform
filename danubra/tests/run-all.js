@@ -11,6 +11,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
+const repo = path.join(root, '..');
 
 function findTests(dir) {
   const out = [];
@@ -23,7 +24,13 @@ function findTests(dir) {
   return out;
 }
 
-const suites = [...findTests(root).sort(), path.join(__dirname, 'smoke.js')];
+// Serverové funkcie majú testy pri sebe, mimo `danubra/`.
+const fnDir = path.join(repo, 'netlify', 'functions');
+const suites = [
+  ...findTests(root).sort(),
+  ...(fs.existsSync(fnDir) ? findTests(fnDir).sort() : []),
+  path.join(__dirname, 'smoke.js'),
+];
 
 let failed = 0;
 const summary = [];
