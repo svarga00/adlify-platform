@@ -589,4 +589,45 @@ window.Danubra = {
   },
 };
 
-document.addEventListener('DOMContentLoaded', () => Danubra.init());
+// ── Štart ───────────────────────────────────────────────────────────────────
+// Prihlasovacia obrazovka aj samotná appka sú v HTML skryté a odkrýva ich až
+// `_render()`. Keď sa dovtedy čokoľvek pokazí, stránka zostane **úplne biela
+// a bez hlášky** — človek nevie, či sa načítava, či je rozbitá, ani čo má
+// spraviť. Stalo sa to v prevádzke, keď sa nenačítal klient Supabase z cudzieho
+// CDN.
+//
+// Preto sa štart zabalí a každé zlyhanie sa ukáže po ľudsky.
+function danubraFatal(what, detail) {
+  const box = document.createElement('div');
+  box.className = 'fatal';
+  box.innerHTML = `
+    <div class="fatal-card">
+      <h1>Aplikácia sa nespustila</h1>
+      <p>${what}</p>
+      ${detail ? `<pre>${String(detail).slice(0, 400)
+        .replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</pre>` : ''}
+      <p class="fatal-what">Skús stránku načítať znova. Ak to nepomôže,
+         pošli mi text vyššie — je v ňom napísané, čo sa pokazilo.</p>
+      <button onclick="location.reload()">Načítať znova</button>
+    </div>`;
+  document.body.appendChild(box);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Bez klienta Supabase sa nedá ani prihlásiť. Toto je presne ten prípad,
+  // keď appka predtým zostala biela.
+  if (typeof window.supabase === 'undefined' || !window.supabase.createClient) {
+    return danubraFatal(
+      'Nenačítala sa knižnica, cez ktorú appka hovorí s databázou.',
+      'Chýba supabase-js. Skontroluj, či sa stiahol súbor '
+      + 'vendor/supabase-js-2.116.0.js — mohol ho zablokovať blokátor reklám '
+      + 'alebo sieť.');
+  }
+
+  Promise.resolve()
+    .then(() => Danubra.init())
+    .catch((e) => {
+      console.error('[danubra] štart zlyhal', e);
+      danubraFatal('Pri spúšťaní nastala chyba.', e && (e.message || e));
+    });
+});

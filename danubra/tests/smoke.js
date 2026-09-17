@@ -62,8 +62,13 @@ sandbox.self = sandbox;
 vm.createContext(sandbox);
 
 // Zoznam súborov berieme z index.html, nech test nikdy nezaostane za appkou.
+// `vendor/` vynechávame zámerne: je to cudzí kód, ktorý v tomto stubovanom
+// prostredí nemá skutočné `fetch` ani `URL` a spadol by na tom. Že sa naozaj
+// načíta a funguje, overuje browser.test.js v ozajstnom prehliadači.
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const files = [...html.matchAll(/<script src="\.\/([^"]+)"><\/script>/g)].map(m => m[1]);
+const files = [...html.matchAll(/<script src="\.\/([^"]+)"><\/script>/g)]
+  .map(m => m[1])
+  .filter(f => !f.startsWith('vendor/'));
 
 let loaded = 0;
 const failures = [];

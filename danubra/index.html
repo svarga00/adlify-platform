@@ -7,7 +7,9 @@
   <meta name="theme-color" content="#0A1B3D">
   <title>DANUBRA — nábor a stavby v Nemecku</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-14 -14 124 128'><rect x='-14' y='-14' width='124' height='128' rx='22' fill='%230A1B3D'/><rect x='0' y='0' width='15' height='100' rx='7.5' fill='%23fff'/><path d='M 30 8.5 L 52 8.5 A 41.5 41.5 0 0 1 52 91.5 L 30 91.5' fill='none' stroke='%23F07E22' stroke-width='17' stroke-linecap='round'/></svg>">
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- Klient Supabase si nesieme so sebou. Keď sa ťahal z unpkg.com a
+       nenačítal sa, stránka zostala biela a bez hlášky. Pozri vendor/README.md. -->
+  <script src="./vendor/supabase-js-2.116.0.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./app.css">
