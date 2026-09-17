@@ -232,6 +232,6 @@
   };
 
   window.Cfg = Cfg;
-  Danubra.views.rules = function (el) { Cfg.rulesView(el); };
-  Danubra.views.settings = function (el) { Cfg.settingsView(el); };
+  Danubra.views.rules = function (el) { return Cfg.rulesView(el); };
+  Danubra.views.settings = function (el) { return Cfg.settingsView(el); };
 })();

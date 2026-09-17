@@ -525,5 +525,5 @@
   });
 
   window.Wrk = Wrk;
-  Danubra.views.workers = function (el) { Wrk.view(el); };
+  Danubra.views.workers = function (el) { return Wrk.view(el); };
 })();

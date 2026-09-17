@@ -423,9 +423,59 @@ window.Danubra = {
     const view = document.getElementById('view');
     this.setActions('');
     const fn = this.views[this.route];
-    if (fn) fn.call(this, view);
-    else view.innerHTML = this.header(this.labelOf(this.route), 'Pripravujeme v ďalšom kroku.') +
-      UI.empty('wrench', 'Táto sekcia zatiaľ nie je hotová', 'Pribudne v nasledujúcom milestone.');
+
+    if (!fn) {
+      view.innerHTML = this.header(this.labelOf(this.route), 'Pripravujeme v ďalšom kroku.')
+        + UI.empty('wrench', 'Táto sekcia zatiaľ nie je hotová', 'Pribudne v nasledujúcom milestone.');
+      return;
+    }
+
+    // Obrazovka môže spadnúť alebo sa jej nemusia načítať dáta. Ani jedno
+    // sa nesmie stratiť potichu — prázdny zoznam vyzerá ako „nemáš žiadne
+    // záznamy", hoci v skutočnosti zlyhal dotaz do databázy.
+    DB.clearFailures();
+    const started = this.route;
+
+    Promise.resolve()
+      .then(() => fn.call(this, view))
+      .then(() => {
+        if (this.route !== started) return;      // medzitým sa prepla obrazovka
+        this._showLoadFailures(view);
+      })
+      .catch((e) => {
+        if (this.route !== started) return;
+        console.error('[danubra] obrazovka spadla', e);
+        view.innerHTML = this.header(this.labelOf(this.route), '')
+          + this._screenError('Túto obrazovku sa nepodarilo zobraziť.', e && (e.message || e));
+      });
+  },
+
+  /** Keď sa časť dát nenačítala, povedz to — nevydávaj to za prázdno. */
+  _showLoadFailures(view) {
+    const fails = DB.failures;
+    if (!fails.length) return;
+    const list = fails.slice(0, 5)
+      .map(f => `<li><strong>${UI.esc(f.table)}</strong> — ${UI.esc(f.message)}</li>`).join('');
+    const box = document.createElement('div');
+    box.innerHTML = `<div class="warnbox" style="margin-bottom:14px;">
+      ${Icon('alert', 14)} <strong>Časť údajov sa nenačítala.</strong>
+      Čo je nižšie, nemusí byť úplné — prázdny zoznam tu neznamená, že nemáš záznamy.
+      <ul style="margin:8px 0 0 18px;font-size:12.5px;">${list}</ul>
+      <button class="btn btn-outline btn-sm" style="margin-top:10px;"
+        onclick="location.reload()">Skúsiť znova</button>
+    </div>`;
+    view.insertBefore(box.firstElementChild, view.firstChild);
+  },
+
+  _screenError(what, detail) {
+    return `<div class="warnbox">
+      ${Icon('alert', 14)} <strong>${UI.esc(what)}</strong>
+      ${detail ? `<pre style="margin:8px 0 0;font-size:12px;white-space:pre-wrap;">${UI.esc(String(detail).slice(0, 300))}</pre>` : ''}
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="location.reload()">Načítať znova</button>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.go('dashboard')">Späť na prehľad</button>
+      </div>
+    </div>`;
   },
 
   // Jednotná hlavička stránky

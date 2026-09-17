@@ -159,6 +159,60 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Zlyhaný dotaz sa nesmie tváriť ako prázdna tabuľka ────────────────
+    // „Žiadni pracovníci" a „nepodarilo sa spojiť s databázou" sú dve úplne
+    // rôzne správy. Keby appka ukázala prvú namiesto druhej, človek by sa
+    // rozhodoval podľa dát, ktoré nikdy nedorazili.
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        window.__failQueries = true;
+      });
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      // Podstrčíme chybu do DB.list a vykreslíme obrazovku znova.
+      const text = await page.evaluate(async () => {
+        DB.list = async (table) => {
+          const err = { message: 'TypeError: Failed to fetch' };
+          DB._note(table, err);
+          return { data: null, error: err };
+        };
+        Danubra.user = { email: 'test@danubra.eu' };
+        document.getElementById('app').hidden = false;
+        Danubra.route = 'workers';
+        Danubra.renderRoute();
+        await new Promise(r => setTimeout(r, 900));
+        return (document.getElementById('view').innerText || '').trim();
+      });
+
+      ok(text.includes('nenačítala'), 'zlyhaný dotaz sa ohlási');
+      ok(text.includes('neznamená, že nemáš záznamy'),
+        'a povie, že prázdno neznamená prázdno');
+      ok(text.includes('danubra_workers'), 'aj ktorá tabuľka zlyhala');
+      await page.close();
+    }
+
+    // ── Spadnutá obrazovka nenechá prázdno ────────────────────────────────
+    {
+      const page = await browser.newPage();
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      const text = await page.evaluate(async () => {
+        Danubra.views.workers = () => { throw new Error('umelá chyba obrazovky'); };
+        Danubra.user = { email: 'test@danubra.eu' };
+        document.getElementById('app').hidden = false;
+        Danubra.route = 'workers';
+        Danubra.renderRoute();
+        await new Promise(r => setTimeout(r, 500));
+        return (document.getElementById('view').innerText || '').trim();
+      });
+
+      ok(text.includes('nepodarilo zobraziť'), 'spadnutá obrazovka to povie');
+      ok(text.includes('umelá chyba obrazovky'), 'aj s textom chyby');
+      ok(text.includes('Späť na prehľad'), 'a ponúkne cestu von');
+      await page.close();
+    }
+
     // ── Keď chýba knižnica, appka to povie ────────────────────────────────
     // Blokátor reklám, firemná sieť, výpadok — nech je príčina akákoľvek,
     // človek musí vidieť text, nie bielu plochu.

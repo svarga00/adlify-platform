@@ -812,5 +812,5 @@
   });
 
   window.Sub = Sub;
-  Danubra.views.subcontracts = function (el) { Sub.view(el); };
+  Danubra.views.subcontracts = function (el) { return Sub.view(el); };
 })();

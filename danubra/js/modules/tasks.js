@@ -253,5 +253,5 @@
   };
 
   window.Tsk = Tsk;
-  Danubra.views.tasks = function (el) { Tsk.view(el); };
+  Danubra.views.tasks = function (el) { return Tsk.view(el); };
 })();

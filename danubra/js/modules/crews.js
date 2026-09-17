@@ -288,5 +288,5 @@
   };
 
   window.Crews = Crews;
-  Danubra.views.crews = function (el) { Crews.view(el); };
+  Danubra.views.crews = function (el) { return Crews.view(el); };
 })();

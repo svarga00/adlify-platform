@@ -257,5 +257,5 @@
   };
 
   window.Inq = Inq;
-  Danubra.views.inquiries = function (el) { Inq.view(el); };
+  Danubra.views.inquiries = function (el) { return Inq.view(el); };
 })();

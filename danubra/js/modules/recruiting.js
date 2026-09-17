@@ -551,5 +551,5 @@
   };
 
   window.Rec = Rec;
-  Danubra.views.recruiting = function (el) { Rec.view(el); };
+  Danubra.views.recruiting = function (el) { return Rec.view(el); };
 })();

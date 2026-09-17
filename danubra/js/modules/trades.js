@@ -363,5 +363,5 @@
   };
 
   window.Trades = Trades;
-  Danubra.views.trades = function (el) { Trades.view(el); };
+  Danubra.views.trades = function (el) { return Trades.view(el); };
 })();

@@ -474,5 +474,5 @@
   };
 
   window.Hire = Hire;
-  Danubra.views.hiring = function (el) { Hire.view(el); };
+  Danubra.views.hiring = function (el) { return Hire.view(el); };
 })();

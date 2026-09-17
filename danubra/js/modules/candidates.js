@@ -515,5 +515,5 @@
   };
 
   window.Cand = Cand;
-  Danubra.views.candidates = function (el) { Cand.view(el); };
+  Danubra.views.candidates = function (el) { return Cand.view(el); };
 })();

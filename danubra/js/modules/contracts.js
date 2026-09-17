@@ -339,5 +339,5 @@
   };
 
   window.Con = Con;
-  Danubra.views.contracts = function (el) { Con.view(el); };
+  Danubra.views.contracts = function (el) { return Con.view(el); };
 })();

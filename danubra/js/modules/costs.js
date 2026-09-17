@@ -372,5 +372,5 @@
   };
 
   window.Cost = Cost;
-  Danubra.views.costs = function (el) { Cost.view(el); };
+  Danubra.views.costs = function (el) { return Cost.view(el); };
 })();

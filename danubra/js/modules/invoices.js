@@ -623,5 +623,5 @@
   });
 
   window.Inv = Inv;
-  Danubra.views.invoices = function (el) { Inv.view(el); };
+  Danubra.views.invoices = function (el) { return Inv.view(el); };
 })();

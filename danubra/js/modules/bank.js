@@ -365,5 +365,5 @@
   };
 
   window.Bank = Bank;
-  Danubra.views.bank = function (el) { Bank.view(el); };
+  Danubra.views.bank = function (el) { return Bank.view(el); };
 })();

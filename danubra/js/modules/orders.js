@@ -442,6 +442,6 @@
   };
 
   window.Ord = Ord;
-  Danubra.views.orders = function (el) { Ord.view(el); };
-  Danubra.views.active = function (el) { Ord.view(el, { activeOnly: true }); };
+  Danubra.views.orders = function (el) { return Ord.view(el); };
+  Danubra.views.active = function (el) { return Ord.view(el, { activeOnly: true }); };
 })();

@@ -450,6 +450,28 @@ t('a zrušiť ju cez revoked_at, nie zmazaním',
 t('výnimka bez poriadneho dôvodu neprejde ani v UI',
   sandbox.Wrk && /reasonValid/.test(String(sandbox.Wrk.grantOverride)));
 
+// ── Obrazovka musí vrátiť svoj prísľub ─────────────────────────────────────
+// Router čaká na dokončenie obrazovky, aby vedel, či sa niečo nenačítalo.
+// Keď registrácia prísľub nevráti, hlásenie príde skôr než dáta a chyba
+// sa stratí. Stálo to jeden neúspešný test.
+{
+  const srcs = files.filter(f => f.startsWith('js/modules/'))
+    .map(f => fs.readFileSync(path.join(root, f), 'utf8'));
+  const bad = [];
+  for (const src of srcs) {
+    for (const m of src.matchAll(/Danubra\.views\.(\w+) = function[^{]*\{([^}]*)\}/g)) {
+      if (!/\breturn\b/.test(m[2])) bad.push(m[1]);
+    }
+  }
+  t(`každá obrazovka vracia svoj prísľub${bad.length ? ' — chýba: ' + bad.join(', ') : ''}`,
+    !bad.length);
+}
+t('zlyhaný dotaz sa zaznamená, nie zahodí',
+  sandbox.DB && Array.isArray(sandbox.DB.failures)
+  && typeof sandbox.DB.clearFailures === 'function');
+t('router ohlási, čo sa nenačítalo',
+  D && typeof D._showLoadFailures === 'function');
+
 // ── Serverové funkcie ──────────────────────────────────────────────────────
 // Netlify robí z každého súboru v `netlify/functions/` funkciu a názov smie
 // mať len písmená, číslice, pomlčky a podčiarkovníky. Súbor s bodkou

@@ -297,5 +297,5 @@
   };
 
   window.Quo = Quo;
-  Danubra.views.quotes = function (el) { Quo.view(el); };
+  Danubra.views.quotes = function (el) { return Quo.view(el); };
 })();

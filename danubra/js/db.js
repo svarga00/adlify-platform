@@ -31,7 +31,21 @@
       client.auth.onAuthStateChange((_ev, session) => cb(session?.user || null));
     },
 
-    // Generický list s filtrami/order — vracia { data, error }
+    // ── Čo sa nenačítalo ────────────────────────────────────────────────
+    // Volajúci takmer vždy píšu `data || []`, takže neúspešný dotaz vyzerá
+    // rovnako ako prázdna tabuľka. Obrazovka potom tvrdí „žiadni pracovníci",
+    // hoci sa v skutočnosti nepodarilo spojiť s databázou. To je tichá lož
+    // a v appke o peniazoch nemá čo robiť.
+    //
+    // Chyby sa preto zbierajú sem a router ich po vykreslení ukáže.
+    failures: [],
+    clearFailures() { this.failures = []; },
+    _note(table, error) {
+      if (!error) return;
+      this.failures.push({ table: t(table), message: error.message || String(error) });
+      console.error(`[danubra] ${t(table)}:`, error);
+    },
+
     async list(table, { select = '*', filters = {}, order, limit } = {}) {
       let q = client.from(t(table)).select(select);
       for (const [k, v] of Object.entries(filters)) {
@@ -41,7 +55,9 @@
       }
       if (order) q = q.order(order.column, { ascending: order.ascending !== false });
       if (limit) q = q.limit(limit);
-      return q;
+      const res = await q;
+      this._note(table, res.error);
+      return res;
     },
 
     async getById(table, id, select = '*') {

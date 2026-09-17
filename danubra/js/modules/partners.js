@@ -228,5 +228,5 @@
   };
 
   window.Prt = Prt;
-  Danubra.views.partners = function (el) { Prt.view(el); };
+  Danubra.views.partners = function (el) { return Prt.view(el); };
 })();
