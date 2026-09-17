@@ -238,3 +238,83 @@ Zapísané ako R10.
 Zhodu JS a SQL overili dva testy proti reálnej databáze v transakcii, ktorá
 sa zrolovala: trigger predáka a platobná disciplína (5/3/1 faktúr,
 3 500 € neuhradených, 31,0 dňa priemer, 67 % načas — identicky v oboch).
+
+---
+
+## F4 — Ponuky a zmluvy
+
+**Stav:** hotová · 17. 9. 2026 · migrácia 016 je aplikovaná v produkcii
+
+### Čo je hotové
+
+**Databáza** (`016_v2_f4_ponuky_zmluvy.sql`)
+
+- `danubra_quotes` — ponuka pozná svoju maržu vrátane réžie.
+- `danubra_contracts` a `danubra_contract_amendments` — dodatky sú
+  append-only: RLS má select a insert, nie update ani delete.
+- **Trigger `danubra_contract_needs_amendment()`** — na podpísanej zmluve sa
+  koniec platnosti ani sadzba nedajú prepísať bez zapísaného dodatku.
+- `danubra_v_quote_margin` — marža počítaná v SQL.
+- `danubra_next_number()` rozšírená o `quote` a `contract`.
+
+**Kód**
+
+- `lib/quotes.js` — marža a kontrola ponuky pred odoslaním. 62 testov.
+- `js/modules/quotes.js` — marža sa prepočítava **pri písaní**, nie až po
+  uložení.
+- `js/modules/contracts.js` — zmluvy a dodatky. Na podpísanej zmluve sa
+  chránené polia vôbec nekreslia ako editovateľné.
+
+### Dve rozhodnutia, ktoré stoja za zmienku
+
+**Marža sa počíta po odpočítaní réžie**, nie ako rozdiel sadzieb. Ubytovanie
+a doprava sú najväčšia položka po tom, čo dostane živnostník; keď sa nerátajú,
+ponuka vyzerá o niekoľko eur na hodinu lepšie, než je. Nulová réžia preto
+vypíše upozornenie.
+
+**Sadzba pod nemeckou minimálnou mzdou je blokátor, nie upozornenie** — nie
+je to otázka marže, ale pokuty. Kľúč `below_min_wage` sedí s číselníkom
+výnimiek z F1, takže sa to dá povoliť, ale zostane to zapísané.
+
+### Čo sa cestou opravilo
+
+**Číslovanie ponúk a zmlúv som najprv napísal v JS.** Appka má ale
+transakčné číslovanie v databáze (`danubra_next_number` s `for update` nad
+riadkom nastavení) a vlastné číslovanie v prehliadači by tú záruku rozbilo —
+pri dvoch ľuďoch naraz by vznikla diera alebo duplicita. Rozšíril som
+existujúcu funkciu namiesto obchádzania.
+
+### Čo treba otestovať rukami
+
+1. **Živý prepočet** — v novej ponuke zadaj 34 / 26 / 4. Marža sa má ukázať
+   hneď pri písaní ako 4,00 €/h, bez ukladania.
+2. **Blokátor straty** — zmeň fakturovanú sadzbu na 28. Ponuka sa nedá
+   označiť ako odoslaná a povie sa, koľko sa prerába.
+3. **Minimálna mzda** — daj živnostníkovi 14 €/h pri stavebných prácach.
+   Blokuje. Prepni typ prác na dielenské — prejde, lebo prah je nižší.
+4. **Dodatok** — vytvor zmluvu, prepni ju na „podpísaná". Koniec platnosti
+   a sadzba sa vo formulári už nedajú prepísať; sú zamknuté s poznámkou.
+   Zmeň koniec cez „Nový dodatok" — dodatok zostane v histórii.
+5. **Trigger proti SQL** — skús v SQL editore `update danubra_contracts set
+   date_to = '...' where …` na podpísanej zmluve. Musí to odmietnuť.
+
+### Čo zostalo otvorené
+
+- **Dodatok sa dá obísť návratom na starú hodnotu.** Trigger overuje, že
+  k novej hodnote existuje dodatok — keď sa hodnota vráti na niečo, čo už
+  raz dodatkom prešlo, prejde to. Praktický dopad je malý (vrátenie na
+  pôvodne dohodnutý stav), zmena by si vyžiadala poradie dodatkov.
+- **Zmluva sa zatiaľ neviaže na zákazku.** `danubra_subcontracts` o zmluve
+  nevie; prepojenie patrí k F5, keď sa bude nasadzovať.
+- **PDF zmluvy sa nikam nenahráva.** `storage_path` je pripravený, úložisko
+  príde s F7.
+- **Ponuka sa neodosiela e-mailom.** „Označiť ako odoslanú" je zatiaľ len
+  zmena stavu — odoslanie rieši človek vo svojom klientovi.
+
+### Testy
+
+845 testov v sedemnástich sadách a smoke test nad 50 súbormi.
+
+Trigger dodatkov je overený proti reálnej databáze v transakcii, ktorá sa
+zrolovala: rozpracovaná zmluva sa mení voľne, podpísaná bez dodatku neprejde,
+s dodatkom prejde, sadzba je chránená rovnako.

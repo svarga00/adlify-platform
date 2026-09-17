@@ -230,6 +230,37 @@ if (Pay) {
 t('odberateľ číta faktúry cez partner_id',
   sandbox.Prt && /i\.partner_id === id/.test(String(sandbox.Prt.detail)));
 
+// ── Ponuky a zmluvy ────────────────────────────────────────────────────────
+const Qt = sandbox.DanubraQuotes;
+t('knižnica DanubraQuotes je načítaná', Qt);
+t('modul Quo', sandbox.Quo);
+t('modul Con', sandbox.Con);
+if (Qt) {
+  // Réžia patrí do marže. Bez nej ponuka vyzerá lepšie, než je.
+  t('marža sa počíta po odpočítaní réžie',
+    Qt.margin({ charge_rate: 34, worker_rate: 26, overhead_per_hour: 4 }).perHour === 400);
+  // Dva blokátory, ktoré nesmú byť len odporúčanie.
+  t('na ponuke so stratou sa nedá pokračovať',
+    Qt.review({ partner_id: 'p', charge_rate: 20, worker_rate: 26 }).reasons
+      .some(r => r.rule === 'quote_negative_margin'));
+  t('sadzba pod minimálnou mzdou blokuje',
+    Qt.review({ partner_id: 'p', charge_rate: 40, worker_rate: 14 }).reasons
+      .some(r => r.rule === 'below_min_wage'));
+  t('odmietnutá ponuka sa nevracia medzi rozpracované', !Qt.canGo('rejected', 'draft'));
+  t('predmet diela sa z ponuky nepredvyplní', Qt.toContract({ title: 'x' }).scope === null);
+}
+// Čísla prideľuje databáza transakčne — vlastné číslovanie v JS by spravilo
+// dieru alebo duplicitu, keď kliknú dvaja naraz.
+t('ponuky číslujú cez databázu',
+  sandbox.Quo && /danubra_next_number/.test(String(sandbox.Quo.nextNumber)));
+t('zmluvy číslujú cez databázu',
+  sandbox.Con && /danubra_next_number/.test(String(sandbox.Con.nextNumber)));
+// Dodatok sa zapisuje pred úpravou zmluvy — opačné poradie trigger odmietne.
+t('dodatok sa zapisuje pred úpravou zmluvy', sandbox.Con && (() => {
+  const src = String(sandbox.Con.saveAmendment);
+  return src.indexOf("insert('contract_amendments'") < src.indexOf("update('contracts'");
+})());
+
 // ── Prepínač agend v nastaveniach ──────────────────────────────────────────
 // Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
 const Cfg = sandbox.Cfg;

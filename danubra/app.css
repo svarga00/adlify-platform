@@ -1044,3 +1044,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: block; margin: 3px 0 0 26px;
   font-size: 12.5px; color: var(--ink-sub); line-height: 1.5;
 }
+
+/* ── Pole chránené dodatkom ──────────────────────────────────────────────── */
+.fld-locked input { background: var(--bg); color: var(--ink-sub); cursor: not-allowed; }
+.fld-locked > span { display: flex; align-items: center; gap: 5px; }
+.fld-locked > span > svg { color: var(--ink-mute); }
+.fld-locked em {
+  display: block; margin-top: 3px; font-style: normal;
+  font-size: 11.5px; color: var(--ink-mute);
+}

@@ -60,6 +60,8 @@ window.Danubra = {
                     ['inquiries', 'Dopyty', 'inquiries', 'accommodation'],
                     ['offers', 'Ponuky', 'offers', 'accommodation'],
                     ['orders', 'Objednávky', 'orders', 'accommodation'],
+                    ['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
+                    ['contracts', 'Zmluvy', 'note', 'staffing', 'contracts'],
                     ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts']]],
     ['ĽUDIA',      [['hiring', 'Náborové plány', 'zap', 'staffing', 'recruiting'],
