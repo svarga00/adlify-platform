@@ -176,6 +176,26 @@ if (Sh) {
   t('dôvod výnimky sedí s CHECK v migrácii 013', Sh.REASON_MIN === 5);
 }
 
+// ── Doklady živnostníka ────────────────────────────────────────────────────
+const Docs = sandbox.DanubraDocs;
+t('knižnica DanubraDocs je načítaná', Docs);
+if (Docs) {
+  t('A1 má dlhší horizont než tridsať dní', Docs.horizonOf({ kind: 'a1' }) > 30);
+  t('bez dokladov sa nenasadzuje', Docs.readiness({ docs: [] }).ok === false);
+  t('chýbajúce A1 má vlastný kľúč výnimky',
+    Docs.readiness({ docs: [] }).reasons.some(r => r.rule === 'missing_a1'));
+  t('prázdny fakturačný profil blokuje', Docs.billingReady({}).ok === false);
+  // Že kľúče sedia s číselníkom override_rule, kontroluje documents.test.js —
+  // tu stačí, že každá požiadavka nejaký kľúč má.
+  t('každá požiadavka na doklad má kľúč výnimky',
+    Object.values(Docs.REQUIRED).flat().every(r => typeof r.rule === 'string' && r.rule));
+}
+t('prevod kandidáta ide cez databázovú funkciu',
+  sandbox.Cand && /DB\.rpc\(['"]convert_candidate/.test(String(sandbox.Cand.convert)));
+t('DB má rpc helper', sandbox.DB && typeof sandbox.DB.rpc === 'function');
+t('typy dokladov sa berú z číselníka',
+  sandbox.Wrk && typeof sandbox.Wrk.docKinds === 'function' && sandbox.Wrk.docKinds().length > 0);
+
 // ── Prepínač agend v nastaveniach ──────────────────────────────────────────
 // Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
 const Cfg = sandbox.Cfg;

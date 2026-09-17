@@ -1,5 +1,14 @@
 // ============================================================================
-// DANUBRA — Pracovníci (Fáza 2: vlastní zamestnanci na vyslanie)
+// DANUBRA — Kartotéka živnostníkov
+// ============================================================================
+// v1 to bola kartotéka zamestnancov (hrubá mzda, odvody). v2 je živnostnícka:
+// človek nám fakturuje, takže okrem kontaktu potrebujeme aj to, na koho
+// faktúru vystaví — a či má doklady, s ktorými ho smieme nasadiť.
+//
+// Zamestnanecké polia z v1 zostávajú, lebo historické záznamy sa nemenia.
+//
+// Logika platnosti dokladov a pripravenosti je v lib/staffing/documents.js
+// a má vlastné testy; tento modul ju len vykresľuje.
 // ============================================================================
 (function () {
   const STATUS = [
@@ -13,11 +22,6 @@
     ['cnc', 'CNC operátor'], ['montaznik', 'Montážnik'], ['pomocnik', 'Pomocný pracovník'],
   ];
   const SKILL = [['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']];
-  const DOC_KINDS = [
-    ['a1', 'A1 (vyslanie)'], ['passport', 'Pas'], ['id_card', 'Občiansky'],
-    ['medical', 'Lekárska prehliadka'], ['certificate', 'Certifikát / preukaz'],
-    ['training', 'Školenie BOZP'], ['contract', 'Pracovná zmluva'],
-  ];
 
   const Wrk = {
     items: [], docs: [], loaded: false,
@@ -27,10 +31,15 @@
       const [w, d] = await Promise.all([
         DB.list('workers', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('worker_documents', { limit: 2000 }),
+        Enums.load(),
       ]);
       this.items = w.data || []; this.docs = d.data || [];
       this.loaded = true;
     },
+
+    /** Typy dokladov z číselníka — pridanie nového nevyžaduje zásah do kódu. */
+    docKinds() { return Enums.options('worker_document'); },
+    docLabel(kind) { return Enums.label('worker_document', kind); },
 
     docsOf(id) { return this.docs.filter(d => d.worker_id === id); },
     statusBadge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
@@ -142,21 +151,55 @@
         ['Zdroj', w.source],
       ].filter(r => r[1] != null && r[1] !== '');
 
+      const isTrade = w.legal_form === 'szco';
+
       const docRow = (d) => {
-        const st = DanubraCompliance.docState(d, today);
-        const color = st === 'expired' ? 'red' : st === 'expiring' ? 'amber' : st === 'valid' ? 'green' : '';
-        const label = { valid: 'platné', expiring: 'čoskoro vyprší', expired: 'neplatné', not_yet: 'ešte neplatí', missing: 'chýba' }[st];
+        const x = DanubraDocs.describe(d, today);
+        const color = x.state === 'expired' ? 'red'
+          : x.state === 'expiring' ? 'amber' : x.state === 'valid' ? 'green' : '';
+        const label = {
+          valid: 'platné', expiring: 'čoskoro vyprší', expired: 'neplatné',
+          not_yet: 'ešte neplatí', missing: 'chýba',
+        }[x.state];
+        // Počet dní je to, čo človek potrebuje vedieť: „ešte 12 dní" hovorí
+        // viac než „čoskoro vyprší".
+        const dni = x.daysLeft == null ? ''
+          : x.state === 'expired'
+            ? ` · pred ${Math.abs(x.daysLeft)} ${Shell.plural(x.daysLeft, 'dňom', 'dňami', 'dňami')}`
+            : ` · ešte ${x.daysLeft} ${Shell.plural(x.daysLeft, 'deň', 'dni', 'dní')}`;
         return `<div class="list-row" style="cursor:default;">
           <span class="dot ${color}"></span>
           <span style="flex:1;font-size:13px;">
-            <strong>${(DOC_KINDS.find(k => k[0] === d.kind) || [, d.kind])[1]}</strong>
+            <strong>${UI.esc(this.docLabel(d.kind))}</strong>
             ${d.reference ? `<span style="color:var(--ink-mute);"> · ${UI.esc(d.reference)}</span>` : ''}
             <span style="color:var(--ink-mute);display:block;font-size:12px;">
-              ${d.valid_from ? UI.date(d.valid_from) : '—'} – ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'} · ${label}</span>
+              ${d.valid_from ? UI.date(d.valid_from) : '—'} – ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'} · ${label}${dni}</span>
           </span>
           <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Wrk.delDoc('${d.id}')">${Icon('x', 15)}</button>
         </div>`;
       };
+
+      // Smieme ho nasadiť? Stavba je striktnejšia než dielňa, tak sa
+      // posudzuje podľa nej — kto prejde na stavbu, prejde všade.
+      const ready = DanubraDocs.readiness({
+        docs, workType: 'construction', regulated: !!w.regulated_trade, today,
+      });
+
+      // Môžeme od neho prijať faktúru? Iná otázka než nasadenie a v praxi sa
+      // na ňu zabúda — človek odrobí mesiac a potom sa zistí, že nevieme,
+      // na koho faktúru zaúčtovať.
+      const billing = isTrade ? DanubraDocs.billingReady(w) : null;
+
+      const billingRows = isTrade ? [
+        ['Meno na živnosti', w.company_name],
+        ['IČO', w.company_id], ['DIČ', w.tax_id],
+        ['IČ DPH', w.vat_id], ['Platiteľ DPH', w.vat_payer ? 'Áno' : 'Nie'],
+        ['Adresa podnikania', [w.business_address, w.business_zip, w.business_city]
+          .filter(Boolean).join(', ') || null],
+        ['IBAN', w.bank_iban],
+        ['Živnosť od', w.trade_licence_from ? UI.date(w.trade_licence_from) : null],
+        ['Odbory', (w.trade_licence_scopes || []).join(', ') || null],
+      ].filter(r => r[1] != null && r[1] !== '') : [];
 
       const body = `
         <div class="detail-head">
@@ -166,15 +209,33 @@
           </select>
         </div>
         ${CommPanel.render({ contact: { phone: w.phone, email: w.email, whatsapp: w.whatsapp, name: w.full_name }, entity: { type: 'worker', id: w.id } })}
+
+        <div class="form-section">Smieme ho nasadiť?</div>
+        ${Shell.blocker({
+          reasons: [...ready.reasons, ...ready.warnings],
+          okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
+            + 'Doklady na stavbu sú v poriadku.</p>',
+        })}
+
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${(w.skills || []).length ? `<div class="chips">${w.skills.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
         ${w.notes ? `<div class="notebox">${UI.esc(w.notes)}</div>` : ''}
+
+        ${isTrade ? `
+        <div class="form-section">Fakturačné údaje živnosti</div>
+        ${billing.ok
+          ? '<div class="regimebox" style="margin:0 0 10px;">Údaje sú komplet — jeho faktúru vieme zaúčtovať.</div>'
+          : Shell.blocker({ reasons: [...billing.reasons, ...billing.warnings] })}
+        ${billingRows.length
+          ? `<div class="kv">${billingRows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>`
+          : ''}` : ''}
 
         <div class="form-section">História nasadení</div>
         <div id="wrk-history">${UI.loading()}</div>
 
         <div class="form-section">Doklady a platnosti</div>
-        ${docs.length ? docs.map(docRow).join('') : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
+        ${docs.length ? docs.map(docRow).join('')
+          : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
         <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Wrk.addDoc('${w.id}')">${Icon('plus')} Pridať doklad</button>
 
         <div class="modal-actions">
@@ -258,11 +319,31 @@
             ${UI.field('cooperating_since', 'Spolupracuje od', { type: 'date', value: w.cooperating_since })}
             ${UI.field('source', 'Zdroj', { value: w.source, placeholder: 'odporúčanie, profesia.sk…' })}
           </div>
+          <div class="form-section">Fakturačné údaje živnosti</div>
+          <div class="regimebox" style="margin:0 0 12px;">
+            Bez IČO, IBAN-u a adresy sa jeho faktúra nedá zaúčtovať ani zapísať
+            do SuperFaktúry. Platí len pri živnostníkovi.</div>
+          <div class="form-grid">
+            ${UI.field('company_name', 'Meno na živnosti', { value: w.company_name,
+              placeholder: 'ak sa líši od mena človeka' })}
+            ${UI.field('company_id', 'IČO', { value: w.company_id, placeholder: '12345678' })}
+            ${UI.field('tax_id', 'DIČ', { value: w.tax_id })}
+            ${UI.field('vat_id', 'IČ DPH', { value: w.vat_id, placeholder: 'SK1020304050' })}
+            ${UI.field('bank_iban', 'IBAN', { value: w.bank_iban })}
+            ${UI.field('business_address', 'Adresa podnikania', { value: w.business_address })}
+            ${UI.field('business_zip', 'PSČ', { value: w.business_zip })}
+            ${UI.field('business_city', 'Mesto', { value: w.business_city })}
+            ${UI.field('trade_licence_from', 'Živnosť od', { type: 'date', value: w.trade_licence_from })}
+            ${UI.field('scopes_csv', 'Odbory zo živnosti (čiarkou)', {
+              value: (w.trade_licence_scopes || []).join(', '),
+              placeholder: 'suché stavby, obklady' })}
+          </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: w.whatsapp, placeholder: 'Má WhatsApp' })}
             ${UI.field('driving_licence', '', { type: 'checkbox', value: w.driving_licence, placeholder: 'Vodičský preukaz' })}
             ${UI.field('own_tools', '', { type: 'checkbox', value: w.own_tools, placeholder: 'Vlastné náradie' })}
             ${UI.field('regulated_trade', '', { type: 'checkbox', value: w.regulated_trade, placeholder: 'Regulované remeslo (§9 HwO)' })}
+            ${UI.field('vat_payer', '', { type: 'checkbox', value: w.vat_payer, placeholder: 'Platiteľ DPH' })}
           </div>
           ${UI.field('skills_csv', 'Zručnosti (čiarkou)', { value: (w.skills || []).join(', ') })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: w.notes })}
@@ -279,10 +360,13 @@
       if (!d.full_name) return UI.toast('Meno je povinné', 'err');
       const payload = { ...d };
       ['gross_monthly', 'per_diem_daily', 'hourly_cost'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
-      if (payload.cooperating_since === '') payload.cooperating_since = null;
-      if (payload.available_from === '') payload.available_from = null;
+      // Prázdny dátum musí ísť do databázy ako null, nie ako prázdny reťazec.
+      ['cooperating_since', 'available_from', 'trade_licence_from']
+        .forEach(k => { if (payload[k] === '') payload[k] = null; });
       payload.skills = (d.skills_csv || '').split(',').map(s => s.trim()).filter(Boolean);
+      payload.trade_licence_scopes = (d.scopes_csv || '').split(',').map(s => s.trim()).filter(Boolean);
       delete payload.skills_csv;
+      delete payload.scopes_csv;
       const res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
@@ -302,14 +386,17 @@
       const body = `
         <form id="doc-form" onsubmit="event.preventDefault();Wrk.saveDoc('${workerId}')">
           <div class="form-grid">
-            ${UI.field('kind', 'Typ dokladu', { value: 'a1', options: DOC_KINDS })}
+            ${UI.field('kind', 'Typ dokladu', { value: 'a1', options: this.docKinds() })}
             ${UI.field('reference', 'Číslo / referencia', {})}
             ${UI.field('valid_from', 'Platí od', { type: 'date' })}
             ${UI.field('valid_to', 'Platí do', { type: 'date' })}
+            ${UI.field('notify_days_before', 'Upozorniť dní dopredu', { type: 'number',
+              value: '', placeholder: 'podľa typu dokladu' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea' })}
           <div class="regimebox">A1 vystavuje Sociálna poisťovňa do 45 dní a platí najviac 24 mesiacov —
-          žiadaj s predstihom, inak sa nedá vyslať.</div>
+          preto sa naň upozorňuje 60 dní dopredu, nie 30. Prázdne pole znamená
+          predvolený horizont podľa typu dokladu.</div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="Wrk.detail('${workerId}')">Späť</button>
             <button type="submit" class="btn btn-primary">Pridať doklad</button>
@@ -324,6 +411,9 @@
         worker_id: workerId, kind: d.kind, reference: d.reference || null,
         valid_from: d.valid_from || null, valid_to: d.valid_to || null,
         notes: d.notes || null,
+        // Prázdne pole = nech platí predvolený horizont podľa typu dokladu.
+        notify_days_before: d.notify_days_before === '' ? DanubraDocs.horizonOf({ kind: d.kind })
+          : Number(d.notify_days_before),
       };
       const { error } = await DB.insert('worker_documents', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');

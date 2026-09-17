@@ -91,5 +91,14 @@
       const { count } = await q;
       return count || 0;
     },
+
+    /**
+     * Databázová funkcia. Názov sa prefixuje rovnako ako tabuľky.
+     * Používa sa tam, kde sa dva zápisy nesmú rozpadnúť na polovicu —
+     * napríklad prevod kandidáta na živnostníka.
+     */
+    async rpc(name, args = {}) {
+      return client.rpc(t(name), args);
+    },
   };
 })();

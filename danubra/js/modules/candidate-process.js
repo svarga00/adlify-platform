@@ -244,7 +244,11 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(cand, patch);
 
-      if (!cand.converted_worker_id) await Cand.convert(cand.id, { silent: true });
+      // `keepStatus` — stav sme práve nastavili na 'placed', prevod ho nesmie
+      // zhodiť späť na 'ready'.
+      if (!cand.converted_worker_id) {
+        await Cand.convert(cand.id, { silent: true, keepStatus: true });
+      }
       UI.closeModal();
       UI.toast(`${cand.full_name} je nastúpený`, 'ok');
       await Cand.load(); Danubra.renderRoute();

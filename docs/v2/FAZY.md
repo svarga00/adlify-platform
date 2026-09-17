@@ -81,3 +81,82 @@ Krátke zhrnutie po každej fáze: čo je hotové, čo treba otestovať rukami,
 
 595 testov v trinástich sadách a smoke test nad 43 súbormi.
 Spustenie: `npm test`.
+
+---
+
+## F2 — Živnostníci a doklady
+
+**Stav:** hotová · 17. 9. 2026 · migrácia 014 je aplikovaná v produkcii
+
+### Čo je hotové
+
+**Databáza** (`014_v2_f2_zivnostnici_doklady.sql`)
+
+- `danubra_workers` má fakturačné údaje živnosti: `company_name`,
+  `company_id`, `tax_id`, `vat_id`, `vat_payer`, adresu podnikania,
+  `trade_licence_from`, `trade_licence_scopes`, `sf_client_id`, `crew_id`
+  (cudzí kľúč doplní F3). Zamestnanecké stĺpce z v1 zostávajú — historické
+  záznamy sa nemenia.
+- `danubra_worker_documents` má `storage_path`, `notify_days_before`
+  a `required_for`.
+- `danubra_v_worker_documents` — pohľad s dopočítaným `validity`
+  (`not_yet` / `valid` / `expiring` / `expired`) a `days_left`.
+- `danubra_convert_candidate(uuid, bool, text)` — prevod kandidáta na
+  živnostníka v jednej operácii.
+- Číselník dostal `training` (školenie BOZP) a dva nové kľúče výnimiek:
+  `missing_document` a `missing_billing_data`.
+
+**Kód**
+
+- `lib/staffing/documents.js` — platnosť dokladov, pripravenosť na
+  nasadenie a kontrola fakturačných údajov. 84 testov.
+- `js/modules/workers.js` — kartotéka je živnostnícka. Detail odpovedá na
+  dve otázky priamo: „Smieme ho nasadiť?" a „Môžeme od neho prijať
+  faktúru?". Typy dokladov ťahá z číselníka, takže pridanie nového
+  nevyžaduje zásah do kódu.
+- `js/modules/candidates.js` — prevod ide cez RPC.
+- `js/db.js` — pribudol `DB.rpc()`.
+
+### Čo sa cestou opravilo
+
+- **Prevod kandidáta bol dva samostatné zápisy z prehliadača.** Najprv
+  vznikol pracovník, potom sa doplnila väzba. Keď druhý zápis nedobehol,
+  človek zostal v systéme dvakrát a náborová história sa k nemu nedala
+  dohľadať. Teraz je to jedna databázová operácia, idempotentná, a doviaže
+  aj pracovníka, ktorý po takom nedokončenom prevode ostal.
+- **Jeden horizont upozornenia pre všetky doklady.** A1 vystavuje Sociálna
+  poisťovňa až 45 dní, takže upozornenie 30 dní dopredu prišlo neskoro.
+  Horizont je teraz podľa typu: A1 60 dní, doklad totožnosti 90,
+  zdravotná prehliadka 14.
+- **Chýbajúci a expirovaný doklad mali rovnaký kľúč.** Sú to dve rôzne
+  práce — jeden treba vybaviť, druhý obnoviť — takže majú dva kľúče.
+
+### Čo treba otestovať rukami
+
+1. **Kartotéka** — otvor živnostníka. Nahor sa vykreslí „Smieme ho
+   nasadiť?" so zoznamom toho, čo chýba, a s dôvodom prečo. Pod tým
+   „Fakturačné údaje živnosti" s tým istým typom zoznamu.
+2. **Doklad s vlastným horizontom** — pridaj A1 s koncom platnosti za
+   50 dní. Musí sa ukázať ako „čoskoro vyprší · ešte 50 dní", nie ako
+   platný.
+3. **Prevod kandidáta** — preveď kandidáta. V jeho poznámkach musí
+   pribudnúť záznam o prevode a v kartotéke pracovníka aktivita o tom,
+   odkiaľ vznikol. Druhé kliknutie nesmie vyrobiť druhého človeka.
+4. **Nastúpenie kandidáta** — pri nastúpení zo šesťkrokového procesu musí
+   stav kandidáta zostať „nastúpený", nie spadnúť na „pripravený".
+
+### Čo zostalo otvorené
+
+- **Nahrávanie skenu dokladu ešte nie je.** Stĺpec `storage_path` existuje
+  a je zdokumentovaný, ale privátny bucket a podpísané URL pre doklady
+  pribudnú spolu s prijatými faktúrami vo F7, aby sa úložisko riešilo raz.
+- **`required_for` na doklade nikto nenastavuje.** Zoznam povinných dokladov
+  drží zatiaľ kód (`REQUIRED` v `documents.js`). Stĺpec je pripravený na to,
+  aby sa dal prepísať z UI, keď sa ukáže, že to treba.
+- **Overenie IČO v zrsr.sk nie je automatické.** Je to voľne dostupný
+  register, ale jeho rozhranie treba preskúmať; zatiaľ sa IČO zadáva ručne.
+- **`crew_id` je zatiaľ bez cudzieho kľúča** — tabuľka partií pribudne vo F3.
+
+### Testy
+
+679 testov v štrnástich sadách a smoke test nad 44 súbormi.
