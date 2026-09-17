@@ -24,17 +24,24 @@
   const SKILL = [['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']];
 
   const Wrk = {
-    items: [], docs: [], loaded: false,
+    items: [], docs: [], overrides: [], loaded: false,
     filters: { status: '', profession: '', q: '' },
 
     async load() {
-      const [w, d] = await Promise.all([
+      const [w, d, o] = await Promise.all([
         DB.list('workers', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('worker_documents', { limit: 2000 }),
+        DB.list('overrides', { filters: { entity_type: 'worker' }, limit: 1000 }),
         Enums.load(),
       ]);
       this.items = w.data || []; this.docs = d.data || [];
+      this.overrides = o.data || [];
       this.loaded = true;
+    },
+
+    /** Zapísané výnimky pre daného človeka. Zrušené sem nepatria. */
+    overridesOf(workerId) {
+      return this.overrides.filter(o => o.entity_id === workerId);
     },
 
     /** Typy dokladov z číselníka — pridanie nového nevyžaduje zásah do kódu. */
@@ -215,9 +222,12 @@
         <div class="form-section">Smieme ho nasadiť?</div>
         ${Shell.blocker({
           reasons: [...ready.reasons, ...ready.warnings],
+          overrides: this.overridesOf(w.id),
+          onOverride: `Wrk.grantOverride('${w.id}')`,
           okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
             + 'Doklady na stavbu sú v poriadku.</p>',
         })}
+        ${this.overridesHtml(w.id)}
 
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${(w.skills || []).length ? `<div class="chips">${w.skills.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
@@ -431,6 +441,88 @@
       if (doc) this.detail(doc.worker_id);
     },
   };
+
+
+  // ── Výnimky z blokátorov ────────────────────────────────────────────────
+  // Admin smie obísť pravidlo, ale musí povedať prečo — a zostane to zapísané.
+  // Bez toho by „výnimka" znamenala, že pravidlo neexistuje.
+  //
+  // Výnimka sa nemaže. Zrušenie je `revoked_at`, takže je aj po roku vidieť,
+  // že sa raz povolila a kedy prestala platiť. Drží to RLS (migrácia 013).
+  Object.assign(Wrk, {
+    overridesHtml(workerId) {
+      const list = this.overridesOf(workerId);
+      if (!list.length) return '';
+      const today = new Date().toISOString().slice(0, 10);
+      const row = (o) => {
+        const dead = o.revoked_at || (o.valid_until && o.valid_until < today);
+        return `<div class="note${dead ? '' : ' note-live'}">
+          <div class="note-meta">
+            <b>${UI.esc(Enums.label('override_rule', o.rule_key))}</b>
+            <span>${o.granted_at ? UI.date(o.granted_at) : ''}</span>
+            ${o.revoked_at ? `<em>zrušená ${UI.date(o.revoked_at)}</em>`
+              : o.valid_until ? `<em>platí do ${UI.date(o.valid_until)}${
+                  o.valid_until < today ? ' — uplynula' : ''}</em>`
+              : '<em>platí</em>'}
+          </div>
+          <div class="note-body">${UI.esc(o.reason)}</div>
+          ${!dead ? `<button class="btn btn-ghost btn-sm" style="margin-top:6px;color:var(--red);"
+            onclick="Wrk.revokeOverride('${o.id}','${workerId}')">Zrušiť výnimku</button>` : ''}
+        </div>`;
+      };
+      return `
+        <div class="form-section">Zapísané výnimky</div>
+        <div class="regimebox" style="margin:0 0 10px;">
+          Výnimka sa nemaže. Zrušenie sa zapíše, takže je aj po roku vidieť,
+          že sa raz povolila.</div>
+        <div class="notes-list">${list.map(row).join('')}</div>`;
+    },
+
+    /**
+     * Zapíše výnimku. Dôvod aj pravidlo sa berú z blokátora — nie z voľného
+     * textu, aby sa dalo dohľadať, ktoré pravidlo sa obchádza najčastejšie.
+     */
+    async grantOverride(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      const box = document.getElementById('ovr-reason');
+      const reason = box ? box.value : '';
+      if (!Shell.reasonValid(reason)) {
+        return UI.toast(`Dôvod musí mať aspoň ${Shell.REASON_MIN} znakov`, 'err');
+      }
+
+      const ready = DanubraDocs.readiness({
+        docs: this.docsOf(workerId), workType: 'construction',
+        regulated: !!w.regulated_trade,
+      });
+      const open = ready.reasons.filter(r =>
+        !this.overridesOf(workerId).some(o => o.rule_key === r.rule && !o.revoked_at));
+      if (!open.length) return UI.toast('Niet čo povoliť — nič neblokuje', 'err');
+
+      // Povolí sa všetko, čo práve blokuje. Povoliť to po jednom by znamenalo
+      // písať ten istý dôvod päťkrát.
+      const rows = open.map(r => ({
+        entity_type: 'worker', entity_id: workerId,
+        rule_key: r.rule, reason: reason.trim(),
+      }));
+      const { error } = await DB.from('overrides').insert(rows);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+
+      UI.toast(`Zapísaná výnimka na ${open.length} ${
+        open.length === 1 ? 'pravidlo' : open.length < 5 ? 'pravidlá' : 'pravidiel'}`, 'ok');
+      this.loaded = false; await this.load(); this.detail(workerId);
+    },
+
+    async revokeOverride(id, workerId) {
+      if (!confirm('Zrušiť túto výnimku?\n\nZáznam zostane v histórii.')) return;
+      const { error } = await DB.update('overrides', id, {
+        revoked_at: new Date().toISOString(),
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Výnimka zrušená, záznam zostal', 'ok');
+      this.loaded = false; await this.load(); this.detail(workerId);
+    },
+  });
 
   window.Wrk = Wrk;
   Danubra.views.workers = function (el) { Wrk.view(el); };

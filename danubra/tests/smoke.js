@@ -407,6 +407,44 @@ if (Bnk) {
     Bnk.scaleCheck(tight, {}).reasons.some(r2 => r2.rule === 'cash_negative'));
 }
 
+// ── Úlohy a pravidlá ───────────────────────────────────────────────────────
+const Tk = sandbox.DanubraTasks;
+t('knižnica DanubraTasks je načítaná', Tk);
+if (Tk) {
+  const TD = '2026-09-17';
+  const rows = [
+    { id: '1', due_date: '2026-09-10', status: 'open', priority: 'normal' },
+    { id: '2', due_date: '2026-09-17', status: 'open', priority: 'normal' },
+    { id: '3', due_date: '2026-09-17', status: 'open', postponed_to: '2026-11-01' },
+  ];
+  // Zoznam sa triedi podľa toho, čo horí — nie podľa dátumu vzniku.
+  t('úlohy sa triedia podľa toho, čo horí',
+    Tk.group(rows, TD).map(g => g.key).join(',') === 'overdue,today');
+  // Odloženie nie je zmazanie.
+  t('odložená úloha sa dnes neukáže', !Tk.isActive(rows[2], TD));
+  t('ale nie je stratená', Tk.counts(rows, TD).snoozed === 1);
+  // Prvé, čo treba prečítať, je veta, nie tabuľka.
+  t('dashboard začína vetou, nie číslom', /vec|veci|vecí|nehorí/.test(Tk.headline(rows, TD).text));
+  t('bez úloh je to pokoj', Tk.headline([], TD).tone === 'ok');
+  // Pravidlo sa dá vysvetliť po slovensky.
+  t('pravidlo sa dá vysvetliť',
+    Tk.describeRule({ source_table: 'danubra_worker_documents', date_field: 'valid_to',
+      days_before: 60, task_title_template: 'x {label}' }).what === 'doklad pracovníka');
+}
+t('modul úloh vie zobraziť pravidlá',
+  sandbox.Tsk && typeof sandbox.Tsk.rulesView === 'function');
+
+// ── Výnimky z blokátorov ───────────────────────────────────────────────────
+// Sľúbené vo F1, dopracované až tu: blokátor ich vie nielen vykresliť,
+// ale aj zapísať.
+t('kartotéka vie zapísať výnimku',
+  sandbox.Wrk && typeof sandbox.Wrk.grantOverride === 'function');
+t('a zrušiť ju cez revoked_at, nie zmazaním',
+  sandbox.Wrk && /revoked_at/.test(String(sandbox.Wrk.revokeOverride))
+  && !/DB\.remove\('overrides'/.test(String(sandbox.Wrk.revokeOverride)));
+t('výnimka bez poriadneho dôvodu neprejde ani v UI',
+  sandbox.Wrk && /reasonValid/.test(String(sandbox.Wrk.grantOverride)));
+
 // ── Serverové funkcie ──────────────────────────────────────────────────────
 // Netlify robí z každého súboru v `netlify/functions/` funkciu a názov smie
 // mať len písmená, číslice, pomlčky a podčiarkovníky. Súbor s bodkou

@@ -1083,3 +1083,19 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   min-width: 96px; text-align: right;
 }
 .cf-week.cf-neg .cf-balance { color: var(--red); }
+
+/* ── Jedna veta na začiatku obrazovky ────────────────────────────────────── */
+/* Prvé, čo treba prečítať, nie je tabuľka — je to veta. */
+.headline {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 15px; border-radius: var(--radius-sm);
+  font-size: 14.5px; font-weight: 600; margin-bottom: 14px;
+  border: 1px solid;
+}
+.headline > svg { flex: none; }
+.headline-ok { background: var(--green-50); border-color: #C9EBD8; color: var(--green); }
+.headline-warn { background: var(--amber-50); border-color: #F3D4B6; color: var(--amber); }
+.headline-bad { background: var(--red-50); border-color: #F6CFCF; color: var(--red); }
+
+/* Platná výnimka sa odlíši od zrušenej — inak sa v zozname stratí. */
+.note-live { border-left: 3px solid var(--amber); padding-left: 10px; margin-left: -13px; }

@@ -689,3 +689,84 @@ príde ona.
 Proti reálnej databáze je overené: automatické spárovanie príjmu aj výdaja
 (2 z 2), obe strany sa označili ako uhradené, dvojitý import zablokovaný
 a druhý pohyb na tú istú faktúru tiež.
+
+---
+
+## F9 — Úlohy ako pravidlá a dashboard
+
+**Stav:** hotová · 17. 9. 2026 · migrácia 021 je aplikovaná v produkcii
+
+### Čo je hotové
+
+**Databáza** (`021_v2_f9_ulohy_pravidla.sql`)
+
+- `danubra_task_rules` — pravidlá ako dáta. v1 ich mala zadrôtované
+  v crone; nové pravidlo je teraz riadok, nie nová verzia appky.
+- `danubra_run_task_rules()` — motor. To isté pravidlo nad tým istým
+  záznamom vytvorí úlohu **raz**, kým nie je vybavená; inak by cron každé
+  ráno pridal kópiu.
+- `danubra_v_today` — otvorené úlohy roztriedené podľa toho, čo horí.
+- Šesť pravidiel, ktoré v1 mala v kóde: A1, živnostenský list, koniec
+  zmluvy, platnosť ponuky, splatnosť faktúry, obdobie na uzávierku.
+
+**Kód**
+
+- `lib/tasks.js` — triedenie, jedna veta na začiatok obrazovky, náhľad
+  pravidla po slovensky. 58 testov.
+- `js/modules/tasks.js` — úlohy po skupinách plus obrazovka pravidiel.
+- Denný cron spúšťa pravidlá.
+
+### Bezpečnosť motora
+
+Motor skladá SQL z hodnôt v tabuľke, takže riadok v `danubra_task_rules`
+by inak znamenal spustenie ľubovoľného SQL. Preto:
+
+- `source_table` je obmedzená CHECK-om na jedenásť známych tabuliek,
+- `date_field` musí vyhovieť `^[a-z_]{3,40}$`,
+- kľúče filtra sa kontrolujú rovnako a do dotazu idú cez `%I` a `%L`.
+
+Overené proti reálnej databáze: pokus o SQL cez filter aj o cudziu tabuľku
+(`auth.users`) skončil chybou.
+
+### Dopracované, čo sľúbila F1
+
+**Výnimky z blokátorov sa konečne zapisujú.** `Shell.blocker` ich vedel
+vykresliť od F1, ale zápis chýbal. Kartotéka živnostníka teraz výnimku
+zapíše aj zruší.
+
+Výnimka sa **nemaže** — zrušenie je `revoked_at`, takže je aj po roku
+vidieť, že sa raz povolila a kedy prestala platiť. Drží to RLS: tabuľka
+nemá delete politiku.
+
+Overené proti reálnej databáze: krátky dôvod neprejde (CHECK ≥ 5 znakov),
+zrušenie nechá záznam, mazanie nie je povolené.
+
+### Čo treba otestovať rukami
+
+1. **Úlohy** — hore musí byť jedna veta („3 veci mali byť hotové a 1 je na
+   dnes."), nie tabuľka. Pod ňou skupiny podľa toho, čo horí.
+2. **Pravidlá** — Úlohy → Pravidlá. Pri každom je napísané, čo sleduje
+   a akú úlohu vytvorí, aj s ukážkou textu. Dajú sa vypnúť.
+3. **Spustenie** — „Spustiť teraz". Druhé spustenie nesmie pridať nič.
+   V databáze je A1, ktorému platnosť skončila pred 11 dňami — to sa má
+   objaviť ako prvá úloha.
+4. **Výnimka** — otvor živnostníka bez dokladov, rozbaľ „Chcem to povoliť
+   aj tak", napíš dôvod. Výnimka sa zapíše a blokátor prestane blokovať.
+   Zruš ju — záznam zostane.
+
+### Čo zostalo otvorené
+
+- **Pravidlá sa nedajú pridať z UI**, len vypnúť a zapnúť. Formulár by
+  musel ponúkať stĺpce jednotlivých tabuliek; zatiaľ sa nové pravidlo
+  pridáva riadkom v SQL.
+- **`danubra_assignment_checks` sa stále nekreslí.** Detail zákazky ukazuje
+  starý checklist z v1. Prepísanie znamená prerobiť celú sekciu
+  „Pred nasadením".
+- **Dashboard ešte nepoužíva `danubra_v_today`.** Obrazovka úloh áno;
+  dashboard má vlastnú logiku z v1.
+- **Výnimky sa zapisujú len pri živnostníkovi.** Pri nasadení a faktúrach
+  blokátory existujú, ale zápis výnimky sa tam ešte nedoplnil.
+
+### Testy
+
+1238 testov v dvadsiatich troch sadách a smoke test nad 57 súbormi.
