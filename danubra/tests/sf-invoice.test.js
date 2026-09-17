@@ -1,9 +1,13 @@
 // ============================================================================
 // Testy serverovej funkcie pre SuperFaktúru
-// Spustenie:  node netlify/functions/danubra-sf-invoice.test.js
+// Spustenie:  node danubra/tests/sf-invoice.test.js
 // ============================================================================
 // Bez siete a bez kľúča. Testuje sa to, na čom funkcia stojí: že sa
 // schvaľovanie nedá obísť requestom a že doklad nevznikne dvakrát.
+//
+// Test zámerne NEleží v `netlify/functions/`. Netlify z každého súboru v tom
+// priečinku robí funkciu a názov „danubra-sf-invoice.test" obsahuje bodku,
+// ktorú nepovoľuje — celý deploy potom spadne. Stálo to jeden červený build.
 // ============================================================================
 const Module = require('module');
 const path = require('path');
@@ -48,7 +52,7 @@ const parse = (res) => ({ code: res.statusCode, ...JSON.parse(res.body) });
 console.log('SuperFaktúra — serverová funkcia');
 
 (async () => {
-  const fnPath = path.join(__dirname, 'danubra-sf-invoice.js');
+  const fnPath = path.join(__dirname, '..', '..', 'netlify', 'functions', 'danubra-sf-invoice.js');
 
   // ── Bez kľúča sa nič nerozbije ────────────────────────────────────────────
   {

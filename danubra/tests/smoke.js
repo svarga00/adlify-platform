@@ -320,6 +320,28 @@ t('v prehliadači nie je kľúč SuperFaktúry',
 t('vystavenie ide cez serverovú funkciu',
   sandbox.Inv && /netlify\/functions\/danubra-sf-invoice/.test(String(sandbox.Inv.sfAction)));
 
+// ── Serverové funkcie ──────────────────────────────────────────────────────
+// Netlify robí z každého súboru v `netlify/functions/` funkciu a názov smie
+// mať len písmená, číslice, pomlčky a podčiarkovníky. Súbor s bodkou
+// v názve — napríklad `nieco.test.js` — zhodí celý deploy, nie len seba.
+// Stálo to jeden červený build, takže to odteraz stráži test.
+{
+  const fnDir = path.join(root, '..', 'netlify', 'functions');
+  const entries = fs.existsSync(fnDir)
+    ? fs.readdirSync(fnDir, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.js'))
+      .map(e => e.name)
+    : [];
+  const bad = entries.filter(n => !/^[A-Za-z0-9_-]+\.js$/.test(n));
+  t(`názvy serverových funkcií sú platné${bad.length ? ' — chybné: ' + bad.join(', ') : ''}`,
+    !bad.length);
+  const noHandler = entries.filter(n =>
+    !/exports\.handler|export\s+(default|const handler)/.test(
+      fs.readFileSync(path.join(fnDir, n), 'utf8')));
+  t(`každá serverová funkcia má handler${noHandler.length ? ' — chýba: ' + noHandler.join(', ') : ''}`,
+    !noHandler.length);
+}
+
 // ── Prepínač agend v nastaveniach ──────────────────────────────────────────
 // Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
 const Cfg = sandbox.Cfg;
