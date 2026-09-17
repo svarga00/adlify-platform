@@ -75,7 +75,7 @@ window.Danubra = {
     ['DATABÁZA',   [['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
                     ['accommodations', 'Ubytovania', 'bed', undefined, null],
                     ['clients', 'Firmy a kontakty', 'clients', 'accommodation']]],
-    ['PENIAZE',    [['invoices', 'Vydané faktúry', 'invoices', undefined, 'finance'],
+    ['PENIAZE',    [['invoices', 'Vydané faktúry', 'invoices', 'staffing', 'finance'],
                     ['costs', 'Náklady', 'invoices', 'staffing', 'finance'],
                     ['bank', 'Banka a cash-flow', 'invoices', 'staffing', 'finance']]],
     ['RAST',       [['marketing', 'Marketing', 'marketing']]],
@@ -83,6 +83,40 @@ window.Danubra = {
                     ['rules', 'Cenník a pravidlá', 'rules'],
                     ['settings', 'Nastavenia', 'settings']]],
   ],
+
+  // ── Čo ktorá obrazovka robí ──────────────────────────────────────────────
+  // Jedna veta ku každej položke. Ukazuje sa v mega menu, aby človek, ktorý
+  // appku nepostavil, nemusel hádať, čo sa pod názvom skrýva.
+  navHints: {
+    dashboard: 'Čo dnes treba spraviť a čo horí',
+    tasks: 'Všetky úlohy a pripomienky na jednom mieste',
+    quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',
+    contracts: 'Zmluvy o dielo a dodatky. Dohodnuté podmienky sa neprepisujú',
+    subcontracts: 'Konkrétne stavby: kto tam je, koľko odrobil, čo sa fakturuje',
+    timesheets: 'Odpracované hodiny — z nich vzniká podklad na faktúru',
+    hiring: 'Čo a koho práve naberáš, krok za krokom',
+    candidates: 'Ľudia, ktorí sa ozvali. Odtiaľto sa volá a preveruje',
+    workers: 'Kartotéka živnostníkov: doklady, sadzby, fakturačné údaje',
+    crews: 'Partie, ktoré chodia na stavby spolu',
+    trades: 'Čo sa má pýtať pri ktorom remesle, vrátane overovacích otázok',
+    recruiting: 'Zápisy z náborových hovorov',
+    partners: 'Nemecké firmy, ktorým fakturuješ',
+    accommodations: 'Databáza ubytovaní — náklad zákazky, nie obchod',
+    clients: 'Firmy a kontakty z ubytovacej agendy',
+    invoices: 'Faktúry odberateľom. Bez schválenia sa žiadna nevystaví',
+    costs: 'Faktúry od živnostníkov a ostatné náklady',
+    bank: 'Výpis z účtu, párovanie a či bude na výplaty',
+    marketing: 'Inzeráty a odkiaľ chodia ľudia',
+    compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
+    rules: 'Sadzby a prahy, ktoré vstupujú do výpočtov',
+    settings: 'Fakturačné údaje, zapnuté agendy, číselné rady',
+    active: 'Prebiehajúce pobyty',
+    inquiries: 'Dopyty na ubytovanie',
+    offers: 'Ponuky na ubytovanie',
+    orders: 'Objednávky ubytovania',
+  },
+
+  hintOf(key) { return this.navHints[key] || ''; },
 
   /** Patrí položka do práve zvolenej oblasti a je jej modul zapnutý? */
   inArea(item) {
@@ -261,7 +295,24 @@ window.Danubra = {
   },
 
   megaHtml() {
-    const column = (areaKey) => {
+    const item = ([key, label, ico]) => {
+      const b = this.badges[key];
+      const hint = this.hintOf(key);
+      return `<button class="mega-item${key === this.route ? ' active' : ''}"
+        onclick="Danubra.goFromMega('${key}')">
+        ${Icon(ico, 16)}
+        <span class="mega-text">
+          <b>${label}</b>
+          ${hint ? `<em>${UI.esc(hint)}</em>` : ''}
+        </span>
+        ${b ? `<span class="nav-badge">${b}</span>` : ''}
+      </button>`;
+    };
+
+    // Stĺpec za agendu. Má zmysel len vtedy, keď sú agendy dve — inak by sa
+    // skupiny ako DATABÁZA rozpadli medzi „Nábor a stavby" a „Spoločné"
+    // a nikto by nevedel, kde čo hľadať.
+    const areaColumn = (areaKey) => {
       const groups = this.navGroups
         .map(([glabel, items]) => [glabel, items.filter(i =>
           (i[3] || null) === areaKey && this.moduleOn(this.moduleOf(i)))])
@@ -277,32 +328,41 @@ window.Danubra = {
           </div>
           ${groups.map(([glabel, items]) => `
             <div class="mega-group">${glabel}</div>
-            ${items.map(([key, label, ico]) => {
-              const b = this.badges[key];
-              return `<button class="mega-item${key === this.route ? ' active' : ''}"
-                onclick="Danubra.goFromMega('${key}')">
-                ${Icon(ico, 16)}<span>${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
-              </button>`;
-            }).join('')}`).join('')}
+            ${items.map(item).join('')}`).join('')}
         </div>`;
     };
+
+    // Stĺpec za skupinu. Toto sa používa pri jedinej agende: každá skupina
+    // je jeden blok a všetko je na jednej obrazovke naraz.
+    const groupColumn = ([glabel, items]) => {
+      const visible = items.filter(i => this.inArea(i));
+      if (!visible.length) return '';
+      return `
+        <div class="mega-col">
+          <div class="mega-col-head"><span>${UI.esc(glabel)}</span></div>
+          ${visible.map(item).join('')}
+        </div>`;
+    };
+
+    const multiArea = this.visibleAreas().length > 1;
+    const cols = multiArea
+      ? this.visibleAreas().map(a => areaColumn(a[0])).join('') + areaColumn(null)
+      : this.navGroups.map(groupColumn).join('');
+
     const email = this.user?.email || '';
     return `
       <div class="mega-head">
         <strong>Kam chceš ísť?</strong>
         <button class="mega-x" onclick="Danubra.toggleMega(false)" aria-label="Zavrieť">${Icon('x', 18)}</button>
       </div>
-      ${this.visibleAreas().length < 2 ? '' : `
+      ${multiArea ? `
       <div class="mega-areas">
         ${this.visibleAreas().map(([key, label, ico]) => `
           <button class="mega-area${this.area === key ? ' active' : ''}"
             onclick="Danubra.setAreaFromMega('${key}')">
             ${Icon(ico, 17)}<span>${label}</span></button>`).join('')}
-      </div>`}
-      <div class="mega-cols">
-        ${this.visibleAreas().map(a => column(a[0])).join('')}
-        ${column(null)}
-      </div>
+      </div>` : ''}
+      <div class="mega-cols">${cols}</div>
       <div class="mega-foot">
         <span>${UI.esc(email)}</span>
         <button class="btn btn-ghost btn-sm" onclick="Danubra.logout()">

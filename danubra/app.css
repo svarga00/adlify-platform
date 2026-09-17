@@ -849,7 +849,17 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .mega-item:hover { background: var(--field); color: var(--ink); }
 .mega-item.active { background: var(--navy); color: #fff; font-weight: 600; }
-.mega-item > span:first-of-type { flex: 1; }
+.mega-item > svg { flex: none; margin-top: 2px; }
+.mega-text { flex: 1; min-width: 0; line-height: 1.35; }
+.mega-text b { display: block; font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.mega-text em {
+  display: block; font-style: normal; font-size: 11.5px;
+  color: var(--ink-mute); margin-top: 1px;
+}
+.mega-item { align-items: flex-start; }
+.mega-item.active .mega-text b,
+.mega-item.active .mega-text em { color: #fff; }
+.mega-item.active .mega-text em { opacity: .75; }
 
 @media (min-width: 860px) { .mega-cols { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 859px) { .mega-btn span:last-child { display: none; } }

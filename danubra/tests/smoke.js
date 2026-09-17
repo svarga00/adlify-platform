@@ -102,10 +102,44 @@ for (const [name, obj] of [
 
 t('ikony fungujú', sandbox.Icon && sandbox.Icon('check', 14).startsWith('<svg'));
 t('mega menu sa poskladá', D && D.megaHtml().includes('mega-col'));
-t('mega menu ukazuje všetky zapnuté agendy',
-  D && D.visibleAreas().every(a => D.megaHtml().includes(a[1])));
+// Názvy agend sa v mega menu objavia len vtedy, keď je ich viac než jedna —
+// pri jedinej je delenie podľa agend zbytočné.
+if (D) {
+  const restoreA = { ...D.modules };
+  D.modules = { ...D.modules, accommodation: true };
+  const html = D.megaHtml();
+  t('pri dvoch agendách ich mega menu obe ukáže',
+    D.visibleAreas().every(a => html.includes(a[1])));
+  D.modules = restoreA;
+}
 // na mobile sa bočný panel neotvára, takže toto musí byť v mega menu
 t('mega menu má odhlásenie', D && D.megaHtml().includes('Odhlásiť sa'));
+
+// Mega menu má byť zrozumiteľné aj tomu, kto appku nepostavil. Každá položka
+// preto potrebuje jednu vetu o tom, čo sa pod názvom skrýva.
+const noHint = D ? D.allNav().map(n => n[0]).filter(k => !D.hintOf(k)) : ['(bez Danubra)'];
+t(`každá obrazovka má vysvetlenie${noHint.length ? ' — chýba: ' + noHint.join(', ') : ''}`,
+  !noHint.length);
+t('vysvetlenia sa ukážu v mega menu',
+  D && D.megaHtml().includes(D.hintOf('workers')));
+// Pri jedinej agende sa mega menu delí podľa skupín, nie podľa agend —
+// inak by sa DATABÁZA a SYSTÉM rozpadli medzi „Nábor a stavby" a „Spoločné"
+// a nikto by nevedel, kde čo hľadať.
+if (D) {
+  const restoreM = { ...D.modules };
+  D.modules = { recruiting: true, contracts: true, finance: true, accommodation: false };
+  const html = D.megaHtml();
+  const groups = D.navGroups.map(g => g[0]);
+  t('pri jedinej agende sa menu delí podľa skupín',
+    groups.every(g => html.includes(`<span>${g}</span>`)));
+  t('a nie podľa agend', !html.includes('Spoločné'));
+  // Každá viditeľná obrazovka musí byť v menu práve raz.
+  const dupes = D.visibleNav().map(n => n[1])
+    .filter(label => (html.split(`<b>${label}</b>`).length - 1) !== 1);
+  t(`každá obrazovka je v mega menu práve raz${dupes.length ? ' — problém: ' + dupes.join(', ') : ''}`,
+    !dupes.length);
+  D.modules = restoreM;
+}
 
 // ── Moduly: archivovaná agenda musí zmiznúť, nie sa len zneprístupniť ──────
 if (D) {
