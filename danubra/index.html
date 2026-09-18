@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#0A1B3D">
-  <title>DANUBRA — nábor a ubytovanie</title>
+  <title>DANUBRA — nábor a stavby v Nemecku</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-14 -14 124 128'><rect x='-14' y='-14' width='124' height='128' rx='22' fill='%230A1B3D'/><rect x='0' y='0' width='15' height='100' rx='7.5' fill='%23fff'/><path d='M 30 8.5 L 52 8.5 A 41.5 41.5 0 0 1 52 91.5 L 30 91.5' fill='none' stroke='%23F07E22' stroke-width='17' stroke-linecap='round'/></svg>">
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- Klient Supabase si nesieme so sebou. Keď sa ťahal z unpkg.com a
+       nenačítal sa, stránka zostala biela a bez hlášky. Pozri vendor/README.md. -->
+  <script src="./vendor/supabase-js-2.116.0.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="./app.css">
@@ -49,7 +51,10 @@
         <span class="logo-word">ANUBRA</span>
       </div>
       <div id="area-switch" class="area-switch"></div>
-      <nav id="sidebar-nav" class="sidebar-nav"></nav>
+      <!-- Obal drží tieň na spodku, keď navigácia pokračuje pod okrajom. -->
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <nav id="sidebar-nav" class="sidebar-nav"></nav>
+      </div>
       <div class="sidebar-foot">
         <div class="avatar" id="user-initial">·</div>
         <div class="who">
@@ -97,21 +102,33 @@
   <script src="./js/config.js"></script>
   <script src="./js/db.js"></script>
   <script src="./js/ui.js"></script>
+  <script src="./lib/money.js"></script>
+  <script src="./lib/enums.js"></script>
   <script src="./lib/billing/regime.js"></script>
   <script src="./lib/matching.js"></script>
   <script src="./js/app.js"></script>
   <script src="./lib/orders/state-machine.js"></script>
   <script src="./lib/billing/ongoing-service.js"></script>
+  <script src="./lib/billing/invoice.js"></script>
+  <script src="./lib/billing/bills.js"></script>
+  <script src="./lib/bank.js"></script>
+  <script src="./lib/tasks.js"></script>
   <script src="./lib/qr.js"></script>
   <script src="./lib/documents/templates.js"></script>
   <script src="./lib/staffing/margin.js"></script>
   <script src="./lib/staffing/compliance.js"></script>
+  <script src="./lib/staffing/documents.js"></script>
+  <script src="./lib/staffing/crews.js"></script>
+  <script src="./lib/staffing/periods.js"></script>
+  <script src="./lib/partners/payment.js"></script>
+  <script src="./lib/quotes.js"></script>
   <script src="./lib/sms/provider.js"></script>
   <script src="./lib/recruiting/screening.js"></script>
   <script src="./lib/recruiting/process.js"></script>
   <script src="./lib/recruiting/chips.js"></script>
   <script src="./js/services/orders-service.js"></script>
   <script src="./js/services/invoicing.js"></script>
+  <script src="./js/components/shell.js"></script>
   <script src="./js/components/comm-panel.js"></script>
   <script src="./js/modules/accommodations.js"></script>
   <script src="./js/modules/clients.js"></script>
@@ -127,6 +144,11 @@
   <script src="./js/modules/workers.js"></script>
   <script src="./js/modules/subcontracts.js"></script>
   <script src="./js/modules/partners.js"></script>
+  <script src="./js/modules/crews.js"></script>
+  <script src="./js/modules/quotes.js"></script>
+  <script src="./js/modules/contracts.js"></script>
+  <script src="./js/modules/costs.js"></script>
+  <script src="./js/modules/bank.js"></script>
   <script src="./js/modules/timesheets.js"></script>
   <script src="./js/modules/marketing.js"></script>
   <script src="./js/modules/recruiting.js"></script>

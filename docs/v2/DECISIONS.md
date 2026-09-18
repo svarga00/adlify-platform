@@ -1,0 +1,230 @@
+# DANUBRA Hub v2 — rozhodnutia
+
+Sem sa píše všetko, čo bolo v zadaní nejasné a rozhodlo sa to bez pýtania,
+aby sa dalo pokračovať. Každý záznam má dôvod, nech sa dá spätne prehodnotiť.
+
+---
+
+## R1 — Stack: vanilla JS zostáva, typy sa pridajú bez prepisu
+
+**Dátum:** 16. 9. 2026
+**Zadanie hovorilo:** `app/`, `lib/`, `supabase/migrations/`, „vygeneruj
+TypeScript typy zo Supabase", „decimal.js v TS".
+**Skutočnosť:** appka je vanilla JS v `<script>` tagoch, bez build kroku,
+migrácie sa spúšťajú ručne v SQL editore. Beží v prevádzke, má 360 testov
+a reálne dáta.
+
+**Rozhodnutie:** Štefan povedal „A aj B spolu" — teda nechať bežať, čo beží,
+ale mať úžitok z typov. Takže:
+
+- **beh zostáva vanilla JS.** Žiadny bundler, žiadny prepis.
+- **typy sa generujú zo Supabase** do `danubra/types/supabase.d.ts`.
+- **kontrola typov cez JSDoc** + `tsc --checkJs --noEmit` ako súčasť testov.
+  Dá to väčšinu úžitku TypeScriptu bez jediného prepísaného súboru.
+- ak sa neskôr ukáže, že to nestačí, prechod na skutočný TS je otvorený —
+  JSDoc anotácie sa prevedú takmer jedna k jednej.
+
+**Dôsledok:** zadanie hovorí o adresároch, ktoré neexistujú. Držíme sa
+skutočných: `danubra/js/`, `danubra/lib/`, `danubra/database/migrations/`.
+
+---
+
+## R2 — Peniaze: celé centy v JS namiesto decimal.js
+
+**Dátum:** 16. 9. 2026
+**Zadanie hovorilo:** „peniaze len numeric v DB a decimal.js v TS".
+
+**Rozhodnutie:** `numeric` v databáze zostáva bez debaty. V JS sa ale
+decimal.js bez bundlera načítať nedá inak než z CDN, čo pridáva závislosť na
+cudzom serveri do appky, ktorá dnes žiadnu nemá.
+
+Namiesto toho: **aritmetika v celých centoch** (integer), delenie a
+zaokrúhľovanie až na výstupe, súčty prednostne v SQL. Dosiahne to to isté —
+žiadne chyby z desatinných čísel — bez závislosti.
+
+Helper bude `danubra/lib/money.js` s testami.
+
+Ak niekedy pribudne build krok, decimal.js sa doplní a helper sa prepíše zvnútra.
+
+---
+
+## R3 — Migrácie: číslovanie pokračuje, nie dátumové názvy
+
+**Dátum:** 16. 9. 2026
+**Zadanie hovorilo:** `supabase/migrations/YYYYMMDD_v2_fX_*.sql`.
+
+**Rozhodnutie:** pokračujeme `danubra/database/migrations/013_...` a ďalej,
+s označením fázy v názve, napríklad `013_v2_f1_zaklad.sql`.
+
+Dôvod: dnešných dvanásť migrácií je očíslovaných a poradie je záväzné —
+už raz sa stalo, že sa spustili mimo poradia a padlo to. Miešať dva systémy
+názvov v jednom adresári by to zhoršilo.
+
+---
+
+## R4 — Ubytovanie sa archivuje, ale nie celé
+
+**Dátum:** 16. 9. 2026
+**Zadanie hovorilo:** „vypadáva modul ubytovania (archivovať, nemazať)".
+
+**Rozhodnutie:** archivuje sa **obchodná časť** (dopyty, ponuky, objednávky,
+klienti), ale `danubra_accommodations` a `danubra_subcontract_accommodations`
+**zostávajú aktívne** — ubytovanie je naďalej náklad zákazky a argument
+v náborovom inzeráte.
+
+Dve väzby zostávajú kvôli historickým záznamom a označia sa komentárom:
+- `danubra_assignments.accommodation_order_id`
+- `danubra_invoices.client_id`
+
+Nové záznamy ich nepoužívajú; faktúry v2 idú cez `partner_id`.
+
+---
+
+## R5 — Partia fakturuje po jednom
+
+**Dátum:** 16. 9. 2026
+**Zadanie hovorilo:** „pribúdajú partie" — bez detailu o fakturácii.
+
+**Rozhodnutie:** partia je len organizačná skupina. Nasadzuje sa naraz, ale
+**každý živnostník fakturuje sám za seba**.
+
+Dôvod: partia nie je právny subjekt. Jedna spoločná faktúra za skupinu ľudí by
+pri kontrole vyzerala ako zamestnávanie alebo ako skrytá
+Arbeitnehmerüberlassung — presne to riziko, pred ktorým appka inak varuje.
+
+---
+
+## R6 — Faktúry: SuperFaktúra je zdroj pravdy pre doklad
+
+**Dátum:** 16. 9. 2026
+
+**Rozhodnutie:** číslovanie, PDF a účtovný doklad rieši SuperFaktúra. Appka si
+drží, **z čoho** doklad vznikol (obdobie, hodiny, zákazka) a stav
+schvaľovania.
+
+Vlastný QR generátor z v1 zostáva pre interné podklady — nie je dôvod ho
+zahadzovať, je otestovaný.
+
+---
+
+## R7 — Poradie fáz
+
+**Dátum:** 16. 9. 2026
+**Zadanie hovorilo:** „fázami F1 → F9 v poradí z kapitoly 10" a „SuperFaktúru
+(F6, F7)".
+
+**Rozhodnutie:** kapitola 10 v `01_navrh.md` je napísaná tak, aby
+SuperFaktúra vyšla presne na F6 (vydané) a F7 (prijaté), ako zadanie čakalo.
+
+---
+
+## R8 — Overiť v sandboxe SuperFaktúry
+
+**Dátum:** 16. 9. 2026 · **stav: otvorené**
+
+Dokumentácia to nehovorí jednoznačne:
+- číselník `country_id` pre Nemecko,
+- či `/invoices/send` vie viac adresátov naraz,
+- formát stránkovania v `/invoices/index.json`,
+- či sa dá priložiť súbor rovno pri `POST /expenses/add`.
+
+Zistí sa pri F6/F7 a dopíše sem.
+
+---
+
+## R9 — `avg_days_to_pay` je pohľad, nie stĺpec
+
+**Dátum:** 17. 9. 2026
+**Zadanie hovorilo:** `alter table danubra_partners add column avg_days_to_pay
+numeric; -- počíta sa`
+
+**Rozhodnutie:** nepridáva sa stĺpec. Platobná disciplína je
+`danubra_v_partner_payment` — pohľad, ktorý sa počíta z faktúr pri každom
+dotaze.
+
+Dôvod: uložené číslo, ktoré „sa počíta", sa v praxi prepočítava niekde
+v crone a medzi dvomi behmi klame. Pri piatich faktúrach na odberateľa nie
+je čo optimalizovať; keď ich raz budú tisíce, dá sa z pohľadu spraviť
+materializovaný bez zmeny volajúceho kódu.
+
+Rovnaké pravidlá sú aj v `lib/partners/payment.js`, aby sedeli čísla na
+dashboarde a v detaile. Zhodu overuje test proti reálnej databáze.
+
+---
+
+## R10 — Faktúra dostáva `partner_id`
+
+**Dátum:** 17. 9. 2026 · nájdené pri F3
+
+**Zistenie:** `danubra_invoices` nemala väzbu na nemeckého odberateľa.
+Modul odberateľov filtroval faktúry cez `client_id`, ktorý ukazuje na
+`danubra_clients` — agenda ubytovania. Panel platobnej disciplíny preto
+nikdy nemal čo zobraziť a ticho ukazoval nulu.
+
+**Rozhodnutie:** pribudol `danubra_invoices.partner_id`. `client_id` zostáva
+pre historické záznamy podľa R4 a oba stĺpce sú okomentované priamo
+v databáze, aby si to niekto nevyložil ako duplicitu.
+
+Existujúcu faktúru nikto neprepisuje — jediná v databáze naozaj patrí
+klientovi z ubytovania.
+
+---
+
+## R11 — `danubra_workers.crew_id` je udržiavaná skratka, nie druhý zdroj pravdy
+
+**Dátum:** 17. 9. 2026 · uzavretá otázka z F2 a F3
+
+Stĺpec pribudol vo F2 podľa zadania a nikto ho nezapisoval. Otvorená otázka
+znela: stane sa z neho skratka, alebo padne?
+
+**Rozhodnutie:** zostáva, ale nedrží ho človek — drží ho trigger
+`danubra_worker_crew_sync()` podľa `danubra_crew_members`.
+
+Dôvod: pravda o členstve musí zostať v `danubra_crew_members`, lebo tam má
+trvanie — bez toho sa spätne nedá povedať, kto na ktorej stavbe bol. Ale
+otázka „v ktorej partii je tento človek teraz" sa pýta v každom zozname
+a dopočítavať ju zakaždým je zbytočné.
+
+Tým, že ho plní trigger, prestáva byť druhým zdrojom pravdy a stáva sa
+cache. Rozísť sa nemá ako. Stĺpec je okomentovaný priamo v databáze
+poznámkou „nezapisuj to ručne".
+
+Zmazať ho by znamenalo mazať, a zadanie hovorí opak.
+
+---
+
+## R12 — prehľad odpovedá na tri otázky, nie že ukazuje počty riadkov
+
+**Dátum:** 17. 9. 2026 · nájdené v prevádzke
+
+Deväť fáz bolo hotových, databáza plná v2 tabuliek — a appka pôsobila, že
+sa nič nezmenilo. Dôvod bol jednoduchý: **prvá obrazovka po prihlásení
+zostala z v1.** Počítala dopyty, objednávky, ubytovania a klientov, mzdu
+rátala modelom zamestnanca (`gross_monthly * 1.362`) a v texte mala
+„ubytovacia agenda". Kto sa prihlásil, videl starú appku, nech bolo pod
+tým čokoľvek.
+
+**Rozhodnutie:** prehľad neukazuje, koľko je v ktorej tabuľke riadkov.
+Odpovedá na tri otázky, ktoré sa v tomto biznise pýtajú každý deň:
+
+1. **Čo dnes treba spraviť?** — úlohy z pravidiel (F9) plus veci, ktoré
+   sa dopočítajú z dát: neplatné doklady, neuzavreté obdobia, faktúry
+   čakajúce na schválenie, sporné prijaté faktúry.
+2. **Bude na výplaty?** — osemtýždňový výhľad z banky a `v_cashflow`
+   (F8), vrátane najnižšieho bodu. Nie „neuhradené spolu".
+3. **Zarábame na tom?** — fakturované mínus faktúry od živnostníkov
+   mínus náklady (F7).
+
+Dôsledky:
+
+- Prehľad je jediná obrazovka, ktorá vidí naraz na všetko, takže **len on
+  napĺňa odznaky v navigácii**. Inak by ich nemal kto napísať.
+- Ubytovací prehľad sa nezmazal — presunul sa do `_dashAccommodation()`
+  a vykreslí sa, keď je agenda zapnutá (R4). Keď sa zapne späť, má dávať
+  zmysel to isté, čo dávalo predtým.
+- Smoke test prehľad naozaj vykreslí na vymyslených dátach a kontroluje
+  aj to, **čo v ňom už nemá byť** — model mzdy zamestnanca a ubytovaciu
+  agendu. Bez toho sa taká vec vráti pri najbližšom refaktore.
+
+Poučenie, ktoré stojí za zapísanie: hotová fáza neznamená, že to človek
+vidí. Keď zostane stará vstupná obrazovka, zostane stará appka.

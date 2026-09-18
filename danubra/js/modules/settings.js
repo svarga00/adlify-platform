@@ -112,6 +112,57 @@
         ]);
     },
 
+    // ── Agendy ────────────────────────────────────────────────────────────
+    // Ubytovanie je od v2 archivované, nie zmazané. Príznak sa musí dať
+    // prepnúť odtiaľto, inak by sa agenda dala vrátiť len ručne v SQL.
+    MODULES: [
+      ['recruiting', 'Nábor', 'Náborové plány, kandidáti, hovory, príručka remesiel.'],
+      ['contracts', 'Zákazky a zmluvy', 'Odberatelia, ponuky, zmluvy, nasadenia, hodiny.'],
+      ['finance', 'Peniaze', 'Vydané a prijaté faktúry, náklady, banka, cash-flow.'],
+      ['accommodation', 'Sprostredkovanie ubytovania',
+        'Dopyty, ponuky, objednávky a klienti z v1. Archivované — dáta zostávajú '
+        + 'v databáze aj po vypnutí. Databáza ubytovaní je dostupná vždy, lebo '
+        + 'ubytovanie je naďalej náklad zákazky.'],
+    ],
+
+    modulesSection() {
+      const m = this.j('modules');
+      // Chýbajúci kľúč znamená, že migrácia ešte nebežala — vtedy platí to,
+      // čo si myslí navigácia, nech sa prepínač a menu nerozchádzajú.
+      const on = (k) => (k in m ? m[k] !== false : Danubra.modules[k] !== false);
+      return `
+        <div class="card card-pad" style="margin-bottom:16px;">
+          <div class="card-head"><div class="card-title">Zapnuté agendy</div></div>
+          <div class="regimebox" style="margin:0 0 12px;">
+            Vypnutá agenda zmizne z navigácie. Nič sa nemaže — dáta, väzby ani
+            história zostávajú a agenda sa dá kedykoľvek vrátiť.</div>
+          ${this.MODULES.map(([key, label, note]) => `
+            <div class="mod-row">
+              <label class="mod-toggle">
+                <input type="checkbox" ${on(key) ? 'checked' : ''}
+                  onchange="Cfg.toggleModule('${key}', this.checked)">
+                <b>${UI.esc(label)}</b>
+              </label>
+              <span>${UI.esc(note)}</span>
+            </div>`).join('')}
+        </div>`;
+    },
+
+    async toggleModule(key, value) {
+      const merged = { ...this.j('modules'), [key]: !!value };
+      const { error } = await DB.update('settings', this.row.id, { modules: merged });
+      if (error) { UI.toast('Chyba: ' + error.message, 'err'); return Danubra.renderRoute(); }
+      this.row.modules = merged;
+      // Navigáciu treba prestaviť hneď, nie po obnovení stránky.
+      Danubra.modules = { ...Danubra.modules, ...merged };
+      if (!Danubra.moduleOn(Danubra.area)) {
+        Danubra.area = (Danubra.visibleAreas()[0] || ['staffing'])[0];
+      }
+      Danubra._buildNav();
+      UI.toast(value ? 'Agenda zapnutá' : 'Agenda vypnutá, dáta zostali', 'ok');
+      Danubra.renderRoute();
+    },
+
     // ── Nastavenia ────────────────────────────────────────────────────────
     async settingsView(el) {
       Danubra.setActions('');
@@ -119,10 +170,12 @@
       const inv = this.j('invoice_series'), ord = this.j('order_series'), sub = this.j('subcontract_series');
       const sup = this.j('supplier');
 
-      el.innerHTML = Danubra.header('Nastavenia', 'Fakturačné údaje, číselné rady a automatizácie') +
+      el.innerHTML = Danubra.header('Nastavenia', 'Agendy, fakturačné údaje, číselné rady a automatizácie') +
 
         (!sup.iban ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} Bez IBAN sa na faktúrach nevykreslí QR platba.</div>` : '') +
+
+        this.modulesSection() +
 
         this.section('Fakturačné údaje',
           'Objavujú sa na faktúrach a ostatných dokumentoch.',
@@ -179,6 +232,6 @@
   };
 
   window.Cfg = Cfg;
-  Danubra.views.rules = function (el) { Cfg.rulesView(el); };
-  Danubra.views.settings = function (el) { Cfg.settingsView(el); };
+  Danubra.views.rules = function (el) { return Cfg.rulesView(el); };
+  Danubra.views.settings = function (el) { return Cfg.settingsView(el); };
 })();

@@ -100,7 +100,7 @@
       const placed = this.items.filter(c => c.status === 'placed').length;
       const conv = this.items.length ? Math.round((placed / this.items.length) * 100) : 0;
 
-      el.innerHTML = Danubra.header('Nábor',
+      el.innerHTML = Danubra.header(Danubra.labelOf('candidates'),
         `${this.items.length} kandidátov · ${placed} nasadených · konverzia ${conv} %`) +
         (waiting.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${waiting.length} ${waiting.length === 1 ? 'kandidát čaká' : 'kandidátov čaká'}
@@ -401,35 +401,43 @@
       Danubra.renderRoute();
     },
 
-    /** Prevedie kandidáta na pracovníka a zachová väzbu. */
-    async convert(id, { silent = false } = {}) {
+    /**
+     * Prevedie kandidáta na živnostníka a zachová väzbu.
+     *
+     * Robí to jedna databázová funkcia (`danubra_convert_candidate`, migrácia
+     * 014). Predtým to boli dva samostatné zápisy z prehliadača a keď druhý
+     * nedobehol — zlé pripojenie, zatvorený mobil — človek zostal v systéme
+     * dvakrát a náborová história sa k nemu nedala dohľadať. Funkcia je
+     * idempotentná: druhé zavolanie vráti toho istého pracovníka a doviaže
+     * aj toho, kto po takom nedokončenom prevode ostal.
+     *
+     * Zoznam regulovaných remesiel podľa §9 HwO zostáva v appke, preto sa
+     * `regulated_trade` posiela ako parameter.
+     *
+     * `keepStatus` použije volajúci, ktorý si stav kandidáta nastavil sám —
+     * nastúpenie nastaví 'placed' a prevod ho nesmie zhodiť na 'ready'.
+     */
+    async convert(id, { silent = false, keepStatus = false } = {}) {
       const c = this.items.find(x => x.id === id);
       if (!c) return;
-      if (!silent && !confirm(`Previesť ${c.full_name} medzi pracovníkov?`)) return;
-      const payload = {
-        full_name: c.full_name, phone: c.phone, email: c.email, whatsapp: c.whatsapp,
-        language: c.language, city: c.city, country: c.country,
-        profession: c.profession, skill_level: c.skill_level, german_level: c.german_level,
-        driving_licence: c.driving_licence, own_tools: c.own_tools,
-        legal_form: c.legal_form || 'szco',
-        hourly_cost: c.expected_rate ?? null,
-        regulated_trade: REGULATED.includes(c.profession),
-        status: 'ready', available_from: c.available_from,
-        source: c.source, candidate_id: c.id,
-        cooperating_since: new Date().toISOString().slice(0, 10),
-        notes: c.notes,
-      };
-      const { data: w, error } = await DB.insert('workers', payload);
+      if (!silent && !confirm(`Previesť ${c.full_name} medzi živnostníkov?`)) return;
+
+      const { data: workerId, error } = await DB.rpc('convert_candidate', {
+        p_candidate_id: id,
+        p_regulated_trade: REGULATED.includes(c.profession),
+        p_candidate_status: keepStatus ? null : 'ready',
+      });
       if (error) { UI.toast('Chyba: ' + error.message, 'err'); return null; }
-      // pri nastúpení stav prepisuje volajúci — nezhadzuj 'placed' späť na 'ready'
-      const patch = { converted_worker_id: w.id, converted_at: new Date().toISOString() };
-      if (!silent) patch.status = 'ready';
-      await DB.update('candidates', id, patch);
-      Object.assign(c, patch);
+
+      Object.assign(c, {
+        converted_worker_id: workerId,
+        converted_at: new Date().toISOString(),
+        ...(keepStatus ? {} : { status: 'ready' }),
+      });
       if (window.Wrk) { Wrk.loaded = false; }
-      if (silent) return w;
+      if (silent) return { id: workerId };
       UI.closeModal();
-      UI.toast(`${c.full_name} je medzi pracovníkmi`, 'ok');
+      UI.toast(`${c.full_name} je medzi živnostníkmi`, 'ok');
       await this.load(); Danubra.renderRoute();
     },
 
@@ -507,5 +515,5 @@
   };
 
   window.Cand = Cand;
-  Danubra.views.candidates = function (el) { Cand.view(el); };
+  Danubra.views.candidates = function (el) { return Cand.view(el); };
 })();

@@ -1,5 +1,14 @@
 // ============================================================================
-// DANUBRA — Pracovníci (Fáza 2: vlastní zamestnanci na vyslanie)
+// DANUBRA — Kartotéka živnostníkov
+// ============================================================================
+// v1 to bola kartotéka zamestnancov (hrubá mzda, odvody). v2 je živnostnícka:
+// človek nám fakturuje, takže okrem kontaktu potrebujeme aj to, na koho
+// faktúru vystaví — a či má doklady, s ktorými ho smieme nasadiť.
+//
+// Zamestnanecké polia z v1 zostávajú, lebo historické záznamy sa nemenia.
+//
+// Logika platnosti dokladov a pripravenosti je v lib/staffing/documents.js
+// a má vlastné testy; tento modul ju len vykresľuje.
 // ============================================================================
 (function () {
   const STATUS = [
@@ -13,28 +22,53 @@
     ['cnc', 'CNC operátor'], ['montaznik', 'Montážnik'], ['pomocnik', 'Pomocný pracovník'],
   ];
   const SKILL = [['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']];
-  const DOC_KINDS = [
-    ['a1', 'A1 (vyslanie)'], ['passport', 'Pas'], ['id_card', 'Občiansky'],
-    ['medical', 'Lekárska prehliadka'], ['certificate', 'Certifikát / preukaz'],
-    ['training', 'Školenie BOZP'], ['contract', 'Pracovná zmluva'],
-  ];
 
   const Wrk = {
-    items: [], docs: [], loaded: false,
+    items: [], docs: [], overrides: [], crews: [], assignments: [], subs: [], loaded: false,
     filters: { status: '', profession: '', q: '' },
 
     async load() {
-      const [w, d] = await Promise.all([
+      // Partie a nasadenia sa načítavajú spolu s ľuďmi zámerne: bez nich je
+      // kartotéka len zoznam mien a človek musí inde zisťovať, kde ten človek
+      // vlastne je a s kým chodí.
+      const [w, d, o, c, a, s] = await Promise.all([
         DB.list('workers', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('worker_documents', { limit: 2000 }),
+        DB.list('overrides', { filters: { entity_type: 'worker' }, limit: 1000 }),
+        DB.list('crews', { select: 'id,name,status', limit: 200 }),
+        DB.list('assignments', { select: 'id,worker_id,subcontract_id,crew_id,status,date_from,date_to', limit: 1000 }),
+        DB.list('subcontracts', { select: 'id,title,contract_number,partner_id,status,site_city', limit: 300 }),
+        Enums.load(),
       ]);
       this.items = w.data || []; this.docs = d.data || [];
+      this.overrides = o.data || [];
+      this.crews = c.data || []; this.assignments = a.data || []; this.subs = s.data || [];
       this.loaded = true;
     },
+
+    /** Partia, v ktorej človek je teraz. `crew_id` drží trigger v databáze. */
+    crewOf(w) { return this.crews.find(c => c.id === w.crew_id) || null; },
+
+    /** Stavba, na ktorej je teraz — z aktívneho nasadenia, nie z domnienky. */
+    siteOf(workerId) {
+      const a = this.assignments.find(x => x.worker_id === workerId && x.status === 'active');
+      return a ? (this.subs.find(s => s.id === a.subcontract_id) || null) : null;
+    },
+
+    /** Zapísané výnimky pre daného človeka. Zrušené sem nepatria. */
+    overridesOf(workerId) {
+      return this.overrides.filter(o => o.entity_id === workerId);
+    },
+
+    /** Typy dokladov z číselníka — pridanie nového nevyžaduje zásah do kódu. */
+    docKinds() { return Enums.options('worker_document'); },
+    docLabel(kind) { return Enums.label('worker_document', kind); },
 
     docsOf(id) { return this.docs.filter(d => d.worker_id === id); },
     statusBadge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
     professionLabel(p) { const x = PROFESSIONS.find(y => y[0] === p); return x ? x[1] : (p || '—'); },
+    /** Zoznam remesiel pre iné moduly (partie), nech ho nemajú dvakrát. */
+    professions() { return PROFESSIONS.slice(); },
 
     /** Stav dokladov pracovníka — A1 je kritické pre vyslanie. */
     docStatus(workerId) {
@@ -68,7 +102,10 @@
       const a1Issues = this.items.filter(w => ['deployed', 'ready'].includes(w.status))
         .filter(w => ['missing', 'expired', 'expiring'].includes(this.docStatus(w.id).state)).length;
 
-      el.innerHTML = Danubra.header('Pracovníci',
+      // Nadpis sa musí volať rovnako ako položka v menu. Keď menu hovorí
+      // „Živnostníci" a obrazovka „Pracovníci", človek nevie, či je tam, kam
+      // klikol.
+      el.innerHTML = Danubra.header(Danubra.labelOf('workers'),
         `${this.items.length} v databáze · ${ready} pripravených · ${deployed} vyslaných`) +
         (a1Issues ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${a1Issues} ${a1Issues === 1 ? 'pracovník má problém' : 'pracovníkov má problém'} s dokladom A1 —
@@ -99,18 +136,31 @@
       const ds = this.docStatus(w.id);
       const a1Warn = ['missing', 'expired'].includes(ds.state) ? 'red'
         : ds.state === 'expiring' ? 'amber' : null;
+      const crew = this.crewOf(w);
+      const site = this.siteOf(w.id);
+      const rate = w.legal_form === 'szco' ? w.hourly_cost : null;
+
+      // Partia a stavba sú odkazy, nie text. Toto je ten rozdiel medzi
+      // kartotékou a appkou, v ktorej sa dá pohybovať.
+      const links = [
+        crew ? Danubra.link('crew', crew.id, crew.name) : '',
+        site ? Danubra.link('subcontract', site.id, site.title || site.contract_number) : '',
+      ].filter(Boolean).join('');
+
       return `
         <div class="acc-card card" onclick="Wrk.detail('${w.id}')">
           <div class="acc-card-head">
-            <div>
+            <div style="min-width:0;">
               <div class="acc-name">${UI.esc(w.full_name)}</div>
               <div class="acc-loc">${this.professionLabel(w.profession)}${w.skill_level ? ` · ${w.skill_level === 'fachwerker' ? 'LG2' : 'LG1'}` : ''}${w.city ? ` · ${UI.esc(w.city)}` : ''}</div>
             </div>
             ${this.statusBadge(w.status)}
           </div>
+          ${links ? `<div class="link-row" style="margin-bottom:9px;">${links}</div>` : ''}
           <div class="acc-meta">
             ${w.phone ? `<span>${Icon('phone', 14)} ${UI.esc(w.phone)}</span>` : ''}
-            ${w.gross_monthly ? `<span>${Icon('euro', 14)} ${UI.money(w.gross_monthly)}</span>` : ''}
+            ${rate ? `<span>${Icon('euro', 14)} ${UI.money(rate)} / h</span>` : ''}
+            ${!rate && w.gross_monthly ? `<span>${Icon('euro', 14)} ${UI.money(w.gross_monthly)}</span>` : ''}
             ${w.available_from ? `<span>${Icon('calendar', 14)} od ${UI.date(w.available_from)}</span>` : ''}
             ${a1Warn ? `<span style="color:var(--${a1Warn === 'red' ? 'red' : 'amber'});font-weight:700;">
               ${Icon('alert', 14)} A1 ${ds.state === 'missing' ? 'chýba' : ds.state === 'expired' ? 'neplatné' : 'končí'}</span>` : ''}
@@ -142,21 +192,55 @@
         ['Zdroj', w.source],
       ].filter(r => r[1] != null && r[1] !== '');
 
+      const isTrade = w.legal_form === 'szco';
+
       const docRow = (d) => {
-        const st = DanubraCompliance.docState(d, today);
-        const color = st === 'expired' ? 'red' : st === 'expiring' ? 'amber' : st === 'valid' ? 'green' : '';
-        const label = { valid: 'platné', expiring: 'čoskoro vyprší', expired: 'neplatné', not_yet: 'ešte neplatí', missing: 'chýba' }[st];
+        const x = DanubraDocs.describe(d, today);
+        const color = x.state === 'expired' ? 'red'
+          : x.state === 'expiring' ? 'amber' : x.state === 'valid' ? 'green' : '';
+        const label = {
+          valid: 'platné', expiring: 'čoskoro vyprší', expired: 'neplatné',
+          not_yet: 'ešte neplatí', missing: 'chýba',
+        }[x.state];
+        // Počet dní je to, čo človek potrebuje vedieť: „ešte 12 dní" hovorí
+        // viac než „čoskoro vyprší".
+        const dni = x.daysLeft == null ? ''
+          : x.state === 'expired'
+            ? ` · pred ${Math.abs(x.daysLeft)} ${Shell.plural(x.daysLeft, 'dňom', 'dňami', 'dňami')}`
+            : ` · ešte ${x.daysLeft} ${Shell.plural(x.daysLeft, 'deň', 'dni', 'dní')}`;
         return `<div class="list-row" style="cursor:default;">
           <span class="dot ${color}"></span>
           <span style="flex:1;font-size:13px;">
-            <strong>${(DOC_KINDS.find(k => k[0] === d.kind) || [, d.kind])[1]}</strong>
+            <strong>${UI.esc(this.docLabel(d.kind))}</strong>
             ${d.reference ? `<span style="color:var(--ink-mute);"> · ${UI.esc(d.reference)}</span>` : ''}
             <span style="color:var(--ink-mute);display:block;font-size:12px;">
-              ${d.valid_from ? UI.date(d.valid_from) : '—'} – ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'} · ${label}</span>
+              ${d.valid_from ? UI.date(d.valid_from) : '—'} – ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'} · ${label}${dni}</span>
           </span>
           <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Wrk.delDoc('${d.id}')">${Icon('x', 15)}</button>
         </div>`;
       };
+
+      // Smieme ho nasadiť? Stavba je striktnejšia než dielňa, tak sa
+      // posudzuje podľa nej — kto prejde na stavbu, prejde všade.
+      const ready = DanubraDocs.readiness({
+        docs, workType: 'construction', regulated: !!w.regulated_trade, today,
+      });
+
+      // Môžeme od neho prijať faktúru? Iná otázka než nasadenie a v praxi sa
+      // na ňu zabúda — človek odrobí mesiac a potom sa zistí, že nevieme,
+      // na koho faktúru zaúčtovať.
+      const billing = isTrade ? DanubraDocs.billingReady(w) : null;
+
+      const billingRows = isTrade ? [
+        ['Meno na živnosti', w.company_name],
+        ['IČO', w.company_id], ['DIČ', w.tax_id],
+        ['IČ DPH', w.vat_id], ['Platiteľ DPH', w.vat_payer ? 'Áno' : 'Nie'],
+        ['Adresa podnikania', [w.business_address, w.business_zip, w.business_city]
+          .filter(Boolean).join(', ') || null],
+        ['IBAN', w.bank_iban],
+        ['Živnosť od', w.trade_licence_from ? UI.date(w.trade_licence_from) : null],
+        ['Odbory', (w.trade_licence_scopes || []).join(', ') || null],
+      ].filter(r => r[1] != null && r[1] !== '') : [];
 
       const body = `
         <div class="detail-head">
@@ -166,15 +250,36 @@
           </select>
         </div>
         ${CommPanel.render({ contact: { phone: w.phone, email: w.email, whatsapp: w.whatsapp, name: w.full_name }, entity: { type: 'worker', id: w.id } })}
+
+        <div class="form-section">Smieme ho nasadiť?</div>
+        ${Shell.blocker({
+          reasons: [...ready.reasons, ...ready.warnings],
+          overrides: this.overridesOf(w.id),
+          onOverride: `Wrk.grantOverride('${w.id}')`,
+          okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
+            + 'Doklady na stavbu sú v poriadku.</p>',
+        })}
+        ${this.overridesHtml(w.id)}
+
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${(w.skills || []).length ? `<div class="chips">${w.skills.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
         ${w.notes ? `<div class="notebox">${UI.esc(w.notes)}</div>` : ''}
+
+        ${isTrade ? `
+        <div class="form-section">Fakturačné údaje živnosti</div>
+        ${billing.ok
+          ? '<div class="regimebox" style="margin:0 0 10px;">Údaje sú komplet — jeho faktúru vieme zaúčtovať.</div>'
+          : Shell.blocker({ reasons: [...billing.reasons, ...billing.warnings] })}
+        ${billingRows.length
+          ? `<div class="kv">${billingRows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>`
+          : ''}` : ''}
 
         <div class="form-section">História nasadení</div>
         <div id="wrk-history">${UI.loading()}</div>
 
         <div class="form-section">Doklady a platnosti</div>
-        ${docs.length ? docs.map(docRow).join('') : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
+        ${docs.length ? docs.map(docRow).join('')
+          : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
         <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Wrk.addDoc('${w.id}')">${Icon('plus')} Pridať doklad</button>
 
         <div class="modal-actions">
@@ -258,11 +363,31 @@
             ${UI.field('cooperating_since', 'Spolupracuje od', { type: 'date', value: w.cooperating_since })}
             ${UI.field('source', 'Zdroj', { value: w.source, placeholder: 'odporúčanie, profesia.sk…' })}
           </div>
+          <div class="form-section">Fakturačné údaje živnosti</div>
+          <div class="regimebox" style="margin:0 0 12px;">
+            Bez IČO, IBAN-u a adresy sa jeho faktúra nedá zaúčtovať ani zapísať
+            do SuperFaktúry. Platí len pri živnostníkovi.</div>
+          <div class="form-grid">
+            ${UI.field('company_name', 'Meno na živnosti', { value: w.company_name,
+              placeholder: 'ak sa líši od mena človeka' })}
+            ${UI.field('company_id', 'IČO', { value: w.company_id, placeholder: '12345678' })}
+            ${UI.field('tax_id', 'DIČ', { value: w.tax_id })}
+            ${UI.field('vat_id', 'IČ DPH', { value: w.vat_id, placeholder: 'SK1020304050' })}
+            ${UI.field('bank_iban', 'IBAN', { value: w.bank_iban })}
+            ${UI.field('business_address', 'Adresa podnikania', { value: w.business_address })}
+            ${UI.field('business_zip', 'PSČ', { value: w.business_zip })}
+            ${UI.field('business_city', 'Mesto', { value: w.business_city })}
+            ${UI.field('trade_licence_from', 'Živnosť od', { type: 'date', value: w.trade_licence_from })}
+            ${UI.field('scopes_csv', 'Odbory zo živnosti (čiarkou)', {
+              value: (w.trade_licence_scopes || []).join(', '),
+              placeholder: 'suché stavby, obklady' })}
+          </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: w.whatsapp, placeholder: 'Má WhatsApp' })}
             ${UI.field('driving_licence', '', { type: 'checkbox', value: w.driving_licence, placeholder: 'Vodičský preukaz' })}
             ${UI.field('own_tools', '', { type: 'checkbox', value: w.own_tools, placeholder: 'Vlastné náradie' })}
             ${UI.field('regulated_trade', '', { type: 'checkbox', value: w.regulated_trade, placeholder: 'Regulované remeslo (§9 HwO)' })}
+            ${UI.field('vat_payer', '', { type: 'checkbox', value: w.vat_payer, placeholder: 'Platiteľ DPH' })}
           </div>
           ${UI.field('skills_csv', 'Zručnosti (čiarkou)', { value: (w.skills || []).join(', ') })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: w.notes })}
@@ -279,10 +404,13 @@
       if (!d.full_name) return UI.toast('Meno je povinné', 'err');
       const payload = { ...d };
       ['gross_monthly', 'per_diem_daily', 'hourly_cost'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
-      if (payload.cooperating_since === '') payload.cooperating_since = null;
-      if (payload.available_from === '') payload.available_from = null;
+      // Prázdny dátum musí ísť do databázy ako null, nie ako prázdny reťazec.
+      ['cooperating_since', 'available_from', 'trade_licence_from']
+        .forEach(k => { if (payload[k] === '') payload[k] = null; });
       payload.skills = (d.skills_csv || '').split(',').map(s => s.trim()).filter(Boolean);
+      payload.trade_licence_scopes = (d.scopes_csv || '').split(',').map(s => s.trim()).filter(Boolean);
       delete payload.skills_csv;
+      delete payload.scopes_csv;
       const res = id ? await DB.update('workers', id, payload) : await DB.insert('workers', payload);
       if (res.error) return UI.toast('Chyba: ' + res.error.message, 'err');
       UI.closeModal(); UI.toast(id ? 'Uložené' : 'Pridané', 'ok');
@@ -302,14 +430,17 @@
       const body = `
         <form id="doc-form" onsubmit="event.preventDefault();Wrk.saveDoc('${workerId}')">
           <div class="form-grid">
-            ${UI.field('kind', 'Typ dokladu', { value: 'a1', options: DOC_KINDS })}
+            ${UI.field('kind', 'Typ dokladu', { value: 'a1', options: this.docKinds() })}
             ${UI.field('reference', 'Číslo / referencia', {})}
             ${UI.field('valid_from', 'Platí od', { type: 'date' })}
             ${UI.field('valid_to', 'Platí do', { type: 'date' })}
+            ${UI.field('notify_days_before', 'Upozorniť dní dopredu', { type: 'number',
+              value: '', placeholder: 'podľa typu dokladu' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea' })}
           <div class="regimebox">A1 vystavuje Sociálna poisťovňa do 45 dní a platí najviac 24 mesiacov —
-          žiadaj s predstihom, inak sa nedá vyslať.</div>
+          preto sa naň upozorňuje 60 dní dopredu, nie 30. Prázdne pole znamená
+          predvolený horizont podľa typu dokladu.</div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="Wrk.detail('${workerId}')">Späť</button>
             <button type="submit" class="btn btn-primary">Pridať doklad</button>
@@ -324,6 +455,9 @@
         worker_id: workerId, kind: d.kind, reference: d.reference || null,
         valid_from: d.valid_from || null, valid_to: d.valid_to || null,
         notes: d.notes || null,
+        // Prázdne pole = nech platí predvolený horizont podľa typu dokladu.
+        notify_days_before: d.notify_days_before === '' ? DanubraDocs.horizonOf({ kind: d.kind })
+          : Number(d.notify_days_before),
       };
       const { error } = await DB.insert('worker_documents', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
@@ -340,6 +474,88 @@
     },
   };
 
+
+  // ── Výnimky z blokátorov ────────────────────────────────────────────────
+  // Admin smie obísť pravidlo, ale musí povedať prečo — a zostane to zapísané.
+  // Bez toho by „výnimka" znamenala, že pravidlo neexistuje.
+  //
+  // Výnimka sa nemaže. Zrušenie je `revoked_at`, takže je aj po roku vidieť,
+  // že sa raz povolila a kedy prestala platiť. Drží to RLS (migrácia 013).
+  Object.assign(Wrk, {
+    overridesHtml(workerId) {
+      const list = this.overridesOf(workerId);
+      if (!list.length) return '';
+      const today = new Date().toISOString().slice(0, 10);
+      const row = (o) => {
+        const dead = o.revoked_at || (o.valid_until && o.valid_until < today);
+        return `<div class="note${dead ? '' : ' note-live'}">
+          <div class="note-meta">
+            <b>${UI.esc(Enums.label('override_rule', o.rule_key))}</b>
+            <span>${o.granted_at ? UI.date(o.granted_at) : ''}</span>
+            ${o.revoked_at ? `<em>zrušená ${UI.date(o.revoked_at)}</em>`
+              : o.valid_until ? `<em>platí do ${UI.date(o.valid_until)}${
+                  o.valid_until < today ? ' — uplynula' : ''}</em>`
+              : '<em>platí</em>'}
+          </div>
+          <div class="note-body">${UI.esc(o.reason)}</div>
+          ${!dead ? `<button class="btn btn-ghost btn-sm" style="margin-top:6px;color:var(--red);"
+            onclick="Wrk.revokeOverride('${o.id}','${workerId}')">Zrušiť výnimku</button>` : ''}
+        </div>`;
+      };
+      return `
+        <div class="form-section">Zapísané výnimky</div>
+        <div class="regimebox" style="margin:0 0 10px;">
+          Výnimka sa nemaže. Zrušenie sa zapíše, takže je aj po roku vidieť,
+          že sa raz povolila.</div>
+        <div class="notes-list">${list.map(row).join('')}</div>`;
+    },
+
+    /**
+     * Zapíše výnimku. Dôvod aj pravidlo sa berú z blokátora — nie z voľného
+     * textu, aby sa dalo dohľadať, ktoré pravidlo sa obchádza najčastejšie.
+     */
+    async grantOverride(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      const box = document.getElementById('ovr-reason');
+      const reason = box ? box.value : '';
+      if (!Shell.reasonValid(reason)) {
+        return UI.toast(`Dôvod musí mať aspoň ${Shell.REASON_MIN} znakov`, 'err');
+      }
+
+      const ready = DanubraDocs.readiness({
+        docs: this.docsOf(workerId), workType: 'construction',
+        regulated: !!w.regulated_trade,
+      });
+      const open = ready.reasons.filter(r =>
+        !this.overridesOf(workerId).some(o => o.rule_key === r.rule && !o.revoked_at));
+      if (!open.length) return UI.toast('Niet čo povoliť — nič neblokuje', 'err');
+
+      // Povolí sa všetko, čo práve blokuje. Povoliť to po jednom by znamenalo
+      // písať ten istý dôvod päťkrát.
+      const rows = open.map(r => ({
+        entity_type: 'worker', entity_id: workerId,
+        rule_key: r.rule, reason: reason.trim(),
+      }));
+      const { error } = await DB.from('overrides').insert(rows);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+
+      UI.toast(`Zapísaná výnimka na ${open.length} ${
+        open.length === 1 ? 'pravidlo' : open.length < 5 ? 'pravidlá' : 'pravidiel'}`, 'ok');
+      this.loaded = false; await this.load(); this.detail(workerId);
+    },
+
+    async revokeOverride(id, workerId) {
+      if (!confirm('Zrušiť túto výnimku?\n\nZáznam zostane v histórii.')) return;
+      const { error } = await DB.update('overrides', id, {
+        revoked_at: new Date().toISOString(),
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Výnimka zrušená, záznam zostal', 'ok');
+      this.loaded = false; await this.load(); this.detail(workerId);
+    },
+  });
+
   window.Wrk = Wrk;
-  Danubra.views.workers = function (el) { Wrk.view(el); };
+  Danubra.views.workers = function (el) { return Wrk.view(el); };
 })();

@@ -186,5 +186,5 @@
   };
 
   window.Cli = Cli;
-  Danubra.views.clients = function (el) { Cli.view(el); };
+  Danubra.views.clients = function (el) { return Cli.view(el); };
 })();

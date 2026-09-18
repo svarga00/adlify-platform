@@ -58,7 +58,7 @@
       const overdue = open.filter(p => p.due_date && p.due_date < new Date().toISOString().slice(0, 10));
       const noConsent = this.recordings.filter(r => !r.consent_confirmed && r.status !== 'deleted');
 
-      el.innerHTML = Danubra.header('AI nábor',
+      el.innerHTML = Danubra.header(Danubra.labelOf('recruiting'),
         `${this.promises.length} zachytených dohôd · ${open.length} otvorených · ${this.recordings.length} hovorov`) +
         (noConsent.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${noConsent.length} ${noConsent.length === 1 ? 'nahrávka nemá' : 'nahrávok nemá'}
@@ -551,5 +551,5 @@
   };
 
   window.Rec = Rec;
-  Danubra.views.recruiting = function (el) { Rec.view(el); };
+  Danubra.views.recruiting = function (el) { return Rec.view(el); };
 })();

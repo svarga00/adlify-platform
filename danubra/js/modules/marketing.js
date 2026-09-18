@@ -216,5 +216,5 @@
   };
 
   window.Mkt = Mkt;
-  Danubra.views.marketing = function (el) { Mkt.view(el); };
+  Danubra.views.marketing = function (el) { return Mkt.view(el); };
 })();

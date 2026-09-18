@@ -3,15 +3,27 @@
 # ============================================================================
 # Aplikácia býva v /danubra/, koreň na ňu presmeruje, nech sa netreba trafiť
 # do podadresára.
+#
+# POZOR — musí to byť presmerovanie (302), nie prepis (200).
+#
+# Pri prepise sa obsah podstrčí, ale adresa v prehliadači zostane „/". Odkazy
+# v index.html sú relatívne (`./js/app.js`, `./app.css`), takže sa vyhodnotia
+# voči „/" a nie voči „/danubra/" — a **každý jeden súbor skončí na 404**.
+# Stránka je potom úplne biela, bez štýlov aj bez kódu, takže sa nespustí ani
+# hláška o chybe. Presne to sa stalo v prevádzke.
+#
+# Pri presmerovaní sa adresa zmení na „/danubra/" a relatívne cesty sedia.
+# To isté platí pre „/danubra" bez lomky — bez nej sa relatívna cesta
+# vyhodnotí o úroveň vyššie.
 
 [[redirects]]
   from = "/"
-  to = "/danubra/index.html"
-  status = 200
+  to = "/danubra/"
+  status = 302
 [[redirects]]
   from = "/danubra"
-  to = "/danubra/index.html"
-  status = 200
+  to = "/danubra/"
+  status = 302
 
 [functions]
   directory = "netlify/functions"

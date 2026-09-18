@@ -187,5 +187,5 @@
   };
 
   window.Tms = Tms;
-  Danubra.views.timesheets = function (el) { Tms.view(el); };
+  Danubra.views.timesheets = function (el) { return Tms.view(el); };
 })();

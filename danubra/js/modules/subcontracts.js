@@ -19,6 +19,7 @@
 
   const Sub = {
     items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [],
+    periods: [], crews: [],
     loaded: false, filters: { status: '', work_type: '' },
     _cur: null,
 
@@ -33,15 +34,28 @@
       ]);
       this.items = s.data || []; this.partners = p.data || []; this.assignments = a.data || [];
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
-      const [ch, sa, accs] = await Promise.all([
+      const [ch, sa, accs, per, ts, cr] = await Promise.all([
         DB.list('checklist_items', { order: { column: 'step_order' }, limit: 3000 }),
         DB.list('subcontract_accommodations', { limit: 1000 }),
         DB.list('accommodations', { select: 'id,name,city,address,max_persons,price_month,lat,lng', limit: 500 }),
+        DB.list('periods', { order: { column: 'period_from', ascending: false }, limit: 500 }),
+        DB.list('timesheets', { limit: 5000 }),
+        DB.list('crews', { select: 'id,name,status,trade_key', limit: 300 }),
       ]);
       this.checklist = ch.data || [];
       this.lodging = sa.data || [];
       this.accommodations = accs.data || [];
+      this.periods = per.data || [];
+      this.timesheets = ts.data || [];
+      this.crews = cr.data || [];
       this.loaded = true;
+    },
+
+    periodsOf(scId) { return this.periods.filter(p => p.subcontract_id === scId); },
+    /** Výkazy zákazky — cez nasadenia, lebo výkaz zákazku priamo nepozná. */
+    timesheetsOf(scId) {
+      const ids = new Set(this.asgOf(scId).map(a => a.id));
+      return this.timesheets.filter(t => ids.has(t.assignment_id));
     },
 
     partnerOf(id) { return this.partners.find(p => p.id === id); },
@@ -105,12 +119,17 @@
       return `
         <div class="acc-card card" onclick="Sub.detail('${sc.id}')">
           <div class="acc-card-head">
-            <div>
+            <div style="min-width:0;">
               <div class="acc-name">${UI.esc(sc.title)}</div>
-              <div class="acc-loc">${p ? UI.esc(p.name) : '—'}${sc.site_city ? ` · ${UI.esc(sc.site_city)}` : ''}</div>
+              <div class="acc-loc">${sc.contract_number ? UI.esc(sc.contract_number) : ''}${
+                sc.site_city ? `${sc.contract_number ? ' · ' : ''}${UI.esc(sc.site_city)}` : ''}</div>
             </div>
             ${this.badge(sc.status)}
           </div>
+          ${p ? `<div class="link-row" style="margin-bottom:9px;">
+            ${Danubra.link('partner', p.id, p.name)}
+            ${sc.contract_id ? Danubra.link('contract', sc.contract_id, 'Zmluva o dielo') : ''}
+          </div>` : ''}
           <div class="acc-meta">
             <span>${Icon(sc.work_type === 'construction' ? 'site' : 'wrench', 14)} ${this.typeLabel(sc.work_type)}</span>
             <span>${Icon('user', 14)} ${asg.length} ${asg.length === 1 ? 'človek' : 'ľudí'}</span>
@@ -210,7 +229,13 @@
             <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
           </div>`;
         }).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ nikto nenasadený.</div>'}
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Sub.addAsg('${sc.id}')">${Icon('plus')} Nasadiť pracovníka</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn btn-outline btn-sm" onclick="Sub.addAsg('${sc.id}')">${Icon('plus')} Nasadiť pracovníka</button>
+          <button class="btn btn-outline btn-sm" onclick="Sub.assignCrewForm('${sc.id}')">${Icon('workers', 14)} Nasadiť celú partiu</button>
+        </div>
+
+        <div class="form-section">Obdobia a podklady</div>
+        ${this.periodsHtml(sc)}
 
         ${asg.filter(a => a.status !== 'cancelled').map(a => {
           const w = this.workerOf(a.worker_id);
@@ -602,6 +627,195 @@
     },
   };
 
+
+  // ── Obdobia a podklady (F5) ─────────────────────────────────────────────
+  // Uzávierka je bod, po ktorom sa hodiny už nemenia. Preto musí byť pred
+  // kliknutím vidieť presne to isté, čo sa potom zmrazí.
+  Object.assign(Sub, {
+    periodsHtml(sc) {
+      const periods = this.periodsOf(sc.id);
+      const asg = this.asgOf(sc.id);
+      const ts = this.timesheetsOf(sc.id);
+
+      const closed = periods.map(p => {
+        const margin = Money.toCents(p.amount_charged) - Money.toCents(p.amount_worker_cost);
+        const canReopen = p.status === 'closed';
+        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+          <span class="dot ${p.status === 'invoiced' ? 'green' : p.status === 'closed' ? 'blue' : ''}"></span>
+          <span style="flex:1;font-size:13px;">
+            <strong>${UI.dateRange(p.period_from, p.period_to)}</strong>
+            ${UI.badge(Enums.label('period_status', p.status),
+              p.status === 'invoiced' ? 'green' : p.status === 'closed' ? 'blue' : 'gray')}
+            <span style="display:block;color:var(--ink-mute);font-size:12px;">
+              ${Number(p.hours_construction || 0) + Number(p.hours_workshop || 0) + Number(p.hours_travel || 0)} h
+              · fakturujeme ${Money.format(Money.toCents(p.amount_charged))}
+              · marža ${Money.format(margin)}</span>
+            ${p.note ? `<span style="display:block;color:var(--ink-mute);font-size:11.5px;white-space:pre-wrap;">${UI.esc(p.note)}</span>` : ''}
+          </span>
+          ${p.status === 'open'
+            ? `<button class="btn btn-primary btn-sm" onclick="Sub.closePeriodForm('${p.id}')">Uzavrieť</button>`
+            : canReopen
+              ? `<span style="display:flex;gap:6px;">
+                   <button class="btn btn-ghost btn-sm" onclick="Sub.reopenPeriod('${p.id}')" title="Otvoriť späť">${Icon('repeat', 15)}</button>
+                   <button class="btn btn-outline btn-sm" onclick="Inv.fromPeriod('${p.id}')">Fakturovať</button>
+                 </span>`
+              : ''}
+        </div>`;
+      }).join('');
+
+      // Koľko hodín čaká mimo akéhokoľvek obdobia — to je to, čo sa
+      // najľahšie prehliadne a zostane nevyfakturované.
+      const loose = ts.filter(t => !t.period_id);
+      const looseApproved = loose.filter(t => t.approved);
+      const looseHours = loose.reduce((n, t) => n + (Number(t.hours) || 0), 0);
+
+      const next = DanubraPeriods.nextPeriod(periods);
+      return `
+        ${periods.length ? closed
+          : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne obdobie.</div>'}
+        ${looseHours ? `<div class="regimebox" style="margin-top:10px;">
+          Mimo obdobia čaká ${looseHours} ${DanubraPeriods.plural(looseHours, 'hodina', 'hodiny', 'hodín')}${
+            looseApproved.length < loose.length
+              ? `, z toho ${loose.length - looseApproved.length} ${DanubraPeriods.plural(loose.length - looseApproved.length, 'výkaz neschválený', 'výkazy neschválené', 'výkazov neschválených')}` : ''}.
+          Kým sa neuzavrú do obdobia, nedá sa z nich vystaviť faktúra.</div>` : ''}
+        <button class="btn btn-outline btn-sm" style="margin-top:8px;"
+          onclick="Sub.newPeriod('${sc.id}','${next.from}','${next.to}')">
+          ${Icon('plus')} Nové obdobie ${UI.dateRange(next.from, next.to)}</button>`;
+    },
+
+    async newPeriod(scId, from, to) {
+      const { error } = await DB.insert('periods', {
+        subcontract_id: scId, period_from: from, period_to: to,
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Obdobie vytvorené', 'ok');
+      this.loaded = false; await this.load(); this.detail(scId);
+    },
+
+    /** Náhľad pred uzavretím — to isté, čo potom zmrazí databáza. */
+    closePeriodForm(periodId) {
+      const p = this.periods.find(x => x.id === periodId);
+      if (!p) return;
+      const scId = p.subcontract_id;
+      const rev = DanubraPeriods.review({
+        timesheets: this.timesheetsOf(scId),
+        assignments: this.asgOf(scId),
+        from: p.period_from, to: p.period_to,
+      });
+      const pv = rev.preview;
+
+      const body = `
+        <div class="regimebox" style="margin:0 0 12px;">
+          Po uzavretí sa hodiny v tomto období už nedajú zmeniť ani zmazať.
+          Súčty sa uložia tak, ako sú teraz — neskoršia zmena sadzby ich
+          spätne neprepíše.</div>
+
+        <div class="kv">
+          <div><span>Obdobie</span><strong>${UI.dateRange(p.period_from, p.period_to)}</strong></div>
+          <div><span>Ľudí</span><strong>${pv.workers}</strong></div>
+          <div><span>Hodín spolu</span><strong>${pv.totalHours}</strong></div>
+        </div>
+        ${DanubraPeriods.hourLines(pv).length ? `
+          <div class="form-section">Hodiny</div>
+          ${DanubraPeriods.hourLines(pv).map(h => `
+            <div class="sum-row"><span>${UI.esc(h.label)}</span><b>${h.hours} h</b></div>`).join('')}` : ''}
+
+        <div class="form-section">Podklad</div>
+        ${Shell.sums({ lines: DanubraPeriods.sumLines(pv), totalLabel: 'Marža',
+          note: pv.marginPct != null ? `${pv.marginPct} % z fakturovanej sumy` : '' })}
+
+        ${(rev.reasons.length || rev.warnings.length)
+          ? Shell.blocker({ reasons: [...rev.reasons, ...rev.warnings] })
+          : ''}
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+          ${rev.ok ? `<button class="btn btn-primary" onclick="Sub.closePeriod('${periodId}')">
+            Uzavrieť obdobie</button>` : ''}
+        </div>`;
+      UI.modal('Uzavrieť obdobie', body, { wide: true });
+    },
+
+    async closePeriod(periodId) {
+      const p = this.periods.find(x => x.id === periodId);
+      const { error } = await DB.rpc('close_period', { p_period_id: periodId });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Obdobie uzavreté — podklad je hotový', 'ok');
+      this.loaded = false; await this.load();
+      if (p) this.detail(p.subcontract_id);
+    },
+
+    async reopenPeriod(periodId) {
+      const p = this.periods.find(x => x.id === periodId);
+      if (!p) return;
+      const reason = prompt('Prečo sa obdobie otvára späť?\n\n'
+        + 'Dôvod sa pripíše do poznámky obdobia a zostane tam.');
+      if (!reason) return;
+      const { error } = await DB.rpc('reopen_period', {
+        p_period_id: periodId, p_reason: reason,
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Obdobie otvorené späť', 'ok');
+      this.loaded = false; await this.load(); this.detail(p.subcontract_id);
+    },
+
+    // ── Nasadenie celej partie ────────────────────────────────────────────
+    assignCrewForm(scId) {
+      const sc = this.items.find(x => x.id === scId);
+      const active = this.crews.filter(c => c.status === 'active');
+      if (!active.length) {
+        UI.modal('Nasadiť partiu', UI.empty('workers', 'Žiadna aktívna partia',
+          'Partie sa zakladajú v ĽUDIA → Partie.')
+          + `<div class="modal-actions"><button class="btn btn-ghost"
+             onclick="Sub.detail('${scId}')">Späť</button></div>`);
+        return;
+      }
+      const body = `
+        <form id="ac-form" onsubmit="event.preventDefault();Sub.assignCrew('${scId}')">
+          <div class="regimebox" style="margin:0 0 12px;">
+            Nasadia sa všetci aktívni členovia naraz. Kto na zákazke už beží,
+            ten sa preskočí — dá sa to teda spustiť znova, keď do partie niekto
+            pribudne. <strong>Fakturovať bude každý sám za seba.</strong></div>
+          <div class="form-grid">
+            ${UI.field('crew_id', 'Partia', { value: '', required: true,
+              options: [['', '— vyber —'], ...active.map(c => [c.id, c.name])] })}
+            ${UI.field('date_from', 'Od', { type: 'date',
+              value: sc?.date_from || new Date().toISOString().slice(0, 10) })}
+            ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to || '' })}
+            ${UI.field('charge_rate', 'Fakturujeme €/h', { type: 'number', value: sc?.charge_rate ?? '' })}
+            ${UI.field('worker_rate', 'Živnostníkom €/h', { type: 'number', value: '',
+              placeholder: 'prázdne = sadzba z kartotéky' })}
+            ${UI.field('overhead', 'Réžia €/h', { type: 'number', value: 0 })}
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+            <button type="submit" class="btn btn-primary">Nasadiť partiu</button>
+          </div>
+        </form>`;
+      UI.modal('Nasadiť celú partiu', body);
+    },
+
+    async assignCrew(scId) {
+      const d = UI.formData(document.getElementById('ac-form'));
+      if (!d.crew_id) return UI.toast('Vyber partiu', 'err');
+      const num = (v) => (v === '' || v == null ? null : Number(v));
+      const { data, error } = await DB.rpc('assign_crew', {
+        p_crew_id: d.crew_id,
+        p_subcontract_id: scId,
+        p_date_from: d.date_from || new Date().toISOString().slice(0, 10),
+        p_date_to: d.date_to || null,
+        p_worker_rate: num(d.worker_rate),
+        p_charge_rate: num(d.charge_rate),
+        p_overhead: num(d.overhead) ?? 0,
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast(data
+        ? `Nasadených ${data} ${DanubraPeriods.plural(data, 'človek', 'ľudia', 'ľudí')}`
+        : 'Všetci členovia partie už na zákazke boli', data ? 'ok' : '');
+      this.loaded = false; await this.load(); this.detail(scId);
+    },
+  });
+
   window.Sub = Sub;
-  Danubra.views.subcontracts = function (el) { Sub.view(el); };
+  Danubra.views.subcontracts = function (el) { return Sub.view(el); };
 })();

@@ -245,5 +245,5 @@
   };
 
   window.Acc = Acc;
-  Danubra.views.accommodations = function (el) { Acc.view(el); };
+  Danubra.views.accommodations = function (el) { return Acc.view(el); };
 })();

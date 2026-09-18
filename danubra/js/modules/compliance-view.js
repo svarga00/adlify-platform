@@ -181,5 +181,5 @@
   };
 
   window.Cmp = Cmp;
-  Danubra.views.compliance = function (el) { Cmp.view(el); };
+  Danubra.views.compliance = function (el) { return Cmp.view(el); };
 })();
