@@ -515,9 +515,14 @@ async function dashboardCheck() {
   if (!D) return;
   const FIX = {
     v_today: [
-      { id: '1', title: 'Doplniť A1', due_date: '1999-01-01', priority: 'high', entity_label: 'J. Novák' },
-      { id: '2', title: 'Zavolať odberateľovi', due_date: '2099-01-01', priority: 'normal' },
+      { id: '1', title: 'Doplniť A1', due_date: '1999-01-01', priority: 'high',
+        entity_type: 'worker', entity_id: 'w1', entity_label: 'Ján Novák' },
+      { id: '2', title: 'Urgovať faktúru', due_date: '1999-01-02', priority: 'high',
+        entity_type: 'invoice', entity_id: 'i2', entity_label: 'Hartmann Bau KG' },
+      { id: '3', title: 'Zavolať odberateľovi', due_date: '2099-01-01', priority: 'normal' },
     ],
+    workers: [{ id: 'w1', full_name: 'Ján Novák' }, { id: 'w2', full_name: 'Peter Kováč' }],
+    partners: [{ id: 'p1', name: 'Vogel GmbH' }],
     v_subcontract_status: [
       { id: 's1', status: 'active', active_assignments: 3, crews: 1, hours_open: 120 },
     ],
@@ -532,8 +537,9 @@ async function dashboardCheck() {
     ],
     costs: [{ id: 'c1', amount: '80', cost_date: '2020-01-01' }],
     v_worker_documents: [
-      { id: 'd1', validity: 'expired', worker_name: 'J. Novák', doc_type: 'a1' },
-      { id: 'd2', validity: 'expiring', worker_name: 'P. Kováč', doc_type: 'trade_licence' },
+      { id: 'd1', validity: 'expired', worker_id: 'w1', worker_name: 'Ján Novák', doc_type: 'a1' },
+      { id: 'd2', validity: 'expiring', worker_id: 'w2', worker_name: 'Peter Kováč',
+        doc_type: 'trade_licence', days_left: 19 },
     ],
     candidates: [{ id: 'k1', status: 'new', first_contact_at: null }],
     recruitment_plans: [{ id: 'r1', status: 'active', headcount: 5 }],
@@ -582,7 +588,63 @@ async function dashboardCheck() {
   // Odznaky v navigácii napĺňa prehľad — inak by ich nemal kto napísať.
   t('prehľad napĺňa odznaky v navigácii',
     D.badges && D.badges.invoices === 2 && D.badges.workers === 1 && D.badges.costs === 2);
+
+  // Upozornenie musí povedať, **koho** sa týka. „1 doklad je po platnosti"
+  // bez mena znamená, že človek musí hľadať v inom zozname.
+  t('upozornenie menuje konkrétny záznam', /Ján Novák/.test(h));
+  t('a dá sa z neho kliknúť rovno naň', /Danubra\.open\('worker','w1'\)/.test(h));
+  t('úloha odkazuje na záznam, ktorého sa týka', /Danubra\.open\('invoice','i2'\)/.test(h));
 }
+
+// ── Prepojenia medzi obrazovkami ───────────────────────────────────────────
+// Appka bola sada samostatných zoznamov. Toto stráži, že odkaz na iný záznam
+// buď naozaj funguje, alebo sa vôbec nevykreslí — nikdy nevznikne tlačidlo,
+// ktoré nič nespraví.
+if (D) {
+  t('router pozná typy záznamov', Object.keys(D.entities).length >= 8);
+  const badRoute = Object.entries(D.entities)
+    .filter(([, e]) => !D.allNav().some(n => n[0] === e.route));
+  t(`každý typ záznamu má svoju obrazovku${badRoute.length ? ' — chybné: ' + badRoute.map(x => x[0]).join(', ') : ''}`,
+    !badRoute.length);
+
+  // Modul musí mať metódu, ktorou sa detail otvára. `bill` má vlastnú
+  // (`billDetail`) — práve na tomto sa to raz potichu rozsypalo.
+  const noDetail = Object.entries(D.entities).filter(([, e]) => {
+    const mod = sandbox[e.handle];
+    return !mod || typeof mod[e.method || 'detail'] !== 'function';
+  });
+  t(`každý typ záznamu sa dá otvoriť${noDetail.length ? ' — chýba: ' + noDetail.map(x => x[0]).join(', ') : ''}`,
+    !noDetail.length);
+
+  t('odkaz na existujúci záznam je tlačidlo',
+    /Danubra\.open\('worker','w9'\)/.test(D.link('worker', 'w9', 'Test')));
+  t('odkaz na neznámy typ sa nevykreslí ako tlačidlo',
+    !/onclick/.test(D.link('nieco-cudzie', 'x1', 'Test')));
+  t('odkaz bez názvu sa nevykreslí vôbec', D.link('worker', 'w9', '') === '');
+  // Vypnutá agenda sa nesmie obísť ani odkazom zo susednej obrazovky.
+  // (Databáza ubytovaní je výnimka — tá zostáva dostupná vždy, R4.)
+  t('odkaz na archivovanú agendu nevznikne',
+    !/onclick/.test(D.link('inquiry', 'q1', 'Dopyt'))
+    && !/onclick/.test(D.link('order', 'o1', 'Objednávka')));
+  t('ale databáza ubytovaní zostáva preklikateľná (R4)',
+    /onclick/.test(D.link('accommodation', 'a1', 'Ubytovanie')));
+
+  // `#/workers/<id>` musí otvoriť ten záznam, inak sa odkaz nedá poslať.
+  t('router rozumie odkazu na konkrétny záznam',
+    /\^#\\\/\(\[a-z-\]\+\)\(\?:\\\/\(\[\\w-\]\+\)\)\?/.test(String(D._syncRoute))
+    || /\[\\w-\]\+/.test(String(D._syncRoute)));
+
+  // Cesta nad nadpisom — bez nej sa po prekliknutí nedá povedať, kde človek je.
+  t('hlavička ukazuje cestu', /class="crumbs"/.test(D.header('Test', '')));
+  t('cesta vedie späť na prehľad', /Danubra\.go\('dashboard'\)/.test(D.header('Test', '')));
+}
+
+// Menu sa musí zmestiť celé. Keď sa nezmestí, musí to byť vidieť — inak sa
+// celá skupina PENIAZE stratí pod okrajom a vyzerá to, že v appke nie je.
+t('menu vie ohlásiť, že pokračuje pod okrajom',
+  D && typeof D._navOverflow === 'function');
+t('a obal na ten tieň v HTML existuje',
+  /id="sidebar-scroll"/.test(fs.readFileSync(path.join(root, 'index.html'), 'utf8')));
 
 dashboardCheck()
   .catch((e) => { failures.push(`prehľad — ${e && e.message}`); })

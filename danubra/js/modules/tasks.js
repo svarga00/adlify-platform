@@ -189,18 +189,18 @@
 
     setF(v) { this.filters.status = v; Danubra.renderRoute(); },
 
-    openEntity(type, id) {
-      const map = { inquiry: ['inquiries', 'Inq'], order: ['orders', 'Ord'], subcontract: ['subcontracts', 'Sub'],
-        worker: ['workers', 'Wrk'], client: ['clients', 'Cli'], partner: ['partners', 'Prt'], invoice: ['invoices', 'Inv'] };
-      const m = map[type];
-      if (!m) return;
-      Danubra.go(m[0]);
-      setTimeout(() => {
-        const mod = window[m[1]];
-        if (mod?.detail) mod.detail(id);
-        else if (mod?.spis) mod.spis(id);
-      }, 400);
-    },
+    /**
+     * Otvorí záznam, ktorého sa úloha týka.
+     *
+     * Kedysi to bola druhá, vlastná kópia prepájania: menší zoznam typov
+     * (nepoznala partie, ponuky, zmluvy, prijaté faktúry ani kandidátov)
+     * a čakanie 400 ms naslepo, či sa zoznam medzitým načítal. Keď sa
+     * nenačítal, kliknutie ticho nespravilo nič.
+     *
+     * Teraz je jediné miesto, kde je zapísané, čo sa dá otvoriť —
+     * `Danubra.entities` — a čaká sa na skutočné dobehnutie obrazovky.
+     */
+    openEntity(type, id) { return Danubra.open(type, id); },
 
     form(id) {
       const t = id ? this.items.find(x => x.id === id) || {} : {};

@@ -24,19 +24,35 @@
   const SKILL = [['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']];
 
   const Wrk = {
-    items: [], docs: [], overrides: [], loaded: false,
+    items: [], docs: [], overrides: [], crews: [], assignments: [], subs: [], loaded: false,
     filters: { status: '', profession: '', q: '' },
 
     async load() {
-      const [w, d, o] = await Promise.all([
+      // Partie a nasadenia sa načítavajú spolu s ľuďmi zámerne: bez nich je
+      // kartotéka len zoznam mien a človek musí inde zisťovať, kde ten človek
+      // vlastne je a s kým chodí.
+      const [w, d, o, c, a, s] = await Promise.all([
         DB.list('workers', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('worker_documents', { limit: 2000 }),
         DB.list('overrides', { filters: { entity_type: 'worker' }, limit: 1000 }),
+        DB.list('crews', { select: 'id,name,status', limit: 200 }),
+        DB.list('assignments', { select: 'id,worker_id,subcontract_id,crew_id,status,date_from,date_to', limit: 1000 }),
+        DB.list('subcontracts', { select: 'id,title,contract_number,partner_id,status,site_city', limit: 300 }),
         Enums.load(),
       ]);
       this.items = w.data || []; this.docs = d.data || [];
       this.overrides = o.data || [];
+      this.crews = c.data || []; this.assignments = a.data || []; this.subs = s.data || [];
       this.loaded = true;
+    },
+
+    /** Partia, v ktorej človek je teraz. `crew_id` drží trigger v databáze. */
+    crewOf(w) { return this.crews.find(c => c.id === w.crew_id) || null; },
+
+    /** Stavba, na ktorej je teraz — z aktívneho nasadenia, nie z domnienky. */
+    siteOf(workerId) {
+      const a = this.assignments.find(x => x.worker_id === workerId && x.status === 'active');
+      return a ? (this.subs.find(s => s.id === a.subcontract_id) || null) : null;
     },
 
     /** Zapísané výnimky pre daného človeka. Zrušené sem nepatria. */
@@ -86,7 +102,10 @@
       const a1Issues = this.items.filter(w => ['deployed', 'ready'].includes(w.status))
         .filter(w => ['missing', 'expired', 'expiring'].includes(this.docStatus(w.id).state)).length;
 
-      el.innerHTML = Danubra.header('Pracovníci',
+      // Nadpis sa musí volať rovnako ako položka v menu. Keď menu hovorí
+      // „Živnostníci" a obrazovka „Pracovníci", človek nevie, či je tam, kam
+      // klikol.
+      el.innerHTML = Danubra.header(Danubra.labelOf('workers'),
         `${this.items.length} v databáze · ${ready} pripravených · ${deployed} vyslaných`) +
         (a1Issues ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${a1Issues} ${a1Issues === 1 ? 'pracovník má problém' : 'pracovníkov má problém'} s dokladom A1 —
@@ -117,18 +136,31 @@
       const ds = this.docStatus(w.id);
       const a1Warn = ['missing', 'expired'].includes(ds.state) ? 'red'
         : ds.state === 'expiring' ? 'amber' : null;
+      const crew = this.crewOf(w);
+      const site = this.siteOf(w.id);
+      const rate = w.legal_form === 'szco' ? w.hourly_cost : null;
+
+      // Partia a stavba sú odkazy, nie text. Toto je ten rozdiel medzi
+      // kartotékou a appkou, v ktorej sa dá pohybovať.
+      const links = [
+        crew ? Danubra.link('crew', crew.id, crew.name) : '',
+        site ? Danubra.link('subcontract', site.id, site.title || site.contract_number) : '',
+      ].filter(Boolean).join('');
+
       return `
         <div class="acc-card card" onclick="Wrk.detail('${w.id}')">
           <div class="acc-card-head">
-            <div>
+            <div style="min-width:0;">
               <div class="acc-name">${UI.esc(w.full_name)}</div>
               <div class="acc-loc">${this.professionLabel(w.profession)}${w.skill_level ? ` · ${w.skill_level === 'fachwerker' ? 'LG2' : 'LG1'}` : ''}${w.city ? ` · ${UI.esc(w.city)}` : ''}</div>
             </div>
             ${this.statusBadge(w.status)}
           </div>
+          ${links ? `<div class="link-row" style="margin-bottom:9px;">${links}</div>` : ''}
           <div class="acc-meta">
             ${w.phone ? `<span>${Icon('phone', 14)} ${UI.esc(w.phone)}</span>` : ''}
-            ${w.gross_monthly ? `<span>${Icon('euro', 14)} ${UI.money(w.gross_monthly)}</span>` : ''}
+            ${rate ? `<span>${Icon('euro', 14)} ${UI.money(rate)} / h</span>` : ''}
+            ${!rate && w.gross_monthly ? `<span>${Icon('euro', 14)} ${UI.money(w.gross_monthly)}</span>` : ''}
             ${w.available_from ? `<span>${Icon('calendar', 14)} od ${UI.date(w.available_from)}</span>` : ''}
             ${a1Warn ? `<span style="color:var(--${a1Warn === 'red' ? 'red' : 'amber'});font-weight:700;">
               ${Icon('alert', 14)} A1 ${ds.state === 'missing' ? 'chýba' : ds.state === 'expired' ? 'neplatné' : 'končí'}</span>` : ''}

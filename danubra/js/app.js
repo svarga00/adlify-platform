@@ -118,6 +118,82 @@ window.Danubra = {
 
   hintOf(key) { return this.navHints[key] || ''; },
 
+  // ── Prepojenia medzi obrazovkami ─────────────────────────────────────────
+  // Appka bola dovtedy sada samostatných zoznamov: z človeka sa nedalo dostať
+  // na jeho partiu, z partie na stavbu, zo stavby na faktúru. Kto chcel vedieť
+  // súvislosť, musel si ju pamätať a vyhľadať ručne.
+  //
+  // Tabuľka nižšie je jediné miesto, kde je zapísané, ktorý modul vie otvoriť
+  // ktorý typ záznamu. `link()` z toho spraví odkaz, `open()` ho otvorí.
+  // Keď modul chýba alebo ešte nie je načítaný, odkaz sa jednoducho nevykreslí
+  // — nikdy nevznikne tlačidlo, ktoré nič nespraví.
+  entities: {
+    worker:     { route: 'workers',      handle: 'Wrk',   ico: 'workers',   what: 'Živnostník' },
+    crew:       { route: 'crews',        handle: 'Crews', ico: 'workers',   what: 'Partia' },
+    subcontract:{ route: 'subcontracts', handle: 'Sub',   ico: 'site',      what: 'Zákazka' },
+    partner:    { route: 'partners',     handle: 'Prt',   ico: 'clients',   what: 'Odberateľ' },
+    invoice:    { route: 'invoices',     handle: 'Inv',   ico: 'invoices',  what: 'Faktúra' },
+    // Náklady majú dve karty v jednom module, preto vlastný názov metódy.
+    bill:       { route: 'costs',        handle: 'Cost',  ico: 'receipt',   what: 'Prijatá faktúra', method: 'billDetail' },
+    candidate:  { route: 'candidates',   handle: 'Cand',  ico: 'user',      what: 'Kandidát' },
+    quote:      { route: 'quotes',       handle: 'Quo',   ico: 'offers',    what: 'Ponuka' },
+    contract:   { route: 'contracts',    handle: 'Con',   ico: 'note',      what: 'Zmluva' },
+    // Úloha nemá „detail" — otvára sa rovno formulár, v ktorom sa dá upraviť.
+    task:       { route: 'tasks',        handle: 'Tsk',   ico: 'tasks',     what: 'Úloha', method: 'form' },
+    accommodation: { route: 'accommodations', handle: 'Acc', ico: 'bed',    what: 'Ubytovanie' },
+    // Ubytovacia agenda. Kým je modul vypnutý, `canOpen()` ich nepustí
+    // a odkaz sa vykreslí ako obyčajný štítok — archivovaná obrazovka sa
+    // nesmie otvoriť ani prekliknutím zo susednej.
+    inquiry:    { route: 'inquiries',    handle: 'Inq',   ico: 'inquiries', what: 'Dopyt' },
+    // Objednávka má „spis", nie detail — starý kód to riešil tichým `else if`.
+    order:      { route: 'orders',       handle: 'Ord',   ico: 'orders',    what: 'Objednávka', method: 'spis' },
+    client:     { route: 'clients',      handle: 'Cli',   ico: 'clients',   what: 'Klient' },
+  },
+
+  /** Vie sa na tento typ záznamu vôbec preklikať? */
+  canOpen(type, id) {
+    const e = this.entities[type];
+    if (!e || !id || !this.routeAvailable(e.route)) return false;
+    const mod = window[e.handle];
+    return !!(mod && typeof mod[e.method || 'detail'] === 'function');
+  },
+
+  /**
+   * Otvorí konkrétny záznam, aj keď je na inej obrazovke. Najprv sa prepne
+   * obrazovka (a ak treba, aj agenda), počká sa na jej dáta a až potom sa
+   * otvorí detail — inak by modul otváral kartu nad prázdnym zoznamom.
+   */
+  async open(type, id) {
+    const e = this.entities[type];
+    if (!this.canOpen(type, id)) return;
+    if (this.route !== e.route) {
+      this.go(e.route);
+      // `renderRoute()` vracia prísľub cez router; počkáme na jeho dobehnutie
+      // rovnako, ako to robí samotný router.
+      await new Promise(r => setTimeout(r, 0));
+      await this._routeReady;
+    }
+    try { await window[e.handle][e.method || 'detail'](id); } catch (err) {
+      console.error('[danubra] detail sa nepodarilo otvoriť', type, id, err);
+      UI.toast('Záznam sa nepodarilo otvoriť.', 'err');
+    }
+  },
+
+  /** Odkaz na záznam ako „čip". Keď sa naň nedá kliknúť, vráti len text. */
+  link(type, id, label, opts = {}) {
+    const text = UI.esc(label || '');
+    if (!text) return '';
+    // Keď sa na záznam kliknúť nedá, vyzerá to ako štítok — nie ako odkaz,
+    // ktorý nič nespraví. (`.chip` sa nepoužíva zámerne: to je iná vec
+    // z náborového modulu a má vlastnú veľkosť.)
+    if (!this.canOpen(type, id)) return `<span class="link-chip is-static">${text}</span>`;
+    const e = this.entities[type];
+    const cls = opts.inline ? 'link-inline' : 'link-chip';
+    const ico = opts.inline ? '' : Icon(opts.ico || e.ico, 13);
+    return `<button class="${cls}" title="${UI.esc(e.what)}: ${text}"
+      onclick="event.stopPropagation();Danubra.open('${type}','${id}')">${ico}<span>${text}</span></button>`;
+  },
+
   /** Patrí položka do práve zvolenej oblasti a je jej modul zapnutý? */
   inArea(item) {
     if (!this.moduleOn(this.moduleOf(item))) return false;
@@ -266,6 +342,14 @@ window.Danubra = {
       }).join('')}`;
     }).join('');
 
+    const nav = document.getElementById('sidebar-nav');
+    if (nav && !nav._overflowBound) {
+      nav.addEventListener('scroll', () => this._navOverflow());
+      window.addEventListener('resize', () => this._navOverflow());
+      nav._overflowBound = true;
+    }
+    this._navOverflow();
+
     const tabs = this.tabsByArea[this.area] || this.tabsByArea.staffing;
     document.getElementById('bottom-nav').innerHTML = tabs.map(t => t.plus
       ? `<button class="tab tab-plus" onclick="Danubra.quickAdd()" aria-label="Pridať">
@@ -401,8 +485,11 @@ window.Danubra = {
   },
 
   _syncRoute() {
-    const m = (location.hash || '').match(/^#\/([a-z-]+)/);
+    // `#/workers` otvorí zoznam, `#/workers/<id>` rovno ten záznam. Odkaz na
+    // konkrétneho človeka sa tak dá poslať alebo uložiť do záložiek.
+    const m = (location.hash || '').match(/^#\/([a-z-]+)(?:\/([\w-]+))?/);
     const key = m ? m[1] : 'dashboard';
+    const wantId = m && m[2] ? m[2] : null;
     // Archivovaná obrazovka sa nesmie otvoriť ani starým odkazom alebo
     // záložkou — inak by sa vypnutý modul dal obísť adresným riadkom.
     this.route = this.routeAvailable(key) ? key : 'dashboard';
@@ -413,10 +500,31 @@ window.Danubra = {
       try { localStorage.setItem('danubra_area', ar); } catch {}
       this._buildNav();
     }
-    if (this.user) this.renderRoute();
+    if (this.user) {
+      const done = this.renderRoute();
+      if (wantId) {
+        const type = Object.keys(this.entities)
+          .find(k => this.entities[k].route === this.route);
+        const mod = type && window[this.entities[type].handle];
+        if (mod && typeof mod.detail === 'function') {
+          Promise.resolve(done).then(() => mod.detail(wantId)).catch((e) =>
+            console.error('[danubra] odkaz na záznam sa nepodarilo otvoriť', e));
+        }
+      }
+    }
     document.querySelectorAll('.nav-item, .tab').forEach(el => {
       if (el.dataset.key) el.classList.toggle('active', el.dataset.key === this.route);
     });
+    this._navOverflow();
+  },
+
+  /** Ukáž tieň na spodku menu, keď pokračuje pod okrajom. */
+  _navOverflow() {
+    const box = document.getElementById('sidebar-scroll');
+    const nav = document.getElementById('sidebar-nav');
+    if (!box || !nav) return;
+    const more = nav.scrollHeight - nav.clientHeight - nav.scrollTop > 6;
+    box.classList.toggle('has-more', more);
   },
 
   renderRoute() {
@@ -436,7 +544,9 @@ window.Danubra = {
     DB.clearFailures();
     const started = this.route;
 
-    Promise.resolve()
+    // Prísľub si necháme: `open()` naň čaká, aby detail neotváral nad
+    // zoznamom, ktorý sa ešte nenačítal.
+    return (this._routeReady = Promise.resolve()
       .then(() => fn.call(this, view))
       .then(() => {
         if (this.route !== started) return;      // medzitým sa prepla obrazovka
@@ -447,7 +557,7 @@ window.Danubra = {
         console.error('[danubra] obrazovka spadla', e);
         view.innerHTML = this.header(this.labelOf(this.route), '')
           + this._screenError('Túto obrazovku sa nepodarilo zobraziť.', e && (e.message || e));
-      });
+      }));
   },
 
   /** Keď sa časť dát nenačítala, povedz to — nevydávaj to za prázdno. */
@@ -478,10 +588,37 @@ window.Danubra = {
     </div>`;
   },
 
+  /** Skupina, do ktorej obrazovka patrí — „ĽUDIA", „PENIAZE"… */
+  groupOf(key) {
+    for (const [glabel, items] of this.navGroups) {
+      if (items.some(x => x[0] === key)) return glabel;
+    }
+    return null;
+  },
+
+  /**
+   * Cesta nad nadpisom. Bez nej sa po prekliknutí z upozornenia nedá povedať,
+   * kde človek skončil — každá obrazovka vyzerá rovnako.
+   */
+  crumbs(trail = []) {
+    const parts = [
+      `<button onclick="Danubra.go('dashboard')">Prehľad</button>`,
+      ...(this.route === 'dashboard' ? [] : [
+        `<span>${UI.esc(this.groupOf(this.route) || '')}</span>`,
+        trail.length
+          ? `<button onclick="Danubra.go('${this.route}')">${UI.esc(this.labelOf(this.route))}</button>`
+          : `<span>${UI.esc(this.labelOf(this.route))}</span>`,
+      ].filter(x => !/>\s*<\/span>$/.test(x))),
+      ...trail.map(x => `<span>${UI.esc(x)}</span>`),
+    ];
+    return `<div class="crumbs">${parts.join('<span class="crumb-sep">/</span>')}</div>`;
+  },
+
   // Jednotná hlavička stránky
   header(title, sub, right) {
     return `<div class="page-head">
-      <div>
+      <div style="min-width:0;">
+        ${this.crumbs()}
         <h1 class="page-title">${UI.esc(title)}</h1>
         ${sub ? `<div class="page-sub">${sub}</div>` : ''}
       </div>
@@ -513,7 +650,8 @@ window.Danubra = {
    * nikdy netvári ako „nič tu nemáš".
    */
   async _dashLoad() {
-    const [today, subs, per, inv, bills, costs, docs, cands, plans, tx, cf] = await Promise.all([
+    const [today, subs, per, inv, bills, costs, docs, cands, plans, tx, cf,
+      wrk, prt] = await Promise.all([
       DB.list('v_today', { limit: 200 }),
       DB.list('v_subcontract_status', { limit: 200 }),
       DB.list('periods', { select: 'id,subcontract_id,period_from,period_to,status', limit: 300 }),
@@ -530,6 +668,10 @@ window.Danubra = {
       DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
       DB.list('bank_transactions', { select: 'amount', limit: 2000 }),
       DB.list('v_cashflow', { limit: 1000 }),
+      // Mená. Bez nich by upozornenie povedalo „1 doklad je po platnosti"
+      // a človek by musel hádať, čí. Sú to dva malé dotazy.
+      DB.list('workers', { select: 'id,full_name', limit: 500 }),
+      DB.list('partners', { select: 'id,name', limit: 200 }),
     ]);
     if (window.Cfg && !Cfg.loaded) { try { await Cfg.load(); } catch {} }
 
@@ -551,9 +693,22 @@ window.Danubra = {
       items: S(cf), weeks: 8,
     });
 
+    // Vyhľadávacie tabuľky pre mená v upozorneniach.
+    const nameOf = (rows, key) => {
+      const m = new Map(rows.map(r => [r.id, r[key]]));
+      return (id) => m.get(id) || null;
+    };
+    const workerName = nameOf(S(wrk), 'full_name');
+    const partnerName = nameOf(S(prt), 'name');
+    const siteName = (id) => {
+      const s = subsAll.find(x => x.id === id);
+      return s ? (s.title || s.contract_number) : null;
+    };
+
     return {
       today: d,
       tasks: S(today),
+      workerName, partnerName, siteName,
       sites,
       deployed: sites.reduce((s, x) => s + Number(x.active_assignments || 0), 0),
       crewsOut: sites.reduce((s, x) => s + Number(x.crews || 0), 0),
@@ -581,32 +736,56 @@ window.Danubra = {
    */
   _dashAlerts(x) {
     const a = [];
-    const push = (dot, label, why, go) => a.push({ dot, label, why, go });
+    /**
+     * @param rows  záznamy, ktorých sa to týka
+     * @param who   ako sa z jedného záznamu dostane typ, id a meno
+     *              → { type, id, label }
+     */
+    const push = (dot, rows, label, why, go, who) => {
+      if (!rows.length) return;
+      a.push({
+        dot, label, why, go,
+        items: rows.slice(0, 4).map(who).filter(r => r && r.label),
+        more: Math.max(0, rows.length - 4),
+      });
+    };
 
-    if (x.docsExpired.length) push('red',
+    push('red', x.docsExpired,
       `${x.docsExpired.length} ${Shell.plural(x.docsExpired.length, 'doklad je', 'doklady sú', 'dokladov je')} po platnosti`,
-      'Bez platného A1 alebo živnostenského nesmie nikto na stavbu.', 'workers');
-    if (x.periodsDue.length) push('red',
+      'Bez platného A1 alebo živnostenského nesmie nikto na stavbu.', 'workers',
+      (r) => ({ type: 'worker', id: r.worker_id, label: r.worker_name }));
+    push('red', x.periodsDue,
       `${x.periodsDue.length} ${Shell.plural(x.periodsDue.length, 'obdobie čaká', 'obdobia čakajú', 'období čaká')} na uzavretie`,
-      'Kým sa obdobie neuzavrie, nevznikne podklad na faktúru.', 'subcontracts');
-    if (x.invApprove.length) push('amber',
+      'Kým sa obdobie neuzavrie, nevznikne podklad na faktúru.', 'subcontracts',
+      (r) => ({ type: 'subcontract', id: r.subcontract_id, label: x.siteName(r.subcontract_id) }));
+    push('amber', x.invApprove,
       `${x.invApprove.length} ${Shell.plural(x.invApprove.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} na schválenie`,
-      'Bez schválenia sa nevystaví ani neodošle.', 'invoices');
-    if (x.invOverdue.length) push('red',
+      'Bez schválenia sa nevystaví ani neodošle.', 'invoices',
+      (r) => ({ type: 'invoice', id: r.id, label: r.invoice_number || x.partnerName(r.partner_id) }));
+    push('red', x.invOverdue,
       `${x.invOverdue.length} ${Shell.plural(x.invOverdue.length, 'faktúra je', 'faktúry sú', 'faktúr je')} po splatnosti`,
-      'Zavolať skôr, než sa to natiahne na ďalší mesiac.', 'invoices');
-    if (x.billsToCheck.length) push('amber',
-      `${x.billsToCheck.length} ${Shell.plural(x.billsToCheck.length, 'prijatá faktúra čaká', 'prijaté faktúry čakajú', 'prijatých faktúr čaká')} na kontrolu`,
-      'Porovnať s odpracovanými hodinami, potom schváliť.', 'costs');
-    if (x.billsDisputed.length) push('red',
+      'Zavolať skôr, než sa to natiahne na ďalší mesiac.', 'invoices',
+      (r) => ({ type: 'invoice', id: r.id,
+        label: [r.invoice_number, x.partnerName(r.partner_id)].filter(Boolean).join(' · ') }));
+    push('red', x.billsDisputed,
       `${x.billsDisputed.length} ${Shell.plural(x.billsDisputed.length, 'prijatá faktúra je', 'prijaté faktúry sú', 'prijatých faktúr je')} sporná`,
-      'Rozdiel oproti hodinám treba dohodnúť so živnostníkom.', 'costs');
-    if (x.docsExpiring.length) push('amber',
+      'Rozdiel oproti hodinám treba dohodnúť so živnostníkom.', 'costs',
+      (r) => ({ type: 'bill', id: r.id,
+        label: [r.bill_number, x.workerName(r.worker_id)].filter(Boolean).join(' · ') }));
+    push('amber', x.billsToCheck,
+      `${x.billsToCheck.length} ${Shell.plural(x.billsToCheck.length, 'prijatá faktúra čaká', 'prijaté faktúry čakajú', 'prijatých faktúr čaká')} na kontrolu`,
+      'Porovnať s odpracovanými hodinami, potom schváliť.', 'costs',
+      (r) => ({ type: 'bill', id: r.id,
+        label: [r.bill_number, x.workerName(r.worker_id)].filter(Boolean).join(' · ') }));
+    push('amber', x.docsExpiring,
       `${x.docsExpiring.length} ${Shell.plural(x.docsExpiring.length, 'dokladu čoskoro skončí', 'dokladom čoskoro skončí', 'dokladom čoskoro skončí')} platnosť`,
-      'Vybaviť teraz, nie v deň, keď vyprší.', 'workers');
-    if (x.candWaiting.length) push('red',
+      'Vybaviť teraz, nie v deň, keď vyprší.', 'workers',
+      (r) => ({ type: 'worker', id: r.worker_id,
+        label: r.days_left != null ? `${r.worker_name} · ${r.days_left} dní` : r.worker_name }));
+    push('red', x.candWaiting,
       `${x.candWaiting.length} ${Shell.plural(x.candWaiting.length, 'kandidát čaká', 'kandidáti čakajú', 'kandidátov čaká')} na prvý telefonát`,
-      'Cieľ je do desiatich minút — potom už berie prácu inde.', 'candidates');
+      'Cieľ je do desiatich minút — potom už berie prácu inde.', 'candidates',
+      (r) => ({ type: 'candidate', id: r.id, label: r.full_name }));
     return a;
   },
 
@@ -618,20 +797,46 @@ window.Danubra = {
           Doklady platia, obdobia sú uzavreté, faktúry vybavené. Nič tu nevisí.
         </div></div>`;
     }
+    // Zoznam, v ktorom je osem položiek, sa neprezerá. Prvé štyri sú tie,
+    // ktoré horia — zvyšok sa dá rozbaliť.
+    const TOP = 4;
+    const head = alerts.slice(0, TOP);
+    const rest = alerts.slice(TOP);
+
     return `<div class="card card-pad">
       <div class="card-head">
         <div class="card-title">Vyžaduje pozornosť</div>
         <span class="badge" style="background:var(--amber-50);color:var(--amber);">${alerts.length}</span>
       </div>
-      ${alerts.map(r => `
-        <button class="list-row" style="align-items:flex-start;" onclick="Danubra.go('${r.go}')">
+      ${head.map(r => `
+        <div class="list-row" style="align-items:flex-start;cursor:default;">
           <span class="dot ${r.dot}" style="margin-top:6px;"></span>
-          <span style="flex:1;">
-            <span style="font-weight:500;display:block;">${UI.esc(r.label)}</span>
-            <span style="color:var(--ink-mute);font-size:12.5px;">${UI.esc(r.why)}</span>
+          <span style="flex:1;min-width:0;">
+            <button class="link-inline" style="color:var(--ink);font-weight:600;display:block;text-align:left;"
+              onclick="Danubra.go('${r.go}')">${UI.esc(r.label)}</button>
+            <span style="color:var(--ink-mute);font-size:12.5px;display:block;">${UI.esc(r.why)}</span>
+            ${r.items.length ? `<span class="link-row" style="margin-top:7px;">
+              ${r.items.map(i => Danubra.link(i.type, i.id, i.label)).join('')}
+              ${r.more ? `<span class="link-chip is-static">+${r.more} ďalších</span>` : ''}
+            </span>` : ''}
           </span>
-          <span style="color:var(--ink-mute);display:flex;margin-top:4px;">${Icon('chevron', 15)}</span>
-        </button>`).join('')}
+        </div>`).join('')}
+      ${rest.length ? `<details class="more-block">
+        <summary>Ďalších ${rest.length} ${Shell.plural(rest.length, 'vec', 'veci', 'vecí')}</summary>
+        ${rest.map(r => `
+          <div class="list-row" style="align-items:flex-start;cursor:default;">
+            <span class="dot ${r.dot}" style="margin-top:6px;"></span>
+            <span style="flex:1;min-width:0;">
+              <button class="link-inline" style="color:var(--ink);font-weight:600;display:block;text-align:left;"
+                onclick="Danubra.go('${r.go}')">${UI.esc(r.label)}</button>
+              <span style="color:var(--ink-mute);font-size:12.5px;display:block;">${UI.esc(r.why)}</span>
+              ${r.items.length ? `<span class="link-row" style="margin-top:7px;">
+                ${r.items.map(i => Danubra.link(i.type, i.id, i.label)).join('')}
+                ${r.more ? `<span class="link-chip is-static">+${r.more} ďalších</span>` : ''}
+              </span>` : ''}
+            </span>
+          </div>`).join('')}
+      </details>` : ''}
     </div>`;
   },
 
@@ -656,17 +861,19 @@ window.Danubra = {
       ${shown.length ? shown.map(g => `
         <div class="form-section" style="margin-top:10px;">${UI.esc(g.label)}</div>
         ${g.tasks.map(t => `
-          <button class="list-row" style="align-items:flex-start;" onclick="Danubra.go('tasks')">
+          <div class="list-row" style="align-items:flex-start;cursor:default;">
             <span class="dot ${g.tone === 'red' ? 'red' : g.tone === 'amber' ? 'amber' : ''}"
                   style="margin-top:6px;"></span>
-            <span style="flex:1;">
-              <span style="font-weight:500;display:block;">${UI.esc(t.title || 'Úloha')}</span>
-              <span style="color:var(--ink-mute);font-size:12.5px;">
-                ${t.entity_label ? UI.esc(t.entity_label) + ' · ' : ''}${t.due_date ? UI.date(t.due_date) : 'bez termínu'}
+            <span style="flex:1;min-width:0;">
+              <button class="link-inline" style="color:var(--ink);font-weight:600;display:block;text-align:left;"
+                onclick="Danubra.go('tasks')">${UI.esc(t.title || 'Úloha')}</button>
+              <span style="color:var(--ink-mute);font-size:12.5px;display:block;">
+                ${t.due_date ? UI.date(t.due_date) : 'bez termínu'}
               </span>
+              ${Danubra.canOpen(t.entity_type, t.entity_id) ? `<span class="link-row" style="margin-top:6px;">
+                ${Danubra.link(t.entity_type, t.entity_id, t.entity_label)}</span>` : ''}
             </span>
-            <span style="color:var(--ink-mute);display:flex;margin-top:4px;">${Icon('chevron', 15)}</span>
-          </button>`).join('')}`).join('')
+          </div>`).join('')}`).join('')
         : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">
              Žiadna úloha na dnes ani na tento týždeň.
            </div>`}
@@ -712,7 +919,7 @@ window.Danubra = {
     return `<div class="card card-pad">
       <div class="card-head">
         <div class="card-title">Zarábame na tom?</div>
-        ${e.marginPct != null ? UI.badge(`marža ${e.marginPct} %`,
+        ${e.marginPct != null ? UI.badge(`marža ${String(e.marginPct).replace('.', ',')} %`,
           e.marginPct >= 15 ? 'green' : (e.marginPct >= 8 ? 'amber' : 'red')) : ''}
       </div>
       <div class="kv" style="margin:0;">
