@@ -658,6 +658,19 @@ if (D) {
   }
   t(`nadpis obrazovky sedí s menu${bad.length ? ' — nesedí: ' + bad.join(', ') : ''}`,
     !bad.length);
+
+  // Hlavná akcia patrí do horného pruhu. Keď je raz tam a raz v hlavičke
+  // stránky, hľadá sa na každej obrazovke odznova. Bolo to tak na piatich.
+  const inHead = [];
+  for (const f of files.filter(x => x.startsWith('js/modules/'))) {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    // Tretí argument `header()` s primárnym tlačidlom = akcia v hlavičke.
+    if (/Danubra\.header\((?:[^()]|\([^()]*\))*btn-primary/s.test(src)) {
+      inHead.push(path.basename(f));
+    }
+  }
+  t(`hlavná akcia je vždy v hornom pruhu${inHead.length ? ' — v hlavičke: ' + inHead.join(', ') : ''}`,
+    !inHead.length);
 }
 
 // Menu sa musí zmestiť celé. Keď sa nezmestí, musí to byť vidieť — inak sa

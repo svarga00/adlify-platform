@@ -68,9 +68,10 @@
           </div>`;
       };
 
-      el.innerHTML = Danubra.header('Ponuky',
-        'Marža je vidieť skôr, než ponuka odíde',
-        `<button class="btn btn-primary btn-sm" onclick="Quo.form()">${Icon('plus')} Nová ponuka</button>`)
+      Danubra.setActions(
+        `<button class="btn btn-primary btn-sm" onclick="Quo.form()">${Icon('plus')} Nová ponuka</button>`);
+      el.innerHTML = Danubra.header(Danubra.labelOf('quotes'),
+        'Marža je vidieť skôr, než ponuka odíde')
         + Shell.list({
           rows, total: this.items.length, render: card, layout: 'cards',
           emptyIcon: 'offers', emptyTitle: 'Zatiaľ žiadna ponuka',

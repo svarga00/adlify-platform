@@ -343,8 +343,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .toast.toast-err { background: var(--red); }
 
 /* ── Filtre / zoznamy ────────────────────────────────────────────────────── */
-.filterbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.filterbar .fb-search { flex: 1; min-width: 180px; }
+.filterbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; align-items: center; }
+/* `.fb-search` je obal, nie samotné pole. Bez `width:100%` na vstupe sa obal
+   roztiahol, vstup zostal krátky a výber odletel na druhý koniec obrazovky. */
+.filterbar .fb-search { flex: 1 1 260px; min-width: 200px; max-width: 520px; }
+.filterbar .fb-search input { width: 100%; }
+.filterbar select { min-width: 160px; }
 .filterbar input, .filterbar select {
   padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px;
   font-size: 13.5px; background: #fff;

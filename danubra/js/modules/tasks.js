@@ -177,11 +177,14 @@
             ${t.description ? `<span style="display:block;color:var(--ink-sub);">${UI.esc(t.description)}</span>` : ''}
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
               ${t.due_date ? `termín ${UI.date(t.due_date)}` : 'bez termínu'}
-              ${t.assigned_name ? ` · ${UI.esc(t.assigned_name)}` : ''}
-              ${ent ? ` · ${ent[0]}${t.entity_label ? `: ${UI.esc(t.entity_label)}` : ''}` : ''}</span>
+              ${t.assigned_name ? ` · ${UI.esc(t.assigned_name)}` : ''}</span>
+            ${Danubra.canOpen(t.entity_type, t.entity_id) ? `<span class="link-row" style="margin-top:6px;">
+              ${Danubra.link(t.entity_type, t.entity_id,
+                t.entity_label || (ent ? ent[0] : ''))}</span>`
+              : (ent && t.entity_label
+                ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">${ent[0]}: ${UI.esc(t.entity_label)}</span>`
+                : '')}
           </span>
-          ${ent && t.entity_id ? `<button class="btn btn-ghost btn-sm" title="Otvoriť"
-            onclick="Tsk.openEntity('${t.entity_type}','${t.entity_id}')">${Icon('chevron', 15)}</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="Tsk.form('${t.id}')">${Icon('edit', 15)}</button>
           <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Tsk.del('${t.id}')">${Icon('x', 15)}</button>
         </div>`;

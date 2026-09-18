@@ -54,10 +54,11 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
       const disputed = this.bills.filter(b => b.status === 'disputed');
-      const head = Danubra.header('Náklady',
-        'Čo nám fakturujú živnostníci a čo stojí všetko ostatné',
+      Danubra.setActions(
         `<button class="btn btn-primary btn-sm" onclick="Cost.${this.tab === 'bills' ? 'billForm' : 'costForm'}()">
-           ${Icon('plus')} ${this.tab === 'bills' ? 'Prijatá faktúra' : 'Náklad'}</button>`)
+          ${Icon('plus')} ${this.tab === 'bills' ? 'Prijatá faktúra' : 'Náklad'}</button>`);
+      const head = Danubra.header(Danubra.labelOf('costs'),
+        'Čo nám fakturujú živnostníci a čo stojí všetko ostatné')
         + `<div class="filterbar" style="margin-bottom:12px;">
              <button class="fb-chip${this.tab === 'bills' ? ' active' : ''}" onclick="Cost.setTab('bills')">
                Prijaté faktúry<em>${this.bills.length}</em></button>

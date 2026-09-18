@@ -79,9 +79,10 @@
           </div>`;
       };
 
-      el.innerHTML = Danubra.header('Zmluvy',
-        'Dohodnuté podmienky sa neprepisujú — menia sa dodatkom',
-        `<button class="btn btn-primary btn-sm" onclick="Con.form()">${Icon('plus')} Nová zmluva</button>`)
+      Danubra.setActions(
+        `<button class="btn btn-primary btn-sm" onclick="Con.form()">${Icon('plus')} Nová zmluva</button>`);
+      el.innerHTML = Danubra.header(Danubra.labelOf('contracts'),
+        'Dohodnuté podmienky sa neprepisujú — menia sa dodatkom')
         + Shell.list({
           rows, total: this.items.length, render: card, layout: 'cards',
           emptyIcon: 'note', emptyTitle: 'Zatiaľ žiadna zmluva',

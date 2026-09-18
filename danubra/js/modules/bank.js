@@ -41,10 +41,10 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const unmatched = this.txs.filter(t => t.match_status === 'unmatched').length;
 
-      el.innerHTML = Danubra.header('Banka a cash-flow',
-        'Čo príde, čo odíde a či to vyjde',
-        `<button class="btn btn-primary btn-sm" onclick="Bank.importForm()">
-           ${Icon('upload', 14)} Načítať výpis</button>`)
+      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Bank.importForm()">
+        ${Icon('upload', 14)} Načítať výpis</button>`);
+      el.innerHTML = Danubra.header(Danubra.labelOf('bank'),
+        'Čo príde, čo odíde a či to vyjde')
         + `<div class="filterbar" style="margin-bottom:12px;">
              <button class="fb-chip${this.tab === 'cashflow' ? ' active' : ''}" onclick="Bank.setTab('cashflow')">
                Cash-flow</button>
@@ -105,16 +105,22 @@
         .sort((a, b) => String(a.expected_on).localeCompare(String(b.expected_on)))
         .slice(0, 25);
       if (!all.length) return '';
+      // Pohľad `v_cashflow` nesie, z čoho riadok vznikol — dá sa teda otvoriť
+      // presne tá faktúra, na ktorú sa čaká, nie len zoznam faktúr.
+      const TYPE = { invoice: 'invoice', bill: 'bill' };
       const row = (it) => `
-        <div class="list-row" style="cursor:default;">
-          <span class="dot ${it.overdue ? 'red' : Money.toCents(it.amount) > 0 ? 'green' : ''}"></span>
-          <span style="flex:1;font-size:13px;">
+        <div class="list-row" style="cursor:default;align-items:flex-start;">
+          <span class="dot ${it.overdue ? 'red' : Money.toCents(it.amount) > 0 ? 'green' : ''}"
+                style="margin-top:6px;"></span>
+          <span style="flex:1;font-size:13px;min-width:0;">
             <strong>${UI.esc(it.counterparty || it.label || '—')}</strong>
             ${it.overdue ? UI.badge('po splatnosti', 'red') : ''}
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
               ${UI.esc(it.label || '')} · ${UI.date(it.expected_on)}
               ${it.source === 'invoice' ? ' · vydaná faktúra'
                 : it.source === 'bill' ? ' · faktúra od živnostníka' : ' · náklad'}</span>
+            ${Danubra.canOpen(TYPE[it.source], it.source_id) ? `<span class="link-row" style="margin-top:6px;">
+              ${Danubra.link(TYPE[it.source], it.source_id, it.label || 'Otvoriť')}</span>` : ''}
           </span>
           <strong style="${Money.toCents(it.amount) < 0 ? 'color:var(--red);' : ''}">${
             Money.format(Money.toCents(it.amount), { sign: true })}</strong>

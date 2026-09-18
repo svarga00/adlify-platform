@@ -66,9 +66,12 @@
           </div>`;
       };
 
-      el.innerHTML = Danubra.header('Partie',
-        'Chodia spolu, fakturuje každý sám za seba',
-        `<button class="btn btn-primary btn-sm" onclick="Crews.form()">${Icon('plus')} Nová partia</button>`)
+      // Hlavná akcia patrí do horného pruhu — rovnako ako na ostatných
+      // obrazovkách. Keď je raz tam a raz v hlavičke, hľadá sa zakaždým znova.
+      Danubra.setActions(
+        `<button class="btn btn-primary btn-sm" onclick="Crews.form()">${Icon('plus')} Nová partia</button>`);
+      el.innerHTML = Danubra.header(Danubra.labelOf('crews'),
+        'Chodia spolu, fakturuje každý sám za seba')
         + Shell.list({
           rows, total: all.length, render: card, layout: 'cards',
           emptyIcon: 'workers', emptyTitle: 'Zatiaľ žiadna partia',
