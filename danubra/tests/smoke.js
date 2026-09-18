@@ -639,6 +639,27 @@ if (D) {
   t('cesta vedie späť na prehľad', /Danubra\.go\('dashboard'\)/.test(D.header('Test', '')));
 }
 
+// Nadpis obrazovky sa musí volať rovnako ako položka v menu. Keď menu hovorí
+// „Živnostníci" a obrazovka „Pracovníci", človek nevie, či je tam, kam klikol.
+// Takto sa to rozišlo na piatich obrazovkách naraz.
+if (D) {
+  const LABELS = new Set(D.allNav().map(n => n[1]));
+  const bad = [];
+  for (const f of files.filter(x => x.startsWith('js/modules/'))) {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    for (const m of src.matchAll(/Danubra\.header\('([^']+)'/g)) {
+      // Nadpisy podstránok (detail, formulár) sem nepatria — kontrolujeme
+      // len tie, ktoré sedia na hlavnej obrazovke modulu.
+      if (!LABELS.has(m[1]) && /el\.innerHTML = Danubra\.header\('/.test(src)
+        && src.includes(`el.innerHTML = Danubra.header('${m[1]}'`)) {
+        bad.push(`${path.basename(f)}: „${m[1]}"`);
+      }
+    }
+  }
+  t(`nadpis obrazovky sedí s menu${bad.length ? ' — nesedí: ' + bad.join(', ') : ''}`,
+    !bad.length);
+}
+
 // Menu sa musí zmestiť celé. Keď sa nezmestí, musí to byť vidieť — inak sa
 // celá skupina PENIAZE stratí pod okrajom a vyzerá to, že v appke nie je.
 t('menu vie ohlásiť, že pokračuje pod okrajom',

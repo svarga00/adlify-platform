@@ -55,9 +55,11 @@
               <div class="card-title">${UI.esc(c.name)}</div>
               ${UI.badge(this.statusLabel(c.status), this.statusKind(c.status))}
             </div>
+            ${lw ? `<div class="link-row" style="margin-bottom:9px;">
+              ${Danubra.link('worker', lw.id, `${lw.full_name} — predák`, { ico: 'user' })}
+            </div>` : ''}
             <div class="meta-row">
               <span>${Icon('workers', 14)} ${active.length} ${DanubraCrews.plural(active.length, 'člen', 'členovia', 'členov')}</span>
-              ${lw ? `<span>${Icon('user', 14)} ${UI.esc(lw.full_name)}</span>` : ''}
               ${c.trade_key ? `<span>${Icon('wrench', 14)} ${UI.esc(Wrk.professionLabel(c.trade_key))}</span>` : ''}
               ${problems ? `<span style="color:var(--amber);">${Icon('alert', 14)} ${problems} ${DanubraCrews.plural(problems, 'vec', 'veci', 'vecí')} na pozretie</span>` : ''}
             </div>

@@ -26,18 +26,23 @@
   };
 
   const Inv = {
-    items: [], lines: [], clients: [], orders: [], loaded: false,
+    items: [], lines: [], clients: [], orders: [], partners: [], loaded: false,
     filters: { status: '' },
 
     async load() {
-      const [i, l, c, o] = await Promise.all([
+      // Odberatelia sa načítavajú spolu s faktúrami: v2 faktúra má
+      // `partner_id`, nie `client_id`, a v zozname sa preto ukazovala pomlčka
+      // namiesto nemeckej firmy, ktorej sa fakturuje.
+      const [i, l, c, o, p] = await Promise.all([
         DB.list('invoices', { order: { column: 'issue_date', ascending: false }, limit: 500 }),
         DB.list('invoice_items', { limit: 3000 }),
         DB.list('clients', { select: 'id,name,country,vat_id,company_id,contact_person,phone,email,whatsapp', limit: 500 }),
         DB.list('orders', { select: 'id,order_number,client_id,service_fee,urgent_surcharge,date_from,date_to,persons,ongoing_service_enabled,ongoing_service_rate,status', limit: 500 }),
+        DB.list('partners', { select: 'id,name,city,country,ust_id', limit: 300 }),
       ]);
       this.items = i.data || []; this.lines = l.data || [];
       this.clients = c.data || []; this.orders = o.data || [];
+      this.partners = p.data || [];
       this.loaded = true;
       await this._markOverdue();
     },
@@ -61,11 +66,17 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filters.status ? this.items.filter(x => x.status === this.filters.status) : this.items;
 
-      const pending = this.items.filter(x => x.status === 'draft_pending_approval');
-      const unpaid = this.items.filter(x => ['issued', 'overdue'].includes(x.status));
+      // Stavy v1 a v2 sa volajú inak (`draft_pending_approval` vs
+      // `pending_approval`, `issued` vs `sent`). Keď sa vymenúvajú tie, čo
+      // sa rátajú, na nový stav sa zabudne a hlavička potichu ukáže nulu —
+      // presne to sa stalo. Preto sa vymenúva opak: čo už neuhradené **nie je**.
+      const SETTLED = ['paid', 'cancelled', 'draft'];
+      const pending = this.items.filter(x =>
+        ['draft_pending_approval', 'pending_approval'].includes(x.status));
+      const unpaid = this.items.filter(x => !SETTLED.includes(x.status));
       const unpaidSum = unpaid.reduce((s, x) => s + Number(x.total || 0), 0);
 
-      el.innerHTML = Danubra.header('Faktúry',
+      el.innerHTML = Danubra.header(Danubra.labelOf('invoices'),
         `${this.items.length} celkom · neuhradené ${UI.money(unpaidSum)}`) +
         (pending.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${pending.length} ${pending.length === 1 ? 'návrh čaká' : 'návrhov čaká'} na schválenie —
@@ -84,18 +95,31 @@
           : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
     },
 
-    card(x) {
+    /** Komu sa fakturuje: v2 nemeckému odberateľovi, v1 klientovi z ubytovania. */
+    partnerOf(id) { return (this.partners || []).find(p => p.id === id) || null; },
+    counterparty(x) {
+      const p = this.partnerOf(x.partner_id);
+      if (p) return { type: 'partner', id: p.id, name: p.name };
       const c = this.clientOf(x.client_id);
+      return c ? { type: 'client', id: c.id, name: c.name } : null;
+    },
+
+    card(x) {
+      const who = this.counterparty(x);
       const late = x.status === 'overdue';
       return `
         <div class="acc-card card" onclick="Inv.detail('${x.id}')">
           <div class="acc-card-head">
-            <div>
+            <div style="min-width:0;">
               <div class="acc-name mono" style="font-size:13px;letter-spacing:.02em;">${UI.esc(x.invoice_number || '—')}</div>
-              <div class="acc-loc">${c ? UI.esc(c.name) : '—'} · ${TYPE[x.type] || x.type || ''}</div>
+              ${TYPE[x.type] || x.type ? `<div class="acc-loc">${UI.esc(TYPE[x.type] || x.type)}</div>` : ''}
             </div>
             ${this.badge(x.status)}
           </div>
+          ${who || x.subcontract_id ? `<div class="link-row" style="margin-bottom:9px;">
+            ${who ? Danubra.link(who.type, who.id, who.name) : ''}
+            ${x.subcontract_id ? Danubra.link('subcontract', x.subcontract_id, 'Zákazka') : ''}
+          </div>` : ''}
           <div class="acc-meta">
             <span style="font-weight:700;color:var(--navy);">${UI.money(x.total, x.currency)}</span>
             <span>${Icon('calendar', 14)} splatnosť ${UI.date(x.due_date)}</span>

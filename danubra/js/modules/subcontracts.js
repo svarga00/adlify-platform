@@ -119,12 +119,17 @@
       return `
         <div class="acc-card card" onclick="Sub.detail('${sc.id}')">
           <div class="acc-card-head">
-            <div>
+            <div style="min-width:0;">
               <div class="acc-name">${UI.esc(sc.title)}</div>
-              <div class="acc-loc">${p ? UI.esc(p.name) : '—'}${sc.site_city ? ` · ${UI.esc(sc.site_city)}` : ''}</div>
+              <div class="acc-loc">${sc.contract_number ? UI.esc(sc.contract_number) : ''}${
+                sc.site_city ? `${sc.contract_number ? ' · ' : ''}${UI.esc(sc.site_city)}` : ''}</div>
             </div>
             ${this.badge(sc.status)}
           </div>
+          ${p ? `<div class="link-row" style="margin-bottom:9px;">
+            ${Danubra.link('partner', p.id, p.name)}
+            ${sc.contract_id ? Danubra.link('contract', sc.contract_id, 'Zmluva o dielo') : ''}
+          </div>` : ''}
           <div class="acc-meta">
             <span>${Icon(sc.work_type === 'construction' ? 'site' : 'wrench', 14)} ${this.typeLabel(sc.work_type)}</span>
             <span>${Icon('user', 14)} ${asg.length} ${asg.length === 1 ? 'človek' : 'ľudí'}</span>

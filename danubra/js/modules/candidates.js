@@ -100,7 +100,7 @@
       const placed = this.items.filter(c => c.status === 'placed').length;
       const conv = this.items.length ? Math.round((placed / this.items.length) * 100) : 0;
 
-      el.innerHTML = Danubra.header('Nábor',
+      el.innerHTML = Danubra.header(Danubra.labelOf('candidates'),
         `${this.items.length} kandidátov · ${placed} nasadených · konverzia ${conv} %`) +
         (waiting.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${waiting.length} ${waiting.length === 1 ? 'kandidát čaká' : 'kandidátov čaká'}
