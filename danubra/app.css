@@ -270,6 +270,17 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .panels-2 { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
 
+/* Profil: karty majú veľmi rôznu výšku (blokátor je dlhý, hodiny krátke).
+   V mriežke by sa riadok natiahol podľa najvyššej karty a vedľa tej krátkej
+   by zostalo pol obrazovky bieleho miesta. Stĺpce ukladajú karty pod seba
+   tak, ako prídu — žiadne diery. */
+.profile-cols { columns: 2; column-gap: 14px; margin-top: 14px; }
+.profile-cols > .card {
+  break-inside: avoid; -webkit-column-break-inside: avoid;
+  margin: 0 0 14px; display: inline-block; width: 100%;
+}
+@media (max-width: 1100px) { .profile-cols { columns: 1; } }
+
 .list-row {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
   background: transparent; border: 0; border-bottom: 1px solid var(--border-soft);

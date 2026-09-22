@@ -101,6 +101,44 @@
       return client.storage.from(this.CALLS_BUCKET).remove([path]);
     },
 
+    // ── Úložisko dokladov ────────────────────────────────────────────────
+    // Bucket je privátny (migrácia 019). Von ide vždy len krátkodobo
+    // podpísaný odkaz — cesta sa do UI nikdy nedáva priamo.
+    DOCS_BUCKET: 'danubra-docs',
+
+    /** Bezpečný názov súboru: bez diakritiky, medzier a ciest. */
+    _safeName(filename, fallback) {
+      return String(filename || fallback)
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+        .slice(0, 80) || fallback;
+    },
+
+    /**
+     * Nahrá sken dokladu. Cesta obsahuje id človeka, takže sa dá v Storage
+     * nájsť aj bez databázy.
+     * @returns {{ path: string|null, error: Object|null }}
+     */
+    async uploadDoc(file, { folder = 'ine', entityId = 'bez-id' } = {}) {
+      const safe = this._safeName(file && file.name, 'doklad');
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const path = `${folder}/${entityId}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+      const { data, error } = await client.storage.from(this.DOCS_BUCKET)
+        .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+      return { path: data?.path || null, error };
+    },
+
+    async signedDocUrl(path, seconds = 300) {
+      if (!path) return { url: null, error: new Error('bez cesty') };
+      const { data, error } = await client.storage.from(this.DOCS_BUCKET)
+        .createSignedUrl(path, seconds);
+      return { url: data?.signedUrl || null, error };
+    },
+
+    async removeDoc(path) {
+      return client.storage.from(this.DOCS_BUCKET).remove([path]);
+    },
+
     async count(table, filters = {}) {
       let q = client.from(t(table)).select('id', { count: 'exact', head: true });
       for (const [k, v] of Object.entries(filters)) if (v != null) q = q.eq(k, v);

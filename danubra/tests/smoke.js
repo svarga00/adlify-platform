@@ -673,6 +673,110 @@ if (D) {
     !inHead.length);
 }
 
+// ── Profil živnostníka ─────────────────────────────────────────────────────
+// Profil je obrazovka, nie okno: je na ňom celý človek. Test ho naozaj
+// vykreslí na vymyslených dátach a kontroluje, že čísla sedia s tým, čo
+// o tých istých dátach hovorí `danubra_v_worker_account`.
+async function profileCheck() {
+  if (!D || !sandbox.Wrk) return;
+  const Wrk = sandbox.Wrk;
+  const day = (n) => { const t = new Date(); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); };
+
+  const FIX = {
+    workers: [{ id: 'w1', full_name: 'Ján Novák', profession: 'murar', legal_form: 'szco',
+      status: 'deployed', hourly_cost: 18, crew_id: 'c1', company_name: 'Ján Novák',
+      company_id: '51234567', bank_iban: 'SK89', business_address: 'Hlavná 12',
+      business_city: 'Nitra', tax_id: '1080' }],
+    worker_documents: [
+      { id: 'd1', worker_id: 'w1', kind: 'a1', reference: 'A1-118', valid_to: day(-12) },
+      { id: 'd2', worker_id: 'w1', kind: 'trade_licence', reference: 'ŽL-9', valid_to: day(400),
+        storage_path: 'worker/w1/sken.pdf' },
+    ],
+    crews: [{ id: 'c1', name: 'Partia Nitra', status: 'active' }],
+    assignments: [{ id: 'a1', worker_id: 'w1', subcontract_id: 'sub1', status: 'active', worker_rate: 18 }],
+    subcontracts: [{ id: 'sub1', title: 'Wohnpark Feuerbach', status: 'active' }],
+    timesheets: [
+      { id: 't1', worker_id: 'w1', assignment_id: 'a1', work_date: day(-3), hours: 20, activity_type: 'construction' },
+      { id: 't2', worker_id: 'w1', assignment_id: 'a1', work_date: day(-2), hours: 20, activity_type: 'construction' },
+    ],
+    bills: [
+      { id: 'b1', worker_id: 'w1', bill_number: 'FA-64', amount: 1260, status: 'approved' },
+      { id: 'b2', worker_id: 'w1', bill_number: 'FA-51', amount: 1080, status: 'paid' },
+    ],
+    advances: [
+      { id: 'z1', worker_id: 'w1', amount: 300, paid_on: day(-12), method: 'cash' },
+      { id: 'z2', worker_id: 'w1', amount: 150, paid_on: day(-60), method: 'cash',
+        voided_at: day(-59), void_reason: 'Omylom dvakrát' },
+    ],
+    promises: [
+      { id: 's1', subject_type: 'worker', subject_id: 'w1', kind: 'accommodation',
+        statement: 'Ubytovanie platíme my', status: 'open' },
+      { id: 's2', subject_type: 'worker', subject_id: 'w1', kind: 'start_date',
+        statement: 'Nástup 20. 7.', status: 'fulfilled' },
+    ],
+    overrides: [],
+  };
+  const origList = sandbox.DB.list;
+  sandbox.DB.list = async (table) => ({ data: FIX[table] || [] });
+  if (sandbox.Cfg) sandbox.Cfg.loaded = true;
+
+  const view = el();
+  try {
+    // Router by obrazovku prepol sám; tu ju nastavíme ručne, inak by cesta
+    // nad nadpisom ukazovala tam, kde sme skončili v predchádzajúcom teste.
+    D.route = 'workers';
+    Wrk.loaded = false;
+    await Wrk.load();
+    await Wrk.detail('w1');
+    await Wrk.profile(view, 'w1');
+  } finally {
+    sandbox.DB.list = origList;
+  }
+  const h = view.innerHTML;
+
+  t('profil je obrazovka, nie okno', Wrk.openId === 'w1' && /Ján Novák/.test(h));
+
+  // Čísla musia sedieť s `danubra_v_worker_account`:
+  //   odrobil 40 h × 18 € = 720 · vyfakturoval 1260 + 1080 = 2340
+  //   uhradené 1080 · zálohy 300 (zrušená 150 sa neráta)
+  //   dlhujeme 1260 − 300 = 960
+  t('odrobené hodiny sú ocenené sadzbou nasadenia', /720,00/.test(h));
+  t('vyfakturované sedí', /2 340,00/.test(h) || /2 340,00/.test(h));
+  t('uhradené sedí', /1 080,00/.test(h) || /1 080,00/.test(h));
+  t('nevyrovnaná záloha sedí', /300,00/.test(h));
+  t('dlhujeme sedí s databázou', /960,00/.test(h));
+  t('zrušená záloha sa do dlhu neráta', !/450,00/.test(h));
+
+  t('doklady sú v profile', /Formulár A1|A1-118/.test(h));
+  t('doklad bez skenu ponúka nahratie', /Wrk\.uploadScan\('d1'/.test(h));
+  t('doklad so skenom ponúka otvorenie', /Wrk\.openScan\('d2'/.test(h));
+  t('hodiny sú v profile', /Odpracované hodiny/.test(h));
+  t('zálohy sú v profile', /Wrk\.advanceForm\('w1'\)/.test(h));
+  t('sľuby sú v profile', /Ubytovanie platíme my/.test(h));
+  t('splnený sľub je označený', /splnené/.test(h));
+  t('partia aj stavba sú odkazy',
+    /Danubra\.open\('crew','c1'\)/.test(h) && /Danubra\.open\('subcontract','sub1'\)/.test(h));
+  // Na mobile je horný pruh skrytý — cesta nad nadpisom je jediná cesta späť.
+  t('z profilu sa dá vrátiť aj bez horného pruhu',
+    /class="crumbs"[\s\S]*Danubra\.go\('workers'\)/.test(h));
+
+  // Adresa je zdroj pravdy: bez id v hashi sa profil zavrie.
+  D._closeOpenRecord('workers');
+  t('adresa bez id zavrie profil', Wrk.openId === null);
+}
+
+// Peniaze sa zadávajú s desatinami. `<input type="number">` má bez `step`
+// krok 1, takže 18,50 €/h neprejde validáciou a formulár sa ticho neodošle.
+t('číselné pole pripúšťa desatiny',
+  / step="any"/.test(sandbox.UI.field('x', 'X', { type: 'number' })));
+t('a dá sa mu predpísať vlastný krok',
+  / step="0.01"/.test(sandbox.UI.field('x', 'X', { type: 'number', step: '0.01' })));
+
+// Doklady majú privátny bucket — cesta sa von nikdy nedáva priamo.
+t('úložisko dokladov má podpísané odkazy',
+  sandbox.DB && typeof sandbox.DB.uploadDoc === 'function'
+  && typeof sandbox.DB.signedDocUrl === 'function');
+
 // Menu sa musí zmestiť celé. Keď sa nezmestí, musí to byť vidieť — inak sa
 // celá skupina PENIAZE stratí pod okrajom a vyzerá to, že v appke nie je.
 t('menu vie ohlásiť, že pokračuje pod okrajom',
@@ -682,6 +786,8 @@ t('a obal na ten tieň v HTML existuje',
 
 dashboardCheck()
   .catch((e) => { failures.push(`prehľad — ${e && e.message}`); })
+  .then(() => profileCheck())
+  .catch((e) => { failures.push(`profil — ${e && e.message}`); })
   .then(() => {
     let bad = 0;
     for (const [name, ok] of checks) { console.log((ok ? '  ✓ ' : '  ✗ ') + name); if (!ok) bad++; }

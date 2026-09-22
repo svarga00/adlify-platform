@@ -467,7 +467,21 @@ window.Danubra = {
     if (inner) inner.innerHTML = this.megaHtml();
   },
 
-  go(key) { location.hash = '#/' + key; },
+  // Prázdny hash na tej istej obrazovke nevyvolá `hashchange`, takže sa
+  // otvorený záznam treba zavrieť rovno tu — inak by „Späť" na zozname
+  // nespravilo nič.
+  go(key) {
+    const target = '#/' + key;
+    if (location.hash === target) { this._closeOpenRecord(key); this.renderRoute(); return; }
+    location.hash = target;
+  },
+
+  /** Adresa bez id znamená zoznam. Modul si otvorený záznam nesmie pamätať. */
+  _closeOpenRecord(route) {
+    const type = Object.keys(this.entities).find(k => this.entities[k].route === route);
+    const mod = type && window[this.entities[type].handle];
+    if (mod && 'openId' in mod) mod.openId = null;
+  },
 
   quickAdd() {
     // rýchle pridanie podľa toho, kde práve stojíme
@@ -500,6 +514,7 @@ window.Danubra = {
       try { localStorage.setItem('danubra_area', ar); } catch {}
       this._buildNav();
     }
+    if (!wantId) this._closeOpenRecord(this.route);
     if (this.user) {
       const done = this.renderRoute();
       if (wantId) {
@@ -614,11 +629,13 @@ window.Danubra = {
     return `<div class="crumbs">${parts.join('<span class="crumb-sep">/</span>')}</div>`;
   },
 
-  // Jednotná hlavička stránky
-  header(title, sub, right) {
+  // Jednotná hlavička stránky. `trail` je cesta pod obrazovkou (napríklad meno
+  // otvoreného človeka) — vtedy sa názov obrazovky stane odkazom späť na
+  // zoznam. Na mobile je to jediná cesta späť, lebo horný pruh tam nie je.
+  header(title, sub, right, trail) {
     return `<div class="page-head">
       <div style="min-width:0;">
-        ${this.crumbs()}
+        ${this.crumbs(trail)}
         <h1 class="page-title">${UI.esc(title)}</h1>
         ${sub ? `<div class="page-sub">${sub}</div>` : ''}
       </div>

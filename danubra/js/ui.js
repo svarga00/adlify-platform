@@ -87,7 +87,10 @@ window.UI = {
   },
 
   // Form field helper
-  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows } = {}) {
+  // `step` je tu kvôli peniazom. `<input type="number">` má bez neho krok 1,
+  // takže sadzba 18,50 €/h neprejde validáciou a formulár sa ticho neodošle.
+  // Preto je pri číslach predvolené `any`.
+  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step } = {}) {
     const v = this.esc(value);
     let input;
     if (options) {
@@ -101,7 +104,8 @@ window.UI = {
       input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>`;
       return `<div class="fld fld-chk">${input}</div>`;
     } else {
-      input = `<input type="${type}" name="${name}" value="${v}" ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
+      const stepAttr = type === 'number' ? ` step="${this.esc(step || 'any')}"` : '';
+      input = `<input type="${type}" name="${name}" value="${v}"${stepAttr} ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
     }
     return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}</label>`;
   },
