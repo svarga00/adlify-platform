@@ -1432,3 +1432,48 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   body { background: #fff; }
   @page { size: A4 landscape; margin: 14mm; }
 }
+
+/* ── Karta človeka ────────────────────────────────────────────────────────
+   Ľudia sa v zozname hľadajú očami, nie čítaním. Preto má každý:
+     * farebný krúžok s iniciálami — farba je odvodená z mena, takže je
+       pri tom istom človeku vždy rovnaká a dá sa na ňu spoľahnúť,
+     * farebný prúžok vľavo podľa stavu — kto je vonku, kto je pripravený
+       a s kým sa nespolupracuje, je vidieť z periférneho videnia,
+     * červený krúžok, keď mu niečo chýba na doklade.
+   Bez toho vyzerá dvadsať kariet rovnako a hľadá sa v nich čítaním. */
+.w-card { position: relative; padding-left: 20px; }
+.w-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+  border-radius: var(--radius) 0 0 var(--radius); background: var(--border);
+}
+.w-card.st-deployed::before { background: var(--green); }
+.w-card.st-ready::before    { background: var(--blue); }
+.w-card.st-screening::before{ background: var(--brand); }
+.w-card.st-candidate::before{ background: #C9D6F2; }
+.w-card.st-inactive::before { background: var(--ink-mute); }
+.w-card.st-blacklist::before{ background: var(--red); }
+
+.w-head { display: flex; align-items: flex-start; gap: 11px; }
+.w-avatar {
+  width: 40px; height: 40px; border-radius: 12px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; letter-spacing: -.02em; color: #fff;
+  position: relative;
+}
+/* Krúžok pri doklade po platnosti. Je to to najdôležitejšie na karte —
+   bez platného A1 sa človek nesmie objaviť na stavbe. */
+.w-avatar .w-flag {
+  position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px;
+  border-radius: 50%; border: 2px solid #fff; display: flex;
+  align-items: center; justify-content: center; color: #fff;
+}
+.w-avatar .w-flag.bad { background: var(--red); }
+.w-avatar .w-flag.warn { background: var(--brand); }
+.w-avatar .w-flag svg { width: 9px; height: 9px; stroke-width: 3.2; }
+
+.w-name { font-weight: 700; font-size: 14.5px; color: var(--navy); letter-spacing: -.01em; }
+.w-sub { font-size: 12.5px; color: var(--ink-mute); margin-top: 1px; }
+.w-card.st-blacklist .w-name { text-decoration: line-through; opacity: .7; }
+
+/* Hlavička s avatarom (profil človeka). Bez avatara sa nič nemení. */
+.page-title-row { display: flex; align-items: center; gap: 12px; min-width: 0; }

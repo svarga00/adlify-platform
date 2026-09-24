@@ -634,12 +634,17 @@ window.Danubra = {
   // Jednotná hlavička stránky. `trail` je cesta pod obrazovkou (napríklad meno
   // otvoreného človeka) — vtedy sa názov obrazovky stane odkazom späť na
   // zoznam. Na mobile je to jediná cesta späť, lebo horný pruh tam nie je.
-  header(title, sub, right, trail) {
+  header(title, sub, right, trail, lead) {
     return `<div class="page-head">
       <div style="min-width:0;">
         ${this.crumbs(trail)}
-        <h1 class="page-title">${UI.esc(title)}</h1>
-        ${sub ? `<div class="page-sub">${sub}</div>` : ''}
+        <div class="page-title-row">
+          ${lead || ''}
+          <div style="min-width:0;">
+            <h1 class="page-title">${UI.esc(title)}</h1>
+            ${sub ? `<div class="page-sub">${sub}</div>` : ''}
+          </div>
+        </div>
       </div>
       ${right || ''}
     </div>`;
@@ -670,7 +675,7 @@ window.Danubra = {
    */
   async _dashLoad() {
     const [today, subs, per, inv, bills, costs, docs, cands, plans, tx, cf,
-      wrk, prt, scAll, asgAll, tsAll, quotesAll] = await Promise.all([
+      wrk, prt, scAll, asgAll, tsAll, quotesAll, demo] = await Promise.all([
       DB.list('v_today', { limit: 200 }),
       DB.list('v_subcontract_status', { limit: 200 }),
       DB.list('periods', { select: 'id,subcontract_id,period_from,period_to,status', limit: 300 }),
@@ -707,6 +712,7 @@ window.Danubra = {
         select: 'id,assignment_id,worker_id,hours,work_date,period_id,rate_used', limit: 5000 }),
       DB.list('v_quote_margin', {
         select: 'id,status,total,margin_per_month,partner_name,valid_until', limit: 200 }),
+      DB.list('demo_ledger', { select: 'seq', limit: 1000 }),
     ]);
     if (window.Cfg && !Cfg.loaded) { try { await Cfg.load(); } catch {} }
 
@@ -768,6 +774,7 @@ window.Danubra = {
       balanceNow,
       receivable, unbilled, tied, book, hiringNeed, profit,
       quotes: S(quotesAll),
+      demoRows: S(demo).length,
       sites,
       deployed: sites.reduce((s, x) => s + Number(x.active_assignments || 0), 0),
       crewsOut: sites.reduce((s, x) => s + Number(x.crews || 0), 0),
@@ -848,6 +855,47 @@ window.Danubra = {
     return a;
   },
 
+
+  /**
+   * Kým sú v systéme vzorové dáta, musí to byť vidieť. Inak sa raz vystaví
+   * faktúra vymyslenému odberateľovi.
+   */
+  _demoBanner(x) {
+    if (!x.demoRows) return '';
+    return `<div class="warnbox" style="margin-bottom:14px;display:flex;
+      align-items:center;gap:12px;flex-wrap:wrap;">
+      ${Icon('alert', 14)}
+      <span style="flex:1;min-width:220px;">
+        <strong>V systéme sú vzorové dáta</strong> — ${x.demoRows} ${
+          Shell.plural(x.demoRows, 'záznam', 'záznamy', 'záznamov')}.
+        Sú tu preto, aby bolo vidieť, ako appka vyzerá naplnená.
+        Keď ideš naostro, vymaž ich; ostrých dát sa to nedotkne.
+      </span>
+      <button class="btn btn-danger btn-sm" onclick="Danubra.purgeDemo()">
+        ${Icon('trash', 14)} Vymazať vzorové dáta</button>
+    </div>`;
+  },
+
+  /**
+   * Zmaže vzorové dáta. Maže sa **len** to, čo je v evidencii — preto sa to
+   * dá spustiť aj vtedy, keď už v systéme sú ostré záznamy.
+   */
+  async purgeDemo() {
+    const answer = prompt(
+      'Vymažú sa všetky vzorové dáta. Ostrých záznamov sa to nedotkne — '
+      + 'maže sa len to, čo appka sama vložila.\n\n'
+      + 'Napíš VYMAZAŤ a potvrď.');
+    if (answer == null) return;
+    if (String(answer).trim().toUpperCase() !== 'VYMAZAŤ') {
+      return UI.toast('Nič sa nezmazalo — potvrdenie nesedelo.', 'err');
+    }
+    UI.toast('Mažem…');
+    const { data, error } = await DB.rpc('demo_purge', {});
+    if (error) return UI.toast('Nepodarilo sa: ' + error.message, 'err');
+    const total = (data || []).reduce((n, r) => n + (r.zmazanych || 0), 0);
+    UI.toast(`Vzorové dáta zmazané (${total} záznamov).`, 'ok');
+    this.renderRoute();
+  },
 
   // ── Prehľad: peniaze ───────────────────────────────────────────────────
   // Koľko týždňov ukazuje výhľad. Drží sa to tu, aby prepnutie prežilo
@@ -1268,6 +1316,8 @@ window.Danubra = {
               <div class="kpi-delta ${k}">${d}</div>
             </div>`).join('')}
         </div>
+        ${this._demoBanner(x)}
+
         <div class="form-section">Peniaze</div>
         <div class="profile-cols">
           ${this._dashMoneyCard(x)}

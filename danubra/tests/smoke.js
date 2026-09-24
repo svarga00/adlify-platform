@@ -788,6 +788,18 @@ t('číselné pole pripúšťa desatiny',
 t('a dá sa mu predpísať vlastný krok',
   / step="0.01"/.test(sandbox.UI.field('x', 'X', { type: 'number', step: '0.01' })));
 
+// Vzorové dáta musia byť v appke vidieť — inak sa raz vystaví faktúra
+// vymyslenému odberateľovi. A musia sa dať zmazať jedným tlačidlom.
+t('prehľad ohlási vzorové dáta',
+  D && /V systéme sú vzorové dáta/.test(D._demoBanner({ demoRows: 5 })));
+t('bez vzorových dát banner nie je', D && D._demoBanner({ demoRows: 0 }) === '');
+t('a je pri ňom tlačidlo na vymazanie',
+  D && /Danubra\.purgeDemo\(\)/.test(D._demoBanner({ demoRows: 5 })));
+t('mazanie ide cez databázovú funkciu, nie cez mazanie tabuliek',
+  D && /demo_purge/.test(String(D.purgeDemo))
+  && !/DB\.remove/.test(String(D.purgeDemo)));
+t('a pýta si potvrdenie', D && /VYMAZAŤ/.test(String(D.purgeDemo)));
+
 // Čísla po slovensky. JavaScript píše `27.48`, čo v slovenskom texte vyzerá
 // ako cudzie číslo. Bolo to rozsypané na šiestich miestach.
 t('percentá majú čiarku, nie bodku', sandbox.UI.pct(27.48) === '27,48 %');

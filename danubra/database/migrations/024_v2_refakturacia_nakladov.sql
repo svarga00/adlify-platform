@@ -16,7 +16,12 @@
 -- Idempotentná. Nič nemaže ani nepremenúva.
 -- ============================================================================
 
-alter table danubra_costs add column if not exists rebillable bool not null default false;
+-- POZOR: prvá verzia mala `not null default false` a označila len existujúce
+-- riadky. Nový náklad na ubytovanie tak vznikol ako nerefakturovateľný
+-- a peniaze by sa v prehľade stratili — odhalil to až test proti databáze.
+-- V produkcii je to doriešené migráciou 024b: stĺpec je trojhodnotový
+-- a NULL znamená „podľa kategórie".
+alter table danubra_costs add column if not exists rebillable bool;
 alter table danubra_costs add column if not exists rebilled_invoice_id uuid
   references danubra_invoices;
 alter table danubra_costs add column if not exists rebilled_at timestamptz;
@@ -37,6 +42,12 @@ create index if not exists idx_dcost_tied on danubra_costs(cost_date)
 create or replace function danubra_cost_rebill_check()
 returns trigger language plpgsql as $$
 begin
+  -- Nepovedané = podľa kategórie. Platí to aj pre import a ručný insert
+  -- v SQL editore, nie len pre formulár v appke.
+  if new.rebillable is null then
+    new.rebillable := new.category in ('accommodation', 'travel', 'transport');
+  end if;
+
   if new.rebilled_invoice_id is not null then
     if not new.rebillable then
       raise exception 'Náklad nie je označený ako refakturovateľný — najprv to zaškrtni';
@@ -60,7 +71,7 @@ create trigger danubra_cost_rebill_check
 update danubra_costs
    set rebillable = true
  where category in ('accommodation', 'travel', 'transport')
-   and rebillable = false
+   and rebillable is distinct from true
    and rebilled_invoice_id is null;
 
 -- ── Koľko nám kde viazne ───────────────────────────────────────────────────

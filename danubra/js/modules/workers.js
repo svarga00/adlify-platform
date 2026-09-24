@@ -55,6 +55,47 @@
       this.loaded = true;
     },
 
+    // ── Ako človek vyzerá ─────────────────────────────────────────────────
+    // Farba je odvodená z mena, takže je pri tom istom človeku vždy rovnaká.
+    // Náhodná farba pri každom vykreslení by bola horšia než žiadna — oko si
+    // na ňu nemá ako zvyknúť.
+    AVATAR_COLORS: [
+      '#0A1B3D', '#1E4FD8', '#1F9D57', '#C25C0C', '#7A3FB8',
+      '#0E7C86', '#B03060', '#4A5B7A', '#8A6D1F', '#2F6B3A',
+    ],
+
+    initials(name) {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return '?';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    },
+
+    avatarColor(w) {
+      const key = String((w && (w.id || w.full_name)) || '');
+      let h = 0;
+      for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+      return this.AVATAR_COLORS[h % this.AVATAR_COLORS.length];
+    },
+
+    /** Krúžok pri avatare: čo je na tom človeku najdôležitejšie hneď teraz. */
+    avatarFlag(w) {
+      const st = this.docStatus(w.id).state;
+      if (['missing', 'expired'].includes(st)) return { kind: 'bad', icon: 'x' };
+      if (st === 'expiring') return { kind: 'warn', icon: 'alert' };
+      return null;
+    },
+
+    avatar(w, size) {
+      const f = this.avatarFlag(w);
+      const px = size || 40;
+      return `<span class="w-avatar" style="background:${this.avatarColor(w)};
+        width:${px}px;height:${px}px;font-size:${Math.round(px * 0.35)}px;">
+        ${UI.esc(this.initials(w.full_name))}
+        ${f ? `<span class="w-flag ${f.kind}">${Icon(f.icon, 9)}</span>` : ''}
+      </span>`;
+    },
+
     /** Partia, v ktorej človek je teraz. `crew_id` drží trigger v databáze. */
     crewOf(w) { return this.crews.find(c => c.id === w.crew_id) || null; },
 
@@ -158,11 +199,15 @@
       ].filter(Boolean).join('');
 
       return `
-        <div class="acc-card card" onclick="Wrk.detail('${w.id}')">
+        <div class="acc-card card w-card st-${UI.esc(w.status || 'candidate')}"
+             onclick="Wrk.detail('${w.id}')">
           <div class="acc-card-head">
-            <div style="min-width:0;">
-              <div class="acc-name">${UI.esc(w.full_name)}</div>
-              <div class="acc-loc">${this.professionLabel(w.profession)}${w.skill_level ? ` · ${w.skill_level === 'fachwerker' ? 'LG2' : 'LG1'}` : ''}${w.city ? ` · ${UI.esc(w.city)}` : ''}</div>
+            <div class="w-head" style="min-width:0;">
+              ${this.avatar(w)}
+              <div style="min-width:0;">
+                <div class="w-name">${UI.esc(w.full_name)}</div>
+                <div class="w-sub">${this.professionLabel(w.profession)}${w.skill_level ? ` · ${w.skill_level === 'fachwerker' ? 'LG2' : 'LG1'}` : ''}${w.city ? ` · ${UI.esc(w.city)}` : ''}</div>
+              </div>
             </div>
             ${this.statusBadge(w.status)}
           </div>
@@ -273,7 +318,7 @@
 
       // Tretí argument hlavičky je cesta — vďaka nej sa „Živnostníci"
       // stanú odkazom späť na zoznam aj na mobile, kde horný pruh nie je.
-      el.innerHTML = Danubra.header(w.full_name, sub, '', [w.full_name]) + `
+      el.innerHTML = Danubra.header(w.full_name, sub, '', [w.full_name], this.avatar(w, 46)) + `
         <div class="headline headline-${head.tone === 'bad' ? 'bad' : head.tone === 'warn' ? 'warn' : 'ok'}">
           ${Icon(head.tone === 'bad' ? 'alert' : head.tone === 'warn' ? 'clock' : 'check', 18)}
           <span>${UI.esc(head.text)}</span>
