@@ -66,7 +66,7 @@
         <div class="kpi-grid" style="margin-bottom:16px;">
           <div class="kpi"><div class="kpi-label">Minuté tento mesiac</div>
             <div class="kpi-value">${UI.money(spent)}</div>
-            ${budget ? `<div class="kpi-delta ${pct > 90 ? 'warn' : ''}">${pct} % z rozpočtu</div>
+            ${budget ? `<div class="kpi-delta ${pct > 90 ? 'warn' : ''}">${UI.pct(pct)} z rozpočtu</div>
               <div class="stay-bar" style="margin-top:6px;"><div class="stay-fill"
                 style="width:${pct}%;background:${pct > 90 ? 'var(--red)' : 'var(--brand)'};"></div></div>` : ''}
           </div>
@@ -216,5 +216,5 @@
   };
 
   window.Mkt = Mkt;
-  Danubra.views.marketing = function (el) { Mkt.view(el); };
+  Danubra.views.marketing = function (el) { return Mkt.view(el); };
 })();

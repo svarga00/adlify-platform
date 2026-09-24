@@ -41,6 +41,7 @@
     check:     '<path d="M20 6 9 17l-5-5"/>',
     x:         '<path d="M18 6 6 18M6 6l12 12"/>',
     chevron:   '<path d="m9 18 6-6-6-6"/>',
+    back:      '<path d="m15 18-6-6 6-6"/>',
     trash:     '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/>',
     edit:      '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/>',
     upload:    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v13"/>',

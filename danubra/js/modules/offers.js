@@ -414,5 +414,5 @@
   };
 
   window.Offers = Offers;
-  Danubra.views.offers = function (el) { Offers.view(el); };
+  Danubra.views.offers = function (el) { return Offers.view(el); };
 })();

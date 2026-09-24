@@ -307,6 +307,25 @@ exports.handler = async (event) => {
         s.purgedRecordings++;
       }
     }
+    // ── Úlohy z pravidiel ───────────────────────────────────────────────
+    // v1 mala tieto pravidlá zadrôtované priamo tu. Teraz sú to riadky
+    // v danubra_task_rules a dajú sa pridať bez zásahu do kódu.
+    // Motor si sám ustráži, aby to isté pravidlo nad tým istým záznamom
+    // nevyrobilo úlohu druhýkrát.
+    {
+      const { data, error } = await supabase.rpc('danubra_run_task_rules', {});
+      if (error) s.errors.push(`task rules: ${error.message}`);
+      else s.tasksFromRules = data || 0;
+    }
+
+    // ── Opakované náklady ───────────────────────────────────────────────
+    // Mesačné ubytovanie sa nezadáva dvanásťkrát ručne. Funkcia je
+    // idempotentná — čo už existuje, nevznikne druhýkrát.
+    {
+      const { data, error } = await supabase.rpc('danubra_generate_recurring_costs', {});
+      if (error) s.errors.push(`recurring costs: ${error.message}`);
+      else s.recurringCosts = data || 0;
+    }
   } catch (err) {
     s.fatal = err.message;
     console.error('[danubra-daily]', err);

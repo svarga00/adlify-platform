@@ -1,9 +1,16 @@
 {
   "name": "danubra-hub",
-  "version": "1.0.0",
-  "description": "DANUBRA Hub — nábor, subdodávky do Nemecka a sprostredkovanie ubytovania",
+  "version": "2.0.0",
+  "description": "DANUBRA Hub — nábor slovenských živnostníkov a subdodávky na nemecké stavby",
   "private": true,
+  "scripts": {
+    "test": "node danubra/tests/run-all.js",
+    "smoke": "node danubra/tests/smoke.js"
+  },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.116.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
   }
 }

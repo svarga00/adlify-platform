@@ -65,5 +65,10 @@ if (typeof module !== 'undefined' && module.exports) {
   };
 }
 if (typeof window !== 'undefined') {
-  window.DanubraNumbering = { nextOrderNumber, nextInvoiceNumber, formatOrderNumber, formatInvoiceNumber };
+  // `nextInSeries` používajú rady, ktoré nemajú vlastný formátovač —
+  // ponuky (PON-2026-0001) a zmluvy (ZML-2026-0001).
+  window.DanubraNumbering = {
+    nextOrderNumber, nextInvoiceNumber, nextInSeries,
+    formatOrderNumber, formatInvoiceNumber,
+  };
 }

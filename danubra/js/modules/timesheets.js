@@ -74,7 +74,7 @@
             <div class="kpi-delta">za vybrané obdobie</div></div>
           <div class="kpi"><div class="kpi-label">Stavba</div>
             <div class="kpi-value" style="color:var(--amber);">${Math.round(share.constructionHours)}</div>
-            <div class="kpi-delta">${share.pct} % z produktívnych</div></div>
+            <div class="kpi-delta">${UI.pct(share.pct)} z produktívnych</div></div>
           <div class="kpi"><div class="kpi-label">Dielňa</div>
             <div class="kpi-value" style="color:var(--blue);">${Math.round(share.totalHours - share.constructionHours)}</div>
             <div class="kpi-delta">bez SOKA-BAU</div></div>
@@ -187,5 +187,5 @@
   };
 
   window.Tms = Tms;
-  Danubra.views.timesheets = function (el) { Tms.view(el); };
+  Danubra.views.timesheets = function (el) { return Tms.view(el); };
 })();

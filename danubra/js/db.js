@@ -31,7 +31,21 @@
       client.auth.onAuthStateChange((_ev, session) => cb(session?.user || null));
     },
 
-    // Generický list s filtrami/order — vracia { data, error }
+    // ── Čo sa nenačítalo ────────────────────────────────────────────────
+    // Volajúci takmer vždy píšu `data || []`, takže neúspešný dotaz vyzerá
+    // rovnako ako prázdna tabuľka. Obrazovka potom tvrdí „žiadni pracovníci",
+    // hoci sa v skutočnosti nepodarilo spojiť s databázou. To je tichá lož
+    // a v appke o peniazoch nemá čo robiť.
+    //
+    // Chyby sa preto zbierajú sem a router ich po vykreslení ukáže.
+    failures: [],
+    clearFailures() { this.failures = []; },
+    _note(table, error) {
+      if (!error) return;
+      this.failures.push({ table: t(table), message: error.message || String(error) });
+      console.error(`[danubra] ${t(table)}:`, error);
+    },
+
     async list(table, { select = '*', filters = {}, order, limit } = {}) {
       let q = client.from(t(table)).select(select);
       for (const [k, v] of Object.entries(filters)) {
@@ -41,7 +55,9 @@
       }
       if (order) q = q.order(order.column, { ascending: order.ascending !== false });
       if (limit) q = q.limit(limit);
-      return q;
+      const res = await q;
+      this._note(table, res.error);
+      return res;
     },
 
     async getById(table, id, select = '*') {
@@ -85,11 +101,58 @@
       return client.storage.from(this.CALLS_BUCKET).remove([path]);
     },
 
+    // ── Úložisko dokladov ────────────────────────────────────────────────
+    // Bucket je privátny (migrácia 019). Von ide vždy len krátkodobo
+    // podpísaný odkaz — cesta sa do UI nikdy nedáva priamo.
+    DOCS_BUCKET: 'danubra-docs',
+
+    /** Bezpečný názov súboru: bez diakritiky, medzier a ciest. */
+    _safeName(filename, fallback) {
+      return String(filename || fallback)
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+        .slice(0, 80) || fallback;
+    },
+
+    /**
+     * Nahrá sken dokladu. Cesta obsahuje id človeka, takže sa dá v Storage
+     * nájsť aj bez databázy.
+     * @returns {{ path: string|null, error: Object|null }}
+     */
+    async uploadDoc(file, { folder = 'ine', entityId = 'bez-id' } = {}) {
+      const safe = this._safeName(file && file.name, 'doklad');
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const path = `${folder}/${entityId}/${stamp}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+      const { data, error } = await client.storage.from(this.DOCS_BUCKET)
+        .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+      return { path: data?.path || null, error };
+    },
+
+    async signedDocUrl(path, seconds = 300) {
+      if (!path) return { url: null, error: new Error('bez cesty') };
+      const { data, error } = await client.storage.from(this.DOCS_BUCKET)
+        .createSignedUrl(path, seconds);
+      return { url: data?.signedUrl || null, error };
+    },
+
+    async removeDoc(path) {
+      return client.storage.from(this.DOCS_BUCKET).remove([path]);
+    },
+
     async count(table, filters = {}) {
       let q = client.from(t(table)).select('id', { count: 'exact', head: true });
       for (const [k, v] of Object.entries(filters)) if (v != null) q = q.eq(k, v);
       const { count } = await q;
       return count || 0;
+    },
+
+    /**
+     * Databázová funkcia. Názov sa prefixuje rovnako ako tabuľky.
+     * Používa sa tam, kde sa dva zápisy nesmú rozpadnúť na polovicu —
+     * napríklad prevod kandidáta na živnostníka.
+     */
+    async rpc(name, args = {}) {
+      return client.rpc(t(name), args);
     },
   };
 })();

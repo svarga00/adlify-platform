@@ -39,7 +39,7 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
       const pend = this.pending();
-      el.innerHTML = Danubra.header('Remeslá a polia',
+      el.innerHTML = Danubra.header(Danubra.labelOf('trades'),
         `${this.trades.length} remesiel · ${this.chips.filter(c => c.active !== false).length} polí`
         + (pend.length ? ` · ${pend.length} čaká na potvrdenie` : '')) +
         (pend.length ? `<div class="warnbox" style="margin-bottom:14px;">
@@ -363,5 +363,5 @@
   };
 
   window.Trades = Trades;
-  Danubra.views.trades = function (el) { Trades.view(el); };
+  Danubra.views.trades = function (el) { return Trades.view(el); };
 })();

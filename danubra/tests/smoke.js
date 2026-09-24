@@ -62,8 +62,13 @@ sandbox.self = sandbox;
 vm.createContext(sandbox);
 
 // Zoznam súborov berieme z index.html, nech test nikdy nezaostane za appkou.
+// `vendor/` vynechávame zámerne: je to cudzí kód, ktorý v tomto stubovanom
+// prostredí nemá skutočné `fetch` ani `URL` a spadol by na tom. Že sa naozaj
+// načíta a funguje, overuje browser.test.js v ozajstnom prehliadači.
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const files = [...html.matchAll(/<script src="\.\/([^"]+)"><\/script>/g)].map(m => m[1]);
+const files = [...html.matchAll(/<script src="\.\/([^"]+)"><\/script>/g)]
+  .map(m => m[1])
+  .filter(f => !f.startsWith('vendor/'));
 
 let loaded = 0;
 const failures = [];
@@ -102,14 +107,738 @@ for (const [name, obj] of [
 
 t('ikony fungujú', sandbox.Icon && sandbox.Icon('check', 14).startsWith('<svg'));
 t('mega menu sa poskladá', D && D.megaHtml().includes('mega-col'));
-t('mega menu ukazuje obe agendy',
-  D && D.areas.every(a => D.megaHtml().includes(a[1])));
+// Názvy agend sa v mega menu objavia len vtedy, keď je ich viac než jedna —
+// pri jedinej je delenie podľa agend zbytočné.
+if (D) {
+  const restoreA = { ...D.modules };
+  D.modules = { ...D.modules, accommodation: true };
+  const html = D.megaHtml();
+  t('pri dvoch agendách ich mega menu obe ukáže',
+    D.visibleAreas().every(a => html.includes(a[1])));
+  D.modules = restoreA;
+}
 // na mobile sa bočný panel neotvára, takže toto musí byť v mega menu
-t('mega menu má prepínač agend', D && D.megaHtml().includes('mega-area'));
 t('mega menu má odhlásenie', D && D.megaHtml().includes('Odhlásiť sa'));
 
-let bad = 0;
-for (const [name, ok] of checks) { console.log((ok ? '  ✓ ' : '  ✗ ') + name); if (!ok) bad++; }
-for (const f of failures) console.log('  ! ' + f);
-console.log(bad ? `\n${bad} zlyhalo\n` : `\nrozhranie sa poskladá (${loaded} súborov)\n`);
-process.exit(bad ? 1 : 0);
+// Mega menu má byť zrozumiteľné aj tomu, kto appku nepostavil. Každá položka
+// preto potrebuje jednu vetu o tom, čo sa pod názvom skrýva.
+const noHint = D ? D.allNav().map(n => n[0]).filter(k => !D.hintOf(k)) : ['(bez Danubra)'];
+t(`každá obrazovka má vysvetlenie${noHint.length ? ' — chýba: ' + noHint.join(', ') : ''}`,
+  !noHint.length);
+t('vysvetlenia sa ukážu v mega menu',
+  D && D.megaHtml().includes(D.hintOf('workers')));
+// Pri jedinej agende sa mega menu delí podľa skupín, nie podľa agend —
+// inak by sa DATABÁZA a SYSTÉM rozpadli medzi „Nábor a stavby" a „Spoločné"
+// a nikto by nevedel, kde čo hľadať.
+if (D) {
+  const restoreM = { ...D.modules };
+  D.modules = { recruiting: true, contracts: true, finance: true, accommodation: false };
+  const html = D.megaHtml();
+  const groups = D.navGroups.map(g => g[0]);
+  t('pri jedinej agende sa menu delí podľa skupín',
+    groups.every(g => html.includes(`<span>${g}</span>`)));
+  t('a nie podľa agend', !html.includes('Spoločné'));
+  // Každá viditeľná obrazovka musí byť v menu práve raz.
+  const dupes = D.visibleNav().map(n => n[1])
+    .filter(label => (html.split(`<b>${label}</b>`).length - 1) !== 1);
+  t(`každá obrazovka je v mega menu práve raz${dupes.length ? ' — problém: ' + dupes.join(', ') : ''}`,
+    !dupes.length);
+  D.modules = restoreM;
+}
+
+// ── Moduly: archivovaná agenda musí zmiznúť, nie sa len zneprístupniť ──────
+if (D) {
+  const restore = { ...D.modules };
+  const area = D.area;
+
+  // Stav podľa migrácie 013: ubytovanie vypnuté.
+  D.modules = { recruiting: true, contracts: true, finance: true, accommodation: false };
+  D.area = 'staffing';
+  t('vypnutá agenda zmizne z prepínača', D.visibleAreas().length === 1);
+  t('pri jedinej agende sa prepínač nekreslí', !D.megaHtml().includes('mega-area'));
+
+  const hidden = ['inquiries', 'offers', 'orders', 'active', 'clients'];
+  t('obchodná časť ubytovania nie je v navigácii',
+    hidden.every(k => !D.visibleNav().some(n => n[0] === k)));
+  t('archivovanú obrazovku nepustí ani odkaz',
+    hidden.every(k => !D.routeAvailable(k)));
+  t('mega menu neukazuje archivované obrazovky',
+    !D.megaHtml().includes('Dopyty') && !D.megaHtml().includes('Aktívne pobyty'));
+
+  // R4: databáza ubytovaní zostáva — ubytovanie je náklad zákazky.
+  t('databáza ubytovaní zostáva dostupná (R4)', D.routeAvailable('accommodations'));
+  t('databáza ubytovaní je v navigácii (R4)',
+    D.visibleNav().some(n => n[0] === 'accommodations'));
+  t('zákazky, hodiny a faktúry zostávajú',
+    ['subcontracts', 'timesheets', 'invoices', 'candidates'].every(k => D.routeAvailable(k)));
+
+  // Zapnuté ubytovanie musí vrátiť presne to, čo bolo v v1.
+  D.modules = { ...D.modules, accommodation: true };
+  t('zapnutie príznaku vráti agendu', D.visibleAreas().length === 2);
+  t('zapnutie príznaku vráti obchodné obrazovky',
+    hidden.every(k => D.routeAvailable(k)));
+
+  // Vypnutie financií je iná os než agenda — nesmie zhodiť zvyšok.
+  D.modules = { recruiting: true, contracts: true, finance: false, accommodation: false };
+  t('vypnuté financie skryjú faktúry', !D.routeAvailable('invoices'));
+  t('vypnuté financie nezhodia nábor', D.routeAvailable('candidates'));
+
+  // Nastavenia sa nesmú dať vypnúť — inak by sa modul nedal zapnúť späť.
+  D.modules = { recruiting: false, contracts: false, finance: false, accommodation: false };
+  t('nastavenia zostanú dostupné vždy', D.routeAvailable('settings'));
+  t('dashboard zostane dostupný vždy', D.routeAvailable('dashboard'));
+  t('neznámy kľúč nie je obrazovka', !D.routeAvailable('nieco-co-neexistuje'));
+
+  D.modules = restore; D.area = area;
+}
+
+// ── Peniaze a číselníky ────────────────────────────────────────────────────
+t('knižnica Money je načítaná', sandbox.Money);
+t('Money počíta v centoch',
+  sandbox.Money && sandbox.Money.add(sandbox.Money.toCents('0,1'), sandbox.Money.toCents('0,2')) === 30);
+t('knižnica Enums je načítaná', sandbox.Enums);
+t('Enums majú jednotky aj bez databázy',
+  sandbox.Enums && sandbox.Enums.label('unit', 'h') === 'hodina');
+
+// ── Zdieľané komponenty ────────────────────────────────────────────────────
+const Sh = sandbox.Shell;
+t('komponenty Shell sú načítané', Sh);
+if (Sh) {
+  t('detail sa poskladá s bočným panelom',
+    Sh.detail({ title: 'x', body: 'b', aside: 'a' }).includes('dt-aside'));
+  t('poznámky nemajú ako zmazať',
+    !Sh.notes({ notes: [{ body: 'x' }], onAdd: 'f()' }).includes('trash'));
+  t('súčty formátujú sumy cez Money',
+    Sh.sums({ lines: [{ label: 'x', cents: 873600 }] }).includes('8 736,00'));
+  t('blokátor povie prečo',
+    Sh.blocker({ reasons: [{ rule: 'missing_a1', label: 'Chýba A1' }] }).includes('Chýba A1'));
+  t('dôvod výnimky sedí s CHECK v migrácii 013', Sh.REASON_MIN === 5);
+}
+
+// ── Doklady živnostníka ────────────────────────────────────────────────────
+const Docs = sandbox.DanubraDocs;
+t('knižnica DanubraDocs je načítaná', Docs);
+if (Docs) {
+  t('A1 má dlhší horizont než tridsať dní', Docs.horizonOf({ kind: 'a1' }) > 30);
+  t('bez dokladov sa nenasadzuje', Docs.readiness({ docs: [] }).ok === false);
+  t('chýbajúce A1 má vlastný kľúč výnimky',
+    Docs.readiness({ docs: [] }).reasons.some(r => r.rule === 'missing_a1'));
+  t('prázdny fakturačný profil blokuje', Docs.billingReady({}).ok === false);
+  // Že kľúče sedia s číselníkom override_rule, kontroluje documents.test.js —
+  // tu stačí, že každá požiadavka nejaký kľúč má.
+  t('každá požiadavka na doklad má kľúč výnimky',
+    Object.values(Docs.REQUIRED).flat().every(r => typeof r.rule === 'string' && r.rule));
+}
+t('prevod kandidáta ide cez databázovú funkciu',
+  sandbox.Cand && /DB\.rpc\(['"]convert_candidate/.test(String(sandbox.Cand.convert)));
+t('DB má rpc helper', sandbox.DB && typeof sandbox.DB.rpc === 'function');
+t('typy dokladov sa berú z číselníka',
+  sandbox.Wrk && typeof sandbox.Wrk.docKinds === 'function' && sandbox.Wrk.docKinds().length > 0);
+
+// ── Partie ─────────────────────────────────────────────────────────────────
+const Cr = sandbox.DanubraCrews;
+t('knižnica DanubraCrews je načítaná', Cr);
+t('modul Crews', sandbox.Crews);
+if (Cr) {
+  // R5 je tvrdé pravidlo — nesmie sa dať prepnúť.
+  t('za partiu fakturuje každý sám (R5)',
+    Cr.invoicePlan({ members: [], workers: [] }).perMember === true);
+  t('a je napísané prečo',
+    Cr.invoicePlan({ members: [], workers: [] }).note.includes('Arbeitnehmerüberlassung'));
+  t('prázdna partia sa nenasadzuje', Cr.review({}).ok === false);
+  // Členstvo má trvanie — bez toho by sa spätne nedalo povedať, kto kde bol.
+  const hist = [{ worker_id: 'w1', joined_at: '2026-01-01', left_at: '2026-06-01' }];
+  t('bývalý člen sa v minulosti nájde', Cr.wasMember(hist, 'w1', '2026-03-01'));
+  t('a v prítomnosti už nie', !Cr.wasMember(hist, 'w1', '2026-09-01'));
+}
+t('partie nemajú ako vystaviť spoločnú faktúru',
+  sandbox.Crews && !/faktúr[au] za partiu/i.test(String(sandbox.Crews.detail)));
+
+// ── Platobná disciplína odberateľa ─────────────────────────────────────────
+const Pay = sandbox.DanubraPayment;
+t('knižnica DanubraPayment je načítaná', Pay);
+if (Pay) {
+  t('bez uhradenej faktúry sa nehodnotí',
+    Pay.suggestRating(Pay.discipline([])).rating === null);
+  t('disciplína počíta v centoch',
+    Pay.discipline([{ total: 0.1, status: 'sent', due_date: '2099-01-01' },
+                    { total: 0.2, status: 'sent', due_date: '2099-01-01' }]).outstanding === 30);
+}
+// Faktúry sa viažu na odberateľa cez partner_id, nie cez client_id —
+// ten patrí agende ubytovania (R4).
+t('odberateľ číta faktúry cez partner_id',
+  sandbox.Prt && /i\.partner_id === id/.test(String(sandbox.Prt.detail)));
+
+// ── Ponuky a zmluvy ────────────────────────────────────────────────────────
+const Qt = sandbox.DanubraQuotes;
+t('knižnica DanubraQuotes je načítaná', Qt);
+t('modul Quo', sandbox.Quo);
+t('modul Con', sandbox.Con);
+if (Qt) {
+  // Réžia patrí do marže. Bez nej ponuka vyzerá lepšie, než je.
+  t('marža sa počíta po odpočítaní réžie',
+    Qt.margin({ charge_rate: 34, worker_rate: 26, overhead_per_hour: 4 }).perHour === 400);
+  // Dva blokátory, ktoré nesmú byť len odporúčanie.
+  t('na ponuke so stratou sa nedá pokračovať',
+    Qt.review({ partner_id: 'p', charge_rate: 20, worker_rate: 26 }).reasons
+      .some(r => r.rule === 'quote_negative_margin'));
+  t('sadzba pod minimálnou mzdou blokuje',
+    Qt.review({ partner_id: 'p', charge_rate: 40, worker_rate: 14 }).reasons
+      .some(r => r.rule === 'below_min_wage'));
+  t('odmietnutá ponuka sa nevracia medzi rozpracované', !Qt.canGo('rejected', 'draft'));
+  t('predmet diela sa z ponuky nepredvyplní', Qt.toContract({ title: 'x' }).scope === null);
+}
+// Čísla prideľuje databáza transakčne — vlastné číslovanie v JS by spravilo
+// dieru alebo duplicitu, keď kliknú dvaja naraz.
+t('ponuky číslujú cez databázu',
+  sandbox.Quo && /danubra_next_number/.test(String(sandbox.Quo.nextNumber)));
+t('zmluvy číslujú cez databázu',
+  sandbox.Con && /danubra_next_number/.test(String(sandbox.Con.nextNumber)));
+// Dodatok sa zapisuje pred úpravou zmluvy — opačné poradie trigger odmietne.
+t('dodatok sa zapisuje pred úpravou zmluvy', sandbox.Con && (() => {
+  const src = String(sandbox.Con.saveAmendment);
+  return src.indexOf("insert('contract_amendments'") < src.indexOf("update('contracts'");
+})());
+
+// ── Uzávierka obdobia ──────────────────────────────────────────────────────
+const Per = sandbox.DanubraPeriods;
+t('knižnica DanubraPeriods je načítaná', Per);
+if (Per) {
+  const asg = [{ id: 'a1', charge_rate: 34, worker_rate: 26 }];
+  const rows = [
+    { id: '1', assignment_id: 'a1', worker_id: 'w1', work_date: '2026-09-05',
+      hours: 8, activity_type: 'construction', approved: true },
+    { id: '2', assignment_id: 'a1', worker_id: 'w1', work_date: '2026-09-06',
+      hours: 8, activity_type: 'construction', approved: false },
+  ];
+  const pv = Per.preview({ timesheets: rows, assignments: asg,
+    from: '2026-09-01', to: '2026-09-30' });
+  // Do podkladu idú len schválené hodiny — rovnako ako v danubra_close_period().
+  t('do podkladu idú len schválené hodiny', pv.hours.construction === 8);
+  t('podklad počíta v centoch', pv.charged === 27200 && pv.cost === 20800);
+  t('neschválené hodiny sa nestratia, len sa vyčlenia', pv.unapproved.length === 1);
+  t('prázdne obdobie sa neuzatvára',
+    Per.review({ timesheets: [], assignments: asg, from: '2026-09-01', to: '2026-09-30' }).ok === false);
+  t('obdobie je celý kalendárny mesiac',
+    Per.nextPeriod([], '2026-09-17').to === '2026-09-30');
+  t('február sa počíta správne', Per.lastOfMonth('2028-02-01') === '2028-02-29');
+}
+// Uzávierka aj otvorenie späť idú cez databázu — v UI by sa nedalo zaručiť,
+// že sa súčty zmrazia v tej istej transakcii ako zmena stavu.
+t('uzávierka ide cez databázu',
+  sandbox.Sub && /rpc\('close_period'/.test(String(sandbox.Sub.closePeriod)));
+t('otvorenie späť pýta dôvod',
+  sandbox.Sub && /p_reason/.test(String(sandbox.Sub.reopenPeriod)));
+t('partia sa nasadzuje jednou operáciou',
+  sandbox.Sub && /rpc\('assign_crew'/.test(String(sandbox.Sub.assignCrew)));
+
+// ── Vydaná faktúra ─────────────────────────────────────────────────────────
+const Ivc = sandbox.DanubraInvoice;
+t('knižnica DanubraInvoice je načítaná', Ivc);
+if (Ivc) {
+  // Tvrdé pravidlo zo zadania. Musí sedieť s triggerom v migrácii 018.
+  t('faktúra sa nevystaví bez schválenia', !Ivc.canGo('draft', 'issued')
+    && !Ivc.canGo('pending_approval', 'issued'));
+  t('schválená faktúra sa neodošle sama', !Ivc.canGo('approved', 'sent'));
+  t('vystavená sa nevracia do rozpracovaných', !Ivc.canGo('issued', 'draft'));
+  // §48b: do dokladu ide plná suma, zrážka sa zobrazuje zvlášť.
+  const w = Ivc.withholding({ total: 8736, withholding_pct: 15 });
+  t('zrážka §48b sa počíta z plnej sumy', w.withheld === 131040 && w.net === 742560);
+  t('zrážka a zvyšok dajú presne celok', w.withheld + w.net === w.gross);
+  t('reverse charge má nulovú sadzbu',
+    Ivc.sfPayload({ invoice: { total: 100, vat_regime: 'reverse_charge' },
+      partner: { name: 'X' } }).InvoiceItem[0].tax === 0);
+}
+t('faktúra v2 sa pozná podľa odberateľa alebo podkladu',
+  sandbox.Inv && sandbox.Inv.isV2({ partner_id: 'x' })
+  && !sandbox.Inv.isV2({ client_id: 'y' }));
+// Kľúč SuperFaktúry nesmie byť nikde v prehliadači.
+t('v prehliadači nie je kľúč SuperFaktúry',
+  !files.some(f => /SF_API_KEY|SFAPI /.test(
+    fs.readFileSync(path.join(root, f), 'utf8'))));
+t('vystavenie ide cez serverovú funkciu',
+  sandbox.Inv && /netlify\/functions\/danubra-sf-invoice/.test(String(sandbox.Inv.sfAction)));
+
+// ── Prijaté faktúry a náklady ──────────────────────────────────────────────
+const Bl = sandbox.DanubraBills;
+t('knižnica DanubraBills je načítaná', Bl);
+t('modul Cost', sandbox.Cost);
+if (Bl) {
+  const ctx = {
+    assignments: [{ id: 'a1', worker_rate: 26 }],
+    timesheets: [{ assignment_id: 'a1', worker_id: 'w1', period_id: 'p1',
+      hours: 100, approved: true }],
+    worker: { id: 'w1' },
+  };
+  // Jadro F7: živnostník vyfakturuje viac, než odrobil.
+  const more = Bl.check({ worker_id: 'w1', period_id: 'p1', amount: 3200 }, ctx);
+  t('rozdiel voči odrobeným hodinám sa dopočíta', more.variance === 60000);
+  t('faktúra s rozdielom ide do sporu', more.status === 'disputed');
+  t('a nedá sa len tak schváliť',
+    Bl.review({ bill: { worker_id: 'w1', period_id: 'p1', amount: 3200 }, ...ctx })
+      .reasons.some(r => r.rule === 'bill_variance'));
+  t('sediaca faktúra prejde',
+    Bl.check({ worker_id: 'w1', period_id: 'p1', amount: 2600 }, ctx).matches === true);
+  // Tolerancia kryje zaokrúhľovanie, nie „skoro sedí".
+  t('tolerancia je jeden cent', Bl.TOLERANCE === 1);
+  // Sporná faktúra ešte nie je záväzok.
+  t('sporné faktúry sa nepočítajú do nákladov',
+    Bl.economics({ bills: [{ amount: 1000, status: 'disputed' }] }).bills === 0);
+}
+
+// ── Banka a cash-flow ──────────────────────────────────────────────────────
+const Bnk = sandbox.DanubraBank;
+t('knižnica DanubraBank je načítaná', Bnk);
+t('modul Bank', sandbox.Bank);
+if (Bnk) {
+  // Import musí zvládnuť to, čo naozaj vypadne z internet bankingu.
+  const r = Bnk.parseCsv('﻿Dátum;Suma;VS\n05.10.2026;1 234,56;2026001');
+  t('výpis sa prečíta aj s BOM a slovenským zápisom čísla',
+    r.rows.length === 1 && r.rows[0].amount === 123456);
+  t('každý pohyb dostane odtlačok', !!r.rows[0].import_hash);
+  // Ten istý riadok dvakrát v jednom súbore sa naimportuje raz.
+  const dup = Bnk.parseCsv('Datum;Suma\n05.10.2026;100,00\n05.10.2026;100,00');
+  t('duplicita v jednom súbore sa zachytí', dup.rows.length === 1);
+  // Nečitateľné riadky sa nezahadzujú ticho.
+  t('nečitateľný riadok sa vypíše, nezahodí',
+    Bnk.parseCsv('Datum;Suma\n05.10.2026;nezmysel').skipped.length === 1);
+  // Toto je tá otázka, na ktorú cash-flow odpovedá.
+  const tight = Bnk.forecast({
+    balance: 100000, weeks: 4, today: '2026-10-01',
+    items: [{ expected_on: '2026-10-03', amount: -5000 }],
+  });
+  t('chýbajúce peniaze na výplaty sa ukážu dopredu', !!tight.negativeFrom);
+  t('a škálovanie sa zablokuje',
+    Bnk.scaleCheck(tight, {}).reasons.some(r2 => r2.rule === 'cash_negative'));
+}
+
+// ── Úlohy a pravidlá ───────────────────────────────────────────────────────
+const Tk = sandbox.DanubraTasks;
+t('knižnica DanubraTasks je načítaná', Tk);
+if (Tk) {
+  const TD = '2026-09-17';
+  const rows = [
+    { id: '1', due_date: '2026-09-10', status: 'open', priority: 'normal' },
+    { id: '2', due_date: '2026-09-17', status: 'open', priority: 'normal' },
+    { id: '3', due_date: '2026-09-17', status: 'open', postponed_to: '2026-11-01' },
+  ];
+  // Zoznam sa triedi podľa toho, čo horí — nie podľa dátumu vzniku.
+  t('úlohy sa triedia podľa toho, čo horí',
+    Tk.group(rows, TD).map(g => g.key).join(',') === 'overdue,today');
+  // Odloženie nie je zmazanie.
+  t('odložená úloha sa dnes neukáže', !Tk.isActive(rows[2], TD));
+  t('ale nie je stratená', Tk.counts(rows, TD).snoozed === 1);
+  // Prvé, čo treba prečítať, je veta, nie tabuľka.
+  t('dashboard začína vetou, nie číslom', /vec|veci|vecí|nehorí/.test(Tk.headline(rows, TD).text));
+  t('bez úloh je to pokoj', Tk.headline([], TD).tone === 'ok');
+  // Pravidlo sa dá vysvetliť po slovensky.
+  t('pravidlo sa dá vysvetliť',
+    Tk.describeRule({ source_table: 'danubra_worker_documents', date_field: 'valid_to',
+      days_before: 60, task_title_template: 'x {label}' }).what === 'doklad pracovníka');
+}
+t('modul úloh vie zobraziť pravidlá',
+  sandbox.Tsk && typeof sandbox.Tsk.rulesView === 'function');
+
+// ── Výnimky z blokátorov ───────────────────────────────────────────────────
+// Sľúbené vo F1, dopracované až tu: blokátor ich vie nielen vykresliť,
+// ale aj zapísať.
+t('kartotéka vie zapísať výnimku',
+  sandbox.Wrk && typeof sandbox.Wrk.grantOverride === 'function');
+t('a zrušiť ju cez revoked_at, nie zmazaním',
+  sandbox.Wrk && /revoked_at/.test(String(sandbox.Wrk.revokeOverride))
+  && !/DB\.remove\('overrides'/.test(String(sandbox.Wrk.revokeOverride)));
+t('výnimka bez poriadneho dôvodu neprejde ani v UI',
+  sandbox.Wrk && /reasonValid/.test(String(sandbox.Wrk.grantOverride)));
+
+// ── Obrazovka musí vrátiť svoj prísľub ─────────────────────────────────────
+// Router čaká na dokončenie obrazovky, aby vedel, či sa niečo nenačítalo.
+// Keď registrácia prísľub nevráti, hlásenie príde skôr než dáta a chyba
+// sa stratí. Stálo to jeden neúspešný test.
+{
+  const srcs = files.filter(f => f.startsWith('js/modules/'))
+    .map(f => fs.readFileSync(path.join(root, f), 'utf8'));
+  const bad = [];
+  for (const src of srcs) {
+    for (const m of src.matchAll(/Danubra\.views\.(\w+) = function[^{]*\{([^}]*)\}/g)) {
+      if (!/\breturn\b/.test(m[2])) bad.push(m[1]);
+    }
+  }
+  t(`každá obrazovka vracia svoj prísľub${bad.length ? ' — chýba: ' + bad.join(', ') : ''}`,
+    !bad.length);
+}
+t('zlyhaný dotaz sa zaznamená, nie zahodí',
+  sandbox.DB && Array.isArray(sandbox.DB.failures)
+  && typeof sandbox.DB.clearFailures === 'function');
+t('router ohlási, čo sa nenačítalo',
+  D && typeof D._showLoadFailures === 'function');
+
+// ── Serverové funkcie ──────────────────────────────────────────────────────
+// Netlify robí z každého súboru v `netlify/functions/` funkciu a názov smie
+// mať len písmená, číslice, pomlčky a podčiarkovníky. Súbor s bodkou
+// v názve — napríklad `nieco.test.js` — zhodí celý deploy, nie len seba.
+// Stálo to jeden červený build, takže to odteraz stráži test.
+{
+  const fnDir = path.join(root, '..', 'netlify', 'functions');
+  const entries = fs.existsSync(fnDir)
+    ? fs.readdirSync(fnDir, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.js'))
+      .map(e => e.name)
+    : [];
+  const bad = entries.filter(n => !/^[A-Za-z0-9_-]+\.js$/.test(n));
+  t(`názvy serverových funkcií sú platné${bad.length ? ' — chybné: ' + bad.join(', ') : ''}`,
+    !bad.length);
+  const noHandler = entries.filter(n =>
+    !/exports\.handler|export\s+(default|const handler)/.test(
+      fs.readFileSync(path.join(fnDir, n), 'utf8')));
+  t(`každá serverová funkcia má handler${noHandler.length ? ' — chýba: ' + noHandler.join(', ') : ''}`,
+    !noHandler.length);
+}
+
+// ── Prepínač agend v nastaveniach ──────────────────────────────────────────
+// Ak sa agenda dá vypnúť len v SQL, nikto ju nezapne späť.
+const Cfg = sandbox.Cfg;
+t('nastavenia vedia prepínať agendy', Cfg && typeof Cfg.toggleModule === 'function');
+t('prepínač pozná všetky agendy',
+  Cfg && D && Cfg.MODULES.length === Object.keys(D.modules).length);
+t('každá agenda z prepínača má význam v navigácii',
+  Cfg && D && Cfg.MODULES.every(([k]) =>
+    D.allNav().some(n => D.moduleOf(n) === k) || D.areas.some(a => a[0] === k)));
+
+// ── Prvá obrazovka po prihlásení ───────────────────────────────────────────
+// Prehľad je jediná obrazovka, ktorú človek uvidí vždy. Keď ukazuje čísla
+// z v1 — pobyty, ubytovania, mzdové odvody zamestnanca — celá appka pôsobí,
+// že sa nič nezmenilo, aj keď je pod tým všetko nové. Presne to sa stalo.
+//
+// Preto sa prehľad vykreslí naozaj, na vymyslených dátach, a skontroluje sa,
+// čo v ňom je a čo v ňom už nemá byť.
+async function dashboardCheck() {
+  if (!D) return;
+  const FIX = {
+    v_today: [
+      { id: '1', title: 'Doplniť A1', due_date: '1999-01-01', priority: 'high',
+        entity_type: 'worker', entity_id: 'w1', entity_label: 'Ján Novák' },
+      { id: '2', title: 'Urgovať faktúru', due_date: '1999-01-02', priority: 'high',
+        entity_type: 'invoice', entity_id: 'i2', entity_label: 'Hartmann Bau KG' },
+      { id: '3', title: 'Zavolať odberateľovi', due_date: '2099-01-01', priority: 'normal' },
+    ],
+    workers: [{ id: 'w1', full_name: 'Ján Novák' }, { id: 'w2', full_name: 'Peter Kováč' }],
+    partners: [{ id: 'p1', name: 'Vogel GmbH' }],
+    v_subcontract_status: [
+      { id: 's1', status: 'active', active_assignments: 3, crews: 1, hours_open: 120 },
+    ],
+    periods: [{ id: 'p1', status: 'open', period_from: '1999-01-01', period_to: '1999-01-31' }],
+    invoices: [
+      { id: 'i1', status: 'pending_approval', total: '1000', due_date: '2099-01-01' },
+      { id: 'i2', status: 'sent', total: '500', due_date: '1999-01-01' },
+    ],
+    bills: [
+      { id: 'b1', status: 'received', amount: '200', due_date: '2099-01-01' },
+      { id: 'b2', status: 'disputed', amount: '50', due_date: '2099-01-01' },
+    ],
+    costs: [{ id: 'c1', amount: '80', cost_date: '2020-01-01' }],
+    v_worker_documents: [
+      { id: 'd1', validity: 'expired', worker_id: 'w1', worker_name: 'Ján Novák', doc_type: 'a1' },
+      { id: 'd2', validity: 'expiring', worker_id: 'w2', worker_name: 'Peter Kováč',
+        doc_type: 'trade_licence', days_left: 19 },
+    ],
+    candidates: [{ id: 'k1', status: 'new', first_contact_at: null }],
+    recruitment_plans: [{ id: 'r1', status: 'active', headcount: 5 }],
+    bank_transactions: [{ amount: '10000' }],
+    v_cashflow: [
+      { direction: 'in', amount: '500', expected_on: '1999-01-01', overdue: true, label: 'F1' },
+    ],
+  };
+  const asked = [];
+  const origList = sandbox.DB.list;
+  sandbox.DB.list = async (table) => { asked.push(table); return { data: FIX[table] || [] }; };
+  if (sandbox.Cfg) sandbox.Cfg.loaded = true;
+
+  const view = el();
+  try {
+    D.area = 'staffing';
+    await D.views.dashboard.call(D, view);
+  } finally {
+    sandbox.DB.list = origList;
+  }
+  const h = view.innerHTML;
+
+  // Tri otázky, kvôli ktorým prehľad existuje.
+  t('prehľad odpovedá, čo treba spraviť', /Čo treba spraviť/.test(h));
+  t('prehľad odpovedá, či bude na výplaty', /Bude na výplaty\?/.test(h));
+  t('prehľad odpovedá, či sa na tom zarába', /Zarábame na tom\?/.test(h));
+
+  // Čerpá z v2 dát, nie z počtov riadkov v starých tabuľkách.
+  for (const table of ['v_today', 'v_subcontract_status', 'periods', 'bills', 'v_cashflow',
+    'v_worker_documents', 'bank_transactions']) {
+    t(`prehľad sa pýta na ${table}`, asked.includes(table));
+  }
+
+  // Konkrétne veci, ktoré blokujú biznis, sú vidieť hneď.
+  t('neplatný doklad je na prehľade vidieť', /po platnosti/.test(h));
+  t('neuzavreté obdobie je na prehľade vidieť', /na uzavretie/.test(h));
+  t('faktúra čakajúca na schválenie je vidieť', /na schválenie/.test(h));
+  t('sporná prijatá faktúra je vidieť', /sporn/.test(h));
+  t('úloha z pravidla je vidieť', /Doplniť A1/.test(h));
+
+  // A to, čo tam už nepatrí, tam naozaj nie je.
+  t('prehľad už nehovorí o ubytovacej agende', !/ubytovacia agenda/i.test(h));
+  t('prehľad už neráta mzdu zamestnanca',
+    !/1\.362/.test(String(D.views.dashboard)) && !/1\.362/.test(String(D._dashLoad)));
+
+  // Odznaky v navigácii napĺňa prehľad — inak by ich nemal kto napísať.
+  t('prehľad napĺňa odznaky v navigácii',
+    D.badges && D.badges.invoices === 2 && D.badges.workers === 1 && D.badges.costs === 2);
+
+  // Upozornenie musí povedať, **koho** sa týka. „1 doklad je po platnosti"
+  // bez mena znamená, že človek musí hľadať v inom zozname.
+  t('upozornenie menuje konkrétny záznam', /Ján Novák/.test(h));
+  t('a dá sa z neho kliknúť rovno naň', /Danubra\.open\('worker','w1'\)/.test(h));
+  t('úloha odkazuje na záznam, ktorého sa týka', /Danubra\.open\('invoice','i2'\)/.test(h));
+}
+
+// ── Prepojenia medzi obrazovkami ───────────────────────────────────────────
+// Appka bola sada samostatných zoznamov. Toto stráži, že odkaz na iný záznam
+// buď naozaj funguje, alebo sa vôbec nevykreslí — nikdy nevznikne tlačidlo,
+// ktoré nič nespraví.
+if (D) {
+  t('router pozná typy záznamov', Object.keys(D.entities).length >= 8);
+  const badRoute = Object.entries(D.entities)
+    .filter(([, e]) => !D.allNav().some(n => n[0] === e.route));
+  t(`každý typ záznamu má svoju obrazovku${badRoute.length ? ' — chybné: ' + badRoute.map(x => x[0]).join(', ') : ''}`,
+    !badRoute.length);
+
+  // Modul musí mať metódu, ktorou sa detail otvára. `bill` má vlastnú
+  // (`billDetail`) — práve na tomto sa to raz potichu rozsypalo.
+  const noDetail = Object.entries(D.entities).filter(([, e]) => {
+    const mod = sandbox[e.handle];
+    return !mod || typeof mod[e.method || 'detail'] !== 'function';
+  });
+  t(`každý typ záznamu sa dá otvoriť${noDetail.length ? ' — chýba: ' + noDetail.map(x => x[0]).join(', ') : ''}`,
+    !noDetail.length);
+
+  t('odkaz na existujúci záznam je tlačidlo',
+    /Danubra\.open\('worker','w9'\)/.test(D.link('worker', 'w9', 'Test')));
+  t('odkaz na neznámy typ sa nevykreslí ako tlačidlo',
+    !/onclick/.test(D.link('nieco-cudzie', 'x1', 'Test')));
+  t('odkaz bez názvu sa nevykreslí vôbec', D.link('worker', 'w9', '') === '');
+  // Vypnutá agenda sa nesmie obísť ani odkazom zo susednej obrazovky.
+  // (Databáza ubytovaní je výnimka — tá zostáva dostupná vždy, R4.)
+  t('odkaz na archivovanú agendu nevznikne',
+    !/onclick/.test(D.link('inquiry', 'q1', 'Dopyt'))
+    && !/onclick/.test(D.link('order', 'o1', 'Objednávka')));
+  t('ale databáza ubytovaní zostáva preklikateľná (R4)',
+    /onclick/.test(D.link('accommodation', 'a1', 'Ubytovanie')));
+
+  // `#/workers/<id>` musí otvoriť ten záznam, inak sa odkaz nedá poslať.
+  t('router rozumie odkazu na konkrétny záznam',
+    /\^#\\\/\(\[a-z-\]\+\)\(\?:\\\/\(\[\\w-\]\+\)\)\?/.test(String(D._syncRoute))
+    || /\[\\w-\]\+/.test(String(D._syncRoute)));
+
+  // Prekliknutie z inej obrazovky musí skončiť na **zázname**, nie na
+  // zozname. Keď sa najprv prepne obrazovka bez id, router to prečíta ako
+  // „bez id" a práve otvorený záznam hneď zavrie. Presne to sa raz stalo
+  // a všimol si to až screenshot.
+  {
+    const hashWas = sandbox.location.hash;
+    D.route = 'dashboard';
+    D.open('worker', 'w1');
+    t('odkaz z inej obrazovky vedie rovno na záznam',
+      sandbox.location.hash === '#/workers/w1');
+    D.open('subcontract', 'sub1');
+    t('a platí to pre každý typ záznamu',
+      sandbox.location.hash === '#/subcontracts/sub1');
+    sandbox.location.hash = hashWas;
+  }
+
+  // Cesta nad nadpisom — bez nej sa po prekliknutí nedá povedať, kde človek je.
+  t('hlavička ukazuje cestu', /class="crumbs"/.test(D.header('Test', '')));
+  t('cesta vedie späť na prehľad', /Danubra\.go\('dashboard'\)/.test(D.header('Test', '')));
+}
+
+// Nadpis obrazovky sa musí volať rovnako ako položka v menu. Keď menu hovorí
+// „Živnostníci" a obrazovka „Pracovníci", človek nevie, či je tam, kam klikol.
+// Takto sa to rozišlo na piatich obrazovkách naraz.
+if (D) {
+  const LABELS = new Set(D.allNav().map(n => n[1]));
+  const bad = [];
+  for (const f of files.filter(x => x.startsWith('js/modules/'))) {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    for (const m of src.matchAll(/Danubra\.header\('([^']+)'/g)) {
+      // Nadpisy podstránok (detail, formulár) sem nepatria — kontrolujeme
+      // len tie, ktoré sedia na hlavnej obrazovke modulu.
+      if (!LABELS.has(m[1]) && /el\.innerHTML = Danubra\.header\('/.test(src)
+        && src.includes(`el.innerHTML = Danubra.header('${m[1]}'`)) {
+        bad.push(`${path.basename(f)}: „${m[1]}"`);
+      }
+    }
+  }
+  t(`nadpis obrazovky sedí s menu${bad.length ? ' — nesedí: ' + bad.join(', ') : ''}`,
+    !bad.length);
+
+  // Hlavná akcia patrí do horného pruhu. Keď je raz tam a raz v hlavičke
+  // stránky, hľadá sa na každej obrazovke odznova. Bolo to tak na piatich.
+  const inHead = [];
+  for (const f of files.filter(x => x.startsWith('js/modules/'))) {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    // Tretí argument `header()` s primárnym tlačidlom = akcia v hlavičke.
+    if (/Danubra\.header\((?:[^()]|\([^()]*\))*btn-primary/s.test(src)) {
+      inHead.push(path.basename(f));
+    }
+  }
+  t(`hlavná akcia je vždy v hornom pruhu${inHead.length ? ' — v hlavičke: ' + inHead.join(', ') : ''}`,
+    !inHead.length);
+}
+
+// ── Profil živnostníka ─────────────────────────────────────────────────────
+// Profil je obrazovka, nie okno: je na ňom celý človek. Test ho naozaj
+// vykreslí na vymyslených dátach a kontroluje, že čísla sedia s tým, čo
+// o tých istých dátach hovorí `danubra_v_worker_account`.
+async function profileCheck() {
+  if (!D || !sandbox.Wrk) return;
+  const Wrk = sandbox.Wrk;
+  const day = (n) => { const t = new Date(); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); };
+
+  const FIX = {
+    workers: [{ id: 'w1', full_name: 'Ján Novák', profession: 'murar', legal_form: 'szco',
+      status: 'deployed', hourly_cost: 18, crew_id: 'c1', company_name: 'Ján Novák',
+      company_id: '51234567', bank_iban: 'SK89', business_address: 'Hlavná 12',
+      business_city: 'Nitra', tax_id: '1080' }],
+    worker_documents: [
+      { id: 'd1', worker_id: 'w1', kind: 'a1', reference: 'A1-118', valid_to: day(-12) },
+      { id: 'd2', worker_id: 'w1', kind: 'trade_licence', reference: 'ŽL-9', valid_to: day(400),
+        storage_path: 'worker/w1/sken.pdf' },
+    ],
+    crews: [{ id: 'c1', name: 'Partia Nitra', status: 'active' }],
+    assignments: [{ id: 'a1', worker_id: 'w1', subcontract_id: 'sub1', status: 'active', worker_rate: 18 }],
+    subcontracts: [{ id: 'sub1', title: 'Wohnpark Feuerbach', status: 'active' }],
+    timesheets: [
+      { id: 't1', worker_id: 'w1', assignment_id: 'a1', work_date: day(-3), hours: 20, activity_type: 'construction' },
+      { id: 't2', worker_id: 'w1', assignment_id: 'a1', work_date: day(-2), hours: 20, activity_type: 'construction' },
+    ],
+    bills: [
+      { id: 'b1', worker_id: 'w1', bill_number: 'FA-64', amount: 1260, status: 'approved' },
+      { id: 'b2', worker_id: 'w1', bill_number: 'FA-51', amount: 1080, status: 'paid' },
+    ],
+    advances: [
+      { id: 'z1', worker_id: 'w1', amount: 300, paid_on: day(-12), method: 'cash' },
+      { id: 'z2', worker_id: 'w1', amount: 150, paid_on: day(-60), method: 'cash',
+        voided_at: day(-59), void_reason: 'Omylom dvakrát' },
+    ],
+    promises: [
+      { id: 's1', subject_type: 'worker', subject_id: 'w1', kind: 'accommodation',
+        statement: 'Ubytovanie platíme my', status: 'open' },
+      { id: 's2', subject_type: 'worker', subject_id: 'w1', kind: 'start_date',
+        statement: 'Nástup 20. 7.', status: 'fulfilled' },
+    ],
+    overrides: [],
+  };
+  const origList = sandbox.DB.list;
+  sandbox.DB.list = async (table) => ({ data: FIX[table] || [] });
+  if (sandbox.Cfg) sandbox.Cfg.loaded = true;
+
+  const view = el();
+  try {
+    // Router by obrazovku prepol sám; tu ju nastavíme ručne, inak by cesta
+    // nad nadpisom ukazovala tam, kde sme skončili v predchádzajúcom teste.
+    D.route = 'workers';
+    Wrk.loaded = false;
+    await Wrk.load();
+    await Wrk.detail('w1');
+    await Wrk.profile(view, 'w1');
+  } finally {
+    sandbox.DB.list = origList;
+  }
+  const h = view.innerHTML;
+
+  t('profil je obrazovka, nie okno', Wrk.openId === 'w1' && /Ján Novák/.test(h));
+
+  // Čísla musia sedieť s `danubra_v_worker_account`:
+  //   odrobil 40 h × 18 € = 720 · vyfakturoval 1260 + 1080 = 2340
+  //   uhradené 1080 · zálohy 300 (zrušená 150 sa neráta)
+  //   dlhujeme 1260 − 300 = 960
+  t('odrobené hodiny sú ocenené sadzbou nasadenia', /720,00/.test(h));
+  t('vyfakturované sedí', /2 340,00/.test(h) || /2 340,00/.test(h));
+  t('uhradené sedí', /1 080,00/.test(h) || /1 080,00/.test(h));
+  t('nevyrovnaná záloha sedí', /300,00/.test(h));
+  t('dlhujeme sedí s databázou', /960,00/.test(h));
+  t('zrušená záloha sa do dlhu neráta', !/450,00/.test(h));
+
+  t('doklady sú v profile', /Formulár A1|A1-118/.test(h));
+  t('doklad bez skenu ponúka nahratie', /Wrk\.uploadScan\('d1'/.test(h));
+  t('doklad so skenom ponúka otvorenie', /Wrk\.openScan\('d2'/.test(h));
+  t('hodiny sú v profile', /Odpracované hodiny/.test(h));
+  t('zálohy sú v profile', /Wrk\.advanceForm\('w1'\)/.test(h));
+  t('sľuby sú v profile', /Ubytovanie platíme my/.test(h));
+  t('splnený sľub je označený', /splnené/.test(h));
+  t('partia aj stavba sú odkazy',
+    /Danubra\.open\('crew','c1'\)/.test(h) && /Danubra\.open\('subcontract','sub1'\)/.test(h));
+  // Na mobile je horný pruh skrytý — cesta nad nadpisom je jediná cesta späť.
+  t('z profilu sa dá vrátiť aj bez horného pruhu',
+    /class="crumbs"[\s\S]*Danubra\.go\('workers'\)/.test(h));
+
+  // Adresa je zdroj pravdy: bez id v hashi sa profil zavrie.
+  D._closeOpenRecord('workers');
+  t('adresa bez id zavrie profil', Wrk.openId === null);
+}
+
+// Peniaze sa zadávajú s desatinami. `<input type="number">` má bez `step`
+// krok 1, takže 18,50 €/h neprejde validáciou a formulár sa ticho neodošle.
+t('číselné pole pripúšťa desatiny',
+  / step="any"/.test(sandbox.UI.field('x', 'X', { type: 'number' })));
+t('a dá sa mu predpísať vlastný krok',
+  / step="0.01"/.test(sandbox.UI.field('x', 'X', { type: 'number', step: '0.01' })));
+
+// Vzorové dáta musia byť v appke vidieť — inak sa raz vystaví faktúra
+// vymyslenému odberateľovi. A musia sa dať zmazať jedným tlačidlom.
+t('prehľad ohlási vzorové dáta',
+  D && /V systéme sú vzorové dáta/.test(D._demoBanner({ demoRows: 5 })));
+t('bez vzorových dát banner nie je', D && D._demoBanner({ demoRows: 0 }) === '');
+t('a je pri ňom tlačidlo na vymazanie',
+  D && /Danubra\.purgeDemo\(\)/.test(D._demoBanner({ demoRows: 5 })));
+t('mazanie ide cez databázovú funkciu, nie cez mazanie tabuliek',
+  D && /demo_purge/.test(String(D.purgeDemo))
+  && !/DB\.remove/.test(String(D.purgeDemo)));
+t('a pýta si potvrdenie', D && /VYMAZAŤ/.test(String(D.purgeDemo)));
+
+// Čísla po slovensky. JavaScript píše `27.48`, čo v slovenskom texte vyzerá
+// ako cudzie číslo. Bolo to rozsypané na šiestich miestach.
+t('percentá majú čiarku, nie bodku', sandbox.UI.pct(27.48) === '27,48 %');
+t('celé percento je bez desatín', sandbox.UI.pct(15) === '15 %');
+t('bez čísla sa nepíše nula', sandbox.UI.pct(null) === '—');
+{
+  const bad = [];
+  for (const f of files.filter(x => x.startsWith('js/'))) {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    // `${nieco} %` v texte obchádza UI.pct a vypíše bodku. Šírka v CSS
+    // (`width:${pct}%`, bez medzery) je iná vec — tam bodka patrí.
+    if (/\$\{[^}]*(?:pct|percent)[^}]*\}\s+%/i.test(src)) bad.push(path.basename(f));
+  }
+  t(`percentá nikde neobchádzajú UI.pct${bad.length ? ' — obchádza: ' + bad.join(', ') : ''}`,
+    !bad.length);
+}
+
+// Doklady majú privátny bucket — cesta sa von nikdy nedáva priamo.
+t('úložisko dokladov má podpísané odkazy',
+  sandbox.DB && typeof sandbox.DB.uploadDoc === 'function'
+  && typeof sandbox.DB.signedDocUrl === 'function');
+
+// Menu sa musí zmestiť celé. Keď sa nezmestí, musí to byť vidieť — inak sa
+// celá skupina PENIAZE stratí pod okrajom a vyzerá to, že v appke nie je.
+t('menu vie ohlásiť, že pokračuje pod okrajom',
+  D && typeof D._navOverflow === 'function');
+t('a obal na ten tieň v HTML existuje',
+  /id="sidebar-scroll"/.test(fs.readFileSync(path.join(root, 'index.html'), 'utf8')));
+
+dashboardCheck()
+  .catch((e) => { failures.push(`prehľad — ${e && e.message}`); })
+  .then(() => profileCheck())
+  .catch((e) => { failures.push(`profil — ${e && e.message}`); })
+  .then(() => {
+    let bad = 0;
+    for (const [name, ok] of checks) { console.log((ok ? '  ✓ ' : '  ✗ ') + name); if (!ok) bad++; }
+    for (const f of failures) console.log('  ! ' + f);
+    console.log(bad || failures.length
+      ? `\n${bad + failures.length} zlyhalo\n`
+      : `\nrozhranie sa poskladá (${loaded} súborov)\n`);
+    process.exit(bad || failures.length ? 1 : 0);
+  });

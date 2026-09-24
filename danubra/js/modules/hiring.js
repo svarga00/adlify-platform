@@ -326,7 +326,7 @@
           <div class="kpi"><div class="kpi-label">Marža na hodinu</div>
             <div class="kpi-value" style="color:${m.marginPerHour > 0 ? 'var(--green)' : 'var(--red)'};">
               ${m.marginPerHour} €</div>
-            <div class="kpi-delta">${m.marginPct} %</div></div>
+            <div class="kpi-delta">${UI.pct(m.marginPct)}</div></div>
           <div class="kpi"><div class="kpi-label">Mesačne z tohto náboru</div>
             <div class="kpi-value">${m.monthlyMargin.toLocaleString('sk-SK')} €</div>
             <div class="kpi-delta">${p.headcount} × 174 h</div></div>
@@ -433,7 +433,7 @@
           <div><span>Ponúkame</span><strong>${p.offer_rate || '—'} €/h</strong></div>
           <div><span>Fakturujeme</span><strong>${p.client_rate || '—'} €/h</strong></div>
           <div><span>Marža</span><strong style="color:${m.marginPerHour > 0 ? 'var(--green)' : 'var(--red)'};">
-            ${m.marginPerHour} €/h · ${m.marginPct} %</strong></div>
+            ${m.marginPerHour} €/h · ${UI.pct(m.marginPct)}</strong></div>
           <div><span>Kandidáti</span><strong>${mine.length}</strong></div>
         </div>
         ${!pr.ready ? `<div class="warnbox">${Icon('alert', 14)}
@@ -474,5 +474,5 @@
   };
 
   window.Hire = Hire;
-  Danubra.views.hiring = function (el) { Hire.view(el); };
+  Danubra.views.hiring = function (el) { return Hire.view(el); };
 })();

@@ -55,7 +55,7 @@
             <span class="stay-fill" style="display:block;width:${prog.percent}%;
               background:${prog.complete ? 'var(--green)' : 'var(--brand)'};"></span>
           </span>
-          <span style="font-size:12.5px;font-weight:700;white-space:nowrap;">${prog.percent} %</span>
+          <span style="font-size:12.5px;font-weight:700;white-space:nowrap;">${UI.pct(prog.percent)}</span>
         </div>
         <div style="font-size:12px;color:var(--ink-mute);margin-bottom:12px;">
           ${prog.done} z ${prog.total} položiek${prog.currentStep
@@ -244,7 +244,11 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       Object.assign(cand, patch);
 
-      if (!cand.converted_worker_id) await Cand.convert(cand.id, { silent: true });
+      // `keepStatus` — stav sme práve nastavili na 'placed', prevod ho nesmie
+      // zhodiť späť na 'ready'.
+      if (!cand.converted_worker_id) {
+        await Cand.convert(cand.id, { silent: true, keepStatus: true });
+      }
       UI.closeModal();
       UI.toast(`${cand.full_name} je nastúpený`, 'ok');
       await Cand.load(); Danubra.renderRoute();
