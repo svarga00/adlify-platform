@@ -668,7 +668,7 @@ window.Danubra = {
    */
   async _dashLoad() {
     const [today, subs, per, inv, bills, costs, docs, cands, plans, tx, cf,
-      wrk, prt] = await Promise.all([
+      wrk, prt, scAll, asgAll, tsAll, quotesAll] = await Promise.all([
       DB.list('v_today', { limit: 200 }),
       DB.list('v_subcontract_status', { limit: 200 }),
       DB.list('periods', { select: 'id,subcontract_id,period_from,period_to,status', limit: 300 }),
@@ -677,18 +677,34 @@ window.Danubra = {
         limit: 500,
       }),
       DB.list('bills', { select: 'id,bill_number,amount,status,due_date,worker_id', limit: 500 }),
-      DB.list('costs', { select: 'id,amount,cost_date', limit: 500 }),
+      // `rebillable` a `rebilled_invoice_id` sú tu kvôli otázke „koľko nám
+      // viazne v ubytovaní" — bez nich sa nedá rozlíšiť náš výdavok od
+      // peňazí, ktoré sa vrátia.
+      DB.list('costs', {
+        select: 'id,amount,cost_date,category,subcontract_id,rebillable,rebilled_invoice_id',
+        limit: 1000 }),
       DB.list('v_worker_documents', {
         select: 'id,worker_id,worker_name,doc_type,validity,days_left,valid_to', limit: 1000,
       }),
       DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
-      DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
+      DB.list('recruitment_plans', {
+        select: 'id,status,headcount,title,city,trade_key,subcontract_id,start_date,deadline',
+        limit: 200 }),
       DB.list('bank_transactions', { select: 'amount', limit: 2000 }),
       DB.list('v_cashflow', { limit: 1000 }),
       // Mená. Bez nich by upozornenie povedalo „1 doklad je po platnosti"
       // a človek by musel hádať, čí. Sú to dva malé dotazy.
       DB.list('workers', { select: 'id,full_name', limit: 500 }),
       DB.list('partners', { select: 'id,name', limit: 200 }),
+      // Podklad pre „čo máme v objednávkach" a „nevyfakturované".
+      DB.list('subcontracts', {
+        select: 'id,title,status,charge_rate,date_from,date_to,partner_id,site_city', limit: 300 }),
+      DB.list('assignments', {
+        select: 'id,worker_id,subcontract_id,status,charge_rate,worker_rate', limit: 1000 }),
+      DB.list('timesheets', {
+        select: 'id,assignment_id,worker_id,hours,work_date,period_id,rate_used', limit: 5000 }),
+      DB.list('v_quote_margin', {
+        select: 'id,status,total,margin_per_month,partner_name,valid_until', limit: 200 }),
     ]);
     if (window.Cfg && !Cfg.loaded) { try { await Cfg.load(); } catch {} }
 
@@ -722,10 +738,34 @@ window.Danubra = {
       return s ? (s.title || s.contract_number) : null;
     };
 
+    // ── Peniaze ───────────────────────────────────────────────────────────
+    // Štyri veci, ktoré sa v praxi zlievajú do jednej: čo čakáme (má termín),
+    // čo je odrobené a nevyfakturované (termín nemá), čo je v objednávkach
+    // (ešte sa to neodrobilo) a čo nám viazne v refakturovateľných nákladoch.
+    const subcontracts = S(scAll);
+    const assignments = S(asgAll);
+    const timesheets = S(tsAll);
+    const allCosts = S(costs);
+
+    const receivable = DanubraOutlook.receivable(invoices, d);
+    const unbilled = DanubraOutlook.unbilled({ subcontracts, assignments, timesheets });
+    const tied = DanubraOutlook.tied(allCosts);
+    const book = DanubraOutlook.orderBook({ today: d, subcontracts, assignments });
+    const hiringNeed = DanubraOutlook.hiring({ today: d, subcontracts, plans: S(plans) });
+    const profit = DanubraOutlook.expectedProfit({
+      subcontracts, assignments, orderBook: book, unbilled, quotes: S(quotesAll),
+    });
+    const balanceNow = Money.sum(S(tx).map(t => Money.toCents(t.amount)));
+
     return {
       today: d,
       tasks: S(today),
       workerName, partnerName, siteName,
+      subcontracts, assignments, timesheets,
+      cashflowItems: S(cf),
+      balanceNow,
+      receivable, unbilled, tied, book, hiringNeed, profit,
+      quotes: S(quotesAll),
       sites,
       deployed: sites.reduce((s, x) => s + Number(x.active_assignments || 0), 0),
       crewsOut: sites.reduce((s, x) => s + Number(x.crews || 0), 0),
@@ -804,6 +844,212 @@ window.Danubra = {
       'Cieľ je do desiatich minút — potom už berie prácu inde.', 'candidates',
       (r) => ({ type: 'candidate', id: r.id, label: r.full_name }));
     return a;
+  },
+
+
+  // ── Prehľad: peniaze ───────────────────────────────────────────────────
+  // Koľko týždňov ukazuje výhľad. Drží sa to tu, aby prepnutie prežilo
+  // prekreslenie obrazovky.
+  dashWeeks: 4,
+  setDashWeeks(n) { this.dashWeeks = Number(n) || 4; this.renderRoute(); },
+
+  /** „Čakáme na účet" — a hneď aj to, koľko z toho reálne príde. */
+  _dashMoneyCard(x) {
+    const r = x.receivable;
+    const u = x.unbilled;
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Koľko peňazí čakáme</div>
+        ${r.overdueCount ? UI.badge(`${r.overdueCount} po splatnosti`, 'red') : ''}
+      </div>
+      <div class="big-number">
+        <button class="link-inline" style="font:inherit;color:inherit;"
+          onclick="Danubra.go('invoices')">${Money.format(r.net)}</button>
+      </div>
+      <p class="big-note">na účet z ${r.count} ${Shell.plural(r.count, 'vystavenej faktúry', 'vystavených faktúr', 'vystavených faktúr')}${
+        r.withheld ? ` — fakturované je ${Money.format(r.gross)}, zrážka §48b ${Money.format(r.withheld)} ide nemeckému úradu` : ''}.</p>
+      <div class="kv" style="margin:12px 0 0;">
+        ${r.overdue ? `<div><span>Po splatnosti</span><strong style="color:var(--red);">${
+          Money.format(r.overdue)}</strong></div>` : ''}
+        <div><span>Odrobené, nevyfakturované</span><strong>${Money.format(u.charge)}</strong></div>
+      </div>
+      ${u.hours ? `<p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-mute);">
+        ${String(u.hours).replace('.', ',')} h čaká na uzavretie obdobia. Termín to nemá —
+        do týždenného výhľadu sa to preto neráta.</p>` : ''}
+    </div>`;
+  },
+
+  /** Interaktívny výhľad: príjmy, výdaje a rozdiel na 1–4 týždne. */
+  _dashWeeksCard(x) {
+    const n = this.dashWeeks;
+    const w = DanubraOutlook.weeks({
+      today: x.today, weeks: n, balance: x.balanceNow, items: x.cashflowItems,
+    });
+    const tone = w.negativeFrom ? 'red' : (w.diff < 0 ? 'amber' : 'green');
+
+    const row = (b) => `
+      <div class="wk-row${b.balance < 0 ? ' wk-neg' : ''}">
+        <div class="wk-when">${b.week}. týždeň<span>${UI.date(b.from)}</span></div>
+        <div class="wk-in">${b.in ? `+${Money.format(b.in, { currency: '' })}` : '—'}</div>
+        <div class="wk-out">${b.out ? `−${Money.format(Math.abs(b.out), { currency: '' })}` : '—'}</div>
+        <div class="wk-diff ${b.diff > 0 ? 'up' : b.diff < 0 ? 'down' : ''}">${
+          b.diff ? `${b.diff > 0 ? '+' : '−'}${Money.format(Math.abs(b.diff), { currency: '' })}` : '—'}</div>
+        <div class="wk-bal">${Money.format(b.balance)}</div>
+      </div>`;
+
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Príjmy a výdaje</div>
+        <div class="pillbar" style="padding:2px;">
+          ${[1, 2, 3, 4].map(k => `<button class="pill${k === n ? ' active' : ''}"
+            style="padding:4px 10px;font-size:12px;"
+            onclick="Danubra.setDashWeeks(${k})">${k} ${k === 1 ? 'týždeň' : 'týždne'}</button>`).join('')}
+        </div>
+      </div>
+      ${w.overdue.in || w.overdue.out ? `<p class="big-note" style="margin:0 0 8px;">
+        Po splatnosti ${Money.format(w.overdue.in + w.overdue.out)} sa počíta hneď —
+        sú to peniaze, ktoré mali prísť dávno, nie budúcnosť.</p>` : ''}
+      <div class="wk-table">
+        <div class="wk-row wk-head">
+          <div>Kedy</div><div>Príde</div><div>Odíde</div><div>Rozdiel</div><div>Zostatok</div>
+        </div>
+        ${w.weeks.map(row).join('')}
+      </div>
+      <div class="kv" style="margin:12px 0 0;">
+        <div><span>Spolu príde</span><strong style="color:var(--green);">${Money.format(w.totalIn)}</strong></div>
+        <div><span>Spolu odíde</span><strong style="color:var(--red);">${Money.format(Math.abs(w.totalOut))}</strong></div>
+        <div><span>Rozdiel za ${n} ${Shell.plural(n, 'týždeň', 'týždne', 'týždňov')}</span>
+          <strong style="color:var(--${tone === 'green' ? 'green' : tone === 'amber' ? 'amber' : 'red'});">${
+            w.diff > 0 ? '+' : ''}${Money.format(w.diff)}</strong></div>
+        <div><span>Zostatok na konci</span><strong>${Money.format(w.endBalance)}</strong></div>
+      </div>
+      ${w.negativeFrom ? `<div class="warnbox" style="margin-top:10px;">
+        ${Icon('alert', 14)} Podľa výhľadu spadne účet do mínusu v ${w.negativeFrom.week}. týždni
+        (${UI.date(w.negativeFrom.from)}). Výplaty sa odložiť nedajú.</div>` : ''}
+      <button class="btn btn-outline btn-sm" style="margin-top:10px;"
+        onclick="Danubra.go('bank')">Celý výhľad na osem týždňov</button>
+    </div>`;
+  },
+
+  /** Očakávaný zisk v troch vrstvách podľa istoty. */
+  _dashProfitCard(x) {
+    const p = x.profit;
+    const bar = (label, cents, cls, note) => `
+      <div class="pf-row">
+        <div class="pf-label">${label}<span>${note}</span></div>
+        <div class="pf-value ${cls}">${Money.format(cents)}</div>
+      </div>`;
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Očakávaný zisk</div>
+        ${UI.badge(`pravdepodobne ${Money.format(p.likely)}`, p.likely > 0 ? 'green' : 'gray')}
+      </div>
+      ${bar('Z odrobeného', p.done, 'pf-sure', 'hotové, len sa to ešte nevyfakturovalo')}
+      ${bar('Z bežiacich zákaziek', p.contracted, 'pf-likely', 'dohodnuté, ešte sa to neodrobilo')}
+      ${bar('Z odoslaných ponúk', p.pipeline, 'pf-maybe',
+        p.quotesSent ? `${p.quotesSent} ${Shell.plural(p.quotesSent, 'ponuka čaká', 'ponuky čakajú', 'ponúk čaká')} na odpoveď` : 'žiadna ponuka nevisí')}
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-mute);">
+        Vrstvy sa nesčítavajú do jedného čísla zámerne — z ponuky, ktorú nikto
+        neprijal, sa zisk počítať nedá.</p>
+    </div>`;
+  },
+
+  /** Čo máme v objednávkach — dohodnuté, ešte neodrobené. */
+  _dashOrderBookCard(x) {
+    const b = x.book;
+    if (!b.rows.length) {
+      return `<div class="card card-pad">
+        <div class="card-head"><div class="card-title">Čo máme v objednávkach</div></div>
+        <div style="color:var(--ink-mute);font-size:13px;">Žiadna bežiaca zákazka.</div>
+      </div>`;
+    }
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Čo máme v objednávkach</div>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.go('subcontracts')">Zákazky</button>
+      </div>
+      <div class="big-number">${Money.format(b.remaining)}</div>
+      <p class="big-note">zostáva odrobiť na ${b.sites} ${
+        Shell.plural(b.sites, 'zákazke', 'zákazkách', 'zákazkách')} s ${b.people} ${
+        Shell.plural(b.people, 'človekom', 'ľuďmi', 'ľuďmi')}.</p>
+      ${b.rows.slice(0, 5).map(r => `
+        <div class="list-row" style="cursor:default;">
+          <span class="dot ${r.days ? 'green' : 'amber'}"></span>
+          <span style="flex:1;min-width:0;">
+            ${Danubra.link('subcontract', r.id, r.title)}
+            <span style="color:var(--ink-mute);display:block;font-size:12px;margin-top:3px;">
+              ${r.people} ${Shell.plural(r.people, 'človek', 'ľudia', 'ľudí')} ·
+              ${r.days ? `${r.days} ${Shell.plural(r.days, 'pracovný deň', 'pracovné dni', 'pracovných dní')} do konca`
+                : 'termín už uplynul'}</span>
+          </span>
+          <strong style="font-variant-numeric:tabular-nums;">${Money.format(r.remaining)}</strong>
+        </div>`).join('')}
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-mute);">
+        Odhad z ${b.hoursPerDay} h na deň a z ľudí, ktorí sú na zákazke nasadení.
+        Víkendy sa nerátajú.</p>
+    </div>`;
+  },
+
+  /** Peniaze viazané v refakturovateľných nákladoch. */
+  _dashTiedCard(x) {
+    const t = x.tied;
+    if (!t.total) {
+      return `<div class="card card-pad">
+        <div class="card-head"><div class="card-title">Viazne v nákladoch</div></div>
+        <div style="color:var(--ink-mute);font-size:13px;">
+          Nič nevisí — všetko refakturovateľné je už vrátené.</div>
+      </div>`;
+    }
+    const CAT = { accommodation: 'Ubytovanie', travel: 'Cestovné', transport: 'Doprava' };
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Viazne v nákladoch</div>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.go('costs')">Náklady</button>
+      </div>
+      <div class="big-number" style="color:var(--amber);">${Money.format(t.total)}</div>
+      <p class="big-note">naše peniaze v ${t.count} ${
+        Shell.plural(t.count, 'položke', 'položkách', 'položkách')}, ktoré sa majú vrátiť.
+        Nie je to strata — ale teraz v cash-flow chýbajú.</p>
+      ${t.byCategory.map(c => `
+        <div class="list-row" style="cursor:default;">
+          <span class="dot amber"></span>
+          <span style="flex:1;">${UI.esc(CAT[c.category] || c.category)}</span>
+          <strong style="font-variant-numeric:tabular-nums;">${Money.format(c.cents)}</strong>
+        </div>`).join('')}
+    </div>`;
+  },
+
+  /** Koho a kam treba zohnať. */
+  _dashHiringCard(x) {
+    const h = x.hiringNeed;
+    if (!h.headcount) {
+      return `<div class="card card-pad">
+        <div class="card-head"><div class="card-title">Koho treba zohnať</div></div>
+        <div style="color:var(--ink-mute);font-size:13px;">
+          Žiadny bežiaci nábor. ${x.candWaiting.length ? `${x.candWaiting.length} ${
+            Shell.plural(x.candWaiting.length, 'kandidát čaká', 'kandidáti čakajú', 'kandidátov čaká')} na telefonát.` : ''}</div>
+      </div>`;
+    }
+    return `<div class="card card-pad">
+      <div class="card-head">
+        <div class="card-title">Koho a kam treba zohnať</div>
+        ${h.urgent ? UI.badge(`${h.urgent} súrne`, 'red') : ''}
+      </div>
+      <div class="big-number">${h.headcount}</div>
+      <p class="big-note">${Shell.plural(h.headcount, 'človek', 'ľudia', 'ľudí')} v ${h.plans} ${
+        Shell.plural(h.plans, 'bežiacom nábore', 'bežiacich náboroch', 'bežiacich náboroch')}${
+        h.urgent ? `, z toho ${h.urgent} s nástupom do dvoch týždňov` : ''}.</p>
+      ${h.rows.map(r => `
+        <div class="list-row" style="cursor:default;" onclick="Danubra.go('hiring')">
+          <span class="dot ${r.urgent ? 'red' : 'amber'}"></span>
+          <span style="flex:1;min-width:0;">
+            <strong>${UI.esc(r.city)}</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12px;">
+              ${r.plans.map(p => UI.esc(p.title || p.site || 'nábor')).join(' · ')}</span>
+          </span>
+          <strong style="font-variant-numeric:tabular-nums;">${r.headcount}</strong>
+        </div>`).join('')}
+    </div>`;
   },
 
   _dashAlertsHtml(alerts) {
@@ -1020,11 +1266,26 @@ window.Danubra = {
               <div class="kpi-delta ${k}">${d}</div>
             </div>`).join('')}
         </div>
+        <div class="form-section">Peniaze</div>
+        <div class="profile-cols">
+          ${this._dashMoneyCard(x)}
+          ${this._dashWeeksCard(x)}
+          ${this._dashProfitCard(x)}
+          ${this._dashTiedCard(x)}
+          ${this._dashCashHtml(x)}
+          ${this._dashMarginHtml(x)}
+        </div>
+
+        <div class="form-section">Práca a ľudia</div>
+        <div class="profile-cols">
+          ${this._dashOrderBookCard(x)}
+          ${this._dashHiringCard(x)}
+        </div>
+
+        <div class="form-section">Čo dnes treba spraviť</div>
         <div class="panels">
           ${this._dashTasksHtml(x)}
           ${this._dashAlertsHtml(alerts)}
-          ${this._dashCashHtml(x)}
-          ${this._dashMarginHtml(x)}
           <div class="card card-pad">
             <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;">

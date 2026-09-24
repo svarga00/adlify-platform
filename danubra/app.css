@@ -317,6 +317,59 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .link-inline:hover { color: var(--brand); text-decoration: underline; }
 
+/* ── Veľké číslo na prehľade ─────────────────────────────────────────────
+   Keď je na karte jedna odpoveď, má byť vidieť z druhej strany miestnosti. */
+.big-number {
+  font-size: 32px; font-weight: 800; letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums; line-height: 1.05; margin: 2px 0 0;
+}
+.big-number .link-inline { letter-spacing: inherit; }
+.big-note { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-sub); line-height: 1.5; }
+
+/* ── Týždenný výhľad ─────────────────────────────────────────────────────
+   Tabuľka, nie graf: z grafu sa nedá prečítať, o koľko presne ide. */
+.wk-table { display: grid; gap: 0; }
+.wk-row {
+  display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1.1fr;
+  gap: 8px; align-items: center; padding: 9px 2px;
+  border-bottom: 1px solid var(--border-soft); font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.wk-row:last-child { border-bottom: 0; }
+.wk-head {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-mute); font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.wk-head > div:not(:first-child), .wk-row > div:not(:first-child) { text-align: right; }
+.wk-when { font-weight: 600; }
+.wk-when span { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-mute); }
+.wk-in { color: var(--green); }
+.wk-out { color: var(--red); }
+.wk-diff.up { color: var(--green); font-weight: 700; }
+.wk-diff.down { color: var(--red); font-weight: 700; }
+.wk-bal { font-weight: 700; }
+.wk-neg .wk-bal { color: var(--red); }
+@media (max-width: 560px) {
+  .wk-row { grid-template-columns: 1.2fr 1fr 1fr; }
+  .wk-row > div:nth-child(4) { display: none; }      /* rozdiel sa dopočíta */
+  .wk-row > div:nth-child(5) { grid-column: 2 / -1; text-align: right; }
+}
+
+/* ── Očakávaný zisk po vrstvách ──────────────────────────────────────────
+   Farba hovorí, nakoľko je to isté. */
+.pf-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--border-soft);
+}
+.pf-row:last-of-type { border-bottom: 0; }
+.pf-label { font-size: 13px; font-weight: 600; }
+.pf-label span { display: block; font-weight: 400; font-size: 12px; color: var(--ink-mute); }
+.pf-value { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pf-sure { color: var(--green); }
+.pf-likely { color: var(--ink); }
+.pf-maybe { color: var(--ink-mute); }
+
 /* ── Mapa ────────────────────────────────────────────────────────────────
    Značky sú kreslené tu, v CSS, nie obrázkami z balíka Leafletu — jedna
    závislosť menej, ktorá sa dá rozbiť presunutím súboru. */
