@@ -62,7 +62,7 @@
             </div>
             <div class="meta-row" style="color:var(--${tone === 'red' ? 'red' : tone === 'amber' ? 'amber' : 'green'});">
               ${Icon(m.perHour < 0 ? 'alert' : 'check', 14)}
-              marža ${Money.format(m.perHour)}/h${m.pct != null ? ` · ${m.pct} %` : ''}
+              marža ${Money.format(m.perHour)}/h${m.pct != null ? ` · ${UI.pct(m.pct)}` : ''}
               ${m.perMonth ? ` · ${Money.format(m.perMonth)} mesačne` : ''}
             </div>
           </div>`;
@@ -123,7 +123,7 @@
           note: m.perMonth
             ? `Pri ${q.headcount || 1} ${DanubraQuotes.plural(q.headcount || 1, 'človeku', 'ľuďoch', 'ľuďoch')} `
               + `a ${q.hours_per_month || 0} hodinách mesačne to je ${Money.format(m.perMonth)} `
-              + `mesačne${m.pct != null ? `, teda ${m.pct} % z fakturovanej sumy` : ''}.`
+              + `mesačne${m.pct != null ? `, teda ${UI.pct(m.pct)} z fakturovanej sumy` : ''}.`
             : '',
         })}
 

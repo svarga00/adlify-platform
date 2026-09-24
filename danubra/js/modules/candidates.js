@@ -184,7 +184,7 @@
             <span class="stay-fill" style="display:block;height:5px;width:${pr.percent}%;
               background:${pr.flagCount ? 'var(--red)' : pr.percent === 100 ? 'var(--green)' : 'var(--brand)'};"></span>
           </span>
-          <span style="font-size:11px;color:var(--ink-mute);">${pr.percent} %</span>
+          <span style="font-size:11px;color:var(--ink-mute);">${UI.pct(pr.percent)}</span>
         </div>
         <div style="font-size:11.5px;color:var(--ink-mute);margin-top:3px;">
           ${c.outcome === 'hired' ? 'nastúpil' : c.outcome === 'rejected' ? 'zamietnutý'
@@ -214,7 +214,7 @@
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
               ${this.sourceLabel(c.source)} · ${UI.date(c.received_at)}
               ${mins != null ? ` · reakcia ${mins} min` : ' · zatiaľ bez reakcie'}
-              ${pr.total ? ` · ${pr.percent} %${pr.currentStep && !c.outcome ? ` · ${UI.esc(pr.currentStep.title)}` : ''}` : ''}</span>
+              ${pr.total ? ` · ${UI.pct(pr.percent)}${pr.currentStep && !c.outcome ? ` · ${UI.esc(pr.currentStep.title)}` : ''}` : ''}</span>
           </span>
           ${pr.flagCount ? UI.badge(`${pr.flagCount} 🚩`.replace('🚩', 'vlajky'), 'red') : ''}
           ${c.outcome === 'hired' ? UI.badge('nastúpil', 'green')

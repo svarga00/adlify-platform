@@ -10,8 +10,11 @@
   <!-- Klient Supabase si nesieme so sebou. Keď sa ťahal z unpkg.com a
        nenačítal sa, stránka zostala biela a bez hlášky. Pozri vendor/README.md. -->
   <script src="./vendor/supabase-js-2.116.0.js"></script>
+  <!-- Mapa. Keď sa nenačíta, obrazovka ukáže body ako odkazy, nie bielu plochu. -->
+  <script src="./vendor/leaflet-1.9.4.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="./vendor/leaflet-1.9.4.css">
   <link rel="stylesheet" href="./app.css">
 </head>
 <body>
@@ -121,6 +124,7 @@
   <script src="./lib/staffing/crews.js"></script>
   <script src="./lib/staffing/periods.js"></script>
   <script src="./lib/staffing/account.js"></script>
+  <script src="./lib/geo.js"></script>
   <script src="./lib/partners/payment.js"></script>
   <script src="./lib/quotes.js"></script>
   <script src="./lib/sms/provider.js"></script>
@@ -131,6 +135,7 @@
   <script src="./js/services/invoicing.js"></script>
   <script src="./js/components/shell.js"></script>
   <script src="./js/components/comm-panel.js"></script>
+  <script src="./js/components/map.js"></script>
   <script src="./js/modules/accommodations.js"></script>
   <script src="./js/modules/clients.js"></script>
   <script src="./js/modules/inquiries.js"></script>

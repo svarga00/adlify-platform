@@ -127,7 +127,7 @@
                 ? `${disc.avgDaysToPay} ${DanubraPayment.plural(disc.avgDaysToPay, 'deň', 'dni', 'dní')}`
                 : '—'}</strong></div>
             <div><span>Do splatnosti</span><strong>${
-              disc.onTimePct != null ? `${disc.onTimePct} %` : '—'}</strong></div>
+              disc.onTimePct != null ? UI.pct(disc.onTimePct) : '—'}</strong></div>
             <div><span>Faktúr</span><strong>${disc.paid} z ${disc.total} uhradených</strong></div>
             ${disc.overdue ? `<div><span>Po splatnosti</span><strong style="color:var(--red);">${
               disc.overdue} · najdlhšie ${disc.oldestOverdueDays} ${

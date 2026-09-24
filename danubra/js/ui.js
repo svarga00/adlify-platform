@@ -19,6 +19,18 @@ window.UI = {
     return v.toLocaleString('sk-SK', { style: 'currency', currency, minimumFractionDigits: 2 });
   },
 
+  /**
+   * Percentá po slovensky — s čiarkou, nie s bodkou. JavaScript vypíše
+   * `27.48`, čo v slovenskom texte vyzerá ako cudzie číslo. Bolo to
+   * rozsypané na šiestich miestach, každé s vlastným riešením.
+   */
+  pct(n, digits) {
+    if (n == null || n === '' || !Number.isFinite(Number(n))) return '—';
+    const v = Number(n);
+    const d = digits != null ? digits : (Number.isInteger(v) ? 0 : 2);
+    return `${v.toLocaleString('sk-SK', { minimumFractionDigits: d, maximumFractionDigits: d })} %`;
+  },
+
   date(d) {
     if (!d) return '—';
     try { return new Date(d).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }); }

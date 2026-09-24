@@ -191,7 +191,9 @@
       }
       this.openId = id;
       this.acc = { workerId: null, bills: [], advances: [], timesheets: [], promises: [], loaded: false };
-      if (Danubra.route !== 'workers') { Danubra.go('workers'); return; }
+      // Adresa musí niesť aj id. `Danubra.go('workers')` by router prečítal
+      // ako „bez id" a práve otvorený záznam by hneď zavrel.
+      if (Danubra.route !== 'workers') { location.hash = `#/workers/${id}`; return; }
       // Adresa nech sedí s tým, čo je na obrazovke, aby sa dala poslať.
       try { history.replaceState(null, '', `#/workers/${id}`); } catch {}
       return Danubra.renderRoute();

@@ -19,9 +19,13 @@
 
   const Sub = {
     items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [],
-    periods: [], crews: [],
+    periods: [], crews: [], stays: [], occupancy: [],
     loaded: false, filters: { status: '', work_type: '' },
     _cur: null,
+
+    // Zákazka je obrazovka, nie okno — je na nej mapa, ubytovania, ľudia,
+    // obdobia aj compliance. Dá sa na ňu odkázať cez `#/subcontracts/<id>`.
+    openId: null,
 
     async load() {
       const [s, p, a, w, wd, c] = await Promise.all([
@@ -34,13 +38,17 @@
       ]);
       this.items = s.data || []; this.partners = p.data || []; this.assignments = a.data || [];
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
-      const [ch, sa, accs, per, ts, cr] = await Promise.all([
+      const [ch, sa, accs, per, ts, cr, occ, st] = await Promise.all([
         DB.list('checklist_items', { order: { column: 'step_order' }, limit: 3000 }),
         DB.list('subcontract_accommodations', { limit: 1000 }),
         DB.list('accommodations', { select: 'id,name,city,address,max_persons,price_month,lat,lng', limit: 500 }),
         DB.list('periods', { order: { column: 'period_from', ascending: false }, limit: 500 }),
         DB.list('timesheets', { limit: 5000 }),
         DB.list('crews', { select: 'id,name,status,trade_key', limit: 300 }),
+        // Obsadenosť sa počíta z pobytov (migrácia 023), nie z ručne
+        // vypísaného čísla — to sa rozišlo hneď, ako niekto odišiel.
+        DB.list('v_lodging_occupancy', { limit: 1000 }),
+        DB.list('v_worker_stay', { limit: 2000 }),
       ]);
       this.checklist = ch.data || [];
       this.lodging = sa.data || [];
@@ -48,6 +56,8 @@
       this.periods = per.data || [];
       this.timesheets = ts.data || [];
       this.crews = cr.data || [];
+      this.occupancy = occ.data || [];
+      this.stays = st.data || [];
       this.loaded = true;
     },
 
@@ -81,6 +91,7 @@
     async view(el) {
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Sub.form()">${Icon('plus')} Nová zákazka</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
+      if (this.openId) return this.profile(el, this.openId);
       let rows = this.items;
       if (this.filters.status) rows = rows.filter(x => x.status === this.filters.status);
       if (this.filters.work_type) rows = rows.filter(x => x.work_type === this.filters.work_type);
@@ -89,7 +100,7 @@
       const blocked = active.filter(x => !this.check(x).ok).length;
       const deployed = this.assignments.filter(a => a.status === 'active').length;
 
-      el.innerHTML = Danubra.header('Zákazky',
+      el.innerHTML = Danubra.header(Danubra.labelOf('subcontracts'),
         `${this.items.length} celkom · ${active.length} prebieha · ${deployed} ľudí nasadených`) +
         (blocked ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${blocked} ${blocked === 1 ? 'prebiehajúca zákazka nespĺňa' : 'prebiehajúcich zákaziek nespĺňa'}
@@ -144,10 +155,36 @@
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
 
     // ── Detail so compliance panelom ──────────────────────────────────────
+    /**
+     * Vstupný bod z celej appky (Danubra.entities, prehľad, faktúry).
+     * Neotvára okno — prepne obrazovku na profil zákazky.
+     */
     async detail(id) {
+      if (!this.items.find(x => x.id === id)) {
+        if (!this.loaded) await this.load();
+        if (!this.items.find(x => x.id === id)) return UI.toast('Nenájdené', 'err');
+      }
+      this.openId = id;
+      // Adresa musí niesť aj id. `Danubra.go('subcontracts')` by router prečítal
+      // ako „bez id" a práve otvorený záznam by hneď zavrel.
+      if (Danubra.route !== 'subcontracts') { location.hash = `#/subcontracts/${id}`; return; }
+      try { history.replaceState(null, '', `#/subcontracts/${id}`); } catch {}
+      return Danubra.renderRoute();
+    },
+
+    closeProfile() {
+      this.openId = null;
+      try { history.replaceState(null, '', '#/subcontracts'); } catch {}
+      Danubra.renderRoute();
+    },
+
+    async profile(el, id) {
       const sc = this.items.find(x => x.id === id);
-      if (!sc) return UI.toast('Nenájdené', 'err');
+      if (!sc) { this.openId = null; return UI.toast('Nenájdené', 'err'); }
       this._cur = sc;
+      Danubra.setActions(`
+        <button class="btn btn-ghost btn-sm" onclick="Sub.closeProfile()">${Icon('back', 15)} Späť</button>
+        <button class="btn btn-outline btn-sm" onclick="Sub.form('${sc.id}')">${Icon('edit', 14)} Upraviť</button>`);
       const p = this.partnerOf(sc.partner_id);
       const asg = this.asgOf(sc.id);
       const chk = this.check(sc);
@@ -207,6 +244,19 @@
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${sc.scope ? `<div class="notebox"><strong>Dielo:</strong> ${UI.esc(sc.scope)}</div>` : ''}
 
+        <div class="form-section">Kde to je</div>
+        <div id="sub-map" class="map-box"></div>
+        <div class="map-legend">
+          <span><i class="lg-site"></i>stavba</span>
+          <span><i class="lg-lodging"></i>ubytovanie</span>
+          ${DanubraGeo.valid(Number(sc.lat), Number(sc.lng))
+            ? `<a class="link-chip" target="_blank" rel="noopener"
+                 href="${DanubraGeo.mapsUrl(sc.lat, sc.lng)}">${Icon('site', 13)}
+                 <span>Poslať polohu stavby</span></a>`
+            : `<button class="link-chip" onclick="Sub.setCoords('${sc.id}')">${Icon('plus', 13)}
+                 <span>Doplniť polohu stavby</span></button>`}
+        </div>
+
         <div class="form-section">Compliance</div>
         ${complianceHtml}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
@@ -257,47 +307,7 @@
         }).join('')}
 
         <div class="form-section">Ubytovanie a doprava</div>
-        ${(() => {
-          const rows = this.lodging.filter(l => l.subcontract_id === sc.id);
-          const people = asg.filter(a => a.status !== 'cancelled').length;
-          const capacity = rows.reduce((n, l) => n + (Number(l.capacity) || 0), 0);
-          const short = people - capacity;
-          return `
-          ${rows.length ? rows.map(l => {
-            const acc = this.accommodations.find(a => a.id === l.accommodation_id);
-            const name = l.name || acc?.name || 'Ubytovanie';
-            const addr = [l.address || acc?.address, l.city || acc?.city].filter(Boolean).join(', ');
-            const maps = l.maps_url || (acc?.lat && acc?.lng ? `https://maps.google.com/?q=${acc.lat},${acc.lng}`
-              : addr ? `https://maps.google.com/?q=${encodeURIComponent(addr)}` : null);
-            const full = (Number(l.occupied) || 0) >= (Number(l.capacity) || 0) && l.capacity;
-            return `<div class="list-row" style="cursor:default;align-items:flex-start;">
-              <span class="dot ${full ? 'amber' : 'green'}" style="margin-top:5px;"></span>
-              <span style="flex:1;font-size:13px;">
-                <strong>${UI.esc(name)}</strong>
-                ${acc ? UI.badge('z databázy', 'blue') : ''}
-                <span style="display:block;color:var(--ink-mute);font-size:12px;">
-                  ${UI.esc(addr || 'bez adresy')}
-                  ${l.capacity ? ` · obsadené ${l.occupied || 0} z ${l.capacity}` : ''}
-                  ${l.price_monthly ? ` · ${UI.money(l.price_monthly)}/mes` : ''}
-                  ${l.date_from ? ` · ${UI.dateRange(l.date_from, l.date_to)}` : ''}</span>
-                ${l.note ? `<span style="display:block;color:var(--ink-sub);font-size:12px;">${UI.esc(l.note)}</span>` : ''}
-              </span>
-              ${maps ? `<a class="btn btn-ghost btn-sm" href="${UI.esc(maps)}" target="_blank" rel="noopener"
-                title="Otvoriť v mapách">${Icon('site', 15)}</a>` : ''}
-              <button class="btn btn-ghost btn-sm" style="color:var(--red);"
-                onclick="Sub.delLodging('${l.id}')">${Icon('x', 15)}</button>
-            </div>`;
-          }).join('') : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne ubytovanie.</div>'}
-          ${rows.length && short > 0 ? `<div class="warnbox" style="margin-top:8px;">
-            ${Icon('alert', 14)} Kapacita nestačí — nasadených ${people}, lôžok ${capacity}.
-            Chýba miesto pre ${short} ${short === 1 ? 'človeka' : 'ľudí'}.</div>` : ''}
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-            <button class="btn btn-outline btn-sm" onclick="Sub.addLodging('${sc.id}')">${Icon('plus')} Pridať ubytovanie</button>
-            <button class="btn btn-outline btn-sm" onclick="Sub.editTransport('${sc.id}')">${Icon('van')} Doprava</button>
-          </div>
-          ${sc.transport_note ? `<div class="notebox" style="margin-top:8px;">
-            <strong>Doprava${sc.transport_provided ? ' (zabezpečujeme)' : ''}:</strong> ${UI.esc(sc.transport_note)}</div>` : ''}`;
-        })()}
+        ${this.lodgingHtml(sc, asg)}
 
         ${eco.length ? `
         <div class="form-section">Ekonomika (mesačne, orientačne pri 160 h a 21 dňoch)</div>
@@ -305,18 +315,270 @@
           <div><div class="code-label">Marža spolu</div>
             <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">${UI.money(port.margin)}</div></div>
           <div style="text-align:right;"><div class="code-label">Na pracovníka</div>
-            <div style="font-weight:700;">${UI.money(port.marginPerWorker)} · ${port.marginPct} %</div></div>
+            <div style="font-weight:700;">${UI.money(port.marginPerWorker)} · ${UI.pct(port.marginPct)}</div></div>
         </div>
         ${port.marginPerWorker < 1000 ? `<div class="warnbox" style="margin-top:8px;">
           ${Icon('alert', 14)} Marža na pracovníka je pod 1 000 € — prehodnoť sadzbu alebo segment.</div>` : ''}
         ` : ''}
 
-        <div class="modal-actions">
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
           <button class="btn btn-danger btn-sm" onclick="Sub.del('${sc.id}')">Zmazať</button>
-          <button class="btn btn-outline btn-sm" onclick="Sub.form('${sc.id}')">Upraviť</button>
         </div>`;
-      UI.modal(sc.title, body, { wide: true });
+
+      el.innerHTML = Danubra.header(sc.title,
+        [p?.name, sc.site_city].filter(Boolean).map(UI.esc).join(' · '),
+        '', [sc.title]) + body;
+
+      // Mapa sa kreslí až po vložení HTML — Leaflet potrebuje prvok v strome.
+      this.renderMap(sc);
     },
+
+    /** Body na mape: stavba oranžovo, ubytovania modro. */
+    mapPoints(sc) {
+      const pts = [];
+      if (DanubraGeo.valid(Number(sc.lat), Number(sc.lng))) {
+        pts.push({ lat: sc.lat, lng: sc.lng, kind: 'site',
+          label: sc.title, sub: [sc.site_name, sc.site_city].filter(Boolean).join(', ') });
+      }
+      for (const l of this.occupancyOf(sc.id)) {
+        if (!DanubraGeo.valid(Number(l.lat), Number(l.lng))) continue;
+        const d = DanubraGeo.distanceKm(sc, l);
+        pts.push({ lat: l.lat, lng: l.lng, kind: 'lodging',
+          label: l.name || 'Ubytovanie',
+          sub: [l.address, l.capacity ? `${l.occupied_now}/${l.capacity} obsadené` : null,
+            DanubraGeo.distanceText(d)].filter(Boolean).join(' · ') });
+      }
+      return pts;
+    },
+
+    renderMap(sc) {
+      try { DanubraMap.render('sub-map', this.mapPoints(sc)); }
+      catch (e) { console.error('[danubra] mapa sa nevykreslila', e); }
+    },
+
+    occupancyOf(scId) { return this.occupancy.filter(o => o.subcontract_id === scId); },
+    /**
+     * Ubytovania zákazky. Obsadenosť sa **počíta z pobytov**, nie z ručne
+     * vypísaného čísla — to sa rozišlo hneď, ako niekto odišiel a nikto to
+     * neprepísal. Pri každom ubytovaní je vidieť, kto tam naozaj spí.
+     */
+    lodgingHtml(sc, asg) {
+      const rows = this.occupancyOf(sc.id);
+      const people = asg.filter(a => a.status !== 'cancelled').length;
+      const capacity = rows.reduce((n, l) => n + (Number(l.capacity) || 0), 0);
+      const housed = rows.reduce((n, l) => n + (Number(l.occupied_now) || 0), 0);
+      const short = people - capacity;
+
+      const stayRow = (st) => `
+        <div class="list-row" style="cursor:default;padding-left:18px;">
+          <span class="dot ${st.is_current ? 'green' : ''}"></span>
+          <span style="flex:1;font-size:12.5px;min-width:0;">
+            ${Danubra.link('worker', st.worker_id, st.full_name)}
+            <span style="color:var(--ink-mute);display:block;font-size:12px;margin-top:3px;">
+              od ${UI.date(st.date_from)}${st.date_to ? ` do ${UI.date(st.date_to)}` : ''}
+              ${st.is_current ? '' : ' · ukončené'}</span>
+          </span>
+          ${st.is_current ? `<button class="btn btn-ghost btn-sm" title="Ukončiť pobyt"
+            onclick="Sub.endStay('${st.stay_id}')">${Icon('logout', 15)}</button>` : ''}
+        </div>`;
+
+      const lodgingRow = (l) => {
+        const stays = this.staysOf(l.lodging_id);
+        const current = stays.filter(x => x.is_current);
+        const past = stays.filter(x => !x.is_current);
+        const full = l.capacity && Number(l.occupied_now) >= Number(l.capacity);
+        const dist = DanubraGeo.distanceKm(sc, l);
+        // `Money.split` rozdelí sumu na presné časti, ktoré sa spolu rovnajú
+        // celku. (`divRound` počíta v BigInt-och a je to vnútorná pomôcka —
+        // zmiešať ju s obyčajnými číslami znamená pád obrazovky.)
+        const perBed = l.price_monthly && Number(l.occupied_now) > 0
+          ? Money.split(Money.toCents(l.price_monthly), Number(l.occupied_now))[0] : null;
+
+        return `<div class="list-row" style="cursor:default;align-items:flex-start;flex-wrap:wrap;">
+          <span class="dot ${full ? 'amber' : 'green'}" style="margin-top:6px;"></span>
+          <span style="flex:1;font-size:13px;min-width:0;">
+            <strong>${UI.esc(l.name || 'Ubytovanie')}</strong>
+            ${l.accommodation_id ? UI.badge('z databázy', 'blue') : ''}
+            ${full ? UI.badge('plné', 'amber') : ''}
+            <span style="display:block;color:var(--ink-mute);font-size:12px;">
+              ${UI.esc([l.address, l.city].filter(Boolean).join(', ') || 'bez adresy')}
+              ${l.capacity ? ` · obsadené ${l.occupied_now} z ${l.capacity}` : ` · ${l.occupied_now} ubytovaných`}
+              ${l.price_monthly ? ` · ${UI.money(l.price_monthly)}/mes` : ''}
+              ${perBed ? ` (${Money.format(perBed)} na človeka)` : ''}
+              ${dist != null ? ` · ${DanubraGeo.distanceText(dist)}` : ''}</span>
+            <span class="link-row" style="margin-top:7px;">
+              <button class="link-chip" onclick="Sub.addStay('${l.lodging_id}')">${Icon('plus', 13)}
+                <span>Ubytovať človeka</span></button>
+              ${DanubraGeo.valid(Number(l.lat), Number(l.lng))
+                ? `<a class="link-chip" target="_blank" rel="noopener"
+                     href="${DanubraGeo.mapsUrl(l.lat, l.lng)}">${Icon('site', 13)}<span>Na mape</span></a>`
+                : `<button class="link-chip" onclick="Sub.setLodgingCoords('${l.lodging_id}')">${Icon('plus', 13)}
+                     <span>Doplniť polohu</span></button>`}
+            </span>
+          </span>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);"
+            onclick="Sub.delLodging('${l.lodging_id}')">${Icon('x', 15)}</button>
+          <div style="flex-basis:100%;">
+            ${current.map(stayRow).join('')}
+            ${past.length ? `<details class="more-block" style="margin-left:18px;">
+              <summary>${past.length} ${Shell.plural(past.length, 'ukončený pobyt', 'ukončené pobyty', 'ukončených pobytov')}</summary>
+              ${past.map(stayRow).join('')}</details>` : ''}
+          </div>
+        </div>`;
+      };
+
+      return `
+        ${rows.length ? rows.map(lodgingRow).join('')
+          : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne ubytovanie.</div>'}
+        ${rows.length ? `<div class="kv" style="margin:12px 0 0;">
+          <div><span>Nasadených ľudí</span><strong>${people}</strong></div>
+          <div><span>Ubytovaných</span><strong style="${
+            housed < people ? 'color:var(--amber);' : ''}">${housed}</strong></div>
+        </div>` : ''}
+        ${rows.length && short > 0 ? `<div class="warnbox" style="margin-top:8px;">
+          ${Icon('alert', 14)} Kapacita nestačí — nasadených ${people}, lôžok ${capacity}.
+          Chýba miesto pre ${short} ${short === 1 ? 'človeka' : 'ľudí'}.</div>` : ''}
+        ${rows.length && short <= 0 && housed < people ? `<div class="warnbox" style="margin-top:8px;">
+          ${Icon('alert', 14)} Lôžok je dosť, ale ${people - housed} ${
+            people - housed === 1 ? 'človek nemá' : 'ľudí nemá'} zapísané, kde býva.</div>` : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <button class="btn btn-outline btn-sm" onclick="Sub.addLodging('${sc.id}')">${Icon('plus')} Pridať ubytovanie</button>
+          <button class="btn btn-outline btn-sm" onclick="Sub.editTransport('${sc.id}')">${Icon('van')} Doprava</button>
+        </div>
+        ${sc.transport_note ? `<div class="notebox" style="margin-top:8px;">
+          <strong>Doprava${sc.transport_provided ? ' (zabezpečujeme)' : ''}:</strong> ${UI.esc(sc.transport_note)}</div>` : ''}`;
+    },
+
+    staysOf(lodgingId) { return this.stays.filter(s => s.lodging_id === lodgingId); },
+    // ── Kto kde býva ──────────────────────────────────────────────────────
+    addStay(lodgingId) {
+      const l = this.occupancy.find(o => o.lodging_id === lodgingId);
+      const sc = this.items.find(x => x.id === l?.subcontract_id);
+      // Ponúkni najprv tých, ktorí sú na tejto zákazke nasadení a nikde
+      // nebývajú — to je ten bežný prípad.
+      const housed = new Set(this.stays.filter(s => s.is_current).map(s => s.worker_id));
+      const onSite = this.asgOf(l?.subcontract_id || '')
+        .filter(a => a.status !== 'cancelled')
+        .map(a => this.workerOf(a.worker_id)).filter(Boolean);
+      const free = onSite.filter(w => !housed.has(w.id));
+      const rest = this.workers.filter(w => !onSite.some(x => x.id === w.id) && !housed.has(w.id));
+
+      const opts = [
+        ...(free.length ? [['', `— na zákazke, bez ubytovania (${free.length}) —`]] : []),
+        ...free.map(w => [w.id, w.full_name]),
+        ...(rest.length ? [['', '— ostatní —']] : []),
+        ...rest.map(w => [w.id, w.full_name]),
+      ];
+
+      if (!opts.length) {
+        return UI.modal('Ubytovať človeka', UI.empty('workers', 'Niet koho ubytovať',
+          'Všetci nasadení už majú zapísané, kde bývajú.'));
+      }
+      UI.modal('Ubytovať človeka', `
+        <form id="stay-form" onsubmit="event.preventDefault();Sub.saveStay('${lodgingId}')">
+          ${UI.field('worker_id', 'Kto', { options: opts, required: true })}
+          <div class="form-grid">
+            ${UI.field('date_from', 'Od', { type: 'date',
+              value: sc?.date_from && sc.date_from > new Date().toISOString().slice(0, 10)
+                ? sc.date_from : new Date().toISOString().slice(0, 10) })}
+            ${UI.field('date_to', 'Do (nepovinné)', { type: 'date' })}
+          </div>
+          ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
+          <div class="regimebox">Jeden človek nemôže bývať na dvoch miestach naraz —
+            databáza to nepustí. Keď sa presúva, najprv ukonči predchádzajúci pobyt.
+            ${l?.capacity ? `Tu je ${l.free_beds} ${Shell.plural(l.free_beds, 'voľné lôžko', 'voľné lôžka', 'voľných lôžok')}.` : ''}</div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
+            <button type="submit" class="btn btn-primary">Ubytovať</button>
+          </div>
+        </form>`);
+    },
+
+    async saveStay(lodgingId) {
+      const d = UI.formData(document.getElementById('stay-form'));
+      if (!d.worker_id) return UI.toast('Vyber človeka', 'err');
+      const { error } = await DB.insert('stays', {
+        worker_id: d.worker_id, lodging_id: lodgingId,
+        date_from: d.date_from || new Date().toISOString().slice(0, 10),
+        date_to: d.date_to || null, note: d.note || null,
+      });
+      // Databáza povie po slovensky, prečo to nejde (napríklad že ten človek
+      // už v tom čase býva inde). Netreba to prekladať znova.
+      if (error) return UI.toast(error.message, 'err');
+      UI.closeModal();
+      UI.toast('Ubytovaný', 'ok');
+      await this.reloadStays();
+    },
+
+    /**
+     * Pobyt sa nemaže — ukončuje sa dátumom. Inak by sa spätne nedalo
+     * povedať, kto kde v ktorom mesiaci spal.
+     */
+    async endStay(stayId) {
+      const st = this.stays.find(x => x.stay_id === stayId);
+      const today = new Date().toISOString().slice(0, 10);
+      const answer = prompt(
+        `Kedy sa ${st ? st.full_name : 'človek'} odsťahoval? (RRRR-MM-DD)`, today);
+      if (answer == null) return;
+      const date = String(answer).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return UI.toast('Dátum zapíš v tvare RRRR-MM-DD.', 'err');
+      }
+      const { error } = await DB.update('stays', stayId, { date_to: date });
+      if (error) return UI.toast(error.message, 'err');
+      UI.toast('Pobyt ukončený', 'ok');
+      await this.reloadStays();
+    },
+
+    async reloadStays() {
+      const [occ, st] = await Promise.all([
+        DB.list('v_lodging_occupancy', { limit: 1000 }),
+        DB.list('v_worker_stay', { limit: 2000 }),
+      ]);
+      this.occupancy = occ.data || [];
+      this.stays = st.data || [];
+      Danubra.renderRoute();
+    },
+
+    // ── Poloha ────────────────────────────────────────────────────────────
+    // Appka sama nikam nevolá. Súradnice sa vytiahnu z odkazu, ktorý človek
+    // aj tak posiela vodičovi.
+    async setCoords(scId) {
+      const c = await this._askCoords('stavby');
+      if (!c) return;
+      const { error } = await DB.update('subcontracts', scId, { lat: c.lat, lng: c.lng });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const sc = this.items.find(x => x.id === scId);
+      if (sc) { sc.lat = c.lat; sc.lng = c.lng; }
+      UI.toast('Poloha uložená', 'ok');
+      Danubra.renderRoute();
+    },
+
+    async setLodgingCoords(lodgingId) {
+      const c = await this._askCoords('ubytovania');
+      if (!c) return;
+      const { error } = await DB.update('subcontract_accommodations', lodgingId,
+        { lat: c.lat, lng: c.lng });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Poloha uložená', 'ok');
+      await this.reloadStays();
+    },
+
+    async _askCoords(what) {
+      const text = prompt(
+        `Vlož odkaz z máp na miesto ${what} — alebo rovno súradnice.\n\n`
+        + 'Rozumie odkazom z Google Máp aj OpenStreetMap a dvojici čísel\n'
+        + 'ako 48.7758, 9.1829.');
+      if (text == null) return null;
+      const c = DanubraGeo.parseCoords(text);
+      if (!c) {
+        UI.toast('V tom odkaze som súradnice nenašiel. Skrátené odkazy '
+          + '(maps.app.goo.gl) ich neobsahujú — otvor ich a skopíruj adresu z prehliadača.', 'err');
+        return null;
+      }
+      return c;
+    },
+
 
     async _settings() {
       if (this._set) return this._set;
@@ -433,16 +695,18 @@
             ${UI.field('name', 'Názov (ak nie je v databáze)', {})}
             ${UI.field('city', 'Mesto', { value: city })}
             ${UI.field('address', 'Adresa', {})}
-            ${UI.field('maps_url', 'Odkaz na mapu', { type: 'url' })}
+            ${UI.field('maps_url', 'Odkaz z máp', { placeholder: 'sem vlož odkaz — vytiahnem z neho polohu' })}
             ${UI.field('capacity', 'Lôžok', { type: 'number' })}
-            ${UI.field('occupied', 'Obsadené', { type: 'number', value: 0 })}
             ${UI.field('price_monthly', 'Cena €/mes', { type: 'number' })}
             ${UI.field('date_from', 'Od', { type: 'date', value: sc?.date_from })}
             ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to })}
           </div>
           ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
+          <div class="regimebox" style="margin-top:10px;">Obsadenosť sa nevypisuje ručne —
+            počíta sa z toho, koho tam zapíšeš. Ručné číslo sa rozišlo s realitou
+            hneď, ako niekto odišiel.</div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
             <button type="submit" class="btn btn-primary">Pridať</button>
           </div>
         </form>`, { wide: true });
@@ -459,14 +723,21 @@
         maps_url: d.maps_url || null, note: d.note || null,
         date_from: d.date_from || null, date_to: d.date_to || null,
       };
-      ['capacity', 'occupied', 'price_monthly'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
+      ['capacity', 'price_monthly'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
       // ak je z databázy a kapacita nie je zadaná, vezmi ju odtiaľ
       if (acc && payload.capacity == null) payload.capacity = acc.max_persons ?? null;
       if (acc && payload.price_monthly == null) payload.price_monthly = acc.price_month ?? null;
+
+      // Poloha z vloženého odkazu. Keď v ňom nie je, nič sa nedeje —
+      // doplniť sa dá neskôr priamo z obrazovky.
+      const c = DanubraGeo.parseCoords(d.maps_url);
+      if (c) { payload.lat = c.lat; payload.lng = c.lng; }
+
       const { error } = await DB.insert('subcontract_accommodations', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.toast('Ubytovanie pridané', 'ok');
-      await this.load(); this.detail(scId);
+      UI.closeModal();
+      UI.toast(c ? 'Ubytovanie pridané aj s polohou' : 'Ubytovanie pridané', 'ok');
+      await this.load(); Danubra.renderRoute();
     },
 
     async delLodging(id) {
@@ -474,7 +745,7 @@
       if (!confirm('Odobrať toto ubytovanie zo zákazky?')) return;
       await DB.remove('subcontract_accommodations', id);
       this.lodging = this.lodging.filter(x => x.id !== id);
-      if (l) this.detail(l.subcontract_id);
+      await this.reloadStays();
     },
 
     editTransport(scId) {
@@ -568,6 +839,10 @@
             ${UI.field('site_name', 'Názov stavby / dielne', { value: sc.site_name })}
             ${UI.field('site_city', 'Mesto', { value: sc.site_city })}
             ${UI.field('site_address', 'Adresa', { value: sc.site_address })}
+            ${UI.field('map_link', 'Odkaz z máp', {
+              value: DanubraGeo.valid(Number(sc.lat), Number(sc.lng))
+                ? DanubraGeo.format(sc.lat, sc.lng) : '',
+              placeholder: 'vlož odkaz — vytiahnem z neho polohu' })}
             ${UI.field('site_postal_code', 'PSČ', { value: sc.site_postal_code })}
           </div>
           <div class="form-section">Odmena</div>
@@ -600,6 +875,18 @@
       ['charge_rate', 'fixed_price'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
       ['date_from', 'date_to'].forEach(k => { if (payload[k] === '') payload[k] = null; });
       if (payload.partner_id === '') payload.partner_id = null;
+
+      // Pole na odkaz nie je stĺpec v databáze — vytiahne sa z neho poloha
+      // a samo sa nikam neukladá. Prázdne pole polohu nemaže; na to je
+      // „Doplniť polohu" priamo na obrazovke.
+      const link = payload.map_link;
+      delete payload.map_link;
+      if (String(link || '').trim()) {
+        const c = DanubraGeo.parseCoords(link);
+        if (!c) return UI.toast('V tom odkaze som súradnice nenašiel. '
+          + 'Skrátené odkazy (maps.app.goo.gl) ich neobsahujú.', 'err');
+        payload.lat = c.lat; payload.lng = c.lng;
+      }
 
       let res;
       if (id) res = await DB.update('subcontracts', id, payload);
@@ -722,7 +1009,7 @@
 
         <div class="form-section">Podklad</div>
         ${Shell.sums({ lines: DanubraPeriods.sumLines(pv), totalLabel: 'Marža',
-          note: pv.marginPct != null ? `${pv.marginPct} % z fakturovanej sumy` : '' })}
+          note: pv.marginPct != null ? `${UI.pct(pv.marginPct)} z fakturovanej sumy` : '' })}
 
         ${(rev.reasons.length || rev.warnings.length)
           ? Shell.blocker({ reasons: [...rev.reasons, ...rev.warnings] })

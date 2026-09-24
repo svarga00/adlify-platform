@@ -166,13 +166,13 @@ window.Danubra = {
   async open(type, id) {
     const e = this.entities[type];
     if (!this.canOpen(type, id)) return;
-    if (this.route !== e.route) {
-      this.go(e.route);
-      // `renderRoute()` vracia prísľub cez router; počkáme na jeho dobehnutie
-      // rovnako, ako to robí samotný router.
-      await new Promise(r => setTimeout(r, 0));
-      await this._routeReady;
-    }
+
+    // Ide sa rovno na adresu záznamu, nie na zoznam. Keby sa najprv prepla
+    // obrazovka na `#/workers`, router by to prečítal ako „bez id" a otvorený
+    // záznam by hneď zavrel — a klik z prehľadu by skončil na zozname.
+    const target = `#/${e.route}/${id}`;
+    if (location.hash !== target) { location.hash = target; return; }
+
     try { await window[e.handle][e.method || 'detail'](id); } catch (err) {
       console.error('[danubra] detail sa nepodarilo otvoriť', type, id, err);
       UI.toast('Záznam sa nepodarilo otvoriť.', 'err');
@@ -936,7 +936,7 @@ window.Danubra = {
     return `<div class="card card-pad">
       <div class="card-head">
         <div class="card-title">Zarábame na tom?</div>
-        ${e.marginPct != null ? UI.badge(`marža ${String(e.marginPct).replace('.', ',')} %`,
+        ${e.marginPct != null ? UI.badge(`marža ${UI.pct(e.marginPct)}`,
           e.marginPct >= 15 ? 'green' : (e.marginPct >= 8 ? 'amber' : 'red')) : ''}
       </div>
       <div class="kv" style="margin:0;">

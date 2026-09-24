@@ -55,7 +55,7 @@
             <span class="stay-fill" style="display:block;width:${prog.percent}%;
               background:${prog.complete ? 'var(--green)' : 'var(--brand)'};"></span>
           </span>
-          <span style="font-size:12.5px;font-weight:700;white-space:nowrap;">${prog.percent} %</span>
+          <span style="font-size:12.5px;font-weight:700;white-space:nowrap;">${UI.pct(prog.percent)}</span>
         </div>
         <div style="font-size:12px;color:var(--ink-mute);margin-bottom:12px;">
           ${prog.done} z ${prog.total} položiek${prog.currentStep

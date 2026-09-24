@@ -536,7 +536,7 @@
         <div class="guide-done">
           <div class="guide-done-ico ${good ? 'ok' : 'warn'}">
             ${Icon(good ? 'check' : 'alert', 30)}</div>
-          ${r.percent != null ? `<div class="guide-score">${r.percent} %</div>` : ''}
+          ${r.percent != null ? `<div class="guide-score">${UI.pct(r.percent)}</div>` : ''}
           <div class="guide-q" style="margin-bottom:6px;">${UI.esc(r.nextAction.label)}</div>
           <div class="guide-hint" style="text-align:left;">${UI.esc(r.nextAction.hint)}</div>
 

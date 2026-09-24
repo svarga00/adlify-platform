@@ -634,6 +634,22 @@ if (D) {
     /\^#\\\/\(\[a-z-\]\+\)\(\?:\\\/\(\[\\w-\]\+\)\)\?/.test(String(D._syncRoute))
     || /\[\\w-\]\+/.test(String(D._syncRoute)));
 
+  // Prekliknutie z inej obrazovky musí skončiť na **zázname**, nie na
+  // zozname. Keď sa najprv prepne obrazovka bez id, router to prečíta ako
+  // „bez id" a práve otvorený záznam hneď zavrie. Presne to sa raz stalo
+  // a všimol si to až screenshot.
+  {
+    const hashWas = sandbox.location.hash;
+    D.route = 'dashboard';
+    D.open('worker', 'w1');
+    t('odkaz z inej obrazovky vedie rovno na záznam',
+      sandbox.location.hash === '#/workers/w1');
+    D.open('subcontract', 'sub1');
+    t('a platí to pre každý typ záznamu',
+      sandbox.location.hash === '#/subcontracts/sub1');
+    sandbox.location.hash = hashWas;
+  }
+
   // Cesta nad nadpisom — bez nej sa po prekliknutí nedá povedať, kde človek je.
   t('hlavička ukazuje cestu', /class="crumbs"/.test(D.header('Test', '')));
   t('cesta vedie späť na prehľad', /Danubra\.go\('dashboard'\)/.test(D.header('Test', '')));
@@ -771,6 +787,23 @@ t('číselné pole pripúšťa desatiny',
   / step="any"/.test(sandbox.UI.field('x', 'X', { type: 'number' })));
 t('a dá sa mu predpísať vlastný krok',
   / step="0.01"/.test(sandbox.UI.field('x', 'X', { type: 'number', step: '0.01' })));
+
+// Čísla po slovensky. JavaScript píše `27.48`, čo v slovenskom texte vyzerá
+// ako cudzie číslo. Bolo to rozsypané na šiestich miestach.
+t('percentá majú čiarku, nie bodku', sandbox.UI.pct(27.48) === '27,48 %');
+t('celé percento je bez desatín', sandbox.UI.pct(15) === '15 %');
+t('bez čísla sa nepíše nula', sandbox.UI.pct(null) === '—');
+{
+  const bad = [];
+  for (const f of files.filter(x => x.startsWith('js/'))) {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    // `${nieco} %` v texte obchádza UI.pct a vypíše bodku. Šírka v CSS
+    // (`width:${pct}%`, bez medzery) je iná vec — tam bodka patrí.
+    if (/\$\{[^}]*(?:pct|percent)[^}]*\}\s+%/i.test(src)) bad.push(path.basename(f));
+  }
+  t(`percentá nikde neobchádzajú UI.pct${bad.length ? ' — obchádza: ' + bad.join(', ') : ''}`,
+    !bad.length);
+}
 
 // Doklady majú privátny bucket — cesta sa von nikdy nedáva priamo.
 t('úložisko dokladov má podpísané odkazy',

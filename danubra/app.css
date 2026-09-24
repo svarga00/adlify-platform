@@ -317,6 +317,45 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .link-inline:hover { color: var(--brand); text-decoration: underline; }
 
+/* ── Mapa ────────────────────────────────────────────────────────────────
+   Značky sú kreslené tu, v CSS, nie obrázkami z balíka Leafletu — jedna
+   závislosť menej, ktorá sa dá rozbiť presunutím súboru. */
+.map-box {
+  height: 320px; border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--border); background: #EDF1F8;
+}
+.map-box.map-tall { height: 460px; }
+.leaflet-container { font: inherit; background: #EDF1F8; }
+.leaflet-popup-content { font-size: 13px; line-height: 1.5; }
+.leaflet-popup-content b { color: var(--navy); }
+
+.map-pin {
+  display: block; width: 22px; height: 22px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); border: 2px solid #fff;
+  box-shadow: 0 3px 8px -2px rgba(10,27,61,.5);
+}
+.map-pin-site { background: var(--brand); }
+.map-pin-lodging { background: var(--blue); }
+
+/* Keď nie sú súradnice alebo sa nenačítala knižnica — nikdy prázdna plocha. */
+.map-empty {
+  height: 100%; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; padding: 22px; text-align: center;
+  color: var(--ink-mute); font-size: 13px;
+}
+
+/* Legenda pod mapou — bez nej sa farba značky musí hádať. */
+.map-legend {
+  display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+  margin-top: 8px; font-size: 12px; color: var(--ink-mute);
+}
+.map-legend i {
+  width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+  margin-right: 5px; vertical-align: -1px;
+}
+.map-legend .lg-site { background: var(--brand); }
+.map-legend .lg-lodging { background: var(--blue); }
+
 /* Rozbaľovací zvyšok zoznamu — zvyšok nezmizne, len neprekáža. */
 .more-block { margin-top: 8px; }
 .more-block > summary {
