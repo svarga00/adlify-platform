@@ -1334,3 +1334,101 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   background: #F07E22; color: #fff; border: 0; border-radius: 10px;
   padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer;
 }
+
+/* ── Stundennachweis ──────────────────────────────────────────────────────
+   Papier, ktorý na stavbe podpisuje Kunde. Vyzerá ako papier zámerne —
+   človek na stavbe má v ruke rovnaký tvar, aký vidí na obrazovke. */
+.hs-paper {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 22px 24px; box-shadow: var(--shadow-sm); overflow-x: auto;
+}
+.hs-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; padding-bottom: 14px; border-bottom: 2px solid var(--navy);
+}
+.hs-brand { font-size: 13px; font-weight: 700; color: var(--ink-sub); letter-spacing: .02em; }
+.hs-title { font-size: 24px; font-weight: 800; letter-spacing: -.03em; margin-top: 2px; }
+.hs-kw {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-align: right;
+  color: var(--ink-mute); text-transform: uppercase;
+}
+.hs-kw strong {
+  display: block; font-family: Archivo, sans-serif; font-size: 30px;
+  letter-spacing: -.03em; color: var(--navy); line-height: 1;
+}
+.hs-kw span { font-size: 11px; letter-spacing: .1em; }
+
+.hs-meta {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px 20px; margin: 14px 0 16px;
+}
+.hs-meta > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hs-meta span {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.hs-meta strong { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.hs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hs-table th, .hs-table td {
+  border: 1px solid var(--border); padding: 7px 8px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.hs-table thead th {
+  background: var(--field); font-size: 11.5px; font-weight: 700; color: var(--navy);
+  line-height: 1.3;
+}
+.hs-table thead th span {
+  display: block; font-weight: 400; font-size: 10.5px; color: var(--ink-mute);
+}
+.hs-table .hs-name { text-align: left; font-weight: 600; white-space: nowrap; }
+.hs-table .hs-total { background: var(--field); font-weight: 700; }
+.hs-table tfoot td { background: var(--navy); color: #fff; font-weight: 700; border-color: var(--navy); }
+.hs-table tfoot .hs-name { color: #fff; }
+/* Súčtová bunka má inak svetlé pozadie — v pätičke by z nej bol biely text
+   na bielom a celkový súčet by nebolo vidieť. */
+.hs-table tfoot .hs-total { background: var(--navy); color: #fff; }
+.hs-span td { font-size: 12px; color: var(--ink-sub); background: #FBFCFE; }
+
+/* Políčko na hodiny — vyzerá ako súčasť tabuľky, nie ako formulár. */
+.hs-h input {
+  width: 100%; border: 0; background: transparent; text-align: center;
+  font: inherit; font-variant-numeric: tabular-nums; padding: 0; outline: none;
+  -moz-appearance: textfield;
+}
+.hs-h input::-webkit-outer-spin-button,
+.hs-h input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.hs-h input:focus { background: var(--brand-50); border-radius: 4px; }
+.hs-h input:hover { background: var(--field); border-radius: 4px; }
+
+.hs-note { margin: 10px 0 0; font-size: 11.5px; color: var(--ink-mute); }
+.hs-sign {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin: 34px 0 10px;
+}
+.hs-line { border-bottom: 1px solid var(--ink-sub); height: 34px; }
+.hs-sign span { font-size: 11px; color: var(--ink-mute); }
+.hs-legal { margin-top: 14px; font-size: 10.5px; color: var(--ink-sub); line-height: 1.5; }
+.hs-legal p { margin: 3px 0; }
+.hs-foot {
+  margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 10.5px; color: var(--ink-mute);
+}
+.hs-foot strong { display: block; color: var(--ink-sub); }
+
+@media (max-width: 720px) {
+  .hs-table { font-size: 12px; }
+  .hs-table th, .hs-table td { padding: 5px 4px; }
+  .hs-sign { grid-template-columns: 1fr; gap: 16px; }
+}
+
+/* Tlač: na papier patrí papier, nič iné. */
+@media print {
+  .sidebar, .topbar, .mobile-head, .bottom-nav, .filterbar,
+  .page-head, .warnbox, .regimebox, .sidebar-backdrop { display: none !important; }
+  .main { margin-left: 0 !important; }
+  .view { padding: 0 !important; }
+  .hs-paper { border: 0; box-shadow: none; padding: 0; }
+  .hs-h input { background: transparent !important; }
+  body { background: #fff; }
+  @page { size: A4 landscape; margin: 14mm; }
+}
