@@ -308,6 +308,48 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Vysvetlivky ───────────────────────────────────────────────────────
+    // Text je v `lib/explain.js` a testuje sa zvlášť. Tu ide o to, či sa okno
+    // naozaj otvorí a či v ňom to „prečo" aj dole vidieť — je to posledná
+    // sekcia a práve tá, kvôli ktorej to celé je.
+    {
+      const page = await browser.newPage();
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(900);
+
+      const out = await page.evaluate(() => {
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        Help.open('card.money');
+        const card = document.querySelector('#ui-modal .modal-card');
+        const heads = [...document.querySelectorAll('#ui-modal .hx-sec h4')]
+          .map(h => h.textContent.trim());
+        return {
+          text: card ? card.innerText : '',
+          heads,
+          btn: Help.btn('screen.workers').length,
+          nic: Help.btn('nieco-cudzie').length,
+        };
+      });
+
+      ok(out.text.length > 400, 'vysvetlivka sa otvorí a má čo povedať',
+        `${out.text.length} znakov`);
+      ok(out.heads.some(h => h.includes('Čo to je')), 'je v nej „čo to je"');
+      ok(out.heads.some(h => h.includes('Ako sa to počíta')), 'aj „ako sa to počíta"');
+      ok(out.heads.some(h => h.includes('Prečo je to takto')), 'aj „prečo je to takto"');
+      ok(out.btn > 0, 'obrazovka má tlačidlo „?"');
+      ok(out.nic === 0, 'a k neznámej téme sa tlačidlo nevykreslí vôbec');
+
+      // Register: jedno miesto, kde je vidieť všetko naraz.
+      const idx = await page.evaluate(() => {
+        UI.closeModal();
+        Help.index();
+        return document.querySelectorAll('#ui-modal .hx-item').length;
+      });
+      ok(idx >= 30, `register ponúka všetky vysvetlivky (${idx})`);
+      await page.close();
+    }
+
     // ── Tlač do PDF ───────────────────────────────────────────────────────
     // PDF sa v appke nerobí knižnicou, ale tlačou prehliadača. To znamená, že
     // o výsledku rozhodujú štýly — a tie sa dajú pokaziť odinakiaľ. Prehľad

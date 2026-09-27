@@ -79,6 +79,10 @@
           <input id="global-search" placeholder="Hľadať mesto, meno, telefón, číslo objednávky…">
         </div>
         <div id="topbar-actions" class="topbar-actions"></div>
+        <!-- Vysvetlivky. Nie je to nápoveda k tlačidlám — je to zoznam toho,
+             čo ktoré číslo znamená a prečo sa počíta práve tak. -->
+        <button class="bell-btn no-print" onclick="Help.index()" title="Vysvetlivky"
+          aria-label="Vysvetlivky" id="btn-help"></button>
         <!-- Zvonček. Napĺňa ho `Danubra.renderBell()`; kým sa udalosti
              nenačítajú, je tu prázdno, nie prázdny rámik. -->
         <div id="bell-slot" class="bell-wrap"></div>
@@ -94,6 +98,8 @@
           </div>
           <!-- Na mobile horný pruh nie je, takže zvonček musí byť aj tu —
                inak by sa o udalostiach z telefónu nedalo dozvedieť. -->
+          <button class="bell-btn no-print" onclick="Help.index()" title="Vysvetlivky"
+            aria-label="Vysvetlivky" id="btn-help-m"></button>
           <div id="bell-slot-m" class="bell-wrap bell-dark"></div>
           <div class="avatar" id="user-initial-m">·</div>
         </div>
@@ -136,6 +142,7 @@
   <script src="./lib/outlook.js"></script>
   <script src="./lib/export.js"></script>
   <script src="./lib/events.js"></script>
+  <script src="./lib/explain.js"></script>
   <script src="./lib/partners/payment.js"></script>
   <script src="./lib/quotes.js"></script>
   <script src="./lib/sms/provider.js"></script>
@@ -148,6 +155,7 @@
   <script src="./js/components/comm-panel.js"></script>
   <script src="./js/components/map.js"></script>
   <script src="./js/components/chart.js"></script>
+  <script src="./js/components/help.js"></script>
   <script src="./js/modules/accommodations.js"></script>
   <script src="./js/modules/clients.js"></script>
   <script src="./js/modules/inquiries.js"></script>

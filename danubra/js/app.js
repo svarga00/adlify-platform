@@ -271,6 +271,9 @@ window.Danubra = {
     const lo = document.getElementById('btn-logout'); if (lo) lo.innerHTML = Icon('logout', 16);
     const mn = document.getElementById('btn-menu'); if (mn) mn.innerHTML = Icon('menu', 20);
     const mi = document.querySelector('.mega-btn-ico'); if (mi) mi.innerHTML = Icon('menu', 16);
+    for (const id of ['btn-help', 'btn-help-m']) {
+      const h = document.getElementById(id); if (h) h.innerHTML = Icon('help', 18);
+    }
     this._buildNav();
     this._render();
     window.addEventListener('hashchange', () => this._syncRoute());
@@ -640,14 +643,19 @@ window.Danubra = {
   // Jednotná hlavička stránky. `trail` je cesta pod obrazovkou (napríklad meno
   // otvoreného človeka) — vtedy sa názov obrazovky stane odkazom späť na
   // zoznam. Na mobile je to jediná cesta späť, lebo horný pruh tam nie je.
+  //
+  // Vysvetlivka sa pripája sama podľa obrazovky. Tým ju má každý modul, bez
+  // toho aby sa o ňu musel starať — a nová obrazovka ju dostane tým, že sa
+  // k nej dopíše text.
   header(title, sub, right, trail, lead) {
+    const help = window.Help ? Help.btn(`screen.${this.route}`, { size: 15 }) : '';
     return `<div class="page-head">
       <div style="min-width:0;">
         ${this.crumbs(trail)}
         <div class="page-title-row">
           ${lead || ''}
           <div style="min-width:0;">
-            <h1 class="page-title">${UI.esc(title)}</h1>
+            <h1 class="page-title">${UI.esc(title)}${help}</h1>
             ${sub ? `<div class="page-sub">${sub}</div>` : ''}
           </div>
         </div>
@@ -763,6 +771,7 @@ window.Danubra = {
     return `<div class="bell-panel" role="dialog" aria-label="Udalosti">
       <div class="bell-head">
         <strong>Čo sa stalo</strong>
+        ${Help.btn('dash.events', { size: 13 })}
         ${ev.length ? `<span class="bell-of">${ev.length} ${
           Shell.plural(ev.length, 'udalosť', 'udalosti', 'udalostí')}${
           unseen ? `, ${unseen} ${Shell.plural(unseen, 'nová', 'nové', 'nových')}` : ''}</span>` : ''}
@@ -1089,6 +1098,7 @@ window.Danubra = {
         Sú tu preto, aby bolo vidieť, ako appka vyzerá naplnená.
         Keď ideš naostro, vymaž ich; ostrých dát sa to nedotkne.
       </span>
+      ${Help.btn('dash.demo')}
       <button class="btn btn-danger btn-sm" onclick="Danubra.purgeDemo()">
         ${Icon('trash', 14)} Vymazať vzorové dáta</button>
     </div>`;
@@ -1158,7 +1168,8 @@ window.Danubra = {
 
     return `<div class="dashbar no-print">
       <div class="dashbar-row">
-        <span class="dashbar-lead">${Icon('filter', 14)} Obdobie</span>
+        <span class="dashbar-lead">${Icon('filter', 14)} Obdobie
+          ${Help.btn('dash.filter', { size: 13 })}</span>
         <div class="pillbar">
           ${DanubraPeriod.OPTIONS.map(([k, label]) => `
             <button class="pill${f.period === k ? ' active' : ''}"
@@ -1177,6 +1188,7 @@ window.Danubra = {
             title="Celý prehľad ako tabuľka do Excelu">${Icon('download', 14)} CSV</button>
           <button class="btn btn-outline btn-sm" onclick="Danubra.printDash()"
             title="Vytlačiť alebo uložiť ako PDF">${Icon('print', 14)} PDF</button>
+          ${Help.btn('dash.export')}
           ${dirty ? `<button class="btn btn-ghost btn-sm" onclick="Danubra.resetDashFilter()"
             title="Späť na tento mesiac a všetky zákazky">${Icon('x', 14)} Zrušiť</button>` : ''}
         </div>
@@ -1217,10 +1229,13 @@ window.Danubra = {
    * @param right   to, čo má byť napravo (štítok, prepínač)
    * @param exp     kľúč exportu, keď sa karta dá vyviezť do CSV
    * @param go      obrazovka, na ktorú sa dá z karty prekliknúť
+   * @param help    kľúč vysvetlivky; keď sa nezadá, odvodí sa z exportu
    */
-  _cardHead(icon, title, right, exp, go) {
+  _cardHead(icon, title, right, exp, go, help) {
+    const hk = help || (exp ? `card.${exp}` : null);
     const acts = [
       right || '',
+      hk && window.Help ? Help.btn(hk) : '',
       go && this.routeAvailable(go)
         ? `<button class="icon-btn no-print" onclick="Danubra.go('${go}')"
             title="Otvoriť ${UI.esc(this.labelOf(go))}"
@@ -1567,7 +1582,7 @@ window.Danubra = {
     const b = x.book;
     if (!b.rows.length) {
       return `<div class="card card-pad">
-        ${this._cardHead('briefcase', 'Čo máme v objednávkach', '', '', 'subcontracts')}
+        ${this._cardHead('briefcase', 'Čo máme v objednávkach', '', '', 'subcontracts', 'card.book')}
         <div style="color:var(--ink-mute);font-size:13px;">Žiadna bežiaca zákazka.</div>
       </div>`;
     }
@@ -1602,7 +1617,7 @@ window.Danubra = {
     const t = x.tied;
     if (!t.total) {
       return `<div class="card card-pad">
-        ${this._cardHead('bed', 'Viazne v nákladoch', '', '', 'costs')}
+        ${this._cardHead('bed', 'Viazne v nákladoch', '', '', 'costs', 'card.tied')}
         <div style="color:var(--ink-mute);font-size:13px;">
           Nič nevisí — všetko refakturovateľné je už vrátené.</div>
       </div>`;
@@ -1639,7 +1654,7 @@ window.Danubra = {
     const h = x.hiringNeed;
     if (!h.headcount) {
       return `<div class="card card-pad">
-        ${this._cardHead('workers', 'Koho treba zohnať', '', '', 'hiring')}
+        ${this._cardHead('workers', 'Koho treba zohnať', '', '', 'hiring', 'card.hiring')}
         <div style="color:var(--ink-mute);font-size:13px;">
           Žiadny bežiaci nábor. ${x.candWaiting.length ? `${x.candWaiting.length} ${
             Shell.plural(x.candWaiting.length, 'kandidát čaká', 'kandidáti čakajú', 'kandidátov čaká')} na telefonát.` : ''}</div>
@@ -1668,7 +1683,7 @@ window.Danubra = {
   _dashAlertsHtml(alerts) {
     if (!alerts.length) {
       return `<div class="card card-pad">
-        ${this._cardHead('shield', 'Vyžaduje pozornosť')}
+        ${this._cardHead('shield', 'Vyžaduje pozornosť', '', '', '', 'card.alerts')}
         <div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">
           Doklady platia, obdobia sú uzavreté, faktúry vybavené. Nič tu nevisí.
         </div></div>`;
@@ -1847,23 +1862,23 @@ window.Danubra = {
         ['Ľudia na stavbách', x.deployed,
           `${x.sites.length} ${Shell.plural(x.sites.length, 'zákazka', 'zákazky', 'zákaziek')}${
             x.crewsOut ? ` · ${x.crewsOut} ${Shell.plural(x.crewsOut, 'partia', 'partie', 'partií')}` : ''}`,
-          '', 'workers', 'workers'],
+          '', 'workers', 'workers', 'kpi.deployed'],
         ['Nezúčtované hodiny', Math.round(x.hoursOpen),
           x.hoursOpen ? 'čakajú na uzavretie obdobia' : 'všetko zúčtované',
-          x.periodsDue.length ? 'warn' : '', 'clock', 'timesheets'],
+          x.periodsDue.length ? 'warn' : '', 'clock', 'timesheets', 'kpi.hours'],
         ['Faktúry na schválenie', x.invApprove.length,
           x.invApprove.length ? 'bez schválenia neodídu' : 'žiadne',
-          x.invApprove.length ? 'warn' : '', 'invoices', 'invoices'],
+          x.invApprove.length ? 'warn' : '', 'invoices', 'invoices', 'kpi.approve'],
         ['Po splatnosti', x.invOverdue.length,
           x.invOverdue.length ? 'urgovať' : 'v poriadku',
-          x.invOverdue.length ? 'warn' : 'up', 'alert', 'invoices'],
+          x.invOverdue.length ? 'warn' : 'up', 'alert', 'invoices', 'kpi.overdue'],
         ['Doklady po platnosti', x.docsExpired.length,
           x.docsExpiring.length ? `${x.docsExpiring.length} sa blíži ku koncu` : 'všetko platí',
-          x.docsExpired.length ? 'warn' : 'up', 'shield', 'compliance'],
+          x.docsExpired.length ? 'warn' : 'up', 'shield', 'compliance', 'kpi.docs'],
         ['Treba dobrať ľudí', x.needPeople,
           `${x.plansActive} ${Shell.plural(x.plansActive, 'bežiaci nábor', 'bežiace nábory', 'bežiacich náborov')}`,
-          x.needPeople ? 'warn' : '', 'zap', 'hiring'],
-      ].map(r => (this.routeAvailable(r[5]) ? r : [...r.slice(0, 5), null]));
+          x.needPeople ? 'warn' : '', 'zap', 'hiring', 'kpi.hiring'],
+      ].map(r => (this.routeAvailable(r[5]) ? r : [...r.slice(0, 5), null, r[6]]));
 
       view.innerHTML =
         this.header('Prehľad', `${datum} · ${x.deployed} ${
@@ -1879,15 +1894,18 @@ window.Danubra = {
         <div class="headline headline-${line.tone === 'bad' ? 'bad' : line.tone === 'warn' ? 'warn' : 'ok'}">
           ${Icon(line.tone === 'bad' ? 'alert' : line.tone === 'warn' ? 'clock' : 'check', 18)}
           <span>${UI.esc(line.text)}</span>
+          ${Help.btn('dash.headline')}
         </div>
         <div class="kpi-grid">
-          ${kpis.map(([l, v, d, k, ico, go]) => `
-            <div class="kpi${go ? ' kpi-go' : ''}"${go
-              ? ` onclick="Danubra.go('${go}')" role="button" tabindex="0"
-                  onkeydown="if(event.key==='Enter')Danubra.go('${go}')"
-                  title="Otvoriť ${UI.esc(this.labelOf(go))}"` : ''}>
-              <div class="kpi-label">${ico ? Icon(ico, 13) : ''}${l}</div>
-              <div class="kpi-value">${v}</div>
+          ${kpis.map(([l, v, d, k, ico, go, help]) => `
+            <div class="kpi${go ? ' kpi-go' : ''}">
+              <div class="kpi-label">
+                <span>${ico ? Icon(ico, 13) : ''}${l}</span>
+                ${Help.btn(help, { size: 13 })}
+              </div>
+              ${go ? `<button class="kpi-value kpi-link" onclick="Danubra.go('${go}')"
+                  title="Otvoriť ${UI.esc(this.labelOf(go))}">${v}</button>`
+                : `<div class="kpi-value">${v}</div>`}
               <div class="kpi-delta ${k}">${d}</div>
             </div>`).join('')}
         </div>
@@ -1917,7 +1935,7 @@ window.Danubra = {
           ${this._dashTasksHtml(x)}
           ${this._dashAlertsHtml(alerts)}
           <div class="card card-pad no-print">
-            ${this._cardHead('zap', 'Rýchle akcie')}
+            ${this._cardHead('zap', 'Rýchle akcie', '', '', '', 'card.actions')}
             <div style="display:flex;flex-direction:column;gap:8px;">
               <button class="btn btn-primary" style="justify-content:flex-start;" onclick="Guide.startCall()">${Icon('phone')} Zdvihol som telefón</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('timesheets')">${Icon('clock')} Zapísať hodiny</button>

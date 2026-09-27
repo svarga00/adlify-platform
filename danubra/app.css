@@ -31,9 +31,12 @@
   --red-50:       #FCEBEB;
   --amber:        #C25C0C;
   --amber-50:     #FDEEE1;
-  --radius:       13px;
-  --radius-lg:    14px;
-  --radius-sm:    9px;
+  /* Rádiusy. Ostrejšie hrany pôsobia presnejšie — a toto je appka na
+     peniaze a doklady, nie na fotky. Sú to tri hodnoty, nie dvanásť
+     rozsypaných po súbore: karta, pole/štítok a okno. */
+  --radius:       4px;
+  --radius-lg:    6px;
+  --radius-sm:    3px;
   --sidebar-w:    240px;
   --topbar-h:     58px;
   /* Tieň namiesto druhej linky. Karta má mať okraj **alebo** tieň, nie oboje
@@ -58,7 +61,7 @@ button, input, select, textarea { font-family: inherit; }
 input, select, textarea { font-size: 14px; color: var(--ink); }
 [hidden] { display: none !important; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
-::-webkit-scrollbar-thumb { background: #C9D6F2; border-radius: 9px; }
+::-webkit-scrollbar-thumb { background: #C9D6F2; border-radius: var(--radius-sm); }
 @keyframes sheetUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 
@@ -88,7 +91,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   padding: 20px; background: var(--navy);
 }
 .login-card {
-  width: 100%; max-width: 380px; background: #fff; border-radius: 20px;
+  width: 100%; max-width: 380px; background: #fff; border-radius: var(--radius);
   padding: 34px 30px; box-shadow: 0 24px 60px -20px rgba(0,0,0,.5); animation: sheetUp .3s ease;
 }
 .login-brand {
@@ -147,7 +150,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   width: 100%; text-align: left; background: transparent; color: var(--nav-text);
-  border: 0; border-radius: 9px; padding: 8px 11px; font-size: 13.5px;
+  border: 0; border-radius: var(--radius-sm); padding: 8px 11px; font-size: 13.5px;
   font-weight: 500; cursor: pointer;
 }
 .nav-item .nav-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -163,14 +166,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .nav-item.active svg { opacity: 1; color: var(--brand); }
 .nav-badge {
   background: var(--brand); color: #fff; font-size: 11px; font-weight: 700;
-  padding: 1px 7px; border-radius: 999px;
+  padding: 1px 7px; border-radius: var(--radius);
 }
 .sidebar-foot {
   margin-top: auto; padding: 14px 10px 0; border-top: 1px solid var(--navy-line);
   display: flex; align-items: center; gap: 10px;
 }
 .avatar {
-  width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: #fff;
+  width: 30px; height: 30px; border-radius: var(--radius-sm); background: var(--blue); color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700; flex-shrink: 0;
 }
@@ -192,7 +195,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .topbar-menu { display: none; background: none; border: 0; font-size: 20px; cursor: pointer; color: var(--ink); }
 .searchbox {
   flex: 1; max-width: 460px; display: flex; align-items: center; gap: 9px;
-  background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
+  background: var(--field); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px;
 }
 .searchbox span { color: var(--ink-mute); font-size: 13px; }
 .searchbox input { border: 0; background: transparent; outline: none; width: 100%; font-size: 13.5px; }
@@ -204,7 +207,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .mobile-head .mh-row { display: flex; align-items: center; gap: 10px; }
 .mobile-head .mh-search {
   flex: 1; display: flex; align-items: center; gap: 8px; background: var(--navy-2);
-  border-radius: 10px; padding: 9px 12px;
+  border-radius: var(--radius-sm); padding: 9px 12px;
 }
 .mobile-head .mh-search span { color: var(--nav-mute); font-size: 13px; }
 .mobile-head .mh-search input { border: 0; background: transparent; outline: none; width: 100%; color: #fff; font-size: 13px; }
@@ -248,7 +251,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Ikona karty. Nie ozdoba — v mriežke ôsmich kariet je to to, čím sa karta
    nájde očami skôr, než sa prečíta jej názov. */
 .card-ico {
-  width: 24px; height: 24px; flex: none; border-radius: 7px;
+  width: 24px; height: 24px; flex: none; border-radius: var(--radius-sm);
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--blue-50); color: var(--blue);
 }
@@ -257,7 +260,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
    samotná ikona nie je popis. */
 .icon-btn {
   width: 28px; height: 28px; flex: none; border: 1px solid var(--border);
-  background: #fff; border-radius: 8px; color: var(--ink-sub); cursor: pointer;
+  background: #fff; border-radius: var(--radius-sm); color: var(--ink-sub); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .icon-btn:hover { background: var(--field); color: var(--blue); border-color: var(--blue); }
@@ -283,9 +286,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .kpi-delta.warn { color: var(--amber); }
 /* Dlaždica, ktorá niekam vedie. Kurzor a okraj sú jediné, čo to povie —
    preto sa to nesmie dať na tie, ktoré nikam nevedú. */
-.kpi-go { cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .12s; }
-.kpi-go:hover { border-color: var(--blue); box-shadow: var(--shadow-md); transform: translateY(-1px); }
-.kpi-go:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+/* Dlaždica, z ktorej sa dá niekam ísť. Odkazom je samotné číslo, nie celá
+   plocha — na dlaždici je aj tlačidlo „?" a jedno kliknutie nemá robiť dve
+   veci naraz. Okraj sa rozsvieti, aby bolo vidieť, že tam niečo je. */
+.kpi-go { transition: border-color .12s; }
+.kpi-go:hover { border-color: var(--blue); }
+.kpi-go:focus-within { border-color: var(--blue); }
 
 /* `align-items: start` je tu podstatné: bez neho sa každá karta natiahne na
    výšku najvyššej a pod krátkym zoznamom ostane pol obrazovky bieleho miesta. */
@@ -322,7 +328,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
    v ktorom ho treba znova hľadať. */
 .link-chip {
   display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
-  background: var(--field); border: 1px solid var(--border); border-radius: 999px;
+  background: var(--field); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 3px 10px 3px 8px; font-size: 12px; font-weight: 600; color: var(--ink-sub);
   cursor: pointer; text-decoration: none; line-height: 1.5;
   transition: border-color .12s, color .12s, background .12s;
@@ -450,12 +456,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Štítok stavu sa nesmie zalomiť — „Čaká na schválenie" sa inak rozpadne
    na dva riadky a prekryje nadpis karty. */
 .badge {
-  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: var(--radius);
   font-size: 11.5px; font-weight: 700; white-space: nowrap; flex: none;
 }
-.pillbar { display: flex; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 3px; border-radius: 999px; flex-wrap: wrap; }
+.pillbar { display: flex; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); flex-wrap: wrap; }
 .pill {
-  border: 0; background: transparent; border-radius: 999px; padding: 6px 13px;
+  border: 0; background: transparent; border-radius: var(--radius); padding: 6px 13px;
   font-size: 12.5px; font-weight: 600; color: var(--ink-sub); cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
@@ -482,7 +488,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .dashbar-field {
   display: inline-flex; align-items: center; gap: 7px; background: var(--field);
-  border: 1px solid var(--border); border-radius: 10px; padding: 4px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 10px;
   font-size: 12px; font-weight: 600; color: var(--ink-sub);
 }
 .dashbar-field select, .dashbar-field input {
@@ -499,7 +505,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* ── Zvonček ─────────────────────────────────────────────────────────────── */
 .bell-wrap { position: relative; flex: none; }
 .bell-btn {
-  position: relative; width: 36px; height: 36px; border-radius: 10px;
+  position: relative; width: 36px; height: 36px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: #fff; color: var(--ink-sub);
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
@@ -508,7 +514,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .bell-dark .bell-btn { background: var(--navy-2); border-color: var(--navy-line); color: #fff; }
 .bell-count {
   position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px;
-  padding: 0 4px; border-radius: 999px; background: var(--brand); color: #fff;
+  padding: 0 4px; border-radius: var(--radius); background: var(--brand); color: #fff;
   font-size: 10.5px; font-weight: 800; line-height: 17px; text-align: center;
   box-shadow: 0 0 0 2px #fff;
 }
@@ -543,7 +549,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .ev-row.is-new { background: #F7FAFF; }
 .ev-row.is-new:hover { background: var(--blue-50); }
 .ev-ico {
-  width: 26px; height: 26px; flex: none; border-radius: 8px;
+  width: 26px; height: 26px; flex: none; border-radius: var(--radius-sm);
   display: inline-flex; align-items: center; justify-content: center;
 }
 .ev-bad { background: var(--red-50); color: var(--red); }
@@ -575,7 +581,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 100;
-  background: var(--navy); color: #fff; padding: 12px 20px; border-radius: 12px;
+  background: var(--navy); color: #fff; padding: 12px 20px; border-radius: var(--radius);
   font-size: 13.5px; font-weight: 600; box-shadow: 0 12px 32px -8px rgba(10,27,61,.4);
   max-width: 90vw; animation: sheetUp .2s ease;
 }
@@ -590,7 +596,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .filterbar .fb-search input { width: 100%; }
 .filterbar select { min-width: 160px; }
 .filterbar input, .filterbar select {
-  padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   font-size: 13.5px; background: #fff;
 }
 .filterbar input:focus, .filterbar select:focus { outline: none; border-color: var(--brand); }
@@ -615,7 +621,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .modal-card {
   background: #fff; width: 100%; max-width: 520px; max-height: 92dvh; overflow: auto;
-  border-radius: 20px 20px 0 0; animation: sheetUp .25s ease;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; animation: sheetUp .25s ease;
 }
 .modal-wide { max-width: 720px; }
 .modal-head {
@@ -628,7 +634,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 @media (min-width: 861px) {
   .modal-backdrop { align-items: center; }
-  .modal-card { border-radius: 20px; }
+  .modal-card { border-radius: var(--radius); }
 }
 
 /* ── Formuláre ───────────────────────────────────────────────────────────── */
@@ -637,7 +643,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .fld { display: grid; gap: 5px; font-size: 12.5px; }
 .fld > span { font-weight: 600; color: var(--ink-sub); }
 .fld input, .fld select, .fld textarea {
-  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   font-size: 14px; width: 100%; background: var(--field);
 }
 .fld input:focus, .fld select:focus, .fld textarea:focus { outline: none; border-color: var(--brand); background: #fff; }
@@ -652,7 +658,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 
 /* ── Detail ──────────────────────────────────────────────────────────────── */
 .detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.verif-sel { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; background: var(--field); }
+.verif-sel { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; background: var(--field); }
 .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 18px; margin: 16px 0; }
 @media (max-width: 560px) { .kv { grid-template-columns: 1fr; } }
 .kv > div { display: flex; flex-direction: column; gap: 1px; }
@@ -662,15 +668,15 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .kv strong { font-size: 13.5px; color: var(--ink); font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-.chip { background: var(--field); border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px; font-size: 12px; color: var(--ink-sub); }
-.notebox { background: var(--field); border-radius: 10px; padding: 11px 14px; font-size: 13px; color: var(--ink-sub); margin-top: 10px; line-height: 1.55; white-space: pre-wrap; }
-.warnbox { background: var(--amber-50); border: 1px solid #F3D6BB; color: var(--amber); padding: 10px 14px; border-radius: 10px; font-size: 12.5px; margin-bottom: 12px; font-weight: 600; }
-.regimebox { background: var(--blue-50); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; color: var(--ink-sub); margin-top: 12px; }
+.chip { background: var(--field); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 11px; font-size: 12px; color: var(--ink-sub); }
+.notebox { background: var(--field); border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13px; color: var(--ink-sub); margin-top: 10px; line-height: 1.55; white-space: pre-wrap; }
+.warnbox { background: var(--amber-50); border: 1px solid #F3D6BB; color: var(--amber); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12.5px; margin-bottom: 12px; font-weight: 600; }
+.regimebox { background: var(--blue-50); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12.5px; color: var(--ink-sub); margin-top: 12px; }
 
 /* ── Komunikačný panel ───────────────────────────────────────────────────── */
 .comm-panel { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; }
 .comm-btn {
-  display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; border-radius: 10px;
+  display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; border-radius: var(--radius-sm);
   font-size: 13.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border);
   background: #fff; color: var(--ink); text-decoration: none;
 }
@@ -702,12 +708,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
     display: flex; flex-direction: column; align-items: center; gap: 4px;
     background: transparent; border: 0; cursor: pointer; flex: 1; padding: 0;
   }
-  .tab-ico { width: 19px; height: 19px; border-radius: 6px; border: 2px solid var(--ink-mute); display: block; }
+  .tab-ico { width: 19px; height: 19px; border-radius: var(--radius-sm); border: 2px solid var(--ink-mute); display: block; }
   .tab-label { font-size: 10.5px; font-weight: 700; color: var(--ink-mute); }
   .tab.active .tab-ico { border-color: var(--brand); background: rgba(240,126,34,.15); }
   .tab.active .tab-label { color: var(--brand); }
   .tab-plus .tab-ico {
-    width: 40px; height: 40px; border-radius: 12px; background: var(--brand); border: 0;
+    width: 40px; height: 40px; border-radius: var(--radius); background: var(--brand); border: 0;
     color: #fff; font-size: 22px; line-height: 40px; text-align: center; font-weight: 400;
   }
 }
@@ -733,7 +739,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .match-row:last-child { border-bottom: 0; }
 .match-score {
-  flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: var(--radius-sm);
   border: 2px solid var(--ink-mute); display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums;
 }
@@ -762,12 +768,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .step.now::before { background: var(--green); }
 .step.now .step-label { color: var(--brand); font-weight: 700; }
 
-.stay-bar { height: 6px; background: var(--border-soft); border-radius: 999px; overflow: hidden; margin-top: 4px; }
-.stay-fill { height: 100%; border-radius: 999px; transition: width .3s; }
+.stay-bar { height: 6px; background: var(--border-soft); border-radius: var(--radius); overflow: hidden; margin-top: 4px; }
+.stay-fill { height: 100%; border-radius: var(--radius); transition: width .3s; }
 .stay-note { font-size: 11.5px; color: var(--ink-mute); margin-top: 4px; }
 
 .access-box {
-  background: var(--field); border: 1px solid var(--border); border-radius: 12px;
+  background: var(--field); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 6px 14px; display: flex; flex-direction: column;
 }
 .code-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -784,7 +790,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .service-total {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: var(--green-50); border: 1px solid #BEE3CE; border-radius: 12px;
+  background: var(--green-50); border: 1px solid #BEE3CE; border-radius: var(--radius);
   padding: 12px 15px; margin-bottom: 8px;
 }
 
@@ -794,7 +800,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   gap: 6px; align-items: center; margin-bottom: 6px;
 }
 .item-row input {
-  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   font-size: 13px; background: var(--field); width: 100%; font-family: inherit;
 }
 .item-row input:focus { outline: none; border-color: var(--brand); background: #fff; }
@@ -818,11 +824,11 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* ── Prepínač hlavných oblastí ───────────────────────────────────────────── */
 .area-switch {
   display: flex; gap: 3px; background: rgba(255,255,255,.07);
-  border-radius: 11px; padding: 3px; margin: 0 2px 6px;
+  border-radius: var(--radius-sm); padding: 3px; margin: 0 2px 6px;
 }
 .area-btn {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 9px 6px; border: 0; border-radius: 8px; background: transparent;
+  padding: 9px 6px; border: 0; border-radius: var(--radius-sm); background: transparent;
   color: var(--nav-text); font-family: inherit; font-size: 12.5px; font-weight: 600;
   cursor: pointer; transition: background .12s, color .12s; min-width: 0;
 }
@@ -835,7 +841,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .kanban { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; }
 .kanban-col {
   flex: 1 0 190px; min-width: 190px; background: var(--field);
-  border: 1px solid var(--border); border-radius: 14px; padding: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 10px;
 }
 .kanban-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -843,19 +849,19 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   color: var(--ink-sub); margin-bottom: 8px; padding: 0 2px;
 }
 .kanban-count {
-  background: #fff; border: 1px solid var(--border); border-radius: 999px;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
   padding: 1px 7px; font-size: 11px; color: var(--ink-sub);
 }
 .kanban-body { display: flex; flex-direction: column; gap: 7px; }
 .kanban-card {
-  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 10px 11px; cursor: pointer; transition: border-color .12s, box-shadow .12s;
 }
 .kanban-card:hover { border-color: #C9D6F2; box-shadow: 0 6px 18px -10px rgba(10,27,61,.25); }
 .kanban-empty { font-size: 12px; color: var(--ink-mute); padding: 8px 2px; }
 
 /* ── Accordion náborového procesu ─────────────────────────────────────────── */
-.acc { border: 1px solid var(--border); border-radius: 11px; margin-bottom: 8px; overflow: hidden; background: #fff; }
+.acc { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; overflow: hidden; background: #fff; }
 .acc-done { border-color: #BFE3CC; }
 .acc-warn { border-color: #F3C4C4; }
 .acc-head {
@@ -865,7 +871,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .acc-head:hover { background: #F9FAFB; }
 .acc-mark {
-  flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%;
+  flex: 0 0 20px; width: 20px; height: 20px; border-radius: var(--radius-sm);
   border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
   color: #fff;
 }
@@ -889,7 +895,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   background: var(--navy, #0A1B3D); color: #fff;
 }
 .guide-x {
-  width: 40px; height: 40px; border: 0; border-radius: 10px; cursor: pointer;
+  width: 40px; height: 40px; border: 0; border-radius: var(--radius-sm); cursor: pointer;
   background: rgba(255,255,255,.12); color: #fff; display: flex;
   align-items: center; justify-content: center; flex: 0 0 40px;
 }
@@ -912,7 +918,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   margin-bottom: 18px; letter-spacing: -.01em;
 }
 .guide-hint {
-  font-size: 14px; line-height: 1.5; border-radius: 11px;
+  font-size: 14px; line-height: 1.5; border-radius: var(--radius-sm);
   padding: 11px 13px; margin-bottom: 10px;
 }
 .guide-hint-ok { background: var(--green-50, #E8F5EC); color: #1B7A3E; }
@@ -920,7 +926,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 
 .guide-actions { display: flex; flex-direction: column; gap: 10px; margin: 20px 0 14px; }
 .guide-btn {
-  min-height: 62px; border-radius: 14px; border: 2px solid transparent;
+  min-height: 62px; border-radius: var(--radius); border: 2px solid transparent;
   font-size: 18px; font-weight: 700; cursor: pointer; display: flex;
   align-items: center; justify-content: center; gap: 10px; padding: 0 18px;
   transition: transform .06s, box-shadow .12s;
@@ -934,7 +940,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Hodnotenie 0–3 — štyri veľké dlaždice */
 .guide-rate { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 18px 0 14px; }
 .guide-rb {
-  min-height: 78px; border-radius: 14px; border: 2px solid var(--border, #E4E7EC);
+  min-height: 78px; border-radius: var(--radius); border: 2px solid var(--border, #E4E7EC);
   background: #fff; cursor: pointer; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 2px;
 }
@@ -948,13 +954,13 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .guide-rb.on { border-color: var(--navy, #0A1B3D); box-shadow: 0 0 0 3px rgba(10,27,61,.12); }
 
 .guide-note {
-  width: 100%; min-height: 54px; border-radius: 12px; font-size: 16px;
+  width: 100%; min-height: 54px; border-radius: var(--radius); font-size: 16px;
   border: 1.5px solid var(--border, #E4E7EC); padding: 14px 15px; background: #fff;
 }
 .guide-note:focus { outline: none; border-color: var(--brand, #F07E22); }
 
 .guide-flag {
-  width: 100%; margin-top: 10px; min-height: 50px; border-radius: 12px; cursor: pointer;
+  width: 100%; margin-top: 10px; min-height: 50px; border-radius: var(--radius); cursor: pointer;
   background: #fff; border: 1.5px dashed var(--border, #E4E7EC); color: var(--ink-sub, #475467);
   font-size: 14.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;
 }
@@ -965,7 +971,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--border, #E4E7EC);
 }
 .guide-nav-btn {
-  min-height: 46px; padding: 0 16px; border-radius: 11px; cursor: pointer;
+  min-height: 46px; padding: 0 16px; border-radius: var(--radius-sm); cursor: pointer;
   background: none; border: 1.5px solid var(--border, #E4E7EC); color: var(--ink-sub, #475467);
   font-size: 14.5px; font-weight: 600; display: flex; align-items: center; gap: 6px;
 }
@@ -975,7 +981,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 
 .guide-done { text-align: center; padding-top: 12px; }
 .guide-done-ico {
-  width: 68px; height: 68px; border-radius: 50%; margin: 0 auto 16px;
+  width: 68px; height: 68px; border-radius: var(--radius); margin: 0 auto 16px;
   display: flex; align-items: center; justify-content: center; color: #fff;
 }
 .guide-done-ico.ok { background: var(--green, #159A4C); }
@@ -984,7 +990,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .guide-missing { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; text-align: left; }
 .guide-missing button, .guide-missing .raised {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  background: #fff; border: 1px solid var(--border, #E4E7EC); border-radius: 11px;
+  background: #fff; border: 1px solid var(--border, #E4E7EC); border-radius: var(--radius-sm);
   padding: 12px 14px; font-size: 14px; color: var(--ink-sub, #475467); cursor: pointer;
 }
 .guide-missing .raised { color: #B42318; background: var(--red-50, #FDECEC); border-color: #F3C4C4; cursor: default; }
@@ -1000,7 +1006,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Živý nábor — výber remesla a odkaz na to, čo mu povedať */
 .trade-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
 .trade-tile {
-  min-height: 68px; border-radius: 13px; border: 2px solid var(--border); background: #fff;
+  min-height: 68px; border-radius: var(--radius); border: 2px solid var(--border); background: #fff;
   cursor: pointer; display: flex; flex-direction: column; align-items: flex-start;
   justify-content: center; gap: 3px; padding: 10px 12px; text-align: left;
 }
@@ -1010,7 +1016,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .tt-rate { font-size: 12.5px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 .guide-lead { font-size: 13px; color: var(--ink-mute); margin-bottom: 8px; }
 .guide-pitch-btn {
-  width: 100%; margin-top: 14px; min-height: 46px; border-radius: 12px; cursor: pointer;
+  width: 100%; margin-top: 14px; min-height: 46px; border-radius: var(--radius); cursor: pointer;
   background: #fff; border: 1.5px solid var(--border); color: var(--ink-sub);
   font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;
 }
@@ -1022,7 +1028,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
-  min-height: 44px; padding: 9px 14px; border-radius: 999px;
+  min-height: 44px; padding: 9px 14px; border-radius: var(--radius);
   border: 1.5px solid var(--border); background: #fff; cursor: pointer;
   font-size: 14.5px; font-weight: 600; color: var(--ink-sub); line-height: 1.25;
   text-align: left;
@@ -1059,7 +1065,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Na mobile sa panel nezmestí vedľa — zhrnutie je na záverečnej obrazovke. */
 
 .aside-card {
-  border: 1px solid var(--border); border-radius: 12px;
+  border: 1px solid var(--border); border-radius: var(--radius);
   padding: 12px 13px; margin-bottom: 12px; background: #fff;
 }
 .aside-title {
@@ -1073,18 +1079,18 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .aside-kv strong { flex: 1; color: var(--ink); font-weight: 600; }
 .aside-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .atag {
-  font-size: 11.5px; padding: 3px 8px; border-radius: 999px;
+  font-size: 11.5px; padding: 3px 8px; border-radius: var(--radius);
   background: var(--green-50); color: #14713C; font-weight: 600;
 }
 .aside-note {
   margin-top: 9px; font-size: 12px; line-height: 1.45;
-  color: #8A4308; background: var(--amber-50); border-radius: 9px; padding: 8px 10px;
+  color: #8A4308; background: var(--amber-50); border-radius: var(--radius-sm); padding: 8px 10px;
 }
 .aside-list { margin: 0 0 0 16px; font-size: 12.5px; color: var(--ink-sub); line-height: 1.5; }
 .aside-live { position: sticky; top: 0; }
 .live-score {
   display: flex; align-items: baseline; gap: 9px;
-  padding: 9px 11px; border-radius: 10px; background: var(--field); margin-bottom: 10px;
+  padding: 9px 11px; border-radius: var(--radius-sm); background: var(--field); margin-bottom: 10px;
 }
 .ls-num { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .ls-lbl { font-size: 13px; font-weight: 700; }
@@ -1093,7 +1099,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .verdict-bad  { background: var(--red-50); }   .verdict-bad .ls-num,  .verdict-bad .ls-lbl  { color: #A81F1F; }
 .verdict-mute .ls-num, .verdict-mute .ls-lbl { color: var(--ink-mute); }
 .aside-flags {
-  background: var(--red-50); border-radius: 9px; padding: 8px 10px; margin-bottom: 10px;
+  background: var(--red-50); border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 10px;
   font-size: 12px; color: #A81F1F; font-weight: 600; line-height: 1.5;
 }
 .aside-flags > div { display: flex; align-items: center; gap: 6px; }
@@ -1104,7 +1110,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Dlaždice bežiacich náborov */
 .plan-grid { display: grid; gap: 9px; }
 .plan-tile {
-  border: 2px solid var(--border); background: #fff; border-radius: 13px;
+  border: 2px solid var(--border); background: #fff; border-radius: var(--radius);
   padding: 12px 14px; cursor: pointer; text-align: left;
   display: flex; flex-direction: column; gap: 3px; min-height: 66px;
 }
@@ -1121,13 +1127,13 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .mini-score {
   font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums;
-  padding: 3px 9px; border-radius: 8px;
+  padding: 3px 9px; border-radius: var(--radius-sm);
 }
 .mini-count { font-size: 12.5px; color: var(--ink-mute); }
 .mini-flags {
   display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   font-size: 12.5px; font-weight: 700; color: #A81F1F;
-  background: var(--red-50); padding: 3px 9px; border-radius: 999px;
+  background: var(--red-50); padding: 3px 9px; border-radius: var(--radius);
 }
 @media (min-width: 1000px) { .guide-mini { display: none; } }
 
@@ -1143,7 +1149,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* ── Mega menu — obe agendy naraz ─────────────────────────────────────────── */
 .mega-btn {
   display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto;
-  height: 38px; padding: 0 14px; border-radius: 10px; cursor: pointer;
+  height: 38px; padding: 0 14px; border-radius: var(--radius-sm); cursor: pointer;
   background: #fff; border: 1.5px solid var(--border); color: var(--ink);
   font-size: 13.5px; font-weight: 600;
 }
@@ -1158,14 +1164,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .mega-inner {
   width: 100%; max-width: 1100px; background: var(--bg);
-  border-radius: 16px; overflow: hidden; box-shadow: 0 24px 64px -20px rgba(10,27,61,.5);
+  border-radius: var(--radius); overflow: hidden; box-shadow: 0 24px 64px -20px rgba(10,27,61,.5);
 }
 .mega-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 15px 18px; background: var(--navy); color: #fff; font-size: 15px;
 }
 .mega-x {
-  width: 34px; height: 34px; border: 0; border-radius: 9px; cursor: pointer;
+  width: 34px; height: 34px; border: 0; border-radius: var(--radius-sm); cursor: pointer;
   background: rgba(255,255,255,.12); color: #fff;
   display: flex; align-items: center; justify-content: center;
 }
@@ -1182,7 +1188,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .mega-col-head em {
   font-style: normal; font-size: 11px; font-weight: 700; margin-left: auto;
   background: var(--brand-50); color: var(--brand-dark, #B45309);
-  padding: 2px 8px; border-radius: 999px;
+  padding: 2px 8px; border-radius: var(--radius);
 }
 .mega-group {
   font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
@@ -1190,7 +1196,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .mega-item {
   display: flex; align-items: center; gap: 9px; width: 100%;
-  padding: 9px 10px; border: 0; border-radius: 9px; background: none;
+  padding: 9px 10px; border: 0; border-radius: var(--radius-sm); background: none;
   cursor: pointer; font-size: 13.5px; color: var(--ink-sub); text-align: left;
 }
 .mega-item:hover { background: var(--field); color: var(--ink); }
@@ -1213,7 +1219,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .mega-areas { display: flex; gap: 8px; padding: 14px 18px; background: #fff; border-bottom: 1px solid var(--border); }
 .mega-area {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 46px; border-radius: 11px; cursor: pointer;
+  min-height: 46px; border-radius: var(--radius-sm); cursor: pointer;
   background: var(--field); border: 1.5px solid transparent; color: var(--ink-sub);
   font-size: 14px; font-weight: 700;
 }
@@ -1235,7 +1241,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .dt-back {
   display: flex; align-items: center; gap: 4px; padding: 6px 10px 6px 6px;
-  border: 1px solid var(--border); border-radius: 9px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card);
   cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-sub);
 }
 .dt-back:hover { color: var(--ink); border-color: var(--ink-mute); }
@@ -1292,14 +1298,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .rows { display: flex; flex-direction: column; gap: 10px; }
 .fb-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 12px; border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--card); cursor: pointer; font-size: 13px; color: var(--ink-sub);
 }
 .fb-chip:hover { border-color: var(--ink-mute); color: var(--ink); }
 .fb-chip.active { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
 .fb-chip em {
   font-style: normal; font-size: 11.5px; font-weight: 700;
-  padding: 1px 6px; border-radius: 999px; background: var(--field); color: var(--ink-sub);
+  padding: 1px 6px; border-radius: var(--radius); background: var(--field); color: var(--ink-sub);
 }
 .fb-chip.active em { background: rgba(255,255,255,.18); color: #fff; }
 .fb-count {
@@ -1326,7 +1332,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .note-meta b { font-size: 12.5px; font-weight: 700; color: var(--ink-sub); }
 .note-meta em {
-  font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 999px;
+  font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: var(--radius);
   background: var(--field); color: var(--ink-sub);
 }
 .note-body { font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; }
@@ -1417,7 +1423,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   align-items: center; padding: 10px 0; font-size: 13px;
 }
 .cf-week + .cf-week { border-top: 1px solid var(--border-soft); }
-.cf-week.cf-neg { background: var(--red-50); margin: 0 -10px; padding: 10px; border-radius: 8px; }
+.cf-week.cf-neg { background: var(--red-50); margin: 0 -10px; padding: 10px; border-radius: var(--radius-sm); }
 .cf-when { color: var(--ink-sub); }
 .cf-when span { display: block; font-size: 11.5px; color: var(--ink-mute); }
 .cf-flows { display: flex; gap: 10px; font-variant-numeric: tabular-nums; font-size: 12.5px; }
@@ -1457,18 +1463,18 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .fatal-card {
   max-width: 520px; background: #fff; border: 1px solid #E3EAF7;
-  border-radius: 18px; padding: 26px 28px;
+  border-radius: var(--radius); padding: 26px 28px;
 }
 .fatal-card h1 { margin: 0 0 10px; font-size: 20px; color: #0A1B3D; }
 .fatal-card p { margin: 0 0 12px; font-size: 14px; color: #6F7C95; line-height: 1.55; }
 .fatal-card pre {
-  background: #F4F7FE; border-radius: 10px; padding: 10px 12px;
+  background: #F4F7FE; border-radius: var(--radius-sm); padding: 10px 12px;
   font-size: 12px; color: #0A1B3D; white-space: pre-wrap; word-break: break-word;
   margin: 0 0 12px; font-family: 'IBM Plex Mono', ui-monospace, monospace;
 }
 .fatal-what { font-size: 13px !important; }
 .fatal-card button {
-  background: #F07E22; color: #fff; border: 0; border-radius: 10px;
+  background: #F07E22; color: #fff; border: 0; border-radius: var(--radius-sm);
   padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer;
 }
 
@@ -1596,7 +1602,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 
 .w-head { display: flex; align-items: flex-start; gap: 11px; }
 .w-avatar {
-  width: 40px; height: 40px; border-radius: 12px; flex: none;
+  width: 40px; height: 40px; border-radius: var(--radius); flex: none;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 800; letter-spacing: -.02em; color: #fff;
   position: relative;
@@ -1654,7 +1660,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Logo firmy. Ťahá sa z jej vlastného webu; keď tam nie je, zostanú
    iniciály. Biele pozadie preto, lebo logá bývajú na bielom. */
 .p-logo {
-  width: 36px; height: 36px; border-radius: 9px; flex: none; overflow: hidden;
+  width: 36px; height: 36px; border-radius: var(--radius-sm); flex: none; overflow: hidden;
   display: flex; align-items: center; justify-content: center; position: relative;
   background: #fff; border: 1px solid var(--border);
   font-size: 12px; font-weight: 800; color: var(--ink-sub);
@@ -1701,3 +1707,66 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 
   @page { size: A4; margin: 12mm; }
 }
+
+/* ── Vysvetlivky ─────────────────────────────────────────────────────────── */
+/* Tlačidlo je tiché zámerne: kto vie, čo to číslo je, ho nemá mať v ceste.
+   Kto nevie, ten ho hľadá — a vtedy stačí, že tam je. */
+.help-btn {
+  width: 20px; height: 20px; flex: none; padding: 0; cursor: pointer;
+  border: 0; background: none; color: var(--ink-mute); border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: -3px;
+}
+.help-btn:hover { background: var(--blue-50); color: var(--blue); }
+.help-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.page-title .help-btn { width: 24px; height: 24px; margin-left: 8px; vertical-align: 2px; }
+.headline .help-btn { margin-left: auto; color: inherit; opacity: .65; }
+.headline .help-btn:hover { opacity: 1; background: rgba(255,255,255,.55); }
+.dashbar-lead .help-btn { margin-left: 2px; }
+.mobile-head .bell-btn {
+  background: var(--navy-2); border-color: var(--navy-line); color: #fff;
+}
+
+/* Obsah okna s vysvetlivkou. Čítať sa to má ako odsek textu, nie ako
+   formulár — preto meraný riadok a poriadne medzery medzi sekciami. */
+.hx { max-width: 62ch; }
+.hx-lead {
+  margin: 0 0 18px; font-size: 15px; line-height: 1.55; color: var(--ink);
+  font-weight: 600; letter-spacing: -.01em;
+}
+.hx-sec { margin: 0 0 18px; }
+.hx-sec h4 {
+  display: flex; align-items: center; gap: 7px; margin: 0 0 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.hx-sec h4 .ico { color: var(--blue); }
+.hx-sec p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.6; color: var(--ink-sub); }
+.hx-sec p:last-child { margin-bottom: 0; }
+.hx-sec strong { color: var(--ink); font-weight: 700; }
+.hx-go { display: flex; flex-wrap: wrap; gap: 6px; }
+.hx-foot { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+
+.hx-list { display: grid; gap: 6px; }
+.hx-item {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); background: #fff; border-radius: var(--radius);
+  padding: 9px 11px;
+}
+.hx-item:hover { border-color: var(--blue); background: var(--field); }
+.hx-item strong { display: block; font-size: 13.5px; color: var(--ink); }
+.hx-item span {
+  display: block; font-size: 12px; color: var(--ink-mute); margin-top: 2px;
+  line-height: 1.45;
+}
+
+/* Dlaždica: číslo je odkaz, nie celá plocha. Kliknuteľná plocha, na ktorej je
+   aj tlačidlo „?", inak jedno kliknutie spraví dve veci naraz. */
+.kpi-label { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+/* Bez `font: inherit` — veľkosť a hrúbku čísla drží `.kpi-value` a skratka
+   `font` by ju zhodila na veľkosť bežného textu. */
+.kpi-link {
+  border: 0; background: none; padding: 0; color: inherit;
+  cursor: pointer; display: block; text-align: left; letter-spacing: inherit;
+}
+.kpi-link:hover { color: var(--blue); }
