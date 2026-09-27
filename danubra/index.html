@@ -79,6 +79,9 @@
           <input id="global-search" placeholder="Hľadať mesto, meno, telefón, číslo objednávky…">
         </div>
         <div id="topbar-actions" class="topbar-actions"></div>
+        <!-- Zvonček. Napĺňa ho `Danubra.renderBell()`; kým sa udalosti
+             nenačítajú, je tu prázdno, nie prázdny rámik. -->
+        <div id="bell-slot" class="bell-wrap"></div>
       </header>
 
       <!-- mobile head -->
@@ -89,6 +92,9 @@
             <span class="search-ico"></span>
             <input placeholder="Hľadať…">
           </div>
+          <!-- Na mobile horný pruh nie je, takže zvonček musí byť aj tu —
+               inak by sa o udalostiach z telefónu nedalo dozvedieť. -->
+          <div id="bell-slot-m" class="bell-wrap bell-dark"></div>
           <div class="avatar" id="user-initial-m">·</div>
         </div>
       </div>
@@ -128,6 +134,8 @@
   <script src="./lib/geo.js"></script>
   <script src="./lib/period.js"></script>
   <script src="./lib/outlook.js"></script>
+  <script src="./lib/export.js"></script>
+  <script src="./lib/events.js"></script>
   <script src="./lib/partners/payment.js"></script>
   <script src="./lib/quotes.js"></script>
   <script src="./lib/sms/provider.js"></script>

@@ -307,6 +307,68 @@ console.log('Prehliadač');
         scripts.join(', '));
       await page.close();
     }
+
+    // ── Tlač do PDF ───────────────────────────────────────────────────────
+    // PDF sa v appke nerobí knižnicou, ale tlačou prehliadača. To znamená, že
+    // o výsledku rozhodujú štýly — a tie sa dajú pokaziť odinakiaľ. Prehľad
+    // potrebuje stránku na výšku, výkaz hodín na šírku (má dvanásť stĺpcov)
+    // a `@page` sa nedá zúžiť selektorom, takže jedno pravidlo vie prebiť
+    // druhé bez toho, aby si to niekto všimol.
+    //
+    // `page.pdf()` rešpektuje `@page`, takže rozmery strán to povedia priamo.
+    {
+      const page = await browser.newPage();
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(900);
+
+      // Prvý `/MediaBox` v PDF je rozmer prvej strany, v bodoch (1/72").
+      const firstPage = (buf) => {
+        const m = /\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/
+          .exec(buf.toString('latin1'));
+        return m ? { w: Math.round(+m[3] / 72 * 25.4), h: Math.round(+m[4] / 72 * 25.4) } : null;
+      };
+
+      const show = (html) => page.evaluate((h) => {
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        document.getElementById('view').innerHTML = h;
+      }, html);
+
+      await show('<div class="print-head"><strong>Prehľad</strong></div>'
+        + '<div class="card card-pad">obsah</div>');
+      const a = firstPage(await page.pdf({ preferCSSPageSize: true }));
+      ok(a && a.h > a.w, 'bežná obrazovka sa tlačí na výšku',
+        a ? `${a.w}×${a.h} mm` : 'rozmer strany sa nedal prečítať');
+
+      await show('<div class="hs-paper">Stundennachweis</div>');
+      const b = firstPage(await page.pdf({ preferCSSPageSize: true }));
+      ok(b && b.w > b.h, 'výkaz hodín sa tlačí na šírku',
+        b ? `${b.w}×${b.h} mm` : 'rozmer strany sa nedal prečítať');
+
+      // Menu, horný pruh ani tlačidlá na papier nepatria. Keby sa vytlačili,
+      // PDF pre účtovníčku by bolo z polovice o appke.
+      await page.emulateMedia({ media: 'print' });
+      await show('<div class="print-head"><strong>Prehľad</strong></div>'
+        + '<div class="card card-pad"><div class="card-head">'
+        + '<div class="card-title">Karta</div>'
+        + '<div class="card-acts"><button class="icon-btn">x</button></div></div></div>');
+      const vis = await page.evaluate(() => {
+        const shown = (s) => {
+          const e = document.querySelector(s);
+          return !!(e && e.getClientRects().length);
+        };
+        return {
+          sidebar: shown('.sidebar'), topbar: shown('.topbar'), bell: shown('.bell-wrap'),
+          acts: shown('.card-acts'), head: shown('.print-head'), card: shown('.card'),
+        };
+      });
+      ok(!vis.sidebar && !vis.topbar, 'pri tlači zmizne menu aj horný pruh');
+      ok(!vis.bell, 'aj zvonček');
+      ok(!vis.acts, 'aj tlačidlá na kartách');
+      ok(vis.head, 'a pribudne hlavička s obdobím');
+      ok(vis.card, 'samotná karta zostáva');
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

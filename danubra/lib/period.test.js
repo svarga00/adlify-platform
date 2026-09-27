@@ -89,12 +89,68 @@ console.log('Obdobia');
   eq(P.filter(null, r, 'd'), [], 'bez riadkov prázdne pole, nie pád');
 }
 
+// ── Vlastné obdobie ─────────────────────────────────────────────────────────
+// Toto je tá voľba, ktorú si človek pýta, keď potrebuje presne to, čo
+// mesiace a štvrťroky nepokrývajú — napríklad od podpisu zmluvy po dnešok.
+{
+  const r = P.range('custom', '2026-09-24', { from: '2026-08-15', to: '2026-09-10' });
+  eq([r.from, r.to], ['2026-08-15', '2026-09-10'], 'presné hranice');
+  eq(P.text(r), '15. 8. 2026 – 10. 9. 2026', 'a povedia sa aj s rokom');
+
+  // Jedna hranica je zmysluplná otázka a nemá sa odmietať.
+  const odkedy = P.range('custom', '2026-09-24', { from: '2026-08-15' });
+  eq([odkedy.from, odkedy.to], ['2026-08-15', null], 'len „od" stačí');
+  eq(P.text(odkedy), 'od 15. 8. 2026', 'a vie to povedať');
+  const dokedy = P.range('custom', '2026-09-24', { to: '2026-09-10' });
+  eq([dokedy.from, dokedy.to], [null, '2026-09-10'], 'len „do" tiež');
+
+  // Obrátené hranice sú preklep, nie zámer.
+  const swapped = P.range('custom', '2026-09-24', { from: '2026-09-10', to: '2026-08-15' });
+  eq([swapped.from, swapped.to], ['2026-08-15', '2026-09-10'],
+    'obrátené hranice sa prehodia, nevyjde prázdno');
+
+  // Prázdne vlastné obdobie sa musí dať rozoznať od „za celý čas".
+  const none = P.range('custom', '2026-09-24', {});
+  ok(none.empty, 'bez hraníc to o sebe vie');
+
+  const rows = [{ d: '2026-08-14' }, { d: '2026-08-15' }, { d: '2026-09-10' }, { d: '2026-09-11' }];
+  eq(P.filter(rows, r, 'd').map(x => x.d), ['2026-08-15', '2026-09-10'],
+    'filtruje presne podľa zadaných hraníc');
+}
+
+// ── Názov súboru pri exporte ────────────────────────────────────────────────
+{
+  eq(P.slug(P.range('month', '2026-09-24')), '2026-09-01_2026-09-30',
+    'do názvu súboru ide obdobie, nech sa exporty nepomiešajú');
+  eq(P.slug(P.range('all')), 'vsetko', 'bez ohraničenia je to „vsetko"');
+  eq(P.slug(P.range('custom', '2026-09-24', { from: '2026-08-15' })), '2026-08-15_dnes',
+    'otvorený koniec sa pomenuje, nie vynechá');
+}
+
 // ── Veta pod číslo ──────────────────────────────────────────────────────────
 {
   eq(P.text(P.range('month', '2026-09-24')), 'tento mesiac (1. 9. – 30. 9.)',
     'povie, za čo to číslo je');
   eq(P.text(P.range('all')), 'za celý čas', 'aj keď je to bez ohraničenia');
   eq(P.text(null), 'za celý čas', 'a bez obdobia nepadne');
+}
+
+// ── Krátky tvar doprostred vety ─────────────────────────────────────────────
+// „70 h za tento mesiac čaká na uzavretie" — tam sa zátvorky z `text()`
+// nezmestia a druhý rok prekáža.
+{
+  eq(P.short(P.range('month', '2026-09-24')), 'tento mesiac', 'bez zátvoriek');
+  eq(P.short(P.range('prev_month', '2026-09-24')), 'minulý mesiac', 'aj minulý');
+  eq(P.short(P.range('all')), 'celý čas', 'predložka „za" je vo vete, nie tu');
+  eq(P.short(null), 'celý čas', 'bez obdobia nepadne');
+  eq(P.short(P.range('custom', '2026-09-24', { from: '2026-08-15', to: '2026-09-20' })),
+    'obdobie 15. 8. – 20. 9. 2026', 'rovnaký rok sa píše raz');
+  eq(P.short(P.range('custom', '2026-09-24', { from: '2025-12-20', to: '2026-01-10' })),
+    'obdobie 20. 12. 2025 – 10. 1. 2026', 'cez prelom roka oba roky');
+  eq(P.short(P.range('custom', '2026-09-24', { from: '2026-08-15' })), 'obdobie od 15. 8. 2026',
+    'otvorený koniec');
+  eq(P.short(P.range('custom', '2026-09-24', { to: '2026-09-20' })), 'obdobie do 20. 9. 2026',
+    'otvorený začiatok');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);

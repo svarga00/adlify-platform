@@ -30,6 +30,7 @@
     ['prev_month', 'Minulý mesiac'],
     ['quarter', 'Tento štvrťrok'],
     ['year', 'Tento rok'],
+    ['custom', 'Od–do'],
     ['all', 'Za celý čas'],
   ];
 
@@ -38,12 +39,23 @@
    * @returns {{ key, label, from: string|null, to: string|null }}
    *          `null` znamená bez ohraničenia.
    */
-  function range(key, today) {
+  function range(key, today, custom) {
     const t = day(today) || new Date().toISOString().slice(0, 10);
     const [y, m] = t.split('-').map(Number);
     const label = (OPTIONS.find(o => o[0] === key) || OPTIONS[0])[1];
 
     switch (key) {
+      case 'custom': {
+        // Vlastné obdobie. Keď človek zadá len jednu hranicu, platí len tá —
+        // „od 1. 8." bez konca je zmysluplná otázka a nemá sa odmietať.
+        let from = day(custom && custom.from) || null;
+        let to = day(custom && custom.to) || null;
+        // Obrátené hranice sú preklep, nie zámer. Prehodíme ich, nech
+        // nevyjde prázdno bez vysvetlenia.
+        if (from && to && from > to) { const x = from; from = to; to = x; }
+        if (!from && !to) return { key, label, from: null, to: null, empty: true };
+        return { key, label, from, to };
+      }
       case 'prev_month': {
         const py = m === 1 ? y - 1 : y;
         const pm = m === 1 ? 12 : m - 1;
@@ -85,17 +97,53 @@
     return (rows || []).filter(x => covers(r, get(x)));
   }
 
-  /** Veta pod číslo: „za tento mesiac (1. – 30. 9.)". */
+  /** Veta pod číslo: „za tento mesiac (1. 9. – 30. 9.)". */
   function text(r) {
-    if (!r || !r.from) return 'za celý čas';
+    if (!r || (!r.from && !r.to)) return 'za celý čas';
     const fmt = (s) => {
+      const [yy, mm, dd] = s.split('-');
+      return `${Number(dd)}. ${Number(mm)}. ${yy}`;
+    };
+    const shortFmt = (s) => {
       const [, mm, dd] = s.split('-');
       return `${Number(dd)}. ${Number(mm)}.`;
     };
-    return `${r.label.toLowerCase()} (${fmt(r.from)} – ${fmt(r.to)})`;
+    if (r.key === 'custom') {
+      if (r.from && r.to) return `${fmt(r.from)} – ${fmt(r.to)}`;
+      if (r.from) return `od ${fmt(r.from)}`;
+      return `do ${fmt(r.to)}`;
+    }
+    return `${r.label.toLowerCase()} (${shortFmt(r.from)} – ${shortFmt(r.to)})`;
   }
 
-  const API = { OPTIONS, range, covers, filter, text, lastDay };
+  /**
+   * Krátky tvar do vety. `text()` je veta sama o sebe („tento mesiac
+   * (1. 9. – 30. 9.)"), ale keď sa má vložiť doprostred — „70 h **za tento
+   * mesiac** čaká na uzavretie" — zátvorky a druhý rok prekážajú.
+   */
+  function short(r) {
+    if (!r || (!r.from && !r.to)) return 'celý čas';
+    const d = (s) => { const [, mm, dd] = s.split('-'); return `${Number(dd)}. ${Number(mm)}.`; };
+    const dy = (s) => { const [yy] = s.split('-'); return `${d(s)} ${yy}`; };
+    if (r.key === 'custom') {
+      if (r.from && r.to) {
+        // Rok sa píše raz, keď je rovnaký — dvakrát ho nikto nečíta.
+        return r.from.slice(0, 4) === r.to.slice(0, 4)
+          ? `obdobie ${d(r.from)} – ${dy(r.to)}`
+          : `obdobie ${dy(r.from)} – ${dy(r.to)}`;
+      }
+      return r.from ? `obdobie od ${dy(r.from)}` : `obdobie do ${dy(r.to)}`;
+    }
+    return String(r.label || '').toLowerCase();
+  }
+
+  /** Krátky zápis do názvu súboru: `2026-09-01_2026-09-30` alebo `vsetko`. */
+  function slug(r) {
+    if (!r || (!r.from && !r.to)) return 'vsetko';
+    return `${r.from || 'zaciatok'}_${r.to || 'dnes'}`;
+  }
+
+  const API = { OPTIONS, range, covers, filter, text, short, slug, lastDay };
   if (typeof window !== 'undefined') window.DanubraPeriod = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

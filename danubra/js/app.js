@@ -275,6 +275,8 @@ window.Danubra = {
     this._render();
     window.addEventListener('hashchange', () => this._syncRoute());
     this._syncRoute();
+    // Zvonček sa napĺňa až po zvyšku — obrazovka nemá na čo čakať.
+    this.loadEvents();
   },
 
   _render() {
@@ -312,11 +314,15 @@ window.Danubra = {
     if (!this.moduleOn(this.area)) this.area = (this.visibleAreas()[0] || ['staffing'])[0];
     this._buildNav();
     this._render();
+    this.loadEvents(true);
   },
 
   async logout() {
     await DB.signOut();
     this.user = null;
+    // Udalosti sú o dátach, ku ktorým už odhlásený človek nemá prístup.
+    this.events = []; this.eventsAt = 0; this.bellOpen = false;
+    this.renderBell();
     this._render();
   },
 
@@ -655,6 +661,183 @@ window.Danubra = {
     if (el) el.innerHTML = html || '';
   },
 
+  // ── Zvonček: čo sa stalo ───────────────────────────────────────────────────
+  // Prehľad odpovedá na „čo mám robiť". Zvonček odpovedá na inú otázku — „čo
+  // sa stalo, kým som sa nepozeral". Preto je v hornom pruhu, viditeľný
+  // z každej obrazovky, nie zakopaný v prehľade.
+  //
+  // Čítanie sa drží v prehliadači, nie v databáze. Je to údaj o tom, čo videl
+  // tento človek na tomto zariadení — do spoločnej tabuľky nepatrí a nemá
+  // zmysel kvôli nemu robiť zápis pri každom otvorení.
+
+  events: [],
+  eventsAt: 0,
+  bellOpen: false,
+  _seenKey: 'danubra_events_seen',
+
+  _lastSeen() { try { return localStorage.getItem(this._seenKey) || ''; } catch { return ''; } },
+
+  /**
+   * Načíta udalosti. Sedem malých dotazov, výsledok drží dve minúty — zvonček
+   * sa otvára často a nemá zmysel pri každom kliknutí ťahať to isté.
+   */
+  async loadEvents(force) {
+    if (!this.user) return;
+    if (!force && this.eventsAt && Date.now() - this.eventsAt < 120000) return;
+    // Aby sa dva kliky za sebou nepretekali.
+    if (this._eventsLoading) return this._eventsLoading;
+    this._eventsLoading = (async () => {
+      const [docs, inv, bills, per, cands, tx, tasks, wrk, prt, subs] = await Promise.all([
+        DB.list('v_worker_documents', {
+          select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to', limit: 500 }),
+        DB.list('invoices', {
+          select: 'id,invoice_number,status,issue_date,due_date,paid_at,partner_id', limit: 300 }),
+        DB.list('bills', { select: 'id,worker_id,status,issue_date,note', limit: 300 }),
+        DB.list('periods', { select: 'id,subcontract_id,period_to,status', limit: 200 }),
+        DB.list('candidates', { select: 'id,status,full_name,created_at,first_contact_at', limit: 200 }),
+        DB.list('bank_transactions', { select: 'id,match_status,booked_at', limit: 500 }),
+        DB.list('v_today', { limit: 100 }),
+        DB.list('workers', { select: 'id,full_name', limit: 500 }),
+        DB.list('partners', { select: 'id,name', limit: 200 }),
+        DB.list('subcontracts', { select: 'id,title', limit: 300 }),
+      ]);
+      const S = (r) => (r && r.data) || [];
+      const lookup = (rows, key) => {
+        const m = new Map(rows.map(r => [r.id, r[key]]));
+        return (id) => m.get(id) || null;
+      };
+      this.events = DanubraEvents.build({
+        today: this._dayISO(),
+        docs: S(docs), invoices: S(inv), bills: S(bills), periods: S(per),
+        candidates: S(cands), transactions: S(tx), tasks: S(tasks),
+        workerName: lookup(S(wrk), 'full_name'),
+        partnerName: lookup(S(prt), 'name'),
+        siteName: lookup(S(subs), 'title'),
+      });
+      this.eventsAt = Date.now();
+      this.renderBell();
+    })().catch((e) => {
+      // Zvonček nie je dôvod, aby sa rozsypala obrazovka. Keď sa nenačíta,
+      // zostane tichý a v konzole je napísané prečo.
+      console.error('[danubra] udalosti sa nenačítali', e);
+    }).finally(() => { this._eventsLoading = null; });
+    return this._eventsLoading;
+  },
+
+  renderBell() {
+    const unseen = window.DanubraEvents
+      ? DanubraEvents.unseen(this.events, this._lastSeen()) : 0;
+    const html = this.events.length || this.bellOpen ? this._bellHtml(unseen) : '';
+    for (const id of ['bell-slot', 'bell-slot-m']) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    }
+  },
+
+  _bellHtml(unseen) {
+    return `<button class="bell-btn${unseen ? ' has-new' : ''}"
+        onclick="Danubra.toggleBell()" aria-expanded="${this.bellOpen ? 'true' : 'false'}"
+        aria-label="Udalosti${unseen ? ` — ${unseen} ${Shell.plural(unseen, 'nová', 'nové', 'nových')}` : ''}"
+        title="Čo sa stalo">
+        ${Icon('bell', 18)}
+        ${unseen ? `<span class="bell-count">${unseen > 9 ? '9+' : unseen}</span>` : ''}
+      </button>
+      ${this.bellOpen ? this._bellPanel(unseen) : ''}`;
+  },
+
+  _bellPanel(unseen) {
+    const seen = this._lastSeen();
+    const ev = this.events;
+    const rows = ev.map((e, i) => {
+      const isNew = !seen || String(e.date || '') > seen;
+      return `<button class="ev-row${isNew ? ' is-new' : ''}" onclick="Danubra.openEvent(${i})">
+        <span class="ev-ico ev-${e.tone}">${Icon(Icon.has(e.icon) ? e.icon : 'clock', 14)}</span>
+        <span class="ev-text">
+          <span class="ev-title">${UI.esc(e.title)}</span>
+          ${e.detail ? `<span class="ev-detail">${UI.esc(e.detail)}</span>` : ''}
+        </span>
+        <span class="ev-when">${UI.esc(this._ago(e.date))}</span>
+      </button>`;
+    }).join('');
+
+    return `<div class="bell-panel" role="dialog" aria-label="Udalosti">
+      <div class="bell-head">
+        <strong>Čo sa stalo</strong>
+        ${ev.length ? `<span class="bell-of">${ev.length} ${
+          Shell.plural(ev.length, 'udalosť', 'udalosti', 'udalostí')}${
+          unseen ? `, ${unseen} ${Shell.plural(unseen, 'nová', 'nové', 'nových')}` : ''}</span>` : ''}
+        ${unseen ? `<button class="link-inline" onclick="Danubra.markEventsSeen()">Všetko prečítané</button>` : ''}
+      </div>
+      <div class="bell-list">
+        ${rows || `<div class="bell-empty">${Icon('check', 18)}
+          <span>Nič nové. Doklady platia, faktúry sú vybavené, banka sedí.</span></div>`}
+      </div>
+      <div class="bell-foot">
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.toggleBell(false);Danubra.go('tasks')">
+          ${Icon('tasks', 14)} Úlohy</button>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.loadEvents(true)">
+          ${Icon('repeat', 14)} Načítať znova</button>
+      </div>
+    </div>`;
+  },
+
+  /** „dnes", „včera", „pred 3 dňami", inak dátum. Pri udalosti je to čitateľnejšie. */
+  _ago(date) {
+    const d = date ? String(date).slice(0, 10) : '';
+    if (!d) return '';
+    const t = this._dayISO();
+    const diff = Math.round(
+      (Date.parse(t + 'T00:00:00Z') - Date.parse(d + 'T00:00:00Z')) / 86400000);
+    if (!Number.isFinite(diff)) return '';
+    if (diff === 0) return 'dnes';
+    if (diff === 1) return 'včera';
+    if (diff > 1 && diff <= 6) return `pred ${diff} dňami`;
+    if (diff === -1) return 'zajtra';
+    if (diff < -1 && diff >= -6) return `za ${-diff} dní`;
+    return UI.date(d);
+  },
+
+  toggleBell(force) {
+    const open = force != null ? force : !this.bellOpen;
+    this.bellOpen = open;
+    if (open) {
+      this.loadEvents();
+      this._bellAway = this._bellAway || ((e) => {
+        if (!e.target.closest('.bell-wrap')) this.toggleBell(false);
+      });
+      this._bellEsc = this._bellEsc || ((e) => { if (e.key === 'Escape') this.toggleBell(false); });
+      // O tik neskôr, inak by ten istý klik, ktorý zvonček otvoril, hneď
+      // dobehol k dokumentu a zavrel ho.
+      setTimeout(() => document.addEventListener('click', this._bellAway), 0);
+      document.addEventListener('keydown', this._bellEsc);
+    } else {
+      if (this._bellAway) document.removeEventListener('click', this._bellAway);
+      if (this._bellEsc) document.removeEventListener('keydown', this._bellEsc);
+    }
+    this.renderBell();
+  },
+
+  /** Prečítané = všetko, čo je v zozname teraz. Nič sa tým nemaže. */
+  markEventsSeen() {
+    const top = this.events.reduce(
+      (m, e) => (String(e.date || '') > m ? String(e.date).slice(0, 10) : m), '');
+    try { localStorage.setItem(this._seenKey, top || this._dayISO()); } catch {}
+    this.renderBell();
+  },
+
+  /** Klik na udalosť vedie tam, kde sa to rieši — nie na zoznam „všetkého". */
+  openEvent(i) {
+    const e = this.events[Number(i)];
+    if (!e) return;
+    this.markEventsSeen();
+    this.toggleBell(false);
+    if (this.canOpen(e.type, e.entityId)) return this.open(e.type, e.entityId);
+    if (e.route && this.routeAvailable(e.route)) return this.go(e.route);
+    const ent = this.entities[e.type];
+    if (ent && this.routeAvailable(ent.route)) return this.go(ent.route);
+    UI.toast('Túto udalosť nie je kam otvoriť.', 'err');
+  },
+
   // ── Prehľad: dáta ──────────────────────────────────────────────────────────
   // Prvá obrazovka po prihlásení nemá byť prehliadka databázy. Má odpovedať
   // na tri otázky, ktoré sa v tomto biznise pýtajú každý deň:
@@ -762,7 +945,7 @@ window.Danubra = {
     // Obdobie sa uplatní na to, čo sa **stalo** (hodiny, faktúry, náklady).
     // Na to, ako to vyzerá **teraz** (čakáme na účet, viazne, treba dobrať),
     // obdobie nesadá — to nie je vec mesiaca, ale stavu.
-    const periodRange = DanubraPeriod.range(this.dashFilter.period, d);
+    const periodRange = this._dashRange(d);
     const siteId = this.dashFilter.site || null;
     const onSite = (row, field = 'subcontract_id') => !siteId || row[field] === siteId;
 
@@ -941,32 +1124,338 @@ window.Danubra = {
   // Filter prehľadu. „Zarábame na tom?" bez obdobia je otázka bez odpovede —
   // za celý čas to vyzerá inak než za tento mesiac a rozhodnutie sa robí
   // podľa toho druhého.
-  dashFilter: { period: 'month', site: '' },
+  dashFilter: { period: 'month', site: '', from: '', to: '' },
   setDashFilter(key, value) {
-    this.dashFilter = { ...this.dashFilter, [key]: value };
+    const f = { ...this.dashFilter, [key]: value };
+    // Keď človek zadá dátum, obdobie je tým dané. Inak by dátum zadal a nič
+    // by sa nestalo, kým si nevšimne, že treba ešte kliknúť na „Od–do".
+    if (key === 'from' || key === 'to') f.period = 'custom';
+    this.dashFilter = f;
     this.renderRoute();
   },
+  resetDashFilter() {
+    this.dashFilter = { period: 'month', site: '', from: '', to: '' };
+    this.renderRoute();
+  },
+  /** Obdobie prehľadu vrátane vlastných hraníc. */
+  _dashRange(today) {
+    const f = this.dashFilter;
+    return DanubraPeriod.range(f.period, today, { from: f.from, to: f.to });
+  },
 
-  /** Pruh s filtrami. Jeden riadok nad číslami, nie schovaný v nastaveniach. */
+  /**
+   * Pruh s filtrami. Jeden riadok nad číslami, nie schovaný v nastaveniach.
+   * Napravo export — obdobie a export patria k sebe, lebo exportuje sa vždy
+   * to, čo je práve na obrazovke.
+   */
   _dashFilterBar(x) {
     const f = this.dashFilter;
     const sites = x.subcontracts.filter(s => s.status === 'active');
-    return `<div class="filterbar" style="margin:0 0 12px;">
-      <div class="pillbar">
-        ${DanubraPeriod.OPTIONS.map(([k, label]) => `
-          <button class="pill${f.period === k ? ' active' : ''}"
-            onclick="Danubra.setDashFilter('period','${k}')">${label}</button>`).join('')}
+    const custom = f.period === 'custom';
+    const dirty = f.period !== 'month' || f.site || f.from || f.to;
+    const ICO = { month: 'calendar', prev_month: 'back', quarter: 'chart',
+      year: 'trend', custom: 'edit', all: 'clock' };
+
+    return `<div class="dashbar no-print">
+      <div class="dashbar-row">
+        <span class="dashbar-lead">${Icon('filter', 14)} Obdobie</span>
+        <div class="pillbar">
+          ${DanubraPeriod.OPTIONS.map(([k, label]) => `
+            <button class="pill${f.period === k ? ' active' : ''}"
+              onclick="Danubra.setDashFilter('period','${k}')">
+              ${Icon(ICO[k] || 'calendar', 13)}<span>${label}</span></button>`).join('')}
+        </div>
+        ${sites.length > 1 ? `<label class="dashbar-field">
+          <span>${Icon('site', 14)}</span>
+          <select onchange="Danubra.setDashFilter('site',this.value)" aria-label="Zákazka">
+            <option value="">Všetky zákazky</option>
+            ${sites.map(s => `<option value="${s.id}" ${f.site === s.id ? 'selected' : ''}>
+              ${UI.esc(s.title)}</option>`).join('')}
+          </select></label>` : ''}
+        <div class="dashbar-actions">
+          <button class="btn btn-outline btn-sm" onclick="Danubra.exportDash('all')"
+            title="Celý prehľad ako tabuľka do Excelu">${Icon('download', 14)} CSV</button>
+          <button class="btn btn-outline btn-sm" onclick="Danubra.printDash()"
+            title="Vytlačiť alebo uložiť ako PDF">${Icon('print', 14)} PDF</button>
+          ${dirty ? `<button class="btn btn-ghost btn-sm" onclick="Danubra.resetDashFilter()"
+            title="Späť na tento mesiac a všetky zákazky">${Icon('x', 14)} Zrušiť</button>` : ''}
+        </div>
       </div>
-      ${sites.length > 1 ? `<select onchange="Danubra.setDashFilter('site',this.value)"
-        aria-label="Zákazka">
-        <option value="">Všetky zákazky</option>
-        ${sites.map(s => `<option value="${s.id}" ${f.site === s.id ? 'selected' : ''}>
-          ${UI.esc(s.title)}</option>`).join('')}
-      </select>` : ''}
-      ${f.period !== 'month' || f.site ? `<button class="btn btn-ghost btn-sm"
-        onclick="Danubra.setDashFilter('period','month');Danubra.setDashFilter('site','')">
-        Zrušiť filtre</button>` : ''}
+      ${custom ? `<div class="dashbar-row dashbar-custom">
+        <label class="dashbar-field"><span>Od</span>
+          <input type="date" value="${UI.esc(f.from || '')}" max="${UI.esc(f.to || '')}"
+            onchange="Danubra.setDashFilter('from',this.value)"></label>
+        <label class="dashbar-field"><span>Do</span>
+          <input type="date" value="${UI.esc(f.to || '')}" min="${UI.esc(f.from || '')}"
+            onchange="Danubra.setDashFilter('to',this.value)"></label>
+        ${f.from || f.to ? `<button class="btn btn-ghost btn-sm"
+          onclick="Danubra.setDashFilter('from','');Danubra.setDashFilter('to','')">
+          ${Icon('x', 13)} Vyprázdniť</button>` : ''}
+        ${x.period.empty ? `<span class="dashbar-hint">${Icon('alert', 13)}
+          Zadaj aspoň jednu hranicu — kým tam nie je, počíta sa za celý čas.</span>`
+          : `<span class="dashbar-hint">${Icon('check', 13)}
+          ${UI.esc(DanubraPeriod.text(x.period))}</span>`}
+      </div>` : ''}
+      <div class="dashbar-note">
+        Sumy za obdobie sú ${UI.esc(DanubraPeriod.text(x.period))}${
+          x.siteName2 ? `, zákazka ${UI.esc(x.siteName2)}` : ''}.
+        Stavové čísla — čakáme na účet, viazne v nákladoch, treba dobrať ľudí —
+        obdobie neberú; tie sú vždy „teraz".
+      </div>
     </div>`;
+  },
+
+  // ── Karty prehľadu: hlavička, export, tlač ────────────────────────────────
+  // Každá karta má tri veci: ikonu (aby sa v mriežke našla očami), odkaz tam,
+  // kde sa to rieši, a export. Bez exportu sa číslo z appky nedá poslať
+  // účtovníčke a skončí to prepisovaním do Excelu ručne.
+
+  /**
+   * Hlavička karty.
+   * @param icon    názov ikony
+   * @param title   názov karty
+   * @param right   to, čo má byť napravo (štítok, prepínač)
+   * @param exp     kľúč exportu, keď sa karta dá vyviezť do CSV
+   * @param go      obrazovka, na ktorú sa dá z karty prekliknúť
+   */
+  _cardHead(icon, title, right, exp, go) {
+    const acts = [
+      right || '',
+      go && this.routeAvailable(go)
+        ? `<button class="icon-btn no-print" onclick="Danubra.go('${go}')"
+            title="Otvoriť ${UI.esc(this.labelOf(go))}"
+            aria-label="Otvoriť ${UI.esc(this.labelOf(go))}">${Icon('chevron', 15)}</button>` : '',
+      exp ? `<button class="icon-btn no-print" onclick="Danubra.exportDash('${exp}')"
+            title="Exportovať do CSV" aria-label="Exportovať „${UI.esc(title)}" do CSV">
+            ${Icon('download', 14)}</button>` : '',
+    ].filter(Boolean).join('');
+    return `<div class="card-head">
+      <div class="card-title"><span class="card-ico">${Icon(icon, 15)}</span>${UI.esc(title)}</div>
+      ${acts ? `<div class="card-acts">${acts}</div>` : ''}
+    </div>`;
+  },
+
+  // Filtre na jednotlivých kartách. Obdobie je spoločné pre celý prehľad, ale
+  // „ktorá kategória" a „podľa čoho zoradiť" má zmysel len v jednej karte.
+  dashCard: { tiedCat: '', bookSort: 'remaining' },
+  setDashCard(key, value) {
+    this.dashCard = { ...this.dashCard, [key]: value };
+    this.renderRoute();
+  },
+
+  /** Malý prepínač do hlavičky karty. */
+  _cardPills(key, options, current) {
+    return `<div class="pillbar pillbar-xs no-print">
+      ${options.map(([v, label]) => `<button class="pill${v === current ? ' active' : ''}"
+        onclick="Danubra.setDashCard('${key}','${v}')">${UI.esc(label)}</button>`).join('')}
+    </div>`;
+  },
+
+  /**
+   * Čo sa z ktorej karty exportuje. Prvý riadok sú hlavičky — tak to čaká
+   * Excel aj účtovný softvér.
+   */
+  _dashExports: {
+    all: {
+      name: 'prehlad',
+      rows: (x, E) => {
+        const p = x.profit, w = DanubraOutlook.weeks({
+          today: x.today, weeks: Danubra.dashWeeks, balance: x.balanceNow, items: x.cashflowItems });
+        return [
+          ['Ukazovateľ', 'Hodnota', 'Jednotka'],
+          ['Obdobie', DanubraPeriod.text(x.period), ''],
+          ['Zákazka', x.siteName2 || 'všetky', ''],
+          ['Čakáme na účet', E.money(x.receivable.net), 'EUR'],
+          ['Z toho po splatnosti', E.money(x.receivable.overdue), 'EUR'],
+          ['Zrážka §48b vo faktúrach', E.money(x.receivable.withheld), 'EUR'],
+          ['Odrobené, nevyfakturované', E.money(x.unbilled.charge), 'EUR'],
+          ['Odrobené hodiny bez faktúry', E.num(x.unbilled.hours, 1), 'h'],
+          ['V objednávkach zostáva', E.money(x.book.remaining), 'EUR'],
+          ['Viazne v nákladoch', E.money(x.tied.total), 'EUR'],
+          ['Zisk z odrobeného', E.money(p.done), 'EUR'],
+          ['Zisk z bežiacich zákaziek', E.money(p.contracted), 'EUR'],
+          ['Zisk z odoslaných ponúk', E.money(p.pipeline), 'EUR'],
+          ['Zisk pravdepodobne', E.money(p.likely), 'EUR'],
+          ['Na účte dnes', E.money(x.balanceNow), 'EUR'],
+          [`Príde do ${Danubra.dashWeeks} týždňov`, E.money(w.totalIn), 'EUR'],
+          [`Odíde do ${Danubra.dashWeeks} týždňov`, E.money(Math.abs(w.totalOut)), 'EUR'],
+          ['Rozdiel', E.money(w.diff), 'EUR'],
+          ['Zostatok na konci', E.money(w.endBalance), 'EUR'],
+          ['Vyfakturované odberateľom', E.money(x.econ.invoiced), 'EUR'],
+          ['Faktúry od živnostníkov', E.money(-x.econ.bills), 'EUR'],
+          ['Ostatné náklady', E.money(-x.econ.costs), 'EUR'],
+          ['Zostáva (marža)', E.money(x.econ.margin), 'EUR'],
+          ['Marža', x.econ.marginPct != null ? E.num(x.econ.marginPct, 1) : '', '%'],
+          ['Ľudia na stavbách', x.deployed, 'osôb'],
+          ['Partie na stavbách', x.crewsOut, 'partií'],
+          ['Nezúčtované hodiny', E.num(x.hoursOpen, 1), 'h'],
+          ['Obdobia na uzavretie', x.periodsDue.length, ''],
+          ['Faktúry na schválenie', x.invApprove.length, ''],
+          ['Faktúry po splatnosti', x.invOverdue.length, ''],
+          ['Doklady po platnosti', x.docsExpired.length, ''],
+          ['Dokladom sa blíži koniec', x.docsExpiring.length, ''],
+          ['Treba dobrať ľudí', x.needPeople, 'osôb'],
+        ];
+      },
+    },
+    money: {
+      name: 'cakame-na-ucet',
+      rows: (x, E) => [
+        ['Faktúra', 'Odberateľ', 'Splatnosť', 'Stav', 'Suma', 'Po splatnosti'],
+        ...x.invoicesFiltered
+          .filter(i => !['paid', 'cancelled', 'draft'].includes(i.status))
+          .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')))
+          .map(i => [
+            i.invoice_number || '', x.partnerName(i.partner_id) || '', i.due_date || '',
+            // Stav sa v CSV píše po slovensky — účtovníčka nečíta `pending_approval`.
+            ({ draft: 'Rozpracovaná', pending_approval: 'Čaká na schválenie',
+              draft_pending_approval: 'Čaká na schválenie', approved: 'Schválená',
+              issued: 'Vystavená', sent: 'Odoslaná', paid: 'Uhradená',
+              overdue: 'Po splatnosti', cancelled: 'Stornovaná' }[i.status] || i.status),
+            E.money(Money.toCents(i.total)),
+            i.due_date && i.due_date < x.today ? 'áno' : 'nie',
+          ]),
+      ],
+    },
+    weeks: {
+      name: 'prijmy-vydaje',
+      rows: (x, E) => {
+        const w = DanubraOutlook.weeks({
+          today: x.today, weeks: Danubra.dashWeeks, balance: x.balanceNow, items: x.cashflowItems });
+        return [
+          ['Týždeň', 'Od', 'Príde', 'Odíde', 'Rozdiel', 'Zostatok'],
+          ...w.weeks.map(b => [b.week, b.from, E.money(b.in), E.money(Math.abs(b.out)),
+            E.money(b.diff), E.money(b.balance)]),
+          [],
+          ['Spolu', '', E.money(w.totalIn), E.money(Math.abs(w.totalOut)),
+            E.money(w.diff), E.money(w.endBalance)],
+        ];
+      },
+    },
+    profit: {
+      name: 'ocakavany-zisk',
+      rows: (x, E) => [
+        ['Vrstva', 'Zisk', 'Istota'],
+        ['Z odrobeného', E.money(x.profit.done), 'hotové, nevyfakturované'],
+        ['Z bežiacich zákaziek', E.money(x.profit.contracted), 'dohodnuté, neodrobené'],
+        ['Z odoslaných ponúk', E.money(x.profit.pipeline), 'čaká na odpoveď'],
+        ['Pravdepodobne', E.money(x.profit.likely), ''],
+      ],
+    },
+    tied: {
+      name: 'viazne-v-nakladoch',
+      rows: (x, E) => [
+        ['Kategória', 'Suma', 'Položiek'],
+        ...x.tied.byCategory.map(c => [
+          ({ accommodation: 'Ubytovanie', travel: 'Cestovné', transport: 'Doprava' }[c.category]
+            || c.category), E.money(c.cents), c.count != null ? c.count : '']),
+        [],
+        ['Spolu', E.money(x.tied.total), x.tied.count],
+      ],
+    },
+    book: {
+      name: 'objednavky',
+      rows: (x, E) => [
+        ['Zákazka', 'Ľudia', 'Dní do konca', 'Zostáva odrobiť'],
+        ...Danubra._bookRows(x).map(r => [r.title, r.people, r.days, E.money(r.remaining)]),
+        [],
+        ['Spolu', x.book.people, '', E.money(x.book.remaining)],
+      ],
+    },
+    hiring: {
+      name: 'nabor',
+      rows: (x) => [
+        ['Mesto', 'Ľudí', 'Súrne', 'Nábory'],
+        ...x.hiringNeed.rows.map(r => [r.city, r.headcount, r.urgent ? 'áno' : 'nie',
+          r.plans.map(p => p.title || p.site || 'nábor').join(' · ')]),
+      ],
+    },
+    cash: {
+      name: 'vyhlad-8-tyzdnov',
+      rows: (x, E) => [
+        ['Týždeň', 'Od', 'Do', 'Príde', 'Odíde', 'Zostatok'],
+        // Po splatnosti je vo výhľade zvlášť — sú to peniaze, ktoré mali prísť
+        // dávno, nie budúcnosť.
+        ['po splatnosti', '', '', E.money(x.forecast.overdue.in),
+          E.money(Math.abs(x.forecast.overdue.out)), E.money(x.forecast.afterOverdue)],
+        ...x.forecast.buckets.map((b, i) => [i + 1, b.from, b.to, E.money(b.in),
+          E.money(Math.abs(b.out)), E.money(b.balance)]),
+        [],
+        ['Na účte dnes', '', '', '', '', E.money(x.forecast.startBalance)],
+        ['O osem týždňov', '', '', '', '', E.money(x.forecast.endBalance)],
+      ],
+    },
+    margin: {
+      name: 'marza',
+      rows: (x, E) => [
+        ['Položka', 'Suma'],
+        ['Vyfakturované odberateľom', E.money(x.econ.invoiced)],
+        ['Faktúry od živnostníkov', E.money(-x.econ.bills)],
+        ['Ostatné náklady', E.money(-x.econ.costs)],
+        ['Zostáva', E.money(x.econ.margin)],
+        ['Marža v %', x.econ.marginPct != null ? E.num(x.econ.marginPct, 1) : ''],
+        ['Zrážka §48b vo fakturovanom', E.money(x.econ.withheld)],
+      ],
+    },
+    tasks: {
+      name: 'ulohy',
+      rows: (x) => [
+        ['Termín', 'Úloha', 'Čoho sa to týka', 'Priorita'],
+        ...x.tasks
+          .slice()
+          .sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')))
+          .map(t => [t.due_date || '', t.title || '', t.entity_label || '', t.priority || '']),
+      ],
+    },
+    alerts: {
+      name: 'vyzaduje-pozornost',
+      rows: (x) => [
+        ['Čo', 'Prečo', 'Koho sa to týka'],
+        ...Danubra._dashAlerts(x).map(a => [a.label, a.why,
+          a.items.map(i => i.label).join(' · ') + (a.more ? ` + ${a.more} ďalších` : '')]),
+      ],
+    },
+  },
+
+  /** Riadky objednávok podľa zvoleného poradia. */
+  _bookRows(x) {
+    const rows = x.book.rows.slice();
+    if (this.dashCard.bookSort === 'days') {
+      rows.sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
+    } else {
+      rows.sort((a, b) => b.remaining - a.remaining);
+    }
+    return rows;
+  },
+
+  /** Export jednej karty alebo celého prehľadu. */
+  exportDash(key) {
+    const x = this._dashData;
+    const spec = this._dashExports[key];
+    if (!x || !spec) return UI.toast('Prehľad sa ešte nenačítal.', 'err');
+    let rows;
+    try { rows = spec.rows(x, DanubraExport); } catch (e) {
+      console.error('[danubra] export sa nepodaril', key, e);
+      return UI.toast('Export sa nepodaril.', 'err');
+    }
+    // Jeden riadok znamená len hlavičku — prázdny súbor nikomu nepomôže.
+    if (!rows || rows.filter(r => r && r.length).length < 2) {
+      return UI.toast('Nie je čo exportovať — tabuľka je prázdna.', 'err');
+    }
+    const name = DanubraExport.download(rows,
+      ['danubra', spec.name, DanubraPeriod.slug(x.period)]);
+    UI.toast(`Uložené: ${name}`, 'ok');
+  },
+
+  /**
+   * PDF. Robí to tlač prehliadača — v dialógu treba vybrať „Uložiť ako PDF".
+   * Bez knižnice, takže to vyzerá presne tak, ako obrazovka.
+   */
+  printDash() {
+    this.toggleBell(false);
+    UI.toast('V dialógu tlače vyber „Uložiť ako PDF".');
+    // Toast nech je vidieť skôr, než tlač zamrzne stránku.
+    setTimeout(() => DanubraExport.printArea('print-dash'), 120);
   },
 
   /** „Čakáme na účet" — a hneď aj to, koľko z toho reálne príde. */
@@ -974,10 +1463,9 @@ window.Danubra = {
     const r = x.receivable;
     const u = x.unbilled;
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Koľko peňazí čakáme</div>
-        ${r.overdueCount ? UI.badge(`${r.overdueCount} po splatnosti`, 'red') : ''}
-      </div>
+      ${this._cardHead('wallet', 'Koľko peňazí čakáme',
+        r.overdueCount ? UI.badge(`${r.overdueCount} po splatnosti`, 'red') : '',
+        'money', 'invoices')}
       <div class="big-number">
         <button class="link-inline" style="font:inherit;color:inherit;"
           onclick="Danubra.go('invoices')">${Money.format(r.net)}</button>
@@ -990,7 +1478,7 @@ window.Danubra = {
         <div><span>Odrobené, nevyfakturované</span><strong>${Money.format(u.charge)}</strong></div>
       </div>
       ${u.hours ? `<p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-mute);">
-        ${String(u.hours).replace('.', ',')} h ${UI.esc(DanubraPeriod.text(x.period))} čaká na
+        ${String(u.hours).replace('.', ',')} h za ${UI.esc(DanubraPeriod.short(x.period))} čaká na
         uzavretie obdobia. Termín to nemá — do týždenného výhľadu sa to preto neráta.</p>` : ''}
     </div>`;
   },
@@ -1014,14 +1502,11 @@ window.Danubra = {
       </div>`;
 
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Príjmy a výdaje</div>
-        <div class="pillbar" style="padding:2px;">
+      ${this._cardHead('chart', 'Príjmy a výdaje',
+        `<div class="pillbar pillbar-xs no-print">
           ${[1, 2, 3, 4].map(k => `<button class="pill${k === n ? ' active' : ''}"
-            style="padding:4px 10px;font-size:12px;"
-            onclick="Danubra.setDashWeeks(${k})">${k} ${k === 1 ? 'týždeň' : 'týždne'}</button>`).join('')}
-        </div>
-      </div>
+            onclick="Danubra.setDashWeeks(${k})">${k} ${k === 1 ? 'týždeň' : 't.'}</button>`).join('')}
+        </div>`, 'weeks')}
       ${w.overdue.in || w.overdue.out ? `<p class="big-note" style="margin:0 0 8px;">
         Po splatnosti ${Money.format(w.overdue.in + w.overdue.out)} sa počíta hneď —
         sú to peniaze, ktoré mali prísť dávno, nie budúcnosť.</p>` : ''}
@@ -1064,10 +1549,9 @@ window.Danubra = {
         <div class="pf-value ${cls}">${Money.format(cents)}</div>
       </div>`;
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Očakávaný zisk</div>
-        ${UI.badge(`pravdepodobne ${Money.format(p.likely)}`, p.likely > 0 ? 'green' : 'gray')}
-      </div>
+      ${this._cardHead('trend', 'Očakávaný zisk',
+        UI.badge(`pravdepodobne ${Money.format(p.likely)}`, p.likely > 0 ? 'green' : 'gray'),
+        'profit')}
       ${bar('Z odrobeného', p.done, 'pf-sure', 'hotové, len sa to ešte nevyfakturovalo')}
       ${bar('Z bežiacich zákaziek', p.contracted, 'pf-likely', 'dohodnuté, ešte sa to neodrobilo')}
       ${bar('Z odoslaných ponúk', p.pipeline, 'pf-maybe',
@@ -1083,20 +1567,19 @@ window.Danubra = {
     const b = x.book;
     if (!b.rows.length) {
       return `<div class="card card-pad">
-        <div class="card-head"><div class="card-title">Čo máme v objednávkach</div></div>
+        ${this._cardHead('briefcase', 'Čo máme v objednávkach', '', '', 'subcontracts')}
         <div style="color:var(--ink-mute);font-size:13px;">Žiadna bežiaca zákazka.</div>
       </div>`;
     }
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Čo máme v objednávkach</div>
-        <button class="btn btn-ghost btn-sm" onclick="Danubra.go('subcontracts')">Zákazky</button>
-      </div>
+      ${this._cardHead('briefcase', 'Čo máme v objednávkach',
+        this._cardPills('bookSort', [['remaining', 'podľa sumy'], ['days', 'podľa termínu']],
+          this.dashCard.bookSort), 'book', 'subcontracts')}
       <div class="big-number">${Money.format(b.remaining)}</div>
       <p class="big-note">zostáva odrobiť na ${b.sites} ${
         Shell.plural(b.sites, 'zákazke', 'zákazkách', 'zákazkách')} s ${b.people} ${
         Shell.plural(b.people, 'človekom', 'ľuďmi', 'ľuďmi')}.</p>
-      ${b.rows.slice(0, 5).map(r => `
+      ${this._bookRows(x).slice(0, 5).map(r => `
         <div class="list-row" style="cursor:default;">
           <span class="dot ${r.days ? 'green' : 'amber'}"></span>
           <span style="flex:1;min-width:0;">
@@ -1119,23 +1602,30 @@ window.Danubra = {
     const t = x.tied;
     if (!t.total) {
       return `<div class="card card-pad">
-        <div class="card-head"><div class="card-title">Viazne v nákladoch</div></div>
+        ${this._cardHead('bed', 'Viazne v nákladoch', '', '', 'costs')}
         <div style="color:var(--ink-mute);font-size:13px;">
           Nič nevisí — všetko refakturovateľné je už vrátené.</div>
       </div>`;
     }
     const CAT = { accommodation: 'Ubytovanie', travel: 'Cestovné', transport: 'Doprava' };
+    // Vlastný filter karty: ubytovanie býva väčšina sumy a občas treba vidieť
+    // len ten zvyšok. Obdobie prehľadu to nerieši — je to iná otázka.
+    const pick = this.dashCard.tiedCat;
+    const cats = t.byCategory.filter(c => !pick || c.category === pick);
+    const shownTotal = cats.reduce((s, c) => s + c.cents, 0);
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Viazne v nákladoch</div>
-        <button class="btn btn-ghost btn-sm" onclick="Danubra.go('costs')">Náklady</button>
-      </div>
-      <div class="big-number" style="color:var(--amber);">${Money.format(t.total)}</div>
-      <p class="big-note">naše peniaze v ${t.count} ${
-        Shell.plural(t.count, 'položke', 'položkách', 'položkách')}, ktoré sa majú vrátiť${
+      ${this._cardHead('bed', 'Viazne v nákladoch',
+        t.byCategory.length > 1 ? this._cardPills('tiedCat',
+          [['', 'všetko'], ...t.byCategory.map(c => [c.category, CAT[c.category] || c.category])],
+          pick) : '', 'tied', 'costs')}
+      <div class="big-number" style="color:var(--amber);">${Money.format(shownTotal)}</div>
+      <p class="big-note">${pick
+        ? `${UI.esc(CAT[pick] || pick)} z celkových ${Money.format(t.total)}`
+        : `naše peniaze v ${t.count} ${
+          Shell.plural(t.count, 'položke', 'položkách', 'položkách')}`}, ktoré sa majú vrátiť${
         x.siteName2 ? ` — zákazka ${UI.esc(x.siteName2)}` : ''}.
         Nie je to strata — ale teraz v cash-flow chýbajú.</p>
-      ${t.byCategory.map(c => `
+      ${cats.map(c => `
         <div class="list-row" style="cursor:default;">
           <span class="dot amber"></span>
           <span style="flex:1;">${UI.esc(CAT[c.category] || c.category)}</span>
@@ -1149,17 +1639,15 @@ window.Danubra = {
     const h = x.hiringNeed;
     if (!h.headcount) {
       return `<div class="card card-pad">
-        <div class="card-head"><div class="card-title">Koho treba zohnať</div></div>
+        ${this._cardHead('workers', 'Koho treba zohnať', '', '', 'hiring')}
         <div style="color:var(--ink-mute);font-size:13px;">
           Žiadny bežiaci nábor. ${x.candWaiting.length ? `${x.candWaiting.length} ${
             Shell.plural(x.candWaiting.length, 'kandidát čaká', 'kandidáti čakajú', 'kandidátov čaká')} na telefonát.` : ''}</div>
       </div>`;
     }
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Koho a kam treba zohnať</div>
-        ${h.urgent ? UI.badge(`${h.urgent} súrne`, 'red') : ''}
-      </div>
+      ${this._cardHead('workers', 'Koho a kam treba zohnať',
+        h.urgent ? UI.badge(`${h.urgent} súrne`, 'red') : '', 'hiring', 'hiring')}
       <div class="big-number">${h.headcount}</div>
       <p class="big-note">${Shell.plural(h.headcount, 'človek', 'ľudia', 'ľudí')} v ${h.plans} ${
         Shell.plural(h.plans, 'bežiacom nábore', 'bežiacich náboroch', 'bežiacich náboroch')}${
@@ -1180,7 +1668,7 @@ window.Danubra = {
   _dashAlertsHtml(alerts) {
     if (!alerts.length) {
       return `<div class="card card-pad">
-        <div class="card-head"><div class="card-title">Vyžaduje pozornosť</div></div>
+        ${this._cardHead('shield', 'Vyžaduje pozornosť')}
         <div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">
           Doklady platia, obdobia sú uzavreté, faktúry vybavené. Nič tu nevisí.
         </div></div>`;
@@ -1192,10 +1680,9 @@ window.Danubra = {
     const rest = alerts.slice(TOP);
 
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Vyžaduje pozornosť</div>
-        <span class="badge" style="background:var(--amber-50);color:var(--amber);">${alerts.length}</span>
-      </div>
+      ${this._cardHead('shield', 'Vyžaduje pozornosť',
+        `<span class="badge" style="background:var(--amber-50);color:var(--amber);">${alerts.length}</span>`,
+        'alerts')}
       ${head.map(r => `
         <div class="list-row" style="align-items:flex-start;cursor:default;">
           <span class="dot ${r.dot}" style="margin-top:6px;"></span>
@@ -1242,10 +1729,7 @@ window.Danubra = {
     const rest = DanubraTasks.counts(x.tasks, x.today).total - (6 - Math.max(left, 0));
 
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Čo treba spraviť</div>
-        <button class="btn btn-ghost btn-sm" onclick="Danubra.go('tasks')">Všetky úlohy</button>
-      </div>
+      ${this._cardHead('tasks', 'Čo treba spraviť', '', 'tasks', 'tasks')}
       ${shown.length ? shown.map(g => `
         <div class="form-section" style="margin-top:10px;">${UI.esc(g.label)}</div>
         ${g.tasks.map(t => `
@@ -1279,10 +1763,7 @@ window.Danubra = {
       : (s.warnings.length ? 'Vyjde to, ale tesne' : 'Na výplaty aj na ďalších ľudí to vyjde');
 
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Bude na výplaty?</div>
-        ${UI.badge(verdict, tone)}
-      </div>
+      ${this._cardHead('euro', 'Bude na výplaty?', UI.badge(verdict, tone), 'cash', 'bank')}
       <div class="kv" style="margin:0 0 10px;">
         <div><span>Na účte dnes</span><strong>${Money.format(f.startBalance)}</strong></div>
         <div><span>Najnižší bod (8 týždňov)</span><strong style="${f.lowest.balance < 0 ? 'color:var(--red);' : ''}">${
@@ -1305,11 +1786,10 @@ window.Danubra = {
   _dashMarginHtml(x) {
     const e = x.econ;
     return `<div class="card card-pad">
-      <div class="card-head">
-        <div class="card-title">Zarábame na tom?</div>
-        ${e.marginPct != null ? UI.badge(`marža ${UI.pct(e.marginPct)}`,
-          e.marginPct >= 15 ? 'green' : (e.marginPct >= 8 ? 'amber' : 'red')) : ''}
-      </div>
+      ${this._cardHead('receipt', 'Zarábame na tom?',
+        e.marginPct != null ? UI.badge(`marža ${UI.pct(e.marginPct)}`,
+          e.marginPct >= 15 ? 'green' : (e.marginPct >= 8 ? 'amber' : 'red')) : '',
+        'margin')}
       <div class="kv" style="margin:0;">
         <div><span>Vyfakturované odberateľom</span><strong>${Money.format(e.invoiced)}</strong></div>
         <div><span>Faktúry od živnostníkov</span><strong>−${Money.format(e.bills)}</strong></div>
@@ -1337,6 +1817,8 @@ window.Danubra = {
       if (this.area === 'accommodation') return this._dashAccommodation(view, datum);
 
       const x = await this._dashLoad();
+      // Export si dáta neťahá znova — vyváža presne to, čo je na obrazovke.
+      this._dashData = x;
 
       // Odznaky v navigácii sa napĺňajú tu — prehľad je jediná obrazovka,
       // ktorá vidí naraz na všetko.
@@ -1359,35 +1841,52 @@ window.Danubra = {
             Shell.plural(alerts.length, 'vec potrebuje', 'veci potrebujú', 'vecí potrebuje')} pozornosť.` }
         : head;
 
+      // Šesť čísel, na ktoré sa dá kliknúť. Ikona je tu preto, aby sa dlaždica
+      // našla očami skôr, než sa prečíta jej názov.
       const kpis = [
         ['Ľudia na stavbách', x.deployed,
           `${x.sites.length} ${Shell.plural(x.sites.length, 'zákazka', 'zákazky', 'zákaziek')}${
-            x.crewsOut ? ` · ${x.crewsOut} ${Shell.plural(x.crewsOut, 'partia', 'partie', 'partií')}` : ''}`, ''],
+            x.crewsOut ? ` · ${x.crewsOut} ${Shell.plural(x.crewsOut, 'partia', 'partie', 'partií')}` : ''}`,
+          '', 'workers', 'workers'],
         ['Nezúčtované hodiny', Math.round(x.hoursOpen),
-          x.hoursOpen ? 'čakajú na uzavretie obdobia' : 'všetko zúčtované', x.periodsDue.length ? 'warn' : ''],
+          x.hoursOpen ? 'čakajú na uzavretie obdobia' : 'všetko zúčtované',
+          x.periodsDue.length ? 'warn' : '', 'clock', 'timesheets'],
         ['Faktúry na schválenie', x.invApprove.length,
-          x.invApprove.length ? 'bez schválenia neodídu' : 'žiadne', x.invApprove.length ? 'warn' : ''],
+          x.invApprove.length ? 'bez schválenia neodídu' : 'žiadne',
+          x.invApprove.length ? 'warn' : '', 'invoices', 'invoices'],
         ['Po splatnosti', x.invOverdue.length,
-          x.invOverdue.length ? 'urgovať' : 'v poriadku', x.invOverdue.length ? 'warn' : 'up'],
+          x.invOverdue.length ? 'urgovať' : 'v poriadku',
+          x.invOverdue.length ? 'warn' : 'up', 'alert', 'invoices'],
         ['Doklady po platnosti', x.docsExpired.length,
           x.docsExpiring.length ? `${x.docsExpiring.length} sa blíži ku koncu` : 'všetko platí',
-          x.docsExpired.length ? 'warn' : 'up'],
+          x.docsExpired.length ? 'warn' : 'up', 'shield', 'compliance'],
         ['Treba dobrať ľudí', x.needPeople,
           `${x.plansActive} ${Shell.plural(x.plansActive, 'bežiaci nábor', 'bežiace nábory', 'bežiacich náborov')}`,
-          x.needPeople ? 'warn' : ''],
-      ];
+          x.needPeople ? 'warn' : '', 'zap', 'hiring'],
+      ].map(r => (this.routeAvailable(r[5]) ? r : [...r.slice(0, 5), null]));
 
       view.innerHTML =
         this.header('Prehľad', `${datum} · ${x.deployed} ${
           Shell.plural(x.deployed, 'človek na stavbách', 'ľudia na stavbách', 'ľudí na stavbách')}`) + `
+        <!-- Vidieť len na papieri. Bez toho by v PDF nebolo napísané, čoho
+             sa tie čísla týkajú, a o týždeň by to nikto nevedel. -->
+        <div class="print-head">
+          <strong>DANUBRA — Prehľad</strong>
+          <span>${UI.esc(DanubraPeriod.text(x.period))}${
+            x.siteName2 ? ` · zákazka ${UI.esc(x.siteName2)}` : ''} ·
+            vytlačené ${UI.esc(today)}</span>
+        </div>
         <div class="headline headline-${line.tone === 'bad' ? 'bad' : line.tone === 'warn' ? 'warn' : 'ok'}">
           ${Icon(line.tone === 'bad' ? 'alert' : line.tone === 'warn' ? 'clock' : 'check', 18)}
           <span>${UI.esc(line.text)}</span>
         </div>
         <div class="kpi-grid">
-          ${kpis.map(([l, v, d, k]) => `
-            <div class="kpi">
-              <div class="kpi-label">${l}</div>
+          ${kpis.map(([l, v, d, k, ico, go]) => `
+            <div class="kpi${go ? ' kpi-go' : ''}"${go
+              ? ` onclick="Danubra.go('${go}')" role="button" tabindex="0"
+                  onkeydown="if(event.key==='Enter')Danubra.go('${go}')"
+                  title="Otvoriť ${UI.esc(this.labelOf(go))}"` : ''}>
+              <div class="kpi-label">${ico ? Icon(ico, 13) : ''}${l}</div>
               <div class="kpi-value">${v}</div>
               <div class="kpi-delta ${k}">${d}</div>
             </div>`).join('')}
@@ -1406,7 +1905,9 @@ window.Danubra = {
         </div>
 
         <div class="form-section">Práca a ľudia</div>
-        <div class="profile-cols">
+        <!-- Dve karty, nie šesť: mriežka, nie stĺpcová sadzba. Tá pri dvoch
+             blokoch obe zloží pod seba a pol obrazovky zostane prázdnej. -->
+        <div class="panels">
           ${this._dashOrderBookCard(x)}
           ${this._dashHiringCard(x)}
         </div>
@@ -1415,8 +1916,8 @@ window.Danubra = {
         <div class="panels">
           ${this._dashTasksHtml(x)}
           ${this._dashAlertsHtml(alerts)}
-          <div class="card card-pad">
-            <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
+          <div class="card card-pad no-print">
+            ${this._cardHead('zap', 'Rýchle akcie')}
             <div style="display:flex;flex-direction:column;gap:8px;">
               <button class="btn btn-primary" style="justify-content:flex-start;" onclick="Guide.startCall()">${Icon('phone')} Zdvihol som telefón</button>
               <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('timesheets')">${Icon('clock')} Zapísať hodiny</button>
