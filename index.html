@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>DANUBRA</title>
+
+  <!-- ==========================================================================
+       Koreňová stránka — jediná úloha: pustiť človeka do /danubra/.
+
+       Presmerovanie je v `netlify.toml` (302) a je rýchlejšie, lebo sa vybaví
+       na hrane siete a stránka sa vôbec nestiahne. Lenže **spoľahnúť sa naň
+       nedá**: Netlify raz deploy spracoval bez presmerovaní (deploy
+       6ab55359, hlásenie „No redirect rules processed", hoci `netlify.toml`
+       sa medzi commitmi vôbec nezmenil) a koreň spadol na Internal Server
+       Error. Appka pritom bola nasadená a v poriadku — len sa k nej nedalo
+       dostať.
+
+       Tento súbor je poistka. Keď presmerovanie funguje, sem sa vôbec
+       nedôjde. Keď nefunguje, prehliadač sa dostane do appky aj tak.
+
+       Tri vrstvy zámerne, každá pre iný spôsob zlyhania:
+         1. `meta refresh` — funguje aj bez JavaScriptu,
+         2. skript — presmeruje okamžite, bez čakania na refresh,
+         3. viditeľný odkaz — keď zlyhá oboje, človek aspoň vidí, kam ísť,
+            namiesto bielej plochy alebo hlášky zo servera.
+       ========================================================================== -->
+  <meta http-equiv="refresh" content="0; url=./danubra/">
+  <link rel="canonical" href="./danubra/">
+
+  <style>
+    body {
+      margin: 0; min-height: 100dvh; display: flex; align-items: center;
+      justify-content: center; background: #0A1B3D; color: #fff; padding: 24px;
+      font-family: Archivo, system-ui, -apple-system, sans-serif; text-align: center;
+    }
+    a { color: #F07E22; font-weight: 700; }
+    p { color: #B7C3DC; font-size: 14px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div>
+    <h1 style="margin:0 0 6px;font-size:22px;letter-spacing:-.03em;">DANUBRA</h1>
+    <p>Presmerúvam do aplikácie…<br>
+       Ak sa nič nedeje, <a href="./danubra/">pokračuj sem</a>.</p>
+  </div>
+  <script>
+    // `replace`, nie `href` — inak by tlačidlo Späť vrátilo človeka sem
+    // a rovno ho to presmerovalo znova.
+    location.replace('./danubra/');
+  </script>
+</body>
+</html>

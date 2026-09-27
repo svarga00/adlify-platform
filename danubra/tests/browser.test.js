@@ -159,6 +159,37 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Koreň musí fungovať aj bez presmerovaní od Netlify ───────────────
+    // Presmerovanie z `netlify.toml` je rýchlejšie, lebo sa vybaví na hrane
+    // siete. Spoľahnúť sa naň ale nedá: Netlify raz deploy spracoval bez
+    // presmerovaní (hlásenie „No redirect rules processed", hoci sa
+    // `netlify.toml` medzi commitmi nezmenil) a koreň spadol na Internal
+    // Server Error — appka bola nasadená a v poriadku, len sa k nej nedalo
+    // dostať.
+    //
+    // Preto sa tu servíruje **bez** presmerovaní a koreň musí človeka do
+    // appky pustiť aj tak, cez statický `index.html` v koreni repozitára.
+    {
+      const bare = await serve([]);                 // žiadne presmerovania
+      const bareUrl = `http://127.0.0.1:${bare.port}`;
+      const page = await browser.newPage();
+      const notFound = [];
+      page.on('response', r => { if (r.status() === 404) notFound.push(r.url()); });
+
+      await page.goto(bareUrl + '/', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1500);
+      const text = (await page.evaluate(() => (document.body.innerText || '').trim()));
+      const where = page.url();
+
+      ok(/\/danubra\/?$/.test(where), 'koreň pustí do appky aj bez presmerovaní',
+        `skončil som na ${where.replace(bareUrl, '') || '/'}`);
+      ok(text.includes('Prihlásiť sa'), 'a naozaj sa zobrazí prihlásenie',
+        notFound.length ? `404: ${notFound.slice(0, 3).map(u => u.replace(bareUrl, '')).join(', ')}` : text.slice(0, 80));
+
+      await page.close();
+      bare.server.close();
+    }
+
     // ── Zlyhaný dotaz sa nesmie tváriť ako prázdna tabuľka ────────────────
     // „Žiadni pracovníci" a „nepodarilo sa spojiť s databázou" sú dve úplne
     // rôzne správy. Keby appka ukázala prvú namiesto druhej, človek by sa
