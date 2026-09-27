@@ -758,13 +758,34 @@ window.Danubra = {
     const timesheets = S(tsAll);
     const allCosts = S(costs);
 
-    const receivable = DanubraOutlook.receivable(invoices, d);
-    const unbilled = DanubraOutlook.unbilled({ subcontracts, assignments, timesheets });
-    const tied = DanubraOutlook.tied(allCosts);
-    const book = DanubraOutlook.orderBook({ today: d, subcontracts, assignments });
-    const hiringNeed = DanubraOutlook.hiring({ today: d, subcontracts, plans: S(plans) });
+    // ── Filter ────────────────────────────────────────────────────────────
+    // Obdobie sa uplatní na to, čo sa **stalo** (hodiny, faktúry, náklady).
+    // Na to, ako to vyzerá **teraz** (čakáme na účet, viazne, treba dobrať),
+    // obdobie nesadá — to nie je vec mesiaca, ale stavu.
+    const periodRange = DanubraPeriod.range(this.dashFilter.period, d);
+    const siteId = this.dashFilter.site || null;
+    const onSite = (row, field = 'subcontract_id') => !siteId || row[field] === siteId;
+
+    const asgIds = new Set(assignments.filter(a => onSite(a)).map(a => a.id));
+    const tsFiltered = DanubraPeriod.filter(
+      timesheets.filter(t => !siteId || asgIds.has(t.assignment_id)), periodRange, 'work_date');
+    const invFiltered = invoices.filter(onSite);
+    const billsFiltered = billsAll.filter(onSite);
+    const costsFiltered = allCosts.filter(onSite);
+    const subsFiltered = siteId ? subcontracts.filter(s => s.id === siteId) : subcontracts;
+
+    const receivable = DanubraOutlook.receivable(invFiltered, d);
+    const unbilled = DanubraOutlook.unbilled({
+      subcontracts, assignments, timesheets: tsFiltered });
+    const tied = DanubraOutlook.tied(costsFiltered);
+    const book = DanubraOutlook.orderBook({
+      today: d, subcontracts: subsFiltered, assignments });
+    const hiringNeed = DanubraOutlook.hiring({
+      today: d, subcontracts,
+      plans: S(plans).filter(p => !siteId || p.subcontract_id === siteId) });
     const profit = DanubraOutlook.expectedProfit({
-      subcontracts, assignments, orderBook: book, unbilled, quotes: S(quotesAll),
+      subcontracts: subsFiltered, assignments, orderBook: book, unbilled,
+      quotes: S(quotesAll),
     });
     const balanceNow = Money.sum(S(tx).map(t => Money.toCents(t.amount)));
 
@@ -777,6 +798,11 @@ window.Danubra = {
       balanceNow,
       receivable, unbilled, tied, book, hiringNeed, profit,
       quotes: S(quotesAll),
+      period: periodRange,
+      siteId,
+      siteName2: siteId ? (subcontracts.find(x => x.id === siteId) || {}).title : null,
+      invoicesFiltered: invFiltered,
+      billsFiltered, costsFiltered,
       demoRows: S(demo).length,
       sites,
       deployed: sites.reduce((s, x) => s + Number(x.active_assignments || 0), 0),
@@ -795,7 +821,13 @@ window.Danubra = {
       needPeople: activePlans.reduce((s, p) => s + (p.headcount || 0), 0),
       forecast: f,
       scale: DanubraBank.scaleCheck(f, window.Cfg ? Cfg.j('staffing') : {}),
-      econ: DanubraBills.economics({ invoices, bills: billsAll, costs: S(costs) }),
+      // Ekonomika už rešpektuje filter — „za celý čas" je len jedna z volieb,
+      // nie jediná pravda.
+      econ: DanubraBills.economics({
+        invoices: DanubraPeriod.filter(invFiltered, periodRange, 'issue_date'),
+        bills: DanubraPeriod.filter(billsFiltered, periodRange, 'issue_date'),
+        costs: DanubraPeriod.filter(costsFiltered, periodRange, 'cost_date'),
+      }),
     };
   },
 
@@ -906,6 +938,37 @@ window.Danubra = {
   dashWeeks: 4,
   setDashWeeks(n) { this.dashWeeks = Number(n) || 4; this.renderRoute(); },
 
+  // Filter prehľadu. „Zarábame na tom?" bez obdobia je otázka bez odpovede —
+  // za celý čas to vyzerá inak než za tento mesiac a rozhodnutie sa robí
+  // podľa toho druhého.
+  dashFilter: { period: 'month', site: '' },
+  setDashFilter(key, value) {
+    this.dashFilter = { ...this.dashFilter, [key]: value };
+    this.renderRoute();
+  },
+
+  /** Pruh s filtrami. Jeden riadok nad číslami, nie schovaný v nastaveniach. */
+  _dashFilterBar(x) {
+    const f = this.dashFilter;
+    const sites = x.subcontracts.filter(s => s.status === 'active');
+    return `<div class="filterbar" style="margin:0 0 12px;">
+      <div class="pillbar">
+        ${DanubraPeriod.OPTIONS.map(([k, label]) => `
+          <button class="pill${f.period === k ? ' active' : ''}"
+            onclick="Danubra.setDashFilter('period','${k}')">${label}</button>`).join('')}
+      </div>
+      ${sites.length > 1 ? `<select onchange="Danubra.setDashFilter('site',this.value)"
+        aria-label="Zákazka">
+        <option value="">Všetky zákazky</option>
+        ${sites.map(s => `<option value="${s.id}" ${f.site === s.id ? 'selected' : ''}>
+          ${UI.esc(s.title)}</option>`).join('')}
+      </select>` : ''}
+      ${f.period !== 'month' || f.site ? `<button class="btn btn-ghost btn-sm"
+        onclick="Danubra.setDashFilter('period','month');Danubra.setDashFilter('site','')">
+        Zrušiť filtre</button>` : ''}
+    </div>`;
+  },
+
   /** „Čakáme na účet" — a hneď aj to, koľko z toho reálne príde. */
   _dashMoneyCard(x) {
     const r = x.receivable;
@@ -927,8 +990,8 @@ window.Danubra = {
         <div><span>Odrobené, nevyfakturované</span><strong>${Money.format(u.charge)}</strong></div>
       </div>
       ${u.hours ? `<p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-mute);">
-        ${String(u.hours).replace('.', ',')} h čaká na uzavretie obdobia. Termín to nemá —
-        do týždenného výhľadu sa to preto neráta.</p>` : ''}
+        ${String(u.hours).replace('.', ',')} h ${UI.esc(DanubraPeriod.text(x.period))} čaká na
+        uzavretie obdobia. Termín to nemá — do týždenného výhľadu sa to preto neráta.</p>` : ''}
     </div>`;
   },
 
@@ -962,6 +1025,14 @@ window.Danubra = {
       ${w.overdue.in || w.overdue.out ? `<p class="big-note" style="margin:0 0 8px;">
         Po splatnosti ${Money.format(w.overdue.in + w.overdue.out)} sa počíta hneď —
         sú to peniaze, ktoré mali prísť dávno, nie budúcnosť.</p>` : ''}
+      ${DanubraChart.diverging({
+        rows: w.weeks.map(b => ({
+          label: `${b.week}. t`, sub: UI.date(b.from),
+          in: b.in, out: b.out,
+        })),
+        height: 170, labelIn: 'Príde', labelOut: 'Odíde',
+        aria: `Príjmy a výdaje na ${n} ${Shell.plural(n, 'týždeň', 'týždne', 'týždňov')}`,
+      })}
       <div class="wk-table">
         <div class="wk-row wk-head">
           <div>Kedy</div><div>Príde</div><div>Odíde</div><div>Rozdiel</div><div>Zostatok</div>
@@ -1061,7 +1132,8 @@ window.Danubra = {
       </div>
       <div class="big-number" style="color:var(--amber);">${Money.format(t.total)}</div>
       <p class="big-note">naše peniaze v ${t.count} ${
-        Shell.plural(t.count, 'položke', 'položkách', 'položkách')}, ktoré sa majú vrátiť.
+        Shell.plural(t.count, 'položke', 'položkách', 'položkách')}, ktoré sa majú vrátiť${
+        x.siteName2 ? ` — zákazka ${UI.esc(x.siteName2)}` : ''}.
         Nie je to strata — ale teraz v cash-flow chýbajú.</p>
       ${t.byCategory.map(c => `
         <div class="list-row" style="cursor:default;">
@@ -1246,7 +1318,8 @@ window.Danubra = {
           Money.format(e.margin)}</strong></div>
       </div>
       <p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-mute);">
-        Za celé obdobie. Sporné prijaté faktúry sa sem nerátajú${
+        Za ${UI.esc(DanubraPeriod.text(x.period))}${x.siteName2 ? `, zákazka ${UI.esc(x.siteName2)}` : ''}.
+        Sporné prijaté faktúry sa sem nerátajú${
           x.billsDisputed.length ? ` (${x.billsDisputed.length} ${
             Shell.plural(x.billsDisputed.length, 'je sporná', 'sú sporné', 'je sporných')})` : ''}.
         ${e.withheld ? `Zrážka §48b ${Money.format(e.withheld)} je vo fakturovanom, na účet nepríde.` : ''}
@@ -1320,6 +1393,7 @@ window.Danubra = {
             </div>`).join('')}
         </div>
         ${this._demoBanner(x)}
+        ${this._dashFilterBar(x)}
 
         <div class="form-section">Peniaze</div>
         <div class="profile-cols">

@@ -1477,3 +1477,26 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 
 /* Hlavička s avatarom (profil človeka). Bez avatara sa nič nemení. */
 .page-title-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* ── Grafy ────────────────────────────────────────────────────────────────
+   Kreslené ručne do SVG, bez knižnice. Mriežka je vlas, os je šedá, farbu
+   nesú len samotné stĺpce — text nikdy. */
+.chart { margin: 4px 0 2px; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart rect { transition: opacity .12s; }
+.chart:hover rect { opacity: .55; }
+.chart rect:hover { opacity: 1; }
+.chart-empty {
+  padding: 26px 12px; text-align: center; color: var(--ink-mute);
+  font-size: 12.5px; background: var(--field); border-radius: var(--radius-sm);
+}
+/* Legenda je pri dvoch a viacerých sériách vždy — farba nesmie byť jediný
+   spôsob, ako sa dá séria rozoznať. */
+.chart-legend {
+  display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+  margin-top: 6px; font-size: 11.5px; color: var(--ink-sub);
+}
+.chart-legend i {
+  width: 9px; height: 9px; border-radius: 2px; display: inline-block;
+  margin-right: 5px; vertical-align: 0;
+}
