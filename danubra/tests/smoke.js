@@ -511,6 +511,17 @@ t('každá agenda z prepínača má význam v navigácii',
 //
 // Preto sa prehľad vykreslí naozaj, na vymyslených dátach, a skontroluje sa,
 // čo v ňom je a čo v ňom už nemá byť.
+// Stub databázy. `select` sa tu zámerne nekontroluje — fixtúry sú chudobné
+// a hlásilo by to hlavne ne-chyby. Názvy stĺpcov stráži schema.test.js proti
+// skutočným migráciám.
+function stubDb(FIX, onAsk) {
+  const list = async (table) => {
+    if (onAsk) onAsk(table);
+    return { data: FIX[table] || [] };
+  };
+  return { list };
+}
+
 async function dashboardCheck() {
   if (!D) return;
   const FIX = {
@@ -550,7 +561,8 @@ async function dashboardCheck() {
   };
   const asked = [];
   const origList = sandbox.DB.list;
-  sandbox.DB.list = async (table) => { asked.push(table); return { data: FIX[table] || [] }; };
+  const stub = stubDb(FIX, (t) => asked.push(t));
+  sandbox.DB.list = stub.list;
   if (sandbox.Cfg) sandbox.Cfg.loaded = true;
 
   const view = el();
@@ -733,7 +745,8 @@ async function profileCheck() {
     overrides: [],
   };
   const origList = sandbox.DB.list;
-  sandbox.DB.list = async (table) => ({ data: FIX[table] || [] });
+  const stub = stubDb(FIX);
+  sandbox.DB.list = stub.list;
   if (sandbox.Cfg) sandbox.Cfg.loaded = true;
 
   const view = el();

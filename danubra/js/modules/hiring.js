@@ -32,7 +32,7 @@
         DB.list('trades', { order: { column: 'sort_order', ascending: true }, limit: 100 }),
         DB.list('screening_questions', { order: { column: 'sort_order', ascending: true }, limit: 500 }),
         DB.list('candidates', { select: 'id,full_name,plan_id,status,screening_score,screening_verdict', limit: 500 }),
-        DB.list('subcontracts', { select: 'id,title,city,number', limit: 200 }),
+        DB.list('subcontracts', { select: 'id,title,site_city,contract_number', limit: 200 }),
       ]);
       this.plans = p.data || []; this.trades = t.data || []; this.questions = q.data || [];
       this.candidates = c.data || []; this.subcontracts = s.data || [];
@@ -214,7 +214,7 @@
           <div class="form-grid">
             ${UI.field('subcontract_id', 'Na ktorú zákazku', { value: p.subcontract_id || '',
               options: [['', '— zatiaľ do zásoby —'], ...this.subcontracts.map(s =>
-                [s.id, `${s.number ? s.number + ' · ' : ''}${s.title}${s.city ? ' · ' + s.city : ''}`])] })}
+                [s.id, `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`])] })}
             ${UI.field('city', 'Mesto', { value: p.city, required: true, placeholder: 'München' })}
             ${UI.field('country', 'Krajina', { value: p.country || 'DE', options: [['DE', 'Nemecko'], ['AT', 'Rakúsko'], ['SK', 'Slovensko']] })}
             ${UI.field('start_date', 'Nástup', { type: 'date', value: p.start_date })}

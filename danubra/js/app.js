@@ -691,7 +691,8 @@ window.Danubra = {
         select: 'id,amount,cost_date,category,subcontract_id,rebillable,rebilled_invoice_id',
         limit: 1000 }),
       DB.list('v_worker_documents', {
-        select: 'id,worker_id,worker_name,doc_type,validity,days_left,valid_to', limit: 1000,
+        // `kind`, nie `doc_type` — pohľad preberá stĺpce z danubra_worker_documents.
+        select: 'id,worker_id,worker_name,kind,validity,days_left,valid_to', limit: 1000,
       }),
       DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
       DB.list('recruitment_plans', {
@@ -710,8 +711,10 @@ window.Danubra = {
         select: 'id,worker_id,subcontract_id,status,charge_rate,worker_rate', limit: 1000 }),
       DB.list('timesheets', {
         select: 'id,assignment_id,worker_id,hours,work_date,period_id,rate_used', limit: 5000 }),
+      // Ponuka nemá stĺpec `total` — suma sa ráta zo sadzby a hodín.
       DB.list('v_quote_margin', {
-        select: 'id,status,total,margin_per_month,partner_name,valid_until', limit: 200 }),
+        select: 'id,status,charge_rate,hours_per_month,headcount,margin_per_month,partner_name,valid_until',
+        limit: 200 }),
       DB.list('demo_ledger', { select: 'seq', limit: 1000 }),
     ]);
     if (window.Cfg && !Cfg.loaded) { try { await Cfg.load(); } catch {} }

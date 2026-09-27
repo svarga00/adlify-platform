@@ -38,7 +38,7 @@
         DB.list('invoice_items', { limit: 3000 }),
         DB.list('clients', { select: 'id,name,country,vat_id,company_id,contact_person,phone,email,whatsapp', limit: 500 }),
         DB.list('orders', { select: 'id,order_number,client_id,service_fee,urgent_surcharge,date_from,date_to,persons,ongoing_service_enabled,ongoing_service_rate,status', limit: 500 }),
-        DB.list('partners', { select: 'id,name,city,country,ust_id', limit: 300 }),
+        DB.list('partners', { select: 'id,name,city,country,ust_idnr', limit: 300 }),
       ]);
       this.items = i.data || []; this.lines = l.data || [];
       this.clients = c.data || []; this.orders = o.data || [];
