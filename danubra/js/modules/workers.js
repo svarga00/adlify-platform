@@ -24,7 +24,8 @@
   const SKILL = [['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']];
 
   const Wrk = {
-    items: [], docs: [], overrides: [], crews: [], assignments: [], subs: [], loaded: false,
+    items: [], docs: [], overrides: [], crews: [], assignments: [], subs: [],
+    photos: new Map(), loaded: false,
     filters: { status: '', profession: '', q: '' },
 
     // Ktorý profil je otvorený. Profil je **obrazovka**, nie modálne okno:
@@ -52,6 +53,10 @@
       this.items = w.data || []; this.docs = d.data || [];
       this.overrides = o.data || [];
       this.crews = c.data || []; this.assignments = a.data || []; this.subs = s.data || [];
+      // Fotky sú v privátnom úložisku, takže potrebujú podpísaný odkaz.
+      // Podpisujú sa naraz — dvadsať samostatných volaní by nabiehalo
+      // jedno po druhom.
+      this.photos = await DB.signedDocUrls(this.items.map(x => x.photo_path));
       this.loaded = true;
     },
 
@@ -86,14 +91,61 @@
       return null;
     },
 
+    photoUrl(w) { return (w && w.photo_path && this.photos.get(w.photo_path)) || null; },
+
     avatar(w, size) {
       const f = this.avatarFlag(w);
       const px = size || 40;
-      return `<span class="w-avatar" style="background:${this.avatarColor(w)};
+      const url = this.photoUrl(w);
+      // Keď sa fotka nenačíta (vypršaný odkaz, výpadok), `onerror` ju skryje
+      // a zostanú iniciály — nikdy prázdny štvorec.
+      const img = url
+        ? `<img src="${UI.esc(url)}" alt="" loading="lazy"
+             onerror="this.remove()">`
+        : '';
+      return `<span class="w-avatar${url ? ' has-photo' : ''}"
+        style="background:${this.avatarColor(w)};
         width:${px}px;height:${px}px;font-size:${Math.round(px * 0.35)}px;">
-        ${UI.esc(this.initials(w.full_name))}
+        ${UI.esc(this.initials(w.full_name))}${img}
         ${f ? `<span class="w-flag ${f.kind}">${Icon(f.icon, 9)}</span>` : ''}
       </span>`;
+    },
+
+    // ── Fotka ─────────────────────────────────────────────────────────────
+    async uploadPhoto(workerId, input) {
+      const file = input && input.files && input.files[0];
+      if (!file) return;
+      if (!/^image\//.test(file.type)) return UI.toast('Vyber obrázok.', 'err');
+      if (file.size > 8 * 1024 * 1024) {
+        return UI.toast('Fotka má viac než 8 MB — stačí menšia.', 'err');
+      }
+      UI.toast('Nahrávam…');
+      const { path, error } = await DB.uploadDoc(file, { folder: 'photo', entityId: workerId });
+      if (error) return UI.toast('Nahrávanie zlyhalo: ' + error.message, 'err');
+
+      const { error: e2 } = await DB.update('workers', workerId, { photo_path: path });
+      if (e2) {
+        await DB.removeDoc(path).catch(() => {});
+        return UI.toast('Fotku sa nepodarilo priradiť: ' + e2.message, 'err');
+      }
+      const w = this.items.find(x => x.id === workerId);
+      if (w) w.photo_path = path;
+      this.photos = await DB.signedDocUrls(this.items.map(x => x.photo_path));
+      UI.toast('Fotka nahratá', 'ok');
+      Danubra.renderRoute();
+    },
+
+    async removePhoto(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w || !w.photo_path) return;
+      if (!confirm('Odobrať fotku?')) return;
+      const old = w.photo_path;
+      const { error } = await DB.update('workers', workerId, { photo_path: null });
+      if (error) return UI.toast(error.message, 'err');
+      w.photo_path = null;
+      await DB.removeDoc(old).catch(() => {});
+      UI.toast('Fotka odobratá', 'ok');
+      Danubra.renderRoute();
     },
 
     /** Partia, v ktorej človek je teraz. `crew_id` drží trigger v databáze. */
@@ -578,8 +630,20 @@
         ['Dostupný od', w.available_from ? UI.date(w.available_from) : null],
         ['Zdroj', w.source],
       ].filter(r => r[1] != null && r[1] !== '');
+      const hasPhoto = !!this.photoUrl(w);
       return `<div class="card card-pad">
-        <div class="card-head"><div class="card-title">O človeku</div></div>
+        <div class="card-head">
+          <div class="card-title">O človeku</div>
+          <span class="link-row">
+            <label class="link-chip" style="cursor:pointer;">
+              ${Icon(hasPhoto ? 'edit' : 'plus', 13)}<span>${hasPhoto ? 'Zmeniť fotku' : 'Pridať fotku'}</span>
+              <input type="file" hidden accept="image/*"
+                onchange="Wrk.uploadPhoto('${w.id}', this)">
+            </label>
+            ${hasPhoto ? `<button class="link-chip" onclick="Wrk.removePhoto('${w.id}')">
+              ${Icon('x', 13)}<span>Odobrať</span></button>` : ''}
+          </span>
+        </div>
         <div class="kv" style="margin:0;">${rows.map(r =>
           `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${(w.skills || []).length ? `<div class="chips">${w.skills.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}

@@ -139,6 +139,25 @@
       return client.storage.from(this.DOCS_BUCKET).remove([path]);
     },
 
+    /**
+     * Podpíše viac ciest naraz. Pri zozname dvadsiatich ľudí by dvadsať
+     * samostatných volaní bolo dvadsať kôl po sieti — a fotky by nabiehali
+     * jedna po druhej.
+     * @returns {Map<string,string>} cesta → podpísaná URL
+     */
+    async signedDocUrls(paths, seconds = 600) {
+      const want = [...new Set((paths || []).filter(Boolean))];
+      if (!want.length) return new Map();
+      const { data, error } = await client.storage.from(this.DOCS_BUCKET)
+        .createSignedUrls(want, seconds);
+      if (error) { this._note('storage', error); return new Map(); }
+      const out = new Map();
+      for (const row of (data || [])) {
+        if (row && row.path && row.signedUrl) out.set(row.path, row.signedUrl);
+      }
+      return out;
+    },
+
     async count(table, filters = {}) {
       let q = client.from(t(table)).select('id', { count: 'exact', head: true });
       for (const [k, v] of Object.entries(filters)) if (v != null) q = q.eq(k, v);

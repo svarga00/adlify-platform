@@ -9,7 +9,7 @@
   const RATING = [['a', 'A — platí spoľahlivo', 'green'], ['b', 'B — priemer', 'amber'], ['c', 'C — problémový', 'red']];
 
   const Prt = {
-    items: [], subcontracts: [], invoices: [], loaded: false,
+    items: [], subcontracts: [], invoices: [], logos: new Map(), loaded: false,
     filters: { q: '', is_construction: '' },
 
     async load() {
@@ -19,6 +19,8 @@
         DB.list('invoices', { select: 'id,partner_id,client_id,total,status,issue_date,due_date,paid_at,type', limit: 1000 }),
       ]);
       this.items = p.data || []; this.subcontracts = s.data || []; this.invoices = i.data || [];
+      // Ručne nahraté logo má prednosť pred faviconom z webu.
+      this.logos = await DB.signedDocUrls(this.items.map(x => x.logo_path));
       this.loaded = true;
     },
 
@@ -64,14 +66,55 @@
           : `<div class="cards">${rows.map(p => this.card(p)).join('')}</div>`}`;
     },
 
+    // ── Logo firmy ────────────────────────────────────────────────────────
+    // Ťahá sa z **jej vlastného webu**, nie z cudzej služby: príliš veľa
+    // takých služieb raz prestane fungovať alebo si začne pýtať kľúč,
+    // a zbytočne by vedeli, ktoré firmy si pozeráme.
+    //
+    // Keď sa favicon nenačíta, `onerror` obrázok odstráni a zostanú
+    // iniciály. Nikdy prázdny štvorec.
+    domainOf(p) {
+      const raw = String((p && p.website) || '').trim();
+      if (!raw) return null;
+      try {
+        const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+        return u.hostname.replace(/^www\./i, '') || null;
+      } catch { return null; }
+    },
+
+    logoUrl(p) {
+      if (p && p.logo_path && this.logos.get(p.logo_path)) return this.logos.get(p.logo_path);
+      const d = this.domainOf(p);
+      return d ? `https://${d}/favicon.ico` : null;
+    },
+
+    initials(name) {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return '?';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    },
+
+    logo(p, size) {
+      const url = this.logoUrl(p);
+      const px = size || 36;
+      return `<span class="p-logo" style="width:${px}px;height:${px}px;">
+        ${UI.esc(this.initials(p.name))}
+        ${url ? `<img src="${UI.esc(url)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+      </span>`;
+    },
+
     card(p) {
       const subs = this.subsOf(p.id);
       return `
         <div class="acc-card card" onclick="Prt.detail('${p.id}')">
           <div class="acc-card-head">
-            <div>
-              <div class="acc-name">${UI.esc(p.name)}</div>
-              <div class="acc-loc">${UI.esc(p.city || '')}${p.country ? `, ${p.country}` : ''}${p.contact_person ? ` · ${UI.esc(p.contact_person)}` : ''}</div>
+            <div class="w-head" style="min-width:0;">
+              ${this.logo(p)}
+              <div style="min-width:0;">
+                <div class="acc-name">${UI.esc(p.name)}</div>
+                <div class="acc-loc">${UI.esc(p.city || '')}${p.country ? `, ${p.country}` : ''}${p.contact_person ? ` · ${UI.esc(p.contact_person)}` : ''}</div>
+              </div>
             </div>
             ${this.ratingBadge(p.rating) || UI.badge(p.is_construction ? 'Stavba' : 'Dielňa', p.is_construction ? 'amber' : 'blue')}
           </div>
@@ -171,6 +214,8 @@
             ${UI.field('phone', 'Telefón', { value: p.phone })}
             ${UI.field('email', 'E-mail', { type: 'email', value: p.email })}
             ${UI.field('city', 'Mesto', { value: p.city })}
+            ${UI.field('website', 'Web', { value: p.website,
+              placeholder: 'vogel-bau.de' })}
             ${UI.field('address', 'Adresa', { value: p.address })}
             ${UI.field('postal_code', 'PSČ', { value: p.postal_code })}
             ${UI.field('country', 'Krajina', { value: p.country || 'DE' })}

@@ -1500,3 +1500,22 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   width: 9px; height: 9px; border-radius: 2px; display: inline-block;
   margin-right: 5px; vertical-align: 0;
 }
+
+/* Fotka v krúžku. Keď sa nenačíta, `onerror` ju odstráni a zostanú
+   iniciály — nikdy prázdny štvorec. */
+.w-avatar { overflow: hidden; }
+.w-avatar img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; border-radius: inherit;
+}
+.w-avatar .w-flag { z-index: 1; }
+
+/* Logo firmy. Ťahá sa z jej vlastného webu; keď tam nie je, zostanú
+   iniciály. Biele pozadie preto, lebo logá bývajú na bielom. */
+.p-logo {
+  width: 36px; height: 36px; border-radius: 9px; flex: none; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; position: relative;
+  background: #fff; border: 1px solid var(--border);
+  font-size: 12px; font-weight: 800; color: var(--ink-sub);
+}
+.p-logo img { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); object-fit: contain; }

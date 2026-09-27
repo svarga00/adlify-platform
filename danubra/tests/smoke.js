@@ -35,6 +35,9 @@ const sandbox = {
   addEventListener() {}, removeEventListener() {},
   prompt() { return null; }, confirm() { return true; },
   setTimeout() {}, clearTimeout() {}, console, TextEncoder,
+  // Prehliadač ich má; bez nich by test tvrdil, že kód nefunguje, hoci
+  // v prevádzke funguje. Sandbox má zodpovedať prehliadaču, nie naopak.
+  URL, URLSearchParams,
   supabase: {
     createClient() {
       return {
@@ -812,6 +815,42 @@ t('mazanie ide cez databázovú funkciu, nie cez mazanie tabuliek',
   D && /demo_purge/.test(String(D.purgeDemo))
   && !/DB\.remove/.test(String(D.purgeDemo)));
 t('a pýta si potvrdenie', D && /VYMAZAŤ/.test(String(D.purgeDemo)));
+
+// ── Fotky a logá ───────────────────────────────────────────────────────────
+// Zoznam mien sa číta, zoznam tvárí sa pozerá. Ale keď sa obrázok nenačíta,
+// nesmie zostať prázdny štvorec — vtedy majú byť vidieť iniciály.
+if (sandbox.Wrk && sandbox.Prt) {
+  const W = sandbox.Wrk, P = sandbox.Prt;
+
+  t('bez fotky sú v krúžku iniciály',
+    /JN/.test(W.avatar({ id: 'w1', full_name: 'Ján Novák' })));
+  t('a obrázok sa vtedy nevykreslí vôbec',
+    !/<img/.test(W.avatar({ id: 'w1', full_name: 'Ján Novák' })));
+  {
+    W.photos = new Map([['photo/w1/x.jpg', 'https://example/signed']]);
+    const html = W.avatar({ id: 'w1', full_name: 'Ján Novák', photo_path: 'photo/w1/x.jpg' });
+    t('s fotkou sa vykreslí obrázok', /<img[^>]+https:\/\/example\/signed/.test(html));
+    t('iniciály pod ním zostanú ako záloha', /JN/.test(html));
+    t('a keď sa fotka nenačíta, obrázok sa odstráni', /onerror="this\.remove\(\)"/.test(html));
+    W.photos = new Map();
+  }
+  // Farba krúžku sa odvodzuje z človeka, nie náhodne — inak by si na ňu oko
+  // nemalo ako zvyknúť.
+  t('farba krúžku je pri tom istom človeku vždy rovnaká',
+    W.avatarColor({ id: 'w1' }) === W.avatarColor({ id: 'w1' })
+    && W.avatarColor({ id: 'w1' }) !== W.avatarColor({ id: 'w2' }));
+
+  // Logo sa ťahá z webu firmy, nie z cudzej služby.
+  t('doména sa vytiahne z holej adresy', P.domainOf({ website: 'vogel-bau.de' }) === 'vogel-bau.de');
+  t('aj z plnej adresy s cestou',
+    P.domainOf({ website: 'https://www.hartmann-bau.de/kontakt' }) === 'hartmann-bau.de');
+  t('bez webu niet domény', P.domainOf({}) === null && P.domainOf({ website: '  ' }) === null);
+  t('nezmysel nespadne', P.domainOf({ website: 'http://' }) === null);
+  t('logo ide z webu firmy, nie z cudzej služby',
+    /vogel-bau\.de\/favicon\.ico/.test(P.logo({ name: 'Vogel', website: 'vogel-bau.de' })));
+  t('a bez webu zostanú iniciály',
+    /VG/.test(P.logo({ name: 'Vogel GmbH' })) && !/<img/.test(P.logo({ name: 'Vogel GmbH' })));
+}
 
 // Čísla po slovensky. JavaScript píše `27.48`, čo v slovenskom texte vyzerá
 // ako cudzie číslo. Bolo to rozsypané na šiestich miestach.
