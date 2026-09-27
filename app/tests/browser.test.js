@@ -66,12 +66,29 @@ function readRedirects() {
   return out;
 }
 
+/**
+ * Pravidlo pre danú cestu, vrátane hviezdičky (`/danubra/*` → `/app/:splat`).
+ * Bez nej by test presmerovanie starých odkazov vôbec neoveril.
+ */
+function matchRedirect(redirects, rel) {
+  for (const r of redirects) {
+    if (r.from === rel) return { ...r, to: r.to.replace(':splat', '') };
+    if (r.from.endsWith('/*')) {
+      const base = r.from.slice(0, -1);                 // "/danubra/*" → "/danubra/"
+      if (rel.startsWith(base)) {
+        return { ...r, to: r.to.replace(':splat', rel.slice(base.length)) };
+      }
+    }
+  }
+  return null;
+}
+
 function serve(redirects) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
       let rel = decodeURIComponent(req.url.split('?')[0]);
 
-      const r = redirects.find(x => x.from === rel);
+      const r = matchRedirect(redirects, rel);
       if (r) {
         if (r.status >= 300 && r.status < 400) {
           res.writeHead(r.status, { Location: r.to });
@@ -156,6 +173,25 @@ console.log('Prehliadač');
         notFound.length ? `404: ${notFound.slice(0, 3).map(u => u.replace(base, '')).join(', ')}` : 'prázdna stránka');
       ok(notFound.length === 0, `adresa „${entry}" nemá ani jeden 404`,
         notFound.slice(0, 5).map(u => u.replace(base, '')).join(', '));
+      await page.close();
+    }
+
+    // ── Staré odkazy musia fungovať ──────────────────────────────────────
+    // Appka bývala v /danubra/. Ten odkaz má človek v záložkách, v histórii
+    // aj v poslanej správe — a keď spadne na „Page not found", vyzerá to, že
+    // appka je preč. Presne to sa stalo hneď po premenovaní.
+    for (const entry of ['/danubra', '/danubra/', '/danubra/index.html']) {
+      const page = await browser.newPage();
+      const notFound = [];
+      page.on('response', r => { if (r.status() === 404) notFound.push(r.url()); });
+      await page.goto(base + entry, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      const text = (await page.evaluate(() => (document.body.innerText || '').trim()));
+
+      ok(/\/app\//.test(page.url()), `starý odkaz „${entry}" skončí v appke`,
+        `skončil som na ${page.url().replace(base, '') || '/'}`);
+      ok(text.includes('Prihlásiť sa'), `a „${entry}" naozaj zobrazí appku`,
+        notFound.length ? `404: ${notFound.slice(0, 3).map(u => u.replace(base, '')).join(', ')}` : text.slice(0, 60));
       await page.close();
     }
 

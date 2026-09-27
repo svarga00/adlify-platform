@@ -25,6 +25,19 @@
   to = "/app/"
   status = 302
 
+# Appka bývala v /danubra/. Kto má starý odkaz v záložkách alebo v histórii,
+# musí skončiť v appke, nie na hlásení „Page not found" — 301, lebo je to
+# presun natrvalo. Cesta za lomkou sa zachová; kotva (#/dashboard) sa na
+# server vôbec neposiela, tú prehliadač pripojí späť sám.
+[[redirects]]
+  from = "/danubra"
+  to = "/app/"
+  status = 301
+[[redirects]]
+  from = "/danubra/*"
+  to = "/app/:splat"
+  status = 301
+
 [functions]
   directory = "netlify/functions"
 
