@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>DANUBRA</title>
+  <title>Náš systém</title>
 
   <!-- ==========================================================================
-       Koreňová stránka — jediná úloha: pustiť človeka do /danubra/.
+       Koreňová stránka — jediná úloha: pustiť človeka do /app/.
 
        Presmerovanie je v `netlify.toml` (302) a je rýchlejšie, lebo sa vybaví
        na hrane siete a stránka sa vôbec nestiahne. Lenže **spoľahnúť sa naň
@@ -26,8 +26,8 @@
          3. viditeľný odkaz — keď zlyhá oboje, človek aspoň vidí, kam ísť,
             namiesto bielej plochy alebo hlášky zo servera.
        ========================================================================== -->
-  <meta http-equiv="refresh" content="0; url=./danubra/">
-  <link rel="canonical" href="./danubra/">
+  <meta http-equiv="refresh" content="0; url=./app/">
+  <link rel="canonical" href="./app/">
 
   <style>
     body {
@@ -43,12 +43,12 @@
   <div>
     <h1 style="margin:0 0 6px;font-size:22px;letter-spacing:-.03em;">DANUBRA</h1>
     <p>Presmerúvam do aplikácie…<br>
-       Ak sa nič nedeje, <a href="./danubra/">pokračuj sem</a>.</p>
+       Ak sa nič nedeje, <a href="./app/">pokračuj sem</a>.</p>
   </div>
   <script>
     // `replace`, nie `href` — inak by tlačidlo Späť vrátilo človeka sem
     // a rovno ho to presmerovalo znova.
-    location.replace('./danubra/');
+    location.replace('./app/');
   </script>
 </body>
 </html>

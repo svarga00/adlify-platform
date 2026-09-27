@@ -25,7 +25,7 @@ ale mať úžitok z typov. Takže:
   JSDoc anotácie sa prevedú takmer jedna k jednej.
 
 **Dôsledok:** zadanie hovorí o adresároch, ktoré neexistujú. Držíme sa
-skutočných: `danubra/js/`, `danubra/lib/`, `danubra/database/migrations/`.
+skutočných: `danubra/js/`, `danubra/lib/`, `app/database/migrations/`.
 
 ---
 
@@ -53,7 +53,7 @@ Ak niekedy pribudne build krok, decimal.js sa doplní a helper sa prepíše zvn�
 **Dátum:** 16. 9. 2026
 **Zadanie hovorilo:** `supabase/migrations/YYYYMMDD_v2_fX_*.sql`.
 
-**Rozhodnutie:** pokračujeme `danubra/database/migrations/013_...` a ďalej,
+**Rozhodnutie:** pokračujeme `app/database/migrations/013_...` a ďalej,
 s označením fázy v názve, napríklad `013_v2_f1_zaklad.sql`.
 
 Dôvod: dnešných dvanásť migrácií je očíslovaných a poradie je záväzné —
