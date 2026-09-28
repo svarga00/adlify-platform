@@ -377,6 +377,48 @@
     },
 
     // ── Karty: peniaze ──────────────────────────────────────────────────────
+    'card.cashflow': {
+      title: 'Kompletný cash-flow',
+      lead: 'Celá hotovosť na jednom mieste: čo je na účte, čo má prísť, čo má '
+        + 'odísť a čo z toho zostane. Prvá otázka dňa, preto je to prvá karta.',
+      what: [
+        'Vľavo je stav účtu dnes a pod ním, koľko bude o osem týždňov.',
+        'Graf je vodopád: prvý a posledný stĺpec je stav účtu, medzi nimi sú '
+        + 'pohyby. Z poradia je vidieť nielen koľko príde a odíde, ale aj **kedy** — '
+        + 'teda či niekde po ceste nespadne účet pod nulu.',
+        'Tri stĺpce pod grafom: čo príde, čo odíde a **čo je mimo výhľadu**.',
+        'Dole je najnižší bod — to je to číslo, ktoré rozhoduje.',
+      ],
+      how: [
+        'Začína sa zostatkom z posledného načítaného bankového výpisu.',
+        'Príjmy sú vystavené faktúry podľa dátumu splatnosti, výdaje sú faktúry '
+        + 'od živnostníkov a plánované náklady podľa ich termínu.',
+        'Všetko po splatnosti sa započíta hneď na začiatku — sú to peniaze, ktoré '
+        + 'mali prísť alebo odísť dávno, nie budúcnosť.',
+        'Čísla sedia s týždenným výhľadom aj s kartou „Bude na výplaty?" do centa. '
+        + 'Je to ten istý výpočet, len ukázaný inak.',
+      ],
+      why: [
+        '**Mimo výhľadu je vlastný stĺpec zámerne.** Odrobené hodiny bez faktúry '
+        + 'a refakturovateľné náklady sú takmer isté peniaze, ale nikto nevie kedy '
+        + 'prídu. Keby sa prirátali do zostatku, výhľad by vyzeral pokojnejšie, než '
+        + 'aký je. Keby sa zamlčali, firma by vyzerala chudobnejšia, než aká je.',
+        'Rozhoduje najnižší bod, nie zostatok na konci. Účet môže skončiť v pluse '
+        + 'a v treťom týždni byť pod nulou — a výplaty sa odložiť nedajú, faktúra '
+        + 'odberateľovi sa o dva týždne posunúť vie.',
+        'Osem týždňov preto, že toľko trvá cyklus od nasadenia po úhradu: obdobie, '
+        + 'výkaz, faktúra, splatnosť. Kratší výhľad nezachytí celý kruh.',
+      ],
+      watch: [
+        'Nespárované pohyby v banke celý obraz posúvajú. Kým sa nespárujú, zostatok '
+        + 'sedí, ale faktúry sa tvária ako neuhradené.',
+        'Prázdne „čo príde" pri plnom zozname faktúr znamená, že faktúram chýba '
+        + 'dátum splatnosti.',
+      ],
+      links: [['bank', 'Banka a cash-flow'], ['invoices', 'Vydané faktúry'],
+        ['costs', 'Náklady']],
+    },
+
     'card.money': {
       title: 'Koľko peňazí čakáme',
       lead: 'Koľko reálne príde na účet z faktúr, ktoré sú už vystavené — nie koľko '

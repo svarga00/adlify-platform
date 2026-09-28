@@ -21,11 +21,12 @@
 //   * **Graf nie je jediná cesta k číslu.** Pod každým je tabuľka alebo
 //     zoznam — kto potrebuje presné číslo, prečíta si ho.
 //
-// Testy: node app/lib/chart.test.js
+// Testy: node app/js/components/chart.test.js
 // ============================================================================
 (function () {
   const IN = '#1E4FD8';        // peniaze dnu — studená
   const OUT = '#F07E22';       // peniaze von — teplá
+  const LEVEL = '#0A1B3D';     // stav účtu — nie pohyb, preto tmavá
   const GRID = '#EEF2FB';
   const AXIS = '#96A2BA';
   const GRID_TEXT = '#B8C2D6';
@@ -131,6 +132,100 @@
       </div>`;
   }
 
+  // ── Vodopád: od stavu účtu cez pohyby k výsledku ─────────────────────────
+  /**
+   * Dva druhy stĺpcov a to je celý trik:
+   *   * **hladina** (`level`) stojí na nule — stav účtu dnes a na konci,
+   *   * **zmena** (`delta`) visí tam, kde ju nechal predchádzajúci stĺpec.
+   *
+   * Preto je z grafu vidieť nielen koľko príde a odíde, ale aj **poradie** —
+   * teda či niekde po ceste nespadne účet pod nulu. To je v tomto biznise
+   * celá otázka: výplaty sa odložiť nedajú.
+   *
+   * @param {Object} o
+   *   steps  [{ label, value: cents, kind: 'level'|'delta' }]
+   */
+  function waterfall(o = {}) {
+    const steps = (o.steps || []).filter(s => s && s.kind);
+    if (!steps.length) return empty('Zatiaľ niet čo zobraziť.');
+
+    // Každý stĺpec vie, odkiaľ kam siaha. Hladina začína na nule, zmena
+    // nadväzuje na predchádzajúci stav.
+    let run = 0;
+    const bars = steps.map((s) => {
+      const v = Number(s.value) || 0;
+      const from = s.kind === 'level' ? 0 : run;
+      run = s.kind === 'level' ? v : run + v;
+      return { ...s, value: v, from, to: run };
+    });
+
+    const H = Number(o.height) || 190;
+    const W = Number(o.width) || 620;
+    const padTop = 16, padBottom = 34, padLeft = 46, padRight = 10;
+    const plotH = H - padTop - padBottom;
+
+    const lo = Math.min(0, ...bars.map(b => Math.min(b.from, b.to)));
+    const hi = Math.max(0, ...bars.map(b => Math.max(b.from, b.to)));
+    const span = Math.max(1, hi - lo);
+    const step = niceStep(span, 3);
+    const top = Math.ceil(hi / step) * step;
+    const bottom = Math.floor(lo / step) * step;
+    const range = Math.max(step, top - bottom);
+    const y = (v) => padTop + plotH - ((v - bottom) / range) * plotH;
+
+    const grid = [];
+    for (let v = bottom; v <= top + 0.5; v += step) {
+      const gy = y(v);
+      grid.push(`<line x1="${padLeft}" x2="${W - padRight}" y1="${gy}" y2="${gy}"
+        stroke="${v === 0 ? AXIS : GRID}" stroke-width="1" vector-effect="non-scaling-stroke"/>`);
+      grid.push(`<text x="${padLeft - 7}" y="${gy + 4}" text-anchor="end"
+        font-size="11" fill="${AXIS}">${v < 0 ? '−' : ''}${shortMoney(v)}</text>`);
+    }
+
+    const band = (W - padLeft - padRight) / bars.length;
+    const barW = Math.min(46, band * 0.56);
+    const money = (c) => (c / 100).toLocaleString('sk-SK', { style: 'currency', currency: 'EUR' });
+
+    const cols = bars.map((b, i) => {
+      const cx = padLeft + band * i + band / 2;
+      const y1 = y(Math.max(b.from, b.to));
+      const y2 = y(Math.min(b.from, b.to));
+      // Nulová zmena by bola neviditeľná čiara — nech je z nej aspoň vlások.
+      const h = Math.max(2, y2 - y1);
+      const fill = b.kind === 'level'
+        ? (b.to < 0 ? OUT : LEVEL)
+        : (b.value >= 0 ? IN : OUT);
+      // Spojnica k ďalšiemu stĺpcu — bez nej vodopád vyzerá ako obyčajné
+      // stĺpce a poradie sa z neho nedá prečítať.
+      const next = bars[i + 1];
+      const link = next ? `<line x1="${cx + barW / 2}" x2="${padLeft + band * (i + 1) + band / 2 - barW / 2}"
+        y1="${y(b.to)}" y2="${y(b.to)}" stroke="${AXIS}" stroke-width="1"
+        stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/>` : '';
+      return `
+        ${link}
+        <rect x="${cx - barW / 2}" y="${y1}" width="${barW}" height="${h}" rx="2" fill="${fill}">
+          <title>${esc(`${b.label}: ${money(b.value)}`)}</title>
+        </rect>
+        <text x="${cx}" y="${H - 16}" text-anchor="middle" font-size="11" fill="${AXIS}">${esc(b.label)}</text>
+        <text x="${cx}" y="${H - 4}" text-anchor="middle" font-size="10" fill="${GRID_TEXT}">${
+          esc((b.kind === 'delta' && b.value > 0 ? '+' : '') + money(b.value))}</text>`;
+    }).join('');
+
+    return `
+      <div class="chart">
+        <svg viewBox="0 0 ${W} ${H}" role="img"
+             aria-label="${esc(o.aria || 'Od stavu účtu cez pohyby k zostatku')}">
+          ${grid.join('')}
+          ${cols}
+        </svg>
+        <div class="chart-legend">
+          <span><i style="background:${LEVEL}"></i>Stav účtu</span>
+          <span><i style="background:${IN}"></i>Príde</span>
+          <span><i style="background:${OUT}"></i>Odíde</span>
+        </div>
+      </div>`;
+  }
+
   // ── Stĺpce jednej veličiny ───────────────────────────────────────────────
   /**
    * @param {Object} o
@@ -199,7 +294,7 @@
     return `<div class="chart chart-empty">${esc(text)}</div>`;
   }
 
-  const API = { diverging, bars, niceStep, shortMoney, IN, OUT };
+  const API = { diverging, bars, waterfall, niceStep, shortMoney, IN, OUT, LEVEL };
   if (typeof window !== 'undefined') window.DanubraChart = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

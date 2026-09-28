@@ -1785,3 +1785,50 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .fb-period:focus-within { border-color: var(--blue); }
 .filterbar.fb-dates { margin-top: -2px; margin-bottom: 10px; }
+
+/* ── Kompletný cash-flow ─────────────────────────────────────────────────── */
+/* Prvá karta na prehľade, preto je široká cez celú šírku a nie v stĺpcoch. */
+.cf-card { margin-bottom: 16px; }
+.cf-top { display: grid; grid-template-columns: minmax(180px, 230px) 1fr; gap: 18px; align-items: center; }
+.cf-now-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.cf-now .big-number { margin: 2px 0 0; }
+.cf-now-note { font-size: 12.5px; color: var(--ink-sub); margin-top: 4px; }
+.cf-chart { min-width: 0; }
+
+.cf-cols {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.cf-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 6px 0; border-bottom: 1px solid var(--border-soft);
+}
+.cf-row:last-child { border-bottom: 0; }
+.cf-label { font-size: 13px; color: var(--ink); min-width: 0; }
+.cf-label span { display: block; font-size: 11.5px; color: var(--ink-mute); }
+.cf-value { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.cf-in .cf-value { color: var(--blue); }
+.cf-out .cf-value { color: var(--brand-dark); }
+.cf-later .cf-value { color: var(--ink-sub); }
+/* Po splatnosti je iná vec než „príde v piatok" — musí to byť vidieť. */
+.cf-late .cf-label { font-weight: 600; }
+.cf-late .cf-value { color: var(--red); }
+.cf-none { font-size: 12.5px; color: var(--ink-mute); padding: 6px 0; }
+.cf-note { font-size: 11.5px; color: var(--ink-mute); margin: 6px 0 0; line-height: 1.45; }
+
+.cf-foot {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.cf-foot > div { display: flex; flex-direction: column; gap: 1px; }
+.cf-foot span { font-size: 11px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: .06em; }
+.cf-foot strong { font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.cf-foot .btn { margin-left: auto; }
+
+@media (max-width: 900px) {
+  .cf-top { grid-template-columns: 1fr; gap: 10px; }
+  .cf-cols { grid-template-columns: 1fr; gap: 6px; }
+}

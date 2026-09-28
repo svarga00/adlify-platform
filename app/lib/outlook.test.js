@@ -239,5 +239,83 @@ console.log('Výhľad');
   eq(p.contracted, 0, 'bez zapísanej sadzby sa marža nehádže');
 }
 
+// ── Kompletný obraz peňazí ──────────────────────────────────────────────────
+// Toto je odpoveď na „ako na tom sme" jedným pohľadom. Musí sedieť s týždenným
+// výhľadom do centa — dva pohľady na tie isté peniaze, ktoré si protirečia,
+// sú horšie než jeden.
+console.log('Kompletný cash-flow');
+{
+  const items = [
+    // Po splatnosti — mali prísť dávno, nie je to budúcnosť.
+    { direction: 'in', source: 'invoice', expected_on: '2026-09-01', amount: 3000 },
+    // V horizonte
+    { direction: 'in', source: 'invoice', expected_on: '2026-09-30', amount: 5000 },
+    { direction: 'out', source: 'bill', expected_on: '2026-09-25', amount: -2000 },
+    { direction: 'out', source: 'cost', expected_on: '2026-10-05', amount: -800 },
+    // Za horizontom ôsmich týždňov — do obrazu nepatrí.
+    { direction: 'in', source: 'invoice', expected_on: '2027-01-15', amount: 9999 },
+    // Bez termínu — nedá sa zaradiť do žiadneho týždňa.
+    { direction: 'in', source: 'invoice', expected_on: null, amount: 4444 },
+  ];
+  const c = O.cashPosition({ today: TODAY, balance: 1000000, items, unbilled: 238000, tied: 169800 });
+
+  eq(c.start, 1000000, 'začína sa tým, čo je na účte');
+  eq(c.late.net, 300000, 'po splatnosti sa počíta zvlášť');
+  eq(c.in.total, 500000, 'príde len to, čo je v horizonte a má termín');
+  eq(c.out.bills, -200000, 'faktúry živnostníkov sú vlastná položka');
+  eq(c.out.costs, -80000, 'a ostatné náklady tiež');
+  eq(c.end, 1520000, 'zostatok je súčet všetkého v horizonte');
+  eq(c.net, 520000, 'zmena oproti dnešku');
+
+  // Kontrola proti týždennému výhľadu — nesmú si protirečiť.
+  const w = O.weeks({ today: TODAY, weeks: 8, balance: 1000000, items });
+  eq(c.end, w.endBalance, 'zostatok sedí s týždenným výhľadom');
+  eq(c.lowest.balance, w.lowest.balance, 'aj najnižší bod');
+
+  // To, čo nemá termín, sa nesmie zamiešať medzi to, čo ho má.
+  eq(c.later.unbilled, 238000, 'odrobené bez faktúry je bokom');
+  eq(c.later.tied, 169800, 'aj to, čo viazne v nákladoch');
+  eq(c.later.total, 407800, 'a spolu je to vidieť');
+  ok(c.end !== c.end + c.later.total, 'do zostatku sa to neprirátava');
+}
+
+// ── Kroky do grafu ──────────────────────────────────────────────────────────
+{
+  const c = O.cashPosition({
+    today: TODAY, balance: 500000,
+    items: [{ direction: 'in', source: 'invoice', expected_on: '2026-09-30', amount: 1000 }],
+  });
+  eq(c.steps.map(s => s.key), ['start', 'in', 'end'],
+    'prázdne kroky sa vynechajú — nula v grafe je len šum');
+  eq(c.steps[0].value, 500000, 'prvý krok je stav účtu');
+  eq(c.steps[c.steps.length - 1].value, c.end, 'posledný je výsledok');
+  eq(c.steps[0].kind, 'level', 'stav je hladina');
+  eq(c.steps[1].kind, 'delta', 'pohyb je zmena');
+}
+
+// ── Verdikt ─────────────────────────────────────────────────────────────────
+// Rozhoduje najnižší bod, nie koniec: účet môže skončiť v pluse a v treťom
+// týždni byť pod nulou. Výplaty sa odložiť nedajú.
+{
+  const prepad = O.cashPosition({
+    today: TODAY, balance: 100000,
+    items: [
+      { direction: 'out', source: 'bill', expected_on: '2026-09-23', amount: -3000 },
+      { direction: 'in', source: 'invoice', expected_on: '2026-11-10', amount: 9000 },
+    ],
+  });
+  ok(prepad.end > 0, 'na konci je účet v pluse');
+  ok(prepad.negativeFrom, 'ale medzitým spadne pod nulu');
+  eq(prepad.verdict, 'bad', 'a to je zlá správa, nie dobrá');
+
+  const tesne = O.cashPosition({
+    today: TODAY, balance: 300000, items: [], reserve: 500000,
+  });
+  eq(tesne.verdict, 'tight', 'pod rezervou je to tesné');
+  eq(O.cashPosition({ today: TODAY, balance: 900000, items: [], reserve: 500000 }).verdict, 'ok',
+    'nad rezervou je pokoj');
+  eq(O.cashPosition({}).start, 0, 'bez dát to nespadne');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

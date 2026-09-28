@@ -981,6 +981,14 @@ window.Danubra = {
     });
     const balanceNow = Money.sum(S(tx).map(t => Money.toCents(t.amount)));
 
+    // Celý obraz peňazí naraz. Rezerva je z Nastavení — pod ňou je to tesné,
+    // aj keď účet nespadne pod nulu.
+    const cash = DanubraOutlook.cashPosition({
+      today: d, balance: balanceNow, items: S(cf), weeks: 8,
+      unbilled: unbilled.charge, tied: tied.total,
+      reserve: Money.toCents((window.Cfg ? Cfg.j('staffing') : {}).cash_buffer_min ?? 5000),
+    });
+
     return {
       today: d,
       tasks: S(today),
@@ -988,7 +996,7 @@ window.Danubra = {
       subcontracts, assignments, timesheets,
       cashflowItems: S(cf),
       balanceNow,
-      receivable, unbilled, tied, book, hiringNeed, profit,
+      receivable, unbilled, tied, book, hiringNeed, profit, cash,
       quotes: S(quotesAll),
       period: periodRange,
       siteId,
@@ -1313,6 +1321,29 @@ window.Danubra = {
         ];
       },
     },
+    cashflow: {
+      name: 'cash-flow',
+      rows: (x, E) => {
+        const c = x.cash;
+        return [
+          ['Položka', 'Suma', 'Poznámka'],
+          ['Na účte dnes', E.money(c.start), ''],
+          ['Po splatnosti — príde', E.money(c.late.in), 'malo prísť dávno'],
+          ['Po splatnosti — odíde', E.money(c.late.out), 'malo odísť dávno'],
+          ['Vystavené faktúry v splatnosti', E.money(c.in.invoices), ''],
+          ['Ostatné príjmy', E.money(c.in.other), ''],
+          ['Faktúry živnostníkov', E.money(c.out.bills), ''],
+          ['Ostatné náklady', E.money(c.out.costs), 'ubytovanie, doprava, réžia'],
+          [`Zostatok o ${c.horizon} týždňov`, E.money(c.end), ''],
+          ['Najnižší bod', E.money(c.lowest.balance),
+            c.lowest.week ? `${c.lowest.week}. týždeň` : 'dnes'],
+          [],
+          ['Mimo výhľadu — bez termínu', '', ''],
+          ['Odrobené, nevyfakturované', E.money(c.later.unbilled), 'chýba uzavreté obdobie'],
+          ['Viazne v nákladoch', E.money(c.later.tied), 'vráti sa refakturáciou'],
+        ];
+      },
+    },
     money: {
       name: 'cakame-na-ucet',
       rows: (x, E) => [
@@ -1471,6 +1502,97 @@ window.Danubra = {
     UI.toast('V dialógu tlače vyber „Uložiť ako PDF".');
     // Toast nech je vidieť skôr, než tlač zamrzne stránku.
     setTimeout(() => DanubraExport.printArea('print-dash'), 120);
+  },
+
+  /**
+   * Kompletný cash-flow — prvá karta na obrazovke. Zodpovedá otázku „ako na
+   * tom sme" jedným pohľadom: čo je na účte, čo príde, čo odíde, čo zostane.
+   *
+   * Zvlášť je to, čo **nemá termín** — odrobené hodiny bez faktúry
+   * a refakturovateľné náklady. Sú to takmer isté peniaze, ale nikto nevie
+   * kedy prídu. Keby sa prirátali do zostatku, výhľad by vyzeral pokojnejšie,
+   * než aký je; keby sa zamlčali, firma by vyzerala chudobnejšia. Preto sú
+   * vedľa seba a oddelene.
+   */
+  _dashCashflowCard(x) {
+    const c = x.cash;
+    const tone = c.verdict === 'bad' ? 'red' : (c.verdict === 'tight' ? 'amber' : 'green');
+    const verdict = c.verdict === 'bad'
+      ? `Účet spadne pod nulu v ${c.negativeFrom.week}. týždni`
+      : (c.verdict === 'tight' ? 'Vyjde to, ale tesne' : 'Peniaze vychádzajú');
+
+    const row = (label, value, note, cls) => `
+      <div class="cf-row${cls ? ' ' + cls : ''}">
+        <div class="cf-label">${label}${note ? `<span>${note}</span>` : ''}</div>
+        <div class="cf-value">${value}</div>
+      </div>`;
+    const money = (v, sign) => `${sign && v > 0 ? '+' : ''}${Money.format(v)}`;
+
+    return `<div class="card card-pad cf-card">
+      ${this._cardHead('wallet', 'Kompletný cash-flow',
+        UI.badge(verdict, tone), 'cashflow', 'bank', 'card.cashflow')}
+
+      <div class="cf-top">
+        <div class="cf-now">
+          <div class="cf-now-label">Na účte dnes</div>
+          <div class="big-number">${Money.format(c.start)}</div>
+          <div class="cf-now-note">o ${c.horizon} týždňov ${Money.format(c.end)}${
+            c.net ? ` (${c.net > 0 ? '+' : '−'}${Money.format(Math.abs(c.net), { currency: '' })})` : ''}</div>
+        </div>
+        <div class="cf-chart">
+          ${DanubraChart.waterfall({
+            steps: c.steps.map(st => ({ ...st, label: st.label })),
+            height: 200,
+            aria: `Od stavu účtu cez pohyby k zostatku o ${c.horizon} týždňov`,
+          })}
+        </div>
+      </div>
+
+      <div class="cf-cols">
+        <div class="cf-col">
+          <div class="form-section" style="margin:0 0 4px;">Čo príde</div>
+          ${c.late.in ? row('Po splatnosti', money(c.late.in, true),
+            'malo prísť dávno', 'cf-in cf-late') : ''}
+          ${c.in.invoices ? row('Vystavené faktúry', money(c.in.invoices, true),
+            'v splatnosti', 'cf-in') : ''}
+          ${c.in.other ? row('Ostatné príjmy', money(c.in.other, true), '', 'cf-in') : ''}
+          ${!c.late.in && !c.in.total ? `<div class="cf-none">Nič s termínom.</div>` : ''}
+        </div>
+        <div class="cf-col">
+          <div class="form-section" style="margin:0 0 4px;">Čo odíde</div>
+          ${c.late.out ? row('Po splatnosti', Money.format(c.late.out),
+            'malo odísť dávno', 'cf-out cf-late') : ''}
+          ${c.out.bills ? row('Faktúry živnostníkov', Money.format(c.out.bills), '', 'cf-out') : ''}
+          ${c.out.costs ? row('Náklady', Money.format(c.out.costs),
+            'ubytovanie, doprava, réžia', 'cf-out') : ''}
+          ${!c.late.out && !c.out.total ? `<div class="cf-none">Nič s termínom.</div>` : ''}
+        </div>
+        <div class="cf-col">
+          <div class="form-section" style="margin:0 0 4px;">Mimo výhľadu</div>
+          ${c.later.unbilled ? row('Odrobené, nevyfakturované', Money.format(c.later.unbilled),
+            'chýba uzavreté obdobie', 'cf-later') : ''}
+          ${c.later.tied ? row('Viazne v nákladoch', Money.format(c.later.tied),
+            'vráti sa refakturáciou', 'cf-later') : ''}
+          ${c.later.total
+            ? `<p class="cf-note">Takmer isté peniaze, ale bez termínu — preto sa do
+               zostatku nerátajú. Spolu ${Money.format(c.later.total)}.</p>`
+            : `<div class="cf-none">Všetko má termín.</div>`}
+        </div>
+      </div>
+
+      <div class="cf-foot">
+        <div><span>Najnižší bod</span><strong style="${c.lowest.balance < 0 ? 'color:var(--red);' : ''}">${
+          Money.format(c.lowest.balance)}${c.lowest.week ? ` · ${c.lowest.week}. týždeň` : ' · dnes'}</strong></div>
+        <div><span>Zmena za ${c.horizon} týždňov</span><strong style="color:var(--${c.net < 0 ? 'red' : 'green'});">${
+          money(c.net, true)}</strong></div>
+        <button class="btn btn-outline btn-sm no-print" onclick="Danubra.go('bank')">
+          ${Icon('invoices', 14)} Banka a cash-flow</button>
+      </div>
+      ${c.negativeFrom ? `<div class="warnbox" style="margin-top:10px;">
+        ${Icon('alert', 14)} Podľa výhľadu spadne účet do mínusu v ${c.negativeFrom.week}. týždni
+        (${UI.date(c.negativeFrom.from)}). Výplaty sa odložiť nedajú — buď skôr vyfakturovať,
+        alebo neskôr zaplatiť.</div>` : ''}
+    </div>`;
   },
 
   /** „Čakáme na účet" — a hneď aj to, koľko z toho reálne príde. */
@@ -1916,7 +2038,9 @@ window.Danubra = {
         ${this._demoBanner(x)}
         ${this._dashFilterBar(x)}
 
-        <div class="form-section">Peniaze</div>
+        ${this._dashCashflowCard(x)}
+
+        <div class="form-section">Peniaze do detailu</div>
         <div class="profile-cols">
           ${this._dashMoneyCard(x)}
           ${this._dashWeeksCard(x)}

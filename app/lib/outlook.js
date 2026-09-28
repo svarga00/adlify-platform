@@ -243,6 +243,80 @@
     };
   }
 
+  // ── Kompletný obraz peňazí ────────────────────────────────────────────────
+  /**
+   * Celá hotovosť na jednom mieste: čo je na účte, čo má prísť, čo má odísť,
+   * čo z toho zostane — a zvlášť to, čo je **mimo výhľadu**, lebo to nemá
+   * termín.
+   *
+   * To posledné je dôvod, prečo je toto vlastný výpočet a nie len súčet
+   * týždňov. Odrobené hodiny bez faktúry a refakturovateľné náklady sú
+   * peniaze, ktoré takmer isto prídu — ale nikto nevie kedy, takže do
+   * týždenného výhľadu nepatria. Keby sa prirátali, výhľad by vyzeral
+   * pokojnejšie, než aký je. Keby sa zamlčali, firma by vyzerala chudobnejšia,
+   * než aká je. Preto sú vedľa seba a oddelene.
+   *
+   * @param {Object} o
+   *   today, balance, items (z pohľadu cash-flow), weeks (predvolene 8),
+   *   unbilled (centy), tied (centy)
+   */
+  function cashPosition(o = {}) {
+    const today = o.today || today0();
+    const horizon = Number(o.weeks) || 8;
+    const start = o.balance || 0;
+    const items = (o.items || []).filter(Boolean);
+    const last = addDays(today, horizon * 7 - 1);
+
+    const sum = { lateIn: 0, lateOut: 0, invoices: 0, otherIn: 0, bills: 0, costs: 0, otherOut: 0 };
+    for (const it of items) {
+      const when = day(it.expected_on);
+      if (!when || when > last) continue;            // bez termínu alebo za horizontom
+      const cents = M.toCents(it.amount);
+      const late = when < today;
+      if (cents >= 0) {
+        if (late) sum.lateIn += cents;
+        else if (it.source === 'invoice') sum.invoices += cents;
+        else sum.otherIn += cents;
+      } else if (late) sum.lateOut += cents;
+      else if (it.source === 'bill') sum.bills += cents;
+      else if (it.source === 'cost') sum.costs += cents;
+      else sum.otherOut += cents;
+    }
+
+    // Priebeh po týždňoch sa neráta druhýkrát — najnižší bod aj prepad do
+    // mínusu musia sedieť s tým, čo ukazuje týždenný výhľad.
+    const w = weeks({ today, weeks: horizon, balance: start, items });
+
+    const later = { unbilled: o.unbilled || 0, tied: o.tied || 0 };
+    later.total = later.unbilled + later.tied;
+
+    const steps = [
+      { key: 'start', label: 'Na účte dnes', value: start, kind: 'level' },
+      { key: 'late', label: 'Po splatnosti', value: sum.lateIn + sum.lateOut, kind: 'delta' },
+      { key: 'in', label: 'Príde z faktúr', value: sum.invoices + sum.otherIn, kind: 'delta' },
+      { key: 'bills', label: 'Živnostníkom', value: sum.bills, kind: 'delta' },
+      { key: 'costs', label: 'Náklady', value: sum.costs + sum.otherOut, kind: 'delta' },
+      { key: 'end', label: `O ${horizon} týždňov`, value: w.endBalance, kind: 'level' },
+    ].filter(s => s.kind === 'level' || s.value !== 0);
+
+    return {
+      today, horizon,
+      start, end: w.endBalance,
+      late: { in: sum.lateIn, out: sum.lateOut, net: sum.lateIn + sum.lateOut },
+      in: { invoices: sum.invoices, other: sum.otherIn, total: sum.invoices + sum.otherIn },
+      out: { bills: sum.bills, costs: sum.costs + sum.otherOut,
+        total: sum.bills + sum.costs + sum.otherOut },
+      net: w.endBalance - start,
+      lowest: w.lowest,
+      negativeFrom: w.negativeFrom,
+      later,
+      steps,
+      // Jedna veta namiesto šiestich čísel. Najnižší bod rozhoduje, nie koniec:
+      // účet môže skončiť v pluse a v treťom týždni byť pod nulou.
+      verdict: w.negativeFrom ? 'bad' : (w.lowest.balance < (o.reserve || 0) ? 'tight' : 'ok'),
+    };
+  }
+
   // ── Koho a kam treba zohnať ───────────────────────────────────────────────
   /**
    * Otvorené nábory zhrnuté podľa mesta. „Treba 4 ľudí" je menej užitočné
@@ -318,7 +392,7 @@
 
   const API = {
     isOpenInvoice, addDays, workdaysBetween,
-    receivable, unbilled, tied, orderBook, weeks, hiring, expectedProfit,
+    receivable, unbilled, tied, orderBook, weeks, cashPosition, hiring, expectedProfit,
   };
   if (typeof window !== 'undefined') window.DanubraOutlook = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
