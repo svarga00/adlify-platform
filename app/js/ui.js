@@ -1,0 +1,230 @@
+// DANUBRA — UI utility (toast, esc, formátovanie, mobil-first helpery).
+window.UI = {
+  esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+
+  toast(msg, kind = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast' + (kind ? ` toast-${kind}` : '');
+    el.hidden = false;
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => { el.hidden = true; }, 2800);
+  },
+
+  money(n, currency = 'EUR') {
+    const v = Number(n || 0);
+    return v.toLocaleString('sk-SK', { style: 'currency', currency, minimumFractionDigits: 2 });
+  },
+
+  /**
+   * Percentá po slovensky — s čiarkou, nie s bodkou. JavaScript vypíše
+   * `27.48`, čo v slovenskom texte vyzerá ako cudzie číslo. Bolo to
+   * rozsypané na šiestich miestach, každé s vlastným riešením.
+   */
+  pct(n, digits) {
+    if (n == null || n === '' || !Number.isFinite(Number(n))) return '—';
+    const v = Number(n);
+    const d = digits != null ? digits : (Number.isInteger(v) ? 0 : 2);
+    return `${v.toLocaleString('sk-SK', { minimumFractionDigits: d, maximumFractionDigits: d })} %`;
+  },
+
+  date(d) {
+    if (!d) return '—';
+    try { return new Date(d).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch { return String(d); }
+  },
+
+  dateRange(from, to) {
+    return `${this.date(from)} – ${this.date(to)}`;
+  },
+
+  // Počet nocí medzi dvoma dátumami (UTC, bez DST posunov)
+  nights(from, to) {
+    if (!from || !to) return 0;
+    const a = new Date(from), b = new Date(to);
+    return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) -
+      Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
+  },
+
+  badge(label, kind) {
+    const map = {
+      green: 'background:var(--green-50);color:var(--green);',
+      blue:  'background:var(--blue-50);color:var(--blue);',
+      amber: 'background:var(--amber-50);color:var(--amber);',
+      red:   'background:var(--red-50);color:var(--red);',
+      gray:  'background:var(--bg);color:var(--ink-sub);',
+      brand: 'background:var(--brand-50);color:var(--brand-dark);',
+    };
+    return `<span class="badge" style="${map[kind] || map.gray}">${this.esc(label)}</span>`;
+  },
+
+  empty(ico, title, sub, cta) {
+    return `<div class="empty">
+      <div class="empty-ico">${window.Icon && Icon.has(ico) ? Icon(ico, 34) : ''}</div>
+      <div style="font-size:15px;font-weight:600;color:var(--ink-sub);margin-bottom:4px;">${this.esc(title)}</div>
+      ${sub ? `<div style="font-size:13px;margin-bottom:14px;">${this.esc(sub)}</div>` : ''}
+      ${cta || ''}
+    </div>`;
+  },
+
+  loading() {
+    return `<div class="empty"><div class="empty-ico">${window.Icon ? Icon('clock', 30) : ''}</div><div>Načítavam…</div></div>`;
+  },
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  modal(title, bodyHtml, { wide = false } = {}) {
+    this.closeModal();
+    const el = document.createElement('div');
+    el.className = 'modal-backdrop';
+    el.id = 'ui-modal';
+    el.innerHTML = `
+      <div class="modal-card${wide ? ' modal-wide' : ''}">
+        <div class="modal-head">
+          <h3>${this.esc(title)}</h3>
+          <button class="modal-x" onclick="UI.closeModal()" aria-label="Zavrieť">${window.Icon ? Icon("x", 17) : ""}</button>
+        </div>
+        <div class="modal-body">${bodyHtml}</div>
+      </div>`;
+    el.addEventListener('click', (e) => { if (e.target === el) this.closeModal(); });
+    document.body.appendChild(el);
+    document.body.style.overflow = 'hidden';
+    return el;
+  },
+  closeModal() {
+    document.getElementById('ui-modal')?.remove();
+    if (!document.getElementById('ui-ask')) document.body.style.overflow = '';
+  },
+
+  // ── Otázka a potvrdenie ───────────────────────────────────────────────────
+  // Natívne `prompt()` a `confirm()` vyzerajú ako chyba stránky: sivé okno
+  // s adresou webu v nadpise, cudzie písmo, na mobile úplne inak. Navyše sa
+  // v nich nedá nič vysvetliť — a pri mazaní alebo rušení je vysvetlenie to
+  // najdôležitejšie.
+  //
+  // Toto okno sa otvára **nad** prípadným otvoreným oknom, takže detail
+  // záznamu pod ním zostane. Vracia `Promise`, takže sa volá s `await`.
+
+  /** @returns {Promise<string|null>} `null` = zrušené */
+  ask(question, o = {}) {
+    return this._sheet({
+      ...o,
+      question,
+      field: o.multiline
+        ? `<textarea id="ui-ask-input" rows="${o.rows || 4}"
+             placeholder="${this.esc(o.placeholder || '')}">${this.esc(o.value || '')}</textarea>`
+        : `<input id="ui-ask-input" type="${o.type || 'text'}"
+             value="${this.esc(o.value ?? '')}" placeholder="${this.esc(o.placeholder || '')}">`,
+      okLabel: o.ok || 'Uložiť',
+      read: () => {
+        const el = document.getElementById('ui-ask-input');
+        return el ? el.value : null;
+      },
+      // Prázdna odpoveď je odpoveď „nič" — nie zrušenie. Rozlišuje sa to,
+      // lebo niekde je prázdno v poriadku a inde je to chyba.
+      empty: null,
+    });
+  },
+
+  /** @returns {Promise<boolean>} */
+  confirm(question, o = {}) {
+    return this._sheet({
+      ...o,
+      question,
+      field: '',
+      okLabel: o.ok || 'Áno',
+      danger: o.danger !== false,
+      read: () => true,
+      empty: false,
+    }).then(v => v === true);
+  },
+
+  _sheet(o) {
+    return new Promise((resolve) => {
+      this._closeAsk();
+      const el = document.createElement('div');
+      el.className = 'modal-backdrop ask-backdrop';
+      el.id = 'ui-ask';
+      el.innerHTML = `
+        <div class="modal-card ask-card">
+          <div class="ask-body">
+            ${o.title ? `<h3>${this.esc(o.title)}</h3>` : ''}
+            <p class="ask-q">${this.esc(o.question)}</p>
+            ${o.hint ? `<p class="ask-hint">${this.esc(o.hint)}</p>` : ''}
+            ${o.field}
+          </div>
+          <div class="ask-actions">
+            <button class="btn btn-ghost" data-ask="cancel">${this.esc(o.cancel || 'Zrušiť')}</button>
+            <button class="btn ${o.danger ? 'btn-danger' : 'btn-primary'}" data-ask="ok">
+              ${this.esc(o.okLabel)}</button>
+          </div>
+        </div>`;
+
+      const done = (val) => {
+        document.removeEventListener('keydown', keys);
+        el.remove();
+        if (!document.getElementById('ui-modal')) document.body.style.overflow = '';
+        resolve(val);
+      };
+      const keys = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); done(o.empty); }
+        // V jednoriadkovom poli je Enter potvrdenie; vo viacriadkovom je to
+        // nový riadok, tam sa potvrdzuje tlačidlom.
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault(); done(o.read());
+        }
+      };
+
+      el.addEventListener('click', (e) => {
+        const what = e.target.closest('[data-ask]');
+        if (what) return done(what.dataset.ask === 'ok' ? o.read() : o.empty);
+        if (e.target === el) done(o.empty);
+      });
+      document.addEventListener('keydown', keys);
+      document.body.appendChild(el);
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => {
+        const f = document.getElementById('ui-ask-input');
+        if (f) { f.focus(); if (f.select) f.select(); }
+        else el.querySelector('[data-ask=ok]')?.focus();
+      }, 20);
+    });
+  },
+
+  _closeAsk() { document.getElementById('ui-ask')?.remove(); },
+
+  // Form field helper
+  // `step` je tu kvôli peniazom. `<input type="number">` má bez neho krok 1,
+  // takže sadzba 18,50 €/h neprejde validáciou a formulár sa ticho neodošle.
+  // Preto je pri číslach predvolené `any`.
+  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step } = {}) {
+    const v = this.esc(value);
+    let input;
+    if (options) {
+      input = `<select name="${name}" ${required ? 'required' : ''}>${options.map(o => {
+        const [val, lbl] = Array.isArray(o) ? o : [o, o];
+        return `<option value="${this.esc(val)}" ${String(val) === String(value) ? 'selected' : ''}>${this.esc(lbl)}</option>`;
+      }).join('')}</select>`;
+    } else if (type === 'textarea') {
+      input = `<textarea name="${name}" rows="${rows || 3}" placeholder="${this.esc(placeholder)}">${v}</textarea>`;
+    } else if (type === 'checkbox') {
+      input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>`;
+      return `<div class="fld fld-chk">${input}</div>`;
+    } else {
+      const stepAttr = type === 'number' ? ` step="${this.esc(step || 'any')}"` : '';
+      input = `<input type="${type}" name="${name}" value="${v}"${stepAttr} ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
+    }
+    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}</label>`;
+  },
+
+  formData(form) {
+    const fd = new FormData(form);
+    const out = {};
+    for (const [k, v] of fd.entries()) out[k] = typeof v === 'string' ? v.trim() : v;
+    // checkboxy: nezaškrtnuté nie sú v FormData → doplň false
+    form.querySelectorAll('input[type=checkbox]').forEach(c => { out[c.name] = c.checked; });
+    return out;
+  },
+};

@@ -1,0 +1,692 @@
+// ============================================================================
+// DANUBRA — M6 Faktúry (zoznam, schvaľovanie návrhov, dokument s QR, úhrada)
+// ============================================================================
+// §5.2: návrhy za priebežnú službu vyžadujú ľudské schválenie pred odoslaním.
+// ============================================================================
+(function () {
+  // Stavy z v1 (`draft_pending_approval`) aj z v2. Faktúry v1 majú vlastný
+  // tok a bežia v prevádzke — nové pravidlá sa na ne nevzťahujú.
+  const STATUS = [
+    ['draft', 'Rozpracovaná', 'gray'],
+    ['draft_pending_approval', 'Čaká na schválenie', 'amber'],
+    ['pending_approval', 'Čaká na schválenie', 'amber'],
+    ['approved', 'Schválená', 'blue'],
+    ['issued', 'Vystavená', 'blue'],
+    ['sent', 'Odoslaná', 'blue'],
+    ['paid', 'Uhradená', 'green'],
+    ['overdue', 'Po splatnosti', 'red'],
+    ['cancelled', 'Stornovaná', 'gray'],
+  ];
+  const TYPE = {
+    service_fee: 'Sprostredkovanie', ongoing_service: 'Priebežná služba',
+    retainer: 'Retainer', other: 'Iné',
+  };
+  const REGIME = {
+    sk_no_vat: 'SK bez DPH', eu_reverse_charge: 'Reverse charge', other: 'Na kontrolu',
+  };
+
+  const Inv = {
+    items: [], lines: [], clients: [], orders: [], partners: [], loaded: false,
+    filters: { status: '', q: '', period: 'all', from: '', to: '' },
+
+    async load() {
+      // Odberatelia sa načítavajú spolu s faktúrami: v2 faktúra má
+      // `partner_id`, nie `client_id`, a v zozname sa preto ukazovala pomlčka
+      // namiesto nemeckej firmy, ktorej sa fakturuje.
+      const [i, l, c, o, p] = await Promise.all([
+        DB.list('invoices', { order: { column: 'issue_date', ascending: false }, limit: 500 }),
+        DB.list('invoice_items', { limit: 3000 }),
+        DB.list('clients', { select: 'id,name,country,vat_id,company_id,contact_person,phone,email,whatsapp', limit: 500 }),
+        DB.list('orders', { select: 'id,order_number,client_id,service_fee,urgent_surcharge,date_from,date_to,persons,ongoing_service_enabled,ongoing_service_rate,status', limit: 500 }),
+        DB.list('partners', { select: 'id,name,city,country,ust_idnr', limit: 300 }),
+      ]);
+      this.items = i.data || []; this.lines = l.data || [];
+      this.clients = c.data || []; this.orders = o.data || [];
+      this.partners = p.data || [];
+      this.loaded = true;
+      await this._markOverdue();
+    },
+
+    /** Faktúry po splatnosti označ automaticky (§7 denný cron robí to isté serverovo). */
+    async _markOverdue() {
+      const today = new Date().toISOString().slice(0, 10);
+      const late = this.items.filter(x => x.status === 'issued' && x.due_date && x.due_date < today);
+      for (const x of late) {
+        await DB.update('invoices', x.id, { status: 'overdue' }).catch(() => {});
+        x.status = 'overdue';
+      }
+    },
+
+    clientOf(id) { return this.clients.find(c => c.id === id); },
+    linesOf(id) { return this.lines.filter(l => l.invoice_id === id); },
+    badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[1]; return UI.badge(m[1], m[2]); },
+
+    async view(el) {
+      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`);
+      if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
+      const rows = this.rows();
+
+      // Stavy v1 a v2 sa volajú inak (`draft_pending_approval` vs
+      // `pending_approval`, `issued` vs `sent`). Keď sa vymenúvajú tie, čo
+      // sa rátajú, na nový stav sa zabudne a hlavička potichu ukáže nulu —
+      // presne to sa stalo. Preto sa vymenúva opak: čo už neuhradené **nie je**.
+      const SETTLED = ['paid', 'cancelled', 'draft'];
+      const pending = this.items.filter(x =>
+        ['draft_pending_approval', 'pending_approval'].includes(x.status));
+      const unpaid = this.items.filter(x => !SETTLED.includes(x.status));
+      const unpaidSum = unpaid.reduce((s, x) => s + Number(x.total || 0), 0);
+
+      el.innerHTML = Danubra.header(Danubra.labelOf('invoices'),
+        `${this.items.length} celkom · neuhradené ${UI.money(unpaidSum)}`) +
+        (pending.length ? `<div class="warnbox" style="margin-bottom:14px;">
+          ${Icon('alert', 14)} ${pending.length} ${pending.length === 1 ? 'návrh čaká' : 'návrhov čaká'} na schválenie —
+          faktúry za priebežnú službu sa neodosielajú automaticky.</div>` : '') + `
+        <div class="pillbar" style="margin-bottom:10px;width:max-content;max-width:100%;overflow-x:auto;">
+          <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Inv.setF('status','')">Všetky</button>
+          ${STATUS.map(s => {
+            const n = this.items.filter(x => x.status === s[0]).length;
+            return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Inv.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
+          }).join('')}
+        </div>
+        ${Shell.filterbar({
+          search: { value: this.filters.q, placeholder: 'Hľadať číslo faktúry alebo odberateľa…',
+            oninput: 'Inv.setF("q", this.value)' },
+          period: { field: 'issue_date', key: this.filters.period, from: this.filters.from,
+            to: this.filters.to, label: 'Vystavené', set: 'Inv.setF' },
+          exportCsv: 'Inv.exportCsv()',
+          total: this.items.length, shown: rows.length,
+        })}
+        ${rows.length === 0
+          ? (this.items.length
+              ? UI.empty('search', 'Filtru nič nesedí',
+                  `V databáze je ${this.items.length} faktúr, ale ani jedna nevyhovuje.`)
+              : UI.empty('invoices', 'Žiadne faktúry', 'Vystaviť sa dá z objednávky, z dopytu alebo úplne voľne.',
+                  `<button class="btn btn-primary" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`))
+          : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
+    },
+
+    /** Komu sa fakturuje: v2 nemeckému odberateľovi, v1 klientovi z ubytovania. */
+    partnerOf(id) { return (this.partners || []).find(p => p.id === id) || null; },
+    counterparty(x) {
+      const p = this.partnerOf(x.partner_id);
+      if (p) return { type: 'partner', id: p.id, name: p.name };
+      const c = this.clientOf(x.client_id);
+      return c ? { type: 'client', id: c.id, name: c.name } : null;
+    },
+
+    card(x) {
+      const who = this.counterparty(x);
+      const late = x.status === 'overdue';
+      return `
+        <div class="acc-card card" onclick="Inv.detail('${x.id}')">
+          <div class="acc-card-head">
+            <div style="min-width:0;">
+              <div class="acc-name mono" style="font-size:13px;letter-spacing:.02em;">${UI.esc(x.invoice_number || '—')}</div>
+              ${TYPE[x.type] || x.type ? `<div class="acc-loc">${UI.esc(TYPE[x.type] || x.type)}</div>` : ''}
+            </div>
+            ${this.badge(x.status)}
+          </div>
+          ${who || x.subcontract_id ? `<div class="link-row" style="margin-bottom:9px;">
+            ${who ? Danubra.link(who.type, who.id, who.name) : ''}
+            ${x.subcontract_id ? Danubra.link('subcontract', x.subcontract_id, 'Zákazka') : ''}
+          </div>` : ''}
+          <div class="acc-meta">
+            <span style="font-weight:700;color:var(--navy);">${UI.money(x.total, x.currency)}</span>
+            <span>${Icon('calendar', 14)} splatnosť ${UI.date(x.due_date)}</span>
+            ${late ? `<span style="color:var(--red);font-weight:700;">${Icon('alert', 14)} po splatnosti</span>` : ''}
+            ${x.billing_period_from ? `<span>${Icon('repeat', 14)} ${UI.date(x.billing_period_from)}–${UI.date(x.billing_period_to)}</span>` : ''}
+          </div>
+        </div>`;
+    },
+
+    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+
+    /**
+     * Čo je po filtroch vidieť. Je to metóda, nie premenná v `view()`, aby
+     * export vyviezol presne to, čo má človek pred sebou.
+     */
+    rows() {
+      const f = this.filters;
+      return Shell.filterRows(this.items, {
+        q: f.q,
+        // Faktúra sa hľadá podľa čísla, ale aj podľa toho, komu sa fakturovala —
+        // a odberateľ je v inej tabuľke.
+        fields: ['invoice_number', 'status', (x) => (this.counterparty(x) || {}).name],
+        equals: { status: f.status },
+        period: { field: 'issue_date', key: f.period, from: f.from, to: f.to },
+      });
+    },
+
+    exportCsv() {
+      const f = this.filters;
+      Shell.exportCsv(this.rows(), [
+        ['Číslo', x => x.invoice_number],
+        ['Vystavená', x => x.issue_date],
+        ['Splatnosť', x => x.due_date],
+        ['Odberateľ', x => (this.counterparty(x) || {}).name],
+        ['Stav', x => (STATUS.find(s => s[0] === x.status) || [])[1] || x.status],
+        ['Typ', x => TYPE[x.type] || x.type],
+        ['Suma', x => DanubraExport.num(x.total)],
+        ['Základ', x => DanubraExport.num(x.amount_net)],
+        ['Zrážka §48b', x => DanubraExport.num(x.withholding_amount)],
+      ], ['faktury', Shell.periodSlug({ field: 'issue_date', key: f.period, from: f.from, to: f.to })]);
+    },
+
+    /** Faktúra v2 pozná odberateľa alebo podklad; v1 má klienta z ubytovania. */
+    isV2(x) { return !!(x.partner_id || x.period_id || x.subcontract_id); },
+
+    async detail(id) {
+      const x = this.items.find(i => i.id === id);
+      if (!x) return UI.toast('Nenájdené', 'err');
+      if (this.isV2(x)) return this.detailV2(x);
+      const c = this.clientOf(x.client_id);
+      const items = this.linesOf(id);
+      const ord = this.orders.find(o => o.id === x.order_id);
+      const regime = REGIME[x.vat_regime] || x.vat_regime || '—';
+
+      const rows = [
+        ['Klient', c?.name], ['Typ', TYPE[x.type] || x.type],
+        ['Objednávka', ord?.order_number], ['Vystavená', UI.date(x.issue_date)],
+        ['Splatnosť', UI.date(x.due_date)], ['Režim DPH', regime],
+        ['Obdobie', x.billing_period_from ? `${UI.date(x.billing_period_from)} – ${UI.date(x.billing_period_to)}` : null],
+        ['Uhradená', x.paid_at ? new Date(x.paid_at).toLocaleString('sk-SK') : null],
+      ].filter(r => r[1] != null && r[1] !== '');
+
+      const body = `
+        <div class="detail-head">${this.badge(x.status)}
+          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(x.invoice_number || '')}</span>
+        </div>
+        ${x.status === 'draft_pending_approval' ? `<div class="warnbox">
+          ${Icon('alert', 14)} Toto je návrh — pred odoslaním klientovi ho musíš schváliť.</div>` : ''}
+        ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'client', id: c.id } }) : ''}
+        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
+
+        <div class="form-section">Položky</div>
+        ${items.map(i => `<div class="list-row" style="cursor:default;">
+          <span style="flex:1;font-size:13px;">${UI.esc(i.description)}
+            <span style="color:var(--ink-mute);font-size:12px;display:block;">
+              ${Number(i.quantity || 0).toLocaleString('sk-SK')} ${UI.esc(i.unit || '')} × ${UI.money(i.unit_price)}</span>
+          </span>
+          <strong>${UI.money(i.total)}</strong></div>`).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Bez položiek.</div>'}
+        <div class="service-total" style="background:var(--field);border-color:var(--border);">
+          <div style="font-weight:700;">Na úhradu</div>
+          <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">${UI.money(x.total, x.currency)}</div>
+        </div>
+
+        <div class="modal-actions">
+          ${x.status === 'draft_pending_approval'
+            ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Inv.del('${x.id}')">Zahodiť návrh</button>
+               <button class="btn btn-primary btn-sm" onclick="Inv.approve('${x.id}')">${Icon('check')} Schváliť a vystaviť</button>`
+            : `<button class="btn btn-outline btn-sm" onclick="Inv.openDoc('${x.id}')">${Icon('doc')} Dokument s QR</button>
+               ${x.status !== 'paid'
+                 ? `<button class="btn btn-primary btn-sm" onclick="Inv.markPaid('${x.id}')">${Icon('check')} Označiť uhradenú</button>`
+                 : ''}`}
+        </div>`;
+      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
+    },
+
+    async approve(id) {
+      const x = this.items.find(i => i.id === id);
+      if (!x) return;
+      await DB.update('invoices', id, { status: 'issued' });
+      x.status = 'issued';
+      UI.toast('Faktúra vystavená', 'ok');
+      this.detail(id);
+      Danubra.renderRoute();
+    },
+
+    async markPaid(id) {
+      const x = this.items.find(i => i.id === id);
+      if (!x) return;
+      const now = new Date().toISOString();
+      await DB.update('invoices', id, { status: 'paid', paid_at: now });
+      Object.assign(x, { status: 'paid', paid_at: now });
+      UI.toast('Označená ako uhradená', 'ok');
+      this.detail(id);
+      Danubra.renderRoute();
+    },
+
+    async openDoc(id) {
+      const x = this.items.find(i => i.id === id);
+      if (!x) return;
+      await Invoicing.openDocument(x, this.linesOf(id), this.clientOf(x.client_id));
+    },
+
+    async del(id) {
+      if (!await UI.confirm('Zahodiť tento návrh faktúry?')) return;
+      await DB.remove('invoices', id);
+      this.items = this.items.filter(i => i.id !== id);
+      UI.closeModal(); UI.toast('Návrh zahodený', 'ok');
+      Danubra.renderRoute();
+    },
+
+    // ── Nová faktúra: voľba zdroja ────────────────────────────────────────
+    // Faktúra nie je viazaná na predchádzajúci doklad — vystaviť sa dá
+    // z objednávky, z dopytu, alebo úplne voľne pre klienta.
+    async newInvoice() {
+      if (!this.loaded) await this.load();
+      const opt = (ico, title, sub, action) => `
+        <button class="list-row" onclick="${action}">
+          <span style="color:var(--ink-mute);display:flex;">${Icon(ico, 18)}</span>
+          <span style="flex:1;"><strong>${title}</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">${sub}</span></span>
+          <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+      UI.modal('Z čoho vystaviť faktúru?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${opt('orders', 'Z objednávky', 'Poplatok za sprostredkovanie alebo priebežná služba', 'Inv.pickOrder()')}
+          ${opt('inquiries', 'Z dopytu', 'Ešte pred objednávkou — napríklad záloha alebo rezervácia', 'Inv.pickInquiry()')}
+          ${opt('site', 'Zo zákazky (subdodávky)', 'Z potvrdených hodín, reverse charge §13b', 'Inv.pickSubcontract()')}
+          ${opt('clients', 'Voľná faktúra', 'Vlastné položky pre ľubovoľného klienta', 'Inv.manual()')}
+        </div>`);
+    },
+
+    async pickOrder() {
+      const cand = this.orders.filter(o => !['cancelled'].includes(o.status));
+      if (!cand.length) return UI.toast('Žiadne objednávky na fakturáciu', 'err');
+      UI.modal('Z ktorej objednávky?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${cand.map(o => {
+            const c = this.clientOf(o.client_id);
+            return `<button class="list-row" onclick="Inv.chooseType('${o.id}')">
+              <span style="flex:1;"><strong class="mono" style="font-size:12.5px;">${UI.esc(o.order_number || '—')}</strong>
+              <span style="color:var(--ink-mute);"> · ${c ? UI.esc(c.name) : '—'} · ${UI.money(o.service_fee || 0)}</span></span>
+              <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+          }).join('')}
+        </div>`);
+    },
+
+    async chooseType(orderId) {
+      const o = this.orders.find(x => x.id === orderId);
+      const canOngoing = o?.ongoing_service_enabled;
+      UI.modal('Za čo fakturujeme?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <button class="list-row" onclick="Inv.create('${orderId}','service_fee')">
+            <span style="flex:1;"><strong>Sprostredkovateľský poplatok</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">${UI.money(o?.service_fee || 0)}${o?.urgent_surcharge ? ` + ${UI.money(o.urgent_surcharge)} súrne` : ''}</span></span>
+            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>
+          ${canOngoing ? `<button class="list-row" onclick="Inv.create('${orderId}','ongoing_service')">
+            <span style="flex:1;"><strong>Priebežná služba za aktuálny mesiac</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Vytvorí sa ako návrh na schválenie</span></span>
+            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>` : ''}
+          <button class="list-row" onclick="Inv.manual(null,'${orderId}')">
+            <span style="flex:1;"><strong>Vlastné položky</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Faktúra naviazaná na objednávku, obsah si určíš sám</span></span>
+            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>
+        </div>`);
+    },
+
+    async pickInquiry() {
+      const { data: inqs } = await DB.list('inquiries', {
+        select: 'id,target_city,persons,date_from,date_to,client_id,budget_per_bed,status',
+        order: { column: 'received_at', ascending: false }, limit: 200 });
+      const open = (inqs || []).filter(i => !['lost'].includes(i.status));
+      if (!open.length) return UI.toast('Žiadne dopyty', 'err');
+      UI.modal('Z ktorého dopytu?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${open.map(i => {
+            const c = this.clientOf(i.client_id);
+            return `<button class="list-row" onclick="Inv.manualFromInquiry('${i.id}')">
+              <span style="flex:1;"><strong>${UI.esc(i.target_city || '—')}</strong>
+              <span style="color:var(--ink-mute);"> · ${c ? UI.esc(c.name) : 'bez klienta'} · ${i.persons || '?'} os.</span></span>
+              <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+          }).join('')}
+        </div>`);
+    },
+
+    async manualFromInquiry(inquiryId) {
+      const { data: inq } = await DB.getById('inquiries', inquiryId);
+      if (!inq) return UI.toast('Dopyt nenájdený', 'err');
+      this._srcInquiry = inq;
+      const nights = UI.nights(inq.date_from, inq.date_to);
+      const desc = `Ubytovanie ${inq.target_city || ''}`
+        + (inq.date_from ? ` · ${UI.date(inq.date_from)} – ${UI.date(inq.date_to)}` : '')
+        + (nights ? ` · ${nights} nocí` : '');
+      this.manual(inq.client_id, null, [{
+        description: desc.trim(), quantity: inq.persons || 1, unit: 'os.',
+        unit_price: inq.budget_per_bed && nights ? Number(inq.budget_per_bed) * nights : 0,
+      }]);
+    },
+
+    /** Faktúra zo zákazky — z potvrdených, ešte nefakturovaných hodín. */
+    async pickSubcontract() {
+      const [{ data: subs }, { data: ts }] = await Promise.all([
+        DB.list('subcontracts', { select: 'id,title,contract_number,partner_id,charge_rate,status,work_type', limit: 300 }),
+        DB.list('timesheets', { limit: 3000 }),
+      ]);
+      const { data: asg } = await DB.list('assignments', { select: 'id,subcontract_id', limit: 1000 });
+      const asgMap = new Map((asg || []).map(a => [a.id, a.subcontract_id]));
+      const openBySub = new Map();
+      for (const t of (ts || [])) {
+        if (!t.approved || t.invoiced_at) continue;
+        const sid = asgMap.get(t.assignment_id);
+        if (!sid) continue;
+        openBySub.set(sid, (openBySub.get(sid) || 0) + Number(t.hours || 0));
+      }
+      const cand = (subs || []).filter(s => openBySub.has(s.id));
+      if (!cand.length) return UI.toast('Žiadne potvrdené nefakturované hodiny — najprv potvrď hodiny', 'err');
+
+      this._subs = subs; this._allTs = ts; this._asgMap = asgMap;
+      UI.modal('Z ktorej zákazky?', `
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          ${cand.map(s => `<button class="list-row" onclick="Inv.createFromSubcontract('${s.id}')">
+            <span style="flex:1;"><strong>${UI.esc(s.title)}</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">
+              ${Math.round(openBySub.get(s.id))} h nefakturovaných${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}</span></span>
+            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`).join('')}
+        </div>`);
+    },
+
+    async createFromSubcontract(scId) {
+      UI.closeModal();
+      const sc = (this._subs || []).find(s => s.id === scId);
+      if (!sc) return UI.toast('Zákazka nenájdená', 'err');
+      const { data: partner } = await DB.getById('partners', sc.partner_id);
+      if (!partner) return UI.toast('Zákazka nemá priradeného odberateľa', 'err');
+      if (!partner.ust_idnr) {
+        if (!await UI.confirm('Odberateľ nemá USt-IdNr — reverse charge §13b sa nedá uplatniť.\nPokračovať?')) return;
+      }
+      const ts = (this._allTs || []).filter(t => this._asgMap.get(t.assignment_id) === scId);
+      try {
+        const res = await Invoicing.createSubcontractInvoice({ subcontract: sc, partner, timesheets: ts });
+        if (res.skipped) return UI.toast('Nie je čo fakturovať', 'err');
+        UI.toast(`Faktúra ${res.invoice.invoice_number} vystavená`, 'ok');
+        await this.load(); Danubra.go('invoices'); Danubra.renderRoute();
+      } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
+    },
+
+    /** Editor voľnej faktúry s vlastnými položkami. */
+    manual(clientId, orderId, prefill) {
+      this._srcOrder = orderId || null;
+      this._rows = (prefill && prefill.length) ? prefill.slice()
+        : [{ description: '', quantity: 1, unit: 'ks', unit_price: 0 }];
+      const c = clientId || '';
+      UI.modal('Voľná faktúra', `
+        <form id="man-form" onsubmit="event.preventDefault();Inv.saveManual()">
+          <div class="form-grid">
+            ${UI.field('client_id', 'Klient', { value: c, required: true,
+              options: [['', '— vyber klienta —'], ...this.clients.map(x => [x.id, x.name])] })}
+            ${UI.field('type', 'Typ', { value: 'other', options: [
+              ['other', 'Iné'], ['service_fee', 'Sprostredkovanie'],
+              ['ongoing_service', 'Priebežná služba'], ['retainer', 'Retainer']] })}
+            ${UI.field('due_days', 'Splatnosť (dní)', { type: 'number', value: 14 })}
+          </div>
+          <div id="regime-hint" class="regimebox" style="margin-bottom:6px;"></div>
+          <div class="form-section">Položky</div>
+          <div id="item-rows"></div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="Inv.addRow()">${Icon('plus')} Pridať položku</button>
+          <div class="service-total" style="background:var(--field);border-color:var(--border);margin-top:14px;">
+            <div style="font-weight:700;">Spolu</div>
+            <div id="man-total" style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">0,00 €</div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Vystaviť faktúru</button>
+          </div>
+        </form>`, { wide: true });
+      this.renderRows();
+      const form = document.getElementById('man-form');
+      form.addEventListener('input', () => { this.syncRows(); this.updateRegime(); });
+      this.updateRegime();
+    },
+
+    renderRows() {
+      const box = document.getElementById('item-rows');
+      if (!box) return;
+      box.innerHTML = this._rows.map((r, i) => `
+        <div class="item-row">
+          <input placeholder="Popis položky" data-i="${i}" data-f="description" value="${UI.esc(r.description)}">
+          <input type="number" step="0.01" placeholder="Množ." data-i="${i}" data-f="quantity" value="${r.quantity}">
+          <input placeholder="MJ" data-i="${i}" data-f="unit" value="${UI.esc(r.unit)}">
+          <input type="number" step="0.01" placeholder="Cena" data-i="${i}" data-f="unit_price" value="${r.unit_price}">
+          <span class="item-sum">${UI.money((Number(r.quantity) || 0) * (Number(r.unit_price) || 0))}</span>
+          <button type="button" class="btn btn-ghost btn-sm" style="color:var(--red);"
+            onclick="Inv.delRow(${i})" ${this._rows.length === 1 ? 'disabled' : ''}>${Icon('x', 15)}</button>
+        </div>`).join('');
+      this.updateTotal();
+    },
+
+    syncRows() {
+      document.querySelectorAll('#item-rows [data-i]').forEach(el => {
+        const i = Number(el.dataset.i), f = el.dataset.f;
+        if (this._rows[i]) this._rows[i][f] = el.value;
+      });
+      document.querySelectorAll('#item-rows .item-row').forEach((row, i) => {
+        const r = this._rows[i];
+        const sum = row.querySelector('.item-sum');
+        if (sum && r) sum.textContent = UI.money((Number(r.quantity) || 0) * (Number(r.unit_price) || 0));
+      });
+      this.updateTotal();
+    },
+
+    updateTotal() {
+      const t = this._rows.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unit_price) || 0), 0);
+      const el = document.getElementById('man-total');
+      if (el) el.textContent = UI.money(t);
+    },
+
+    updateRegime() {
+      const sel = document.querySelector('#man-form [name=client_id]');
+      const el = document.getElementById('regime-hint');
+      if (!sel || !el) return;
+      const c = this.clientOf(sel.value);
+      if (!c) { el.textContent = 'Vyber klienta — podľa jeho krajiny a IČ DPH sa určí režim.'; return; }
+      const r = Invoicing.regimeFor(c);
+      el.innerHTML = `Režim: <strong>${REGIME[r.regime] || r.regime}</strong> — ${UI.esc(r.note || '')}`
+        + (r.warning ? ` <span style="color:var(--amber);">${UI.esc(r.warning)}</span>` : '');
+    },
+
+    addRow() { this.syncRows(); this._rows.push({ description: '', quantity: 1, unit: 'ks', unit_price: 0 }); this.renderRows(); },
+    delRow(i) { this.syncRows(); this._rows.splice(i, 1); this.renderRows(); },
+
+    async saveManual() {
+      this.syncRows();
+      const d = UI.formData(document.getElementById('man-form'));
+      const client = this.clientOf(d.client_id);
+      if (!client) return UI.toast('Vyber klienta', 'err');
+      let order = null;
+      if (this._srcOrder) { const { data } = await DB.getById('orders', this._srcOrder); order = data; }
+      try {
+        const { invoice } = await Invoicing.createManual({
+          client, items: this._rows, type: d.type || 'other',
+          dueDays: Number(d.due_days) || 14,
+          order, inquiry: this._srcInquiry || null,
+        });
+        UI.closeModal();
+        UI.toast(`Faktúra ${invoice.invoice_number} vystavená`, 'ok');
+        this._srcOrder = null; this._srcInquiry = null;
+        await this.load(); Danubra.renderRoute();
+      } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
+    },
+
+    async create(orderId, type) {
+      UI.closeModal();
+      const { data: order } = await DB.getById('orders', orderId);
+      if (!order) return UI.toast('Objednávka nenájdená', 'err');
+      const client = this.clientOf(order.client_id);
+      try {
+        if (type === 'service_fee') {
+          const { invoice } = await Invoicing.createServiceFee(order, client);
+          UI.toast(`Faktúra ${invoice.invoice_number} vystavená`, 'ok');
+        } else {
+          const { data: segs } = await DB.list('order_service_periods', { filters: { order_id: orderId } });
+          const now = new Date();
+          const per = window.DanubraBilling.monthlyBillingPeriod(now.getFullYear(), now.getMonth() + 1, order);
+          const res = await Invoicing.createOngoingService(order, client, per.periodFrom, per.periodTo, segs || []);
+          if (res.skipped) return UI.toast('Za toto obdobie nie je čo fakturovať', 'err');
+          UI.toast(`Návrh ${res.invoice.invoice_number} čaká na schválenie`, 'ok');
+        }
+        await this.load();
+        Danubra.go('invoices');
+        Danubra.renderRoute();
+      } catch (e) {
+        UI.toast('Chyba: ' + e.message, 'err');
+      }
+    },
+  };
+
+
+  // ── Faktúra v2: podklad → schválenie → vystavenie → odoslanie ───────────
+  // Schválenie a odoslanie sú dve samostatné rozhodnutia. Pravdu o tom drží
+  // trigger v databáze; tu sa len nekreslí tlačidlo, ktoré by databáza
+  // odmietla.
+  Object.assign(Inv, {
+    v2: { partners: [], subcontracts: [], periods: [], loaded: false },
+
+    async loadV2() {
+      if (this.v2.loaded) return;
+      const [p, s, per] = await Promise.all([
+        DB.list('partners', { limit: 300 }),
+        DB.list('subcontracts', { select: 'id,title,work_type,freistellung_verified,partner_id', limit: 500 }),
+        DB.list('periods', { limit: 500 }),
+      ]);
+      this.v2 = { partners: p.data || [], subcontracts: s.data || [],
+        periods: per.data || [], loaded: true };
+    },
+
+    ctxOf(x) {
+      return {
+        invoice: x,
+        partner: this.v2.partners.find(p => p.id === x.partner_id) || {},
+        subcontract: this.v2.subcontracts.find(s => s.id === x.subcontract_id) || {},
+        period: this.v2.periods.find(p => p.id === x.period_id) || {},
+      };
+    },
+
+    async detailV2(x) {
+      await this.loadV2();
+      const ctx = this.ctxOf(x);
+      const rev = DanubraInvoice.reviewBeforeApproval(ctx);
+      const w = rev.withholding;
+      const steps = DanubraInvoice.nextSteps(x);
+
+      const act = (to) => {
+        const map = {
+          pending_approval: ['Poslať na schválenie', 'btn-outline'],
+          approved: ['Schváliť', 'btn-primary'],
+          draft: ['Vrátiť na prepracovanie', 'btn-ghost'],
+          issued: ['Vystaviť v SuperFaktúre', 'btn-primary'],
+          sent: ['Odoslať odberateľovi', 'btn-primary'],
+          paid: ['Označiť uhradenú', 'btn-outline'],
+          overdue: ['Po splatnosti', 'btn-ghost'],
+        }[to];
+        if (!map) return '';
+        // Schváliť sa nedá, kým niečo blokuje.
+        if (to === 'approved' && !rev.ok) {
+          return `<button class="btn btn-primary btn-sm" disabled title="Najprv oprav, čo blokuje">${map[0]}</button>`;
+        }
+        const fn = to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
+          : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
+          : to === 'paid' ? `Inv.sfAction('${x.id}','pay')`
+          : `Inv.setStatusV2('${x.id}','${to}')`;
+        return `<button class="btn ${map[1]} btn-sm" onclick="${fn}">${map[0]}</button>`;
+      };
+
+      const rows = [
+        ['Odberateľ', ctx.partner.name],
+        ['Zákazka', ctx.subcontract.title],
+        ['Obdobie', x.billing_period_from
+          ? UI.dateRange(x.billing_period_from, x.billing_period_to) : null],
+        ['Vystavená', x.issue_date ? UI.date(x.issue_date) : null],
+        ['Splatnosť', x.due_date ? UI.date(x.due_date) : null],
+        ['Režim DPH', x.vat_regime === 'reverse_charge'
+          ? 'Reverse charge §13b' : 'Bežný'],
+        ['Schválil', x.approved_at
+          ? `${new Date(x.approved_at).toLocaleString('sk-SK')}` : null],
+        ['V SuperFaktúre', x.sf_invoice_id
+          ? `${x.sf_invoice_id} (${x.sf_environment || 'sandbox'})` : null],
+      ].filter(r => r[1] != null && r[1] !== '');
+
+      const body = `
+        <div class="detail-head">
+          ${this.badge(x.status)}
+          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(x.invoice_number || '')}</span>
+        </div>
+
+        ${x.sf_error ? `<div class="warnbox">${Icon('alert', 14)}
+          Posledný pokus zlyhal: ${UI.esc(x.sf_error)}</div>` : ''}
+
+        <div class="form-section">Suma</div>
+        ${Shell.sums({
+          lines: DanubraInvoice.sumLines(x),
+          totalLabel: w.withheld ? 'Na účet príde' : 'Na úhradu',
+          note: w.withheld
+            ? 'Do SuperFaktúry ide plná suma — zrážka nie je zľava, je to '
+              + 'daňová povinnosť odberateľa.' : '',
+        })}
+
+        <div class="form-section">Pred schválením</div>
+        ${Shell.blocker({
+          reasons: [...rev.reasons, ...rev.warnings],
+          okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
+            + 'Suma sedí s podkladom a odberateľ má všetko, čo treba.</p>',
+        })}
+
+        <div class="kv" style="margin-top:14px;">
+          ${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
+        </div>
+
+        <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+          ${steps.map(act).join('')}
+        </div>`;
+      UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
+    },
+
+    async setStatusV2(id, to) {
+      const x = this.items.find(i => i.id === id);
+      if (!x || !DanubraInvoice.canGo(x.status, to)) {
+        return UI.toast('Tento krok sa z aktuálneho stavu nedá spraviť', 'err');
+      }
+      const { error } = await DB.update('invoices', id, { status: to });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Stav uložený', 'ok');
+      this.loaded = false; await this.load();
+      this.detail(id); Danubra.renderRoute();
+    },
+
+    /**
+     * Vystavenie, odoslanie a úhrada idú cez serverovú funkciu. API kľúč
+     * SuperFaktúry nikdy neopustí server a funkcia si stav overí v databáze —
+     * poslať `{action:'issue'}` z konzoly schvaľovanie neobíde.
+     */
+    async sfAction(id, action) {
+      const labels = { issue: 'Vystavujem…', send: 'Odosielam…', pay: 'Zapisujem úhradu…' };
+      UI.toast(labels[action] || 'Pracujem…');
+      let res, json;
+      try {
+        res = await fetch('/.netlify/functions/danubra-sf-invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoice_id: id, action }),
+        });
+        json = await res.json();
+      } catch (e) {
+        return UI.toast('Server neodpovedal: ' + e.message, 'err');
+      }
+      if (json && json.skipped) {
+        return UI.toast(json.message, 'err');
+      }
+      if (!res.ok) {
+        return UI.toast(json && json.error ? json.error : 'Nepodarilo sa', 'err');
+      }
+      UI.toast({ issue: 'Faktúra vystavená', send: 'Faktúra odoslaná',
+        pay: 'Označená ako uhradená' }[action] || 'Hotovo', 'ok');
+      this.loaded = false; await this.load();
+      this.detail(id); Danubra.renderRoute();
+    },
+
+    /** Faktúra z uzavretého podkladu. Sumy pochádzajú z obdobia, nie z ruky. */
+    async fromPeriod(periodId) {
+      const { data, error } = await DB.rpc('invoice_from_period', { p_period_id: periodId });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast('Faktúra vytvorená z podkladu', 'ok');
+      this.loaded = false; this.v2.loaded = false;
+      await this.load();
+      Danubra.go('invoices');
+      const inv = Array.isArray(data) ? data[0] : data;
+      if (inv && inv.id) setTimeout(() => this.detail(inv.id), 300);
+    },
+  });
+
+  window.Inv = Inv;
+  Danubra.views.invoices = function (el) { return Inv.view(el); };
+})();

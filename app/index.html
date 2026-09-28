@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0A1B3D">
+  <title>P&amp;S — nábor a stavby v Nemecku</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 120 120'><rect x='-10' y='-10' width='120' height='120' rx='10' fill='%230A1B3D'/><rect x='4' y='56' width='24' height='40' rx='2' fill='%23fff'/><rect x='38' y='32' width='24' height='64' rx='2' fill='%23fff'/><rect x='72' y='4' width='24' height='92' rx='2' fill='%23F07E22'/></svg>">
+  <!-- Klient Supabase si nesieme so sebou. Keď sa ťahal z unpkg.com a
+       nenačítal sa, stránka zostala biela a bez hlášky. Pozri vendor/README.md. -->
+  <script src="./vendor/supabase-js-2.116.0.js"></script>
+  <!-- Mapa. Keď sa nenačíta, obrazovka ukáže body ako odkazy, nie bielu plochu. -->
+  <script src="./vendor/leaflet-1.9.4.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="./vendor/leaflet-1.9.4.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="login-screen" class="login-screen" hidden>
+    <div class="login-card">
+      <!-- Značka bez názvu firmy. Tri stĺpce, najvyšší oranžový — je to
+           znak, nie písmeno, takže sa z neho nedá prečítať, čia appka to je. -->
+      <div class="login-brand" aria-label="P&amp;S">
+        <svg class="logo-mark" viewBox="0 0 100 100" width="30" height="30" aria-hidden="true">
+          <rect x="4" y="56" width="24" height="40" rx="2" fill="#0A1B3D"/>
+          <rect x="38" y="32" width="24" height="64" rx="2" fill="#0A1B3D"/>
+          <rect x="72" y="4" width="24" height="92" rx="2" fill="#F07E22"/>
+        </svg>
+        <span class="logo-word">P&amp;S</span>
+      </div>
+      <form id="login-form">
+        <label>E-mail
+          <input type="email" id="login-email" required autocomplete="username" placeholder="meno@firma.sk">
+        </label>
+        <label>Heslo
+          <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••">
+        </label>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Prihlásiť sa</button>
+        <div id="login-error" class="login-error" hidden></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" class="app" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand" aria-label="P&amp;S">
+        <svg class="logo-mark" viewBox="0 0 100 100" width="20" height="20" aria-hidden="true">
+          <rect x="4" y="56" width="24" height="40" rx="2" fill="#fff"/>
+          <rect x="38" y="32" width="24" height="64" rx="2" fill="#fff"/>
+          <rect x="72" y="4" width="24" height="92" rx="2" fill="#F07E22"/>
+        </svg>
+        <span class="logo-word">P&amp;S</span>
+      </div>
+      <div id="area-switch" class="area-switch"></div>
+      <!-- Obal drží tieň na spodku, keď navigácia pokračuje pod okrajom. -->
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <nav id="sidebar-nav" class="sidebar-nav"></nav>
+      </div>
+      <div class="sidebar-foot">
+        <div class="avatar" id="user-initial">·</div>
+        <div class="who">
+          <b id="user-name">—</b>
+          <span id="user-email"></span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="Danubra.logout()" title="Odhlásiť" id="btn-logout"></button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <!-- desktop topbar -->
+      <header class="topbar">
+        <button class="mega-btn" onclick="Danubra.toggleMega()" title="Všetky sekcie">
+          <span class="mega-btn-ico"></span><span>Všetko</span>
+        </button>
+        <div class="searchbox">
+          <span class="search-ico"></span>
+          <input id="global-search" placeholder="Hľadať mesto, meno, telefón, číslo objednávky…">
+        </div>
+        <div id="topbar-actions" class="topbar-actions"></div>
+        <!-- Vysvetlivky. Nie je to nápoveda k tlačidlám — je to zoznam toho,
+             čo ktoré číslo znamená a prečo sa počíta práve tak. -->
+        <button class="bell-btn no-print" onclick="Help.index()" title="Vysvetlivky"
+          aria-label="Vysvetlivky" id="btn-help"></button>
+        <!-- Zvonček. Napĺňa ho `Danubra.renderBell()`; kým sa udalosti
+             nenačítajú, je tu prázdno, nie prázdny rámik. -->
+        <div id="bell-slot" class="bell-wrap"></div>
+      </header>
+
+      <!-- mobile head -->
+      <div class="mobile-head">
+        <div class="mh-row">
+          <button class="btn btn-ghost btn-sm" style="color:#fff;padding:6px 8px;" onclick="Danubra.toggleMega()" aria-label="Všetky sekcie" id="btn-menu"></button>
+          <div class="mh-search">
+            <span class="search-ico"></span>
+            <input placeholder="Hľadať…">
+          </div>
+          <!-- Na mobile horný pruh nie je, takže zvonček musí byť aj tu —
+               inak by sa o udalostiach z telefónu nedalo dozvedieť. -->
+          <button class="bell-btn no-print" onclick="Help.index()" title="Vysvetlivky"
+            aria-label="Vysvetlivky" id="btn-help-m"></button>
+          <div id="bell-slot-m" class="bell-wrap bell-dark"></div>
+          <div class="avatar" id="user-initial-m">·</div>
+        </div>
+      </div>
+
+      <main id="view" class="view"></main>
+    </div>
+
+    <nav id="bottom-nav" class="bottom-nav"></nav>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="./js/icons.js"></script>
+  <script src="./js/config.js"></script>
+  <script src="./js/db.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./lib/money.js"></script>
+  <script src="./lib/enums.js"></script>
+  <script src="./lib/billing/regime.js"></script>
+  <script src="./lib/matching.js"></script>
+  <script src="./js/app.js"></script>
+  <script src="./lib/orders/state-machine.js"></script>
+  <script src="./lib/billing/ongoing-service.js"></script>
+  <script src="./lib/billing/invoice.js"></script>
+  <script src="./lib/billing/bills.js"></script>
+  <script src="./lib/bank.js"></script>
+  <script src="./lib/tasks.js"></script>
+  <script src="./lib/qr.js"></script>
+  <script src="./lib/documents/templates.js"></script>
+  <script src="./lib/staffing/margin.js"></script>
+  <script src="./lib/staffing/compliance.js"></script>
+  <script src="./lib/staffing/documents.js"></script>
+  <script src="./lib/staffing/crews.js"></script>
+  <script src="./lib/staffing/periods.js"></script>
+  <script src="./lib/staffing/account.js"></script>
+  <script src="./lib/staffing/hoursheet.js"></script>
+  <script src="./lib/geo.js"></script>
+  <script src="./lib/period.js"></script>
+  <script src="./lib/outlook.js"></script>
+  <script src="./lib/dashboard.js"></script>
+  <script src="./lib/perm.js"></script>
+  <script src="./lib/messaging.js"></script>
+  <script src="./lib/export.js"></script>
+  <script src="./lib/events.js"></script>
+  <script src="./lib/explain.js"></script>
+  <script src="./lib/partners/payment.js"></script>
+  <script src="./lib/quotes.js"></script>
+  <script src="./lib/sms/provider.js"></script>
+  <script src="./lib/recruiting/screening.js"></script>
+  <script src="./lib/recruiting/process.js"></script>
+  <script src="./lib/recruiting/chips.js"></script>
+  <script src="./lib/recruiting/ads.js"></script>
+  <script src="./js/services/orders-service.js"></script>
+  <script src="./js/services/invoicing.js"></script>
+  <script src="./js/components/shell.js"></script>
+  <script src="./js/components/comm-panel.js"></script>
+  <script src="./js/components/map.js"></script>
+  <script src="./js/components/chart.js"></script>
+  <script src="./js/components/help.js"></script>
+  <script src="./js/modules/accommodations.js"></script>
+  <script src="./js/modules/clients.js"></script>
+  <script src="./js/modules/inquiries.js"></script>
+  <script src="./js/modules/offers.js"></script>
+  <script src="./js/modules/orders.js"></script>
+  <script src="./js/modules/invoices.js"></script>
+  <script src="./js/modules/hiring.js"></script>
+  <script src="./js/modules/trades.js"></script>
+  <script src="./js/modules/candidates.js"></script>
+  <script src="./js/modules/candidate-process.js"></script>
+  <script src="./js/modules/interview.js"></script>
+  <script src="./js/modules/workers.js"></script>
+  <script src="./js/modules/subcontracts.js"></script>
+  <script src="./js/modules/partners.js"></script>
+  <script src="./js/modules/crews.js"></script>
+  <script src="./js/modules/quotes.js"></script>
+  <script src="./js/modules/contracts.js"></script>
+  <script src="./js/modules/costs.js"></script>
+  <script src="./js/modules/bank.js"></script>
+  <script src="./js/modules/timesheets.js"></script>
+  <script src="./js/modules/hoursheet.js"></script>
+  <script src="./js/modules/marketing.js"></script>
+  <script src="./js/modules/ads.js"></script>
+  <script src="./js/modules/recruiting.js"></script>
+  <script src="./js/modules/tasks.js"></script>
+  <script src="./js/modules/compliance-view.js"></script>
+  <script src="./js/modules/messages.js"></script>
+  <script src="./js/modules/members.js"></script>
+  <script src="./js/modules/settings.js"></script>
+</body>
+</html>

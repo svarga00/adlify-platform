@@ -1,0 +1,157 @@
+# DANUBRA — čo kam nahrať
+
+Krok za krokom, aby aplikácia bežala naostro. Body 1 a 2 sú povinné, zvyšok
+podľa toho, čo chceš používať.
+
+Adresa aplikácie: **`https://adlify-app.netlify.app/app/`**
+
+---
+
+## 1. Migrácie do Supabase — POVINNÉ
+
+Supabase → tvoj projekt → **SQL Editor** → **New query** → vložiť obsah
+súboru → **Run**. Vždy počkaj, kým dobehne, až potom ďalší.
+
+Poradie je záväzné, každý súbor stavia na predchádzajúcom:
+
+| Poradie | Súbor | Čo urobí |
+|---|---|---|
+| 1 | `app/database/migrations/001_schema.sql` | 18 základných tabuliek, RLS, indexy |
+| 2 | `app/database/migrations/002_numbering.sql` | číslovanie objednávok a faktúr |
+| 3 | `app/database/migrations/003_staffing.sql` | subdodávky: pracovníci, zákazky, hodiny |
+| 4 | `app/database/migrations/004_recruiting_ai.sql` | AI nábor: súhlasy, hovory, sľuby |
+| 5 | `app/database/migrations/005_tasks.sql` | úlohy a pripomienky |
+| 6 | `app/database/migrations/006_seed_demo.sql` | vzorové dáta (voliteľné, ale odporúčam) |
+| 7 | `app/database/migrations/007_recruiting_pipeline.sql` | nábor: kandidáti, checklist nástupu, ubytovanie na zákazke |
+| 8 | `app/database/migrations/008_call_capture.sql` | úložisko nahrávok hovorov |
+| 9 | `app/database/migrations/009_recruiting_playbook.sql` | príručka remesiel, skríningové otázky, náborové plány |
+| 10 | `app/database/migrations/010_candidate_process.sql` | náborový proces kandidáta v šiestich krokoch |
+| 11 | `app/database/migrations/011_trade_depth.sql` | hlbšie odborné otázky a čo povedať o práci |
+| 12 | `app/database/migrations/012_call_chips.sql` | zaškrtávacie polia do hovoru namiesto známkovania |
+
+> **Stav k 12. 8. 2026:** migrácie 001–010 sú už na projekte
+> `eidkljfaeqvvegiponwl` nasadené vrátane vzorových dát a bucketu
+> `danubra-calls`. **Migrácie 011 a 012 ešte treba spustiť.** Tabuľka nižšie je pre prípad novej inštalácie.
+
+Šiestku spusti, ak chceš appku hneď vidieť naplnenú. Je idempotentná — dá sa
+spustiť opakovane a nič nezduplikuje. Na jej konci je pripravený mazací príkaz,
+keď budeš ukážky chcieť preč.
+
+## 2. Prihlasovací účet — POVINNÉ
+
+Supabase → **Authentication** → **Users** → **Add user** → *Create new user*.
+Zadaj e-mail a heslo, zaškrtni *Auto Confirm User*. Týmto sa potom prihlásiš.
+
+## 3. Fakturačné údaje
+
+Bez nich sa dá appka používať, ale na faktúrach nebude IBAN ani QR platba.
+
+Doplniť sa dajú **priamo v aplikácii**: `Nastavenia` → *Fakturačné údaje*.
+Vyplň názov firmy, IBAN, IČO, e-mail, telefón a adresu.
+
+Alebo cez SQL:
+
+```sql
+update danubra_settings set supplier = jsonb_build_object(
+  'name',       'DANUBRA s.r.o.',
+  'iban',       'SK00 0000 0000 0000 0000 0000',
+  'company_id', '12345678',
+  'vat_id',     '',
+  'email',      'info@danubra.eu',
+  'phone',      '+421 000 000 000',
+  'address',    'Ulica 1, 000 00 Mesto',
+  'vat_note',   'Nie sme platiteľmi DPH.'
+);
+```
+
+---
+
+## 4. Premenné prostredia v Netlify
+
+Netlify → tvoj web → **Site configuration** → **Environment variables** →
+**Add a variable**. Po pridaní daj **Deploys → Trigger deploy**, inak sa
+nenačítajú.
+
+### Serverové funkcie (crony, SMS, webhook)
+
+| Premenná | Načo | Kde ju vziať |
+|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | crony a webhooky píšu do databázy | Supabase → Settings → API → *service_role* |
+| `CRON_SECRET` | ochrana cronov pred cudzím spustením | vymysli si dlhý náhodný reťazec |
+
+Bez `SUPABASE_SERVICE_ROLE_KEY` nebudú fungovať automatické prechody stavov
+ani mesačné návrhy faktúr. **Tento kľúč nikdy nedávaj do frontendu.**
+
+### Príjem dopytov z webu
+
+| Premenná | Načo |
+|---|---|
+| `FORMS_SECRET` | aby endpoint nemohol zaplniť ktokoľvek |
+
+Formulár na `danubra-web` potom posiela na:
+`https://adlify-app.netlify.app/.netlify/functions/danubra-webhook-forms`
+s hlavičkou `X-Danubra-Secret: <hodnota>` alebo `?secret=<hodnota>` v adrese.
+
+### SMS
+
+| Premenná | Hodnota |
+|---|---|
+| `SMS_PROVIDER` | `twilio` alebo `log` |
+| `TWILIO_ACCOUNT_SID` | z Twilio konzoly |
+| `TWILIO_AUTH_TOKEN` | z Twilio konzoly |
+| `SMS_SENDER_ID` | tvoje odosielacie číslo |
+
+Ak `SMS_PROVIDER` nenastavíš, beží režim `log` — správa sa nikde neodošle, iba
+zapíše. Hodí sa na skúšanie.
+
+### AI nábor
+
+| Premenná | Načo |
+|---|---|
+| `OPENAI_API_KEY` | prepis nahrávok cez Whisper |
+| `ANTHROPIC_API_KEY` | vytiahnutie dohôd z prepisu |
+| `CLAUDE_MODEL` | voliteľné, predvolene `claude-haiku-4-5-20251001` |
+
+---
+
+## 5. Úložisko na nahrávky (len pre AI nábor)
+
+Migrácia `008_call_capture.sql` sa ho pokúsi založiť sama. Ak v jej výstupe
+uvidíš hlášku, že na to nemá práva, sprav to ručne:
+
+Supabase → **Storage** → **New bucket** → názov `danubra-calls`,
+**Public bucket vypnuté**. Potom v *Policies* povoľ prihláseným používateľom
+`select`, `insert`, `update`, `delete`.
+
+Nahrávky do neho nahráva samotná aplikácia — `AI nábor` → *Pridať hovor*.
+Verejný odkaz na nahrávku nikdy nevzniká; prehráva sa cez odkaz, ktorý
+platí desať minút.
+
+### Ako sa zvuk dostane dnu
+
+| Cesta | Kedy | Čo treba |
+|---|---|---|
+| **Súbor z mobilu** | bežný telefonát z mobilu | záznamník hovorov v telefóne (Android: napr. Cube ACR; iPhone: hovor na hlasitý odposluch + Diktafón), potom súbor vyberieš v appke |
+| **Nahrať teraz** | pohovor naživo alebo hovor na hlasitý odposluch | nič, nahráva mikrofón zariadenia priamo v prehliadači |
+| **Odkaz** | ak neskôr pribudne VoIP ústredňa s nahrávaním | odkaz na súbor dostupný zo servera |
+
+Nahrávka sa po dátume v poli *Uchovávať do* zmaže automaticky (denný cron).
+Prepis a zachytené dohody ostanú, mizne len zvuk.
+
+---
+
+## Čo si overiť po nasadení
+
+1. Otvor `/app/` — má sa objaviť prihlásenie s logom.
+2. Prihlás sa účtom z bodu 2.
+3. Ak si spustil migráciu 006, na dashboarde uvidíš čísla a niekoľko upozornení.
+4. `Faktúry` → otvor ľubovoľnú → *Dokument s QR* — má sa otvoriť faktúra
+   s QR kódom. Ak QR chýba, nemáš vyplnený IBAN.
+5. `Compliance` — má ukázať, čo je platné a čo treba doriešiť.
+
+## Poznámka k vzorovým dátam
+
+Sú zámerne nastavené tak, aby bolo vidieť aj varovania: jednému pracovníkovi
+o mesiac končí A1, ďalší ho vôbec nemá, §48b sa ešte vybavuje, jeden inzerát
+treba obnoviť a jeden dopyt čaká bez reakcie. Tak si hneď uvidíš, ako sa
+aplikácia správa, keď niečo nesedí.

@@ -1,17 +1,42 @@
 # ============================================================================
-# DANUBRA Hub — nasadenie
+# Nasadenie
 # ============================================================================
-# Aplikácia býva v /danubra/, koreň na ňu presmeruje, nech sa netreba trafiť
+# Aplikácia býva v /app/, koreň na ňu presmeruje, nech sa netreba trafiť
 # do podadresára.
+#
+# POZOR — musí to byť presmerovanie (302), nie prepis (200).
+#
+# Pri prepise sa obsah podstrčí, ale adresa v prehliadači zostane „/". Odkazy
+# v index.html sú relatívne (`./js/app.js`, `./app.css`), takže sa vyhodnotia
+# voči „/" a nie voči „/app/" — a **každý jeden súbor skončí na 404**.
+# Stránka je potom úplne biela, bez štýlov aj bez kódu, takže sa nespustí ani
+# hláška o chybe. Presne to sa stalo v prevádzke.
+#
+# Pri presmerovaní sa adresa zmení na „/app/" a relatívne cesty sedia.
+# To isté platí pre „/app" bez lomky — bez nej sa relatívna cesta
+# vyhodnotí o úroveň vyššie.
 
 [[redirects]]
   from = "/"
-  to = "/danubra/index.html"
-  status = 200
+  to = "/app/"
+  status = 302
+[[redirects]]
+  from = "/app"
+  to = "/app/"
+  status = 302
+
+# Appka bývala v /danubra/. Kto má starý odkaz v záložkách alebo v histórii,
+# musí skončiť v appke, nie na hlásení „Page not found" — 301, lebo je to
+# presun natrvalo. Cesta za lomkou sa zachová; kotva (#/dashboard) sa na
+# server vôbec neposiela, tú prehliadač pripojí späť sám.
 [[redirects]]
   from = "/danubra"
-  to = "/danubra/index.html"
-  status = 200
+  to = "/app/"
+  status = 301
+[[redirects]]
+  from = "/danubra/*"
+  to = "/app/:splat"
+  status = 301
 
 [functions]
   directory = "netlify/functions"
