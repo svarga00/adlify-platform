@@ -2067,3 +2067,22 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 11px;
   background: #fff; font-size: 13.5px; min-width: 180px;
 }
+
+/* ── Používatelia ────────────────────────────────────────────────────────── */
+.list-card.is-off { opacity: .6; }
+.mem-me {
+  font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--ink-mute);
+  background: var(--bg); padding: 1px 6px; border-radius: var(--radius-sm); margin-left: 6px;
+}
+.mem-modules {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;
+  margin-bottom: 14px;
+}
+.mem-group { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+.mem-group-head {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-mute); margin-bottom: 6px;
+}
+.mem-check { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; cursor: pointer; }
+.mem-check input { width: 15px; height: 15px; }
+.mem-check input:disabled + span { color: var(--ink-mute); }

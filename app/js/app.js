@@ -46,6 +46,34 @@ window.Danubra = {
     } catch {
       // Bez nastavení sa appka nezasekne — zostanú predvolené moduly.
     }
+    await this._loadMembers();
+  },
+
+  // ── Kto som a na čo mám ───────────────────────────────────────────────────
+  // Skrývanie v menu **nie je ochrana** — tá je v databáze (migrácia 030).
+  // Toto je o tom, aby človek nevidel obrazovky, na ktoré aj tak nemá.
+  members: [], me: null,
+
+  async _loadMembers() {
+    try {
+      const { data } = await DB.list('members', {
+        select: 'id,user_id,email,full_name,role,modules,active', limit: 200 });
+      this.members = data || [];
+      const uid = this.user && this.user.id;
+      this.me = this.members.find(m => m.user_id === uid) || null;
+    } catch {
+      // Keď sa zoznam nenačíta, appka sa nezamkne — ochranu drží databáza.
+      this.members = []; this.me = null;
+    }
+  },
+
+  /** Smiem na túto obrazovku alebo právomoc? */
+  can(key) {
+    if (!window.DanubraPerm) return true;
+    return DanubraPerm.can(this.me, key, this.members);
+  },
+  isAdmin() {
+    return !window.DanubraPerm || DanubraPerm.isAdmin(this.me, this.members);
   },
 
   /** Agendy, ktoré sa majú zobraziť. Agenda vypnutého modulu zmizne celá. */
@@ -82,6 +110,7 @@ window.Danubra = {
                     ['bank', 'Banka a cash-flow', 'invoices', 'staffing', 'finance']]],
     ['RAST',       [['marketing', 'Marketing', 'marketing']]],
     ['SYSTÉM',     [['compliance', 'Compliance', 'shield', 'staffing', null],
+                    ['members', 'Používatelia', 'clients'],
                     ['rules', 'Cenník a pravidlá', 'rules'],
                     ['settings', 'Nastavenia', 'settings']]],
   ],
@@ -112,6 +141,7 @@ window.Danubra = {
     bank: 'Výpis z účtu, párovanie a či bude na výplaty',
     marketing: 'Inzeráty a odkiaľ chodia ľudia',
     compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
+    members: 'Kto smie do appky a na čo',
     rules: 'Sadzby a prahy, ktoré vstupujú do výpočtov',
     settings: 'Fakturačné údaje, zapnuté agendy, číselné rady',
     active: 'Prebiehajúce pobyty',
@@ -217,7 +247,7 @@ window.Danubra = {
   /** Je obrazovka dostupná? Archivovaná obrazovka sa nesmie otvoriť ani z odkazu. */
   routeAvailable(key) {
     const it = this.allNav().find(x => x[0] === key);
-    return !!it && this.moduleOn(this.moduleOf(it));
+    return !!it && this.moduleOn(this.moduleOf(it)) && this.can(key);
   },
 
   setArea(a) {

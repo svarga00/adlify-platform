@@ -1069,6 +1069,41 @@
       links: [['settings', 'Nastavenia'], ['tasks', 'Úlohy a pripomienky']],
     },
 
+    'screen.members': {
+      title: 'Používatelia',
+      lead: 'Kto smie do appky a na čo. Rola je predvoľba, zaškrtávacie polia '
+        + 'sú výnimka na mieru.',
+      what: [
+        'Štyri role: administrátor, koordinátor, náborár a účtovníctvo. Plus '
+        + '„na mieru", keď ani jedna nesedí.',
+        'Zaškrtnuté je to, čo dáva rola. Keď to zmeníš, uloží sa presne ten '
+        + 'zoznam a rola zostane len ako poznámka, z čoho sa vychádzalo.',
+        'Človek sa nedá zmazať, prístup sa vypne — úlohy a schválenia, ktoré po '
+        + 'ňom zostali, musia mať stále meno.',
+      ],
+      how: [
+        'Účet na prihlásenie vzniká v Supabase; tu sa nastavuje len to, na čo má. '
+        + 'Spája sa to cez e-mail.',
+        'Kým tu nie je nikto, má každý prihlásený všetko — inak by sa prvý človek '
+        + 'zamkol von. Hneď ako pribudne prvý, začnú platiť práva.',
+      ],
+      why: [
+        '**Skrytá položka v menu nie je ochrana.** Kto pozná adresu, dostane sa '
+        + 'tam; kto pozná verejný kľúč, obíde appku úplne. Preto práva držia '
+        + 'politiky a spúšťače v databáze a táto obrazovka len skrýva to, na čo '
+        + 'človek aj tak nemá.',
+        'Tri veci sa nedajú prideliť nikomu okrem administrátora, ani zaškrtnutím: '
+        + 'schválenie faktúry, výnimka pri nasadení bez platných dokladov a správa '
+        + 'používateľov a nastavení. Sú to pravidlá zo zadania, nie nastavenie.',
+      ],
+      watch: [
+        'Keď si sám vypneš prístup alebo si zmeníš rolu, appka ti ho naozaj vezme. '
+        + 'Vrátiť to vie len iný administrátor — alebo sa to opraví priamo '
+        + 'v databáze.',
+      ],
+      links: [['settings', 'Nastavenia']],
+    },
+
     'screen.settings': {
       title: 'Nastavenia',
       lead: 'Údaje firmy, moduly a prepojenia na okolité služby.',
