@@ -2086,3 +2086,36 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .mem-check { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; cursor: pointer; }
 .mem-check input { width: 15px; height: 15px; }
 .mem-check input:disabled + span { color: var(--ink-mute); }
+
+/* ── Správy ──────────────────────────────────────────────────────────────── */
+.msg-thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.msg {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 13px;
+  background: #fff;
+}
+/* Naše správy vpravo, ich vľavo — v dlhom vlákne je to jediné, z čoho sa dá
+   na prvý pohľad prečítať, kto čo povedal. */
+.msg-out { border-left: 3px solid var(--blue); }
+.msg-in { border-left: 3px solid var(--brand); background: var(--field); }
+.msg-note { border-left: 3px dashed var(--border); background: var(--bg); }
+.msg-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12px; color: var(--ink-mute); margin-bottom: 6px;
+}
+.msg-head strong { color: var(--ink); font-size: 13px; }
+.msg-head em { font-style: normal; margin-left: auto; }
+.msg-subject { font-weight: 600; font-size: 13.5px; margin-bottom: 4px; }
+.msg-body { white-space: pre-wrap; font-size: 13.5px; line-height: 1.55; }
+.msg-error { margin-top: 8px; font-size: 12px; color: var(--red); display: flex; gap: 6px; }
+
+.tpl-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tpl-chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: #fff; border-radius: var(--radius-sm);
+  padding: 6px 10px; font-size: 12.5px;
+}
+.tpl-chip:hover { border-color: var(--blue); color: var(--blue); }
+.tpl-chip em {
+  font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .05em;
+  color: var(--ink-mute); background: var(--bg); padding: 1px 5px; border-radius: 3px;
+}

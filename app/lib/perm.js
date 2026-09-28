@@ -38,6 +38,7 @@
   const MODULES = [
     { key: 'dashboard', label: 'Prehľad', group: 'Prehľad' },
     { key: 'tasks', label: 'Úlohy a pripomienky', group: 'Prehľad' },
+    { key: 'messages', label: 'Správy', group: 'Prehľad' },
 
     { key: 'quotes', label: 'Ponuky', group: 'Zákazky' },
     { key: 'contracts', label: 'Zmluvy', group: 'Zákazky' },
@@ -80,12 +81,12 @@
 
   /** Predvoľby rolí. Musia sedieť s `danubra_can()` v migrácii 030. */
   const PRESETS = {
-    coordinator: ['dashboard', 'tasks', 'subcontracts', 'timesheets', 'hoursheet',
+    coordinator: ['dashboard', 'tasks', 'messages', 'subcontracts', 'timesheets', 'hoursheet',
       'crews', 'workers', 'partners', 'quotes', 'contracts', 'accommodations',
       'compliance', 'costs', 'ads', 'hiring', 'candidates'],
-    recruiter: ['dashboard', 'tasks', 'ads', 'hiring', 'candidates', 'workers',
+    recruiter: ['dashboard', 'tasks', 'messages', 'ads', 'hiring', 'candidates', 'workers',
       'crews', 'trades', 'recruiting'],
-    accountant: ['dashboard', 'invoices', 'costs', 'bank', 'partners',
+    accountant: ['dashboard', 'messages', 'invoices', 'costs', 'bank', 'partners',
       'subcontracts', 'timesheets'],
     custom: [],
   };

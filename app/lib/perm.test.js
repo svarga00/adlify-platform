@@ -134,8 +134,14 @@ console.log('Práva');
 // Ochrana je v databáze. Toto porovnáva, či appka ponúka presne to, čo
 // databáza povolí — inak by sa človek preklikal niekam, kde dostane chybu.
 {
-  const sql = fs.readFileSync(
-    path.join(__dirname, '..', 'database', 'migrations', '030_pouzivatelia_a_prava.sql'), 'utf8');
+  // Funkcia sa dá predefinovať neskoršou migráciou, takže platí tá posledná,
+  // ktorá ju obsahuje — nie tá, ktorá ju založila.
+  const dir = path.join(__dirname, '..', 'database', 'migrations');
+  const sql = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort()
+    .map(f => fs.readFileSync(path.join(dir, f), 'utf8'))
+    .filter(x => /function danubra_can\(/.test(x))
+    .pop();
+  ok(sql, 'definícia práv je v migráciách');
 
   // Právomoci len pre administrátora
   const dbOnly = (/if p_key in \(([^)]+)\)/.exec(sql) || [, ''])[1]

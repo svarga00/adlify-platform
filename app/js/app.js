@@ -83,7 +83,8 @@ window.Danubra = {
   // [key, label, ikona, oblasť?, modul?]
   // Modul sa dá zapísať piatym prvkom; `null` znamená „nikdy sa neskrýva".
   navGroups: [
-    ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks']]],
+    ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks'],
+                    ['messages', 'Správy', 'mail']]],
     ['ZÁKAZKY',    [['active', 'Aktívne pobyty', 'active', 'accommodation'],
                     ['inquiries', 'Dopyty', 'inquiries', 'accommodation'],
                     ['offers', 'Ponuky', 'offers', 'accommodation'],
@@ -121,6 +122,7 @@ window.Danubra = {
   navHints: {
     dashboard: 'Čo dnes treba spraviť, či bude na výplaty a či sa na tom zarába',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
+    messages: 'Komunikácia pri zázname, ktorého sa týka',
     quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',
     contracts: 'Zmluvy o dielo a dodatky. Dohodnuté podmienky sa neprepisujú',
     subcontracts: 'Konkrétne stavby: kto tam je, koľko odrobil, čo sa fakturuje',

@@ -932,6 +932,43 @@
       links: [['rules', 'Cenník a pravidlá']],
     },
 
+    'screen.messages': {
+      title: 'Správy',
+      lead: 'Komunikácia pri zázname, ktorého sa týka — nie v troch aplikáciách '
+        + 'a v hlave.',
+      what: [
+        'Vlákno sa viaže na živnostníka, zákazku alebo faktúru, takže je vidieť '
+        + 'pri nich.',
+        '**Interné poznámky pre kolegov fungujú hneď** — na tie netreba nič '
+        + 'nastavovať.',
+        'Zapísať sa dá aj to, čo odišlo alebo prišlo inou cestou. Potom je to '
+        + 'na jednom mieste s ostatným.',
+        'Šablóny sú po slovensky pre našich ľudí a po nemecky pre odberateľov.',
+      ],
+      how: [
+        'Zástupné miesta v tvare {{meno}} sa doplnia zo záznamu. **Čo sa '
+        + 'nedoplní, zostane v texte označené** — prázdne miesto by sa prehliadlo '
+        + 'a odišla by veta „ponúkame  €/h".',
+        'Odoslaná ani prijatá správa sa už nedá prepísať. Text, ktorý odišiel, '
+        + 'musí zostať v znení, v akom odišiel.',
+        'Vlákno sa uzavrie, nemaže. Pri spore o to, čo bolo dohodnuté, je '
+        + 'história jediné, čo rozhoduje.',
+      ],
+      why: [
+        '**Odosielanie zatiaľ nie je zapnuté.** Chýba kľúč poskytovateľa '
+        + '(Resend, Postmark alebo SMTP) a adresa, z ktorej sa posiela. Kým to '
+        + 'nie je, správa sa uloží do frontu a neodíde.',
+        'Appka to hovorí nahlas a nikde netvrdí, že odoslala. Povedať „odoslané", '
+        + 'keď sa neodoslalo, je horšie, než sa o to ani nepokúsiť — človek na to '
+        + 'spoľahne a nedovolá sa.',
+        'Kľúč pôjde do premenných prostredia na serveri, nie do appky. Kľúč, '
+        + 'ktorý sa dostane do prehliadača, je verejný, aj keď ho nikto nevidí '
+        + 'na obrazovke.',
+      ],
+      links: [['workers', 'Živnostníci'], ['partners', 'Odberatelia v Nemecku'],
+        ['candidates', 'Kandidáti']],
+    },
+
     'screen.candidates': {
       title: 'Kandidáti',
       lead: 'Ľudia, ktorí sa ozvali. Rozhoduje sa tu v minútach, nie v dňoch.',
