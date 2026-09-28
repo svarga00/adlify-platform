@@ -114,6 +114,50 @@
     return c;
   }
 
+  /** Úloha bez mena. Nie je to prázdno — je to stav, ktorý treba vyriešiť. */
+  const UNASSIGNED = '__nikto__';
+
+  /**
+   * Kto čo má na starosti. Bez tohto je zoznam dvadsiatich úloh stena,
+   * z ktorej sa nedá prečítať, či na niekom visí všetko a na inom nič.
+   *
+   * Nepriradené je vlastný riadok a je prvé, keď niečo obsahuje: úloha, ktorú
+   * nikto nemá, je horšia než úloha po termíne — tá aspoň niekoho tlačí.
+   */
+  function byPerson(tasks, today = today0()) {
+    const map = new Map();
+    for (const t of (tasks || [])) {
+      if (!t || !isActive(t, today)) continue;
+      const key = (t.assigned_name || '').trim() || UNASSIGNED;
+      if (!map.has(key)) {
+        map.set(key, { name: key, total: 0, overdue: 0, today: 0, week: 0, later: 0 });
+      }
+      const row = map.get(key);
+      row.total++;
+      row[bucketOf(t, today)]++;
+    }
+    return [...map.values()].sort((a, b) =>
+      (a.name === UNASSIGNED ? -1 : 0) - (b.name === UNASSIGNED ? -1 : 0) ||
+      b.overdue - a.overdue || b.total - a.total ||
+      String(a.name).localeCompare(String(b.name), 'sk'));
+  }
+
+  /** Mená, ktoré sa dajú ponúknuť pri priraďovaní. Bez duplicít a prázdnych. */
+  function people(tasks) {
+    const set = new Set();
+    for (const t of (tasks || [])) {
+      const n = t && (t.assigned_name || '').trim();
+      if (n) set.add(n);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'sk'));
+  }
+
+  /** Patrí úloha tomuto človeku? `UNASSIGNED` znamená „nikomu". */
+  function isFor(task, name) {
+    const has = ((task && task.assigned_name) || '').trim();
+    return name === UNASSIGNED ? !has : has === name;
+  }
+
   // ── Pravidlá ──────────────────────────────────────────────────────────────
 
   /**
@@ -205,8 +249,8 @@
   }
 
   const API = {
-    BUCKETS, PRIORITY_RANK,
-    bucketOf, isActive, group, headline, counts,
+    BUCKETS, PRIORITY_RANK, UNASSIGNED,
+    bucketOf, isActive, group, headline, counts, byPerson, people, isFor,
     describeRule, reviewRule, addDays, plural,
   };
   window.DanubraTasks = API;

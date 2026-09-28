@@ -1988,3 +1988,82 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 /* Veta pod číslom. Dlhé vysvetlenia patria do „?", nie na kartu — na karte
    má byť číslo a nanajvýš jedna veta, ktorá povie, za čo to číslo je. */
 .card-note { font-size: 12px; color: var(--ink-mute); margin: 9px 0 0; line-height: 1.45; }
+
+/* ── Úlohy: kto čo má na starosti ────────────────────────────────────────── */
+/* Zoznam dvadsiatich úloh je stena. Pruh ľudí z nej spraví odpoveď na otázku
+   „kto čo robí" — a hlavne ukáže to, čo nemá nikto. */
+.who-strip {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; margin: 0 0 14px;
+}
+.who-card {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 9px 13px; cursor: pointer; text-align: left; min-width: 132px;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+}
+.who-card:hover { border-color: var(--blue); }
+.who-card.on { border-color: var(--navy); background: var(--navy); color: #fff; }
+.who-card.on .who-split i, .who-card.on .who-name em { color: rgba(255,255,255,.7); }
+.who-name { font-size: 13px; font-weight: 700; }
+.who-name em { font-style: normal; font-size: 10.5px; color: var(--ink-mute); margin-left: 4px; }
+.who-total { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.who-split { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; }
+.who-split i { font-style: normal; color: var(--ink-mute); }
+.who-split .w-late { color: var(--red); font-weight: 700; }
+.who-split .w-today { color: var(--amber); font-weight: 700; }
+/* Úloha, ktorú nemá nikto, je horšia než úloha po termíne — tá aspoň
+   niekoho tlačí. Preto je prvá a preto je oranžová. */
+.who-none { border-color: var(--brand); background: var(--brand-50); }
+.who-none.on { background: var(--brand-dark); border-color: var(--brand-dark); }
+.who-me { box-shadow: inset 0 0 0 1px var(--blue); }
+.who-clear { min-width: 0; flex-direction: row; align-items: center; gap: 6px; color: var(--ink-mute); }
+.who-me-pick {
+  display: flex; align-items: center; gap: 7px; margin-left: auto; align-self: center;
+  font-size: 12px; color: var(--ink-mute);
+}
+.who-me-pick select {
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px;
+  background: #fff; font-size: 12.5px;
+}
+
+.task-group {
+  display: flex; align-items: center; gap: 8px; margin: 16px 0 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.tg-count {
+  padding: 1px 7px; border-radius: var(--radius-sm); font-size: 11px; letter-spacing: 0;
+  background: var(--bg); color: var(--ink-sub);
+}
+.tg-red { background: var(--red-50); color: var(--red); }
+.tg-amber { background: var(--amber-50); color: var(--amber); }
+
+.task-row { align-items: center; gap: 11px; }
+.task-row.is-done .t-title { text-decoration: line-through; opacity: .5; }
+.t-check {
+  width: 26px; height: 26px; flex: none; border-radius: var(--radius-sm); cursor: pointer;
+  border: 1px solid var(--border); background: #fff; color: var(--ink-mute);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.t-check:hover { border-color: var(--green); color: var(--green); }
+.t-check.on { background: var(--green); border-color: var(--green); color: #fff; }
+.t-main { flex: 1; min-width: 0; }
+.t-title { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.35; }
+.t-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; font-size: 11.5px; }
+.t-meta em { font-style: normal; color: var(--ink-mute); }
+.t-meta .t-late { color: var(--red); font-weight: 700; }
+.t-meta .t-high { color: var(--red); }
+.t-meta .t-auto { color: var(--blue); }
+.t-who {
+  width: 28px; height: 28px; flex: none; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--navy); color: #fff; font-size: 11px; font-weight: 800;
+}
+.t-who-none { background: var(--brand-50); color: var(--brand-dark); }
+.t-chev { color: var(--ink-mute); flex: none; }
+.task-row:hover .t-chev { color: var(--blue); }
+.t-desc { font-size: 13.5px; line-height: 1.55; color: var(--ink-sub); margin: 0 0 4px; }
+.t-assign { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.t-assign select {
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 11px;
+  background: #fff; font-size: 13.5px; min-width: 180px;
+}

@@ -191,5 +191,40 @@ console.log('Úlohy a pravidlá');
     'rok dopredu je príliš ďaleko');
 }
 
+// ── Kto čo má na starosti ───────────────────────────────────────────────────
+// Zoznam dvadsiatich úloh je stena, z ktorej sa nedá prečítať, či na niekom
+// visí všetko a na inom nič. Toto je odpoveď na „kto čo robí".
+{
+  const D = '2026-09-28';
+  const tasks = [
+    { id: '1', title: 'A', status: 'open', due_date: '2026-09-20', assigned_name: 'Štefan' },
+    { id: '2', title: 'B', status: 'open', due_date: '2026-09-28', assigned_name: 'Štefan' },
+    { id: '3', title: 'C', status: 'open', due_date: '2026-10-01', assigned_name: 'Michaela' },
+    { id: '4', title: 'D', status: 'open', due_date: '2026-09-25' },
+    { id: '5', title: 'E', status: 'open', due_date: '2026-09-25', assigned_name: '  ' },
+    { id: '6', title: 'F', status: 'done', due_date: '2026-09-01', assigned_name: 'Štefan' },
+  ];
+  const rows = T.byPerson(tasks, D);
+  eq(rows.map(r => r.name), [T.UNASSIGNED, 'Štefan', 'Michaela'],
+    'nepriradené je prvé — úloha, ktorú nikto nemá, je horšia než úloha po termíne');
+  eq(rows.find(r => r.name === T.UNASSIGNED).total, 2,
+    'prázdne meno aj samé medzery znamenajú „nikto"');
+  eq(rows.find(r => r.name === 'Štefan').total, 2, 'hotová úloha sa nikomu nepočíta');
+  eq(rows.find(r => r.name === 'Štefan').overdue, 1, 'po termíne sa počíta zvlášť');
+  eq(rows.find(r => r.name === 'Štefan').today, 1, 'aj dnešok');
+  eq(rows.find(r => r.name === 'Michaela').week, 1, 'aj tento týždeň');
+  eq(T.byPerson([], D), [], 'bez úloh prázdno');
+  eq(T.byPerson(null, D), [], 'a bez vstupu tiež');
+
+  eq(T.people(tasks), ['Michaela', 'Štefan'], 'mená na výber bez duplicít a prázdnych');
+  eq(T.people(null), [], 'a bez úloh prázdno');
+
+  ok(T.isFor(tasks[0], 'Štefan'), 'úloha patrí tomu, kto je na nej napísaný');
+  ok(!T.isFor(tasks[0], 'Michaela'), 'a nie inému');
+  ok(T.isFor(tasks[3], T.UNASSIGNED), 'úloha bez mena patrí „nikomu"');
+  ok(T.isFor(tasks[4], T.UNASSIGNED), 'aj tá s medzerami');
+  ok(!T.isFor(tasks[0], T.UNASSIGNED), 'a priradená už nie');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);
