@@ -27,6 +27,9 @@
   const IN = '#1E4FD8';        // peniaze dnu — studená
   const OUT = '#F07E22';       // peniaze von — teplá
   const LEVEL = '#0A1B3D';     // stav účtu — nie pohyb, preto tmavá
+  // Paleta na rozdelenie jedného čísla na časti. Overená na farbosleposť:
+  // susedné dvojice sú rozoznateľné aj pri deuteranopii aj pri protanopii.
+  const PALETTE = ['#1E4FD8', '#F07E22', '#0A1B3D', '#7BA0F0', '#C25C0C', '#96A2BA'];
   const GRID = '#EEF2FB';
   const AXIS = '#96A2BA';
   const GRID_TEXT = '#B8C2D6';
@@ -226,6 +229,66 @@
       </div>`;
   }
 
+  // ── Jeden pás rozdelený na časti ─────────────────────────────────────────
+  /**
+   * Z čoho sa skladá jedno číslo. Koláč sa na to nehodí: uhly sa porovnávajú
+   * horšie než dĺžky a pri troch podobných kúskoch sa z neho nedá prečítať nič.
+   *
+   * @param {Object} o
+   *   parts  [{ label, value: cents, color }]
+   *   height hrúbka pásu
+   */
+  function split(o = {}) {
+    const parts = (o.parts || [])
+      .map(p => ({ ...p, value: Math.abs(Number(p.value) || 0) }))
+      .filter(p => p.value > 0);
+    if (!parts.length) return empty(o.emptyText || 'Zatiaľ niet čo zobraziť.');
+
+    const total = parts.reduce((s, p) => s + p.value, 0);
+    const money = (c) => (c / 100).toLocaleString('sk-SK', { style: 'currency', currency: 'EUR' });
+    // Podiel sa vracia rovno ako text. Celé percento nemá desatinné miesto,
+    // takže tu nehrozí bodka namiesto čiarky — a kontrola v smoke teste to
+    // nemusí hádať z interpolácie.
+    const share = (v) => `${Math.round((v / total) * 100)} %`;
+
+    return `
+      <div class="chart chart-split">
+        <div class="cs-bar" role="img" aria-label="${esc(o.aria || 'Rozdelenie')}">
+          ${parts.map((p, i) => `<span style="flex:${p.value};background:${p.color || PALETTE[i % PALETTE.length]}"
+            title="${esc(`${p.label}: ${money(p.value)} (${share(p.value)})`)}"></span>`).join('')}
+        </div>
+        <div class="cs-legend">
+          ${parts.map((p, i) => `<span><i style="background:${p.color || PALETTE[i % PALETTE.length]}"></i>
+            ${esc(p.label)}<b>${o.format ? esc(o.format(p.value)) : esc(money(p.value))}</b></span>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // ── Čiara bez osí ────────────────────────────────────────────────────────
+  /**
+   * Priebeh v malom. Nemá os ani čísla a ani ich mať nemá — hovorí len smer.
+   * Presné číslo je vedľa nej v texte; graf, ktorý by sa tváril, že sa z neho
+   * dá odčítať hodnota, by klamal.
+   */
+  function spark(values, o = {}) {
+    const vals = (values || []).map(v => Number(v) || 0);
+    if (vals.length < 2) return '';
+    const W = o.width || 120, H = o.height || 28, pad = 2;
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = (hi - lo) || 1;
+    const x = (i) => pad + (i / (vals.length - 1)) * (W - pad * 2);
+    const y = (v) => H - pad - ((v - lo) / span) * (H - pad * 2);
+    const d = vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    const area = `${d} L${x(vals.length - 1).toFixed(1)} ${H} L${x(0).toFixed(1)} ${H} Z`;
+    const color = o.color || (vals[vals.length - 1] >= vals[0] ? IN : OUT);
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+      role="img" aria-label="${esc(o.aria || 'Priebeh')}">
+      <path d="${area}" fill="${color}" opacity=".12"/>
+      <path d="${d}" fill="none" stroke="${color}" stroke-width="1.6"
+        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    </svg>`;
+  }
+
   // ── Stĺpce jednej veličiny ───────────────────────────────────────────────
   /**
    * @param {Object} o
@@ -294,7 +357,8 @@
     return `<div class="chart chart-empty">${esc(text)}</div>`;
   }
 
-  const API = { diverging, bars, waterfall, niceStep, shortMoney, IN, OUT, LEVEL };
+  const API = { diverging, bars, waterfall, split, spark,
+    niceStep, shortMoney, IN, OUT, LEVEL, PALETTE };
   if (typeof window !== 'undefined') window.DanubraChart = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

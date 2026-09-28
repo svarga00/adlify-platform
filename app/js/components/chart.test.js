@@ -129,5 +129,43 @@ console.log('Grafy');
   eq(C.niceStep(0), 1, 'nulový rozsah nezhodí mierku');
 }
 
+// ── Pás rozdelený na časti ──────────────────────────────────────────────────
+// Koláč sa na to nehodí: uhly sa porovnávajú horšie než dĺžky. Test drží to,
+// že pás má toľko častí, koľko má dát — a že nula nie je časť.
+{
+  const html = C.split({ parts: [
+    { label: 'Ubytovanie', value: 148000 },
+    { label: 'Cestovné', value: 21800 },
+    { label: 'Nič', value: 0 },
+  ] });
+  const segs = (html.match(/<span style="flex:/g) || []).length;
+  eq(segs, 2, 'nulová časť sa nekreslí — neviditeľný pásik je len šum');
+  ok(html.includes('Ubytovanie') && html.includes('Cestovné'), 'legenda pomenuje časti');
+  ok(html.includes('flex:148000'), 'časť je široká podľa hodnoty');
+  // Slovenské formátovanie oddeľuje tisíce nezlomiteľnou medzerou — porovnať
+  // sa to dá len tak, že sa medzery zjednotia.
+  ok(/1 480,00/.test(html.replace(/\u00a0/g, ' ')),
+    'a v legende je suma, nie len percento');
+  ok(C.split({ parts: [] }).includes('chart-empty'), 'bez dát to povie');
+  ok(C.split().includes('chart-empty'), 'a bez vstupu nepadne');
+  // Záporná hodnota je výdaj — v páse ide o podiel, nie o smer.
+  ok(C.split({ parts: [{ label: 'Von', value: -500 }] }).includes('flex:500'),
+    'záporná hodnota sa berie ako veľkosť');
+}
+
+// ── Čiara bez osí ───────────────────────────────────────────────────────────
+{
+  const up = C.spark([1, 3, 2, 8]);
+  ok(up.includes('<path'), 'nakreslí sa čiara');
+  ok(up.includes(C.IN), 'stúpajúci priebeh je modrý');
+  ok(C.spark([8, 2, 3, 1]).includes(C.OUT), 'klesajúci oranžový');
+  eq(C.spark([5]), '', 'z jedného bodu sa priebeh nedá nakresliť');
+  eq(C.spark([]), '', 'ani zo žiadneho');
+  eq(C.spark(null), '', 'a bez vstupu nepadne');
+  // Rovná čiara nesmie deliť nulou.
+  ok(C.spark([4, 4, 4]).includes('<path'), 'rovný priebeh sa nakreslí tiež');
+  ok(!/NaN/.test(C.spark([4, 4, 4])), 'a nevyrobí NaN');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

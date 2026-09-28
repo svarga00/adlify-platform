@@ -569,18 +569,34 @@ async function dashboardCheck() {
   if (sandbox.Cfg) sandbox.Cfg.loaded = true;
 
   const view = el();
+  // Prehľad je v záložkách, takže jedna otázka je vidieť hneď a zvyšok po
+  // prepnutí. Test preto prejde všetky záložky — inak by hlásil, že karta
+  // zmizla, hoci je len o kliknutie ďalej. Kreslí sa to ešte s podstrčenými
+  // dátami; po vrátení `DB.list` by prehľad naskočil prázdny.
+  const tabHtml = {};
   try {
     D.area = 'staffing';
-    await D.views.dashboard.call(D, view);
+    for (const [key] of sandbox.DanubraDash.GROUPS) {
+      D._saveDash(sandbox.DanubraDash.setTab(D.dashPrefs(), key));
+      await D.views.dashboard.call(D, view);
+      tabHtml[key] = view.innerHTML;
+    }
   } finally {
     sandbox.DB.list = origList;
   }
-  const h = view.innerHTML;
+  const h = tabHtml[sandbox.DanubraDash.GROUPS[0][0]] || '';
+  const anyTab = Object.values(tabHtml).join('');
 
   // Tri otázky, kvôli ktorým prehľad existuje.
-  t('prehľad odpovedá, čo treba spraviť', /Čo treba spraviť/.test(h));
-  t('prehľad odpovedá, či bude na výplaty', /Bude na výplaty\?/.test(h));
-  t('prehľad odpovedá, či sa na tom zarába', /Zarábame na tom\?/.test(h));
+  t('prehľad odpovedá, čo treba spraviť', /Čo treba spraviť/.test(anyTab));
+  t('prehľad odpovedá, či bude na výplaty', /Bude na výplaty\?/.test(anyTab));
+  t('prehľad odpovedá, či sa na tom zarába', /Zarábame na tom\?/.test(anyTab));
+
+  // Cash-flow je nad záložkami, takže musí byť v každej.
+  t('cash-flow je vidieť v každej záložke',
+    Object.values(tabHtml).every(x => /Kompletný cash-flow/.test(x)));
+  // A úlohy sú prvé — prvá otázka rána nie je, koľko je na účte.
+  t('prvá záložka je dnešok', sandbox.DanubraDash.GROUPS[0][0] === 'today');
 
   // Čerpá z v2 dát, nie z počtov riadkov v starých tabuľkách.
   for (const table of ['v_today', 'v_subcontract_status', 'periods', 'bills', 'v_cashflow',
@@ -589,14 +605,14 @@ async function dashboardCheck() {
   }
 
   // Konkrétne veci, ktoré blokujú biznis, sú vidieť hneď.
-  t('neplatný doklad je na prehľade vidieť', /po platnosti/.test(h));
-  t('neuzavreté obdobie je na prehľade vidieť', /na uzavretie/.test(h));
-  t('faktúra čakajúca na schválenie je vidieť', /na schválenie/.test(h));
-  t('sporná prijatá faktúra je vidieť', /sporn/.test(h));
-  t('úloha z pravidla je vidieť', /Doplniť A1/.test(h));
+  t('neplatný doklad je na prehľade vidieť', /po platnosti/.test(anyTab));
+  t('neuzavreté obdobie je na prehľade vidieť', /na uzavretie/.test(anyTab));
+  t('faktúra čakajúca na schválenie je vidieť', /na schválenie/.test(anyTab));
+  t('sporná prijatá faktúra je vidieť', /sporn/.test(anyTab));
+  t('úloha z pravidla je vidieť', /Doplniť A1/.test(anyTab));
 
   // A to, čo tam už nepatrí, tam naozaj nie je.
-  t('prehľad už nehovorí o ubytovacej agende', !/ubytovacia agenda/i.test(h));
+  t('prehľad už nehovorí o ubytovacej agende', !/ubytovacia agenda/i.test(anyTab));
   t('prehľad už neráta mzdu zamestnanca',
     !/1\.362/.test(String(D.views.dashboard)) && !/1\.362/.test(String(D._dashLoad)));
 
