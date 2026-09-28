@@ -344,6 +344,74 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Každá obrazovka sa otvorí ────────────────────────────────────────
+    // Testy inak načítavajú knižnice cez `require`, kde sa globálne názvy
+    // neprepisujú. Chyba, keď si dve knižnice vezmú to isté meno, preto
+    // existuje **len v prehliadači** — a takto sa prejavila: tlač faktúry
+    // padala na „DanubraDocs.invoice is not a function", hoci `npm test`
+    // bol celý zelený.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      let kde = 'štart';
+      page.on('pageerror', e => chyby.push(`${kde}: ${e.message}`));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+
+      // Bez dát, ale s prihláseným človekom — ide o to, či sa obrazovka
+      // vôbec poskladá, nie čo je na nej.
+      await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+      });
+
+      const routes = await page.evaluate(() =>
+        Danubra.allNav().map(x => x[0]).filter(r => Danubra.routeAvailable(r)));
+      ok(routes.length >= 15, `dá sa prejsť ${routes.length} obrazoviek`);
+
+      for (const r of routes) {
+        kde = r;
+        await page.evaluate((x) => Danubra.go(x), r);
+        await page.waitForTimeout(220);
+      }
+      ok(chyby.length === 0, 'žiadna obrazovka nespadne',
+        chyby.slice(0, 4).join('\n    '));
+
+      // Dokumenty sú to, čo bolo rozbité — každý sa musí dať vykresliť.
+      kde = 'dokumenty';
+      const docs = await page.evaluate(() => {
+        const out = {};
+        const sup = { name: 'Firma', iban: 'SK1' }, cli = { name: 'Klient' };
+        const skus = (n, f) => {
+          try { const h = f(); out[n] = h && h.length > 500 ? 'ok' : 'prázdne'; }
+          catch (e) { out[n] = e.message; }
+        };
+        skus('faktúra', () => DanubraPapers.invoice(
+          { invoice: { invoice_number: '1', total: 100 }, items: [], client: cli, supplier: sup }));
+        skus('ponuka', () => DanubraPapers.quote(
+          { quote: { quote_number: '1', title: 'T', charge_rate: 30, headcount: 2, hours_per_month: 160 },
+            client: cli, supplier: sup }));
+        skus('potvrdenie objednávky', () => DanubraPapers.orderConfirmation(
+          { order: { order_number: '1' }, client: cli, accommodation: {}, supplier: sup }));
+        skus('výzva na platbu', () => DanubraPapers.paymentRequest(
+          { order: { order_number: '1' }, client: cli, supplier: sup, dueDate: '2026-10-01' }));
+        skus('pokyny na ubytovanie', () => DanubraPapers.handover(
+          { order: { order_number: '1' }, client: cli, data: {}, supplier: sup }));
+        skus('potvrdenie majiteľovi', () => DanubraPapers.ownerConfirmation(
+          { order: { order_number: '1' }, accommodation: {}, persons: [], supplier: sup }));
+        return out;
+      });
+      const zle = Object.entries(docs).filter(([, v]) => v !== 'ok');
+      ok(zle.length === 0, `každý dokument sa vykreslí (${Object.keys(docs).length})`,
+        zle.map(([k, v]) => `${k}: ${v}`).join(', '));
+
+      await page.close();
+    }
+
     // ── Vysvetlivky ───────────────────────────────────────────────────────
     // Text je v `lib/explain.js` a testuje sa zvlášť. Tu ide o to, či sa okno
     // naozaj otvorí a či v ňom to „prečo" aj dole vidieť — je to posledná
