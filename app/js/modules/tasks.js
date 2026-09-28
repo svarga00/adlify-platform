@@ -360,8 +360,8 @@
       this.detail(id);
     },
 
-    assignNew(id) {
-      const name = prompt('Kto to má na starosti?');
+    async assignNew(id) {
+      const name = await UI.ask('Kto to má na starosti?');
       if (name == null || !name.trim()) return;
       this.assign(id, name.trim());
     },
@@ -441,7 +441,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať túto úlohu?')) return;
+      if (!await UI.confirm('Zmazať túto úlohu?')) return;
       await DB.remove('tasks', id);
       this.items = this.items.filter(x => x.id !== id);
       Danubra.renderRoute();

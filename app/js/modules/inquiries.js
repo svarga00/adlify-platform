@@ -248,7 +248,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať tento dopyt?')) return;
+      if (!await UI.confirm('Zmazať tento dopyt?')) return;
       const { error } = await DB.remove('inquiries', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast('Zmazané', 'ok');

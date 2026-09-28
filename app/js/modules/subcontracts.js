@@ -517,7 +517,7 @@
     async endStay(stayId) {
       const st = this.stays.find(x => x.stay_id === stayId);
       const today = new Date().toISOString().slice(0, 10);
-      const answer = prompt(
+      const answer = await UI.ask(
         `Kedy sa ${st ? st.full_name : 'človek'} odsťahoval? (RRRR-MM-DD)`, today);
       if (answer == null) return;
       const date = String(answer).trim();
@@ -565,7 +565,7 @@
     },
 
     async _askCoords(what) {
-      const text = prompt(
+      const text = await UI.ask(
         `Vlož odkaz z máp na miesto ${what} — alebo rovno súradnice.\n\n`
         + 'Rozumie odkazom z Google Máp aj OpenStreetMap a dvojici čísel\n'
         + 'ako 48.7758, 9.1829.');
@@ -605,7 +605,7 @@
     },
 
     async markZoll(id) {
-      const ref = prompt('Meldungs-ID z meldeportal-mindestlohn.de:');
+      const ref = await UI.ask('Meldungs-ID z meldeportal-mindestlohn.de:');
       if (ref === null) return;
       const patch = { zoll_reported_at: new Date().toISOString(), zoll_reference: ref || null };
       await DB.update('subcontracts', id, patch);
@@ -742,7 +742,7 @@
 
     async delLodging(id) {
       const l = this.lodging.find(x => x.id === id);
-      if (!confirm('Odobrať toto ubytovanie zo zákazky?')) return;
+      if (!await UI.confirm('Odobrať toto ubytovanie zo zákazky?')) return;
       await DB.remove('subcontract_accommodations', id);
       this.lodging = this.lodging.filter(x => x.id !== id);
       await this.reloadStays();
@@ -815,7 +815,7 @@
 
     async delAsg(id) {
       const a = this.assignments.find(x => x.id === id);
-      if (!confirm('Zrušiť toto nasadenie?')) return;
+      if (!await UI.confirm('Zrušiť toto nasadenie?')) return;
       await DB.remove('assignments', id);
       this.assignments = this.assignments.filter(x => x.id !== id);
       if (a) this.detail(a.subcontract_id);
@@ -906,7 +906,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať túto zákazku aj s nasadeniami?')) return;
+      if (!await UI.confirm('Zmazať túto zákazku aj s nasadeniami?')) return;
       const { error } = await DB.remove('subcontracts', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast('Zmazané', 'ok');
@@ -1035,7 +1035,7 @@
     async reopenPeriod(periodId) {
       const p = this.periods.find(x => x.id === periodId);
       if (!p) return;
-      const reason = prompt('Prečo sa obdobie otvára späť?\n\n'
+      const reason = await UI.ask('Prečo sa obdobie otvára späť?\n\n'
         + 'Dôvod sa pripíše do poznámky obdobia a zostane tam.');
       if (!reason) return;
       const { error } = await DB.rpc('reopen_period', {

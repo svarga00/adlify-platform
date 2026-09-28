@@ -336,7 +336,7 @@
     },
 
     async cancel() {
-      const reason = prompt('Dôvod zrušenia:');
+      const reason = await UI.ask('Dôvod zrušenia:');
       if (reason === null) return;
       await DB.update('orders', this._cur.id, { cancellation_reason: reason || null });
       this._cur.cancellation_reason = reason;
@@ -345,17 +345,17 @@
     },
 
     async extend() {
-      const d = prompt('Nový dátum odchodu (RRRR-MM-DD):', this._cur.date_to);
+      const d = await UI.ask('Nový dátum odchodu (RRRR-MM-DD):', this._cur.date_to);
       if (!d) return;
-      const reason = prompt('Dôvod predĺženia (nepovinné):') || null;
+      const reason = await UI.ask('Dôvod predĺženia (nepovinné):') || null;
       const res = await OrdersService.extend(this._cur, d, reason);
       if (res.ok) { UI.toast('Pobyt predĺžený', 'ok'); await this._refresh(); await this.load(); }
     },
 
     async addPerson() {
-      const name = prompt('Meno a priezvisko:');
+      const name = await UI.ask('Meno a priezvisko:');
       if (!name) return;
-      const phone = prompt('Telefón (nepovinné):') || null;
+      const phone = await UI.ask('Telefón (nepovinné):') || null;
       await DB.insert('order_persons', {
         order_id: this._cur.id, full_name: name, phone,
         date_from: this._cur.date_from, date_to: this._cur.date_to,
@@ -364,15 +364,15 @@
     },
 
     async delPerson(id) {
-      if (!confirm('Odstrániť osobu zo zákazky?')) return;
+      if (!await UI.confirm('Odstrániť osobu zo zákazky?')) return;
       await DB.remove('order_persons', id);
       await this._refresh();
     },
 
     async addRequest() {
-      const title = prompt('Čo treba vyriešiť?');
+      const title = await UI.ask('Čo treba vyriešiť?');
       if (!title) return;
-      const description = prompt('Podrobnosti (nepovinné):') || null;
+      const description = await UI.ask('Podrobnosti (nepovinné):') || null;
       await DB.insert('order_requests', {
         order_id: this._cur.id, title, description, status: 'new', priority: 'normal',
       });
@@ -391,9 +391,9 @@
     },
 
     async changeService() {
-      const persons = prompt('Počet osôb od dnes:', this._cur.persons);
+      const persons = await UI.ask('Počet osôb od dnes:', this._cur.persons);
       if (persons === null) return;
-      const rate = prompt('Sadzba € / osoba / deň:', this._cur.ongoing_service_rate || 1.5);
+      const rate = await UI.ask('Sadzba € / osoba / deň:', this._cur.ongoing_service_rate || 1.5);
       if (rate === null) return;
       const res = await OrdersService.changeServiceSegment(this._cur, {
         persons: Number(persons), rate: Number(rate),
@@ -402,7 +402,7 @@
     },
 
     async pauseService() {
-      const reason = prompt('Dôvod pozastavenia:') || null;
+      const reason = await UI.ask('Dôvod pozastavenia:') || null;
       const res = await OrdersService.changeServiceSegment(this._cur, { paused: true, pauseReason: reason });
       if (res.ok) { UI.toast('Služba pozastavená', 'ok'); await this._refresh(); }
     },

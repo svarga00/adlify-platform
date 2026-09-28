@@ -202,7 +202,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať toto ubytovanie?')) return;
+      if (!await UI.confirm('Zmazať toto ubytovanie?')) return;
       const { error } = await DB.remove('accommodations', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast('Zmazané', 'ok');

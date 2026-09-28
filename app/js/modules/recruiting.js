@@ -242,7 +242,7 @@
     },
 
     async revoke(id) {
-      const reason = prompt('Dôvod odvolania súhlasu:');
+      const reason = await UI.ask('Dôvod odvolania súhlasu:');
       if (reason === null) return;
       await DB.update('consents', id, { revoked_at: new Date().toISOString(), revoke_reason: reason || null });
       UI.toast('Súhlas odvolaný — súvisiace nahrávky treba zmazať', 'ok');
@@ -533,7 +533,7 @@
     },
 
     async delRecording(id) {
-      if (!confirm('Zmazať nahrávku aj s prepisom? Zachytené dohody ostanú zapísané.')) return;
+      if (!await UI.confirm('Zmazať nahrávku aj s prepisom? Zachytené dohody ostanú zapísané.')) return;
       const r = this.recordings.find(x => x.id === id);
       if (r?.audio_path) await DB.removeCall(r.audio_path);
       await DB.remove('call_recordings', id);

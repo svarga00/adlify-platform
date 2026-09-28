@@ -420,7 +420,7 @@
     async convert(id, { silent = false, keepStatus = false } = {}) {
       const c = this.items.find(x => x.id === id);
       if (!c) return;
-      if (!silent && !confirm(`Previesť ${c.full_name} medzi živnostníkov?`)) return;
+      if (!silent && !await UI.confirm(`Previesť ${c.full_name} medzi živnostníkov?`)) return;
 
       const { data: workerId, error } = await DB.rpc('convert_candidate', {
         p_candidate_id: id,
@@ -507,7 +507,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať tohto kandidáta?')) return;
+      if (!await UI.confirm('Zmazať tohto kandidáta?')) return;
       await DB.remove('candidates', id);
       this.items = this.items.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();

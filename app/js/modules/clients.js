@@ -177,7 +177,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať tohto klienta?')) return;
+      if (!await UI.confirm('Zmazať tohto klienta?')) return;
       const { error } = await DB.remove('clients', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast('Zmazané', 'ok');

@@ -903,6 +903,31 @@ t('bez čísla sa nepíše nula', sandbox.UI.pct(null) === '—');
     !bad.length);
 }
 
+// Natívne `prompt()`, `confirm()` a `alert()` vyzerajú ako chyba stránky:
+// sivé okno s adresou webu v nadpise, cudzie písmo, na mobile úplne inak —
+// a nedá sa v nich nič vysvetliť. Appka má na to vlastné okná.
+{
+  const bad = [];
+  for (const f of files) {
+    if (f === 'js/ui.js') continue;                 // tam sú definované
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    src.split('\n').forEach((line, i) => {
+      // Komentáre nerátame a reťazce sa vyhodia — `'alert(+7)'` v zozname
+      // vedľajších efektov je text, nie volanie.
+      const code = line
+        .replace(/^\s*(\/\/|\*|\/\*).*/, '')
+        .replace(/'[^']*'|"[^"]*"|`[^`]*`/g, "''");
+      if (/(?<![.\w])(prompt|confirm|alert)\s*\(/.test(code)) {
+        bad.push(`${path.basename(f)}:${i + 1}`);
+      }
+    });
+  }
+  t(`nikde sa nepoužíva okno prehliadača${bad.length ? ' — ' + bad.slice(0, 4).join(', ') : ''}`,
+    !bad.length);
+  t('appka má vlastné okno na otázku aj na potvrdenie',
+    sandbox.UI && typeof sandbox.UI.ask === 'function' && typeof sandbox.UI.confirm === 'function');
+}
+
 // Doklady majú privátny bucket — cesta sa von nikdy nedáva priamo.
 t('úložisko dokladov má podpísané odkazy',
   sandbox.DB && typeof sandbox.DB.uploadDoc === 'function'

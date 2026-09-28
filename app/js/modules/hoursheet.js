@@ -321,9 +321,9 @@
         || list.find(a => a.status === 'active') || null;
     },
 
-    signForm() {
+    async signForm() {
       const s = this.build();
-      if (s.empty && !confirm('Vo výkaze nie je ani hodina. Naozaj ho označiť ako podpísaný?')) return;
+      if (s.empty && !await UI.confirm('Vo výkaze nie je ani hodina. Naozaj ho označiť ako podpísaný?')) return;
       UI.modal('Výkaz podpísaný', `
         <form id="hs-sign" onsubmit="event.preventDefault();HS.sign()">
           ${UI.field('signed_by_name', 'Kto ho podpísal (Name in Druckbuchstaben)',

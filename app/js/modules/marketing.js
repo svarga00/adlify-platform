@@ -166,7 +166,7 @@
     },
 
     async delListing(id) {
-      if (!confirm('Zmazať tento inzerát?')) return;
+      if (!await UI.confirm('Zmazať tento inzerát?')) return;
       await DB.remove('marketing_listings', id);
       this.listings = this.listings.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();
@@ -201,7 +201,7 @@
     },
 
     async delExpense(id) {
-      if (!confirm('Zmazať tento výdavok?')) return;
+      if (!await UI.confirm('Zmazať tento výdavok?')) return;
       await DB.remove('marketing_expenses', id);
       this.expenses = this.expenses.filter(x => x.id !== id);
       Danubra.renderRoute();

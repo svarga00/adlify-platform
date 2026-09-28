@@ -396,7 +396,7 @@
     _resolvePick(id) { this._pickResolver?.(id); },
 
     async del(id) {
-      if (!confirm('Zmazať túto ponuku aj s variantmi?')) return;
+      if (!await UI.confirm('Zmazať túto ponuku aj s variantmi?')) return;
       const { error } = await DB.remove('offers', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast('Zmazané', 'ok');

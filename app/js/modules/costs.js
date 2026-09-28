@@ -231,7 +231,7 @@
 
       if (to === 'approved' && c.variance != null
           && Math.abs(c.variance) > DanubraBills.TOLERANCE) {
-        const why = prompt(
+        const why = await UI.ask(
           `Faktúra sa líši od schválených hodín o ${Money.format(c.variance)}.\n\n`
           + 'Napíš prečo ju schvaľuješ. Zostane to pri faktúre.');
         if (!why || why.trim().length < 5) {

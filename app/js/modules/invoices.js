@@ -253,7 +253,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zahodiť tento návrh faktúry?')) return;
+      if (!await UI.confirm('Zahodiť tento návrh faktúry?')) return;
       await DB.remove('invoices', id);
       this.items = this.items.filter(i => i.id !== id);
       UI.closeModal(); UI.toast('Návrh zahodený', 'ok');
@@ -383,7 +383,7 @@
       const { data: partner } = await DB.getById('partners', sc.partner_id);
       if (!partner) return UI.toast('Zákazka nemá priradeného odberateľa', 'err');
       if (!partner.ust_idnr) {
-        if (!confirm('Odberateľ nemá USt-IdNr — reverse charge §13b sa nedá uplatniť.\nPokračovať?')) return;
+        if (!await UI.confirm('Odberateľ nemá USt-IdNr — reverse charge §13b sa nedá uplatniť.\nPokračovať?')) return;
       }
       const ts = (this._allTs || []).filter(t => this._asgMap.get(t.assignment_id) === scId);
       try {

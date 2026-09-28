@@ -95,8 +95,105 @@ window.UI = {
   },
   closeModal() {
     document.getElementById('ui-modal')?.remove();
-    document.body.style.overflow = '';
+    if (!document.getElementById('ui-ask')) document.body.style.overflow = '';
   },
+
+  // ── Otázka a potvrdenie ───────────────────────────────────────────────────
+  // Natívne `prompt()` a `confirm()` vyzerajú ako chyba stránky: sivé okno
+  // s adresou webu v nadpise, cudzie písmo, na mobile úplne inak. Navyše sa
+  // v nich nedá nič vysvetliť — a pri mazaní alebo rušení je vysvetlenie to
+  // najdôležitejšie.
+  //
+  // Toto okno sa otvára **nad** prípadným otvoreným oknom, takže detail
+  // záznamu pod ním zostane. Vracia `Promise`, takže sa volá s `await`.
+
+  /** @returns {Promise<string|null>} `null` = zrušené */
+  ask(question, o = {}) {
+    return this._sheet({
+      ...o,
+      question,
+      field: o.multiline
+        ? `<textarea id="ui-ask-input" rows="${o.rows || 4}"
+             placeholder="${this.esc(o.placeholder || '')}">${this.esc(o.value || '')}</textarea>`
+        : `<input id="ui-ask-input" type="${o.type || 'text'}"
+             value="${this.esc(o.value ?? '')}" placeholder="${this.esc(o.placeholder || '')}">`,
+      okLabel: o.ok || 'Uložiť',
+      read: () => {
+        const el = document.getElementById('ui-ask-input');
+        return el ? el.value : null;
+      },
+      // Prázdna odpoveď je odpoveď „nič" — nie zrušenie. Rozlišuje sa to,
+      // lebo niekde je prázdno v poriadku a inde je to chyba.
+      empty: null,
+    });
+  },
+
+  /** @returns {Promise<boolean>} */
+  confirm(question, o = {}) {
+    return this._sheet({
+      ...o,
+      question,
+      field: '',
+      okLabel: o.ok || 'Áno',
+      danger: o.danger !== false,
+      read: () => true,
+      empty: false,
+    }).then(v => v === true);
+  },
+
+  _sheet(o) {
+    return new Promise((resolve) => {
+      this._closeAsk();
+      const el = document.createElement('div');
+      el.className = 'modal-backdrop ask-backdrop';
+      el.id = 'ui-ask';
+      el.innerHTML = `
+        <div class="modal-card ask-card">
+          <div class="ask-body">
+            ${o.title ? `<h3>${this.esc(o.title)}</h3>` : ''}
+            <p class="ask-q">${this.esc(o.question)}</p>
+            ${o.hint ? `<p class="ask-hint">${this.esc(o.hint)}</p>` : ''}
+            ${o.field}
+          </div>
+          <div class="ask-actions">
+            <button class="btn btn-ghost" data-ask="cancel">${this.esc(o.cancel || 'Zrušiť')}</button>
+            <button class="btn ${o.danger ? 'btn-danger' : 'btn-primary'}" data-ask="ok">
+              ${this.esc(o.okLabel)}</button>
+          </div>
+        </div>`;
+
+      const done = (val) => {
+        document.removeEventListener('keydown', keys);
+        el.remove();
+        if (!document.getElementById('ui-modal')) document.body.style.overflow = '';
+        resolve(val);
+      };
+      const keys = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); done(o.empty); }
+        // V jednoriadkovom poli je Enter potvrdenie; vo viacriadkovom je to
+        // nový riadok, tam sa potvrdzuje tlačidlom.
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault(); done(o.read());
+        }
+      };
+
+      el.addEventListener('click', (e) => {
+        const what = e.target.closest('[data-ask]');
+        if (what) return done(what.dataset.ask === 'ok' ? o.read() : o.empty);
+        if (e.target === el) done(o.empty);
+      });
+      document.addEventListener('keydown', keys);
+      document.body.appendChild(el);
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => {
+        const f = document.getElementById('ui-ask-input');
+        if (f) { f.focus(); if (f.select) f.select(); }
+        else el.querySelector('[data-ask=ok]')?.focus();
+      }, 20);
+    });
+  },
+
+  _closeAsk() { document.getElementById('ui-ask')?.remove(); },
 
   // Form field helper
   // `step` je tu kvôli peniazom. `<input type="number">` má bez neho krok 1,

@@ -174,7 +174,7 @@
       if (to === 'sent') patch.sent_at = new Date().toISOString();
       if (['accepted', 'rejected'].includes(to)) patch.decided_at = new Date().toISOString();
       if (to === 'rejected') {
-        const why = prompt('Prečo odmietol? (hodí sa o pol roka)');
+        const why = await UI.ask('Prečo odmietol? (hodí sa o pol roka)');
         if (why) patch.reject_reason = why;
       }
       const { error } = await DB.update('quotes', id, patch);

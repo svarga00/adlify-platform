@@ -487,7 +487,7 @@
      * to sa oplatí mať zapísané — a dopisovať to neskôr sa nikdy nestihne.
      */
     async addQuestionPrompt(segment) {
-      const text = prompt('Otázka, ktorú sa oplatí pýtať:');
+      const text = await UI.ask('Otázka, ktorú sa oplatí pýtať:');
       if (!text || !text.trim()) return;
       const payload = {
         question_sk: text.trim(),
@@ -510,7 +510,7 @@
     async editQuestion(id) {
       const q = this.questions.find(x => x.id === id);
       if (!q) return;
-      const text = prompt('Upraviť otázku:', q.question_sk);
+      const text = await UI.ask('Upraviť otázku:', q.question_sk);
       if (text == null) return;
       if (!text.trim()) return UI.toast('Prázdna otázka sa neuloží', 'err');
       const { error } = await DB.update('screening_questions', id, { question_sk: text.trim() });
@@ -626,9 +626,9 @@
 
     /** Vlastné pole priamo počas hovoru — nabudúce ho už máš. */
     async addChipPrompt(segKey) {
-      const label = prompt('Čo pridať? (krátko, napr. „vie robiť aj podhľady")');
+      const label = await UI.ask('Čo pridať? (krátko, napr. „vie robiť aj podhľady")');
       if (!label || !label.trim()) return;
-      const polarity = prompt('Je to dobré znamenie, zlé alebo varovanie?\n'
+      const polarity = await UI.ask('Je to dobré znamenie, zlé alebo varovanie?\n'
         + 'napíš: plus / minus / varovanie / nic', 'plus');
       const map = { plus: 'plus', minus: 'minus', varovanie: 'flag', nic: 'neutral' };
       const pol = map[(polarity || '').trim().toLowerCase()] || 'neutral';
@@ -734,7 +734,7 @@
       await DB.update('candidates', this.cand.id, patch);
 
       if (action === 'reject') {
-        const reason = prompt('Prečo ho nechceme? (zapíše sa, aby sa o pol roka vedelo)')
+        const reason = await UI.ask('Prečo ho nechceme? (zapíše sa, aby sa o pol roka vedelo)')
           || (r.flags[0]?.label ?? null);
         await DB.update('candidates', this.cand.id, { outcome: 'rejected', outcome_reason: reason });
         UI.toast('Zamietnutý a zapísaný', 'ok');

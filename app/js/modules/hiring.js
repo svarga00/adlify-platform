@@ -466,7 +466,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať tento náborový plán?')) return;
+      if (!await UI.confirm('Zmazať tento náborový plán?')) return;
       await DB.remove('recruitment_plans', id);
       this.plans = this.plans.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();

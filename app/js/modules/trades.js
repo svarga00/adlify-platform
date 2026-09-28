@@ -204,7 +204,7 @@
     },
 
     async chipDel(id, quiet) {
-      if (!quiet && !confirm('Zmazať toto pole? Zápisy pri kandidátoch zostanú.')) return;
+      if (!quiet && !await UI.confirm('Zmazať toto pole? Zápisy pri kandidátoch zostanú.')) return;
       await DB.remove('call_chips', id);
       this.chips = this.chips.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();
@@ -371,7 +371,7 @@
     },
 
     async qDel(id) {
-      if (!confirm('Zmazať túto otázku? Odpovede kandidátov na ňu sa stratia.')) return;
+      if (!await UI.confirm('Zmazať túto otázku? Odpovede kandidátov na ňu sa stratia.')) return;
       await DB.remove('screening_questions', id);
       this.questions = this.questions.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();

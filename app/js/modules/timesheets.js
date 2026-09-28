@@ -213,7 +213,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať tento záznam?')) return;
+      if (!await UI.confirm('Zmazať tento záznam?')) return;
       await DB.remove('timesheets', id);
       this.items = this.items.filter(x => x.id !== id);
       Danubra.renderRoute();

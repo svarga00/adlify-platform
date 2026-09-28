@@ -282,7 +282,7 @@
       const m = this.members.find(x => x.id === memberId);
       if (!m) return;
       const w = this.workerOf(m.worker_id);
-      if (!confirm(`Ukončiť členstvo — ${w ? w.full_name : 'tento človek'}?\n\n`
+      if (!await UI.confirm(`Ukončiť členstvo — ${w ? w.full_name : 'tento človek'}?\n\n`
         + 'Záznam zostane v histórii partie.')) return;
       const today = new Date().toISOString().slice(0, 10);
       const { error } = await DB.update('crew_members', memberId, { left_at: today });

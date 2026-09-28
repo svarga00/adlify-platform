@@ -2119,3 +2119,36 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .05em;
   color: var(--ink-mute); background: var(--bg); padding: 1px 5px; border-radius: 3px;
 }
+
+/* ── Otázka a potvrdenie ─────────────────────────────────────────────────── */
+/* Natívne `prompt()` vyzerá ako chyba stránky: sivé okno s adresou webu
+   v nadpise a cudzím písmom. Toto je to isté, len v reči appky — a je v ňom
+   miesto vysvetliť, čo sa stane. */
+.ask-backdrop { z-index: 80; align-items: center; }
+.ask-card { max-width: 460px; border-radius: var(--radius-lg); }
+.ask-body { padding: 24px 24px 18px; }
+.ask-body h3 {
+  margin: 0 0 10px; font-size: 17px; font-weight: 700; letter-spacing: -.02em;
+}
+/* Zalomenie v texte otázky sa musí zachovať — vysvetlenie pod otázkou je
+   často druhý odsek a natívne okno ho zobrazovalo tiež. */
+.ask-q { margin: 0; font-size: 15.5px; line-height: 1.5; font-weight: 600; white-space: pre-line; }
+.ask-hint { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--ink-sub); white-space: pre-line; }
+.ask-body input, .ask-body textarea {
+  width: 100%; margin-top: 14px; padding: 12px 14px; font-size: 15px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--field);
+}
+.ask-body input:focus, .ask-body textarea:focus {
+  outline: none; border-color: var(--blue); background: #fff;
+}
+.ask-body textarea { resize: vertical; line-height: 1.5; }
+.ask-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 24px 20px; border-top: 1px solid var(--border);
+}
+.ask-actions .btn { padding: 11px 20px; font-size: 14px; }
+@media (max-width: 560px) {
+  .ask-backdrop { align-items: flex-end; }
+  .ask-card { border-radius: var(--radius-lg) var(--radius-lg) 0 0; max-width: none; }
+  .ask-actions .btn { flex: 1; }
+}

@@ -138,7 +138,7 @@
     async removePhoto(workerId) {
       const w = this.items.find(x => x.id === workerId);
       if (!w || !w.photo_path) return;
-      if (!confirm('Odobrať fotku?')) return;
+      if (!await UI.confirm('Odobrať fotku?')) return;
       const old = w.photo_path;
       const { error } = await DB.update('workers', workerId, { photo_path: null });
       if (error) return UI.toast(error.message, 'err');
@@ -906,7 +906,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať tohto pracovníka?')) return;
+      if (!await UI.confirm('Zmazať tohto pracovníka?')) return;
       const { error } = await DB.remove('workers', id);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast('Zmazané', 'ok');
@@ -955,7 +955,7 @@
 
     async delDoc(docId) {
       const doc = this.docs.find(d => d.id === docId);
-      if (!confirm('Zmazať tento doklad?')) return;
+      if (!await UI.confirm('Zmazať tento doklad?')) return;
       await DB.remove('worker_documents', docId);
       this.docs = this.docs.filter(d => d.id !== docId);
       if (doc) this.detail(doc.worker_id);
@@ -1052,7 +1052,7 @@
      * Prah piatich znakov drží aj CHECK v databáze (migrácia 022).
      */
     async voidAdvance(advanceId) {
-      const reason = prompt('Prečo sa záloha ruší? (aspoň 5 znakov — zostane to zapísané)');
+      const reason = await UI.ask('Prečo sa záloha ruší? (aspoň 5 znakov — zostane to zapísané)');
       if (reason == null) return;
       if (!Shell.reasonValid(reason)) {
         return UI.toast(`Dôvod musí mať aspoň ${Shell.REASON_MIN} znakov.`, 'err');
@@ -1150,7 +1150,7 @@
     },
 
     async revokeOverride(id, workerId) {
-      if (!confirm('Zrušiť túto výnimku?\n\nZáznam zostane v histórii.')) return;
+      if (!await UI.confirm('Zrušiť túto výnimku?\n\nZáznam zostane v histórii.')) return;
       const { error } = await DB.update('overrides', id, {
         revoked_at: new Date().toISOString(),
       });

@@ -113,7 +113,7 @@ window.CommPanel = {
   },
 
   async _notePrompt(metaEnc) {
-    const text = prompt('Poznámka ku komunikácii:');
+    const text = await UI.ask('Poznámka ku komunikácii:');
     if (!text) return;
     await this._log('note', metaEnc, text);
     UI.toast('Poznámka uložená', 'ok');

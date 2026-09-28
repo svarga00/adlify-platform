@@ -1152,7 +1152,7 @@ window.Danubra = {
    * dá spustiť aj vtedy, keď už v systéme sú ostré záznamy.
    */
   async purgeDemo() {
-    const answer = prompt(
+    const answer = await UI.ask(
       'Vymažú sa všetky vzorové dáta. Ostrých záznamov sa to nedotkne — '
       + 'maže sa len to, čo appka sama vložila.\n\n'
       + 'Napíš VYMAZAŤ a potvrď.');

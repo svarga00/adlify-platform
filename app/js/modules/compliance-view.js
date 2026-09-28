@@ -173,7 +173,7 @@
     },
 
     async del(id) {
-      if (!confirm('Zmazať túto položku?')) return;
+      if (!await UI.confirm('Zmazať túto položku?')) return;
       await DB.remove('compliance', id);
       this.items = this.items.filter(x => x.id !== id);
       UI.closeModal(); Danubra.renderRoute();

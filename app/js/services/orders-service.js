@@ -27,7 +27,7 @@ window.OrdersService = {
         return { ok: false, reason: ev.reason };
       }
       if (ev.requiresOverride) {
-        const ok = confirm(`Prechod ${from} → ${to} nie je bežný postup.\nNaozaj ho vykonať ručne?`);
+        const ok = await UI.confirm(`Prechod ${from} → ${to} nie je bežný postup.\nNaozaj ho vykonať ručne?`);
         if (!ok) return { ok: false, reason: 'cancelled' };
       }
     }
