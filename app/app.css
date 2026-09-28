@@ -1903,3 +1903,36 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .aside-note { font-size: 11.5px; color: var(--ink-mute); margin: 7px 0 0; line-height: 1.45; }
 .plan-tile.pt-off { opacity: .62; }
 .pt-promise { color: var(--blue); }
+
+/* ── Náhľady dokladov ────────────────────────────────────────────────────── */
+/* Či je A1 nahraté a či je to naozaj A1, sa doteraz dalo zistiť len otvorením
+   v novej karte. Malý náhľad to povie na prvý pohľad. */
+.doc-thumb {
+  width: 46px; height: 46px; flex: none; padding: 0; cursor: pointer; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--field);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; color: var(--ink-mute); position: relative;
+}
+.doc-thumb:hover { border-color: var(--blue); color: var(--blue); }
+.doc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.doc-thumb span { font-size: 9px; font-weight: 700; letter-spacing: .06em; }
+.doc-thumb.is-broken::after {
+  content: 'sken'; font-size: 9px; font-weight: 700; color: var(--ink-mute);
+}
+
+.doc-meta {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--ink-sub); margin-bottom: 12px;
+}
+.doc-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.doc-view {
+  display: block; width: 100%; background: var(--field);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+img.doc-view { max-height: 62vh; object-fit: contain; }
+.doc-view-pdf { height: 62vh; border: 1px solid var(--border); }
+.doc-view-none {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 36px 20px; text-align: center; color: var(--ink-mute); font-size: 13px;
+}
+.doc-note { font-size: 11.5px; color: var(--ink-mute); margin: 10px 0 0; line-height: 1.45; }

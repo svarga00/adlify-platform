@@ -32,7 +32,7 @@
     // je na ňom celý človek — doklady, hodiny, zálohy, zárobok, sľuby — a to
     // sa do okna veľkosti dlane nezmestí. Navyše sa naň dá odkázať
     // adresou `#/workers/<id>`.
-    openId: null,
+    openId: null, docUrls: new Map(),
     // Dáta, ktoré potrebuje len profil. Načítajú sa až pri jeho otvorení,
     // aby zoznam nečakal na štyri dotazy navyše.
     acc: { workerId: null, bills: [], advances: [], timesheets: [], promises: [], loaded: false },
@@ -356,6 +356,22 @@
         workerId, bills: b.data || [], advances: a.data || [],
         timesheets: t.data || [], promises: p.data || [], loaded: true,
       };
+      // Podpísané odkazy na skeny — všetky naraz. Pri piatich dokladoch by
+      // to inak bolo päť kôl po sieti a náhľady by nabiehali jeden po druhom.
+      this.docUrls = await DB.signedDocUrls(
+        this.docsOf(workerId).map(d => d.storage_path));
+    },
+
+    /**
+     * Z čoho je sken. Podľa prípony, nie podľa hlavičky — cestu máme, súbor
+     * nie, a sťahovať ho len kvôli typu by znamenalo stiahnuť ho dvakrát.
+     */
+    scanKind(path) {
+      const ext = String(path || '').toLowerCase().split('.').pop();
+      if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'].includes(ext)) return 'image';
+      if (ext === 'pdf') return 'pdf';
+      if (['heic', 'heif'].includes(ext)) return 'heic';
+      return 'other';
     },
 
     /**
@@ -507,12 +523,14 @@
               ${d.valid_from ? UI.date(d.valid_from) : '—'} – ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'} · ${label}${dni}</span>
             <span class="link-row" style="margin-top:6px;">
               ${d.storage_path
-                ? `<button class="link-chip" onclick="Wrk.openScan('${d.id}')">${Icon('doc', 13)}<span>Otvoriť sken</span></button>`
+                ? `<button class="link-chip" onclick="Wrk.preview('${d.id}')">${Icon('search', 13)}<span>Náhľad</span></button>
+                   <button class="link-chip" onclick="Wrk.openScan('${d.id}')">${Icon('doc', 13)}<span>Otvoriť</span></button>`
                 : `<label class="link-chip" style="cursor:pointer;">${Icon('upload', 13)}<span>Nahrať sken</span>
                      <input type="file" hidden accept="application/pdf,image/*"
                        onchange="Wrk.uploadScan('${d.id}', this)"></label>`}
             </span>
           </span>
+          ${this.thumbHtml(d)}
           <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Wrk.delDoc('${d.id}')">${Icon('x', 15)}</button>
         </div>`;
       };
@@ -524,6 +542,77 @@
         ${docs.length ? docs.map(row).join('')
           : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
       </div>`;
+    },
+
+    /**
+     * Náhľad vedľa riadku. Obrázok je vidieť rovno; z PDF sa v malom aj tak
+     * nič neprečíta, takže tam stačí dlaždica, ktorá povie, že sken existuje.
+     *
+     * Toto je celý dôvod, prečo náhľady pribudli: či je A1 nahraté a či je
+     * to naozaj A1, sa doteraz dalo zistiť len otvorením v novej karte.
+     */
+    thumbHtml(d) {
+      if (!d.storage_path) return '';
+      const url = this.docUrls.get(d.storage_path);
+      const kind = this.scanKind(d.storage_path);
+      const open = `onclick="Wrk.preview('${d.id}')"`;
+      if (kind === 'image' && url) {
+        return `<button class="doc-thumb" ${open} title="Zväčšiť náhľad">
+          <img src="${UI.esc(url)}" alt="" loading="lazy"
+               onerror="this.closest('.doc-thumb').classList.add('is-broken');this.remove()">
+        </button>`;
+      }
+      return `<button class="doc-thumb doc-thumb-file" ${open} title="Otvoriť náhľad">
+        ${Icon(kind === 'pdf' ? 'doc' : 'upload', 18)}
+        <span>${kind === 'pdf' ? 'PDF' : kind === 'heic' ? 'HEIC' : 'súbor'}</span>
+      </button>`;
+    },
+
+    /**
+     * Náhľad v okne. PDF sa vloží do rámu — prehliadač ho vykreslí sám, bez
+     * knižnice. Keď to nevyjde (mobilný Safari PDF v ráme nezobrazí), je pod
+     * tým odkaz na otvorenie v novej karte.
+     */
+    async preview(docId) {
+      const d = this.docs.find(x => x.id === docId);
+      if (!d || !d.storage_path) return UI.toast('Sken tu nie je', 'err');
+      let url = this.docUrls.get(d.storage_path);
+      if (!url) {
+        const r = await DB.signedDocUrl(d.storage_path, 600);
+        if (r.error || !r.url) return UI.toast('Odkaz sa nepodarilo vytvoriť', 'err');
+        url = r.url;
+        this.docUrls.set(d.storage_path, url);
+      }
+      const kind = this.scanKind(d.storage_path);
+      const x = DanubraDocs.describe(d, new Date().toISOString().slice(0, 10));
+      const body = kind === 'image'
+        ? `<img class="doc-view" src="${UI.esc(url)}" alt="${UI.esc(this.docLabel(d.kind))}">`
+        : kind === 'pdf'
+          ? `<iframe class="doc-view doc-view-pdf" src="${UI.esc(url)}"
+                title="${UI.esc(this.docLabel(d.kind))}"></iframe>`
+          : `<div class="doc-view doc-view-none">${Icon('doc', 28)}
+               <span>Tento typ súboru sa v prehliadači nedá zobraziť.
+                 Stiahni ho a otvor v počítači.</span></div>`;
+
+      UI.modal(this.docLabel(d.kind), `
+        <div class="doc-meta">
+          ${d.reference ? `<span>${Icon('note', 13)} ${UI.esc(d.reference)}</span>` : ''}
+          <span>${Icon('calendar', 13)} ${d.valid_from ? UI.date(d.valid_from) : '—'} –
+            ${d.valid_to ? UI.date(d.valid_to) : 'bez konca'}</span>
+          ${x.state === 'expired' ? UI.badge('neplatné', 'red')
+            : x.state === 'expiring' ? UI.badge('čoskoro vyprší', 'amber')
+            : x.state === 'valid' ? UI.badge('platné', 'green') : ''}
+        </div>
+        ${body}
+        <div class="modal-actions">
+          <a class="btn btn-outline" href="${UI.esc(url)}" target="_blank" rel="noopener noreferrer">
+            ${Icon('chevron', 14)} Otvoriť v novej karte</a>
+          <a class="btn btn-primary" href="${UI.esc(url)}" download>
+            ${Icon('download', 14)} Stiahnuť</a>
+        </div>
+        <p class="doc-note">Odkaz je podpísaný a platí desať minút. Doklad je
+          osobný údaj — v úložisku je neverejne a von sa dostane len takto.</p>`,
+        { wide: true });
     },
 
     advancesCard(w, a) {
