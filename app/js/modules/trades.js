@@ -16,15 +16,19 @@
   const PHASE = { phone: 'Telefón', interview: 'Pohovor', onsite: 'Na stavbe' };
 
   const Trades = {
-    trades: [], questions: [], chips: [], loaded: false, tab: 'chips', filterTrade: '',
+    trades: [], questions: [], chips: [], ads: [], loaded: false, tab: 'chips', filterTrade: '',
 
     async load() {
-      const [t, q, c] = await Promise.all([
+      const [t, q, c, a] = await Promise.all([
         DB.list('trades', { order: { column: 'sort_order', ascending: true }, limit: 100 }),
         DB.list('screening_questions', { order: { column: 'sort_order', ascending: true }, limit: 500 }),
         DB.list('call_chips', { limit: 800 }),
+        // Otázka môže patriť ku konkrétnemu inzerátu — „v inzeráte bolo, že
+        // nástup je do dvoch týždňov, stíhate to?".
+        DB.list('ads', { select: 'id,title,active', limit: 200 }),
       ]);
       this.trades = t.data || []; this.questions = q.data || []; this.chips = c.data || [];
+      this.ads = a.data || [];
       this.loaded = true;
     },
 
@@ -33,9 +37,13 @@
     tradeName(key) { return this.trades.find(t => t.key === key)?.name_sk || (key ? key : 'Univerzálna'); },
 
     async view(el) {
+      // Tlačidlo sa riadi tým, na ktorej záložke človek je — inak pridá niečo
+      // iné, než na čo sa práve pozerá.
       Danubra.setActions(`
         <button class="btn btn-outline btn-sm" onclick="Trades.tForm()">${Icon('plus')} Remeslo</button>
-        <button class="btn btn-primary btn-sm" onclick="Trades.chipForm()">${Icon('plus')} Pole</button>`);
+        ${this.tab === 'questions'
+          ? `<button class="btn btn-primary btn-sm" onclick="Trades.qForm()">${Icon('plus')} Otázka</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="Trades.chipForm()">${Icon('plus')} Pole</button>`}`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
       const pend = this.pending();
@@ -48,7 +56,7 @@
         <div class="pillbar" style="margin-bottom:14px;width:max-content;flex-wrap:wrap;">
           <button class="pill${this.tab === 'chips' ? ' active' : ''}" onclick="Trades.setTab('chips')">Polia do hovoru</button>
           <button class="pill${this.tab === 'trades' ? ' active' : ''}" onclick="Trades.setTab('trades')">Remeslá</button>
-          <button class="pill${this.tab === 'questions' ? ' active' : ''}" onclick="Trades.setTab('questions')">Otázky (referencia)</button>
+          <button class="pill${this.tab === 'questions' ? ' active' : ''}" onclick="Trades.setTab('questions')">Otázky do hovoru</button>
         </div>
         ${this.tab === 'trades' ? this.tradesHtml()
           : this.tab === 'chips' ? this.chipsHtml() : this.questionsHtml()}`;
@@ -320,6 +328,13 @@
               options: Object.entries(PHASE).map(([k, v]) => [k, v]) })}
             ${UI.field('weight', 'Váha (3 = kľúčová)', { type: 'number', value: q.weight || 1 })}
             ${UI.field('sort_order', 'Poradie', { type: 'number', value: q.sort_order || 0 })}
+            ${UI.field('segment', 'Kde v hovore', { value: q.segment || '',
+              options: [['', 'podľa typu otázky'], ['intro', 'Úvod'], ['trade', 'Remeslo'],
+                ['verify', 'Overenie'], ['legal', 'Papiere'], ['logistics', 'Logistika'],
+                ['money', 'Peniaze']] })}
+            ${UI.field('ad_id', 'Len k inzerátu', { value: q.ad_id || '',
+              options: [['', '— nie, platí všeobecne —'],
+                ...(this.ads || []).map(a => [a.id, a.title])] })}
           </div>
           ${UI.field('question_sk', 'Otázka', { type: 'textarea', rows: 2, value: q.question_sk, required: true })}
           ${UI.field('question_de', 'Nemecky (voliteľné)', { type: 'textarea', rows: 2, value: q.question_de })}
@@ -344,6 +359,7 @@
         question_sk: d.question_sk, question_de: d.question_de || null,
         good_answer: d.good_answer || null, red_flag_answer: d.red_flag_answer || null,
         weight: Number(d.weight) || 1, sort_order: Number(d.sort_order) || 0,
+        segment: d.segment || null, ad_id: d.ad_id || null,
       };
       if (!id) payload.code = `own_${Date.now().toString(36)}`;
       const res = id ? await DB.update('screening_questions', id, payload)

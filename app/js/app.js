@@ -65,7 +65,8 @@ window.Danubra = {
                     ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
                     ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts']]],
-    ['ĽUDIA',      [['hiring', 'Náborové plány', 'zap', 'staffing', 'recruiting'],
+    ['ĽUDIA',      [['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
+                    ['hiring', 'Náborové plány', 'zap', 'staffing', 'recruiting'],
                     ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
                     ['workers', 'Živnostníci', 'workers', 'staffing', null],
                     ['crews', 'Partie', 'workers', 'staffing', null],
@@ -96,6 +97,7 @@ window.Danubra = {
     subcontracts: 'Konkrétne stavby: kto tam je, koľko odrobil, čo sa fakturuje',
     timesheets: 'Odpracované hodiny — z nich vzniká podklad na faktúru',
     hoursheet: 'Stundennachweis: týždenný papier, ktorý podpisuje odberateľ',
+    ads: 'Na čo ľudia volajú a čo sme im v tom sľúbili',
     hiring: 'Čo a koho práve naberáš, krok za krokom',
     candidates: 'Ľudia, ktorí sa ozvali. Odtiaľto sa volá a preveruje',
     workers: 'Kartotéka živnostníkov: doklady, sadzby, fakturačné údaje',
@@ -138,6 +140,7 @@ window.Danubra = {
     // Náklady majú dve karty v jednom module, preto vlastný názov metódy.
     bill:       { route: 'costs',        handle: 'Cost',  ico: 'receipt',   what: 'Prijatá faktúra', method: 'billDetail' },
     candidate:  { route: 'candidates',   handle: 'Cand',  ico: 'user',      what: 'Kandidát' },
+    ad:         { route: 'ads',          handle: 'Ads',   ico: 'marketing', what: 'Inzerát' },
     quote:      { route: 'quotes',       handle: 'Quo',   ico: 'offers',    what: 'Ponuka' },
     contract:   { route: 'contracts',    handle: 'Con',   ico: 'note',      what: 'Zmluva' },
     // Úloha nemá „detail" — otvára sa rovno formulár, v ktorom sa dá upraviť.

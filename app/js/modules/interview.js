@@ -12,21 +12,25 @@
 (function () {
   const P = window.DanubraProcess;
   const CH = window.DanubraChips;
+  const AD = () => window.DanubraAds;
 
   const Guide = {
     cand: null,
     trades: [], trade: null, chips: [],
     plans: [], plan: null, subcontracts: [], partners: [],
-    segments: [], segIndex: 0, setup: false, pickMode: 'plan',
+    ads: [], ad: null, questions: [],
+    segments: [], segIndex: 0, setup: false, pickMode: 'ad',
     ticked: new Map(),        // chip_id → chip
     notes: new Map(),         // segment → rozpísaná poznámka
 
     // ── Živý nábor ────────────────────────────────────────────────────────
     async startCall() {
       await this.loadContext();
-      this.cand = null; this.trade = null; this.plan = null;
+      this.cand = null; this.trade = null; this.plan = null; this.ad = null;
       this.setup = true; this.segIndex = 0;
-      this.pickMode = this.plans.length ? 'plan' : 'trade';
+      // Inzerát je prvá otázka. Keď žiadny nebeží, pýta sa to po starom.
+      this.pickMode = this.ads.some(a => a.running) ? 'ad'
+        : (this.plans.length ? 'plan' : 'trade');
       this.ticked = new Map(); this.notes = new Map();
       this.open();
     },
@@ -35,16 +39,36 @@
     async loadContext() {
       if (!Trades.loaded) await Trades.load();
       this.trades = Trades.trades.filter(t => t.active !== false);
-      const [chips, plans, subs, parts] = await Promise.all([
+      const [chips, plans, subs, parts, ads, qs] = await Promise.all([
         DB.list('call_chips', { limit: 800 }),
         DB.list('recruitment_plans', { limit: 200 }),
         DB.list('subcontracts', { limit: 200 }),
         DB.list('partners', { select: 'id,name,city,payment_terms_days', limit: 200 }),
+        DB.list('ads', { limit: 200 }),
+        DB.list('screening_questions', {
+          order: { column: 'sort_order', ascending: true }, limit: 500 }),
       ]);
       this.chips = (chips.data || []).filter(c => c.active !== false);
       this.plans = (plans.data || []).filter(p => p.status === 'active');
       this.subcontracts = subs.data || [];
       this.partners = parts.data || [];
+      this.ads = AD().forCall(ads.data || []);
+      this.questions = qs.data || [];
+    },
+
+    /**
+     * Inzerát určuje zvyšok hovoru: remeslo, mesto aj to, čo sme sľúbili.
+     * Preto sa ním začína a preto sa z neho predvyplní plán aj remeslo.
+     */
+    pickAd(id) {
+      this.ad = this.ads.find(a => a.id === id) || null;
+      if (this.ad) {
+        this.plan = this.ad.plan_id
+          ? this.plans.find(p => p.id === this.ad.plan_id) || null : this.plan;
+        const key = this.ad.trade_key || this.plan?.trade_key;
+        if (key) this.trade = this.trades.find(t => t.key === key) || this.trade;
+      }
+      this.render();
     },
 
     pickTrade(key) {
@@ -86,9 +110,10 @@
         full_name: name, phone, type: crew ? 'crew' : 'individual',
         profession: this.trade.key, legal_form: this.plan?.legal_form || 'szco',
         source: 'inzerat', status: 'contacted',
+        ad_id: this.ad?.id || null,
         plan_id: this.plan?.id || null,
-        city: this.plan?.city || null,
-        expected_rate: this.plan?.offer_rate ?? null,
+        city: this.plan?.city || this.ad?.city || null,
+        expected_rate: this.plan?.offer_rate ?? this.ad?.rate_offered ?? null,
         expected_start: this.plan?.start_date || null,
         received_at: new Date().toISOString(),
         first_contact_at: new Date().toISOString(),
@@ -100,7 +125,7 @@
 
       Cand.items.unshift(cand);
       this.cand = cand;
-      this.segments = CH.buildCallSegments({ tradeKey: this.trade.key, chips: this.chips });
+      this.segments = this.buildSegments(this.trade.key, cand.ad_id);
       if (!this.segments.length) {
         UI.toast('Pre toto remeslo nie sú žiadne polia', 'err');
         if (btn) { btn.disabled = false; btn.textContent = 'Začať hovor'; }
@@ -109,6 +134,20 @@
       this.setup = false;
       this.segIndex = 0;
       this.render();
+    },
+
+    /**
+     * Obrazovky hovoru: zaškrtávacie polia plus otázky, ktoré na tento hovor
+     * sedia. Otázky boli doteraz len na čítanie v Remeslách — pri telefóne,
+     * kde sú najužitočnejšie, chýbali.
+     */
+    buildSegments(tradeKey, adId) {
+      const segs = CH.buildCallSegments({ tradeKey, chips: this.chips });
+      const qs = AD().questionsFor({
+        questions: this.questions, tradeKey, adId: adId || null, phase: 'phone',
+      });
+      return AD().withQuestions(segs, qs, CH.SEGMENTS.map(s => s.key))
+        .map(s => (s.title === s.key ? { ...s, title: CH.segmentTitle(s.key), lead: '' } : s));
     },
 
     /** Existujúci kandidát — pokračovanie v hovore alebo druhý telefonát. */
@@ -127,7 +166,8 @@
       this.cand = cand;
       this.trade = this.trades.find(t => t.key === cand.profession) || null;
       this.plan = this.plans.find(p => p.id === cand.plan_id) || null;
-      this.segments = CH.buildCallSegments({ tradeKey: cand.profession, chips: this.chips });
+      this.ad = this.ads.find(a => a.id === cand.ad_id) || null;
+      this.segments = this.buildSegments(cand.profession, cand.ad_id);
       this.notes = new Map();
       this.setup = false;
       this.segIndex = 0;
@@ -166,7 +206,8 @@
         el.innerHTML = this.shell({
           title: 'Zdvihol som telefón', sub: 'nový kandidát z inzerátu',
           progress: 0, body: this.setupHtml(),
-          aside: (this.plan || this.trade) ? this.contextHtml() : '',
+          aside: (this.plan || this.trade || this.ad)
+            ? this.promiseHtml() + this.contextHtml() : '',
         });
         setTimeout(() => document.getElementById('call-name')?.focus({ preventScroll: true }), 30);
         return;
@@ -208,13 +249,32 @@
       // sa nemení, takže môže byť pod ním.
       return `<div class="aside-inner">
         ${this.cand ? this.liveHtml() : ''}
+        ${this.promiseHtml()}
         ${this.contextHtml()}
+      </div>`;
+    },
+
+    /**
+     * Čo sme v inzeráte sľúbili. Je to vpravo počas celého hovoru, aby sa
+     * nesľúbilo niečo iné, než čo bolo napísané — na stavbe sa to zistí
+     * najneskôr a stojí to najviac.
+     */
+    promiseHtml() {
+      if (!this.ad) return '';
+      const lines = AD().promiseLines(this.ad);
+      return `<div class="aside-card aside-promise">
+        <div class="aside-title">${Icon('marketing', 14)} ${UI.esc(this.ad.title)}</div>
+        ${lines.length
+          ? `<ul class="aside-list">${lines.map(t => `<li>${UI.esc(t)}</li>`).join('')}</ul>
+             <p class="aside-note">Toto sme sľúbili. Nesľubuj nič navyše.</p>`
+          : `<p class="aside-note">Inzerát nemá zapísané, čo sľuboval — doplň to
+             v Inzerátoch, nech to nabudúce máš po ruke.</p>`}
       </div>`;
     },
 
     contextHtml() {
       const p = this.plan, sub = this.subcontract(), partner = this.partnerOf(sub);
-      if (!p && !sub && !this.trade) return '';
+      if (!p && !sub && !this.trade && !this.ad) return this.promiseHtml();
       const row = (k, v) => v ? `<div><span>${k}</span><strong>${UI.esc(v)}</strong></div>` : '';
       return `
         <div class="aside-card">
@@ -296,14 +356,31 @@
           <button class="guide-btn guide-btn-no" style="margin-top:16px;"
             onclick="Guide.close()">Zavrieť</button>`;
       }
+      const byAd = this.pickMode === 'ad' && this.ads.length;
       return `
-        <div class="guide-q">Na čo volá?</div>
-        ${this.plans.length ? `<div class="pillbar" style="margin-bottom:12px;width:max-content;">
-          <button class="pill${byPlan ? ' active' : ''}" onclick="Guide.setPickMode('plan')">Bežiaci nábor</button>
-          <button class="pill${!byPlan ? ' active' : ''}" onclick="Guide.setPickMode('trade')">Do zásoby</button>
-        </div>` : ''}
+        <div class="guide-q">Na ktorý inzerát volá?</div>
+        <div class="guide-lead">Od toho sa odvíja zvyšok hovoru — remeslo, mesto
+          aj to, čo sme sľúbili.</div>
+        <div class="pillbar" style="margin-bottom:12px;width:max-content;max-width:100%;overflow-x:auto;">
+          ${this.ads.length ? `<button class="pill${byAd ? ' active' : ''}"
+            onclick="Guide.setPickMode('ad')">Inzerát</button>` : ''}
+          ${this.plans.length ? `<button class="pill${byPlan ? ' active' : ''}"
+            onclick="Guide.setPickMode('plan')">Bežiaci nábor</button>` : ''}
+          <button class="pill${!byAd && !byPlan ? ' active' : ''}"
+            onclick="Guide.setPickMode('trade')">Do zásoby</button>
+        </div>
 
-        ${byPlan ? `<div class="plan-grid">
+        ${byAd ? `<div class="plan-grid">
+          ${this.ads.map(a => `
+            <button class="plan-tile${this.ad?.id === a.id ? ' on' : ''}${a.running ? '' : ' pt-off'}"
+              onclick="Guide.pickAd('${a.id}')">
+              <span class="pt-name">${UI.esc(a.title)}${a.running ? '' : ' · dobehol'}</span>
+              <span class="pt-meta">${UI.esc(AD().subtitle(a))}</span>
+              ${AD().promiseLines(a).length ? `<span class="pt-meta pt-promise">${
+                AD().promiseLines(a).map(t => UI.esc(t)).join(' · ')}</span>` : ''}
+            </button>`).join('')}
+        </div>`
+        : byPlan ? `<div class="plan-grid">
           ${this.plans.map(p => {
             const t = this.trades.find(x => x.key === p.trade_key);
             const sub = p.subcontract_id ? this.subcontracts.find(s => s.id === p.subcontract_id) : null;
@@ -333,8 +410,9 @@
 
         <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:18px;"
           onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>
-        ${!this.trade ? `<div class="guide-note-hint">Vyber nábor alebo remeslo — podľa toho sa
-          poskladajú polia a vpravo uvidíš, o akú zákazku ide.</div>` : ''}`;
+        ${!this.trade ? `<div class="guide-note-hint">Vyber inzerát, nábor alebo remeslo —
+          podľa toho sa poskladajú polia aj otázky a vpravo uvidíš, čo sme
+          sľúbili.</div>` : ''}`;
     },
 
     // ── Jedna obrazovka = jeden segment ───────────────────────────────────
@@ -349,6 +427,8 @@
           <button class="chip chip-add" onclick="Guide.addChipPrompt('${seg.key}')">
             ${Icon('plus', 14)} pridať vlastné</button>
         </div>
+
+        ${this.questionsHtml(seg)}
 
         <textarea id="seg-note" class="guide-note guide-textarea" rows="5"
           placeholder="Čo hovorí? Píš vlastnými slovami…"
@@ -365,6 +445,80 @@
           <button class="guide-nav-btn guide-nav-next" onclick="Guide.nextSegment()">
             ${this.segIndex === this.segments.length - 1 ? 'Ukončiť hovor' : 'Ďalej'} ${Icon('chevron', 16)}</button>
         </div>`;
+    },
+
+    /**
+     * Otázky k tejto časti hovoru. Sú tu na čítanie, nie na odškrtávanie —
+     * odpoveď sa zapíše vlastnými slovami do poznámky pod nimi. Odškrtávacie
+     * pole je tvrdenie, otázka je otázka; miešať to by znamenalo, že sa
+     * zaškrtne „opýtané" namiesto toho, čo zaznelo.
+     *
+     * „Čo chcem počuť" a „pri čom zbystriť" sú skryté pod klepnutím —
+     * pri telefóne treba vidieť otázku, nie odsek textu.
+     */
+    questionsHtml(seg) {
+      const qs = seg.questions || [];
+      if (!qs.length) {
+        return `<button class="q-add" onclick="Guide.addQuestionPrompt('${seg.key}')">
+          ${Icon('plus', 13)} pridať otázku k tejto časti</button>`;
+      }
+      return `<div class="q-list">
+        <div class="q-head">${Icon('help', 13)} Na čo sa opýtať</div>
+        ${qs.map(q => `
+          <details class="q-item">
+            <summary>
+              <span class="q-text">${UI.esc(q.question_sk)}</span>
+              ${(q.weight || 1) >= 3 ? `<em class="q-key">kľúčová</em>` : ''}
+              ${q.ad_id ? `<em class="q-src">k inzerátu</em>`
+                : (q.trade_key ? `<em class="q-src">k remeslu</em>` : '')}
+            </summary>
+            ${q.good_answer ? `<p class="q-good">${Icon('check', 12)} ${UI.esc(q.good_answer)}</p>` : ''}
+            ${q.red_flag_answer ? `<p class="q-bad">${Icon('alert', 12)} ${UI.esc(q.red_flag_answer)}</p>` : ''}
+            <button class="q-edit" onclick="event.preventDefault();Guide.editQuestion('${q.id}')">
+              ${Icon('edit', 12)} upraviť</button>
+          </details>`).join('')}
+        <button class="q-add" onclick="Guide.addQuestionPrompt('${seg.key}')">
+          ${Icon('plus', 13)} pridať otázku</button>
+      </div>`;
+    },
+
+    /**
+     * Nová otázka rovno z hovoru. Čo sa človek pri telefóne opýta druhýkrát,
+     * to sa oplatí mať zapísané — a dopisovať to neskôr sa nikdy nestihne.
+     */
+    async addQuestionPrompt(segment) {
+      const text = prompt('Otázka, ktorú sa oplatí pýtať:');
+      if (!text || !text.trim()) return;
+      const payload = {
+        question_sk: text.trim(),
+        segment,
+        kind: { trade: 'knowledge', verify: 'hidden', legal: 'legal',
+          logistics: 'logistics', money: 'motivation' }[segment] || 'knowledge',
+        phase: 'phone',
+        // Otázka z hovoru platí pre to, na čom práve pracujem — nie pre všetkých.
+        trade_key: this.trade?.key || null,
+        sort_order: 100,
+      };
+      const { data, error } = await DB.insert('screening_questions', payload);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      this.questions.push(data);
+      this.segments = this.buildSegments(this.trade?.key, this.cand?.ad_id);
+      UI.toast('Otázka pridaná — nabudúce tu bude', 'ok');
+      this.render();
+    },
+
+    async editQuestion(id) {
+      const q = this.questions.find(x => x.id === id);
+      if (!q) return;
+      const text = prompt('Upraviť otázku:', q.question_sk);
+      if (text == null) return;
+      if (!text.trim()) return UI.toast('Prázdna otázka sa neuloží', 'err');
+      const { error } = await DB.update('screening_questions', id, { question_sk: text.trim() });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      q.question_sk = text.trim();
+      this.segments = this.buildSegments(this.trade?.key, this.cand?.ad_id);
+      UI.toast('Upravené', 'ok');
+      this.render();
     },
 
     chipHtml(c) {

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#0A1B3D">
-  <title>Náš systém — nábor a stavby v Nemecku</title>
+  <title>P&amp;S — nábor a stavby v Nemecku</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 120 120'><rect x='-10' y='-10' width='120' height='120' rx='10' fill='%230A1B3D'/><rect x='4' y='56' width='24' height='40' rx='2' fill='%23fff'/><rect x='38' y='32' width='24' height='64' rx='2' fill='%23fff'/><rect x='72' y='4' width='24' height='92' rx='2' fill='%23F07E22'/></svg>">
   <!-- Klient Supabase si nesieme so sebou. Keď sa ťahal z unpkg.com a
        nenačítal sa, stránka zostala biela a bez hlášky. Pozri vendor/README.md. -->
@@ -23,13 +23,13 @@
     <div class="login-card">
       <!-- Značka bez názvu firmy. Tri stĺpce, najvyšší oranžový — je to
            znak, nie písmeno, takže sa z neho nedá prečítať, čia appka to je. -->
-      <div class="login-brand" aria-label="Náš systém">
+      <div class="login-brand" aria-label="P&amp;S">
         <svg class="logo-mark" viewBox="0 0 100 100" width="30" height="30" aria-hidden="true">
           <rect x="4" y="56" width="24" height="40" rx="2" fill="#0A1B3D"/>
           <rect x="38" y="32" width="24" height="64" rx="2" fill="#0A1B3D"/>
           <rect x="72" y="4" width="24" height="92" rx="2" fill="#F07E22"/>
         </svg>
-        <span class="logo-word">Náš systém</span>
+        <span class="logo-word">P&amp;S</span>
       </div>
       <form id="login-form">
         <label>E-mail
@@ -47,13 +47,13 @@
   <!-- APP -->
   <div id="app" class="app" hidden>
     <aside class="sidebar">
-      <div class="sidebar-brand" aria-label="Náš systém">
+      <div class="sidebar-brand" aria-label="P&amp;S">
         <svg class="logo-mark" viewBox="0 0 100 100" width="20" height="20" aria-hidden="true">
           <rect x="4" y="56" width="24" height="40" rx="2" fill="#fff"/>
           <rect x="38" y="32" width="24" height="64" rx="2" fill="#fff"/>
           <rect x="72" y="4" width="24" height="92" rx="2" fill="#F07E22"/>
         </svg>
-        <span class="logo-word">Náš systém</span>
+        <span class="logo-word">P&amp;S</span>
       </div>
       <div id="area-switch" class="area-switch"></div>
       <!-- Obal drží tieň na spodku, keď navigácia pokračuje pod okrajom. -->
@@ -151,6 +151,7 @@
   <script src="./lib/recruiting/screening.js"></script>
   <script src="./lib/recruiting/process.js"></script>
   <script src="./lib/recruiting/chips.js"></script>
+  <script src="./lib/recruiting/ads.js"></script>
   <script src="./js/services/orders-service.js"></script>
   <script src="./js/services/invoicing.js"></script>
   <script src="./js/components/shell.js"></script>
@@ -180,6 +181,7 @@
   <script src="./js/modules/timesheets.js"></script>
   <script src="./js/modules/hoursheet.js"></script>
   <script src="./js/modules/marketing.js"></script>
+  <script src="./js/modules/ads.js"></script>
   <script src="./js/modules/recruiting.js"></script>
   <script src="./js/modules/tasks.js"></script>
   <script src="./js/modules/compliance-view.js"></script>

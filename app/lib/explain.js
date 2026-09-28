@@ -953,6 +953,38 @@
       links: [['hiring', 'Náborové plány'], ['workers', 'Živnostníci']],
     },
 
+    'screen.ads': {
+      title: 'Inzeráty',
+      lead: 'Na čo ľudia volajú — a čo sme im v tom sľúbili. Hovor sa začína '
+        + 'inzerátom, nie menom.',
+      what: [
+        'Inzerát drží kanál (kde beží), remeslo, mesto, sľúbenú sadzbu, body '
+        + 'toho, čo sľuboval, a presné znenie.',
+        'Pri každom je vidieť, koľko ľudí sa naň ozvalo, koľkým sme sa stihli '
+        + 'ozvať späť a koľko z nich nastúpilo.',
+        'Dobehnutý inzerát sa vypína, nemaže — kandidáti, ktorí sa naň ozvali, '
+        + 'musia zostať naviazaní na to, čo čítali.',
+      ],
+      how: [
+        'V hovore je inzerát prvá otázka. Z neho sa predvyplní remeslo a mesto '
+        + 'a vpravo sa počas celého hovoru ukazuje, čo sme v ňom sľúbili.',
+        '„Stihnuté" je podiel tých, ktorým sme sa ozvali späť. Cieľ je sto percent.',
+      ],
+      why: [
+        'Sľub sa musí dať dohľadať. Keď sa o mesiac na stavbe povie „veď ste '
+        + 'písali 18 €", musí byť po ruke text inzerátu v znení, v akom bežal. '
+        + 'Bez toho je to slovo proti slovu a prehráme to my.',
+        'A treba vedieť, ktorý inzerát ľudí prináša. Bez toho sa za dosah platí '
+        + 'naslepo — počet ľudí sám o sebe nestačí, lebo závisí od toho, ako '
+        + 'dlho inzerát bežal.',
+        'Poradie otázok v hovore je obrátené oproti tomu, ako sa telefonuje '
+        + 'zvyčajne. My sme toho človeka oslovili, takže my máme vedieť čím — '
+        + 'nie začínať otázkou „a čo vlastne hľadáte?".',
+      ],
+      links: [['candidates', 'Kandidáti'], ['hiring', 'Náborové plány'],
+        ['trades', 'Remeslá a otázky']],
+    },
+
     'screen.hiring': {
       title: 'Náborové plány',
       lead: 'Koľko ľudí, akého remesla a kam treba zohnať — a dokedy.',
