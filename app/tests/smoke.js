@@ -928,6 +928,32 @@ t('bez čísla sa nepíše nula', sandbox.UI.pct(null) === '—');
     sandbox.UI && typeof sandbox.UI.ask === 'function' && typeof sandbox.UI.confirm === 'function');
 }
 
+// Dve knižnice sa nesmú volať rovnako. Stalo sa to: šablóny dokumentov
+// a doklady živnostníka si obe brali `window.DanubraDocs`, tá neskoršia
+// vyhrala a tlač faktúry padala na „not a function". V testoch sa to
+// neukázalo, lebo tam sa načítava cez `require`, kde sa nič neprepisuje.
+{
+  const mena = new Map();
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(root, f), 'utf8');
+    for (const m of src.matchAll(/window\.(Danubra[A-Za-z]*)\s*=/g)) {
+      if (!mena.has(m[1])) mena.set(m[1], []);
+      if (!mena.get(m[1]).includes(f)) mena.get(m[1]).push(f);
+    }
+  }
+  const kolizie = [...mena].filter(([, kde]) => kde.length > 1)
+    .map(([n, kde]) => `${n} (${kde.map(x => path.basename(x)).join(' + ')})`);
+  t(`žiadne dve knižnice si neberú ten istý názov${kolizie.length ? ' — ' + kolizie.join(', ') : ''}`,
+    !kolizie.length);
+
+  // A to, čo sa z dokumentov naozaj volá, musí byť tam, kde sa to hľadá.
+  t('šablóny dokumentov sú dostupné pod svojím názvom',
+    sandbox.DanubraPapers && typeof sandbox.DanubraPapers.invoice === 'function'
+    && typeof sandbox.DanubraPapers.quote === 'function');
+  t('doklady živnostníka zostali pod svojím',
+    sandbox.DanubraDocs && typeof sandbox.DanubraDocs.readiness === 'function');
+}
+
 // Doklady majú privátny bucket — cesta sa von nikdy nedáva priamo.
 t('úložisko dokladov má podpísané odkazy',
   sandbox.DB && typeof sandbox.DB.uploadDoc === 'function'

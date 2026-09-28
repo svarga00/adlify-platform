@@ -66,7 +66,7 @@ window.Invoicing = {
     if (calc.total <= 0) return { skipped: 'nulová suma' };
 
     const items = calc.breakdown.map(b => ({
-      description: `Priebežná služba ${window.DanubraDocs.date(b.from)} – ${window.DanubraDocs.date(b.to)} · ${b.persons} os.`,
+      description: `Priebežná služba ${window.DanubraPapers.date(b.from)} – ${window.DanubraPapers.date(b.to)} · ${b.persons} os.`,
       quantity: b.days * b.persons, unit: 'os./deň',
       unit_price: b.rate, total: b.amount,
     }));
@@ -126,7 +126,7 @@ window.Invoicing = {
       const to = g.dates.slice().sort().slice(-1)[0];
       return {
         description: `${subcontract.title} · ${ACT[g.activity] || g.activity} · `
-          + `${window.DanubraDocs.date(from)} – ${window.DanubraDocs.date(to)}`,
+          + `${window.DanubraPapers.date(from)} – ${window.DanubraPapers.date(to)}`,
         quantity: Math.round(g.hours * 100) / 100, unit: 'h',
         unit_price: g.rate,
         total: Math.round((g.hours * g.rate + Number.EPSILON) * 100) / 100,
@@ -171,7 +171,7 @@ window.Invoicing = {
     await DB.from('invoice_items').insert(rows);
 
     // Záznam do osi tam, kde faktúra vznikla (objednávka, dopyt alebo klient)
-    const note = `Vystavená faktúra ${number} na ${window.DanubraDocs.money(total)}`
+    const note = `Vystavená faktúra ${number} na ${window.DanubraPapers.money(total)}`
       + (status === 'draft_pending_approval' ? ' (čaká na schválenie)' : '');
     const target = order?.id ? ['order', order.id]
       : subcontract?.id ? ['subcontract', subcontract.id]
@@ -204,7 +204,7 @@ window.Invoicing = {
       }
     } catch (e) { console.warn('[invoicing] QR sa nepodarilo vytvoriť:', e.message); }
 
-    const html = window.DanubraDocs.invoice({
+    const html = window.DanubraPapers.invoice({
       invoice: inv, items, client, supplier, qrSvg, vatNote: r.note,
     });
     this._openHtml(html);
@@ -222,7 +222,7 @@ window.Invoicing = {
     const supplier = s.supplier || {};
     let html;
     if (kind === 'order_confirmation') {
-      html = window.DanubraDocs.orderConfirmation({ order, client, accommodation, supplier });
+      html = window.DanubraPapers.orderConfirmation({ order, client, accommodation, supplier });
     } else if (kind === 'payment_request') {
       const amount = (Number(order.service_fee) || 0) + (Number(order.urgent_surcharge) || 0);
       const due = this._plusDays(7);
@@ -237,11 +237,11 @@ window.Invoicing = {
           qrSvg = window.DanubraQR.svg(p, { px: 132 });
         }
       } catch (e) { console.warn('[invoicing] QR:', e.message); }
-      html = window.DanubraDocs.paymentRequest({ order, client, supplier, qrSvg, dueDate: due });
+      html = window.DanubraPapers.paymentRequest({ order, client, supplier, qrSvg, dueDate: due });
     } else if (kind === 'owner_confirmation') {
-      html = window.DanubraDocs.ownerConfirmation({ order, accommodation, persons, supplier });
+      html = window.DanubraPapers.ownerConfirmation({ order, accommodation, persons, supplier });
     } else if (kind === 'handover') {
-      html = window.DanubraDocs.handover({ order, client, data: payload, supplier });
+      html = window.DanubraPapers.handover({ order, client, data: payload, supplier });
     } else {
       return UI.toast('Neznámy typ dokumentu', 'err');
     }

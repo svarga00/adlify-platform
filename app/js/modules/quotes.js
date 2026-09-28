@@ -18,7 +18,9 @@
     async load() {
       const [q, p] = await Promise.all([
         DB.list('quotes', { order: { column: 'created_at', ascending: false }, limit: 300 }),
-        DB.list('partners', { select: 'id,name,payment_terms_days,default_charge_rate,is_construction', limit: 300 }),
+        DB.list('partners', { select: 'id,name,payment_terms_days,default_charge_rate,'
+          // Do dokumentu treba aj nemecké IČ DPH a kontaktnú osobu.
+          + 'is_construction,ust_idnr,country,contact_person,address,city', limit: 300 }),
         Enums.load(),
       ]);
       this.items = q.data || []; this.partners = p.data || [];
@@ -147,6 +149,8 @@
           ${Icon('alert', 14)} Odmietnuté: ${UI.esc(q.reject_reason)}</div>` : ''}
 
         <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="Quo.document('${q.id}')">
+            ${Icon('doc', 14)} Angebot (PDF)</button>
           <button class="btn btn-outline btn-sm" onclick="Quo.form('${q.id}')">Upraviť</button>
           ${nextStates.map(actionBtn).join('')}
           ${q.status === 'accepted' ? `
@@ -154,6 +158,31 @@
               ${Icon('note', 14)} Spraviť zmluvu</button>` : ''}
         </div>`;
       UI.modal(q.title, body, { wide: true });
+    },
+
+    /**
+     * Ponuka ako dokument — po nemecky, lebo ju číta a rozhoduje sa podľa nej
+     * odberateľ. PDF sa robí tlačou prehliadača: v dialógu treba vybrať
+     * „Uložiť ako PDF". Bez knižnice, rovnako ako pri faktúre.
+     */
+    document(id) {
+      const q = this.items.find(x => x.id === id);
+      if (!q) return UI.toast('Nenájdené', 'err');
+      const supplier = (window.Cfg && Cfg.j('supplier')) || {};
+      const partner = this.partners.find(p => p.id === q.partner_id) || {};
+
+      const html = window.DanubraPapers.quote({
+        quote: q,
+        // Odberateľ má v dokumente nemecké označenie IČ DPH.
+        client: { name: partner.name, vat_id: partner.ust_idnr,
+          country: partner.country || 'DE', contact_person: partner.contact_person },
+        supplier,
+        trade: q.trade_key ? Wrk.professionLabel(q.trade_key) : null,
+        note: q.notes || null,
+      });
+      const w = window.open('', '_blank');
+      if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
+      w.document.open(); w.document.write(html); w.document.close();
     },
 
     async setStatus(id, to) {

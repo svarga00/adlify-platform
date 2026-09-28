@@ -1,5 +1,12 @@
 // ============================================================================
 // DANUBRA — Dokumenty (§8): jedna HTML šablóna, viac variantov
+//
+// Globálne sa to volá `DanubraPapers`, nie `DanubraDocs`. Ten názov si totiž
+// brala aj knižnica o dokladoch živnostníka (`lib/staffing/documents.js`),
+// ktorá sa načítava neskôr — a ticho tú túto prepísala. Tlač faktúry,
+// potvrdenia objednávky aj pokynov na ubytovanie preto v prehliadači padala
+// na „DanubraDocs.invoice is not a function", hoci v testoch všetko prešlo:
+// tam sa načítava cez `require`, kde sa nič neprepisuje.
 // ============================================================================
 // Varianty: offer, order_confirmation, payment_request, owner_confirmation (DE),
 //           handover, invoice
@@ -101,20 +108,27 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       </div></div>`;
   }
 
-  function parties(supplier, client, extra = []) {
+  /**
+   * Strany zmluvy. `lang: 'de'` prepne popisky — na nemeckom dokumente by
+   * „Dodávateľ" nad nemeckým textom vyzeralo ako preklep.
+   */
+  function parties(supplier, client, extra = [], lang = 'sk') {
+    const L = lang === 'de'
+      ? { od: 'Auftragnehmer', pre: 'Auftraggeber', ico: 'Reg.-Nr.', dph: 'USt-IdNr.' }
+      : { od: 'Dodávateľ', pre: 'Odberateľ', ico: 'IČO', dph: 'IČ DPH' };
     return `<div class="cols">
-      <div class="col"><div class="lbl">Dodávateľ</div><div class="val">
+      <div class="col"><div class="lbl">${esc(L.od)}</div><div class="val">
         <strong>${esc(supplier?.name || '—')}</strong><br>
         ${supplier?.address ? esc(supplier.address) + '<br>' : ''}
-        ${supplier?.company_id ? 'IČO: ' + esc(supplier.company_id) + '<br>' : ''}
-        ${supplier?.vat_id ? 'IČ DPH: ' + esc(supplier.vat_id) + '<br>' : ''}
+        ${supplier?.company_id ? esc(L.ico) + ': ' + esc(supplier.company_id) + '<br>' : ''}
+        ${supplier?.vat_id ? esc(L.dph) + ': ' + esc(supplier.vat_id) + '<br>' : ''}
         ${supplier?.email ? esc(supplier.email) : ''}
       </div></div>
-      <div class="col"><div class="lbl">Odberateľ</div><div class="val">
+      <div class="col"><div class="lbl">${esc(L.pre)}</div><div class="val">
         <strong>${esc(client?.name || '—')}</strong><br>
         ${client?.contact_person ? esc(client.contact_person) + '<br>' : ''}
-        ${client?.company_id ? 'IČO: ' + esc(client.company_id) + '<br>' : ''}
-        ${client?.vat_id ? 'IČ DPH: ' + esc(client.vat_id) + '<br>' : ''}
+        ${client?.company_id ? esc(L.ico) + ': ' + esc(client.company_id) + '<br>' : ''}
+        ${client?.vat_id ? esc(L.dph) + ': ' + esc(client.vat_id) + '<br>' : ''}
         ${client?.country ? esc(client.country) : ''}
       </div></div>
       ${extra.map(e => `<div class="col"><div class="lbl">${esc(e[0])}</div><div class="val">${e[1]}</div></div>`).join('')}
@@ -169,6 +183,68 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       </div>
       ${foot(supplier)}`;
     return shell(`Faktúra ${inv.invoice_number || ''}`, body);
+  }
+
+  // ── PONUKA PRE ODBERATEĽA (nemecky) ───────────────────────────────────────
+  /**
+   * Angebot. Po nemecky, lebo ho číta a rozhoduje sa podľa neho Nemec —
+   * to je to isté pravidlo ako pri výkaze hodín.
+   *
+   * Dve veci, ktoré na ňom musia byť a inde sa na ne zabúda:
+   *
+   *   * **Platnosť ponuky.** Bez nej sa o pol roka niekto odvolá na sadzbu,
+   *     ktorá medzitým prestala platiť.
+   *   * **Že sú to živnostníci s A1 a účtuje sa podľa podpísaného výkazu.**
+   *     Toto je rozdiel medzi Werkvertrag a skrytou Arbeitnehmerüberlassung
+   *     a odberateľ to chce mať čierne na bielom.
+   */
+  function quote({ quote: q, client, supplier, trade, note }) {
+    const rate = q.charge_rate ? money(q.charge_rate) : '—';
+    const perMonth = (Number(q.charge_rate) || 0) * (Number(q.hours_per_month) || 0)
+      * (Number(q.headcount) || 1);
+    const body = `
+      ${header('Angebot', q.quote_number, [], supplier)}
+      ${parties(supplier, client, [['Angebot', `
+        <div style="font-size:12px;">
+          Datum: <strong>${date(q.created_at)}</strong><br>
+          ${q.valid_until ? `Gültig bis: <strong>${date(q.valid_until)}</strong><br>` : ''}
+          ${q.date_from ? `Einsatz ab: <strong>${date(q.date_from)}</strong>` : ''}
+        </div>`]], 'de')}
+
+      <div class="lbl">Leistung</div>
+      <div class="val" style="font-size:15px;font-weight:700;margin-bottom:10px">
+        ${esc(q.title || '')}</div>
+
+      <table><thead><tr>
+        <th>Position</th><th class="r">Anzahl</th><th class="r">Stunden/Monat</th>
+        <th class="r">Stundensatz</th>
+      </tr></thead><tbody>
+        <tr>
+          <td>${esc(trade || 'Fachkraft')}${q.site_city ? ` — ${esc(q.site_city)}` : ''}</td>
+          <td class="r">${esc(q.headcount || 1)}</td>
+          <td class="r">${esc(q.hours_per_month || '—')}</td>
+          <td class="r"><strong>${rate}</strong></td>
+        </tr>
+      </tbody></table>
+
+      ${perMonth ? `<div class="total"><div class="total-box">
+        <div class="total-row sum"><span>Richtwert pro Monat</span><span>${money(perMonth)}</span></div>
+      </div></div>` : ''}
+
+      <div class="note">
+        <strong>Leistungsumfang und Abrechnung</strong><br>
+        Alle eingesetzten Personen sind <strong>selbständige Unternehmer</strong> mit
+        gültiger <strong>A1-Bescheinigung</strong> und eigenem Gewerbe.<br>
+        Die Abrechnung erfolgt monatlich auf Grundlage des vom Auftraggeber
+        <strong>unterschriebenen Stundennachweises</strong>.<br>
+        ${q.work_type === 'workshop'
+          ? 'Werkstattarbeiten — keine SOKA-BAU-Pflicht.'
+          : 'Bauleistung im Sinne des AEntG; der Bau-Mindestlohn wird eingehalten.'}
+        ${q.valid_until ? `<br>Dieses Angebot ist gültig bis <strong>${date(q.valid_until)}</strong>.` : ''}
+      </div>
+      ${note ? `<div class="note">${esc(note)}</div>` : ''}
+      ${foot(supplier)}`;
+    return shell(`Angebot ${q.quote_number || ''}`, body);
   }
 
   // ── POTVRDENIE OBJEDNÁVKY (bez adresy! §5.1) ──────────────────────────────
@@ -322,8 +398,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraDocs = { invoice, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { invoice, quote, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { invoice, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
+    module.exports = { invoice, quote, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
   }
 })();
