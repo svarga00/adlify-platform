@@ -26,7 +26,7 @@
   const Wrk = {
     items: [], docs: [], overrides: [], crews: [], assignments: [], subs: [],
     photos: new Map(), loaded: false,
-    filters: { status: '', profession: '', q: '' },
+    filters: { status: '', profession: '', q: '', doc: '' },
 
     // Ktorý profil je otvorený. Profil je **obrazovka**, nie modálne okno:
     // je na ňom celý človek — doklady, hodiny, zálohy, zárobok, sľuby — a to
@@ -183,15 +183,43 @@
 
     filtered() {
       const f = this.filters;
-      return this.items.filter(w => {
+      const pre = this.items.filter(w => {
         if (f.status && w.status !== f.status) return false;
         if (f.profession && w.profession !== f.profession) return false;
-        if (f.q) {
-          const hay = `${w.full_name} ${w.phone || ''} ${w.city || ''} ${this.professionLabel(w.profession)}`.toLowerCase();
-          if (!hay.includes(f.q.toLowerCase())) return false;
+        // Filter podľa dokladov je tu, lebo „komu chýba A1" je otázka, ktorú
+        // sa človek pýta častejšie než ktorúkoľvek inú.
+        if (f.doc) {
+          const st = this.docStatus(w.id).state;
+          if (f.doc === 'problem' && !['missing', 'expired'].includes(st)) return false;
+          if (f.doc === 'expiring' && st !== 'expiring') return false;
+          if (f.doc === 'ok' && st !== 'valid') return false;
         }
         return true;
       });
+      return Shell.filterRows(pre, {
+        q: f.q,
+        fields: ['full_name', 'phone', 'city', 'email', 'ico',
+          (w) => this.professionLabel(w.profession)],
+      });
+    },
+
+    exportCsv() {
+      const DOC = { valid: 'platí', expiring: 'čoskoro skončí', expired: 'po platnosti',
+        missing: 'chýba' };
+      Shell.exportCsv(this.filtered(), [
+        ['Meno', w => w.full_name],
+        ['Profesia', w => this.professionLabel(w.profession)],
+        ['Stav', w => (STATUS.find(x => x[0] === w.status) || [])[1] || w.status],
+        ['Telefón', w => w.phone],
+        ['E-mail', w => w.email],
+        ['Mesto', w => w.city],
+        ['IČO', w => w.ico],
+        ['Forma', w => (w.legal_form === 'szco' ? 'živnostník' : 'zamestnanec')],
+        ['Sadzba €/h', w => DanubraExport.num(w.hourly_cost)],
+        ['A1', w => DOC[this.docStatus(w.id).state] || ''],
+        ['Partia', w => (this.crewOf(w) || {}).name],
+        ['Zákazka', w => (this.siteOf(w.id) || {}).title],
+      ], ['zivnostnici']);
     },
 
     async view(el) {
@@ -220,18 +248,27 @@
             return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Wrk.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
           }).join('')}
         </div>
-        <div class="filterbar">
-          <input class="fb-search" placeholder="Hľadať meno, telefón, mesto…" value="${UI.esc(this.filters.q)}"
-            oninput="Wrk.setF('q',this.value)">
-          <select onchange="Wrk.setF('profession',this.value)">
-            <option value="">Všetky profesie</option>
-            ${PROFESSIONS.map(p => `<option value="${p[0]}" ${this.filters.profession === p[0] ? 'selected' : ''}>${p[1]}</option>`).join('')}
-          </select>
-        </div>
-        <div class="count-line">${rows.length} ZÁZNAMOV</div>
+        ${Shell.filterbar({
+          search: { value: this.filters.q, placeholder: 'Hľadať meno, telefón, mesto, IČO…',
+            oninput: 'Wrk.setF("q", this.value)' },
+          selects: [
+            { value: this.filters.profession, label: 'Profesia',
+              onchange: 'Wrk.setF("profession", this.value)',
+              options: [['', 'Všetky profesie'], ...PROFESSIONS] },
+            { value: this.filters.doc, label: 'Doklady',
+              onchange: 'Wrk.setF("doc", this.value)',
+              options: [['', 'Doklady — všetko'], ['problem', 'Chýba alebo prepadol A1'],
+                ['expiring', 'A1 čoskoro skončí'], ['ok', 'A1 platí']] },
+          ],
+          exportCsv: 'Wrk.exportCsv()',
+          total: this.items.length, shown: rows.length,
+        })}
         ${rows.length === 0
-          ? UI.empty('workers', 'Žiadni pracovníci', 'Pridaj prvého pracovníka do databázy.',
-              `<button class="btn btn-primary" onclick="Wrk.form()">${Icon('plus')} Pridať pracovníka</button>`)
+          ? (this.items.length
+              ? UI.empty('search', 'Filtru nič nesedí',
+                  `V databáze je ${this.items.length} ľudí, ale ani jeden nevyhovuje.`)
+              : UI.empty('workers', 'Žiadni pracovníci', 'Pridaj prvého pracovníka do databázy.',
+                  `<button class="btn btn-primary" onclick="Wrk.form()">${Icon('plus')} Pridať pracovníka</button>`))
           : `<div class="cards">${rows.map(w => this.card(w)).join('')}</div>`}`;
     },
 

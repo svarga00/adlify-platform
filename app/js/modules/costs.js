@@ -15,7 +15,7 @@
     tab: 'bills',
     bills: [], costs: [], workers: [], periods: [], timesheets: [], assignments: [],
     subcontracts: [], loaded: false,
-    filters: { status: '', q: '', category: '' },
+    filters: { status: '', q: '', category: '', period: 'all', from: '', to: '' },
 
     async load() {
       const [b, c, w, per, ts, a, s] = await Promise.all([
@@ -73,15 +73,16 @@
       el.innerHTML = head + (this.tab === 'bills' ? this.billsHtml() : this.costsHtml());
     },
 
-    setTab(t) { this.tab = t; this.filters = { status: '', q: '', category: '' }; Danubra.renderRoute(); },
+    setTab(t) {
+      this.tab = t;
+      this.filters = { status: '', q: '', category: '', period: 'all', from: '', to: '' };
+      Danubra.renderRoute();
+    },
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
 
     // ── Prijaté faktúry ───────────────────────────────────────────────────
     billsHtml() {
-      const rows = Shell.filterRows(
-        this.bills.map(b => ({ ...b, worker_name: this.workerOf(b.worker_id).full_name || '' })),
-        { q: this.filters.q, fields: ['bill_number', 'worker_name'],
-          equals: { status: this.filters.status } });
+      const rows = this.billRows();
 
       const card = (b) => {
         const c = DanubraBills.check(b, this.ctx(b));
@@ -117,8 +118,52 @@
             onchange: 'Cost.setF("status", this.value)',
             options: [['', 'Všetky stavy'], ...Enums.options('bill_status')],
           }],
+          period: { field: 'issue_date', key: this.filters.period, from: this.filters.from,
+            to: this.filters.to, label: 'Vystavené', set: 'Cost.setF' },
+          exportCsv: 'Cost.exportBills()',
         },
       });
+    },
+
+    /** Prijaté faktúry po filtroch. Export vyváža presne toto. */
+    billRows() {
+      const f = this.filters;
+      return Shell.filterRows(
+        this.bills.map(b => ({ ...b, worker_name: this.workerOf(b.worker_id).full_name || '' })),
+        { q: f.q, fields: ['bill_number', 'worker_name'],
+          equals: { status: f.status },
+          period: { field: 'issue_date', key: f.period, from: f.from, to: f.to } });
+    },
+
+    exportBills() {
+      const f = this.filters;
+      Shell.exportCsv(this.billRows(), [
+        ['Číslo', b => b.bill_number],
+        ['Živnostník', b => b.worker_name],
+        ['Vystavená', b => b.issue_date],
+        ['Splatnosť', b => b.due_date],
+        ['Stav', b => Enums.label('bill_status', b.status)],
+        ['Suma', b => DanubraExport.num(b.amount)],
+        ['Očakávané', b => DanubraExport.num(b.expected_amount)],
+        ['Rozdiel', b => DanubraExport.num(b.variance)],
+      ], ['prijate-faktury',
+        Shell.periodSlug({ field: 'issue_date', key: f.period, from: f.from, to: f.to })]);
+    },
+
+    exportCosts() {
+      const f = this.filters;
+      Shell.exportCsv(this.costRows(), [
+        ['Popis', c => c.description],
+        ['Kategória', c => Enums.label('cost_category', c.category)],
+        ['Dátum', c => c.cost_date],
+        ['Dodávateľ', c => c.supplier],
+        ['Zákazka', c => this.subOf(c.subcontract_id).title],
+        ['Opakovaný', c => (c.recurring ? 'áno' : 'nie')],
+        ['Refakturovateľný', c => (c.rebillable ? 'áno' : 'nie')],
+        ['Už refakturovaný', c => (c.rebilled_invoice_id ? 'áno' : 'nie')],
+        ['Suma', c => DanubraExport.num(c.amount)],
+      ], ['naklady',
+        Shell.periodSlug({ field: 'cost_date', key: f.period, from: f.from, to: f.to })]);
     },
 
     billKind(s) {
@@ -279,10 +324,7 @@
 
     // ── Ostatné náklady ───────────────────────────────────────────────────
     costsHtml() {
-      const rows = Shell.filterRows(this.costs, {
-        q: this.filters.q, fields: ['description', 'supplier'],
-        equals: { category: this.filters.category },
-      });
+      const rows = this.costRows();
       const by = DanubraBills.byCategory(rows);
       const total = Money.sum(rows.map(c => Money.toCents(c.amount)));
 
@@ -313,6 +355,9 @@
             onchange: 'Cost.setF("category", this.value)',
             options: [['', 'Všetky kategórie'], ...Enums.options('cost_category')],
           }],
+          period: { field: 'cost_date', key: this.filters.period, from: this.filters.from,
+            to: this.filters.to, label: 'Dátum', set: 'Cost.setF' },
+          exportCsv: 'Cost.exportCosts()',
         },
       }) + (rows.length ? `
         <div class="form-section">Po kategóriách</div>
@@ -320,6 +365,16 @@
           lines: by.map(x => ({ label: Enums.label('cost_category', x.category), cents: x.cents })),
           totalLabel: 'Spolu',
         })}` : '');
+    },
+
+    /** Ostatné náklady po filtroch. */
+    costRows() {
+      const f = this.filters;
+      return Shell.filterRows(this.costs, {
+        q: f.q, fields: ['description', 'supplier'],
+        equals: { category: f.category },
+        period: { field: 'cost_date', key: f.period, from: f.from, to: f.to },
+      });
     },
 
     costForm(id) {

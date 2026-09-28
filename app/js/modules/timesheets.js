@@ -14,7 +14,7 @@
 
   const Tms = {
     items: [], assignments: [], workers: [], subcontracts: [], loaded: false,
-    filters: { month: '', worker_id: '', subcontract_id: '' },
+    filters: { month: '', worker_id: '', subcontract_id: '', q: '', period: 'all', from: '', to: '' },
 
     async load() {
       const [t, a, w, s] = await Promise.all([
@@ -36,7 +36,7 @@
 
     filtered() {
       const f = this.filters;
-      return this.items.filter(t => {
+      const pre = this.items.filter(t => {
         if (f.month && !String(t.work_date).startsWith(f.month)) return false;
         if (f.worker_id && t.worker_id !== f.worker_id) return false;
         if (f.subcontract_id) {
@@ -45,6 +45,33 @@
         }
         return true;
       });
+      // Mesiac je rýchla voľba, obdobie je presná — dajú sa kombinovať, lebo
+      // „september, ale len prvý týždeň" je bežná otázka.
+      return Shell.filterRows(pre, {
+        q: f.q,
+        fields: ['description', (t) => (this.workerOf(t.worker_id) || {}).full_name,
+          (t) => { const a = this.asgOf(t.assignment_id);
+            return a ? (this.subOf(a.subcontract_id) || {}).title : ''; }],
+        period: { field: 'work_date', key: f.period, from: f.from, to: f.to },
+      });
+    },
+
+    exportCsv() {
+      const f = this.filters;
+      Shell.exportCsv(this.filtered(), [
+        ['Dátum', t => t.work_date],
+        ['Živnostník', t => (this.workerOf(t.worker_id) || {}).full_name],
+        ['Zákazka', t => { const a = this.asgOf(t.assignment_id);
+          return a ? (this.subOf(a.subcontract_id) || {}).title : ''; }],
+        ['Činnosť', t => this.actMeta(t.activity_type)[1]],
+        ['Od', t => t.time_from],
+        ['Do', t => t.time_to],
+        ['Hodiny', t => DanubraExport.num(t.hours, 2)],
+        ['Sadzba', t => DanubraExport.num(t.rate_used)],
+        ['Potvrdené', t => (t.approved ? 'áno' : 'nie')],
+        ['Popis', t => t.description],
+      ], ['hodiny',
+        Shell.periodSlug({ field: 'work_date', key: f.period, from: f.from, to: f.to })]);
     },
 
     async view(el) {
@@ -83,21 +110,28 @@
             <div class="kpi-delta">${share.sokaRequired ? 'stavba nad 50 %' : 'pod hranicou 50 %'}</div></div>
         </div>
 
-        <div class="filterbar">
-          <input type="month" value="${UI.esc(this.filters.month)}" onchange="Tms.setF('month',this.value)">
-          <select onchange="Tms.setF('worker_id',this.value)">
-            <option value="">Všetci pracovníci</option>
-            ${this.workers.map(w => `<option value="${w.id}" ${this.filters.worker_id === w.id ? 'selected' : ''}>${UI.esc(w.full_name)}</option>`).join('')}
-          </select>
-          <select onchange="Tms.setF('subcontract_id',this.value)">
-            <option value="">Všetky zákazky</option>
-            ${this.subcontracts.map(s => `<option value="${s.id}" ${this.filters.subcontract_id === s.id ? 'selected' : ''}>${UI.esc(s.title)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="count-line">${rows.length} ZÁZNAMOV</div>
+        ${Shell.filterbar({
+          search: { value: this.filters.q, placeholder: 'Hľadať meno, zákazku, popis…',
+            oninput: 'Tms.setF("q", this.value)' },
+          selects: [
+            { value: this.filters.worker_id, label: 'Živnostník',
+              onchange: 'Tms.setF("worker_id", this.value)',
+              options: [['', 'Všetci pracovníci'], ...this.workers.map(w => [w.id, w.full_name])] },
+            { value: this.filters.subcontract_id, label: 'Zákazka',
+              onchange: 'Tms.setF("subcontract_id", this.value)',
+              options: [['', 'Všetky zákazky'], ...this.subcontracts.map(x => [x.id, x.title])] },
+          ],
+          period: { field: 'work_date', key: this.filters.period, from: this.filters.from,
+            to: this.filters.to, label: 'Odrobené', set: 'Tms.setF' },
+          exportCsv: 'Tms.exportCsv()',
+          total: this.items.length, shown: rows.length,
+        })}
         ${rows.length === 0
-          ? UI.empty('clock', 'Žiadne hodiny', 'Zapíš odpracované hodiny pre vybrané obdobie.',
-              `<button class="btn btn-primary" onclick="Tms.form()">${Icon('plus')} Zapísať hodiny</button>`)
+          ? (this.items.length
+              ? UI.empty('search', 'Filtru nič nesedí',
+                  `V databáze je ${this.items.length} záznamov o hodinách, ale ani jeden nevyhovuje.`)
+              : UI.empty('clock', 'Žiadne hodiny', 'Zapíš odpracované hodiny pre vybrané obdobie.',
+                  `<button class="btn btn-primary" onclick="Tms.form()">${Icon('plus')} Zapísať hodiny</button>`))
           : rows.map(t => this.row(t)).join('')}`;
     },
 
