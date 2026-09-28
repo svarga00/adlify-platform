@@ -87,8 +87,10 @@
     const q = norm(query);
     if (!q) return true;
     const terms = q.split(/\s+/).filter(Boolean);
+    // Pole môže byť aj funkcia — meno odberateľa býva v inej tabuľke a bez
+    // toho by sa faktúra nedala nájsť podľa toho, komu sa fakturovala.
     const hay = (fields && fields.length ? fields : Object.keys(row || {}))
-      .map(f => norm(pluck(row, f))).join(' ');
+      .map(f => norm(typeof f === 'function' ? f(row) : pluck(row, f))).join(' ');
     return terms.every(t => hay.includes(t));
   }
 
@@ -102,19 +104,35 @@
   }
 
   /**
-   * Filter nad zoznamom: text + rovnostné filtre.
+   * Filter nad zoznamom: text + rovnostné filtre + obdobie.
    * @param {Array} rows
-   * @param {Object} state  { q, fields, equals: { stav: 'aktivna' } }
+   * @param {Object} state
+   *   q, fields        hľadanie
+   *   equals           { stav: 'aktivna' } — prázdna hodnota nefiltruje
+   *   period           { field, key, from, to } — `field` je dátumový stĺpec,
+   *                    zvyšok je to, čo vráti pruh filtrov
    */
   function filterRows(rows, state = {}) {
     const eq = state.equals || {};
+    const range = periodRange(state.period);
     return (rows || []).filter(r => {
       for (const [k, v] of Object.entries(eq)) {
         if (v === '' || v == null) continue;      // „všetko" nefiltruje
         if (String(pluck(r, k) ?? '') !== String(v)) return false;
       }
+      if (range && !window.DanubraPeriod.covers(range, pluck(r, state.period.field))) return false;
       return matches(r, state.q, state.fields);
     });
+  }
+
+  /**
+   * Rozsah obdobia pre zoznam. Bez knižnice období alebo bez dátumového
+   * stĺpca sa nefiltruje — zoznam nemá zmiznúť preto, že sa niečo nenačítalo.
+   */
+  function periodRange(p) {
+    if (!p || !p.field || !p.key || !window.DanubraPeriod) return null;
+    const r = window.DanubraPeriod.range(p.key, null, { from: p.from, to: p.to });
+    return (r.from || r.to) ? r : null;
   }
 
   /**
@@ -123,6 +141,9 @@
    *   search           { value, placeholder, oninput }
    *   selects          [{ value, options: [[v,label]], onchange, label }]
    *   chips            [{ label, active, onclick, count }]
+   *   period           { field, key, from, to, label, set } — `set` je názov
+   *                    funkcie `(kľúč, hodnota)`, napríklad „Inv.setF"
+   *   exportCsv        JS, ktorý spustí export toho, čo je práve vidieť
    *   right            HTML vpravo (napríklad „Pridať")
    */
   function filterbar(o = {}) {
@@ -139,10 +160,45 @@
         ${s ? `<div class="fb-search"><input value="${esc(s.value || '')}"
           placeholder="${esc(s.placeholder || 'Hľadať…')}" oninput="${s.oninput}"></div>` : ''}
         ${(o.selects || []).map(sel).join('')}
+        ${periodPicker(o.period)}
         ${(o.chips || []).map(chip).join('')}
         ${counted ? `<span class="fb-count">${o.shown} z ${o.total}</span>` : ''}
-        ${o.right ? `<div class="fb-right">${o.right}</div>` : ''}
-      </div>`;
+        ${o.exportCsv || o.right ? `<div class="fb-right">
+          ${o.exportCsv ? `<button class="btn btn-outline btn-sm" onclick="${o.exportCsv}"
+            title="Exportovať do CSV to, čo je práve vidieť">
+            ${window.Icon ? Icon('download', 14) : ''} Export</button>` : ''}
+          ${o.right || ''}
+        </div>` : ''}
+      </div>
+      ${o.period && o.period.key === 'custom' ? `<div class="filterbar fb-dates">
+        <label class="dashbar-field"><span>Od</span>
+          <input type="date" value="${esc(o.period.from || '')}"
+            onchange="${o.period.set}('from', this.value)"></label>
+        <label class="dashbar-field"><span>Do</span>
+          <input type="date" value="${esc(o.period.to || '')}"
+            onchange="${o.period.set}('to', this.value)"></label>
+        <span class="dashbar-hint">${
+          o.period.from || o.period.to
+            ? esc(window.DanubraPeriod ? DanubraPeriod.text(periodRange(o.period)) : '')
+            : 'Zadaj aspoň jednu hranicu — dovtedy sa ukazuje všetko.'}</span>
+      </div>` : ''}`;
+  }
+
+  /**
+   * Výber obdobia. V zozname je predvolené „za celý čas" — zoznam, ktorý pri
+   * otvorení schová staršie záznamy, vyzerá ako stratené dáta.
+   */
+  function periodPicker(p) {
+    if (!p || !p.field || !window.DanubraPeriod) return '';
+    return `<label class="fb-period">
+      ${window.Icon ? Icon('calendar', 14) : ''}
+      <span>${esc(p.label || 'Obdobie')}</span>
+      <select onchange="${p.set}('period', this.value)" aria-label="${esc(p.label || 'Obdobie')}">
+        ${[['all', 'za celý čas'], ...DanubraPeriod.OPTIONS.filter(x => x[0] !== 'all')]
+          .map(([v, l]) => `<option value="${v}"${(p.key || 'all') === v ? ' selected' : ''}>${esc(l)}</option>`)
+          .join('')}
+      </select>
+    </label>`;
   }
 
   /**
@@ -341,9 +397,34 @@
     </div>`;
   }
 
+  /**
+   * Export toho, čo je práve vidieť — nie celej tabuľky. Keď si človek
+   * vyfiltruje jeden mesiac a jednu zákazku, čaká v súbore presne to.
+   * @param {Array} rows
+   * @param {Array} columns  [[nadpis, (riadok) => hodnota]]
+   * @param {Array} nameParts  do názvu súboru
+   */
+  function exportCsv(rows, columns, nameParts) {
+    const E = window.DanubraExport;
+    if (!E) return;
+    if (!rows || !rows.length) {
+      return window.UI && UI.toast('Nie je čo exportovať — zoznam je prázdny.', 'err');
+    }
+    const out = [columns.map(c => c[0]), ...rows.map(r => columns.map(c => c[1](r)))];
+    const name = E.download(out, nameParts);
+    if (window.UI) UI.toast(`Uložené: ${name}`, 'ok');
+  }
+
+  /** Obdobie do názvu súboru, nech sa dva exporty nepomiešajú. */
+  function periodSlug(p) {
+    if (!window.DanubraPeriod) return '';
+    return DanubraPeriod.slug(periodRange(p));
+  }
+
   const API = {
     detail, asideBlock, fact,
     list, filterbar, filterRows, matches, pluck, norm,
+    periodRange, periodSlug, exportCsv,
     notes, noteRow,
     sums, total,
     blocker, evaluate, reasonValid, REASON_MIN,

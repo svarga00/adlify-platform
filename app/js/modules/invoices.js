@@ -27,7 +27,7 @@
 
   const Inv = {
     items: [], lines: [], clients: [], orders: [], partners: [], loaded: false,
-    filters: { status: '' },
+    filters: { status: '', q: '', period: 'all', from: '', to: '' },
 
     async load() {
       // Odberatelia sa načítavajú spolu s faktúrami: v2 faktúra má
@@ -64,7 +64,7 @@
     async view(el) {
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
-      const rows = this.filters.status ? this.items.filter(x => x.status === this.filters.status) : this.items;
+      const rows = this.rows();
 
       // Stavy v1 a v2 sa volajú inak (`draft_pending_approval` vs
       // `pending_approval`, `issued` vs `sent`). Keď sa vymenúvajú tie, čo
@@ -81,17 +81,27 @@
         (pending.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${pending.length} ${pending.length === 1 ? 'návrh čaká' : 'návrhov čaká'} na schválenie —
           faktúry za priebežnú službu sa neodosielajú automaticky.</div>` : '') + `
-        <div class="pillbar" style="margin-bottom:14px;width:max-content;max-width:100%;overflow-x:auto;">
-          <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Inv.setF('')">Všetky</button>
+        <div class="pillbar" style="margin-bottom:10px;width:max-content;max-width:100%;overflow-x:auto;">
+          <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Inv.setF('status','')">Všetky</button>
           ${STATUS.map(s => {
             const n = this.items.filter(x => x.status === s[0]).length;
-            return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Inv.setF('${s[0]}')">${s[1]} ${n}</button>` : '';
+            return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Inv.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
           }).join('')}
         </div>
-        <div class="count-line">${rows.length} ZÁZNAMOV</div>
+        ${Shell.filterbar({
+          search: { value: this.filters.q, placeholder: 'Hľadať číslo faktúry alebo odberateľa…',
+            oninput: 'Inv.setF("q", this.value)' },
+          period: { field: 'issue_date', key: this.filters.period, from: this.filters.from,
+            to: this.filters.to, label: 'Vystavené', set: 'Inv.setF' },
+          exportCsv: 'Inv.exportCsv()',
+          total: this.items.length, shown: rows.length,
+        })}
         ${rows.length === 0
-          ? UI.empty('invoices', 'Žiadne faktúry', 'Vystaviť sa dá z objednávky, z dopytu alebo úplne voľne.',
-              `<button class="btn btn-primary" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`)
+          ? (this.items.length
+              ? UI.empty('search', 'Filtru nič nesedí',
+                  `V databáze je ${this.items.length} faktúr, ale ani jedna nevyhovuje.`)
+              : UI.empty('invoices', 'Žiadne faktúry', 'Vystaviť sa dá z objednávky, z dopytu alebo úplne voľne.',
+                  `<button class="btn btn-primary" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`))
           : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
     },
 
@@ -129,7 +139,38 @@
         </div>`;
     },
 
-    setF(v) { this.filters.status = v; Danubra.renderRoute(); },
+    setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+
+    /**
+     * Čo je po filtroch vidieť. Je to metóda, nie premenná v `view()`, aby
+     * export vyviezol presne to, čo má človek pred sebou.
+     */
+    rows() {
+      const f = this.filters;
+      return Shell.filterRows(this.items, {
+        q: f.q,
+        // Faktúra sa hľadá podľa čísla, ale aj podľa toho, komu sa fakturovala —
+        // a odberateľ je v inej tabuľke.
+        fields: ['invoice_number', 'status', (x) => (this.counterparty(x) || {}).name],
+        equals: { status: f.status },
+        period: { field: 'issue_date', key: f.period, from: f.from, to: f.to },
+      });
+    },
+
+    exportCsv() {
+      const f = this.filters;
+      Shell.exportCsv(this.rows(), [
+        ['Číslo', x => x.invoice_number],
+        ['Vystavená', x => x.issue_date],
+        ['Splatnosť', x => x.due_date],
+        ['Odberateľ', x => (this.counterparty(x) || {}).name],
+        ['Stav', x => (STATUS.find(s => s[0] === x.status) || [])[1] || x.status],
+        ['Typ', x => TYPE[x.type] || x.type],
+        ['Suma', x => DanubraExport.num(x.total)],
+        ['Základ', x => DanubraExport.num(x.amount_net)],
+        ['Zrážka §48b', x => DanubraExport.num(x.withholding_amount)],
+      ], ['faktury', Shell.periodSlug({ field: 'issue_date', key: f.period, from: f.from, to: f.to })]);
+    },
 
     /** Faktúra v2 pozná odberateľa alebo podklad; v1 má klienta z ubytovania. */
     isV2(x) { return !!(x.partner_id || x.period_id || x.subcontract_id); },

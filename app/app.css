@@ -1770,3 +1770,18 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   cursor: pointer; display: block; text-align: left; letter-spacing: inherit;
 }
 .kpi-link:hover { color: var(--blue); }
+
+/* Výber obdobia v zozname. Obdobie je rovnaká otázka ako stav — preto je
+   v tom istom pruhu, nie nad ním ako na prehľade. */
+.fb-period {
+  display: inline-flex; align-items: center; gap: 7px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 10px;
+  font-size: 12px; font-weight: 600; color: var(--ink-sub);
+}
+.fb-period .ico { color: var(--ink-mute); }
+.fb-period select {
+  border: 0; background: transparent; padding: 9px 0; outline: none;
+  font-size: 13px; color: var(--ink); font-weight: 600;
+}
+.fb-period:focus-within { border-color: var(--blue); }
+.filterbar.fb-dates { margin-top: -2px; margin-bottom: 10px; }

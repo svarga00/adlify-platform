@@ -5,6 +5,7 @@
 global.window = global;
 require('../icons.js');
 require('../../lib/money.js');
+require('../../lib/period.js');
 global.UI = {
   esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
   badge(label, kind) { return `<span class="badge badge-${kind}">${this.esc(label)}</span>`; },
@@ -94,12 +95,82 @@ console.log('Zdieľané komponenty');
     'hľadá aj vo vnorenom poli');
   eq(S.filterRows(nested, { equals: { 'partner.name': 'Hochtief' } }).map(r => r.name), ['B'],
     'rovnostný filter vie vnorenú cestu');
+  // Meno odberateľa býva v inej tabuľke — bez dopočítaného poľa by sa faktúra
+  // nedala nájsť podľa toho, komu sa fakturovala.
+  const dopocet = [{ id: 'a', partner_id: 'p1' }, { id: 'b', partner_id: 'p2' }];
+  const meno = (r) => ({ p1: 'Bauer Bau GmbH', p2: 'Hochtief' })[r.partner_id];
+  eq(S.filterRows(dopocet, { q: 'bauer', fields: ['id', meno] }).map(r => r.id), ['a'],
+    'hľadá aj v dopočítanom poli');
+
   eq(S.pluck({ a: { b: null } }, 'a.b.c'), null, 'cesta cez null nezhodí');
   eq(S.pluck({}, 'a.b.c'), undefined, 'chýbajúca cesta nezhodí');
 
   eq(S.filterRows(null, { q: 'x' }), [], 'chýbajúci zoznam je prázdny');
   // Bez zadaných polí sa hľadá všade — pohodlné, ale nesmie to spadnúť.
   eq(S.filterRows(rows, { q: 'zvaranie' }).length, 1, 'bez zadaných polí hľadá všade');
+}
+
+// ── Obdobie v zozname ───────────────────────────────────────────────────────
+// Zoznam sa filtruje podľa dátumu rovnako ako prehľad — ale predvolene sa
+// neschováva nič. Zoznam, ktorý pri otvorení skryje staršie záznamy, vyzerá
+// ako stratené dáta.
+{
+  const faktury = [
+    { id: 'a', issue_date: '2026-08-31', stav: 'sent' },
+    { id: 'b', issue_date: '2026-09-01', stav: 'sent' },
+    { id: 'c', issue_date: '2026-09-30', stav: 'paid' },
+    { id: 'd', issue_date: '2026-10-01', stav: 'sent' },
+    { id: 'e', issue_date: null, stav: 'draft' },
+  ];
+  const p = (o) => ({ field: 'issue_date', ...o });
+
+  eq(S.filterRows(faktury, { period: p({ key: 'all' }) }).length, 5,
+    '„za celý čas" neschová nič, ani záznam bez dátumu');
+  eq(S.filterRows(faktury, { period: p({}) }).length, 5, 'bez zvoleného obdobia tiež');
+  eq(S.filterRows(faktury, { period: { key: 'month' } }).length, 5,
+    'bez dátumového stĺpca sa nefiltruje — zoznam nemá zmiznúť pre chýbajúce nastavenie');
+
+  const vlastne = S.filterRows(faktury,
+    { period: p({ key: 'custom', from: '2026-09-01', to: '2026-09-30' }) });
+  eq(vlastne.map(r => r.id), ['b', 'c'], 'vlastné obdobie berie presné hranice');
+
+  eq(S.filterRows(faktury, { period: p({ key: 'custom', from: '2026-09-15' }) }).map(r => r.id),
+    ['c', 'd'], 'stačí jedna hranica');
+  eq(S.filterRows(faktury, { period: p({ key: 'custom' }) }).length, 5,
+    'prázdne vlastné obdobie sa správa ako „za celý čas", nie ako prázdny filter');
+
+  // Kombinácia je to, kvôli čomu to celé je: „september, len neuhradené".
+  eq(S.filterRows(faktury, {
+    equals: { stav: 'sent' },
+    period: p({ key: 'custom', from: '2026-09-01', to: '2026-09-30' }),
+  }).map(r => r.id), ['b'], 'obdobie a stav sa kombinujú');
+
+  eq(S.periodSlug(p({ key: 'custom', from: '2026-09-01', to: '2026-09-30' })),
+    '2026-09-01_2026-09-30', 'obdobie ide do názvu súboru');
+  eq(S.periodSlug(p({ key: 'all' })), 'vsetko', 'aj keď je bez ohraničenia');
+}
+
+// ── Pruh filtrov ────────────────────────────────────────────────────────────
+{
+  const html = S.filterbar({
+    search: { value: '', placeholder: 'Hľadať…', oninput: 'X.setF("q",this.value)' },
+    period: { field: 'issue_date', key: 'all', label: 'Vystavené', set: 'X.setF' },
+    exportCsv: 'X.exportCsv()',
+    total: 12, shown: 4,
+  });
+  ok(html.includes('fb-period'), 'pruh ponúka obdobie');
+  ok(html.includes('X.setF(\'period\', this.value)'), 'a mení ho cez modul');
+  ok(html.includes('X.exportCsv()'), 'aj export');
+  ok(html.includes('4 z 12'), 'a povie, koľko z koľkých je vidieť');
+  ok(!html.includes('type="date"'), 'dátumové polia sa neukazujú, kým netreba');
+
+  const custom = S.filterbar({
+    period: { field: 'issue_date', key: 'custom', from: '2026-09-01', set: 'X.setF' },
+  });
+  ok(custom.includes('type="date"'), 'pri „Od–do" pribudnú dátumové polia');
+  ok(custom.includes('value="2026-09-01"'), 'a pamätajú si zadané');
+  ok(S.filterbar({}).includes('filterbar'), 'prázdny pruh nepadne');
+  ok(!S.filterbar({}).includes('fb-period'), 'a bez dátumového stĺpca obdobie neponúka');
 }
 
 // ── Zoznam ──────────────────────────────────────────────────────────────────
