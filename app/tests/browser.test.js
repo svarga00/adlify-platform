@@ -540,6 +540,95 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Nové pravidlo úloh ────────────────────────────────────────────────
+    // Zoznam tabuliek aj stĺpcov dáva databáza, takže formulár sa bez nej
+    // nevykreslí správne — a práve to sa bez prehliadača otestovať nedá.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const FIELDS = {
+          danubra_worker_documents: [
+            { column_name: 'valid_to', data_type: 'date', kind: 'date' },
+            { column_name: 'valid_from', data_type: 'date', kind: 'date' },
+            { column_name: 'kind', data_type: 'text', kind: 'filter' },
+          ],
+          danubra_invoices: [
+            { column_name: 'due_date', data_type: 'date', kind: 'date' },
+            { column_name: 'invoice_number', data_type: 'text', kind: 'label' },
+          ],
+        };
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async (fn, args) => {
+          if (fn === 'rule_tables') {
+            return { data: ['danubra_worker_documents', 'danubra_invoices'], error: null };
+          }
+          if (fn === 'rule_fields') return { data: FIELDS[args.p_table] || [], error: null };
+          if (fn === 'preview_task_rule') {
+            return { data: { count: 3, samples: ['Obnoviť a1 — končí 06.09.2026'] },
+              error: null, _args: args };
+          }
+          return { data: null, error: null };
+        };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          Tsk.loaded = false;
+          await Tsk.load();
+          await Tsk.ruleForm();
+          const card = () => document.querySelector('#ui-modal .modal-card');
+          const res = {};
+          res.otvorene = !!document.getElementById('rule-form');
+          res.tabulky = [...document.querySelectorAll('[name=source_table] option')]
+            .map(o => o.textContent.trim());
+          res.datumy = [...document.querySelectorAll('#rule-date-field option')]
+            .map(o => o.value);
+
+          // Zmena tabuľky musí prebrať stĺpce — inak by ostal stĺpec,
+          // ktorý v novej tabuľke neexistuje.
+          document.querySelector('[name=source_table]').value = 'danubra_invoices';
+          await Tsk.ruleChanged();
+          res.poZmene = [...document.querySelectorAll('#rule-date-field option')]
+            .map(o => o.value);
+
+          // Skúška naprázdno.
+          document.querySelector('[name=task_title_template]').value = 'Skontrolovať {label}';
+          await Tsk.tryRule();
+          res.skuska = document.getElementById('rule-try').innerText;
+
+          // Neplatný kľúč musí byť vidieť hneď, nie až po uložení.
+          document.querySelector('[name=key]').value = 'Zlý Kľúč';
+          await Tsk.ruleChanged();
+          res.problem = document.getElementById('rule-problems').innerText;
+
+          UI.closeModal();
+          return res;
+        })();
+      });
+
+      ok(out.otvorene, 'formulár nového pravidla sa otvorí');
+      ok(out.tabulky.includes('doklad pracovníka'),
+        'tabuľky sú po slovensky', out.tabulky.join(', '));
+      ok(out.datumy.includes('valid_to'), 'ponúka dátumové stĺpce z databázy');
+      ok(out.poZmene.includes('due_date') && !out.poZmene.includes('valid_to'),
+        'po zmene tabuľky sa stĺpce preberú', out.poZmene.join(', '));
+      ok(out.skuska.includes('3'), 'skúška naprázdno povie, koľko úloh vznikne');
+      ok(out.skuska.includes('Obnoviť a1'), 'a ukáže, ako budú vyzerať');
+      ok(out.problem.toLowerCase().includes('kľúč'),
+        'neplatný kľúč je vidieť hneď', out.problem.slice(0, 80));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Telefón ───────────────────────────────────────────────────────────
     // Hodiny a výkaz sa zapisujú na stavbe, teda na telefóne. Keď sa stránka
     // posúva do boku, nedá sa to používať vôbec: pri každom ťahu prstom

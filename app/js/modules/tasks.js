@@ -206,6 +206,8 @@
             ${r.description ? `<span style="display:block;color:var(--ink-mute);font-size:11.5px;margin-top:2px;">
               ${UI.esc(r.description)}</span>` : ''}
           </span>
+          ${Danubra.isAdmin() ? `<button class="btn btn-ghost btn-sm"
+            onclick="Tsk.ruleForm('${r.id}')" title="Upraviť">${Icon('edit', 15)}</button>` : ''}
         </div>`;
       };
 
@@ -221,8 +223,206 @@
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline btn-sm" onclick="Tsk.runRules()">
             ${Icon('repeat', 14)} Spustiť teraz</button>
+          ${Danubra.isAdmin() ? `<button class="btn btn-primary btn-sm" onclick="Tsk.ruleForm()">
+            ${Icon('plus', 14)} Nové pravidlo</button>` : ''}
         </div>`;
       UI.modal('Pravidlá, z ktorých vznikajú úlohy', body, { wide: true });
+    },
+
+    // ── Nové pravidlo ─────────────────────────────────────────────────────
+    // Pravidlo sa doteraz pridávalo riadkom v SQL editore. Dôvod bol dobrý:
+    // motor skladá SQL z hodnôt v tom riadku, takže pole, do ktorého by sa
+    // názov stĺpca písal voľne, by bola cesta k spusteniu čohokoľvek.
+    //
+    // Preto formulár nič nevymýšľa — **zoznam tabuliek aj stĺpcov dáva
+    // databáza** (`danubra_rule_tables`, `danubra_rule_fields` z migrácie
+    // 035). Nedá sa tak vybrať tabuľka, ktorú CHECK odmietne, ani stĺpec,
+    // ktorý neexistuje.
+
+    /** Stĺpce tabuľky. Držia sa v pamäti, nech sa to nepýta pri každom písmene. */
+    async fieldsOf(table) {
+      this._fields = this._fields || {};
+      if (this._fields[table]) return this._fields[table];
+      const { data, error } = await DB.rpc('rule_fields', { p_table: table });
+      if (error) { UI.toast('Chyba: ' + error.message, 'err'); return []; }
+      this._fields[table] = data || [];
+      return this._fields[table];
+    },
+
+    async ruleForm(id) {
+      if (!Danubra.isAdmin()) return UI.toast('Pravidlá spravuje administrátor', 'err');
+      const r = id ? this.rules.find(x => x.id === id) || {} : {};
+      const { data: tables, error } = await DB.rpc('rule_tables', {});
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+
+      const list = (tables || []).map(t => (typeof t === 'string' ? t : t.danubra_rule_tables))
+        .filter(Boolean);
+      this._ruleTable = r.source_table || list[0];
+      const fields = await this.fieldsOf(this._ruleTable);
+      this._rule = { ...r };
+
+      UI.modal(id ? 'Upraviť pravidlo' : 'Nové pravidlo', `
+        <form id="rule-form" onsubmit="event.preventDefault();Tsk.saveRule('${id || ''}')"
+              oninput="Tsk.ruleChanged()" onchange="Tsk.ruleChanged()">
+          <div class="regimebox" style="margin:0 0 12px;">
+            Pravidlo sleduje jeden dátum v jednej tabuľke a pred jeho dosiahnutím
+            vytvorí úlohu. Tabuľky aj stĺpce ponúka databáza — nedá sa tu napísať
+            niečo, čo neexistuje.</div>
+
+          <div class="form-grid">
+            ${UI.field('title', 'Ako sa pravidlo volá', { value: r.title, required: true,
+              placeholder: 'Končí platnosť A1' })}
+            ${UI.field('key', 'Kľúč', { value: r.key, required: true,
+              placeholder: 'a1_konci' })}
+          </div>
+
+          <div class="form-section">Čo sleduje</div>
+          <div class="form-grid">
+            ${UI.field('source_table', 'Tabuľka', { value: this._ruleTable,
+              options: list.map(t => [t, DanubraTasks.tableLabel(t)]) })}
+            <label class="fld"><span>Dátumový stĺpec *</span>
+              <select name="date_field" id="rule-date-field" required>
+                ${this._fieldOptions(fields, 'date', r.date_field)}
+              </select></label>
+            <label class="fld"><span>Čím sa záznam pomenuje</span>
+              <select name="label_field" id="rule-label-field">
+                ${this._fieldOptions(fields, 'label', r.label_field || 'name')}
+              </select></label>
+            ${UI.field('days_before', 'Koľko dní dopredu', { type: 'number',
+              value: r.days_before ?? 30, step: '1' })}
+          </div>
+
+          <div class="form-section">Akú úlohu vytvorí</div>
+          ${UI.field('task_title_template', 'Text úlohy', {
+            value: r.task_title_template, required: true,
+            placeholder: 'Vybaviť nové A1 pre {label} — končí {date}' })}
+          <div style="font-size:12px;color:var(--ink-mute);margin:-4px 0 10px;">
+            ${DanubraTasks.RULE_VARS.map(([v, t]) =>
+              `<div><code>${v}</code> — ${UI.esc(t)}</div>`).join('')}
+          </div>
+          <div class="form-grid">
+            ${UI.field('priority', 'Dôležitosť', { value: r.priority || 'normal',
+              options: [['low', 'Nízka'], ['normal', 'Bežná'], ['high', 'Vysoká'],
+                ['urgent', 'Súrne']] })}
+            ${UI.field('assigned_name', 'Komu sa priradí', { value: r.assigned_name,
+              placeholder: 'nechaj prázdne = nepriradené' })}
+          </div>
+          ${UI.field('description', 'Poznámka k pravidlu', { type: 'textarea', rows: 2,
+            value: r.description })}
+
+          <div class="form-section">Skúška naprázdno</div>
+          <div id="rule-try">
+            <p style="font-size:13px;color:var(--ink-sub);margin:0;">
+              Klepni na <strong>Skúsiť</strong> a appka spočíta, koľko úloh by
+              z tohto pravidla dnes vzniklo — bez toho, aby čokoľvek zapísala.</p>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" style="margin-top:8px;"
+            onclick="Tsk.tryRule()">${Icon('search', 14)} Skúsiť</button>
+
+          <div id="rule-problems" style="margin-top:12px;"></div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="Tsk.rulesView()">Späť</button>
+            <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať pravidlo'}</button>
+          </div>
+        </form>`, { wide: true });
+      this.ruleChanged();
+    },
+
+    _fieldOptions(fields, kind, selected) {
+      // Pomenovať záznam sa dá aj textovým stĺpcom, ktorý sa inak používa na
+      // filtrovanie — „kind" pri doklade je práve taký prípad.
+      const use = kind === 'label'
+        ? fields.filter(f => f.kind === 'label'
+          || (f.kind === 'filter' && String(f.data_type).includes('char'))
+          || f.data_type === 'text')
+        : fields.filter(f => f.kind === kind);
+      if (!use.length) return '<option value="">— tabuľka nemá taký stĺpec —</option>';
+      return use.map(f => `<option value="${UI.esc(f.column_name)}"${
+        f.column_name === selected ? ' selected' : ''}>${UI.esc(f.column_name)}</option>`).join('');
+    },
+
+    /** Po zmene tabuľky sa musia prebrať stĺpce; inak sa kontroluje, čo nesedí. */
+    async ruleChanged() {
+      const form = document.getElementById('rule-form');
+      if (!form) return;
+      const d = UI.formData(form);
+
+      if (d.source_table && d.source_table !== this._ruleTable) {
+        this._ruleTable = d.source_table;
+        const fields = await this.fieldsOf(d.source_table);
+        const df = document.getElementById('rule-date-field');
+        const lf = document.getElementById('rule-label-field');
+        if (df) df.innerHTML = this._fieldOptions(fields, 'date', d.date_field);
+        if (lf) lf.innerHTML = this._fieldOptions(fields, 'label', d.label_field);
+      }
+
+      const box = document.getElementById('rule-problems');
+      if (!box) return;
+      const v = DanubraTasks.reviewRule(d);
+      box.innerHTML = (v.reasons.length || v.warnings.length)
+        ? Shell.blocker({ reasons: [...v.reasons, ...v.warnings] })
+        : '';
+    },
+
+    /** Skúška naprázdno — presne to, čo spraví motor, ale bez zápisu. */
+    async tryRule() {
+      const form = document.getElementById('rule-form');
+      const box = document.getElementById('rule-try');
+      if (!form || !box) return;
+      const d = UI.formData(form);
+      if (!d.source_table || !d.date_field) {
+        return UI.toast('Najprv vyber tabuľku a dátumový stĺpec', 'err');
+      }
+      box.innerHTML = '<p style="font-size:13px;color:var(--ink-mute);margin:0;">Skúšam…</p>';
+      const { data, error } = await DB.rpc('preview_task_rule', {
+        p_source_table: d.source_table,
+        p_date_field: d.date_field,
+        p_label_field: d.label_field || 'id',
+        p_filter: {},
+        p_days_before: Number(d.days_before) || 30,
+        p_title_template: d.task_title_template || '{label}',
+      });
+      if (error) {
+        box.innerHTML = `<div class="warnbox" style="margin:0;">${Icon('alert', 14)}
+          ${UI.esc(error.message)}</div>`;
+        return;
+      }
+      const n = Number(data?.count || 0);
+      const s = Array.isArray(data?.samples) ? data.samples : [];
+      box.innerHTML = `
+        <p style="font-size:13px;margin:0 0 6px;">
+          Dnes by z tohto pravidla vzniklo <strong>${n}</strong>
+          ${DanubraTasks.plural(n, 'úloha', 'úlohy', 'úloh')}.</p>
+        ${s.length ? `<ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
+          ${s.map(x => `<li>${UI.esc(x)}</li>`).join('')}</ul>` : ''}
+        ${n > 50 ? `<div class="warnbox" style="margin:8px 0 0;">${Icon('alert', 14)}
+          To je veľa naraz. Skús menej dní dopredu — zoznam, v ktorom je
+          päťdesiat položiek, sa neprezerá.</div>` : ''}`;
+    },
+
+    async saveRule(id) {
+      const d = UI.formData(document.getElementById('rule-form'));
+      const v = DanubraTasks.reviewRule(d);
+      if (!v.ok) return UI.toast(v.reasons[0].label, 'err');
+
+      const payload = {
+        key: d.key, title: d.title, description: d.description || null,
+        source_table: d.source_table, date_field: d.date_field,
+        label_field: d.label_field || 'name',
+        days_before: Number(d.days_before) || 30,
+        task_title_template: d.task_title_template,
+        priority: d.priority || 'normal',
+        assigned_name: d.assigned_name || null,
+      };
+      const { error } = id
+        ? await DB.update('task_rules', id, payload)
+        : await DB.insert('task_rules', { ...payload, active: true });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+
+      UI.toast(id ? 'Pravidlo uložené' : 'Pravidlo pridané — spusti ho, nech je vidieť', 'ok');
+      this.loaded = false; await this.load();
+      this.rulesView();
     },
 
     async toggleRule(id, active) {

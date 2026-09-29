@@ -169,6 +169,11 @@ platnosť dokladu, skončilo obdobie, faktúra je po splatnosti, blíži sa výr
 zmluvy. Úloha vždy vie, koho sa týka, a má na starosti konkrétneho človeka —
 **nepriradené je prvé a oranžové**.
 
+Nové pravidlo sa pridá z appky (Úlohy → Pravidlá), nie riadkom v SQL. Tabuľky
+aj stĺpce ponúka databáza, takže sa nedá vybrať niečo, čo neexistuje alebo čo
+by databáza odmietla. Pred uložením sa dá pravidlo **skúsiť naprázdno**:
+appka povie, koľko úloh by dnes vzniklo a ako by vyzerali — a nič nezapíše.
+
 **Zvonček** hovorí, čo sa stalo, kým si sa nepozeral. Úlohy hovoria, čo treba
 spraviť. Sú to dve rôzne otázky, preto sú to dve rôzne miesta.
 
