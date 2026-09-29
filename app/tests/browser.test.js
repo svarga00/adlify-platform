@@ -395,6 +395,9 @@ console.log('Prehliadač');
         skus('ponuka', () => DanubraPapers.quote(
           { quote: { quote_number: '1', title: 'T', charge_rate: 30, headcount: 2, hours_per_month: 160 },
             client: cli, supplier: sup }));
+        skus('zmluva', () => DanubraPapers.werkvertrag(
+          { contract: { contract_number: '1', title: 'T', price_model: 'fixed',
+            fixed_price: 1000, scope: 'S' }, client: cli, supplier: sup }));
         skus('potvrdenie objednávky', () => DanubraPapers.orderConfirmation(
           { order: { order_number: '1' }, client: cli, accommodation: {}, supplier: sup }));
         skus('výzva na platbu', () => DanubraPapers.paymentRequest(
@@ -536,6 +539,98 @@ console.log('Prehliadač');
       ok(out.komu, 'ale povie mu, kto ju povoliť môže');
       ok(out.odomkne, 'zapísaná výnimka nasadenie odomkne');
       ok(out.vidno, 'a zostane vidieť, že to prešlo výnimkou');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+
+    // ── Zmluva ────────────────────────────────────────────────────────────
+    // Zmluva nemala náhľad ani sken a editovať sa dalo sedem polí. Toto
+    // overuje presne to, čo sa bez prehliadača otestovať nedá: že tie polia
+    // sú vidieť **aj v detaile**, nielen vo formulári — lebo to bola tá istá
+    // chyba, akú mal checklist a doklady.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        Con.loaded = true;
+        Con.partners = [{ id: 'p1', name: 'Vogel GmbH', ust_idnr: 'DE811234567' }];
+        Con.items = [{ id: 'c1', contract_number: 'ZML-1', partner_id: 'p1',
+          title: 'Trockenbau', kind: 'werkvertrag', status: 'signed',
+          scope: 'Montage.', site_name: 'Wohnpark', site_city: 'Stuttgart',
+          date_from: '2026-10-01', date_to: '2027-03-31',
+          price_model: 'hourly', charge_rate: 31.5, payment_terms_days: 30,
+          retention_pct: 5, warranty_months: 48, notice_days: 30,
+          contact_name: 'Herr Vogel', contact_email: 'vogel@bau.de',
+          signed_at: '2026-09-20', storage_path: null }];
+        Con.amendments = [{ id: 'a1', contract_id: 'c1', amendment_number: 'Dodatok č. 1',
+          field: 'charge_rate', old_value: '31.5', new_value: '33',
+          reason: 'Zdražel materiál.', created_at: '2026-11-01', signed_at: null }];
+
+        Con.detail('c1');
+        // Sumy formátuje Intl a medzera pred € je pevná (U+00A0), nie
+        // obyčajná. Porovnávať text s pevnou medzerou znamená hľadať znak,
+        // ktorý sa nedá napísať — tak sa všetky medzery zrovnajú.
+        const norm = (x) => x.replace(/\s+/g, ' ').trim();
+        const t = norm(document.querySelector('#ui-modal .modal-card').innerText);
+        const html = document.querySelector('#ui-modal .modal-card').innerHTML;
+
+        // Podpísaná zmluva: chránené polia sa needitujú vôbec.
+        Con.form('c1');
+        const poliaPodpisanej = [...document.querySelectorAll('#con-form [name]')]
+          .map(x => x.name);
+
+        // Koncept: editovať sa dá všetko.
+        Con.items.push({ ...Con.items[0], id: 'c2', status: 'draft' });
+        Con.form('c2');
+        const poliaKonceptu = [...document.querySelectorAll('#con-form [name]')]
+          .map(x => x.name);
+        UI.closeModal();
+        return { t, html, poliaPodpisanej, poliaKonceptu };
+      });
+
+      ok(out.t.includes('Stuttgart'), 'miesto plnenia je v detaile');
+      ok(out.t.includes('31,50 € / h'), 'cena je naformátovaná');
+      // Na hodnotu samu sa spoľahnúť nedá — „5 %" je aj vo vete pod tým.
+      // Test musí hľadať riadok s názvom, inak nechytí, že políčko zmizlo.
+      ok(/<span>Zádržné<\/span><strong>5(\s|&nbsp;)?%/.test(out.html),
+        'zádržné má v detaile vlastný riadok', out.html.slice(0, 0));
+      ok(/<span>Záruka<\/span><strong>48 mes/.test(out.html), 'aj záruka');
+      ok(/<span>Výpovedná lehota<\/span><strong>30 dní/.test(out.html),
+        'aj výpovedná lehota');
+      ok(out.t.includes('vogel@bau.de'), 'aj kontakt na odberateľa');
+      ok(out.t.includes('Arbeitnehmerüberlassung'),
+        'pri hodinovej cene sa ozve upozornenie');
+      ok(out.t.includes('33,00 € / h'), 'dodatok ukazuje sumu, nie surové „33"');
+      ok(out.t.includes('Prišiel podpísaný'), 'nepodpísaný dodatok sa dá podpísať');
+      ok(out.html.includes('Con.uploadScan'), 'sken originálu sa dá nahrať');
+      ok(out.html.includes('Con.document'), 'a zmluva sa dá otvoriť ako dokument');
+
+      for (const f of ['site_name', 'price_model', 'fixed_price', 'unit_price',
+        'charge_rate', 'retention_pct', 'warranty_months', 'notice_days',
+        'penalty_note', 'contact_name', 'contact_email', 'contact_phone']) {
+        ok(out.poliaKonceptu.includes(f), `formulár má pole „${f}"`);
+      }
+      // Na podpísanej zmluve sa dohodnuté podmienky needitujú vôbec — nie
+      // „zakázané po kliknutí", ale rovno bez možnosti písať.
+      for (const f of ['charge_rate', 'fixed_price', 'unit_price', 'retention_pct',
+        'date_to']) {
+        ok(!out.poliaPodpisanej.includes(f),
+          `na podpísanej zmluve sa „${f}" needituje`);
+      }
+      ok(out.poliaPodpisanej.includes('site_name'),
+        'ale miesto plnenia sa doplniť dá — to nie je dohodnutá podmienka');
       ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
