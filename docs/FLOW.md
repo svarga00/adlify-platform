@@ -68,7 +68,13 @@ Kandidát prejde procesom (preverenie → doklady → rozhodnutie) a stane sa
 
 **Compliance** povie, či ho smieme nasadiť: A1, remeslo (§9 HwO), Bau-Mindestlohn,
 SOKA-BAU. Bez platných dokladov sa nasadiť nedá — **výnimku môže dať len
-administrátor a zostane zapísaná**.
+administrátor a zostane zapísaná**. Drží to databáza, takže to platí aj pre
+import a ručné SQL, a posudzuje sa to **k prvému dňu nasadenia**: doklad,
+ktorý dnes platí a do nástupu vyprší, neprejde.
+
+Pri nasadení celej partie sa ten, komu doklad chýba, **preskočí a povie sa to
+menom** — jeden človek nezhodí celú partiu, ale nesmie tiež tichšie zmiznúť
+zo zoznamu.
 
 **Partia** je skupina, ktorá chodí spolu, býva spolu a má jeden výkaz hodín.
 
@@ -122,6 +128,14 @@ Uzavreté obdobie sa už nemení.
 **Vydaná faktúra** vznikne ako návrh. **Bez schválenia administrátorom sa
 nevystaví ani neodošle** — drží to databáza, nie obrazovka, takže to platí aj
 pri importe. Až schválením dostane číslo z číselného radu.
+
+Pred schválením je zoznam toho, čo blokuje — a je v ňom rozdiel medzi dvoma
+druhmi prekážok. **Rozdiel voči podkladu** sa dá prevziať na seba (niekedy sa
+s odberateľom naozaj dohodne iná suma) a vtedy musí byť zapísané prečo.
+**Chýbajúci odberateľ, faktúra na nulu, reverse charge bez USt-IdNr ani
+neuzavreté obdobie sa výnimkou obísť nedajú** — tam nie je čo prevziať, iba
+by vznikol nesprávny doklad. Blokátor to rozlíši a pri každej takej prekážke
+povie, čo namiesto nej.
 
 **Prijatá faktúra** od živnostníka sa porovná so schválenými hodinami. Keď
 sedí, schváli sa. Keď nesedí, je **sporná** a bez poznámky sa schváliť nedá —

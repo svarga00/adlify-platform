@@ -454,6 +454,92 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Nasadenie bez dokladov ────────────────────────────────────────────
+    // Pravidlo drží trigger v databáze (migrácia 033), ale človek sa o ňom má
+    // dozvedieť pri výbere človeka, nie až chybou po vyplnení deviatich polí.
+    // Tento test overuje presne to, čo sa nedá overiť bez prehliadača:
+    // že sa blokátor v okne naozaj vykreslí, že neponúka výnimku tam, kde
+    // nepomôže, a že zapísaná výnimka ho odomkne.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const dnes = new Date().toISOString().slice(0, 10);
+        const DATA = {
+          subcontracts: [{ id: 'sc1', title: 'Stavba Ulm', work_type: 'construction',
+            status: 'active', date_from: dnes, partner_id: 'p1' }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }],
+          workers: [{ id: 'w1', full_name: 'Bez dokladov', status: 'ready',
+            legal_form: 'szco', regulated_trade: false }],
+          worker_documents: [],
+          assignments: [], overrides: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const res = {};
+        return (async () => {
+          await Sub.load();
+          Sub.addAsg('sc1');
+          const card = document.querySelector('#ui-modal .modal-card');
+          res.stop = card.innerText.includes('Takto to nepustím');
+          res.a1 = card.innerText.includes('Formulár A1');
+          res.ovr = card.innerText.includes('Chcem to povoliť aj tak');
+          res.risk = card.innerText.includes('Zoll');
+
+          // Koordinátor výnimku nedostane — právo má len administrátor.
+          Danubra.me = { role: 'coordinator', active: true };
+          document.getElementById('asg-blocker').innerHTML =
+            Sub.asgBlockerHtml('sc1', 'w1', dnes);
+          res.koord = !document.getElementById('asg-blocker').innerText
+            .includes('Chcem to povoliť aj tak');
+          res.komu = document.getElementById('asg-blocker').innerText
+            .includes('len administrátor');
+          Danubra.me = { role: 'admin', active: true };
+
+          // Zapísaná výnimka blokátor odomkne.
+          Sub.overrides = [
+            { id: 'o1', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_a1',
+              reason: 'A1 je podané, klient tlačí.' },
+            { id: 'o2', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_document',
+              reason: 'A1 je podané, klient tlačí.' },
+            { id: 'o3', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_trade_licence',
+              reason: 'A1 je podané, klient tlačí.' },
+            { id: 'o4', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_contract',
+              reason: 'A1 je podané, klient tlačí.' },
+          ];
+          document.getElementById('asg-blocker').innerHTML =
+            Sub.asgBlockerHtml('sc1', 'w1', dnes);
+          const po = document.getElementById('asg-blocker').innerText;
+          res.odomkne = po.includes('Nič neblokuje');
+          res.vidno = po.includes('povolené výnimkou');
+          UI.closeModal();
+          return res;
+        })();
+      });
+
+      ok(out.stop, 'nasadenie bez dokladov okno zastaví');
+      ok(out.a1, 'a povie, že chýba A1');
+      ok(out.ovr, 'administrátorovi ponúkne výnimku');
+      ok(out.risk, 'aj s tým, čo tým riskuje');
+      ok(out.koord, 'koordinátorovi výnimku neponúkne');
+      ok(out.komu, 'ale povie mu, kto ju povoliť môže');
+      ok(out.odomkne, 'zapísaná výnimka nasadenie odomkne');
+      ok(out.vidno, 'a zostane vidieť, že to prešlo výnimkou');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Tlač do PDF ───────────────────────────────────────────────────────
     // PDF sa v appke nerobí knižnicou, ale tlačou prehliadača. To znamená, že
     // o výsledku rozhodujú štýly — a tie sa dajú pokaziť odinakiaľ. Prehľad

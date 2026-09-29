@@ -340,7 +340,14 @@
       if (r.severity === 'warn') { warnings.push(r); continue; }
       (covered.has(r.rule) ? waived : open).push(r);
     }
-    return { ok: open.length === 0, open, waived, warnings };
+    // Nie každú prekážku vie výnimka pokryť. Chýbajúce A1 áno — riziko je
+    // reálne a niekto ho môže prevziať. Faktúru bez odberateľa nie: tam nie
+    // je čo prevziať, nie je komu fakturovať. Blokátor to musí rozlíšiť,
+    // inak ponúkne okienko na dôvod aj tam, kde zápis dôvodu nič nevyrieši.
+    const O = typeof window !== 'undefined' ? window.DanubraOverrides : null;
+    const canWaive = open.filter(r => !O || O.waivable(r.rule));
+    const hard = O ? open.filter(r => !O.waivable(r.rule)) : [];
+    return { ok: open.length === 0, open, waived, warnings, canWaive, hard };
   }
 
   /** Dôvod výnimky musí prejsť aj v databáze (CHECK >= 5 znakov). */
@@ -354,6 +361,7 @@
    *   onOverride    JS na uloženie výnimky; ak chýba, výnimka sa neponúka
    *   inputId       id poľa na dôvod
    *   okHtml        čo zobraziť, keď nič neblokuje
+   *   noOvrNote     čím nahradiť vetu „výnimku môže povoliť len admin"
    */
   function blocker(o = {}) {
     const v = evaluate(o.reasons, o.overrides, o.today);
@@ -384,17 +392,56 @@
       </div>
       <ul class="bl-list">${v.open.map(r => item(r, 'stop')).join('')}</ul>
       ${waived}${warn}
-      ${o.onOverride ? `
-        <details class="bl-ovr">
-          <summary>Chcem to povoliť aj tak</summary>
-          <p>Výnimka sa zapíše natrvalo — kto ju povolil, kedy a prečo.
-             Dôvod je povinný a musí mať aspoň ${REASON_MIN} znakov.</p>
-          <textarea id="${inputId}" rows="2" placeholder="Prečo to ide bez toho?"></textarea>
-          <button class="btn btn-danger btn-sm" onclick="${o.onOverride}">
-            ${Icon('shield', 14)} Zapísať výnimku</button>
-        </details>` : `
-        <p class="bl-noovr">Výnimku môže povoliť len admin.</p>`}
+      ${overrideHtml(o, v, inputId)}
     </div>`;
+  }
+
+  /**
+   * Spodok blokátora: čo sa s tým dá urobiť.
+   *
+   * Sú tri možnosti a je dôležité ich nepomiešať, lebo každá vedie človeka
+   * inam: buď to smie povoliť (a treba mu povedať, čo tým berie na seba),
+   * alebo to povoliť nemôže nikto (a treba povedať, čo namiesto toho),
+   * alebo to povoliť smie len niekto iný.
+   */
+  function overrideHtml(o, v, inputId) {
+    const O = typeof window !== 'undefined' ? window.DanubraOverrides : null;
+    const hard = v.hard || [];
+    const canWaive = v.canWaive || v.open;
+
+    // Prekážky, ktoré výnimka nerieši. Pri každej je napísané, čo namiesto
+    // nej — „nepustím to" bez pokračovania pošle človeka hľadať chybu
+    // v appke namiesto v doklade.
+    const hardHtml = (O && hard.length)
+      ? `<div class="bl-hard">
+          <b>${hard.length === 1 ? 'Toto výnimka nerieši' : 'Tieto výnimka nerieši'}:</b>
+          <ul>${hard.map(r => `<li><b>${esc(r.label)}</b>${
+            O.hardWhy(r.rule) ? ` — ${esc(O.hardWhy(r.rule))}` : ''}</li>`).join('')}</ul>
+        </div>` : '';
+
+    if (!canWaive.length) return hardHtml;
+    if (!o.onOverride) {
+      return hardHtml + `<p class="bl-noovr">${
+        esc(o.noOvrNote || 'Výnimku môže povoliť len administrátor.')}</p>`;
+    }
+
+    // Čo tým človek na seba berie. Bez toho je výnimka len tlačidlo „áno".
+    const risks = O
+      ? [...new Set(canWaive.map(r => O.riskOf(r.rule)).filter(Boolean))]
+      : [];
+
+    return hardHtml + `
+      <details class="bl-ovr">
+        <summary>Chcem to povoliť aj tak</summary>
+        <p>Výnimka sa zapíše natrvalo — kto ju povolil, kedy a prečo.
+           Dôvod je povinný a musí mať aspoň ${REASON_MIN} znakov.</p>
+        ${O ? `<p class="bl-ovr-sum">${esc(O.summary(v.open))}</p>` : ''}
+        ${risks.length ? `<ul class="bl-risk">${
+          risks.map(t => `<li>${Icon('alert', 12)} ${esc(t)}</li>`).join('')}</ul>` : ''}
+        <textarea id="${inputId}" rows="2" placeholder="Prečo to ide bez toho?"></textarea>
+        <button class="btn btn-danger btn-sm" onclick="${o.onOverride}">
+          ${Icon('shield', 14)} Zapísať výnimku</button>
+      </details>`;
   }
 
   /**

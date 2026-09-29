@@ -491,7 +491,10 @@
         ${Shell.blocker({
           reasons: [...ready.reasons, ...ready.warnings],
           overrides: this.overridesOf(w.id),
-          onOverride: `Wrk.grantOverride('${w.id}')`,
+          // Doteraz sa formulár na výnimku ponúkol každému a databáza ju
+          // potom odmietla (trigger z migrácie 030). Človek napísal dôvod
+          // a dostal chybu — pritom právo nemal od začiatku.
+          onOverride: Danubra.isAdmin() ? `Wrk.grantOverride('${w.id}')` : '',
           okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
             + 'Doklady na stavbu sú v poriadku.</p>',
         })}
@@ -1136,16 +1139,18 @@
       if (!open.length) return UI.toast('Niet čo povoliť — nič neblokuje', 'err');
 
       // Povolí sa všetko, čo práve blokuje. Povoliť to po jednom by znamenalo
-      // písať ten istý dôvod päťkrát.
-      const rows = open.map(r => ({
-        entity_type: 'worker', entity_id: workerId,
-        rule_key: r.rule, reason: reason.trim(),
-      }));
+      // písať ten istý dôvod päťkrát. Zoznam riadkov skladá knižnica, aby to
+      // isté pravidlo z dvoch dokladov nedalo dva riadky — jedno zrušenie by
+      // potom výnimku nezrušilo.
+      const { rows } = DanubraOverrides.rowsFor(open, {
+        entityType: 'worker', entityId: workerId, reason,
+      });
+      if (!rows.length) return UI.toast('Toto výnimka nerieši', 'err');
       const { error } = await DB.from('overrides').insert(rows);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
 
-      UI.toast(`Zapísaná výnimka na ${open.length} ${
-        open.length === 1 ? 'pravidlo' : open.length < 5 ? 'pravidlá' : 'pravidiel'}`, 'ok');
+      UI.toast(`Zapísaná výnimka na ${rows.length} ${
+        rows.length === 1 ? 'pravidlo' : rows.length < 5 ? 'pravidlá' : 'pravidiel'}`, 'ok');
       this.loaded = false; await this.load(); this.detail(workerId);
     },
 

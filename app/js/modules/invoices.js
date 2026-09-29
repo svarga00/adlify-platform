@@ -26,23 +26,26 @@
   };
 
   const Inv = {
-    items: [], lines: [], clients: [], orders: [], partners: [], loaded: false,
+    items: [], lines: [], clients: [], orders: [], partners: [], overrides: [],
+    loaded: false,
     filters: { status: '', q: '', period: 'all', from: '', to: '' },
 
     async load() {
       // Odberatelia sa načítavajú spolu s faktúrami: v2 faktúra má
       // `partner_id`, nie `client_id`, a v zozname sa preto ukazovala pomlčka
       // namiesto nemeckej firmy, ktorej sa fakturuje.
-      const [i, l, c, o, p] = await Promise.all([
+      const [i, l, c, o, p, ovr] = await Promise.all([
         DB.list('invoices', { order: { column: 'issue_date', ascending: false }, limit: 500 }),
         DB.list('invoice_items', { limit: 3000 }),
         DB.list('clients', { select: 'id,name,country,vat_id,company_id,contact_person,phone,email,whatsapp', limit: 500 }),
         DB.list('orders', { select: 'id,order_number,client_id,service_fee,urgent_surcharge,date_from,date_to,persons,ongoing_service_enabled,ongoing_service_rate,status', limit: 500 }),
         DB.list('partners', { select: 'id,name,city,country,ust_idnr', limit: 300 }),
+        DB.list('overrides', { limit: 1000 }),
       ]);
       this.items = i.data || []; this.lines = l.data || [];
       this.clients = c.data || []; this.orders = o.data || [];
       this.partners = p.data || [];
+      this.overrides = ovr.data || [];
       this.loaded = true;
       await this._markOverdue();
     },
@@ -558,6 +561,11 @@
       const rev = DanubraInvoice.reviewBeforeApproval(ctx);
       const w = rev.withholding;
       const steps = DanubraInvoice.nextSteps(x);
+      // Zapísaná výnimka musí schválenie aj odomknúť — inak by človek napísal
+      // dôvod a tlačidlo by zostalo šedé, čo je horšie než keby ho appka
+      // neponúkla vôbec.
+      const revV = Shell.evaluate(rev.reasons,
+        DanubraOverrides.forEntity(this.overrides, 'invoice', x.id));
 
       const act = (to) => {
         const map = {
@@ -570,9 +578,11 @@
           overdue: ['Po splatnosti', 'btn-ghost'],
         }[to];
         if (!map) return '';
-        // Schváliť sa nedá, kým niečo blokuje.
-        if (to === 'approved' && !rev.ok) {
-          return `<button class="btn btn-primary btn-sm" disabled title="Najprv oprav, čo blokuje">${map[0]}</button>`;
+        // Schváliť sa nedá, kým niečo blokuje — okrem toho, čo je povolené
+        // zapísanou výnimkou.
+        if (to === 'approved' && !revV.ok) {
+          return `<button class="btn btn-primary btn-sm" disabled title="${
+            UI.esc(revV.open.map(r => r.label).join(' · '))}">${map[0]}</button>`;
         }
         const fn = to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
           : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
@@ -617,9 +627,20 @@
         <div class="form-section">Pred schválením</div>
         ${Shell.blocker({
           reasons: [...rev.reasons, ...rev.warnings],
+          overrides: DanubraOverrides.forEntity(this.overrides, 'invoice', x.id),
+          // Pri faktúre sa dá prevziať na seba jedine rozdiel voči podkladu —
+          // niekedy sa s odberateľom naozaj dohodne iná suma a vtedy musí byť
+          // zapísané prečo. Ostatné prekážky sa neobchádzajú: bez odberateľa
+          // niet komu fakturovať a reverse charge bez USt-IdNr nie je prevzaté
+          // riziko, ale nesprávny doklad. Blokátor to teraz rozlíši sám.
+          onOverride: Danubra.isAdmin() ? `Inv.grantOverride('${x.id}')` : '',
+          inputId: 'inv-ovr-reason',
+          noOvrNote: 'Rozdiel voči podkladu smie povoliť len administrátor — '
+            + 'je to to isté právo ako schválenie faktúry.',
           okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
             + 'Suma sedí s podkladom a odberateľ má všetko, čo treba.</p>',
         })}
+        ${this.overridesHtml(x.id)}
 
         <div class="kv" style="margin-top:14px;">
           ${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
@@ -629,6 +650,75 @@
           ${steps.map(act).join('')}
         </div>`;
       UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
+    },
+
+    /**
+     * Zapísané výnimky pri faktúre. Musia byť vidieť pri doklade, nie len
+     * v histórii — kto sa na faktúru pozrie o pol roka, má vedieť, že rozdiel
+     * voči podkladu niekto vedome povolil, a prečo.
+     */
+    overridesHtml(invoiceId) {
+      const all = DanubraOverrides.forEntity(this.overrides, 'invoice', invoiceId);
+      if (!all.length) return '';
+      const row = (o) => {
+        const m = DanubraOverrides.meta(o.rule_key);
+        const dead = !!o.revoked_at;
+        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+          <span class="dot ${dead ? '' : 'amber'}" style="margin-top:6px;"></span>
+          <span style="flex:1;font-size:13px;${dead ? 'opacity:.55;' : ''}">
+            <strong>${UI.esc(m?.label || o.rule_key)}</strong>
+            ${dead ? UI.badge('zrušená', 'gray') : ''}
+            <span style="display:block;color:var(--ink-mute);font-size:12px;">
+              ${o.granted_at ? UI.date(o.granted_at) : ''} · ${UI.esc(o.reason || '')}</span>
+          </span>
+          ${dead || !Danubra.isAdmin() ? '' : `<button class="btn btn-ghost btn-sm"
+            onclick="Inv.revokeOverride('${o.id}','${invoiceId}')">Zrušiť</button>`}
+        </div>`;
+      };
+      return `<div class="form-section">Zapísané výnimky</div>
+        ${all.map(row).join('')}
+        <div style="font-size:12px;color:var(--ink-mute);margin-top:4px;">
+          Výnimka sa nemaže. Zrušenie ju len prestane uplatňovať — záznam
+          zostane aj s dôvodom.</div>`;
+    },
+
+    async grantOverride(invoiceId) {
+      const x = this.items.find(i => i.id === invoiceId);
+      if (!x) return;
+      const box = document.getElementById('inv-ovr-reason');
+      const reason = box ? box.value : '';
+      if (!Shell.reasonValid(reason)) {
+        return UI.toast(`Dôvod musí mať aspoň ${Shell.REASON_MIN} znakov`, 'err');
+      }
+      const rev = DanubraInvoice.reviewBeforeApproval(this.ctxOf(x));
+      const open = Shell.evaluate(rev.reasons,
+        DanubraOverrides.forEntity(this.overrides, 'invoice', invoiceId)).open;
+      const { rows, skipped } = DanubraOverrides.rowsFor(open, {
+        entityType: 'invoice', entityId: invoiceId, reason,
+      });
+      if (!rows.length) {
+        return UI.toast(skipped.length
+          ? 'Toto výnimka nerieši — oprav to, na čo blokátor ukazuje'
+          : 'Niet čo povoliť — nič neblokuje', 'err');
+      }
+      const { error } = await DB.from('overrides').insert(rows);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const ovr = await DB.list('overrides', { limit: 1000 });
+      this.overrides = ovr.data || this.overrides;
+      UI.toast('Výnimka zapísaná', 'ok');
+      this.detail(invoiceId);
+    },
+
+    async revokeOverride(id, invoiceId) {
+      if (!await UI.confirm('Zrušiť túto výnimku?\n\nZáznam zostane v histórii.')) return;
+      const { error } = await DB.update('overrides', id, {
+        revoked_at: new Date().toISOString(),
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      const ovr = await DB.list('overrides', { limit: 1000 });
+      this.overrides = ovr.data || this.overrides;
+      UI.toast('Výnimka zrušená, záznam zostal', 'ok');
+      this.detail(invoiceId);
     },
 
     async setStatusV2(id, to) {
