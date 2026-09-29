@@ -540,6 +540,91 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Checklist pred nasadením ──────────────────────────────────────────
+    // Osem z deviatich bodov sa počíta z dát. To sa dá otestovať aj bez
+    // prehliadača; čo sa bez neho otestovať nedá, je či sa v detaile zákazky
+    // naozaj vykreslia a **či sa dá klikať len na ten jeden ručný**.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          subcontracts: [{ id: 'sc1', title: 'Stavba Ulm', work_type: 'construction',
+            status: 'active', partner_id: 'p1', date_from: '2026-10-01',
+            zoll_reported_at: '2026-09-20T09:00:00Z', transport_provided: true }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', status: 'deployed',
+            legal_form: 'szco' }],
+          // Má všetko okrem A1.
+          worker_documents: [
+            { id: 'd1', worker_id: 'w1', kind: 'id_card', valid_from: '2020-01-01', valid_to: '2030-01-01' },
+            { id: 'd2', worker_id: 'w1', kind: 'trade_licence', valid_from: '2020-01-01', valid_to: null },
+            { id: 'd3', worker_id: 'w1', kind: 'contract', valid_from: '2026-09-01', valid_to: '2027-01-01' },
+          ],
+          assignments: [{ id: 'a1', subcontract_id: 'sc1', worker_id: 'w1',
+            status: 'active', date_from: '2026-10-01', date_to: '2026-12-31' }],
+          overrides: [], assignment_checks: [],
+          v_worker_stay: [{ worker_id: 'w1', subcontract_id: 'sc1',
+            date_from: '2026-09-28', date_to: null }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          Sub.loaded = false;
+          await Sub.load();
+          const view = document.getElementById('view');
+          // `Sub.detail()` ide cez router a adresu; tu ide o samotnú
+          // obrazovku, tak sa vykreslí priamo.
+          await Sub.profile(view, 'sc1');
+          const t = view.innerText;
+          // Odškrtávacie tlačidlo smie byť jediné — to na pokyny.
+          const ticks = [...view.querySelectorAll('button')]
+            .filter(b => (b.getAttribute('onclick') || '').includes('toggleCheck'))
+            .map(b => b.getAttribute('onclick'));
+          Sub.whyCheck('a1');
+          const why = document.querySelector('#ui-modal .modal-card');
+          const whyText = why ? why.innerText : '';
+          UI.closeModal();
+          return {
+            // `.form-section` je v CSS uppercase a innerText to rešpektuje.
+            head: t.toLowerCase().includes('pred nasadením'),
+            veta: t.includes('Nástup blokuje'),
+            a1: t.includes('Platné A1'),
+            zivnost: t.includes('Živnostenský list'),
+            zoll: t.includes('Zapísané na zákazke'),
+            pobyt: t.includes('Má pobyt na celý čas nasadenia'),
+            ticks, whyText,
+          };
+        })();
+      });
+
+      ok(out.head, 'checklist je v detaile zákazky');
+      ok(out.veta, 'a začína vetou, čo blokuje nástup');
+      ok(out.a1, 'chýbajúce A1 je v ňom vidieť');
+      ok(out.zivnost, 'a živnostenský list, ktorý vo v1 chýbal, tiež');
+      ok(out.zoll, 'čo je zo zákazky, to povie');
+      ok(out.pobyt, 'ubytovanie sa číta z pobytov');
+      ok(out.ticks.length === 1, 'odškrtnúť sa dá jediný bod',
+        `našiel som ${out.ticks.length}: ${out.ticks.join(', ')}`);
+      ok(out.ticks[0] && out.ticks[0].includes('instructions'),
+        'a je to ten, ktorý appka vedieť nemôže');
+      ok(out.whyText.includes('Sociálna poisťovňa'), 'pri každom bode je „prečo"');
+      ok(out.whyText.includes('kartotéky'), 'aj to, odkiaľ sa odpoveď berie');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Tlač do PDF ───────────────────────────────────────────────────────
     // PDF sa v appke nerobí knižnicou, ale tlačou prehliadača. To znamená, že
     // o výsledku rozhodujú štýly — a tie sa dajú pokaziť odinakiaľ. Prehľad

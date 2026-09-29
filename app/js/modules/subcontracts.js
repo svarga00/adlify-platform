@@ -20,6 +20,7 @@
   const Sub = {
     items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [],
     periods: [], crews: [], stays: [], occupancy: [], overrides: [],
+    assignmentChecks: [],
     loaded: false, filters: { status: '', work_type: '' },
     _cur: null,
 
@@ -44,7 +45,9 @@
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
       this.overrides = ovr.data || [];
       const [ch, sa, accs, per, ts, cr, occ, st] = await Promise.all([
-        DB.list('checklist_items', { order: { column: 'step_order' }, limit: 3000 }),
+        // v2 tabuľka: body sú viazané na kľúč pravidla, nie na voľný text,
+        // ktorý sa pri preklepe rozdvojí (migrácia 017).
+        DB.list('assignment_checks', { limit: 3000 }),
         DB.list('subcontract_accommodations', { limit: 1000 }),
         DB.list('accommodations', { select: 'id,name,city,address,max_persons,price_month,lat,lng', limit: 500 }),
         DB.list('periods', { order: { column: 'period_from', ascending: false }, limit: 500 }),
@@ -55,7 +58,7 @@
         DB.list('v_lodging_occupancy', { limit: 1000 }),
         DB.list('v_worker_stay', { limit: 2000 }),
       ]);
-      this.checklist = ch.data || [];
+      this.assignmentChecks = ch.data || [];
       this.lodging = sa.data || [];
       this.accommodations = accs.data || [];
       this.periods = per.data || [];
@@ -305,24 +308,8 @@
         <div class="form-section">Obdobia a podklady</div>
         ${this.periodsHtml(sc)}
 
-        ${asg.filter(a => a.status !== 'cancelled').map(a => {
-          const w = this.workerOf(a.worker_id);
-          const ch = this.checklist.filter(x => x.assignment_id === a.id);
-          if (!ch.length) return '';
-          const done = ch.filter(x => x.done).length;
-          const blocking = ch.filter(x => x.required && !x.done).length;
-          return `<div class="form-section">Pred nasadením · ${UI.esc(w?.full_name || '')}
-              <span style="float:right;font-family:inherit;letter-spacing:0;text-transform:none;
-                color:${blocking ? 'var(--red)' : 'var(--green)'};">${done}/${ch.length}</span></div>
-            ${ch.map(x => `<div class="list-row" style="align-items:flex-start;">
-              <button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${x.done ? 'var(--green)' : 'var(--ink-mute)'};"
-                onclick="Sub.toggleCheck('${x.id}')">${Icon('check', 17)}</button>
-              <span style="flex:1;font-size:13px;">
-                <strong style="${x.done ? 'text-decoration:line-through;opacity:.55;' : ''}">${UI.esc(x.title)}</strong>
-                ${x.required ? '' : UI.badge('voliteľné', 'gray')}
-                ${x.description ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(x.description)}</span>` : ''}
-              </span></div>`).join('')}`;
-        }).join('')}
+        ${asg.filter(a => a.status !== 'cancelled')
+          .map(a => this.checklistHtml(sc, a)).join('')}
 
         <div class="form-section">Ubytovanie a doprava</div>
         ${this.lodgingHtml(sc, asg)}
@@ -897,13 +884,111 @@
       this.detail(scId);
     },
 
-    async toggleCheck(id) {
-      const x = this.checklist.find(c => c.id === id);
-      if (!x) return;
-      const on = !x.done;
-      await DB.update('checklist_items', id, { done: on, done_at: on ? new Date().toISOString() : null });
-      x.done = on;
-      this.detail(this._cur.id);
+    // ── Checklist pred nasadením ──────────────────────────────────────────
+    // Osem z deviatich bodov appka vie sama: doklady z kartotéky, §48b a Zoll
+    // zo zákazky, ubytovanie z pobytov, dopravu zo zákazky. Ručne sa
+    // odškrtáva jediný — odovzdané pokyny, ktoré nikde inde nie sú.
+    //
+    // Predtým sa odškrtávalo všetkých deväť. „Platné A1" sa dalo odškrtnúť
+    // aj vtedy, keď A1 v kartotéke nebolo, a appka tak mala dve odpovede na
+    // tú istú otázku — pričom tá nesprávna svietila nazeleno.
+
+    checklistHtml(sc, a) {
+      const w = this.workerOf(a.worker_id);
+      const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
+      const ovr = this.overridesOf(a.worker_id);
+      const v = st
+        ? Shell.evaluate(st.ready.reasons, ovr, a.date_from || undefined)
+        : { open: [], waived: [] };
+
+      const rows = DanubraChecks.build({
+        assignment: a, subcontract: sc, worker: w || {},
+        blocking: v.open.map(r => r.rule),
+        waived: v.waived.map(r => r.rule),
+        stays: this.stays, checks: this.assignmentChecks,
+      });
+      const p = DanubraChecks.progress(rows);
+
+      const row = (r) => {
+        const color = r.state === 'ok' ? 'var(--green)'
+          : r.state === 'waived' ? 'var(--amber)' : 'var(--ink-mute)';
+        const ico = r.state === 'waived' ? 'shield' : 'check';
+        // Odškrtávacie tlačidlo len tam, kde sa odškrtáva. Inde je to značka
+        // stavu — klikanie na ňu by sľubovalo niečo, čo sa nestane.
+        const mark = r.canTick
+          ? `<button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${color};"
+               title="Odškrtnúť" onclick="Sub.toggleCheck('${a.id}','${r.key}')">${Icon(ico, 17)}</button>`
+          : `<span style="padding:2px 4px;color:${color};line-height:1;">${Icon(ico, 17)}</span>`;
+        return `<div class="list-row" style="align-items:flex-start;cursor:default;">
+          ${mark}
+          <span style="flex:1;font-size:13px;min-width:0;">
+            <strong style="${r.state !== 'open' ? 'text-decoration:line-through;opacity:.55;' : ''}">${
+              UI.esc(r.title)}</strong>
+            ${r.required ? '' : UI.badge('nepovinné', 'gray')}
+            ${r.state === 'waived' ? UI.badge('výnimka', 'amber') : ''}
+            ${r.canTick ? UI.badge('odškrtáva človek', 'blue') : ''}
+            <span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(r.detail)}</span>
+          </span>
+          <button class="icon-btn" title="Prečo to tu je" style="flex:0 0 auto;"
+            onclick="Sub.whyCheck('${r.key}')">?</button>
+        </div>`;
+      };
+
+      return `<div class="form-section">Pred nasadením · ${UI.esc(w?.full_name || '')}
+          <span style="float:right;font-family:inherit;letter-spacing:0;text-transform:none;
+            color:${p.blocking ? 'var(--red)' : 'var(--green)'};">${p.done}/${p.total}</span></div>
+        <div style="font-size:13px;margin:0 0 6px;color:${p.blocking ? 'var(--red)' : 'var(--ink-sub)'};">
+          ${UI.esc(DanubraChecks.sentence(rows))}</div>
+        ${rows.map(row).join('')}`;
+    },
+
+    /**
+     * Prečo je ten bod v checkliste. Text je v `lib/staffing/checks.js`, teda
+     * na jedinom mieste — nie v registri vysvetliviek, kde by sa pri zmene
+     * pravidla musel opraviť druhýkrát.
+     */
+    whyCheck(key) {
+      const c = DanubraChecks.CHECKS.find(x => x.key === key);
+      if (!c) return;
+      const kde = {
+        doc: 'Číta sa z kartotéky živnostníka — z dokladov a ich platnosti.',
+        subcontract: 'Číta sa zo zákazky.',
+        stay: 'Číta sa z pobytov, teda z toho, koho si zapísal na ubytovanie.',
+        transport: 'Číta sa zo zákazky, zo sekcie Doprava.',
+        manual: 'Toto appka vedieť nemôže, preto sa odškrtáva rukou.',
+      }[c.source];
+      UI.modal(c.title, `
+        <p style="margin:0 0 10px;font-size:14px;line-height:1.6;">${UI.esc(c.why)}</p>
+        <div class="regimebox" style="margin:0;">${UI.esc(kde)}${
+        c.required ? '' : ' Tento bod nástup <strong>neblokuje</strong>.'}</div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button>
+        </div>`);
+    },
+
+    /**
+     * Odškrtne ručný bod. Riadok sa zakladá až pri prvom kliknutí — zakladať
+     * ho pri nasadení by znamenalo deväť riadkov, z ktorých osem appka
+     * aj tak vie sama.
+     */
+    async toggleCheck(assignmentId, key) {
+      if (!DanubraChecks.MANUAL.includes(key)) {
+        return UI.toast('Toto sa neodškrtáva — appka to vie sama', 'err');
+      }
+      const have = this.assignmentChecks.find(x =>
+        x.assignment_id === assignmentId && x.rule_key === key);
+      const on = !(have && have.done);
+      const patch = { done: on, done_at: on ? new Date().toISOString() : null };
+
+      const { error } = have
+        ? await DB.update('assignment_checks', have.id, patch)
+        : await DB.insert('assignment_checks', {
+          assignment_id: assignmentId, rule_key: key, required: true, ...patch });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+
+      const ch = await DB.list('assignment_checks', { limit: 3000 });
+      this.assignmentChecks = ch.data || this.assignmentChecks;
+      if (this._cur) this.detail(this._cur.id);
     },
 
     async saveAsg(scId) {
@@ -933,19 +1018,11 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       await DB.update('workers', d.worker_id, { status: 'deployed' }).catch(() => {});
 
-      // založ pre-deployment checklist z predvolených krokov
-      try {
-        const st = await this._settings();
-        const steps = st?.staffing?.checklist_default || [];
-        if (steps.length && asg?.id) {
-          await DB.from('checklist_items').insert(steps.map((x, i) => ({
-            assignment_id: asg.id, step_order: i, title: x.title,
-            description: x.description || null, required: x.required !== false,
-          })));
-        }
-      } catch (e) { console.warn('[subcontracts] checklist:', e.message); }
-
-      UI.toast('Pracovník nasadený, checklist založený', 'ok');
+      // Checklist sa už nezakladá. Predtým sa pri každom nasadení vložilo
+      // deväť riadkov s voľným textom z nastavení — a osem z nich appka vie
+      // sama z dokladov, zákazky a pobytov. Zostal jeden ručný bod a ten
+      // vznikne až pri prvom odškrtnutí; dovtedy nemá čo zapisovať.
+      UI.toast('Pracovník nasadený', 'ok');
       await this.load(); this.detail(scId);
     },
 
