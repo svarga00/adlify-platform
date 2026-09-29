@@ -151,10 +151,13 @@
               ${m[1]}${sc ? ` · ${UI.esc(sc.title)}` : ''}${t.description ? ` · ${UI.esc(t.description)}` : ''}</span>
           </span>
           <strong style="font-variant-numeric:tabular-nums;">${Number(t.hours).toLocaleString('sk-SK')} h</strong>
-          <button class="btn btn-ghost btn-sm" onclick="Tms.toggleApprove('${t.id}')"
-            title="${t.approved ? 'Potvrdené' : 'Potvrdiť'}"
-            style="color:${t.approved ? 'var(--green)' : 'var(--ink-mute)'};">${Icon('check', 15)}</button>
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Tms.del('${t.id}')">${Icon('x', 15)}</button>
+          <span class="row-acts">
+            <button class="btn btn-ghost btn-sm tap" onclick="Tms.toggleApprove('${t.id}')"
+              title="${t.approved ? 'Potvrdené' : 'Potvrdiť'}"
+              style="color:${t.approved ? 'var(--green)' : 'var(--ink-mute)'};">${Icon('check', 15)}</button>
+            <button class="btn btn-ghost btn-sm tap tap-far" style="color:var(--red);"
+              title="Zmazať" onclick="Tms.del('${t.id}')">${Icon('x', 15)}</button>
+          </span>
         </div>`;
     },
 

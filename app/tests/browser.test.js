@@ -540,6 +540,130 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Telefón ───────────────────────────────────────────────────────────
+    // Hodiny a výkaz sa zapisujú na stavbe, teda na telefóne. Keď sa stránka
+    // posúva do boku, nedá sa to používať vôbec: pri každom ťahu prstom
+    // odskočí obsah a spodné menu ujde mimo obrazovku.
+    //
+    // Presne to sa dialo na Úlohách: prepínač stavov mal `width:max-content`
+    // bez stropu, roztiahol **celý dokument** na 635 px namiesto 390 a spodné
+    // menu, ktoré je `position:fixed` cez šírku dokumentu, sa roztiahlo s ním.
+    // V CSS bolo dvadsaťpäť `@media` pravidiel, takže to vyzeralo vyriešene —
+    // na skutočnej šírke to nikto neotvoril.
+    {
+      const ctx = await browser.newContext({
+        viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+        isMobile: true, hasTouch: true,
+      });
+      const page = await ctx.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+      });
+
+      const routes = await page.evaluate(() =>
+        Danubra.allNav().map(x => x[0]).filter(r => Danubra.routeAvailable(r)));
+
+      const siroke = [];
+      for (const r of routes) {
+        await page.evaluate((x) => Danubra.go(x), r);
+        await page.waitForTimeout(160);
+        const o = await page.evaluate(() => ({
+          scroll: document.documentElement.scrollWidth,
+          okno: document.documentElement.clientWidth,
+          // Čo presne pretieklo — bez toho sa to hľadá po jednom prvku.
+          kto: [...document.querySelectorAll('#app *')]
+            .filter((el) => {
+              const b = el.getBoundingClientRect();
+              return b.width && b.height
+                && b.right - document.documentElement.clientWidth > 2
+                && getComputedStyle(el).position !== 'fixed';
+            })
+            .map(el => `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]}`)
+            .slice(0, 3),
+        }));
+        if (o.scroll > o.okno + 2) siroke.push(`${r}: ${o.scroll}px (${o.kto.join(', ')})`);
+      }
+      ok(siroke.length === 0, `žiadna obrazovka sa na telefóne neposúva do boku (${routes.length})`,
+        siroke.slice(0, 4).join('\n    '));
+
+      // Na čo sa klepá prstom, musí byť dosť veľké. Odporúčanie je 44 px;
+      // 40 je minimum, pod ktoré appka nesmie ísť.
+      const male = await page.evaluate(() => {
+        Danubra.go('timesheets');
+        return new Promise((res) => setTimeout(() => {
+          const out = [...document.querySelectorAll('.row-acts .btn')]
+            .map(b => b.getBoundingClientRect())
+            .filter(r => r.width < 40 || r.height < 40).length;
+          res(out);
+        }, 300));
+      });
+      ok(male === 0, 'tlačidlá v riadku sa dajú trafiť prstom', `${male} je menších než 40 px`);
+
+      // Výkaz má dvanásť stĺpcov a na telefóne sa doň pozerá cez okienko
+      // široké ako dlaň. Keď sa posunie do boku, meno musí zostať vidieť —
+      // inak človek nevie, čí riadok práve číta.
+      const meno = await page.evaluate(() => {
+        // Výkaz sa bez partie nevykreslí — bez dát by test nemal čo merať.
+        const DATA = {
+          crews: [{ id: 'c1', name: 'Partia Nitra', status: 'active' }],
+          crew_members: [{ crew_id: 'c1', worker_id: 'w1', role: 'leader' },
+            { crew_id: 'c1', worker_id: 'w2', role: 'member' }],
+          workers: [{ id: 'w1', full_name: 'Ján Novák' }, { id: 'w2', full_name: 'Peter Kováč' }],
+          subcontracts: [{ id: 'sc1', title: 'Wohnpark', contract_number: 'ZAK-1',
+            site_city: 'Stuttgart', partner_id: 'p1', status: 'active' }],
+          partners: [{ id: 'p1', name: 'Vogel GmbH' }],
+          hour_sheets: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        // Výkaz si hodiny nedoťahuje cez `DB.list`, ale reťazeným dotazom.
+        // Bez neho obrazovka zostane na „Načítavam…" a test by meral prázdno.
+        const q = new Proxy({}, { get: (_t, k) =>
+          (k === 'then' ? ((ok) => ok({ data: [], error: null })) : () => q) });
+        DB.from = () => q;
+        HS.loaded = false;
+        HS.weekLoaded = false;
+        Danubra.go('hoursheet');
+        // Výkaz si dobieha ešte týždeň zvlášť, tak sa počká na tabuľku,
+        // nie na pevný čas — inak test padá podľa rýchlosti stroja.
+        const cakaj = (ms) => new Promise((r) => setTimeout(r, ms));
+        return (async () => {
+          for (let i = 0; i < 40 && !document.querySelector('.hs-table'); i++) await cakaj(100);
+          return new Promise((res) => setTimeout(() => {
+          const paper = document.querySelector('.hs-paper');
+          const cell = document.querySelector('.hs-table .hs-name');
+          if (!paper || !cell) return res({ preco: 'výkaz sa nevykreslil: '
+            + (document.getElementById('view').innerText || '').slice(0, 120) });
+          const pred = Math.round(cell.getBoundingClientRect().left);
+          paper.scrollLeft = 200;
+          setTimeout(() => res({
+            pred, po: Math.round(cell.getBoundingClientRect().left),
+            posun: paper.scrollLeft,
+          }), 60);
+          }, 50));
+        })();
+      });
+      if (meno.preco) {
+        ok(false, 'meno vo výkaze zostane vidieť pri posúvaní', meno.preco);
+      } else {
+        ok(meno.posun === 0 || Math.abs(meno.po - meno.pred) <= 2,
+          'meno vo výkaze zostane vidieť aj po posunutí do boku',
+          `pred ${meno.pred}px, po ${meno.po}px (posun ${meno.posun})`);
+      }
+
+      ok(chyby.length === 0, 'a na telefóne nič nespadne', chyby.slice(0, 3).join('; '));
+      await ctx.close();
+    }
+
     // ── Checklist pred nasadením ──────────────────────────────────────────
     // Osem z deviatich bodov sa počíta z dát. To sa dá otestovať aj bez
     // prehliadača; čo sa bez neho otestovať nedá, je či sa v detaile zákazky

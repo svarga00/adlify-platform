@@ -83,7 +83,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .btn-blue { background: var(--blue); color: #fff; }
 .btn-danger { background: var(--red); color: #fff; }
 .btn-sm { padding: 7px 12px; font-size: 12.5px; }
-.btn-block { width: 100%; }
+/* Tlačidlá majú `white-space: nowrap`, aby sa krátky popis nezlomil na dva
+   riadky. Pri tlačidle cez celú šírku to ale znamená, že dlhý text vytečie
+   von — „Zdvihol som telefón — naberať rovno teraz" na telefóne presahovalo
+   o 21 px a posúvalo celú stránku do boku. Cez celú šírku je miesta dosť,
+   tak nech sa text zlomí. */
+.btn-block { width: 100%; white-space: normal; }
 
 /* ── Login ───────────────────────────────────────────────────────────────── */
 .login-screen {
@@ -459,7 +464,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: inline-flex; align-items: center; padding: 3px 9px; border-radius: var(--radius);
   font-size: 11.5px; font-weight: 700; white-space: nowrap; flex: none;
 }
-.pillbar { display: flex; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); flex-wrap: wrap; }
+/* `max-width` je tu naschvál. Prepínače sa vykresľujú so `width:max-content`,
+   aby na širokej obrazovke obopli text a neťahali sa cez pol stránky. Bez
+   stropu ale na telefóne roztiahli **celý dokument** na šírku obsahu — a keďže
+   spodné menu je `position:fixed` cez celú šírku dokumentu, roztiahlo sa
+   s ním. Obrazovka Úlohy mala takto 635 px namiesto 390 a celá stránka sa
+   posúvala do boku. Strop v CSS to rieši raz a pre všetky prepínače vrátane
+   tých, ktoré ešte len pribudnú; `max-width` prebije `width` vždy. */
+.pillbar { display: flex; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); flex-wrap: wrap; max-width: 100%; }
 .pill {
   border: 0; background: transparent; border-radius: var(--radius); padding: 6px 13px;
   font-size: 12.5px; font-weight: 600; color: var(--ink-sub); cursor: pointer;
@@ -707,16 +719,35 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .tab {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
     background: transparent; border: 0; cursor: pointer; flex: 1; padding: 0;
+    /* Bez `min-width:0` sa položka nezmenší pod šírku svojho textu, takže
+       „Kandidáti" pretlačilo spodné menu o pár pixelov za okraj — a keďže je
+       cez celú šírku dokumentu, posunula sa s ním celá stránka. */
+    min-width: 0;
   }
   .tab-ico { width: 19px; height: 19px; border-radius: var(--radius-sm); border: 2px solid var(--ink-mute); display: block; }
-  .tab-label { font-size: 10.5px; font-weight: 700; color: var(--ink-mute); }
+  .tab-label {
+    font-size: 10.5px; font-weight: 700; color: var(--ink-mute);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .tab.active .tab-ico { border-color: var(--brand); background: rgba(240,126,34,.15); }
   .tab.active .tab-label { color: var(--brand); }
   .tab-plus .tab-ico {
     width: 40px; height: 40px; border-radius: var(--radius); background: var(--brand); border: 0;
     color: #fff; font-size: 22px; line-height: 40px; text-align: center; font-weight: 400;
   }
+
+  /* ── Čo sa robí prstom ────────────────────────────────────────────────
+     Hodiny sa zapisujú na stavbe, teda na telefóne a často v rukaviciach.
+     Tlačidlo veľké 28 px sa trafí ťažko a **potvrdiť** a **zmazať** boli
+     vedľa seba na pravom okraji, kam palec dopadá sám. Zmazaný zápis hodín
+     sa nedá vrátiť klepnutím späť, tak nech sú aspoň ďalej od seba. */
+  .row-acts { display: flex; align-items: center; gap: 2px; flex: none; }
+  .tap { min-width: 40px; min-height: 40px; }
+  .tap-far { margin-left: 10px; }
 }
+
+/* Na myši stačí to, čo bolo — väčšie tlačidlá by rozhodili riadok. */
+.row-acts { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(10,27,61,.45); z-index: 39; }
 .sidebar-backdrop.show { display: block; }
 
@@ -1524,7 +1555,15 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .hs-table thead th span {
   display: block; font-weight: 400; font-size: 10.5px; color: var(--ink-mute);
 }
-.hs-table .hs-name { text-align: left; font-weight: 600; white-space: nowrap; }
+/* Meno zostane vidieť aj pri posúvaní do boku. Výkaz má dvanásť stĺpcov
+   a na telefóne sa doň pozerá cez okienko širokú ako dlaň — bez pripnutého
+   prvého stĺpca človek posunie tabuľku a už nevie, čí je to riadok. */
+.hs-table .hs-name {
+  text-align: left; font-weight: 600; white-space: nowrap;
+  position: sticky; left: 0; z-index: 1; background: #fff;
+}
+.hs-table tfoot .hs-name { background: var(--navy); }
+.hs-span .hs-name { background: #FBFCFE; }
 .hs-table .hs-total { background: var(--field); font-weight: 700; }
 .hs-table tfoot td { background: var(--navy); color: #fff; font-weight: 700; border-color: var(--navy); }
 .hs-table tfoot .hs-name { color: #fff; }
