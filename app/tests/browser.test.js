@@ -544,6 +544,124 @@ console.log('Prehliadač');
     }
 
 
+
+    // ── Remeslo ako lekcia a skúšanie ─────────────────────────────────────
+    // Nábor nerobí stavbár. Toto je obrazovka, z ktorej sa má človek naučiť
+    // remeslo — takže sa testuje presne to: že sa dá otvoriť, že sekcie idú
+    // v poradí na čítanie, a že skúšanie **neukáže odpoveď skôr**, než si ju
+    // človek premyslí. Odhalená odpoveď vopred znamená, že si prečíta
+    // riešenie a bude si myslieť, že ho vedel.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        Trades.loaded = true;
+        Trades.trades = [
+          { key: 'trockenbau', name_sk: 'Sadrokartonár', name_de: 'Trockenbauer',
+            lohngruppe: 'LG2', summary: 'Najžiadanejšie remeslo.',
+            day_in_life: 'Ráno sa vymeria čiara.',
+            vocab: [{ de: 'Ständerwerk', sk: 'nosný rošt', note: 'Kostra priečky.' }],
+            work_scope: ['montáž priečok'], materials: ['GKB'], tools: ['skrutkovač'],
+            standards: ['Q2 — bežný štandard'], daily_output: '25–35 m²',
+            certificates: ['živnostenský list'], red_flags: ['nevie rozteč'],
+            pay_note: 'Najtvrdšia konkurencia o ľudí.',
+            rate_worker_min: 16, rate_worker_max: 20,
+            rate_client_min: 26, rate_client_max: 32 },
+          { key: 'montaznik', name_sk: 'Montážnik', name_de: 'Monteur',
+            summary: 'Montuje hotové diely.', rate_worker_min: 15.9, rate_worker_max: 18,
+            rate_client_min: 25, rate_client_max: 29 },
+        ];
+        Trades.questions = Array.from({ length: 6 }, (_, i) => ({
+          id: `q${i}`, trade_key: 'trockenbau', question_sk: `Otázka číslo ${i}?`,
+          good_answer: `Správna odpoveď ${i}`, red_flag_answer: `Zbystri ${i}`,
+          kind: 'knowledge', weight: 1, sort_order: i, active: true }));
+        Trades.basics = [{ code: 'polier', title: 'Kto je Polier',
+          body: 'Majster stavby.', sort_order: 1, active: true }];
+
+        const res = {};
+        return (async () => {
+          Danubra.go('trades');
+          await new Promise(r => setTimeout(r, 300));
+          Trades.setTab('trades');
+          await new Promise(r => setTimeout(r, 200));
+          const zoznam = document.getElementById('view');
+          res.karty = zoznam.querySelectorAll('.trade-card').length;
+          res.zoznamText = zoznam.innerText.replace(/\s+/g, ' ');
+
+          Trades.open('trockenbau');
+          await new Promise(r => setTimeout(r, 300));
+          const v = document.getElementById('view');
+          res.nadpisy = [...v.querySelectorAll('.lesson-card .card-title')]
+            .map(x => x.textContent.trim());
+          res.lekcia = v.innerText.replace(/\s+/g, ' ');
+          res.hash = location.hash;
+
+          // Skúšanie: odpoveď sa nesmie ukázať skôr, než si ju človek vyžiada.
+          Trades.startQuiz('trockenbau');
+          await new Promise(r => setTimeout(r, 250));
+          const q1 = document.getElementById('quiz').innerText;
+          res.predOdhalenim = q1;
+          Trades.revealQuiz();
+          await new Promise(r => setTimeout(r, 200));
+          res.poOdhaleni = document.getElementById('quiz').innerText;
+          const prva = Trades.quiz.deck[0].id;
+          Trades.nextQuiz(true);
+          await new Promise(r => setTimeout(r, 200));
+          res.dalsia = Trades.quiz.deck[Trades.quiz.i].id !== prva;
+          res.znovaSkryte = !document.getElementById('quiz').innerText.includes('Čo chcem počuť');
+          res.skore = Trades.quiz.hit;
+
+          Trades.closeLesson();
+          await new Promise(r => setTimeout(r, 250));
+          res.hashPoZavreti = location.hash;
+          return res;
+        })();
+      });
+
+      ok(out.karty === 2, 'remeslá sú karty, nie riadky', `našiel som ${out.karty}`);
+      ok(out.zoznamText.includes('6 otázok'), 'na karte je počet otázok');
+      ok(out.zoznamText.includes('0 otázok'),
+        'a nula sa skloňuje správne — „0 otázok", nie „0 otázky"');
+      ok(out.zoznamText.includes('15,90'), 'sadzba má desatinnú čiarku, nie bodku',
+        out.zoznamText.slice(0, 160));
+
+      const cakane = ['Čo to je', 'Deň na stavbe', 'Slovíčka, ktoré budeš počuť',
+        'Čo na stavbe robí', 'S čím pracuje', 'Čím pracuje — vlastné náradie',
+        'Podľa čoho sa to meria', 'Koľko toho za deň spraví', 'Čo musí doložiť',
+        'Podľa čoho spoznáš, že to nerobil', 'Peniaze'];
+      ok(out.nadpisy.join('|') === cakane.join('|'),
+        'lekcia ide v poradí na čítanie a peniaze sú na konci',
+        out.nadpisy.join(', '));
+      ok(out.lekcia.includes('Ständerwerk'), 'slovíčka sú v lekcii');
+      ok(out.lekcia.includes('12 z 12'), 'je vidieť, koľko z príručky je hotové');
+      ok(out.lekcia.includes('Kto je Polier'), 'a čo platí na každej stavbe');
+      ok(out.hash.includes('#/trades/trockenbau'),
+        'na remeslo sa dá poslať odkaz', out.hash);
+
+      ok(!out.predOdhalenim.includes('Čo chcem počuť'),
+        'odpoveď sa pred premyslením neukáže');
+      ok(out.predOdhalenim.includes('Otázka 1 z 6'), 'ale je vidieť, kde v balíčku som');
+      ok(out.poOdhaleni.includes('Čo chcem počuť'), 'po vyžiadaní sa odpoveď ukáže');
+      ok(out.poOdhaleni.includes('Pri čom zbystriť'), 'aj to, pri čom zbystriť');
+      ok(out.dalsia, 'ďalšia otázka je iná než prvá');
+      ok(out.znovaSkryte, 'a jej odpoveď je zase skrytá');
+      ok(out.skore === 1, 'čo si človek povie, že vedel, sa počíta');
+      ok(out.hashPoZavreti === '#/trades', 'zavretím sa vrátiš na zoznam');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Zmluva ────────────────────────────────────────────────────────────
     // Zmluva nemala náhľad ani sken a editovať sa dalo sedem polí. Toto
     // overuje presne to, čo sa bez prehliadača otestovať nedá: že tie polia

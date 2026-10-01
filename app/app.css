@@ -2191,3 +2191,53 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   .ask-card { border-radius: var(--radius-lg) var(--radius-lg) 0 0; max-width: none; }
   .ask-actions .btn { flex: 1; }
 }
+
+/* ── Remeslo ako lekcia ────────────────────────────────────────────────────
+   Z tejto obrazovky sa má človek učiť. Zoznam tenkých riadkov sa neučí —
+   ten sa preletí očami a zabudne. */
+.trade-card { cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.trade-card:hover { border-color: var(--blue); }
+.trade-de { font-size: 12.5px; color: var(--ink-mute); margin-top: -2px; }
+.trade-sum { font-size: 13px; line-height: 1.5; color: var(--ink-sub); margin: 2px 0 4px; }
+.trade-state { font-size: 11.5px; color: var(--ink-mute); }
+
+/* Pruh stavu. Percento samo o sebe nič nehovorí — preto je pri ňom veta
+   a menný zoznam toho, čo chýba. */
+.statebar { background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 14px; }
+.statebar-head { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+.statebar-head b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.statebar-head span { color: var(--ink-sub); }
+.statebar-track { background: var(--field); border-radius: 99px; height: 6px;
+  overflow: hidden; margin-top: 8px; }
+.statebar-track i { display: block; height: 100%; background: var(--blue); border-radius: 99px; }
+.statebar-missing { font-size: 11.5px; color: var(--ink-mute); margin-top: 7px; }
+.statebar-green .statebar-track i, .statebar-track.statebar-green i { background: var(--green); }
+.statebar-amber .statebar-track i, .statebar-track.statebar-amber i { background: var(--amber); }
+.statebar-red .statebar-track i, .statebar-track.statebar-red i { background: var(--red); }
+
+.lesson { display: grid; gap: 12px; margin-bottom: 14px; }
+.lesson-card .card-title { margin-bottom: 6px; }
+.lesson-text { font-size: 13.5px; line-height: 1.65; color: var(--ink-sub); margin: 0; }
+.lesson-list { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--ink-sub); }
+.basics summary { cursor: pointer; font-weight: 700; font-size: 13.5px; }
+.basics[open] summary { margin-bottom: 6px; }
+
+/* Slovíčka. Nemecké slovo je to, čo zaznie — preto je prvé a tučné. */
+.vocab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.vocab { background: var(--field); border-radius: var(--radius-sm); padding: 9px 11px; }
+.vocab b { display: block; font-size: 13.5px; color: var(--navy); }
+.vocab span { display: block; font-size: 12.5px; color: var(--ink); }
+.vocab em { display: block; font-size: 11.5px; color: var(--ink-mute); font-style: normal; margin-top: 3px; }
+
+/* Skúšanie */
+.quiz-cta { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.quiz-cta strong { display: block; font-size: 14px; }
+.quiz-cta span { display: block; font-size: 12.5px; color: var(--ink-sub); max-width: 52ch; }
+.quiz-head { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--ink-mute); }
+.quiz-head .statebar-track { flex: 1; margin: 0; }
+.quiz-q { font-size: 17px; font-weight: 700; line-height: 1.45; margin: 14px 0 16px; }
+.quiz-a { border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; font-size: 13px; }
+.quiz-a b { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.quiz-good { background: var(--green-50); color: var(--ink); }
+.quiz-bad { background: var(--amber-50); color: var(--ink); }
