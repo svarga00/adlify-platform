@@ -12,8 +12,8 @@
 // Ochrana: hlavička Authorization: Bearer ${CRON_SECRET}
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
-const { calculateOngoingService, monthlyBillingPeriod } = require('../../danubra/lib/billing/ongoing-service');
-const { determineBillingRegime } = require('../../danubra/lib/billing/regime');
+const { calculateOngoingService, monthlyBillingPeriod } = require('../../app/lib/billing/ongoing-service');
+const { determineBillingRegime } = require('../../app/lib/billing/regime');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',

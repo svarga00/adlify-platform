@@ -9,7 +9,7 @@
 // s FORMS_SECRET, inak by endpoint mohol ktokoľvek zaplniť.
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
-const Sms = require('../../danubra/lib/sms/provider');
+const Sms = require('../../app/lib/sms/provider');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
