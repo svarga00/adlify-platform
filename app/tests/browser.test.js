@@ -548,6 +548,106 @@ console.log('Prehliadač');
 
 
 
+
+    // ── Zaškolenie za hodinu ──────────────────────────────────────────────
+    // Zadanie: „posadím tam hocikoho a za hodinu vie robiť kvalitné nábory."
+    // Podstatná je posledná časť — cvičný hovor. Testuje sa to, čo by inak
+    // ticho pokazilo celé zaškolenie: keby appka ukázala samé dobré odpovede,
+    // človek sa naučí kývať, prejde a appka mu povie, že môže volať.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          trades: [{ key: 'trockenbau', name_sk: 'Sadrokartonár', name_de: 'Trockenbauer' }],
+          screening_questions: Array.from({ length: 8 }, (_, i) => ({
+            id: `q${i}`, trade_key: 'trockenbau', question_sk: `Otázka ${i}?`,
+            good_answer: `Dobrá odpoveď ${i}`, red_flag_answer: `Zlá odpoveď ${i}`,
+            weight: 2, active: true })),
+          trade_basics: [{ code: 'polier', title: 'Kto je Polier',
+            body: 'Majster stavby.', sort_order: 1, active: true }],
+          recruitment_plans: [], candidates: [], subcontracts: [], ads: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        try { localStorage.removeItem('danubra_onboarding'); } catch {}
+
+        const res = {};
+        return (async () => {
+          Hire.loaded = false; Hire.learn = false; Learn.loaded = false;
+          Danubra.go('hiring');
+          await new Promise(r => setTimeout(r, 400));
+          res.vyzva = document.getElementById('view').innerText.replace(/\s+/g, ' ');
+
+          Learn.open();
+          await new Promise(r => setTimeout(r, 400));
+          res.cesta = document.getElementById('view').innerText.replace(/\s+/g, ' ');
+          res.krokov = document.getElementById('view').querySelectorAll('.flow-step').length;
+
+          // Cvičný hovor
+          Learn.save({ trade: 'trockenbau' });
+          Learn.go('practice');
+          await new Promise(r => setTimeout(r, 300));
+          res.kola = Learn.practice.deck.length;
+          res.dobrych = Learn.practice.deck.filter(x => x.accept).length;
+          res.predOdhalenim = document.getElementById('view').innerText.replace(/\s+/g, ' ');
+
+          // Rozhodni zle a over, že to appka povie
+          const prve = Learn.practice.deck[0];
+          Learn.answerPractice(!prve.accept);
+          await new Promise(r => setTimeout(r, 250));
+          res.poZlom = document.getElementById('view').innerText.replace(/\s+/g, ' ');
+
+          // Prejdi celé cvičenie so správnymi odpoveďami
+          Learn.startPractice();
+          await new Promise(r => setTimeout(r, 150));
+          while (Learn.practice.i < Learn.practice.deck.length) {
+            Learn.answerPractice(Learn.practice.deck[Learn.practice.i].accept);
+            Learn.nextPractice();
+          }
+          await new Promise(r => setTimeout(r, 250));
+          res.zaver = document.getElementById('view').innerText.replace(/\s+/g, ' ');
+          return res;
+        })();
+      });
+
+      ok(out.vyzva.includes('Si tu prvýkrát'),
+        'nábor ponúkne zaškolenie tomu, kto ním neprešiel', out.vyzva.slice(0, 160));
+      ok(out.vyzva.includes('Hodina'), 'a povie, koľko to zaberie');
+      ok(out.krokov === 5, 'zaškolenie má päť krokov', `${out.krokov}`);
+      ok(out.cesta.includes('Cvičný hovor'), 'vrátane cvičného hovoru');
+      ok(out.cesta.includes('zostáva 60 minút'), 'a koľko času zostáva',
+        out.cesta.slice(0, 200));
+
+      ok(out.kola === 8, 'cvičný hovor má osem kôl', `${out.kola}`);
+      ok(Math.abs(out.dobrych - 4) <= 1,
+        'polovica odpovedí je dobrá a polovica zlá — inak sa človek naučí kývať',
+        `dobrých ${out.dobrych} z ${out.kola}`);
+      ok(out.predOdhalenim.includes('Kandidát odpovie'),
+        'ukáže sa odpoveď kandidáta');
+      ok(out.predOdhalenim.includes('Beriem to')
+        && out.predOdhalenim.includes('zbystrím'),
+        'a človek sa rozhoduje, či ju prijíma');
+      ok(!out.predOdhalenim.includes('Rozhodol si správne'),
+        'pred rozhodnutím appka neprezradí odpoveď');
+      ok(out.poZlom.includes('Toto bolo inak'),
+        'pri zlom rozhodnutí to appka povie');
+
+      ok(out.zaver.includes('100 %'), 'na konci je výsledok',
+        out.zaver.slice(0, 200));
+      ok(out.zaver.includes('vyrovnane'), 'aj to, ako človek posudzuje');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Jedno miesto na nábor ─────────────────────────────────────────────
     // Nábor bol rozsypaný na šesť položiek v menu a kto naberal, musel
     // vedieť, na ktorej má byť. „Nábor" je teraz vstup: čo treba teraz,

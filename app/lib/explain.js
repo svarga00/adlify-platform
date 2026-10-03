@@ -1191,6 +1191,33 @@
       ],
       links: [['recruiting', 'Zápisy z hovorov']],
     },
+
+    'screen.onboarding': {
+      title: 'Zaškolenie',
+      lead: 'Posaď sem hocikoho a za hodinu vie viesť hovor sám.',
+      what: [
+        'Päť krokov: čo vlastne robíme, jedno remeslo poriadne, skúšanie z neho, '
+        + 'ako vyzerá hovor, a cvičný hovor nanečisto.',
+        'Postup sa drží v tomto prehliadači. Je to osobná vec jedného človeka, '
+        + 'nie firemný záznam o tom, kto čo vie.',
+      ],
+      how: [
+        'Cvičný hovor ukáže odpoveď kandidáta a ty rozhodneš, či ju prijímaš. '
+        + 'Appka potom povie, či si rozhodol správne.',
+        'Polovica odpovedí je dobrá a polovica je tá, pri ktorej treba zbystriť — '
+        + 'inak by sa dalo prejsť tým, že sa na všetko kýve.',
+        'Prijať zlú odpoveď a odmietnuť dobrú sa počítajú zvlášť.',
+      ],
+      why: [
+        'Náborár nemusí vedieť, čo je stupeň kvality Q3. Musí vedieť rozoznať '
+        + 'človeka, ktorý to robil, od človeka, ktorý o tom počul — a to sa '
+        + 'z textu nenaučí, to sa dá len vyskúšať.',
+        'Prijatá zlá odpoveď stojí človeka na stavbe, ktorý to nevie. Prehnaná '
+        + 'prísnosť stojí jeden stratený telefonát. Nie je to tá istá chyba a '
+        + 'appka to hovorí inak.',
+      ],
+      links: [['trades', 'Príručka remesiel'], ['hiring', 'Nábor']],
+    },
   };
 
   /** Vráti tému, alebo `null`. */

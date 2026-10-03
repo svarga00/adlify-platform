@@ -2331,3 +2331,17 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   .flow-now-txt b { font-size: 21px; }
   .flow-go { width: 100%; justify-content: center; }
 }
+
+/* Zaškolenie v Nábore. Veľké, kým ním človek neprešiel — potom jeden riadok. */
+.learn-cta { border-color: var(--blue); background: #F4F8FF; margin-bottom: 14px; }
+.learn-done {
+  display: flex; align-items: center; gap: 10px; font-size: 13px;
+  color: var(--ink-sub); background: var(--green-50); border-radius: var(--radius);
+  padding: 9px 14px; margin-bottom: 14px;
+}
+.practice-answer {
+  font-size: 18px; line-height: 1.5; background: var(--field);
+  border-left: 3px solid var(--navy); border-radius: var(--radius-sm);
+  padding: 14px 16px; margin-top: 4px;
+}
+.nav-card.is-picked { border-color: var(--brand); border-width: 2px; }

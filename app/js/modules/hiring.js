@@ -71,7 +71,13 @@
     },
 
     // ── Zoznam ────────────────────────────────────────────────────────────
+    learn: false,
+
     async view(el) {
+      // Zaškolenie nie je položka v menu — tých je aj tak priveľa. Je to
+      // niečo, čím človek raz prejde, tak býva tu.
+      if (this.learn && window.Learn) return Learn.view(el);
+
       Danubra.setActions(`<button class="btn btn-outline btn-sm" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
@@ -86,6 +92,7 @@
       const teraz = DanubraFlow.next(kroky);
 
       el.innerHTML = Danubra.header('Nábor', 'Päť krokov od potreby po človeka na stavbe')
+        + this.learnHtml()
         + `
         <div class="flow-now${h.hot ? ' flow-hot' : ''}">
           <div class="flow-now-txt">
@@ -124,6 +131,33 @@
         </span>
         ${k.action && !aktivny ? `<button class="btn btn-outline btn-sm"
           onclick="${k.action.onclick}">${UI.esc(k.action.label)}</button>` : ''}
+      </div>`;
+    },
+
+    /**
+     * Zaškolenie. Ukáže sa veľké tomu, kto ním ešte neprešiel — a zmizne,
+     * keď je hotové. Nie je to položka v menu: tých je priveľa a zaškolenie
+     * nie je miesto, kam sa chodí.
+     */
+    learnHtml() {
+      if (!window.Learn || !window.DanubraOnboarding) return '';
+      const s = Learn.status();
+      if (s.ready) {
+        return `<div class="learn-done">
+          ${Icon('check', 15)} Zaškolenie máš za sebou.
+          <button class="btn btn-ghost btn-sm" onclick="Learn.open()">Zopakovať</button>
+        </div>`;
+      }
+      return `<div class="flow-now learn-cta">
+        <div class="flow-now-txt">
+          <b>${s.done ? 'Dokonči zaškolenie' : 'Si tu prvýkrát?'}</b>
+          <span>${s.done
+            ? `Zostávajú ${s.total - s.done} kroky a ${s.minutesLeft} minút.`
+            : 'Hodina a budeš vedieť viesť hovor sám — vrátane cvičného hovoru, '
+              + 'kde appka hovorí za kandidáta.'}</span>
+        </div>
+        <button class="flow-go" onclick="Learn.open()">
+          ${Icon('zap', 22)} ${s.done ? 'Pokračovať' : 'Začať zaškolenie'}</button>
       </div>`;
     },
 
