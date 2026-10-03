@@ -596,16 +596,24 @@ console.log('Prehliadač');
         })();
       });
 
-      ok(out.text.includes('Čo treba teraz'), 'nábor začína tým, čo treba teraz');
-      ok(out.text.includes('Róbert Slávik') && out.html.includes('Guide.continueCall'),
-        'kto čaká na hovor, sa dá zavolať rovno odtiaľto');
-      ok(out.text.includes('čaká 45 min'), 'a je vidieť, ako dlho čaká',
-        out.text.slice(0, 220));
-      ok(out.text.includes('Dávid Urban'), 'rozrobení sú pod tým');
-      ok(out.text.includes('Bežiace inzeráty'), 'vidno, ktoré inzeráty bežia');
-      ok(out.text.includes('Murári Stuttgart FB'), 'aj s menom a tým, čo z nich prišlo');
-      ok(out.text.includes('Zvárači rezerva'),
-        'a povie sa aj o tom, na ktorý sa nikto neozval');
+      // Appka má povedať jednu vec, ktorá sa má spraviť teraz — veľkým
+      // písmom a s jedným veľkým tlačidlom. Nie zoznam, z ktorého si človek
+      // vyberá sám.
+      ok(out.text.includes('Zavolaj — Róbert Slávik'),
+        'navrchu je jedna vec, ktorá sa má spraviť teraz', out.text.slice(0, 200));
+      ok(out.text.includes('Čaká už 45 min'), 'a ako dlho ten človek čaká');
+      ok(out.text.includes('Cieľ je ozvať sa do desiatich minút'),
+        'aj to, prečo to horí');
+      ok(out.html.includes('Guide.continueCall'), 'tlačidlo vedie rovno do hovoru');
+      ok((out.text.match(/Róbert Slávik/g) || []).length === 1,
+        'meno je na obrazovke raz, nie v nadpise aj na tlačidle');
+      ok(out.html.includes('flow-hot'), 'a nad desať minút je to zvýraznené');
+
+      // Päť krokov pod tým: kde v tom reťazci sme.
+      ok((out.html.match(/class="flow-step/g) || []).length === 5,
+        'pod tým je päť krokov reťazca');
+      ok(out.text.includes('z 5 krokov hotových'), 'a koľko z nich je hotových');
+      ok(out.html.includes('is-now'), 'ten, ktorý je na rade, je zvýraznený');
       ok(out.text.includes('Murár × 4'), 'plán ukazuje názov remesla, nie kľúč',
         out.text.slice(0, 300));
       ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),

@@ -2282,3 +2282,52 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 }
 .nav-card b { display: block; font-size: 14px; color: var(--ink); }
 .nav-card em { display: block; font-size: 12px; color: var(--ink-mute); font-style: normal; }
+
+/* ── Nábor krok za krokom ──────────────────────────────────────────────────
+   Veľké a viditeľné, lebo sa to používa pri telefóne a často postojačky.
+   Rozmery sú tie isté ako v sprievodcovi hovorom, ktorý už funguje. */
+.flow-now {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  flex-wrap: wrap; background: #fff; border: 2px solid var(--border);
+  border-radius: var(--radius); padding: 20px 22px; margin-bottom: 14px;
+}
+.flow-now.flow-hot { border-color: var(--brand); background: var(--amber-50); }
+.flow-now-txt { min-width: 0; }
+.flow-now-txt b { display: block; font-size: 25px; line-height: 1.25; letter-spacing: -.01em; }
+.flow-now-txt span { display: block; font-size: 15px; color: var(--ink-sub); margin-top: 5px; }
+.flow-go {
+  flex: 0 0 auto; min-height: 62px; padding: 0 26px; border: 0;
+  border-radius: var(--radius); background: var(--brand); color: #fff;
+  font-size: 18px; font-weight: 700; font-family: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.flow-go:hover { background: var(--brand-dark); }
+.flow-go:active { transform: scale(.985); }
+
+.flow-bar { height: 6px; background: var(--field); border-radius: 99px; overflow: hidden; }
+.flow-bar i { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+.flow-bar-txt { font-size: 12px; color: var(--ink-mute); margin: 5px 0 16px; }
+
+.flow { display: grid; gap: 10px; margin-bottom: 18px; }
+.flow-step {
+  display: flex; align-items: center; gap: 16px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px;
+}
+.flow-n {
+  flex: 0 0 44px; height: 44px; border-radius: 50%; background: var(--field);
+  color: var(--ink-mute); font-size: 19px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.flow-txt { flex: 1; min-width: 0; }
+.flow-txt b { display: block; font-size: 17px; }
+.flow-txt > span { display: block; font-size: 14px; color: var(--ink-sub); margin-top: 2px; }
+.flow-txt em { display: block; font-size: 13px; color: var(--ink-mute); font-style: normal; margin-top: 4px; }
+.flow-done .flow-n { background: var(--green-50); color: var(--green); }
+.flow-hot .flow-n { background: var(--amber-50); color: var(--brand); }
+.flow-step.is-now { border-color: var(--brand); border-width: 2px; padding: 20px 18px; }
+.flow-step.is-now .flow-txt b { font-size: 20px; }
+
+@media (max-width: 560px) {
+  .flow-now-txt b { font-size: 21px; }
+  .flow-go { width: 100%; justify-content: center; }
+}

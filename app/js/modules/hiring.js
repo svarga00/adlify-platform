@@ -72,52 +72,66 @@
 
     // ── Zoznam ────────────────────────────────────────────────────────────
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`);
+      Danubra.setActions(`<button class="btn btn-outline btn-sm" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
-      const active = this.plans.filter(p => p.status === 'active');
-      const need = active.reduce((s, p) => s + (p.headcount || 0), 0);
-      const placed = active.reduce((s, p) =>
-        s + this.candidates.filter(c => c.plan_id === p.id && ['ready', 'placed'].includes(c.status)).length, 0);
-      const margins = active.map(p => S.planMargin(p).marginPerHour).filter(x => x > 0);
-      const avgMargin = margins.length ? (margins.reduce((a, b) => a + b, 0) / margins.length) : 0;
+      // Nábor nie je zoznam, je to postup. Appka má povedať **jednu vec**,
+      // ktorá sa má spraviť teraz, veľkým písmom a s jedným veľkým tlačidlom —
+      // a pod tým ukázať, kde v tých piatich krokoch to viazne.
+      const kroky = DanubraFlow.state({
+        plans: this.plans, ads: this.ads, candidates: this.candidates,
+      });
+      const h = DanubraFlow.headline(kroky);
+      const p = DanubraFlow.progress(kroky);
+      const teraz = DanubraFlow.next(kroky);
 
-      const caka = this.waiting().length;
-      el.innerHTML = Danubra.header('Nábor',
-        [active.length ? `${active.length} ${active.length === 1 ? 'nábor beží' : 'nábory bežia'}` : null,
-          need ? `treba ${need} ${Shell.plural(need, 'človeka', 'ľudí', 'ľudí')}` : null,
-          caka ? `${caka} ${Shell.plural(caka, 'čaká', 'čakajú', 'čaká')} na hovor` : null,
-        ].filter(Boolean).join(' · ') || 'zatiaľ nič nebeží') + `
-
-        <div class="kpi-grid" style="margin-bottom:16px;">
-          <div class="kpi"><div class="kpi-label">Bežiace nábory</div>
-            <div class="kpi-value">${active.length}</div>
-            <div class="kpi-delta">${this.plans.length} celkovo</div></div>
-          <div class="kpi"><div class="kpi-label">Koľko ľudí treba</div>
-            <div class="kpi-value">${need}</div>
-            <div class="kpi-delta ${placed < need ? 'warn' : ''}">${placed} z toho máme</div></div>
-          <div class="kpi"><div class="kpi-label">Priemerná marža</div>
-            <div class="kpi-value${avgMargin ? '' : ' kpi-word'}" style="color:${
-              avgMargin ? (avgMargin >= 6 ? 'var(--green)' : 'var(--amber)') : 'var(--ink-mute)'};">
-              ${avgMargin ? avgMargin.toFixed(1).replace('.', ',') + ' €/h' : 'zatiaľ sa nedá'}</div>
-            <div class="kpi-delta">${avgMargin ? 'na človeka a hodinu'
-              : 'doplň sadzby v krokoch náboru'}</div></div>
-          <div class="kpi"><div class="kpi-label">Remeslá v ponuke</div>
-            <div class="kpi-value">${this.trades.filter(t => t.active !== false).length}</div>
-            <div class="kpi-delta"><a href="#/trades" style="color:inherit;">otvoriť príručku</a></div></div>
+      el.innerHTML = Danubra.header('Nábor', 'Päť krokov od potreby po človeka na stavbe')
+        + `
+        <div class="flow-now${h.hot ? ' flow-hot' : ''}">
+          <div class="flow-now-txt">
+            <b>${UI.esc(h.title)}</b>
+            <span>${UI.esc(h.sub)}</span>
+          </div>
+          ${teraz && teraz.action ? `
+            <button class="flow-go" onclick="${teraz.action.onclick}">
+              ${Icon(teraz.key === 'call' ? 'phone' : 'chevron', 22)}
+              ${UI.esc(teraz.action.label)}</button>` : ''}
         </div>
 
-        ${this.todoHtml()}
-        ${this.adsHtml()}
+        <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
+        <div class="flow-bar-txt">${p.done} z ${p.total} krokov hotových</div>
 
-        <div class="form-section">Náborové plány</div>
-        ${this.plans.length === 0
-          ? UI.empty('zap', 'Zatiaľ žiadny náborový plán',
-              'Povedz systému, koho a koľko potrebuješ — zvyšok ťa prevedie krok za krokom.',
-              `<button class="btn btn-primary" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`)
-          : this.plans.map(p => this.row(p)).join('')}
+        <div class="flow">${kroky.map(k => this.stepHtmlBig(k, teraz)).join('')}</div>
 
+        ${this.plansHtml()}
         ${this.elsewhereHtml()}`;
+    },
+
+    /**
+     * Jeden krok. Ten, ktorý je na rade, je veľký a farebný; ostatné sú
+     * tiché. Keby boli všetky rovnako výrazné, človek by si musel sám
+     * vyberať — a to je presne to, čomu sa vyhýbame.
+     */
+    stepHtmlBig(k, teraz) {
+      const aktivny = teraz && teraz.key === k.key;
+      const stav = k.done ? 'done' : (k.urgent ? 'hot' : 'idle');
+      return `<div class="flow-step flow-${stav}${aktivny ? ' is-now' : ''}">
+        <span class="flow-n">${k.done ? Icon('check', 20) : k.n}</span>
+        <span class="flow-txt">
+          <b>${UI.esc(k.title)}</b>
+          <span>${UI.esc(k.detail)}</span>
+          ${aktivny ? `<em>${UI.esc(k.lead)}</em>` : ''}
+        </span>
+        ${k.action && !aktivny ? `<button class="btn btn-outline btn-sm"
+          onclick="${k.action.onclick}">${UI.esc(k.action.label)}</button>` : ''}
+      </div>`;
+    },
+
+    /** Náborové plány — pod postupom, lebo sú to podrobnosti, nie ďalší krok. */
+    plansHtml() {
+      if (!this.plans.length) return '';
+      return `<div class="form-section">Náborové plány</div>
+        ${this.plans.map(p => this.row(p)).join('')}`;
     },
 
     // ── Čo treba teraz ────────────────────────────────────────────────────
