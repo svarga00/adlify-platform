@@ -31,7 +31,11 @@
   };
 
   const Cand = {
-    items: [], ads: [], loaded: false, view_: 'kanban', filters: { source: '', q: '', outcome: 'active' },
+    items: [], ads: [], loaded: false,
+    // Predvolene zoznam. Kanban s piatimi stĺpcami, z ktorých sú štyri
+    // prázdne, zaberie pol obrazovky a nepovie nič; zmysel má, až keď je
+    // koho presúvať.
+    view_: null, filters: { source: '', q: '', outcome: 'active' },
     plans: [], playbookLoaded: false,
     allChecks: [], allChips: [], candChips: [], chipsLoaded: false,
 
@@ -104,9 +108,10 @@
     },
 
     async view(el) {
-      Danubra.setActions(`
-        <button class="btn btn-outline btn-sm" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>
-        <button class="btn btn-primary btn-sm" onclick="Guide.startCall()">${Icon('phone')} Zdvihol som telefón</button>`);
+      // „Zdvihol som telefón" je dole cez celú šírku — tu by bolo to isté
+      // tlačidlo druhýkrát na jednej obrazovke.
+      Danubra.setActions(
+        `<button class="btn btn-outline btn-sm" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
 
@@ -117,26 +122,13 @@
       const conv = this.items.length ? Math.round((placed / this.items.length) * 100) : 0;
 
       el.innerHTML = Danubra.header(Danubra.labelOf('candidates'),
-        `${this.items.length} kandidátov · ${placed} nasadených · konverzia ${conv} %`) +
+        `${this.items.length} ${Shell.plural(this.items.length, 'kandidát', 'kandidáti', 'kandidátov')}`
+        + (placed ? ` · ${placed} nastúpilo` : '')) +
         (waiting.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${waiting.length} ${waiting.length === 1 ? 'kandidát čaká' : 'kandidátov čaká'}
           na prvý kontakt — cieľ je ozvať sa do desiatich minút.</div>` : '') + `
 
-        <div class="kpi-grid" style="margin-bottom:16px;">
-          <div class="kpi"><div class="kpi-label">V pipeline</div>
-            <div class="kpi-value">${this.items.filter(c => PIPELINE.includes(c.status)).length}</div>
-            <div class="kpi-delta">rozpracovaní</div></div>
-          <div class="kpi"><div class="kpi-label">Priemerná reakcia</div>
-            <div class="kpi-value" style="color:${avg == null ? 'var(--ink-mute)' : avg <= 10 ? 'var(--green)' : 'var(--amber)'};">
-              ${avg == null ? '—' : avg + ' min'}</div>
-            <div class="kpi-delta">cieľ do 10 minút</div></div>
-          <div class="kpi"><div class="kpi-label">Nasadení</div>
-            <div class="kpi-value" style="color:var(--green);">${placed}</div>
-            <div class="kpi-delta">konverzia ${conv} %</div></div>
-          <div class="kpi"><div class="kpi-label">Odmietnutí a stratení</div>
-            <div class="kpi-value">${this.items.filter(c => ['rejected', 'lost'].includes(c.status)).length}</div>
-            <div class="kpi-delta">mimo pipeline</div></div>
-        </div>
+        ${this.kpiHtml(avg, placed, conv)}
 
         <button class="btn btn-primary btn-block call-cta" onclick="Guide.startCall()">
           ${Icon('phone', 18)} Zdvihol som telefón — naberať rovno teraz</button>
@@ -153,18 +145,57 @@
             ${SOURCES.map(s => `<option value="${s[0]}" ${this.filters.source === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
           </select>
           <div class="pillbar" style="margin-left:auto;">
-            <button class="pill${this.view_ === 'kanban' ? ' active' : ''}" onclick="Cand.setView('kanban')">Kanban</button>
-            <button class="pill${this.view_ === 'table' ? ' active' : ''}" onclick="Cand.setView('table')">Zoznam</button>
+            <button class="pill${this.viewMode() === 'table' ? ' active' : ''}" onclick="Cand.setView('table')">Zoznam</button>
+            <button class="pill${this.viewMode() === 'kanban' ? ' active' : ''}" onclick="Cand.setView('kanban')">Kanban</button>
           </div>
         </div>
 
         ${rows.length === 0
           ? UI.empty('workers', 'Žiadni kandidáti', 'Pridaj prvého kandidáta do pipeline.',
               `<button class="btn btn-primary" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`)
-          : this.view_ === 'kanban' ? this.kanban(rows) : this.table(rows)}
+          : this.viewMode() === 'kanban' ? this.kanban(rows) : this.table(rows)}
 
         ${this.closedHtml()}
         ${this.sourcesHtml()}`;
+    },
+
+    /**
+     * Čísla hore.
+     *
+     * Prázdna metrika nesmie vyzerať ako nameraná hodnota. „—" pri priemernej
+     * reakcii a „konverzia 0 %" pri nule kandidátov vyzerá, akoby appka
+     * merala a vyšla jej nula — pritom ešte nie je z čoho počítať. To je
+     * rozdiel, ktorý sa dá povedať slovom.
+     */
+    kpiHtml(avg, placed, conv) {
+      const vProcese = this.items.filter(c => PIPELINE.includes(c.status)).length;
+      const uzavreti = this.items.filter(c => ['placed', 'rejected', 'lost'].includes(c.status)).length;
+      const stratenI = this.items.filter(c => ['rejected', 'lost'].includes(c.status)).length;
+      if (!this.items.length) return '';
+
+      // Slovo nie je číslo: „zatiaľ nemeriame" vo veľkosti čísla sa zalomí
+      // na dva riadky a vyzerá ako chyba. Číslo je veľké, veta nie.
+      const kpi = (label, value, delta, color) => {
+        const slovo = typeof value === 'string' && !/^[\d]/.test(value);
+        return `<div class="kpi"><div class="kpi-label">${label}</div>
+          <div class="kpi-value${slovo ? ' kpi-word' : ''}"${
+            color ? ` style="color:${color};"` : ''}>${value}</div>
+          <div class="kpi-delta">${delta}</div></div>`;
+      };
+
+      return `<div class="kpi-grid" style="margin-bottom:16px;">
+        ${kpi('V procese', vProcese, vProcese ? 'rozpracovaní' : 'zatiaľ nikto')}
+        ${kpi('Priemerná reakcia',
+          avg == null ? 'zatiaľ nemeriame' : `${avg} min`,
+          avg == null ? 'nikomu sme sa ešte neozvali' : 'cieľ do 10 minút',
+          avg == null ? 'var(--ink-mute)' : avg <= 10 ? 'var(--green)' : 'var(--amber)')}
+        ${kpi('Nastúpili', placed,
+          uzavreti ? `z ${uzavreti} uzavretých · ${UI.pct(conv)}`
+            : 'zatiaľ sa nedá počítať',
+          placed ? 'var(--green)' : null)}
+        ${kpi('Odmietnutí a stratení', stratenI,
+          stratenI ? 'mimo procesu' : 'zatiaľ nikto')}
+      </div>`;
     },
 
     kanban(rows) {
@@ -226,7 +257,8 @@
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(c.full_name)}</strong>
             ${c.type === 'crew' ? UI.badge(`partia ${c.crew_size || ''}`.trim(), 'blue') : ''}
-            <span style="color:var(--ink-mute);"> · ${this.professionLabel(c.profession)}</span>
+            ${c.profession ? `<span style="color:var(--ink-mute);"> · ${
+              this.professionLabel(c.profession)}</span>` : ''}
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
               ${UI.esc(this.adLabel(c))} · ${UI.date(c.received_at)}
               ${mins != null ? ` · reakcia ${mins} min` : ' · zatiaľ bez reakcie'}
@@ -290,6 +322,14 @@
 
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
     setView(v) { this.view_ = v; Danubra.renderRoute(); },
+
+    /** Kanban sa oplatí, až keď je v procese dosť ľudí na to, aby sa posúvali. */
+    KANBAN_FROM: 6,
+    viewMode() {
+      if (this.view_) return this.view_;
+      return this.items.filter(c => PIPELINE.includes(c.status)).length >= this.KANBAN_FROM
+        ? 'kanban' : 'table';
+    },
 
     async detail(id) {
       const c = this.items.find(x => x.id === id);

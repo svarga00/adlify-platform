@@ -546,6 +546,146 @@ console.log('Prehliadač');
 
 
 
+
+
+    // ── Jedno miesto na nábor ─────────────────────────────────────────────
+    // Nábor bol rozsypaný na šesť položiek v menu a kto naberal, musel
+    // vedieť, na ktorej má byť. „Nábor" je teraz vstup: čo treba teraz,
+    // čo beží, koho hľadám — a odtiaľ sa chodí na zvyšok.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const davno = new Date(Date.now() - 45 * 60000).toISOString();
+        const DATA = {
+          recruitment_plans: [{ id: 'p1', title: 'Murári na Stuttgart', trade_key: 'murar',
+            headcount: 4, status: 'active', city: 'Stuttgart', offer_rate: 17, client_rate: 27 }],
+          trades: [{ key: 'murar', name_sk: 'Murár', active: true }],
+          screening_questions: [],
+          candidates: [
+            { id: 'c1', full_name: 'Róbert Slávik', status: 'new', received_at: davno, ad_id: 'ad1' },
+            { id: 'c2', full_name: 'Dávid Urban', status: 'contacted',
+              received_at: davno, first_contact_at: davno },
+          ],
+          subcontracts: [],
+          ads: [{ id: 'ad1', title: 'Murári Stuttgart FB', channel: 'facebook', active: true },
+            { id: 'ad2', title: 'Zvárači rezerva', channel: 'portal', active: true }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          Hire.loaded = false;
+          Danubra.go('hiring');
+          await new Promise(r => setTimeout(r, 500));
+          const v = document.getElementById('view');
+          return {
+            text: v.innerText.replace(/\s+/g, ' '),
+            html: v.innerHTML,
+            menu: [...document.querySelectorAll('#sidebar-nav .nav-item')]
+              .map(x => x.textContent.trim()).filter(Boolean),
+          };
+        })();
+      });
+
+      ok(out.text.includes('Čo treba teraz'), 'nábor začína tým, čo treba teraz');
+      ok(out.text.includes('Róbert Slávik') && out.html.includes('Guide.continueCall'),
+        'kto čaká na hovor, sa dá zavolať rovno odtiaľto');
+      ok(out.text.includes('čaká 45 min'), 'a je vidieť, ako dlho čaká',
+        out.text.slice(0, 220));
+      ok(out.text.includes('Dávid Urban'), 'rozrobení sú pod tým');
+      ok(out.text.includes('Bežiace inzeráty'), 'vidno, ktoré inzeráty bežia');
+      ok(out.text.includes('Murári Stuttgart FB'), 'aj s menom a tým, čo z nich prišlo');
+      ok(out.text.includes('Zvárači rezerva'),
+        'a povie sa aj o tom, na ktorý sa nikto neozval');
+      ok(out.text.includes('Murár × 4'), 'plán ukazuje názov remesla, nie kľúč',
+        out.text.slice(0, 300));
+      ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),
+        'a odtiaľto sa dá ísť na zvyšok náboru');
+
+      const i = out.menu.findIndex(x => x.startsWith('Nábor'));
+      const k = out.menu.findIndex(x => x.startsWith('Kandidáti'));
+      ok(i >= 0 && k > i, 'Nábor je v menu pred Kandidátmi', out.menu.join(' | '));
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Obrazovka kandidátov ──────────────────────────────────────────────
+    // Pri štarte vyzerala ako rozbitá: kanban s piatimi stĺpcami, z toho
+    // štyri prázdne, to isté tlačidlo dvakrát a metriky svietiace pomlčkou
+    // a nulou — akoby appka merala a vyšla jej nula, pritom ešte nie je
+    // z čoho počítať.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          candidates: [
+            { id: 'c1', full_name: 'Róbert Slávik', status: 'new', received_at: '2026-10-01' },
+            { id: 'c2', full_name: 'Dávid Urban', status: 'new', received_at: '2026-10-01' },
+          ],
+          candidate_checks: [],
+          ads: [{ id: 'ad1', title: 'Sadrokartonári Stuttgart', channel: 'facebook' }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const res = {};
+        return (async () => {
+          Cand.loaded = false; Cand.view_ = null;
+          Danubra.go('candidates');
+          await new Promise(r => setTimeout(r, 500));
+          const v = document.getElementById('view');
+          res.text = v.innerText.replace(/\s+/g, ' ');
+          res.html = v.innerHTML;
+          res.kanbanov = v.querySelectorAll('.kanban-col').length;
+          res.cta = (res.html.match(/Guide\.startCall\(\)/g) || []).length
+            + (document.getElementById('page-actions')
+              ? (document.getElementById('page-actions').innerHTML.match(/Guide\.startCall/g) || []).length
+              : 0);
+
+          // S dostatkom ľudí v procese má kanban zmysel a zapne sa sám.
+          Cand.items = Array.from({ length: 7 }, (_, i) => ({
+            id: `x${i}`, full_name: `Človek ${i}`, status: 'contacted', received_at: '2026-10-01' }));
+          Danubra.renderRoute();
+          await new Promise(r => setTimeout(r, 300));
+          res.kanbanovVela = document.getElementById('view').querySelectorAll('.kanban-col').length;
+          return res;
+        })();
+      });
+
+      ok(out.cta === 1, 'tlačidlo „Zdvihol som telefón" je na obrazovke raz', `${out.cta}×`);
+      ok(out.kanbanov === 0, 'pri dvoch kandidátoch sa kanban nekreslí',
+        `${out.kanbanov} stĺpcov`);
+      ok(out.kanbanovVela > 0, 'pri siedmich sa zapne sám', `${out.kanbanovVela} stĺpcov`);
+      ok(out.text.includes('zatiaľ nemeriame'),
+        'prázdna metrika povie, že sa ešte nemeria');
+      ok(!out.text.includes('konverzia 0 %'),
+        'a nikde nesvieti konverzia 0 %', out.text.slice(0, 200));
+      ok(out.html.includes('kpi-word'),
+        'veta v metrike nemá veľkosť čísla, aby sa nezalomila');
+      ok(out.text.includes('väzba vzniká pri hovore'),
+        'pri neznámom pôvode sa povie, kde tá väzba vzniká');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Krátky hovor a plný pohovor ───────────────────────────────────────
     // Cieľ je ozvať sa do desiatich minút. Keď sa začne dvadsaťminútovým
     // pohovorom, k tretiemu človeku sa náborár v ten deň nedostane.

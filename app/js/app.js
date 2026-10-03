@@ -94,9 +94,12 @@ window.Danubra = {
                     ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
                     ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts']]],
-    ['ĽUDIA',      [['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
-                    ['hiring', 'Náborové plány', 'zap', 'staffing', 'recruiting'],
+    // Nábor bol rozsypaný na šesť položiek a kto naberal, musel vedieť, na
+    // ktorej má byť. „Nábor" je teraz vstup: čo treba teraz, čo beží, koho
+    // hľadám — a odtiaľ sa chodí na zvyšok.
+    ['ĽUDIA',      [['hiring', 'Nábor', 'zap', 'staffing', 'recruiting'],
                     ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
+                    ['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
                     ['workers', 'Živnostníci', 'workers', 'staffing', null],
                     ['crews', 'Partie', 'workers', 'staffing', null],
                     ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
