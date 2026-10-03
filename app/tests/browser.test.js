@@ -545,6 +545,109 @@ console.log('Prehliadač');
 
 
 
+
+    // ── Krátky hovor a plný pohovor ───────────────────────────────────────
+    // Cieľ je ozvať sa do desiatich minút. Keď sa začne dvadsaťminútovým
+    // pohovorom, k tretiemu človeku sa náborár v ten deň nedostane.
+    //
+    // Druhá vec, ktorú to stráži: záver hovoru nesmie povedať dve veci naraz.
+    // Prvá verzia ukazovala hore „100 % — Ísť na overenie" a pod tým
+    // „Zavolať neskôr, zatiaľ to nie je jasné", lebo sa do rozhodnutia
+    // podal zlý objekt.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        Guide.ads = [{ id: 'ad1', title: 'Sadrokartonári Stuttgart FB',
+          channel: 'facebook', trade_key: 'trockenbau', rate_offered: 18, active: true }];
+        Guide.trades = [{ key: 'trockenbau', name_sk: 'Sadrokartonár' }];
+        Guide.plans = []; Guide.subcontracts = []; Guide.partners = [];
+        Guide.chips = [
+          { id: 1, segment: 'trade', label: 'Vie rozteč profilov', polarity: 'plus', weight: 3, active: true },
+          { id: 2, segment: 'trade', label: 'Pozná Q2 a Q3', polarity: 'plus', weight: 3, active: true },
+          { id: 3, segment: 'legal', label: 'Má aktívnu živnosť', polarity: 'plus', weight: 3, active: true },
+          { id: 4, segment: 'legal', label: 'Nemá A1 a nechce ho', polarity: 'flag', weight: 3, active: true },
+          { id: 5, segment: 'logistics', label: 'Vie nastúpiť', polarity: 'plus', weight: 2, active: true },
+          { id: 6, segment: 'money', label: 'Sadzba sedí', polarity: 'plus', weight: 2, active: true },
+          { id: 7, segment: 'intro', label: 'Predstavil som firmu', polarity: 'plus', weight: 1, active: true },
+          { id: 8, segment: 'verify', label: 'Vie meno Poliera', polarity: 'plus', weight: 2, active: true },
+        ];
+        Guide.questions = [
+          { id: 'q1', trade_key: 'trockenbau', phase: 'phone', question_sk: 'Rozteč?',
+            good_answer: '62,5 cm', weight: 3, active: true },
+        ];
+        Guide.loaded = true; Guide.setup = true;
+        Guide.cand = null; Guide.ad = null; Guide.trade = null; Guide.mode = 'quick';
+
+        const res = {};
+        Guide.open();
+        Guide.pickAd('ad1');
+        res.start = document.getElementById('guide').innerText;
+
+        // Krátky hovor je jedna obrazovka, nie šesť.
+        Guide.cand = { id: 'c1', full_name: 'Jozef Malý', ad_id: 'ad1' };
+        Guide.trade = { key: 'trockenbau', name_sk: 'Sadrokartonár' };
+        Guide.setup = false; Guide.ticked = new Map();
+        Guide.segments = Guide.buildSegments('trockenbau', 'ad1');
+        res.kratkySegmentov = Guide.segments.length;
+        res.kratkyPolia = Guide.segments[0].chips.map(c => c.segment);
+
+        // Plný pohovor má častí viac.
+        Guide.mode = 'full';
+        res.plnySegmentov = Guide.buildSegments('trockenbau', 'ad1').length;
+        Guide.mode = 'quick';
+
+        // Záver: hodnotenie hore a rozhodnutie pod ním si nesmú odporovať.
+        Guide.segments = Guide.buildSegments('trockenbau', 'ad1');
+        for (const id of [1, 2, 3, 5, 6]) Guide.ticked.set(id, Guide.chips.find(c => c.id === id));
+        Guide.segIndex = Guide.segments.length;
+        Guide.render();
+        res.zaver = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
+
+        // Vylučujúca vec prebije aj vysoké skóre.
+        Guide.ticked.set(4, Guide.chips.find(c => c.id === 4));
+        Guide.render();
+        res.sVlajkou = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
+        Guide.close(true);
+        return res;
+      });
+
+      ok(out.start.includes('Krátky hovor') && out.start.includes('Plný pohovor'),
+        'pred hovorom sa dá vybrať krátky alebo plný');
+      ok(out.start.includes('Do troch minút'), 'a je napísané, čím sa líšia');
+
+      ok(out.kratkySegmentov === 1, 'krátky hovor je jedna obrazovka',
+        `${out.kratkySegmentov}`);
+      ok(!out.kratkyPolia.includes('intro') && !out.kratkyPolia.includes('verify'),
+        'bez úvodu a overovania — na to je plný pohovor', out.kratkyPolia.join(','));
+      ok(['trade', 'legal', 'logistics', 'money'].every(k => out.kratkyPolia.includes(k)),
+        'ale remeslo, papiere, termín aj peniaze tam sú', out.kratkyPolia.join(','));
+      ok(out.plnySegmentov > out.kratkySegmentov,
+        'plný pohovor má častí viac', `${out.plnySegmentov} vs ${out.kratkySegmentov}`);
+
+      ok(out.zaver.includes('Pokračovať plným pohovorom'),
+        'zo záveru krátkeho hovoru sa dá prejsť na plný');
+      ok(!out.zaver.includes('Zavolať neskôr'),
+        'pri vysokom skóre sa nehovorí „zavolať neskôr"', out.zaver.slice(0, 200));
+      ok(out.sVlajkou.includes('Nepokračovať'),
+        'vylučujúca vec prebije aj vysoké skóre');
+      ok(!out.sVlajkou.includes('Pokračovať plným pohovorom'),
+        'a vtedy sa plný pohovor neponúka');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Remeslo ako lekcia a skúšanie ─────────────────────────────────────
     // Nábor nerobí stavbár. Toto je obrazovka, z ktorej sa má človek naučiť
     // remeslo — takže sa testuje presne to: že sa dá otvoriť, že sekcie idú

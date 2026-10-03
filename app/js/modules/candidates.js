@@ -31,17 +31,21 @@
   };
 
   const Cand = {
-    items: [], loaded: false, view_: 'kanban', filters: { source: '', q: '', outcome: 'active' },
+    items: [], ads: [], loaded: false, view_: 'kanban', filters: { source: '', q: '', outcome: 'active' },
     plans: [], playbookLoaded: false,
     allChecks: [], allChips: [], candChips: [], chipsLoaded: false,
 
     async load() {
-      const [c, ch] = await Promise.all([
+      const [c, ch, a] = await Promise.all([
         DB.list('candidates', { order: { column: 'received_at', ascending: false }, limit: 500 }),
         DB.list('candidate_checks', { select: 'candidate_id,step_key,item_index,checked', limit: 5000 }),
+        // Bez inzerátov sa nedá povedať, odkiaľ kto prišiel — a to je jediné
+        // číslo, ktorým sa dajú inzeráty porovnať.
+        DB.list('ads', { select: 'id,title,channel,trade_key,city,active', limit: 200 }),
       ]);
       this.items = c.data || [];
       this.allChecks = ch.data || [];
+      this.ads = a.data || [];
       this.loaded = true;
     },
 
@@ -65,6 +69,18 @@
     badge(s) { const m = this.stageMeta(s); return UI.badge(m[1], m[2]); },
     professionLabel(p) { const x = PROFESSIONS.find(y => y[0] === p); return x ? x[1] : (p || '—'); },
     sourceLabel(s) { const x = SOURCES.find(y => y[0] === s); return x ? x[1] : (s || 'neuvedený'); },
+
+    /**
+     * Z ktorého inzerátu kandidát je. Kanál („Facebook") povie málo —
+     * inzerátov na Facebooku môže bežať päť a líšia sa sľúbenou sadzbou.
+     * Preto sa ukazuje názov inzerátu a kanál až pod ním.
+     */
+    adOf(c) { return (this.ads || []).find(a => a.id === c.ad_id) || null; },
+    adLabel(c) {
+      const a = this.adOf(c);
+      if (a) return a.title;
+      return c.source ? DanubraAds.channelLabel(c.source) : 'bez inzerátu';
+    },
 
     /** Koľko minút trvalo ozvať sa. null ak zatiaľ nie. */
     responseMinutes(c) {
@@ -190,7 +206,7 @@
           ${c.outcome === 'hired' ? 'nastúpil' : c.outcome === 'rejected' ? 'zamietnutý'
             : pr.currentStep ? UI.esc(pr.currentStep.title) : 'proces hotový'}</div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;align-items:center;">
-          <span style="color:var(--ink-sub);">${this.sourceLabel(c.source)}</span>
+          <span style="color:var(--ink-sub);" title="Odkiaľ prišiel">${UI.esc(this.adLabel(c))}</span>
           ${c.screening_score != null ? UI.badge(`${Math.round(c.screening_score)} %`,
             c.screening_verdict === 'strong' ? 'green' : c.screening_verdict === 'reject' ? 'red'
               : c.screening_verdict === 'ok' ? 'blue' : 'amber') : ''}
@@ -212,7 +228,7 @@
             ${c.type === 'crew' ? UI.badge(`partia ${c.crew_size || ''}`.trim(), 'blue') : ''}
             <span style="color:var(--ink-mute);"> · ${this.professionLabel(c.profession)}</span>
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${this.sourceLabel(c.source)} · ${UI.date(c.received_at)}
+              ${UI.esc(this.adLabel(c))} · ${UI.date(c.received_at)}
               ${mins != null ? ` · reakcia ${mins} min` : ' · zatiaľ bez reakcie'}
               ${pr.total ? ` · ${UI.pct(pr.percent)}${pr.currentStep && !c.outcome ? ` · ${UI.esc(pr.currentStep.title)}` : ''}` : ''}</span>
           </span>
@@ -234,29 +250,41 @@
     },
 
     /** Ktorý kanál koľko priniesol — na vyhodnotenie marketingu. */
+    /**
+     * Odkiaľ ľudia naozaj prišli — podľa inzerátu, nie podľa voľného poľa.
+     *
+     * Predtým sa zoskupovalo podľa `source`, ktorý hovor nikdy nevyplnil,
+     * takže tu stálo „Iné: 2". Pritom hovor sa začína otázkou, na ktorý
+     * inzerát kandidát volá, a väzbu zapisuje.
+     */
     sourcesHtml() {
       if (!this.items.length) return '';
-      const by = new Map();
-      for (const c of this.items) {
-        const k = c.source || 'ine';
-        if (!by.has(k)) by.set(k, { total: 0, placed: 0 });
-        const g = by.get(k);
-        g.total++;
-        if (c.status === 'placed') g.placed++;
-      }
-      const rows = [...by.entries()].sort((a, b) => b[1].total - a[1].total);
-      const max = Math.max(...rows.map(r => r[1].total));
+      const rows = DanubraAds.funnel(this.items, this.ads);
+      if (!rows.length) return '';
+      const max = Math.max(...rows.map(r => r.total));
+      const veta = DanubraAds.funnelSentence(rows);
+
       return `<div class="form-section">Odkiaľ kandidáti prichádzajú</div>
-        ${rows.map(([k, g]) => `
-          <div class="list-row" style="cursor:default;">
-            <span style="flex:0 0 130px;font-size:13px;font-weight:600;">${UI.esc(this.sourceLabel(k))}</span>
+        ${veta ? `<div style="font-size:13px;color:var(--ink-sub);margin:0 0 8px;">
+          ${UI.esc(veta)}</div>` : ''}
+        ${rows.map(r => `
+          <div class="list-row" style="cursor:default;align-items:center;">
+            <span style="flex:0 0 190px;font-size:13px;min-width:0;">
+              <strong>${UI.esc(r.label)}</strong>
+              <span style="display:block;color:var(--ink-mute);font-size:11.5px;">
+                ${UI.esc(r.sub || '')}</span>
+            </span>
             <span style="flex:1;">
               <span class="stay-bar" style="display:block;">
-                <span class="stay-fill" style="display:block;width:${Math.round((g.total / max) * 100)}%;background:var(--brand);"></span>
+                <span class="stay-fill" style="display:block;width:${
+                  Math.round((r.total / max) * 100)}%;background:${
+                  r.kind === 'ad' ? 'var(--brand)' : 'var(--ink-mute)'};"></span>
               </span>
             </span>
             <span style="font-size:12.5px;color:var(--ink-sub);white-space:nowrap;">
-              ${g.total} · nasadených ${g.placed}</span>
+              ${r.total} ${Shell.plural(r.total, 'ozval sa', 'ozvali sa', 'ozvalo sa')}
+              · nastúpili ${r.placed}${
+                r.hireRate != null && r.total >= 3 ? ` (${UI.pct(r.hireRate)})` : ''}</span>
           </div>`).join('')}`;
     },
 
@@ -278,7 +306,13 @@
         ['Profesia', this.professionLabel(c.profession)],
         ['Forma spolupráce', c.legal_form === 'szco' ? 'Živnostník' : 'Zamestnanec'],
         ['Telefón', c.phone], ['E-mail', c.email], ['Mesto', c.city],
-        ['Zdroj', this.sourceLabel(c.source) + (c.source_detail ? ` · ${c.source_detail}` : '')],
+        // Inzerát je dôležitejší než kanál: na Facebooku môže bežať päť
+        // inzerátov a líšia sa sľúbenou sadzbou. Keď sa o mesiac na stavbe
+        // povie „veď ste písali 18 €", toto je to, čo sa hľadá.
+        ['Z inzerátu', this.adOf(c) ? this.adOf(c).title : null],
+        ['Kanál', this.adOf(c)
+          ? DanubraAds.channelLabel(this.adOf(c).channel)
+          : this.sourceLabel(c.source) + (c.source_detail ? ` · ${c.source_detail}` : '')],
         ['Prijaté', c.received_at ? new Date(c.received_at).toLocaleString('sk-SK') : null],
         ['Prvý kontakt', c.first_contact_at
           ? `${new Date(c.first_contact_at).toLocaleString('sk-SK')} (${mins} min)` : '— zatiaľ žiadny'],

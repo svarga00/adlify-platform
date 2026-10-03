@@ -119,7 +119,64 @@
     return { good: by('plus'), bad: by('minus'), flags: by('flag'), notes: by('neutral') };
   }
 
-  const API = { SEGMENTS, segmentTitle, orderChips, buildCallSegments, scoreChips, callOutcome, summarize };
+
+  /**
+   * Krátky prvý hovor — triedič do troch minút.
+   *
+   * Cieľ je ozvať sa do desiatich minút od ozvania. Celý hovor má šesť častí
+   * a trvá dvadsať minút; keď sa začne ním, k tretiemu človeku sa náborár
+   * v ten deň nedostane. Pritom na rozhodnutie „má zmysel sa s ním baviť
+   * ďalej?" stačí štyri veci:
+   *
+   *   • **remeslo** — robil to naozaj, alebo to „už raz robil"?
+   *   • **papiere** — má živnosť, alebo si ju vybaví?
+   *   • **kedy** — vie nastúpiť v termíne, ktorý mi horí?
+   *   • **peniaze** — stretneme sa vôbec na sadzbe?
+   *
+   * Na ktorý inzerát volá sa pýta appka ešte pred hovorom, takže to tu nie je.
+   *
+   * Berie sa z každej časti to najdôležitejšie — podľa váhy, nie podľa
+   * poradia. Pole s váhou 3 je tam preto, že sa naň *treba* spýtať.
+   */
+  const QUICK_SEGMENTS = ['trade', 'legal', 'logistics', 'money'];
+  const QUICK_PER_SEGMENT = 2;
+
+  function buildQuickSegment({ tradeKey, chips = [], perSegment = QUICK_PER_SEGMENT } = {}) {
+    const usable = chips.filter(c => c && c.active !== false
+      && (!c.trade_key || c.trade_key === tradeKey));
+    const out = [];
+    for (const key of QUICK_SEGMENTS) {
+      out.push(...orderChips(usable.filter(c => c.segment === key)).slice(0, perSegment));
+    }
+    return {
+      key: 'quick',
+      title: 'Krátky hovor',
+      lead: 'Štyri veci, ktoré rozhodnú, či sa oplatí pokračovať. Do troch minút.',
+      chips: out,
+    };
+  }
+
+  /**
+   * Čo s ním po krátkom hovore. Nie je to známka — je to rozhodnutie, čo
+   * spraviť v najbližšej minúte, kým je človek ešte na linke.
+   */
+  function quickNext(score) {
+    const s = score || {};
+    if ((s.flags || []).length) {
+      return { key: 'reject', label: 'Nepokračovať',
+        why: 'Zaznelo niečo, čo nasadenie vylučuje. Povedz to rovno a slušne — '
+          + 'nenechávaj človeka čakať na odpoveď, ktorá nepríde.' };
+    }
+    if (s.percent != null && s.percent >= 60) {
+      return { key: 'full', label: 'Pokračovať na plný pohovor',
+        why: 'Sedí to. Ak má teraz čas, pokračuj hneď — druhýkrát sa už nemusí ozvať.' };
+    }
+    return { key: 'later', label: 'Zavolať neskôr',
+      why: 'Zatiaľ to nie je jasné. Dohodni konkrétny čas, nie „ozvem sa" — '
+        + 'a zapíš, čo treba doveriť.' };
+  }
+
+  const API = { SEGMENTS, QUICK_SEGMENTS, segmentTitle, buildQuickSegment, quickNext, orderChips, buildCallSegments, scoreChips, callOutcome, summarize };
   if (typeof window !== 'undefined') window.DanubraChips = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

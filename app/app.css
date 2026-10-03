@@ -2241,3 +2241,25 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .quiz-a b { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
 .quiz-good { background: var(--green-50); color: var(--ink); }
 .quiz-bad { background: var(--amber-50); color: var(--ink); }
+
+/* ── Krátky hovor alebo plný pohovor ───────────────────────────────────────
+   Cieľ je ozvať sa do desiatich minút. Keď sa začne dvadsaťminútovým
+   pohovorom, k tretiemu človeku sa náborár v ten deň nedostane. */
+.call-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.call-mode-btn {
+  text-align: left; background: #fff; border: 2px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; cursor: pointer; font-family: inherit;
+}
+.call-mode-btn b { display: block; font-size: 15px; color: var(--navy); margin-bottom: 3px; }
+.call-mode-btn span { display: block; font-size: 12.5px; color: var(--ink-sub); line-height: 1.5; }
+.call-mode-btn.active { border-color: var(--brand); background: var(--amber-50); }
+.call-mode-btn:hover { border-color: var(--brand); }
+@media (max-width: 560px) { .call-mode { grid-template-columns: 1fr; } }
+
+/* Čo s ním po krátkom hovore — rozhodnutie, nie známka. */
+.quick-next {
+  background: var(--field); border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm); padding: 11px 14px; margin-bottom: 12px;
+}
+.quick-next b { display: block; font-size: 15px; margin-bottom: 3px; }
+.quick-next span { font-size: 13px; color: var(--ink-sub); line-height: 1.55; }
