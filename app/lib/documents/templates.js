@@ -70,6 +70,16 @@
       font-size:10.5px;color:#96A2BA;display:flex;justify-content:space-between;gap:16px}
     ul.clean{margin:8px 0;padding-left:18px}
     ul.clean li{margin:4px 0}
+    /* Zmluva má paragrafy a podpisy — dokument, ktorý sa podpisuje perom,
+       potrebuje miesto na to pero. */
+    .par{margin:14px 0 0}
+    .par h3{font-size:12.5px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;
+      color:${BRAND.navy}}
+    .par p{margin:0 0 6px;font-size:12.5px;line-height:1.55}
+    .sigs{display:flex;gap:40px;margin-top:38px;page-break-inside:avoid}
+    .sig{flex:1}
+    .sig .line{border-bottom:1px solid #6F7C95;height:46px}
+    .sig .who{font-size:11px;color:#6F7C95;margin-top:5px}
     .codes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
     .code{background:#F7F9FD;border:1px solid #E3EAF7;border-radius:10px;padding:11px 14px}
     .code .v{font-family:ui-monospace,monospace;font-size:19px;font-weight:600;letter-spacing:.05em}
@@ -247,6 +257,144 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     return shell(`Angebot ${q.quote_number || ''}`, body);
   }
 
+  // ── WERKVERTRAG ───────────────────────────────────────────────────────────
+  // Zmluva o dielo po nemecky. Číta ju a podpisuje odberateľ, takže je to
+  // jediný jazyk, ktorý dáva zmysel.
+  //
+  // Dokument je zároveň to, čo pri kontrole obhajuje celý biznis model. Preto
+  // sú v ňom veci, ktoré by sa inak zabudli:
+  //
+  //   • **cena za dielo, nie za hodinu** — hodinová sadzba v zmluve o dielo
+  //     je jeden z hlavných znakov skrytej Arbeitnehmerüberlassung. Keď je
+  //     v zmluve hodinová, dokument to nezakrýva, ale doplní vetu o tom, že
+  //     sadzba je podkladom pre výpočet odmeny za dielo, nie odmenou za čas;
+  //   • **§ o postavení nasadených osôb** — samostatní podnikatelia s A1
+  //     a vlastnou živnosťou, vlastné vedenie prác, vlastné náradie;
+  //   • **dodatky v samotnom dokumente** — kto ho číta o rok, má vidieť
+  //     dohodnutý stav, nie pôvodný.
+  function werkvertrag({ contract: c, client, supplier, amendments = [], trade }) {
+    const L = {
+      hourly: 'Stundensatz', fixed: 'Pauschalpreis', unit: 'Einheitspreis',
+    };
+    const model = c.price_model || 'hourly';
+    const verguetung = model === 'fixed'
+      ? `<p><strong>Pauschalpreis: ${money(c.fixed_price)}</strong> zzgl. gesetzlicher
+         Umsatzsteuer, sofern nicht die Steuerschuldnerschaft des Leistungs&shy;empfängers
+         nach § 13b UStG greift.</p>`
+      : model === 'unit'
+        ? `<p><strong>Einheitspreis: ${money(c.unit_price)} je ${esc(c.unit_label || 'Einheit')}</strong>.
+           Abgerechnet wird nach gemeinsamem Aufmaß.</p>`
+        : `<p><strong>Verrechnungssatz: ${money(c.charge_rate)} je Stunde.</strong>
+           Der Satz ist Berechnungsgrundlage für die Vergütung des Werks; er begründet
+           keine Vergütung für Arbeitszeit und kein Weisungsrecht des Auftraggebers
+           gegenüber den eingesetzten Personen.</p>`;
+
+    const par = (title, html) => `<div class="par"><h3>${esc(title)}</h3>${html}</div>`;
+
+    const body = `
+      ${header('Werkvertrag', c.contract_number, [], supplier)}
+      ${parties(supplier, client, [['Vertrag', `
+        <div style="font-size:12px;">
+          ${c.date_from ? `Beginn: <strong>${date(c.date_from)}</strong><br>` : ''}
+          ${c.date_to ? `Ende: <strong>${date(c.date_to)}</strong><br>` : ''}
+          ${c.signed_at ? `Unterschrieben: <strong>${date(c.signed_at)}</strong>` : ''}
+        </div>`]], 'de')}
+
+      <div class="lbl">Gegenstand</div>
+      <div class="val" style="font-size:15px;font-weight:700;margin-bottom:4px">
+        ${esc(c.title || '')}</div>
+
+      ${par('§ 1 Vertragsgegenstand', c.scope
+        ? `<p>${esc(c.scope)}</p>`
+        : `<p><em>Der Leistungsgegenstand ist im Vertrag noch nicht beschrieben.</em></p>`)}
+
+      ${par('§ 2 Leistungsort', `<p>${
+        [c.site_name, c.site_address, c.site_city].filter(Boolean).map(esc).join(', ')
+          || '<em>Baustelle nicht angegeben.</em>'}</p>`)}
+
+      ${par('§ 3 Ausführungszeit', `<p>${
+        c.date_from
+          ? `Beginn ${date(c.date_from)}${c.date_to ? `, Fertigstellung ${date(c.date_to)}` : ''}.`
+          : 'Nach gesonderter Vereinbarung.'}</p>`)}
+
+      ${par(`§ 4 Vergütung (${L[model]})`, verguetung)}
+
+      ${par('§ 5 Zahlungsbedingungen', `
+        <p>Zahlungsziel: <strong>${esc(c.payment_terms_days ?? 30)} Tage</strong> ab
+        Rechnungseingang.</p>
+        ${c.retention_pct ? `<p>Sicherheitseinbehalt:
+          <strong>${esc(c.retention_pct)} %</strong> der Netto-Auftragssumme bis zum
+          Ablauf der Gewährleistungsfrist.</p>` : ''}
+        <p>Grundlage der Abrechnung ist der vom Auftraggeber
+        <strong>unterschriebene Stundennachweis</strong> bzw. das gemeinsame Aufmaß.</p>`)}
+
+      ${c.warranty_months ? par('§ 6 Gewährleistung',
+        `<p><strong>${esc(c.warranty_months)} Monate</strong> ab Abnahme.</p>`) : ''}
+
+      ${c.penalty_note ? par('§ 7 Vertragsstrafe', `<p>${esc(c.penalty_note)}</p>`) : ''}
+
+      ${c.notice_days ? par('§ 8 Kündigung',
+        `<p>Kündigungsfrist: <strong>${esc(c.notice_days)} Tage</strong>.</p>`) : ''}
+
+      ${par('§ 9 Status der eingesetzten Personen', `
+        <p>Der Auftragnehmer erbringt die Leistung als selbständiges Unternehmen.
+        Die eingesetzten Personen sind <strong>selbständige Unternehmer</strong> mit
+        eigenem Gewerbe und gültiger <strong>A1-Bescheinigung</strong>. Sie unterliegen
+        <strong>keinem Weisungsrecht</strong> des Auftraggebers; die Arbeitsleitung
+        obliegt dem Auftragnehmer.</p>
+        <p>Es handelt sich um einen Werkvertrag und
+        <strong>nicht um Arbeitnehmerüberlassung</strong>. ${
+          trade ? `Gewerk: ${esc(trade)}. ` : ''}Der Bau-Mindestlohn nach AEntG wird
+        eingehalten.</p>`)}
+
+      ${amendments.length ? par('Nachträge', `
+        <table><thead><tr><th>Nachtrag</th><th>Gegenstand</th><th class="r">Neu</th>
+          <th class="r">Unterschrieben</th></tr></thead><tbody>
+          ${amendments.map(a => `<tr>
+            <td>${esc(a.amendment_number || '—')}</td>
+            <td>${esc(AMEND_DE[a.field] || a.field)}</td>
+            <td class="r">${esc(amendValue(a.field, a.new_value))}</td>
+            <td class="r">${a.signed_at ? date(a.signed_at) : '—'}</td>
+          </tr>`).join('')}
+        </tbody></table>
+        <p style="margin-top:6px;">Maßgeblich ist der durch die Nachträge geänderte
+        Stand.</p>`) : ''}
+
+      <div class="sigs">
+        <div class="sig"><div class="line"></div>
+          <div class="who">${esc(supplier?.name || 'Auftragnehmer')} · Ort, Datum</div></div>
+        <div class="sig"><div class="line"></div>
+          <div class="who">${esc(client?.name || 'Auftraggeber')} · Ort, Datum</div></div>
+      </div>
+
+      <div class="foot">
+        <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}</span>
+        <span>Zwei gleichlautende Ausfertigungen</span>
+      </div>`;
+    return shell(`Werkvertrag ${c.contract_number || ''}`, body);
+  }
+
+  // Dodatok mení jedno pole zmluvy. V nemeckom dokumente musí byť nemecký
+  // názov toho poľa — nie náš vnútorný kľúč a nie slovenský dôvod, ktorý
+  // sme si k nemu napísali pre seba.
+  const AMEND_DE = {
+    date_to: 'Ausführungszeit (Ende)',
+    charge_rate: 'Verrechnungssatz',
+    fixed_price: 'Pauschalpreis',
+    unit_price: 'Einheitspreis',
+    retention_pct: 'Sicherheitseinbehalt',
+  };
+
+  /** Hodnota dodatku v tvare, v akom patrí do zmluvy, nie v akom je v databáze. */
+  function amendValue(field, value) {
+    if (value == null || value === '') return '—';
+    if (field === 'date_to') return date(value);
+    if (field === 'retention_pct') return `${String(value).replace('.', ',')} %`;
+    if (field === 'charge_rate') return `${money(value)} / Std.`;
+    if (field === 'fixed_price' || field === 'unit_price') return money(value);
+    return String(value);
+  }
+
   // ── POTVRDENIE OBJEDNÁVKY (bez adresy! §5.1) ──────────────────────────────
   function orderConfirmation({ order, client, accommodation, supplier }) {
     const body = `
@@ -398,8 +546,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { invoice, quote, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { invoice, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { invoice, quote, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
+    module.exports = { invoice, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
   }
 })();

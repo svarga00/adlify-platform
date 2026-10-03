@@ -335,6 +335,45 @@ console.log('Zdieľané komponenty');
   eq(S.evaluate([null, reasons[0]], []).open.length, 1, 'prázdna prekážka sa preskočí');
 }
 
+// ── Blokátor nesmie sľubovať výnimku tam, kde nepomôže ──────────────────────
+// Toto je oprava skutočnej chyby: formulár tvrdil „povolí, čo práve blokuje"
+// aj pri faktúre bez odberateľa. Človek napísal dôvod, výnimka sa zapísala
+// a nepustilo ho to ďalej — bez vysvetlenia, prečo.
+{
+  require('../../lib/overrides.js');
+
+  const zmes = [
+    { rule: 'missing_a1', label: 'Chýba: Formulár A1' },
+    { rule: 'invoice_no_partner', label: 'Faktúra nemá odberateľa' },
+  ];
+  const v = S.evaluate(zmes, [], '2026-09-17');
+  eq(v.canWaive.map(r => r.rule), ['missing_a1'], 'prevziať sa dá len chýbajúce A1');
+  eq(v.hard.map(r => r.rule), ['invoice_no_partner'], 'odberateľ sa výnimkou nedoplní');
+
+  const h = S.blocker({ reasons: zmes, today: '2026-09-17', onOverride: 'ovr()' });
+  ok(h.includes('Toto výnimka nerieši'), 'povie, čo výnimka nerieši');
+  ok(h.includes('Nie je komu fakturovať'), 'a čo s tým namiesto nej');
+  ok(h.includes('Chcem to povoliť aj tak'), 'zvyšok sa povoliť dá');
+  ok(h.includes('zostane'), 'a povie, že jedna prekážka zostane');
+  ok(h.includes('Pri kontrole Zoll'), 'pri výnimke je napísané, čo sa riskuje');
+
+  // Keď výnimka nepokryje nič, nesmie sa ponúknuť vôbec — inak je to
+  // tlačidlo, ktoré nič nespraví.
+  const nic = S.blocker({
+    reasons: [{ rule: 'invoice_period_open', label: 'Obdobie nie je uzavreté' }],
+    onOverride: 'ovr()',
+  });
+  ok(!nic.includes('Chcem to povoliť aj tak'), 'na neobchádzateľnú prekážku sa výnimka neponúka');
+  ok(nic.includes('Uzavri obdobie'), 'namiesto toho povie, čo urobiť');
+
+  // Vlastná veta namiesto „len administrátor" — pri faktúre je to iné právo.
+  const cudzia = S.blocker({
+    reasons: [{ rule: 'invoice_amount_mismatch', label: 'Suma nesedí' }],
+    noOvrNote: 'Rozdiel voči podkladu smie povoliť len administrátor.',
+  });
+  ok(cudzia.includes('Rozdiel voči podkladu'), 'vetu o práve sa dá prepísať');
+}
+
 // ── Dôvod výnimky musí prejsť aj v databáze ─────────────────────────────────
 {
   // CHECK v migrácii 013: length(btrim(reason)) >= 5. UI nesmie pustiť ďalej

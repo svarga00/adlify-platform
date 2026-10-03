@@ -19,7 +19,8 @@
 
   const Sub = {
     items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [],
-    periods: [], crews: [], stays: [], occupancy: [],
+    periods: [], crews: [], stays: [], occupancy: [], overrides: [],
+    assignmentChecks: [],
     loaded: false, filters: { status: '', work_type: '' },
     _cur: null,
 
@@ -28,18 +29,25 @@
     openId: null,
 
     async load() {
-      const [s, p, a, w, wd, c] = await Promise.all([
+      const [s, p, a, w, wd, c, ovr] = await Promise.all([
         DB.list('subcontracts', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('partners', { limit: 300 }),
         DB.list('assignments', { limit: 1000 }),
         DB.list('workers', { select: 'id,full_name,profession,skill_level,phone,gross_monthly,per_diem_daily,status,legal_form,hourly_cost,regulated_trade', limit: 500 }),
         DB.list('worker_documents', { limit: 2000 }),
         DB.list('compliance', { limit: 500 }),
+        // Zapísané výnimky. Bez nich by blokátor pri nasadení ukazoval
+        // prekážku, ktorú niekto pred týždňom vedome povolil — a človek by
+        // ju povoľoval znova.
+        DB.list('overrides', { limit: 1000 }),
       ]);
       this.items = s.data || []; this.partners = p.data || []; this.assignments = a.data || [];
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
+      this.overrides = ovr.data || [];
       const [ch, sa, accs, per, ts, cr, occ, st] = await Promise.all([
-        DB.list('checklist_items', { order: { column: 'step_order' }, limit: 3000 }),
+        // v2 tabuľka: body sú viazané na kľúč pravidla, nie na voľný text,
+        // ktorý sa pri preklepe rozdvojí (migrácia 017).
+        DB.list('assignment_checks', { limit: 3000 }),
         DB.list('subcontract_accommodations', { limit: 1000 }),
         DB.list('accommodations', { select: 'id,name,city,address,max_persons,price_month,lat,lng', limit: 500 }),
         DB.list('periods', { order: { column: 'period_from', ascending: false }, limit: 500 }),
@@ -50,7 +58,7 @@
         DB.list('v_lodging_occupancy', { limit: 1000 }),
         DB.list('v_worker_stay', { limit: 2000 }),
       ]);
-      this.checklist = ch.data || [];
+      this.assignmentChecks = ch.data || [];
       this.lodging = sa.data || [];
       this.accommodations = accs.data || [];
       this.periods = per.data || [];
@@ -268,13 +276,26 @@
         <div class="form-section">Nasadení pracovníci (${asg.filter(a => a.status !== 'cancelled').length})</div>
         ${asg.filter(a => a.status !== 'cancelled').map(a => {
           const w = this.workerOf(a.worker_id);
+          // Kto je na stavbe s výnimkou, musí byť vidieť tu — nie až v jeho
+          // kartotéke. Toto je obrazovka, na ktorej sa človek pýta „koho tam
+          // mám", a odpoveď „jedného bez A1" patrí k tomu.
+          const live = DanubraOverrides.live(this.overridesOf(a.worker_id));
+          const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
+          const open = st ? Shell.evaluate(st.ready.reasons,
+            this.overridesOf(a.worker_id), a.date_from || undefined).open : [];
           return `<div class="list-row" style="cursor:default;">
             <span style="flex:1;font-size:13px;">
               <strong>${UI.esc(w?.full_name || '—')}</strong>
               ${a.role === 'predak' ? UI.badge('predák', 'blue') : ''}
+              ${live.length ? UI.badge('s výnimkou', 'amber') : ''}
+              ${open.length ? UI.badge(`chýba ${open.length}`, 'red') : ''}
               <span style="color:var(--ink-mute);display:block;font-size:12px;">
                 ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}
                 ${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
+              ${live.length ? `<span style="display:block;font-size:12px;color:var(--amber-ink,var(--amber));">
+                ${Icon('shield', 12)} ${UI.esc(live.map(o =>
+                  DanubraOverrides.meta(o.rule_key)?.label || o.rule_key).join(', '))}
+                — ${UI.esc(live[0].reason || '')}</span>` : ''}
             </span>
             <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
           </div>`;
@@ -287,24 +308,8 @@
         <div class="form-section">Obdobia a podklady</div>
         ${this.periodsHtml(sc)}
 
-        ${asg.filter(a => a.status !== 'cancelled').map(a => {
-          const w = this.workerOf(a.worker_id);
-          const ch = this.checklist.filter(x => x.assignment_id === a.id);
-          if (!ch.length) return '';
-          const done = ch.filter(x => x.done).length;
-          const blocking = ch.filter(x => x.required && !x.done).length;
-          return `<div class="form-section">Pred nasadením · ${UI.esc(w?.full_name || '')}
-              <span style="float:right;font-family:inherit;letter-spacing:0;text-transform:none;
-                color:${blocking ? 'var(--red)' : 'var(--green)'};">${done}/${ch.length}</span></div>
-            ${ch.map(x => `<div class="list-row" style="align-items:flex-start;">
-              <button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${x.done ? 'var(--green)' : 'var(--ink-mute)'};"
-                onclick="Sub.toggleCheck('${x.id}')">${Icon('check', 17)}</button>
-              <span style="flex:1;font-size:13px;">
-                <strong style="${x.done ? 'text-decoration:line-through;opacity:.55;' : ''}">${UI.esc(x.title)}</strong>
-                ${x.required ? '' : UI.badge('voliteľné', 'gray')}
-                ${x.description ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(x.description)}</span>` : ''}
-              </span></div>`).join('')}`;
-        }).join('')}
+        ${asg.filter(a => a.status !== 'cancelled')
+          .map(a => this.checklistHtml(sc, a)).join('')}
 
         <div class="form-section">Ubytovanie a doprava</div>
         ${this.lodgingHtml(sc, asg)}
@@ -647,12 +652,112 @@
     },
 
     // ── Nasadenie ─────────────────────────────────────────────────────────
+    // Zadanie: „nasadenie bez platných dokladov len s výnimkou admina".
+    // Drží to trigger `danubra_assignment_docs_guard` (migrácia 033), takže
+    // to platí aj pre import. Tu je to preto, aby človek nedostal chybu
+    // z databázy po tom, čo vyplnil deväť polí — má to vidieť hneď, ako
+    // vyberie človeka, a má mať po ruke cestu von.
+
+    /** Doklady vybraného človeka k prvému dňu nasadenia. */
+    asgReadiness(scId, workerId, dateFrom) {
+      const sc = this.items.find(x => x.id === scId);
+      const w = this.workers.find(x => x.id === workerId);
+      if (!w) return null;
+      const ready = DanubraDocs.readiness({
+        docs: this.workerDocs.filter(d => d.worker_id === workerId),
+        workType: sc?.work_type === 'workshop' ? 'workshop' : 'construction',
+        regulated: !!w.regulated_trade,
+        // Posudzuje sa k nástupu, nie k dnešku — rovnako ako v databáze.
+        // Doklad, ktorý dnes platí a do nástupu vyprší, nesmie prejsť.
+        today: dateFrom || new Date().toISOString().slice(0, 10),
+      });
+      return { worker: w, ready };
+    },
+
+    /** Výnimky daného človeka — tie sa držia jeho, nie jednej stavby. */
+    overridesOf(workerId) {
+      return DanubraOverrides.forEntity(this.overrides, 'worker', workerId);
+    },
+
+    asgBlockerHtml(scId, workerId, dateFrom) {
+      const r = this.asgReadiness(scId, workerId, dateFrom);
+      if (!r) return '';
+      const admin = Danubra.isAdmin();
+      return Shell.blocker({
+        reasons: [...r.ready.reasons, ...r.ready.warnings],
+        overrides: this.overridesOf(workerId),
+        today: dateFrom || undefined,
+        onOverride: admin ? `Sub.grantAsgOverride('${scId}')` : '',
+        inputId: 'asg-ovr-reason',
+        noOvrNote: 'Nasadiť ho bez dokladov môže povoliť len administrátor.',
+        okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
+          + 'Doklady sú platné aj k prvému dňu nasadenia.</p>',
+      });
+    },
+
+    /** Prekreslí blokátor po zmene človeka alebo dátumu. */
+    asgReady(scId) {
+      const form = document.getElementById('asg-form');
+      const box = document.getElementById('asg-blocker');
+      if (!form || !box) return;
+      const d = UI.formData(form);
+      // Prekresliť pri každom stlačení klávesy by zmazalo rozpísaný dôvod
+      // výnimky — je to jedno z polí vo formulári. Preto len keď sa zmenilo
+      // to, od čoho blokátor závisí.
+      const key = `${d.worker_id}|${d.date_from}`;
+      if (key === this._asgKey) return;
+      this._asgKey = key;
+      box.innerHTML = this.asgBlockerHtml(scId, d.worker_id, d.date_from);
+    },
+
+    /**
+     * Zapíše výnimku na doklady vybraného človeka. Robí sa to pred samotným
+     * nasadením, nie po ňom — databáza bez nej nasadenie nepustí a dva zápisy
+     * z prehliadača sa nedajú spraviť naraz, takže poradie je jediná záruka,
+     * že nezostane nasadenie bez zapísaného dôvodu.
+     */
+    async grantAsgOverride(scId) {
+      const form = document.getElementById('asg-form');
+      if (!form) return;
+      const d = UI.formData(form);
+      const box = document.getElementById('asg-ovr-reason');
+      const reason = box ? box.value : '';
+      if (!Shell.reasonValid(reason)) {
+        return UI.toast(`Dôvod musí mať aspoň ${Shell.REASON_MIN} znakov`, 'err');
+      }
+      const r = this.asgReadiness(scId, d.worker_id, d.date_from);
+      if (!r) return UI.toast('Najprv vyber pracovníka', 'err');
+
+      const open = Shell.evaluate([...r.ready.reasons, ...r.ready.warnings],
+        this.overridesOf(d.worker_id), d.date_from || undefined).open;
+      const { rows, skipped } = DanubraOverrides.rowsFor(open, {
+        entityType: 'worker', entityId: d.worker_id, reason,
+      });
+      if (!rows.length) return UI.toast('Niet čo povoliť — nič neblokuje', 'err');
+
+      const { error } = await DB.from('overrides').insert(rows);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+
+      const ovr = await DB.list('overrides', { limit: 1000 });
+      this.overrides = ovr.data || this.overrides;
+      this._asgKey = null;
+      this.asgReady(scId);
+      UI.toast(skipped.length
+        ? `Výnimka zapísaná, ale ${skipped.length} prekážka zostáva`
+        : `Zapísaná výnimka na ${rows.length} ${
+          rows.length === 1 ? 'pravidlo' : rows.length < 5 ? 'pravidlá' : 'pravidiel'}`,
+        skipped.length ? 'err' : 'ok');
+    },
+
     addAsg(scId) {
       const sc = this.items.find(x => x.id === scId);
       const free = this.workers.filter(w => ['ready', 'deployed'].includes(w.status));
       if (!free.length) return UI.toast('Žiadni pripravení pracovníci — najprv ich pridaj a nastav stav', 'err');
+      this._asgKey = `${free[0].id}|${sc?.date_from || ''}`;
       const body = `
-        <form id="asg-form" onsubmit="event.preventDefault();Sub.saveAsg('${scId}')">
+        <form id="asg-form" oninput="Sub.asgReady('${scId}')"
+              onchange="Sub.asgReady('${scId}')"
+              onsubmit="event.preventDefault();Sub.saveAsg('${scId}')">
           <div class="form-grid">
             ${UI.field('worker_id', 'Pracovník', { required: true, options: free.map(w => [w.id, w.full_name]) })}
             ${UI.field('role', 'Rola', { value: 'pracovnik', options: [['pracovnik', 'Pracovník'], ['predak', 'Predák (vedie práce)']] })}
@@ -666,6 +771,10 @@
           </div>
           <div class="regimebox">Aspoň jeden nasadený má byť <strong>predák</strong> — vlastné vedenie prác
           je kľúčový dôkaz, že ide o Werkvertrag a nie o prenájom pracovnej sily.</div>
+
+          <div class="form-section">Smieme ho nasadiť?</div>
+          <div id="asg-blocker">${this.asgBlockerHtml(scId, free[0].id, sc?.date_from)}</div>
+
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
             <button type="submit" class="btn btn-primary">Nasadiť</button>
@@ -775,17 +884,129 @@
       this.detail(scId);
     },
 
-    async toggleCheck(id) {
-      const x = this.checklist.find(c => c.id === id);
-      if (!x) return;
-      const on = !x.done;
-      await DB.update('checklist_items', id, { done: on, done_at: on ? new Date().toISOString() : null });
-      x.done = on;
-      this.detail(this._cur.id);
+    // ── Checklist pred nasadením ──────────────────────────────────────────
+    // Osem z deviatich bodov appka vie sama: doklady z kartotéky, §48b a Zoll
+    // zo zákazky, ubytovanie z pobytov, dopravu zo zákazky. Ručne sa
+    // odškrtáva jediný — odovzdané pokyny, ktoré nikde inde nie sú.
+    //
+    // Predtým sa odškrtávalo všetkých deväť. „Platné A1" sa dalo odškrtnúť
+    // aj vtedy, keď A1 v kartotéke nebolo, a appka tak mala dve odpovede na
+    // tú istú otázku — pričom tá nesprávna svietila nazeleno.
+
+    checklistHtml(sc, a) {
+      const w = this.workerOf(a.worker_id);
+      const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
+      const ovr = this.overridesOf(a.worker_id);
+      const v = st
+        ? Shell.evaluate(st.ready.reasons, ovr, a.date_from || undefined)
+        : { open: [], waived: [] };
+
+      const rows = DanubraChecks.build({
+        assignment: a, subcontract: sc, worker: w || {},
+        blocking: v.open.map(r => r.rule),
+        waived: v.waived.map(r => r.rule),
+        stays: this.stays, checks: this.assignmentChecks,
+      });
+      const p = DanubraChecks.progress(rows);
+
+      const row = (r) => {
+        const color = r.state === 'ok' ? 'var(--green)'
+          : r.state === 'waived' ? 'var(--amber)' : 'var(--ink-mute)';
+        const ico = r.state === 'waived' ? 'shield' : 'check';
+        // Odškrtávacie tlačidlo len tam, kde sa odškrtáva. Inde je to značka
+        // stavu — klikanie na ňu by sľubovalo niečo, čo sa nestane.
+        const mark = r.canTick
+          ? `<button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${color};"
+               title="Odškrtnúť" onclick="Sub.toggleCheck('${a.id}','${r.key}')">${Icon(ico, 17)}</button>`
+          : `<span style="padding:2px 4px;color:${color};line-height:1;">${Icon(ico, 17)}</span>`;
+        return `<div class="list-row" style="align-items:flex-start;cursor:default;">
+          ${mark}
+          <span style="flex:1;font-size:13px;min-width:0;">
+            <strong style="${r.state !== 'open' ? 'text-decoration:line-through;opacity:.55;' : ''}">${
+              UI.esc(r.title)}</strong>
+            ${r.required ? '' : UI.badge('nepovinné', 'gray')}
+            ${r.state === 'waived' ? UI.badge('výnimka', 'amber') : ''}
+            ${r.canTick ? UI.badge('odškrtáva človek', 'blue') : ''}
+            <span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(r.detail)}</span>
+          </span>
+          <button class="icon-btn" title="Prečo to tu je" style="flex:0 0 auto;"
+            onclick="Sub.whyCheck('${r.key}')">?</button>
+        </div>`;
+      };
+
+      return `<div class="form-section">Pred nasadením · ${UI.esc(w?.full_name || '')}
+          <span style="float:right;font-family:inherit;letter-spacing:0;text-transform:none;
+            color:${p.blocking ? 'var(--red)' : 'var(--green)'};">${p.done}/${p.total}</span></div>
+        <div style="font-size:13px;margin:0 0 6px;color:${p.blocking ? 'var(--red)' : 'var(--ink-sub)'};">
+          ${UI.esc(DanubraChecks.sentence(rows))}</div>
+        ${rows.map(row).join('')}`;
+    },
+
+    /**
+     * Prečo je ten bod v checkliste. Text je v `lib/staffing/checks.js`, teda
+     * na jedinom mieste — nie v registri vysvetliviek, kde by sa pri zmene
+     * pravidla musel opraviť druhýkrát.
+     */
+    whyCheck(key) {
+      const c = DanubraChecks.CHECKS.find(x => x.key === key);
+      if (!c) return;
+      const kde = {
+        doc: 'Číta sa z kartotéky živnostníka — z dokladov a ich platnosti.',
+        subcontract: 'Číta sa zo zákazky.',
+        stay: 'Číta sa z pobytov, teda z toho, koho si zapísal na ubytovanie.',
+        transport: 'Číta sa zo zákazky, zo sekcie Doprava.',
+        manual: 'Toto appka vedieť nemôže, preto sa odškrtáva rukou.',
+      }[c.source];
+      UI.modal(c.title, `
+        <p style="margin:0 0 10px;font-size:14px;line-height:1.6;">${UI.esc(c.why)}</p>
+        <div class="regimebox" style="margin:0;">${UI.esc(kde)}${
+        c.required ? '' : ' Tento bod nástup <strong>neblokuje</strong>.'}</div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button>
+        </div>`);
+    },
+
+    /**
+     * Odškrtne ručný bod. Riadok sa zakladá až pri prvom kliknutí — zakladať
+     * ho pri nasadení by znamenalo deväť riadkov, z ktorých osem appka
+     * aj tak vie sama.
+     */
+    async toggleCheck(assignmentId, key) {
+      if (!DanubraChecks.MANUAL.includes(key)) {
+        return UI.toast('Toto sa neodškrtáva — appka to vie sama', 'err');
+      }
+      const have = this.assignmentChecks.find(x =>
+        x.assignment_id === assignmentId && x.rule_key === key);
+      const on = !(have && have.done);
+      const patch = { done: on, done_at: on ? new Date().toISOString() : null };
+
+      const { error } = have
+        ? await DB.update('assignment_checks', have.id, patch)
+        : await DB.insert('assignment_checks', {
+          assignment_id: assignmentId, rule_key: key, required: true, ...patch });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+
+      const ch = await DB.list('assignment_checks', { limit: 3000 });
+      this.assignmentChecks = ch.data || this.assignmentChecks;
+      if (this._cur) this.detail(this._cur.id);
     },
 
     async saveAsg(scId) {
       const d = UI.formData(document.getElementById('asg-form'));
+
+      // Databáza to odmietne aj tak (trigger z migrácie 033). Zastaviť to už
+      // tu má jediný dôvod: povedať to slovami, ktoré niečo znamenajú, a mať
+      // pri tom po ruke tlačidlo na výnimku.
+      const r = this.asgReadiness(scId, d.worker_id, d.date_from);
+      if (r) {
+        const v = Shell.evaluate([...r.ready.reasons, ...r.ready.warnings],
+          this.overridesOf(d.worker_id), d.date_from || undefined);
+        if (!v.ok) {
+          return UI.toast(`Bez platných dokladov to nepustím: ${
+            v.open.map(x => x.label).join(', ')}`, 'err');
+        }
+      }
+
       const payload = {
         subcontract_id: scId, worker_id: d.worker_id, role: d.role,
         date_from: d.date_from || null, date_to: d.date_to || null,
@@ -797,19 +1018,11 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       await DB.update('workers', d.worker_id, { status: 'deployed' }).catch(() => {});
 
-      // založ pre-deployment checklist z predvolených krokov
-      try {
-        const st = await this._settings();
-        const steps = st?.staffing?.checklist_default || [];
-        if (steps.length && asg?.id) {
-          await DB.from('checklist_items').insert(steps.map((x, i) => ({
-            assignment_id: asg.id, step_order: i, title: x.title,
-            description: x.description || null, required: x.required !== false,
-          })));
-        }
-      } catch (e) { console.warn('[subcontracts] checklist:', e.message); }
-
-      UI.toast('Pracovník nasadený, checklist založený', 'ok');
+      // Checklist sa už nezakladá. Predtým sa pri každom nasadení vložilo
+      // deväť riadkov s voľným textom z nastavení — a osem z nich appka vie
+      // sama z dokladov, zákazky a pobytov. Zostal jeden ručný bod a ten
+      // vznikne až pri prvom odškrtnutí; dovtedy nemá čo zapisovať.
+      UI.toast('Pracovník nasadený', 'ok');
       await this.load(); this.detail(scId);
     },
 
@@ -1096,10 +1309,38 @@
         p_overhead: num(d.overhead) ?? 0,
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      UI.toast(data
-        ? `Nasadených ${data} ${DanubraPeriods.plural(data, 'človek', 'ľudia', 'ľudí')}`
-        : 'Všetci členovia partie už na zákazke boli', data ? 'ok' : '');
+
+      // Funkcia vracia {deployed, already, skipped[]} — jeden človek bez
+      // dokladov nezhodí celú partiu, ale musí byť vidieť, že na stavbu
+      // nejde. Tiché preskočenie by bola tá najhoršia možnosť: partia by
+      // odišla o jedného menšia a nikto by nevedel prečo.
+      const res = data || {};
+      const n = Number(res.deployed || 0);
+      const skipped = Array.isArray(res.skipped) ? res.skipped : [];
       this.loaded = false; await this.load(); this.detail(scId);
+
+      if (skipped.length) {
+        const list = skipped.map(s => `<li><b>${UI.esc(s.name)}</b> — ${
+          (Array.isArray(s.labels) ? s.labels : []).map(UI.esc).join(', ')
+            .replace(/Nasadenie /g, '') || 'chýbajú doklady'}</li>`).join('');
+        UI.modal('Nasadení nie všetci', `
+          <p style="margin:0 0 10px;font-size:14px;">
+            Nasadených <strong>${n}</strong>, ${
+            skipped.length === 1 ? 'jeden zostal' : `${skipped.length} zostali`}
+            na doklade.</p>
+          <ul style="margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.7;">${list}</ul>
+          <div class="regimebox" style="margin:0;">Doklad sa dá doplniť v kartotéke
+            živnostníka. Ak to nejde počkať, <strong>výnimku pri nasadení môže
+            zapísať administrátor</strong> — zostane v histórii s dôvodom.</div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button>
+          </div>`, { wide: true });
+        return;
+      }
+
+      UI.toast(n
+        ? `Nasadených ${n} ${DanubraPeriods.plural(n, 'človek', 'ľudia', 'ľudí')}`
+        : 'Všetci členovia partie už na zákazke boli', n ? 'ok' : '');
     },
   });
 

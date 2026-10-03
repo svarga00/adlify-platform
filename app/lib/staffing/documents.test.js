@@ -276,5 +276,56 @@ console.log('Doklady živnostníka');
   }
 }
 
+// ── Čo blokuje nasadenie, musí byť v JS aj v SQL rovnaké ────────────────────
+// Od migrácie 033 nasadenie bez platných dokladov nepustí databáza — a tá má
+// zoznam požiadaviek zapísaný druhýkrát, vo funkcii `danubra_doc_blockers`.
+// Dva zoznamy sú dva zdroje pravdy: keby do `REQUIRED` pribudol povinný
+// doklad a do SQL nie, appka by ho pýtala a databáza by nasadenie pustila —
+// čo je horšie než keby ho nepýtala ani jedna, lebo človek by veril tomu,
+// čo vidí na obrazovke.
+{
+  const fs = require('fs');
+  const path = require('path');
+  const dir = path.join(__dirname, '..', '..', 'database', 'migrations');
+  const sql = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort()
+    .map(f => fs.readFileSync(path.join(dir, f), 'utf8'))
+    .filter(x => /function danubra_doc_blockers\(/.test(x))
+    .pop();
+  ok(sql, 'blokujúce doklady sú aj v migráciách');
+
+  // Dvojice (pravidlo, druhy dokladu) z tabuľky `pozadovane` plus riadok,
+  // ktorý sa pridáva len pri regulovanom remesle.
+  const zSql = new Map();
+  const blok = /with pozadovane\(rule_key, kinds\) as \(([\s\S]*?)\n  \),/.exec(sql || '');
+  ok(blok, 'a dajú sa z funkcie prečítať');
+  for (const m of (blok ? blok[1] : '')
+    .matchAll(/'([a-z0-9_]+)'::text,\s*array\[([^\]]*)\]/g)) {
+    zSql.set(m[1], m[2].split(',').map(x => x.trim().replace(/'/g, '')).sort());
+  }
+
+  const zJs = new Map();
+  for (const ctx of ['assignment', 'construction', 'workshop', 'regulated']) {
+    for (const req of D.requirementsFor([ctx])) {
+      if (!req.blocks) continue;                    // upozornenie nie je prekážka
+      const kinds = [req.kind, ...(req.alt || [])].sort();
+      zJs.set(req.rule, kinds);
+    }
+  }
+
+  eq([...zSql.keys()].sort(), [...zJs.keys()].sort(),
+    'databáza blokuje na tých istých pravidlách ako appka');
+  for (const [rule, kinds] of zJs) {
+    eq(zSql.get(rule) || null, kinds,
+      `pravidlo „${rule}" pýta v SQL tie isté druhy dokladov`);
+  }
+
+  // Poistenie a zdravotná prehliadka sú upozornenie — v SQL nesmú byť,
+  // inak by databáza zastavila nasadenie, ktoré appka pustí.
+  const nesmie = ['insurance', 'medical'];
+  const vsetkySql = [...zSql.values()].flat();
+  ok(!nesmie.some(k => vsetkySql.includes(k)),
+    'a to, čo je len upozornenie, v nej nie je');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

@@ -395,6 +395,9 @@ console.log('Prehliadač');
         skus('ponuka', () => DanubraPapers.quote(
           { quote: { quote_number: '1', title: 'T', charge_rate: 30, headcount: 2, hours_per_month: 160 },
             client: cli, supplier: sup }));
+        skus('zmluva', () => DanubraPapers.werkvertrag(
+          { contract: { contract_number: '1', title: 'T', price_model: 'fixed',
+            fixed_price: 1000, scope: 'S' }, client: cli, supplier: sup }));
         skus('potvrdenie objednávky', () => DanubraPapers.orderConfirmation(
           { order: { order_number: '1' }, client: cli, accommodation: {}, supplier: sup }));
         skus('výzva na platbu', () => DanubraPapers.paymentRequest(
@@ -451,6 +454,851 @@ console.log('Prehliadač');
         return document.querySelectorAll('#ui-modal .hx-item').length;
       });
       ok(idx >= 30, `register ponúka všetky vysvetlivky (${idx})`);
+      await page.close();
+    }
+
+    // ── Nasadenie bez dokladov ────────────────────────────────────────────
+    // Pravidlo drží trigger v databáze (migrácia 033), ale človek sa o ňom má
+    // dozvedieť pri výbere človeka, nie až chybou po vyplnení deviatich polí.
+    // Tento test overuje presne to, čo sa nedá overiť bez prehliadača:
+    // že sa blokátor v okne naozaj vykreslí, že neponúka výnimku tam, kde
+    // nepomôže, a že zapísaná výnimka ho odomkne.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const dnes = new Date().toISOString().slice(0, 10);
+        const DATA = {
+          subcontracts: [{ id: 'sc1', title: 'Stavba Ulm', work_type: 'construction',
+            status: 'active', date_from: dnes, partner_id: 'p1' }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }],
+          workers: [{ id: 'w1', full_name: 'Bez dokladov', status: 'ready',
+            legal_form: 'szco', regulated_trade: false }],
+          worker_documents: [],
+          assignments: [], overrides: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const res = {};
+        return (async () => {
+          await Sub.load();
+          Sub.addAsg('sc1');
+          const card = document.querySelector('#ui-modal .modal-card');
+          res.stop = card.innerText.includes('Takto to nepustím');
+          res.a1 = card.innerText.includes('Formulár A1');
+          res.ovr = card.innerText.includes('Chcem to povoliť aj tak');
+          res.risk = card.innerText.includes('Zoll');
+
+          // Koordinátor výnimku nedostane — právo má len administrátor.
+          Danubra.me = { role: 'coordinator', active: true };
+          document.getElementById('asg-blocker').innerHTML =
+            Sub.asgBlockerHtml('sc1', 'w1', dnes);
+          res.koord = !document.getElementById('asg-blocker').innerText
+            .includes('Chcem to povoliť aj tak');
+          res.komu = document.getElementById('asg-blocker').innerText
+            .includes('len administrátor');
+          Danubra.me = { role: 'admin', active: true };
+
+          // Zapísaná výnimka blokátor odomkne.
+          Sub.overrides = [
+            { id: 'o1', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_a1',
+              reason: 'A1 je podané, klient tlačí.' },
+            { id: 'o2', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_document',
+              reason: 'A1 je podané, klient tlačí.' },
+            { id: 'o3', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_trade_licence',
+              reason: 'A1 je podané, klient tlačí.' },
+            { id: 'o4', entity_type: 'worker', entity_id: 'w1', rule_key: 'missing_contract',
+              reason: 'A1 je podané, klient tlačí.' },
+          ];
+          document.getElementById('asg-blocker').innerHTML =
+            Sub.asgBlockerHtml('sc1', 'w1', dnes);
+          const po = document.getElementById('asg-blocker').innerText;
+          res.odomkne = po.includes('Nič neblokuje');
+          res.vidno = po.includes('povolené výnimkou');
+          UI.closeModal();
+          return res;
+        })();
+      });
+
+      ok(out.stop, 'nasadenie bez dokladov okno zastaví');
+      ok(out.a1, 'a povie, že chýba A1');
+      ok(out.ovr, 'administrátorovi ponúkne výnimku');
+      ok(out.risk, 'aj s tým, čo tým riskuje');
+      ok(out.koord, 'koordinátorovi výnimku neponúkne');
+      ok(out.komu, 'ale povie mu, kto ju povoliť môže');
+      ok(out.odomkne, 'zapísaná výnimka nasadenie odomkne');
+      ok(out.vidno, 'a zostane vidieť, že to prešlo výnimkou');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+
+
+
+
+
+    // ── Jedno miesto na nábor ─────────────────────────────────────────────
+    // Nábor bol rozsypaný na šesť položiek v menu a kto naberal, musel
+    // vedieť, na ktorej má byť. „Nábor" je teraz vstup: čo treba teraz,
+    // čo beží, koho hľadám — a odtiaľ sa chodí na zvyšok.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const davno = new Date(Date.now() - 45 * 60000).toISOString();
+        const DATA = {
+          recruitment_plans: [{ id: 'p1', title: 'Murári na Stuttgart', trade_key: 'murar',
+            headcount: 4, status: 'active', city: 'Stuttgart', offer_rate: 17, client_rate: 27 }],
+          trades: [{ key: 'murar', name_sk: 'Murár', active: true }],
+          screening_questions: [],
+          candidates: [
+            { id: 'c1', full_name: 'Róbert Slávik', status: 'new', received_at: davno, ad_id: 'ad1' },
+            { id: 'c2', full_name: 'Dávid Urban', status: 'contacted',
+              received_at: davno, first_contact_at: davno },
+          ],
+          subcontracts: [],
+          ads: [{ id: 'ad1', title: 'Murári Stuttgart FB', channel: 'facebook', active: true },
+            { id: 'ad2', title: 'Zvárači rezerva', channel: 'portal', active: true }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          Hire.loaded = false;
+          Danubra.go('hiring');
+          await new Promise(r => setTimeout(r, 500));
+          const v = document.getElementById('view');
+          return {
+            text: v.innerText.replace(/\s+/g, ' '),
+            html: v.innerHTML,
+            menu: [...document.querySelectorAll('#sidebar-nav .nav-item')]
+              .map(x => x.textContent.trim()).filter(Boolean),
+          };
+        })();
+      });
+
+      // Appka má povedať jednu vec, ktorá sa má spraviť teraz — veľkým
+      // písmom a s jedným veľkým tlačidlom. Nie zoznam, z ktorého si človek
+      // vyberá sám.
+      ok(out.text.includes('Zavolaj — Róbert Slávik'),
+        'navrchu je jedna vec, ktorá sa má spraviť teraz', out.text.slice(0, 200));
+      ok(out.text.includes('Čaká už 45 min'), 'a ako dlho ten človek čaká');
+      ok(out.text.includes('Cieľ je ozvať sa do desiatich minút'),
+        'aj to, prečo to horí');
+      ok(out.html.includes('Guide.continueCall'), 'tlačidlo vedie rovno do hovoru');
+      ok((out.text.match(/Róbert Slávik/g) || []).length === 1,
+        'meno je na obrazovke raz, nie v nadpise aj na tlačidle');
+      ok(out.html.includes('flow-hot'), 'a nad desať minút je to zvýraznené');
+
+      // Päť krokov pod tým: kde v tom reťazci sme.
+      ok((out.html.match(/class="flow-step/g) || []).length === 5,
+        'pod tým je päť krokov reťazca');
+      ok(out.text.includes('z 5 krokov hotových'), 'a koľko z nich je hotových');
+      ok(out.html.includes('is-now'), 'ten, ktorý je na rade, je zvýraznený');
+      ok(out.text.includes('Murár × 4'), 'plán ukazuje názov remesla, nie kľúč',
+        out.text.slice(0, 300));
+      ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),
+        'a odtiaľto sa dá ísť na zvyšok náboru');
+
+      const i = out.menu.findIndex(x => x.startsWith('Nábor'));
+      const k = out.menu.findIndex(x => x.startsWith('Kandidáti'));
+      ok(i >= 0 && k > i, 'Nábor je v menu pred Kandidátmi', out.menu.join(' | '));
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Obrazovka kandidátov ──────────────────────────────────────────────
+    // Pri štarte vyzerala ako rozbitá: kanban s piatimi stĺpcami, z toho
+    // štyri prázdne, to isté tlačidlo dvakrát a metriky svietiace pomlčkou
+    // a nulou — akoby appka merala a vyšla jej nula, pritom ešte nie je
+    // z čoho počítať.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          candidates: [
+            { id: 'c1', full_name: 'Róbert Slávik', status: 'new', received_at: '2026-10-01' },
+            { id: 'c2', full_name: 'Dávid Urban', status: 'new', received_at: '2026-10-01' },
+          ],
+          candidate_checks: [],
+          ads: [{ id: 'ad1', title: 'Sadrokartonári Stuttgart', channel: 'facebook' }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const res = {};
+        return (async () => {
+          Cand.loaded = false; Cand.view_ = null;
+          Danubra.go('candidates');
+          await new Promise(r => setTimeout(r, 500));
+          const v = document.getElementById('view');
+          res.text = v.innerText.replace(/\s+/g, ' ');
+          res.html = v.innerHTML;
+          res.kanbanov = v.querySelectorAll('.kanban-col').length;
+          res.cta = (res.html.match(/Guide\.startCall\(\)/g) || []).length
+            + (document.getElementById('page-actions')
+              ? (document.getElementById('page-actions').innerHTML.match(/Guide\.startCall/g) || []).length
+              : 0);
+
+          // S dostatkom ľudí v procese má kanban zmysel a zapne sa sám.
+          Cand.items = Array.from({ length: 7 }, (_, i) => ({
+            id: `x${i}`, full_name: `Človek ${i}`, status: 'contacted', received_at: '2026-10-01' }));
+          Danubra.renderRoute();
+          await new Promise(r => setTimeout(r, 300));
+          res.kanbanovVela = document.getElementById('view').querySelectorAll('.kanban-col').length;
+          return res;
+        })();
+      });
+
+      ok(out.cta === 1, 'tlačidlo „Zdvihol som telefón" je na obrazovke raz', `${out.cta}×`);
+      ok(out.kanbanov === 0, 'pri dvoch kandidátoch sa kanban nekreslí',
+        `${out.kanbanov} stĺpcov`);
+      ok(out.kanbanovVela > 0, 'pri siedmich sa zapne sám', `${out.kanbanovVela} stĺpcov`);
+      ok(out.text.includes('zatiaľ nemeriame'),
+        'prázdna metrika povie, že sa ešte nemeria');
+      ok(!out.text.includes('konverzia 0 %'),
+        'a nikde nesvieti konverzia 0 %', out.text.slice(0, 200));
+      ok(out.html.includes('kpi-word'),
+        'veta v metrike nemá veľkosť čísla, aby sa nezalomila');
+      ok(out.text.includes('väzba vzniká pri hovore'),
+        'pri neznámom pôvode sa povie, kde tá väzba vzniká');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Krátky hovor a plný pohovor ───────────────────────────────────────
+    // Cieľ je ozvať sa do desiatich minút. Keď sa začne dvadsaťminútovým
+    // pohovorom, k tretiemu človeku sa náborár v ten deň nedostane.
+    //
+    // Druhá vec, ktorú to stráži: záver hovoru nesmie povedať dve veci naraz.
+    // Prvá verzia ukazovala hore „100 % — Ísť na overenie" a pod tým
+    // „Zavolať neskôr, zatiaľ to nie je jasné", lebo sa do rozhodnutia
+    // podal zlý objekt.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        Guide.ads = [{ id: 'ad1', title: 'Sadrokartonári Stuttgart FB',
+          channel: 'facebook', trade_key: 'trockenbau', rate_offered: 18, active: true }];
+        Guide.trades = [{ key: 'trockenbau', name_sk: 'Sadrokartonár' }];
+        Guide.plans = []; Guide.subcontracts = []; Guide.partners = [];
+        Guide.chips = [
+          { id: 1, segment: 'trade', label: 'Vie rozteč profilov', polarity: 'plus', weight: 3, active: true },
+          { id: 2, segment: 'trade', label: 'Pozná Q2 a Q3', polarity: 'plus', weight: 3, active: true },
+          { id: 3, segment: 'legal', label: 'Má aktívnu živnosť', polarity: 'plus', weight: 3, active: true },
+          { id: 4, segment: 'legal', label: 'Nemá A1 a nechce ho', polarity: 'flag', weight: 3, active: true },
+          { id: 5, segment: 'logistics', label: 'Vie nastúpiť', polarity: 'plus', weight: 2, active: true },
+          { id: 6, segment: 'money', label: 'Sadzba sedí', polarity: 'plus', weight: 2, active: true },
+          { id: 7, segment: 'intro', label: 'Predstavil som firmu', polarity: 'plus', weight: 1, active: true },
+          { id: 8, segment: 'verify', label: 'Vie meno Poliera', polarity: 'plus', weight: 2, active: true },
+        ];
+        Guide.questions = [
+          { id: 'q1', trade_key: 'trockenbau', phase: 'phone', question_sk: 'Rozteč?',
+            good_answer: '62,5 cm', weight: 3, active: true },
+        ];
+        Guide.loaded = true; Guide.setup = true;
+        Guide.cand = null; Guide.ad = null; Guide.trade = null; Guide.mode = 'quick';
+
+        const res = {};
+        Guide.open();
+        Guide.pickAd('ad1');
+        res.start = document.getElementById('guide').innerText;
+
+        // Krátky hovor je jedna obrazovka, nie šesť.
+        Guide.cand = { id: 'c1', full_name: 'Jozef Malý', ad_id: 'ad1' };
+        Guide.trade = { key: 'trockenbau', name_sk: 'Sadrokartonár' };
+        Guide.setup = false; Guide.ticked = new Map();
+        Guide.segments = Guide.buildSegments('trockenbau', 'ad1');
+        res.kratkySegmentov = Guide.segments.length;
+        res.kratkyPolia = Guide.segments[0].chips.map(c => c.segment);
+
+        // Plný pohovor má častí viac.
+        Guide.mode = 'full';
+        res.plnySegmentov = Guide.buildSegments('trockenbau', 'ad1').length;
+        Guide.mode = 'quick';
+
+        // Záver: hodnotenie hore a rozhodnutie pod ním si nesmú odporovať.
+        Guide.segments = Guide.buildSegments('trockenbau', 'ad1');
+        for (const id of [1, 2, 3, 5, 6]) Guide.ticked.set(id, Guide.chips.find(c => c.id === id));
+        Guide.segIndex = Guide.segments.length;
+        Guide.render();
+        res.zaver = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
+
+        // Vylučujúca vec prebije aj vysoké skóre.
+        Guide.ticked.set(4, Guide.chips.find(c => c.id === 4));
+        Guide.render();
+        res.sVlajkou = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
+        Guide.close(true);
+        return res;
+      });
+
+      ok(out.start.includes('Krátky hovor') && out.start.includes('Plný pohovor'),
+        'pred hovorom sa dá vybrať krátky alebo plný');
+      ok(out.start.includes('Do troch minút'), 'a je napísané, čím sa líšia');
+
+      ok(out.kratkySegmentov === 1, 'krátky hovor je jedna obrazovka',
+        `${out.kratkySegmentov}`);
+      ok(!out.kratkyPolia.includes('intro') && !out.kratkyPolia.includes('verify'),
+        'bez úvodu a overovania — na to je plný pohovor', out.kratkyPolia.join(','));
+      ok(['trade', 'legal', 'logistics', 'money'].every(k => out.kratkyPolia.includes(k)),
+        'ale remeslo, papiere, termín aj peniaze tam sú', out.kratkyPolia.join(','));
+      ok(out.plnySegmentov > out.kratkySegmentov,
+        'plný pohovor má častí viac', `${out.plnySegmentov} vs ${out.kratkySegmentov}`);
+
+      ok(out.zaver.includes('Pokračovať plným pohovorom'),
+        'zo záveru krátkeho hovoru sa dá prejsť na plný');
+      ok(!out.zaver.includes('Zavolať neskôr'),
+        'pri vysokom skóre sa nehovorí „zavolať neskôr"', out.zaver.slice(0, 200));
+      ok(out.sVlajkou.includes('Nepokračovať'),
+        'vylučujúca vec prebije aj vysoké skóre');
+      ok(!out.sVlajkou.includes('Pokračovať plným pohovorom'),
+        'a vtedy sa plný pohovor neponúka');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Remeslo ako lekcia a skúšanie ─────────────────────────────────────
+    // Nábor nerobí stavbár. Toto je obrazovka, z ktorej sa má človek naučiť
+    // remeslo — takže sa testuje presne to: že sa dá otvoriť, že sekcie idú
+    // v poradí na čítanie, a že skúšanie **neukáže odpoveď skôr**, než si ju
+    // človek premyslí. Odhalená odpoveď vopred znamená, že si prečíta
+    // riešenie a bude si myslieť, že ho vedel.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        Trades.loaded = true;
+        Trades.trades = [
+          { key: 'trockenbau', name_sk: 'Sadrokartonár', name_de: 'Trockenbauer',
+            lohngruppe: 'LG2', summary: 'Najžiadanejšie remeslo.',
+            day_in_life: 'Ráno sa vymeria čiara.',
+            vocab: [{ de: 'Ständerwerk', sk: 'nosný rošt', note: 'Kostra priečky.' }],
+            work_scope: ['montáž priečok'], materials: ['GKB'], tools: ['skrutkovač'],
+            standards: ['Q2 — bežný štandard'], daily_output: '25–35 m²',
+            certificates: ['živnostenský list'], red_flags: ['nevie rozteč'],
+            pay_note: 'Najtvrdšia konkurencia o ľudí.',
+            rate_worker_min: 16, rate_worker_max: 20,
+            rate_client_min: 26, rate_client_max: 32 },
+          { key: 'montaznik', name_sk: 'Montážnik', name_de: 'Monteur',
+            summary: 'Montuje hotové diely.', rate_worker_min: 15.9, rate_worker_max: 18,
+            rate_client_min: 25, rate_client_max: 29 },
+        ];
+        Trades.questions = Array.from({ length: 6 }, (_, i) => ({
+          id: `q${i}`, trade_key: 'trockenbau', question_sk: `Otázka číslo ${i}?`,
+          good_answer: `Správna odpoveď ${i}`, red_flag_answer: `Zbystri ${i}`,
+          kind: 'knowledge', weight: 1, sort_order: i, active: true }));
+        Trades.basics = [{ code: 'polier', title: 'Kto je Polier',
+          body: 'Majster stavby.', sort_order: 1, active: true }];
+
+        const res = {};
+        return (async () => {
+          Danubra.go('trades');
+          await new Promise(r => setTimeout(r, 300));
+          Trades.setTab('trades');
+          await new Promise(r => setTimeout(r, 200));
+          const zoznam = document.getElementById('view');
+          res.karty = zoznam.querySelectorAll('.trade-card').length;
+          res.zoznamText = zoznam.innerText.replace(/\s+/g, ' ');
+
+          Trades.open('trockenbau');
+          await new Promise(r => setTimeout(r, 300));
+          const v = document.getElementById('view');
+          res.nadpisy = [...v.querySelectorAll('.lesson-card .card-title')]
+            .map(x => x.textContent.trim());
+          res.lekcia = v.innerText.replace(/\s+/g, ' ');
+          res.hash = location.hash;
+
+          // Skúšanie: odpoveď sa nesmie ukázať skôr, než si ju človek vyžiada.
+          Trades.startQuiz('trockenbau');
+          await new Promise(r => setTimeout(r, 250));
+          const q1 = document.getElementById('quiz').innerText;
+          res.predOdhalenim = q1;
+          Trades.revealQuiz();
+          await new Promise(r => setTimeout(r, 200));
+          res.poOdhaleni = document.getElementById('quiz').innerText;
+          const prva = Trades.quiz.deck[0].id;
+          Trades.nextQuiz(true);
+          await new Promise(r => setTimeout(r, 200));
+          res.dalsia = Trades.quiz.deck[Trades.quiz.i].id !== prva;
+          res.znovaSkryte = !document.getElementById('quiz').innerText.includes('Čo chcem počuť');
+          res.skore = Trades.quiz.hit;
+
+          Trades.closeLesson();
+          await new Promise(r => setTimeout(r, 250));
+          res.hashPoZavreti = location.hash;
+          return res;
+        })();
+      });
+
+      ok(out.karty === 2, 'remeslá sú karty, nie riadky', `našiel som ${out.karty}`);
+      ok(out.zoznamText.includes('6 otázok'), 'na karte je počet otázok');
+      ok(out.zoznamText.includes('0 otázok'),
+        'a nula sa skloňuje správne — „0 otázok", nie „0 otázky"');
+      ok(out.zoznamText.includes('15,90'), 'sadzba má desatinnú čiarku, nie bodku',
+        out.zoznamText.slice(0, 160));
+
+      const cakane = ['Čo to je', 'Deň na stavbe', 'Slovíčka, ktoré budeš počuť',
+        'Čo na stavbe robí', 'S čím pracuje', 'Čím pracuje — vlastné náradie',
+        'Podľa čoho sa to meria', 'Koľko toho za deň spraví', 'Čo musí doložiť',
+        'Podľa čoho spoznáš, že to nerobil', 'Peniaze'];
+      ok(out.nadpisy.join('|') === cakane.join('|'),
+        'lekcia ide v poradí na čítanie a peniaze sú na konci',
+        out.nadpisy.join(', '));
+      ok(out.lekcia.includes('Ständerwerk'), 'slovíčka sú v lekcii');
+      ok(out.lekcia.includes('12 z 12'), 'je vidieť, koľko z príručky je hotové');
+      ok(out.lekcia.includes('Kto je Polier'), 'a čo platí na každej stavbe');
+      ok(out.hash.includes('#/trades/trockenbau'),
+        'na remeslo sa dá poslať odkaz', out.hash);
+
+      ok(!out.predOdhalenim.includes('Čo chcem počuť'),
+        'odpoveď sa pred premyslením neukáže');
+      ok(out.predOdhalenim.includes('Otázka 1 z 6'), 'ale je vidieť, kde v balíčku som');
+      ok(out.poOdhaleni.includes('Čo chcem počuť'), 'po vyžiadaní sa odpoveď ukáže');
+      ok(out.poOdhaleni.includes('Pri čom zbystriť'), 'aj to, pri čom zbystriť');
+      ok(out.dalsia, 'ďalšia otázka je iná než prvá');
+      ok(out.znovaSkryte, 'a jej odpoveď je zase skrytá');
+      ok(out.skore === 1, 'čo si človek povie, že vedel, sa počíta');
+      ok(out.hashPoZavreti === '#/trades', 'zavretím sa vrátiš na zoznam');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Zmluva ────────────────────────────────────────────────────────────
+    // Zmluva nemala náhľad ani sken a editovať sa dalo sedem polí. Toto
+    // overuje presne to, čo sa bez prehliadača otestovať nedá: že tie polia
+    // sú vidieť **aj v detaile**, nielen vo formulári — lebo to bola tá istá
+    // chyba, akú mal checklist a doklady.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        Con.loaded = true;
+        Con.partners = [{ id: 'p1', name: 'Vogel GmbH', ust_idnr: 'DE811234567' }];
+        Con.items = [{ id: 'c1', contract_number: 'ZML-1', partner_id: 'p1',
+          title: 'Trockenbau', kind: 'werkvertrag', status: 'signed',
+          scope: 'Montage.', site_name: 'Wohnpark', site_city: 'Stuttgart',
+          date_from: '2026-10-01', date_to: '2027-03-31',
+          price_model: 'hourly', charge_rate: 31.5, payment_terms_days: 30,
+          retention_pct: 5, warranty_months: 48, notice_days: 30,
+          contact_name: 'Herr Vogel', contact_email: 'vogel@bau.de',
+          signed_at: '2026-09-20', storage_path: null }];
+        Con.amendments = [{ id: 'a1', contract_id: 'c1', amendment_number: 'Dodatok č. 1',
+          field: 'charge_rate', old_value: '31.5', new_value: '33',
+          reason: 'Zdražel materiál.', created_at: '2026-11-01', signed_at: null }];
+
+        Con.detail('c1');
+        // Sumy formátuje Intl a medzera pred € je pevná (U+00A0), nie
+        // obyčajná. Porovnávať text s pevnou medzerou znamená hľadať znak,
+        // ktorý sa nedá napísať — tak sa všetky medzery zrovnajú.
+        const norm = (x) => x.replace(/\s+/g, ' ').trim();
+        const t = norm(document.querySelector('#ui-modal .modal-card').innerText);
+        const html = document.querySelector('#ui-modal .modal-card').innerHTML;
+
+        // Podpísaná zmluva: chránené polia sa needitujú vôbec.
+        Con.form('c1');
+        const poliaPodpisanej = [...document.querySelectorAll('#con-form [name]')]
+          .map(x => x.name);
+
+        // Koncept: editovať sa dá všetko.
+        Con.items.push({ ...Con.items[0], id: 'c2', status: 'draft' });
+        Con.form('c2');
+        const poliaKonceptu = [...document.querySelectorAll('#con-form [name]')]
+          .map(x => x.name);
+        UI.closeModal();
+        return { t, html, poliaPodpisanej, poliaKonceptu };
+      });
+
+      ok(out.t.includes('Stuttgart'), 'miesto plnenia je v detaile');
+      ok(out.t.includes('31,50 € / h'), 'cena je naformátovaná');
+      // Na hodnotu samu sa spoľahnúť nedá — „5 %" je aj vo vete pod tým.
+      // Test musí hľadať riadok s názvom, inak nechytí, že políčko zmizlo.
+      ok(/<span>Zádržné<\/span><strong>5(\s|&nbsp;)?%/.test(out.html),
+        'zádržné má v detaile vlastný riadok', out.html.slice(0, 0));
+      ok(/<span>Záruka<\/span><strong>48 mes/.test(out.html), 'aj záruka');
+      ok(/<span>Výpovedná lehota<\/span><strong>30 dní/.test(out.html),
+        'aj výpovedná lehota');
+      ok(out.t.includes('vogel@bau.de'), 'aj kontakt na odberateľa');
+      ok(out.t.includes('Arbeitnehmerüberlassung'),
+        'pri hodinovej cene sa ozve upozornenie');
+      ok(out.t.includes('33,00 € / h'), 'dodatok ukazuje sumu, nie surové „33"');
+      ok(out.t.includes('Prišiel podpísaný'), 'nepodpísaný dodatok sa dá podpísať');
+      ok(out.html.includes('Con.uploadScan'), 'sken originálu sa dá nahrať');
+      ok(out.html.includes('Con.document'), 'a zmluva sa dá otvoriť ako dokument');
+
+      for (const f of ['site_name', 'price_model', 'fixed_price', 'unit_price',
+        'charge_rate', 'retention_pct', 'warranty_months', 'notice_days',
+        'penalty_note', 'contact_name', 'contact_email', 'contact_phone']) {
+        ok(out.poliaKonceptu.includes(f), `formulár má pole „${f}"`);
+      }
+      // Na podpísanej zmluve sa dohodnuté podmienky needitujú vôbec — nie
+      // „zakázané po kliknutí", ale rovno bez možnosti písať.
+      for (const f of ['charge_rate', 'fixed_price', 'unit_price', 'retention_pct',
+        'date_to']) {
+        ok(!out.poliaPodpisanej.includes(f),
+          `na podpísanej zmluve sa „${f}" needituje`);
+      }
+      ok(out.poliaPodpisanej.includes('site_name'),
+        'ale miesto plnenia sa doplniť dá — to nie je dohodnutá podmienka');
+      ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Nové pravidlo úloh ────────────────────────────────────────────────
+    // Zoznam tabuliek aj stĺpcov dáva databáza, takže formulár sa bez nej
+    // nevykreslí správne — a práve to sa bez prehliadača otestovať nedá.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const FIELDS = {
+          danubra_worker_documents: [
+            { column_name: 'valid_to', data_type: 'date', kind: 'date' },
+            { column_name: 'valid_from', data_type: 'date', kind: 'date' },
+            { column_name: 'kind', data_type: 'text', kind: 'filter' },
+          ],
+          danubra_invoices: [
+            { column_name: 'due_date', data_type: 'date', kind: 'date' },
+            { column_name: 'invoice_number', data_type: 'text', kind: 'label' },
+          ],
+        };
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async (fn, args) => {
+          if (fn === 'rule_tables') {
+            return { data: ['danubra_worker_documents', 'danubra_invoices'], error: null };
+          }
+          if (fn === 'rule_fields') return { data: FIELDS[args.p_table] || [], error: null };
+          if (fn === 'preview_task_rule') {
+            return { data: { count: 3, samples: ['Obnoviť a1 — končí 06.09.2026'] },
+              error: null, _args: args };
+          }
+          return { data: null, error: null };
+        };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          Tsk.loaded = false;
+          await Tsk.load();
+          await Tsk.ruleForm();
+          const card = () => document.querySelector('#ui-modal .modal-card');
+          const res = {};
+          res.otvorene = !!document.getElementById('rule-form');
+          res.tabulky = [...document.querySelectorAll('[name=source_table] option')]
+            .map(o => o.textContent.trim());
+          res.datumy = [...document.querySelectorAll('#rule-date-field option')]
+            .map(o => o.value);
+
+          // Zmena tabuľky musí prebrať stĺpce — inak by ostal stĺpec,
+          // ktorý v novej tabuľke neexistuje.
+          document.querySelector('[name=source_table]').value = 'danubra_invoices';
+          await Tsk.ruleChanged();
+          res.poZmene = [...document.querySelectorAll('#rule-date-field option')]
+            .map(o => o.value);
+
+          // Skúška naprázdno.
+          document.querySelector('[name=task_title_template]').value = 'Skontrolovať {label}';
+          await Tsk.tryRule();
+          res.skuska = document.getElementById('rule-try').innerText;
+
+          // Neplatný kľúč musí byť vidieť hneď, nie až po uložení.
+          document.querySelector('[name=key]').value = 'Zlý Kľúč';
+          await Tsk.ruleChanged();
+          res.problem = document.getElementById('rule-problems').innerText;
+
+          UI.closeModal();
+          return res;
+        })();
+      });
+
+      ok(out.otvorene, 'formulár nového pravidla sa otvorí');
+      ok(out.tabulky.includes('doklad pracovníka'),
+        'tabuľky sú po slovensky', out.tabulky.join(', '));
+      ok(out.datumy.includes('valid_to'), 'ponúka dátumové stĺpce z databázy');
+      ok(out.poZmene.includes('due_date') && !out.poZmene.includes('valid_to'),
+        'po zmene tabuľky sa stĺpce preberú', out.poZmene.join(', '));
+      ok(out.skuska.includes('3'), 'skúška naprázdno povie, koľko úloh vznikne');
+      ok(out.skuska.includes('Obnoviť a1'), 'a ukáže, ako budú vyzerať');
+      ok(out.problem.toLowerCase().includes('kľúč'),
+        'neplatný kľúč je vidieť hneď', out.problem.slice(0, 80));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Telefón ───────────────────────────────────────────────────────────
+    // Hodiny a výkaz sa zapisujú na stavbe, teda na telefóne. Keď sa stránka
+    // posúva do boku, nedá sa to používať vôbec: pri každom ťahu prstom
+    // odskočí obsah a spodné menu ujde mimo obrazovku.
+    //
+    // Presne to sa dialo na Úlohách: prepínač stavov mal `width:max-content`
+    // bez stropu, roztiahol **celý dokument** na 635 px namiesto 390 a spodné
+    // menu, ktoré je `position:fixed` cez šírku dokumentu, sa roztiahlo s ním.
+    // V CSS bolo dvadsaťpäť `@media` pravidiel, takže to vyzeralo vyriešene —
+    // na skutočnej šírke to nikto neotvoril.
+    {
+      const ctx = await browser.newContext({
+        viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+        isMobile: true, hasTouch: true,
+      });
+      const page = await ctx.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      await page.evaluate(() => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+      });
+
+      const routes = await page.evaluate(() =>
+        Danubra.allNav().map(x => x[0]).filter(r => Danubra.routeAvailable(r)));
+
+      const siroke = [];
+      for (const r of routes) {
+        await page.evaluate((x) => Danubra.go(x), r);
+        await page.waitForTimeout(160);
+        const o = await page.evaluate(() => ({
+          scroll: document.documentElement.scrollWidth,
+          okno: document.documentElement.clientWidth,
+          // Čo presne pretieklo — bez toho sa to hľadá po jednom prvku.
+          kto: [...document.querySelectorAll('#app *')]
+            .filter((el) => {
+              const b = el.getBoundingClientRect();
+              return b.width && b.height
+                && b.right - document.documentElement.clientWidth > 2
+                && getComputedStyle(el).position !== 'fixed';
+            })
+            .map(el => `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]}`)
+            .slice(0, 3),
+        }));
+        if (o.scroll > o.okno + 2) siroke.push(`${r}: ${o.scroll}px (${o.kto.join(', ')})`);
+      }
+      ok(siroke.length === 0, `žiadna obrazovka sa na telefóne neposúva do boku (${routes.length})`,
+        siroke.slice(0, 4).join('\n    '));
+
+      // Na čo sa klepá prstom, musí byť dosť veľké. Odporúčanie je 44 px;
+      // 40 je minimum, pod ktoré appka nesmie ísť.
+      const male = await page.evaluate(() => {
+        Danubra.go('timesheets');
+        return new Promise((res) => setTimeout(() => {
+          const out = [...document.querySelectorAll('.row-acts .btn')]
+            .map(b => b.getBoundingClientRect())
+            .filter(r => r.width < 40 || r.height < 40).length;
+          res(out);
+        }, 300));
+      });
+      ok(male === 0, 'tlačidlá v riadku sa dajú trafiť prstom', `${male} je menších než 40 px`);
+
+      // Výkaz má dvanásť stĺpcov a na telefóne sa doň pozerá cez okienko
+      // široké ako dlaň. Keď sa posunie do boku, meno musí zostať vidieť —
+      // inak človek nevie, čí riadok práve číta.
+      const meno = await page.evaluate(() => {
+        // Výkaz sa bez partie nevykreslí — bez dát by test nemal čo merať.
+        const DATA = {
+          crews: [{ id: 'c1', name: 'Partia Nitra', status: 'active' }],
+          crew_members: [{ crew_id: 'c1', worker_id: 'w1', role: 'leader' },
+            { crew_id: 'c1', worker_id: 'w2', role: 'member' }],
+          workers: [{ id: 'w1', full_name: 'Ján Novák' }, { id: 'w2', full_name: 'Peter Kováč' }],
+          subcontracts: [{ id: 'sc1', title: 'Wohnpark', contract_number: 'ZAK-1',
+            site_city: 'Stuttgart', partner_id: 'p1', status: 'active' }],
+          partners: [{ id: 'p1', name: 'Vogel GmbH' }],
+          hour_sheets: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        // Výkaz si hodiny nedoťahuje cez `DB.list`, ale reťazeným dotazom.
+        // Bez neho obrazovka zostane na „Načítavam…" a test by meral prázdno.
+        const q = new Proxy({}, { get: (_t, k) =>
+          (k === 'then' ? ((ok) => ok({ data: [], error: null })) : () => q) });
+        DB.from = () => q;
+        HS.loaded = false;
+        HS.weekLoaded = false;
+        Danubra.go('hoursheet');
+        // Výkaz si dobieha ešte týždeň zvlášť, tak sa počká na tabuľku,
+        // nie na pevný čas — inak test padá podľa rýchlosti stroja.
+        const cakaj = (ms) => new Promise((r) => setTimeout(r, ms));
+        return (async () => {
+          for (let i = 0; i < 40 && !document.querySelector('.hs-table'); i++) await cakaj(100);
+          return new Promise((res) => setTimeout(() => {
+          const paper = document.querySelector('.hs-paper');
+          const cell = document.querySelector('.hs-table .hs-name');
+          if (!paper || !cell) return res({ preco: 'výkaz sa nevykreslil: '
+            + (document.getElementById('view').innerText || '').slice(0, 120) });
+          const pred = Math.round(cell.getBoundingClientRect().left);
+          paper.scrollLeft = 200;
+          setTimeout(() => res({
+            pred, po: Math.round(cell.getBoundingClientRect().left),
+            posun: paper.scrollLeft,
+          }), 60);
+          }, 50));
+        })();
+      });
+      if (meno.preco) {
+        ok(false, 'meno vo výkaze zostane vidieť pri posúvaní', meno.preco);
+      } else {
+        ok(meno.posun === 0 || Math.abs(meno.po - meno.pred) <= 2,
+          'meno vo výkaze zostane vidieť aj po posunutí do boku',
+          `pred ${meno.pred}px, po ${meno.po}px (posun ${meno.posun})`);
+      }
+
+      ok(chyby.length === 0, 'a na telefóne nič nespadne', chyby.slice(0, 3).join('; '));
+      await ctx.close();
+    }
+
+    // ── Checklist pred nasadením ──────────────────────────────────────────
+    // Osem z deviatich bodov sa počíta z dát. To sa dá otestovať aj bez
+    // prehliadača; čo sa bez neho otestovať nedá, je či sa v detaile zákazky
+    // naozaj vykreslia a **či sa dá klikať len na ten jeden ručný**.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          subcontracts: [{ id: 'sc1', title: 'Stavba Ulm', work_type: 'construction',
+            status: 'active', partner_id: 'p1', date_from: '2026-10-01',
+            zoll_reported_at: '2026-09-20T09:00:00Z', transport_provided: true }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', status: 'deployed',
+            legal_form: 'szco' }],
+          // Má všetko okrem A1.
+          worker_documents: [
+            { id: 'd1', worker_id: 'w1', kind: 'id_card', valid_from: '2020-01-01', valid_to: '2030-01-01' },
+            { id: 'd2', worker_id: 'w1', kind: 'trade_licence', valid_from: '2020-01-01', valid_to: null },
+            { id: 'd3', worker_id: 'w1', kind: 'contract', valid_from: '2026-09-01', valid_to: '2027-01-01' },
+          ],
+          assignments: [{ id: 'a1', subcontract_id: 'sc1', worker_id: 'w1',
+            status: 'active', date_from: '2026-10-01', date_to: '2026-12-31' }],
+          overrides: [], assignment_checks: [],
+          v_worker_stay: [{ worker_id: 'w1', subcontract_id: 'sc1',
+            date_from: '2026-09-28', date_to: null }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          Sub.loaded = false;
+          await Sub.load();
+          const view = document.getElementById('view');
+          // `Sub.detail()` ide cez router a adresu; tu ide o samotnú
+          // obrazovku, tak sa vykreslí priamo.
+          await Sub.profile(view, 'sc1');
+          const t = view.innerText;
+          // Odškrtávacie tlačidlo smie byť jediné — to na pokyny.
+          const ticks = [...view.querySelectorAll('button')]
+            .filter(b => (b.getAttribute('onclick') || '').includes('toggleCheck'))
+            .map(b => b.getAttribute('onclick'));
+          Sub.whyCheck('a1');
+          const why = document.querySelector('#ui-modal .modal-card');
+          const whyText = why ? why.innerText : '';
+          UI.closeModal();
+          return {
+            // `.form-section` je v CSS uppercase a innerText to rešpektuje.
+            head: t.toLowerCase().includes('pred nasadením'),
+            veta: t.includes('Nástup blokuje'),
+            a1: t.includes('Platné A1'),
+            zivnost: t.includes('Živnostenský list'),
+            zoll: t.includes('Zapísané na zákazke'),
+            pobyt: t.includes('Má pobyt na celý čas nasadenia'),
+            ticks, whyText,
+          };
+        })();
+      });
+
+      ok(out.head, 'checklist je v detaile zákazky');
+      ok(out.veta, 'a začína vetou, čo blokuje nástup');
+      ok(out.a1, 'chýbajúce A1 je v ňom vidieť');
+      ok(out.zivnost, 'a živnostenský list, ktorý vo v1 chýbal, tiež');
+      ok(out.zoll, 'čo je zo zákazky, to povie');
+      ok(out.pobyt, 'ubytovanie sa číta z pobytov');
+      ok(out.ticks.length === 1, 'odškrtnúť sa dá jediný bod',
+        `našiel som ${out.ticks.length}: ${out.ticks.join(', ')}`);
+      ok(out.ticks[0] && out.ticks[0].includes('instructions'),
+        'a je to ten, ktorý appka vedieť nemôže');
+      ok(out.whyText.includes('Sociálna poisťovňa'), 'pri každom bode je „prečo"');
+      ok(out.whyText.includes('kartotéky'), 'aj to, odkiaľ sa odpoveď berie');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
 

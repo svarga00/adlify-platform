@@ -164,20 +164,29 @@
    * Náhľad pravidla v ľudskej reči. Bez toho je riadok v tabuľke pravidiel
    * len súbor stĺpcov a nikto nevie, čo spraví.
    */
+  /**
+   * Čo ktorá tabuľka znamená po slovensky. Zoznam **povolených** tabuliek
+   * dáva databáza (`danubra_rule_tables()` číta CHECK z migrácie 021) — toto
+   * je len preklad. Keby bol zoznam aj tu, rozišiel by sa pri prvej zmene
+   * a formulár by ponúkal tabuľku, ktorú databáza odmietne.
+   */
+  const RULE_TABLES = {
+    danubra_worker_documents: 'doklad pracovníka',
+    danubra_workers: 'pracovník',
+    danubra_assignments: 'nasadenie',
+    danubra_subcontracts: 'zákazka',
+    danubra_contracts: 'zmluva',
+    danubra_quotes: 'ponuka',
+    danubra_invoices: 'faktúra',
+    danubra_bills: 'prijatá faktúra',
+    danubra_periods: 'obdobie',
+    danubra_candidates: 'kandidát',
+    danubra_crews: 'partia',
+  };
+  function tableLabel(t) { return RULE_TABLES[t] || t; }
+
   function describeRule(rule = {}) {
-    const what = {
-      danubra_worker_documents: 'doklad pracovníka',
-      danubra_workers: 'pracovník',
-      danubra_assignments: 'nasadenie',
-      danubra_subcontracts: 'zákazka',
-      danubra_contracts: 'zmluva',
-      danubra_quotes: 'ponuka',
-      danubra_invoices: 'faktúra',
-      danubra_bills: 'prijatá faktúra',
-      danubra_periods: 'obdobie',
-      danubra_candidates: 'kandidát',
-      danubra_crews: 'partia',
-    }[rule.source_table] || rule.source_table;
+    const what = tableLabel(rule.source_table);
 
     const filters = Object.entries(rule.filter || {})
       .map(([k, v]) => `${k} = ${v}`).join(', ');
@@ -232,8 +241,37 @@
         detail: 'Úloha, ktorá visí pol roka, sa prestane čítať.', severity: 'warn',
       });
     }
+
+    // Motor skladá WHERE z kľúčov filtra. Databáza to kontroluje tiež
+    // (migrácia 021), ale človek má vidieť, čo je zle, kým to píše — nie
+    // dostať chybu z Postgresu po uložení.
+    for (const k of Object.keys(rule.filter || {})) {
+      if (!/^[a-z_]{2,40}$/.test(k)) {
+        reasons.push({
+          rule: 'rule_bad_filter', label: `Filter „${k}" nie je názov stĺpca`,
+          detail: 'Malé písmená a podčiarkovníky, aspoň dva znaky.',
+          severity: 'block',
+        });
+      }
+    }
+    if (!/^[a-z_]{3,40}$/.test(String(rule.date_field || 'xxx'))) {
+      reasons.push({
+        rule: 'rule_bad_date_field', label: 'Dátumový stĺpec nie je názov stĺpca',
+        detail: 'Vyber ho zo zoznamu, ktorý ponúka databáza.', severity: 'block',
+      });
+    }
     return { ok: reasons.length === 0, reasons, warnings };
   }
+
+  /**
+   * Čo sa dá napísať do textu úlohy. Je to zoznam pre človeka, nie pre kód —
+   * preto je pri `{days}` napísané aj to nepríjemné: po termíne je záporný.
+   */
+  const RULE_VARS = [
+    ['{label}', 'názov záznamu — meno, číslo faktúry, názov zákazky'],
+    ['{date}', 'dátum, ktorý pravidlo sleduje'],
+    ['{days}', 'koľko dní do neho zostáva; po termíne je to záporné číslo'],
+  ];
 
   function addDays(d, n) {
     const t = new Date(day(d) + 'T00:00:00Z');
@@ -249,9 +287,9 @@
   }
 
   const API = {
-    BUCKETS, PRIORITY_RANK, UNASSIGNED,
+    BUCKETS, PRIORITY_RANK, UNASSIGNED, RULE_TABLES, RULE_VARS,
     bucketOf, isActive, group, headline, counts, byPerson, people, isFor,
-    describeRule, reviewRule, addDays, plural,
+    describeRule, reviewRule, tableLabel, addDays, plural,
   };
   window.DanubraTasks = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

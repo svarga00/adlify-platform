@@ -167,5 +167,66 @@ console.log('\nNÁZVY SEGMENTOV');
     'poradie segmentov je poradie hovoru');
 }
 
+// ── Krátky prvý hovor ───────────────────────────────────────────────────────
+// Cieľ je ozvať sa do desiatich minút. Celý hovor má šesť častí a trvá
+// dvadsať minút — keď sa začne ním, k tretiemu človeku sa náborár v ten deň
+// nedostane. Krátky hovor je triedič: štyri veci, ktoré rozhodnú, či sa
+// oplatí pokračovať.
+{
+  const chips = [
+    { id: 1, segment: 'trade', label: 'Robil to naozaj', weight: 3, active: true },
+    { id: 2, segment: 'trade', label: 'Menej dôležité', weight: 1 },
+    { id: 3, segment: 'trade', label: 'Stredné', weight: 2 },
+    { id: 4, segment: 'legal', label: 'Má živnosť', weight: 3 },
+    { id: 5, segment: 'logistics', label: 'Vie nastúpiť', weight: 2 },
+    { id: 6, segment: 'money', label: 'Sadzba sedí', weight: 2 },
+    { id: 7, segment: 'intro', label: 'Predstavenie', weight: 3 },
+    { id: 8, segment: 'verify', label: 'Overenie', weight: 3 },
+  ];
+  const q = C.buildQuickSegment({ chips });
+
+  eq(q.chips.map(c => c.label),
+    ['Robil to naozaj', 'Stredné', 'Má živnosť', 'Vie nastúpiť', 'Sadzba sedí'],
+    'berie sa najdôležitejšie z remesla, papierov, termínu a peňazí');
+  ok(!q.chips.some(c => c.segment === 'intro'),
+    'úvod v krátkom hovore nie je — predstaviť sa vie človek aj bez zoznamu');
+  ok(!q.chips.some(c => c.segment === 'verify'),
+    'ani overovanie; na to je plný pohovor');
+
+  // Pole cudzieho remesla sa nesmie dostať dnu — kandidát by dostal otázku,
+  // ktorá sa ho netýka, a stratil by sa čas, ktorého je v krátkom hovore málo.
+  const cudzie = [...chips, { id: 9, segment: 'trade', label: 'Len pre maliarov',
+    weight: 5, trade_key: 'maliar' }];
+  ok(!C.buildQuickSegment({ tradeKey: 'trockenbau', chips: cudzie })
+    .chips.some(c => c.id === 9), 'pole iného remesla sa do hovoru nedostane');
+  ok(C.buildQuickSegment({ tradeKey: 'maliar', chips: cudzie })
+    .chips.some(c => c.id === 9), 'ale pri svojom remesle áno');
+
+  eq(C.buildQuickSegment({ chips: [] }).chips, [], 'bez polí je segment prázdny');
+  eq(C.buildQuickSegment({}).chips, [], 'a bez vstupu to nezhodí');
+  eq(C.buildQuickSegment({ chips, perSegment: 1 }).chips.length, 4,
+    'dá sa skrátiť na jedno pole z časti');
+}
+
+// ── Čo s ním po krátkom hovore ──────────────────────────────────────────────
+// Nie je to známka, je to rozhodnutie, čo spraviť v najbližšej minúte, kým je
+// človek ešte na linke.
+{
+  eq(C.quickNext({ percent: 80 }).key, 'full', 'keď to sedí, pokračuje sa hneď');
+  ok(C.quickNext({ percent: 80 }).why.includes('druhýkrát sa už nemusí ozvať'),
+    'a je napísané prečo hneď');
+  eq(C.quickNext({ percent: 20 }).key, 'later', 'keď to nie je jasné, dohodne sa čas');
+  ok(C.quickNext({ percent: 20 }).why.includes('konkrétny čas'),
+    'a nie „ozvem sa"');
+
+  // Vylučujúca vec má prednosť pred akýmkoľvek percentom.
+  eq(C.quickNext({ percent: 95, flags: [{ label: 'nemá A1 a nechce ho' }] }).key, 'reject',
+    'vylučujúca vec prebije aj vysoké skóre');
+  ok(C.quickNext({ flags: [{}] }).why.includes('rovno'),
+    'a povie sa to rovno, nie mlčaním');
+  eq(C.quickNext({}).key, 'later', 'bez skóre sa nerozhoduje unáhlene');
+  eq(C.quickNext(null).key, 'later', 'ani bez vstupu');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo\n`);
 process.exit(failed ? 1 : 0);

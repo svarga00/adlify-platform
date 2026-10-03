@@ -16,19 +16,31 @@
   const PHASE = { phone: 'Telefón', interview: 'Pohovor', onsite: 'Na stavbe' };
 
   const Trades = {
-    trades: [], questions: [], chips: [], ads: [], loaded: false, tab: 'chips', filterTrade: '',
+    trades: [], questions: [], chips: [], ads: [], basics: [],
+    loaded: false, tab: 'trades', filterTrade: '',
+
+    // Remeslo je obrazovka, nie okno. Dá sa naň odkázať cez
+    // `#/trades/<kľúč>` — na niečo, z čoho sa má človek učiť, musí ísť
+    // poslať odkaz.
+    openKey: null,
+    // Skúšanie: balíček otázok, kde v ňom som a či je odpoveď odhalená.
+    quiz: null,
 
     async load() {
-      const [t, q, c, a] = await Promise.all([
+      const [t, q, c, a, b] = await Promise.all([
         DB.list('trades', { order: { column: 'sort_order', ascending: true }, limit: 100 }),
         DB.list('screening_questions', { order: { column: 'sort_order', ascending: true }, limit: 500 }),
         DB.list('call_chips', { limit: 800 }),
         // Otázka môže patriť ku konkrétnemu inzerátu — „v inzeráte bolo, že
         // nástup je do dvoch týždňov, stíhate to?".
         DB.list('ads', { select: 'id,title,active', limit: 200 }),
+        // Čo platí na každej nemeckej stavbe bez ohľadu na remeslo
+        // (migrácia 037). Ukazuje sa pri každom remesle.
+        DB.list('trade_basics', { order: { column: 'sort_order', ascending: true }, limit: 50 }),
       ]);
       this.trades = t.data || []; this.questions = q.data || []; this.chips = c.data || [];
       this.ads = a.data || [];
+      this.basics = (b && b.data) || [];
       this.loaded = true;
     },
 
@@ -37,6 +49,14 @@
     tradeName(key) { return this.trades.find(t => t.key === key)?.name_sk || (key ? key : 'Univerzálna'); },
 
     async view(el) {
+      if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
+      // Otvorené remeslo je celá obrazovka, nie okno v okne. Lekcia má
+      // jedenásť sekcií — v modale by sa z toho stal zvitok, v ktorom sa
+      // človek po treťom scrollnutí stratí.
+      const fromUrl = (location.hash.match(/^#\/trades\/([a-z0-9_-]+)/i) || [])[1];
+      if (fromUrl && fromUrl !== this.openKey) this.openKey = fromUrl;
+      if (this.openKey) return this.lessonView(el, this.openKey);
+
       // Tlačidlo sa riadi tým, na ktorej záložke človek je — inak pridá niečo
       // iné, než na čo sa práve pozerá.
       Danubra.setActions(`
@@ -44,7 +64,6 @@
         ${this.tab === 'questions'
           ? `<button class="btn btn-primary btn-sm" onclick="Trades.qForm()">${Icon('plus')} Otázka</button>`
           : `<button class="btn btn-primary btn-sm" onclick="Trades.chipForm()">${Icon('plus')} Pole</button>`}`);
-      if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
       const pend = this.pending();
       el.innerHTML = Danubra.header(Danubra.labelOf('trades'),
@@ -54,8 +73,8 @@
           ${Icon('zap', 14)} Z poznámok vzniklo ${pend.length}
           ${pend.length === 1 ? 'nové pole' : 'nových polí'} — potvrď, čo chceš používať.</div>` : '') + `
         <div class="pillbar" style="margin-bottom:14px;width:max-content;flex-wrap:wrap;">
-          <button class="pill${this.tab === 'chips' ? ' active' : ''}" onclick="Trades.setTab('chips')">Polia do hovoru</button>
           <button class="pill${this.tab === 'trades' ? ' active' : ''}" onclick="Trades.setTab('trades')">Remeslá</button>
+          <button class="pill${this.tab === 'chips' ? ' active' : ''}" onclick="Trades.setTab('chips')">Polia do hovoru</button>
           <button class="pill${this.tab === 'questions' ? ' active' : ''}" onclick="Trades.setTab('questions')">Otázky do hovoru</button>
         </div>
         ${this.tab === 'trades' ? this.tradesHtml()
@@ -70,8 +89,232 @@
       const lo = Number(t.rate_client_min) - Number(t.rate_worker_max);
       const hi = Number(t.rate_client_max) - Number(t.rate_worker_min);
       if (!Number.isFinite(lo) || !Number.isFinite(hi)) return '';
+      const f = (v) => Money.format(Money.toCents(v)).replace(/\s*€\s*$/, '');
       return `<span style="font-size:12.5px;color:${lo > 0 ? 'var(--green)' : 'var(--red)'};font-weight:700;white-space:nowrap;">
-        ${lo.toFixed(0)}–${hi.toFixed(0)} €/h marža</span>`;
+        marža ${f(lo)}–${f(hi)} €/h</span>`;
+    },
+
+
+    // ── Remeslo ako lekcia ────────────────────────────────────────────────
+    // Nábor nerobí stavbár. Robí ho človek pri telefóne, ktorý na nemeckej
+    // stavbe nikdy nebol — a za pol hodiny má rozoznať sadrokartonára od
+    // toho, kto „to už raz robil". Preto je remeslo obrazovka na čítanie
+    // a na skúšanie, nie tabuľka polí.
+
+    open(key) {
+      this.openKey = key;
+      this.quiz = null;
+      try { history.replaceState(null, '', `#/trades/${key}`); } catch {}
+      Danubra.renderRoute();
+    },
+
+    closeLesson() {
+      this.openKey = null;
+      this.quiz = null;
+      try { history.replaceState(null, '', '#/trades'); } catch {}
+      Danubra.renderRoute();
+    },
+
+    /**
+     * Rozpätie sadzby. Sadzba je peniaze, takže sa formátuje ako peniaze —
+     * „15.9 €/h" s bodkou je prvá vec, ktorú si človek všimne a poslednou,
+     * ktorej uverí.
+     */
+    rateSpan(t, kind = 'worker') {
+      const lo = t[`rate_${kind}_min`], hi = t[`rate_${kind}_max`];
+      if (lo == null && hi == null) return '—';
+      // `Money.format` dáva pevnú medzeru pred € (U+00A0), takže `replace`
+      // s obyčajnou medzerou ju nenájde a zostane „16,00 € €/h".
+      const f = (v) => Money.format(Money.toCents(v)).replace(/\s*€\s*$/, '');
+      return `${f(lo)}–${f(hi)} €/h`;
+    },
+
+    /** Koľko z príručky je hotové — a čo konkrétne chýba. */
+    stateOf(t) { return DanubraTrade.completeness(t, this.questions); },
+
+    lessonView(el, key) {
+      const t = this.trades.find(x => x.key === key);
+      if (!t) { this.openKey = null; return UI.toast('Remeslo sa nenašlo', 'err'); }
+      const c = this.stateOf(t);
+      const qs = DanubraTrade.deck(this.questions, { tradeKey: key });
+
+      Danubra.setActions(`
+        <button class="btn btn-ghost btn-sm" onclick="Trades.closeLesson()">${Icon('back', 15)} Späť</button>
+        <button class="btn btn-outline btn-sm" onclick="Trades.tForm('${key}')">${Icon('edit', 14)} Upraviť</button>
+        ${qs.length >= DanubraTrade.QUESTIONS_MIN
+          ? `<button class="btn btn-primary btn-sm" onclick="Trades.startQuiz('${key}')">
+               ${Icon('zap', 14)} Vyskúšaj ma</button>` : ''}`);
+
+      const sec = (x) => {
+        if (x.kind === 'text') {
+          return `<div class="card card-pad lesson-card">
+            <div class="card-title">${UI.esc(x.title)}</div>
+            <p class="lesson-text">${UI.esc(x.value)}</p></div>`;
+        }
+        if (x.kind === 'vocab') {
+          return `<div class="card card-pad lesson-card">
+            <div class="card-title">${UI.esc(x.title)}</div>
+            <div class="vocab-grid">${x.value.map(v => `
+              <div class="vocab">
+                <b>${UI.esc(v.de)}</b>
+                <span>${UI.esc(v.sk)}</span>
+                ${v.note ? `<em>${UI.esc(v.note)}</em>` : ''}
+              </div>`).join('')}</div></div>`;
+        }
+        return `<div class="card card-pad lesson-card">
+          <div class="card-title">${UI.esc(x.title)}</div>
+          <ul class="lesson-list">${(x.value || [])
+            .map(v => `<li>${UI.esc(v)}</li>`).join('')}</ul></div>`;
+      };
+
+      el.innerHTML = Danubra.header(t.name_sk,
+        [t.name_de, t.lohngruppe, t.regulated ? 'regulované remeslo' : null]
+          .filter(Boolean).map(UI.esc).join(' · '), '', [t.name_sk])
+        + (t.regulated ? `<div class="warnbox" style="margin-bottom:12px;">
+            ${Icon('alert', 14)} ${UI.esc(t.legal_note || 'Regulované remeslo podľa §9 HwO.')}</div>` : '')
+        + this.stateBar(c)
+        // Peniaze idú celé do jednej karty: najprv čísla, pod nimi veta
+        // o tom, prečo sú také. Rozdeliť to znamená prečítať vysvetlenie
+        // skôr, než človek vie, čo vysvetľuje.
+        + `<div class="lesson">${DanubraTrade.lesson(t)
+          .filter(x => x.key !== 'pay').map(sec).join('')}</div>`
+        + this.payHtml(t)
+        + this.basicsHtml()
+        + this.quizHtml(t, qs);
+    },
+
+    /** Pruh, ktorý povie, či sa podľa príručky dá naberať — alebo čo chýba. */
+    stateBar(c) {
+      const tone = c.ready ? 'green' : (c.questions < DanubraTrade.QUESTIONS_MIN ? 'red' : 'amber');
+      return `<div class="statebar statebar-${tone}">
+        <div class="statebar-head">
+          <b>${c.done} z ${c.total}</b>
+          <span>${UI.esc(DanubraTrade.stateSentence(c))}</span>
+        </div>
+        <div class="statebar-track"><i style="width:${c.pct}%"></i></div>
+        ${c.missing.length ? `<div class="statebar-missing">Chýba: ${
+          c.missing.map(UI.esc).join(' · ')}</div>` : ''}
+      </div>`;
+    },
+
+    /** Peniaze zvlášť — je to jediná sekcia, kde sú čísla aj veta k nim. */
+    payHtml(t) {
+      const m = this.marginSpan(t);
+      return `<div class="card card-pad lesson-card">
+        <div class="card-title">Peniaze</div>
+        <div class="kv" style="margin:0 0 8px;">
+          <div><span>Pýta si</span><strong>${this.rateSpan(t)}</strong></div>
+          <div><span>Fakturujeme</span><strong>${this.rateSpan(t, 'client')}</strong></div>
+          <div><span>Mzdová skupina</span><strong>${UI.esc(t.lohngruppe || '—')}</strong></div>
+        </div>
+        ${m}
+        ${t.pay_note ? `<p class="lesson-text" style="margin-top:10px;">${
+          UI.esc(t.pay_note)}</p>` : ''}
+      </div>`;
+    },
+
+    /** Čo platí na každej stavbe — rovnaké pri každom remesle, preto zvlášť. */
+    basicsHtml() {
+      if (!this.basics.length) return '';
+      return `<div class="form-section">Čo platí na každej nemeckej stavbe</div>
+        <div class="lesson">${this.basics.filter(b => b.active !== false).map(b => `
+          <details class="card card-pad lesson-card basics">
+            <summary>${UI.esc(b.title)}</summary>
+            <p class="lesson-text">${UI.esc(b.body)}</p>
+          </details>`).join('')}</div>`;
+    },
+
+    // ── Skúšanie ──────────────────────────────────────────────────────────
+    // Otázka, človek si odpoveď premyslí, až potom odhalí, čo chce počuť
+    // a pri čom zbystriť. Ukázať oboje naraz znamená, že si človek prečíta
+    // odpoveď a bude si myslieť, že ju vedel.
+
+    startQuiz(key) {
+      const d = DanubraTrade.shuffle(DanubraTrade.deck(this.questions, { tradeKey: key }));
+      this.quiz = { key, deck: d, i: 0, shown: false, hit: 0 };
+      Danubra.renderRoute();
+      const el = document.getElementById('quiz');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
+    revealQuiz() { if (this.quiz) { this.quiz.shown = true; Danubra.renderRoute(); } },
+
+    /** `vedel` zapisuje len to, čo si človek sám povie — nie je to známka. */
+    nextQuiz(vedel) {
+      if (!this.quiz) return;
+      if (vedel) this.quiz.hit += 1;
+      this.quiz.i += 1;
+      this.quiz.shown = false;
+      Danubra.renderRoute();
+    },
+
+    stopQuiz() { this.quiz = null; Danubra.renderRoute(); },
+
+    quizHtml(t, qs) {
+      if (!this.quiz || this.quiz.key !== t.key) {
+        return qs.length >= DanubraTrade.QUESTIONS_MIN
+          ? `<div class="card card-pad quiz-cta" id="quiz">
+              <div>
+                <strong>Vyskúšaj sa z tohto remesla</strong>
+                <span>${qs.length} otázok. Otázka sa ukáže, odpoveď si premyslíš
+                  a až potom uvidíš, čo chceš počuť a pri čom zbystriť.</span>
+              </div>
+              <button class="btn btn-primary" onclick="Trades.startQuiz('${t.key}')">
+                ${Icon('zap', 15)} Spustiť</button>
+            </div>`
+          : `<div class="card card-pad" id="quiz">
+              <div class="card-title">Skúšanie</div>
+              <p class="lesson-text">Na skúšanie treba aspoň
+                ${DanubraTrade.QUESTIONS_MIN} otázok; teraz ich je ${qs.length}.
+                Doplň ich a remeslo sa bude dať odskúšať.</p>
+              <button class="btn btn-outline btn-sm" onclick="Trades.qForm(null,'${t.key}')">
+                ${Icon('plus', 14)} Pridať otázku</button>
+            </div>`;
+      }
+
+      const q = this.quiz;
+      const p = DanubraTrade.progress(q.deck.length, q.i);
+      if (q.i >= q.deck.length) {
+        return `<div class="card card-pad quiz" id="quiz">
+          <div class="card-title">Hotovo</div>
+          <p class="lesson-text">Prešiel si ${q.deck.length} ${
+            Shell.plural(q.deck.length, 'otázku', 'otázky', 'otázok')}
+            a ${q.hit} z nich si vedel. Čo si nevedel, stojí za druhé kolo —
+            práve to sú otázky, ktoré kandidátovi položíš najistejšie.</p>
+          <div class="link-row">
+            <button class="btn btn-primary btn-sm" onclick="Trades.startQuiz('${t.key}')">
+              ${Icon('repeat', 14)} Ešte raz</button>
+            <button class="btn btn-ghost btn-sm" onclick="Trades.stopQuiz()">Zavrieť</button>
+          </div>
+        </div>`;
+      }
+
+      const card = q.deck[q.i];
+      return `<div class="card card-pad quiz" id="quiz">
+        <div class="quiz-head">
+          <span>Otázka ${p.index + 1} z ${p.total}</span>
+          <div class="statebar-track"><i style="width:${p.pct}%"></i></div>
+          <button class="btn btn-ghost btn-sm" onclick="Trades.stopQuiz()">Skončiť</button>
+        </div>
+        <p class="quiz-q">${UI.esc(card.question_sk)}</p>
+        ${q.shown ? `
+          <div class="quiz-a quiz-good">
+            <b>${Icon('check', 14)} Čo chcem počuť</b>
+            <span>${UI.esc(card.good_answer)}</span>
+          </div>
+          ${card.red_flag_answer ? `<div class="quiz-a quiz-bad">
+            <b>${Icon('alert', 14)} Pri čom zbystriť</b>
+            <span>${UI.esc(card.red_flag_answer)}</span>
+          </div>` : ''}
+          <div class="link-row" style="margin-top:10px;">
+            <button class="btn btn-outline btn-sm" onclick="Trades.nextQuiz(true)">
+              ${Icon('check', 14)} Vedel som</button>
+            <button class="btn btn-outline btn-sm" onclick="Trades.nextQuiz(false)">
+              Nevedel som</button>
+          </div>`
+        : `<button class="btn btn-primary" onclick="Trades.revealQuiz()">
+             Premyslel som si to — ukáž odpoveď</button>`}
+      </div>`;
     },
 
     tradesHtml() {
@@ -80,21 +323,34 @@
           'Spusti migráciu 009 — príručka sa naplní sama.',
           `<button class="btn btn-primary" onclick="Trades.tForm()">${Icon('plus')} Pridať remeslo</button>`);
       }
-      return this.trades.map(t => {
-        const qn = this.questions.filter(q => q.trade_key === t.key).length;
-        return `<div class="list-row" onclick="Trades.detail('${t.key}')" style="align-items:flex-start;">
-          <span class="dot ${t.regulated ? 'amber' : ''}" style="margin-top:5px;"></span>
-          <span style="flex:1;font-size:13px;">
-            <strong>${UI.esc(t.name_sk)}</strong>
-            <span style="color:var(--ink-mute);"> · ${UI.esc(t.name_de || '')}</span>
+      // Karta, nie riadok. Z tejto obrazovky sa má človek učiť — a zoznam
+      // tenkých riadkov sa nečíta, ten sa preletí očami.
+      const card = (t) => {
+        const c = this.stateOf(t);
+        const tone = c.ready ? 'green' : (c.questions < DanubraTrade.QUESTIONS_MIN ? 'red' : 'amber');
+        return `<div class="card card-pad trade-card" onclick="Trades.open('${t.key}')">
+          <div class="card-head">
+            <div class="card-title">${UI.esc(t.name_sk)}</div>
             ${t.regulated ? UI.badge('regulované', 'amber') : ''}
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${t.lohngruppe || '—'} · pýta si ${t.rate_worker_min}–${t.rate_worker_max} €/h ·
-              fakturujeme ${t.rate_client_min}–${t.rate_client_max} €/h · ${qn} odborných otázok</span>
-          </span>
-          ${this.marginSpan(t)}
+          </div>
+          <div class="trade-de">${UI.esc(t.name_de || '')}</div>
+          <p class="trade-sum">${UI.esc((t.summary || '').slice(0, 120))}${
+            (t.summary || '').length > 120 ? '…' : ''}</p>
+          <div class="meta-row">
+            <span>${Icon('invoices', 13)} ${this.rateSpan(t)}</span>
+            <span>${Icon('zap', 13)} ${c.questions} ${
+              Shell.plural(c.questions, 'otázka', 'otázky', 'otázok')}</span>
+          </div>
+          <div class="statebar-track statebar-${tone}"><i style="width:${c.pct}%"></i></div>
+          <div class="trade-state">${UI.esc(DanubraTrade.stateSentence(c))}</div>
         </div>`;
-      }).join('');
+      };
+      const nehotove = this.trades.filter(t => !this.stateOf(t).ready).length;
+      return (nehotove ? `<div class="regimebox" style="margin:0 0 12px;">
+          Z ${this.trades.length} remesiel ${nehotove === 1 ? 'má jedno' : `má ${nehotove}`}
+          príručku, podľa ktorej sa zatiaľ nedá naberať ani skúšať. Na karte je
+          vidieť, čo mu chýba.</div>` : '')
+        + `<div class="cards">${this.trades.map(card).join('')}</div>`;
     },
 
     questionsHtml() {
@@ -239,8 +495,8 @@
         <div class="kv" style="margin-top:10px;">
           <div><span>Nemecky</span><strong>${UI.esc(t.name_de || '—')}</strong></div>
           <div><span>Mzdová skupina</span><strong>${UI.esc(t.lohngruppe || '—')}</strong></div>
-          <div><span>Pýta si</span><strong>${t.rate_worker_min}–${t.rate_worker_max} €/h</strong></div>
-          <div><span>Fakturujeme</span><strong>${t.rate_client_min}–${t.rate_client_max} €/h</strong></div>
+          <div><span>Pýta si</span><strong>${this.rateSpan(t)}</strong></div>
+          <div><span>Fakturujeme</span><strong>${this.rateSpan(t, 'client')}</strong></div>
         </div>
         ${list('Čo na stavbe robí', t.work_scope)}
         ${list('S čím pracuje', t.materials)}

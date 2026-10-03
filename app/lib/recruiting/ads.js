@@ -179,9 +179,87 @@
     };
   }
 
+
+  /**
+   * Odkiaľ ľudia naozaj prišli.
+   *
+   * Doteraz sa to zoskupovalo podľa `source` na kandidátovi — voľného poľa,
+   * ktoré hovor nikdy nevyplnil, takže na obrazovke stálo „Iné: 2" a nedalo
+   * sa z toho nič prečítať. Pritom hovor sa začína otázkou, **na ktorý
+   * inzerát voláte**, a `ad_id` zapisuje.
+   *
+   * Zoskupuje sa teda podľa inzerátu. Kto prišiel inak (odporúčanie, cez
+   * známeho), spadne pod svoj kanál — ale zvlášť, aby bolo vidieť, koľko
+   * ľudí appka nevie priradiť.
+   *
+   * Zoradené podľa **nastúpených**, nie podľa počtu ozvaní. Inzerát, na
+   * ktorý sa ozve tridsať ľudí a nikto nenastúpi, nie je lepší než ten,
+   * z ktorého prídu dvaja a obaja robia.
+   *
+   * @returns {Array} [{ key, label, sub, kind, total, contacted, placed, hireRate }]
+   */
+  function funnel(candidates, ads, { placedStatus = 'placed' } = {}) {
+    const byId = new Map((ads || []).filter(Boolean).map(a => [a.id, a]));
+    const rows = new Map();
+
+    const add = (key, label, sub, kind, c) => {
+      if (!rows.has(key)) {
+        rows.set(key, { key, label, sub, kind, total: 0, contacted: 0, placed: 0 });
+      }
+      const r = rows.get(key);
+      r.total += 1;
+      if (c.first_contact_at) r.contacted += 1;
+      if (c.status === placedStatus) r.placed += 1;
+    };
+
+    for (const c of (candidates || [])) {
+      if (!c) continue;
+      const ad = c.ad_id ? byId.get(c.ad_id) : null;
+      if (ad) {
+        add(`ad:${ad.id}`, ad.title || 'Inzerát bez názvu',
+          channelLabel(ad.channel), 'ad', c);
+      } else {
+        // Bez inzerátu: aspoň kanál. „Neuvedený" je tiež odpoveď — a je to
+        // tá, pri ktorej treba zbystriť, lebo z nej sa nedá nič vyhodnotiť.
+        const k = c.source || 'unknown';
+        add(`src:${k}`, k === 'unknown' ? 'Bez inzerátu' : channelLabel(k),
+          k === 'unknown' ? 'nevieme, odkiaľ prišli' : 'mimo inzerátov', 'source', c);
+      }
+    }
+
+    return [...rows.values()]
+      .map(r => ({
+        ...r,
+        hireRate: r.total ? Math.round((r.placed / r.total) * 100) : null,
+        contactRate: r.total ? Math.round((r.contacted / r.total) * 100) : null,
+      }))
+      .sort((a, b) => b.placed - a.placed || b.total - a.total
+        || String(a.label).localeCompare(String(b.label), 'sk'));
+  }
+
+  /** Jedna veta pod graf — nie preto, aby tam niečo bolo, ale aby sa to dalo čítať. */
+  function funnelSentence(rows) {
+    const r = rows || [];
+    if (!r.length) return '';
+    const bez = r.find(x => x.key === 'src:unknown');
+    const najlepsi = r.find(x => x.kind === 'ad' && x.placed > 0);
+    if (najlepsi) {
+      return `Najviac ľudí nastúpilo z inzerátu „${najlepsi.label}" — ${
+        najlepsi.placed} z ${najlepsi.total}.`
+        + (bez ? ` Pri ${bez.total} ${
+          bez.total === 1 ? 'človeku' : 'ľuďoch'} nevieme, odkiaľ prišli.` : '');
+    }
+    if (bez && bez.total === r.reduce((s, x) => s + x.total, 0)) {
+      return 'Pri nikom zatiaľ nevieme, z ktorého inzerátu prišiel — '
+        + 'väzba vzniká pri hovore, keď sa vyberie inzerát.';
+    }
+    return 'Zatiaľ nikto nenastúpil, takže sa inzeráty ešte nedajú porovnať.';
+  }
+
   const API = {
     CHANNELS, channelLabel, isRunning, forCall, promiseLines, subtitle,
     KIND_SEGMENT, questionSegment, questionsFor, withQuestions, performance,
+    funnel, funnelSentence,
   };
   if (typeof window !== 'undefined') window.DanubraAds = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

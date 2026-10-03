@@ -169,26 +169,79 @@ console.log('Úlohy a pravidlá');
     ['rule_bad_key', 'rule_no_source', 'rule_no_title'],
     'prázdne pravidlo má tri prekážky');
 
-  ok(T.reviewRule({ key: 'Ab Cd', source_table: 'x', date_field: 'y',
+  ok(T.reviewRule({ key: 'Ab Cd', source_table: 'x', date_field: 'valid_to',
     task_title_template: 'z {label}' }).reasons.some(r => r.rule === 'rule_bad_key'),
     'veľké písmená a medzery v kľúči neprejdú');
-  ok(T.reviewRule({ key: 'ab', source_table: 'x', date_field: 'y',
+  ok(T.reviewRule({ key: 'ab', source_table: 'x', date_field: 'valid_to',
     task_title_template: 'z {label}' }).reasons.some(r => r.rule === 'rule_bad_key'),
     'dva znaky sú málo');
 
   // Statický text znamená, že sa úlohy nedajú rozlíšiť.
   const staticTitle = T.reviewRule({
-    key: 'test_rule', source_table: 'x', date_field: 'y',
+    key: 'test_rule', source_table: 'x', date_field: 'valid_to',
     task_title_template: 'Pozri sa na to',
   });
   eq(staticTitle.ok, true, 'statický text neblokuje');
   ok(staticTitle.warnings.some(w => w.rule === 'rule_static_title'),
     'ale upozorní, že sa úlohy nedajú rozlíšiť');
 
-  ok(T.reviewRule({ key: 'test_rule', source_table: 'x', date_field: 'y',
+  ok(T.reviewRule({ key: 'test_rule', source_table: 'x', date_field: 'valid_to',
     task_title_template: '{label}', days_before: 365 }).warnings
     .some(w => w.rule === 'rule_far_ahead'),
     'rok dopredu je príliš ďaleko');
+
+  // Motor skladá WHERE z kľúčov filtra. Databáza to kontroluje tiež, ale
+  // človek to má vidieť, kým píše — nie dostať chybu z Postgresu po uložení.
+  const zlyFilter = T.reviewRule({
+    key: 'test_rule', source_table: 'x', date_field: 'valid_to',
+    task_title_template: '{label}', filter: { "status'; drop table": 'x' },
+  });
+  ok(zlyFilter.reasons.some(r => r.rule === 'rule_bad_filter'),
+    'podstrčený názov stĺpca vo filtri neprejde');
+  ok(T.reviewRule({
+    key: 'test_rule', source_table: 'x', date_field: 'valid_to',
+    task_title_template: '{label}', filter: { status: 'active' },
+  }).ok, 'bežný filter prejde');
+
+  ok(T.reviewRule({ key: 'test_rule', source_table: 'x', date_field: 'ab',
+    task_title_template: '{label}' }).reasons.some(r => r.rule === 'rule_bad_date_field'),
+    'krátky názov dátumového stĺpca neprejde');
+}
+
+// ── Pravidlá vo formulári ───────────────────────────────────────────────────
+// Formulár ponúka tabuľky a stĺpce z databázy. Preklad názvu tabuľky je ale
+// v appke — a keby sa rozišiel so zoznamom, ktorý databáza povolí, človek by
+// v rozbaľovacom zozname videl „danubra_bills" namiesto „prijatá faktúra".
+{
+  const fs = require('fs');
+  const path = require('path');
+  const dir = path.join(__dirname, 'database', 'migrations');
+  const migDir = fs.existsSync(dir) ? dir
+    : path.join(__dirname, '..', 'database', 'migrations');
+  const sql = fs.readdirSync(migDir).filter(f => f.endsWith('.sql')).sort()
+    .map(f => fs.readFileSync(path.join(migDir, f), 'utf8'))
+    // Nestačí hľadať meno CHECK-u: spomína ho aj migrácia, ktorá ho len
+    // číta. Platí tá posledná, ktorá ho **definuje**.
+    .filter(x => /check \(source_table in \(/.test(x))
+    .pop();
+  ok(sql, 'zoznam povolených tabuliek je v migráciách');
+
+  const blok = /check \(source_table in \(([\s\S]*?)\)\)/.exec(sql || '');
+  ok(blok, 'a dá sa z CHECK-u prečítať');
+  const db = (blok ? blok[1] : '').split(',')
+    .map(x => x.trim().replace(/^'|'$/g, '')).filter(Boolean);
+
+  eq(db.slice().sort(), Object.keys(T.RULE_TABLES).sort(),
+    'appka prekladá presne tie tabuľky, ktoré databáza povolí');
+
+  ok(Object.values(T.RULE_TABLES).every(v => v && !v.startsWith('danubra_')),
+    'a každá má slovenský názov');
+  eq(T.tableLabel('danubra_bills'), 'prijatá faktúra', 'preklad sedí');
+  eq(T.tableLabel('nieco_cudzie'), 'nieco_cudzie', 'neznáma vráti sama seba');
+
+  ok(T.RULE_VARS.length >= 3, 'text úlohy má vysvetlené premenné');
+  ok(T.RULE_VARS.find(v => v[0] === '{days}')[1].includes('záporné'),
+    'a pri {days} je napísané aj to nepríjemné');
 }
 
 // ── Kto čo má na starosti ───────────────────────────────────────────────────
