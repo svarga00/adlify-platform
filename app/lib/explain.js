@@ -339,6 +339,8 @@
         'Sleduje sa živnostenský list, formulár A1, doklad totožnosti a ďalšie '
         + 'doklady podľa remesla.',
         'Pod číslom je, koľkým dokladom sa koniec platnosti blíži.',
+        'V čísle sú len doklady, ktoré už neplatia. Po kliknutí sú v zozname aj tie, '
+        + 'ktorým platnosť čoskoro skončí — vybavujú sa naraz, jedným telefonátom.',
       ],
       how: [
         'Doklad je „po platnosti", keď dátum platnosti uplynul, a „čoskoro skončí", '

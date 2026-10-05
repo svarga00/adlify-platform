@@ -270,33 +270,81 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .icon-btn:hover { background: var(--field); color: var(--blue); border-color: var(--blue); }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(166px, 1fr)); gap: 10px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(176px, 1fr)); gap: 10px; }
+/* Dlaždica je celá klikateľná a má **stav**. Predtým vyzerala „Po splatnosti 1"
+   presne tak isto ako „Ľudia na stavbách 4" — farbičku mal len drobný text pod
+   číslom, ktorý sa z druhého konca stola neprečíta. Prúžok vľavo je tam preto,
+   aby sa stav dal rozoznať periférnym videním, bez čítania. */
 .kpi {
-  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 13px 15px 14px; box-shadow: var(--shadow-sm);
+  position: relative; background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  padding: 12px 15px 13px 16px; overflow: hidden;
+  transition: box-shadow .14s, border-color .14s;
 }
-/* Popis nad číslom, nie pod ním, a bez vynútenej výšky — dlaždica s krátkym
-   popisom sa nemá naťahovať kvôli susedovi. */
+.kpi::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: transparent;
+}
+/* `align-items: flex-start`, nie `center`: pri dvojriadkovom názve by ikona
+   odskočila do stredu a hlavičky dlaždíc by sa nezarovnali. */
+.kpi-top { display: flex; align-items: flex-start; gap: 7px; min-width: 0; min-height: 30px; }
+.kpi-ico {
+  width: 21px; height: 21px; flex: none; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--field); color: var(--ink-mute);
+}
 .kpi-label {
   font-size: 11px; color: var(--ink-sub); font-weight: 600;
-  letter-spacing: .01em; line-height: 1.35;
+  letter-spacing: .01em; line-height: 1.3; min-width: 0;
 }
-.kpi-value {
-  font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums;
-  margin-top: 6px; letter-spacing: -.035em; line-height: 1.05;
+/* Názov sa smie zalomiť do dvoch riadkov. Skúsil som ho držať na jednom
+   a orezávať — „Faktúry na sch…" nie je názov, to je hádanka. Dlaždice
+   v mriežke majú rovnakú výšku, takže zalomenie nič nerozhádže. */
+.kpi-top .kpi-label {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.kpi-label .ico { color: var(--ink-mute); vertical-align: -2px; margin-right: 5px; }
+.kpi-top .help-btn { margin-left: auto; flex: none; align-self: flex-start; }
+/* Popis pod číslom na dlaždiciach mimo prehľadu. */
 .kpi-delta { font-size: 11.5px; color: var(--ink-mute); margin-top: 4px; line-height: 1.35; }
 .kpi-delta.up { color: var(--green); }
 .kpi-delta.warn { color: var(--amber); }
-/* Dlaždica, ktorá niekam vedie. Kurzor a okraj sú jediné, čo to povie —
-   preto sa to nesmie dať na tie, ktoré nikam nevedú. */
-/* Dlaždica, z ktorej sa dá niekam ísť. Odkazom je samotné číslo, nie celá
-   plocha — na dlaždici je aj tlačidlo „?" a jedno kliknutie nemá robiť dve
-   veci naraz. Okraj sa rozsvieti, aby bolo vidieť, že tam niečo je. */
-.kpi-go { transition: border-color .12s; }
-.kpi-go:hover { border-color: var(--blue); }
-.kpi-go:focus-within { border-color: var(--blue); }
+/* Plocha, ktorou sa otvára detail. Je to tlačidlo cez celú dlaždicu, nie len
+   číslo — na dotykovej obrazovke sa do čísla netrafí. Tlačidlo „?" je nad ním
+   (`z-index`), takže jedno kliknutie nikdy nerobí dve veci. */
+.kpi-hit {
+  display: block; width: 100%; text-align: left; background: none; border: 0;
+  padding: 0; margin: 0; cursor: pointer; color: inherit; font: inherit;
+}
+.kpi-hit::after { content: ''; position: absolute; inset: 0; }
+.kpi .help-btn { position: relative; z-index: 2; }
+/* Svieti len tá dlaždica, ktorá sa dá otvoriť. Dlaždice v iných moduloch sú
+   len číslo a nemajú sa tváriť, že niekam vedú. */
+.kpi:has(.kpi-hit):hover { border-color: var(--blue); box-shadow: var(--shadow-md); }
+.kpi:has(.kpi-hit):focus-within { border-color: var(--blue); }
+.kpi-hit:focus-visible { outline: none; }
+.kpi-value {
+  display: block; font-size: 29px; font-weight: 700; font-variant-numeric: tabular-nums;
+  margin-top: 7px; letter-spacing: -.035em; line-height: 1.02; color: var(--navy);
+}
+.kpi-value em {
+  font-style: normal; font-size: 15px; font-weight: 600;
+  color: var(--ink-mute); margin-left: 3px; letter-spacing: 0;
+}
+.kpi-sub {
+  display: block; font-size: 11.5px; color: var(--ink-mute);
+  margin-top: 4px; line-height: 1.35;
+}
+/* Tri stavy, nie päť. Pokoj nemá farbu — keby ju mal, prestali by farby na
+   obrazovke niečo znamenať. */
+.kpi-watch::before { background: var(--brand); }
+.kpi-watch .kpi-ico { background: var(--amber-50); color: var(--amber); }
+.kpi-watch .kpi-sub { color: var(--amber); }
+.kpi-bad { border-color: #F3C9C9; }
+.kpi-bad::before { background: var(--red); }
+.kpi-bad .kpi-ico { background: var(--red-50); color: var(--red); }
+.kpi-bad .kpi-value { color: var(--red); }
+.kpi-bad .kpi-sub { color: var(--red); font-weight: 600; }
 
 /* `align-items: start` je tu podstatné: bez neho sa každá karta natiahne na
    výšku najvyššej a pod krátkym zoznamom ostane pol obrazovky bieleho miesta. */
@@ -647,6 +695,110 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 @media (min-width: 861px) {
   .modal-backdrop { align-items: center; }
   .modal-card { border-radius: var(--radius); }
+}
+
+/* ── Zoznam za číslom na prehľade ────────────────────────────────────────── */
+/* Okno, ktoré odpovedá na otázku „ktoré?". Tabuľka je tu na mieste: sú to
+   rovnaké záznamy s rovnakými stĺpcami a oko ich porovnáva zvisle. */
+/* Vysvetlenie nad zoznamom. Je to veta, ktorá povie, prečo tie riadky stoja
+   za pozretie — nie nadpis, takže nemá byť tučnejšia než samotné riadky. */
+.kpi-lead { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-sub); }
+.kpi-note {
+  display: flex; gap: 7px; align-items: flex-start; margin: 10px 0 0;
+  font-size: 12.5px; color: var(--ink-sub); line-height: 1.45;
+}
+.kpi-note > svg { flex: none; margin-top: 2px; color: var(--ink-mute); }
+.kpi-tools { display: flex; gap: 8px; align-items: center; margin: 14px 0 12px; flex-wrap: wrap; }
+.kpi-search {
+  flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--field); padding: 0 10px; color: var(--ink-mute);
+}
+.kpi-search:focus-within { border-color: var(--blue); background: #fff; }
+.kpi-search input {
+  flex: 1; min-width: 0; border: 0; background: none; outline: none;
+  padding: 9px 0; font-size: 13.5px; color: var(--ink);
+}
+/* Na úzkej obrazovke sa tabuľka posúva do boku **sama v sebe**, nie celou
+   stránkou. Bez toho rozhodí okno aj to, čo je pod ním. */
+.kpi-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.kpi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kpi-table th {
+  text-align: left; padding: 0 0 6px; border-bottom: 1px solid var(--border);
+  font-weight: 600; white-space: nowrap;
+}
+.kpi-th {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  color: var(--ink-sub); font-size: 11px; letter-spacing: .02em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.kpi-th:hover { color: var(--blue); }
+.kpi-table td {
+  padding: 9px 12px 9px 0; border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+.kpi-table td:last-child, .kpi-table th:last-child { padding-right: 0; }
+.kpi-table .ta-r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-table .dim { color: var(--ink-mute); }
+.kpi-table tr.is-open { cursor: pointer; }
+.kpi-table tr.is-open:hover td { background: var(--field); }
+.kpi-table tr.is-open:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.kpi-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 7px; vertical-align: 1px;
+}
+.kpi-dot-bad { background: var(--red); }
+.kpi-dot-warn { background: var(--brand); }
+/* Dôvod pod menom — malým, lebo je to doplnok k riadku, nie druhý riadok
+   tabuľky. Bez neho by červená bodka nič nevysvetľovala. */
+/* `font-weight` výslovne: na mobile je prvá bunka tučná (je to názov karty)
+   a dôvod pod ňou by tú tučnosť zdedil. */
+.kpi-why {
+  display: block; font-size: 11.5px; color: var(--ink-mute);
+  margin-top: 2px; font-weight: 400;
+}
+.kpi-table tr.tone-bad .kpi-why { color: var(--red); }
+
+/* Zoradenie pre úzku obrazovku. Tam hlavičky tabuľky nie sú vidieť, lebo
+   tabuľka už nie je tabuľka — a bez zoradenia by sa v dlhom zozname nedalo
+   nájsť to najstaršie. */
+.kpi-sortm { display: none; }
+.kpi-sortm select {
+  border: 0; background: none; font-size: 13px; color: var(--ink); outline: none;
+  max-width: 120px;
+}
+
+@media (max-width: 720px) {
+  .kpi-sortm {
+    display: flex; align-items: center; gap: 5px; color: var(--ink-mute);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: #fff; padding: 0 8px; height: 34px; flex: none;
+  }
+  /* Päť stĺpcov sa do 390 px nezmestí. Posúvanie do boku nie je odpoveď —
+     pri ňom sa rozsype každý druhý riadok a nikto nevie, čo s čím súvisí.
+     Preto je z každého riadku karta: názov hore, zvyšok ako „popis: hodnota". */
+  .kpi-table, .kpi-table tbody, .kpi-table tr, .kpi-table td { display: block; width: 100%; }
+  .kpi-table thead { display: none; }
+  .kpi-table tr {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; margin-bottom: 8px; background: #fff;
+  }
+  .kpi-table tr.tone-bad { border-color: #F3C9C9; }
+  .kpi-table td {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 3px 0; border: 0; text-align: left;
+  }
+  .kpi-table td::before {
+    content: attr(data-l); flex: none; color: var(--ink-mute);
+    font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
+  }
+  /* Prvá bunka je názov karty — tam sa popis nehodí, meno hovorí samo za seba. */
+  .kpi-table td:first-child {
+    display: block; font-weight: 700; font-size: 14px; margin-bottom: 4px;
+  }
+  .kpi-table td:first-child::before { content: none; }
+  .kpi-table .ta-r { text-align: right; }
+  .kpi-table tr.is-open:hover td { background: none; }
 }
 
 /* ── Formuláre ───────────────────────────────────────────────────────────── */

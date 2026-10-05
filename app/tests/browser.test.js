@@ -1402,6 +1402,134 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Prehľad: číslo a zoznam za ním ────────────────────────────────────
+    // Dlaždica ukazuje číslo a po kliknutí okno so zoznamom, z ktorého to
+    // číslo je. Tie dve veci sa nesmú rozísť. Práve to sa stalo pohľadu
+    // `v_subcontract_status` (migrácia 038): spojil tri tabuľky naraz, riadky
+    // sa vynásobili a nezúčtované hodiny ukazoval dvojnásobne — a nikto si
+    // to roky nevšimol, lebo nebolo s čím porovnať.
+    //
+    // Preto sa tu nekontroluje, že číslo je „nejaké", ale že sedí s tým, čo
+    // je v okne vidieť.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          subcontracts: [
+            { id: 'sc1', title: 'Stavba Ulm', status: 'active', partner_id: 'p1',
+              charge_rate: 34, date_from: '2026-09-01', date_to: '2026-12-31' },
+            // Ukončená zákazka — jej nasadenia ani hodiny sa počítať nesmú.
+            { id: 'sc2', title: 'Stará hala', status: 'completed', partner_id: 'p1' },
+          ],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý' }, { id: 'w2', full_name: 'Anna Veselá' }],
+          assignments: [
+            { id: 'a1', subcontract_id: 'sc1', worker_id: 'w1', status: 'active',
+              charge_rate: 34, worker_rate: 22 },
+            { id: 'a2', subcontract_id: 'sc2', worker_id: 'w2', status: 'active',
+              charge_rate: 30, worker_rate: 20 },
+          ],
+          timesheets: [
+            { id: 't1', assignment_id: 'a1', worker_id: 'w1', hours: 8, work_date: '2026-09-10', period_id: null },
+            { id: 't2', assignment_id: 'a1', worker_id: 'w1', hours: 9, work_date: '2026-09-11', period_id: null },
+            { id: 't3', assignment_id: 'a1', worker_id: 'w1', hours: 50, work_date: '2026-08-01', period_id: 'per1' },
+            { id: 't4', assignment_id: 'a2', worker_id: 'w2', hours: 99, work_date: '2026-09-10', period_id: null },
+          ],
+          v_worker_documents: [
+            { id: 'd1', worker_id: 'w1', worker_name: 'Jozef Malý', kind: 'a1',
+              validity: 'expired', valid_to: '2026-09-01', days_left: -34 },
+            { id: 'd2', worker_id: 'w1', worker_name: 'Jozef Malý', kind: 'trade_licence',
+              validity: 'expiring', valid_to: '2026-11-01', days_left: 27 },
+          ],
+          trades: [{ key: 'trockenbau', name_sk: 'Sadrokartón' }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          const view = document.getElementById('view');
+          await Danubra.views.dashboard.call(Danubra, view);
+
+          const tiles = [...view.querySelectorAll('.kpi-grid .kpi')].map(e => ({
+            cls: e.className,
+            label: e.querySelector('.kpi-label').textContent.trim(),
+            value: e.querySelector('.kpi-value').textContent.trim(),
+            sub: (e.querySelector('.kpi-sub') || {}).textContent,
+            hit: !!e.querySelector('.kpi-hit'),
+          }));
+
+          // Dlaždica → okno. Počet riadkov musí sedieť s číslom.
+          Danubra.kpiDetail('deployed');
+          const riadkov = document.querySelectorAll('#ui-modal .kpi-table tbody tr').length;
+          const hlavicky = [...document.querySelectorAll('#ui-modal .kpi-th')]
+            .map(b => b.textContent.trim());
+          // Hľadanie
+          Danubra.kpiSearch('malý');
+          const poHladani = document.querySelectorAll('#ui-modal .kpi-table tbody tr').length;
+          Danubra.kpiSearch('nikto-taky');
+          const prazdne = document.getElementById('kpi-list').innerText;
+          Danubra.kpiSearch('');
+          UI.closeModal();
+
+          Danubra.kpiDetail('docs');
+          const dokl = {
+            riadkov: document.querySelectorAll('#ui-modal .kpi-table tbody tr').length,
+            poznamka: !!document.querySelector('#ui-modal .kpi-note'),
+            text: document.querySelector('#ui-modal .kpi-table').innerText,
+          };
+          UI.closeModal();
+
+          return { tiles, riadkov, hlavicky, poHladani, prazdne, dokl };
+        })();
+      });
+
+      const tile = (s) => out.tiles.find(t => t.label.includes(s)) || {};
+      ok(out.tiles.length === 6, 'prehľad má šesť čísel',
+        `našiel som ${out.tiles.length}`);
+      ok(out.tiles.every(t => t.hit), 'na každé sa dá kliknúť');
+      ok(out.tiles.every(t => t.sub), 'každé má pod sebou vetu, nie len číslo');
+
+      ok(tile('Ľudia').value === '1', 'nasadenie na ukončenej zákazke sa nepočíta',
+        `ukazuje ${tile('Ľudia').value}`);
+      ok(tile('Nezúčtované').value.startsWith('17'),
+        'nezúčtované hodiny sú 8 + 9 — nie hodiny z uzavretého obdobia ani z ukončenej zákazky',
+        `ukazuje ${tile('Nezúčtované').value}`);
+      ok(/kpi-bad/.test(tile('Doklady').cls), 'doklad po platnosti zafarbí dlaždicu načerveno',
+        tile('Doklady').cls);
+      ok(/kpi-calm/.test(tile('Ľudia').cls), 'číslo, ktoré nič nepýta, farbu nemá',
+        tile('Ľudia').cls);
+
+      ok(out.riadkov === Number(tile('Ľudia').value),
+        'v okne je presne toľko riadkov, koľko hovorí dlaždica',
+        `okno ${out.riadkov}, dlaždica ${tile('Ľudia').value}`);
+      ok(out.hlavicky.length >= 4 && out.hlavicky.every(h => h),
+        'zoznam má pomenované stĺpce, na ktoré sa dá kliknúť');
+      ok(new Set(out.hlavicky).size === out.hlavicky.length,
+        'a žiadne dva sa nevolajú rovnako', out.hlavicky.join(', '));
+      ok(out.poHladani === 1, 'hľadanie v okne zúži zoznam',
+        `ostalo ${out.poHladani}`);
+      ok(/Nič také/.test(out.prazdne), 'a keď nič nenájde, povie to');
+
+      ok(out.dokl.riadkov === 2, 'v okne dokladov je aj to, čo sa blíži ku koncu',
+        `riadkov ${out.dokl.riadkov}`);
+      ok(out.dokl.poznamka, 'a je vysvetlené, prečo je tam viac než na dlaždici');
+      ok(/skončila pred/.test(out.dokl.text),
+        'pri expirovanom doklade sa nepíše „−34 dní", ale že platnosť skončila');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Tlač do PDF ───────────────────────────────────────────────────────
     // PDF sa v appke nerobí knižnicou, ale tlačou prehliadača. To znamená, že
     // o výsledku rozhodujú štýly — a tie sa dajú pokaziť odinakiaľ. Prehľad
