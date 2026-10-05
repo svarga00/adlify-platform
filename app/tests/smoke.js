@@ -832,6 +832,34 @@ t('mazanie ide cez databázovú funkciu, nie cez mazanie tabuliek',
   && !/DB\.remove/.test(String(D.purgeDemo)));
 t('a pýta si potvrdenie', D && /VYMAZAŤ/.test(String(D.purgeDemo)));
 
+// ── Spätný apostrof v HTML komentári ───────────────────────────────────────
+// Komentár `<!-- ... -->` vnútri šablónového reťazca je stále kód. Spätný
+// apostrof v ňom reťazec **ukončí** a zvyšok súboru sa rozsype — chyba sa
+// pritom ohlási o desiatky riadkov nižšie a vôbec nevyzerá ako komentár.
+// Stalo sa mi to dvakrát za jeden deň, tak nech to stráži test.
+{
+  const zle = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.js')) {
+        const src = fs.readFileSync(p, 'utf8');
+        for (const m of src.matchAll(/<!--[\s\S]*?-->/g)) {
+          if (m[0].includes('`')) {
+            const riadok = src.slice(0, m.index).split('\n').length;
+            zle.push(`${path.relative(root, p)}:${riadok}`);
+          }
+        }
+      }
+    }
+  };
+  walk(path.join(root, "js"));
+  walk(path.join(root, "lib"));
+  checks.push([`v HTML komentároch nie je spätný apostrof${
+    zle.length ? ` — ${zle.join(', ')}` : ''}`, zle.length === 0]);
+}
+
 // ── Fotky a logá ───────────────────────────────────────────────────────────
 // Zoznam mien sa číta, zoznam tvárí sa pozerá. Ale keď sa obrázok nenačíta,
 // nesmie zostať prázdny štvorec — vtedy majú byť vidieť iniciály.

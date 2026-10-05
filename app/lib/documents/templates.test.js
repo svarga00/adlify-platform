@@ -218,5 +218,57 @@ console.log('Dokumenty');
   eq(P.payable({}), { total: 0, held: 0, net: 0 }, 'prázdna faktúra nespadne');
 }
 
+// ── Infolist na stavbu ──────────────────────────────────────────────────────
+{
+  const zaklad = {
+    worker: { full_name: 'Ján Novák' },
+    assignment: { date_from: '2026-10-12' },
+    subcontract: { title: 'Wohnpark', contract_number: 'ZAK-1',
+      site_address: 'Stuttgarter Str. 40', site_city: 'Stuttgart',
+      work_start: '07:00', meeting_point: 'Brána B',
+      site_contact_name: 'Polier Berger', site_contact_phone: '+49 171 1234567' },
+    partner: { name: 'Vogel GmbH' },
+    supplier: { name: 'DANUBRA s.r.o.', phone: '+421 900 000 000' },
+    trade: 'Trockenbau',
+  };
+  const h = P.siteSheet({ ...zaklad, lodging: null });
+
+  ok(/Infolist na stavbu/.test(h), 'dokument sa volá podľa toho, načo je');
+  ok(h.includes('Ján Novák'), 'a je na ňom, pre koho je');
+  ok(/12\. 10\. 2026/.test(h),
+    'dátum je po slovensky, nie 2026-10-12 — papier číta človek, nie databáza');
+  ok(/Brána B/.test(h) && /Polier Berger/.test(h), 'kam a za kým');
+  ok(/Ich bin Subunternehmer/.test(h), 'nemecké vety sú na ňom');
+  ok(/A1-Bescheinigung/.test(h), 'vrátane tej o dokladoch');
+  ok(/Stundennachweis/.test(h), 'je vysvetlené, čo sa podpisuje');
+  ok(/Nepodpisuj nič iné/.test(h), 'a čo nie — to je to, kvôli čomu infolist je');
+  ok(/112/.test(h), 'pri úraze je číslo, nie odkaz na niekoho');
+  ok(/maps/.test(h), 'adresa stavby má odkaz na mapu');
+
+  // Chýbajúci údaj sa na papieri **nevynechá potichu**.
+  const dieravy = P.siteSheet({ ...zaklad, lodging: null,
+    subcontract: { ...zaklad.subcontract, meeting_point: null, site_contact_name: null,
+      site_contact_phone: null } });
+  ok(/Nie je zapísané, kde presne/.test(dieravy),
+    'chýbajúce miesto stretnutia je na papieri napísané');
+  ok(/Spýtaj sa u nás/.test(dieravy), 'aj to, čo s tým má človek spraviť');
+  ok(/todo/.test(dieravy), 'a je to zvýraznené, nie schované v texte');
+
+  // Ubytovanie: keď je, patrí naň aj to, čo platí v dome.
+  const sUbytovanim = P.siteSheet({ ...zaklad,
+    lodging: { name: 'Pension Lerche', address: 'Lerchenstr. 8', city: 'Stuttgart',
+      keys_note: 'Kľúče u správcu.', house_rules: 'Nočný pokoj 22:00–06:00.' } });
+  ok(/Pension Lerche/.test(sUbytovanim), 'adresa ubytovania');
+  ok(/Kľúče u správcu/.test(sUbytovanim), 'kde sú kľúče');
+  ok(/Nočný pokoj/.test(sUbytovanim), 'a čo v dome platí');
+
+  // Bez údajov o firme nesmie vzniknúť veta o firme, ktorú nepoznáme.
+  const bezFirmy = P.siteSheet({ worker: {}, assignment: {}, subcontract: {},
+    partner: null, lodging: null, supplier: {} });
+  ok(!/undefined|null/.test(bezFirmy.replace(/null"/g, '')),
+    'prázdny vstup nevyrobí „undefined" na papieri');
+  ok(!/arbeite für/.test(bezFirmy), 'ani sľub firmy, ktorú nepoznáme');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

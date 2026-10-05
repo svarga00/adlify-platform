@@ -85,6 +85,15 @@
     .sig{flex:1}
     .sig .line{border-bottom:1px solid #6F7C95;height:46px}
     .sig .who{font-size:11px;color:#6F7C95;margin-top:5px}
+    .ss-h{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#96A2BA;
+      font-family:ui-monospace,monospace;margin:26px 0 10px;padding-bottom:6px;
+      border-bottom:1px solid #E3EAF7;page-break-after:avoid}
+    .ss-row{display:flex;gap:18px;padding:7px 0;border-bottom:1px solid #EEF2FB;
+      page-break-inside:avoid}
+    .ss-row .lbl{flex:0 0 150px;margin:0;padding-top:2px}
+    .ss-row .val{flex:1;min-width:0}
+    /* Chýbajúci údaj sa nevynechá potichu — prázdny riadok vyzerá ako „netreba". */
+    .todo{color:#C25C0C;font-weight:600}
     .codes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
     .code{background:#F7F9FD;border:1px solid #E3EAF7;border-radius:10px;padding:11px 14px}
     .code .v{font-family:ui-monospace,monospace;font-size:19px;font-weight:600;letter-spacing:.05em}
@@ -554,6 +563,113 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
   }
 
   // ── ODOVZDÁVACÍ PROTOKOL (obsahuje adresu — až po úhrade!) ────────────────
+  // ── INFOLIST NA STAVBU ────────────────────────────────────────────────────
+  /**
+   * Jedna strana, ktorú živnostník dostane pred nástupom. Po slovensky —
+   * číta ju Slovák. Adresy a nemecké vety sú v nemčine: preklad adresy
+   * nikomu nepomôže, preložená veta „som subdodávateľ firmy X" áno.
+   *
+   * Údaj, ktorý nie je vyplnený, sa **nevynechá potichu**. Napíše sa, že
+   * chýba, a u koho sa dá zistiť. Prázdny riadok na papieri vyzerá ako
+   * „netreba" a práve pre to sa potom volá v nedeľu večer.
+   */
+  function siteSheet({ worker, assignment, subcontract, partner, lodging, supplier,
+    trade, state }) {
+    const S = (typeof module !== 'undefined' && module.exports)
+      ? require('./sitesheet') : window.DanubraSiteSheet;
+    const sub = subcontract || {};
+    const st = state || S.check({ worker, assignment, subcontract: sub, partner, lodging });
+    const v = st.values;
+    const chyba = (key) => {
+      const m = st.missing.find(x => x.key === key);
+      return m ? `<span class="todo">${esc(m.why)} Spýtaj sa u nás, kým nastúpiš.</span>` : '';
+    };
+    const riadok = (label, key, extra) => `<div class="ss-row">
+      <div class="lbl">${esc(label)}</div>
+      <div class="val">${v[key] ? esc(v[key]) : chyba(key)}${extra || ''}</div>
+    </div>`;
+
+    const mapaStavby = S.mapUrl(sub);
+    const mapaByt = lodging ? S.mapUrl(lodging) : '';
+    const vety = S.phrases({ supplier, partner, worker, trade });
+
+    const body = `
+      ${header('Infolist na stavbu', (worker && worker.full_name) || '', [
+        sub.title || '', sub.contract_number || ''].filter(Boolean), supplier)}
+
+      <div class="note" style="border-left-color:#1E4FD8">
+        Toto si vezmi so sebou. Keď niečo nesedí, <strong>zavolaj nám skôr, než
+        niečo podpíšeš alebo začneš robiť</strong> — na stavbe sa to potom rieši ťažko.
+      </div>
+
+      <h2 class="ss-h">Kam a kedy</h2>
+      ${riadok('Stavba', 'site', mapaStavby
+        ? ` <a href="${esc(mapaStavby)}">Otvoriť v mape</a>` : '')}
+      <!-- Dátum po slovensky. check() vracia 'YYYY-MM-DD', lebo to je tvar na
+           porovnávanie; na papier pre človeka patrí 12. 10. 2026. -->
+      <div class="ss-row"><div class="lbl">Prvý deň</div>
+        <div class="val">${v.start ? esc(date(v.start)) : chyba('start')}</div></div>
+      ${riadok('Začiatok práce', 'time')}
+      ${riadok('Kde sa hlásiť', 'meeting')}
+      ${riadok('Za kým ísť', 'contact')}
+      ${sub.site_note ? `<div class="ss-row"><div class="lbl">Ešte k stavbe</div>
+        <div class="val">${esc(sub.site_note)}</div></div>` : ''}
+
+      <h2 class="ss-h">Ubytovanie</h2>
+      ${riadok('Adresa', 'lodging', mapaByt
+        ? ` <a href="${esc(mapaByt)}">Otvoriť v mape</a>` : '')}
+      ${riadok('Kľúče', 'keys')}
+      ${lodging && lodging.house_rules ? `<div class="ss-row">
+        <div class="lbl">Čo platí v dome</div>
+        <div class="val">${esc(lodging.house_rules)}</div></div>` : ''}
+
+      <h2 class="ss-h">Čo si priniesť</h2>
+      <table><thead><tr><th>Vec</th><th>Prečo</th></tr></thead><tbody>
+        ${S.BRING.map(b => `<tr><td><strong>${esc(b.what)}</strong></td>
+          <td style="color:#6F7C95">${esc(b.why)}</td></tr>`).join('')}
+      </tbody></table>
+
+      <h2 class="ss-h">Ako sa hlásia hodiny</h2>
+      <ul class="clean">
+        <li>Hodiny zapisuj <strong>každý deň</strong>, nie na konci týždňa — spätne sa
+          nikto nespomenie, kedy sa začalo a kedy skončilo.</li>
+        <li>Na konci týždňa podpíše odberateľ výkaz (<em>Stundennachweis</em>).
+          <strong>Nepodpisuj nič iné</strong>, čo ti na stavbe dajú, kým sa neozveš nám.</li>
+        <li>Z tých istých hodín vzniká tvoja faktúra nám aj naša faktúra odberateľovi.
+          Preto sa musia zhodovať.</li>
+      </ul>
+
+      <h2 class="ss-h">Nemecké vety, ktoré budeš potrebovať</h2>
+      <table><thead><tr><th>Po slovensky</th><th>Po nemecky</th></tr></thead><tbody>
+        ${vety.map(f => `<tr><td style="color:#6F7C95">${esc(f.sk)}</td>
+          <td><strong>${esc(f.de)}</strong></td></tr>`).join('')}
+      </tbody></table>
+
+      <h2 class="ss-h">Keď je problém</h2>
+      <ul class="clean">
+        <li><strong>Nepustia ťa na stavbu</strong> alebo chcú doklad, ktorý nemáš —
+          zavolaj nám hneď, nerieš to sám.</li>
+        <li><strong>Kontrola (Zoll, FKS)</strong> — ukáž A1 a živnostenský list,
+          buď slušný, nič nepodpisuj a zavolaj nám.</li>
+        <li><strong>Úraz</strong> — najprv 112, potom nám. Aj drobný úraz treba nahlásiť
+          v ten istý deň.</li>
+        <li><strong>Chcú od teba prácu mimo dohody</strong> — povedz, že sa musíš
+          spýtať, a zavolaj. Nie je to nezdvorilosť, je to zmluva.</li>
+      </ul>
+
+      ${supplier && (supplier.phone || supplier.email) ? `<div class="pay">
+        <div style="flex:1">
+          <div class="lbl">Na nás sa dovoláš tu</div>
+          <div class="val" style="line-height:1.9">
+            ${supplier.phone ? `Telefón: <strong>${esc(supplier.phone)}</strong><br>` : ''}
+            ${supplier.email ? `E-mail: <strong>${esc(supplier.email)}</strong>` : ''}
+          </div>
+        </div>
+      </div>` : ''}
+      ${foot(supplier)}`;
+    return shell(`Infolist — ${(worker && worker.full_name) || 'stavba'}`, body);
+  }
+
   function handover({ order, client, data, supplier }) {
     const d = data || {};
     const code = (l, v) => v ? `<div class="code"><div class="lbl">${esc(l)}</div><div class="v">${esc(v)}</div></div>` : '';
@@ -617,8 +733,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, payable, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, payable, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
   }
 })();

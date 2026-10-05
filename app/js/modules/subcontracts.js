@@ -297,6 +297,8 @@
                   DanubraOverrides.meta(o.rule_key)?.label || o.rule_key).join(', '))}
                 — ${UI.esc(live[0].reason || '')}</span>` : ''}
             </span>
+            <button class="btn btn-ghost btn-sm" onclick="Sub.siteSheet('${a.id}')"
+              title="Infolist na stavbu — kam prísť, kedy a za kým">${Icon('doc', 15)}</button>
             <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
           </div>`;
         }).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ nikto nenasadený.</div>'}
@@ -1024,6 +1026,43 @@
       // vznikne až pri prvom odškrtnutí; dovtedy nemá čo zapisovať.
       UI.toast('Pracovník nasadený', 'ok');
       await this.load(); this.detail(scId);
+    },
+
+    /**
+     * Infolist na stavbu. Otvorí sa pre konkrétne nasadenie, lebo adresa je
+     * zo zákazky, termín z nasadenia a ubytovanie z toho, kde ten človek býva.
+     *
+     * Keď nejaký údaj chýba, dokument sa aj tak otvorí — ale je v ňom
+     * napísané, čo chýba, a appka to povie ešte pred odoslaním. Zistiť to
+     * v kancelárii je lacnejšie než v pondelok ráno pred bránou.
+     */
+    async siteSheet(asgId) {
+      const a = this.assignments.find(x => x.id === asgId);
+      if (!a) return UI.toast('Nasadenie sa nenašlo.', 'err');
+      const sc = this.items.find(x => x.id === a.subcontract_id);
+      const worker = this.workerOf(a.worker_id);
+      const partner = (this.partners || []).find(p => p.id === (sc || {}).partner_id) || null;
+
+      // Ubytovanie: kde ten človek na tejto zákazke býva. Keď pobyt nie je
+      // zapísaný, vezme sa ubytovanie zákazky — je to lepší odhad než nič,
+      // ale nevymýšľa sa: keď nie je ani to, infolist to povie.
+      const lod = (this.lodging || []).filter(l => l.subcontract_id === a.subcontract_id);
+      const mine = (this.stays || []).find(st => st.worker_id === a.worker_id
+        && lod.some(l => l.id === st.lodging_id));
+      const lodging = mine ? lod.find(l => l.id === mine.lodging_id) : (lod[0] || null);
+
+      const supplier = (window.Cfg && Cfg.j('supplier')) || {};
+      const state = DanubraSiteSheet.check({
+        worker, assignment: a, subcontract: sc || {}, partner, lodging });
+      if (!state.ready) UI.toast(DanubraSiteSheet.sentence(state), 'err');
+
+      const html = DanubraPapers.siteSheet({
+        worker, assignment: a, subcontract: sc || {}, partner, lodging, supplier,
+        trade: (sc || {}).trade || null, state,
+      });
+      const w = window.open('', '_blank');
+      if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
+      w.document.open(); w.document.write(html); w.document.close();
     },
 
     async delAsg(id) {
