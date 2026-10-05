@@ -1753,6 +1753,8 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 16px; padding-bottom: 14px; border-bottom: 2px solid var(--navy);
 }
+.hs-brandrow { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hs-brandrow > svg { flex: none; }
 .hs-brand { font-size: 13px; font-weight: 700; color: var(--ink-sub); letter-spacing: .02em; }
 .hs-title { font-size: 24px; font-weight: 800; letter-spacing: -.03em; margin-top: 2px; }
 .hs-kw {

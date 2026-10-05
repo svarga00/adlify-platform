@@ -617,8 +617,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { invoice, payable, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { invoice, payable, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
   }
 })();

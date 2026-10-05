@@ -1402,6 +1402,80 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Stundennachweis ───────────────────────────────────────────────────
+    // Papier, ktorý na stavbe podpisuje nemecký odberateľ. Tri veci na ňom
+    // boli zle a žiadna z nich nebola vidieť z kódu:
+    //   * dve takmer rovnaké potvrdzovacie vety,
+    //   * IČO sa nevytlačilo nikdy (`sup.ico`, kým Nastavenia to pole volajú
+    //     `company_id`),
+    //   * natvrdo zapísané meno firmy a adresa ako záloha.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          crews: [{ id: 'c1', name: 'Partia Nitra', status: 'active' }],
+          crew_members: [{ crew_id: 'c1', worker_id: 'w1', left_at: null }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý' }],
+          subcontracts: [{ id: 's1', title: 'Stavba Ulm', contract_number: 'ZAK-1',
+            site_city: 'Ulm', partner_id: 'p1', status: 'active' }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH' }],
+          timesheets: [], hour_sheets: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          // Nastavenia sú prázdne — doklad si nesmie nič domyslieť.
+          Cfg.row = { id: 'cfg', supplier: {} };
+          Cfg.loaded = true;
+          HS.loaded = false;
+          await HS.load();
+          const prazdny = HS.paperHtml ? HS.paperHtml() : '';
+          const view = document.getElementById('view');
+          Danubra.route = 'hoursheet';
+          await Danubra.views.hoursheet.call(Danubra, view);
+          const html = view.innerHTML;
+          const text = view.innerText;
+          return {
+            html, text, prazdny,
+            vety: (html.match(/Mit der Unterschrift/g) || []).length,
+            znacka: !!view.querySelector('.hs-brandrow svg'),
+          };
+        })();
+      });
+
+      ok(out.vety === 1, 'na výkaze je jedna potvrdzovacia veta, nie dve takmer rovnaké',
+        `našiel som ${out.vety}`);
+      const bezKomentarov = out.html.replace(/<!--[\s\S]*?-->/g, '');
+      ok(!/wird nachgereicht/.test(bezKomentarov),
+        'na doklade pre odberateľa nestojí, že daňové číslo ešte len príde');
+      ok(!/Podzámska|Partner und Service/.test(bezKomentarov),
+        'pri prázdnych Nastaveniach sa nevytlačí vymyslené meno ani adresa');
+      ok(/Gesamt/.test(out.text) && !/\bTotal\b/.test(out.text),
+        'súčtový riadok je po nemecky, ako zvyšok dokladu');
+      ok(out.znacka, 'výkaz má tú istú značku ako faktúra a zmluva');
+      // IČO: pole sa musí čítať tam, kam ho Nastavenia ukladajú.
+      const ico = await page.evaluate(() => {
+        Cfg.row = { id: 'cfg', supplier: { name: 'Firma s.r.o.', company_id: '55667788' } };
+        const view = document.getElementById('view');
+        return Danubra.views.hoursheet.call(Danubra, view).then(() => view.innerText);
+      });
+      ok(/55667788/.test(ico), 'IČO z Nastavení sa na výkaze objaví', ico.slice(-180));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Ako to ide ────────────────────────────────────────────────────────
     // Mapa reťazca je obrazovka, ktorá má človeka naučiť poradie práce. Keby
     // sa na nej nevykreslili vety, zostane z nej zoznam čísel — a ten už
