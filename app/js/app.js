@@ -1534,6 +1534,42 @@ window.Danubra = {
         ['address', 'Adresa', {}],
       ],
     },
+    subcontract: {
+      table: 'subcontracts', what: 'zákazku', stale: ['Sub', 'Hire', 'Cost', 'Wrk', 'Ads', 'HS'],
+      lead: 'Stačí názov a odberateľ. Termín, sadzbu a typ prác doplníš v Zákazkách — '
+        + 'bez nich sa aj tak nedá nasadiť ani fakturovať.',
+      label: (r) => r.title,
+      // Odberatelia sa doťahujú až pri otvorení okna. Brať ich z pamäte modulu
+      // by znamenalo, že v zozname chýba ten, ktorý práve vznikol vedľa.
+      load: async () => {
+        const { data } = await DB.list('partners', { select: 'id,name', limit: 300 });
+        return { partners: data || [] };
+      },
+      fields: (d) => [
+        ['title', 'Názov zákazky', { required: true, placeholder: 'napr. Wohnpark Feuerbach' }],
+        ['partner_id', 'Odberateľ', { options: [['', '— doplním neskôr —'],
+          ...(d.partners || []).map(x => [x.id, x.name])] }],
+        ['site_city', 'Mesto', {}],
+      ],
+    },
+    plan: {
+      table: 'recruitment_plans', what: 'nábor', stale: ['Hire', 'Ads', 'Cand'],
+      lead: 'Stačí názov a koľko ľudí treba. Remeslo, mesto a termín doplníš v Nábore.',
+      label: (r) => r.title,
+      fields: () => [
+        ['title', 'Názov náboru', { required: true, placeholder: 'napr. Sadrokartonári Stuttgart' }],
+        ['headcount', 'Koľko ľudí', { type: 'number', value: '1' }],
+      ],
+    },
+    ad: {
+      table: 'ads', what: 'inzerát', stale: ['Ads', 'Hire', 'Cand', 'Trades'],
+      lead: 'Stačí názov. Znenie, kanál a sľúbenú sadzbu doplníš v Inzerátoch — '
+        + 'a práve podľa nich sa potom pri hovore vie, čo sme sľúbili.',
+      label: (r) => r.title,
+      fields: () => [
+        ['title', 'Názov inzerátu', { required: true }],
+      ],
+    },
     trade: {
       table: 'trades', what: 'remeslo', stale: ['Trades', 'Quo', 'Hire', 'Crews', 'Ads'],
       lead: 'Kľúč je krátky názov bez diakritiky — používa sa v inzerátoch a otázkach.',
@@ -1553,7 +1589,12 @@ window.Danubra = {
   async quickAdd(kind, fieldName) {
     const def = this.NEW[kind];
     if (!def) return UI.toast('Toto sa takto založiť nedá.', 'err');
-    const values = await UI.askFields(`Nový ${def.what}`, def.lead, def.fields(),
+    let ctx = {};
+    if (def.load) {
+      try { ctx = await def.load() || {}; }
+      catch { return UI.toast('Nepodarilo sa načítať zoznam.', 'err'); }
+    }
+    const values = await UI.askFields(`Nový ${def.what}`, def.lead, def.fields(ctx),
       { ok: 'Založiť' });
     if (!values) return;
 

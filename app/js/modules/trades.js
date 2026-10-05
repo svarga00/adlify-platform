@@ -588,7 +588,7 @@
               options: [['', 'podľa typu otázky'], ['intro', 'Úvod'], ['trade', 'Remeslo'],
                 ['verify', 'Overenie'], ['legal', 'Papiere'], ['logistics', 'Logistika'],
                 ['money', 'Peniaze']] })}
-            ${UI.field('ad_id', 'Len k inzerátu', { value: q.ad_id || '',
+            ${UI.field('ad_id', 'Len k inzerátu', { value: q.ad_id || '', add: 'ad',
               options: [['', '— nie, platí všeobecne —'],
                 ...(this.ads || []).map(a => [a.id, a.title])] })}
           </div>

@@ -539,7 +539,7 @@
             ${UI.field('available_from', 'Dostupný od', { type: 'date', value: c.available_from })}
             ${UI.field('german_level', 'Nemčina', { value: c.german_level, options: [['', '—'], ['ziadny', 'Žiadna'], ['zaklad', 'Základ'], ['dobry', 'Dobrá']] })}
             ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['ua', 'UA']] })}
-            ${UI.field('plan_id', 'Na ktorý nábor', { value: c.plan_id || '',
+            ${UI.field('plan_id', 'Na ktorý nábor', { value: c.plan_id || '', add: 'plan',
               options: [['', '— žiadny konkrétny —'], ...openPlans.map(p => [p.id, p.title])] })}
             ${UI.field('last_site', 'Posledná stavba', { value: c.last_site, placeholder: 'mesto, firma' })}
             ${UI.field('last_foreman', 'Polier, ktorý ho potvrdí', { value: c.last_foreman, placeholder: 'meno a telefón' })}

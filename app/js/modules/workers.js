@@ -1017,7 +1017,7 @@
               value: new Date().toISOString().slice(0, 10) })}
             ${UI.field('method', 'Ako', { value: 'bank',
               options: Enums.options('advance_method') })}
-            ${sites.length ? UI.field('subcontract_id', 'Na zákazku', {
+            ${sites.length ? UI.field('subcontract_id', 'Na zákazku', { add: 'subcontract',
               options: [['', '— nepriradené —'],
                 ...sites.map(s => [s.id, s.title || s.contract_number])] }) : ''}
           </div>

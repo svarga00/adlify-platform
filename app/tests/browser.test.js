@@ -1491,6 +1491,32 @@ console.log('Prehliadač');
       ok(out.formularZostal && out.oknoZatvorene, 'okno sa zavrelo, formulár zostal');
       ok(out.staleQuo === false,
         'modul si zoznam pri najbližšom otvorení dotiahne znova');
+
+      // Každý typ v registri musí vedieť povedať, ako sa volá, čo sa doplní
+      // neskôr, a aké polia pýta. Prázdny alebo polovičný záznam by sa založil
+      // ticho a hľadalo by sa, prečo nemá meno.
+      const register = await page.evaluate(() => Object.entries(Danubra.NEW)
+        .map(([k, d]) => ({
+          k, what: d.what, lead: (d.lead || '').length,
+          povinne: d.fields({}).filter(f => f[2] && f[2].required).length,
+          poli: d.fields({}).length,
+          maLabel: typeof d.label === 'function',
+          stale: (d.stale || []).length,
+        })));
+      ok(register.length >= 8, 'zakladať sa dá každý druh záznamu, ktorý sa vyberá',
+        `v registri je ${register.length}`);
+      ok(register.every(r => r.what && r.lead > 30 && r.maLabel),
+        'každý má názov, vetu o tom, čo sa doplní neskôr, a vie sa pomenovať',
+        JSON.stringify(register.filter(r => !(r.what && r.lead > 30 && r.maLabel))));
+      ok(register.every(r => r.povinne >= 1),
+        'a aspoň jedno povinné pole — bezmenný záznam sa potom len hľadá',
+        JSON.stringify(register.filter(r => !r.povinne)));
+      ok(register.every(r => r.poli <= 3),
+        'pýta sa najviac tri veci — zvyšok patrí do jeho modulu',
+        JSON.stringify(register.filter(r => r.poli > 3)));
+      ok(register.every(r => r.stale >= 1),
+        'a každý povie, ktorým modulom tým zastaral zoznam',
+        JSON.stringify(register.filter(r => !r.stale)));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }

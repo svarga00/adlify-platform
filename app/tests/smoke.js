@@ -848,6 +848,9 @@ t('a pýta si potvrdenie', D && /VYMAZAŤ/.test(String(D.purgeDemo)));
     crew_id: 'crew',
     trade_key: 'trade',
     accommodation_id: 'accommodation',
+    subcontract_id: 'subcontract',
+    plan_id: 'plan',
+    ad_id: 'ad',
   };
   // Keď zakladanie nedáva zmysel (vyberá sa z podmnožiny — členovia partie,
   // nasadení ľudia), napíše sa `add: false` **priamo pri poli** aj s dôvodom.

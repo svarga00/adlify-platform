@@ -422,7 +422,7 @@
       if (this.step === 2) {
         return `<form id="wiz-form" onsubmit="return false;">
           <div class="form-grid">
-            ${UI.field('subcontract_id', 'Na ktorú zákazku', { value: p.subcontract_id || '',
+            ${UI.field('subcontract_id', 'Na ktorú zákazku', { value: p.subcontract_id || '', add: 'subcontract',
               options: [['', '— zatiaľ do zásoby —'], ...this.subcontracts.map(s =>
                 [s.id, `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`])] })}
             ${UI.field('city', 'Mesto', { value: p.city, required: true, placeholder: 'München' })}

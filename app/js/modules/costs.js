@@ -388,7 +388,7 @@
             ${UI.field('cost_date', 'Dátum', { type: 'date',
               value: c.cost_date || new Date().toISOString().slice(0, 10) })}
             ${UI.field('supplier', 'Dodávateľ', { value: c.supplier })}
-            ${UI.field('subcontract_id', 'Zákazka', { value: c.subcontract_id,
+            ${UI.field('subcontract_id', 'Zákazka', { value: c.subcontract_id, add: 'subcontract',
               options: [['', '— bez zákazky —'], ...this.subcontracts.map(s => [s.id, s.title])] })}
             ${UI.field('worker_id', 'Koho sa týka', { value: c.worker_id, add: 'worker',
               options: [['', '— nikoho konkrétneho —'], ...this.workers.map(w => [w.id, w.full_name])] })}
