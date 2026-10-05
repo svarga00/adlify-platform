@@ -132,7 +132,7 @@
       const on = (k) => (k in m ? m[k] !== false : Danubra.modules[k] !== false);
       return `
         <div class="card card-pad" style="margin-bottom:16px;">
-          <div class="card-head"><div class="card-title">Zapnuté agendy</div></div>
+          <div class="card-head"><div class="card-title">Zapnuté agendy${Help.btn('card.settings.areas', { size: 13 })}</div></div>
           <div class="regimebox" style="margin:0 0 12px;">
             Vypnutá agenda zmizne z navigácie. Nič sa nemaže — dáta, väzby ani
             história zostávajú a agenda sa dá kedykoľvek vrátiť.</div>
@@ -195,7 +195,7 @@
         ]) +
 
         `<div class="card card-pad" style="margin-bottom:16px;">
-          <div class="card-head"><div class="card-title">Číselné rady</div></div>
+          <div class="card-head"><div class="card-title">Číselné rady${Help.btn('card.settings.numbers', { size: 13 })}</div></div>
           <div class="regimebox" style="margin:0 0 12px;">
             Čísla prideľuje databáza transakčne, takže nikdy nevznikne diera ani duplicita.
             Pri zmene roka sa rad automaticky vynuluje.</div>

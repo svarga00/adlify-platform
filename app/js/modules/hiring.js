@@ -196,7 +196,7 @@
       const rozrobeni = this.inProcess();
       if (!cakaju.length && !rozrobeni.length) {
         return `<div class="card card-pad" style="margin-bottom:16px;">
-          <div class="card-title">Čo treba teraz</div>
+          <div class="card-title">Čo treba teraz${Help.btn('card.hiring.now', { size: 13 })}</div>
           <p style="font-size:13px;color:var(--ink-sub);margin:6px 0 0;">
             Nikto nečaká na hovor ani na doklady. Keď sa niekto ozve na inzerát,
             objaví sa tu.</p>
@@ -221,7 +221,7 @@
 
       return `<div class="card card-pad" style="margin-bottom:16px;">
         <div class="card-head">
-          <div class="card-title">Čo treba teraz</div>
+          <div class="card-title">Čo treba teraz${Help.btn('card.hiring.now', { size: 13 })}</div>
           ${cakaju.length ? UI.badge(`${cakaju.length} čaká na hovor`,
             cakaju.some(c => (this.minutesSince(c.received_at) || 0) > 10) ? 'red' : 'amber') : ''}
         </div>
@@ -250,7 +250,7 @@
       const bezia = (this.ads || []).filter(a => a.active !== false);
       if (!bezia.length) {
         return `<div class="card card-pad" style="margin-bottom:16px;">
-          <div class="card-head"><div class="card-title">Inzeráty</div>
+          <div class="card-head"><div class="card-title">Inzeráty${Help.btn('card.hiring.ads', { size: 13 })}</div>
             <button class="btn btn-outline btn-sm" onclick="Danubra.go('ads')">
               ${Icon('plus', 14)} Pridať inzerát</button></div>
           <p style="font-size:13px;color:var(--ink-sub);margin:6px 0 0;">

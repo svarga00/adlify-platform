@@ -274,6 +274,218 @@
       links: [['dashboard', 'Prehľad'], ['tasks', 'Úlohy a pripomienky']],
     },
 
+    // ── Karty v ostatných moduloch ──────────────────────────────────────────
+    'card.hiring.now': {
+      title: 'Čo treba teraz',
+      lead: 'Ľudia, ktorí čakajú na ťahu — zoradení podľa toho, kto čaká najdlhšie.',
+      what: [
+        'Dve skupiny: kto čaká na prvý hovor a kto je rozrobený (volali sme mu, '
+        + 'ale nerozhodlo sa).',
+        'Pri každom je vidieť, koľko minút už čaká.',
+      ],
+      how: [
+        'Po desiatich minútach sa počet zafarbí načerveno. Nie je to prísnosť — '
+        + 'človek volá na päť inzerátov naraz a berie prvého, kto sa ozve.',
+      ],
+      why: [
+        'Toto je jediné miesto v nábore, kde sa čas naozaj počíta. Všetko ostatné '
+        + 'počká deň; prvý telefonát nie.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['ads', 'Inzeráty']],
+    },
+    'card.hiring.ads': {
+      title: 'Inzeráty',
+      lead: 'Ktoré inzeráty k tomuto náboru bežia a čo z nich prišlo.',
+      what: ['Pri každom je, koľko ľudí sa ozvalo a koľko z nich nastúpilo.'],
+      how: [
+        'Porovnávať sa dajú len podľa **nastúpených**. Počet volajúcich závisí '
+        + 'hlavne od toho, ako dlho inzerát bežal — nie od toho, aký bol dobrý.',
+      ],
+      why: ['Nábor bez bežiaceho inzerátu je najtichšia chyba: nič nehorí, len sa '
+        + 'nikto neozýva.'],
+      links: [['ads', 'Inzeráty']],
+    },
+    'card.settings.areas': {
+      title: 'Zapnuté agendy',
+      lead: 'Ktoré časti appky sú v menu. Vypnutá agenda sa skryje, nezmaže.',
+      what: ['Ubytovacia agenda je archivovaná — jej dáta zostávajú a po zapnutí '
+        + 'sa objavia tak, ako boli.'],
+      how: ['Vypnutie skryje obrazovky aj prekliky na ne. Záznamy v databáze '
+        + 'zostanú nedotknuté.'],
+      why: ['Nič sa fyzicky nemaže. Agenda, ktorá sa dnes nepoužíva, môže byť '
+        + 'o rok znova potrebná — a história sa už nedá vyrobiť.'],
+      links: [['settings', 'Nastavenia']],
+    },
+    'card.settings.numbers': {
+      title: 'Číselné rady',
+      lead: 'Odkiaľ sa berú čísla faktúr, objednávok a zmlúv.',
+      what: ['Každý rad má rok a poradové číslo. Pri zmene roka sa vynuluje.'],
+      how: [
+        'Čísla prideľuje databáza transakčne. Nikdy preto nevznikne diera ani '
+        + 'duplicita, ani keď dvaja ľudia vystavia faktúru v tej istej sekunde.',
+      ],
+      why: [
+        'Diera v číselnom rade je pre daňovú kontrolu otázka, na ktorú treba '
+        + 'odpovedať. Preto sa číslo prideľuje až pri vzniku dokladu a nikdy '
+        + 'sa nepreskakuje.',
+      ],
+      links: [['settings', 'Nastavenia']],
+    },
+    'card.trades.pay': {
+      title: 'Peniaze pri remesle',
+      lead: 'Čo si za toto remeslo pýtajú ľudia, čo zaň fakturujeme a čo z toho zostane.',
+      what: [
+        'Rozpätie, nie jedno číslo — sadzba sa líši podľa oblasti aj podľa toho, '
+        + 'ako je o remeslo núdza.',
+        'Mzdová skupina (Lohngruppe) je zaradenie podľa nemeckej tarify. Určuje '
+        + 'minimum, pod ktoré sa na stavbe ísť nesmie.',
+      ],
+      how: ['Marža je rozdiel medzi tým, čo fakturujeme, a tým, čo platíme — bez '
+        + 'réžie. Skutočná marža je o réžiu nižšia.'],
+      why: [
+        'Toto je číslo, ktoré má náborár v hlave pri telefonáte. Keď si človek '
+        + 'pýta viac, než je horná hranica, treba vedieť, že je to nad rámec — '
+        + 'nie to zistiť až pri podpise.',
+      ],
+      links: [['quotes', 'Ponuky'], ['trades', 'Remeslá a otázky']],
+    },
+    'card.trades.quiz': {
+      title: 'Skúšanie z remesla',
+      lead: 'Odskúšaj sa z otázok, ktoré budeš klásť kandidátom.',
+      what: ['Otázky sú tie isté, ktoré má náborár pri telefonáte. Kto ich vie '
+        + 'sám, položí ich inak než ten, kto ich číta z obrazovky.'],
+      how: [`Na spustenie treba aspoň päť otázok. Pri menšom počte by sa skúšanie `
+        + 'dalo prejsť náhodou.'],
+      why: [
+        'Rozdiel medzi „prečítal som si to" a „viem to posúdiť" je v tom, či vieš '
+        + 'rozoznať človeka, ktorý remeslo robil, od toho, kto o ňom počul.',
+      ],
+      links: [['trades', 'Remeslá a otázky'], ['candidates', 'Kandidáti']],
+    },
+    'card.trades.done': {
+      title: 'Výsledok skúšania',
+      lead: 'Koľko otázok si vedel — a čo s tými, ktoré nie.',
+      what: ['Čo si nevedel, stojí za druhé kolo. Práve tie otázky položíš '
+        + 'kandidátovi najistejšie, lebo si na ne sám hľadal odpoveď.'],
+      how: ['Výsledok sa nikam nezapisuje. Je to tvoja príprava, nie hodnotenie.'],
+      why: ['Náborár, ktorý otázke nerozumie, ju položí tak, že kandidát počuje, '
+        + 'čo má odpovedať.'],
+      links: [['trades', 'Remeslá a otázky']],
+    },
+
+    // ── Karty v profile živnostníka ─────────────────────────────────────────
+    // Profil je jediná obrazovka, kde je celý človek naraz — a aj jediná,
+    // kde sa dá omylom povedať „dlhujeme mu X", hoci to X je odhad, nie
+    // záväzok. Preto má každá karta vlastné vysvetlenie.
+    'card.worker.account': {
+      title: 'Zárobok a čo mu dlhujeme',
+      lead: 'Koľko si odrobil, koľko nám vyfakturoval, čo sme mu už dali — a čo '
+        + 'z toho zostáva.',
+      what: [
+        '„Odrobil" je **odhad** z jeho hodín a sadzby. Nie je to záväzok: ten '
+        + 'vzniká až jeho faktúrou. Preto sa podľa tohto čísla neplatí.',
+        '„Dlhujeme" je schválené a neuhradené mínus nevyrovnané zálohy.',
+      ],
+      how: [
+        'Sporné faktúry sa do súčtu nerátajú — kým sa rozdiel nedohodne, nie je '
+        + 'z čoho platiť.',
+        'Keď vyfakturoval viac, než vychádza z hodín, povie sa to rovno. Je to buď '
+        + 'chyba vo výkaze, alebo vo faktúre, a jedno z toho treba opraviť.',
+      ],
+      why: [
+        'Rozdiel medzi „odrobil" a „vyfakturoval" je to, čo sa inak zistí až pri '
+        + 'uzávierke. Tu je vidieť hneď.',
+      ],
+      links: [['costs', 'Náklady'], ['timesheets', 'Odpracované hodiny']],
+    },
+    'card.worker.readiness': {
+      title: 'Smieme ho nasadiť?',
+      lead: 'Čo mu chýba na to, aby mohol ísť na nemeckú stavbu.',
+      what: [
+        'Posudzuje sa živnostenský list, A1, doklad totožnosti, zmluva o dielo '
+        + 'a podľa remesla aj doklad o odbornosti (§9 HwO).',
+        'Varovanie nie je prekážka — poistenie chýbať môže, A1 nie.',
+      ],
+      how: [
+        'Doklady sa posudzujú **k prvému dňu nasadenia**, nie k dnešku. Doklad, '
+        + 'ktorý dnes platí a do nástupu vyprší, neprejde.',
+        'Výnimku môže dať len administrátor a zostane zapísaná aj s dôvodom.',
+      ],
+      why: [
+        'Drží to databáza, nie táto obrazovka. Platí to teda aj pri importe a aj '
+        + 'vtedy, keď niekto zapisuje priamo do tabuľky.',
+      ],
+      links: [['compliance', 'Compliance']],
+    },
+    'card.worker.docs': {
+      title: 'Doklady a platnosti',
+      lead: 'Čo od neho máme, dokedy to platí a čo je naskenované.',
+      what: ['Pri každom doklade je dátum platnosti a sken. Sken je dôležitý: '
+        + 'pri kontrole ho treba vedieť ukázať, nie hľadať v e-maile.'],
+      how: ['Keď sa platnosť blíži ku koncu, appka sama vyrobí úlohu s termínom. '
+        + 'A1 sa vybavuje až 45 dní, preto sa upozorňuje s predstihom.'],
+      why: ['Doklad sa nemaže ani po expirácii — pri spätnej kontrole treba vedieť '
+        + 'dokázať, čo platilo vtedy, nie čo platí dnes.'],
+      links: [['workers', 'Živnostníci']],
+    },
+    'card.worker.advances': {
+      title: 'Zálohy',
+      lead: 'Čo sme mu vyplatili vopred a čo z toho ešte nie je vyrovnané.',
+      what: ['Záloha sa vyrovnáva naviazaním na jeho prijatú faktúru — nie '
+        + 'mesiacom, nie ručným odpísaním.'],
+      how: ['Nevyrovnané zálohy sa odpočítavajú od toho, čo mu dlhujeme. Preto '
+        + '„dlhujeme" môže byť nižšie, než koľko je na jeho faktúre.'],
+      why: ['Záloha sa nemaže. Omyl sa ruší s dôvodom, aby sa dalo dohľadať, čo sa '
+        + 'stalo — pri spore o peniaze je história to jediné, čo rozhodne.'],
+      links: [['costs', 'Náklady']],
+    },
+    'card.worker.hours': {
+      title: 'Odpracované hodiny',
+      lead: 'Čo odrobil tento mesiac a celkovo, a posledné zápisy.',
+      what: ['Zelená bodka znamená, že hodina je už v uzavretom období — tá sa '
+        + 'nemení. Bez bodky je ešte otvorená.'],
+      how: ['Suma pri hodinách je prepočet jeho sadzbou. Je to odhad toho, čo nám '
+        + 'vyfakturuje, nie to, čo sme mu sľúbili.'],
+      why: ['Z toho istého zápisu vzniká naša faktúra odberateľovi aj kontrola jeho '
+        + 'faktúry. Preto sa nikdy nelíšia.'],
+      links: [['timesheets', 'Odpracované hodiny']],
+    },
+    'card.worker.promises': {
+      title: 'Čo sme mu sľúbili',
+      lead: 'Čo mu pri náborovom hovore niekto povedal — a či sa to splnilo.',
+      what: ['Sadzba, ubytovanie, doprava, termín nástupu, preddavok. Všetko, čo '
+        + 'pri telefonáte zaznelo ako prísľub.'],
+      how: ['Sľuby sa zapisujú pri hovore, nie spätne. Otvorený sľub je ten, ktorý '
+        + 'sa ešte nesplnil.'],
+      why: [
+        'Toto je tá karta, ktorá zabráni najčastejšiemu dôvodu, prečo človek po '
+        + 'dvoch týždňoch odíde: sľúbilo sa mu niečo, čo si ten, kto ho nasadzoval, '
+        + 'už nepamätal.',
+      ],
+      links: [['recruiting', 'Zápisy z hovorov']],
+    },
+    'card.worker.billing': {
+      title: 'Fakturačné údaje živnosti',
+      lead: 'Čo potrebujeme na to, aby sa jeho faktúra dala zaúčtovať.',
+      what: ['IČO, DIČ, adresa podnikania a IBAN. Pri platiteľovi DPH aj IČ DPH.'],
+      how: ['Kým údaje nie sú kompletné, je napísané, čo presne chýba — nie len '
+        + 'že „niečo" chýba.'],
+      why: ['Zisťovať to vo chvíli, keď jeho faktúra už leží na stole a treba ju '
+        + 'zaplatiť, znamená ďalší týždeň zdržania.'],
+      links: [['costs', 'Náklady']],
+    },
+    'card.worker.person': {
+      title: 'O človeku',
+      lead: 'Kontakt, remeslo, jazyk, auto, náradie — čo o ňom vieme.',
+      what: ['Sú to údaje, podľa ktorých sa rozhoduje, na ktorú stavbu sa hodí: '
+        + 'nemčina, vodičák, vlastné náradie, odkedy môže.'],
+      how: ['Dopĺňa sa to postupne — pri hovore, pri preverení a potom, ako sa '
+        + 'spoznáva v práci.'],
+      why: ['Polovica zrušených nástupov padne na veciach z tejto karty: nemá auto, '
+        + 'nemá náradie, nemôže od pondelka.'],
+      links: [['crews', 'Partie']],
+    },
+
     // ── Kroky reťazca ───────────────────────────────────────────────────────
     // Jeden k jednému s `lib/flow.js`. Vysvetľujú **prechod**, nie obrazovku:
     // čo musí byť hotové, aby sa dalo ísť ďalej, a čo sa stane, keď to hotové

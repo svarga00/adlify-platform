@@ -215,5 +215,37 @@ const KEYS = X.keys();
     zleCislo.join('; '));
 }
 
+// ── Každá vysvetliteľná karta má „?" ────────────────────────────────────────
+// `card-title` je v moduloch dvojaké. Raz je to **názov sekcie** („Zálohy",
+// „Smieme ho nasadiť?") — tam vysvetlivka patrí. Druhýkrát je to **meno
+// záznamu** v zozname (`${UI.esc(w.full_name)}`) — tam by „?" bolo nezmyselné:
+// vysvetľovať sa má obrazovka, nie Ján Novák.
+//
+// Rozoznať sa to dá spoľahlivo: názov sekcie je napísaný v kóde natvrdo, meno
+// záznamu sa dosadzuje. Preto sa pravidlo vzťahuje na statické nadpisy — a na
+// všetky moduly naraz, nie na zoznam „hotových".
+{
+  const dir = path.join(__dirname, '..', 'js', 'modules');
+  const bad = [];
+  let sekcii = 0;
+  for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.js'))) {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    for (const m of src.matchAll(/class="card-title"[^>]*>([\s\S]{0,250}?)<\/div>/g)) {
+      const inner = m[1];
+      // Odstráň samotné volanie Help.btn a pozri, či v nadpise zostalo
+      // nejaké dosadenie. Keď áno, je to meno záznamu a pravidlo neplatí.
+      const bezHelp = inner.replace(/\$\{\s*\n?\s*Help\.btn[^}]*\}/g, '');
+      if (/\$\{/.test(bezHelp)) continue;
+      sekcii++;
+      if (!inner.includes('Help.btn')) {
+        bad.push(`${f}:${src.slice(0, m.index).split('\n').length}`);
+      }
+    }
+  }
+  ok(bad.length === 0,
+    `každá sekcia s natvrdo napísaným nadpisom má „?" (${sekcii})`,
+    `bez vysvetlivky: ${bad.join(', ')}`);
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

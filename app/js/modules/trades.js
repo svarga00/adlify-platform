@@ -201,7 +201,7 @@
     payHtml(t) {
       const m = this.marginSpan(t);
       return `<div class="card card-pad lesson-card">
-        <div class="card-title">Peniaze</div>
+        <div class="card-title">Peniaze${Help.btn('card.trades.pay', { size: 13 })}</div>
         <div class="kv" style="margin:0 0 8px;">
           <div><span>Pýta si</span><strong>${this.rateSpan(t)}</strong></div>
           <div><span>Fakturujeme</span><strong>${this.rateSpan(t, 'client')}</strong></div>
@@ -263,7 +263,7 @@
                 ${Icon('zap', 15)} Spustiť</button>
             </div>`
           : `<div class="card card-pad" id="quiz">
-              <div class="card-title">Skúšanie</div>
+              <div class="card-title">Skúšanie${Help.btn('card.trades.quiz', { size: 13 })}</div>
               <p class="lesson-text">Na skúšanie treba aspoň
                 ${DanubraTrade.QUESTIONS_MIN} otázok; teraz ich je ${qs.length}.
                 Doplň ich a remeslo sa bude dať odskúšať.</p>
@@ -276,7 +276,7 @@
       const p = DanubraTrade.progress(q.deck.length, q.i);
       if (q.i >= q.deck.length) {
         return `<div class="card card-pad quiz" id="quiz">
-          <div class="card-title">Hotovo</div>
+          <div class="card-title">Hotovo${Help.btn('card.trades.done', { size: 13 })}</div>
           <p class="lesson-text">Prešiel si ${q.deck.length} ${
             Shell.plural(q.deck.length, 'otázku', 'otázky', 'otázok')}
             a ${q.hit} z nich si vedel. Čo si nevedel, stojí za druhé kolo —

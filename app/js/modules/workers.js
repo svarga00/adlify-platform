@@ -464,7 +464,7 @@
         `<div><span>${label}</span><strong style="${extra}">${Money.format(cents)}</strong></div>`;
       return `<div class="card card-pad">
         <div class="card-head">
-          <div class="card-title">Zárobok a čo mu dlhujeme</div>
+          <div class="card-title">Zárobok a čo mu dlhujeme${Help.btn('card.worker.account', { size: 13 })}</div>
           ${a.payable > 0 ? UI.badge('na vyplatenie', 'amber')
             : a.overpaid > 0 ? UI.badge('preplatené', 'red') : UI.badge('vyrovnané', 'green')}
         </div>
@@ -487,7 +487,8 @@
 
     readinessCard(w, ready) {
       return `<div class="card card-pad">
-        <div class="card-head"><div class="card-title">Smieme ho nasadiť?</div></div>
+        <div class="card-head"><div class="card-title">Smieme ho nasadiť?${
+          Help.btn('card.worker.readiness', { size: 13 })}</div></div>
         ${Shell.blocker({
           reasons: [...ready.reasons, ...ready.warnings],
           overrides: this.overridesOf(w.id),
@@ -539,7 +540,7 @@
       };
       return `<div class="card card-pad">
         <div class="card-head">
-          <div class="card-title">Doklady a platnosti</div>
+          <div class="card-title">Doklady a platnosti${Help.btn('card.worker.docs', { size: 13 })}</div>
           <button class="btn btn-ghost btn-sm" onclick="Wrk.addDoc('${w.id}')">${Icon('plus', 14)} Pridať</button>
         </div>
         ${docs.length ? docs.map(row).join('')
@@ -640,7 +641,7 @@
       };
       return `<div class="card card-pad">
         <div class="card-head">
-          <div class="card-title">Zálohy</div>
+          <div class="card-title">Zálohy${Help.btn('card.worker.advances', { size: 13 })}</div>
           <button class="btn btn-ghost btn-sm" onclick="Wrk.advanceForm('${w.id}')">${Icon('plus', 14)} Vyplatiť</button>
         </div>
         ${rows.length ? rows.map(row).join('')
@@ -655,7 +656,7 @@
       const rows = this.acc.timesheets.slice(0, 8);
       return `<div class="card card-pad">
         <div class="card-head">
-          <div class="card-title">Odpracované hodiny</div>
+          <div class="card-title">Odpracované hodiny${Help.btn('card.worker.hours', { size: 13 })}</div>
           <button class="btn btn-ghost btn-sm" onclick="Danubra.go('timesheets')">Všetky</button>
         </div>
         <div class="kv" style="margin:0 0 10px;">
@@ -713,7 +714,7 @@
       const open = rows.filter(p => p.status === 'open').length;
       return `<div class="card card-pad">
         <div class="card-head">
-          <div class="card-title">Čo sme mu sľúbili</div>
+          <div class="card-title">Čo sme mu sľúbili${Help.btn('card.worker.promises', { size: 13 })}</div>
           ${open ? UI.badge(`${open} otvorených`, 'amber') : ''}
         </div>
         ${rows.length ? rows.map(row).join('')
@@ -734,7 +735,8 @@
         ['Odbory', (w.trade_licence_scopes || []).join(', ') || null],
       ].filter(r => r[1] != null && r[1] !== '');
       return `<div class="card card-pad">
-        <div class="card-head"><div class="card-title">Fakturačné údaje živnosti</div></div>
+        <div class="card-head"><div class="card-title">Fakturačné údaje živnosti${
+          Help.btn('card.worker.billing', { size: 13 })}</div></div>
         ${billing.ok
           ? '<div class="regimebox" style="margin:0 0 10px;">Údaje sú komplet — jeho faktúru vieme zaúčtovať.</div>'
           : Shell.blocker({ reasons: [...billing.reasons, ...billing.warnings] })}
@@ -762,7 +764,7 @@
       const hasPhoto = !!this.photoUrl(w);
       return `<div class="card card-pad">
         <div class="card-head">
-          <div class="card-title">O človeku</div>
+          <div class="card-title">O človeku${Help.btn('card.worker.person', { size: 13 })}</div>
           <span class="link-row">
             <label class="link-chip" style="cursor:pointer;">
               ${Icon(hasPhoto ? 'edit' : 'plus', 13)}<span>${hasPhoto ? 'Zmeniť fotku' : 'Pridať fotku'}</span>
