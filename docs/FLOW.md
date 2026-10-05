@@ -4,7 +4,10 @@ Od telefonátu po peniaze na účte. Každý krok má svoj záznam a každý zá
 vie, z čoho vznikol — preto sa dá kedykoľvek povedať, prečo je niečo tak,
 ako je.
 
-Stav k 28. 9. 2026, po nasadení v2.
+Stav k 5. 10. 2026.
+
+> Toto je napísaná verzia. **Živá je v appke** pod PREHĽAD → „Ako to ide":
+> tie isté kroky, ale pri každom je vidieť, koľko tam práve stojí.
 
 ---
 
@@ -109,7 +112,8 @@ očakávaného zisku.
 cenníka staré hodiny neprepočíta.
 
 **Výkaz (Stundennachweis)** je týždenný papier za partiu, po nemecky, na podpis
-na stavbe. Vypĺňa sa priamo v tabuľke a ukladá do tej istej evidencie, z ktorej
+na stavbe. Na doklade je jedna potvrdzovacia veta, nie dve — dve znenia toho
+istého potvrdenia sa dajú pri spore o hodiny spochybniť. Vypĺňa sa priamo v tabuľke a ukladá do tej istej evidencie, z ktorej
 vzniká faktúra — nie je to druhé miesto, kde sa píšu hodiny. **Po podpise sa
 obsah zmrazí.**
 
@@ -137,6 +141,11 @@ neuzavreté obdobie sa výnimkou obísť nedajú** — tam nie je čo prevziať,
 by vznikol nesprávny doklad. Blokátor to rozlíši a pri každej takej prekážke
 povie, čo namiesto nej.
 
+Na samotnom doklade je **rozpis zrážky §48b**: fakturovaná suma, zrážka
+a suma na úhradu. Odberateľ prevádza len tú poslednú — bez rozpisu to vyzerá,
+že platí menej, než mal. Rovnaká suma je aj v QR kóde. Faktúra pre nemeckého
+odberateľa ide **po nemecky**, rovnako ako ponuka a zmluva.
+
 **Prijatá faktúra** od živnostníka sa porovná so schválenými hodinami. Keď
 sedí, schváli sa. Keď nesedí, je **sporná** a bez poznámky sa schváliť nedá —
 a do marže sa nerátá, kým sa to nedohodne.
@@ -159,6 +168,13 @@ náklady). Pod tým záložky **Dnes · Peniaze · Práca a ľudia**.
 
 Rozhoduje **najnižší bod**, nie zostatok na konci: účet môže skončiť v pluse
 a v treťom týždni byť pod nulou — a výplaty sa odložiť nedajú.
+
+Šesť čísel hore sa dá **otvoriť**: v okne je zoznam záznamov, z ktorých to
+číslo je, s hľadaním, zoradením a prekliknutím na záznam. Číslo aj zoznam
+počíta ten istý výpočet, takže sa nemôžu rozísť.
+
+Filtrovať sa dá obdobím, odberateľom a zákazkou, plus prepínač **„len čo treba
+riešiť"**, ktorý nechá na obrazovke len to, čo nie je v pokoji.
 
 ---
 
@@ -185,8 +201,17 @@ nikde netvrdí, že odoslala.
 nedajú dať nikomu okrem administrátora: schválenie faktúry, výnimka pri
 nasadení a správa používateľov.
 
-**Vysvetlivky.** Pri každom čísle je „?" — čo to je, ako sa to počíta a prečo
-je to takto.
+**Vysvetlivky.** Pri každom čísle na prehľade, pri každom kroku v mape toku
+a pri každej sekcii v moduloch je „?" — čo to je, ako sa to počíta a prečo je
+to takto. Pri poliach, kde zlá hodnota niečo pokazí (typ prác, réžia, zádržné,
+§48b), je veta priamo pod poľom. Oboje stráži test: chýbajúca vysvetlivka
+zhodí `npm test`.
+
+**Infolist na stavbu.** Ku každému nasadeniu sa dá otvoriť jednostranový papier
+pre živnostníka: kam prísť, kedy, za kým, adresa ubytovania a kľúče, čo si
+priniesť a prečo, ako sa hlásia hodiny, čo robiť pri kontrole alebo úraze —
+a nemecké vety na prvý deň. Údaj, ktorý nie je vyplnený, sa na papieri
+nevynechá potichu: napíše sa, že chýba.
 
 ---
 
@@ -200,6 +225,9 @@ je to takto.
 | prepadnutý A1 | človeka nesmieme nasadiť | vybaviť, alebo výnimka od admina |
 | sporná prijatá faktúra | nerátá sa do marže | dohodnúť rozdiel a zapísať |
 | refakturovateľný náklad | visí vo „viazne v nákladoch" | dať ho na vydanú faktúru |
+| nábor bez bežiaceho inzerátu | nikto sa neozýva a nič nehorí | spustiť inzerát |
+| bežiaca zákazka bez ľudí | termín beží, nič z nej nepribúda | nasadiť alebo posunúť termín |
+| chýbajúci údaj na infoliste | človek volá v nedeľu večer | doplniť na zákazke pred nástupom |
 
 ---
 
@@ -208,6 +236,9 @@ je to takto.
 - **Odosielanie správ** — chýba kľúč poskytovateľa a adresa na príjem.
 - **SuperFaktúra** — chýbajú `SF_EMAIL` a `SF_API_KEY`; integrácia neprešla
   sandboxom.
-- **Názov firmy a IBAN v Nastaveniach** — bez nich ide na faktúru zlé meno
-  a nevykreslí sa QR platba.
-- **Steuernummer** do výkazu; dovtedy je na papieri „wird nachgereicht".
+- **Názov firmy a IBAN v Nastaveniach** — bez nich nie sú na faktúre platobné
+  údaje a nevykreslí sa QR platba. Vymyslené meno sa nikam netlačí: doklad
+  radšej mlčí, než by uviedol nesprávny údaj.
+- **Steuernummer (DE)** v Nastaveniach — kým nie je, riadok sa na výkaze
+  vynechá. (Predtým sa naň tlačilo „wird nachgereicht", čo je na doklade pre
+  odberateľa priznanie, že niečo chýba — a pole sa pritom nedalo nikde vyplniť.)
