@@ -173,11 +173,17 @@
      */
     sheetHtml(s, signed) {
       const sup = (window.Cfg && Cfg.j('supplier')) || {};
+      // `<input type="number">` musí mať hodnotu s bodkou — prehliadač inú
+      // neprijme. Lenže práve nepodpísaný výkaz sa tlačí a nesie sa na stavbu
+      // na podpis, takže na papier pre Nemca by šlo „8.5" namiesto „8,5".
+      // Nemecký tvar sa preto nesie v `data-h` a pri tlači sa ukáže namiesto
+      // poľa (CSS nižšie v `@media print`).
       const cell = (r, i) => {
         const d = s.days[i];
-        return `<td class="hs-h">
+        const de = DanubraHourSheet.hoursText(r.hours[i]);
+        return `<td class="hs-h"${signed ? '' : ` data-h="${UI.esc(de)}"`}>
           ${signed
-            ? DanubraHourSheet.hoursText(r.hours[i])
+            ? de
             : `<input type="number" step="0.25" min="0" max="24" inputmode="decimal"
                  value="${r.hours[i] || ''}"
                  onchange="HS.setHours('${r.worker_id}','${d.date}',this.value)">`}
@@ -218,6 +224,16 @@
             <tr class="hs-span">
               <td class="hs-name">Stunden (von – bis)</td>
               ${s.days.map((d, i) => `<td>${UI.esc(DanubraHourSheet.spanText(s.span[i]))}</td>`).join('')}
+              <td></td>
+            </tr>
+            <!-- Pauza. Je na pôvodnom papieri a polier ju na doklade hľadá.
+                 Nemáme ju kde zapísať, ale dá sa dopočítať z času od-do
+                 a odrobených hodín. Keď sa dopočítať nedá, riadok zostane
+                 prázdny - vymyslená prestávka na doklade, ktorý sa podpisuje,
+                 je horšia než prázdne miesto. -->
+            <tr class="hs-span">
+              <td class="hs-name">Pause</td>
+              ${s.days.map((d, i) => `<td>${UI.esc(DanubraHourSheet.pauseText(s.pause[i]))}</td>`).join('')}
               <td></td>
             </tr>
             ${s.rows.map(r => `

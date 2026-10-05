@@ -1465,6 +1465,8 @@ console.log('Prehliadač');
       ok(/Gesamt/.test(out.text) && !/\bTotal\b/.test(out.text),
         'súčtový riadok je po nemecky, ako zvyšok dokladu');
       ok(out.znacka, 'výkaz má tú istú značku ako faktúra a zmluva');
+      // Pôvodný papier od odberateľa má riadok „Pause" a polier ho hľadá.
+      ok(/Pause/.test(out.text), 'na výkaze je riadok Pause, ako na papieri odberateľa');
       // IČO: pole sa musí čítať tam, kam ho Nastavenia ukladajú.
       const ico = await page.evaluate(() => {
         Cfg.row = { id: 'cfg', supplier: { name: 'Firma s.r.o.', company_id: '55667788' } };
@@ -1472,6 +1474,57 @@ console.log('Prehliadač');
         return Danubra.views.hoursheet.call(Danubra, view).then(() => view.innerText);
       });
       ok(/55667788/.test(ico), 'IČO z Nastavení sa na výkaze objaví', ico.slice(-180));
+
+      // Nepodpísaný výkaz sa tlačí a nesie na stavbu na podpis. Pole `number`
+      // musí mať hodnotu s bodkou, ale na papier pre Nemca patrí čiarka.
+      const tlac = await page.evaluate(async () => {
+        // Hodiny do výkazu, nech je čo formátovať. Osem a pol sa po nemecky
+        // píše „8,5" — a presne to musí byť na papieri.
+        const view = document.getElementById('view');
+        const d = DanubraHourSheet.weekDates(HS.year, HS.week)[0].date;
+        HS.timesheets = [{ id: 't1', worker_id: 'w1', assignment_id: 'a1',
+          work_date: d, hours: 8.5, time_from: '07:00', time_to: '16:30' }];
+        HS.assignments = [{ id: 'a1', worker_id: 'w1', subcontract_id: 's1', status: 'active' }];
+        // `loadWeek()` si hodiny pri každom prekreslení doťahuje z databázy
+        // a prepísal by to, čo sme sem práve dali.
+        HS.loadWeek = async () => {};
+        await Danubra.views.hoursheet.call(Danubra, view);
+        const bunky = [...view.querySelectorAll('.hs-h')];
+        const sPolom = bunky.filter(e => e.querySelector('input'));
+        const sCiarkou = bunky.find(e => (e.getAttribute('data-h') || '').includes(','));
+        return {
+          buniek: bunky.length,
+          sPolom: sPolom.length,
+          bezDataH: sPolom.filter(e => !e.hasAttribute('data-h')).length,
+          nemecky: sCiarkou ? sCiarkou.getAttribute('data-h') : null,
+          vPoli: sCiarkou ? sCiarkou.querySelector('input').value : null,
+          skryteVTlaci: null,
+        };
+      });
+      ok(tlac.sPolom > 0, 'nepodpísaný výkaz sa dá vyplniť priamo v tabuľke');
+      ok(tlac.bezDataH === 0,
+        'každá vyplniteľná bunka nesie aj nemecký tvar čísla pre tlač',
+        `bez neho: ${tlac.bezDataH}`);
+      ok(tlac.nemecky === '8,5',
+        'na papier ide „8,5", nie „8.5"', String(tlac.nemecky));
+      ok(tlac.vPoli === '8.5',
+        'kým pole samo musí mať bodku — inak ho prehliadač neprijme',
+        String(tlac.vPoli));
+
+      // A pri tlači sa pole schová a ukáže sa to číslo.
+      await page.emulateMedia({ media: 'print' });
+      const vTlaci = await page.evaluate(() => {
+        const td = [...document.querySelectorAll('.hs-h[data-h]')]
+          .find(e => (e.getAttribute('data-h') || '').includes(','));
+        if (!td) return null;
+        return { pole: getComputedStyle(td.querySelector('input')).display,
+          text: getComputedStyle(td, '::after').content };
+      });
+      await page.emulateMedia({ media: 'screen' });
+      ok(vTlaci && vTlaci.pole === 'none', 'pri tlači sa vstupné pole nevytlačí',
+        JSON.stringify(vTlaci));
+      ok(vTlaci && /8,5/.test(vTlaci.text), 'a na jeho mieste je nemecké číslo',
+        JSON.stringify(vTlaci));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }

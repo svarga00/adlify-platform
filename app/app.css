@@ -1849,7 +1849,10 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .main { margin-left: 0 !important; }
   .view { padding: 0 !important; }
   .hs-paper { border: 0; box-shadow: none; padding: 0; }
-  .hs-h input { background: transparent !important; }
+  /* Na papieri sa namiesto poľa ukáže číslo v nemeckom tvare (8,5 — nie 8.5).
+     Pole samo musí mať bodku, inak ho prehliadač neprijme. */
+  .hs-h input { display: none !important; }
+  .hs-h[data-h]::after { content: attr(data-h); }
   body { background: #fff; }
   /* Výkaz je jediná stránka v appke, ktorá na výšku nesedí — má dvanásť
      stĺpcov. `@page` sa nedá zúžiť selektorom, preto pomenovaná stránka:

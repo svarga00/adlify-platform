@@ -147,9 +147,37 @@
       Math.round(rows.reduce((n, r) => n + r.hours[i], 0) * 100) / 100);
     const total = Math.round(perDay.reduce((a, b) => a + b, 0) * 100) / 100;
 
+    // ── Pauza ──────────────────────────────────────────────────────────────
+    // Na pôvodnom papieri je riadok „Pause" a polier ho čaká. My ho nemáme
+    // kde zapísať — ale **dá sa dopočítať**: čas od–do mínus odrobené hodiny
+    // je presne prestávka. Keď je od 07:00 do 16:30 zapísaných 9 hodín, pol
+    // hodiny chýba a je to pauza.
+    //
+    // Počíta sa proti **najdlhšiemu** dňu jedného človeka, nie proti súčtu za
+    // partiu — súčet by pri troch ľuďoch dal zápornú pauzu.
+    //
+    // Keď majú ľudia rôzne časy (`mixed`), rozpätie je roztiahnuté od
+    // najskoršieho začiatku po najneskorší koniec a pauza z neho vyjde väčšia,
+    // než aká bola. Vtedy sa radšej nepíše nič — nesprávne číslo na doklade,
+    // ktorý niekto podpisuje, je horšie než prázdne miesto.
+    const pause = days.map((_, i) => {
+      const sp = span[i];
+      if (!sp || sp.mixed || !sp.from || !sp.to) return null;
+      const min = (t) => {
+        const [h, m] = String(t).slice(0, 5).split(':').map(Number);
+        return (Number.isFinite(h) && Number.isFinite(m)) ? h * 60 + m : null;
+      };
+      const a2 = min(sp.from), b2 = min(sp.to);
+      if (a2 == null || b2 == null || b2 <= a2) return null;
+      const najdlhsi = rows.reduce((m2, r) => Math.max(m2, r.hours[i] || 0), 0);
+      if (!najdlhsi) return null;
+      const minut = Math.round((b2 - a2) - najdlhsi * 60);
+      return minut > 0 ? minut : null;
+    });
+
     return {
       year: o.year, week: o.week,
-      days, rows, span, perDay, total,
+      days, rows, span, pause, perDay, total,
       project: o.project || '', site: o.site || '',
       customer: o.customer || '', crewName: o.crewName || '',
       from: days[0].date, to: days[days.length - 1].date,
@@ -165,6 +193,13 @@
     return s.mixed ? `${text} *` : text;
   }
 
+  /** Pauza na papieri: „0:30". Keď sa nedá spočítať, nepíše sa nič. */
+  function pauseText(minut) {
+    const m = Number(minut);
+    if (!Number.isFinite(m) || m <= 0) return '';
+    return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+  }
+
   /** Hodiny na papieri: nemecká desatinná čiarka, nula sa nepíše. */
   function hoursText(h) {
     const n = Number(h) || 0;
@@ -173,7 +208,7 @@
       .replace('.', ',');
   }
 
-  const API = { DAYS, isoWeek, mondayOf, weekDates, weeksInYear, shiftWeek, build, spanText, hoursText };
+  const API = { DAYS, isoWeek, mondayOf, weekDates, weeksInYear, shiftWeek, build, spanText, hoursText, pauseText };
   if (typeof window !== 'undefined') window.DanubraHourSheet = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
