@@ -260,7 +260,7 @@
             Keď faktúru naviažeš na uzavreté obdobie, appka ju hneď porovná
             so schválenými hodinami. Bez obdobia sa schvaľuje naslepo.</div>
           <div class="form-grid">
-            ${UI.field('worker_id', 'Od koho', { value: b.worker_id, required: true,
+            ${UI.field('worker_id', 'Od koho', { value: b.worker_id, required: true, add: 'worker',
               options: [['', '— vyber —'], ...this.workers.map(w => [w.id, w.full_name])] })}
             ${UI.field('bill_number', 'Ich číslo faktúry', { value: b.bill_number })}
             ${UI.field('amount', 'Suma €', { type: 'number', value: b.amount, required: true })}
@@ -390,7 +390,7 @@
             ${UI.field('supplier', 'Dodávateľ', { value: c.supplier })}
             ${UI.field('subcontract_id', 'Zákazka', { value: c.subcontract_id,
               options: [['', '— bez zákazky —'], ...this.subcontracts.map(s => [s.id, s.title])] })}
-            ${UI.field('worker_id', 'Koho sa týka', { value: c.worker_id,
+            ${UI.field('worker_id', 'Koho sa týka', { value: c.worker_id, add: 'worker',
               options: [['', '— nikoho konkrétneho —'], ...this.workers.map(w => [w.id, w.full_name])] })}
           </div>
           ${UI.field('description', 'Popis', { value: c.description })}

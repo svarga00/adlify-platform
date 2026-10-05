@@ -397,7 +397,7 @@
             nie v hodinách.</div>` : ''}
           <div class="form-grid">
             ${UI.field('title', 'Názov zmluvy', { value: c.title, required: true })}
-            ${UI.field('partner_id', 'Odberateľ', { value: c.partner_id, required: true,
+            ${UI.field('partner_id', 'Odberateľ', { value: c.partner_id, required: true, add: 'partner',
               options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
             ${UI.field('kind', 'Druh', { value: c.kind || 'werkvertrag',
               options: Enums.options('contract_kind') })}

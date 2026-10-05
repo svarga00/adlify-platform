@@ -483,7 +483,10 @@
       }
       UI.modal('Ubytovať človeka', `
         <form id="stay-form" onsubmit="event.preventDefault();Sub.saveStay('${lodgingId}')">
-          ${UI.field('worker_id', 'Kto', { options: opts, required: true })}
+          <!-- add: false — ubytúva sa ten, kto je na zákazku nasadený.
+               Novo založený človek nasadený nie je, takže by sa v zozname
+               aj tak neobjavil. -->
+          ${UI.field('worker_id', 'Kto', { options: opts, required: true, add: false })}
           <div class="form-grid">
             ${UI.field('date_from', 'Od', { type: 'date',
               value: sc?.date_from && sc.date_from > new Date().toISOString().slice(0, 10)
@@ -761,7 +764,7 @@
               onchange="Sub.asgReady('${scId}')"
               onsubmit="event.preventDefault();Sub.saveAsg('${scId}')">
           <div class="form-grid">
-            ${UI.field('worker_id', 'Pracovník', { required: true, options: free.map(w => [w.id, w.full_name]) })}
+            ${UI.field('worker_id', 'Pracovník', { required: true, add: 'worker', options: free.map(w => [w.id, w.full_name]) })}
             ${UI.field('role', 'Rola', { value: 'pracovnik', options: [['pracovnik', 'Pracovník'], ['predak', 'Predák (vedie práce)']] })}
             ${UI.field('date_from', 'Od', { type: 'date', value: sc?.date_from })}
             ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to })}
@@ -799,7 +802,7 @@
       });
       UI.modal('Pridať ubytovanie', `
         <form id="lodg-form" onsubmit="event.preventDefault();Sub.saveLodging('${scId}')">
-          ${UI.field('accommodation_id', 'Z databázy ubytovaní', {
+          ${UI.field('accommodation_id', 'Z databázy ubytovaní', { add: 'accommodation',
             options: [['', '— zapíšem ručne —'], ...sorted.map(a => [a.id,
               `${a.name}${a.city ? ` · ${a.city}` : ''}${a.max_persons ? ` · ${a.max_persons} os.` : ''}`])] })}
           <div class="regimebox" style="margin:10px 0;">Ubytovanie sa berie z tej istej databázy ako
@@ -1082,7 +1085,7 @@
         <form id="sub-form" onsubmit="event.preventDefault();Sub.save('${id || ''}')">
           <div class="form-grid">
             ${UI.field('title', 'Názov zákazky', { value: sc.title, required: true })}
-            ${UI.field('partner_id', 'Odberateľ', { value: sc.partner_id, options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
+            ${UI.field('partner_id', 'Odberateľ', { value: sc.partner_id, add: 'partner', options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
             ${UI.field('work_type', 'Typ prác', { value: sc.work_type || 'workshop', options: WORK_TYPE,
               hint: 'Stavba znamená A1, SOKA-BAU, Bau-Mindestlohn a zrážku §48b. '
                 + 'Dielňa nič z toho — preto sa to nedá prepnúť „aby to prešlo".' })}
@@ -1327,7 +1330,7 @@
             ten sa preskočí — dá sa to teda spustiť znova, keď do partie niekto
             pribudne. <strong>Fakturovať bude každý sám za seba.</strong></div>
           <div class="form-grid">
-            ${UI.field('crew_id', 'Partia', { value: '', required: true,
+            ${UI.field('crew_id', 'Partia', { value: '', required: true, add: 'crew',
               options: [['', '— vyber —'], ...active.map(c => [c.id, c.name])] })}
             ${UI.field('date_from', 'Od', { type: 'date',
               value: sc?.date_from || new Date().toISOString().slice(0, 10),

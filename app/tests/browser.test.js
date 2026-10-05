@@ -1402,6 +1402,99 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Založiť nový rovno pri výbere ─────────────────────────────────────
+    // Celý zmysel je v jednej vete: **rozpísaný formulár sa nesmie stratiť.**
+    // Keby sa pri zakladaní zavrel, bolo by to to isté ako ísť do iného modulu
+    // — len s menším počtom klikov.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          partners: [{ id: 'p1', name: 'Vogel GmbH', country: 'DE' }],
+          trades: [{ key: 'trockenbau', name_sk: 'Sadrokartón' }],
+          quotes: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        // Vložka vráti nový záznam tak, ako to robí databáza.
+        DB.insert = async (table, payload) => ({
+          data: { id: 'novy-1', ...payload }, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          Quo.loaded = false;
+          await Quo.load();
+          Quo.form();
+          const nazov = document.querySelector('#ui-modal input[name="title"]');
+          if (nazov) nazov.value = 'Rozpísaná ponuka';
+          const tlacidiel = document.querySelectorAll('#ui-modal .pick-add').length;
+
+          Danubra.quickAdd('partner', 'partner_id');
+          await new Promise(r => setTimeout(r, 120));
+          const otvorene = {
+            okno: !!document.getElementById('ui-ask'),
+            formular: !!document.getElementById('ui-modal'),
+            poli: document.querySelectorAll('#ui-ask .fld').length,
+          };
+
+          // Povinné pole prázdne — okno sa nesmie zavrieť a zahodiť vypísané.
+          document.querySelector('#ui-ask [data-ask=ok]').click();
+          await new Promise(r => setTimeout(r, 80));
+          const poPrazdnom = !!document.getElementById('ui-ask');
+
+          document.getElementById('ask-f-name').value = 'Neue Bau GmbH';
+          document.getElementById('ask-f-city').value = 'Ulm';
+          document.querySelector('#ui-ask [data-ask=ok]').click();
+          await new Promise(r => setTimeout(r, 400));
+
+          const sel = document.querySelector('#ui-modal select[name="partner_id"]');
+          const t2 = document.querySelector('#ui-modal input[name="title"]');
+          return {
+            tlacidiel, otvorene, poPrazdnom,
+            moznosti: sel ? sel.options.length : 0,
+            vybrane: sel ? sel.value : null,
+            popisVybraneho: sel && sel.selectedIndex >= 0
+              ? sel.options[sel.selectedIndex].textContent.trim() : null,
+            nazovPrezil: t2 ? t2.value : null,
+            formularZostal: !!document.getElementById('ui-modal'),
+            oknoZatvorene: !document.getElementById('ui-ask'),
+            staleQuo: Quo.loaded,
+          };
+        })();
+      });
+
+      ok(out.tlacidiel >= 2, 'pri výberoch cudzieho záznamu je tlačidlo na založenie',
+        `našiel som ${out.tlacidiel}`);
+      ok(out.otvorene.okno && out.otvorene.formular,
+        'okno sa otvorí nad formulárom a formulár zostane', JSON.stringify(out.otvorene));
+      ok(out.otvorene.poli === 3, 'a pýta sa len to podstatné',
+        `polí: ${out.otvorene.poli}`);
+      ok(out.poPrazdnom,
+        'bez povinného poľa sa okno nezavrie a nezahodí, čo je vypísané');
+      ok(out.vybrane === 'novy-1', 'založený záznam sa rovno vyberie',
+        String(out.vybrane));
+      ok(out.popisVybraneho === 'Neue Bau GmbH', 'aj so svojím menom',
+        String(out.popisVybraneho));
+      ok(out.nazovPrezil === 'Rozpísaná ponuka',
+        'a rozpísaný formulár sa nestratil — to je celý dôvod, prečo to vzniklo',
+        String(out.nazovPrezil));
+      ok(out.formularZostal && out.oknoZatvorene, 'okno sa zavrelo, formulár zostal');
+      ok(out.staleQuo === false,
+        'modul si zoznam pri najbližšom otvorení dotiahne znova');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Stundennachweis ───────────────────────────────────────────────────
     // Papier, ktorý na stavbe podpisuje nemecký odberateľ. Tri veci na ňom
     // boli zle a žiadna z nich nebola vidieť z kódu:

@@ -220,9 +220,9 @@
           <div class="form-grid">
             ${UI.field('title', 'Názov ponuky', { value: q.title, required: true,
               placeholder: 'napr. Sadrokartón — Leipzig, 4 ľudia' })}
-            ${UI.field('partner_id', 'Odberateľ', { value: q.partner_id, required: true,
+            ${UI.field('partner_id', 'Odberateľ', { value: q.partner_id, required: true, add: 'partner',
               options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
-            ${UI.field('trade_key', 'Remeslo', { value: q.trade_key,
+            ${UI.field('trade_key', 'Remeslo', { value: q.trade_key, add: 'trade',
               options: [['', '—'], ...Wrk.professions()] })}
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: q.headcount ?? 1 })}
             ${UI.field('work_type', 'Typ prác', { value: q.work_type || 'construction',

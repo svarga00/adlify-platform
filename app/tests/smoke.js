@@ -832,6 +832,53 @@ t('mazanie ide cez databázovú funkciu, nie cez mazanie tabuliek',
   && !/DB\.remove/.test(String(D.purgeDemo)));
 t('a pýta si potvrdenie', D && /VYMAZAŤ/.test(String(D.purgeDemo)));
 
+// ── Výber cudzieho záznamu sa dá doplniť ───────────────────────────────────
+// Keď sa vo formulári vyberá **iný záznam** (odberateľ, partia, remeslo,
+// živnostník, ubytovanie), musí sa dať rovno založiť nový. Bez toho treba
+// zavrieť rozpísaný formulár, ísť inam, založiť a vrátiť sa — a rozpísané
+// sa stratí.
+//
+// Pole sa pozná podľa názvu. `status`, `type` ani `role` sem nepatria — tie
+// vyberajú z číselníka, nie zo záznamov, a nové sa do nich nezakladá.
+{
+  const CUDZIE = {
+    partner_id: 'partner',
+    worker_id: 'worker',
+    leader_worker_id: 'worker',
+    crew_id: 'crew',
+    trade_key: 'trade',
+    accommodation_id: 'accommodation',
+  };
+  // Keď zakladanie nedáva zmysel (vyberá sa z podmnožiny — členovia partie,
+  // nasadení ľudia), napíše sa `add: false` **priamo pri poli** aj s dôvodom.
+  // V teste by to bol skrytý zoznam, ktorý pri čítaní kódu nikto nevidí.
+  const bez = [];
+  const modules = path.join(root, 'js', 'modules');
+  for (const f of fs.readdirSync(modules).filter(x => x.endsWith('.js'))) {
+    const src = fs.readFileSync(path.join(modules, f), 'utf8');
+    for (const [pole, kind] of Object.entries(CUDZIE)) {
+      const re = new RegExp("UI\\.field\\('" + pole + "'", 'g');
+      for (const m of src.matchAll(re)) {
+        let d = 0, end = m.index;
+        for (let i = m.index + 'UI.field'.length; i < src.length; i++) {
+          const c = src[i];
+          if ('([{'.includes(c)) d++;
+          else if (')]}'.includes(c)) { d--; if (d === 0) { end = i; break; } }
+        }
+        const call = src.slice(m.index, end + 1);
+        // Len výbery. Textové pole s rovnakým názvom sem nepatrí.
+        if (!call.includes('options')) continue;
+        if (/add: false/.test(call)) continue;
+        if (!new RegExp("add: '" + kind + "'").test(call)) {
+          bez.push(`${f}:${src.slice(0, m.index).split('\n').length} ${pole}`);
+        }
+      }
+    }
+  }
+  checks.push([`pri výbere cudzieho záznamu sa dá založiť nový${
+    bez.length ? ` — chýba: ${bez.join(', ')}` : ''}`, bez.length === 0]);
+}
+
 // ── Polia, pri ktorých zlá hodnota stojí peniaze ───────────────────────────
 // Nie každé pole potrebuje vetu pod sebou — pri každom by z formulára bola
 // stena textu, ktorú nikto nečíta. Ale tieto áno: pri každom z nich sa dá

@@ -425,7 +425,7 @@
             ${UI.field('segment', 'Kde v hovore', { value: c.segment || 'trade', options: [
               ['intro', 'Úvod'], ['trade', 'Remeslo'], ['verify', 'Overenie'],
               ['legal', 'Papiere'], ['logistics', 'Logistika'], ['money', 'Peniaze']] })}
-            ${UI.field('trade_key', 'Pre remeslo', { value: c.trade_key || '',
+            ${UI.field('trade_key', 'Pre remeslo', { value: c.trade_key || '', add: 'trade',
               options: [['', 'Univerzálne'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('polarity', 'Znamienko', { value: c.polarity || 'plus', options: [
               ['plus', 'Plus — dobré znamenie'], ['minus', 'Mínus — zlé znamenie'],
@@ -576,7 +576,7 @@
       UI.modal(id ? 'Upraviť otázku' : 'Nová otázka', `
         <form id="q-form" onsubmit="event.preventDefault();Trades.qSave('${id || ''}')">
           <div class="form-grid">
-            ${UI.field('trade_key', 'Pre remeslo', { value: q.trade_key || tradeKey || '',
+            ${UI.field('trade_key', 'Pre remeslo', { value: q.trade_key || tradeKey || '', add: 'trade',
               options: [['', 'Univerzálna — pre všetkých'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('kind', 'Typ otázky', { value: q.kind || 'knowledge',
               options: Object.entries(KIND).map(([k, v]) => [k, v[0]]) })}

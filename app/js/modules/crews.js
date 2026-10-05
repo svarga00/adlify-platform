@@ -196,13 +196,16 @@
           <div class="form-grid">
             ${UI.field('name', 'Názov partie', { value: c.name, required: true,
               placeholder: 'napr. Novákovci — sadrokartón' })}
-            ${UI.field('trade_key', 'Remeslo', { value: c.trade_key,
+            ${UI.field('trade_key', 'Remeslo', { value: c.trade_key, add: 'trade',
               options: [['', '—'], ...Wrk.professions()] })}
             ${UI.field('usual_size', 'Obvyklý počet ľudí', { type: 'number', value: c.usual_size })}
             ${UI.field('phone', 'Telefón na partiu', { value: c.phone })}
             ${UI.field('status', 'Stav', { value: c.status || 'active',
               options: Enums.options('crew_status') })}
-            ${id ? UI.field('leader_worker_id', 'Predák', {
+            <!-- add: false — predák musí byť zároveň členom partie, takže
+                 vyberať sa dá len z členov. Novo založený človek by medzi
+                 nimi nebol a výber by po založení vyzeral pokazený. -->
+            ${id ? UI.field('leader_worker_id', 'Predák', { add: false,
               value: c.leader_worker_id, options: leaderOptions }) : ''}
           </div>
           ${id ? '' : `<div class="regimebox">Predáka vyberieš, keď budú v partii členovia —
@@ -245,7 +248,7 @@
       const body = free.length ? `
         <form id="cm-form" onsubmit="event.preventDefault();Crews.addMember('${crewId}')">
           <div class="form-grid">
-            ${UI.field('worker_id', 'Kto', { value: '', options: free, required: true })}
+            ${UI.field('worker_id', 'Kto', { value: '', options: free, required: true, add: 'worker' })}
             ${UI.field('joined_at', 'V partii od', { type: 'date',
               value: new Date().toISOString().slice(0, 10) })}
           </div>

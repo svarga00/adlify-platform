@@ -189,7 +189,7 @@
             ${UI.field('channel_detail', 'Kde presne', { value: x.channel_detail,
               placeholder: 'Práca v Nemecku — skupina' })}
             ${UI.field('url', 'Odkaz na inzerát', { value: x.url, placeholder: 'https://…' })}
-            ${UI.field('trade_key', 'Remeslo', { value: x.trade_key,
+            ${UI.field('trade_key', 'Remeslo', { value: x.trade_key, add: 'trade',
               options: [['', 'viac remesiel'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('city', 'Mesto', { value: x.city })}
             ${UI.field('rate_offered', 'Sľúbená sadzba €/h', { type: 'number', value: x.rate_offered })}

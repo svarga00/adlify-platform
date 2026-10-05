@@ -1481,6 +1481,105 @@ window.Danubra = {
     </div>`;
   },
 
+  // ── Založiť nový záznam rovno pri výbere ──────────────────────────────────
+  // Vo formulári sa dá vybrať len to, čo už existuje. Keď odberateľ, zákazka
+  // alebo partia ešte nie sú založené, znamenalo to: zavri rozpísaný formulár,
+  // choď inam, založ to, vráť sa a napíš všetko odznova.
+  //
+  // Preto sa zakladá **z toho istého miesta**, v okne nad formulárom. Pýta sa
+  // len to, bez čoho záznam nedáva zmysel; zvyšok sa doplní v jeho module.
+  // Lepšie je mať odberateľa s menom a doplniť mu USt-IdNr neskôr, než prísť
+  // o rozpísanú ponuku.
+  //
+  // `stale` je modul, ktorého zoznam týmto zastaral. Nastaví sa mu
+  // `loaded = false`, aby si pri najbližšom otvorení dotiahol aj nový záznam —
+  // inak by tam chýbal, kým sa appka neobnoví.
+  NEW: {
+    partner: {
+      table: 'partners', what: 'odberateľa', stale: ['Prt', 'Quo', 'Con', 'Sub'],
+      lead: 'Stačí meno. IČ DPH, splatnosť a kontakt doplníš v Odberateľoch.',
+      label: (r) => r.name,
+      fields: () => [
+        ['name', 'Názov firmy', { required: true, placeholder: 'napr. Bauunternehmen Vogel GmbH' }],
+        ['city', 'Mesto', {}],
+        ['country', 'Krajina', { value: 'DE', options: [['DE', 'Nemecko'], ['AT', 'Rakúsko'], ['SK', 'Slovensko']] }],
+      ],
+    },
+    worker: {
+      table: 'workers', what: 'živnostníka', stale: ['Wrk', 'Sub', 'Crews', 'Cost'],
+      lead: 'Stačí meno a telefón. Doklady a fakturačné údaje doplníš v kartotéke — '
+        + 'bez nich sa aj tak nasadiť nedá.',
+      label: (r) => r.full_name,
+      fields: () => [
+        ['full_name', 'Meno a priezvisko', { required: true }],
+        ['phone', 'Telefón', { type: 'tel', placeholder: '+421 …' }],
+      ],
+    },
+    crew: {
+      table: 'crews', what: 'partiu', stale: ['Crews', 'Sub', 'HS'],
+      lead: 'Partia je skupina, ktorá chodí spolu a má jeden výkaz hodín. '
+        + 'Členov pridáš v Partiách.',
+      label: (r) => r.name,
+      fields: () => [
+        ['name', 'Názov partie', { required: true, placeholder: 'napr. Partia Nitra' }],
+      ],
+    },
+    accommodation: {
+      table: 'accommodations', what: 'ubytovanie', stale: ['Acc', 'Sub'],
+      lead: 'Stačí názov a mesto. Kapacitu a cenu doplníš v Ubytovaniach.',
+      label: (r) => r.name,
+      fields: () => [
+        ['name', 'Názov', { required: true }],
+        ['city', 'Mesto', {}],
+        ['address', 'Adresa', {}],
+      ],
+    },
+    trade: {
+      table: 'trades', what: 'remeslo', stale: ['Trades', 'Quo', 'Hire', 'Crews', 'Ads'],
+      lead: 'Kľúč je krátky názov bez diakritiky — používa sa v inzerátoch a otázkach.',
+      label: (r) => r.name_sk,
+      fields: () => [
+        ['name_sk', 'Názov po slovensky', { required: true, placeholder: 'napr. Sadrokartón' }],
+        ['key', 'Kľúč', { required: true, placeholder: 'napr. trockenbau',
+          hint: 'Malými písmenami, bez medzier a diakritiky. Už sa nemení.' }],
+      ],
+    },
+  },
+
+  /**
+   * Otvorí okno nad formulárom, založí záznam a **rovno ho vyberie** v tom
+   * poli, od ktorého sa to spustilo.
+   */
+  async quickAdd(kind, fieldName) {
+    const def = this.NEW[kind];
+    if (!def) return UI.toast('Toto sa takto založiť nedá.', 'err');
+    const values = await UI.askFields(`Nový ${def.what}`, def.lead, def.fields(),
+      { ok: 'Založiť' });
+    if (!values) return;
+
+    const { data, error } = await DB.insert(def.table, values);
+    if (error) return UI.toast('Nepodarilo sa: ' + error.message, 'err');
+
+    // Doplň do otvoreného formulára a vyber. Keby sa tu len prekreslilo, prišlo
+    // by sa o to, čo je vo formulári už vypísané — a to je celý dôvod, prečo
+    // sa to zakladá odtiaľto.
+    const sel = document.querySelector(`#ui-modal select[name="${fieldName}"]`)
+      || document.querySelector(`select[name="${fieldName}"]`);
+    if (sel) {
+      const opt = document.createElement('option');
+      opt.value = data.id;
+      opt.textContent = def.label(data) || '—';
+      sel.appendChild(opt);
+      sel.value = data.id;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    for (const g of (def.stale || [])) {
+      if (window[g]) window[g].loaded = false;
+    }
+    UI.toast(`${def.what[0].toUpperCase()}${def.what.slice(1)} je založený. `
+      + 'Zvyšok doplníš neskôr.', 'ok');
+  },
+
   // ── Detail za číslom ──────────────────────────────────────────────────────
   // Dlaždica doteraz po kliknutí odišla na iný modul. Otázka pritom znie
   // „ktoré?", nie „kde sa to rieši" — a na novom module si ten istý filter

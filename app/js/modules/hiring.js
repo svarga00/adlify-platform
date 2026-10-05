@@ -400,7 +400,7 @@
       if (this.step === 1) {
         return `<form id="wiz-form" onsubmit="return false;">
           <div class="form-grid">
-            ${UI.field('trade_key', 'Aké remeslo', { value: p.trade_key, required: true,
+            ${UI.field('trade_key', 'Aké remeslo', { value: p.trade_key, required: true, add: 'trade',
               options: [['', '— vyber remeslo —'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: p.headcount || 1 })}
             ${UI.field('skill_level', 'Zaradenie', { value: p.skill_level, options: [
