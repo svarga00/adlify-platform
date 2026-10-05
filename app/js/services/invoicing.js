@@ -196,9 +196,12 @@ window.Invoicing = {
       // Bez mena príjemcu sa QR nerobí. Vymyslené meno v platobnom príkaze
       // je horšie než žiadny QR kód — faktúra sa dá zaplatiť aj podľa IBAN-u.
       if (supplier.iban && supplier.name) {
+        // Suma po zrážke §48b — to je to, čo sa naozaj prevedie. QR kód
+        // s celou sumou by viedol k preplatku a k vracaniu peňazí.
+        const { net } = window.DanubraPapers.payable(inv);
         const payload = window.DanubraQR.sepaPayload({
           name: supplier.name, iban: supplier.iban,
-          amount: inv.total, reference: vs, note: `Faktura ${inv.invoice_number}`,
+          amount: net, reference: vs, note: `Faktura ${inv.invoice_number}`,
         });
         qrSvg = window.DanubraQR.svg(payload, { px: 132 });
       }

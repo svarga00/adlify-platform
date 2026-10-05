@@ -150,5 +150,73 @@ console.log('Dokumenty');
   eq(zJs, zSql, 'appka chráni presne tie polia, ktoré chráni databáza');
 }
 
+// ── Faktúra ─────────────────────────────────────────────────────────────────
+// Dva prípady, ktoré stáli peniaze a na doklade ich nebolo vidieť.
+{
+  const supplier = { name: 'DANUBRA s.r.o.', iban: 'SK12 1100 0000 0029 1234 5678',
+    company_id: '55 123 456', vat_id: 'SK2120123456' };
+  const de = { name: 'Vogel GmbH', country: 'DE', vat_id: 'DE812345678' };
+  const sk = { name: 'Niekto s.r.o.', country: 'SK' };
+  const polozky = [{ description: 'Trockenbau', quantity: 160, unit: 'h',
+    unit_price: 33, total: 5280 }];
+
+  // 1. Zrážka §48b sa musí objaviť na doklade — odberateľ zráža 15 % a odvádza
+  //    ich nemeckému úradu, takže na účet príde menej. Bez rozpisu to vyzerá
+  //    ako nedoplatok a dohaduje sa to až pri urgencii.
+  const so = P.invoice({
+    invoice: { invoice_number: '2026014', total: 5280, amount_net: 4488,
+      withholding_amount: 792, withholding_pct: 15, currency: 'EUR',
+      issue_date: '2026-09-30', due_date: '2026-10-30' },
+    items: polozky, client: de, supplier,
+  });
+  ok(so.includes('5.280,00'), 'na faktúre je fakturovaná suma — v nemeckom tvare');
+  ok(so.includes('792,00'), 'aj zrážka §48b — predtým na doklade vôbec nebola');
+  ok(so.includes('4.488,00'), 'aj suma, ktorá sa naozaj prevedie');
+  ok(/Bauabzugsteuer/.test(so), 'zrážka má nemecký názov, nie opis');
+  ok(/Freistellungsbescheinigung/.test(so),
+    'a je vysvetlené, prečo sa zráža — to je prvá otázka odberateľa');
+  // Suma na prevod nesmie byť celá faktúra. Toto je ten rozdiel, pre ktorý
+  // by odberateľ poslal o 792 € viac a vracalo by sa to.
+  const platba = so.slice(so.indexOf('Zahlungsinformationen'));
+  ok(platba.includes('4.488,00'), 'v platobných údajoch je suma po zrážke');
+  ok(!platba.includes('5.280,00'), 'a nie celá fakturovaná suma');
+
+  // 2. Bez zrážky sa nič navyše nekreslí — prázdny riadok „zrážka 0 €" by
+  //    len mýlil.
+  const bez = P.invoice({
+    invoice: { invoice_number: '2026015', total: 1000, currency: 'EUR' },
+    items: polozky, client: de, supplier,
+  });
+  ok(!/Bauabzugsteuer/.test(bez), 'bez zrážky sa o nej nepíše');
+  ok(bez.includes('1.000,00'), 'a na úhradu je celá suma');
+
+  // 3. Jazyk sa riadi krajinou odberateľa — rovnako ako ponuka a zmluva.
+  ok(/Rechnung/.test(so) && !/>Faktúra</.test(so),
+    'nemeckému odberateľovi ide faktúra po nemecky');
+  ok(/Auftraggeber/.test(so), 'aj popisky strán');
+  const slovenska = P.invoice({
+    invoice: { invoice_number: '2026016', total: 1000, currency: 'EUR' },
+    items: polozky, client: sk, supplier,
+  });
+  ok(/Faktúra/.test(slovenska), 'slovenskému po slovensky');
+  ok(/Variabilný symbol/.test(slovenska), 'aj platobné údaje');
+  ok(slovenska.includes('1\u00a0000,00'),
+    'a slovenský doklad má slovenský tvar čísel — s nezlomiteľnou medzerou');
+  ok(/Verwendungszweck/.test(so), 'a po nemecky je to Verwendungszweck');
+  // Dá sa prebiť — odberateľ v Rakúsku môže chcieť nemecký doklad aj tak.
+  ok(/Rechnung/.test(P.invoice({
+    invoice: { invoice_number: 'x', total: 1, currency: 'EUR' },
+    items: [], client: sk, supplier, lang: 'de' })), 'jazyk sa dá určiť ručne');
+
+  // Rozpad sumy je vlastná funkcia, lebo ju potrebuje aj QR kód.
+  eq(P.payable({ total: 5280, amount_net: 4488, withholding_amount: 792 }),
+    { total: 5280, held: 792, net: 4488 }, 'rozpad sumy');
+  eq(P.payable({ total: 1000 }), { total: 1000, held: 0, net: 1000 },
+    'bez zrážky je na úhradu celá suma');
+  eq(P.payable({ total: 5280, withholding_amount: 792 }),
+    { total: 5280, held: 792, net: 4488 }, 'keď chýba amount_net, dopočíta sa');
+  eq(P.payable({}), { total: 0, held: 0, net: 0 }, 'prázdna faktúra nespadne');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);
