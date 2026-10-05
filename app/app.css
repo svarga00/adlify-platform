@@ -697,6 +697,87 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .modal-card { border-radius: var(--radius); }
 }
 
+/* ── Ako to ide: mapa reťazca ─────────────────────────────────────────────── */
+/* Kroky sú pod sebou, nie vedľa seba. Vodorovná schéma vyzerá na obrázku
+   lepšie, ale nedá sa do nej napísať veta — a práve tie vety sú tu to, čo
+   človeka naučí, prečo krok existuje. */
+.fl-intro {
+  margin: 0 0 16px; font-size: 13.5px; line-height: 1.6; color: var(--ink-sub);
+  max-width: 68ch;
+}
+.fl-lanes { display: flex; flex-direction: column; gap: 22px; }
+.fl-lane { position: relative; padding-left: 20px; }
+/* Linka, ktorá drží dráhu pokope. Bez nej je to zoznam kariet; s ňou je
+   vidieť, že to na seba nadväzuje. */
+.fl-lane::before {
+  content: ''; position: absolute; left: 5px; top: 34px; bottom: 10px; width: 2px;
+  background: var(--border);
+}
+.fl-lane-head { margin: 0 0 10px; }
+.fl-lane-head h2 {
+  margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.fl-lane-head p { margin: 3px 0 0; font-size: 13px; color: var(--ink-sub); line-height: 1.5; }
+.fl-step {
+  position: relative; display: flex; gap: 12px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  padding: 12px 14px; margin-bottom: 8px;
+}
+.fl-n {
+  flex: none; width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--field); color: var(--ink-sub);
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  /* Vystúpi na linku dráhy, aby bolo vidieť poradie aj bez čítania. */
+  margin-left: -32px; box-shadow: 0 0 0 4px var(--bg);
+}
+.fl-body { flex: 1; min-width: 0; }
+.fl-head { display: flex; align-items: center; gap: 7px; }
+.fl-ico {
+  width: 22px; height: 22px; flex: none; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--blue-50); color: var(--blue);
+}
+.fl-title { font-size: 14.5px; letter-spacing: -.015em; }
+.fl-lead { margin: 5px 0 0; font-size: 13px; color: var(--ink-sub); line-height: 1.5; }
+.fl-nums { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12.5px; }
+.fl-have { color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.fl-todo {
+  display: inline-flex; align-items: center; gap: 5px; font-weight: 600;
+  color: var(--amber);
+}
+.fl-todo.is-clear { color: var(--ink-mute); font-weight: 400; }
+.fl-next {
+  margin: 7px 0 0; font-size: 12px; color: var(--ink-mute);
+  display: flex; align-items: center; gap: 4px;
+}
+.fl-go {
+  flex: none; width: 30px; height: 30px; border: 1px solid var(--border);
+  background: #fff; border-radius: var(--radius-sm); color: var(--ink-sub);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  align-self: center;
+}
+.fl-go:hover { background: var(--field); color: var(--blue); border-color: var(--blue); }
+/* Stavy. Rovnaké tri ako na dlaždiciach prehľadu — keby boli iné, musel by sa
+   človek učiť dve farebné reči. */
+.fl-watch { border-color: #F3D4B6; }
+.fl-watch .fl-n { background: var(--amber-50); color: var(--amber); }
+.fl-bad { border-color: #F3C9C9; }
+.fl-bad .fl-n { background: var(--red-50); color: var(--red); }
+.fl-bad .fl-ico { background: var(--red-50); color: var(--red); }
+.fl-bad .fl-todo { color: var(--red); }
+/* Posledná dráha nemá pokračovanie, tak jej linka nemá kam viesť. */
+.fl-lane:last-child .fl-step:last-child { margin-bottom: 0; }
+
+@media (max-width: 720px) {
+  .fl-lane { padding-left: 16px; }
+  .fl-lane::before { left: 3px; }
+  .fl-n { margin-left: -28px; width: 24px; height: 24px; font-size: 12px; }
+  .fl-step { padding: 11px 12px; gap: 10px; }
+}
+
 /* ── Zoznam za číslom na prehľade ────────────────────────────────────────── */
 /* Okno, ktoré odpovedá na otázku „ktoré?". Tabuľka je tu na mieste: sú to
    rovnaké záznamy s rovnakými stĺpcami a oko ich porovnáva zvisle. */

@@ -1402,6 +1402,79 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Ako to ide ────────────────────────────────────────────────────────
+    // Mapa reťazca je obrazovka, ktorá má človeka naučiť poradie práce. Keby
+    // sa na nej nevykreslili vety, zostane z nej zoznam čísel — a ten už
+    // v appke je. Preto sa tu kontroluje, že vety tam naozaj sú.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          // Nábor beží, ale inzerát nie — a nikomu sme nezavolali.
+          recruitment_plans: [{ id: 'r1', status: 'active', headcount: 4 }],
+          ads: [],
+          candidates: [{ id: 'c1', status: 'new', first_contact_at: null }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          const view = document.getElementById('view');
+          Danubra.route = 'flow';
+          await Danubra.views.flow.call(Danubra, view);
+          const kroky = [...view.querySelectorAll('.fl-step')].map(e => ({
+            n: e.querySelector('.fl-n').textContent.trim(),
+            title: e.querySelector('.fl-title').textContent.trim(),
+            lead: e.querySelector('.fl-lead').textContent.trim(),
+            todo: e.querySelector('.fl-todo').textContent.trim(),
+            next: e.querySelector('.fl-next').textContent.trim(),
+            help: !!e.querySelector('.help-btn'),
+            go: !!e.querySelector('.fl-go'),
+            cls: e.className,
+          }));
+          return {
+            kroky,
+            drahy: [...view.querySelectorAll('.fl-lane-head h2')].map(h => h.textContent.trim()),
+            headline: view.querySelector('.headline').textContent.replace(/\s+/g, ' ').trim(),
+          };
+        })();
+      });
+
+      ok(out.kroky.length === 14, 'mapa má štrnásť krokov',
+        `má ${out.kroky.length}`);
+      ok(out.kroky.map(k => k.n).join(',') === '1,2,3,4,5,6,7,8,9,10,11,12,13,14',
+        'a sú očíslované po poradí', out.kroky.map(k => k.n).join(','));
+      ok(out.drahy.join(' | ') === 'Ľudia | Zákazky | Tu sa stretnú | Peniaze',
+        'v štyroch dráhach', out.drahy.join(' | '));
+      ok(out.kroky.every(k => k.lead && k.next),
+        'každý krok povie, čo to je aj čo je po ňom');
+      ok(out.kroky.every(k => k.help),
+        'a každý má vysvetlivku — to je celý zmysel tejto obrazovky');
+      ok(out.kroky.every(k => k.go), 'z každého kroku sa dá ísť tam, kde sa rieši');
+
+      // Hlavička musí ukázať najskorší zaseknutý krok, nie posledný.
+      ok(/kroku 1/.test(out.headline),
+        'hlavička ukáže najskorší zaseknutý krok', out.headline);
+      ok(/inzerát/i.test(out.kroky[0].todo) || /ozvať/.test(out.kroky[0].todo),
+        'nábor bez inzerátu je vidieť ako chyba', out.kroky[0].todo);
+      ok(/fl-bad/.test(out.kroky[0].cls), 'a je červený');
+      ok(/čaká na prvý telefonát/.test(out.kroky[1].todo),
+        'nezavolaný človek tiež', out.kroky[1].todo);
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Prehľad: číslo a zoznam za ním ────────────────────────────────────
     // Dlaždica ukazuje číslo a po kliknutí okno so zoznamom, z ktorého to
     // číslo je. Tie dve veci sa nesmú rozísť. Práve to sa stalo pohľadu

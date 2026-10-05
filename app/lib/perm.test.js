@@ -177,6 +177,20 @@ console.log('Práva');
   ok(zabudnute.length === 0, 'každá obrazovka má povedané, kto na ňu smie',
     `bez práva: ${zabudnute.join(', ')}`);
 
+  // Obrazovka, ktorá je len iným pohľadom na inú, nesmie mať vlastné právo —
+  // inak vznikne nastavenie, pri ktorom človek vidí prehľad, ale nie mapu
+  // k nemu. Preto sa jej právo odvodí od tej, ktorú zobrazuje.
+  for (const [route, cieľ] of Object.entries(P.ROUTE_ALIAS)) {
+    eq(P.keyOf(route), cieľ, `obrazovka ${route} sa pýta na právo ${cieľ}`);
+    ok(!P.MODULES.some(m => m.key === route),
+      `a nemá vlastné právo, ktoré by niekto musel prideľovať (${route})`);
+    const kto = { role: 'custom', active: true, modules: [cieľ] };
+    ok(P.can(kto, route, vsetci),
+      `kto smie na ${cieľ}, smie aj na ${route}`);
+    ok(!P.can({ role: 'custom', active: true, modules: [] }, route, vsetci),
+      `a kto nesmie na ${cieľ}, nesmie ani na ${route}`);
+  }
+
   // Správa používateľov je obrazovka aj právomoc — a prideliť sa nedá.
   eq(P.keyOf('members'), 'members.manage', 'používatelia sú právomoc, nie modul');
   ok(!P.can({ role: 'custom', active: true, modules: ['members'] }, 'members', vsetci),

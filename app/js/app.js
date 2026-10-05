@@ -83,7 +83,8 @@ window.Danubra = {
   // [key, label, ikona, oblasť?, modul?]
   // Modul sa dá zapísať piatym prvkom; `null` znamená „nikdy sa neskrýva".
   navGroups: [
-    ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['tasks', 'Úlohy a pripomienky', 'tasks'],
+    ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['flow', 'Ako to ide', 'repeat'],
+                    ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['messages', 'Správy', 'mail']]],
     ['ZÁKAZKY',    [['active', 'Aktívne pobyty', 'active', 'accommodation'],
                     ['inquiries', 'Dopyty', 'inquiries', 'accommodation'],
@@ -124,6 +125,7 @@ window.Danubra = {
   // appku nepostavil, nemusel hádať, čo sa pod názvom skrýva.
   navHints: {
     dashboard: 'Čo dnes treba spraviť, či bude na výplaty a či sa na tom zarába',
+    flow: 'Celá cesta od telefonátu po peniaze — a kde sa to práve zastavilo',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
     messages: 'Komunikácia pri zázname, ktorého sa týka',
     quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',
@@ -2351,8 +2353,106 @@ window.Danubra = {
     </div>`;
   },
 
+  // ── Ako to ide ────────────────────────────────────────────────────────────
+  // Menu je zoradené podľa toho, čo je v databáze. Poradie práce z neho
+  // prečítať nejde — a pritom je to tá prvá vec, ktorú sa nový človek musí
+  // naučiť. V `docs/FLOW.md` to napísané je, lenže dokument si nikto neotvorí.
+  //
+  // Táto obrazovka je ten istý reťazec so živými číslami. Počíta ich
+  // `DanubraChain`; tu sa len kreslí.
+
+  async _flowLoad() {
+    const [ads, plans, cands, wrk, docs, prt, quo, con, subs, asg, ts, per, inv, bills] =
+      await Promise.all([
+        DB.list('ads', { select: 'id,active', limit: 300 }),
+        DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
+        DB.list('candidates', {
+          select: 'id,status,first_contact_at,converted_worker_id', limit: 1000 }),
+        DB.list('workers', { select: 'id', limit: 1000 }),
+        DB.list('v_worker_documents', { select: 'id,worker_id,validity', limit: 2000 }),
+        DB.list('partners', { select: 'id,country,ust_idnr', limit: 300 }),
+        DB.list('quotes', { select: 'id,status,valid_until', limit: 300 }),
+        DB.list('contracts', { select: 'id,status,signed_at', limit: 300 }),
+        DB.list('subcontracts', { select: 'id,status,contract_id', limit: 300 }),
+        DB.list('assignments', { select: 'id,subcontract_id,status', limit: 2000 }),
+        DB.list('timesheets', { select: 'id,hours,work_date,period_id', limit: 5000 }),
+        DB.list('periods', { select: 'id,status,period_to', limit: 500 }),
+        DB.list('invoices', { select: 'id,status,due_date', limit: 1000 }),
+        DB.list('bills', { select: 'id,status', limit: 1000 }),
+      ]);
+    const S = (r) => r.data || [];
+    return {
+      today: this._dayISO(),
+      ads: S(ads), plans: S(plans), candidates: S(cands), workers: S(wrk),
+      documents: S(docs), partners: S(prt), quotes: S(quo), contracts: S(con),
+      subcontracts: S(subs), assignments: S(asg), timesheets: S(ts),
+      periods: S(per), invoices: S(inv), bills: S(bills),
+    };
+  },
+
+  /** Jeden krok reťazca. */
+  _flowStep(s) {
+    const ide = this.routeAvailable(s.route);
+    return `<div class="fl-step fl-${s.state}">
+      <div class="fl-n">${s.n}</div>
+      <div class="fl-body">
+        <div class="fl-head">
+          <span class="fl-ico">${Icon(s.ico, 15)}</span>
+          <strong class="fl-title">${UI.esc(s.title)}</strong>
+          ${Help.btn(`flow.${s.key}`, { size: 13 })}
+        </div>
+        <p class="fl-lead">${UI.esc(s.lead)}</p>
+        <div class="fl-nums">
+          <span class="fl-have">${UI.esc(s.haveText)}</span>
+          <span class="fl-todo${s.todo ? '' : ' is-clear'}">
+            ${s.todo ? Icon(s.state === 'bad' ? 'alert' : 'clock', 13) : Icon('check', 13)}
+            ${UI.esc(s.todoText)}</span>
+        </div>
+        <p class="fl-next">${Icon('chevron', 12)} ${UI.esc(s.next)}</p>
+      </div>
+      ${ide ? `<button class="fl-go" onclick="Danubra.go('${s.route}')"
+        aria-label="Otvoriť ${UI.esc(this.labelOf(s.route))}"
+        title="Otvoriť ${UI.esc(this.labelOf(s.route))}">${Icon('chevron', 16)}</button>` : ''}
+    </div>`;
+  },
+
   // ── VIEWS ────────────────────────────────────────────────────────────────
   views: {
+    async flow(view) {
+      view.innerHTML = this.header('Ako to ide') + UI.loading();
+      const x = await this._flowLoad();
+      const lanes = DanubraChain.lanes(x);
+      const kroky = DanubraChain.all(x);
+      const head = DanubraChain.headline(kroky);
+      const sum = DanubraChain.summary(kroky);
+
+      view.innerHTML = this.header('Ako to ide',
+        `${sum.total} krokov · ${sum.blocked
+          ? `${sum.blocked} ${Shell.plural(sum.blocked, 'stojí', 'stoja', 'stojí')}`
+          : 'nič nestojí'}`) + `
+        <div class="headline headline-${head.tone === 'bad' ? 'bad'
+          : head.tone === 'watch' ? 'warn' : 'ok'}">
+          ${Icon(head.tone === 'bad' ? 'alert' : head.tone === 'watch' ? 'clock' : 'check', 18)}
+          <span>${UI.esc(head.text)}</span>
+          ${head.step ? `<button class="link-inline"
+            onclick="Danubra.go('${head.step.route}')">Otvoriť</button>` : ''}
+          ${Help.btn('screen.flow')}
+        </div>
+        <p class="fl-intro">Takto ide práca od začiatku po koniec. Ľavá dráha sú
+          ľudia, pravá zákazky — stretnú sa v nasadení a odtiaľ je to už jedna
+          cesta na účet. Pri každom kroku je vľavo, koľko toho tam je, a vpravo,
+          koľko čaká na teba.</p>
+        <div class="fl-lanes">
+          ${lanes.map(l => `<section class="fl-lane fl-lane-${l.key}">
+            <div class="fl-lane-head">
+              <h2>${UI.esc(l.label)}</h2>
+              <p>${UI.esc(l.lead)}</p>
+            </div>
+            ${l.steps.map(s => this._flowStep(s)).join('')}
+          </section>`).join('')}
+        </div>`;
+    },
+
     async dashboard(view) {
       const today = new Date().toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' });
       const datum = UI.esc(today.charAt(0).toUpperCase() + today.slice(1));

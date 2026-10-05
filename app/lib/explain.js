@@ -239,6 +239,296 @@
     },
 
     // ── Dlaždice ────────────────────────────────────────────────────────────
+    'screen.flow': {
+      title: 'Ako to ide',
+      lead: 'Celý reťazec od telefonátu po peniaze na účte, v poradí, v akom sa '
+        + 'to robí — a pri každom kroku, koľko tam práve čaká na teba.',
+      what: [
+        'Štrnásť krokov v štyroch dráhach. Ľudia a zákazky idú vedľa seba a nič '
+        + 'o sebe nevedia, kým sa nestretnú v nasadení. Odtiaľ je to už jedna cesta.',
+        'Pri každom kroku sú dve čísla. Vľavo „koľko toho tu je" — informácia. '
+        + 'Vpravo „koľko čaká na teba" — práca.',
+        'Krok sa dá otvoriť a ide sa rovno na obrazovku, kde sa to rieši.',
+      ],
+      how: [
+        'Čísla sa počítajú z tých istých dát ako prehľad, len inak zoradené: '
+        + 'prehľad odpovedá „čo dnes", táto obrazovka odpovedá „kde sa to zaseklo".',
+        'Krok je červený, keď sa na ňom reťazec zastavil — nezavolaný človek, '
+        + 'neuzavreté obdobie, prázdna stavba. Oranžový, keď je to na dnes, ale '
+        + 'nehorí. Bez farby, keď je tam čisto.',
+        'Hlavička hore ukazuje vždy **najskorší** zaseknutý krok. Opravovať koniec '
+        + 'reťazca, kým viazne začiatok, nemá zmysel.',
+      ],
+      why: [
+        'Menu je zoradené podľa toho, čo je v databáze, nie podľa toho, v akom '
+        + 'poradí sa pracuje. Kto appku nepostavil, z neho neprečíta, že ponuka je '
+        + 'pred zmluvou a že bez uzavretého obdobia nevznikne faktúra.',
+        'Toto je tá istá cesta, aká je napísaná v `docs/FLOW.md` — ale ako '
+        + 'obrazovka so živými číslami. Dokument si nikto neotvorí; obrazovku, '
+        + 'na ktorej svieti červená, áno.',
+      ],
+      watch: [
+        'Je to pohľad, nie zoznam úloh. Úlohy s termínmi sú na obrazovke „Úlohy '
+        + 'a pripomienky" — tie si niekto zadal. Tu je to, čo vypočítala appka.',
+      ],
+      links: [['dashboard', 'Prehľad'], ['tasks', 'Úlohy a pripomienky']],
+    },
+
+    // ── Kroky reťazca ───────────────────────────────────────────────────────
+    // Jeden k jednému s `lib/flow.js`. Vysvetľujú **prechod**, nie obrazovku:
+    // čo musí byť hotové, aby sa dalo ísť ďalej, a čo sa stane, keď to hotové
+    // nie je. To je presne tá vec, ktorú sa nový človek učí najdlhšie.
+    'flow.ads': {
+      title: '1 · Inzerát',
+      lead: 'Odkiaľ sa ľudia dozvedia, že hľadáme — a čo presne sme im sľúbili.',
+      what: [
+        'Inzerát drží kanál, remeslo, mesto, sľúbenú sadzbu a presné znenie.',
+        'Dobehnutý sa vypne, nemaže sa. Kto zavolá o mesiac, čítal to staré '
+        + 'znenie a musí sa dať dohľadať, čo tam stálo.',
+      ],
+      how: [
+        'Jediné číslo, podľa ktorého sa dajú inzeráty porovnať, je **koľko ľudí '
+        + 'z nich nastúpilo**. Počet volajúcich závisí hlavne od toho, ako dlho bežal.',
+      ],
+      why: [
+        'Nábor, ktorý beží bez jediného inzerátu, je najtichšia chyba v celom '
+        + 'reťazci: nič nehorí, len sa nikto neozýva — a nikoho nenapadne, že je '
+        + 'to preto, že sa nemá kde ozvať. Preto je to tu červené.',
+      ],
+      links: [['ads', 'Inzeráty'], ['hiring', 'Nábor']],
+    },
+    'flow.call': {
+      title: '2 · Telefonát',
+      lead: 'Prvý hovor s človekom, ktorý sa ozval. Zapíše sa, čo zaznelo.',
+      what: [
+        'Hovor má šesť častí: úvod, remeslo, overenie, papiere, logistika, peniaze. '
+        + 'Pri každej je napísané, na čo sa pýtať a pri čom zbystriť.',
+        'Prvá otázka je, na ktorý inzerát volá — od nej sa odvinie zvyšok a je '
+        + 'vidieť, čo sme mu sľúbili.',
+      ],
+      how: [
+        'Cieľ je ozvať sa **do desiatich minút**. Potom už berie prácu inde — '
+        + 'nie preto, že by bol netrpezlivý, ale preto, že volá na päť inzerátov.',
+      ],
+      why: [
+        'Nahrávať hovor sa smie len vtedy, keď s tým obe strany vopred výslovne '
+        + 'súhlasia (§377 Trestného zákona, §201 StGB). Preto je v appke zápis, '
+        + 'nie nahrávka.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['trades', 'Remeslá a otázky']],
+    },
+    'flow.screening': {
+      title: '3 · Preverenie',
+      lead: 'Overí sa remeslo, doklady a či naozaj pôjde. Potom padne rozhodnutie.',
+      what: [
+        'Odborné otázky na remeslo odhalia rozdiel medzi človekom, ktorý to robil, '
+        + 'a človekom, ktorý o tom počul.',
+        'Zisťuje sa aj to, čo zhodí nástup až na mieste: či má auto, či má náradie, '
+        + 'odkedy môže a čo čaká za peniaze.',
+      ],
+      how: [
+        'Kandidát, ktorému sme volali a nerozhodli sme, visí. Visieť má deň, nie '
+        + 'tri týždne — dovtedy si prácu nájde inde.',
+      ],
+      why: [
+        'Rozhodnutie sa zapisuje aj so zdôvodnením. Keď sa ten istý človek ozve '
+        + 'o pol roka, nemá sa to preverovať odznova.',
+      ],
+      links: [['candidates', 'Kandidáti']],
+    },
+    'flow.workers': {
+      title: '4 · Živnostník',
+      lead: 'Karta človeka: doklady s platnosťou, sadzby, fakturačné údaje, účet.',
+      what: [
+        'Doklady: živnostenský list, A1, doklad totožnosti, podľa remesla aj doklad '
+        + 'o odbornosti (§9 HwO).',
+        'Účet: čo zarobil − čo nám vyfakturoval − zálohy = čo mu dlhujeme.',
+      ],
+      how: [
+        'Doklad je po platnosti, keď dátum uplynul. Appka na blížiaci sa koniec '
+        + 'sama vyrobí úlohu — A1 sa vybavuje až 45 dní.',
+      ],
+      why: [
+        'Bez platných dokladov sa nasadiť nedá a drží to databáza, nie obrazovka. '
+        + 'Takže to platí aj pri importe a aj pri ručnom zápise do tabuľky.',
+      ],
+      links: [['workers', 'Živnostníci'], ['compliance', 'Compliance']],
+    },
+    'flow.partners': {
+      title: '5 · Odberateľ',
+      lead: 'Nemecká firma, ktorá si prácu objednáva. Jej USt-IdNr rozhoduje o DPH.',
+      what: [
+        'Okrem údajov drží aj platobnú morálku: za ako dlho reálne platí, nie za '
+        + 'ako dlho sľúbil.',
+      ],
+      how: [
+        'Pri nemeckom odberateľovi s platným USt-IdNr sa fakturuje v režime '
+        + 'reverse charge (§13b UStG) — DPH odvádza on, nie my.',
+      ],
+      why: [
+        'Bez USt-IdNr sa faktúra v tomto režime vystaviť nedá. Na to sa inak príde '
+        + 'až vo chvíli, keď má odísť — a vtedy sa to dohaduje v zhone.',
+      ],
+      links: [['partners', 'Odberatelia v Nemecku']],
+    },
+    'flow.quotes': {
+      title: '6 · Ponuka',
+      lead: 'Koľko ľudí, za akú sadzbu a s akou maržou.',
+      what: [
+        'Marža je vidieť **skôr, než ponuka odíde** — vrátane réžie na hodinu, '
+        + 'nie len rozdielu sadzieb.',
+      ],
+      how: [
+        'Ponuka má platnosť. Keď prepadne bez odpovede, je to červené: buď sa '
+        + 'ozveš, alebo sa na ňu prestane čakať a uvoľnia sa ľudia.',
+      ],
+      why: [
+        'Ponuky sa neprepisujú. Nová cena je nová ponuka, aby sa dalo povedať, '
+        + 'čo presne sme kedy ponúkli.',
+      ],
+      links: [['quotes', 'Ponuky']],
+    },
+    'flow.contracts': {
+      title: '7 · Zmluva',
+      lead: 'Werkvertrag — zmluva o dielo. Dielo, nie hodiny.',
+      what: [
+        'Drží cenu, termín, zádržné, záruku a výpovednú lehotu. Dodatkom sa mení, '
+        + 'prepísaním nie.',
+      ],
+      how: [
+        'Zmena koncového dátumu nie je úprava zmluvy — je to dodatok a zostane '
+        + 'ako samostatný záznam.',
+      ],
+      why: [
+        'Keby bola zmluva na hodiny, bolo by to zo strany nemeckého úradu '
+        + 'posúdené ako prenájom pracovnej sily (Arbeitnehmerüberlassung), na ktorý '
+        + 'treba povolenie. Preto je to dielo a preto sa fakturuje za dielo.',
+      ],
+      links: [['contracts', 'Zmluvy']],
+    },
+    'flow.subcontracts': {
+      title: '8 · Zákazka',
+      lead: 'Konkrétna stavba: mesto, termín, sadzba, kto na nej je.',
+      what: [
+        'Jedna zmluva môže mať viac zákaziek — jedna stavba je jedna zákazka.',
+        'Na zákazke visia obdobia, výkazy, náklady aj ubytovanie.',
+      ],
+      how: [
+        'Zákazka bez zmluvy je práca bez dohodnutej ceny. Nie je to zákaz — je to '
+        + 'vec, na ktorú treba prísť teraz, nie pri fakturácii.',
+      ],
+      why: [
+        'Zoll sa hlási na zákazku, nie na človeka. Preto je to pole tu a nie '
+        + 'v kartotéke.',
+      ],
+      links: [['subcontracts', 'Zákazky']],
+    },
+    'flow.assignments': {
+      title: '9 · Nasadenie',
+      lead: 'Tu sa človek z ľavej dráhy spojí so stavbou z pravej.',
+      what: [
+        'Toto je miesto, ktoré nový človek najdlhšie hľadá: nie je to ani '
+        + 'v kartotéke, ani v zozname zákaziek — je to spojenie oboch.',
+        'Nasadiť sa dá jeden človek aj celá partia naraz.',
+      ],
+      how: [
+        'Databáza pri tom skontroluje doklady **k prvému dňu nástupu**, nie '
+        + 'k dnešku: kto nastupuje o tri týždne a A1 mu príde o týždeň, prejde; '
+        + 'doklad, ktorý dnes platí a do nástupu vyprší, neprejde.',
+        'Pri partii sa ten, komu doklad chýba, preskočí a povie sa to menom.',
+      ],
+      why: [
+        'Bežiaca zákazka, na ktorej nie je nikto, je červená: termín beží, '
+        + 'odberateľ čaká a nám z nej nič nepribúda.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['crews', 'Partie']],
+    },
+    'flow.timesheets': {
+      title: '10 · Hodiny',
+      lead: 'Čo sa kedy odrobilo. Jeden zápis, dve použitia.',
+      what: [
+        'Z toho istého zápisu vzniká faktúra odberateľovi aj kontrola faktúry od '
+        + 'živnostníka. Preto sa nikdy nelíšia.',
+      ],
+      how: [
+        'Zápis starší než dva týždne sa už ťažko vysvetľuje obom stranám — '
+        + 'odberateľ si to nepamätá a živnostník tvrdí niečo iné.',
+      ],
+      why: [
+        'Rozlišuje sa stavba a dielňa. Na stavbu sadá SOKA-BAU a Bau-Mindestlohn, '
+        + 'na dielňu nie — a je to iná sadzba.',
+      ],
+      links: [['timesheets', 'Odpracované hodiny'], ['hoursheet', 'Výkaz pre odberateľa']],
+    },
+    'flow.periods': {
+      title: '11 · Obdobie',
+      lead: 'Uzavretím sa hodiny zmrazia a vznikne z nich podklad.',
+      what: [
+        'Obdobie je zvyčajne mesiac, ale nemusí — riadi sa tým, čo je v zmluve.',
+      ],
+      how: [
+        'Kým sa obdobie neuzavrie, faktúra z neho nevznikne. Preto je neuzavreté '
+        + 'obdobie po termíne červené: drží celý zvyšok reťazca.',
+      ],
+      why: [
+        'Fakturuje sa po obdobiach a nie priebežne preto, že odberateľ podpisuje '
+        + 'výkaz za celé obdobie. Keby sa fakturovalo po dňoch, podpisoval by '
+        + 'každý deň — a nikdy by to nepodpísal.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['hoursheet', 'Výkaz pre odberateľa']],
+    },
+    'flow.invoices': {
+      title: '12 · Vydaná faktúra',
+      lead: 'Faktúra odberateľovi. Bez schválenia človekom neodíde — nikdy.',
+      what: [
+        'Faktúra sa skladá z uzavretého obdobia, takže sedí s výkazom, ktorý '
+        + 'odberateľ podpísal.',
+      ],
+      how: [
+        'Pri stavebných prácach v Nemecku sa zráža 15 % podľa §48b EStG, ak nemáme '
+        + 'Freistellungsbescheinigung. Zrážka je na faktúre vidieť zvlášť.',
+      ],
+      why: [
+        'Automatické odoslanie faktúry je zakázané pravidlom zo zadania. Faktúra je '
+        + 'právny úkon voči cudzej firme a za ten má byť zodpovedný človek, '
+        + 'nie plán úloh.',
+      ],
+      links: [['invoices', 'Vydané faktúry']],
+    },
+    'flow.bills': {
+      title: '13 · Faktúra od živnostníka',
+      lead: 'Čo nám vyfakturoval on. Porovná sa s hodinami, ktoré má zapísané.',
+      what: [
+        'Rozdiel medzi faktúrou a hodinami sa rieši, neprepláca. Sporná faktúra '
+        + 'zostane sporná, kým sa to nedohodne.',
+      ],
+      how: [
+        'Zo schválenej faktúry sa odpočítajú zálohy, ktoré už dostal. Preto sa '
+        + 'záloha viaže na faktúru, nie na mesiac.',
+      ],
+      why: [
+        'Toto je jediné miesto, kde sa dá zistiť, či na človeku naozaj zarábame. '
+        + 'Sadzba v zmluve je dohoda; toto sú peniaze, ktoré odišli.',
+      ],
+      links: [['costs', 'Náklady'], ['workers', 'Živnostníci']],
+    },
+    'flow.bank': {
+      title: '14 · Úhrada',
+      lead: 'Výpis z účtu sa páruje s faktúrami. Tým sa reťazec uzavrel.',
+      what: [
+        'Až spárovaná platba znamená „zaplatené". Stav faktúry sa nenastavuje rukou.',
+      ],
+      how: [
+        'Z toho, kedy odberateľ naozaj zaplatil, sa počíta jeho platobná morálka — '
+        + 'a tá ide späť do výhľadu cash-flow.',
+      ],
+      why: [
+        'Faktúra po splatnosti je červená hneď. Po tridsiatich dňoch sa vymáha '
+        + 'podstatne ťažšie a jeden telefonát v správny čas to celé ušetrí.',
+      ],
+      links: [['bank', 'Banka a cash-flow'], ['invoices', 'Vydané faktúry']],
+    },
+
     'kpi.deployed': {
       title: 'Ľudia na stavbách',
       lead: 'Koľko živnostníkov je práve teraz nasadených na bežiacich zákazkách.',
