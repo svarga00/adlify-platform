@@ -199,7 +199,12 @@ window.UI = {
   // `step` je tu kvôli peniazom. `<input type="number">` má bez neho krok 1,
   // takže sadzba 18,50 €/h neprejde validáciou a formulár sa ticho neodošle.
   // Preto je pri číslach predvolené `any`.
-  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step } = {}) {
+  // `hint` je veta pod poľom. Nie opis toho, čo je v názve („Sadzba — sem
+  // napíš sadzbu"), ale to, čo sa stane, keď sa to vyplní zle: v akej
+  // jednotke to je, čo z toho appka počíta a kde sa to potom objaví.
+  // Dáva sa len tam, kde zlá hodnota niečo pokazí — pri každom poli by
+  // z toho bola stena textu, ktorú nikto nečíta.
+  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step, hint } = {}) {
     const v = this.esc(value);
     let input;
     if (options) {
@@ -211,12 +216,18 @@ window.UI = {
       input = `<textarea name="${name}" rows="${rows || 3}" placeholder="${this.esc(placeholder)}">${v}</textarea>`;
     } else if (type === 'checkbox') {
       input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>`;
-      return `<div class="fld fld-chk">${input}</div>`;
+      return `<div class="fld fld-chk">${input}${this.hint(hint)}</div>`;
     } else {
       const stepAttr = type === 'number' ? ` step="${this.esc(step || 'any')}"` : '';
       input = `<input type="${type}" name="${name}" value="${v}"${stepAttr} ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
     }
-    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}</label>`;
+    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}${this.hint(hint)}</label>`;
+  },
+
+  /** Veta pod poľom. Prázdne `hint` nič nevykreslí — nie prázdny prvok. */
+  hint(text) {
+    const t = String(text || '').trim();
+    return t ? `<small class="fld-hint">${this.esc(t)}</small>` : '';
   },
 
   formData(form) {

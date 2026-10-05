@@ -832,6 +832,52 @@ t('mazanie ide cez databázovú funkciu, nie cez mazanie tabuliek',
   && !/DB\.remove/.test(String(D.purgeDemo)));
 t('a pýta si potvrdenie', D && /VYMAZAŤ/.test(String(D.purgeDemo)));
 
+// ── Polia, pri ktorých zlá hodnota stojí peniaze ───────────────────────────
+// Nie každé pole potrebuje vetu pod sebou — pri každom by z formulára bola
+// stena textu, ktorú nikto nečíta. Ale tieto áno: pri každom z nich sa dá
+// zadať hodnota, ktorá vyzerá v poriadku a pritom zmení, koľko sa vyfakturuje,
+// koľko sa zrazí alebo či sa vôbec smie nasadiť.
+//
+// Zoznam je úmyselne krátky a ručne vybraný. Keď pribudne pole, pri ktorom sa
+// dá takto pomýliť, patrí sem — nie preto, že to vyžaduje test, ale preto, že
+// sa na to inak príde až z faktúry.
+{
+  const RIZIKOVE = [
+    'charge_rate',        // čo fakturujeme odberateľovi
+    'worker_rate',        // čo platíme živnostníkovi (Bau-Mindestlohn)
+    'overhead_per_hour',  // réžia — na nule vyzerá marža lepšie, než je
+    'overhead',
+    'work_type',          // stavba vs. dielňa: iné odvody aj zrážka §48b
+    'freistellung_verified', // bez nej sa z každej faktúry zrazí 15 %
+    'valid_until',        // dokedy ponuka platí
+    'retention_pct',      // zádržné — naše peniaze u odberateľa
+    'hours_per_month',
+    'payment_terms_days', // z neho je splatnosť aj výhľad cash-flow
+  ];
+  const bez = [];
+  const modules = path.join(root, 'js', 'modules');
+  for (const f of fs.readdirSync(modules).filter(x => x.endsWith('.js'))) {
+    const src = fs.readFileSync(path.join(modules, f), 'utf8');
+    for (const name of RIZIKOVE) {
+      const re = new RegExp("UI\\.field\\('" + name + "'", 'g');
+      for (const m of src.matchAll(re)) {
+        // Prejdi volanie po zátvorkách a pozri, či je v ňom `hint:`.
+        let d = 0, end = m.index;
+        for (let i = m.index + 'UI.field'.length; i < src.length; i++) {
+          const c = src[i];
+          if ('([{'.includes(c)) d++;
+          else if (')]}'.includes(c)) { d--; if (d === 0) { end = i; break; } }
+        }
+        if (!src.slice(m.index, end + 1).includes('hint:')) {
+          bez.push(`${f}:${src.slice(0, m.index).split('\n').length} ${name}`);
+        }
+      }
+    }
+  }
+  checks.push([`polia, pri ktorých zlá hodnota stojí peniaze, majú vysvetlenie${
+    bez.length ? ` — chýba: ${bez.join(', ')}` : ''}`, bez.length === 0]);
+}
+
 // ── Spätný apostrof v HTML komentári ───────────────────────────────────────
 // Komentár `<!-- ... -->` vnútri šablónového reťazca je stále kód. Spätný
 // apostrof v ňom reťazec **ukončí** a zvyšok súboru sa rozsype — chyba sa

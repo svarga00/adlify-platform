@@ -443,16 +443,22 @@
                 value: c.unit_price })}
             ${locked ? lockedField('charge_rate', 'Sadzba €/h', c.charge_rate)
               : UI.field('charge_rate', 'Sadzba €/h', { type: 'number', step: '0.01',
-                value: c.charge_rate })}
+                value: c.charge_rate,
+                hint: 'Po podpise sa už neprepisuje — zmenu ceny rieši dodatok.' })}
             ${UI.field('payment_terms_days', 'Splatnosť (dní)', { type: 'number',
-              value: c.payment_terms_days ?? 30 })}
+              value: c.payment_terms_days ?? 30,
+              hint: 'Z tohto čísla sa počíta dátum splatnosti na faktúre aj výhľad '
+                + 'cash-flow. V Nemecku býva 30 až 60 dní.' })}
           </div>
 
           <div class="form-section">Zádržné, záruka a pokuty</div>
           <div class="form-grid">
             ${locked ? lockedField('retention_pct', 'Zádržné %', c.retention_pct)
               : UI.field('retention_pct', 'Zádržné % (Sicherheitseinbehalt)', {
-                type: 'number', step: '0.1', value: c.retention_pct, placeholder: '5' })}
+                type: 'number', step: '0.1', value: c.retention_pct, placeholder: '5',
+                hint: 'Časť ceny, ktorú si odberateľ nechá do konca záruky. Býva 5 %. '
+                  + 'Sú to naše peniaze, ktoré roky ležia u neho — rátaj s nimi '
+                  + 'až po uplynutí záruky.' })}
             ${UI.field('warranty_months', 'Záruka (mesiacov)', { type: 'number',
               value: c.warranty_months, placeholder: '48' })}
             ${UI.field('notice_days', 'Výpovedná lehota (dní)', { type: 'number',

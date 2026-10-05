@@ -765,7 +765,9 @@
             ${UI.field('role', 'Rola', { value: 'pracovnik', options: [['pracovnik', 'Pracovník'], ['predak', 'Predák (vedie práce)']] })}
             ${UI.field('date_from', 'Od', { type: 'date', value: sc?.date_from })}
             ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to })}
-            ${UI.field('charge_rate', 'Fakturačná sadzba €/h', { type: 'number', value: sc?.charge_rate })}
+            ${UI.field('charge_rate', 'Fakturačná sadzba €/h', { type: 'number', value: sc?.charge_rate,
+              hint: 'Predvyplní sa pri každom nasadení na túto zákazku a z nej sa '
+                + 'počíta, čo sa odberateľovi vyfakturuje.' })}
             ${UI.field('gross_monthly', 'Hrubá mzda €/mes', { type: 'number' })}
             ${UI.field('per_diem_daily', 'Diéty €/deň', { type: 'number', value: 45 })}
             ${UI.field('accommodation_monthly', 'Ubytovanie €/mes', { type: 'number' })}
@@ -1081,7 +1083,9 @@
           <div class="form-grid">
             ${UI.field('title', 'Názov zákazky', { value: sc.title, required: true })}
             ${UI.field('partner_id', 'Odberateľ', { value: sc.partner_id, options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
-            ${UI.field('work_type', 'Typ prác', { value: sc.work_type || 'workshop', options: WORK_TYPE })}
+            ${UI.field('work_type', 'Typ prác', { value: sc.work_type || 'workshop', options: WORK_TYPE,
+              hint: 'Stavba znamená A1, SOKA-BAU, Bau-Mindestlohn a zrážku §48b. '
+                + 'Dielňa nič z toho — preto sa to nedá prepnúť „aby to prešlo".' })}
             ${UI.field('trade', 'Remeslo', { value: sc.trade })}
             ${UI.field('date_from', 'Od', { type: 'date', value: sc.date_from })}
             ${UI.field('date_to', 'Do', { type: 'date', value: sc.date_to })}
@@ -1100,7 +1104,10 @@
           <div class="form-section">Odmena</div>
           <div class="form-grid">
             ${UI.field('billing_model', 'Model', { value: sc.billing_model || 'hourly', options: BILLING })}
-            ${UI.field('charge_rate', 'Sadzba €/h alebo €/jednotku', { type: 'number', value: sc.charge_rate })}
+            ${UI.field('charge_rate', 'Sadzba €/h alebo €/jednotku', { type: 'number',
+              value: sc.charge_rate,
+              hint: 'Podľa modelu vyššie: pri hodinovom je to €/h, pri jednotkovom '
+                + 'cena za jednotku.' })}
             ${UI.field('unit_label', 'Jednotka', { value: sc.unit_label, placeholder: 'm², kus…' })}
             ${UI.field('fixed_price', 'Pevná cena €', { type: 'number', value: sc.fixed_price })}
           </div>
@@ -1109,7 +1116,11 @@
           <div class="regimebox">Werkvertrag musí definovať <strong>výsledok</strong>, nie odpracované hodiny.
           Čím konkrétnejší popis diela, tým silnejší dôkaz pri kontrole.</div>
           <div class="chk-row">
-            ${UI.field('freistellung_verified', '', { type: 'checkbox', value: sc.freistellung_verified, placeholder: 'Odberateľ overil našu §48b' })}
+            ${UI.field('freistellung_verified', '', { type: 'checkbox', value: sc.freistellung_verified,
+              placeholder: 'Odberateľ overil našu §48b',
+              hint: 'Keď nie je zaškrtnuté, z každej faktúry na tejto zákazke sa '
+                + 'zrazí 15 % a odvedie ich odberateľ nemeckému úradu. Zaškrtni len '
+                + 'vtedy, keď Freistellungsbescheinigung naozaj máme a odberateľ si ju overil.' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: sc.notes })}
           <div class="modal-actions">
@@ -1319,12 +1330,19 @@
             ${UI.field('crew_id', 'Partia', { value: '', required: true,
               options: [['', '— vyber —'], ...active.map(c => [c.id, c.name])] })}
             ${UI.field('date_from', 'Od', { type: 'date',
-              value: sc?.date_from || new Date().toISOString().slice(0, 10) })}
+              value: sc?.date_from || new Date().toISOString().slice(0, 10),
+              hint: 'Doklady sa posudzujú k tomuto dňu, nie k dnešku. Kto nastupuje '
+                + 'o tri týždne a A1 mu príde o týždeň, prejde.' })}
             ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to || '' })}
-            ${UI.field('charge_rate', 'Fakturujeme €/h', { type: 'number', value: sc?.charge_rate ?? '' })}
+            ${UI.field('charge_rate', 'Fakturujeme €/h', { type: 'number', value: sc?.charge_rate ?? '',
+              hint: 'Prázdne znamená sadzbu zo zákazky.' })}
             ${UI.field('worker_rate', 'Živnostníkom €/h', { type: 'number', value: '',
-              placeholder: 'prázdne = sadzba z kartotéky' })}
-            ${UI.field('overhead', 'Réžia €/h', { type: 'number', value: 0 })}
+              placeholder: 'prázdne = sadzba z kartotéky',
+              hint: 'Platí pre celú partiu naraz. Komu treba inú, oprav mu ju potom '
+                + 'v jeho nasadení.' })}
+            ${UI.field('overhead', 'Réžia €/h', { type: 'number', value: 0,
+              hint: 'Ubytovanie a doprava prepočítané na hodinu. Na nule vyjde marža '
+                + 'vyššia, než aká naozaj je.' })}
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>

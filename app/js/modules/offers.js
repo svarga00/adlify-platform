@@ -119,7 +119,9 @@
         <form id="offer-form" onsubmit="event.preventDefault();Offers.saveWizard()">
           <div class="form-grid">
             ${UI.field('service_fee', 'Sprostredkovateľský poplatok €', { type: 'number', value: feeDefault })}
-            ${UI.field('valid_until', 'Platnosť do', { type: 'date', value: this._plusDays(7) })}
+            ${UI.field('valid_until', 'Platnosť do', { type: 'date', value: this._plusDays(7),
+              hint: 'Po tomto dni ponuka prepadne. Bez platnosti sa na ňu dá odvolať '
+                + 'aj o pol roka.' })}
             ${UI.field('ongoing_service_rate', 'Priebežná služba €/os./deň', { type: 'number', value: rateDefault })}
             ${UI.field('language', 'Jazyk ponuky', { value: this.clientOf(inq.client_id)?.language || 'sk', options: [['sk', 'SK'], ['cs', 'CS'], ['hu', 'HU']] })}
           </div>

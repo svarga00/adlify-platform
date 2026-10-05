@@ -219,7 +219,10 @@
             ${UI.field('address', 'Adresa', { value: p.address })}
             ${UI.field('postal_code', 'PSČ', { value: p.postal_code })}
             ${UI.field('country', 'Krajina', { value: p.country || 'DE' })}
-            ${UI.field('payment_terms_days', 'Splatnosť (dní)', { type: 'number', value: p.payment_terms_days ?? 30 })}
+            ${UI.field('payment_terms_days', 'Splatnosť (dní)', { type: 'number',
+              value: p.payment_terms_days ?? 30,
+              hint: 'Dohodnutá splatnosť. Koľko dní odberateľ naozaj platí, počíta '
+                + 'appka z úhrad — a práve to ide do výhľadu cash-flow.' })}
             ${UI.field('rating', 'Spoľahlivosť platieb', { value: p.rating, options: [['', '—'], ...RATING.map(r => [r[0], r[1]])] })}
             ${UI.field('source', 'Zdroj', { value: p.source, placeholder: 'Auftragsbank, referral…' })}
           </div>
