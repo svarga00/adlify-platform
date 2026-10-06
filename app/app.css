@@ -83,7 +83,12 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .btn-blue { background: var(--blue); color: #fff; }
 .btn-danger { background: var(--red); color: #fff; }
 .btn-sm { padding: 7px 12px; font-size: 12.5px; }
-.btn-block { width: 100%; }
+/* Tlačidlá majú `white-space: nowrap`, aby sa krátky popis nezlomil na dva
+   riadky. Pri tlačidle cez celú šírku to ale znamená, že dlhý text vytečie
+   von — „Zdvihol som telefón — naberať rovno teraz" na telefóne presahovalo
+   o 21 px a posúvalo celú stránku do boku. Cez celú šírku je miesta dosť,
+   tak nech sa text zlomí. */
+.btn-block { width: 100%; white-space: normal; }
 
 /* ── Login ───────────────────────────────────────────────────────────────── */
 .login-screen {
@@ -265,33 +270,81 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .icon-btn:hover { background: var(--field); color: var(--blue); border-color: var(--blue); }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(166px, 1fr)); gap: 10px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(176px, 1fr)); gap: 10px; }
+/* Dlaždica je celá klikateľná a má **stav**. Predtým vyzerala „Po splatnosti 1"
+   presne tak isto ako „Ľudia na stavbách 4" — farbičku mal len drobný text pod
+   číslom, ktorý sa z druhého konca stola neprečíta. Prúžok vľavo je tam preto,
+   aby sa stav dal rozoznať periférnym videním, bez čítania. */
 .kpi {
-  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 13px 15px 14px; box-shadow: var(--shadow-sm);
+  position: relative; background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  padding: 12px 15px 13px 16px; overflow: hidden;
+  transition: box-shadow .14s, border-color .14s;
 }
-/* Popis nad číslom, nie pod ním, a bez vynútenej výšky — dlaždica s krátkym
-   popisom sa nemá naťahovať kvôli susedovi. */
+.kpi::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: transparent;
+}
+/* `align-items: flex-start`, nie `center`: pri dvojriadkovom názve by ikona
+   odskočila do stredu a hlavičky dlaždíc by sa nezarovnali. */
+.kpi-top { display: flex; align-items: flex-start; gap: 7px; min-width: 0; min-height: 30px; }
+.kpi-ico {
+  width: 21px; height: 21px; flex: none; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--field); color: var(--ink-mute);
+}
 .kpi-label {
   font-size: 11px; color: var(--ink-sub); font-weight: 600;
-  letter-spacing: .01em; line-height: 1.35;
+  letter-spacing: .01em; line-height: 1.3; min-width: 0;
 }
-.kpi-value {
-  font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums;
-  margin-top: 6px; letter-spacing: -.035em; line-height: 1.05;
+/* Názov sa smie zalomiť do dvoch riadkov. Skúsil som ho držať na jednom
+   a orezávať — „Faktúry na sch…" nie je názov, to je hádanka. Dlaždice
+   v mriežke majú rovnakú výšku, takže zalomenie nič nerozhádže. */
+.kpi-top .kpi-label {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.kpi-label .ico { color: var(--ink-mute); vertical-align: -2px; margin-right: 5px; }
+.kpi-top .help-btn { margin-left: auto; flex: none; align-self: flex-start; }
+/* Popis pod číslom na dlaždiciach mimo prehľadu. */
 .kpi-delta { font-size: 11.5px; color: var(--ink-mute); margin-top: 4px; line-height: 1.35; }
 .kpi-delta.up { color: var(--green); }
 .kpi-delta.warn { color: var(--amber); }
-/* Dlaždica, ktorá niekam vedie. Kurzor a okraj sú jediné, čo to povie —
-   preto sa to nesmie dať na tie, ktoré nikam nevedú. */
-/* Dlaždica, z ktorej sa dá niekam ísť. Odkazom je samotné číslo, nie celá
-   plocha — na dlaždici je aj tlačidlo „?" a jedno kliknutie nemá robiť dve
-   veci naraz. Okraj sa rozsvieti, aby bolo vidieť, že tam niečo je. */
-.kpi-go { transition: border-color .12s; }
-.kpi-go:hover { border-color: var(--blue); }
-.kpi-go:focus-within { border-color: var(--blue); }
+/* Plocha, ktorou sa otvára detail. Je to tlačidlo cez celú dlaždicu, nie len
+   číslo — na dotykovej obrazovke sa do čísla netrafí. Tlačidlo „?" je nad ním
+   (`z-index`), takže jedno kliknutie nikdy nerobí dve veci. */
+.kpi-hit {
+  display: block; width: 100%; text-align: left; background: none; border: 0;
+  padding: 0; margin: 0; cursor: pointer; color: inherit; font: inherit;
+}
+.kpi-hit::after { content: ''; position: absolute; inset: 0; }
+.kpi .help-btn { position: relative; z-index: 2; }
+/* Svieti len tá dlaždica, ktorá sa dá otvoriť. Dlaždice v iných moduloch sú
+   len číslo a nemajú sa tváriť, že niekam vedú. */
+.kpi:has(.kpi-hit):hover { border-color: var(--blue); box-shadow: var(--shadow-md); }
+.kpi:has(.kpi-hit):focus-within { border-color: var(--blue); }
+.kpi-hit:focus-visible { outline: none; }
+.kpi-value {
+  display: block; font-size: 29px; font-weight: 700; font-variant-numeric: tabular-nums;
+  margin-top: 7px; letter-spacing: -.035em; line-height: 1.02; color: var(--navy);
+}
+.kpi-value em {
+  font-style: normal; font-size: 15px; font-weight: 600;
+  color: var(--ink-mute); margin-left: 3px; letter-spacing: 0;
+}
+.kpi-sub {
+  display: block; font-size: 11.5px; color: var(--ink-mute);
+  margin-top: 4px; line-height: 1.35;
+}
+/* Tri stavy, nie päť. Pokoj nemá farbu — keby ju mal, prestali by farby na
+   obrazovke niečo znamenať. */
+.kpi-watch::before { background: var(--brand); }
+.kpi-watch .kpi-ico { background: var(--amber-50); color: var(--amber); }
+.kpi-watch .kpi-sub { color: var(--amber); }
+.kpi-bad { border-color: #F3C9C9; }
+.kpi-bad::before { background: var(--red); }
+.kpi-bad .kpi-ico { background: var(--red-50); color: var(--red); }
+.kpi-bad .kpi-value { color: var(--red); }
+.kpi-bad .kpi-sub { color: var(--red); font-weight: 600; }
 
 /* `align-items: start` je tu podstatné: bez neho sa každá karta natiahne na
    výšku najvyššej a pod krátkym zoznamom ostane pol obrazovky bieleho miesta. */
@@ -459,7 +512,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: inline-flex; align-items: center; padding: 3px 9px; border-radius: var(--radius);
   font-size: 11.5px; font-weight: 700; white-space: nowrap; flex: none;
 }
-.pillbar { display: flex; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); flex-wrap: wrap; }
+/* `max-width` je tu naschvál. Prepínače sa vykresľujú so `width:max-content`,
+   aby na širokej obrazovke obopli text a neťahali sa cez pol stránky. Bez
+   stropu ale na telefóne roztiahli **celý dokument** na šírku obsahu — a keďže
+   spodné menu je `position:fixed` cez celú šírku dokumentu, roztiahlo sa
+   s ním. Obrazovka Úlohy mala takto 635 px namiesto 390 a celá stránka sa
+   posúvala do boku. Strop v CSS to rieši raz a pre všetky prepínače vrátane
+   tých, ktoré ešte len pribudnú; `max-width` prebije `width` vždy. */
+.pillbar { display: flex; gap: 4px; background: #fff; border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); flex-wrap: wrap; max-width: 100%; }
 .pill {
   border: 0; background: transparent; border-radius: var(--radius); padding: 6px 13px;
   font-size: 12.5px; font-weight: 600; color: var(--ink-sub); cursor: pointer;
@@ -637,11 +697,213 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .modal-card { border-radius: var(--radius); }
 }
 
+/* ── Ako to ide: mapa reťazca ─────────────────────────────────────────────── */
+/* Kroky sú pod sebou, nie vedľa seba. Vodorovná schéma vyzerá na obrázku
+   lepšie, ale nedá sa do nej napísať veta — a práve tie vety sú tu to, čo
+   človeka naučí, prečo krok existuje. */
+.fl-intro {
+  margin: 0 0 16px; font-size: 13.5px; line-height: 1.6; color: var(--ink-sub);
+  max-width: 68ch;
+}
+.fl-lanes { display: flex; flex-direction: column; gap: 22px; }
+.fl-lane { position: relative; padding-left: 20px; }
+/* Linka, ktorá drží dráhu pokope. Bez nej je to zoznam kariet; s ňou je
+   vidieť, že to na seba nadväzuje. */
+.fl-lane::before {
+  content: ''; position: absolute; left: 5px; top: 34px; bottom: 10px; width: 2px;
+  background: var(--border);
+}
+.fl-lane-head { margin: 0 0 10px; }
+.fl-lane-head h2 {
+  margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.fl-lane-head p { margin: 3px 0 0; font-size: 13px; color: var(--ink-sub); line-height: 1.5; }
+.fl-step {
+  position: relative; display: flex; gap: 12px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  padding: 12px 14px; margin-bottom: 8px;
+}
+.fl-n {
+  flex: none; width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--field); color: var(--ink-sub);
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  /* Vystúpi na linku dráhy, aby bolo vidieť poradie aj bez čítania. */
+  margin-left: -32px; box-shadow: 0 0 0 4px var(--bg);
+}
+.fl-body { flex: 1; min-width: 0; }
+.fl-head { display: flex; align-items: center; gap: 7px; }
+.fl-ico {
+  width: 22px; height: 22px; flex: none; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--blue-50); color: var(--blue);
+}
+.fl-title { font-size: 14.5px; letter-spacing: -.015em; }
+.fl-lead { margin: 5px 0 0; font-size: 13px; color: var(--ink-sub); line-height: 1.5; }
+.fl-nums { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12.5px; }
+.fl-have { color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.fl-todo {
+  display: inline-flex; align-items: center; gap: 5px; font-weight: 600;
+  color: var(--amber);
+}
+.fl-todo.is-clear { color: var(--ink-mute); font-weight: 400; }
+.fl-next {
+  margin: 7px 0 0; font-size: 12px; color: var(--ink-mute);
+  display: flex; align-items: center; gap: 4px;
+}
+.fl-go {
+  flex: none; width: 30px; height: 30px; border: 1px solid var(--border);
+  background: #fff; border-radius: var(--radius-sm); color: var(--ink-sub);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  align-self: center;
+}
+.fl-go:hover { background: var(--field); color: var(--blue); border-color: var(--blue); }
+/* Stavy. Rovnaké tri ako na dlaždiciach prehľadu — keby boli iné, musel by sa
+   človek učiť dve farebné reči. */
+.fl-watch { border-color: #F3D4B6; }
+.fl-watch .fl-n { background: var(--amber-50); color: var(--amber); }
+.fl-bad { border-color: #F3C9C9; }
+.fl-bad .fl-n { background: var(--red-50); color: var(--red); }
+.fl-bad .fl-ico { background: var(--red-50); color: var(--red); }
+.fl-bad .fl-todo { color: var(--red); }
+/* Posledná dráha nemá pokračovanie, tak jej linka nemá kam viesť. */
+.fl-lane:last-child .fl-step:last-child { margin-bottom: 0; }
+
+@media (max-width: 720px) {
+  .fl-lane { padding-left: 16px; }
+  .fl-lane::before { left: 3px; }
+  .fl-n { margin-left: -28px; width: 24px; height: 24px; font-size: 12px; }
+  .fl-step { padding: 11px 12px; gap: 10px; }
+}
+
+/* ── Zoznam za číslom na prehľade ────────────────────────────────────────── */
+/* Okno, ktoré odpovedá na otázku „ktoré?". Tabuľka je tu na mieste: sú to
+   rovnaké záznamy s rovnakými stĺpcami a oko ich porovnáva zvisle. */
+/* Vysvetlenie nad zoznamom. Je to veta, ktorá povie, prečo tie riadky stoja
+   za pozretie — nie nadpis, takže nemá byť tučnejšia než samotné riadky. */
+.kpi-lead { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-sub); }
+.kpi-note {
+  display: flex; gap: 7px; align-items: flex-start; margin: 10px 0 0;
+  font-size: 12.5px; color: var(--ink-sub); line-height: 1.45;
+}
+.kpi-note > svg { flex: none; margin-top: 2px; color: var(--ink-mute); }
+.kpi-tools { display: flex; gap: 8px; align-items: center; margin: 14px 0 12px; flex-wrap: wrap; }
+.kpi-search {
+  flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--field); padding: 0 10px; color: var(--ink-mute);
+}
+.kpi-search:focus-within { border-color: var(--blue); background: #fff; }
+.kpi-search input {
+  flex: 1; min-width: 0; border: 0; background: none; outline: none;
+  padding: 9px 0; font-size: 13.5px; color: var(--ink);
+}
+/* Na úzkej obrazovke sa tabuľka posúva do boku **sama v sebe**, nie celou
+   stránkou. Bez toho rozhodí okno aj to, čo je pod ním. */
+.kpi-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.kpi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kpi-table th {
+  text-align: left; padding: 0 0 6px; border-bottom: 1px solid var(--border);
+  font-weight: 600; white-space: nowrap;
+}
+.kpi-th {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  color: var(--ink-sub); font-size: 11px; letter-spacing: .02em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.kpi-th:hover { color: var(--blue); }
+.kpi-table td {
+  padding: 9px 12px 9px 0; border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+}
+.kpi-table td:last-child, .kpi-table th:last-child { padding-right: 0; }
+.kpi-table .ta-r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-table .dim { color: var(--ink-mute); }
+.kpi-table tr.is-open { cursor: pointer; }
+.kpi-table tr.is-open:hover td { background: var(--field); }
+.kpi-table tr.is-open:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.kpi-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 7px; vertical-align: 1px;
+}
+.kpi-dot-bad { background: var(--red); }
+.kpi-dot-warn { background: var(--brand); }
+/* Dôvod pod menom — malým, lebo je to doplnok k riadku, nie druhý riadok
+   tabuľky. Bez neho by červená bodka nič nevysvetľovala. */
+/* `font-weight` výslovne: na mobile je prvá bunka tučná (je to názov karty)
+   a dôvod pod ňou by tú tučnosť zdedil. */
+.kpi-why {
+  display: block; font-size: 11.5px; color: var(--ink-mute);
+  margin-top: 2px; font-weight: 400;
+}
+.kpi-table tr.tone-bad .kpi-why { color: var(--red); }
+
+/* Zoradenie pre úzku obrazovku. Tam hlavičky tabuľky nie sú vidieť, lebo
+   tabuľka už nie je tabuľka — a bez zoradenia by sa v dlhom zozname nedalo
+   nájsť to najstaršie. */
+.kpi-sortm { display: none; }
+.kpi-sortm select {
+  border: 0; background: none; font-size: 13px; color: var(--ink); outline: none;
+  max-width: 120px;
+}
+
+@media (max-width: 720px) {
+  .kpi-sortm {
+    display: flex; align-items: center; gap: 5px; color: var(--ink-mute);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: #fff; padding: 0 8px; height: 34px; flex: none;
+  }
+  /* Päť stĺpcov sa do 390 px nezmestí. Posúvanie do boku nie je odpoveď —
+     pri ňom sa rozsype každý druhý riadok a nikto nevie, čo s čím súvisí.
+     Preto je z každého riadku karta: názov hore, zvyšok ako „popis: hodnota". */
+  .kpi-table, .kpi-table tbody, .kpi-table tr, .kpi-table td { display: block; width: 100%; }
+  .kpi-table thead { display: none; }
+  .kpi-table tr {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; margin-bottom: 8px; background: #fff;
+  }
+  .kpi-table tr.tone-bad { border-color: #F3C9C9; }
+  .kpi-table td {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 3px 0; border: 0; text-align: left;
+  }
+  .kpi-table td::before {
+    content: attr(data-l); flex: none; color: var(--ink-mute);
+    font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
+  }
+  /* Prvá bunka je názov karty — tam sa popis nehodí, meno hovorí samo za seba. */
+  .kpi-table td:first-child {
+    display: block; font-weight: 700; font-size: 14px; margin-bottom: 4px;
+  }
+  .kpi-table td:first-child::before { content: none; }
+  .kpi-table .ta-r { text-align: right; }
+  .kpi-table tr.is-open:hover td { background: none; }
+}
+
 /* ── Formuláre ───────────────────────────────────────────────────────────── */
 .form-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
 .fld { display: grid; gap: 5px; font-size: 12.5px; }
 .fld > span { font-weight: 600; color: var(--ink-sub); }
+/* Veta pod poľom. Je to doplnok, nie druhý názov — preto menšia a tlmená.
+   Keby bola rovnako výrazná ako názov poľa, formulár by sa stal textom. */
+.fld-hint { font-size: 11.5px; color: var(--ink-mute); line-height: 1.45; }
+/* Výber, pri ktorom sa dá založiť nový záznam. Tlačidlo je hneď pri poli —
+   nie pod formulárom a nie v inom module. Kto na to siahne, má rozpísaný
+   formulár a nesmie oň prísť. */
+.pick { display: flex; gap: 6px; align-items: stretch; }
+.pick select { flex: 1; min-width: 0; }
+.pick-add {
+  flex: none; width: 38px; border: 1px solid var(--border);
+  background: #fff; border-radius: var(--radius-sm); color: var(--ink-sub);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.pick-add:hover { background: var(--field); color: var(--blue); border-color: var(--blue); }
+/* Polia v okne, ktoré sa otvára nad formulárom. */
+.ask-fields { display: grid; gap: 12px; margin-top: 12px; }
+.fld-chk .fld-hint { margin-left: 24px; }
 .fld input, .fld select, .fld textarea {
   padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   font-size: 14px; width: 100%; background: var(--field);
@@ -707,16 +969,35 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .tab {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
     background: transparent; border: 0; cursor: pointer; flex: 1; padding: 0;
+    /* Bez `min-width:0` sa položka nezmenší pod šírku svojho textu, takže
+       „Kandidáti" pretlačilo spodné menu o pár pixelov za okraj — a keďže je
+       cez celú šírku dokumentu, posunula sa s ním celá stránka. */
+    min-width: 0;
   }
   .tab-ico { width: 19px; height: 19px; border-radius: var(--radius-sm); border: 2px solid var(--ink-mute); display: block; }
-  .tab-label { font-size: 10.5px; font-weight: 700; color: var(--ink-mute); }
+  .tab-label {
+    font-size: 10.5px; font-weight: 700; color: var(--ink-mute);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .tab.active .tab-ico { border-color: var(--brand); background: rgba(240,126,34,.15); }
   .tab.active .tab-label { color: var(--brand); }
   .tab-plus .tab-ico {
     width: 40px; height: 40px; border-radius: var(--radius); background: var(--brand); border: 0;
     color: #fff; font-size: 22px; line-height: 40px; text-align: center; font-weight: 400;
   }
+
+  /* ── Čo sa robí prstom ────────────────────────────────────────────────
+     Hodiny sa zapisujú na stavbe, teda na telefóne a často v rukaviciach.
+     Tlačidlo veľké 28 px sa trafí ťažko a **potvrdiť** a **zmazať** boli
+     vedľa seba na pravom okraji, kam palec dopadá sám. Zmazaný zápis hodín
+     sa nedá vrátiť klepnutím späť, tak nech sú aspoň ďalej od seba. */
+  .row-acts { display: flex; align-items: center; gap: 2px; flex: none; }
+  .tap { min-width: 40px; min-height: 40px; }
+  .tap-far { margin-left: 10px; }
 }
+
+/* Na myši stačí to, čo bolo — väčšie tlačidlá by rozhodili riadok. */
+.row-acts { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(10,27,61,.45); z-index: 39; }
 .sidebar-backdrop.show { display: block; }
 
@@ -1489,6 +1770,8 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 16px; padding-bottom: 14px; border-bottom: 2px solid var(--navy);
 }
+.hs-brandrow { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hs-brandrow > svg { flex: none; }
 .hs-brand { font-size: 13px; font-weight: 700; color: var(--ink-sub); letter-spacing: .02em; }
 .hs-title { font-size: 24px; font-weight: 800; letter-spacing: -.03em; margin-top: 2px; }
 .hs-kw {
@@ -1524,7 +1807,15 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .hs-table thead th span {
   display: block; font-weight: 400; font-size: 10.5px; color: var(--ink-mute);
 }
-.hs-table .hs-name { text-align: left; font-weight: 600; white-space: nowrap; }
+/* Meno zostane vidieť aj pri posúvaní do boku. Výkaz má dvanásť stĺpcov
+   a na telefóne sa doň pozerá cez okienko širokú ako dlaň — bez pripnutého
+   prvého stĺpca človek posunie tabuľku a už nevie, čí je to riadok. */
+.hs-table .hs-name {
+  text-align: left; font-weight: 600; white-space: nowrap;
+  position: sticky; left: 0; z-index: 1; background: #fff;
+}
+.hs-table tfoot .hs-name { background: var(--navy); }
+.hs-span .hs-name { background: #FBFCFE; }
 .hs-table .hs-total { background: var(--field); font-weight: 700; }
 .hs-table tfoot td { background: var(--navy); color: #fff; font-weight: 700; border-color: var(--navy); }
 .hs-table tfoot .hs-name { color: #fff; }
@@ -1571,7 +1862,10 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .main { margin-left: 0 !important; }
   .view { padding: 0 !important; }
   .hs-paper { border: 0; box-shadow: none; padding: 0; }
-  .hs-h input { background: transparent !important; }
+  /* Na papieri sa namiesto poľa ukáže číslo v nemeckom tvare (8,5 — nie 8.5).
+     Pole samo musí mať bodku, inak ho prehliadač neprijme. */
+  .hs-h input { display: none !important; }
+  .hs-h[data-h]::after { content: attr(data-h); }
   body { background: #fff; }
   /* Výkaz je jediná stránka v appke, ktorá na výšku nesedí — má dvanásť
      stĺpcov. `@page` sa nedá zúžiť selektorom, preto pomenovaná stránka:
@@ -2152,3 +2446,157 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   .ask-card { border-radius: var(--radius-lg) var(--radius-lg) 0 0; max-width: none; }
   .ask-actions .btn { flex: 1; }
 }
+
+/* ── Remeslo ako lekcia ────────────────────────────────────────────────────
+   Z tejto obrazovky sa má človek učiť. Zoznam tenkých riadkov sa neučí —
+   ten sa preletí očami a zabudne. */
+.trade-card { cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.trade-card:hover { border-color: var(--blue); }
+.trade-de { font-size: 12.5px; color: var(--ink-mute); margin-top: -2px; }
+.trade-sum { font-size: 13px; line-height: 1.5; color: var(--ink-sub); margin: 2px 0 4px; }
+.trade-state { font-size: 11.5px; color: var(--ink-mute); }
+
+/* Pruh stavu. Percento samo o sebe nič nehovorí — preto je pri ňom veta
+   a menný zoznam toho, čo chýba. */
+.statebar { background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 14px; }
+.statebar-head { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+.statebar-head b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.statebar-head span { color: var(--ink-sub); }
+.statebar-track { background: var(--field); border-radius: 99px; height: 6px;
+  overflow: hidden; margin-top: 8px; }
+.statebar-track i { display: block; height: 100%; background: var(--blue); border-radius: 99px; }
+.statebar-missing { font-size: 11.5px; color: var(--ink-mute); margin-top: 7px; }
+.statebar-green .statebar-track i, .statebar-track.statebar-green i { background: var(--green); }
+.statebar-amber .statebar-track i, .statebar-track.statebar-amber i { background: var(--amber); }
+.statebar-red .statebar-track i, .statebar-track.statebar-red i { background: var(--red); }
+
+.lesson { display: grid; gap: 12px; margin-bottom: 14px; }
+.lesson-card .card-title { margin-bottom: 6px; }
+.lesson-text { font-size: 13.5px; line-height: 1.65; color: var(--ink-sub); margin: 0; }
+.lesson-list { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--ink-sub); }
+.basics summary { cursor: pointer; font-weight: 700; font-size: 13.5px; }
+.basics[open] summary { margin-bottom: 6px; }
+
+/* Slovíčka. Nemecké slovo je to, čo zaznie — preto je prvé a tučné. */
+.vocab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.vocab { background: var(--field); border-radius: var(--radius-sm); padding: 9px 11px; }
+.vocab b { display: block; font-size: 13.5px; color: var(--navy); }
+.vocab span { display: block; font-size: 12.5px; color: var(--ink); }
+.vocab em { display: block; font-size: 11.5px; color: var(--ink-mute); font-style: normal; margin-top: 3px; }
+
+/* Skúšanie */
+.quiz-cta { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.quiz-cta strong { display: block; font-size: 14px; }
+.quiz-cta span { display: block; font-size: 12.5px; color: var(--ink-sub); max-width: 52ch; }
+.quiz-head { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--ink-mute); }
+.quiz-head .statebar-track { flex: 1; margin: 0; }
+.quiz-q { font-size: 17px; font-weight: 700; line-height: 1.45; margin: 14px 0 16px; }
+.quiz-a { border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; font-size: 13px; }
+.quiz-a b { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.quiz-good { background: var(--green-50); color: var(--ink); }
+.quiz-bad { background: var(--amber-50); color: var(--ink); }
+
+/* ── Krátky hovor alebo plný pohovor ───────────────────────────────────────
+   Cieľ je ozvať sa do desiatich minút. Keď sa začne dvadsaťminútovým
+   pohovorom, k tretiemu človeku sa náborár v ten deň nedostane. */
+.call-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.call-mode-btn {
+  text-align: left; background: #fff; border: 2px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; cursor: pointer; font-family: inherit;
+}
+.call-mode-btn b { display: block; font-size: 15px; color: var(--navy); margin-bottom: 3px; }
+.call-mode-btn span { display: block; font-size: 12.5px; color: var(--ink-sub); line-height: 1.5; }
+.call-mode-btn.active { border-color: var(--brand); background: var(--amber-50); }
+.call-mode-btn:hover { border-color: var(--brand); }
+@media (max-width: 560px) { .call-mode { grid-template-columns: 1fr; } }
+
+/* Čo s ním po krátkom hovore — rozhodnutie, nie známka. */
+.quick-next {
+  background: var(--field); border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm); padding: 11px 14px; margin-bottom: 12px;
+}
+.quick-next b { display: block; font-size: 15px; margin-bottom: 3px; }
+.quick-next span { font-size: 13px; color: var(--ink-sub); line-height: 1.55; }
+
+/* Metrika, ktorá ešte nemá čo merať, hovorí vetou — a veta nemá mať
+   veľkosť čísla, inak sa zalomí a vyzerá ako chyba. */
+.kpi-value.kpi-word { font-size: 15px; font-weight: 700; line-height: 1.3; }
+
+/* Odkazy na zvyšok náboru. Nič nezmizlo, len to už nie je roztrúsené
+   po šiestich položkách v menu. */
+.nav-card {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  cursor: pointer; font-family: inherit; border: 1px solid var(--border);
+}
+.nav-card:hover { border-color: var(--blue); }
+.nav-card-ico {
+  flex: 0 0 38px; height: 38px; border-radius: var(--radius-sm);
+  background: var(--field); color: var(--navy);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.nav-card b { display: block; font-size: 14px; color: var(--ink); }
+.nav-card em { display: block; font-size: 12px; color: var(--ink-mute); font-style: normal; }
+
+/* ── Nábor krok za krokom ──────────────────────────────────────────────────
+   Veľké a viditeľné, lebo sa to používa pri telefóne a často postojačky.
+   Rozmery sú tie isté ako v sprievodcovi hovorom, ktorý už funguje. */
+.flow-now {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  flex-wrap: wrap; background: #fff; border: 2px solid var(--border);
+  border-radius: var(--radius); padding: 20px 22px; margin-bottom: 14px;
+}
+.flow-now.flow-hot { border-color: var(--brand); background: var(--amber-50); }
+.flow-now-txt { min-width: 0; }
+.flow-now-txt b { display: block; font-size: 25px; line-height: 1.25; letter-spacing: -.01em; }
+.flow-now-txt span { display: block; font-size: 15px; color: var(--ink-sub); margin-top: 5px; }
+.flow-go {
+  flex: 0 0 auto; min-height: 62px; padding: 0 26px; border: 0;
+  border-radius: var(--radius); background: var(--brand); color: #fff;
+  font-size: 18px; font-weight: 700; font-family: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.flow-go:hover { background: var(--brand-dark); }
+.flow-go:active { transform: scale(.985); }
+
+.flow-bar { height: 6px; background: var(--field); border-radius: 99px; overflow: hidden; }
+.flow-bar i { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+.flow-bar-txt { font-size: 12px; color: var(--ink-mute); margin: 5px 0 16px; }
+
+.flow { display: grid; gap: 10px; margin-bottom: 18px; }
+.flow-step {
+  display: flex; align-items: center; gap: 16px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px;
+}
+.flow-n {
+  flex: 0 0 44px; height: 44px; border-radius: 50%; background: var(--field);
+  color: var(--ink-mute); font-size: 19px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.flow-txt { flex: 1; min-width: 0; }
+.flow-txt b { display: block; font-size: 17px; }
+.flow-txt > span { display: block; font-size: 14px; color: var(--ink-sub); margin-top: 2px; }
+.flow-txt em { display: block; font-size: 13px; color: var(--ink-mute); font-style: normal; margin-top: 4px; }
+.flow-done .flow-n { background: var(--green-50); color: var(--green); }
+.flow-hot .flow-n { background: var(--amber-50); color: var(--brand); }
+.flow-step.is-now { border-color: var(--brand); border-width: 2px; padding: 20px 18px; }
+.flow-step.is-now .flow-txt b { font-size: 20px; }
+
+@media (max-width: 560px) {
+  .flow-now-txt b { font-size: 21px; }
+  .flow-go { width: 100%; justify-content: center; }
+}
+
+/* Zaškolenie v Nábore. Veľké, kým ním človek neprešiel — potom jeden riadok. */
+.learn-cta { border-color: var(--blue); background: #F4F8FF; margin-bottom: 14px; }
+.learn-done {
+  display: flex; align-items: center; gap: 10px; font-size: 13px;
+  color: var(--ink-sub); background: var(--green-50); border-radius: var(--radius);
+  padding: 9px 14px; margin-bottom: 14px;
+}
+.practice-answer {
+  font-size: 18px; line-height: 1.5; background: var(--field);
+  border-left: 3px solid var(--navy); border-radius: var(--radius-sm);
+  padding: 14px 16px; margin-top: 4px;
+}
+.nav-card.is-picked { border-color: var(--brand); border-width: 2px; }

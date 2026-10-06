@@ -17,9 +17,13 @@
   // Text, ktorý ide odberateľovi. Pôvodná predloha mala preklepy
   // („Auftrageber", „Enhalt den vereibarten", „Ausführung die Arbeiten",
   // „Druckstaben"); tu je gramaticky správne znenie. Význam je ten istý.
+  //
+  // Vety boli pôvodne dve a hovorili to isté — raz „der Auftraggeber", raz
+  // „der Kunde". Na papieri, ktorý niekto podpisuje, sú dve znenia toho
+  // istého potvrdenia horšie než jedno: čitateľ hľadá, v čom sa líšia, a keď
+  // sa raz bude o hodiny sporiť, bude sa dať namietať, čo vlastne podpísal.
+  // Zostala tá, ktorá pokrýva oboje — správnosť hodín aj bezchybné dielo.
   const LEGAL = [
-    'Mit der Unterschrift auf diesem Stundennachweis bestätigt der Auftraggeber '
-    + 'den Erhalt der vereinbarten Arbeiten ohne Mängel.',
     'Mit der Unterschrift auf diesem Stundennachweis bestätigt der Kunde die '
     + 'Richtigkeit der angegebenen geleisteten Stunden und die mängelfreie '
     + 'Ausführung der Arbeiten.',
@@ -169,11 +173,17 @@
      */
     sheetHtml(s, signed) {
       const sup = (window.Cfg && Cfg.j('supplier')) || {};
+      // `<input type="number">` musí mať hodnotu s bodkou — prehliadač inú
+      // neprijme. Lenže práve nepodpísaný výkaz sa tlačí a nesie sa na stavbu
+      // na podpis, takže na papier pre Nemca by šlo „8.5" namiesto „8,5".
+      // Nemecký tvar sa preto nesie v `data-h` a pri tlači sa ukáže namiesto
+      // poľa (CSS nižšie v `@media print`).
       const cell = (r, i) => {
         const d = s.days[i];
-        return `<td class="hs-h">
+        const de = DanubraHourSheet.hoursText(r.hours[i]);
+        return `<td class="hs-h"${signed ? '' : ` data-h="${UI.esc(de)}"`}>
           ${signed
-            ? DanubraHourSheet.hoursText(r.hours[i])
+            ? de
             : `<input type="number" step="0.25" min="0" max="24" inputmode="decimal"
                  value="${r.hours[i] || ''}"
                  onchange="HS.setHours('${r.worker_id}','${d.date}',this.value)">`}
@@ -181,10 +191,16 @@
       };
 
       return `<div class="hs-paper" id="hs-paper">
+        <!-- Tá istá značka ako na faktúre, ponuke a zmluve. Doklady od jednej
+             firmy majú vyzerať ako jedna rodina; výkaz bol doteraz jediný,
+             ktorý sa kreslí v appke, a preto jediný bez značky. -->
         <div class="hs-head">
-          <div>
-            <div class="hs-brand">${UI.esc(sup.name || 'Partner und Service')}</div>
-            <div class="hs-title">Stundennachweis</div>
+          <div class="hs-brandrow">
+            ${window.DanubraPapers ? DanubraPapers.mark() : ''}
+            <div>
+              ${sup.name ? `<div class="hs-brand">${UI.esc(sup.name)}</div>` : ''}
+              <div class="hs-title">Stundennachweis</div>
+            </div>
           </div>
           <div class="hs-kw">KW<strong>${s.week}</strong><span>${s.year}</span></div>
         </div>
@@ -210,6 +226,16 @@
               ${s.days.map((d, i) => `<td>${UI.esc(DanubraHourSheet.spanText(s.span[i]))}</td>`).join('')}
               <td></td>
             </tr>
+            <!-- Pauza. Je na pôvodnom papieri a polier ju na doklade hľadá.
+                 Nemáme ju kde zapísať, ale dá sa dopočítať z času od-do
+                 a odrobených hodín. Keď sa dopočítať nedá, riadok zostane
+                 prázdny - vymyslená prestávka na doklade, ktorý sa podpisuje,
+                 je horšia než prázdne miesto. -->
+            <tr class="hs-span">
+              <td class="hs-name">Pause</td>
+              ${s.days.map((d, i) => `<td>${UI.esc(DanubraHourSheet.pauseText(s.pause[i]))}</td>`).join('')}
+              <td></td>
+            </tr>
             ${s.rows.map(r => `
               <tr>
                 <td class="hs-name">${UI.esc(r.name)}</td>
@@ -221,7 +247,8 @@
           </tbody>
           <tfoot>
             <tr>
-              <td class="hs-name">Total</td>
+              <!-- Nemecký doklad, nemecké slovo. -->
+              <td class="hs-name">Gesamt</td>
               ${s.perDay.map(h => `<td class="hs-h">${DanubraHourSheet.hoursText(h)}</td>`).join('')}
               <td class="hs-total">${DanubraHourSheet.hoursText(s.total)}</td>
             </tr>
@@ -247,13 +274,20 @@
           ${LEGAL.map(t => `<p>${UI.esc(t)}</p>`).join('')}
         </div>
 
+        <!-- Pätička berie všetko z Nastavení a nič si nedomýšľa.
+             Predtým tu bolo meno firmy aj adresa natvrdo v kóde ako záloha —
+             na doklade pre nemeckého odberateľa je vymyslený údaj horší než
+             žiadny. A sup.ico sa nikdy nevyplnilo: Nastavenia to pole volajú
+             company_id, takže IČO na výkaze nebolo nikdy.
+             „Steuernummer: wird nachgereicht" sa netlačí — na doklade, ktorý
+             ide odberateľovi, je priznanie, že niečo chýba, horšie než mlčanie;
+             a dovtedy to pole nešlo ani nikde vyplniť. -->
         <div class="hs-foot">
-          <strong>${UI.esc(sup.name || 'Partner und Service')}</strong>
-          ${UI.esc(sup.address || 'Podzámska 9468/4A, 940 71 Nové Zámky, Slowakei')}
-          ${sup.ico ? ` · IČO ${UI.esc(sup.ico)}` : ''}
-          ${sup.tax_number_de
-            ? ` · Steuernummer ${UI.esc(sup.tax_number_de)}`
-            : ' · Steuernummer: wird nachgereicht'}
+          ${sup.name ? `<strong>${UI.esc(sup.name)}</strong>` : ''}
+          ${sup.address ? UI.esc(sup.address) : ''}
+          ${sup.company_id ? ` · IČO ${UI.esc(sup.company_id)}` : ''}
+          ${sup.vat_id ? ` · USt-IdNr. ${UI.esc(sup.vat_id)}` : ''}
+          ${sup.tax_number_de ? ` · Steuernummer ${UI.esc(sup.tax_number_de)}` : ''}
         </div>
       </div>`;
     },

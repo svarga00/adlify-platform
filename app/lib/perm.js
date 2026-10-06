@@ -98,8 +98,19 @@
    */
   const ROUTE_POWER = { members: 'members.manage' };
 
+  /**
+   * Obrazovky, ktoré nemajú vlastné právo, lebo neukazujú nič navyše — sú to
+   * iné pohľady na to isté. „Ako to ide" je mapa toho, čo je na prehľade; keby
+   * mala vlastné právo, musel by ho niekto prideľovať a vzniklo by nastavenie,
+   * pri ktorom človek vidí prehľad, ale nie mapu k nemu.
+   *
+   * Nie je to to isté ako `ROUTE_POWER`: tam je právomoc **prísnejšia** než
+   * obrazovka, tu je to **tá istá** obrazovka inak zobrazená.
+   */
+  const ROUTE_ALIAS = { flow: 'dashboard' };
+
   /** Z názvu obrazovky urob kľúč práva. */
-  function keyOf(route) { return ROUTE_POWER[route] || route; }
+  function keyOf(route) { return ROUTE_POWER[route] || ROUTE_ALIAS[route] || route; }
 
   const isAdminRole = (m) => !!m && m.active !== false && m.role === 'admin';
 
@@ -167,7 +178,7 @@
   }
 
   const API = {
-    ROLES, MODULES, ADMIN_ONLY, PRESETS, ROUTE_POWER,
+    ROLES, MODULES, ADMIN_ONLY, PRESETS, ROUTE_POWER, ROUTE_ALIAS,
     bootstrap, modulesOf, can, keyOf, isAdmin, roleLabel, describe, grouped,
   };
   if (typeof window !== 'undefined') window.DanubraPerm = API;

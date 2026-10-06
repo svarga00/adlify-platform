@@ -20,7 +20,12 @@
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const money = (n, cur = 'EUR') => Number(n || 0).toLocaleString('sk-SK',
+  /**
+   * Suma. Nemecký doklad číta Nemec, takže aj čísla majú byť v tvare, aký
+   * pozná: 5.280,00 € a nie 5 280,00 €. Je to drobnosť, ktorá rozhoduje
+   * o tom, či doklad vyzerá ako od domácej firmy alebo ako preklad.
+   */
+  const money = (n, cur = 'EUR', loc = 'sk-SK') => Number(n || 0).toLocaleString(loc,
     { style: 'currency', currency: cur, minimumFractionDigits: 2 });
   const date = (d) => d ? new Date(d).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
   /** Text bez diakritiky — pre SMS (GSM-7). */
@@ -59,8 +64,8 @@
     td{padding:10px;border-bottom:1px solid #EEF2FB;font-size:13px;vertical-align:top}
     td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
     .total{display:flex;justify-content:flex-end;margin-top:6px}
-    .total-box{min-width:250px}
-    .total-row{display:flex;justify-content:space-between;padding:6px 10px;font-size:13px}
+    .total-box{min-width:320px}
+    .total-row{display:flex;justify-content:space-between;gap:18px;padding:6px 10px;font-size:13px}
     .total-row.sum{border-top:2px solid ${BRAND.navy};margin-top:5px;padding-top:10px;
       font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
     .pay{display:flex;gap:26px;align-items:flex-start;background:#F7F9FD;border:1px solid #E3EAF7;
@@ -70,6 +75,25 @@
       font-size:10.5px;color:#96A2BA;display:flex;justify-content:space-between;gap:16px}
     ul.clean{margin:8px 0;padding-left:18px}
     ul.clean li{margin:4px 0}
+    /* Zmluva má paragrafy a podpisy — dokument, ktorý sa podpisuje perom,
+       potrebuje miesto na to pero. */
+    .par{margin:14px 0 0}
+    .par h3{font-size:12.5px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;
+      color:${BRAND.navy}}
+    .par p{margin:0 0 6px;font-size:12.5px;line-height:1.55}
+    .sigs{display:flex;gap:40px;margin-top:38px;page-break-inside:avoid}
+    .sig{flex:1}
+    .sig .line{border-bottom:1px solid #6F7C95;height:46px}
+    .sig .who{font-size:11px;color:#6F7C95;margin-top:5px}
+    .ss-h{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#96A2BA;
+      font-family:ui-monospace,monospace;margin:26px 0 10px;padding-bottom:6px;
+      border-bottom:1px solid #E3EAF7;page-break-after:avoid}
+    .ss-row{display:flex;gap:18px;padding:7px 0;border-bottom:1px solid #EEF2FB;
+      page-break-inside:avoid}
+    .ss-row .lbl{flex:0 0 150px;margin:0;padding-top:2px}
+    .ss-row .val{flex:1;min-width:0}
+    /* Chýbajúci údaj sa nevynechá potichu — prázdny riadok vyzerá ako „netreba". */
+    .todo{color:#C25C0C;font-weight:600}
     .codes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
     .code{background:#F7F9FD;border:1px solid #E3EAF7;border-radius:10px;padding:11px 14px}
     .code .v{font-family:ui-monospace,monospace;font-size:19px;font-weight:600;letter-spacing:.05em}
@@ -143,46 +167,112 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
   }
 
   // ── FAKTÚRA ───────────────────────────────────────────────────────────────
-  function invoice({ invoice: inv, items, client, supplier, qrSvg, vatNote }) {
+  /** Koľko sa z faktúry naozaj prevedie na účet. Pozri `payable()` nižšie. */
+  function payable(inv = {}) {
+    const total = Number(inv.total) || 0;
+    const held = Number(inv.withholding_amount) || 0;
+    // `amount_net` je už vypočítané v databáze; ak chýba, dopočíta sa.
+    const net = inv.amount_net != null ? Number(inv.amount_net) : total - held;
+    return { total, held, net: held ? net : total };
+  }
+
+  const INV_L = {
+    sk: {
+      title: 'Faktúra', desc: 'Popis', qty: 'Množstvo', unit: 'MJ',
+      price: 'Cena/MJ', sum: 'Spolu',
+      issued: 'Vystavená', due: 'Splatnosť', delivery: 'Dodanie', period: 'Obdobie',
+      gross: 'Fakturovaná suma', hold: 'Zrážka §48b', pay: 'Na úhradu',
+      payInfo: 'Platobné údaje', ref: 'Variabilný symbol', amount: 'Suma',
+      scan: 'Zaplatiť naskenovaním', empty: 'Bez položiek',
+      holdNote: (pct) => `Odberateľ zrazí ${pct} % podľa §48 EStG a odvedie ich nemeckému `
+        + 'finančnému úradu. Neexistuje potvrdenie o oslobodení podľa §48b EStG. '
+        + 'Prevádza sa teda suma po zrážke.',
+    },
+    de: {
+      title: 'Rechnung', desc: 'Bezeichnung', qty: 'Menge', unit: 'Einheit',
+      price: 'Einzelpreis', sum: 'Gesamt',
+      issued: 'Rechnungsdatum', due: 'Fällig am', delivery: 'Leistungsdatum',
+      period: 'Leistungszeitraum',
+      gross: 'Rechnungsbetrag', hold: 'Bauabzugsteuer §48 EStG', pay: 'Zahlbetrag',
+      payInfo: 'Zahlungsinformationen', ref: 'Verwendungszweck', amount: 'Betrag',
+      scan: 'Zahlen per Scan', empty: 'Keine Positionen',
+      holdNote: (pct) => `Der Auftraggeber behält ${pct} % Bauabzugsteuer gemäß §48 EStG `
+        + 'ein und führt sie an das zuständige Finanzamt ab. Eine Freistellungs'
+        + 'bescheinigung nach §48b EStG liegt nicht vor. Zu überweisen ist der Zahlbetrag.',
+    },
+  };
+
+  /**
+   * Faktúra.
+   *
+   * Dve veci, ktoré tu predtým neboli a stáli peniaze:
+   *
+   * 1. **Zrážka §48b sa na doklade neukazovala.** Databáza ju počíta, appka ju
+   *    pri schvaľovaní zobrazí — ale na papieri, ktorý išiel odberateľovi,
+   *    stálo len „Na úhradu" s celou sumou. Odberateľ pritom 15 % zráža
+   *    a odvádza nemeckému finančnému úradu, takže na účet príde menej.
+   *    Bez rozpisu to vyzerá ako nedoplatok a dohaduje sa to pri urgencii.
+   *
+   * 2. **Faktúra pre nemeckého odberateľa bola po slovensky.** Ponuka aj
+   *    zmluva sú po nemecky; faktúra nie, hoci ju číta ten istý človek.
+   *    Jazyk sa odvodí od krajiny odberateľa a dá sa prebiť.
+   */
+  function invoice({ invoice: inv, items, client, supplier, qrSvg, vatNote, lang }) {
+    const de = (lang || ((client?.country || 'SK').toUpperCase() === 'SK' ? 'sk' : 'de')) === 'de';
+    const L = de ? INV_L.de : INV_L.sk;
+    const loc = de ? 'de-DE' : 'sk-SK';
+    const p = payable(inv);
+    const pct = Number(inv.withholding_pct)
+      || (p.total ? Math.round((p.held / p.total) * 100) : 0);
+
     const rows = (items || []).map(i => `<tr>
       <td>${esc(i.description)}</td>
-      <td class="r">${Number(i.quantity || 0).toLocaleString('sk-SK')}</td>
+      <td class="r">${Number(i.quantity || 0).toLocaleString(loc)}</td>
       <td class="r">${esc(i.unit || '')}</td>
-      <td class="r">${money(i.unit_price)}</td>
-      <td class="r"><strong>${money(i.total)}</strong></td></tr>`).join('');
+      <td class="r">${money(i.unit_price, inv.currency, loc)}</td>
+      <td class="r"><strong>${money(i.total, inv.currency, loc)}</strong></td></tr>`).join('');
+
     const body = `
-      ${header('Faktúra', inv.invoice_number, [], supplier)}
-      ${parties(supplier, client, [['Údaje', `
+      ${header(L.title, inv.invoice_number, [], supplier)}
+      ${parties(supplier, client, [[de ? 'Angaben' : 'Údaje', `
         <div style="font-size:12px;">
-          Vystavená: <strong>${date(inv.issue_date)}</strong><br>
-          Splatnosť: <strong>${date(inv.due_date)}</strong><br>
-          ${inv.delivery_date ? `Dodanie: ${date(inv.delivery_date)}<br>` : ''}
-          ${inv.billing_period_from ? `Obdobie: ${date(inv.billing_period_from)} – ${date(inv.billing_period_to)}` : ''}
-        </div>`]])}
+          ${esc(L.issued)}: <strong>${date(inv.issue_date)}</strong><br>
+          ${esc(L.due)}: <strong>${date(inv.due_date)}</strong><br>
+          ${inv.delivery_date ? `${esc(L.delivery)}: ${date(inv.delivery_date)}<br>` : ''}
+          ${inv.billing_period_from ? `${esc(L.period)}: ${date(inv.billing_period_from)} – ${date(inv.billing_period_to)}` : ''}
+        </div>`]], de ? 'de' : 'sk')}
       <table><thead><tr>
-        <th>Popis</th><th class="r">Množstvo</th><th class="r">MJ</th>
-        <th class="r">Cena/MJ</th><th class="r">Spolu</th>
-      </tr></thead><tbody>${rows || '<tr><td colspan="5">Bez položiek</td></tr>'}</tbody></table>
+        <th>${esc(L.desc)}</th><th class="r">${esc(L.qty)}</th><th class="r">${esc(L.unit)}</th>
+        <th class="r">${esc(L.price)}</th><th class="r">${esc(L.sum)}</th>
+      </tr></thead><tbody>${rows || `<tr><td colspan="5">${esc(L.empty)}</td></tr>`}</tbody></table>
       <div class="total"><div class="total-box">
-        <div class="total-row sum"><span>Na úhradu</span><span>${money(inv.total, inv.currency)}</span></div>
+        ${p.held ? `
+          <div class="total-row"><span>${esc(L.gross)}</span>
+            <span>${money(p.total, inv.currency, loc)}</span></div>
+          <div class="total-row" style="color:#C25C0C">
+            <span>${esc(L.hold)}${pct ? ` (${pct} %)` : ''}</span>
+            <span>− ${money(p.held, inv.currency, loc)}</span></div>` : ''}
+        <div class="total-row sum"><span>${esc(L.pay)}</span>
+          <span>${money(p.net, inv.currency, loc)}</span></div>
       </div></div>
+      ${p.held ? `<div class="note">${esc(L.holdNote(pct || 15))}</div>` : ''}
       ${vatNote ? `<div class="note">${esc(vatNote)}</div>` : ''}
       <div class="pay">
         <div style="flex:1">
-          <div class="lbl">Platobné údaje</div>
+          <div class="lbl">${esc(L.payInfo)}</div>
           <div class="val" style="line-height:1.9">
             IBAN: <strong style="font-family:ui-monospace,monospace">${esc(supplier?.iban || '—')}</strong><br>
-            Variabilný symbol: <strong style="font-family:ui-monospace,monospace">${esc(String(inv.invoice_number || '').replace(/\D/g, ''))}</strong><br>
-            Suma: <strong>${money(inv.total, inv.currency)}</strong><br>
-            Splatnosť: <strong>${date(inv.due_date)}</strong>
+            ${esc(L.ref)}: <strong style="font-family:ui-monospace,monospace">${esc(String(inv.invoice_number || '').replace(/\D/g, ''))}</strong><br>
+            ${esc(L.amount)}: <strong>${money(p.net, inv.currency, loc)}</strong><br>
+            ${esc(L.due)}: <strong>${date(inv.due_date)}</strong>
           </div>
         </div>
         ${qrSvg ? `<div style="text-align:center">
-          <div class="lbl">Zaplatiť naskenovaním</div>${qrSvg}
-          <div style="font-size:9.5px;color:#96A2BA;margin-top:4px">SEPA QR platba</div></div>` : ''}
+          <div class="lbl">${esc(L.scan)}</div>${qrSvg}
+          <div style="font-size:9.5px;color:#96A2BA;margin-top:4px">SEPA QR</div></div>` : ''}
       </div>
       ${foot(supplier)}`;
-    return shell(`Faktúra ${inv.invoice_number || ''}`, body);
+    return shell(`${L.title} ${inv.invoice_number || ''}`, body);
   }
 
   // ── PONUKA PRE ODBERATEĽA (nemecky) ───────────────────────────────────────
@@ -245,6 +335,144 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       ${note ? `<div class="note">${esc(note)}</div>` : ''}
       ${foot(supplier)}`;
     return shell(`Angebot ${q.quote_number || ''}`, body);
+  }
+
+  // ── WERKVERTRAG ───────────────────────────────────────────────────────────
+  // Zmluva o dielo po nemecky. Číta ju a podpisuje odberateľ, takže je to
+  // jediný jazyk, ktorý dáva zmysel.
+  //
+  // Dokument je zároveň to, čo pri kontrole obhajuje celý biznis model. Preto
+  // sú v ňom veci, ktoré by sa inak zabudli:
+  //
+  //   • **cena za dielo, nie za hodinu** — hodinová sadzba v zmluve o dielo
+  //     je jeden z hlavných znakov skrytej Arbeitnehmerüberlassung. Keď je
+  //     v zmluve hodinová, dokument to nezakrýva, ale doplní vetu o tom, že
+  //     sadzba je podkladom pre výpočet odmeny za dielo, nie odmenou za čas;
+  //   • **§ o postavení nasadených osôb** — samostatní podnikatelia s A1
+  //     a vlastnou živnosťou, vlastné vedenie prác, vlastné náradie;
+  //   • **dodatky v samotnom dokumente** — kto ho číta o rok, má vidieť
+  //     dohodnutý stav, nie pôvodný.
+  function werkvertrag({ contract: c, client, supplier, amendments = [], trade }) {
+    const L = {
+      hourly: 'Stundensatz', fixed: 'Pauschalpreis', unit: 'Einheitspreis',
+    };
+    const model = c.price_model || 'hourly';
+    const verguetung = model === 'fixed'
+      ? `<p><strong>Pauschalpreis: ${money(c.fixed_price)}</strong> zzgl. gesetzlicher
+         Umsatzsteuer, sofern nicht die Steuerschuldnerschaft des Leistungs&shy;empfängers
+         nach § 13b UStG greift.</p>`
+      : model === 'unit'
+        ? `<p><strong>Einheitspreis: ${money(c.unit_price)} je ${esc(c.unit_label || 'Einheit')}</strong>.
+           Abgerechnet wird nach gemeinsamem Aufmaß.</p>`
+        : `<p><strong>Verrechnungssatz: ${money(c.charge_rate)} je Stunde.</strong>
+           Der Satz ist Berechnungsgrundlage für die Vergütung des Werks; er begründet
+           keine Vergütung für Arbeitszeit und kein Weisungsrecht des Auftraggebers
+           gegenüber den eingesetzten Personen.</p>`;
+
+    const par = (title, html) => `<div class="par"><h3>${esc(title)}</h3>${html}</div>`;
+
+    const body = `
+      ${header('Werkvertrag', c.contract_number, [], supplier)}
+      ${parties(supplier, client, [['Vertrag', `
+        <div style="font-size:12px;">
+          ${c.date_from ? `Beginn: <strong>${date(c.date_from)}</strong><br>` : ''}
+          ${c.date_to ? `Ende: <strong>${date(c.date_to)}</strong><br>` : ''}
+          ${c.signed_at ? `Unterschrieben: <strong>${date(c.signed_at)}</strong>` : ''}
+        </div>`]], 'de')}
+
+      <div class="lbl">Gegenstand</div>
+      <div class="val" style="font-size:15px;font-weight:700;margin-bottom:4px">
+        ${esc(c.title || '')}</div>
+
+      ${par('§ 1 Vertragsgegenstand', c.scope
+        ? `<p>${esc(c.scope)}</p>`
+        : `<p><em>Der Leistungsgegenstand ist im Vertrag noch nicht beschrieben.</em></p>`)}
+
+      ${par('§ 2 Leistungsort', `<p>${
+        [c.site_name, c.site_address, c.site_city].filter(Boolean).map(esc).join(', ')
+          || '<em>Baustelle nicht angegeben.</em>'}</p>`)}
+
+      ${par('§ 3 Ausführungszeit', `<p>${
+        c.date_from
+          ? `Beginn ${date(c.date_from)}${c.date_to ? `, Fertigstellung ${date(c.date_to)}` : ''}.`
+          : 'Nach gesonderter Vereinbarung.'}</p>`)}
+
+      ${par(`§ 4 Vergütung (${L[model]})`, verguetung)}
+
+      ${par('§ 5 Zahlungsbedingungen', `
+        <p>Zahlungsziel: <strong>${esc(c.payment_terms_days ?? 30)} Tage</strong> ab
+        Rechnungseingang.</p>
+        ${c.retention_pct ? `<p>Sicherheitseinbehalt:
+          <strong>${esc(c.retention_pct)} %</strong> der Netto-Auftragssumme bis zum
+          Ablauf der Gewährleistungsfrist.</p>` : ''}
+        <p>Grundlage der Abrechnung ist der vom Auftraggeber
+        <strong>unterschriebene Stundennachweis</strong> bzw. das gemeinsame Aufmaß.</p>`)}
+
+      ${c.warranty_months ? par('§ 6 Gewährleistung',
+        `<p><strong>${esc(c.warranty_months)} Monate</strong> ab Abnahme.</p>`) : ''}
+
+      ${c.penalty_note ? par('§ 7 Vertragsstrafe', `<p>${esc(c.penalty_note)}</p>`) : ''}
+
+      ${c.notice_days ? par('§ 8 Kündigung',
+        `<p>Kündigungsfrist: <strong>${esc(c.notice_days)} Tage</strong>.</p>`) : ''}
+
+      ${par('§ 9 Status der eingesetzten Personen', `
+        <p>Der Auftragnehmer erbringt die Leistung als selbständiges Unternehmen.
+        Die eingesetzten Personen sind <strong>selbständige Unternehmer</strong> mit
+        eigenem Gewerbe und gültiger <strong>A1-Bescheinigung</strong>. Sie unterliegen
+        <strong>keinem Weisungsrecht</strong> des Auftraggebers; die Arbeitsleitung
+        obliegt dem Auftragnehmer.</p>
+        <p>Es handelt sich um einen Werkvertrag und
+        <strong>nicht um Arbeitnehmerüberlassung</strong>. ${
+          trade ? `Gewerk: ${esc(trade)}. ` : ''}Der Bau-Mindestlohn nach AEntG wird
+        eingehalten.</p>`)}
+
+      ${amendments.length ? par('Nachträge', `
+        <table><thead><tr><th>Nachtrag</th><th>Gegenstand</th><th class="r">Neu</th>
+          <th class="r">Unterschrieben</th></tr></thead><tbody>
+          ${amendments.map(a => `<tr>
+            <td>${esc(a.amendment_number || '—')}</td>
+            <td>${esc(AMEND_DE[a.field] || a.field)}</td>
+            <td class="r">${esc(amendValue(a.field, a.new_value))}</td>
+            <td class="r">${a.signed_at ? date(a.signed_at) : '—'}</td>
+          </tr>`).join('')}
+        </tbody></table>
+        <p style="margin-top:6px;">Maßgeblich ist der durch die Nachträge geänderte
+        Stand.</p>`) : ''}
+
+      <div class="sigs">
+        <div class="sig"><div class="line"></div>
+          <div class="who">${esc(supplier?.name || 'Auftragnehmer')} · Ort, Datum</div></div>
+        <div class="sig"><div class="line"></div>
+          <div class="who">${esc(client?.name || 'Auftraggeber')} · Ort, Datum</div></div>
+      </div>
+
+      <div class="foot">
+        <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}</span>
+        <span>Zwei gleichlautende Ausfertigungen</span>
+      </div>`;
+    return shell(`Werkvertrag ${c.contract_number || ''}`, body);
+  }
+
+  // Dodatok mení jedno pole zmluvy. V nemeckom dokumente musí byť nemecký
+  // názov toho poľa — nie náš vnútorný kľúč a nie slovenský dôvod, ktorý
+  // sme si k nemu napísali pre seba.
+  const AMEND_DE = {
+    date_to: 'Ausführungszeit (Ende)',
+    charge_rate: 'Verrechnungssatz',
+    fixed_price: 'Pauschalpreis',
+    unit_price: 'Einheitspreis',
+    retention_pct: 'Sicherheitseinbehalt',
+  };
+
+  /** Hodnota dodatku v tvare, v akom patrí do zmluvy, nie v akom je v databáze. */
+  function amendValue(field, value) {
+    if (value == null || value === '') return '—';
+    if (field === 'date_to') return date(value);
+    if (field === 'retention_pct') return `${String(value).replace('.', ',')} %`;
+    if (field === 'charge_rate') return `${money(value)} / Std.`;
+    if (field === 'fixed_price' || field === 'unit_price') return money(value);
+    return String(value);
   }
 
   // ── POTVRDENIE OBJEDNÁVKY (bez adresy! §5.1) ──────────────────────────────
@@ -335,6 +563,113 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
   }
 
   // ── ODOVZDÁVACÍ PROTOKOL (obsahuje adresu — až po úhrade!) ────────────────
+  // ── INFOLIST NA STAVBU ────────────────────────────────────────────────────
+  /**
+   * Jedna strana, ktorú živnostník dostane pred nástupom. Po slovensky —
+   * číta ju Slovák. Adresy a nemecké vety sú v nemčine: preklad adresy
+   * nikomu nepomôže, preložená veta „som subdodávateľ firmy X" áno.
+   *
+   * Údaj, ktorý nie je vyplnený, sa **nevynechá potichu**. Napíše sa, že
+   * chýba, a u koho sa dá zistiť. Prázdny riadok na papieri vyzerá ako
+   * „netreba" a práve pre to sa potom volá v nedeľu večer.
+   */
+  function siteSheet({ worker, assignment, subcontract, partner, lodging, supplier,
+    trade, state }) {
+    const S = (typeof module !== 'undefined' && module.exports)
+      ? require('./sitesheet') : window.DanubraSiteSheet;
+    const sub = subcontract || {};
+    const st = state || S.check({ worker, assignment, subcontract: sub, partner, lodging });
+    const v = st.values;
+    const chyba = (key) => {
+      const m = st.missing.find(x => x.key === key);
+      return m ? `<span class="todo">${esc(m.why)} Spýtaj sa u nás, kým nastúpiš.</span>` : '';
+    };
+    const riadok = (label, key, extra) => `<div class="ss-row">
+      <div class="lbl">${esc(label)}</div>
+      <div class="val">${v[key] ? esc(v[key]) : chyba(key)}${extra || ''}</div>
+    </div>`;
+
+    const mapaStavby = S.mapUrl(sub);
+    const mapaByt = lodging ? S.mapUrl(lodging) : '';
+    const vety = S.phrases({ supplier, partner, worker, trade });
+
+    const body = `
+      ${header('Infolist na stavbu', (worker && worker.full_name) || '', [
+        sub.title || '', sub.contract_number || ''].filter(Boolean), supplier)}
+
+      <div class="note" style="border-left-color:#1E4FD8">
+        Toto si vezmi so sebou. Keď niečo nesedí, <strong>zavolaj nám skôr, než
+        niečo podpíšeš alebo začneš robiť</strong> — na stavbe sa to potom rieši ťažko.
+      </div>
+
+      <h2 class="ss-h">Kam a kedy</h2>
+      ${riadok('Stavba', 'site', mapaStavby
+        ? ` <a href="${esc(mapaStavby)}">Otvoriť v mape</a>` : '')}
+      <!-- Dátum po slovensky. check() vracia 'YYYY-MM-DD', lebo to je tvar na
+           porovnávanie; na papier pre človeka patrí 12. 10. 2026. -->
+      <div class="ss-row"><div class="lbl">Prvý deň</div>
+        <div class="val">${v.start ? esc(date(v.start)) : chyba('start')}</div></div>
+      ${riadok('Začiatok práce', 'time')}
+      ${riadok('Kde sa hlásiť', 'meeting')}
+      ${riadok('Za kým ísť', 'contact')}
+      ${sub.site_note ? `<div class="ss-row"><div class="lbl">Ešte k stavbe</div>
+        <div class="val">${esc(sub.site_note)}</div></div>` : ''}
+
+      <h2 class="ss-h">Ubytovanie</h2>
+      ${riadok('Adresa', 'lodging', mapaByt
+        ? ` <a href="${esc(mapaByt)}">Otvoriť v mape</a>` : '')}
+      ${riadok('Kľúče', 'keys')}
+      ${lodging && lodging.house_rules ? `<div class="ss-row">
+        <div class="lbl">Čo platí v dome</div>
+        <div class="val">${esc(lodging.house_rules)}</div></div>` : ''}
+
+      <h2 class="ss-h">Čo si priniesť</h2>
+      <table><thead><tr><th>Vec</th><th>Prečo</th></tr></thead><tbody>
+        ${S.BRING.map(b => `<tr><td><strong>${esc(b.what)}</strong></td>
+          <td style="color:#6F7C95">${esc(b.why)}</td></tr>`).join('')}
+      </tbody></table>
+
+      <h2 class="ss-h">Ako sa hlásia hodiny</h2>
+      <ul class="clean">
+        <li>Hodiny zapisuj <strong>každý deň</strong>, nie na konci týždňa — spätne sa
+          nikto nespomenie, kedy sa začalo a kedy skončilo.</li>
+        <li>Na konci týždňa podpíše odberateľ výkaz (<em>Stundennachweis</em>).
+          <strong>Nepodpisuj nič iné</strong>, čo ti na stavbe dajú, kým sa neozveš nám.</li>
+        <li>Z tých istých hodín vzniká tvoja faktúra nám aj naša faktúra odberateľovi.
+          Preto sa musia zhodovať.</li>
+      </ul>
+
+      <h2 class="ss-h">Nemecké vety, ktoré budeš potrebovať</h2>
+      <table><thead><tr><th>Po slovensky</th><th>Po nemecky</th></tr></thead><tbody>
+        ${vety.map(f => `<tr><td style="color:#6F7C95">${esc(f.sk)}</td>
+          <td><strong>${esc(f.de)}</strong></td></tr>`).join('')}
+      </tbody></table>
+
+      <h2 class="ss-h">Keď je problém</h2>
+      <ul class="clean">
+        <li><strong>Nepustia ťa na stavbu</strong> alebo chcú doklad, ktorý nemáš —
+          zavolaj nám hneď, nerieš to sám.</li>
+        <li><strong>Kontrola (Zoll, FKS)</strong> — ukáž A1 a živnostenský list,
+          buď slušný, nič nepodpisuj a zavolaj nám.</li>
+        <li><strong>Úraz</strong> — najprv 112, potom nám. Aj drobný úraz treba nahlásiť
+          v ten istý deň.</li>
+        <li><strong>Chcú od teba prácu mimo dohody</strong> — povedz, že sa musíš
+          spýtať, a zavolaj. Nie je to nezdvorilosť, je to zmluva.</li>
+      </ul>
+
+      ${supplier && (supplier.phone || supplier.email) ? `<div class="pay">
+        <div style="flex:1">
+          <div class="lbl">Na nás sa dovoláš tu</div>
+          <div class="val" style="line-height:1.9">
+            ${supplier.phone ? `Telefón: <strong>${esc(supplier.phone)}</strong><br>` : ''}
+            ${supplier.email ? `E-mail: <strong>${esc(supplier.email)}</strong>` : ''}
+          </div>
+        </div>
+      </div>` : ''}
+      ${foot(supplier)}`;
+    return shell(`Infolist — ${(worker && worker.full_name) || 'stavba'}`, body);
+  }
+
   function handover({ order, client, data, supplier }) {
     const d = data || {};
     const code = (l, v) => v ? `<div class="code"><div class="lbl">${esc(l)}</div><div class="v">${esc(v)}</div></div>` : '';
@@ -398,8 +733,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { invoice, quote, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { invoice, quote, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
   }
 })();

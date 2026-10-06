@@ -220,19 +220,24 @@
           <div class="form-grid">
             ${UI.field('title', 'Názov ponuky', { value: q.title, required: true,
               placeholder: 'napr. Sadrokartón — Leipzig, 4 ľudia' })}
-            ${UI.field('partner_id', 'Odberateľ', { value: q.partner_id, required: true,
+            ${UI.field('partner_id', 'Odberateľ', { value: q.partner_id, required: true, add: 'partner',
               options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
-            ${UI.field('trade_key', 'Remeslo', { value: q.trade_key,
+            ${UI.field('trade_key', 'Remeslo', { value: q.trade_key, add: 'trade',
               options: [['', '—'], ...Wrk.professions()] })}
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: q.headcount ?? 1 })}
             ${UI.field('work_type', 'Typ prác', { value: q.work_type || 'construction',
               options: [['construction', 'Stavebné (SOKA, §48b, Bau-Mindestlohn)'],
-                        ['workshop', 'Dielenské (nižšia regulácia)']] })}
+                        ['workshop', 'Dielenské (nižšia regulácia)']],
+              hint: 'Stavba znamená vyššie odvody aj zrážku 15 % z faktúry. Pri '
+                + 'rovnakej sadzbe je z nej podstatne menšia marža než z dielne.' })}
             ${UI.field('site_city', 'Mesto', { value: q.site_city })}
             ${UI.field('site_address', 'Adresa stavby', { value: q.site_address })}
             ${UI.field('date_from', 'Od', { type: 'date', value: q.date_from })}
             ${UI.field('date_to', 'Do', { type: 'date', value: q.date_to })}
-            ${UI.field('valid_until', 'Ponuka platí do', { type: 'date', value: q.valid_until })}
+            ${UI.field('valid_until', 'Ponuka platí do', { type: 'date', value: q.valid_until,
+              hint: 'Po tomto dni ponuka prepadne a na prehľade sa to zobrazí ako '
+                + 'červené. Bez platnosti sa o pol roka niekto odvolá na sadzbu, '
+                + 'ktorá už neplatí.' })}
           </div>
 
           <div class="form-section">Peniaze</div>
@@ -240,11 +245,18 @@
             Réžia je ubytovanie, doprava a všetko ostatné prepočítané na hodinu.
             Keď ju necháš na nule, marža bude vyzerať lepšie, než je.</div>
           <div class="form-grid">
-            ${UI.field('charge_rate', 'Fakturujeme €/h', { type: 'number', value: q.charge_rate })}
-            ${UI.field('worker_rate', 'Živnostníkovi €/h', { type: 'number', value: q.worker_rate })}
-            ${UI.field('overhead_per_hour', 'Réžia €/h', { type: 'number', value: q.overhead_per_hour ?? 0 })}
+            ${UI.field('charge_rate', 'Fakturujeme €/h', { type: 'number', value: q.charge_rate,
+              hint: 'Sadzba bez DPH, ktorú uvidí odberateľ v ponuke aj na faktúre.' })}
+            ${UI.field('worker_rate', 'Živnostníkovi €/h', { type: 'number', value: q.worker_rate,
+              hint: 'Čo zaplatíme jemu. Na stavbe musí byť aspoň Bau-Mindestlohn — '
+                + 'pod ním to databáza pustí len s výnimkou.' })}
+            ${UI.field('overhead_per_hour', 'Réžia €/h', { type: 'number', value: q.overhead_per_hour ?? 0,
+              hint: 'Ubytovanie, doprava a réžia prepočítané na hodinu. Na nule '
+                + 'vyjde marža vyššia, než aká naozaj je.' })}
             ${UI.field('hours_per_month', 'Hodín na človeka/mesiac', { type: 'number',
-              value: q.hours_per_month ?? 168 })}
+              value: q.hours_per_month ?? 168,
+              hint: '168 je bežný mesiac. Z tohto čísla sa počíta mesačná marža '
+                + 'v ponuke — nie je to záväzok odpracovať ich.' })}
           </div>
           <div id="quo-live"></div>
 

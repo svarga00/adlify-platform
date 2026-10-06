@@ -217,6 +217,7 @@
           ${check.flagCount ? `<div class="warnbox">${Icon('alert', 14)}
             Kandidát má ${check.flagCount} ${check.flagCount === 1 ? 'červenú vlajku' : 'červené vlajky'}.</div>` : ''}
           ${UI.field('subcontract_id', 'Na ktorú zákazku nastupuje', { required: true,
+            add: 'subcontract',
             options: list.map(s => [s.id,
               `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`]) })}
           ${UI.field('expected_start', 'Dátum nástupu', { type: 'date',

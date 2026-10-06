@@ -155,5 +155,59 @@ console.log('Inzeráty');
   eq(A.performance(null).candidates, 0, 'bez dát to nespadne');
 }
 
+
+// ── Odkiaľ ľudia naozaj prišli ──────────────────────────────────────────────
+// Obrazovka kandidátov zoskupovala podľa `source` — voľného poľa, ktoré hovor
+// nikdy nevyplnil. Na obrazovke preto stálo „Iné: 2" a nedalo sa z toho nič
+// prečítať, hoci hovor sa začína otázkou, na ktorý inzerát kandidát volá.
+{
+  const ads = [
+    { id: 'a1', title: 'Murári Stuttgart FB', channel: 'facebook' },
+    { id: 'a2', title: 'Sadrokartonári Mníchov', channel: 'portal' },
+  ];
+  const cands = [
+    { ad_id: 'a1', status: 'placed', first_contact_at: '2026-01-01' },
+    { ad_id: 'a1', status: 'new' },
+    { ad_id: 'a2', status: 'placed', first_contact_at: '2026-01-01' },
+    { ad_id: 'a2', status: 'placed' },
+    { source: 'referral', status: 'new' },
+    { status: 'new' },
+  ];
+  const f = A.funnel(cands, ads);
+
+  // Rozhoduje, kto nastúpil — nie kto sa ozval. Inzerát, na ktorý sa ozve
+  // tridsať ľudí a nikto nenastúpi, nie je lepší než ten s dvoma, čo robia.
+  eq(f.map(r => r.label),
+    ['Sadrokartonári Mníchov', 'Murári Stuttgart FB', 'Bez inzerátu', 'Odporúčanie'],
+    'zoradené podľa nastúpených, nie podľa počtu ozvaní');
+  eq(f[0].placed, 2, 'počíta sa, koľkí nastúpili');
+  eq(f[0].hireRate, 100, 'aj podiel');
+  eq(f[1].contacted, 1, 'a komu sme sa stihli ozvať späť');
+  eq(f[1].contactRate, 50, 'aj to v percentách');
+  eq(f[0].sub, 'Pracovný portál', 'pri inzeráte je vidieť kanál');
+
+  // Kto prišiel mimo inzerátu, musí byť vidieť zvlášť — inak sa tvári, že
+  // vieme, odkiaľ je.
+  const bez = f.find(r => r.key === 'src:unknown');
+  ok(bez && bez.total === 1, 'kandidát bez inzerátu aj bez zdroja je zvlášť');
+  ok(bez.sub.includes('nevieme'), 'a je napísané, že to nevieme');
+  eq(f.find(r => r.key === 'src:referral').label, 'Odporúčanie',
+    'kto prišiel cez známeho, spadne pod svoj kanál');
+
+  eq(A.funnel([], ads), [], 'bez kandidátov je to prázdne');
+  eq(A.funnel(null, null), [], 'a chýbajúce vstupy nezhodia');
+  eq(A.funnel([{ ad_id: 'neznamy', status: 'new' }], ads)[0].label, 'Bez inzerátu',
+    'odkaz na inzerát, ktorý neexistuje, sa nerozsype');
+
+  // Veta pod grafom
+  ok(A.funnelSentence(f).includes('Sadrokartonári Mníchov'),
+    'veta povie, ktorý inzerát priviedol ľudí');
+  ok(A.funnelSentence(f).includes('1 človeku'), 'a skloňuje správne');
+  const nikto = A.funnel([{ status: 'new' }, { status: 'new' }], ads);
+  ok(A.funnelSentence(nikto).includes('väzba vzniká pri hovore'),
+    'keď nevieme pri nikom, povie sa, kde tá väzba vzniká');
+  eq(A.funnelSentence([]), '', 'bez dát niet čo povedať');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

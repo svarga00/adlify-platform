@@ -141,5 +141,50 @@ const ts = (w, date, hours, extra = {}) =>
   eq(H.hoursText(null), '', 'ani keď nič nepríde');
 }
 
+// ── Pauza ───────────────────────────────────────────────────────────────────
+// Na pôvodnom papieri od odberateľa je riadok „Pause". V appke sa nezapisuje,
+// ale dá sa dopočítať: čas od–do mínus odrobené hodiny. Je to číslo, ktoré ide
+// na doklad na podpis — takže keď si ním nie sme istí, nepíše sa nič.
+console.log('Pauza');
+{
+  const w = [{ id: 'w1', full_name: 'Prvý' }, { id: 'w2', full_name: 'Druhý' }];
+  const s2 = H.build({ year: 2026, week: 40, workers: w, timesheets: [
+    // Pondelok: 07:00–16:30 je 9,5 h, odrobených 9 → pol hodiny pauza.
+    { worker_id: 'w1', work_date: '2026-09-28', hours: 9, time_from: '07:00', time_to: '16:30' },
+    { worker_id: 'w2', work_date: '2026-09-28', hours: 8, time_from: '07:00', time_to: '16:30' },
+    // Utorok: 07:00–15:00 je presne 8 h a 8 sa odrobilo → žiadna pauza.
+    { worker_id: 'w1', work_date: '2026-09-29', hours: 8, time_from: '07:00', time_to: '15:00' },
+    // Streda: rôzne časy — rozpätie je roztiahnuté a pauza by vyšla väčšia,
+    // než aká bola.
+    { worker_id: 'w1', work_date: '2026-09-30', hours: 8, time_from: '06:00', time_to: '14:30' },
+    { worker_id: 'w2', work_date: '2026-09-30', hours: 8, time_from: '08:00', time_to: '16:30' },
+    // Štvrtok: hodiny bez časov — nie je z čoho počítať.
+    { worker_id: 'w1', work_date: '2026-10-01', hours: 9 },
+  ] });
+
+  eq(s2.pause[0], 30, 'pol hodiny pauzy sa dopočíta z času a hodín');
+  eq(s2.pause[1], null, 'keď sa pauza nekonala, nepíše sa nula');
+  eq(s2.pause[2], null, 'pri rôznych časoch sa pauza nehádže — bola by nesprávna');
+  eq(s2.pause[3], null, 'bez zapísaných časov nie je z čoho počítať');
+  eq(s2.pause.length, s2.days.length, 'pre každý deň jedna hodnota');
+
+  // Počíta sa proti najdlhšiemu dňu jedného človeka, nie proti súčtu partie —
+  // inak by pri troch ľuďoch vyšla záporná pauza a riadok by zmizol.
+  const traja = H.build({ year: 2026, week: 40,
+    workers: [...w, { id: 'w3', full_name: 'Tretí' }],
+    timesheets: [
+      { worker_id: 'w1', work_date: '2026-09-28', hours: 9, time_from: '07:00', time_to: '16:30' },
+      { worker_id: 'w2', work_date: '2026-09-28', hours: 9, time_from: '07:00', time_to: '16:30' },
+      { worker_id: 'w3', work_date: '2026-09-28', hours: 9, time_from: '07:00', time_to: '16:30' },
+    ] });
+  eq(traja.pause[0], 30, 'traja ľudia na tej istej smene majú tú istú polhodinu');
+
+  eq(H.pauseText(30), '0:30', 'pauza sa píše ako 0:30');
+  eq(H.pauseText(90), '1:30', 'aj viac než hodina');
+  eq(H.pauseText(null), '', 'prázdna pauza sa nepíše');
+  eq(H.pauseText(0), '', 'ani nulová');
+  eq(H.pauseText('x'), '', 'ani nezmysel');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

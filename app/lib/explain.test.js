@@ -175,5 +175,77 @@ const KEYS = X.keys();
     'pri kandidátoch je napísané pravidlo o nahrávaní hovoru');
 }
 
+// ── Kľúče skladané v šablóne ────────────────────────────────────────────────
+// `Help.btn(\`flow.${s.key}\`)` a `Help.btn(\`kpi.${d.key}\`)` nie sú reťazcové
+// literály, takže ich test tlačidiel vyššie nevidí. Pritom sú to tie najhoršie
+// prípady: kľúč sa poskladá za behu, nenájde sa a tlačidlo sa ticho nevykreslí.
+// Preto sa porovnávajú priamo so zoznamom krokov a dlaždíc.
+{
+  const F = require('./chain.js');
+  const D = require('./dashdetail.js');
+
+  const chybaKrok = F.STEPS.map(s => s.key).filter(k => !X.has(`flow.${k}`));
+  ok(chybaKrok.length === 0,
+    `každý krok reťazca má vysvetlivku (${F.STEPS.length})`,
+    `chýba: ${chybaKrok.map(k => `flow.${k}`).join(', ')}`);
+
+  // A naopak — vysvetlivka ku kroku, ktorý už neexistuje, je text, ktorý nikto
+  // neuvidí a nikto neopraví.
+  const kroky = new Set(F.STEPS.map(s => s.key));
+  const navyseKrok = KEYS.filter(k => k.startsWith('flow.') && !kroky.has(k.slice(5)));
+  ok(navyseKrok.length === 0, 'a žiadna vysvetlivka nevisí pri kroku, ktorý zmizol',
+    navyseKrok.join(', '));
+
+  const chybaKpi = D.KPIS.map(d => d.key).filter(k => !X.has(`kpi.${k}`));
+  ok(chybaKpi.length === 0, `každá dlaždica prehľadu má vysvetlivku (${D.KPIS.length})`,
+    `chýba: ${chybaKpi.map(k => `kpi.${k}`).join(', ')}`);
+
+  const dlazdice = new Set(D.KPIS.map(d => d.key));
+  const navyseKpi = KEYS.filter(k => k.startsWith('kpi.') && !dlazdice.has(k.slice(4)));
+  ok(navyseKpi.length === 0, 'a žiadna nevisí pri dlaždici, ktorá zmizla',
+    navyseKpi.join(', '));
+
+  // Číslo kroku v nadpise vysvetlivky musí sedieť s číslom na obrazovke.
+  // Keby sa kroky preusporiadali, nadpis „9 · Nasadenie" by zostal pri inom.
+  const zleCislo = F.STEPS.filter(s => {
+    const t = X.get(`flow.${s.key}`);
+    return t && !new RegExp(`^${s.n} · `).test(t.title);
+  }).map(s => `${s.key}: ${X.get(`flow.${s.key}`).title} ≠ ${s.n}`);
+  ok(zleCislo.length === 0, 'číslo kroku v nadpise sedí s poradím v reťazci',
+    zleCislo.join('; '));
+}
+
+// ── Každá vysvetliteľná karta má „?" ────────────────────────────────────────
+// `card-title` je v moduloch dvojaké. Raz je to **názov sekcie** („Zálohy",
+// „Smieme ho nasadiť?") — tam vysvetlivka patrí. Druhýkrát je to **meno
+// záznamu** v zozname (`${UI.esc(w.full_name)}`) — tam by „?" bolo nezmyselné:
+// vysvetľovať sa má obrazovka, nie Ján Novák.
+//
+// Rozoznať sa to dá spoľahlivo: názov sekcie je napísaný v kóde natvrdo, meno
+// záznamu sa dosadzuje. Preto sa pravidlo vzťahuje na statické nadpisy — a na
+// všetky moduly naraz, nie na zoznam „hotových".
+{
+  const dir = path.join(__dirname, '..', 'js', 'modules');
+  const bad = [];
+  let sekcii = 0;
+  for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.js'))) {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8');
+    for (const m of src.matchAll(/class="card-title"[^>]*>([\s\S]{0,250}?)<\/div>/g)) {
+      const inner = m[1];
+      // Odstráň samotné volanie Help.btn a pozri, či v nadpise zostalo
+      // nejaké dosadenie. Keď áno, je to meno záznamu a pravidlo neplatí.
+      const bezHelp = inner.replace(/\$\{\s*\n?\s*Help\.btn[^}]*\}/g, '');
+      if (/\$\{/.test(bezHelp)) continue;
+      sekcii++;
+      if (!inner.includes('Help.btn')) {
+        bad.push(`${f}:${src.slice(0, m.index).split('\n').length}`);
+      }
+    }
+  }
+  ok(bad.length === 0,
+    `každá sekcia s natvrdo napísaným nadpisom má „?" (${sekcii})`,
+    `bez vysvetlivky: ${bad.join(', ')}`);
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

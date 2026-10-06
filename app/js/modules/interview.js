@@ -85,6 +85,33 @@
 
     setPickMode(m) { this.pickMode = m; this.render(); },
 
+    /**
+     * Krátky hovor alebo plný pohovor.
+     *
+     * Cieľ je ozvať sa do desiatich minút od ozvania. Celý hovor má šesť
+     * častí a trvá dvadsať minút — keď sa začne ním, k tretiemu človeku sa
+     * náborár v ten deň nedostane. Predvolený je preto krátky; na plný sa
+     * dá prejsť jedným klepnutím, aj uprostred hovoru, keď to sedí.
+     */
+    mode: 'quick',
+    setMode(m) {
+      this.mode = m === 'full' ? 'full' : 'quick';
+      if (!this.setup) {
+        this.segments = this.buildSegments(this.trade?.key, this.cand?.ad_id);
+        this.segIndex = 0;
+      }
+      this.render();
+    },
+
+    /** Z krátkeho hovoru sa dá prejsť na plný bez toho, aby sa čokoľvek stratilo. */
+    goFull() {
+      this.mode = 'full';
+      this.segments = this.buildSegments(this.trade?.key, this.cand?.ad_id);
+      this.segIndex = 0;
+      this.render();
+      UI.toast('Pokračuješ plným pohovorom — čo si zaškrtol, zostáva', 'ok');
+    },
+
     /** Zákazka, na ktorú sa naberá — cez plán, alebo priamo z kandidáta. */
     subcontract() {
       const id = this.plan?.subcontract_id || this.cand?.subcontract_id;
@@ -109,7 +136,10 @@
       const { data: cand, error } = await DB.insert('candidates', {
         full_name: name, phone, type: crew ? 'crew' : 'individual',
         profession: this.trade.key, legal_form: this.plan?.legal_form || 'szco',
-        source: 'inzerat', status: 'contacted',
+        // Zdroj je kanál inzerátu, nie slovo „inzerat". Doteraz sa tu
+        // zapisovala hodnota, ktorá nie je v žiadnom číselníku, takže
+        // v prehľade zdrojov z nej nebolo čo prečítať.
+        source: this.ad?.channel || 'other', status: 'contacted',
         ad_id: this.ad?.id || null,
         plan_id: this.plan?.id || null,
         city: this.plan?.city || this.ad?.city || null,
@@ -142,10 +172,24 @@
      * kde sú najužitočnejšie, chýbali.
      */
     buildSegments(tradeKey, adId) {
-      const segs = CH.buildCallSegments({ tradeKey, chips: this.chips });
       const qs = AD().questionsFor({
         questions: this.questions, tradeKey, adId: adId || null, phase: 'phone',
       });
+
+      // Krátky hovor je jedna obrazovka: najdôležitejšie z remesla, papierov,
+      // termínu a peňazí. Otázky sa doň berú tie najťažšie — na tie sa treba
+      // spýtať tak či tak a práve ony odlíšia majstra od toho, kto „to už raz
+      // robil".
+      if (this.mode !== 'full') {
+        const quick = CH.buildQuickSegment({ tradeKey, chips: this.chips });
+        const vybrane = qs.slice()
+          .sort((a, b) => (b.weight || 1) - (a.weight || 1))
+          .slice(0, 3);
+        return quick.chips.length || vybrane.length
+          ? [{ ...quick, questions: vybrane }] : [];
+      }
+
+      const segs = CH.buildCallSegments({ tradeKey, chips: this.chips });
       return AD().withQuestions(segs, qs, CH.SEGMENTS.map(s => s.key))
         .map(s => (s.title === s.key ? { ...s, title: CH.segmentTitle(s.key), lead: '' } : s));
     },
@@ -408,8 +452,24 @@
           <input type="checkbox" id="call-crew"> <span style="font-size:15px;">Je to partia, nie jednotlivec</span>
         </label>
 
-        <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:18px;"
-          onclick="Guide.beginCall()">${Icon('phone', 20)} Začať hovor</button>
+        <div class="call-mode">
+          <button class="call-mode-btn${this.mode !== 'full' ? ' active' : ''}"
+            onclick="Guide.setMode('quick')">
+            <b>Krátky hovor</b>
+            <span>Do troch minút: remeslo, papiere, kedy môže, peniaze.
+              Toľko stačí na rozhodnutie, či sa oplatí pokračovať.</span>
+          </button>
+          <button class="call-mode-btn${this.mode === 'full' ? ' active' : ''}"
+            onclick="Guide.setMode('full')">
+            <b>Plný pohovor</b>
+            <span>Šesť častí, dvadsať minút. Keď už vieš, že má zmysel sa
+              s ním baviť — alebo keď má teraz čas.</span>
+          </button>
+        </div>
+
+        <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:14px;"
+          onclick="Guide.beginCall()">${Icon('phone', 20)} ${
+          this.mode === 'full' ? 'Začať pohovor' : 'Začať hovor'}</button>
         ${!this.trade ? `<div class="guide-note-hint">Vyber inzerát, nábor alebo remeslo —
           podľa toho sa poskladajú polia aj otázky a vpravo uvidíš, čo sme
           sľúbili.</div>` : ''}`;
@@ -706,6 +766,17 @@
               ? `<ul>${s.bad.map(x => `<li>${UI.esc(x)}</li>`).join('')}</ul>`
               : '<p>nič</p>'}</div>
           </div>
+
+          ${this.mode !== 'full' ? `<div class="quick-next">
+            ${(() => { const n = CH.quickNext(r); return `
+              <b>${UI.esc(n.label)}</b>
+              <span>${UI.esc(n.why)}</span>`; })()}
+          </div>` : ''}
+
+          ${this.mode !== 'full' && r.nextAction.key !== 'reject'
+            ? `<button class="guide-btn guide-btn-yes" style="margin-bottom:10px;"
+                 onclick="Guide.goFull()">${Icon('chevron', 18)}
+                 Pokračovať plným pohovorom</button>` : ''}
 
           <div class="guide-end-actions">
             ${r.nextAction.key === 'reject'

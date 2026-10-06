@@ -31,17 +31,25 @@
   };
 
   const Cand = {
-    items: [], loaded: false, view_: 'kanban', filters: { source: '', q: '', outcome: 'active' },
+    items: [], ads: [], loaded: false,
+    // Predvolene zoznam. Kanban s piatimi stĺpcami, z ktorých sú štyri
+    // prázdne, zaberie pol obrazovky a nepovie nič; zmysel má, až keď je
+    // koho presúvať.
+    view_: null, filters: { source: '', q: '', outcome: 'active' },
     plans: [], playbookLoaded: false,
     allChecks: [], allChips: [], candChips: [], chipsLoaded: false,
 
     async load() {
-      const [c, ch] = await Promise.all([
+      const [c, ch, a] = await Promise.all([
         DB.list('candidates', { order: { column: 'received_at', ascending: false }, limit: 500 }),
         DB.list('candidate_checks', { select: 'candidate_id,step_key,item_index,checked', limit: 5000 }),
+        // Bez inzerátov sa nedá povedať, odkiaľ kto prišiel — a to je jediné
+        // číslo, ktorým sa dajú inzeráty porovnať.
+        DB.list('ads', { select: 'id,title,channel,trade_key,city,active', limit: 200 }),
       ]);
       this.items = c.data || [];
       this.allChecks = ch.data || [];
+      this.ads = a.data || [];
       this.loaded = true;
     },
 
@@ -66,6 +74,18 @@
     professionLabel(p) { const x = PROFESSIONS.find(y => y[0] === p); return x ? x[1] : (p || '—'); },
     sourceLabel(s) { const x = SOURCES.find(y => y[0] === s); return x ? x[1] : (s || 'neuvedený'); },
 
+    /**
+     * Z ktorého inzerátu kandidát je. Kanál („Facebook") povie málo —
+     * inzerátov na Facebooku môže bežať päť a líšia sa sľúbenou sadzbou.
+     * Preto sa ukazuje názov inzerátu a kanál až pod ním.
+     */
+    adOf(c) { return (this.ads || []).find(a => a.id === c.ad_id) || null; },
+    adLabel(c) {
+      const a = this.adOf(c);
+      if (a) return a.title;
+      return c.source ? DanubraAds.channelLabel(c.source) : 'bez inzerátu';
+    },
+
     /** Koľko minút trvalo ozvať sa. null ak zatiaľ nie. */
     responseMinutes(c) {
       if (!c.first_contact_at || !c.received_at) return null;
@@ -88,9 +108,10 @@
     },
 
     async view(el) {
-      Danubra.setActions(`
-        <button class="btn btn-outline btn-sm" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>
-        <button class="btn btn-primary btn-sm" onclick="Guide.startCall()">${Icon('phone')} Zdvihol som telefón</button>`);
+      // „Zdvihol som telefón" je dole cez celú šírku — tu by bolo to isté
+      // tlačidlo druhýkrát na jednej obrazovke.
+      Danubra.setActions(
+        `<button class="btn btn-outline btn-sm" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
 
@@ -101,26 +122,13 @@
       const conv = this.items.length ? Math.round((placed / this.items.length) * 100) : 0;
 
       el.innerHTML = Danubra.header(Danubra.labelOf('candidates'),
-        `${this.items.length} kandidátov · ${placed} nasadených · konverzia ${conv} %`) +
+        `${this.items.length} ${Shell.plural(this.items.length, 'kandidát', 'kandidáti', 'kandidátov')}`
+        + (placed ? ` · ${placed} nastúpilo` : '')) +
         (waiting.length ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${waiting.length} ${waiting.length === 1 ? 'kandidát čaká' : 'kandidátov čaká'}
           na prvý kontakt — cieľ je ozvať sa do desiatich minút.</div>` : '') + `
 
-        <div class="kpi-grid" style="margin-bottom:16px;">
-          <div class="kpi"><div class="kpi-label">V pipeline</div>
-            <div class="kpi-value">${this.items.filter(c => PIPELINE.includes(c.status)).length}</div>
-            <div class="kpi-delta">rozpracovaní</div></div>
-          <div class="kpi"><div class="kpi-label">Priemerná reakcia</div>
-            <div class="kpi-value" style="color:${avg == null ? 'var(--ink-mute)' : avg <= 10 ? 'var(--green)' : 'var(--amber)'};">
-              ${avg == null ? '—' : avg + ' min'}</div>
-            <div class="kpi-delta">cieľ do 10 minút</div></div>
-          <div class="kpi"><div class="kpi-label">Nasadení</div>
-            <div class="kpi-value" style="color:var(--green);">${placed}</div>
-            <div class="kpi-delta">konverzia ${conv} %</div></div>
-          <div class="kpi"><div class="kpi-label">Odmietnutí a stratení</div>
-            <div class="kpi-value">${this.items.filter(c => ['rejected', 'lost'].includes(c.status)).length}</div>
-            <div class="kpi-delta">mimo pipeline</div></div>
-        </div>
+        ${this.kpiHtml(avg, placed, conv)}
 
         <button class="btn btn-primary btn-block call-cta" onclick="Guide.startCall()">
           ${Icon('phone', 18)} Zdvihol som telefón — naberať rovno teraz</button>
@@ -137,18 +145,57 @@
             ${SOURCES.map(s => `<option value="${s[0]}" ${this.filters.source === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
           </select>
           <div class="pillbar" style="margin-left:auto;">
-            <button class="pill${this.view_ === 'kanban' ? ' active' : ''}" onclick="Cand.setView('kanban')">Kanban</button>
-            <button class="pill${this.view_ === 'table' ? ' active' : ''}" onclick="Cand.setView('table')">Zoznam</button>
+            <button class="pill${this.viewMode() === 'table' ? ' active' : ''}" onclick="Cand.setView('table')">Zoznam</button>
+            <button class="pill${this.viewMode() === 'kanban' ? ' active' : ''}" onclick="Cand.setView('kanban')">Kanban</button>
           </div>
         </div>
 
         ${rows.length === 0
           ? UI.empty('workers', 'Žiadni kandidáti', 'Pridaj prvého kandidáta do pipeline.',
               `<button class="btn btn-primary" onclick="Cand.form()">${Icon('plus')} Nový kandidát</button>`)
-          : this.view_ === 'kanban' ? this.kanban(rows) : this.table(rows)}
+          : this.viewMode() === 'kanban' ? this.kanban(rows) : this.table(rows)}
 
         ${this.closedHtml()}
         ${this.sourcesHtml()}`;
+    },
+
+    /**
+     * Čísla hore.
+     *
+     * Prázdna metrika nesmie vyzerať ako nameraná hodnota. „—" pri priemernej
+     * reakcii a „konverzia 0 %" pri nule kandidátov vyzerá, akoby appka
+     * merala a vyšla jej nula — pritom ešte nie je z čoho počítať. To je
+     * rozdiel, ktorý sa dá povedať slovom.
+     */
+    kpiHtml(avg, placed, conv) {
+      const vProcese = this.items.filter(c => PIPELINE.includes(c.status)).length;
+      const uzavreti = this.items.filter(c => ['placed', 'rejected', 'lost'].includes(c.status)).length;
+      const stratenI = this.items.filter(c => ['rejected', 'lost'].includes(c.status)).length;
+      if (!this.items.length) return '';
+
+      // Slovo nie je číslo: „zatiaľ nemeriame" vo veľkosti čísla sa zalomí
+      // na dva riadky a vyzerá ako chyba. Číslo je veľké, veta nie.
+      const kpi = (label, value, delta, color) => {
+        const slovo = typeof value === 'string' && !/^[\d]/.test(value);
+        return `<div class="kpi"><div class="kpi-label">${label}</div>
+          <div class="kpi-value${slovo ? ' kpi-word' : ''}"${
+            color ? ` style="color:${color};"` : ''}>${value}</div>
+          <div class="kpi-delta">${delta}</div></div>`;
+      };
+
+      return `<div class="kpi-grid" style="margin-bottom:16px;">
+        ${kpi('V procese', vProcese, vProcese ? 'rozpracovaní' : 'zatiaľ nikto')}
+        ${kpi('Priemerná reakcia',
+          avg == null ? 'zatiaľ nemeriame' : `${avg} min`,
+          avg == null ? 'nikomu sme sa ešte neozvali' : 'cieľ do 10 minút',
+          avg == null ? 'var(--ink-mute)' : avg <= 10 ? 'var(--green)' : 'var(--amber)')}
+        ${kpi('Nastúpili', placed,
+          uzavreti ? `z ${uzavreti} uzavretých · ${UI.pct(conv)}`
+            : 'zatiaľ sa nedá počítať',
+          placed ? 'var(--green)' : null)}
+        ${kpi('Odmietnutí a stratení', stratenI,
+          stratenI ? 'mimo procesu' : 'zatiaľ nikto')}
+      </div>`;
     },
 
     kanban(rows) {
@@ -190,7 +237,7 @@
           ${c.outcome === 'hired' ? 'nastúpil' : c.outcome === 'rejected' ? 'zamietnutý'
             : pr.currentStep ? UI.esc(pr.currentStep.title) : 'proces hotový'}</div>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;align-items:center;">
-          <span style="color:var(--ink-sub);">${this.sourceLabel(c.source)}</span>
+          <span style="color:var(--ink-sub);" title="Odkiaľ prišiel">${UI.esc(this.adLabel(c))}</span>
           ${c.screening_score != null ? UI.badge(`${Math.round(c.screening_score)} %`,
             c.screening_verdict === 'strong' ? 'green' : c.screening_verdict === 'reject' ? 'red'
               : c.screening_verdict === 'ok' ? 'blue' : 'amber') : ''}
@@ -210,9 +257,10 @@
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(c.full_name)}</strong>
             ${c.type === 'crew' ? UI.badge(`partia ${c.crew_size || ''}`.trim(), 'blue') : ''}
-            <span style="color:var(--ink-mute);"> · ${this.professionLabel(c.profession)}</span>
+            ${c.profession ? `<span style="color:var(--ink-mute);"> · ${
+              this.professionLabel(c.profession)}</span>` : ''}
             <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${this.sourceLabel(c.source)} · ${UI.date(c.received_at)}
+              ${UI.esc(this.adLabel(c))} · ${UI.date(c.received_at)}
               ${mins != null ? ` · reakcia ${mins} min` : ' · zatiaľ bez reakcie'}
               ${pr.total ? ` · ${UI.pct(pr.percent)}${pr.currentStep && !c.outcome ? ` · ${UI.esc(pr.currentStep.title)}` : ''}` : ''}</span>
           </span>
@@ -234,34 +282,54 @@
     },
 
     /** Ktorý kanál koľko priniesol — na vyhodnotenie marketingu. */
+    /**
+     * Odkiaľ ľudia naozaj prišli — podľa inzerátu, nie podľa voľného poľa.
+     *
+     * Predtým sa zoskupovalo podľa `source`, ktorý hovor nikdy nevyplnil,
+     * takže tu stálo „Iné: 2". Pritom hovor sa začína otázkou, na ktorý
+     * inzerát kandidát volá, a väzbu zapisuje.
+     */
     sourcesHtml() {
       if (!this.items.length) return '';
-      const by = new Map();
-      for (const c of this.items) {
-        const k = c.source || 'ine';
-        if (!by.has(k)) by.set(k, { total: 0, placed: 0 });
-        const g = by.get(k);
-        g.total++;
-        if (c.status === 'placed') g.placed++;
-      }
-      const rows = [...by.entries()].sort((a, b) => b[1].total - a[1].total);
-      const max = Math.max(...rows.map(r => r[1].total));
+      const rows = DanubraAds.funnel(this.items, this.ads);
+      if (!rows.length) return '';
+      const max = Math.max(...rows.map(r => r.total));
+      const veta = DanubraAds.funnelSentence(rows);
+
       return `<div class="form-section">Odkiaľ kandidáti prichádzajú</div>
-        ${rows.map(([k, g]) => `
-          <div class="list-row" style="cursor:default;">
-            <span style="flex:0 0 130px;font-size:13px;font-weight:600;">${UI.esc(this.sourceLabel(k))}</span>
+        ${veta ? `<div style="font-size:13px;color:var(--ink-sub);margin:0 0 8px;">
+          ${UI.esc(veta)}</div>` : ''}
+        ${rows.map(r => `
+          <div class="list-row" style="cursor:default;align-items:center;">
+            <span style="flex:0 0 190px;font-size:13px;min-width:0;">
+              <strong>${UI.esc(r.label)}</strong>
+              <span style="display:block;color:var(--ink-mute);font-size:11.5px;">
+                ${UI.esc(r.sub || '')}</span>
+            </span>
             <span style="flex:1;">
               <span class="stay-bar" style="display:block;">
-                <span class="stay-fill" style="display:block;width:${Math.round((g.total / max) * 100)}%;background:var(--brand);"></span>
+                <span class="stay-fill" style="display:block;width:${
+                  Math.round((r.total / max) * 100)}%;background:${
+                  r.kind === 'ad' ? 'var(--brand)' : 'var(--ink-mute)'};"></span>
               </span>
             </span>
             <span style="font-size:12.5px;color:var(--ink-sub);white-space:nowrap;">
-              ${g.total} · nasadených ${g.placed}</span>
+              ${r.total} ${Shell.plural(r.total, 'ozval sa', 'ozvali sa', 'ozvalo sa')}
+              · nastúpili ${r.placed}${
+                r.hireRate != null && r.total >= 3 ? ` (${UI.pct(r.hireRate)})` : ''}</span>
           </div>`).join('')}`;
     },
 
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
     setView(v) { this.view_ = v; Danubra.renderRoute(); },
+
+    /** Kanban sa oplatí, až keď je v procese dosť ľudí na to, aby sa posúvali. */
+    KANBAN_FROM: 6,
+    viewMode() {
+      if (this.view_) return this.view_;
+      return this.items.filter(c => PIPELINE.includes(c.status)).length >= this.KANBAN_FROM
+        ? 'kanban' : 'table';
+    },
 
     async detail(id) {
       const c = this.items.find(x => x.id === id);
@@ -278,7 +346,13 @@
         ['Profesia', this.professionLabel(c.profession)],
         ['Forma spolupráce', c.legal_form === 'szco' ? 'Živnostník' : 'Zamestnanec'],
         ['Telefón', c.phone], ['E-mail', c.email], ['Mesto', c.city],
-        ['Zdroj', this.sourceLabel(c.source) + (c.source_detail ? ` · ${c.source_detail}` : '')],
+        // Inzerát je dôležitejší než kanál: na Facebooku môže bežať päť
+        // inzerátov a líšia sa sľúbenou sadzbou. Keď sa o mesiac na stavbe
+        // povie „veď ste písali 18 €", toto je to, čo sa hľadá.
+        ['Z inzerátu', this.adOf(c) ? this.adOf(c).title : null],
+        ['Kanál', this.adOf(c)
+          ? DanubraAds.channelLabel(this.adOf(c).channel)
+          : this.sourceLabel(c.source) + (c.source_detail ? ` · ${c.source_detail}` : '')],
         ['Prijaté', c.received_at ? new Date(c.received_at).toLocaleString('sk-SK') : null],
         ['Prvý kontakt', c.first_contact_at
           ? `${new Date(c.first_contact_at).toLocaleString('sk-SK')} (${mins} min)` : '— zatiaľ žiadny'],
@@ -465,7 +539,7 @@
             ${UI.field('available_from', 'Dostupný od', { type: 'date', value: c.available_from })}
             ${UI.field('german_level', 'Nemčina', { value: c.german_level, options: [['', '—'], ['ziadny', 'Žiadna'], ['zaklad', 'Základ'], ['dobry', 'Dobrá']] })}
             ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['ua', 'UA']] })}
-            ${UI.field('plan_id', 'Na ktorý nábor', { value: c.plan_id || '',
+            ${UI.field('plan_id', 'Na ktorý nábor', { value: c.plan_id || '', add: 'plan',
               options: [['', '— žiadny konkrétny —'], ...openPlans.map(p => [p.id, p.title])] })}
             ${UI.field('last_site', 'Posledná stavba', { value: c.last_site, placeholder: 'mesto, firma' })}
             ${UI.field('last_foreman', 'Polier, ktorý ho potvrdí', { value: c.last_foreman, placeholder: 'meno a telefón' })}

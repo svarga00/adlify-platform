@@ -23,24 +23,40 @@
   ];
 
   const Hire = {
-    plans: [], trades: [], questions: [], candidates: [], subcontracts: [],
+    plans: [], trades: [], questions: [], candidates: [], subcontracts: [], ads: [],
     loaded: false, step: 1, editing: null,
 
     async load() {
-      const [p, t, q, c, s] = await Promise.all([
+      const [p, t, q, c, s, a] = await Promise.all([
         DB.list('recruitment_plans', { order: { column: 'created_at', ascending: false }, limit: 200 }),
         DB.list('trades', { order: { column: 'sort_order', ascending: true }, limit: 100 }),
         DB.list('screening_questions', { order: { column: 'sort_order', ascending: true }, limit: 500 }),
-        DB.list('candidates', { select: 'id,full_name,plan_id,status,screening_score,screening_verdict', limit: 500 }),
+        DB.list('candidates', {
+          select: 'id,full_name,plan_id,ad_id,profession,status,outcome,source,'
+            + 'received_at,first_contact_at,screening_score,screening_verdict',
+          order: { column: 'received_at', ascending: false }, limit: 500 }),
         DB.list('subcontracts', { select: 'id,title,site_city,contract_number', limit: 200 }),
+        // Inzeráty sem patria: nábor sa nedá riadiť bez toho, aby bolo
+        // vidieť, čo práve beží a čo z toho prišlo.
+        DB.list('ads', { order: { column: 'created_at', ascending: false }, limit: 200 }),
       ]);
       this.plans = p.data || []; this.trades = t.data || []; this.questions = q.data || [];
       this.candidates = c.data || []; this.subcontracts = s.data || [];
+      this.ads = (a && a.data) || [];
       this.loaded = true;
     },
 
     trade(key) { return this.trades.find(t => t.key === key); },
-    tradeName(key) { return this.trade(key)?.name_sk || key || '—'; },
+    /**
+     * Názov remesla. Keď kľúč v príručke nie je, ukáže sa aspoň čitateľne —
+     * „trockenbau × 3" v zozname náborov vyzerá ako nedokončená appka.
+     */
+    tradeName(key) {
+      const t = this.trade(key);
+      if (t) return t.name_sk;
+      if (!key) return '—';
+      return String(key).charAt(0).toUpperCase() + String(key).slice(1);
+    },
     badge(s) { const m = STATUS[s] || STATUS.draft; return UI.badge(m[0], m[1]); },
 
     /** Otázky, ktoré na tomto remesle platia: univerzálne + odborné. */
@@ -55,41 +71,235 @@
     },
 
     // ── Zoznam ────────────────────────────────────────────────────────────
+    learn: false,
+
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`);
+      // Zaškolenie nie je položka v menu — tých je aj tak priveľa. Je to
+      // niečo, čím človek raz prejde, tak býva tu.
+      if (this.learn && window.Learn) return Learn.view(el);
+
+      Danubra.setActions(`<button class="btn btn-outline btn-sm" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
-      const active = this.plans.filter(p => p.status === 'active');
-      const need = active.reduce((s, p) => s + (p.headcount || 0), 0);
-      const placed = active.reduce((s, p) =>
-        s + this.candidates.filter(c => c.plan_id === p.id && ['ready', 'placed'].includes(c.status)).length, 0);
-      const margins = active.map(p => S.planMargin(p).marginPerHour).filter(x => x > 0);
-      const avgMargin = margins.length ? (margins.reduce((a, b) => a + b, 0) / margins.length) : 0;
+      // Nábor nie je zoznam, je to postup. Appka má povedať **jednu vec**,
+      // ktorá sa má spraviť teraz, veľkým písmom a s jedným veľkým tlačidlom —
+      // a pod tým ukázať, kde v tých piatich krokoch to viazne.
+      const kroky = DanubraFlow.state({
+        plans: this.plans, ads: this.ads, candidates: this.candidates,
+      });
+      const h = DanubraFlow.headline(kroky);
+      const p = DanubraFlow.progress(kroky);
+      const teraz = DanubraFlow.next(kroky);
 
-      el.innerHTML = Danubra.header('Náborové plány',
-        `${active.length} ${active.length === 1 ? 'beží' : 'beží'} · treba ${need} ľudí · zatiaľ ${placed}`) + `
-
-        <div class="kpi-grid" style="margin-bottom:16px;">
-          <div class="kpi"><div class="kpi-label">Bežiace nábory</div>
-            <div class="kpi-value">${active.length}</div>
-            <div class="kpi-delta">${this.plans.length} celkovo</div></div>
-          <div class="kpi"><div class="kpi-label">Koľko ľudí treba</div>
-            <div class="kpi-value">${need}</div>
-            <div class="kpi-delta ${placed < need ? 'warn' : ''}">${placed} z toho máme</div></div>
-          <div class="kpi"><div class="kpi-label">Priemerná marža</div>
-            <div class="kpi-value" style="color:${avgMargin >= 6 ? 'var(--green)' : 'var(--amber)'};">
-              ${avgMargin ? avgMargin.toFixed(1) + ' €/h' : '—'}</div>
-            <div class="kpi-delta">na človeka a hodinu</div></div>
-          <div class="kpi"><div class="kpi-label">Remeslá v ponuke</div>
-            <div class="kpi-value">${this.trades.filter(t => t.active !== false).length}</div>
-            <div class="kpi-delta"><a href="#/trades" style="color:inherit;">otvoriť príručku</a></div></div>
+      el.innerHTML = Danubra.header('Nábor', 'Päť krokov od potreby po človeka na stavbe')
+        + this.learnHtml()
+        + `
+        <div class="flow-now${h.hot ? ' flow-hot' : ''}">
+          <div class="flow-now-txt">
+            <b>${UI.esc(h.title)}</b>
+            <span>${UI.esc(h.sub)}</span>
+          </div>
+          ${teraz && teraz.action ? `
+            <button class="flow-go" onclick="${teraz.action.onclick}">
+              ${Icon(teraz.key === 'call' ? 'phone' : 'chevron', 22)}
+              ${UI.esc(teraz.action.label)}</button>` : ''}
         </div>
 
-        ${this.plans.length === 0
-          ? UI.empty('zap', 'Zatiaľ žiadny náborový plán',
-              'Povedz systému, koho a koľko potrebuješ — zvyšok ťa prevedie krok za krokom.',
-              `<button class="btn btn-primary" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`)
-          : this.plans.map(p => this.row(p)).join('')}`;
+        <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
+        <div class="flow-bar-txt">${p.done} z ${p.total} krokov hotových</div>
+
+        <div class="flow">${kroky.map(k => this.stepHtmlBig(k, teraz)).join('')}</div>
+
+        ${this.plansHtml()}
+        ${this.elsewhereHtml()}`;
+    },
+
+    /**
+     * Jeden krok. Ten, ktorý je na rade, je veľký a farebný; ostatné sú
+     * tiché. Keby boli všetky rovnako výrazné, človek by si musel sám
+     * vyberať — a to je presne to, čomu sa vyhýbame.
+     */
+    stepHtmlBig(k, teraz) {
+      const aktivny = teraz && teraz.key === k.key;
+      const stav = k.done ? 'done' : (k.urgent ? 'hot' : 'idle');
+      return `<div class="flow-step flow-${stav}${aktivny ? ' is-now' : ''}">
+        <span class="flow-n">${k.done ? Icon('check', 20) : k.n}</span>
+        <span class="flow-txt">
+          <b>${UI.esc(k.title)}</b>
+          <span>${UI.esc(k.detail)}</span>
+          ${aktivny ? `<em>${UI.esc(k.lead)}</em>` : ''}
+        </span>
+        ${k.action && !aktivny ? `<button class="btn btn-outline btn-sm"
+          onclick="${k.action.onclick}">${UI.esc(k.action.label)}</button>` : ''}
+      </div>`;
+    },
+
+    /**
+     * Zaškolenie. Ukáže sa veľké tomu, kto ním ešte neprešiel — a zmizne,
+     * keď je hotové. Nie je to položka v menu: tých je priveľa a zaškolenie
+     * nie je miesto, kam sa chodí.
+     */
+    learnHtml() {
+      if (!window.Learn || !window.DanubraOnboarding) return '';
+      const s = Learn.status();
+      if (s.ready) {
+        return `<div class="learn-done">
+          ${Icon('check', 15)} Zaškolenie máš za sebou.
+          <button class="btn btn-ghost btn-sm" onclick="Learn.open()">Zopakovať</button>
+        </div>`;
+      }
+      return `<div class="flow-now learn-cta">
+        <div class="flow-now-txt">
+          <b>${s.done ? 'Dokonči zaškolenie' : 'Si tu prvýkrát?'}</b>
+          <span>${s.done
+            ? `Zostávajú ${s.total - s.done} kroky a ${s.minutesLeft} minút.`
+            : 'Hodina a budeš vedieť viesť hovor sám — vrátane cvičného hovoru, '
+              + 'kde appka hovorí za kandidáta.'}</span>
+        </div>
+        <button class="flow-go" onclick="Learn.open()">
+          ${Icon('zap', 22)} ${s.done ? 'Pokračovať' : 'Začať zaškolenie'}</button>
+      </div>`;
+    },
+
+    /** Náborové plány — pod postupom, lebo sú to podrobnosti, nie ďalší krok. */
+    plansHtml() {
+      if (!this.plans.length) return '';
+      return `<div class="form-section">Náborové plány</div>
+        ${this.plans.map(p => this.row(p)).join('')}`;
+    },
+
+    // ── Čo treba teraz ────────────────────────────────────────────────────
+    // Nábor bol rozsypaný na šesť položiek v menu a kto naberal, musel
+    // vedieť, na ktorej má byť. Toto je to jedno miesto: nie zoznam všetkého,
+    // ale zoznam toho, čo sa dá spraviť v najbližšej hodine.
+
+    /** Kto čaká na prvý kontakt. Cieľ je ozvať sa do desiatich minút. */
+    waiting() {
+      return this.candidates
+        .filter(c => !c.outcome && !c.first_contact_at)
+        .sort((a, b) => String(a.received_at || '').localeCompare(String(b.received_at || '')));
+    },
+
+    /** Kto je po hovore a čaká na doklady alebo rozhodnutie. */
+    inProcess() {
+      return this.candidates.filter(c => !c.outcome
+        && c.first_contact_at && !['placed', 'ready'].includes(c.status));
+    },
+
+    minutesSince(iso) {
+      if (!iso) return null;
+      return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    },
+
+    todoHtml() {
+      const cakaju = this.waiting();
+      const rozrobeni = this.inProcess();
+      if (!cakaju.length && !rozrobeni.length) {
+        return `<div class="card card-pad" style="margin-bottom:16px;">
+          <div class="card-title">Čo treba teraz${Help.btn('card.hiring.now', { size: 13 })}</div>
+          <p style="font-size:13px;color:var(--ink-sub);margin:6px 0 0;">
+            Nikto nečaká na hovor ani na doklady. Keď sa niekto ozve na inzerát,
+            objaví sa tu.</p>
+        </div>`;
+      }
+
+      const row = (c, akcia) => {
+        const min = this.minutesSince(c.received_at);
+        return `<div class="list-row" style="align-items:center;">
+          <span class="dot ${min != null && min > 10 ? 'red' : 'amber'}"></span>
+          <span style="flex:1;font-size:13px;min-width:0;">
+            <strong>${UI.esc(c.full_name)}</strong>
+            ${c.profession ? `<span style="color:var(--ink-mute);"> · ${
+              UI.esc(this.tradeName(c.profession))}</span>` : ''}
+            <span style="display:block;color:var(--ink-mute);font-size:12px;">
+              ${this.adTitle(c)}${min != null
+                ? ` · čaká ${min < 60 ? `${min} min` : `${Math.round(min / 60)} h`}` : ''}</span>
+          </span>
+          ${akcia}
+        </div>`;
+      };
+
+      return `<div class="card card-pad" style="margin-bottom:16px;">
+        <div class="card-head">
+          <div class="card-title">Čo treba teraz${Help.btn('card.hiring.now', { size: 13 })}</div>
+          ${cakaju.length ? UI.badge(`${cakaju.length} čaká na hovor`,
+            cakaju.some(c => (this.minutesSince(c.received_at) || 0) > 10) ? 'red' : 'amber') : ''}
+        </div>
+        ${cakaju.slice(0, 6).map(c => row(c,
+          `<button class="btn btn-primary btn-sm" onclick="Guide.continueCall('${c.id}')">
+             ${Icon('phone', 14)} Zavolať</button>`)).join('')}
+        ${cakaju.length > 6 ? `<div style="font-size:12px;color:var(--ink-mute);margin:4px 0 8px;">
+          a ďalších ${cakaju.length - 6}</div>` : ''}
+        ${rozrobeni.length ? `
+          <div class="form-section" style="margin-top:12px;">Rozrobení — čakajú na doklady alebo rozhodnutie</div>
+          ${rozrobeni.slice(0, 5).map(c => row(c,
+            `<button class="btn btn-outline btn-sm" onclick="Cand.detail('${c.id}')">Otvoriť</button>`)).join('')}
+          ${rozrobeni.length > 5 ? `<div style="font-size:12px;color:var(--ink-mute);">
+            a ďalších ${rozrobeni.length - 5}</div>` : ''}` : ''}
+      </div>`;
+    },
+
+    adTitle(c) {
+      const a = (this.ads || []).find(x => x.id === c.ad_id);
+      if (a) return UI.esc(a.title);
+      return c.source ? UI.esc(DanubraAds.channelLabel(c.source)) : 'bez inzerátu';
+    },
+
+    /** Ktoré inzeráty bežia a čo z nich prišlo. */
+    adsHtml() {
+      const bezia = (this.ads || []).filter(a => a.active !== false);
+      if (!bezia.length) {
+        return `<div class="card card-pad" style="margin-bottom:16px;">
+          <div class="card-head"><div class="card-title">Inzeráty${Help.btn('card.hiring.ads', { size: 13 })}</div>
+            <button class="btn btn-outline btn-sm" onclick="Danubra.go('ads')">
+              ${Icon('plus', 14)} Pridať inzerát</button></div>
+          <p style="font-size:13px;color:var(--ink-sub);margin:6px 0 0;">
+            Nebeží žiadny inzerát. Bez neho sa nikto neozve — a hovor sa nemá
+            na čo odvolať, keď sa o mesiac rieši, čo sme sľúbili.</p>
+        </div>`;
+      }
+      const rows = DanubraAds.funnel(this.candidates, bezia).filter(r => r.kind === 'ad');
+      const max = Math.max(1, ...rows.map(r => r.total));
+      const bezOzvania = bezia.filter(a => !rows.some(r => r.key === `ad:${a.id}`));
+
+      return `<div class="card card-pad" style="margin-bottom:16px;">
+        <div class="card-head">
+          <div class="card-title">Bežiace inzeráty (${bezia.length})</div>
+          <button class="btn btn-ghost btn-sm" onclick="Danubra.go('ads')">Všetky</button>
+        </div>
+        ${rows.map(r => `<div class="list-row" style="cursor:default;align-items:center;">
+          <span style="flex:0 0 200px;font-size:13px;min-width:0;">
+            <strong>${UI.esc(r.label)}</strong>
+            <span style="display:block;color:var(--ink-mute);font-size:11.5px;">${UI.esc(r.sub || '')}</span>
+          </span>
+          <span style="flex:1;"><span class="stay-bar" style="display:block;">
+            <span class="stay-fill" style="display:block;width:${
+              Math.round((r.total / max) * 100)}%;background:var(--brand);"></span></span></span>
+          <span style="font-size:12.5px;color:var(--ink-sub);white-space:nowrap;">
+            ${r.total} ${Shell.plural(r.total, 'ozval sa', 'ozvali sa', 'ozvalo sa')}
+            · nastúpili ${r.placed}</span>
+        </div>`).join('')}
+        ${bezOzvania.length ? `<div style="font-size:12.5px;color:var(--ink-mute);margin-top:6px;">
+          ${bezOzvania.length === 1 ? 'Jeden inzerát beží a zatiaľ sa naň nikto neozval'
+            : `${bezOzvania.length} inzeráty bežia a zatiaľ sa na ne nikto neozval`}:
+          ${bezOzvania.slice(0, 3).map(a => UI.esc(a.title)).join(', ')}.</div>` : ''}
+      </div>`;
+    },
+
+    /** Kam sa odtiaľto chodí. Zvyšok náboru nezmizol, len už nie je roztrúsený. */
+    elsewhereHtml() {
+      const odkaz = (route, ikona, nadpis, popis) => `
+        <button class="card card-pad nav-card" onclick="Danubra.go('${route}')">
+          <span class="nav-card-ico">${Icon(ikona, 18)}</span>
+          <span><b>${nadpis}</b><em>${popis}</em></span>
+        </button>`;
+      return `<div class="form-section">Kam ďalej</div>
+        <div class="cards">
+          ${odkaz('candidates', 'user', 'Kandidáti', 'celý zoznam a ich postup')}
+          ${odkaz('ads', 'marketing', 'Inzeráty', 'čo beží a čo sme v nich sľúbili')}
+          ${odkaz('trades', 'wrench', 'Príručka remesiel', 'nauč sa remeslo a vyskúšaj sa')}
+          ${odkaz('recruiting', 'note', 'Zápisy z hovorov', 'čo sme komu sľúbili')}
+        </div>`;
     },
 
     row(p) {
@@ -190,7 +400,7 @@
       if (this.step === 1) {
         return `<form id="wiz-form" onsubmit="return false;">
           <div class="form-grid">
-            ${UI.field('trade_key', 'Aké remeslo', { value: p.trade_key, required: true,
+            ${UI.field('trade_key', 'Aké remeslo', { value: p.trade_key, required: true, add: 'trade',
               options: [['', '— vyber remeslo —'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: p.headcount || 1 })}
             ${UI.field('skill_level', 'Zaradenie', { value: p.skill_level, options: [
@@ -212,7 +422,7 @@
       if (this.step === 2) {
         return `<form id="wiz-form" onsubmit="return false;">
           <div class="form-grid">
-            ${UI.field('subcontract_id', 'Na ktorú zákazku', { value: p.subcontract_id || '',
+            ${UI.field('subcontract_id', 'Na ktorú zákazku', { value: p.subcontract_id || '', add: 'subcontract',
               options: [['', '— zatiaľ do zásoby —'], ...this.subcontracts.map(s =>
                 [s.id, `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`])] })}
             ${UI.field('city', 'Mesto', { value: p.city, required: true, placeholder: 'München' })}

@@ -128,6 +128,55 @@ window.UI = {
     });
   },
 
+  /**
+   * Niekoľko polí naraz, v okne **nad** otvoreným formulárom.
+   *
+   * `ask()` zvládne jedno pole, a to na založenie záznamu nestačí: odberateľ
+   * potrebuje aspoň meno a krajinu. Zároveň sa to nesmie otvoriť ako obyčajné
+   * okno — to by zavrelo rozrobený formulár a prišlo by sa o to, čo už je
+   * vypísané. Práve kvôli tomu to celé vzniklo.
+   *
+   * @param {Array} fields  [[name, label, { type, options, required, placeholder, hint }]]
+   * @returns {Promise<Object|null>} `null` = zrušené
+   */
+  askFields(title, question, fields, o = {}) {
+    const id = (n) => `ask-f-${n}`;
+    const html = (fields || []).map(([name, label, f = {}]) => {
+      const req = f.required ? ' required' : '';
+      if (f.options) {
+        return `<label class="fld"><span>${this.esc(label)}${f.required ? ' *' : ''}</span>
+          <select id="${id(name)}"${req}>${f.options.map((op) => {
+            const [v, l] = Array.isArray(op) ? op : [op, op];
+            return `<option value="${this.esc(v)}" ${
+              String(v) === String(f.value ?? '') ? 'selected' : ''}>${this.esc(l)}</option>`;
+          }).join('')}</select>${this.hint(f.hint)}</label>`;
+      }
+      return `<label class="fld"><span>${this.esc(label)}${f.required ? ' *' : ''}</span>
+        <input id="${id(name)}" type="${f.type || 'text'}" value="${this.esc(f.value ?? '')}"
+          placeholder="${this.esc(f.placeholder || '')}"${req}>${this.hint(f.hint)}</label>`;
+    }).join('');
+
+    return this._sheet({
+      ...o,
+      question,
+      field: `<div class="ask-fields">${html}</div>`,
+      okLabel: o.ok || 'Založiť',
+      read: () => {
+        const out = {};
+        for (const [name, label, f = {}] of fields) {
+          const el = document.getElementById(id(name));
+          const v = el ? String(el.value || '').trim() : '';
+          // Povinné pole sa nedá obísť tichým uložením prázdna — vznikol by
+          // záznam, ktorý sa potom hľadá, prečo nemá meno.
+          if (f.required && !v) { UI.toast(`Vyplň: ${label}`, 'err'); return undefined; }
+          if (v) out[name] = v;
+        }
+        return out;
+      },
+      empty: null,
+    });
+  },
+
   /** @returns {Promise<boolean>} */
   confirm(question, o = {}) {
     return this._sheet({
@@ -173,13 +222,22 @@ window.UI = {
         // V jednoriadkovom poli je Enter potvrdenie; vo viacriadkovom je to
         // nový riadok, tam sa potvrdzuje tlačidlom.
         if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-          e.preventDefault(); done(o.read());
+          e.preventDefault();
+          const v = o.read();
+          if (v !== undefined) done(v);
         }
       };
 
       el.addEventListener('click', (e) => {
         const what = e.target.closest('[data-ask]');
-        if (what) return done(what.dataset.ask === 'ok' ? o.read() : o.empty);
+        if (what) {
+          if (what.dataset.ask !== 'ok') return done(o.empty);
+          // `read()` smie vrátiť `undefined` a tým povedať „takto to neberiem".
+          // Okno vtedy zostane otvorené aj s tým, čo je už vypísané — zavrieť
+          // ho a nechať človeka písať odznova by bolo horšie než chyba sama.
+          const v = o.read();
+          return v === undefined ? undefined : done(v);
+        }
         if (e.target === el) done(o.empty);
       });
       document.addEventListener('keydown', keys);
@@ -199,7 +257,12 @@ window.UI = {
   // `step` je tu kvôli peniazom. `<input type="number">` má bez neho krok 1,
   // takže sadzba 18,50 €/h neprejde validáciou a formulár sa ticho neodošle.
   // Preto je pri číslach predvolené `any`.
-  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step } = {}) {
+  // `hint` je veta pod poľom. Nie opis toho, čo je v názve („Sadzba — sem
+  // napíš sadzbu"), ale to, čo sa stane, keď sa to vyplní zle: v akej
+  // jednotke to je, čo z toho appka počíta a kde sa to potom objaví.
+  // Dáva sa len tam, kde zlá hodnota niečo pokazí — pri každom poli by
+  // z toho bola stena textu, ktorú nikto nečíta.
+  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step, hint, add } = {}) {
     const v = this.esc(value);
     let input;
     if (options) {
@@ -211,12 +274,31 @@ window.UI = {
       input = `<textarea name="${name}" rows="${rows || 3}" placeholder="${this.esc(placeholder)}">${v}</textarea>`;
     } else if (type === 'checkbox') {
       input = `<label class="chk"><input type="checkbox" name="${name}" ${value ? 'checked' : ''}> ${this.esc(placeholder || label)}</label>`;
-      return `<div class="fld fld-chk">${input}</div>`;
+      return `<div class="fld fld-chk">${input}${this.hint(hint)}</div>`;
     } else {
       const stepAttr = type === 'number' ? ` step="${this.esc(step || 'any')}"` : '';
       input = `<input type="${type}" name="${name}" value="${v}"${stepAttr} ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
     }
-    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}</label>`;
+    // `add` je kľúč z `Danubra.NEW` — výber, pri ktorom sa dá rovno založiť
+    // nový záznam. Bez neho sa dá vybrať len to, čo už existuje, takže keď
+    // odberateľ ešte nie je v databáze, treba zavrieť rozpísaný formulár,
+    // ísť inam, založiť ho a vrátiť sa — a rozpísané sa stratí.
+    if (add && options) {
+      return `<label class="fld fld-pick"><span>${this.esc(label)}${required ? ' *' : ''}</span>
+        <span class="pick">${input}
+          <button type="button" class="pick-add"
+            onclick="Danubra.quickAdd('${add}','${name}')"
+            title="Založiť nový záznam" aria-label="Založiť nový záznam">
+            ${window.Icon ? Icon('plus', 15) : '+'}</button>
+        </span>${this.hint(hint)}</label>`;
+    }
+    return `<label class="fld"><span>${this.esc(label)}${required ? ' *' : ''}</span>${input}${this.hint(hint)}</label>`;
+  },
+
+  /** Veta pod poľom. Prázdne `hint` nič nevykreslí — nie prázdny prvok. */
+  hint(text) {
+    const t = String(text || '').trim();
+    return t ? `<small class="fld-hint">${this.esc(t)}</small>` : '';
   },
 
   formData(form) {

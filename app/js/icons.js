@@ -63,6 +63,9 @@
     pin:       '<path d="M12 22s7-7.6 7-12a7 7 0 1 0-14 0c0 4.4 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
     sort:      '<path d="M7 4v16"/><path d="m3 8 4-4 4 4"/><path d="M17 20V4"/><path d="m13 16 4 4 4-4"/>',
     help:      '<circle cx="12" cy="12" r="9"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 3.9"/><path d="M12 17.4h.01"/>',
+    // Poznámka, nie otázka. `help` otvára vysvetlivku, `info` len označuje vetu,
+    // ktorá niečo dopovedá — keby to bola tá istá ikona, klikalo by sa na ňu.
+    info:      '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6h.01"/>',
   };
 
   /** Vráti SVG ikonu. @param {string} name @param {number} size */
