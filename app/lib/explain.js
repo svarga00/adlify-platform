@@ -387,6 +387,117 @@
     },
 
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
+    // ── Päť krokov náboru ────────────────────────────────────────────────
+    // Nábor mal šesť krokov a päťdesiat odrážok a dve rôzne veci sa v ňom
+    // volali „overenie": krok K3 aj časť telefonátu. Kto sa to učil, nevedel,
+    // o ktorom sa práve hovorí. Teraz je to päť krokov a každý má vysvetlivku,
+    // ktorá povie, **prečo** ten krok existuje — to je to, čo sa dá naučiť.
+    'cand.step.call': {
+      title: 'Krok 1 — Zavolať',
+      lead: 'Ozval sa a čaká. Zavolať mu treba do desiatich minút od ozvania.',
+      what: [
+        'Prvý hovor s človekom, ktorý sa ozval na inzerát. Appka ho vedie po '
+        + 'častiach a zapisuje, čo zaznelo — neznámkuje sa, odškrtáva sa.',
+        'Krátky hovor má štyri veci (remeslo, papiere, kedy, peniaze) a trvá tri '
+        + 'minúty. Plný pohovor má šesť častí a dvadsať minút.',
+      ],
+      how: [
+        'Že sa zavolalo, sa nikde neodklikáva — appka to vie z hovoru. Preto je '
+        + 'táto odrážka bez zaškrtávadla.',
+      ],
+      why: [
+        'Kto sa ozve nám, ozve sa aj ďalším trom firmám. Rozhoduje, kto zavolá '
+        + 'prvý, nie kto má lepšiu ponuku. Po desiatich minútach už berie prácu inde.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['hiring', 'Nábor']],
+    },
+    'cand.step.proof': {
+      title: 'Krok 2 — Preveriť',
+      lead: 'To, čo povedal do telefónu, si over u niekoho iného. Toto bolo „overenie".',
+      what: [
+        'Štyri veci: fotky jeho vlastnej práce, telefonát poslednému objednávateľovi '
+        + 'alebo polierovi, živnosť nájdená v registri, videohovor na nemčinu.',
+        'Pri partii k tomu pribudne, kto je kontaktná osoba a ako dlho spolu robia.',
+      ],
+      how: [
+        'Na referenciu stačí jedna otázka: „Vzali by ste ho znova?" Zaváhanie je '
+        + 'odpoveď. Nemčina nemusí byť dobrá — musí stačiť na pokyny bez prekladateľa.',
+      ],
+      why: [
+        'Do telefónu povie každý všetko. Bez tohto kroku ide na nemeckú stavbu '
+        + 'človek, ktorého prax nikto nevidel — a prvý, komu to praskne, je náš '
+        + 'odberateľ. To je celá odpoveď na otázku, načo je preverovanie.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['trades', 'Remeslá a otázky']],
+    },
+    'cand.step.deal': {
+      title: 'Krok 3 — Dohodnúť',
+      lead: 'Sadzba, turnus a dátum nástupu — písomne, nie po telefóne.',
+      what: [
+        'Tri veci: sadzba a spôsob fakturácie, turnus 3+1 s približne 50 hodinami '
+        + 'týždenne, a písomné „Súhlasím, nastupujem dňa X".',
+      ],
+      how: [
+        'Stačí správa vo WhatsApp — dôležitý je dátum a číslo, nie forma. Podstatné '
+        + 'je, že to existuje napísané.',
+      ],
+      why: [
+        'Čo nie je napísané, to si o mesiac pamätá každý inak. A spor o hodinovku '
+        + 'sa vždy rieši vtedy, keď ten človek už na stavbe je a nedá sa vymeniť.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['rules', 'Cenník a pravidlá']],
+    },
+    'cand.step.papers': {
+      title: 'Krok 4 — Papiere',
+      lead: 'Živnosť, A1, kópie dokladov a podpísaná zmluva o dielo.',
+      what: [
+        'Kópie dokladov (OP alebo pas, živnostenský list), aktívna živnosť v správnych '
+        + 'odboroch, podané alebo vybavené A1, podpísaná zmluva.',
+      ],
+      how: [
+        'Pri A1 stačí **podané** — potvrdenie chodí týždne a stavba nepočká. Appka '
+        + 'na blížiaci sa koniec platnosti dokladu sama vyrobí úlohu.',
+      ],
+      why: [
+        'Bez týchto štyroch vecí sa nedá nasadiť. Nie preto, že by to zakazovala '
+        + 'appka — pri kontrole na stavbe to padne na nás ako na firmu, nie na neho.',
+      ],
+      links: [['workers', 'Živnostníci'], ['compliance', 'Compliance']],
+    },
+    'cand.step.site': {
+      title: 'Krok 5 — Na stavbu',
+      lead: 'Zákazka, dátum a informácie, kde sa má prvý deň hlásiť.',
+      what: [
+        'Nasadenie na konkrétnu zákazku, odoslaný infolist (adresa, kde sa hlásiť, '
+        + 'čo si vziať), dohodnutá doprava a ubytovanie, skupinový WhatsApp.',
+      ],
+      how: [
+        'Infolist appka vygeneruje zo zákazky — nepíše sa ručne. Že je človek '
+        + 'nasadený, sa tiež neodklikáva; vyplýva to z nasadenia na zákazke.',
+      ],
+      why: [
+        'Toto je posledné miesto, kde sa dá ešte niečo vymyslieť. Čo nie je '
+        + 'dohodnuté teraz, to rieši v nedeľu večer pred bránou cudzej stavby.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['candidates', 'Kandidáti']],
+    },
+    'cand.step.flags': {
+      title: 'Červené vlajky',
+      lead: 'Päť vecí, pri ktorých sa treba zastaviť, aj keď inak všetko sedí.',
+      what: [
+        'Záloha alebo cesta vopred, žiadna fotka a žiadna referencia, vyhýbanie sa '
+        + 'videohovoru, menené odpovede o živnosti, „kedy budú peniaze" ako prvá otázka.',
+      ],
+      how: [
+        'Zaškrtnutie nie je pokrok — je to varovanie, a preto sa do postupu náboru '
+        + 'nepočíta. Pri dvoch a viac appka postup zastaví a pýta sa na rozhodnutie.',
+      ],
+      why: [
+        'Jedna vlajka sa dá prejsť. Dve znamenajú, že riziko je vyššie než prínos — '
+        + 'a človek, ktorý mení odpovede o živnosti, ich zmení aj na stavbe.',
+      ],
+      links: [['candidates', 'Kandidáti']],
+    },
     'card.hiring.now': {
       title: 'Čo treba teraz',
       lead: 'Ľudia, ktorí čakajú na ťahu — zoradení podľa toho, kto čaká najdlhšie.',
@@ -625,7 +736,7 @@
       title: '2 · Telefonát',
       lead: 'Prvý hovor s človekom, ktorý sa ozval. Zapíše sa, čo zaznelo.',
       what: [
-        'Hovor má šesť častí: úvod, remeslo, overenie, papiere, logistika, peniaze. '
+        'Hovor má šesť častí: úvod, remeslo, dôkazy, papiere, logistika, peniaze. '
         + 'Pri každej je napísané, na čo sa pýtať a pri čom zbystriť.',
         'Prvá otázka je, na ktorý inzerát volá — od nej sa odvinie zvyšok a je '
         + 'vidieť, čo sme mu sľúbili.',

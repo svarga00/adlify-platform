@@ -1210,6 +1210,26 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .kanban-card:hover { border-color: #C9D6F2; box-shadow: 0 6px 18px -10px rgba(10,27,61,.25); }
 .kanban-empty { font-size: 12px; color: var(--ink-mute); padding: 8px 2px; }
 
+/* ── Čo spraviť teraz ──────────────────────────────────────────────────────
+   Jedna veta nad zoznamom krokov. Celé zjednodušenie náboru je v tom, že si
+   z piatich krokov nikto nemusí vyberať — appka povie jeden. */
+.nowbox {
+  border: 1px solid var(--border); border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm); background: var(--field);
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.nowbox-hot { border-left-color: var(--red); background: var(--red-50); }
+.nowbox-label {
+  font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.nowbox-title {
+  font-size: 17px; font-weight: 800; margin-top: 3px;
+  display: flex; align-items: center; gap: 6px;
+}
+.nowbox-sub { font-size: 13.5px; color: var(--ink-sub); margin-top: 3px; }
+.nowbox-why { font-size: 12.5px; color: var(--ink-mute); margin-top: 6px; line-height: 1.5; }
+
 /* ── Accordion náborového procesu ─────────────────────────────────────────── */
 .acc { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; overflow: hidden; background: #fff; }
 .acc-done { border-color: #BFE3CC; }

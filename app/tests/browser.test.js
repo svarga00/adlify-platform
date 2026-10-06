@@ -1928,6 +1928,128 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Nábor kandidáta: päť krokov a jedna veta ──────────────────────────
+    // Nábor mal šesť krokov a päťdesiat odrážok a dve rôzne veci sa v ňom
+    // volali „overenie". Tu sa kontroluje to, čo z toho má zostať: **jedna
+    // veta, čo spraviť teraz**, päť krokov pod ňou, odvodené veci bez
+    // zaškrtávadla — a že staré zaškrtnutia z K1–K6 stále platia.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          candidates: [
+            // Nikto mu nevolal — má horieť prvý krok.
+            { id: 'c1', full_name: 'Jozef Nový', type: 'individual', status: 'new',
+              received_at: '2026-10-06T07:00:00Z' },
+            // Volané, zapísané, a celý starý krok K3 je zaškrtnutý.
+            { id: 'c2', full_name: 'Milan Starý', type: 'individual', status: 'interview',
+              first_contact_at: '2026-10-01T09:05:00Z', screening_score: 78,
+              screening_verdict: 'ok', received_at: '2026-10-01T09:00:00Z' },
+          ],
+          candidate_checks: [
+            { candidate_id: 'c2', step_key: 'k3', item_index: 0, checked: true },
+            { candidate_id: 'c2', step_key: 'k3', item_index: 1, checked: true },
+            { candidate_id: 'c2', step_key: 'k3', item_index: 2, checked: true },
+            { candidate_id: 'c2', step_key: 'k3', item_index: 4, checked: true },
+          ],
+          candidate_notes: [], subcontracts: [], ads: [], call_chips: [],
+          candidate_chips: [], recruitment_plans: [],
+        };
+        DB.list = async (t, o) => {
+          const rows = DATA[t] || [];
+          const id = o && o.filters && o.filters.candidate_id;
+          return { data: id ? rows.filter(r => r.candidate_id === id) : rows, error: null };
+        };
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const citaj = () => {
+          const m = document.getElementById('ui-modal');
+          const t = (sel) => [...m.querySelectorAll(sel)]
+            .map(e => e.textContent.replace(/\s+/g, ' ').trim());
+          return {
+            teraz: (m.querySelector('.nowbox') || {}).textContent
+              ? m.querySelector('.nowbox').textContent.replace(/\s+/g, ' ').trim() : '',
+            hot: !!m.querySelector('.nowbox-hot'),
+            nowHelp: !!m.querySelector('.nowbox .help-btn'),
+            // Číslované sú len kroky náboru. Červené vlajky ani prvý týždeň
+            // krok nie sú — a práve preto nesmú byť očíslované.
+            kroky: t('.acc .acc-head').filter(x => /^\d\./.test(x)),
+            neoznacene: t('.acc .acc-head').filter(x => !/^\d\./.test(x)),
+            hotove: [...m.querySelectorAll('.acc')]
+              .filter(a => a.className.includes('acc-done'))
+              .map(a => a.querySelector('.acc-head').textContent.replace(/\s+/g, ' ').trim()),
+            telo: (m.querySelector('.acc-body') || { textContent: '' }).textContent
+              .replace(/\s+/g, ' ').trim(),
+            zaskrtavadla: m.querySelectorAll('.acc-body input[type=checkbox]').length,
+            vsetko: m.textContent.replace(/\s+/g, ' ').trim(),
+          };
+        };
+
+        await Cand.load();
+        await Cand.detail('c1');
+        await new Promise(r => setTimeout(r, 120));
+        const novy = citaj();
+
+        UI.closeModal();
+        await Cand.detail('c2');
+        await new Promise(r => setTimeout(r, 120));
+        const stary = citaj();
+
+        return { novy, stary };
+      });
+
+      // Jedna veta hore. Toto je celé zjednodušenie: nikto si nevyberá z piatich
+      // krokov, appka povie jeden.
+      ok(/Čo spraviť teraz · krok 1 z 5/.test(out.novy.teraz),
+        'hore je jedna veta — čo spraviť teraz a koľkatý je to krok', out.novy.teraz);
+      ok(/Zavolať/.test(out.novy.teraz), 'a je to ten správny krok', out.novy.teraz);
+      ok(out.novy.hot, 'nezavolaný človek horí');
+      ok(out.novy.nowHelp, 'a pri vete je vysvetlivka — dá sa to naučiť');
+
+      ok(out.novy.kroky.length === 5, 'nábor má päť krokov',
+        `má ${out.novy.kroky.length}: ${out.novy.kroky.join(' | ')}`);
+      ok(/^1\. Zavolať/.test(out.novy.kroky[0]) && /^5\. Na stavbu/.test(out.novy.kroky[4]),
+        'sú očíslované a v poradí, v akom sa robia', out.novy.kroky.join(' | '));
+      ok(!/Overenie/.test(out.novy.vsetko),
+        'a slovo „overenie" tu už nie je dvakrát — krok sa volá Preveriť');
+      ok(/Preveriť/.test(out.novy.kroky[1]), 'druhý krok je Preveriť', out.novy.kroky[1]);
+      ok(out.novy.neoznacene.length === 1 && /Červené vlajky/.test(out.novy.neoznacene[0]),
+        'červené vlajky sú mimo krokov — nie je to pokrok, je to varovanie',
+        out.novy.neoznacene.join(' | '));
+
+      // Odvodená odrážka: nikto ju neodklikol a odkliknúť sa nedá.
+      ok(out.novy.zaskrtavadla === 0,
+        'v prvom kroku sa nič neodklikáva — vyplýva z hovoru',
+        `zaškrtávadiel: ${out.novy.zaskrtavadla}`);
+      ok(/nekliká sa|Stane sa samo/.test(out.novy.telo),
+        'a je napísané, odkiaľ to appka vie', out.novy.telo.slice(0, 120));
+
+      // Staré zaškrtnutia z K3 platia — preskládanie krokov nikomu nevynulovalo
+      // prácu, ktorú už odviedol.
+      ok(/krok 3 z 5|Dohodnúť/.test(out.stary.teraz),
+        'po hovore a prevereni je na rade dohoda', out.stary.teraz);
+      ok(out.stary.hotove.some(h => /Preveriť/.test(h)),
+        'starý krok K3 sa počíta ako hotové „Preveriť"', out.stary.hotove.join(' | '));
+      ok(out.stary.hotove.some(h => /Zavolať/.test(h)),
+        'a hovor je hotový bez jediného kliknutia', out.stary.hotove.join(' | '));
+      ok(!/Prvý týždeň/.test(out.stary.vsetko),
+        'prvý týždeň sa pred nasadením neukazuje');
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Prehľad: číslo a zoznam za ním ────────────────────────────────────
     // Dlaždica ukazuje číslo a po kliknutí okno so zoznamom, z ktorého to
     // číslo je. Tie dve veci sa nesmú rozísť. Práve to sa stalo pohľadu

@@ -1,9 +1,16 @@
 // ============================================================================
-// DANUBRA — náborový proces kandidáta: šesť krokov, poznámky, červené vlajky
+// DANUBRA — nábor kandidáta: päť krokov, poznámky, červené vlajky
 // ============================================================================
 // Používa sa počas telefonátu, takže všetko musí byť po ruke a odklikateľné
 // jedným prstom. Zaškrtnutie sa ukladá okamžite — nikde nie je tlačidlo
 // „uložiť", ktoré by sa dalo zabudnúť stlačiť.
+//
+// Hore je **jedna veta: čo spraviť teraz**. Zoznam krokov je pod ňou. Kto
+// nábor nikdy nerobil, nemusí vyberať z piatich krokov — appka mu povie jeden.
+//
+// Odrážka, ktorá vyplýva z dát (zavolané, nasadený), sa nekliká. Je vidieť ako
+// hotová a pod ňou je napísané, odkiaľ sa to vie — inak by to vyzeralo, že ju
+// niekto odklikol za mňa.
 //
 // Poznámky sa neprepisujú. Oprava je nová poznámka, stará zostáva viditeľná
 // aj s tým, kto ju napísal a kedy.
@@ -46,6 +53,8 @@
       if (!this.open) this.open = P.initialOpenStep(cand, this.checks);
 
       return `
+        ${this.nowHtml(cand, prog)}
+
         ${prog.flagCount ? `<div class="warnbox" style="margin-bottom:12px;">
           ${Icon('alert', 14)} <strong>${prog.flagCount} ${prog.flagCount === 1 ? 'červená vlajka' : 'červené vlajky'}</strong>
           — ${prog.flags.map(f => UI.esc(f.text)).join(' · ')}</div>` : ''}
@@ -58,16 +67,43 @@
           <span style="font-size:12.5px;font-weight:700;white-space:nowrap;">${UI.pct(prog.percent)}</span>
         </div>
         <div style="font-size:12px;color:var(--ink-mute);margin-bottom:12px;">
-          ${prog.done} z ${prog.total} položiek${prog.currentStep
-            ? ` · teraz: <strong>${UI.esc(prog.currentStep.title)}</strong>`
-            : ' · proces je hotový'}</div>
-
-        <button type="button" class="btn btn-primary btn-block guide-cta"
-          onclick="Guide.continueCall('${cand.id}')">
-          ${Icon('phone', 18)} ${cand.screening_score != null ? 'Pokračovať v hovore' : 'Prejsť hovor'}</button>
+          ${prog.done} z ${prog.total} odrážok · celý nábor má päť krokov</div>
 
         ${P.STEPS.map((step, i) => this.stepHtml(cand, step, prog.steps[i])).join('')}
+        ${this.afterHtml(prog.afterPlacement)}
         ${this.flagsHtml(cand)}`;
+    },
+
+    /**
+     * Čo spraviť teraz — jedna veta a jedno tlačidlo.
+     *
+     * Toto je celé zjednodušenie náboru: zoznam krokov zostal, ale nikto si
+     * z neho nemusí vyberať. Appka povie jednu vec a hneď pod ňou je tlačidlo,
+     * ktorým sa dá spraviť.
+     */
+    nowHtml(cand, prog) {
+      const n = prog.next;
+      if (!n) return '';
+      const ACTION = {
+        call: { label: 'Zavolať a prejsť hovor', onclick: `Guide.continueCall('${cand.id}')`, ico: 'phone' },
+        proof: { label: 'Pokračovať v preverovaní', onclick: `CandProc.goStep('proof')`, ico: 'check' },
+        deal: { label: 'Dohodnúť podmienky', onclick: `CandProc.goStep('deal')`, ico: 'note' },
+        papers: { label: 'Dobehnúť papiere', onclick: `CandProc.goStep('papers')`, ico: 'doc' },
+        site: { label: 'Nasadiť na zákazku', onclick: 'CandProc.hireForm()', ico: 'site' },
+        flags: { label: 'Rozhodnúť — pokračovať či zamietnuť', onclick: 'CandProc.rejectForm()', ico: 'alert' },
+      };
+      const a = ACTION[n.key];
+      return `
+        <div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
+          <div class="nowbox-label">Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}</div>
+          <div class="nowbox-title">${UI.esc(n.title)}
+            ${n.key !== 'closed' && n.key !== 'done'
+              ? Help.btn(`cand.step.${n.key}`, { size: 14 }) : ''}</div>
+          <div class="nowbox-sub">${UI.esc(n.what)}</div>
+          ${n.why ? `<div class="nowbox-why">${UI.esc(n.why)}</div>` : ''}
+          ${a ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
+            onclick="${a.onclick}">${Icon(a.ico, 17)} ${a.label}</button>` : ''}
+        </div>`;
     },
 
     stepHtml(cand, step, sp) {
@@ -79,34 +115,102 @@
           <button type="button" class="acc-head" onclick="CandProc.toggleStep('${step.key}')">
             <span class="acc-mark ${sp.complete ? 'done' : ''}">${sp.complete ? Icon('check', 13) : ''}</span>
             <span style="flex:1;text-align:left;">
-              <strong>${UI.esc(step.title)}</strong>
+              <strong>${step.n}. ${UI.esc(step.title)}</strong>
               <span style="display:block;font-size:12px;color:var(--ink-mute);">
+                ${UI.esc(step.lead)}</span>
+              <span style="display:block;font-size:11.5px;color:var(--ink-mute);">
                 ${sp.done} z ${sp.total}${notes.length ? ` · ${notes.length} ${notes.length === 1 ? 'poznámka' : 'poznámok'}` : ''}</span>
             </span>
             <span style="color:var(--ink-mute);display:flex;transform:rotate(${isOpen ? '90' : '0'}deg);">
               ${Icon('chevron', 15)}</span>
           </button>
           ${isOpen ? `<div class="acc-body">
-            <div style="font-size:12px;color:var(--ink-mute);margin-bottom:10px;">${UI.esc(step.hint)}</div>
-            ${items.map(it => this.itemHtml(step.key, it)).join('')}
+            <div style="font-size:12px;color:var(--ink-sub);margin-bottom:10px;">
+              ${UI.esc(step.why)} ${Help.btn(`cand.step.${step.key}`, { size: 13 })}</div>
+            ${items.map(it => this.itemHtml(cand, step, it)).join('')}
             ${this.notesBlock(step.key, notes)}
           </div>` : ''}
         </div>`;
     },
 
-    itemHtml(stepKey, it) {
+    itemHtml(cand, step, it) {
+      const stepKey = typeof step === 'string' ? step : step.key;
+      const obj = typeof step === 'string' ? null : step;
+      const auto = !!(obj && !P.itemManual(obj, it.index));
+      // Pri kroku z definície sa stav počíta z knižnice (odvodené veci aj staré
+      // zaškrtnutia), pri zozname bez definície (vlajky, prvý týždeň) stačí
+      // zaškrtnutie — a ak si ho volajúci už spočítal, má prednosť.
+      const done = obj
+        ? P.itemDone(obj, it.index, cand, this.checks)
+        : (it.done != null ? !!it.done : this.isChecked(stepKey, it.index));
       const c = this.checkOf(stepKey, it.index);
-      const on = !!(c && c.checked);
+
+      // Odvodenú odrážku nikto neodklikol — vyplýva z dát. Keby sa dala
+      // odkliknúť, appka by si protirečila: človek je nasadený, ale odrážka
+      // odškrtnutá.
+      if (auto) {
+        return `
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;">
+            <span class="acc-mark ${done ? 'done' : ''}" style="flex:none;margin-top:1px;">
+              ${done ? Icon('check', 13) : ''}</span>
+            <span style="flex:1;font-size:13.5px;${done ? 'color:var(--ink-mute);' : ''}">
+              ${UI.esc(it.text)}
+              <span style="display:block;font-size:11.5px;color:var(--ink-mute);">
+                ${done ? 'Appka to vie z dát — nekliká sa.' : 'Stane sa samo, keď na to príde rad.'}
+                ${it.hint ? ` ${UI.esc(it.hint)}` : ''}</span>
+            </span>
+          </div>`;
+      }
+
       return `
         <label class="chk chk-lg" style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;">
-          <input type="checkbox" ${on ? 'checked' : ''}
+          <input type="checkbox" ${done ? 'checked' : ''}
             onchange="CandProc.toggle('${stepKey}',${it.index},this.checked)">
-          <span style="flex:1;font-size:13.5px;${on ? 'color:var(--ink-mute);' : ''}">
+          <span style="flex:1;font-size:13.5px;${done ? 'color:var(--ink-mute);' : ''}">
             ${UI.esc(it.text)}
-            ${on && c?.checked_at ? `<span style="display:block;font-size:11.5px;color:var(--ink-mute);">
+            ${it.hint ? `<span style="display:block;font-size:11.5px;color:var(--ink-mute);">
+              ${UI.esc(it.hint)}</span>` : ''}
+            ${done && c?.checked_at ? `<span style="display:block;font-size:11.5px;color:var(--ink-mute);">
               ${new Date(c.checked_at).toLocaleString('sk-SK')}</span>` : ''}
           </span>
         </label>`;
+    },
+
+    /**
+     * Prvý týždeň na stavbe. Nie je to krok náboru — nábor je hotový — ale
+     * tri telefonáty, ktoré rozhodnú, či tam ten človek zostane. Preto sa
+     * ukazuje až po nasadení a do postupu náboru sa nepočíta.
+     */
+    afterHtml(after) {
+      if (!after || !after.show) return '';
+      const isOpen = this.open === after.key;
+      return `
+        <div class="acc${after.done === after.total ? ' acc-done' : ''}">
+          <button type="button" class="acc-head" onclick="CandProc.toggleStep('${after.key}')">
+            <span class="acc-mark ${after.done === after.total ? 'done' : ''}">
+              ${after.done === after.total ? Icon('check', 13) : ''}</span>
+            <span style="flex:1;text-align:left;">
+              <strong>${UI.esc(after.title)}</strong>
+              <span style="display:block;font-size:12px;color:var(--ink-mute);">
+                ${UI.esc(after.hint)}</span>
+              <span style="display:block;font-size:11.5px;color:var(--ink-mute);">
+                ${after.done} z ${after.total}</span>
+            </span>
+            <span style="color:var(--ink-mute);display:flex;transform:rotate(${isOpen ? '90' : '0'}deg);">
+              ${Icon('chevron', 15)}</span>
+          </button>
+          ${isOpen ? `<div class="acc-body">
+            ${after.items.map(it => this.itemHtml(null, after.key, it)).join('')}
+            ${this.notesBlock(after.key, this.notesOf(after.key))}
+          </div>` : ''}
+        </div>`;
+    },
+
+    /** Otvor krok a ukáž ho — z vety „čo spraviť teraz". */
+    goStep(key) {
+      this.open = key;
+      this.rerender();
+      document.querySelector('.acc .acc-head')?.scrollIntoView({ block: 'nearest' });
     },
 
     notesBlock(stepKey, notes) {
@@ -146,7 +250,7 @@
           ${isOpen ? `<div class="acc-body">
             <div style="font-size:12px;color:var(--ink-mute);margin-bottom:10px;">${UI.esc(P.FLAGS.hint)}</div>
             ${P.FLAGS.items.map((text, index) =>
-              this.itemHtml('flags', { index, text })).join('')}
+              this.itemHtml(cand, 'flags', { index, text })).join('')}
             ${this.notesBlock('flags', this.notesOf('flags'))}
           </div>` : ''}
         </div>`;

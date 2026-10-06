@@ -369,8 +369,10 @@
 
     // ── Polia do hovoru ───────────────────────────────────────────────────
     chipsHtml() {
-      const SEG = { intro: 'Úvod', trade: 'Remeslo', verify: 'Overenie',
-        legal: 'Papiere', logistics: 'Logistika', money: 'Peniaze' };
+      // Názvy častí hovoru sú v knižnici (`chips.js`). Boli tu prepísané
+      // natvrdo na troch miestach, takže premenovanie časti („Overenie" →
+      // „Dôkazy") sa do appky nedostalo — tri obrazovky by tvrdili každá niečo iné.
+      const SEG = Object.fromEntries(DanubraChips.SEGMENTS.map(s => [s.key, s.title]));
       const rows = this.chips.filter(c => !this.filterTrade
         || (this.filterTrade === '_univ' ? !c.trade_key : c.trade_key === this.filterTrade));
       const pend = rows.filter(c => c.active === false);
@@ -422,9 +424,8 @@
           ${UI.field('label', 'Text poľa (2–6 slov)', { value: c.label, required: true,
             placeholder: 'napr. vie rozteč 625' })}
           <div class="form-grid">
-            ${UI.field('segment', 'Kde v hovore', { value: c.segment || 'trade', options: [
-              ['intro', 'Úvod'], ['trade', 'Remeslo'], ['verify', 'Overenie'],
-              ['legal', 'Papiere'], ['logistics', 'Logistika'], ['money', 'Peniaze']] })}
+            ${UI.field('segment', 'Kde v hovore', { value: c.segment || 'trade',
+              options: DanubraChips.SEGMENTS.map(s => [s.key, s.title]) })}
             ${UI.field('trade_key', 'Pre remeslo', { value: c.trade_key || '', add: 'trade',
               options: [['', 'Univerzálne'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('polarity', 'Znamienko', { value: c.polarity || 'plus', options: [
@@ -585,9 +586,8 @@
             ${UI.field('weight', 'Váha (3 = kľúčová)', { type: 'number', value: q.weight || 1 })}
             ${UI.field('sort_order', 'Poradie', { type: 'number', value: q.sort_order || 0 })}
             ${UI.field('segment', 'Kde v hovore', { value: q.segment || '',
-              options: [['', 'podľa typu otázky'], ['intro', 'Úvod'], ['trade', 'Remeslo'],
-                ['verify', 'Overenie'], ['legal', 'Papiere'], ['logistics', 'Logistika'],
-                ['money', 'Peniaze']] })}
+              options: [['', 'podľa typu otázky'],
+                ...DanubraChips.SEGMENTS.map(s => [s.key, s.title])] })}
             ${UI.field('ad_id', 'Len k inzerátu', { value: q.ad_id || '', add: 'ad',
               options: [['', '— nie, platí všeobecne —'],
                 ...(this.ads || []).map(a => [a.id, a.title])] })}

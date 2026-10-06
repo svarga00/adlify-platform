@@ -783,7 +783,7 @@
               ? `<button class="guide-btn guide-btn-red" onclick="Guide.finishCall('reject')">
                   Zamietnuť a zapísať dôvod</button>`
               : `<button class="guide-btn guide-btn-yes" onclick="Guide.finishCall('advance')">
-                  ${Icon('check', 18)} Ísť na overenie</button>`}
+                  ${Icon('check', 18)} Ísť preveriť</button>`}
             <button class="guide-btn guide-btn-no" onclick="Guide.finishCall('continue')">
               Uložiť a pokračovať neskôr</button>
           </div>
@@ -810,8 +810,8 @@
         await DB.update('candidates', this.cand.id, { outcome: 'rejected', outcome_reason: reason });
         UI.toast('Zamietnutý a zapísaný', 'ok');
       } else if (action === 'advance') {
-        CandProc.open = 'k3';
-        UI.toast('Uložené — pokračuj krokom Overenie', 'ok');
+        CandProc.open = 'proof';
+        UI.toast('Uložené — pokračuj krokom Preveriť', 'ok');
       } else {
         UI.toast('Uložené', 'ok');
       }
