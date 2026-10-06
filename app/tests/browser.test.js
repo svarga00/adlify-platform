@@ -1402,6 +1402,99 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Objednávky ────────────────────────────────────────────────────────
+    // Formulár skladá číselníky až za behu a pri objednávke živnostníkovi
+    // ponúka len nasadenia, ktoré ešte objednávku nemajú. Oboje sa dá pokaziť
+    // tak, že sa to v kóde nevidí.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          partners: [{ id: 'p1', name: 'Vogel GmbH' }],
+          workers: [{ id: 'w1', full_name: 'Ján Novák' }, { id: 'w2', full_name: 'Peter Kováč' }],
+          subcontracts: [{ id: 's1', title: 'Stavba Ulm', contract_number: 'ZAK-1' }],
+          contracts: [],
+          assignments: [
+            { id: 'a1', subcontract_id: 's1', worker_id: 'w1', status: 'active' },
+            { id: 'a2', subcontract_id: 's1', worker_id: 'w2', status: 'active' },
+          ],
+          work_orders: [
+            { id: 'o1', kind: 'customer', order_number: 'OBJ-2026-0001', title: 'Trockenbau',
+              partner_id: 'p1', subcontract_id: 's1', their_ref: '4500123456',
+              status: 'confirmed', scope: 'Wände 2. OG' },
+            // Nasadenie a1 už objednávku má — vo výbere sa nesmie ponúknuť znova.
+            { id: 'o2', kind: 'worker', order_number: 'OBJ-2026-0002', title: 'Priečky',
+              worker_id: 'w1', assignment_id: 'a1', subcontract_id: 's1', status: 'sent' },
+          ],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: 'OBJ-2026-0003', error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          const view = document.getElementById('view');
+          Danubra.route = 'orders';
+          Ord.loaded = false;
+          await Danubra.views.orders.call(Danubra, view);
+          const odberatel = view.innerText;
+          const kariet = view.querySelectorAll('#ord-list .card').length;
+
+          Ord.setKind('worker');
+          await new Promise(r => setTimeout(r, 60));
+          const zivnostnik = document.getElementById('view').innerText;
+
+          // Formulár pre živnostníka: ponúknu sa len voľné nasadenia.
+          Ord.form();
+          const sel = document.querySelector('#ui-modal select[name="assignment_id"]');
+          const moznosti = sel ? [...sel.options].map(o => o.textContent.trim()) : [];
+          const maPlus = !!document.querySelector('#ui-modal select[name="assignment_id"]')
+            && !document.querySelector('#ui-modal .fld-pick select[name="assignment_id"]');
+          UI.closeModal();
+
+          Ord.setKind('customer');
+          await new Promise(r => setTimeout(r, 60));
+          Ord.form();
+          const maIchCislo = !!document.querySelector('#ui-modal input[name="their_ref"]');
+          const hint = (document.querySelector('#ui-modal input[name="their_ref"]')
+            ?.closest('.fld')?.querySelector('.fld-hint')?.textContent) || '';
+          UI.closeModal();
+
+          return { odberatel, zivnostnik, kariet, moznosti, maPlus, maIchCislo, hint };
+        })();
+      });
+
+      ok(out.kariet === 1, 'zobrazia sa len objednávky vybranej strany',
+        `kariet: ${out.kariet}`);
+      ok(/4500123456/.test(out.odberatel),
+        'číslo odberateľa je vidieť na karte — kvôli nemu sa zapisuje');
+      ok(/ide na faktúru/.test(out.odberatel), 'aj to, načo je');
+      ok(/Priečky/.test(out.zivnostnik), 'prepnutie strany ukáže objednávky živnostníkom');
+
+      ok(out.moznosti.length === 2,
+        'vo výbere je len nasadenie, ktoré objednávku ešte nemá (plus prázdna voľba)',
+        out.moznosti.join(' | '));
+      ok(out.moznosti.some(m => /Peter Kováč/.test(m)), 'a je to to voľné');
+      ok(!out.moznosti.some(m => /Ján Novák/.test(m)),
+        'nasadenie s objednávkou sa neponúkne druhýkrát');
+      ok(out.maPlus, 'pri nasadení sa nové nezakladá — vyberá sa z existujúcich');
+
+      ok(out.maIchCislo, 'pri objednávke od odberateľa sa pýta jeho číslo');
+      ok(/neprepustí|faktúru/.test(out.hint),
+        'a je vysvetlené, prečo naň treba', out.hint);
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Kde sú peniaze ────────────────────────────────────────────────────
     // Obrazovka, podľa ktorej sa rozhodne, či sa naberú ďalší ľudia. Keď
     // klame, klame smerom k míňaniu — preto sa tu kontroluje najmä to, čo sa
