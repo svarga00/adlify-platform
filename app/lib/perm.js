@@ -113,6 +113,8 @@
     // čo banka a cash-flow. Preto to isté právo: kto nemá vidieť zostatok,
     // nemá ho vidieť ani odtiaľto.
     money: 'bank',
+    // Objednávka je dohodnutá podmienka ako ponuka a zmluva — rovnaké právo.
+    orders: 'contracts',
   };
 
   /** Z názvu obrazovky urob kľúč práva. */

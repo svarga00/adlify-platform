@@ -110,16 +110,9 @@ for (const [name, obj] of [
 
 t('ikony fungujú', sandbox.Icon && sandbox.Icon('check', 14).startsWith('<svg'));
 t('mega menu sa poskladá', D && D.megaHtml().includes('mega-col'));
-// Názvy agend sa v mega menu objavia len vtedy, keď je ich viac než jedna —
-// pri jedinej je delenie podľa agend zbytočné.
-if (D) {
-  const restoreA = { ...D.modules };
-  D.modules = { ...D.modules, accommodation: true };
-  const html = D.megaHtml();
-  t('pri dvoch agendách ich mega menu obe ukáže',
-    D.visibleAreas().every(a => html.includes(a[1])));
-  D.modules = restoreA;
-}
+// Agenda je už len jedna, takže sa delenie podľa agend nekreslí vôbec.
+t('pri jedinej agende sa prepínač agend nekreslí',
+  D && !D.megaHtml().includes('mega-area'));
 // na mobile sa bočný panel neotvára, takže toto musí byť v mega menu
 t('mega menu má odhlásenie', D && D.megaHtml().includes('Odhlásiť sa'));
 
@@ -155,18 +148,29 @@ if (D) {
   const area = D.area;
 
   // Stav podľa migrácie 013: ubytovanie vypnuté.
-  D.modules = { recruiting: true, contracts: true, finance: true, accommodation: false };
+  D.modules = { recruiting: true, contracts: true, finance: true };
   D.area = 'staffing';
-  t('vypnutá agenda zmizne z prepínača', D.visibleAreas().length === 1);
-  t('pri jedinej agende sa prepínač nekreslí', !D.megaHtml().includes('mega-area'));
+  t('zostala jediná agenda', D.visibleAreas().length === 1);
+  t('a prepínač agend sa nekreslí', !D.megaHtml().includes('mega-area'));
 
-  const hidden = ['inquiries', 'offers', 'orders', 'active', 'clients'];
+  // Ubytovacia agenda je z appky preč. Nie vypnutá príznakom — nie je tam
+  // vôbec, a nedá sa vrátiť zaškrtnutím. Tabuľky v databáze zostali.
+  const prec = ['inquiries', 'offers', 'active', 'clients'];
   t('obchodná časť ubytovania nie je v navigácii',
-    hidden.every(k => !D.visibleNav().some(n => n[0] === k)));
-  t('archivovanú obrazovku nepustí ani odkaz',
-    hidden.every(k => !D.routeAvailable(k)));
-  t('mega menu neukazuje archivované obrazovky',
+    prec.every(k => !D.visibleNav().some(n => n[0] === k)));
+  t('a nedá sa na ňu dostať ani odkazom',
+    prec.every(k => !D.routeAvailable(k)));
+  t('mega menu ju neukazuje',
     !D.megaHtml().includes('Dopyty') && !D.megaHtml().includes('Aktívne pobyty'));
+  t('ani príznak v nastaveniach ju nevráti — už neexistuje',
+    (() => { D.modules = { ...D.modules, accommodation: true };
+      const vrat = prec.some(k => D.routeAvailable(k)) || D.visibleAreas().length > 1;
+      D.modules = { recruiting: true, contracts: true, finance: true };
+      return !vrat; })());
+
+  // `orders` je teraz objednávka v subdodávkach, nie tá z v1.
+  t('objednávky sú v navigácii', D.visibleNav().some(n => n[0] === 'orders'));
+  t('a dajú sa otvoriť', D.routeAvailable('orders'));
 
   // R4: databáza ubytovaní zostáva — ubytovanie je náklad zákazky.
   t('databáza ubytovaní zostáva dostupná (R4)', D.routeAvailable('accommodations'));
@@ -175,19 +179,13 @@ if (D) {
   t('zákazky, hodiny a faktúry zostávajú',
     ['subcontracts', 'timesheets', 'invoices', 'candidates'].every(k => D.routeAvailable(k)));
 
-  // Zapnuté ubytovanie musí vrátiť presne to, čo bolo v v1.
-  D.modules = { ...D.modules, accommodation: true };
-  t('zapnutie príznaku vráti agendu', D.visibleAreas().length === 2);
-  t('zapnutie príznaku vráti obchodné obrazovky',
-    hidden.every(k => D.routeAvailable(k)));
-
-  // Vypnutie financií je iná os než agenda — nesmie zhodiť zvyšok.
-  D.modules = { recruiting: true, contracts: true, finance: false, accommodation: false };
+  // Vypnutie financií nesmie zhodiť zvyšok.
+  D.modules = { recruiting: true, contracts: true, finance: false };
   t('vypnuté financie skryjú faktúry', !D.routeAvailable('invoices'));
   t('vypnuté financie nezhodia nábor', D.routeAvailable('candidates'));
 
   // Nastavenia sa nesmú dať vypnúť — inak by sa modul nedal zapnúť späť.
-  D.modules = { recruiting: false, contracts: false, finance: false, accommodation: false };
+  D.modules = { recruiting: false, contracts: false, finance: false };
   t('nastavenia zostanú dostupné vždy', D.routeAvailable('settings'));
   t('dashboard zostane dostupný vždy', D.routeAvailable('dashboard'));
   t('neznámy kľúč nie je obrazovka', !D.routeAvailable('nieco-co-neexistuje'));
@@ -652,11 +650,11 @@ if (D) {
   t('odkaz na neznámy typ sa nevykreslí ako tlačidlo',
     !/onclick/.test(D.link('nieco-cudzie', 'x1', 'Test')));
   t('odkaz bez názvu sa nevykreslí vôbec', D.link('worker', 'w9', '') === '');
-  // Vypnutá agenda sa nesmie obísť ani odkazom zo susednej obrazovky.
+  // Ubytovacia agenda je preč, takže na ňu nevedie ani odkaz.
   // (Databáza ubytovaní je výnimka — tá zostáva dostupná vždy, R4.)
-  t('odkaz na archivovanú agendu nevznikne',
+  t('odkaz na zabudnutú agendu nevznikne',
     !/onclick/.test(D.link('inquiry', 'q1', 'Dopyt'))
-    && !/onclick/.test(D.link('order', 'o1', 'Objednávka')));
+    && !/onclick/.test(D.link('client', 'c1', 'Klient')));
   t('ale databáza ubytovaní zostáva preklikateľná (R4)',
     /onclick/.test(D.link('accommodation', 'a1', 'Ubytovanie')));
 

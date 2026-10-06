@@ -239,6 +239,41 @@
     },
 
     // ── Dlaždice ────────────────────────────────────────────────────────────
+    'screen.orders': {
+      title: 'Objednávky',
+      lead: 'Dve strany tej istej práce: čo si u nás objednal odberateľ a čo sme '
+        + 'objednali u živnostníka.',
+      what: [
+        '**Od odberateľa** — jeho Bestellung aj s jeho číslom. To číslo patrí na '
+        + 'našu faktúru; bez neho ju jeho účtovné oddelenie často neprepustí a platba '
+        + 'sa posunie o mesiac. K jeho objednávke sa dá vystaviť naše potvrdenie '
+        + '(Auftragsbestätigung) po nemecky.',
+        '**Živnostníkovi** — jedna na nasadenie. Nasadenie, ktoré už objednávku má, '
+        + 'sa pri zakladaní neponúkne znova.',
+      ],
+      how: [
+        'Číslo sa prideľuje z radu OBJ-RRRR-NNNN až pri založení a transakčne, takže '
+        + 'v ňom nikdy nevznikne diera ani duplicita.',
+        'Objednávka je buď od odberateľa, alebo živnostníkovi — nikdy oboje. Drží to '
+        + 'kontrola v databáze, nie formulár.',
+      ],
+      why: [
+        'Objednávka živnostníkovi nie je papierovačka. Werkvertrag znamená, že si '
+        + 'objednávame **dielo**, nie hodiny — a keď sa kontrola opýta, čo presne mal '
+        + 'ten človek na stavbe urobiť, odpoveď „bol tam a robil, čo bolo treba" je '
+        + 'presne tá, po ktorej sa z Werkvertrag stane prenájom pracovnej sily '
+        + '(Arbeitnehmerüberlassung) a na ten treba povolenie.',
+        'Preto je na doklade aj napísané, že si prácu organizuje sám a že nám za dielo '
+        + 'fakturuje — to sú znaky, podľa ktorých sa dielo odlišuje.',
+      ],
+      watch: [
+        'Objednávka bez popísaného diela je označená. Je to jediné pole, ktoré pri '
+        + 'kontrole naozaj rozhoduje.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['contracts', 'Zmluvy'],
+        ['invoices', 'Vydané faktúry']],
+    },
+
     'screen.money': {
       title: 'Kde sú peniaze',
       lead: 'Dve otázky na jednom mieste: kde stoja naše peniaze a koľko sa z nich '

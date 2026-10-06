@@ -119,10 +119,6 @@
       ['recruiting', 'Nábor', 'Náborové plány, kandidáti, hovory, príručka remesiel.'],
       ['contracts', 'Zákazky a zmluvy', 'Odberatelia, ponuky, zmluvy, nasadenia, hodiny.'],
       ['finance', 'Peniaze', 'Vydané a prijaté faktúry, náklady, banka, cash-flow.'],
-      ['accommodation', 'Sprostredkovanie ubytovania',
-        'Dopyty, ponuky, objednávky a klienti z v1. Archivované — dáta zostávajú '
-        + 'v databáze aj po vypnutí. Databáza ubytovaní je dostupná vždy, lebo '
-        + 'ubytovanie je naďalej náklad zákazky.'],
     ],
 
     modulesSection() {

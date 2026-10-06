@@ -2,23 +2,28 @@
 // DANUBRA — app bootstrap, auth gate, navigácia, router
 // ============================================================================
 // Hlavný biznis je posielanie slovenských živnostníkov na nemecké stavby.
-// Sprostredkovanie ubytovania bolo v v1 druhá agenda; od v2 je archivované —
-// vypína sa príznakom `settings.modules.accommodation`, nie mazaním, takže
-// dáta aj väzby zostávajú a agenda sa dá kedykoľvek vrátiť.
 //
-// Databáza ubytovaní zostáva zapnutá vždy: ubytovanie je naďalej náklad
-// zákazky a argument v náborovom inzeráte (rozhodnutie R4).
+// Sprostredkovanie ubytovania bolo v v1 druhá agenda. Od v2 bola vypnutá
+// príznakom a teraz je z appky preč celá: nebolo sa jej kto venovať a držala
+// v menu päť položiek, ktoré nikam neviedli. **Tabuľky ani dáta sa nemazali**
+// — appka sa na ne len neodkazuje, takže sa z nich dá kedykoľvek čítať.
+//
+// Databáza ubytovaní zostáva: nie je to obchod, ale náklad zákazky a údaj,
+// ktorý potrebuje infolist na stavbu (rozhodnutie R4).
 // ============================================================================
 window.Danubra = {
   user: null,
   route: 'dashboard',
 
-  // Agendy — prepínač pod logom. Navigácia sa podľa nich filtruje.
-  // Kľúče zostávajú pôvodné, menia sa len názvy — inak by sa stratilo, čo má
-  // človek uložené v prehliadači.
+  // Agendy. Ubytovacia tu bola od v1 a bola vypnutá príznakom; teraz je preč
+  // celá — nebolo sa jej kto venovať a držala v menu päť položiek, ktoré
+  // nikam neviedli. Tabuľky ani dáta sa nemažú, len sa na ne appka
+  // neodkazuje.
+  //
+  // Ubytovania zostávajú: nie sú obchod, ale **náklad zákazky** a berie ich
+  // infolist na stavbu.
   areas: [
     ['staffing', 'Nábor a stavby', 'workers'],
-    ['accommodation', 'Ubytovanie', 'bed'],
   ],
   area: 'staffing',
   areaTitle(key) { const a = this.areas.find(x => x[0] === key); return a ? a[1] : 'Spoločné'; },
@@ -27,15 +32,14 @@ window.Danubra = {
   // Predvolené hodnoty sedia s tým, čo migrácia 013 zapísala do databázy,
   // aby navigácia vyzerala správne už pri prvom vykreslení a neposkočila,
   // keď dobehne dotaz.
-  modules: { recruiting: true, contracts: true, finance: true, accommodation: false },
+  modules: { recruiting: true, contracts: true, finance: true },
 
   /** Je modul zapnutý? Položka bez modulu je zapnutá vždy. */
   moduleOn(key) { return key == null || this.modules[key] !== false; },
 
-  /** Modul, ktorý danú položku zapína — buď zapísaný, alebo podľa agendy. */
+  /** Modul, ktorý danú položku zapína. Nezapísaný znamená „vždy". */
   moduleOf(item) {
-    if (item[4] !== undefined) return item[4];
-    return item[3] === 'accommodation' ? 'accommodation' : null;
+    return item[4] !== undefined ? item[4] : null;
   },
 
   async _loadModules() {
@@ -86,11 +90,8 @@ window.Danubra = {
     ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['flow', 'Ako to ide', 'repeat'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['messages', 'Správy', 'mail']]],
-    ['ZÁKAZKY',    [['active', 'Aktívne pobyty', 'active', 'accommodation'],
-                    ['inquiries', 'Dopyty', 'inquiries', 'accommodation'],
-                    ['offers', 'Ponuky', 'offers', 'accommodation'],
-                    ['orders', 'Objednávky', 'orders', 'accommodation'],
-                    ['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
+    ['ZÁKAZKY',    [['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
+                    ['orders', 'Objednávky', 'orders', 'staffing', 'contracts'],
                     ['contracts', 'Zmluvy', 'note', 'staffing', 'contracts'],
                     ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
@@ -108,8 +109,7 @@ window.Danubra = {
     // Ubytovania sú bez agendy zámerne — po archivácii obchodnej časti
     // zostávajú dostupné ako náklad zákazky (R4).
     ['DATABÁZA',   [['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
-                    ['accommodations', 'Ubytovania', 'bed', undefined, null],
-                    ['clients', 'Firmy a kontakty', 'clients', 'accommodation']]],
+                    ['accommodations', 'Ubytovania', 'bed', undefined, null]]],
     // „Náklady" sa volali Náklady, hoci prvá záložka na nich sú **prijaté
     // faktúry**. Kto ich hľadal podľa mena, nenašiel ich — názov v menu
     // o nich nehovoril nič.
@@ -134,6 +134,7 @@ window.Danubra = {
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
     messages: 'Komunikácia pri zázname, ktorého sa týka',
     quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',
+    orders: 'Čo si objednal odberateľ a čo sme objednali u živnostníka',
     contracts: 'Zmluvy o dielo a dodatky. Dohodnuté podmienky sa neprepisujú',
     subcontracts: 'Konkrétne stavby: kto tam je, koľko odrobil, čo sa fakturuje',
     timesheets: 'Odpracované hodiny — z nich vzniká podklad na faktúru',
@@ -188,13 +189,7 @@ window.Danubra = {
     // Úloha nemá „detail" — otvára sa rovno formulár, v ktorom sa dá upraviť.
     task:       { route: 'tasks',        handle: 'Tsk',   ico: 'tasks',     what: 'Úloha', method: 'form' },
     accommodation: { route: 'accommodations', handle: 'Acc', ico: 'bed',    what: 'Ubytovanie' },
-    // Ubytovacia agenda. Kým je modul vypnutý, `canOpen()` ich nepustí
-    // a odkaz sa vykreslí ako obyčajný štítok — archivovaná obrazovka sa
-    // nesmie otvoriť ani prekliknutím zo susednej.
-    inquiry:    { route: 'inquiries',    handle: 'Inq',   ico: 'inquiries', what: 'Dopyt' },
-    // Objednávka má „spis", nie detail — starý kód to riešil tichým `else if`.
-    order:      { route: 'orders',       handle: 'Ord',   ico: 'orders',    what: 'Objednávka', method: 'spis' },
-    client:     { route: 'clients',      handle: 'Cli',   ico: 'clients',   what: 'Klient' },
+    order:      { route: 'orders',       handle: 'Ord',   ico: 'orders',    what: 'Objednávka' },
   },
 
   /** Vie sa na tento typ záznamu vôbec preklikať? */
@@ -275,13 +270,6 @@ window.Danubra = {
 
   // Spodné taby na mobile (stred = rýchle pridanie)
   tabsByArea: {
-    accommodation: [
-      { key: 'dashboard', label: 'Prehľad', ico: 'dashboard' },
-      { key: 'active', label: 'Aktívne', ico: 'active' },
-      { key: '__plus', label: '', plus: true },
-      { key: 'inquiries', label: 'Dopyty', ico: 'inquiries' },
-      { key: 'accommodations', label: 'Ubytovania', ico: 'bed' },
-    ],
     staffing: [
       { key: 'dashboard', label: 'Prehľad', ico: 'dashboard' },
       { key: 'subcontracts', label: 'Zákazky', ico: 'site' },
@@ -542,8 +530,7 @@ window.Danubra = {
   quickAdd() {
     // rýchle pridanie podľa toho, kde práve stojíme
     const map = {
-      clients: () => Cli.form(), accommodations: () => Acc.form(),
-      inquiries: () => Inq.form(), workers: () => Wrk.form(),
+      accommodations: () => Acc.form(), workers: () => Wrk.form(),
       subcontracts: () => Sub.form(), partners: () => Prt.form(),
       timesheets: () => Tms.form(), tasks: () => Tsk.form(),
       candidates: () => Cand.form(), hiring: () => Hire.wizard(),
@@ -2603,8 +2590,6 @@ window.Danubra = {
       const datum = UI.esc(today.charAt(0).toUpperCase() + today.slice(1));
       view.innerHTML = this.header('Prehľad', datum) + UI.loading();
 
-      if (this.area === 'accommodation') return this._dashAccommodation(view, datum);
-
       const x = await this._dashLoad();
       // Export si dáta neťahá znova — vyváža presne to, čo je na obrazovke.
       this._dashData = x;
@@ -2685,128 +2670,6 @@ window.Danubra = {
     },
   },
 
-  // ── Prehľad archivovanej ubytovacej agendy ───────────────────────────────
-  // Zostáva tak, ako bol. Agenda je vypnutá príznakom, nie zmazaná (R4), a keď
-  // sa zapne, má dávať zmysel to isté, čo dávalo predtým.
-  async _dashAccommodation(view, datum) {
-    const [inqNew, active, acc, cli, invOverdue, invDraft, deployed, subsActive] = await Promise.all([
-      DB.count('inquiries', { status: 'new' }),
-      DB.count('orders', { status: 'in_progress' }),
-      DB.count('accommodations'),
-      DB.count('clients'),
-      DB.count('invoices', { status: 'overdue' }),
-      DB.count('invoices', { status: 'draft_pending_approval' }),
-      DB.count('assignments', { status: 'active' }),
-      DB.count('subcontracts', { status: 'active' }),
-    ]).catch(() => [0, 0, 0, 0, 0, 0, 0, 0]);
-
-    // cash-flow — podľa plánu najpravdepodobnejší dôvod zlyhania
-    let cf = null, payroll = 0;
-    try {
-      const [{ data: invAll }, { data: asg }] = await Promise.all([
-        DB.list('invoices', { select: 'id,total,status,issue_date,due_date,paid_at', limit: 1000 }),
-        DB.list('assignments', { select: 'gross_monthly,status', limit: 500 }),
-      ]);
-      payroll = (asg || []).filter(a => a.status === 'active')
-        .reduce((s, a) => s + Number(a.gross_monthly || 0) * 1.362, 0);
-      cf = DanubraCompliance.cashflowCheck({
-        invoices: invAll || [], monthlyPayroll: payroll, factoring: false,
-      });
-    } catch (e) { /* subdodávky ešte nemusia byť namigrované */ }
-
-    this.badges = { inquiries: inqNew, active: active, invoices: invOverdue + invDraft };
-    this._buildNav();
-
-    // Nábor: koľko ľudí ešte treba a kto čaká na prvý telefonát
-    let candWaiting = 0, plansActive = 0, needPeople = 0;
-    try {
-      const [{ data: cands }, { data: plans }] = await Promise.all([
-        DB.list('candidates', { select: 'id,status,first_contact_at', limit: 500 }),
-        DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
-      ]);
-      candWaiting = (cands || []).filter(c => c.status === 'new' && !c.first_contact_at).length;
-      const act = (plans || []).filter(p => p.status === 'active');
-      plansActive = act.length;
-      needPeople = act.reduce((s, p) => s + (p.headcount || 0), 0);
-    } catch (e) { /* náborový playbook ešte nemusí byť namigrovaný */ }
-
-    const kpis = [
-      ['Nové dopyty', inqNew, inqNew ? 'čakajú na reakciu' : 'všetko vybavené', inqNew ? 'warn' : ''],
-      ['Prebiehajúce pobyty', active, 'ubytovanie', ''],
-      ['Ľudia vonku', deployed, `${subsActive} ${subsActive === 1 ? 'zákazka' : 'zákaziek'}`, ''],
-      ['Ubytovania v DB', acc, 'databáza', ''],
-      ['Faktúry na schválenie', invDraft, invDraft ? 'vyžaduje potvrdenie' : 'žiadne', invDraft ? 'warn' : ''],
-      ['Po splatnosti', invOverdue, invOverdue ? 'urgovať' : 'v poriadku', invOverdue ? 'warn' : 'up'],
-    ];
-
-    const actions = [];
-    if (candWaiting) actions.push(['red',
-      `${candWaiting} ${candWaiting === 1 ? 'kandidát čaká' : 'kandidátov čaká'} na prvý telefonát`, 'candidates']);
-    if (inqNew) actions.push(['red', `${inqNew} nových dopytov čaká na reakciu`, 'inquiries']);
-    if (invDraft) actions.push(['amber', `${invDraft} faktúr čaká na schválenie`, 'invoices']);
-    if (invOverdue) actions.push(['red', `${invOverdue} faktúr po splatnosti`, 'invoices']);
-    if (!acc) actions.push(['amber', 'Databáza ubytovaní je prázdna — pridaj prvé', 'accommodations']);
-    if (!cli) actions.push(['amber', 'Žiadni klienti — pridaj prvého', 'clients']);
-    for (const w of (cf?.warnings || [])) {
-      if (w.severity === 'blocker') actions.push(['red', w.label, 'invoices']);
-    }
-
-    view.innerHTML =
-      this.header('Prehľad', `${datum} · ${active} ${
-        active === 1 ? 'prebiehajúci pobyt' : 'prebiehajúce pobyty'}`) + `
-      <div class="kpi-grid">
-        ${kpis.map(([l, v, d, k]) => `
-          <div class="kpi">
-            <div class="kpi-label">${l}</div>
-            <div class="kpi-value">${v}</div>
-            <div class="kpi-delta ${k}">${d}</div>
-          </div>`).join('')}
-      </div>
-      <div class="panels">
-        <div class="card card-pad">
-          <div class="card-head">
-            <div class="card-title">Vyžaduje akciu</div>
-            ${actions.length ? `<span class="badge" style="background:var(--amber-50);color:var(--amber);">${actions.length}</span>` : ''}
-          </div>
-          ${actions.length
-            ? actions.map(([dot, label, go]) => `
-                <button class="list-row" onclick="Danubra.go('${go}')">
-                  <span class="dot ${dot}"></span>
-                  <span style="flex:1;font-weight:500;">${UI.esc(label)}</span>
-                  <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span>
-                </button>`).join('')
-            : `<div style="color:var(--ink-mute);font-size:13px;padding:8px 2px;">Nič nečaká — všetko je vybavené.</div>`}
-        </div>
-        ${cf ? `<div class="card card-pad">
-          <div class="card-head">
-            <div class="card-title">Cash-flow</div>
-            ${UI.badge(cf.scaleSafe ? 'možno škálovať' : 'nezvyšovať počty', cf.scaleSafe ? 'green' : 'red')}
-          </div>
-          <div class="kv" style="margin:0 0 10px;">
-            <div><span>Doba inkasa</span><strong>${cf.dso != null ? `${cf.dso} dní` : 'zatiaľ bez dát'}</strong></div>
-            <div><span>Neuhradené</span><strong>${UI.money(cf.outstanding)}</strong></div>
-            <div><span>Po splatnosti</span><strong style="color:${cf.overdueSum ? 'var(--red)' : 'inherit'};">${UI.money(cf.overdueSum)}</strong></div>
-            <div><span>Potrebný kapitál</span><strong>${UI.money(cf.workingCapitalNeeded)}</strong></div>
-          </div>
-          ${cf.warnings.filter(w => w.severity !== 'info').map(w => `
-            <div class="list-row" style="cursor:default;align-items:flex-start;">
-              <span class="dot ${w.severity === 'blocker' ? 'red' : 'amber'}" style="margin-top:5px;"></span>
-              <span style="flex:1;font-size:12.5px;"><strong>${UI.esc(w.label)}</strong>
-                <span style="color:var(--ink-mute);display:block;">${UI.esc(w.fix)}</span></span>
-            </div>`).join('') || `<div style="color:var(--ink-mute);font-size:12.5px;">Splatnosti sú v poriadku.</div>`}
-        </div>` : ''}
-        <div class="card card-pad">
-          <div class="card-head"><div class="card-title">Rýchle akcie</div></div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Acc.form()">${Icon('plus')} Nové ubytovanie</button>
-            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Cli.form()">${Icon('plus')} Nový klient</button>
-            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('accommodations')">${Icon('bed')} Databáza ubytovaní</button>
-            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('subcontracts')">${Icon('site')} Zákazky subdodávok</button>
-            <button class="btn btn-outline" style="justify-content:flex-start;" onclick="Danubra.go('timesheets')">${Icon('clock')} Zapísať hodiny</button>
-          </div>
-        </div>
-      </div>`;
-  },
 };
 
 // ── Štart ───────────────────────────────────────────────────────────────────

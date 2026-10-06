@@ -270,5 +270,62 @@ console.log('Dokumenty');
   ok(!/arbeite für/.test(bezFirmy), 'ani sľub firmy, ktorú nepoznáme');
 }
 
+// ── Objednávka ──────────────────────────────────────────────────────────────
+// Objednávka živnostníkovi je doklad, ktorý pri kontrole odpovedá na otázku,
+// čo presne mal ten človek urobiť. Preto sa tu stráži nielen obsah, ale aj to,
+// kto je na nej kým — obrátené strany by tvrdili pravý opak.
+{
+  const supplier = { name: 'DANUBRA s.r.o.', address: 'Hlavná 1', company_id: '55' };
+  const sc = { title: 'Wohnpark Feuerbach', contract_number: 'ZAK-1' };
+
+  const w = P.workOrder({
+    order: { kind: 'worker', order_number: 'OBJ-2026-0008', title: 'Sadrokartón 2. NP',
+      scope: 'Montáž priečok, opláštenie, tmelenie Q2.', date_from: '2026-10-13',
+      date_to: '2026-12-19', price_model: 'hourly', rate: 22, currency: 'EUR' },
+    supplier, worker: { full_name: 'Ján Novák' }, subcontract: sc });
+
+  ok(/Objednávka/.test(w), 'živnostníkovi ide objednávka po slovensky');
+  ok(/Objednávateľ/.test(w) && /Zhotoviteľ/.test(w),
+    'strany sú objednávateľ a zhotoviteľ');
+  ok(!/>Odberateľ</.test(w),
+    'nie odberateľ — to by bolo obrátené a doklad by tvrdil opak toho, čo dokazuje');
+  ok(/samostatne zárobkovo činná osoba/.test(w), 'a je napísané, že je živnostník');
+  ok(/Montáž priečok/.test(w), 'dielo je na doklade');
+  ok(/organizuješ sám/.test(w), 'aj to, že si prácu organizuje sám');
+  ok(/vystavíš faktúru/.test(w), 'a že nám za dielo fakturuje');
+  ok(/nie hodiny/.test(w), 'a že sa objednáva dielo, nie hodiny');
+  ok(/prijímam objednávku/.test(w), 'má podpisový riadok pre zhotoviteľa');
+  // Hodinová sadzba na objednávke diela je slabšie miesto — nech je to povedané.
+  ok(/pevná cena alebo cena za\s+jednotku/.test(w),
+    'pri hodinovej sadzbe sa upozorní, že pevná cena je silnejší doklad');
+  const pevna = P.workOrder({
+    order: { kind: 'worker', title: 'x', price_model: 'fixed', fixed_price: 5000 },
+    supplier, worker: { full_name: 'Ján Novák' }, subcontract: sc });
+  ok(!/pevná cena alebo cena za\s+jednotku/.test(pevna),
+    'pri pevnej cene to upozornenie netreba');
+
+  // Odberateľovi ide nemecké potvrdenie a hore jeho číslo.
+  const c = P.workOrder({
+    order: { kind: 'customer', order_number: 'OBJ-2026-0007', their_ref: '4500123456',
+      title: 'Trockenbau 2. OG', scope: 'Trockenbauwände im 2. OG.',
+      received_at: '2026-10-02', price_model: 'hourly', rate: 34, currency: 'EUR' },
+    supplier, partner: { name: 'Vogel GmbH' }, subcontract: sc });
+
+  ok(/Auftragsbestätigung/.test(c), 'odberateľovi ide potvrdenie po nemecky');
+  ok(/Ihre Bestellnummer/.test(c), 'a jeho číslo je pomenované po nemecky');
+  ok(c.includes('4500123456'), 'aj samotné číslo');
+  ok(/auf allen Rechnungen/.test(c),
+    's vetou, že ho treba uvádzať na faktúrach — kvôli tomu to číslo zapisujeme');
+  ok(/Auftragnehmer/.test(c) && /Auftraggeber/.test(c), 'strany po nemecky');
+  ok(/34,00/.test(c), 'cena v nemeckom tvare');
+  ok(!/organizuješ sám/.test(c), 'vety o diele patria len živnostníkovi');
+
+  // Chýbajúce dielo sa nevynechá potichu ani na jednom.
+  const bez = P.workOrder({ order: { kind: 'worker', title: 'x' },
+    supplier, worker: { full_name: 'A' }, subcontract: {} });
+  ok(/nie je popísané/.test(bez), 'bez popisu diela to doklad napíše');
+  ok(/todo/.test(bez), 'a je to zvýraznené');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);
