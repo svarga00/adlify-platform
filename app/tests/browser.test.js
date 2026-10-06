@@ -1402,6 +1402,101 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Kde sú peniaze ────────────────────────────────────────────────────
+    // Obrazovka, podľa ktorej sa rozhodne, či sa naberú ďalší ľudia. Keď
+    // klame, klame smerom k míňaniu — preto sa tu kontroluje najmä to, čo sa
+    // do voľných peňazí započítať nesmie.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          subcontracts: [{ id: 's1', title: 'Stavba Ulm', status: 'active', charge_rate: '30' }],
+          assignments: [{ id: 'a1', subcontract_id: 's1', worker_id: 'w1',
+            status: 'active', charge_rate: '30' }],
+          timesheets: [{ id: 't1', assignment_id: 'a1', hours: 10,
+            work_date: '2026-10-01', period_id: null }],
+          periods: [],
+          invoices: [{ id: 'i1', invoice_number: '2026030', status: 'sent', total: '1000',
+            amount_net: '850', withholding_amount: '150', due_date: '2026-09-01',
+            partner_id: 'p1' }],
+          costs: [],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH' }],
+          v_cashflow: [
+            // Po splatnosti — nesmie zvýšiť voľné peniaze.
+            { expected_on: '2026-09-01', amount: '850', source: 'invoice' },
+            // Záväzok o dva týždne.
+            { expected_on: '2026-10-20', amount: '-600', source: 'bill' },
+          ],
+          bank_transactions: [{ amount: '2000' }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Cfg.row = { id: 'c', staffing: { cash_buffer_min: 500 } };
+        Cfg.loaded = true;
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          const view = document.getElementById('view');
+          Danubra.route = 'money';
+          Mon.loaded = false;
+          await Danubra.views.money.call(Danubra, view);
+          const x = Mon.data();
+          const st = DanubraPosition.stages(x);
+          const sp = DanubraPosition.spendable({
+            today: x.today, balance: Mon.balance, items: Mon.cashflow,
+            weeks: 8, reserve: Mon.reserve() });
+          return {
+            stadii: view.querySelectorAll('.ms').length,
+            maTodo: [...view.querySelectorAll('.ms-lead strong')].length,
+            tabulka: view.querySelectorAll('.kpi-table tbody tr').length,
+            najhorsi: view.querySelectorAll('.kpi-table tr.is-worst').length,
+            text: view.innerText,
+            unbilled: (st.find(s => s.key === 'unbilled') || {}).cents,
+            overdueStage: (st.find(s => s.key === 'overdue') || {}).cents,
+            withheld: (st.find(s => s.key === 'withheld') || {}).cents,
+            free: sp.free, start: sp.start, unreliable: sp.unreliable,
+            rezerva: Mon.reserve(),
+          };
+        })();
+      });
+
+      ok(out.stadii === 7, 'sedem štádií, kde môžu peniaze stáť',
+        `našiel som ${out.stadii}`);
+      ok(out.maTodo >= 5, 'pri štádiu, ktoré sa dá pohnúť, je napísané čo spraviť',
+        `s návodom: ${out.maTodo}`);
+      ok(out.unbilled === 30000, '10 hodín po 30 € je odrobené a nevyfakturované',
+        String(out.unbilled));
+      ok(out.overdueStage === 85000, 'po splatnosti sa počíta suma po zrážke §48b',
+        String(out.overdueStage));
+      ok(out.withheld === 15000, 'a zrážka je vedená zvlášť', String(out.withheld));
+
+      // Toto je to, kvôli čomu obrazovka vznikla.
+      ok(out.start === 200000, 'na účte je 2 000 €', String(out.start));
+      ok(out.unreliable === 85000, 'faktúra po splatnosti je vidieť zvlášť',
+        String(out.unreliable));
+      ok(out.free === 90000,
+        'voľné = 2 000 − 600 záväzok − 500 rezerva. Faktúra po splatnosti ich nezvýši',
+        String(out.free));
+      ok(out.najhorsi === 1, 'najnižší týždeň je v tabuľke zvýraznený');
+      ok(/po splatnosti/.test(out.text),
+        'a je napísané, že sa faktúry po splatnosti do výhľadu nerátajú');
+      // Popisky sú v CSS veľkými písmenami a `innerText` to rešpektuje.
+      ok(/stojí na nás/i.test(out.text) && /čaká sa na odberateľa/i.test(out.text),
+        'súhrn rozlišuje, čo sa dá pohnúť vlastnou rukou', out.text.slice(0, 200));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Založiť nový rovno pri výbere ─────────────────────────────────────
     // Celý zmysel je v jednej vete: **rozpísaný formulár sa nesmie stratiť.**
     // Keby sa pri zakladaní zavrel, bolo by to to isté ako ísť do iného modulu

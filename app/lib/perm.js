@@ -107,7 +107,13 @@
    * Nie je to to isté ako `ROUTE_POWER`: tam je právomoc **prísnejšia** než
    * obrazovka, tu je to **tá istá** obrazovka inak zobrazená.
    */
-  const ROUTE_ALIAS = { flow: 'dashboard' };
+  const ROUTE_ALIAS = {
+    flow: 'dashboard',
+    // „Kde sú peniaze" ukazuje pohľadávky, záväzky aj stav účtu — to isté,
+    // čo banka a cash-flow. Preto to isté právo: kto nemá vidieť zostatok,
+    // nemá ho vidieť ani odtiaľto.
+    money: 'bank',
+  };
 
   /** Z názvu obrazovky urob kľúč práva. */
   function keyOf(route) { return ROUTE_POWER[route] || ROUTE_ALIAS[route] || route; }

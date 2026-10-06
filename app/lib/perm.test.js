@@ -172,7 +172,9 @@ console.log('Práva');
   const staffing = [...nav.matchAll(/\['([a-z]+)', '[^']+', '[a-z]+', 'staffing'/g)]
     .map(m => m[1]);
   const vsade = ['dashboard', 'tasks', 'rules', 'settings', 'accommodations', 'members'];
-  const kryte = new Set([...P.MODULES.map(m => m.key), ...Object.keys(P.ROUTE_POWER)]);
+  // Obrazovka s odvodeným právom je krytá tiež — len sa pýta na cudzie.
+  const kryte = new Set([...P.MODULES.map(m => m.key),
+    ...Object.keys(P.ROUTE_POWER), ...Object.keys(P.ROUTE_ALIAS)]);
   const zabudnute = [...new Set([...staffing, ...vsade])].filter(r => !kryte.has(r));
   ok(zabudnute.length === 0, 'každá obrazovka má povedané, kto na ňu smie',
     `bez práva: ${zabudnute.join(', ')}`);

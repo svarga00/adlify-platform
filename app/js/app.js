@@ -110,8 +110,12 @@ window.Danubra = {
     ['DATABÁZA',   [['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
                     ['accommodations', 'Ubytovania', 'bed', undefined, null],
                     ['clients', 'Firmy a kontakty', 'clients', 'accommodation']]],
-    ['PENIAZE',    [['invoices', 'Vydané faktúry', 'invoices', 'staffing', 'finance'],
-                    ['costs', 'Náklady', 'invoices', 'staffing', 'finance'],
+    // „Náklady" sa volali Náklady, hoci prvá záložka na nich sú **prijaté
+    // faktúry**. Kto ich hľadal podľa mena, nenašiel ich — názov v menu
+    // o nich nehovoril nič.
+    ['PENIAZE',    [['money', 'Kde sú peniaze', 'wallet', 'staffing', 'finance'],
+                    ['invoices', 'Vydané faktúry', 'invoices', 'staffing', 'finance'],
+                    ['costs', 'Prijaté faktúry a náklady', 'receipt', 'staffing', 'finance'],
                     ['bank', 'Banka a cash-flow', 'invoices', 'staffing', 'finance']]],
     ['RAST',       [['marketing', 'Marketing', 'marketing']]],
     ['SYSTÉM',     [['compliance', 'Compliance', 'shield', 'staffing', null],
@@ -126,6 +130,7 @@ window.Danubra = {
   navHints: {
     dashboard: 'Čo dnes treba spraviť, či bude na výplaty a či sa na tom zarába',
     flow: 'Celá cesta od telefonátu po peniaze — a kde sa to práve zastavilo',
+    money: 'Kde stoja naše peniaze a koľko sa z nich dá minúť a dokedy',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
     messages: 'Komunikácia pri zázname, ktorého sa týka',
     quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',

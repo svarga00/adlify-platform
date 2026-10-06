@@ -778,6 +778,64 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .fl-step { padding: 11px 12px; gap: 10px; }
 }
 
+/* ── Kde sú peniaze ──────────────────────────────────────────────────────── */
+/* Tri čísla vedľa seba hore. Nie dlaždice — sú to tri pohľady na to isté,
+   nie tri nezávislé veci. */
+.ms-top {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px 20px; margin: 12px 0 4px;
+  padding: 12px 0; border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+}
+.ms-top > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ms-top span {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.ms-top strong { font-size: 19px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ms-top em { font-style: normal; font-size: 11.5px; color: var(--ink-mute); }
+
+.ms-list { margin-top: 10px; }
+.ms { border-bottom: 1px solid var(--border-soft); padding: 2px 0 8px; }
+.ms:last-child { border-bottom: 0; }
+.ms.is-empty { opacity: .55; }
+.ms-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; position: relative;
+  background: none; border: 0; padding: 9px 0 4px; cursor: pointer; font: inherit;
+  text-align: left; color: inherit;
+}
+/* Pruh na pozadí ukazuje pomer. Je pod textom, nie vedľa — číslo aj názov
+   musia zostať čitateľné, pruh je len druhý pohľad na tú istú vec. */
+.ms-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: var(--border-soft); border-radius: 2px; overflow: hidden;
+}
+.ms-bar > span { display: block; height: 100%; background: var(--blue); }
+.ms-watch .ms-bar > span { background: var(--brand); }
+.ms-bad .ms-bar > span { background: var(--red); }
+.ms-label { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; }
+.ms-label em {
+  font-style: normal; font-size: 11px; font-weight: 600; margin-left: 7px;
+  background: var(--field); color: var(--ink-sub); border-radius: 10px; padding: 1px 7px;
+}
+.ms-sum { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; flex: none; }
+.ms-bad .ms-sum { color: var(--red); }
+.ms-caret { flex: none; color: var(--ink-mute); transition: transform .12s; }
+.ms-head[aria-expanded="true"] .ms-caret { transform: rotate(90deg); }
+.ms-lead { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; }
+.ms-lead strong { color: var(--ink-sub); }
+.ms-rows { margin: 10px 0 2px; }
+.ms-none { margin: 0; font-size: 12.5px; color: var(--ink-mute); }
+
+/* Najnižší týždeň je ten, ktorý rozhoduje — musí byť vidieť na prvý pohľad. */
+.kpi-table tr.is-worst td { background: var(--amber-50); }
+.kpi-table tr.is-worst td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+
+@media (max-width: 720px) {
+  .ms-head { flex-wrap: wrap; }
+  .ms-sum { width: 100%; text-align: right; }
+}
+
 /* ── Zoznam za číslom na prehľade ────────────────────────────────────────── */
 /* Okno, ktoré odpovedá na otázku „ktoré?". Tabuľka je tu na mieste: sú to
    rovnaké záznamy s rovnakými stĺpcami a oko ich porovnáva zvisle. */

@@ -239,6 +239,83 @@
     },
 
     // ── Dlaždice ────────────────────────────────────────────────────────────
+    'screen.money': {
+      title: 'Kde sú peniaze',
+      lead: 'Dve otázky na jednom mieste: kde stoja naše peniaze a koľko sa z nich '
+        + 'dá minúť a dokedy.',
+      what: [
+        'Hore týždenný výhľad — čo príde, čo odíde a koľko zostane. Dole reťazec '
+        + 'štádií, v ktorých naše peniaze stoja.',
+        'Štádiá sú zoradené podľa toho, kto ich vie pohnúť: hore to, čo stojí na nás '
+        + '(uzavrieť obdobie, vystaviť faktúru, schváliť), dole to, na čo sa len čaká.',
+      ],
+      how: [
+        '„Voľné" je zostatok mínus rezerva z Nastavení, a rozhoduje **najnižší bod** '
+        + 'výhľadu, nie zostatok na konci. Peniaze sa minú dnes, ale záväzok dobehne '
+        + 'o tri týždne — kto sa pozerá na koniec, minie to, čo bude v treťom týždni chýbať.',
+        'Faktúra po splatnosti sa do príjmu **neráta**. Mala prísť a neprišla; '
+        + 'stavať na nej rozpočet znamená minúť peniaze, ktoré možno nikdy neprídu. '
+        + 'Je vidieť zvlášť.',
+        'Odrobené hodiny bez uzavretého obdobia sa do výhľadu nerátajú vôbec — '
+        + 'nemajú termín, takže v týždennom rozpise nemajú kde stáť.',
+      ],
+      why: [
+        'Prehľad vie povedať „čakáme 7 854 €". To je jedno číslo zlepené zo štádií, '
+        + 'ktoré sa riešia úplne inak. Zlepené dokopy to vyzerá, že peniaze sú na ceste '
+        + '— pritom časť z nich stojí na nás a nikam sa nepohne, kým niečo neurobíme.',
+        'Zrážka §48b nie je stratená, ale nevráti sa tento mesiac. Preto je zvlášť '
+        + 'a do voľných peňazí nevstupuje.',
+      ],
+      watch: [
+        'Rezerva sa nastavuje v Cenníku a pravidlách. Keď je nula, appka povie, že '
+        + 'sa dá minúť všetko — a to nie je pravda ani raz.',
+      ],
+      links: [['bank', 'Banka a cash-flow'], ['invoices', 'Vydané faktúry'],
+        ['costs', 'Prijaté faktúry a náklady']],
+    },
+    'card.money.stages': {
+      title: 'Kde čakajú naše peniaze',
+      lead: 'Sedem štádií, v ktorých naše peniaze stoja — a pri každom, čo s ním spraviť.',
+      what: [
+        '**Stojí na nás**: odrobené s otvoreným obdobím, uzavreté bez faktúry, '
+        + 'faktúra na schválenie. Tieto tri sa dajú pohnúť bez toho, aby niekto iný '
+        + 'čokoľvek urobil.',
+        '**Čaká sa na odberateľa**: vystavené faktúry v splatnosti a po splatnosti.',
+        '**Vráti sa neskôr**: zrážka §48b a refakturovateľné náklady, ktoré ešte '
+        + 'nie sú na faktúre.',
+      ],
+      how: [
+        'Pri faktúrach sa počíta suma **po zrážke** — to, čo naozaj príde na účet. '
+        + 'Zrážka je zvlášť, aby bolo vidieť, koľko drží úrad.',
+        'Štádium sa dá rozkliknúť a je v ňom zoznam konkrétnych záznamov.',
+      ],
+      why: [
+        'Súčet všetkého je zavádzajúci údaj. Užitočné je vedieť, koľko z toho sa dá '
+        + 'pohnúť dnes vlastnou rukou — to je číslo, podľa ktorého sa dá konať.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['invoices', 'Vydané faktúry']],
+    },
+    'card.money.spend': {
+      title: 'Koľko sa dá minúť a dokedy',
+      lead: 'Týždenný výhľad zostatku a to, koľko sa z neho dá bezpečne použiť.',
+      what: [
+        'Pri každom týždni je, čo príde, čo odíde, aký bude zostatok a koľko z neho '
+        + 'je voľných po odrátaní rezervy.',
+        'Najnižší týždeň je zvýraznený — práve on rozhoduje.',
+      ],
+      how: [
+        'Príjmy sú faktúry v splatnosti, výdavky schválené faktúry živnostníkov '
+        + 'a plánované náklady. Faktúry po splatnosti sú uvedené zvlášť a do zostatku '
+        + 'nevstupujú.',
+        'Dlh po splatnosti sa naopak počíta — nezmizne tým, že je starý.',
+      ],
+      why: [
+        'Zostatok na konci je nebezpečné číslo: účet môže skončiť v pluse a v treťom '
+        + 'týždni byť pod nulou. Výplaty sa odložiť nedajú.',
+      ],
+      links: [['bank', 'Banka a cash-flow'], ['rules', 'Cenník a pravidlá']],
+    },
+
     'screen.flow': {
       title: 'Ako to ide',
       lead: 'Celý reťazec od telefonátu po peniaze na účte, v poradí, v akom sa '
