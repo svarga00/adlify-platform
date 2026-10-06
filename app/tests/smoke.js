@@ -142,6 +142,37 @@ if (D) {
   D.modules = restoreM;
 }
 
+// ── Horný pruh ──────────────────────────────────────────────────────────────
+// „Ako to ide" nie je agenda, je to mapa. V ľavom menu sedela medzi dennou
+// prácou, takže vyzerala ako miesto, kam sa chodí pracovať. Patrí hore —
+// ale musí byť naozaj dostupná, nie len vyhodená z menu.
+if (D) {
+  const restoreMe = D.me, restoreMem = D.members;
+  D.me = { role: 'admin', active: true };
+  D.members = [{ role: 'admin', active: true }];
+
+  const vlavo = D.sidebarNav().map(n => n[0]);
+  const hore = D.topLinks().map(n => n[0]);
+  t('„Ako to ide" nie je v ľavom menu', !vlavo.includes('flow'));
+  t('ale je v hornom pruhu', hore.includes('flow'));
+  t('a dá sa na ňu dostať odkazom', D.routeAvailable('flow'));
+  t('v mega menu zostáva, aby sa dala nájsť aj na mobile',
+    D.megaHtml().includes('<b>Ako to ide</b>'));
+  // Ľavé menu nesmie prísť o nič iné — to by bola tichá strata obrazovky.
+  const stratene = D.visibleNav().map(n => n[0])
+    .filter(k => !vlavo.includes(k) && !hore.includes(k));
+  t(`z ľavého menu nezmizlo nič iné${stratene.length ? ' — chýba: ' + stratene.join(', ') : ''}`,
+    !stratene.length);
+
+  // Kto na obrazovku nemá právo, nesmie v hornom pruhu vidieť odkaz, ktorý
+  // ho vyhodí na prehľad.
+  D.me = { role: 'custom', active: true, modules: [] };
+  D.members = [{ role: 'admin', active: true }];
+  t('bez práva sa odkaz hore nekreslí', !D.topLinks().some(n => n[0] === 'flow'));
+
+  D.me = restoreMe; D.members = restoreMem;
+}
+
 // ── Moduly: archivovaná agenda musí zmiznúť, nie sa len zneprístupniť ──────
 if (D) {
   const restore = { ...D.modules };

@@ -88,6 +88,10 @@ window.Danubra = {
   // Modul sa dá zapísať piatym prvkom; `null` znamená „nikdy sa neskrýva".
   navGroups: [
     ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['flow', 'Ako to ide', 'repeat'],
+                    // „Ako to ide" je mapa appky, nie ďalšia agenda. V ľavom
+                    // menu sedela medzi dennou prácou a vyzerala ako miesto,
+                    // kam sa chodí pracovať. Kreslí sa hore (`topRoutes`) —
+                    // tu zostáva preto, aby mala oblasť, právo aj vysvetlivku.
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['messages', 'Správy', 'mail']]],
     ['ZÁKAZKY',    [['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
@@ -281,8 +285,20 @@ window.Danubra = {
 
   badges: {},   // { routeKey: number } — napĺňa dashboard
 
+  // Obrazovky, ktoré nepatria do ľavého menu, ale do horného pruhu. Nie je to
+  // skrývanie — v mega menu („Všetko") sú normálne vidieť. Ide o to, že to nie
+  // je agenda, kde sa pracuje, ale pohľad na to, ako appka funguje.
+  topRoutes: ['flow'],
+
   allNav() { return this.navGroups.flatMap(g => g[1]); },
   visibleNav() { return this.allNav().filter(i => this.inArea(i)); },
+  /** Čo kreslí ľavé menu. */
+  sidebarNav() { return this.visibleNav().filter(i => !this.topRoutes.includes(i[0])); },
+  /** Čo kreslí horný pruh. Bez práva na obrazovku sa odkaz nekreslí vôbec. */
+  topLinks() {
+    return this.visibleNav()
+      .filter(i => this.topRoutes.includes(i[0]) && this.can(i[0]));
+  },
   labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'Prehľad'; },
 
   async init() {
@@ -374,8 +390,18 @@ window.Danubra = {
           ${Icon(ico, 16)}<span>${label}</span></button>`).join('');
     }
 
+    // Odkazy v hornom pruhu. Kreslia sa odtiaľto, a nie priamo v index.html,
+    // aby platilo právo aj zvýraznenie otvorenej obrazovky.
+    const top = document.getElementById('top-links');
+    if (top) {
+      top.innerHTML = this.topLinks().map(([key, label, ico]) =>
+        `<button class="top-link${key === this.route ? ' active' : ''}" data-key="${key}"
+          onclick="Danubra.go('${key}')" title="${UI.esc(this.hintOf(key))}">
+          ${Icon(ico, 15)}<span>${label}</span></button>`).join('');
+    }
+
     document.getElementById('sidebar-nav').innerHTML = this.navGroups.map(([glabel, items]) => {
-      const visible = items.filter(i => this.inArea(i));
+      const visible = items.filter(i => this.inArea(i) && !this.topRoutes.includes(i[0]));
       if (!visible.length) return '';
       return `<div class="nav-group">${glabel}</div>
       ${visible.map(([key, label, ico]) => {
@@ -570,7 +596,7 @@ window.Danubra = {
         }
       }
     }
-    document.querySelectorAll('.nav-item, .tab').forEach(el => {
+    document.querySelectorAll('.nav-item, .tab, .top-link').forEach(el => {
       if (el.dataset.key) el.classList.toggle('active', el.dataset.key === this.route);
     });
     this._navOverflow();

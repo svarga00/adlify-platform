@@ -205,6 +205,17 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .searchbox span { color: var(--ink-mute); font-size: 13px; }
 .searchbox input { border: 0; background: transparent; outline: none; width: 100%; font-size: 13.5px; }
 .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+/* Odkaz v hornom pruhu — mapa appky, nie agenda. Vyzerá ako odkaz, nie ako
+   tlačidlo, ktoré niečo spraví: nič nemení, len ukazuje. */
+.top-links { display: flex; gap: 6px; flex: none; }
+.top-link {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: var(--ink-sub); font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.top-link:hover { background: var(--field); color: var(--blue); }
+.top-link.active { background: var(--field); border-color: var(--border); color: var(--ink); }
 .view { flex: 1; padding: 22px 30px 40px; width: 100%; }
 
 /* mobilná hlavička (tmavá, so search) */

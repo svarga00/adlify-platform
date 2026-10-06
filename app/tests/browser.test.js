@@ -1877,10 +1877,19 @@ console.log('Prehliadač');
             go: !!e.querySelector('.fl-go'),
             cls: e.className,
           }));
+          // Mapa sa kreslí z horného pruhu, nie z ľavého menu — tam sedela
+          // medzi dennou prácou a vyzerala ako ďalšia agenda.
+          Danubra._buildNav();
+          const text = (sel) => [...document.querySelectorAll(sel)]
+            .map(e => e.textContent.replace(/\s+/g, ' ').trim());
+
           return {
             kroky,
             drahy: [...view.querySelectorAll('.fl-lane-head h2')].map(h => h.textContent.trim()),
             headline: view.querySelector('.headline').textContent.replace(/\s+/g, ' ').trim(),
+            hore: text('#top-links .top-link'),
+            vlavo: text('#sidebar-nav .nav-item'),
+            horeAktivne: text('#top-links .top-link.active'),
           };
         })();
       });
@@ -1905,6 +1914,16 @@ console.log('Prehliadač');
       ok(/fl-bad/.test(out.kroky[0].cls), 'a je červený');
       ok(/čaká na prvý telefonát/.test(out.kroky[1].todo),
         'nezavolaný človek tiež', out.kroky[1].todo);
+
+      // Mapa patrí hore, nie do ľavého menu.
+      ok(out.hore.includes('Ako to ide'), '„Ako to ide" je v hornom pruhu',
+        out.hore.join(', '));
+      ok(!out.vlavo.includes('Ako to ide'), 'a nie v ľavom menu',
+        out.vlavo.join(', '));
+      ok(out.vlavo.includes('Prehľad') && out.vlavo.includes('Zákazky'),
+        'ľavé menu je inak celé', out.vlavo.length + ' položiek');
+      ok(out.horeAktivne.includes('Ako to ide'),
+        'a keď je otvorená, odkaz hore je zvýraznený', out.horeAktivne.join(', '));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
