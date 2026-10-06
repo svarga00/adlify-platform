@@ -114,6 +114,23 @@ deň 7). Nábor je vtedy už hotový, toto je udržanie. Ukáže sa až po nasad
 
 ---
 
+## Kde to v appke je
+
+V menu sú na ľudí **tri položky**:
+
+| Položka | Čo je na nej |
+|---|---|
+| **Nábor** | záložky *Čo teraz · Kandidáti · Inzeráty · Zápisy* |
+| **Živnostníci** | záložky *Ľudia · Partie* — kto u nás už robí |
+| **Remeslá a otázky** | učebnica: čo sa pýtať a čo má človek vedieť |
+
+Nábor zaberal štyri riadky menu a kto naberal, musel najprv vedieť, na ktorom
+má byť. Je to jedna práca, tak je to jedna položka.
+
+**Partia je možnosť, nie agenda.** Človek môže prísť sám alebo v partii —
+a kvôli možnosti sa položka v menu nedrží. Je to záložka pri Živnostníkoch
+a v nábore jedna odrážka v kroku *Preveriť*.
+
 ## Čo z toho zmizlo
 
 | Predtým | Teraz |
@@ -124,6 +141,7 @@ deň 7). Nábor je vtedy už hotový, toto je udržanie. Ukáže sa až po nasad
 | Dohoda, doklady a logistika pomiešané v dvoch krokoch | Dohodnúť · Papiere · Na stavbu |
 | Zaškrtávadlo aj pri tom, čo appka vie sama | Odvodené veci sa neklikajú |
 | Zoznam krokov, z ktorého si treba vybrať | Jedna veta: čo spraviť teraz |
+| Sedem položiek v menu na ľudí | Tri — Nábor · Živnostníci · Remeslá |
 
 Zaškrtnutia zo starých krokov v databáze **platia ďalej** — nikomu sa postup
 nevynuloval tým, že sa kroky preskládali.
