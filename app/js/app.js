@@ -100,9 +100,11 @@ window.Danubra = {
                     ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
                     ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts']]],
-    // Nábor bol rozsypaný na šesť položiek a kto naberal, musel vedieť, na
-    // ktorej má byť. „Nábor" je teraz vstup: čo treba teraz, čo beží, koho
-    // hľadám — a odtiaľ sa chodí na zvyšok.
+    // Nábor bol rozsypaný na sedem položiek a kto naberal, musel vedieť, na
+    // ktorej má byť. V menu sú tri: **Nábor**, **Živnostníci**, **Remeslá**.
+    // Kandidáti, Inzeráty a Zápisy sú záložky Náboru; Partie záložka
+    // Živnostníkov — partia je možnosť (človek môže prísť sám alebo v partii),
+    // a kvôli možnosti sa nedrží položka v menu. Viď `navParent`.
     ['ĽUDIA',      [['hiring', 'Nábor', 'zap', 'staffing', 'recruiting'],
                     ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
                     ['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
@@ -290,10 +292,71 @@ window.Danubra = {
   // je agenda, kde sa pracuje, ale pohľad na to, ako appka funguje.
   topRoutes: ['flow'],
 
+  /**
+   * Obrazovky, ktoré sú **záložkou** inej obrazovky, nie položkou menu.
+   *
+   * Nábor zaberal v menu štyri riadky (Nábor, Kandidáti, Inzeráty, Zápisy)
+   * a kto naberal, musel najprv vedieť, na ktorom z nich má byť. Je to jedna
+   * práca — tak je to jedna položka so záložkami.
+   *
+   * Partia je iný prípad: je to **možnosť**, nie agenda. Človek môže prísť sám
+   * alebo v partii; drviaca väčšina dní sa partiou nerieši. Kvôli možnosti sa
+   * položka v menu nedrží — je to záložka pri Živnostníkoch.
+   *
+   * Dostupnosť sa tým nemení: odkaz, záložka v prehliadači aj `#/crews`
+   * fungujú ďalej a v mega menu („Všetko") sú vidieť všetky.
+   */
+  navParent: {
+    candidates: 'hiring', ads: 'hiring', recruiting: 'hiring',
+    crews: 'workers',
+  },
+
+  // Na záložke je málo miesta a názov z menu je tam dlhý. „Nábor → Nábor"
+  // navyše nič nepovie — prvá záložka má povedať, čo na nej je.
+  navTabLabel: {
+    hiring: 'Čo teraz', workers: 'Ľudia', recruiting: 'Zápisy',
+    trades: 'Remeslá',
+  },
+
   allNav() { return this.navGroups.flatMap(g => g[1]); },
   visibleNav() { return this.allNav().filter(i => this.inArea(i)); },
-  /** Čo kreslí ľavé menu. */
-  sidebarNav() { return this.visibleNav().filter(i => !this.topRoutes.includes(i[0])); },
+  /** Čo kreslí ľavé menu — bez horného pruhu a bez záložiek iných obrazoviek. */
+  sidebarNav() {
+    return this.visibleNav()
+      .filter(i => !this.topRoutes.includes(i[0]) && !this.navParent[i[0]]);
+  },
+
+  /** Obrazovka, ktorej je táto len záložkou (null = je samostatná). */
+  parentOf(key) { return this.navParent[key] || null; },
+
+  /**
+   * Ktorá položka menu sa má zvýrazniť. Pri záložke je to jej rodič — inak by
+   * sa pri otvorených Kandidátoch nezvýraznilo v menu nič a nebolo by vidieť,
+   * kde je človek.
+   */
+  navActive() { return this.parentOf(this.route) || this.route; },
+
+  /**
+   * Záložky obrazovky: ona sama a jej deti. Kreslí sa v hlavičke, takže sa
+   * o to nemusí starať každý modul zvlášť.
+   */
+  tabsOf(key) {
+    const parent = this.parentOf(key) || key;
+    const keys = [parent, ...Object.keys(this.navParent)
+      .filter(k => this.navParent[k] === parent)];
+    return keys
+      .filter(k => this.routeAvailable(k))
+      .map(k => [k, this.navTabLabel[k] || this.labelOf(k)]);
+  },
+
+  /** Pruh záložiek pod nadpisom. Pri obrazovke bez detí sa nekreslí. */
+  tabsHtml(key) {
+    const tabs = this.tabsOf(key);
+    if (tabs.length < 2) return '';
+    return `<div class="pillbar subtabs">${tabs.map(([k, label]) =>
+      `<button class="pill${k === key ? ' active' : ''}" data-key="${k}"
+        onclick="Danubra.go('${k}')">${UI.esc(label)}</button>`).join('')}</div>`;
+  },
   /** Čo kreslí horný pruh. Bez práva na obrazovku sa odkaz nekreslí vôbec. */
   topLinks() {
     return this.visibleNav()
@@ -401,12 +464,13 @@ window.Danubra = {
     }
 
     document.getElementById('sidebar-nav').innerHTML = this.navGroups.map(([glabel, items]) => {
-      const visible = items.filter(i => this.inArea(i) && !this.topRoutes.includes(i[0]));
+      const vlavo = new Set(this.sidebarNav().map(i => i[0]));
+      const visible = items.filter(i => vlavo.has(i[0]));
       if (!visible.length) return '';
       return `<div class="nav-group">${glabel}</div>
       ${visible.map(([key, label, ico]) => {
         const b = this.badges[key];
-        return `<button class="nav-item${key === this.route ? ' active' : ''}" data-key="${key}" onclick="Danubra.go('${key}')">
+        return `<button class="nav-item${key === this.navActive() ? ' active' : ''}" data-key="${key}" onclick="Danubra.go('${key}')">
           ${Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
         </button>`;
       }).join('')}`;
@@ -424,7 +488,7 @@ window.Danubra = {
     document.getElementById('bottom-nav').innerHTML = tabs.map(t => t.plus
       ? `<button class="tab tab-plus" onclick="Danubra.quickAdd()" aria-label="Pridať">
            <span class="tab-ico">${Icon('plus', 22)}</span></button>`
-      : `<button class="tab${t.key === this.route ? ' active' : ''}" data-key="${t.key}" onclick="Danubra.go('${t.key}')">
+      : `<button class="tab${t.key === this.navActive() ? ' active' : ''}" data-key="${t.key}" onclick="Danubra.go('${t.key}')">
            <span class="tab-ico">${Icon(t.ico, 20)}</span><span class="tab-label">${t.label}</span></button>`
     ).join('');
   },
@@ -451,7 +515,10 @@ window.Danubra = {
   megaHtml() {
     const item = ([key, label, ico]) => {
       const b = this.badges[key];
-      const hint = this.hintOf(key);
+      // Obrazovka, ktorá je záložkou inej, musí v zozname povedať, kde ju
+      // hľadať — inak ju človek v ľavom menu marne hľadá a myslí si, že zmizla.
+      const parent = this.parentOf(key);
+      const hint = (parent ? `Záložka v „${this.labelOf(parent)}" — ` : '') + this.hintOf(key);
       return `<button class="mega-item${key === this.route ? ' active' : ''}"
         onclick="Danubra.goFromMega('${key}')">
         ${Icon(ico, 16)}
@@ -597,7 +664,8 @@ window.Danubra = {
       }
     }
     document.querySelectorAll('.nav-item, .tab, .top-link').forEach(el => {
-      if (el.dataset.key) el.classList.toggle('active', el.dataset.key === this.route);
+      // Pri záložke sa zvýrazní jej rodič — `navActive()`.
+      if (el.dataset.key) el.classList.toggle('active', el.dataset.key === this.navActive());
     });
     this._navOverflow();
   },
@@ -705,6 +773,10 @@ window.Danubra = {
   // Vysvetlivka sa pripája sama podľa obrazovky. Tým ju má každý modul, bez
   // toho aby sa o ňu musel starať — a nová obrazovka ju dostane tým, že sa
   // k nej dopíše text.
+  //
+  // Rovnako sa sama pripája aj lišta záložiek (`navParent`). Na otvorenom
+  // zázname (`trail`) sa nekreslí: záložky patria zoznamu, nie konkrétnemu
+  // človeku — nad menom by vyzerali ako jeho vlastnosti.
   header(title, sub, right, trail, lead) {
     const help = window.Help ? Help.btn(`screen.${this.route}`, { size: 15 }) : '';
     return `<div class="page-head">
@@ -719,7 +791,8 @@ window.Danubra = {
         </div>
       </div>
       ${right || ''}
-    </div>`;
+    </div>
+    ${(trail && trail.length) ? '' : this.tabsHtml(this.route)}`;
   },
 
   setActions(html) {

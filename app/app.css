@@ -541,6 +541,10 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .pill.active:hover { background: var(--navy); color: #fff; }
 /* Prepínač vnútri hlavičky karty. Musí byť menší než filter celej obrazovky,
    inak si karta myslí, že je hlavná. */
+/* Záložky obrazovky. Nábor zaberal v menu štyri riadky a kto naberal, musel
+   najprv vedieť, na ktorom má byť — je to jedna práca, tak je to jedna položka
+   so záložkami. Sedia pod nadpisom, aby bolo vidieť, že patria k nemu. */
+.subtabs { margin: -4px 0 16px; width: fit-content; }
 .pillbar-xs { padding: 2px; }
 .pillbar-xs .pill { padding: 4px 9px; font-size: 11.5px; gap: 4px; }
 

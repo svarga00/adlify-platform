@@ -158,10 +158,11 @@ if (D) {
   t('a dá sa na ňu dostať odkazom', D.routeAvailable('flow'));
   t('v mega menu zostáva, aby sa dala nájsť aj na mobile',
     D.megaHtml().includes('<b>Ako to ide</b>'));
-  // Ľavé menu nesmie prísť o nič iné — to by bola tichá strata obrazovky.
+  // Obrazovka musí byť **niekde**: v ľavom menu, v hornom pruhu alebo ako
+  // záložka inej obrazovky. Čo nie je nikde, to sa stratilo potichu.
   const stratene = D.visibleNav().map(n => n[0])
-    .filter(k => !vlavo.includes(k) && !hore.includes(k));
-  t(`z ľavého menu nezmizlo nič iné${stratene.length ? ' — chýba: ' + stratene.join(', ') : ''}`,
+    .filter(k => !vlavo.includes(k) && !hore.includes(k) && !D.parentOf(k));
+  t(`žiadna obrazovka sa nestratila${stratene.length ? ' — chýba: ' + stratene.join(', ') : ''}`,
     !stratene.length);
 
   // Kto na obrazovku nemá právo, nesmie v hornom pruhu vidieť odkaz, ktorý
@@ -169,6 +170,62 @@ if (D) {
   D.me = { role: 'custom', active: true, modules: [] };
   D.members = [{ role: 'admin', active: true }];
   t('bez práva sa odkaz hore nekreslí', !D.topLinks().some(n => n[0] === 'flow'));
+
+  D.me = restoreMe; D.members = restoreMem;
+}
+
+// ── Nábor je jedna položka, nie štyri ───────────────────────────────────────
+// Nábor zaberal v menu štyri riadky (Nábor, Kandidáti, Inzeráty, Zápisy) a kto
+// naberal, musel najprv vedieť, na ktorom má byť. Partia je navyše možnosť,
+// nie agenda. Z menu sú preto tri položky — ale nič nesmie zmiznúť.
+if (D) {
+  const restoreMe = D.me, restoreMem = D.members;
+  D.me = { role: 'admin', active: true };
+  D.members = [{ role: 'admin', active: true }];
+
+  const ludia = D.sidebarNav().filter(n => D.groupOf(n[0]) === 'ĽUDIA').map(n => n[0]);
+  t(`v menu sú tri položky pre ľudí — ${ludia.join(', ')}`,
+    ludia.length === 3 && ludia.includes('hiring') && ludia.includes('workers')
+      && ludia.includes('trades'));
+
+  const deti = ['candidates', 'ads', 'recruiting', 'crews'];
+  t('kandidáti, inzeráty, zápisy ani partie nie sú v menu',
+    deti.every(k => !D.sidebarNav().some(n => n[0] === k)));
+  t('ale všetky sa dajú otvoriť odkazom', deti.every(k => D.routeAvailable(k)));
+  // Úvodzovka je v HTML odescapovaná (`&quot;`), preto sa hľadá len začiatok.
+  t('a v mega menu je napísané, kde ich hľadať',
+    D.megaHtml().includes('Záložka v „Nábor')
+      && D.megaHtml().includes('Záložka v „Živnostníci'));
+
+  // Partia je záložka pri živnostníkoch, nie v nábore — je to človek, ktorý
+  // u nás už robí, nie krok náboru.
+  t('partia patrí k živnostníkom', D.parentOf('crews') === 'workers');
+  t('a kandidáti k náboru', D.parentOf('candidates') === 'hiring');
+
+  // Záložky: z každej obrazovky sa dá dostať na jej súrodencov aj na rodiča.
+  const zalozky = D.tabsOf('candidates').map(x => x[0]);
+  t(`záložky náboru: ${zalozky.join(', ')}`,
+    zalozky[0] === 'hiring' && zalozky.includes('ads') && zalozky.includes('recruiting'));
+  t('prvá záložka nehovorí „Nábor → Nábor"', D.tabsOf('candidates')[0][1] === 'Čo teraz');
+  t('pruh záložiek sa vykreslí', /pill.*active/.test(D.tabsHtml('candidates')));
+  t('a obrazovka bez detí ho nemá', D.tabsHtml('invoices') === '');
+
+  // Záložky patria zoznamu, nie otvorenému záznamu. Nad menom človeka by
+  // vyzerali ako jeho vlastnosti — a „Partie" nad Jozefom Malým nedáva zmysel.
+  const bolo = D.route;
+  D.route = 'workers';
+  t('v hlavičke zoznamu záložky sú', D.header('Živnostníci', '').includes('subtabs'));
+  t('na otvorenom človeku nie sú',
+    !D.header('Jozef Malý', '', '', ['Jozef Malý']).includes('subtabs'));
+  D.route = bolo;
+  t('z partie sa dá vrátiť na živnostníkov',
+    D.tabsOf('crews').map(x => x[0]).join(',') === 'workers,crews');
+
+  // Bez práva na nábor sa jeho záložky nekreslia — inak by to bol odkaz,
+  // ktorý vyhodí na prehľad.
+  D.me = { role: 'custom', active: true, modules: ['workers'] };
+  t('bez práva na nábor nie sú jeho záložky',
+    !D.tabsOf('candidates').some(x => x[0] === 'candidates'));
 
   D.me = restoreMe; D.members = restoreMem;
 }

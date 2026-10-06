@@ -692,6 +692,22 @@ console.log('Prehliadač');
             html: v.innerHTML,
             menu: [...document.querySelectorAll('#sidebar-nav .nav-item')]
               .map(x => x.textContent.trim()).filter(Boolean),
+            zalozky: [...v.querySelectorAll('.subtabs .pill')]
+              .map(x => x.textContent.trim()),
+            zalozkaTeraz: (v.querySelector('.subtabs .pill.active') || {}).textContent,
+            // A či sa cez záložku naozaj prepne — vrátane toho, že sa zvýrazní
+            // tá, na ktorej človek stojí.
+            poKliku: await (async () => {
+              v.querySelector('.subtabs .pill[data-key=candidates]')?.click();
+              await new Promise(r => setTimeout(r, 400));
+              const w = document.getElementById('view');
+              return {
+                nadpis: (w.querySelector('.page-title') || {}).textContent || '',
+                aktivna: ((w.querySelector('.subtabs .pill.active') || {}).textContent || '').trim(),
+                menu: [...document.querySelectorAll('#sidebar-nav .nav-item.active')]
+                  .map(x => x.textContent.trim()),
+              };
+            })(),
           };
         })();
       });
@@ -719,9 +735,26 @@ console.log('Prehliadač');
       ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),
         'a odtiaľto sa dá ísť na zvyšok náboru');
 
-      const i = out.menu.findIndex(x => x.startsWith('Nábor'));
-      const k = out.menu.findIndex(x => x.startsWith('Kandidáti'));
-      ok(i >= 0 && k > i, 'Nábor je v menu pred Kandidátmi', out.menu.join(' | '));
+      // Nábor je v menu **jedna** položka. Kandidáti, Inzeráty a Zápisy sú
+      // jeho záložky — predtým to boli štyri riadky v menu a kto naberal,
+      // musel najprv vedieť, na ktorom z nich má byť.
+      ok(out.menu.some(x => x.startsWith('Nábor')), 'Nábor je v menu',
+        out.menu.join(' | '));
+      ok(!out.menu.some(x => x.startsWith('Kandidáti') || x.startsWith('Inzeráty')
+        || x.startsWith('Zápisy') || x.startsWith('Partie')),
+        'kandidáti, inzeráty, zápisy ani partie už v menu nie sú',
+        out.menu.join(' | '));
+      ok(out.zalozky.join(',') === 'Čo teraz,Kandidáti,Inzeráty,Zápisy',
+        'sú to záložky Náboru', out.zalozky.join(','));
+      ok((out.zalozkaTeraz || '').trim() === 'Čo teraz',
+        'a je vidieť, na ktorej práve stojím', out.zalozkaTeraz);
+      ok(/Kandidáti/.test(out.poKliku.nadpis), 'klik na záložku prepne obrazovku',
+        out.poKliku.nadpis);
+      ok(out.poKliku.aktivna === 'Kandidáti', 'a zvýrazní sa tá, na ktorej stojím',
+        out.poKliku.aktivna);
+      ok(out.poKliku.menu.join(',') === 'Nábor',
+        'v ľavom menu pritom zostane zvýraznený Nábor — je to stále tá istá práca',
+        out.poKliku.menu.join(','));
       ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
