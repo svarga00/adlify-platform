@@ -12,7 +12,10 @@
   const SEGMENTS = [
     { key: 'intro', title: 'Úvod', lead: 'Kto volá a čo hľadá.' },
     { key: 'trade', title: 'Remeslo', lead: 'Tu sa ukáže, či to naozaj robil.' },
-    { key: 'verify', title: 'Overenie', lead: 'Odpovede, ktoré sa dajú preveriť.' },
+    // Volalo sa to „Overenie" — rovnako ako krok náboru, ktorý je o niečom
+    // inom. Tu sa nič neoveruje, tu sa **vypýtajú mená, fotky a stavby**, na
+    // ktoré sa dá neskôr zavolať. Overuje sa až v kroku „Preveriť".
+    { key: 'verify', title: 'Dôkazy', lead: 'Mená, fotky a stavby, ktoré sa dajú potom preveriť.' },
     { key: 'legal', title: 'Papiere', lead: 'Bez týchto vecí sa nedá nasadiť.' },
     { key: 'logistics', title: 'Logistika', lead: 'Kedy, ako a odkiaľ.' },
     { key: 'money', title: 'Peniaze', lead: 'Nech sa to nedozvie až na stavbe.' },
@@ -104,10 +107,10 @@
       nextAction = { key: 'continue', label: 'Dokončiť neskôr',
         hint: 'Na rozhodnutie je toho málo. Dohodni si druhý telefonát.' };
     } else if (res.verdict === 'strong') {
-      nextAction = { key: 'advance', label: 'Ísť na overenie',
+      nextAction = { key: 'advance', label: 'Ísť preveriť',
         hint: 'Vypýtaj si fotky prác a kontakt na posledného poliera ešte počas hovoru.' };
     } else {
-      nextAction = { key: 'advance', label: 'Ísť na overenie',
+      nextAction = { key: 'advance', label: 'Ísť preveriť',
         hint: 'Slabšie miesta si over referenciou skôr, než mu niečo sľúbiš.' };
     }
     return { ...res, nextAction };

@@ -110,16 +110,9 @@ for (const [name, obj] of [
 
 t('ikony fungujú', sandbox.Icon && sandbox.Icon('check', 14).startsWith('<svg'));
 t('mega menu sa poskladá', D && D.megaHtml().includes('mega-col'));
-// Názvy agend sa v mega menu objavia len vtedy, keď je ich viac než jedna —
-// pri jedinej je delenie podľa agend zbytočné.
-if (D) {
-  const restoreA = { ...D.modules };
-  D.modules = { ...D.modules, accommodation: true };
-  const html = D.megaHtml();
-  t('pri dvoch agendách ich mega menu obe ukáže',
-    D.visibleAreas().every(a => html.includes(a[1])));
-  D.modules = restoreA;
-}
+// Agenda je už len jedna, takže sa delenie podľa agend nekreslí vôbec.
+t('pri jedinej agende sa prepínač agend nekreslí',
+  D && !D.megaHtml().includes('mega-area'));
 // na mobile sa bočný panel neotvára, takže toto musí byť v mega menu
 t('mega menu má odhlásenie', D && D.megaHtml().includes('Odhlásiť sa'));
 
@@ -149,24 +142,123 @@ if (D) {
   D.modules = restoreM;
 }
 
+// ── Horný pruh ──────────────────────────────────────────────────────────────
+// „Ako to ide" nie je agenda, je to mapa. V ľavom menu sedela medzi dennou
+// prácou, takže vyzerala ako miesto, kam sa chodí pracovať. Patrí hore —
+// ale musí byť naozaj dostupná, nie len vyhodená z menu.
+if (D) {
+  const restoreMe = D.me, restoreMem = D.members;
+  D.me = { role: 'admin', active: true };
+  D.members = [{ role: 'admin', active: true }];
+
+  const vlavo = D.sidebarNav().map(n => n[0]);
+  const hore = D.topLinks().map(n => n[0]);
+  t('„Ako to ide" nie je v ľavom menu', !vlavo.includes('flow'));
+  t('ale je v hornom pruhu', hore.includes('flow'));
+  t('a dá sa na ňu dostať odkazom', D.routeAvailable('flow'));
+  t('v mega menu zostáva, aby sa dala nájsť aj na mobile',
+    D.megaHtml().includes('<b>Ako to ide</b>'));
+  // Obrazovka musí byť **niekde**: v ľavom menu, v hornom pruhu alebo ako
+  // záložka inej obrazovky. Čo nie je nikde, to sa stratilo potichu.
+  const stratene = D.visibleNav().map(n => n[0])
+    .filter(k => !vlavo.includes(k) && !hore.includes(k) && !D.parentOf(k));
+  t(`žiadna obrazovka sa nestratila${stratene.length ? ' — chýba: ' + stratene.join(', ') : ''}`,
+    !stratene.length);
+
+  // Kto na obrazovku nemá právo, nesmie v hornom pruhu vidieť odkaz, ktorý
+  // ho vyhodí na prehľad.
+  D.me = { role: 'custom', active: true, modules: [] };
+  D.members = [{ role: 'admin', active: true }];
+  t('bez práva sa odkaz hore nekreslí', !D.topLinks().some(n => n[0] === 'flow'));
+
+  D.me = restoreMe; D.members = restoreMem;
+}
+
+// ── Nábor je jedna položka, nie štyri ───────────────────────────────────────
+// Nábor zaberal v menu štyri riadky (Nábor, Kandidáti, Inzeráty, Zápisy) a kto
+// naberal, musel najprv vedieť, na ktorom má byť. Partia je navyše možnosť,
+// nie agenda. Z menu sú preto tri položky — ale nič nesmie zmiznúť.
+if (D) {
+  const restoreMe = D.me, restoreMem = D.members;
+  D.me = { role: 'admin', active: true };
+  D.members = [{ role: 'admin', active: true }];
+
+  const ludia = D.sidebarNav().filter(n => D.groupOf(n[0]) === 'ĽUDIA').map(n => n[0]);
+  t(`v menu sú tri položky pre ľudí — ${ludia.join(', ')}`,
+    ludia.length === 3 && ludia.includes('hiring') && ludia.includes('workers')
+      && ludia.includes('trades'));
+
+  const deti = ['candidates', 'ads', 'recruiting', 'crews'];
+  t('kandidáti, inzeráty, zápisy ani partie nie sú v menu',
+    deti.every(k => !D.sidebarNav().some(n => n[0] === k)));
+  t('ale všetky sa dajú otvoriť odkazom', deti.every(k => D.routeAvailable(k)));
+  // Úvodzovka je v HTML odescapovaná (`&quot;`), preto sa hľadá len začiatok.
+  t('a v mega menu je napísané, kde ich hľadať',
+    D.megaHtml().includes('Záložka v „Nábor')
+      && D.megaHtml().includes('Záložka v „Živnostníci'));
+
+  // Partia je záložka pri živnostníkoch, nie v nábore — je to človek, ktorý
+  // u nás už robí, nie krok náboru.
+  t('partia patrí k živnostníkom', D.parentOf('crews') === 'workers');
+  t('a kandidáti k náboru', D.parentOf('candidates') === 'hiring');
+
+  // Záložky: z každej obrazovky sa dá dostať na jej súrodencov aj na rodiča.
+  const zalozky = D.tabsOf('candidates').map(x => x[0]);
+  t(`záložky náboru: ${zalozky.join(', ')}`,
+    zalozky[0] === 'hiring' && zalozky.includes('ads') && zalozky.includes('recruiting'));
+  t('prvá záložka nehovorí „Nábor → Nábor"', D.tabsOf('candidates')[0][1] === 'Čo teraz');
+  t('pruh záložiek sa vykreslí', /pill.*active/.test(D.tabsHtml('candidates')));
+  t('a obrazovka bez detí ho nemá', D.tabsHtml('invoices') === '');
+
+  // Záložky patria zoznamu, nie otvorenému záznamu. Nad menom človeka by
+  // vyzerali ako jeho vlastnosti — a „Partie" nad Jozefom Malým nedáva zmysel.
+  const bolo = D.route;
+  D.route = 'workers';
+  t('v hlavičke zoznamu záložky sú', D.header('Živnostníci', '').includes('subtabs'));
+  t('na otvorenom človeku nie sú',
+    !D.header('Jozef Malý', '', '', ['Jozef Malý']).includes('subtabs'));
+  D.route = bolo;
+  t('z partie sa dá vrátiť na živnostníkov',
+    D.tabsOf('crews').map(x => x[0]).join(',') === 'workers,crews');
+
+  // Bez práva na nábor sa jeho záložky nekreslia — inak by to bol odkaz,
+  // ktorý vyhodí na prehľad.
+  D.me = { role: 'custom', active: true, modules: ['workers'] };
+  t('bez práva na nábor nie sú jeho záložky',
+    !D.tabsOf('candidates').some(x => x[0] === 'candidates'));
+
+  D.me = restoreMe; D.members = restoreMem;
+}
+
 // ── Moduly: archivovaná agenda musí zmiznúť, nie sa len zneprístupniť ──────
 if (D) {
   const restore = { ...D.modules };
   const area = D.area;
 
   // Stav podľa migrácie 013: ubytovanie vypnuté.
-  D.modules = { recruiting: true, contracts: true, finance: true, accommodation: false };
+  D.modules = { recruiting: true, contracts: true, finance: true };
   D.area = 'staffing';
-  t('vypnutá agenda zmizne z prepínača', D.visibleAreas().length === 1);
-  t('pri jedinej agende sa prepínač nekreslí', !D.megaHtml().includes('mega-area'));
+  t('zostala jediná agenda', D.visibleAreas().length === 1);
+  t('a prepínač agend sa nekreslí', !D.megaHtml().includes('mega-area'));
 
-  const hidden = ['inquiries', 'offers', 'orders', 'active', 'clients'];
+  // Ubytovacia agenda je z appky preč. Nie vypnutá príznakom — nie je tam
+  // vôbec, a nedá sa vrátiť zaškrtnutím. Tabuľky v databáze zostali.
+  const prec = ['inquiries', 'offers', 'active', 'clients'];
   t('obchodná časť ubytovania nie je v navigácii',
-    hidden.every(k => !D.visibleNav().some(n => n[0] === k)));
-  t('archivovanú obrazovku nepustí ani odkaz',
-    hidden.every(k => !D.routeAvailable(k)));
-  t('mega menu neukazuje archivované obrazovky',
+    prec.every(k => !D.visibleNav().some(n => n[0] === k)));
+  t('a nedá sa na ňu dostať ani odkazom',
+    prec.every(k => !D.routeAvailable(k)));
+  t('mega menu ju neukazuje',
     !D.megaHtml().includes('Dopyty') && !D.megaHtml().includes('Aktívne pobyty'));
+  t('ani príznak v nastaveniach ju nevráti — už neexistuje',
+    (() => { D.modules = { ...D.modules, accommodation: true };
+      const vrat = prec.some(k => D.routeAvailable(k)) || D.visibleAreas().length > 1;
+      D.modules = { recruiting: true, contracts: true, finance: true };
+      return !vrat; })());
+
+  // `orders` je teraz objednávka v subdodávkach, nie tá z v1.
+  t('objednávky sú v navigácii', D.visibleNav().some(n => n[0] === 'orders'));
+  t('a dajú sa otvoriť', D.routeAvailable('orders'));
 
   // R4: databáza ubytovaní zostáva — ubytovanie je náklad zákazky.
   t('databáza ubytovaní zostáva dostupná (R4)', D.routeAvailable('accommodations'));
@@ -175,19 +267,13 @@ if (D) {
   t('zákazky, hodiny a faktúry zostávajú',
     ['subcontracts', 'timesheets', 'invoices', 'candidates'].every(k => D.routeAvailable(k)));
 
-  // Zapnuté ubytovanie musí vrátiť presne to, čo bolo v v1.
-  D.modules = { ...D.modules, accommodation: true };
-  t('zapnutie príznaku vráti agendu', D.visibleAreas().length === 2);
-  t('zapnutie príznaku vráti obchodné obrazovky',
-    hidden.every(k => D.routeAvailable(k)));
-
-  // Vypnutie financií je iná os než agenda — nesmie zhodiť zvyšok.
-  D.modules = { recruiting: true, contracts: true, finance: false, accommodation: false };
+  // Vypnutie financií nesmie zhodiť zvyšok.
+  D.modules = { recruiting: true, contracts: true, finance: false };
   t('vypnuté financie skryjú faktúry', !D.routeAvailable('invoices'));
   t('vypnuté financie nezhodia nábor', D.routeAvailable('candidates'));
 
   // Nastavenia sa nesmú dať vypnúť — inak by sa modul nedal zapnúť späť.
-  D.modules = { recruiting: false, contracts: false, finance: false, accommodation: false };
+  D.modules = { recruiting: false, contracts: false, finance: false };
   t('nastavenia zostanú dostupné vždy', D.routeAvailable('settings'));
   t('dashboard zostane dostupný vždy', D.routeAvailable('dashboard'));
   t('neznámy kľúč nie je obrazovka', !D.routeAvailable('nieco-co-neexistuje'));
@@ -652,11 +738,11 @@ if (D) {
   t('odkaz na neznámy typ sa nevykreslí ako tlačidlo',
     !/onclick/.test(D.link('nieco-cudzie', 'x1', 'Test')));
   t('odkaz bez názvu sa nevykreslí vôbec', D.link('worker', 'w9', '') === '');
-  // Vypnutá agenda sa nesmie obísť ani odkazom zo susednej obrazovky.
+  // Ubytovacia agenda je preč, takže na ňu nevedie ani odkaz.
   // (Databáza ubytovaní je výnimka — tá zostáva dostupná vždy, R4.)
-  t('odkaz na archivovanú agendu nevznikne',
+  t('odkaz na zabudnutú agendu nevznikne',
     !/onclick/.test(D.link('inquiry', 'q1', 'Dopyt'))
-    && !/onclick/.test(D.link('order', 'o1', 'Objednávka')));
+    && !/onclick/.test(D.link('client', 'c1', 'Klient')));
   t('ale databáza ubytovaní zostáva preklikateľná (R4)',
     /onclick/.test(D.link('accommodation', 'a1', 'Ubytovanie')));
 

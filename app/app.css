@@ -205,6 +205,17 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .searchbox span { color: var(--ink-mute); font-size: 13px; }
 .searchbox input { border: 0; background: transparent; outline: none; width: 100%; font-size: 13.5px; }
 .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+/* Odkaz v hornom pruhu — mapa appky, nie agenda. Vyzerá ako odkaz, nie ako
+   tlačidlo, ktoré niečo spraví: nič nemení, len ukazuje. */
+.top-links { display: flex; gap: 6px; flex: none; }
+.top-link {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; color: var(--ink-sub); font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.top-link:hover { background: var(--field); color: var(--blue); }
+.top-link.active { background: var(--field); border-color: var(--border); color: var(--ink); }
 .view { flex: 1; padding: 22px 30px 40px; width: 100%; }
 
 /* mobilná hlavička (tmavá, so search) */
@@ -530,6 +541,10 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .pill.active:hover { background: var(--navy); color: #fff; }
 /* Prepínač vnútri hlavičky karty. Musí byť menší než filter celej obrazovky,
    inak si karta myslí, že je hlavná. */
+/* Záložky obrazovky. Nábor zaberal v menu štyri riadky a kto naberal, musel
+   najprv vedieť, na ktorom má byť — je to jedna práca, tak je to jedna položka
+   so záložkami. Sedia pod nadpisom, aby bolo vidieť, že patria k nemu. */
+.subtabs { margin: -4px 0 16px; width: fit-content; }
 .pillbar-xs { padding: 2px; }
 .pillbar-xs .pill { padding: 4px 9px; font-size: 11.5px; gap: 4px; }
 
@@ -776,6 +791,64 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   .fl-lane::before { left: 3px; }
   .fl-n { margin-left: -28px; width: 24px; height: 24px; font-size: 12px; }
   .fl-step { padding: 11px 12px; gap: 10px; }
+}
+
+/* ── Kde sú peniaze ──────────────────────────────────────────────────────── */
+/* Tri čísla vedľa seba hore. Nie dlaždice — sú to tri pohľady na to isté,
+   nie tri nezávislé veci. */
+.ms-top {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px 20px; margin: 12px 0 4px;
+  padding: 12px 0; border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+}
+.ms-top > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ms-top span {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.ms-top strong { font-size: 19px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ms-top em { font-style: normal; font-size: 11.5px; color: var(--ink-mute); }
+
+.ms-list { margin-top: 10px; }
+.ms { border-bottom: 1px solid var(--border-soft); padding: 2px 0 8px; }
+.ms:last-child { border-bottom: 0; }
+.ms.is-empty { opacity: .55; }
+.ms-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; position: relative;
+  background: none; border: 0; padding: 9px 0 4px; cursor: pointer; font: inherit;
+  text-align: left; color: inherit;
+}
+/* Pruh na pozadí ukazuje pomer. Je pod textom, nie vedľa — číslo aj názov
+   musia zostať čitateľné, pruh je len druhý pohľad na tú istú vec. */
+.ms-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: var(--border-soft); border-radius: 2px; overflow: hidden;
+}
+.ms-bar > span { display: block; height: 100%; background: var(--blue); }
+.ms-watch .ms-bar > span { background: var(--brand); }
+.ms-bad .ms-bar > span { background: var(--red); }
+.ms-label { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; }
+.ms-label em {
+  font-style: normal; font-size: 11px; font-weight: 600; margin-left: 7px;
+  background: var(--field); color: var(--ink-sub); border-radius: 10px; padding: 1px 7px;
+}
+.ms-sum { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; flex: none; }
+.ms-bad .ms-sum { color: var(--red); }
+.ms-caret { flex: none; color: var(--ink-mute); transition: transform .12s; }
+.ms-head[aria-expanded="true"] .ms-caret { transform: rotate(90deg); }
+.ms-lead { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; }
+.ms-lead strong { color: var(--ink-sub); }
+.ms-rows { margin: 10px 0 2px; }
+.ms-none { margin: 0; font-size: 12.5px; color: var(--ink-mute); }
+
+/* Najnižší týždeň je ten, ktorý rozhoduje — musí byť vidieť na prvý pohľad. */
+.kpi-table tr.is-worst td { background: var(--amber-50); }
+.kpi-table tr.is-worst td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+
+@media (max-width: 720px) {
+  .ms-head { flex-wrap: wrap; }
+  .ms-sum { width: 100%; text-align: right; }
 }
 
 /* ── Zoznam za číslom na prehľade ────────────────────────────────────────── */
@@ -1140,6 +1213,26 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .kanban-card:hover { border-color: #C9D6F2; box-shadow: 0 6px 18px -10px rgba(10,27,61,.25); }
 .kanban-empty { font-size: 12px; color: var(--ink-mute); padding: 8px 2px; }
+
+/* ── Čo spraviť teraz ──────────────────────────────────────────────────────
+   Jedna veta nad zoznamom krokov. Celé zjednodušenie náboru je v tom, že si
+   z piatich krokov nikto nemusí vyberať — appka povie jeden. */
+.nowbox {
+  border: 1px solid var(--border); border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm); background: var(--field);
+  padding: 12px 14px; margin-bottom: 14px;
+}
+.nowbox-hot { border-left-color: var(--red); background: var(--red-50); }
+.nowbox-label {
+  font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.nowbox-title {
+  font-size: 17px; font-weight: 800; margin-top: 3px;
+  display: flex; align-items: center; gap: 6px;
+}
+.nowbox-sub { font-size: 13.5px; color: var(--ink-sub); margin-top: 3px; }
+.nowbox-why { font-size: 12.5px; color: var(--ink-mute); margin-top: 6px; line-height: 1.5; }
 
 /* ── Accordion náborového procesu ─────────────────────────────────────────── */
 .acc { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; overflow: hidden; background: #fff; }

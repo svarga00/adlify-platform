@@ -80,6 +80,9 @@
           <span class="search-ico"></span>
           <input id="global-search" placeholder="Hľadať mesto, meno, telefón, číslo objednávky…">
         </div>
+        <!-- „Ako to ide" a jemu podobné: nie je to agenda, je to mapa appky.
+             Napĺňa to `Danubra._buildNav()` podľa `topRoutes`. -->
+        <div id="top-links" class="top-links"></div>
         <div id="topbar-actions" class="topbar-actions"></div>
         <!-- Vysvetlivky. Nie je to nápoveda k tlačidlám — je to zoznam toho,
              čo ktoré číslo znamená a prečo sa počíta práve tak. -->
@@ -147,6 +150,7 @@
   <script src="./lib/dashboard.js"></script>
   <script src="./lib/dashdetail.js"></script>
   <script src="./lib/chain.js"></script>
+  <script src="./lib/money/position.js"></script>
   <script src="./lib/perm.js"></script>
   <script src="./lib/overrides.js"></script>
   <script src="./lib/messaging.js"></script>
@@ -171,10 +175,6 @@
   <script src="./js/components/chart.js"></script>
   <script src="./js/components/help.js"></script>
   <script src="./js/modules/accommodations.js"></script>
-  <script src="./js/modules/clients.js"></script>
-  <script src="./js/modules/inquiries.js"></script>
-  <script src="./js/modules/offers.js"></script>
-  <script src="./js/modules/orders.js"></script>
   <script src="./js/modules/invoices.js"></script>
   <script src="./js/modules/hiring.js"></script>
   <script src="./js/modules/onboarding.js"></script>
@@ -188,6 +188,8 @@
   <script src="./js/modules/crews.js"></script>
   <script src="./js/modules/quotes.js"></script>
   <script src="./js/modules/contracts.js"></script>
+  <script src="./js/modules/workorders.js"></script>
+  <script src="./js/modules/money.js"></script>
   <script src="./js/modules/costs.js"></script>
   <script src="./js/modules/bank.js"></script>
   <script src="./js/modules/timesheets.js"></script>

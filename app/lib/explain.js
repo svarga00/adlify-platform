@@ -239,6 +239,118 @@
     },
 
     // ── Dlaždice ────────────────────────────────────────────────────────────
+    'screen.orders': {
+      title: 'Objednávky',
+      lead: 'Dve strany tej istej práce: čo si u nás objednal odberateľ a čo sme '
+        + 'objednali u živnostníka.',
+      what: [
+        '**Od odberateľa** — jeho Bestellung aj s jeho číslom. To číslo patrí na '
+        + 'našu faktúru; bez neho ju jeho účtovné oddelenie často neprepustí a platba '
+        + 'sa posunie o mesiac. K jeho objednávke sa dá vystaviť naše potvrdenie '
+        + '(Auftragsbestätigung) po nemecky.',
+        '**Živnostníkovi** — jedna na nasadenie. Nasadenie, ktoré už objednávku má, '
+        + 'sa pri zakladaní neponúkne znova.',
+      ],
+      how: [
+        'Číslo sa prideľuje z radu OBJ-RRRR-NNNN až pri založení a transakčne, takže '
+        + 'v ňom nikdy nevznikne diera ani duplicita.',
+        'Objednávka je buď od odberateľa, alebo živnostníkovi — nikdy oboje. Drží to '
+        + 'kontrola v databáze, nie formulár.',
+      ],
+      why: [
+        'Objednávka živnostníkovi nie je papierovačka. Werkvertrag znamená, že si '
+        + 'objednávame **dielo**, nie hodiny — a keď sa kontrola opýta, čo presne mal '
+        + 'ten človek na stavbe urobiť, odpoveď „bol tam a robil, čo bolo treba" je '
+        + 'presne tá, po ktorej sa z Werkvertrag stane prenájom pracovnej sily '
+        + '(Arbeitnehmerüberlassung) a na ten treba povolenie.',
+        'Preto je na doklade aj napísané, že si prácu organizuje sám a že nám za dielo '
+        + 'fakturuje — to sú znaky, podľa ktorých sa dielo odlišuje.',
+      ],
+      watch: [
+        'Objednávka bez popísaného diela je označená. Je to jediné pole, ktoré pri '
+        + 'kontrole naozaj rozhoduje.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['contracts', 'Zmluvy'],
+        ['invoices', 'Vydané faktúry']],
+    },
+
+    'screen.money': {
+      title: 'Kde sú peniaze',
+      lead: 'Dve otázky na jednom mieste: kde stoja naše peniaze a koľko sa z nich '
+        + 'dá minúť a dokedy.',
+      what: [
+        'Hore týždenný výhľad — čo príde, čo odíde a koľko zostane. Dole reťazec '
+        + 'štádií, v ktorých naše peniaze stoja.',
+        'Štádiá sú zoradené podľa toho, kto ich vie pohnúť: hore to, čo stojí na nás '
+        + '(uzavrieť obdobie, vystaviť faktúru, schváliť), dole to, na čo sa len čaká.',
+      ],
+      how: [
+        '„Voľné" je zostatok mínus rezerva z Nastavení, a rozhoduje **najnižší bod** '
+        + 'výhľadu, nie zostatok na konci. Peniaze sa minú dnes, ale záväzok dobehne '
+        + 'o tri týždne — kto sa pozerá na koniec, minie to, čo bude v treťom týždni chýbať.',
+        'Faktúra po splatnosti sa do príjmu **neráta**. Mala prísť a neprišla; '
+        + 'stavať na nej rozpočet znamená minúť peniaze, ktoré možno nikdy neprídu. '
+        + 'Je vidieť zvlášť.',
+        'Odrobené hodiny bez uzavretého obdobia sa do výhľadu nerátajú vôbec — '
+        + 'nemajú termín, takže v týždennom rozpise nemajú kde stáť.',
+      ],
+      why: [
+        'Prehľad vie povedať „čakáme 7 854 €". To je jedno číslo zlepené zo štádií, '
+        + 'ktoré sa riešia úplne inak. Zlepené dokopy to vyzerá, že peniaze sú na ceste '
+        + '— pritom časť z nich stojí na nás a nikam sa nepohne, kým niečo neurobíme.',
+        'Zrážka §48b nie je stratená, ale nevráti sa tento mesiac. Preto je zvlášť '
+        + 'a do voľných peňazí nevstupuje.',
+      ],
+      watch: [
+        'Rezerva sa nastavuje v Cenníku a pravidlách. Keď je nula, appka povie, že '
+        + 'sa dá minúť všetko — a to nie je pravda ani raz.',
+      ],
+      links: [['bank', 'Banka a cash-flow'], ['invoices', 'Vydané faktúry'],
+        ['costs', 'Prijaté faktúry a náklady']],
+    },
+    'card.money.stages': {
+      title: 'Kde čakajú naše peniaze',
+      lead: 'Sedem štádií, v ktorých naše peniaze stoja — a pri každom, čo s ním spraviť.',
+      what: [
+        '**Stojí na nás**: odrobené s otvoreným obdobím, uzavreté bez faktúry, '
+        + 'faktúra na schválenie. Tieto tri sa dajú pohnúť bez toho, aby niekto iný '
+        + 'čokoľvek urobil.',
+        '**Čaká sa na odberateľa**: vystavené faktúry v splatnosti a po splatnosti.',
+        '**Vráti sa neskôr**: zrážka §48b a refakturovateľné náklady, ktoré ešte '
+        + 'nie sú na faktúre.',
+      ],
+      how: [
+        'Pri faktúrach sa počíta suma **po zrážke** — to, čo naozaj príde na účet. '
+        + 'Zrážka je zvlášť, aby bolo vidieť, koľko drží úrad.',
+        'Štádium sa dá rozkliknúť a je v ňom zoznam konkrétnych záznamov.',
+      ],
+      why: [
+        'Súčet všetkého je zavádzajúci údaj. Užitočné je vedieť, koľko z toho sa dá '
+        + 'pohnúť dnes vlastnou rukou — to je číslo, podľa ktorého sa dá konať.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['invoices', 'Vydané faktúry']],
+    },
+    'card.money.spend': {
+      title: 'Koľko sa dá minúť a dokedy',
+      lead: 'Týždenný výhľad zostatku a to, koľko sa z neho dá bezpečne použiť.',
+      what: [
+        'Pri každom týždni je, čo príde, čo odíde, aký bude zostatok a koľko z neho '
+        + 'je voľných po odrátaní rezervy.',
+        'Najnižší týždeň je zvýraznený — práve on rozhoduje.',
+      ],
+      how: [
+        'Príjmy sú faktúry v splatnosti, výdavky schválené faktúry živnostníkov '
+        + 'a plánované náklady. Faktúry po splatnosti sú uvedené zvlášť a do zostatku '
+        + 'nevstupujú.',
+        'Dlh po splatnosti sa naopak počíta — nezmizne tým, že je starý.',
+      ],
+      why: [
+        'Zostatok na konci je nebezpečné číslo: účet môže skončiť v pluse a v treťom '
+        + 'týždni byť pod nulou. Výplaty sa odložiť nedajú.',
+      ],
+      links: [['bank', 'Banka a cash-flow'], ['rules', 'Cenník a pravidlá']],
+    },
+
     'screen.flow': {
       title: 'Ako to ide',
       lead: 'Celý reťazec od telefonátu po peniaze na účte, v poradí, v akom sa '
@@ -275,6 +387,117 @@
     },
 
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
+    // ── Päť krokov náboru ────────────────────────────────────────────────
+    // Nábor mal šesť krokov a päťdesiat odrážok a dve rôzne veci sa v ňom
+    // volali „overenie": krok K3 aj časť telefonátu. Kto sa to učil, nevedel,
+    // o ktorom sa práve hovorí. Teraz je to päť krokov a každý má vysvetlivku,
+    // ktorá povie, **prečo** ten krok existuje — to je to, čo sa dá naučiť.
+    'cand.step.call': {
+      title: 'Krok 1 — Zavolať',
+      lead: 'Ozval sa a čaká. Zavolať mu treba do desiatich minút od ozvania.',
+      what: [
+        'Prvý hovor s človekom, ktorý sa ozval na inzerát. Appka ho vedie po '
+        + 'častiach a zapisuje, čo zaznelo — neznámkuje sa, odškrtáva sa.',
+        'Krátky hovor má štyri veci (remeslo, papiere, kedy, peniaze) a trvá tri '
+        + 'minúty. Plný pohovor má šesť častí a dvadsať minút.',
+      ],
+      how: [
+        'Že sa zavolalo, sa nikde neodklikáva — appka to vie z hovoru. Preto je '
+        + 'táto odrážka bez zaškrtávadla.',
+      ],
+      why: [
+        'Kto sa ozve nám, ozve sa aj ďalším trom firmám. Rozhoduje, kto zavolá '
+        + 'prvý, nie kto má lepšiu ponuku. Po desiatich minútach už berie prácu inde.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['hiring', 'Nábor']],
+    },
+    'cand.step.proof': {
+      title: 'Krok 2 — Preveriť',
+      lead: 'To, čo povedal do telefónu, si over u niekoho iného. Toto bolo „overenie".',
+      what: [
+        'Štyri veci: fotky jeho vlastnej práce, telefonát poslednému objednávateľovi '
+        + 'alebo polierovi, živnosť nájdená v registri, videohovor na nemčinu.',
+        'Pri partii k tomu pribudne, kto je kontaktná osoba a ako dlho spolu robia.',
+      ],
+      how: [
+        'Na referenciu stačí jedna otázka: „Vzali by ste ho znova?" Zaváhanie je '
+        + 'odpoveď. Nemčina nemusí byť dobrá — musí stačiť na pokyny bez prekladateľa.',
+      ],
+      why: [
+        'Do telefónu povie každý všetko. Bez tohto kroku ide na nemeckú stavbu '
+        + 'človek, ktorého prax nikto nevidel — a prvý, komu to praskne, je náš '
+        + 'odberateľ. To je celá odpoveď na otázku, načo je preverovanie.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['trades', 'Remeslá a otázky']],
+    },
+    'cand.step.deal': {
+      title: 'Krok 3 — Dohodnúť',
+      lead: 'Sadzba, turnus a dátum nástupu — písomne, nie po telefóne.',
+      what: [
+        'Tri veci: sadzba a spôsob fakturácie, turnus 3+1 s približne 50 hodinami '
+        + 'týždenne, a písomné „Súhlasím, nastupujem dňa X".',
+      ],
+      how: [
+        'Stačí správa vo WhatsApp — dôležitý je dátum a číslo, nie forma. Podstatné '
+        + 'je, že to existuje napísané.',
+      ],
+      why: [
+        'Čo nie je napísané, to si o mesiac pamätá každý inak. A spor o hodinovku '
+        + 'sa vždy rieši vtedy, keď ten človek už na stavbe je a nedá sa vymeniť.',
+      ],
+      links: [['candidates', 'Kandidáti'], ['rules', 'Cenník a pravidlá']],
+    },
+    'cand.step.papers': {
+      title: 'Krok 4 — Papiere',
+      lead: 'Živnosť, A1, kópie dokladov a podpísaná zmluva o dielo.',
+      what: [
+        'Kópie dokladov (OP alebo pas, živnostenský list), aktívna živnosť v správnych '
+        + 'odboroch, podané alebo vybavené A1, podpísaná zmluva.',
+      ],
+      how: [
+        'Pri A1 stačí **podané** — potvrdenie chodí týždne a stavba nepočká. Appka '
+        + 'na blížiaci sa koniec platnosti dokladu sama vyrobí úlohu.',
+      ],
+      why: [
+        'Bez týchto štyroch vecí sa nedá nasadiť. Nie preto, že by to zakazovala '
+        + 'appka — pri kontrole na stavbe to padne na nás ako na firmu, nie na neho.',
+      ],
+      links: [['workers', 'Živnostníci'], ['compliance', 'Compliance']],
+    },
+    'cand.step.site': {
+      title: 'Krok 5 — Na stavbu',
+      lead: 'Zákazka, dátum a informácie, kde sa má prvý deň hlásiť.',
+      what: [
+        'Nasadenie na konkrétnu zákazku, odoslaný infolist (adresa, kde sa hlásiť, '
+        + 'čo si vziať), dohodnutá doprava a ubytovanie, skupinový WhatsApp.',
+      ],
+      how: [
+        'Infolist appka vygeneruje zo zákazky — nepíše sa ručne. Že je človek '
+        + 'nasadený, sa tiež neodklikáva; vyplýva to z nasadenia na zákazke.',
+      ],
+      why: [
+        'Toto je posledné miesto, kde sa dá ešte niečo vymyslieť. Čo nie je '
+        + 'dohodnuté teraz, to rieši v nedeľu večer pred bránou cudzej stavby.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['candidates', 'Kandidáti']],
+    },
+    'cand.step.flags': {
+      title: 'Červené vlajky',
+      lead: 'Päť vecí, pri ktorých sa treba zastaviť, aj keď inak všetko sedí.',
+      what: [
+        'Záloha alebo cesta vopred, žiadna fotka a žiadna referencia, vyhýbanie sa '
+        + 'videohovoru, menené odpovede o živnosti, „kedy budú peniaze" ako prvá otázka.',
+      ],
+      how: [
+        'Zaškrtnutie nie je pokrok — je to varovanie, a preto sa do postupu náboru '
+        + 'nepočíta. Pri dvoch a viac appka postup zastaví a pýta sa na rozhodnutie.',
+      ],
+      why: [
+        'Jedna vlajka sa dá prejsť. Dve znamenajú, že riziko je vyššie než prínos — '
+        + 'a človek, ktorý mení odpovede o živnosti, ich zmení aj na stavbe.',
+      ],
+      links: [['candidates', 'Kandidáti']],
+    },
     'card.hiring.now': {
       title: 'Čo treba teraz',
       lead: 'Ľudia, ktorí čakajú na ťahu — zoradení podľa toho, kto čaká najdlhšie.',
@@ -513,7 +736,7 @@
       title: '2 · Telefonát',
       lead: 'Prvý hovor s človekom, ktorý sa ozval. Zapíše sa, čo zaznelo.',
       what: [
-        'Hovor má šesť častí: úvod, remeslo, overenie, papiere, logistika, peniaze. '
+        'Hovor má šesť častí: úvod, remeslo, dôkazy, papiere, logistika, peniaze. '
         + 'Pri každej je napísané, na čo sa pýtať a pri čom zbystriť.',
         'Prvá otázka je, na ktorý inzerát volá — od nej sa odvinie zvyšok a je '
         + 'vidieť, čo sme mu sľúbili.',

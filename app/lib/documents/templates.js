@@ -563,6 +563,118 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
   }
 
   // ── ODOVZDÁVACÍ PROTOKOL (obsahuje adresu — až po úhrade!) ────────────────
+  // ── OBJEDNÁVKA ────────────────────────────────────────────────────────────
+  /**
+   * Dva doklady v jednom, lebo sú to dve strany tej istej práce.
+   *
+   * **Odberateľovi** ide *Auftragsbestätigung* po nemecky a hore na ňom je
+   * **jeho** číslo objednávky. To je to, čo jeho účtovné oddelenie hľadá ako
+   * prvé — bez neho sa doklad vracia.
+   *
+   * **Živnostníkovi** ide objednávka po slovensky. Nie je to formalita: pri
+   * Werkvertrag si objednávame **dielo**, nie hodiny, a tento papier je to,
+   * čo pri kontrole odpovie na otázku, čo presne mal ten človek urobiť.
+   * Preto sú na ňom aj tri vety o tom, že si prácu organizuje sám a fakturuje
+   * nám ju — presne tie znaky, podľa ktorých sa dielo odlišuje od prenájmu
+   * pracovnej sily.
+   */
+  function workOrder({ order, supplier, partner, worker, subcontract }) {
+    const o = order || {};
+    const pre = o.kind === 'customer';
+    const loc = pre ? 'de-DE' : 'sk-SK';
+    const cena = o.price_model === 'fixed'
+      ? (o.fixed_price != null ? money(o.fixed_price, o.currency, loc) : '—')
+      : o.price_model === 'unit'
+        ? (o.unit_price != null
+          ? `${money(o.unit_price, o.currency, loc)} / ${esc(o.unit_label || (pre ? 'Einheit' : 'jednotku'))}` : '—')
+        : (o.rate != null ? `${money(o.rate, o.currency, loc)} / ${pre ? 'Std.' : 'h'}` : '—');
+
+    const L = pre ? {
+      title: 'Auftragsbestätigung', num: 'Unsere Nr.', their: 'Ihre Bestellnummer',
+      who: 'Auftraggeber', scope: 'Leistungsumfang', site: 'Baustelle',
+      term: 'Ausführungszeitraum', price: 'Preis', note: 'Anmerkung',
+      confirm: 'Wir bestätigen den Erhalt Ihrer Bestellung und die Ausführung '
+        + 'der oben beschriebenen Leistung zu den genannten Bedingungen.',
+      missing: 'Der Leistungsumfang ist noch nicht festgelegt.',
+    } : {
+      title: 'Objednávka', num: 'Číslo', their: '',
+      who: 'Zhotoviteľ', scope: 'Čo je dielo', site: 'Stavba',
+      term: 'Termín', price: 'Cena', note: 'Poznámka',
+      confirm: '',
+      missing: 'Dielo zatiaľ nie je popísané.',
+    };
+
+    const protistrana = pre
+      ? { name: partner && partner.name, extra: [] }
+      : { name: worker && worker.full_name, extra: [] };
+
+    const body = `
+      ${header(L.title, o.order_number || '', [
+        o.their_ref ? `${L.their}: ${o.their_ref}` : '',
+        o.received_at ? (pre ? `Bestellung vom ${date(o.received_at)}`
+          : `Prijaté ${date(o.received_at)}`) : '',
+      ].filter(Boolean), supplier)}
+
+      ${o.their_ref && pre ? `<div class="note" style="border-left-color:#1E4FD8">
+        <strong>${esc(L.their)}: ${esc(o.their_ref)}</strong> — bitte bei Rückfragen
+        und auf allen Rechnungen angeben.</div>` : ''}
+
+      ${pre
+        ? parties(supplier, { name: protistrana.name }, [], 'de')
+        // Pri objednávke živnostníkovi sú úlohy opačné než na faktúre: my sme
+        // objednávateľ, on zhotoviteľ. Keby tu stálo „Odberateľ: Ján Novák",
+        // doklad by tvrdil pravý opak toho, čo má dokazovať.
+        : `<div class="cols">
+            <div class="col"><div class="lbl">Objednávateľ</div><div class="val">
+              <strong>${esc(supplier?.name || '—')}</strong><br>
+              ${supplier?.address ? esc(supplier.address) + '<br>' : ''}
+              ${supplier?.company_id ? 'IČO: ' + esc(supplier.company_id) + '<br>' : ''}
+              ${supplier?.email ? esc(supplier.email) : ''}
+            </div></div>
+            <div class="col"><div class="lbl">Zhotoviteľ</div><div class="val">
+              <strong>${esc(protistrana.name || '—')}</strong><br>
+              <span style="color:#6F7C95">samostatne zárobkovo činná osoba</span>
+            </div></div>
+          </div>`}
+
+      <h2 class="ss-h">${esc(L.scope)}</h2>
+      ${o.scope
+        ? `<p style="font-size:13px;line-height:1.6;white-space:pre-wrap;margin:0">${esc(o.scope)}</p>`
+        : `<p class="todo" style="margin:0">${esc(L.missing)}</p>`}
+
+      <div class="ss-row"><div class="lbl">${esc(L.site)}</div>
+        <div class="val">${esc((subcontract && (subcontract.title
+          || subcontract.contract_number)) || '—')}</div></div>
+      <div class="ss-row"><div class="lbl">${esc(L.term)}</div>
+        <div class="val">${o.date_from ? `${date(o.date_from)} – ${date(o.date_to)}` : '—'}</div></div>
+      <div class="ss-row"><div class="lbl">${esc(L.price)}</div>
+        <div class="val"><strong>${cena}</strong></div></div>
+      ${o.notes ? `<div class="ss-row"><div class="lbl">${esc(L.note)}</div>
+        <div class="val">${esc(o.notes)}</div></div>` : ''}
+
+      ${pre ? `<div class="note">${esc(L.confirm)}</div>` : `
+      ${o.price_model === 'hourly' ? `<div class="note">
+        Cena je dohodnutá za hodinu. Pri Werkvertrag je pevná cena alebo cena za
+        jednotku <strong>silnejší doklad</strong> — hodinová sadzba sama osebe
+        dielo nespochybní, ale pri kontrole treba vedieť ukázať, že je ohraničené
+        rozsahom vyššie.</div>` : ''}
+      <h2 class="ss-h">Čo z tejto objednávky platí</h2>
+      <ul class="clean">
+        <li>Objednáva sa <strong>dielo</strong>, nie hodiny. Rozsah je popísaný vyššie
+          a tým je aj ohraničený — čokoľvek nad rámec sa dohodne novou objednávkou.</li>
+        <li>Prácu si <strong>organizuješ sám</strong>: vlastné náradie, vlastný postup,
+          vlastné rozvrhnutie času v rámci dohodnutého termínu.</li>
+        <li>Za vykonané dielo <strong>vystavíš faktúru</strong>. Podkladom je tento
+          rozsah a odsúhlasený výkaz; obe sa musia zhodovať.</li>
+      </ul>
+      <div class="sigs">
+        <div class="sig"><div class="line"></div><div class="who">Za objednávateľa</div></div>
+        <div class="sig"><div class="line"></div><div class="who">Zhotoviteľ — prijímam objednávku</div></div>
+      </div>`}
+      ${foot(supplier)}`;
+    return shell(`${L.title} ${o.order_number || ''}`, body);
+  }
+
   // ── INFOLIST NA STAVBU ────────────────────────────────────────────────────
   /**
    * Jedna strana, ktorú živnostník dostane pred nástupom. Po slovensky —
@@ -733,8 +845,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
   }
 })();

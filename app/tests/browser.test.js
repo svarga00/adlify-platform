@@ -692,6 +692,22 @@ console.log('Prehliadač');
             html: v.innerHTML,
             menu: [...document.querySelectorAll('#sidebar-nav .nav-item')]
               .map(x => x.textContent.trim()).filter(Boolean),
+            zalozky: [...v.querySelectorAll('.subtabs .pill')]
+              .map(x => x.textContent.trim()),
+            zalozkaTeraz: (v.querySelector('.subtabs .pill.active') || {}).textContent,
+            // A či sa cez záložku naozaj prepne — vrátane toho, že sa zvýrazní
+            // tá, na ktorej človek stojí.
+            poKliku: await (async () => {
+              v.querySelector('.subtabs .pill[data-key=candidates]')?.click();
+              await new Promise(r => setTimeout(r, 400));
+              const w = document.getElementById('view');
+              return {
+                nadpis: (w.querySelector('.page-title') || {}).textContent || '',
+                aktivna: ((w.querySelector('.subtabs .pill.active') || {}).textContent || '').trim(),
+                menu: [...document.querySelectorAll('#sidebar-nav .nav-item.active')]
+                  .map(x => x.textContent.trim()),
+              };
+            })(),
           };
         })();
       });
@@ -719,9 +735,26 @@ console.log('Prehliadač');
       ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),
         'a odtiaľto sa dá ísť na zvyšok náboru');
 
-      const i = out.menu.findIndex(x => x.startsWith('Nábor'));
-      const k = out.menu.findIndex(x => x.startsWith('Kandidáti'));
-      ok(i >= 0 && k > i, 'Nábor je v menu pred Kandidátmi', out.menu.join(' | '));
+      // Nábor je v menu **jedna** položka. Kandidáti, Inzeráty a Zápisy sú
+      // jeho záložky — predtým to boli štyri riadky v menu a kto naberal,
+      // musel najprv vedieť, na ktorom z nich má byť.
+      ok(out.menu.some(x => x.startsWith('Nábor')), 'Nábor je v menu',
+        out.menu.join(' | '));
+      ok(!out.menu.some(x => x.startsWith('Kandidáti') || x.startsWith('Inzeráty')
+        || x.startsWith('Zápisy') || x.startsWith('Partie')),
+        'kandidáti, inzeráty, zápisy ani partie už v menu nie sú',
+        out.menu.join(' | '));
+      ok(out.zalozky.join(',') === 'Čo teraz,Kandidáti,Inzeráty,Zápisy',
+        'sú to záložky Náboru', out.zalozky.join(','));
+      ok((out.zalozkaTeraz || '').trim() === 'Čo teraz',
+        'a je vidieť, na ktorej práve stojím', out.zalozkaTeraz);
+      ok(/Kandidáti/.test(out.poKliku.nadpis), 'klik na záložku prepne obrazovku',
+        out.poKliku.nadpis);
+      ok(out.poKliku.aktivna === 'Kandidáti', 'a zvýrazní sa tá, na ktorej stojím',
+        out.poKliku.aktivna);
+      ok(out.poKliku.menu.join(',') === 'Nábor',
+        'v ľavom menu pritom zostane zvýraznený Nábor — je to stále tá istá práca',
+        out.poKliku.menu.join(','));
       ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -1402,6 +1435,194 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Objednávky ────────────────────────────────────────────────────────
+    // Formulár skladá číselníky až za behu a pri objednávke živnostníkovi
+    // ponúka len nasadenia, ktoré ešte objednávku nemajú. Oboje sa dá pokaziť
+    // tak, že sa to v kóde nevidí.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          partners: [{ id: 'p1', name: 'Vogel GmbH' }],
+          workers: [{ id: 'w1', full_name: 'Ján Novák' }, { id: 'w2', full_name: 'Peter Kováč' }],
+          subcontracts: [{ id: 's1', title: 'Stavba Ulm', contract_number: 'ZAK-1' }],
+          contracts: [],
+          assignments: [
+            { id: 'a1', subcontract_id: 's1', worker_id: 'w1', status: 'active' },
+            { id: 'a2', subcontract_id: 's1', worker_id: 'w2', status: 'active' },
+          ],
+          work_orders: [
+            { id: 'o1', kind: 'customer', order_number: 'OBJ-2026-0001', title: 'Trockenbau',
+              partner_id: 'p1', subcontract_id: 's1', their_ref: '4500123456',
+              status: 'confirmed', scope: 'Wände 2. OG' },
+            // Nasadenie a1 už objednávku má — vo výbere sa nesmie ponúknuť znova.
+            { id: 'o2', kind: 'worker', order_number: 'OBJ-2026-0002', title: 'Priečky',
+              worker_id: 'w1', assignment_id: 'a1', subcontract_id: 's1', status: 'sent' },
+          ],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: 'OBJ-2026-0003', error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          const view = document.getElementById('view');
+          Danubra.route = 'orders';
+          Ord.loaded = false;
+          await Danubra.views.orders.call(Danubra, view);
+          const odberatel = view.innerText;
+          const kariet = view.querySelectorAll('#ord-list .card').length;
+
+          Ord.setKind('worker');
+          await new Promise(r => setTimeout(r, 60));
+          const zivnostnik = document.getElementById('view').innerText;
+
+          // Formulár pre živnostníka: ponúknu sa len voľné nasadenia.
+          Ord.form();
+          const sel = document.querySelector('#ui-modal select[name="assignment_id"]');
+          const moznosti = sel ? [...sel.options].map(o => o.textContent.trim()) : [];
+          const maPlus = !!document.querySelector('#ui-modal select[name="assignment_id"]')
+            && !document.querySelector('#ui-modal .fld-pick select[name="assignment_id"]');
+          UI.closeModal();
+
+          Ord.setKind('customer');
+          await new Promise(r => setTimeout(r, 60));
+          Ord.form();
+          const maIchCislo = !!document.querySelector('#ui-modal input[name="their_ref"]');
+          const hint = (document.querySelector('#ui-modal input[name="their_ref"]')
+            ?.closest('.fld')?.querySelector('.fld-hint')?.textContent) || '';
+          UI.closeModal();
+
+          return { odberatel, zivnostnik, kariet, moznosti, maPlus, maIchCislo, hint };
+        })();
+      });
+
+      ok(out.kariet === 1, 'zobrazia sa len objednávky vybranej strany',
+        `kariet: ${out.kariet}`);
+      ok(/4500123456/.test(out.odberatel),
+        'číslo odberateľa je vidieť na karte — kvôli nemu sa zapisuje');
+      ok(/ide na faktúru/.test(out.odberatel), 'aj to, načo je');
+      ok(/Priečky/.test(out.zivnostnik), 'prepnutie strany ukáže objednávky živnostníkom');
+
+      ok(out.moznosti.length === 2,
+        'vo výbere je len nasadenie, ktoré objednávku ešte nemá (plus prázdna voľba)',
+        out.moznosti.join(' | '));
+      ok(out.moznosti.some(m => /Peter Kováč/.test(m)), 'a je to to voľné');
+      ok(!out.moznosti.some(m => /Ján Novák/.test(m)),
+        'nasadenie s objednávkou sa neponúkne druhýkrát');
+      ok(out.maPlus, 'pri nasadení sa nové nezakladá — vyberá sa z existujúcich');
+
+      ok(out.maIchCislo, 'pri objednávke od odberateľa sa pýta jeho číslo');
+      ok(/neprepustí|faktúru/.test(out.hint),
+        'a je vysvetlené, prečo naň treba', out.hint);
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Kde sú peniaze ────────────────────────────────────────────────────
+    // Obrazovka, podľa ktorej sa rozhodne, či sa naberú ďalší ľudia. Keď
+    // klame, klame smerom k míňaniu — preto sa tu kontroluje najmä to, čo sa
+    // do voľných peňazí započítať nesmie.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(() => {
+        const DATA = {
+          subcontracts: [{ id: 's1', title: 'Stavba Ulm', status: 'active', charge_rate: '30' }],
+          assignments: [{ id: 'a1', subcontract_id: 's1', worker_id: 'w1',
+            status: 'active', charge_rate: '30' }],
+          timesheets: [{ id: 't1', assignment_id: 'a1', hours: 10,
+            work_date: '2026-10-01', period_id: null }],
+          periods: [],
+          invoices: [{ id: 'i1', invoice_number: '2026030', status: 'sent', total: '1000',
+            amount_net: '850', withholding_amount: '150', due_date: '2026-09-01',
+            partner_id: 'p1' }],
+          costs: [],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH' }],
+          v_cashflow: [
+            // Po splatnosti — nesmie zvýšiť voľné peniaze.
+            { expected_on: '2026-09-01', amount: '850', source: 'invoice' },
+            // Záväzok o dva týždne.
+            { expected_on: '2026-10-20', amount: '-600', source: 'bill' },
+          ],
+          bank_transactions: [{ amount: '2000' }],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Cfg.row = { id: 'c', staffing: { cash_buffer_min: 500 } };
+        Cfg.loaded = true;
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        return (async () => {
+          const view = document.getElementById('view');
+          Danubra.route = 'money';
+          Mon.loaded = false;
+          await Danubra.views.money.call(Danubra, view);
+          const x = Mon.data();
+          const st = DanubraPosition.stages(x);
+          const sp = DanubraPosition.spendable({
+            today: x.today, balance: Mon.balance, items: Mon.cashflow,
+            weeks: 8, reserve: Mon.reserve() });
+          return {
+            stadii: view.querySelectorAll('.ms').length,
+            maTodo: [...view.querySelectorAll('.ms-lead strong')].length,
+            tabulka: view.querySelectorAll('.kpi-table tbody tr').length,
+            najhorsi: view.querySelectorAll('.kpi-table tr.is-worst').length,
+            text: view.innerText,
+            unbilled: (st.find(s => s.key === 'unbilled') || {}).cents,
+            overdueStage: (st.find(s => s.key === 'overdue') || {}).cents,
+            withheld: (st.find(s => s.key === 'withheld') || {}).cents,
+            free: sp.free, start: sp.start, unreliable: sp.unreliable,
+            rezerva: Mon.reserve(),
+          };
+        })();
+      });
+
+      ok(out.stadii === 7, 'sedem štádií, kde môžu peniaze stáť',
+        `našiel som ${out.stadii}`);
+      ok(out.maTodo >= 5, 'pri štádiu, ktoré sa dá pohnúť, je napísané čo spraviť',
+        `s návodom: ${out.maTodo}`);
+      ok(out.unbilled === 30000, '10 hodín po 30 € je odrobené a nevyfakturované',
+        String(out.unbilled));
+      ok(out.overdueStage === 85000, 'po splatnosti sa počíta suma po zrážke §48b',
+        String(out.overdueStage));
+      ok(out.withheld === 15000, 'a zrážka je vedená zvlášť', String(out.withheld));
+
+      // Toto je to, kvôli čomu obrazovka vznikla.
+      ok(out.start === 200000, 'na účte je 2 000 €', String(out.start));
+      ok(out.unreliable === 85000, 'faktúra po splatnosti je vidieť zvlášť',
+        String(out.unreliable));
+      ok(out.free === 90000,
+        'voľné = 2 000 − 600 záväzok − 500 rezerva. Faktúra po splatnosti ich nezvýši',
+        String(out.free));
+      ok(out.najhorsi === 1, 'najnižší týždeň je v tabuľke zvýraznený');
+      ok(/po splatnosti/.test(out.text),
+        'a je napísané, že sa faktúry po splatnosti do výhľadu nerátajú');
+      // Popisky sú v CSS veľkými písmenami a `innerText` to rešpektuje.
+      ok(/stojí na nás/i.test(out.text) && /čaká sa na odberateľa/i.test(out.text),
+        'súhrn rozlišuje, čo sa dá pohnúť vlastnou rukou', out.text.slice(0, 200));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Založiť nový rovno pri výbere ─────────────────────────────────────
     // Celý zmysel je v jednej vete: **rozpísaný formulár sa nesmie stratiť.**
     // Keby sa pri zakladaní zavrel, bolo by to to isté ako ísť do iného modulu
@@ -1689,10 +1910,19 @@ console.log('Prehliadač');
             go: !!e.querySelector('.fl-go'),
             cls: e.className,
           }));
+          // Mapa sa kreslí z horného pruhu, nie z ľavého menu — tam sedela
+          // medzi dennou prácou a vyzerala ako ďalšia agenda.
+          Danubra._buildNav();
+          const text = (sel) => [...document.querySelectorAll(sel)]
+            .map(e => e.textContent.replace(/\s+/g, ' ').trim());
+
           return {
             kroky,
             drahy: [...view.querySelectorAll('.fl-lane-head h2')].map(h => h.textContent.trim()),
             headline: view.querySelector('.headline').textContent.replace(/\s+/g, ' ').trim(),
+            hore: text('#top-links .top-link'),
+            vlavo: text('#sidebar-nav .nav-item'),
+            horeAktivne: text('#top-links .top-link.active'),
           };
         })();
       });
@@ -1717,6 +1947,138 @@ console.log('Prehliadač');
       ok(/fl-bad/.test(out.kroky[0].cls), 'a je červený');
       ok(/čaká na prvý telefonát/.test(out.kroky[1].todo),
         'nezavolaný človek tiež', out.kroky[1].todo);
+
+      // Mapa patrí hore, nie do ľavého menu.
+      ok(out.hore.includes('Ako to ide'), '„Ako to ide" je v hornom pruhu',
+        out.hore.join(', '));
+      ok(!out.vlavo.includes('Ako to ide'), 'a nie v ľavom menu',
+        out.vlavo.join(', '));
+      ok(out.vlavo.includes('Prehľad') && out.vlavo.includes('Zákazky'),
+        'ľavé menu je inak celé', out.vlavo.length + ' položiek');
+      ok(out.horeAktivne.includes('Ako to ide'),
+        'a keď je otvorená, odkaz hore je zvýraznený', out.horeAktivne.join(', '));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Nábor kandidáta: päť krokov a jedna veta ──────────────────────────
+    // Nábor mal šesť krokov a päťdesiat odrážok a dve rôzne veci sa v ňom
+    // volali „overenie". Tu sa kontroluje to, čo z toho má zostať: **jedna
+    // veta, čo spraviť teraz**, päť krokov pod ňou, odvodené veci bez
+    // zaškrtávadla — a že staré zaškrtnutia z K1–K6 stále platia.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          candidates: [
+            // Nikto mu nevolal — má horieť prvý krok.
+            { id: 'c1', full_name: 'Jozef Nový', type: 'individual', status: 'new',
+              received_at: '2026-10-06T07:00:00Z' },
+            // Volané, zapísané, a celý starý krok K3 je zaškrtnutý.
+            { id: 'c2', full_name: 'Milan Starý', type: 'individual', status: 'interview',
+              first_contact_at: '2026-10-01T09:05:00Z', screening_score: 78,
+              screening_verdict: 'ok', received_at: '2026-10-01T09:00:00Z' },
+          ],
+          candidate_checks: [
+            { candidate_id: 'c2', step_key: 'k3', item_index: 0, checked: true },
+            { candidate_id: 'c2', step_key: 'k3', item_index: 1, checked: true },
+            { candidate_id: 'c2', step_key: 'k3', item_index: 2, checked: true },
+            { candidate_id: 'c2', step_key: 'k3', item_index: 4, checked: true },
+          ],
+          candidate_notes: [], subcontracts: [], ads: [], call_chips: [],
+          candidate_chips: [], recruitment_plans: [],
+        };
+        DB.list = async (t, o) => {
+          const rows = DATA[t] || [];
+          const id = o && o.filters && o.filters.candidate_id;
+          return { data: id ? rows.filter(r => r.candidate_id === id) : rows, error: null };
+        };
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const citaj = () => {
+          const m = document.getElementById('ui-modal');
+          const t = (sel) => [...m.querySelectorAll(sel)]
+            .map(e => e.textContent.replace(/\s+/g, ' ').trim());
+          return {
+            teraz: (m.querySelector('.nowbox') || {}).textContent
+              ? m.querySelector('.nowbox').textContent.replace(/\s+/g, ' ').trim() : '',
+            hot: !!m.querySelector('.nowbox-hot'),
+            nowHelp: !!m.querySelector('.nowbox .help-btn'),
+            // Číslované sú len kroky náboru. Červené vlajky ani prvý týždeň
+            // krok nie sú — a práve preto nesmú byť očíslované.
+            kroky: t('.acc .acc-head').filter(x => /^\d\./.test(x)),
+            neoznacene: t('.acc .acc-head').filter(x => !/^\d\./.test(x)),
+            hotove: [...m.querySelectorAll('.acc')]
+              .filter(a => a.className.includes('acc-done'))
+              .map(a => a.querySelector('.acc-head').textContent.replace(/\s+/g, ' ').trim()),
+            telo: (m.querySelector('.acc-body') || { textContent: '' }).textContent
+              .replace(/\s+/g, ' ').trim(),
+            zaskrtavadla: m.querySelectorAll('.acc-body input[type=checkbox]').length,
+            vsetko: m.textContent.replace(/\s+/g, ' ').trim(),
+          };
+        };
+
+        await Cand.load();
+        await Cand.detail('c1');
+        await new Promise(r => setTimeout(r, 120));
+        const novy = citaj();
+
+        UI.closeModal();
+        await Cand.detail('c2');
+        await new Promise(r => setTimeout(r, 120));
+        const stary = citaj();
+
+        return { novy, stary };
+      });
+
+      // Jedna veta hore. Toto je celé zjednodušenie: nikto si nevyberá z piatich
+      // krokov, appka povie jeden.
+      ok(/Čo spraviť teraz · krok 1 z 5/.test(out.novy.teraz),
+        'hore je jedna veta — čo spraviť teraz a koľkatý je to krok', out.novy.teraz);
+      ok(/Zavolať/.test(out.novy.teraz), 'a je to ten správny krok', out.novy.teraz);
+      ok(out.novy.hot, 'nezavolaný človek horí');
+      ok(out.novy.nowHelp, 'a pri vete je vysvetlivka — dá sa to naučiť');
+
+      ok(out.novy.kroky.length === 5, 'nábor má päť krokov',
+        `má ${out.novy.kroky.length}: ${out.novy.kroky.join(' | ')}`);
+      ok(/^1\. Zavolať/.test(out.novy.kroky[0]) && /^5\. Na stavbu/.test(out.novy.kroky[4]),
+        'sú očíslované a v poradí, v akom sa robia', out.novy.kroky.join(' | '));
+      ok(!/Overenie/.test(out.novy.vsetko),
+        'a slovo „overenie" tu už nie je dvakrát — krok sa volá Preveriť');
+      ok(/Preveriť/.test(out.novy.kroky[1]), 'druhý krok je Preveriť', out.novy.kroky[1]);
+      ok(out.novy.neoznacene.length === 1 && /Červené vlajky/.test(out.novy.neoznacene[0]),
+        'červené vlajky sú mimo krokov — nie je to pokrok, je to varovanie',
+        out.novy.neoznacene.join(' | '));
+
+      // Odvodená odrážka: nikto ju neodklikol a odkliknúť sa nedá.
+      ok(out.novy.zaskrtavadla === 0,
+        'v prvom kroku sa nič neodklikáva — vyplýva z hovoru',
+        `zaškrtávadiel: ${out.novy.zaskrtavadla}`);
+      ok(/nekliká sa|Stane sa samo/.test(out.novy.telo),
+        'a je napísané, odkiaľ to appka vie', out.novy.telo.slice(0, 120));
+
+      // Staré zaškrtnutia z K3 platia — preskládanie krokov nikomu nevynulovalo
+      // prácu, ktorú už odviedol.
+      ok(/krok 3 z 5|Dohodnúť/.test(out.stary.teraz),
+        'po hovore a prevereni je na rade dohoda', out.stary.teraz);
+      ok(out.stary.hotove.some(h => /Preveriť/.test(h)),
+        'starý krok K3 sa počíta ako hotové „Preveriť"', out.stary.hotove.join(' | '));
+      ok(out.stary.hotove.some(h => /Zavolať/.test(h)),
+        'a hovor je hotový bez jediného kliknutia', out.stary.hotove.join(' | '));
+      ok(!/Prvý týždeň/.test(out.stary.vsetko),
+        'prvý týždeň sa pred nasadením neukazuje');
+
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
