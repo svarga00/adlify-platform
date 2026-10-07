@@ -68,6 +68,16 @@
       return client.from(t(table)).insert(payload).select().single();
     },
 
+    /**
+     * Viac riadkov naraz. `insert` končí `.single()`, takže pri poli spadne —
+     * a týždeň hodín je sedem riadkov, nie jeden. Buď sa zapíšu všetky, alebo
+     * nič: jeden pokazený deň nesmie nechať v databáze pol týždňa.
+     */
+    async insertMany(table, rows) {
+      if (!Array.isArray(rows) || !rows.length) return { data: [], error: null };
+      return client.from(t(table)).insert(rows).select();
+    },
+
     async update(table, id, payload) {
       return client.from(t(table)).update(payload).eq('id', id).select().single();
     },
