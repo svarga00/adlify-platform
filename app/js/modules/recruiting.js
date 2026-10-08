@@ -176,8 +176,13 @@
     // ── Súhlas ────────────────────────────────────────────────────────────
     async consentForm() {
       const s = await this._settings();
-      const script = s?.recruiting?.consent_script_sk
-        || 'Tento hovor by sme si radi nahrali, aby sme mali presne zapísané, na čom sa dohodneme. Súhlasíte?';
+      // Názov firmy bol v tomto texte **zapečený** (migrácia 004), takže appka
+      // sa predstavovala menom firmy, ktorá sa medzitým premenovala, a zmena
+      // v Nastaveniach to nemala ako prepísať. Text drží `{firma}` a názov sa
+      // doplní pri zobrazení.
+      const script = Danubra.fillFirm(s?.recruiting?.consent_script_sk
+        || 'Dobrý deň, volám z {firma}. Tento hovor by sme si radi nahrali, aby sme mali '
+          + 'presne zapísané, na čom sa dohodneme. Súhlasíte?');
       const retention = Number(s?.recruiting?.retention_days) || 180;
       const until = new Date(Date.now() + retention * 86400000).toISOString().slice(0, 10);
 
@@ -542,12 +547,8 @@
       Danubra.renderRoute();
     },
 
-    async _settings() {
-      if (this._set) return this._set;
-      const { data } = await DB.list('settings', { limit: 1 });
-      this._set = (data && data[0]) || {};
-      return this._set;
-    },
+    /** Nastavenia z jedného miesta — `Danubra.loadCfg()`. */
+    async _settings() { return Danubra.loadCfg(); },
   };
 
   window.Rec = Rec;

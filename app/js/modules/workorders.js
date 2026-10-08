@@ -319,7 +319,8 @@
     async document(id) {
       const o = this.rows.find(x => x.id === id);
       if (!o) return;
-      const supplier = (window.Cfg && Cfg.j('supplier')) || {};
+      if (!Danubra.supplierReady('Objednávka')) return;
+      const supplier = Danubra.supplier();
       const html = DanubraPapers.workOrder({
         order: o, supplier,
         partner: o.partner_id ? this.partnerOf(o.partner_id) : null,

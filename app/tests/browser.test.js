@@ -1776,9 +1776,11 @@ console.log('Prehliadač');
         document.getElementById('app').hidden = false;
 
         return (async () => {
-          // Nastavenia sú prázdne — doklad si nesmie nič domyslieť.
-          Cfg.row = { id: 'cfg', supplier: {} };
-          Cfg.loaded = true;
+          // Nastavenia sú prázdne — doklad si nesmie nič domyslieť. Riadok
+          // nastavení drží `Danubra`, nie obrazovka Nastavení: dokument ho má
+          // mať aj vtedy, keď na Nastaveniach nikto nebol.
+          Danubra.cfgRow = { id: 'cfg', supplier: {} };
+          Cfg.row = Danubra.cfgRow; Cfg.loaded = true;
           HS.loaded = false;
           await HS.load();
           const prazdny = HS.paperHtml ? HS.paperHtml() : '';
@@ -1809,7 +1811,7 @@ console.log('Prehliadač');
       ok(/Pause/.test(out.text), 'na výkaze je riadok Pause, ako na papieri odberateľa');
       // IČO: pole sa musí čítať tam, kam ho Nastavenia ukladajú.
       const ico = await page.evaluate(() => {
-        Cfg.row = { id: 'cfg', supplier: { name: 'Firma s.r.o.', company_id: '55667788' } };
+        Danubra.cfgRow = { id: 'cfg', supplier: { name: 'Firma s.r.o.', company_id: '55667788' } };
         const view = document.getElementById('view');
         return Danubra.views.hoursheet.call(Danubra, view).then(() => view.innerText);
       });
@@ -1957,6 +1959,133 @@ console.log('Prehliadač');
         'ľavé menu je inak celé', out.vlavo.length + ' položiek');
       ok(out.horeAktivne.includes('Ako to ide'),
         'a keď je otvorená, odkaz hore je zvýraznený', out.horeAktivne.join(', '));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Údaje z Nastavení: jeden riadok, jedno miesto ─────────────────────
+    // Nastavenia sa načítavali na štyroch miestach, každé s vlastnou trvalou
+    // pamäťou, a tri obrazovky ich nenačítali vôbec. Dokument preto odišiel
+    // odberateľovi bez názvu firmy, bez IČO a bez IBAN-u — a po zmene
+    // v Nastaveniach stará hodnota prežila až do obnovenia stránky.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const SETTINGS = [{
+          id: 'cfg1',
+          supplier: { name: 'Partner und Service s.r.o.', company_id: '57553921',
+            address: 'Podzámska 4A, Nové Zámky', iban: 'SK1111110000001874050003' },
+          staffing: { soka_pct: 14.7, withholding_pct: 15 },
+          recruiting: { consent_script_sk: 'Dobrý deň, volám z {firma}. Súhlasíte?' },
+        }];
+        const DATA = {
+          settings: SETTINGS,
+          work_orders: [{ id: 'o1', kind: 'to_worker', order_number: 'OBJ-2026-0001',
+            worker_id: 'w1', subcontract_id: 'sc1', scope: 'Sadrokartón 1. NP',
+            price_model: 'unit', status: 'sent' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', address: 'Nitra' }],
+          subcontracts: [{ id: 'sc1', title: 'Ulm', site_city: 'Ulm' }],
+          partners: [], invoices: [], assignments: [],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        const zapisy = [];
+        DB.update = async (t, id, patch) => {
+          if (t === 'settings') { Object.assign(SETTINGS[0], patch); zapisy.push(patch); }
+          return { data: SETTINGS[0], error: null };
+        };
+
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        // Toto je to podstatné: na Nastaveniach nikto nebol, obrazovka
+        // Nastavení sa ani nenačítala.
+        Danubra.cfgRow = null;
+        if (window.Cfg) { Cfg.row = null; Cfg.loaded = false; }
+        await Danubra.loadCfg(true);
+
+        const prvy = {
+          nazov: Danubra.supplier().name || '',
+          ico: Danubra.supplier().company_id || '',
+          // Oddiel nastavení musí byť objekt, nie funkcia — compliance aj
+          // marža z nej čítajú sadzby a z funkcie sa prečítať nedá.
+          staffingJeObjekt: typeof Danubra.cfg('staffing') === 'object'
+            && Danubra.cfg('staffing').soka_pct === 14.7,
+          chybajuciOddiel: JSON.stringify(Danubra.cfg('neexistuje')),
+          firmaVTexte: Danubra.fillFirm(SETTINGS[0].recruiting.consent_script_sk),
+          pripravene: Danubra.supplierReady('Test'),
+        };
+        UI.closeModal();
+
+        // Dokument objednávky: názov firmy sa naň musí dostať bez toho, aby
+        // niekto predtým otvoril Nastavenia.
+        let doklad = '';
+        const povodneOpen = window.open;
+        window.open = () => ({
+          document: { open() {}, write: (h) => { doklad += h; }, close() {} },
+          focus() {}, print() {} });
+        Ord.rows = DATA.work_orders;
+        Ord.workers = DATA.workers; Ord.subcontracts = DATA.subcontracts;
+        Ord.partners = [];
+        await Ord.document('o1');
+
+        // Zmena v Nastaveniach musí byť na ďalšom doklade vidieť hneď —
+        // nie až po obnovení stránky.
+        Cfg.row = Danubra.cfgRow;
+        await Cfg.patch('supplier', { ...Danubra.supplier(), name: 'P&S Bau GmbH' });
+        doklad = '';
+        await Ord.document('o1');
+        const poZmene = doklad;
+
+        // A bez názvu firmy dokument neodíde vôbec.
+        Danubra.cfgRow = { id: 'cfg1', supplier: {} };
+        doklad = '';
+        await Ord.document('o1');
+        const bezFirmy = {
+          doklad,
+          modal: (document.getElementById('ui-modal') || { textContent: '' })
+            .textContent.replace(/\s+/g, ' ').trim(),
+        };
+        UI.closeModal();
+        window.open = povodneOpen;
+
+        return { prvy, prvyDoklad: poZmene, bezFirmy, zapisy };
+      });
+
+      ok(out.prvy.nazov === 'Partner und Service s.r.o.',
+        'údaje z Nastavení má appka aj bez toho, aby na nich niekto bol', out.prvy.nazov);
+      ok(out.prvy.ico === '57553921', 'vrátane IČO', out.prvy.ico);
+      ok(out.prvy.staffingJeObjekt,
+        'oddiel nastavení je objekt — compliance a marža z neho vedia čítať');
+      ok(out.prvy.chybajuciOddiel === '{}',
+        'chýbajúci oddiel je prázdny objekt, nie undefined', out.prvy.chybajuciOddiel);
+      ok(/volám z Partner und Service/.test(out.prvy.firmaVTexte),
+        'názov firmy sa doplní do textu súhlasu, nie je v ňom zapečený',
+        out.prvy.firmaVTexte);
+      ok(out.prvy.pripravene === true, 'vyplnené údaje prejdú kontrolou');
+
+      ok(/P&amp;S Bau GmbH|P&S Bau GmbH/.test(out.prvyDoklad),
+        'zmena v Nastaveniach je na ďalšom doklade hneď, nie po obnovení stránky',
+        out.prvyDoklad.slice(0, 200));
+
+      ok(out.bezFirmy.doklad === '',
+        'bez názvu firmy sa doklad vôbec nevytlačí', out.bezFirmy.doklad.slice(0, 120));
+      ok(/Chýbajú fakturačné údaje/.test(out.bezFirmy.modal),
+        'namiesto toho appka povie, čo chýba', out.bezFirmy.modal.slice(0, 160));
+      ok(/názov firmy/.test(out.bezFirmy.modal) && /IČO/.test(out.bezFirmy.modal),
+        'a vymenuje to konkrétne', out.bezFirmy.modal.slice(0, 200));
+      ok(/Otvoriť Nastavenia/.test(out.bezFirmy.modal),
+        'a dá sa odtiaľ rovno kliknúť tam, kde sa to doplní');
+
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }

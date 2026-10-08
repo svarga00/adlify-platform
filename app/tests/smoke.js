@@ -174,6 +174,66 @@ if (D) {
   D.me = restoreMe; D.members = restoreMem;
 }
 
+// ── Nastavenia: jeden riadok, jedno miesto ──────────────────────────────────
+// Nastavenia sa načítavali na štyroch miestach, každé s vlastnou **trvalou**
+// pamäťou. Dôsledky boli tri a všetky tiché: dokument odišiel odberateľovi bez
+// názvu firmy, po uložení prežila stará hodnota až do obnovenia stránky,
+// a zákazka posielala compliance **funkciu** namiesto objektu, takže Cenník
+// a pravidlá nemali na výpočty vplyv.
+if (D) {
+  t('appka vie načítať nastavenia', typeof D.loadCfg === 'function');
+  t('a má jeden prístup k nim', typeof D.cfg === 'function' && typeof D.supplier === 'function');
+
+  const zaloha = D.cfgRow;
+  D.cfgRow = { supplier: { name: 'Partner und Service s.r.o.', company_id: '1', address: 'a' },
+    staffing: { soka_pct: 14.7 } };
+  t('oddiel nastavení je objekt, nie funkcia',
+    typeof D.cfg('staffing') === 'object' && D.cfg('staffing').soka_pct === 14.7);
+  t('chýbajúci oddiel je prázdny objekt', JSON.stringify(D.cfg('nic')) === '{}');
+  t('fakturačné údaje sa čítajú z jedného miesta',
+    D.supplier().name === 'Partner und Service s.r.o.');
+  t('názov firmy sa doplní do textu',
+    D.fillFirm('volám z {firma}.') === 'volám z Partner und Service s.r.o..');
+  t('bez vyplneného názvu sa doplní aspoň niečo zrozumiteľné',
+    (() => { D.cfgRow = {}; const v = D.fillFirm('volám z {firma}'); D.cfgRow = zaloha;
+      return v === 'volám z našej firmy'; })());
+  D.cfgRow = zaloha;
+
+  const src = fs.readFileSync(path.join(root, 'js', 'app.js'), 'utf8');
+  const init = src.slice(src.indexOf('async init()'), src.indexOf('async logout()'));
+  t('nastavenia sa načítajú pri spustení, nie až na obrazovke Nastavení',
+    /_loadModules\(\)/.test(init) && /loadCfg\(/.test(src.slice(src.indexOf('async _loadModules()'),
+      src.indexOf('async _loadModules()') + 400)));
+  t('a po prihlásení sa dotiahnu znova', /loadCfg\(true\)/.test(init));
+
+  // Toto je ten test, kvôli ktorému to celé stojí za to: každý ďalší vlastný
+  // načítavač nastavení znamená ďalšiu pravdu o tom, ako sa firma volá.
+  const js = [];
+  (function walk(d) {
+    for (const f of fs.readdirSync(d, { withFileTypes: true })) {
+      if (f.isDirectory()) walk(path.join(d, f.name));
+      else if (f.name.endsWith('.js')) js.push(path.join(d, f.name));
+    }
+  })(path.join(root, 'js'));
+  const nacitavace = js.filter(f => /DB\.list\('settings'/.test(fs.readFileSync(f, 'utf8')))
+    .map(f => path.relative(root, f))
+    // `archiv/` sa nenačítava — ubytovacia agenda je z appky preč (R4).
+    .filter(f => !f.includes('archiv'));
+  t(`riadok nastavení načítava jedno miesto (+ záloha v službe) — ${nacitavace.join(', ')}`,
+    nacitavace.length === 2 && nacitavace.some(f => f.endsWith('app.js'))
+      && nacitavace.some(f => f.includes('invoicing')));
+
+  // Dokument bez fakturačných údajov nesmie odísť. Je to papier, na ktorom
+  // nie je, kto ho posiela.
+  const dok = ['workorders', 'quotes', 'contracts', 'subcontracts', 'invoices', 'hoursheet']
+    .filter(m => {
+      const f = path.join(root, 'js', 'modules', `${m}.js`);
+      return fs.existsSync(f) && !/supplierReady\(/.test(fs.readFileSync(f, 'utf8'));
+    });
+  t(`každý dokument najprv skontroluje fakturačné údaje${dok.length ? ' — chýba: ' + dok.join(', ') : ''}`,
+    !dok.length);
+}
+
 // ── Nábor je jedna položka, nie štyri ───────────────────────────────────────
 // Nábor zaberal v menu štyri riadky (Nábor, Kandidáti, Inzeráty, Zápisy) a kto
 // naberal, musel najprv vedieť, na ktorom má byť. Partia je navyše možnosť,

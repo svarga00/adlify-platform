@@ -131,7 +131,11 @@
         workers: this.workers,
         workerDocs: this.workerDocs,
         companyItems: this.companyItems(),
-        settings: this._settings,
+        // `this._settings` je **funkcia**. Keď sa tu posielala ona namiesto
+        // svojho výsledku, compliance aj marža si z nej nemali čo prečítať
+        // a potichu počítali s predvolenými hodnotami — Cenník a pravidlá
+        // teda na túto obrazovku nemali žiadny vplyv.
+        settings: Danubra.cfg('staffing'),
         monthlyHours: 160,
       });
     },
@@ -266,7 +270,7 @@
           accommodation_monthly: a.accommodation_monthly,
           transport_monthly: a.transport_monthly,
         }, { hours: 160, workDays: 21, workType: sc.work_type,
-             freistellungOk: sc.freistellung_verified }, this._settings);
+             freistellungOk: sc.freistellung_verified }, Danubra.cfg('staffing'));
       });
       const port = DanubraMargin.portfolioSummary(eco);
 
@@ -693,12 +697,8 @@
     },
 
 
-    async _settings() {
-      if (this._set) return this._set;
-      const { data } = await DB.list('settings', { limit: 1 });
-      this._set = (data && data[0]) || {};
-      return this._set;
-    },
+    /** Nastavenia z jedného miesta — `Danubra.loadCfg()`. */
+    async _settings() { return Danubra.loadCfg(); },
 
     async setStatus(id, status) {
       const sc = this.items.find(x => x.id === id);
@@ -1159,7 +1159,8 @@
         && lod.some(l => l.id === st.lodging_id));
       const lodging = mine ? lod.find(l => l.id === mine.lodging_id) : (lod[0] || null);
 
-      const supplier = (window.Cfg && Cfg.j('supplier')) || {};
+      if (!Danubra.supplierReady('Infolist na stavbu')) return;
+      const supplier = Danubra.supplier();
       const state = DanubraSiteSheet.check({
         worker, assignment: a, subcontract: sc || {}, partner, lodging });
       if (!state.ready) UI.toast(DanubraSiteSheet.sentence(state), 'err');
