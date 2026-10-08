@@ -1776,9 +1776,11 @@ console.log('Prehliadač');
         document.getElementById('app').hidden = false;
 
         return (async () => {
-          // Nastavenia sú prázdne — doklad si nesmie nič domyslieť.
-          Cfg.row = { id: 'cfg', supplier: {} };
-          Cfg.loaded = true;
+          // Nastavenia sú prázdne — doklad si nesmie nič domyslieť. Riadok
+          // nastavení drží `Danubra`, nie obrazovka Nastavení: dokument ho má
+          // mať aj vtedy, keď na Nastaveniach nikto nebol.
+          Danubra.cfgRow = { id: 'cfg', supplier: {} };
+          Cfg.row = Danubra.cfgRow; Cfg.loaded = true;
           HS.loaded = false;
           await HS.load();
           const prazdny = HS.paperHtml ? HS.paperHtml() : '';
@@ -1809,7 +1811,7 @@ console.log('Prehliadač');
       ok(/Pause/.test(out.text), 'na výkaze je riadok Pause, ako na papieri odberateľa');
       // IČO: pole sa musí čítať tam, kam ho Nastavenia ukladajú.
       const ico = await page.evaluate(() => {
-        Cfg.row = { id: 'cfg', supplier: { name: 'Firma s.r.o.', company_id: '55667788' } };
+        Danubra.cfgRow = { id: 'cfg', supplier: { name: 'Firma s.r.o.', company_id: '55667788' } };
         const view = document.getElementById('view');
         return Danubra.views.hoursheet.call(Danubra, view).then(() => view.innerText);
       });
@@ -1957,6 +1959,368 @@ console.log('Prehliadač');
         'ľavé menu je inak celé', out.vlavo.length + ' položiek');
       ok(out.horeAktivne.includes('Ako to ide'),
         'a keď je otvorená, odkaz hore je zvýraznený', out.horeAktivne.join(', '));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Údaje z Nastavení: jeden riadok, jedno miesto ─────────────────────
+    // Nastavenia sa načítavali na štyroch miestach, každé s vlastnou trvalou
+    // pamäťou, a tri obrazovky ich nenačítali vôbec. Dokument preto odišiel
+    // odberateľovi bez názvu firmy, bez IČO a bez IBAN-u — a po zmene
+    // v Nastaveniach stará hodnota prežila až do obnovenia stránky.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const SETTINGS = [{
+          id: 'cfg1',
+          supplier: { name: 'Partner und Service s.r.o.', company_id: '57553921',
+            address: 'Podzámska 4A, Nové Zámky', iban: 'SK1111110000001874050003' },
+          staffing: { soka_pct: 14.7, withholding_pct: 15 },
+          recruiting: { consent_script_sk: 'Dobrý deň, volám z {firma}. Súhlasíte?' },
+        }];
+        const DATA = {
+          settings: SETTINGS,
+          work_orders: [{ id: 'o1', kind: 'to_worker', order_number: 'OBJ-2026-0001',
+            worker_id: 'w1', subcontract_id: 'sc1', scope: 'Sadrokartón 1. NP',
+            price_model: 'unit', status: 'sent' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', address: 'Nitra' }],
+          subcontracts: [{ id: 'sc1', title: 'Ulm', site_city: 'Ulm' }],
+          partners: [], invoices: [], assignments: [],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        const zapisy = [];
+        DB.update = async (t, id, patch) => {
+          if (t === 'settings') { Object.assign(SETTINGS[0], patch); zapisy.push(patch); }
+          return { data: SETTINGS[0], error: null };
+        };
+
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        // Toto je to podstatné: na Nastaveniach nikto nebol, obrazovka
+        // Nastavení sa ani nenačítala.
+        Danubra.cfgRow = null;
+        if (window.Cfg) { Cfg.row = null; Cfg.loaded = false; }
+        await Danubra.loadCfg(true);
+
+        const prvy = {
+          nazov: Danubra.supplier().name || '',
+          ico: Danubra.supplier().company_id || '',
+          // Oddiel nastavení musí byť objekt, nie funkcia — compliance aj
+          // marža z nej čítajú sadzby a z funkcie sa prečítať nedá.
+          staffingJeObjekt: typeof Danubra.cfg('staffing') === 'object'
+            && Danubra.cfg('staffing').soka_pct === 14.7,
+          chybajuciOddiel: JSON.stringify(Danubra.cfg('neexistuje')),
+          firmaVTexte: Danubra.fillFirm(SETTINGS[0].recruiting.consent_script_sk),
+          pripravene: Danubra.supplierReady('Test'),
+        };
+        UI.closeModal();
+
+        // Dokument objednávky: názov firmy sa naň musí dostať bez toho, aby
+        // niekto predtým otvoril Nastavenia.
+        let doklad = '';
+        const povodneOpen = window.open;
+        window.open = () => ({
+          document: { open() {}, write: (h) => { doklad += h; }, close() {} },
+          focus() {}, print() {} });
+        Ord.rows = DATA.work_orders;
+        Ord.workers = DATA.workers; Ord.subcontracts = DATA.subcontracts;
+        Ord.partners = [];
+        await Ord.document('o1');
+
+        // Zmena v Nastaveniach musí byť na ďalšom doklade vidieť hneď —
+        // nie až po obnovení stránky.
+        Cfg.row = Danubra.cfgRow;
+        await Cfg.patch('supplier', { ...Danubra.supplier(), name: 'P&S Bau GmbH' });
+        doklad = '';
+        await Ord.document('o1');
+        const poZmene = doklad;
+
+        // A bez názvu firmy dokument neodíde vôbec.
+        Danubra.cfgRow = { id: 'cfg1', supplier: {} };
+        doklad = '';
+        await Ord.document('o1');
+        const bezFirmy = {
+          doklad,
+          modal: (document.getElementById('ui-modal') || { textContent: '' })
+            .textContent.replace(/\s+/g, ' ').trim(),
+        };
+        UI.closeModal();
+        window.open = povodneOpen;
+
+        return { prvy, prvyDoklad: poZmene, bezFirmy, zapisy };
+      });
+
+      ok(out.prvy.nazov === 'Partner und Service s.r.o.',
+        'údaje z Nastavení má appka aj bez toho, aby na nich niekto bol', out.prvy.nazov);
+      ok(out.prvy.ico === '57553921', 'vrátane IČO', out.prvy.ico);
+      ok(out.prvy.staffingJeObjekt,
+        'oddiel nastavení je objekt — compliance a marža z neho vedia čítať');
+      ok(out.prvy.chybajuciOddiel === '{}',
+        'chýbajúci oddiel je prázdny objekt, nie undefined', out.prvy.chybajuciOddiel);
+      ok(/volám z Partner und Service/.test(out.prvy.firmaVTexte),
+        'názov firmy sa doplní do textu súhlasu, nie je v ňom zapečený',
+        out.prvy.firmaVTexte);
+      ok(out.prvy.pripravene === true, 'vyplnené údaje prejdú kontrolou');
+
+      ok(/P&amp;S Bau GmbH|P&S Bau GmbH/.test(out.prvyDoklad),
+        'zmena v Nastaveniach je na ďalšom doklade hneď, nie po obnovení stránky',
+        out.prvyDoklad.slice(0, 200));
+
+      ok(out.bezFirmy.doklad === '',
+        'bez názvu firmy sa doklad vôbec nevytlačí', out.bezFirmy.doklad.slice(0, 120));
+      ok(/Chýbajú fakturačné údaje/.test(out.bezFirmy.modal),
+        'namiesto toho appka povie, čo chýba', out.bezFirmy.modal.slice(0, 160));
+      ok(/názov firmy/.test(out.bezFirmy.modal) && /IČO/.test(out.bezFirmy.modal),
+        'a vymenuje to konkrétne', out.bezFirmy.modal.slice(0, 200));
+      ok(/Otvoriť Nastavenia/.test(out.bezFirmy.modal),
+        'a dá sa odtiaľ rovno kliknúť tam, kde sa to doplní');
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Hodiny: týždeň naraz a schválenie toho, čo je vidieť ──────────────
+    // Človek na turnuse odrobí šesť dní. Predtým sa to zapisovalo šesťkrát
+    // otvorením okna — a práve preto sa hodiny zapisovali so sklzom, čo je
+    // riziko podľa §19 AEntG. Tu sa kontroluje, že týždeň je jedna obrazovka
+    // a že hromadné schválenie berie presne to, čo je vo filtri.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          // Streda 7. 10. 2026 je už zapísaná — nesmie sa zapísať druhýkrát.
+          timesheets: [
+            { id: 't1', assignment_id: 'a1', worker_id: 'w1', hours: 10, approved: false,
+              work_date: '2026-10-07', activity_type: 'construction', period_id: null },
+            { id: 't2', assignment_id: 'a1', worker_id: 'w1', hours: 8, approved: true,
+              work_date: '2026-10-06', activity_type: 'construction', period_id: null },
+          ],
+          assignments: [{ id: 'a1', subcontract_id: 'sc1', worker_id: 'w1', status: 'active' }],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý' }],
+          subcontracts: [{ id: 'sc1', title: 'Sadrokartón Ulm', work_type: 'construction' }],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+
+        const zapisane = [];
+        DB.insertMany = async (t, rows) => { zapisane.push([t, rows]); return { data: rows, error: null }; };
+        const updaty = [];
+        DB.update = async (t, id, patch) => { updaty.push([t, id, patch]); return { data: null, error: null }; };
+
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'timesheets';
+        Tms.loaded = false;
+        Tms.filters = { month: '2026-10', worker_id: '', subcontract_id: '', q: '',
+          period: 'all', from: '', to: '' };
+        await Danubra.views.timesheets.call(Danubra, view);
+
+        const veta = {
+          text: (view.querySelector('.nowbox') || { textContent: '' })
+            .textContent.replace(/\s+/g, ' ').trim(),
+          hot: !!view.querySelector('.nowbox-hot'),
+          help: !!view.querySelector('.nowbox .help-btn'),
+        };
+
+        // Týždeň: 7. 10. 2026 je streda — formulár sa musí zarovnať na pondelok.
+        Tms.weekForm('a1', '2026-10-07');
+        const m = document.getElementById('ui-modal');
+        const riadky = [...m.querySelectorAll('.week-row')].length;
+        const prvyDen = (m.querySelector('.week-row .week-day em') || {}).textContent || '';
+        const hotove = [...m.querySelectorAll('.week-done')]
+          .map(e => e.textContent.replace(/\s+/g, ' ').trim());
+
+        Tms.fillWeek(8);
+        const vyplnene = [...m.querySelectorAll('.week-h')]
+          .map(e => ({ d: e.dataset.date, v: e.value }));
+        const sucet = (document.getElementById('week-sum') || {}).textContent || '';
+
+        await Tms.saveWeek();
+
+        // Schválenie toho, čo je vo filtri. Potvrdenie sa preskočí.
+        const povodne = UI.confirm;
+        UI.confirm = async () => true;
+        Tms.filters.worker_id = 'w1';
+        await Tms.approveShown();
+        UI.confirm = povodne;
+
+        return {
+          veta, riadky, prvyDen, hotove, vyplnene, sucet,
+          zapisane: zapisane.map(([t, rows]) => ({ t, rows })),
+          schvalene: updaty.filter(u => u[2] && u[2].approved === true).map(u => u[1]),
+        };
+      });
+
+      ok(/Schváliť hodiny/.test(out.veta.text), 'hodiny hovoria, čo spraviť teraz',
+        out.veta.text.slice(0, 140));
+      ok(/1 výkaz za 10 hodín/.test(out.veta.text), 'a koľko hodín visí na schválení',
+        out.veta.text.slice(0, 140));
+      ok(out.veta.hot, 'sú to peniaze na stole, takže to horí');
+      ok(out.veta.help, 'a je pri tom vysvetlivka');
+
+      // Týždeň na jednej obrazovke.
+      ok(out.riadky === 7, 'týždeň má sedem riadkov', String(out.riadky));
+      ok(/5\.\s?10\./.test(out.prvyDen), 'a začína pondelkom, aj keď sa klikne na stredu',
+        out.prvyDen);
+      ok(out.hotove.length === 2 && /10 h už zapísaných/.test(out.hotove.join(' ')),
+        'už zapísaný deň sa ukáže ako hotový, nie ako prázdne pole',
+        out.hotove.join(' | '));
+
+      // Predvyplnenie: pracovné dni áno, víkend nie.
+      const pracovne = out.vyplnene.filter(x => x.v === '8').map(x => x.d);
+      const vikend = out.vyplnene.filter(x => x.d === '2026-10-10' || x.d === '2026-10-11');
+      ok(pracovne.length === 3, 'predvyplnia sa len pracovné dni, ktoré ešte nie sú zapísané',
+        pracovne.join(','));
+      ok(vikend.every(x => x.v === ''), 'víkend sa nepredvyplní — nie je to norma',
+        JSON.stringify(vikend));
+      ok(/24 hodín spolu/.test(out.sucet), 'a je vidieť súčet', out.sucet);
+
+      // Zápis: jeden dotaz, tri dni, správne dátumy.
+      ok(out.zapisane.length === 1, 'týždeň sa zapíše jedným dotazom, nie siedmimi',
+        String(out.zapisane.length));
+      const rows = (out.zapisane[0] || {}).rows || [];
+      ok(rows.length === 3, 'zapíšu sa len dni, ktoré majú hodiny', String(rows.length));
+      ok(rows.map(r => r.work_date).join(',') === '2026-10-05,2026-10-08,2026-10-09',
+        'a už zapísaná streda sa nezapíše druhýkrát',
+        rows.map(r => r.work_date).join(','));
+      ok(rows.every(r => r.worker_id === 'w1' && r.assignment_id === 'a1'),
+        'každý riadok vie, kto a na ktorej zákazke');
+
+      // Hromadné schválenie berie to, čo je vo filtri.
+      ok(out.schvalene.join(',') === 't1',
+        'schváli sa presne to, čo je vo filtri neschválené', out.schvalene.join(','));
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
+    // ── Zákazka: päť krokov a jedna veta ──────────────────────────────────
+    // Profil zákazky má deväť sekcií a všetko potrebné v nich je — ale nikde
+    // nebolo napísané, **čo treba spraviť teraz**. Tu sa kontroluje, že to
+    // tam je: jedna veta, päť krokov pod ňou, a v zozname riadok o tom,
+    // v ktorom kroku zákazka stojí.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          subcontracts: [{
+            id: 'sc1', title: 'Sadrokartón Ulm', status: 'active', partner_id: 'p1',
+            scope: 'Sadrokartón 1. NP, 420 m²', charge_rate: 34, billing_model: 'hourly',
+            date_from: '2026-09-01', date_to: '2026-12-31', work_type: 'construction',
+            site_city: 'Ulm',
+          }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE', ust_id: 'DE123456789' }],
+          assignments: [
+            { id: 'a1', subcontract_id: 'sc1', worker_id: 'w1', status: 'active',
+              charge_rate: 34, worker_rate: 22, date_from: '2026-09-01' },
+          ],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', legal_form: 'szco' }],
+          // Hodiny sú zapísané a schválené, ale obdobie nikto nezaložil —
+          // presne tá tichá diera, ktorú má reťazec ukázať.
+          timesheets: [
+            { id: 't1', assignment_id: 'a1', worker_id: 'w1', hours: 8,
+              approved: true, period_id: null, work_date: '2026-09-10' },
+          ],
+          periods: [], invoices: [], worker_documents: [], compliance: [],
+          overrides: [], assignment_checks: [], subcontract_accommodations: [],
+          accommodations: [], crews: [], v_lodging_occupancy: [], v_worker_stay: [],
+        };
+        DB.list = async (t) => ({ data: DATA[t] || [], error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'subcontracts';
+        Sub.loaded = false; Sub.openId = null;
+        await Danubra.views.subcontracts.call(Danubra, view);
+
+        const zoznam = {
+          riadok: [...view.querySelectorAll('.card-now')]
+            .map(e => e.textContent.replace(/\s+/g, ' ').trim()),
+          hot: !!view.querySelector('.card-now-hot'),
+        };
+
+        Sub.openId = 'sc1';
+        await Danubra.views.subcontracts.call(Danubra, view);
+
+        return {
+          zoznam,
+          teraz: (view.querySelector('.nowbox') || { textContent: '' })
+            .textContent.replace(/\s+/g, ' ').trim(),
+          help: !!view.querySelector('.nowbox .help-btn'),
+          kroky: [...view.querySelectorAll('.chainbar-step')]
+            .map(e => e.textContent.replace(/\s+/g, ' ').trim()),
+          stavy: [...view.querySelectorAll('.chainbar-step')]
+            .map(e => (e.className.match(/cb-(\w+)/) || [])[1]),
+          tlacidlo: (view.querySelector('.nowbox .btn') || { textContent: '' })
+            .textContent.replace(/\s+/g, ' ').trim(),
+          // Sekcie, na ktoré veta posiela, musia existovať — inak tlačidlo
+          // neposunie nikam.
+          kotvy: ['sub-compliance', 'sub-periods'].filter(id => !!document.getElementById(id)),
+        };
+      });
+
+      ok(/Čo spraviť teraz/.test(out.teraz), 'profil zákazky hovorí, čo spraviť teraz',
+        out.teraz.slice(0, 160));
+      ok(out.help, 'a je pri tom vysvetlivka');
+      ok(out.kroky.length === 5, 'pod tým je päť krokov reťazca',
+        `${out.kroky.length}: ${out.kroky.join(' | ')}`);
+      ok(out.kroky.join(' ').includes('Dohodnuté') && out.kroky.join(' ').includes('Peniaze'),
+        'od dohody po peniaze', out.kroky.join(' | '));
+      ok(out.stavy.filter(s => s === 'ok').length >= 2,
+        'čo je hotové, je zelené', out.stavy.join(','));
+      ok(out.tlacidlo.length > 0, 'a je tam tlačidlo, ktorým sa to dá spraviť',
+        out.tlacidlo);
+      ok(out.kotvy.length === 2, 'sekcie, na ktoré veta posiela, existujú',
+        out.kotvy.join(','));
+      ok(/z 5 krokov hotových|krokov hotových/.test(out.teraz),
+        'a koľko z piatich krokov je hotových', out.teraz.slice(-80));
+
+      // V zozname musí byť vidieť, v ktorom kroku zákazka stojí. Tu je to
+      // krok 2: človek je na stavbe, ale register compliance je prázdny —
+      // a to je presne to, čo má mať prednosť pred nezúčtovanými hodinami.
+      ok(out.zoznam.riadok.length === 1,
+        'v zozname je pri zákazke riadok o tom, kde stojí',
+        JSON.stringify(out.zoznam.riadok));
+      ok(/^\d\/5 · /.test(out.zoznam.riadok[0] || ''),
+        'a koľkatý z piatich krokov to je', out.zoznam.riadok[0]);
+      ok(/2\/5 · Smie sa začať/.test(out.zoznam.riadok[0] || ''),
+        'chýbajúce papiere majú prednosť pred hodinami', out.zoznam.riadok[0]);
+      ok(out.zoznam.hot,
+        'a keď sú ľudia na stavbe bez papierov, riadok je červený');
+
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }

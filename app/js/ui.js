@@ -262,11 +262,15 @@ window.UI = {
   // jednotke to je, čo z toho appka počíta a kde sa to potom objaví.
   // Dáva sa len tam, kde zlá hodnota niečo pokazí — pri každom poli by
   // z toho bola stena textu, ktorú nikto nečíta.
-  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step, hint, add } = {}) {
+  field(name, label, { type = 'text', value = '', required = false, placeholder = '', options, rows, step, hint, add, onchange } = {}) {
     const v = this.esc(value);
+    // `onchange` je tu pre polia, ktoré **prekresľujú formulár** — napríklad
+    // výber týždňa v zápise hodín. Bez neho by sa taký formulár musel písať
+    // ručne a stratil by vysvetlivku aj zarovnanie.
+    const ev = onchange ? ` onchange="${this.esc(onchange)}"` : '';
     let input;
     if (options) {
-      input = `<select name="${name}" ${required ? 'required' : ''}>${options.map(o => {
+      input = `<select name="${name}"${ev} ${required ? 'required' : ''}>${options.map(o => {
         const [val, lbl] = Array.isArray(o) ? o : [o, o];
         return `<option value="${this.esc(val)}" ${String(val) === String(value) ? 'selected' : ''}>${this.esc(lbl)}</option>`;
       }).join('')}</select>`;
@@ -277,7 +281,7 @@ window.UI = {
       return `<div class="fld fld-chk">${input}${this.hint(hint)}</div>`;
     } else {
       const stepAttr = type === 'number' ? ` step="${this.esc(step || 'any')}"` : '';
-      input = `<input type="${type}" name="${name}" value="${v}"${stepAttr} ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
+      input = `<input type="${type}" name="${name}" value="${v}"${stepAttr}${ev} ${required ? 'required' : ''} placeholder="${this.esc(placeholder)}">`;
     }
     // `add` je kľúč z `Danubra.NEW` — výber, pri ktorom sa dá rovno založiť
     // nový záznam. Bez neho sa dá vybrať len to, čo už existuje, takže keď

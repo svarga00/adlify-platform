@@ -387,6 +387,118 @@
     },
 
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
+    'card.hours.approve': {
+      title: 'Schvaľovanie hodín',
+      lead: 'Schválené hodiny idú do podkladu na faktúru. Neschválené nie.',
+      what: [
+        'Pri každom zápise je zaškrtnutie „schválené". Tlačidlo nad zoznamom '
+        + 'schváli všetko, čo je práve vo filtri vidieť — nie celú databázu.',
+      ],
+      how: [
+        'Schvaľuje sa po tom, čo si hodiny niekto overil u poliera alebo na '
+        + 'podpísanom výkaze. Nie je to formalita — je to posledné miesto, kde sa '
+        + 'dá chyba v hodinách zastaviť pred faktúrou.',
+      ],
+      why: [
+        'Neschválené hodiny nie sú stratené, ale do podkladu sa nedostanú a '
+        + 'v tomto mesiaci sa za ne nevyfakturuje. Sú to peniaze, ktoré ležia na stole.',
+      ],
+      links: [['timesheets', 'Odpracované hodiny'], ['invoices', 'Vydané faktúry']],
+    },
+
+    // ── Päť krokov zákazky ───────────────────────────────────────────────
+    // Profil zákazky má deväť sekcií a všetko potrebné v nich je — ale nikde
+    // nebolo napísané, čo treba spraviť teraz. Reťazec to hovorí a tieto
+    // vysvetlivky povedia, prečo každý krok existuje.
+    'sub.step.deal': {
+      title: 'Krok 1 — Dohodnuté',
+      lead: 'Odberateľ, sadzba, termín a čo presne je dielo. Bez toho sa nedá fakturovať.',
+      what: [
+        'Štyri veci: odberateľ, čo je dielo (rozsah), sadzba a termín. Pri pevnej '
+        + 'cene sa hodinová sadzba nevyžaduje.',
+      ],
+      how: [
+        '„Dielo" nie je názov zákazky — je to rozsah: čo má byť hotové, koľko toho '
+        + 'je a kde. Z neho sa potom robí objednávka živnostníkovi.',
+      ],
+      why: [
+        'Zákazka bez napísaného diela je pri kontrole prenájom pracovnej sily, nie '
+        + 'Werkvertrag — a na ten treba povolenie. Sadzba, ktorá nie je nikde, sa '
+        + 'dohaduje až pri faktúre, čo je najhorší možný čas.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['contracts', 'Zmluvy']],
+    },
+    'sub.step.green': {
+      title: 'Krok 2 — Smie sa začať',
+      lead: 'Papiere, bez ktorých sa na nemeckú stavbu nesmie ani vstúpiť.',
+      what: [
+        'A1 za každého človeka, hlásenie na Zoll pri stavebných prácach, USt-IdNr '
+        + 'odberateľa, SOKA-BAU a minimálna mzda podľa Lohngruppe.',
+      ],
+      how: [
+        'Appka to počíta sama z dokladov a nastavení — zoznam nižšie na obrazovke '
+        + 'povie pri každej položke, čo konkrétne s ňou spraviť.',
+      ],
+      why: [
+        'Keď toto chýba, nepokutujú živnostníka — pokutujú nás ako firmu, ktorá ho '
+        + 'tam poslala. Preto je to červené a preto má prednosť pred všetkým ostatným.',
+      ],
+      links: [['compliance', 'Compliance'], ['workers', 'Živnostníci']],
+    },
+    'sub.step.people': {
+      title: 'Krok 3 — Ľudia na stavbe',
+      lead: 'Kto tam je, s platnými dokladmi a so zapísaným ubytovaním.',
+      what: [
+        'Nasadení ľudia s termínom a sadzbou. Pri každom je vidieť, či mu niečo '
+        + 'chýba a či je na stavbe so zapísanou výnimkou.',
+      ],
+      how: [
+        'Nezapísané ubytovanie krok nezhodí — človek niekde spí, len to nie je '
+        + 'v appke. Chýbajúci doklad áno: ten sa dá dobehnúť alebo naň zapísať výnimku.',
+      ],
+      why: [
+        'Zákazka bez ľudí nezarába a stavba nepočká. A človek, ktorému chýba doklad, '
+        + 'je riziko celej zákazky, nie jeho vlastný problém.',
+      ],
+      links: [['workers', 'Živnostníci'], ['subcontracts', 'Zákazky']],
+    },
+    'sub.step.hours': {
+      title: 'Krok 4 — Hodiny',
+      lead: 'Zapísané a schválené odpracované hodiny. Z nich je faktúra.',
+      what: [
+        'Deň, človek, zákazka a hodiny. Z tých istých hodín vzniká faktúra '
+        + 'odberateľovi aj kontrola faktúry od živnostníka.',
+      ],
+      how: [
+        'Neschválené hodiny sa do podkladu nedostanú — nie sú stratené, pôjdu do '
+        + 'nasledujúceho obdobia. Ale v tomto mesiaci sa za ne nevyfakturuje.',
+      ],
+      why: [
+        'Hodiny, ktoré nikto nezapísal, sa nevyfakturujú a nikto si to nevšimne — '
+        + 'nie je s čím porovnať. Preto appka upozorní, keď na bežiacej zákazke '
+        + 'hodiny chýbajú.',
+      ],
+      links: [['timesheets', 'Odpracované hodiny'], ['hoursheet', 'Výkaz pre odberateľa']],
+    },
+    'sub.step.money': {
+      title: 'Krok 5 — Peniaze',
+      lead: 'Obdobie uzavrieť, vystaviť faktúru, dostať zaplatené.',
+      what: [
+        'Obdobie je úsek, po ktorom sa hodiny zmrazia a vznikne z nich podklad. '
+        + 'Z podkladu je faktúra, z faktúry úhrada.',
+      ],
+      how: [
+        'Faktúra sa bez schválenia administrátorom nikdy neodošle. Po splatnosti '
+        + 'appka prestane s tými peniazmi počítať v cash-flow — radšej opatrne.',
+      ],
+      why: [
+        'Toto je jediný krok, po ktorom na účte naozaj niečo pribudne. Uzavreté '
+        + 'obdobie bez faktúry je hotová práca, za ktorú nikto nezaplatil — a je to '
+        + 'najtichšia diera v celom reťazci.',
+      ],
+      links: [['invoices', 'Vydané faktúry'], ['money', 'Kde sú peniaze']],
+    },
+
     // ── Päť krokov náboru ────────────────────────────────────────────────
     // Nábor mal šesť krokov a päťdesiat odrážok a dve rôzne veci sa v ňom
     // volali „overenie": krok K3 aj časť telefonátu. Kto sa to učil, nevedel,
