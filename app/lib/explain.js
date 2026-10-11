@@ -395,7 +395,7 @@
         + 'schváli všetko, čo je práve vo filtri vidieť — nie celú databázu.',
       ],
       how: [
-        'Schvaľuje sa po tom, čo si hodiny niekto overil u poliera alebo na '
+        'Schvaľuje sa po tom, čo si hodiny niekto overil na stavbe alebo na '
         + 'podpísanom výkaze. Nie je to formalita — je to posledné miesto, kde sa '
         + 'dá chyba v hodinách zastaviť pred faktúrou.',
       ],
@@ -527,8 +527,8 @@
       title: 'Krok 2 — Preveriť',
       lead: 'To, čo povedal do telefónu, si over u niekoho iného. Toto bolo „overenie".',
       what: [
-        'Štyri veci: fotky jeho vlastnej práce, telefonát poslednému objednávateľovi '
-        + 'alebo polierovi, živnosť nájdená v registri, videohovor na nemčinu.',
+        'Štyri veci: fotky jeho vlastnej práce, telefonát tomu, pre koho robil '
+        + 'naposledy, živnosť nájdená v registri, videohovor na nemčinu.',
         'Pri partii k tomu pribudne, kto je kontaktná osoba a ako dlho spolu robia.',
       ],
       how: [

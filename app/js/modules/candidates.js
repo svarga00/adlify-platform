@@ -393,7 +393,7 @@
               <div class="kpi-value" style="color:${c.screening_score >= 80 ? 'var(--green)' : c.screening_score >= 60 ? 'var(--ink)' : 'var(--amber)'};">
                 ${Math.round(c.screening_score)} %</div>
               <div class="kpi-delta">${UI.esc((VERDICT[c.screening_verdict] || VERDICT.unknown)[0])}</div></div>
-            <div class="kpi"><div class="kpi-label">Overené u poliera</div>
+            <div class="kpi"><div class="kpi-label">Referencia overená</div>
               <div class="kpi-value" style="color:${c.reference_checked ? 'var(--green)' : 'var(--amber)'};">
                 ${c.reference_checked ? 'áno' : 'nie'}</div>
               <div class="kpi-delta">${UI.esc(c.last_foreman || 'meno neuvedené')}</div></div>
@@ -542,7 +542,8 @@
             ${UI.field('plan_id', 'Na ktorý nábor', { value: c.plan_id || '', add: 'plan',
               options: [['', '— žiadny konkrétny —'], ...openPlans.map(p => [p.id, p.title])] })}
             ${UI.field('last_site', 'Posledná stavba', { value: c.last_site, placeholder: 'mesto, firma' })}
-            ${UI.field('last_foreman', 'Polier, ktorý ho potvrdí', { value: c.last_foreman, placeholder: 'meno a telefón' })}
+            ${UI.field('last_foreman', 'Kto ho vie potvrdiť', { value: c.last_foreman,
+              placeholder: 'meno a telefón — kto ho na tej stavbe viedol' })}
             ${UI.field('trade_license_status', 'Živnosť', { value: c.trade_license_status || '',
               options: [['', '—'], ['active', 'Aktívna'], ['willing', 'Ochotný si založiť'], ['none', 'Nemá']] })}
             ${UI.field('expected_start', 'Možný nástup', { type: 'date', value: c.expected_start })}

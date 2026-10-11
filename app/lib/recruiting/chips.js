@@ -108,7 +108,7 @@
         hint: 'Na rozhodnutie je toho málo. Dohodni si druhý telefonát.' };
     } else if (res.verdict === 'strong') {
       nextAction = { key: 'advance', label: 'Ísť preveriť',
-        hint: 'Vypýtaj si fotky prác a kontakt na posledného poliera ešte počas hovoru.' };
+        hint: 'Vypýtaj si fotky prác a kontakt na toho, pre koho robil, ešte počas hovoru.' };
     } else {
       nextAction = { key: 'advance', label: 'Ísť preveriť',
         hint: 'Slabšie miesta si over referenciou skôr, než mu niečo sľúbiš.' };

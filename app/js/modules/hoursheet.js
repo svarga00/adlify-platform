@@ -226,7 +226,7 @@
               ${s.days.map((d, i) => `<td>${UI.esc(DanubraHourSheet.spanText(s.span[i]))}</td>`).join('')}
               <td></td>
             </tr>
-            <!-- Pauza. Je na pôvodnom papieri a polier ju na doklade hľadá.
+            <!-- Pauza. Je na pôvodnom papieri a na stavbe ju na doklade hľadajú.
                  Nemáme ju kde zapísať, ale dá sa dopočítať z času od-do
                  a odrobených hodín. Keď sa dopočítať nedá, riadok zostane
                  prázdny - vymyslená prestávka na doklade, ktorý sa podpisuje,

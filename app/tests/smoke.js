@@ -174,6 +174,43 @@ if (D) {
   D.me = restoreMe; D.members = restoreMem;
 }
 
+// ── Slová, ktoré vo firme nepoužívame ───────────────────────────────────────
+// „Polier" je nemecké slovo pre majstra na stavbe. Do appky sa dostalo z môjho
+// popisu, nie z firmy — a človek, ktorý nábor robí, ho nepoužíva. Slovo, ktoré
+// treba najprv niekomu vysvetliť, robí z jednoduchej obrazovky zložitú.
+//
+// Výnimka je jediná a je zámerná: nemecká veta, ktorú má živnostník povedať na
+// stavbe. Tam sa tomu človeku naozaj hovorí Polier a to slovo tam uslyší.
+{
+  const dir = path.join(root);
+  const subory = [];
+  (function walk(d) {
+    for (const f of fs.readdirSync(d, { withFileTypes: true })) {
+      // `tests/` sa nepočíta — tento test to slovo musí vedieť pomenovať.
+      if (['vendor', 'node_modules', 'archiv', 'tests'].includes(f.name)) continue;
+      const p = path.join(d, f.name);
+      if (f.isDirectory()) walk(p);
+      else if (/\.(js|html)$/.test(f.name) && !f.name.endsWith('.test.js')) subory.push(p);
+    }
+  })(dir);
+
+  // Nemecký text sa nepočíta — je to slovo, ktoré sa na nemeckej stavbe
+  // naozaj používa, a appka ho učí, nie ním hovorí.
+  const POVOLENE = [/de: 'Ich suche den Polier\.'/];
+  const najdene = [];
+  for (const f of subory) {
+    for (const [i, line] of fs.readFileSync(f, 'utf8').split('\n').entries()) {
+      if (!/polier/i.test(line)) continue;
+      if (POVOLENE.some(re => re.test(line))) continue;
+      // Komentár v kóde to slovo vysvetľuje — nehovorí ním k človeku.
+      if (/^\s*(\/\/|\*|\/\*|<!--)/.test(line)) continue;
+      najdene.push(`${path.relative(root, f)}:${i + 1}`);
+    }
+  }
+  t(`appka nehovorí slovom „polier"${najdene.length ? ' — ' + najdene.join(', ') : ''}`,
+    !najdene.length);
+}
+
 // ── Nastavenia: jeden riadok, jedno miesto ──────────────────────────────────
 // Nastavenia sa načítavali na štyroch miestach, každé s vlastnou **trvalou**
 // pamäťou. Dôsledky boli tri a všetky tiché: dokument odišiel odberateľovi bez

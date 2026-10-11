@@ -48,7 +48,7 @@ prvý, nie kto má lepšiu ponuku.
 To, čo povedal do telefónu, over u niekoho iného.
 
 - Fotky **jeho** hotovej práce — nie z internetu
-- Telefonát poslednému objednávateľovi alebo polierovi
+- Telefonát tomu, pre koho robil naposledy
 - Živnosť nájdená v registri (zrsr.sk, rzp.cz)
 - Videohovor — ako hovorí po nemecky (Michaela)
 - *Pri partii:* kto je kontaktná osoba a ako dlho spolu robia

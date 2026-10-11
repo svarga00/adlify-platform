@@ -148,7 +148,7 @@
     const total = Math.round(perDay.reduce((a, b) => a + b, 0) * 100) / 100;
 
     // ── Pauza ──────────────────────────────────────────────────────────────
-    // Na pôvodnom papieri je riadok „Pause" a polier ho čaká. My ho nemáme
+    // Na pôvodnom papieri je riadok „Pause" a na stavbe ho čakajú. My ho nemáme
     // kde zapísať — ale **dá sa dopočítať**: čas od–do mínus odrobené hodiny
     // je presne prestávka. Keď je od 07:00 do 16:30 zapísaných 9 hodín, pol
     // hodiny chýba a je to pauza.
