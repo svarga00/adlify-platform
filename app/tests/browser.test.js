@@ -2090,7 +2090,8 @@ console.log('Prehliadač');
         out.sekcie.join(' | '));
       ok(/Zvárači Bazoš SK/.test(out.text), 'a je vidieť konkrétny inzerát', out.text.slice(0, 200));
 
-      ok(out.kanaly.length === 8, 'osem kanálov', `${out.kanaly.length}: ${out.kanaly.join(' | ')}`);
+      ok(out.kanaly.length === 10, 'desať kanálov — reklama a voiceover sú per krajina',
+        `${out.kanaly.length}: ${out.kanaly.join(' | ')}`);
       ok(out.kanaly.some(k => /Bazoš SK/.test(k) && /hotové/.test(k)),
         'kanál s vyplnenými povinnými blokmi je hotový',
         out.kanaly.find(k => /Bazoš SK/.test(k)));

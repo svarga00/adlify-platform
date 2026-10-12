@@ -50,9 +50,11 @@ const BLOCKS = {
   bazos_sk: ['title', 'meta', 'body', 'keywords'],
   fb_cz: ['short', 'long', 'urgent'],
   fb_sk: ['short', 'long', 'urgent'],
-  ads: ['primary1', 'primary2', 'headlines', 'description', 'setup'],
+  ads_cz: ['primary1', 'primary2', 'headlines', 'description', 'setup'],
+  ads_sk: ['primary1', 'primary2', 'headlines', 'description', 'setup'],
+  voice_cz: ['script'],
+  voice_sk: ['script'],
   images: ['p_1x1', 'p_4x5', 'p_9x16', 'pt_1x1', 'pt_4x5', 'pt_9x16', 'canva'],
-  voice: ['script'],
 };
 
 const FACTS = ['position', 'place', 'project', 'form', 'condition', 'housing', 'rate', 'start', 'contact'];
@@ -111,11 +113,11 @@ priprav podklady na nábor.
 - Žiadne emoji. Žiadne superlatívy. Toto čítajú remeselníci, nie marketéri.
 
 JAZYKY
-- web, bazos_sk, fb_sk: slovensky
-- bazos_cz, fb_cz, ads: česky
+- web, bazos_sk, fb_sk, ads_sk, voice_sk: slovensky
+- bazos_cz, fb_cz, ads_cz, voice_cz: česky
 - images: prompty po anglicky (sú pre generátor obrázkov)
-- voice: podľa krajiny, krátke vety; značky ako [confident] sú pokyny pre
-  nástroj, nie text na prečítanie
+- voiceover: krátke vety; značky ako [confident] sú pokyny pre nástroj, nie
+  text na prečítanie
 
 ČO PATRÍ DO KTORÉHO BLOKU
 web: title (pozícia + krajina + mesto), slug (bez diakritiky, spojovníky),
@@ -129,14 +131,14 @@ bazos_cz/bazos_sk: title (s cenou), meta (rubrika, lokalita, mzda), body
   s diakritikou aj bez, oddelené čiarkou)
 fb_cz/fb_sk: short (do skupín, 5 riadkov), long (na firemnú stránku),
   urgent (keď treba obsadiť hneď)
-ads: primary1, primary2 (primárne texty), headlines (tri, každý na vlastnom
-  riadku), description (jeden riadok), setup (cielenie, denný rozpočet,
-  formáty, tlačidlo — a pripomienka priznať kategóriu Zamestnanie)
+ads_cz/ads_sk: primary1, primary2 (primárne texty), headlines (tri, každý na
+  vlastnom riadku), description (jeden riadok), setup (cielenie, denný
+  rozpočet, formáty, tlačidlo — a pripomienka priznať kategóriu Zamestnanie)
 images: p_1x1, p_4x5, p_9x16 (fotorealistické prompty bez textu v obrázku),
   pt_1x1, pt_4x5, pt_9x16 (to isté, ale s nápisom v obrázku — tmavomodrá
   #0E2A47 a oranžová #EF771D, bez loga a bez názvu firmy), canva (texty, ktoré
   sa dopĺňajú v Canve: nadpis, podnadpis, pruh, pilulka so sumou a telefónom)
-voice: script
+voice_cz/voice_sk: script
 
 PRAVIDLÁ, KTORÉ PLATIA V TOMTO BIZNISE
 - Je to zmluva o dielo (Werkvertrag), nie prenájom ľudí. Píš o diele a jeho
