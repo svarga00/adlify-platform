@@ -73,10 +73,17 @@
     // ── Zoznam ────────────────────────────────────────────────────────────
     learn: false,
 
+    // Otvorený nábor. Podklady, prompty, obrázky a texty na kanály sa do okna
+    // nevojdú — a hlavne sa v okne nedajú používať popri tom, ako človek
+    // vkladá inzeráty. Preto je nábor obrazovka, nie okno.
+    openId: null,
+
     async view(el) {
       // Zaškolenie nie je položka v menu — tých je aj tak priveľa. Je to
       // niečo, čím človek raz prejde, tak býva tu.
       if (this.learn && window.Learn) return Learn.view(el);
+      if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
+      if (this.openId) return this.profile(el, this.openId);
 
       Danubra.setActions(`<button class="btn btn-outline btn-sm" onclick="Hire.wizard()">${Icon('plus')} Nový nábor</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
@@ -623,8 +630,94 @@
       await this.load(); Danubra.renderRoute();
     },
 
-    // ── Detail ────────────────────────────────────────────────────────────
-    detail(id) {
+    // ── Otvorený nábor ────────────────────────────────────────────────────
+    /** Vstupný bod z celej appky. Neotvára okno — prepne obrazovku. */
+    async detail(id) {
+      if (!this.plans.find(x => x.id === id)) {
+        if (!this.loaded) await this.load();
+        if (!this.plans.find(x => x.id === id)) return UI.toast('Nenájdené', 'err');
+      }
+      this.openId = id;
+      UI.closeModal();
+      if (Danubra.route !== 'hiring') { Danubra.go('hiring'); return; }
+      return Danubra.renderRoute();
+    },
+
+    closeProfile() {
+      this.openId = null;
+      Danubra.renderRoute();
+    },
+
+    /**
+     * Celý nábor na jednom mieste: čísla, priebeh, zadanie, zhrnutie zákazky,
+     * texty po kanáloch, obrázky, kde sme inzerovali a kandidáti z neho.
+     */
+    async profile(el, id) {
+      const p = this.plans.find(x => x.id === id);
+      if (!p) { this.openId = null; return UI.toast('Nenájdené', 'err'); }
+
+      Danubra.setActions(`
+        <button class="btn btn-ghost btn-sm" onclick="Hire.closeProfile()">${Icon('back', 15)} Späť</button>
+        <button class="btn btn-outline btn-sm" onclick="Hire.wizard('${p.id}')">${Icon('edit', 14)} Upraviť</button>`);
+
+      // Podklady sa dotiahnu až tu — v zozname náborov by to boli stovky
+      // riadkov textu, ktoré nikto nevidí.
+      if (!window.Kit) {
+        el.innerHTML = Danubra.header(p.title, '', '', [p.title])
+          + UI.empty('wrench', 'Podklady sa nenačítali', 'Skús obnoviť stránku.');
+        return;
+      }
+      if (Kit.planId !== id || !Kit.loaded) {
+        el.innerHTML = Danubra.header(p.title, '', '', [p.title]) + UI.loading();
+        await Kit.load(id);
+        if (this.openId !== id) return;
+      }
+
+      const pr = this.progress(p);
+      const m = S.planMargin(p);
+      const mine = this.candidates.filter(c => c.plan_id === id);
+      const sum = window.DanubraKit ? DanubraKit.summary(Kit.rowsFor()) : null;
+
+      el.innerHTML = Danubra.header(p.title,
+        [this.tradeName(p.trade_key), p.city, p.headcount ? `${p.headcount} ľudí` : null]
+          .filter(Boolean).map(UI.esc).join(' · '), '', [p.title]) + `
+        <div class="detail-head">${this.badge(p.status)}
+          ${pr.ready ? UI.badge('pripravený', 'green')
+            : UI.badge(`chýba ${pr.total - pr.done} z ${pr.total}`, 'amber')}
+          ${sum ? UI.badge(sum.text, sum.tone === 'ok' ? 'green' : sum.tone === 'warn' ? 'amber' : 'gray') : ''}
+        </div>
+        <div class="kv">
+          <div><span>Remeslo</span><strong>${this.tradeName(p.trade_key)}</strong></div>
+          <div><span>Počet</span><strong>${p.headcount || '—'}</strong></div>
+          <div><span>Kde</span><strong>${UI.esc(p.city || '—')}</strong></div>
+          <div><span>Nástup</span><strong>${p.start_date ? UI.date(p.start_date) : '—'}</strong></div>
+          <div><span>Ponúkame</span><strong>${p.offer_rate || '—'} €/h</strong></div>
+          <div><span>Fakturujeme</span><strong>${p.client_rate || '—'} €/h</strong></div>
+          <div><span>Marža</span><strong style="color:${m.marginPerHour > 0 ? 'var(--green)' : 'var(--red)'};">
+            ${m.marginPerHour} €/h · ${UI.pct(m.marginPct)}</strong></div>
+          <div><span>Kandidáti</span><strong>${mine.length}</strong></div>
+        </div>
+
+        ${Kit.html(p)}
+
+        ${mine.length ? `<div class="form-section">Kandidáti z tohto náboru</div>
+          ${mine.map(c => `<div class="list-row" onclick="Danubra.go('candidates');setTimeout(()=>Cand.detail('${c.id}'),300)">
+            <span style="flex:1;font-size:13px;">${UI.esc(c.full_name)}</span>
+            ${c.screening_score != null ? UI.badge(`${Math.round(c.screening_score)} %`,
+              c.screening_verdict === 'strong' ? 'green' : c.screening_verdict === 'reject' ? 'red' : 'amber')
+              : UI.badge('bez hovoru', 'gray')}
+          </div>`).join('')}` : ''}
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
+          ${p.status === 'active'
+            ? `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','done')">Uzavrieť nábor</button>`
+            : `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','active')">Spustiť nábor</button>`}
+          <button class="btn btn-danger btn-sm" onclick="Hire.del('${p.id}')">Zmazať</button>
+        </div>`;
+    },
+
+    // ── Staré okno (ponechané pre odkazy, ktoré ho ešte volajú) ───────────
+    detailModal(id) {
       const p = this.plans.find(x => x.id === id);
       if (!p) return;
       const t = this.trade(p.trade_key);
@@ -670,15 +763,17 @@
     },
 
     async setStatus(id, status) {
-      await DB.update('recruitment_plans', id, { status });
+      const { error } = await DB.update('recruitment_plans', id, { status });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
       const p = this.plans.find(x => x.id === id); if (p) p.status = status;
       UI.closeModal(); UI.toast('Uložené', 'ok'); Danubra.renderRoute();
     },
 
     async del(id) {
-      if (!await UI.confirm('Zmazať tento náborový plán?')) return;
+      if (!await UI.confirm('Zmazať tento nábor? Podklady a texty k nemu zmiznú s ním.')) return;
       await DB.remove('recruitment_plans', id);
       this.plans = this.plans.filter(x => x.id !== id);
+      if (this.openId === id) this.openId = null;
       UI.closeModal(); Danubra.renderRoute();
     },
   };

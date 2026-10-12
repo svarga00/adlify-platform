@@ -1963,6 +1963,161 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Nábor: podklady, prompty a kde sme inzerovali na jednom mieste ────
+    // Ku každému náboru vzniká jeden dokument: zadanie, zhrnutie zákazky a
+    // texty na web, Bazoš CZ a SK, Facebook CZ a SK, reklamu, obrázky a
+    // voiceover. Žilo to mimo appky, takže pri ďalšej zákazke nikto nevedel,
+    // čo sa minule písalo. Tu sa kontroluje, že to appka drží — a hlavne že
+    // **nedoplnený údaj `[XX]` nevydá za hotové**.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          recruitment_plans: [{
+            id: 'p1', title: 'Zvárači WIG — Wörthsee', trade_key: 'zvarac', status: 'active',
+            headcount: 4, city: 'Wörthsee', start_date: '2026-11-03',
+            offer_rate: 22, client_rate: 34,
+            brief: 'Nová kotolňa na biomasu 850 kW, 2 zvárači WIG + 2 pripravári.',
+            analysis: { position: 'Zvárač WIG (2×) a pripravár potrubia (2×)',
+              place: '82237 Wörthsee, Bavorsko', rate: 'zvárač [XX] €/hod.' },
+          }],
+          trades: [{ key: 'zvarac', name_sk: 'Zvárač', active: true }],
+          screening_questions: [],
+          candidates: [{ id: 'c1', full_name: 'Jozef Malý', plan_id: 'p1', ad_id: 'ad1',
+            status: 'new', received_at: '2026-10-10T08:00:00Z' }],
+          subcontracts: [],
+          ads: [{ id: 'ad1', title: 'Zvárači Bazoš SK', channel: 'bazos', plan_id: 'p1',
+            channel_detail: 'Práca → Stavebníctvo', starts_on: '2026-10-11', active: true }],
+          plan_assets: [
+            // Hotový kanál.
+            { id: 'a1', plan_id: 'p1', channel: 'bazos_sk', block: 'title',
+              body: 'Zvárač WIG – Nemecko', source: 'human', approved_at: 'x' },
+            { id: 'a2', plan_id: 'p1', channel: 'bazos_sk', block: 'meta',
+              body: 'Práca → Stavebníctvo, Zahraničie', source: 'human', approved_at: 'x' },
+            { id: 'a3', plan_id: 'p1', channel: 'bazos_sk', block: 'body',
+              body: 'HĽADÁME PARTIU 2 + 2', source: 'human', approved_at: 'x' },
+            // Kanál s nedoplnenou sadzbou — nesmie byť „hotový".
+            { id: 'a4', plan_id: 'p1', channel: 'bazos_cz', block: 'title',
+              body: 'Svářeč WIG – Německo [XX] €', source: 'ai', approved_at: null },
+            { id: 'a5', plan_id: 'p1', channel: 'bazos_cz', block: 'meta',
+              body: 'Práce → Stavebnictví', source: 'ai', approved_at: null },
+            { id: 'a6', plan_id: 'p1', channel: 'bazos_cz', block: 'body',
+              body: 'Svářeč [XX] €/hod., nástup [XX]', source: 'ai', approved_at: null },
+          ],
+        };
+        DB.list = async (t, o) => {
+          let rows = (DATA[t] || []).map(x => ({ ...x }));
+          const f = (o && o.filters) || {};
+          for (const [k, v] of Object.entries(f)) rows = rows.filter(r => r[k] === v);
+          return { data: rows, error: null };
+        };
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        const zapisy = [];
+        DB.insert = async (t, row) => { zapisy.push(['insert', t, row]); return { data: { id: 'new', ...row }, error: null }; };
+        DB.update = async (t, id, patch) => { zapisy.push(['update', t, id, patch]); return { data: null, error: null }; };
+
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = { supplier: { name: 'P&S', address: 'a', company_id: '1' } };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'hiring';
+        Hire.loaded = false; Hire.openId = null; Kit.loaded = false; Kit.planId = null;
+        await Danubra.views.hiring.call(Danubra, view);
+
+        // Otvor nábor ako obrazovku, nie okno.
+        await Hire.detail('p1');
+        await new Promise(r => setTimeout(r, 400));
+
+        const text = () => view.innerText.replace(/\s+/g, ' ');
+        const kanaly = [...view.querySelectorAll('.acc .acc-head')]
+          .map(e => e.textContent.replace(/\s+/g, ' ').trim());
+        // Zelená fajka pri kanáli znamená „pripravené na vloženie". Kanál
+        // s nedoplnenou sadzbou ju mať nesmie, aj keď sú texty napísané.
+        const fajky = [...view.querySelectorAll('.acc')]
+          .filter(a => a.className.includes('acc-done'))
+          .map(a => a.querySelector('.acc-head').textContent.replace(/\s+/g, ' ').trim());
+
+        // Otvor kanál s nedoplnenou sadzbou a skús z neho kopírovať.
+        Kit.toggle('bazos_cz');
+        await new Promise(r => setTimeout(r, 200));
+        const telo = {
+          bloky: [...view.querySelectorAll('.kit-block')].length,
+          sGapom: [...view.querySelectorAll('.kit-block.has-gap')].length,
+          navrh: view.innerHTML.includes('>návrh<'),
+          textarea: !!document.getElementById('kit-bazos_cz-body'),
+        };
+        let kopirovane = null;
+        // `navigator.clipboard` je len na čítanie — priradenie by tichom
+        // neprešlo a test by kontroloval nič.
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true, value: { writeText: async (t) => { kopirovane = t; } } });
+        Kit.copy('kit-bazos_cz-body');
+        await new Promise(r => setTimeout(r, 120));
+
+        return {
+          okno: !!document.getElementById('ui-modal'),
+          sekcie: [...view.querySelectorAll('.form-section')].map(e => e.textContent.trim()),
+          nadpis: (view.querySelector('.page-title') || {}).textContent || '',
+          text: text(),
+          kanaly, fajky, telo, kopirovane,
+          zapisy,
+        };
+      });
+
+      ok(!out.okno, 'nábor sa otvorí ako obrazovka, nie ako okno');
+      ok(/Zvárači WIG/.test(out.nadpis), 's názvom náboru v nadpise', out.nadpis);
+
+      // Všetko na jednom mieste. Nadpisy sekcií sa čítajú z `textContent` —
+      // `innerText` na nich uplatní veľké písmená z CSS a hľadanie podľa
+      // slova by potom padlo na niečom, čo je v poriadku.
+      const ma = (x) => out.sekcie.some(s => s.includes(x));
+      ok(ma('Zadanie'), 'je tam zadanie od kolegu', out.sekcie.join(' | '));
+      ok(ma('Zhrnutie zákazky'), 'zhrnutie zákazky', out.sekcie.join(' | '));
+      ok(ma('Podklady po kanáloch'), 'podklady po kanáloch', out.sekcie.join(' | '));
+      ok(ma('Kde sme inzerovali'), 'kde sme inzerovali', out.sekcie.join(' | '));
+      ok(ma('Pred zverejnením'), 'aj čo treba pred zverejnením', out.sekcie.join(' | '));
+      ok(ma('Kandidáti z tohto náboru'), 'a kandidáti, ktorí sa z neho ozvali',
+        out.sekcie.join(' | '));
+      ok(/Zvárači Bazoš SK/.test(out.text), 'a je vidieť konkrétny inzerát', out.text.slice(0, 200));
+
+      ok(out.kanaly.length === 8, 'osem kanálov', `${out.kanaly.length}: ${out.kanaly.join(' | ')}`);
+      ok(out.kanaly.some(k => /Bazoš SK/.test(k) && /hotové/.test(k)),
+        'kanál s vyplnenými povinnými blokmi je hotový',
+        out.kanaly.find(k => /Bazoš SK/.test(k)));
+      // Toto je ten dôležitý: text je napísaný, ale sadzba nie je doplnená.
+      ok(out.kanaly.some(k => /Bazoš CZ/.test(k) && /treba doplniť/.test(k)),
+        'kanál s nedoplnenou sadzbou sa nevydáva za hotový',
+        out.kanaly.find(k => /Bazoš CZ/.test(k)));
+      ok(/údaj|údaje|údajov/.test(out.text) && /\[XX\]/.test(out.text),
+        'a appka pomenuje, čo treba doplniť');
+      ok(out.fajky.some(k => /Bazoš SK/.test(k)),
+        'hotový kanál má zelenú fajku', out.fajky.join(' | '));
+      ok(!out.fajky.some(k => /Bazoš CZ/.test(k)),
+        'a kanál s nedoplnenou sadzbou ju nemá — nie je pripravený na vloženie',
+        out.fajky.join(' | '));
+
+      ok(out.telo.bloky >= 4, 'v otvorenom kanáli sú bloky na kopírovanie',
+        String(out.telo.bloky));
+      ok(out.telo.sGapom >= 2, 'bloky s nedoplneným údajom sú zvýraznené',
+        String(out.telo.sGapom));
+      ok(out.telo.navrh, 'text od appky je označený ako návrh, nie ako hotové');
+      ok(out.kopirovane === 'Svářeč [XX] €/hod., nástup [XX]',
+        'tlačidlo Kopírovať vezme presne ten blok', String(out.kopirovane));
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Údaje z Nastavení: jeden riadok, jedno miesto ─────────────────────
     // Nastavenia sa načítavali na štyroch miestach, každé s vlastnou trvalou
     // pamäťou, a tri obrazovky ich nenačítali vôbec. Dokument preto odišiel

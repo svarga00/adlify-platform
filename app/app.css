@@ -1234,6 +1234,43 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .nowbox-sub { font-size: 13.5px; color: var(--ink-sub); margin-top: 3px; }
 .nowbox-why { font-size: 12.5px; color: var(--ink-mute); margin-top: 6px; line-height: 1.5; }
 
+/* ── Podklady k náboru ────────────────────────────────────────────────────
+   Jeden blok = jedno tlačidlo Kopírovať, pretože presne tak sa to aj vkladá:
+   titulok do titulku, text do textu. */
+.kit-sum {
+  font-size: 12.5px; font-weight: 700; padding: 7px 11px; border-radius: var(--radius-sm);
+  background: var(--field); color: var(--ink-sub); margin: 0 0 10px;
+}
+.kit-sum.kit-ok { background: var(--green-50); color: var(--green); }
+.kit-sum.kit-warn { background: var(--amber-50); color: var(--amber); }
+
+.kit-brief textarea, .kit-block textarea {
+  width: 100%; font: inherit; font-size: 13px; line-height: 1.5;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px;
+  background: #fff; resize: vertical;
+}
+.kit-brief-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.kit-note { font-size: 11.5px; color: var(--ink-mute); }
+.kit-hint { font-size: 11.5px; color: var(--ink-mute); margin: 2px 0 5px; }
+
+.kit-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 9px; }
+.kit-fact { display: flex; flex-direction: column; gap: 3px; }
+.kit-fact > span { font-size: 11.5px; font-weight: 700; color: var(--ink-sub); }
+.kit-fact input {
+  font: inherit; font-size: 13px; padding: 8px 10px; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+/* Nedoplnený údaj ([XX]) musí byť vidieť na prvý pohľad — inzerát s ním sa
+   nesmie zverejniť. */
+.kit-fact.has-gap input, .kit-block.has-gap textarea { border-color: var(--amber); background: var(--amber-50); }
+
+.kit-block { padding: 10px 0; border-top: 1px solid var(--line); }
+.kit-block:first-child { border-top: 0; }
+.kit-block-head { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.kit-block-head b { font-size: 13px; }
+.kit-files { margin-bottom: 10px; }
+.kit-files label.btn { cursor: pointer; }
+
 /* ── Zápis týždňa ─────────────────────────────────────────────────────────
    Človek na turnuse odrobí šesť dní a predtým sa to zapisovalo šesťkrát
    otvorením okna. Tu je to sedem riadkov na jednej obrazovke. */

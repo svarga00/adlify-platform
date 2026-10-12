@@ -387,6 +387,81 @@
     },
 
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
+    // ── Podklady k náboru ────────────────────────────────────────────────
+    'card.kit.brief': {
+      title: 'Zadanie — čo o zákazke vieme',
+      lead: 'Voľný text od toho, kto zákazku priniesol. Vstup pre všetko ostatné.',
+      what: [
+        'Všetko, čo je o zákazke známe, aj neučesané: čo sa stavia, kde, koľko '
+        + 'ľudí, aké remeslo, čo je podmienka, aká sadzba, odkedy. Pokojne aj '
+        + 'skopírovaný e-mail od odberateľa.',
+      ],
+      how: [
+        'Netreba to formátovať ani skracovať. Čím viac je tu napísané, tým menej '
+        + 'sa potom dopisuje do textov — a tým menej zostane značiek, ktoré sa musia doplniť.',
+      ],
+      why: [
+        'Doteraz toto žilo v e-mailoch a dokumentoch mimo appky, takže pri ďalšej '
+        + 'zákazke nikto nevedel, čo sa minule písalo a kam sa to dávalo. Zadanie '
+        + 'sa neprepisuje — dopĺňa sa.',
+      ],
+      links: [['hiring', 'Nábor'], ['subcontracts', 'Zákazky']],
+    },
+    'card.kit.facts': {
+      title: 'Zhrnutie zákazky',
+      lead: 'Deväť údajov, ktoré sa v podkladoch vypisujú vždy a do každého kanála.',
+      what: [
+        'Pozícia, miesto, projekt, forma spolupráce, podmienka, ubytovanie, sadzba, '
+        + 'nástup a kontakt. Projekt je ten, ktorý odlišuje konkrétnu stavbu od '
+        + '„niekde v Nemecku" — a práve na ten ľudia reagujú.',
+      ],
+      how: [
+        'Čo sa ešte nevie, zostáva ako **[XX]**. Je to dohodnutá značka: appka ich '
+        + 'spočíta a kanál s ňou neoznačí za hotový.',
+      ],
+      why: [
+        'Inzerát s nedoplnenou sadzbou je horší než žiadny — ľudia zavolajú a nikto '
+        + 'im nevie povedať, za koľko. Preto to appka drží oddelene od textov: '
+        + 'údaj sa opraví raz a je v každom kanáli.',
+      ],
+      links: [['hiring', 'Nábor']],
+    },
+    'card.kit.channels': {
+      title: 'Podklady po kanáloch',
+      lead: 'Texty na priame vloženie: web, Bazoš CZ a SK, Facebook CZ a SK, reklama, obrázky, voiceover.',
+      what: [
+        'Každý kanál má svoje bloky — titulok, text inzerátu, kľúčové slová, '
+        + 'príspevky, prompty na obrázky. Pri každom bloku je tlačidlo Kopírovať.',
+        'Hviezdička znamená, že bez toho bloku sa kanál nedá zverejniť.',
+      ],
+      how: [
+        'Kopíruje sa po blokoch, nie celý dokument — tak sa to aj vkladá: titulok '
+        + 'do titulku, text do textu. Nová verzia textu starú **archivuje**, nie prepíše.',
+      ],
+      why: [
+        'Staré verzie zostávajú dohľadateľné, pretože to, čo odišlo na Bazoš, treba '
+        + 'vedieť prečítať aj o pol roka, keď sa niekto ozve na starý inzerát.',
+      ],
+      links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
+    },
+    'card.kit.where': {
+      title: 'Kde sme inzerovali',
+      lead: 'Zoznam inzerátov tohto náboru a koľko ľudí sa z ktorého ozvalo.',
+      what: [
+        'Nie je to druhá evidencia — sú to tie isté inzeráty ako na obrazovke '
+        + 'Inzeráty, len tu pri podkladoch, z ktorých vznikli.',
+      ],
+      how: [
+        'Pri každom je vidieť kanál, podrobnosť (skupina, rubrika), odkedy beží '
+        + 'a koľko ľudí sa ozvalo. Porovnávať kanály sa dá len podľa nastúpených.',
+      ],
+      why: [
+        'Bez zapísaného odkazu sa o mesiac nedá povedať, ktorý kanál ľudí priniesol '
+        + '— a peniaze na reklamu sa potom rozdeľujú podľa dojmu, nie podľa čísla.',
+      ],
+      links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
+    },
+
     'card.hours.approve': {
       title: 'Schvaľovanie hodín',
       lead: 'Schválené hodiny idú do podkladu na faktúru. Neschválené nie.',
