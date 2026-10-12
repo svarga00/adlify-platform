@@ -207,12 +207,8 @@
       Danubra.renderRoute();
     },
 
-    async _settings() {
-      if (this._set) return this._set;
-      const { data } = await DB.list('settings', { limit: 1 });
-      this._set = (data && data[0]) || {};
-      return this._set;
-    },
+    /** Nastavenia z jedného miesta — `Danubra.loadCfg()`. */
+    async _settings() { return Danubra.loadCfg(); },
   };
 
   window.Mkt = Mkt;

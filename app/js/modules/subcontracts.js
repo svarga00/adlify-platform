@@ -18,7 +18,7 @@
   const BILLING = [['hourly', 'Po hodinách'], ['unit', 'Za jednotku'], ['fixed', 'Pevná cena']];
 
   const Sub = {
-    items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [],
+    items: [], partners: [], assignments: [], workers: [], workerDocs: [], compliance: [], timesheets: [], checklist: [], lodging: [], accommodations: [], invoices: [],
     periods: [], crews: [], stays: [], occupancy: [], overrides: [],
     assignmentChecks: [],
     loaded: false, filters: { status: '', work_type: '' },
@@ -44,7 +44,7 @@
       this.items = s.data || []; this.partners = p.data || []; this.assignments = a.data || [];
       this.workers = w.data || []; this.workerDocs = wd.data || []; this.compliance = c.data || [];
       this.overrides = ovr.data || [];
-      const [ch, sa, accs, per, ts, cr, occ, st] = await Promise.all([
+      const [ch, sa, accs, per, ts, cr, occ, st, inv] = await Promise.all([
         // v2 tabuľka: body sú viazané na kľúč pravidla, nie na voľný text,
         // ktorý sa pri preklepe rozdvojí (migrácia 017).
         DB.list('assignment_checks', { limit: 3000 }),
@@ -57,6 +57,9 @@
         // vypísaného čísla — to sa rozišlo hneď, ako niekto odišiel.
         DB.list('v_lodging_occupancy', { limit: 1000 }),
         DB.list('v_worker_stay', { limit: 2000 }),
+        // Faktúry: bez nich sa nedá povedať, že uzavreté obdobie nikto
+        // nevyfakturoval — a to je najtichšia diera v celom reťazci.
+        DB.list('invoices', { select: 'id,subcontract_id,period_id,status,total,due_date', limit: 1000 }),
       ]);
       this.assignmentChecks = ch.data || [];
       this.lodging = sa.data || [];
@@ -66,6 +69,7 @@
       this.crews = cr.data || [];
       this.occupancy = occ.data || [];
       this.stays = st.data || [];
+      this.invoices = inv.data || [];
       this.loaded = true;
     },
 
@@ -83,6 +87,42 @@
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
     typeLabel(t) { const x = WORK_TYPE.find(y => y[0] === t); return x ? x[1] : t; },
 
+    /**
+     * Reťazec zákazky: dohodnuté → smie sa začať → ľudia → hodiny → peniaze.
+     *
+     * Profil má deväť sekcií a všetko potrebné v nich je — ale nikde nebolo
+     * napísané, **čo treba spraviť teraz**. Toto to spočíta a obrazovka to
+     * ukáže jednou vetou nad všetkým ostatným.
+     *
+     * Chýbajúce doklady sa počítajú rovnako ako v zozname nasadených ľudí
+     * nižšie: po uplatnení zapísaných výnimiek. Inak by appka na jednej
+     * obrazovke tvrdila dve rôzne veci.
+     */
+    chain(sc) {
+      const asg = this.asgOf(sc.id).filter(a => a.status !== 'cancelled');
+      const missingDocs = {};
+      for (const a of asg) {
+        const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
+        if (!st) continue;
+        missingDocs[a.worker_id] = Shell.evaluate(st.ready.reasons,
+          this.overridesOf(a.worker_id), a.date_from || undefined).open.length;
+      }
+      const housed = this.occupancyOf(sc.id)
+        .reduce((n, l) => n + (Number(l.occupied_now) || 0), 0);
+
+      return DanubraSite.state({
+        subcontract: sc,
+        partner: this.partnerOf(sc.partner_id),
+        check: this.check(sc),
+        assignments: asg,
+        missingDocs,
+        housed: this.occupancyOf(sc.id).length ? housed : null,
+        timesheets: this.timesheetsOf(sc.id),
+        periods: this.periodsOf(sc.id),
+        invoices: (this.invoices || []).filter(i => i.subcontract_id === sc.id),
+      });
+    },
+
     /** Compliance výsledok pre zákazku. */
     check(sc) {
       return DanubraCompliance.checkSubcontract({
@@ -91,7 +131,11 @@
         workers: this.workers,
         workerDocs: this.workerDocs,
         companyItems: this.companyItems(),
-        settings: this._settings,
+        // `this._settings` je **funkcia**. Keď sa tu posielala ona namiesto
+        // svojho výsledku, compliance aj marža si z nej nemali čo prečítať
+        // a potichu počítali s predvolenými hodnotami — Cenník a pravidlá
+        // teda na túto obrazovku nemali žiadny vplyv.
+        settings: Danubra.cfg('staffing'),
         monthlyHours: 160,
       });
     },
@@ -157,7 +201,24 @@
             ${!chk.ok ? `<span style="color:var(--red);font-weight:700;">${Icon('alert', 14)} ${chk.blockers.length} blokátorov</span>`
               : chk.warnings.length ? `<span style="color:var(--amber);font-weight:700;">${Icon('alert', 14)} ${chk.warnings.length} upozornení</span>` : ''}
           </div>
+          ${this.cardNow(sc)}
         </div>`;
+    },
+
+    /**
+     * V karte zoznamu: v ktorom kroku zákazka stojí a čo treba spraviť.
+     *
+     * Predtým tu bol len počet blokátorov. Zákazka, ktorá mesiac beží
+     * a nikto ju nevyfakturoval, vyzerala v zozname úplne v poriadku.
+     */
+    cardNow(sc) {
+      const steps = this.chain(sc);
+      const n = DanubraSite.next(steps, sc);
+      if (n.key === 'closed' || n.key === 'done') return '';
+      return `<div class="card-now${n.hot ? ' card-now-hot' : ''}">
+        <b>${UI.esc(DanubraSite.line(steps, sc))}</b>
+        <span>${UI.esc(n.what)}</span>
+      </div>`;
     },
 
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
@@ -209,7 +270,7 @@
           accommodation_monthly: a.accommodation_monthly,
           transport_monthly: a.transport_monthly,
         }, { hours: 160, workDays: 21, workType: sc.work_type,
-             freistellungOk: sc.freistellung_verified }, this._settings);
+             freistellungOk: sc.freistellung_verified }, Danubra.cfg('staffing'));
       });
       const port = DanubraMargin.portfolioSummary(eco);
 
@@ -243,6 +304,8 @@
           </select>
         </div>
 
+        ${this.nowHtml(sc)}
+
         <div class="${chk.ok ? 'regimebox' : 'warnbox'}" style="margin-bottom:14px;">
           ${chk.ok
             ? `${Icon('check', 14)} Podmienky vyslania sú splnené${chk.warnings.length ? ` — ${chk.warnings.length} upozornení nižšie` : ''}.`
@@ -265,7 +328,7 @@
                  <span>Doplniť polohu stavby</span></button>`}
         </div>
 
-        <div class="form-section">Compliance</div>
+        <div class="form-section" id="sub-compliance">Compliance</div>
         ${complianceHtml}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
           ${sc.work_type === 'construction' && !sc.zoll_reported_at
@@ -307,7 +370,7 @@
           <button class="btn btn-outline btn-sm" onclick="Sub.assignCrewForm('${sc.id}')">${Icon('workers', 14)} Nasadiť celú partiu</button>
         </div>
 
-        <div class="form-section">Obdobia a podklady</div>
+        <div class="form-section" id="sub-periods">Obdobia a podklady</div>
         ${this.periodsHtml(sc)}
 
         ${asg.filter(a => a.status !== 'cancelled')
@@ -338,6 +401,50 @@
 
       // Mapa sa kreslí až po vložení HTML — Leaflet potrebuje prvok v strome.
       this.renderMap(sc);
+    },
+
+    /**
+     * Čo spraviť teraz — jedna veta, jedno tlačidlo a pod tým päť krokov.
+     *
+     * Nie je to prvý nehotový krok, ale ten, ktorý najviac horí: ľudia na
+     * stavbe bez papierov sú drahší problém než nedoplnený termín.
+     */
+    nowHtml(sc) {
+      const steps = this.chain(sc);
+      const n = DanubraSite.next(steps, sc);
+      const pr = DanubraSite.progress(steps);
+      const ACTION = {
+        deal: { label: 'Doplniť zákazku', onclick: `Sub.form('${sc.id}')`, ico: 'edit' },
+        green: { label: 'Pozrieť compliance', onclick: 'Sub.scrollTo(\'compliance\')', ico: 'shield' },
+        people: { label: 'Nasadiť pracovníka', onclick: `Sub.addAsg('${sc.id}')`, ico: 'plus' },
+        hours: { label: 'Odpracované hodiny', onclick: "Danubra.go('timesheets')", ico: 'clock' },
+        money: { label: 'Obdobia a podklady', onclick: 'Sub.scrollTo(\'periods\')', ico: 'wallet' },
+      };
+      const a = ACTION[n.key];
+
+      return `
+        <div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
+          <div class="nowbox-label">Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}</div>
+          <div class="nowbox-title">${UI.esc(n.title)}
+            ${n.key !== 'closed' && n.key !== 'done' && n.key !== 'wait'
+              ? Help.btn(`sub.step.${n.key}`, { size: 14 }) : ''}</div>
+          <div class="nowbox-sub">${UI.esc(n.what)}</div>
+          ${n.why ? `<div class="nowbox-why">${UI.esc(n.why)}</div>` : ''}
+          ${a ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
+            onclick="${a.onclick}">${Icon(a.ico, 17)} ${a.label}</button>` : ''}
+          <div class="chainbar">
+            ${steps.map(s => `<span class="chainbar-step cb-${s.state}${
+              s.key === n.key ? ' is-now' : ''}" title="${UI.esc(`${s.title} — ${s.detail}`)}">
+              <b>${s.n}</b><span>${UI.esc(s.title)}</span></span>`).join('')}
+          </div>
+          <div class="nowbox-why">${pr.done} z ${pr.total} krokov hotových.</div>
+        </div>`;
+    },
+
+    /** Posun na sekciu profilu. Z vety „čo teraz" sa musí dať ísť tam, kde sa to rieši. */
+    scrollTo(kam) {
+      const el = document.getElementById(`sub-${kam}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
 
     /** Body na mape: stavba oranžovo, ubytovania modro. */
@@ -590,12 +697,8 @@
     },
 
 
-    async _settings() {
-      if (this._set) return this._set;
-      const { data } = await DB.list('settings', { limit: 1 });
-      this._set = (data && data[0]) || {};
-      return this._set;
-    },
+    /** Nastavenia z jedného miesta — `Danubra.loadCfg()`. */
+    async _settings() { return Danubra.loadCfg(); },
 
     async setStatus(id, status) {
       const sc = this.items.find(x => x.id === id);
@@ -1056,7 +1159,8 @@
         && lod.some(l => l.id === st.lodging_id));
       const lodging = mine ? lod.find(l => l.id === mine.lodging_id) : (lod[0] || null);
 
-      const supplier = (window.Cfg && Cfg.j('supplier')) || {};
+      if (!Danubra.supplierReady('Infolist na stavbu')) return;
+      const supplier = Danubra.supplier();
       const state = DanubraSiteSheet.check({
         worker, assignment: a, subcontract: sc || {}, partner, lodging });
       if (!state.ready) UI.toast(DanubraSiteSheet.sentence(state), 'err');

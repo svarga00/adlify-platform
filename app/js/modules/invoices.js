@@ -252,6 +252,9 @@
     async openDoc(id) {
       const x = this.items.find(i => i.id === id);
       if (!x) return;
+      // Faktúra bez fakturačných údajov je papier, podľa ktorého sa nedá
+      // zaplatiť — a odberateľ ju vráti.
+      if (!Danubra.supplierReady('Faktúra')) return;
       await Invoicing.openDocument(x, this.linesOf(id), this.clientOf(x.client_id));
     },
 

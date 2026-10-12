@@ -10,23 +10,50 @@
     row: null, loaded: false,
 
     async load() {
-      const { data } = await DB.list('settings', { limit: 1 });
-      this.row = (data && data[0]) || null;
-      if (!this.row) {
+      // Riadok nastavení je jeden a drží ho `Danubra` — táto obrazovka ho len
+      // upravuje. Dva nezávislé načítania toho istého riadku znamenali, že po
+      // uložení tu zvyšok appky ešte dlho pracoval so starými údajmi.
+      this.row = await Danubra.loadCfg(true);
+      if (!this.row || !this.row.id) {
         const { data: created } = await DB.insert('settings', {});
-        this.row = created;
+        this.row = created || {};
+        Danubra.cfgRow = this.row;
       }
       this.loaded = true;
     },
 
     j(key) { return (this.row && this.row[key]) || {}; },
 
+    /**
+     * Uloží oddiel nastavení — a **overí, že sa to naozaj uložilo**.
+     *
+     * Zápis do nastavení smie podľa pravidla v databáze len administrátor.
+     * Keď ho pravidlo odmietne, príde chyba, ktorá sa dá prehliadnuť, a na
+     * obrazovke zostane hodnota, ktorú človek napísal — takže to vyzerá ako
+     * uložené. Preto sa riadok po zápise načíta späť z databázy a porovná.
+     */
     async patch(key, values) {
       const merged = { ...this.j(key), ...values };
       const { error } = await DB.update('settings', this.row.id, { [key]: merged });
-      if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      this.row[key] = merged;
-      UI.toast('Uložené', 'ok');
+      if (error) {
+        UI.toast('Neuložené: ' + error.message, 'err');
+        this.failed = { key, message: error.message };
+        Danubra.renderRoute();
+        return;
+      }
+
+      const fresh = await Danubra.loadCfg(true);
+      this.row = fresh;
+      const saved = (fresh && fresh[key]) || {};
+      const rozdiel = Object.keys(values).filter(k =>
+        String(saved[k] ?? '') !== String(values[k] ?? ''));
+      if (rozdiel.length) {
+        this.failed = { key, message: `V databáze zostali staré hodnoty: ${rozdiel.join(', ')}.` };
+        UI.toast('Neuložilo sa to — pozri hlášku nad formulárom', 'err');
+      } else {
+        this.failed = null;
+        UI.toast('Uložené', 'ok');
+      }
       Danubra.renderRoute();
     },
 
@@ -34,9 +61,14 @@
     section(title, note, key, fields) {
       const v = this.j(key);
       const formId = `cfg-${key}`;
+      const zle = this.failed && this.failed.key === key ? this.failed : null;
       return `
         <div class="card card-pad" style="margin-bottom:16px;">
           <div class="card-head"><div class="card-title">${UI.esc(title)}</div></div>
+          ${zle ? `<div class="warnbox" style="margin:0 0 12px;">
+            ${Icon('alert', 14)} <strong>Neuložilo sa to.</strong> ${UI.esc(zle.message)}
+            Zápis do nastavení smie len administrátor — ak ním si, skús to znova
+            alebo sa odhlás a prihlás.</div>` : ''}
           ${note ? `<div class="regimebox" style="margin:0 0 12px;">${note}</div>` : ''}
           <form id="${formId}" onsubmit="event.preventDefault();Cfg.saveSection('${key}','${formId}')">
             <div class="form-grid">
@@ -176,7 +208,9 @@
         this.section('Fakturačné údaje',
           'Objavujú sa na faktúrach a ostatných dokumentoch.',
           'supplier', [
-          ['name', 'Názov firmy', 'text', 'Firma s. r. o.'],
+          // Štvrtý prvok je **hodnota**, nie placeholder. „Firma s. r. o." sa tu
+          // preto predvyplnila ako skutočný údaj a dala sa uložiť na dokumenty.
+          ['name', 'Názov firmy', 'text', '', 'Presný názov podľa registra'],
           ['iban', 'IBAN', 'text', '', 'SK00 0000 0000 0000 0000 0000'],
           ['company_id', 'IČO', 'text'],
           ['vat_id', 'IČ DPH', 'text'],
@@ -225,8 +259,11 @@
           + 'Požiadavku na súhlas nie je možné vypnúť.',
           'recruiting', [
           ['retention_days', 'Uchovávať nahrávky (dní)', 'number', 180],
-          ['consent_script_sk', 'Znenie otázky na súhlas — slovensky', 'textarea'],
-          ['consent_script_de', 'Znenie otázky na súhlas — nemecky', 'textarea'],
+          // `{firma}` sa pri zobrazení nahradí názvom z Fakturačných údajov.
+          // Predtým tu bol názov napísaný priamo v texte, takže sa pri zmene
+          // firmy nezmenil a appka sa predstavovala starým menom.
+          ['consent_script_sk', 'Znenie otázky na súhlas — slovensky ({firma} = názov firmy)', 'textarea'],
+          ['consent_script_de', 'Znenie otázky na súhlas — nemecky ({firma} = názov firmy)', 'textarea'],
         ]);
     },
   };

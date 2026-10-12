@@ -345,7 +345,8 @@
     document(id) {
       const c = this.items.find(x => x.id === id);
       if (!c) return UI.toast('Nenájdené', 'err');
-      const supplier = (window.Cfg && Cfg.j('supplier')) || {};
+      if (!Danubra.supplierReady('Zmluva o dielo')) return;
+      const supplier = Danubra.supplier();
       const p = this.partners.find(x => x.id === c.partner_id) || {};
       const html = window.DanubraPapers.werkvertrag({
         contract: c,

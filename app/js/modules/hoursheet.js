@@ -172,7 +172,7 @@
      * Vyplniteľný priamo v tabuľke — to je na ňom to interaktívne.
      */
     sheetHtml(s, signed) {
-      const sup = (window.Cfg && Cfg.j('supplier')) || {};
+      const sup = Danubra.supplier();
       // `<input type="number">` musí mať hodnotu s bodkou — prehliadač inú
       // neprijme. Lenže práve nepodpísaný výkaz sa tlačí a nesie sa na stavbu
       // na podpis, takže na papier pre Nemca by šlo „8.5" namiesto „8,5".
@@ -226,7 +226,7 @@
               ${s.days.map((d, i) => `<td>${UI.esc(DanubraHourSheet.spanText(s.span[i]))}</td>`).join('')}
               <td></td>
             </tr>
-            <!-- Pauza. Je na pôvodnom papieri a polier ju na doklade hľadá.
+            <!-- Pauza. Je na pôvodnom papieri a na stavbe ju na doklade hľadajú.
                  Nemáme ju kde zapísať, ale dá sa dopočítať z času od-do
                  a odrobených hodín. Keď sa dopočítať nedá, riadok zostane
                  prázdny - vymyslená prestávka na doklade, ktorý sa podpisuje,
@@ -406,7 +406,14 @@
     },
 
     /** Tlač len papiera — zvyšok obrazovky na papier nepatrí. */
-    print() { window.print(); },
+    /**
+     * Výkaz ide na stavbu na podpis stavbyvedúcemu. Bez našich údajov je to
+     * papier, ktorý nič nedokazuje — nie je na ňom, čia je to firma.
+     */
+    print() {
+      if (!Danubra.supplierReady('Výkaz pre odberateľa')) return;
+      window.print();
+    },
   };
 
   window.HS = HS;

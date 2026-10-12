@@ -53,7 +53,7 @@
     { key: 'contact', label: 'Za kým ísť', must: true,
       get: (x) => [txt(x.subcontract.site_contact_name),
         txt(x.subcontract.site_contact_phone)].filter(Boolean).join(' · '),
-      missing: 'Nie je zapísaný polier ani telefón naňho.' },
+      missing: 'Nie je zapísané, za kým sa prvý deň hlásiť.' },
     { key: 'lodging', label: 'Ubytovanie', must: false,
       get: (x) => (x.lodging
         ? [txt(x.lodging.name), txt(x.lodging.address), txt(x.lodging.city)]
@@ -117,7 +117,10 @@
       { sk: 'Som subdodávateľ. Pracujem pre …',
         de: `Ich bin Subunternehmer${firma ? ` und arbeite für ${firma}` : ''}`
           + `${gu ? ` im Auftrag von ${gu}` : ''}.` },
-      { sk: 'Hľadám poliera.', de: 'Ich suche den Polier.' },
+      // Nemeckú vetu nechávame, ako je — na nemeckej stavbe sa tomu človeku
+      // naozaj hovorí Polier a je to slovo, ktoré tam živnostník bude slýchať.
+      // Slovenská strana ho ale vysvetľuje, nepoužíva.
+      { sk: 'Hľadám majstra, ktorý preberá prácu.', de: 'Ich suche den Polier.' },
       { sk: 'Tu je môj formulár A1 a živnostenský list.',
         de: 'Hier sind meine A1-Bescheinigung und mein Gewerbeschein.' },
       { sk: trade ? `Moje remeslo je ${trade}.` : 'Moje remeslo je …',

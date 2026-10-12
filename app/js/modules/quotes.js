@@ -168,7 +168,8 @@
     document(id) {
       const q = this.items.find(x => x.id === id);
       if (!q) return UI.toast('Nenájdené', 'err');
-      const supplier = (window.Cfg && Cfg.j('supplier')) || {};
+      if (!Danubra.supplierReady('Ponuka')) return;
+      const supplier = Danubra.supplier();
       const partner = this.partners.find(p => p.id === q.partner_id) || {};
 
       const html = window.DanubraPapers.quote({

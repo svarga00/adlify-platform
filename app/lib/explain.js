@@ -387,6 +387,193 @@
     },
 
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
+    // ── Podklady k náboru ────────────────────────────────────────────────
+    'card.kit.brief': {
+      title: 'Zadanie — čo o zákazke vieme',
+      lead: 'Voľný text od toho, kto zákazku priniesol. Vstup pre všetko ostatné.',
+      what: [
+        'Všetko, čo je o zákazke známe, aj neučesané: čo sa stavia, kde, koľko '
+        + 'ľudí, aké remeslo, čo je podmienka, aká sadzba, odkedy. Pokojne aj '
+        + 'skopírovaný e-mail od odberateľa.',
+      ],
+      how: [
+        'Netreba to formátovať ani skracovať. Čím viac je tu napísané, tým menej '
+        + 'sa potom dopisuje do textov — a tým menej zostane značiek, ktoré sa musia doplniť.',
+      ],
+      why: [
+        'Doteraz toto žilo v e-mailoch a dokumentoch mimo appky, takže pri ďalšej '
+        + 'zákazke nikto nevedel, čo sa minule písalo a kam sa to dávalo. Zadanie '
+        + 'sa neprepisuje — dopĺňa sa.',
+      ],
+      links: [['hiring', 'Nábor'], ['subcontracts', 'Zákazky']],
+    },
+    'card.kit.facts': {
+      title: 'Zhrnutie zákazky',
+      lead: 'Deväť údajov, ktoré sa v podkladoch vypisujú vždy a do každého kanála.',
+      what: [
+        'Pozícia, miesto, projekt, forma spolupráce, podmienka, ubytovanie, sadzba, '
+        + 'nástup a kontakt. Projekt je ten, ktorý odlišuje konkrétnu stavbu od '
+        + '„niekde v Nemecku" — a práve na ten ľudia reagujú.',
+      ],
+      how: [
+        'Čo sa ešte nevie, zostáva ako **[XX]**. Je to dohodnutá značka: appka ich '
+        + 'spočíta a kanál s ňou neoznačí za hotový.',
+      ],
+      why: [
+        'Inzerát s nedoplnenou sadzbou je horší než žiadny — ľudia zavolajú a nikto '
+        + 'im nevie povedať, za koľko. Preto to appka drží oddelene od textov: '
+        + 'údaj sa opraví raz a je v každom kanáli.',
+      ],
+      links: [['hiring', 'Nábor']],
+    },
+    'card.kit.channels': {
+      title: 'Podklady po kanáloch',
+      lead: 'Texty na priame vloženie: web, Bazoš CZ a SK, Facebook CZ a SK, reklama, obrázky, voiceover.',
+      what: [
+        'Každý kanál má svoje bloky — titulok, text inzerátu, kľúčové slová, '
+        + 'príspevky, prompty na obrázky. Pri každom bloku je tlačidlo Kopírovať.',
+        'Hviezdička znamená, že bez toho bloku sa kanál nedá zverejniť.',
+      ],
+      how: [
+        'Kopíruje sa po blokoch, nie celý dokument — tak sa to aj vkladá: titulok '
+        + 'do titulku, text do textu. Nová verzia textu starú **archivuje**, nie prepíše.',
+      ],
+      why: [
+        'Staré verzie zostávajú dohľadateľné, pretože to, čo odišlo na Bazoš, treba '
+        + 'vedieť prečítať aj o pol roka, keď sa niekto ozve na starý inzerát.',
+      ],
+      links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
+    },
+    'card.kit.where': {
+      title: 'Kde sme inzerovali',
+      lead: 'Zoznam inzerátov tohto náboru a koľko ľudí sa z ktorého ozvalo.',
+      what: [
+        'Nie je to druhá evidencia — sú to tie isté inzeráty ako na obrazovke '
+        + 'Inzeráty, len tu pri podkladoch, z ktorých vznikli.',
+      ],
+      how: [
+        'Pri každom je vidieť kanál, podrobnosť (skupina, rubrika), odkedy beží '
+        + 'a koľko ľudí sa ozvalo. Porovnávať kanály sa dá len podľa nastúpených.',
+      ],
+      why: [
+        'Bez zapísaného odkazu sa o mesiac nedá povedať, ktorý kanál ľudí priniesol '
+        + '— a peniaze na reklamu sa potom rozdeľujú podľa dojmu, nie podľa čísla.',
+      ],
+      links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
+    },
+
+    'card.hours.approve': {
+      title: 'Schvaľovanie hodín',
+      lead: 'Schválené hodiny idú do podkladu na faktúru. Neschválené nie.',
+      what: [
+        'Pri každom zápise je zaškrtnutie „schválené". Tlačidlo nad zoznamom '
+        + 'schváli všetko, čo je práve vo filtri vidieť — nie celú databázu.',
+      ],
+      how: [
+        'Schvaľuje sa po tom, čo si hodiny niekto overil na stavbe alebo na '
+        + 'podpísanom výkaze. Nie je to formalita — je to posledné miesto, kde sa '
+        + 'dá chyba v hodinách zastaviť pred faktúrou.',
+      ],
+      why: [
+        'Neschválené hodiny nie sú stratené, ale do podkladu sa nedostanú a '
+        + 'v tomto mesiaci sa za ne nevyfakturuje. Sú to peniaze, ktoré ležia na stole.',
+      ],
+      links: [['timesheets', 'Odpracované hodiny'], ['invoices', 'Vydané faktúry']],
+    },
+
+    // ── Päť krokov zákazky ───────────────────────────────────────────────
+    // Profil zákazky má deväť sekcií a všetko potrebné v nich je — ale nikde
+    // nebolo napísané, čo treba spraviť teraz. Reťazec to hovorí a tieto
+    // vysvetlivky povedia, prečo každý krok existuje.
+    'sub.step.deal': {
+      title: 'Krok 1 — Dohodnuté',
+      lead: 'Odberateľ, sadzba, termín a čo presne je dielo. Bez toho sa nedá fakturovať.',
+      what: [
+        'Štyri veci: odberateľ, čo je dielo (rozsah), sadzba a termín. Pri pevnej '
+        + 'cene sa hodinová sadzba nevyžaduje.',
+      ],
+      how: [
+        '„Dielo" nie je názov zákazky — je to rozsah: čo má byť hotové, koľko toho '
+        + 'je a kde. Z neho sa potom robí objednávka živnostníkovi.',
+      ],
+      why: [
+        'Zákazka bez napísaného diela je pri kontrole prenájom pracovnej sily, nie '
+        + 'Werkvertrag — a na ten treba povolenie. Sadzba, ktorá nie je nikde, sa '
+        + 'dohaduje až pri faktúre, čo je najhorší možný čas.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['contracts', 'Zmluvy']],
+    },
+    'sub.step.green': {
+      title: 'Krok 2 — Smie sa začať',
+      lead: 'Papiere, bez ktorých sa na nemeckú stavbu nesmie ani vstúpiť.',
+      what: [
+        'A1 za každého človeka, hlásenie na Zoll pri stavebných prácach, USt-IdNr '
+        + 'odberateľa, SOKA-BAU a minimálna mzda podľa Lohngruppe.',
+      ],
+      how: [
+        'Appka to počíta sama z dokladov a nastavení — zoznam nižšie na obrazovke '
+        + 'povie pri každej položke, čo konkrétne s ňou spraviť.',
+      ],
+      why: [
+        'Keď toto chýba, nepokutujú živnostníka — pokutujú nás ako firmu, ktorá ho '
+        + 'tam poslala. Preto je to červené a preto má prednosť pred všetkým ostatným.',
+      ],
+      links: [['compliance', 'Compliance'], ['workers', 'Živnostníci']],
+    },
+    'sub.step.people': {
+      title: 'Krok 3 — Ľudia na stavbe',
+      lead: 'Kto tam je, s platnými dokladmi a so zapísaným ubytovaním.',
+      what: [
+        'Nasadení ľudia s termínom a sadzbou. Pri každom je vidieť, či mu niečo '
+        + 'chýba a či je na stavbe so zapísanou výnimkou.',
+      ],
+      how: [
+        'Nezapísané ubytovanie krok nezhodí — človek niekde spí, len to nie je '
+        + 'v appke. Chýbajúci doklad áno: ten sa dá dobehnúť alebo naň zapísať výnimku.',
+      ],
+      why: [
+        'Zákazka bez ľudí nezarába a stavba nepočká. A človek, ktorému chýba doklad, '
+        + 'je riziko celej zákazky, nie jeho vlastný problém.',
+      ],
+      links: [['workers', 'Živnostníci'], ['subcontracts', 'Zákazky']],
+    },
+    'sub.step.hours': {
+      title: 'Krok 4 — Hodiny',
+      lead: 'Zapísané a schválené odpracované hodiny. Z nich je faktúra.',
+      what: [
+        'Deň, človek, zákazka a hodiny. Z tých istých hodín vzniká faktúra '
+        + 'odberateľovi aj kontrola faktúry od živnostníka.',
+      ],
+      how: [
+        'Neschválené hodiny sa do podkladu nedostanú — nie sú stratené, pôjdu do '
+        + 'nasledujúceho obdobia. Ale v tomto mesiaci sa za ne nevyfakturuje.',
+      ],
+      why: [
+        'Hodiny, ktoré nikto nezapísal, sa nevyfakturujú a nikto si to nevšimne — '
+        + 'nie je s čím porovnať. Preto appka upozorní, keď na bežiacej zákazke '
+        + 'hodiny chýbajú.',
+      ],
+      links: [['timesheets', 'Odpracované hodiny'], ['hoursheet', 'Výkaz pre odberateľa']],
+    },
+    'sub.step.money': {
+      title: 'Krok 5 — Peniaze',
+      lead: 'Obdobie uzavrieť, vystaviť faktúru, dostať zaplatené.',
+      what: [
+        'Obdobie je úsek, po ktorom sa hodiny zmrazia a vznikne z nich podklad. '
+        + 'Z podkladu je faktúra, z faktúry úhrada.',
+      ],
+      how: [
+        'Faktúra sa bez schválenia administrátorom nikdy neodošle. Po splatnosti '
+        + 'appka prestane s tými peniazmi počítať v cash-flow — radšej opatrne.',
+      ],
+      why: [
+        'Toto je jediný krok, po ktorom na účte naozaj niečo pribudne. Uzavreté '
+        + 'obdobie bez faktúry je hotová práca, za ktorú nikto nezaplatil — a je to '
+        + 'najtichšia diera v celom reťazci.',
+      ],
+      links: [['invoices', 'Vydané faktúry'], ['money', 'Kde sú peniaze']],
+    },
+
     // ── Päť krokov náboru ────────────────────────────────────────────────
     // Nábor mal šesť krokov a päťdesiat odrážok a dve rôzne veci sa v ňom
     // volali „overenie": krok K3 aj časť telefonátu. Kto sa to učil, nevedel,
@@ -415,8 +602,8 @@
       title: 'Krok 2 — Preveriť',
       lead: 'To, čo povedal do telefónu, si over u niekoho iného. Toto bolo „overenie".',
       what: [
-        'Štyri veci: fotky jeho vlastnej práce, telefonát poslednému objednávateľovi '
-        + 'alebo polierovi, živnosť nájdená v registri, videohovor na nemčinu.',
+        'Štyri veci: fotky jeho vlastnej práce, telefonát tomu, pre koho robil '
+        + 'naposledy, živnosť nájdená v registri, videohovor na nemčinu.',
         'Pri partii k tomu pribudne, kto je kontaktná osoba a ako dlho spolu robia.',
       ],
       how: [

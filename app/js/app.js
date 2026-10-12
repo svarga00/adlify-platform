@@ -43,10 +43,15 @@ window.Danubra = {
   },
 
   async _loadModules() {
+    // Zapnuté moduly sú v tom istom riadku nastavení ako všetko ostatné, takže
+    // sa číta raz. Predtým to boli dva dotazy na jeden riadok — a každý si
+    // držal svoju vlastnú pravdu.
     try {
-      const { data } = await DB.list('settings', { select: 'modules', limit: 1 });
-      const m = data && data[0] && data[0].modules;
-      if (m && typeof m === 'object') this.modules = { ...this.modules, ...m };
+      await this.loadCfg();
+      const m = this.cfg('modules');
+      if (m && typeof m === 'object' && Object.keys(m).length) {
+        this.modules = { ...this.modules, ...m };
+      }
     } catch {
       // Bez nastavení sa appka nezasekne — zostanú predvolené moduly.
     }
@@ -364,8 +369,79 @@ window.Danubra = {
   },
   labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'Prehľad'; },
 
+  // ── Nastavenia: jeden riadok, jedno miesto ────────────────────────────────
+  // Nastavenia sa predtým načítavali na štyroch miestach (`Cfg`, `Invoicing`,
+  // a dvakrát vlastné `_settings()` v moduloch), každé s vlastnou **trvalou**
+  // pamäťou. Dôsledky boli presne tri a všetky tiché:
+  //
+  //   * tri obrazovky ich nenačítali vôbec, takže dokument odišiel odberateľovi
+  //     bez názvu firmy, bez IČO a bez IBAN-u,
+  //   * po uložení v Nastaveniach stará hodnota prežila až do obnovenia stránky,
+  //   * zákazka posielala compliance a marži **funkciu** namiesto objektu,
+  //     takže Cenník a pravidlá nemali na výpočty žiadny vplyv.
+  //
+  // Preto je riadok jeden a načítava sa raz, tu.
+  cfgRow: null,
+
+  async loadCfg(force) {
+    if (this.cfgRow && !force) return this.cfgRow;
+    try {
+      const { data } = await DB.list('settings', { limit: 1 });
+      this.cfgRow = (data && data[0]) || {};
+    } catch { this.cfgRow = this.cfgRow || {}; }
+    return this.cfgRow;
+  },
+
+  /** Oddiel nastavení. Vždy objekt — volajúci sa nemusí báť `undefined`. */
+  cfg(section) {
+    const row = this.cfgRow || {};
+    return (section ? row[section] : row) || {};
+  },
+
+  /** Fakturačné údaje. To, čo sa tlačí na dokumenty, ktoré idú von. */
+  supplier() { return this.cfg('supplier'); },
+
+  /**
+   * Dokument bez názvu firmy odberateľovi poslať nemožno — je to papier, na
+   * ktorom nie je, kto ho posiela. Preto sa namiesto tlače povie, čo chýba,
+   * a otvorí sa miesto, kde sa to doplní.
+   */
+  supplierReady(what) {
+    const s = this.supplier();
+    const chyba = [];
+    if (!s.name) chyba.push('názov firmy');
+    if (!s.address) chyba.push('adresa');
+    if (!s.company_id) chyba.push('IČO');
+    if (!chyba.length) return true;
+    UI.modal('Chýbajú fakturačné údaje', `
+      <div class="warnbox">${Icon('alert', 14)}
+        ${UI.esc(what || 'Tento dokument')} ide odberateľovi alebo živnostníkovi a je na ňom
+        napísané, kto ho posiela. Chýba: <strong>${UI.esc(chyba.join(', '))}</strong>.</div>
+      <p style="font-size:13px;color:var(--ink-sub);">Doplň to raz v Nastaveniach —
+        potom to appka vypíše na všetky dokumenty sama.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+        <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('settings')">
+          ${Icon('settings', 15)} Otvoriť Nastavenia</button>
+      </div>`);
+    return false;
+  },
+
+  /**
+   * Doplní názov firmy do textu. Názov bol zapečený priamo v uložených
+   * textoch (skript súhlasu s nahrávaním hovoru), takže zmena v Nastaveniach
+   * ho nemala ako prepísať — a appka hovorila menom bývalej firmy.
+   */
+  fillFirm(text) {
+    const name = this.supplier().name || 'našej firmy';
+    return String(text || '').replace(/\{firma\}/g, name);
+  },
+
   async init() {
     this.user = await DB.currentUser();
+    // `_loadModules()` načíta riadok nastavení cez `loadCfg()` — sú na
+    // dokumentoch aj vo výpočtoch, takže ich treba mať skôr, než sa otvorí
+    // prvá obrazovka, nie až keď si na ne niekto klikne.
     if (this.user) await this._loadModules();
     try {
       const saved = localStorage.getItem('danubra_area');
@@ -376,6 +452,9 @@ window.Danubra = {
     DB.onAuth((user) => {
       const was = !!this.user;
       this.user = user;
+      // Po prihlásení treba nastavenia dotiahnuť — pri načítaní stránky ešte
+      // nebol nikto prihlásený a RLS ich neprečítala.
+      if (user && !was) this.loadCfg(true).then(() => this._render());
       if (!!user !== was) this._render();
     });
     document.getElementById('login-form').addEventListener('submit', (e) => this._onLogin(e));
@@ -2733,8 +2812,8 @@ window.Danubra = {
              súbor ide účtovníčke alebo do šanónu a tam je podstatné, čia
              firma to je. -->
         <div class="print-head">
-          <strong>${UI.esc((window.Cfg && (Cfg.j('supplier') || {}).name) || 'Prehľad')}${
-            (window.Cfg && (Cfg.j('supplier') || {}).name) ? ' — Prehľad' : ''}</strong>
+          <strong>${UI.esc(this.supplier().name || 'Prehľad')}${
+            this.supplier().name ? ' — Prehľad' : ''}</strong>
           <span>${UI.esc(DanubraPeriod.text(x.period))}${
             x.siteName2 ? ` · zákazka ${UI.esc(x.siteName2)}` : ''} ·
             vytlačené ${UI.esc(today)}</span>

@@ -61,7 +61,7 @@
       items: [
         { text: 'Fotky hotovej práce — nie z internetu, jeho vlastné',
           old: [['k3', 0]] },
-        { text: 'Zavolané poslednému objednávateľovi alebo polierovi',
+        { text: 'Zavolané tomu, pre koho robil naposledy',
           old: [['k3', 1]],
           hint: 'Jedna otázka stačí: „Vzali by ste ho znova?" Zaváhanie je odpoveď.' },
         { text: 'Živnosť nájdená v registri (zrsr.sk, rzp.cz)',

@@ -6,11 +6,16 @@
 // vyžaduje ľudské potvrdenie.
 // ============================================================================
 window.Invoicing = {
+  /**
+   * Nastavenia. Načítava ich `Danubra.loadCfg()` — jeden riadok na jednom
+   * mieste. Predtým si ich táto služba držala vo vlastnej pamäti navždy,
+   * takže po zmene v Nastaveniach fakturovala so starými údajmi až do
+   * obnovenia stránky.
+   */
   async settings() {
-    if (this._set) return this._set;
+    if (window.Danubra) return Danubra.loadCfg();
     const { data } = await DB.list('settings', { limit: 1 });
-    this._set = (data && data[0]) || {};
-    return this._set;
+    return (data && data[0]) || {};
   },
 
   /** Pridelí ďalšie číslo faktúry (atomicky, migrácia 002). */
