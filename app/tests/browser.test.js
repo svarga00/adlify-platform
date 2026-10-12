@@ -2691,9 +2691,46 @@ console.log('Prehliadač');
           };
           UI.closeModal();
 
-          return { tiles, riadkov, hlavicky, poHladani, prazdne, dokl };
+          // Prvá vec na prehľade musí byť jedna veta a jedno tlačidlo —
+          // nie šesť čísel, z ktorých sa „čo mám robiť" domýšľa.
+          const box = view.querySelector('.nowbox');
+          const teraz = {
+            prve: view.firstElementChild
+              && view.firstElementChild.className.includes('print-head')
+              ? (view.children[1] || {}).className || '' : (view.firstElementChild || {}).className || '',
+            label: box ? box.querySelector('.nowbox-label').textContent.trim() : '',
+            title: box ? box.querySelector('.nowbox-title').textContent.trim() : '',
+            sub: box ? box.querySelector('.nowbox-sub').textContent.trim() : '',
+            why: box && box.querySelector('.nowbox-why')
+              ? box.querySelector('.nowbox-why').textContent.trim() : '',
+            help: !!(box && box.querySelector('.help-btn')),
+            tlacidlo: box && box.querySelector('.btn')
+              ? box.querySelector('.btn').textContent.replace(/\s+/g, ' ').trim() : '',
+            onclick: box && box.querySelector('.btn')
+              ? box.querySelector('.btn').getAttribute('onclick') : '',
+            hot: !!view.querySelector('.nowbox-hot'),
+            // Veta o úlohách zostáva len pre papier.
+            naPapier: !!view.querySelector('.headline.only-print'),
+            vetyNaObrazovke: [...view.querySelectorAll('.headline')]
+              .filter(e => !e.className.includes('only-print')).length,
+          };
+
+          return { tiles, riadkov, hlavicky, poHladani, prazdne, dokl, teraz };
         })();
       });
+
+      // Prehľad hovorí, čo spraviť teraz — a dá na to jedno tlačidlo.
+      ok(/Čo spraviť teraz/.test(out.teraz.label),
+        'prvá vec na prehľade je „čo spraviť teraz"', out.teraz.label);
+      ok(out.teraz.title.length > 0, 'a je to jedna vec, nie zoznam', out.teraz.title);
+      ok(out.teraz.sub.length > 0, 's vetou, čo presne čaká', out.teraz.sub);
+      ok(out.teraz.help, 'a s vysvetlivkou');
+      ok(/Danubra\.go\('\w+'\)/.test(out.teraz.onclick || ''),
+        'tlačidlo vedie presne tam, kde sa to rieši', out.teraz.onclick);
+      ok(out.teraz.vetyNaObrazovke === 0,
+        'nad číslami nie sú dve vety o tom istom — na obrazovke je jedna',
+        String(out.teraz.vetyNaObrazovke));
+      ok(out.teraz.naPapier, 'veta o úlohách zostáva pre tlač');
 
       const tile = (s) => out.tiles.find(t => t.label.includes(s)) || {};
       ok(out.tiles.length === 6, 'prehľad má šesť čísel',

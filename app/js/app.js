@@ -1299,6 +1299,69 @@ window.Danubra = {
    * Veci, ktoré sa nedajú prehliadnuť. Úlohy sem nepatria — tie majú vlastnú
    * kartu. Sem patrí len to, čo vypočítame z dát a na čo sa dá kliknúť.
    */
+  /**
+   * Čo spraviť teraz — prvá vec na prehľade.
+   *
+   * Jedna veta, jeden dôvod, jedno tlačidlo. Prehľad mal šesť čísel a vetu
+   * o úlohách; z toho sa „čo mám robiť" muselo domyslieť — a to nikto
+   * nerobí. Tu sa to povie.
+   *
+   * Poradie je zámerné: najprv to, čo **drží reťazec** (bez toho sa
+   * nefakturuje), potom úlohy a pripomienky. Keď nestojí nič, povie sa to
+   * tiež — a bez tlačidla, aby nebolo čo klikať.
+   */
+  _dashNow(chainHead, taskLine, tc) {
+    const krok = chainHead && chainHead.step;
+    const horí = chainHead && chainHead.tone === 'bad';
+    const úlohy = taskLine && taskLine.tone !== 'ok';
+
+    let label = 'Čo spraviť teraz', title, sub, why = '', akcia = null, hot = false;
+
+    if (horí && krok) {
+      label += ` · krok ${krok.n} zo 14`;
+      title = krok.title;
+      sub = krok.todoText || chainHead.text;
+      why = krok.lead || '';
+      hot = true;
+      if (this.routeAvailable(krok.route)) {
+        akcia = { label: `Otvoriť ${this.labelOf(krok.route)}`,
+          onclick: `Danubra.go('${krok.route}')`, ico: krok.ico || 'chevron' };
+      }
+    } else if (úlohy) {
+      title = tc && tc.overdue ? 'Vybaviť úlohy po termíne' : 'Vybaviť dnešné úlohy';
+      sub = taskLine.text;
+      why = 'Úloha po termíne je vec, ktorú niekto čaká — nie poznámka.';
+      hot = taskLine.tone === 'bad';
+      akcia = { label: 'Otvoriť Úlohy', onclick: "Danubra.go('tasks')", ico: 'tasks' };
+    } else if (krok) {
+      title = `Najbližšie na rade: ${krok.title.toLowerCase()}`;
+      sub = krok.todoText || chainHead.text;
+      why = krok.lead || '';
+      if (this.routeAvailable(krok.route)) {
+        akcia = { label: `Otvoriť ${this.labelOf(krok.route)}`,
+          onclick: `Danubra.go('${krok.route}')`, ico: krok.ico || 'chevron' };
+      }
+    } else {
+      title = 'Nič nestojí';
+      sub = (chainHead && chainHead.text) || 'Celý reťazec je priechodný.';
+      why = 'Keď sa niečo zasekne, bude to tu napísané ako prvé.';
+    }
+
+    return `
+      <div class="nowbox${hot ? ' nowbox-hot' : ''} no-print">
+        <div class="nowbox-label">${UI.esc(label)}</div>
+        <div class="nowbox-title">${UI.esc(title)} ${Help.btn('dash.headline', { size: 14 })}</div>
+        <div class="nowbox-sub">${UI.esc(sub)}</div>
+        ${why ? `<div class="nowbox-why">${UI.esc(why)}</div>` : ''}
+        ${akcia ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
+          onclick="${akcia.onclick}">${Icon(akcia.ico, 17)} ${UI.esc(akcia.label)}</button>` : ''}
+      </div>
+      <!-- Na papieri je veta bez tlačidla — tlač nemá kam klikať. -->
+      <div class="headline headline-${taskLine.tone === 'bad' ? 'bad' : taskLine.tone === 'warn' ? 'warn' : 'ok'} only-print">
+        <span>${UI.esc(taskLine.text)}</span>
+      </div>`;
+  },
+
   _dashAlerts(x) {
     const a = [];
     /**
@@ -2768,7 +2831,11 @@ window.Danubra = {
       const datum = UI.esc(today.charAt(0).toUpperCase() + today.slice(1));
       view.innerHTML = this.header('Prehľad', datum) + UI.loading();
 
-      const x = await this._dashLoad();
+      // Reťazec sa ťahá spolu s prehľadom, nie až na obrazovke „Ako to ide".
+      // Prehľad má ako prvú vec povedať, **čo spraviť teraz** — inak sa to
+      // treba domyslieť zo šiestich čísel, a to je presne to, čo nikto nerobí.
+      // Dotazy sú úzke (id a stav) a idú súbežne, takže to nič nezdrží.
+      const [x, chainData] = await Promise.all([this._dashLoad(), this._flowLoad()]);
       // Export si dáta neťahá znova — vyváža presne to, čo je na obrazovke.
       this._dashData = x;
 
@@ -2785,7 +2852,10 @@ window.Danubra = {
       };
       this._buildNav();
 
-      // Prvá veta na obrazovke. Nie graf, nie číslo — veta.
+      // Prvá veta na obrazovke. Nie graf, nie číslo — veta. A pod ňou jedno
+      // tlačidlo, ktoré vedie presne tam, kde sa to rieši.
+      const chain = DanubraChain.all(chainData);
+      const chainHead = DanubraChain.headline(chain);
       const head = DanubraTasks.headline(x.tasks, x.today);
       const alerts = this._dashAlerts(x);
       const line = alerts.length && head.tone === 'ok'
@@ -2818,11 +2888,7 @@ window.Danubra = {
             x.siteName2 ? ` · zákazka ${UI.esc(x.siteName2)}` : ''} ·
             vytlačené ${UI.esc(today)}</span>
         </div>
-        <div class="headline headline-${line.tone === 'bad' ? 'bad' : line.tone === 'warn' ? 'warn' : 'ok'}">
-          ${Icon(line.tone === 'bad' ? 'alert' : line.tone === 'warn' ? 'clock' : 'check', 18)}
-          <span>${UI.esc(line.text)}</span>
-          ${Help.btn('dash.headline')}
-        </div>
+        ${this._dashNow(chainHead, line, tc)}
         ${vidno.length ? `<div class="kpi-grid">
           ${vidno.map(d => `
             <div class="kpi kpi-${d.state}">
