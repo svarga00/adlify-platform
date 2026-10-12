@@ -26,8 +26,13 @@ function fullChannel(key) {
 console.log('\nKANÁLY');
 {
   eq(K.CHANNELS.map(c => c.key),
-    ['web', 'bazos_cz', 'bazos_sk', 'fb_cz', 'fb_sk', 'ads', 'images', 'voice'],
-    'osem kanálov v poradí, v akom sa obsadzujú');
+    ['web', 'bazos_cz', 'bazos_sk', 'fb_cz', 'fb_sk',
+      'ads_cz', 'ads_sk', 'voice_cz', 'voice_sk', 'images'],
+    'desať kanálov v poradí, v akom sa obsadzujú');
+  // Reklama a voiceover sú per krajina: text pre Česko má inú reč aj iné
+  // cielenie než ten pre Slovensko.
+  eq(K.channel('ads_cz').lang, 'cs', 'česká reklama je po česky');
+  eq(K.channel('ads_sk').lang, 'sk', 'slovenská po slovensky');
   ok(K.CHANNELS.every(c => c.title && c.lead),
     'každý kanál povie, čo to je a na čo si dať pozor');
   eq(K.channel('bazos_cz').lang, 'cs', 'Bazoš CZ je po česky');
@@ -103,7 +108,7 @@ console.log('\nSTAV KANÁLA');
 console.log('\nVŠETKY KANÁLY NARAZ');
 {
   const st = K.state([]);
-  eq(st.length, 8, 'osem stavov');
+  eq(st.length, 10, 'desať stavov');
   ok(st.every(c => !c.ready), 'na začiatku nie je zverejniteľný ani jeden');
 }
 {
@@ -120,7 +125,7 @@ console.log('\nJEDNA VETA DO ZOZNAMU');
 }
 {
   const s = K.summary(fullChannel('bazos_sk'));
-  ok(/1 z 8 kanálov hotových/.test(s.text), 'inak koľko kanálov je hotových', s.text);
+  ok(/1 z 10 kanálov hotových/.test(s.text), 'inak koľko kanálov je hotových', s.text);
 }
 {
   const rows = [...fullChannel('bazos_sk'),
@@ -134,7 +139,7 @@ console.log('\nJEDNA VETA DO ZOZNAMU');
   const vsetko = K.CHANNELS.flatMap(c => fullChannel(c.key));
   const s = K.summary(vsetko);
   eq(s.tone, 'ok', 'keď je hotové všetko, je to v poriadku');
-  eq(s.ready, 8, 'osem kanálov');
+  eq(s.ready, 10, 'desať kanálov');
 }
 
 console.log('\nPRED ZVEREJNENÍM');
@@ -160,7 +165,7 @@ console.log('\nPRED ZVEREJNENÍM');
   const vsetko = K.CHANNELS.flatMap(c => fullChannel(c.key));
   const ch = K.checklist({ offer_rate: 22, start_date: '2026-11-03' }, vsetko);
   ok(ch.every(x => x.done), 'pri hotovom nábore je celý zoznam odškrtnutý');
-  eq(ch.length, 8, 'a je v ňom osem kanálov');
+  eq(ch.length, 10, 'a je v ňom desať kanálov');
 }
 
 console.log('\nZHRNUTIE ZÁKAZKY');

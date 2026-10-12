@@ -41,12 +41,19 @@
       lead: 'Príspevky do skupín a na stránku. Bez emoji.' },
     { key: 'fb_sk', title: 'Facebook SK', lang: 'sk',
       lead: 'Príspevky do skupín a na stránku. Bez emoji.' },
-    { key: 'ads', title: 'Platená reklama', lang: 'cs',
+    // Platená reklama a voiceover sú **per krajina**, nie spoločné: text, ktorý
+    // beží v Česku, má inú reč aj iné cielenie než ten pre Slovensko, a v
+    // podkladoch sa tak aj píšu.
+    { key: 'ads_cz', title: 'Platená reklama CZ', lang: 'cs',
       lead: 'Kampaň s priznanou kategóriou Zamestnanie. Bez nej ju Meta zhodí.' },
+    { key: 'ads_sk', title: 'Platená reklama SK', lang: 'sk',
+      lead: 'Kampaň s priznanou kategóriou Zamestnanie. Bez nej ju Meta zhodí.' },
+    { key: 'voice_cz', title: 'Voiceover CZ', lang: 'cs',
+      lead: 'Skript na nahovorenie. Značky v hranatých zátvorkách sú pre nástroj, nie na prečítanie.' },
+    { key: 'voice_sk', title: 'Voiceover SK', lang: 'sk',
+      lead: 'Skript na nahovorenie. Značky v hranatých zátvorkách sú pre nástroj, nie na prečítanie.' },
     { key: 'images', title: 'Obrázky a prompty', lang: null,
       lead: 'Prompty na generovanie a hotové obrázky. Text sa dopĺňa v Canve.' },
-    { key: 'voice', title: 'Voiceover', lang: null,
-      lead: 'Skript na nahovorenie. Značky v hranatých zátvorkách sú pre nástroj, nie na prečítanie.' },
   ];
 
   /**
@@ -92,7 +99,14 @@
       { key: 'long', title: 'Dlhý príspevok na stránku' },
       { key: 'urgent', title: 'Urgentný príspevok', hint: 'Keď treba obsadiť hneď.' },
     ],
-    ads: [
+    ads_cz: [
+      { key: 'primary1', title: 'Primárny text 1', must: true },
+      { key: 'primary2', title: 'Primárny text 2' },
+      { key: 'headlines', title: 'Nadpisy', must: true, hint: 'Tri, každý na vlastnom riadku.' },
+      { key: 'description', title: 'Popis' },
+      { key: 'setup', title: 'Nastavenie kampane', hint: 'Cielenie, denný rozpočet, formáty, tlačidlo.' },
+    ],
+    ads_sk: [
       { key: 'primary1', title: 'Primárny text 1', must: true },
       { key: 'primary2', title: 'Primárny text 2' },
       { key: 'headlines', title: 'Nadpisy', must: true, hint: 'Tri, každý na vlastnom riadku.' },
@@ -108,7 +122,11 @@
       { key: 'pt_9x16', title: 'Prompt 9:16 — s textom', kind: 'prompt' },
       { key: 'canva', title: 'Texty do Canvy', hint: 'K promptom bez textu — nadpis, podnadpis, pruh, pilulky.' },
     ],
-    voice: [
+    voice_cz: [
+      { key: 'script', title: 'Skript', must: true,
+        hint: 'Krátke vety. Značky ako [confident] sú pokyny pre nástroj, nie na prečítanie.' },
+    ],
+    voice_sk: [
       { key: 'script', title: 'Skript', must: true,
         hint: 'Krátke vety. Značky ako [confident] sú pokyny pre nástroj, nie na prečítanie.' },
     ],
