@@ -2054,9 +2054,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 
 /* Tlač: na papier patrí papier, nič iné. */
+/* Veta, ktora ma zmysel len na papieri. Na obrazovke je namiesto nej
+   "Co spravit teraz" s tlacidlom - a tlac nema kam klikat. */
+.only-print { display: none; }
+
 @media print {
   .sidebar, .topbar, .mobile-head, .bottom-nav, .filterbar,
   .page-head, .warnbox, .regimebox, .sidebar-backdrop { display: none !important; }
+  .only-print { display: flex !important; }
   .main { margin-left: 0 !important; }
   .view { padding: 0 !important; }
   .hs-paper { border: 0; box-shadow: none; padding: 0; }
