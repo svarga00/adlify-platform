@@ -1963,6 +1963,106 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Compliance: najskôr človek na stavbe bez A1 ───────────────────────
+    // Obrazovka bola zoznam pravidiel so štyrmi číslami. Z toho sa nedalo
+    // povedať, čo zastaví stavbu najskôr — a pri compliance sú lehoty celý
+    // problém (A1 až 45 dní, Freistellung §48b štyri až osem týždňov).
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const dnes = new Date().toISOString().slice(0, 10);
+        const posun = (dni) => {
+          const d = new Date(dnes + 'T00:00:00Z');
+          d.setUTCDate(d.getUTCDate() + dni);
+          return d.toISOString().slice(0, 10);
+        };
+        // Všetky firemné povolenia platné — nech je na rade A1.
+        const POVOLENIA = ['ust_idnr', 'soka_registration', 'handwerksrolle', 'freistellung_48b']
+          .map((kind, i) => ({ id: `c${i}`, scope: 'company', kind,
+            valid_from: posun(-200), valid_to: posun(300), status: 'active' }));
+        const DATA = {
+          compliance: POVOLENIA,
+          workers: [
+            { id: 'w1', full_name: 'Jozef Malý', status: 'deployed' },
+            { id: 'w2', full_name: 'Milan Starý', status: 'deployed' },
+          ],
+          // Jozef má A1, Milan nemá vôbec — a je na stavbe.
+          worker_documents: [{ id: 'd1', worker_id: 'w1', kind: 'a1',
+            valid_from: posun(-100), valid_to: posun(200) }],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'compliance';
+        Cmp.loaded = false;
+        await Danubra.views.compliance.call(Danubra, view);
+
+        const čítaj = () => {
+          const box = view.querySelector('.nowbox');
+          return {
+            title: box ? box.querySelector('.nowbox-title').textContent.trim() : '',
+            sub: box ? box.querySelector('.nowbox-sub').textContent.trim() : '',
+            why: box ? box.querySelector('.nowbox-why').textContent.trim() : '',
+            onclick: box && box.querySelector('.btn')
+              ? box.querySelector('.btn').getAttribute('onclick') : '',
+            hot: !!view.querySelector('.nowbox-hot'),
+            help: !!(box && box.querySelector('.help-btn')),
+          };
+        };
+        const bezA1 = čítaj();
+
+        // Doplň Milanovi A1 → na rade je povolenie, ktorému sa končí platnosť.
+        Cmp.workerDocs = [
+          ...DATA.worker_documents,
+          { id: 'd2', worker_id: 'w2', kind: 'a1', valid_from: posun(-50), valid_to: posun(200) },
+        ];
+        Cmp.items = [...POVOLENIA.filter(p => p.kind !== 'freistellung_48b'),
+          { id: 'c9', scope: 'company', kind: 'freistellung_48b',
+            valid_from: posun(-300), valid_to: posun(20), status: 'active' }];
+        await Danubra.views.compliance.call(Danubra, view);
+        const konciPovolenie = čítaj();
+
+        return { bezA1, konciPovolenie };
+      });
+
+      ok(/bez platného A1/.test(out.bezA1.title),
+        'compliance začína človekom na stavbe bez A1', out.bezA1.title);
+      ok(out.bezA1.hot, 'a horí to — je už na stavbe');
+      ok(/Milan Starý/.test(out.bezA1.sub), 'vo vete je jeho meno', out.bezA1.sub);
+      ok(!/Jozef Malý/.test(out.bezA1.sub),
+        'a kto A1 má, tam nie je', out.bezA1.sub);
+      ok(/padne na nás/.test(out.bezA1.why), 'povie, na koho to pri kontrole padne',
+        out.bezA1.why);
+      ok(/45 dní/.test(out.bezA1.why), 'aj koľko trvá vybavenie', out.bezA1.why);
+      ok(/Danubra\.go\('workers'\)/.test(out.bezA1.onclick || ''),
+        'tlačidlo vedie na živnostníkov', out.bezA1.onclick);
+      ok(out.bezA1.help, 'a je pri tom vysvetlivka');
+
+      ok(/Obnoviť firemné povolenie/.test(out.konciPovolenie.title),
+        'keď majú všetci A1, na rade je povolenie pred koncom platnosti',
+        out.konciPovolenie.title);
+      ok(/Freistellungsbescheinigung/.test(out.konciPovolenie.sub),
+        'povie sa menom, nie kľúčom z databázy', out.konciPovolenie.sub);
+      ok(/4–8 týždňov/.test(out.konciPovolenie.why),
+        's lehotou, ktorá naozaj platí', out.konciPovolenie.why);
+      ok(!out.konciPovolenie.hot, 'a nehorí — ešte je čas');
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Banka: starý výpis je dôležitejší než pekný výhľad ────────────────
     // Celá obrazovka stojí na jednom čísle — na zostatku z posledného výpisu.
     // Keď je výpis starý, výhľad na osem týždňov je fikcia, a predtým to
