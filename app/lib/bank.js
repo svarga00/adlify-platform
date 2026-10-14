@@ -336,6 +336,110 @@
     };
   }
 
+  /**
+   * Čo spraviť teraz na banke — jedna vec.
+   *
+   * Obrazovka ukazuje výhľad na osem týždňov, najnižší bod a zoznam toho, čo
+   * sa čaká. Všetko to ale stojí na jednom čísle: na zostatku, ktorý vyšiel
+   * z posledného načítaného výpisu. Keď je výpis starý, celý výhľad je
+   * fikcia — a nič na obrazovke to nepovie.
+   *
+   * Preto je poradie takéto:
+   *
+   *   1. **starý výpis** — bez neho sa zostatok nerovná skutočnosti a všetko
+   *      pod ním je výpočet z nesprávneho čísla,
+   *   2. **účet v mínuse** vo výhľade — výplaty sa odložiť nedajú,
+   *   3. **nespárované pohyby** — zaplatená faktúra, ktorú nikto nespároval,
+   *      zostáva vo výhľade ako očakávaný príjem a účet vyzerá bohatší,
+   *   4. **tesná rezerva** — nehorí, ale treba o tom vedieť.
+   *
+   * @param {Object} o { forecast, scale, txs, today, staleDays }
+   */
+  const STARY_VYPIS = 7;        // dní bez pohybu, po ktorých sa výpis pýta
+  const STARY_VYPIS_HORI = 14;  // a po ktorých už horí
+
+  function nowNext(o = {}) {
+    const f = o.forecast || {};
+    const scale = o.scale || {};
+    const today = String(o.today || new Date().toISOString().slice(0, 10)).slice(0, 10);
+    const txs = o.txs || [];
+    const hranica = Number(o.staleDays) || STARY_VYPIS;
+
+    // Posledný pohyb na účte. Prázdny účet je iná situácia než starý výpis.
+    const posledny = txs
+      .map(t => String((t && (t.booked_at || t.booked_on || t.value_date)) || '').slice(0, 10))
+      .filter(Boolean).sort().pop() || null;
+    const dni = posledny ? dniMedzi(posledny, today) : null;
+    const nesparovane = txs.filter(t => t && t.match_status === 'unmatched');
+
+    if (!txs.length) {
+      return {
+        key: 'import', title: 'Načítať výpis z banky',
+        what: 'Na účte nie je ani jeden pohyb, takže zostatok je nula.',
+        why: 'Celý výhľad stojí na zostatku z výpisu. Bez neho je to výpočet '
+          + 'z nesprávneho čísla.',
+        hot: false, count: 0,
+      };
+    }
+    if (dni != null && dni >= hranica) {
+      return {
+        key: 'import', title: 'Načítať výpis z banky',
+        what: `Posledný pohyb je ${dni} ${plural(dni, 'deň', 'dni', 'dní')} starý.`,
+        why: 'Zostatok z neho sa už nerovná skutočnosti a všetko pod ním — '
+          + 'najnižší bod aj výhľad — je výpočet z nesprávneho čísla.',
+        hot: dni >= STARY_VYPIS_HORI, count: dni,
+      };
+    }
+    if (f.negativeFrom) {
+      return {
+        key: 'negative', title: 'Účet spadne do mínusu',
+        what: `Podľa výhľadu ${f.negativeFrom.from}, najnižší bod ${M.format(f.lowest.balance)}.`,
+        why: 'Výplaty sa odložiť nedajú. Najskôr peniaze, ktoré už mali prísť — '
+          + 'ďalších ľudí neber, kým to nesedí.',
+        hot: true, count: 1,
+      };
+    }
+    if (nesparovane.length) {
+      return {
+        key: 'match', title: 'Spárovať pohyby',
+        what: `${nesparovane.length} ${plural(nesparovane.length, 'pohyb nie je', 'pohyby nie sú', 'pohybov nie je')} spárovaných.`,
+        why: 'Zaplatená faktúra, ktorú nikto nespároval, zostáva vo výhľade ako '
+          + 'očakávaný príjem — a účet vyzerá bohatší, než je.',
+        hot: false, count: nesparovane.length,
+      };
+    }
+    if ((scale.warnings || []).some(w => w.rule === 'cash_thin')) {
+      return {
+        key: 'thin', title: 'Rezerva je tesná',
+        what: `Najnižší bod výhľadu je ${M.format(f.lowest.balance)}.`,
+        why: 'Jeden odberateľ, ktorý zaplatí neskoro, a je to tesné. Nie je to '
+          + 'prekážka — je to vec, o ktorej treba vedieť pri nábore.',
+        hot: false, count: 1,
+      };
+    }
+    return {
+      key: 'ok', title: 'Na výplaty aj na ďalších ľudí to vyjde',
+      what: `Najnižší bod výhľadu je ${M.format(f.lowest ? f.lowest.balance : 0)}.`,
+      why: 'Keď sa to zmení, bude to tu napísané ako prvé.',
+      hot: false, count: 0,
+    };
+  }
+
+  /** Koľko dní je medzi dvoma dátumami. Nie presne — na dni to stačí. */
+  function dniMedzi(od, do_) {
+    const a = new Date(String(od).slice(0, 10) + 'T00:00:00Z');
+    const b = new Date(String(do_).slice(0, 10) + 'T00:00:00Z');
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
+    return Math.round((b - a) / 86400000);
+  }
+
+  function plural(n, one, few, many) {
+    const x = Math.abs(n);
+    if (x === 1) return one;
+    if (x >= 2 && x <= 4) return few;
+    return many;
+  }
+
   function addDays(d, n) {
     const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z');
     t.setUTCDate(t.getUTCDate() + n);
@@ -346,7 +450,7 @@
     COLUMNS, norm, detectDelimiter, splitLine, mapColumns,
     parseDate, parseAmount, cleanIban, hashRow,
     parseCsv, summary,
-    forecast, scaleCheck, addDays,
+    forecast, scaleCheck, addDays, nowNext, STARY_VYPIS, STARY_VYPIS_HORI,
   };
   window.DanubraBank = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

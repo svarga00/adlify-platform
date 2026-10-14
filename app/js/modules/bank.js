@@ -77,6 +77,7 @@
         </div>`;
 
       return `
+        ${this.nowHtml(f, scale)}
         ${Shell.blocker({
           reasons: [...scale.reasons, ...scale.warnings],
           okHtml: `<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">
@@ -97,6 +98,31 @@
         <div class="cf-list">${f.buckets.map(week).join('')}</div>
 
         ${this.upcomingHtml(f)}`;
+    },
+
+    /**
+     * Čo spraviť teraz. Poradie drží knižnica (`DanubraBank.nowNext`):
+     * najprv starý výpis, pretože bez neho je celý výhľad výpočet
+     * z nesprávneho čísla, potom mínus na účte, potom nespárované pohyby.
+     */
+    nowHtml(f, scale) {
+      const n = DanubraBank.nowNext({
+        forecast: f, scale, txs: this.txs, today: Danubra._dayISO(),
+      });
+      const AKCIA = {
+        import: { label: 'Načítať výpis', onclick: 'Bank.importForm()', ico: 'upload' },
+        negative: { label: 'Pozrieť vydané faktúry', onclick: "Danubra.go('invoices')", ico: 'invoices' },
+        match: { label: 'Spárovať pohyby', onclick: "Bank.setTab('txs')", ico: 'check' },
+      };
+      const a = AKCIA[n.key];
+      return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
+        <div class="nowbox-label">Čo spraviť teraz</div>
+        <div class="nowbox-title">${UI.esc(n.title)} ${Help.btn('card.bank.now', { size: 14 })}</div>
+        <div class="nowbox-sub">${UI.esc(n.what)}</div>
+        <div class="nowbox-why">${UI.esc(n.why)}</div>
+        ${a ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
+          onclick="${a.onclick}">${Icon(a.ico, 17)} ${a.label}</button>` : ''}
+      </div>`;
     },
 
     /** Čo konkrétne sa čaká — bez toho je výhľad len graf. */

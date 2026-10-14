@@ -1963,6 +1963,92 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Banka: starý výpis je dôležitejší než pekný výhľad ────────────────
+    // Celá obrazovka stojí na jednom čísle — na zostatku z posledného výpisu.
+    // Keď je výpis starý, výhľad na osem týždňov je fikcia, a predtým to
+    // obrazovka nepovedala vôbec.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const dnes = new Date().toISOString().slice(0, 10);
+        const presun = (dni) => {
+          const d = new Date(dnes + 'T00:00:00Z');
+          d.setUTCDate(d.getUTCDate() - dni);
+          return d.toISOString().slice(0, 10);
+        };
+        const DATA = {
+          bank_transactions: [
+            { id: 't1', booked_at: presun(30), amount: 5000, match_status: 'matched',
+              counterparty: 'GU Ulm GmbH', note: 'faktúra 2026001' },
+          ],
+          v_cashflow: [], invoices: [], bills: [], settings: [{ id: 'c', staffing: {} }],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = { staffing: {} };
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'bank';
+        Bank.loaded = false; Bank.tab = 'cashflow';
+        await Danubra.views.bank.call(Danubra, view);
+
+        const čítaj = () => {
+          const box = view.querySelector('.nowbox');
+          return {
+            title: box ? box.querySelector('.nowbox-title').textContent.trim() : '',
+            sub: box ? box.querySelector('.nowbox-sub').textContent.trim() : '',
+            why: box ? box.querySelector('.nowbox-why').textContent.trim() : '',
+            onclick: box && box.querySelector('.btn')
+              ? box.querySelector('.btn').getAttribute('onclick') : '',
+            hot: !!view.querySelector('.nowbox-hot'),
+            help: !!(box && box.querySelector('.help-btn')),
+          };
+        };
+        const stary = čítaj();
+
+        // Svieži výpis, ale jeden pohyb nespárovaný.
+        Bank.txs = [
+          { id: 't1', booked_at: presun(1), amount: 5000, match_status: 'matched' },
+          { id: 't2', booked_at: presun(2), amount: 900, match_status: 'unmatched' },
+        ];
+        await Danubra.views.bank.call(Danubra, view);
+        const parovanie = čítaj();
+
+        return { stary, parovanie };
+      });
+
+      ok(/Načítať výpis/.test(out.stary.title),
+        'starý výpis je prvá vec, ktorú banka povie', out.stary.title);
+      ok(/30 dní/.test(out.stary.sub), 'a povie, aký je starý', out.stary.sub);
+      ok(out.stary.hot, 'nad dva týždne to horí');
+      ok(/nesprávneho čísla/.test(out.stary.why),
+        'aj čo to znamená pre celý výhľad', out.stary.why);
+      ok(/Bank\.importForm\(\)/.test(out.stary.onclick || ''),
+        'tlačidlo otvorí načítanie výpisu', out.stary.onclick);
+      ok(out.stary.help, 'a je pri tom vysvetlivka');
+
+      ok(/Spárovať pohyby/.test(out.parovanie.title),
+        'pri sviežom výpise je na rade párovanie', out.parovanie.title);
+      ok(/1 pohyb nie je/.test(out.parovanie.sub), 'a koľko ich je', out.parovanie.sub);
+      ok(/vyzerá bohatší/.test(out.parovanie.why),
+        's dôvodom: nespárovaná platba klame výhľad', out.parovanie.why);
+      ok(!out.parovanie.hot, 'nehorí to');
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Prijaté faktúry: sporné sú hore a nedajú sa len tak schváliť ──────
     // Toto je druhá strana tých istých peňazí. Sporná faktúra sú peniaze,
     // ktoré by sme zaplatili zbytočne; faktúra po splatnosti je to jediné,

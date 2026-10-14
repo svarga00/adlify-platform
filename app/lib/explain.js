@@ -462,6 +462,27 @@
       links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
     },
 
+    'card.bank.now': {
+      title: 'Čo spraviť teraz na banke',
+      lead: 'Najprv výpis, lebo celý výhľad stojí na zostatku z neho.',
+      what: [
+        'Zostatok sa počíta zo pohybov, ktoré sú načítané. Keď je výpis starý, '
+        + 'najnižší bod aj výhľad na osem týždňov sú výpočty z nesprávneho čísla — '
+        + 'a nič iné na obrazovke to nepovie.',
+        'Nespárovaný pohyb znamená, že zaplatená faktúra zostáva vo výhľade ako '
+        + 'očakávaný príjem. Účet potom vyzerá bohatší, než je.',
+      ],
+      how: [
+        'Po týždni bez pohybu sa výpis pripomenie, po dvoch týždňoch to appka označí '
+        + 'ako horiace. Mínus na účte má prednosť pred párovaním — výplaty sa odložiť nedajú.',
+      ],
+      why: [
+        'Toto je jediná obrazovka, kde sa rozhoduje o tom, či sa dá brať ďalší človek. '
+        + 'Rozhodnutie podľa starého zostatku je horšie než žiadne rozhodnutie.',
+      ],
+      links: [['bank', 'Banka a cash-flow'], ['money', 'Kde sú peniaze']],
+    },
+
     'card.bills.now': {
       title: 'Čo spraviť teraz s prijatými faktúrami',
       lead: 'Najprv to, čo nesedí s hodinami, potom čo je po splatnosti, potom nové.',
