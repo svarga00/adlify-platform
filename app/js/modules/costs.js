@@ -53,7 +53,9 @@
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
 
-      const disputed = this.bills.filter(b => b.status === 'disputed');
+      // Čo na prijatých faktúrach čaká na nás. Poradie drží knižnica:
+      // sporné, potom po splatnosti, potom neskontrolované.
+      const q = DanubraBills.queue(this.bills, Danubra._dayISO());
       Danubra.setActions(
         `<button class="btn btn-primary btn-sm" onclick="Cost.${this.tab === 'bills' ? 'billForm' : 'costForm'}()">
           ${Icon('plus')} ${this.tab === 'bills' ? 'Prijatá faktúra' : 'Náklad'}</button>`);
@@ -65,12 +67,37 @@
              <button class="fb-chip${this.tab === 'costs' ? ' active' : ''}" onclick="Cost.setTab('costs')">
                Ostatné náklady<em>${this.costs.length}</em></button>
            </div>`
-        + (disputed.length ? `<div class="warnbox" style="margin-bottom:12px;">
-             ${Icon('alert', 14)} ${disputed.length}
-             ${DanubraBills.plural(disputed.length, 'faktúra nesedí', 'faktúry nesedia', 'faktúr nesedí')}
-             so schválenými hodinami. Bez poznámky sa nedajú schváliť.</div>` : '');
+        + (this.tab === 'bills' ? this.nowHtml(q) : '');
 
-      el.innerHTML = head + (this.tab === 'bills' ? this.billsHtml() : this.costsHtml());
+      el.innerHTML = head + (this.tab === 'bills' ? this.billsHtml(q) : this.costsHtml());
+    },
+
+    /**
+     * Jedna veta a jedno tlačidlo, ktoré otvorí práve tú faktúru, čo je na
+     * rade. Ostatné náklady vetu nemajú — tam sa nič neschvaľuje ani
+     * neporovnáva, je to evidencia.
+     */
+    nowHtml(q) {
+      const n = q.next;
+      if (!n) {
+        return `<div class="nowbox">
+          <div class="nowbox-label">Čo spraviť teraz</div>
+          <div class="nowbox-title">Nič nečaká ${Help.btn('card.bills.now', { size: 14 })}</div>
+          <div class="nowbox-sub">Nič nie je sporné, neskontrolované ani po splatnosti.</div>
+          <div class="nowbox-why">Keď niečo pribudne, bude to tu napísané ako prvé.</div>
+        </div>`;
+      }
+      const label = { disputed: 'Otvoriť spornú', pay: 'Otvoriť najstaršiu',
+        check: 'Otvoriť na kontrolu', willpay: 'Pozrieť schválené' }[n.key] || 'Otvoriť';
+      const ico = { disputed: 'alert', pay: 'wallet', check: 'check', willpay: 'calendar' }[n.key] || 'chevron';
+      return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
+        <div class="nowbox-label">Čo spraviť teraz</div>
+        <div class="nowbox-title">${UI.esc(n.title)} ${Help.btn('card.bills.now', { size: 14 })}</div>
+        <div class="nowbox-sub">${UI.esc(n.what)}</div>
+        <div class="nowbox-why">${UI.esc(n.why)}</div>
+        ${n.bill ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
+          onclick="Cost.billDetail('${n.bill.id}')">${Icon(ico, 17)} ${label}</button>` : ''}
+      </div>`;
     },
 
     setTab(t) {
@@ -81,8 +108,12 @@
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
 
     // ── Prijaté faktúry ───────────────────────────────────────────────────
-    billsHtml() {
-      const rows = this.billRows();
+    billsHtml(q) {
+      // Čo čaká na nás, je hore. Zoznam drží `Shell.list` (filtre, prázdny
+      // stav, karty), takže sa nedelí na sekcie — len sa poradie zoradí podľa
+      // toho, čo treba spraviť. Pri zapnutom filtri stavu sa neradí: človek
+      // si už vybral a prehadzovanie poradia by ho zmätlo.
+      const rows = this.filters.status ? this.billRows() : this.sortByWork(this.billRows(), q);
 
       const card = (b) => {
         const c = DanubraBills.check(b, this.ctx(b));
@@ -123,6 +154,24 @@
           exportCsv: 'Cost.exportBills()',
         },
       });
+    },
+
+    /**
+     * Poradie podľa toho, čo treba spraviť: sporné, neskontrolované, po
+     * splatnosti, zvyšok. V skupine zostáva pôvodné poradie.
+     */
+    sortByWork(rows, q) {
+      if (!q) return rows;
+      const skupina = (b) => {
+        if (q.disputed.some(x => x.id === b.id)) return 0;
+        if (q.toCheck.some(x => x.id === b.id)) return 1;
+        if (q.latePay.some(x => x.id === b.id)) return 2;
+        return 3;
+      };
+      return rows
+        .map((b, i) => ({ b, i, g: skupina(b) }))
+        .sort((a, c) => a.g - c.g || a.i - c.i)
+        .map(x => x.b);
     },
 
     /** Prijaté faktúry po filtroch. Export vyváža presne toto. */

@@ -1963,6 +1963,88 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Prijaté faktúry: sporné sú hore a nedajú sa len tak schváliť ──────
+    // Toto je druhá strana tých istých peňazí. Sporná faktúra sú peniaze,
+    // ktoré by sme zaplatili zbytočne; faktúra po splatnosti je to jediné,
+    // čo kazí vzťah so živnostníkom.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          bills: [
+            { id: 'b1', bill_number: 'FA-2026-11', worker_id: 'w1', status: 'received',
+              amount: 1800, issue_date: '2026-10-10', due_date: '2026-10-25' },
+            { id: 'b2', bill_number: 'FA-2026-12', worker_id: 'w2', status: 'disputed',
+              amount: 2400, issue_date: '2026-10-08', due_date: '2026-10-22',
+              expected_amount: 1900, variance: 500 },
+            { id: 'b3', bill_number: 'FA-2026-13', worker_id: 'w1', status: 'approved',
+              amount: 900, issue_date: '2026-09-05', due_date: '2026-10-01' },
+            { id: 'b4', bill_number: 'FA-2026-14', worker_id: 'w2', status: 'paid',
+              amount: 700, issue_date: '2026-08-05', due_date: '2026-09-01' },
+          ],
+          workers: [{ id: 'w1', full_name: 'Jozef Malý' }, { id: 'w2', full_name: 'Milan Starý' }],
+          costs: [], timesheets: [], assignments: [], periods: [], subcontracts: [],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'costs';
+        Cost.loaded = false; Cost.tab = 'bills';
+        Cost.filters = { status: '', q: '', category: '', period: 'all', from: '', to: '' };
+        await Danubra.views.costs.call(Danubra, view);
+
+        const box = view.querySelector('.nowbox');
+        const teraz = {
+          title: box ? box.querySelector('.nowbox-title').textContent.trim() : '',
+          sub: box ? box.querySelector('.nowbox-sub').textContent.trim() : '',
+          why: box ? box.querySelector('.nowbox-why').textContent.trim() : '',
+          onclick: box && box.querySelector('.btn')
+            ? box.querySelector('.btn').getAttribute('onclick') : '',
+          hot: !!view.querySelector('.nowbox-hot'),
+          help: !!(box && box.querySelector('.help-btn')),
+        };
+        // Poradie kariet: sporná prvá, potom neskontrolovaná, potom po splatnosti.
+        const poradie = [...view.querySelectorAll('.card-title')].map(e => e.textContent.trim());
+
+        // Ostatné náklady vetu nemajú — nie je tam čo schvaľovať.
+        Cost.setTab('costs');
+        await Danubra.views.costs.call(Danubra, view);
+        const naklady = { box: !!view.querySelector('.nowbox') };
+
+        return { teraz, poradie, naklady };
+      });
+
+      ok(/nesedí/.test(out.teraz.title), 'prijaté faktúry začínajú tým, čo nesedí s hodinami',
+        out.teraz.title);
+      ok(out.teraz.hot, 'a horí to — sú to peniaze zbytočne von');
+      ok(/1 faktúra nesedí/.test(out.teraz.sub), 'povie, koľko ich je', out.teraz.sub);
+      ok(/nie schváliť/.test(out.teraz.why), 'a že rozdiel sa rieši s človekom', out.teraz.why);
+      ok(/Cost\.billDetail\('b2'\)/.test(out.teraz.onclick || ''),
+        'tlačidlo vedie na tú spornú', out.teraz.onclick);
+      ok(out.teraz.help, 'a je pri tom vysvetlivka');
+
+      ok(out.poradie[0] === 'Milan Starý',
+        'sporná faktúra je v zozname prvá', out.poradie.join(' | '));
+      ok(out.poradie.indexOf('Jozef Malý') === 1,
+        'potom neskontrolovaná', out.poradie.join(' | '));
+      ok(!out.naklady.box, 'ostatné náklady vetu „čo teraz" nemajú — nič sa tam neschvaľuje');
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Faktúry: čo čaká na nás je hore, nie vo filtri ────────────────────
     // Obrazovka faktúr bola zoznam s filtrami. „Čo mám teraz spraviť" sa z nej
     // dalo vyčítať len vtedy, keď človek vedel, ktorý stav čo znamená — a
