@@ -116,26 +116,21 @@
      * potom faktúry po splatnosti, nakoniec rozpracované podklady.
      */
     nowHtml(q) {
-      const n = q.next;
-      if (!n) {
-        return `<div class="nowbox">
-          <div class="nowbox-label">Čo spraviť teraz</div>
-          <div class="nowbox-title">Nič nečaká ${Help.btn('card.inv.now', { size: 14 })}</div>
-          <div class="nowbox-sub">Nič nie je na schválenie ani po splatnosti.</div>
-          <div class="nowbox-why">Keď niečo pribudne, bude to tu napísané ako prvé.</div>
-        </div>`;
-      }
-      const kam = n.invoice ? `Inv.detail('${n.invoice.id}')` : null;
+      const n = q.next || this.nicNecaka();
       const label = { approve: 'Otvoriť na schválenie', overdue: 'Otvoriť najstaršiu',
         draft: 'Otvoriť podklad' }[n.key] || 'Otvoriť';
-      return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
-        <div class="nowbox-label">Čo spraviť teraz</div>
-        <div class="nowbox-title">${UI.esc(n.title)} ${Help.btn('card.inv.now', { size: 14 })}</div>
-        <div class="nowbox-sub">${UI.esc(n.what)}</div>
-        <div class="nowbox-why">${UI.esc(n.why)}</div>
-        ${kam ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-          onclick="${kam}">${Icon(n.key === 'overdue' ? 'phone' : 'check', 17)} ${label}</button>` : ''}
-      </div>`;
+      return Shell.now(n, {
+        help: 'card.inv.now',
+        action: n.invoice ? { label, ico: n.key === 'overdue' ? 'phone' : 'check',
+          onclick: `Inv.detail('${n.invoice.id}')` } : null,
+      });
+    },
+
+    /** Aj „nič nečaká" je veta. Obrazovka nemá nikdy mlčať. */
+    nicNecaka() {
+      return { key: 'ok', title: 'Nič nečaká',
+        what: 'Nič nie je na schválenie ani po splatnosti.',
+        why: 'Keď niečo pribudne, bude to tu napísané ako prvé.', hot: false };
     },
 
     /**

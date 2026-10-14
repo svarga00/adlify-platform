@@ -217,6 +217,37 @@
     return filterbar({ ...o.filter, total: o.total, shown: rows.length }) + body;
   }
 
+  // ── „Čo spraviť teraz" ────────────────────────────────────────────────────
+  // Jediná vec na obrazovke, ktorá smie kričať. Markup bol predtým opísaný
+  // v dvanástich moduloch a v každom sa trochu líšil — raz tam bol dôvod, raz
+  // nie, raz tlačidlo cez celú šírku, raz malé. Odteraz je na jednom mieste,
+  // takže každá obrazovka vyzerá rovnako a nová ju dostane jedným riadkom.
+
+  /**
+   * @param {Object} n    veta z knižnice: { title, what, why, hot }
+   * @param {Object} o
+   *   label    nadpisok nad vetou (predvolene „Čo spraviť teraz")
+   *   help     kľúč vysvetlivky
+   *   action   { label, onclick, ico } — jedno tlačidlo, nikdy dve
+   *   extra    HTML pod vetou (napr. pruh reťazca na zákazke)
+   */
+  function now(n, o = {}) {
+    if (!n) return '';
+    const a = o.action;
+    const help = (window.Help && o.help) ? Help.btn(o.help, { size: 14 }) : '';
+    return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
+      <div class="nowbox-label">${esc(o.label || 'Čo spraviť teraz')}</div>
+      <div class="nowbox-title">${esc(n.title || '')}${help}</div>
+      ${n.what ? `<div class="nowbox-sub">${esc(n.what)}</div>` : ''}
+      ${n.why ? `<div class="nowbox-why">${esc(n.why)}</div>` : ''}
+      ${a && a.onclick ? `<button type="button" class="btn btn-primary btn-block"
+        style="margin-top:10px;" onclick="${a.onclick}">${
+        typeof Icon === 'function' ? Icon(a.ico || 'chevron', 17) : ''} ${
+        esc(a.label || 'Otvoriť')}</button>` : ''}
+      ${o.extra || ''}
+    </div>`;
+  }
+
   // ── Poznámky, ktoré sa dajú len pridať ────────────────────────────────────
   // Tvrdé pravidlo zo zadania: nič sa fyzicky nemaže. Komponent preto
   // nekreslí tlačidlo na zmazanie ani na úpravu — nie „zakázané", ale
@@ -469,7 +500,7 @@
   }
 
   const API = {
-    detail, asideBlock, fact,
+    detail, asideBlock, fact, now,
     list, filterbar, filterRows, matches, pluck, norm,
     periodRange, periodSlug, exportCsv,
     notes, noteRow,

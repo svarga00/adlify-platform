@@ -78,26 +78,21 @@
      * neporovnáva, je to evidencia.
      */
     nowHtml(q) {
-      const n = q.next;
-      if (!n) {
-        return `<div class="nowbox">
-          <div class="nowbox-label">Čo spraviť teraz</div>
-          <div class="nowbox-title">Nič nečaká ${Help.btn('card.bills.now', { size: 14 })}</div>
-          <div class="nowbox-sub">Nič nie je sporné, neskontrolované ani po splatnosti.</div>
-          <div class="nowbox-why">Keď niečo pribudne, bude to tu napísané ako prvé.</div>
-        </div>`;
-      }
+      const n = q.next || this.nicNecaka();
       const label = { disputed: 'Otvoriť spornú', pay: 'Otvoriť najstaršiu',
         check: 'Otvoriť na kontrolu', willpay: 'Pozrieť schválené' }[n.key] || 'Otvoriť';
       const ico = { disputed: 'alert', pay: 'wallet', check: 'check', willpay: 'calendar' }[n.key] || 'chevron';
-      return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
-        <div class="nowbox-label">Čo spraviť teraz</div>
-        <div class="nowbox-title">${UI.esc(n.title)} ${Help.btn('card.bills.now', { size: 14 })}</div>
-        <div class="nowbox-sub">${UI.esc(n.what)}</div>
-        <div class="nowbox-why">${UI.esc(n.why)}</div>
-        ${n.bill ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-          onclick="Cost.billDetail('${n.bill.id}')">${Icon(ico, 17)} ${label}</button>` : ''}
-      </div>`;
+      return Shell.now(n, {
+        help: 'card.bills.now',
+        action: n.bill ? { label, ico, onclick: `Cost.billDetail('${n.bill.id}')` } : null,
+      });
+    },
+
+    /** Aj „nič nečaká" je veta. Obrazovka nemá nikdy mlčať. */
+    nicNecaka() {
+      return { key: 'ok', title: 'Nič nečaká',
+        what: 'Nič nie je sporné, neskontrolované ani po splatnosti.',
+        why: 'Keď niečo pribudne, bude to tu napísané ako prvé.', hot: false };
     },
 
     setTab(t) {

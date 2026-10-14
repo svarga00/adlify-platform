@@ -192,6 +192,37 @@
     },
 
     // ── Nastavenia ────────────────────────────────────────────────────────
+    /**
+     * Jedna veta, čo doplniť. Poradie nie je podľa formulára, ale podľa toho,
+     * čo sa stane, keď údaj chýba: prvé tri **zastavia dokument**
+     * (`Danubra.supplierReady`), ďalšie dva ho len zhoršia.
+     *
+     * Predtým tu bol jediný pruh — o chýbajúcom IBAN. Že nie je vyplnený
+     * názov firmy, sa človek dozvedel až vo chvíli, keď appka odmietla
+     * vytlačiť dokument.
+     */
+    nowHtml(sup) {
+      const n = DanubraNow.firm(sup);
+      return Shell.now(n, {
+        label: 'Čo doplniť', help: 'card.settings.firm',
+        action: n.key === 'ok' ? null
+          : { label: 'Prejsť na fakturačné údaje', ico: 'edit',
+            onclick: 'Cfg.focusFirm()' },
+      });
+    },
+
+    /** Posun na fakturačné údaje. Z vety „čo doplniť" sa musí dať ísť tam. */
+    focusFirm() {
+      const form = document.getElementById('cfg-supplier');
+      if (!form) return;
+      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Zameria sa prvé **prázdne** pole, nie prvé v poradí: človek prišiel
+      // niečo doplniť, nie prepisovať to, čo už je vyplnené.
+      const vstup = [...form.querySelectorAll('input')].find(i => !i.value)
+        || form.querySelector('input');
+      if (vstup) vstup.focus();
+    },
+
     async settingsView(el) {
       Danubra.setActions('');
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
@@ -200,8 +231,7 @@
 
       el.innerHTML = Danubra.header('Nastavenia', 'Agendy, fakturačné údaje, číselné rady a automatizácie') +
 
-        (!sup.iban ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('alert', 14)} Bez IBAN sa na faktúrach nevykreslí QR platba.</div>` : '') +
+        this.nowHtml(sup) +
 
         this.modulesSection() +
 

@@ -391,5 +391,34 @@ console.log('Zdieľané komponenty');
   eq(S.reasonValid('1234'), false, 'štyri znaky neprejdú');
 }
 
+// ── „Čo spraviť teraz" ──────────────────────────────────────────────────────
+// Jeden komponent pre všetky obrazovky. Keby sa líšil, líšili by sa aj
+// obrazovky — a práve to bolo na appke chaotické.
+{
+  const h = S.now({ title: 'Schváliť hodiny', what: 'Tri výkazy čakajú.',
+    why: 'Neschválené hodiny sa do faktúry nedostanú.', hot: true },
+    { action: { label: 'Schváliť všetky', onclick: 'Tms.approveShown()', ico: 'check' } });
+  ok(h.includes('nowbox-hot'), 'horúca veta je červená');
+  ok(h.includes('Čo spraviť teraz'), 'nadpisok je predvolený');
+  ok(h.includes('Schváliť hodiny'), 'veta sa ukáže');
+  ok(h.includes('Tri výkazy čakajú.'), 'aj to, čoho sa týka');
+  ok(h.includes('do faktúry nedostanú'), 'aj dôvod');
+  ok(h.includes("onclick=\"Tms.approveShown()\""), 'tlačidlo vedie tam, kam má');
+  ok((h.match(/class="btn /g) || []).length === 1, 'a je práve jedno — nikdy dve');
+
+  const tiche = S.now({ title: 'Nič nečaká', what: 'Nič nie je po splatnosti.' });
+  ok(!tiche.includes('nowbox-hot'), 'tichá veta nie je červená');
+  ok(!tiche.includes('class="btn '), 'a nemá tlačidlo, keď nie je kam ísť');
+  ok(!tiche.includes('nowbox-why'), 'bez dôvodu sa prázdny riadok nekreslí');
+
+  eq(S.now(null), '', 'bez vety sa nekreslí nič');
+  ok(S.now({ title: 'x' }, { label: 'Firma' }).includes('Firma'),
+    'nadpisok sa dá prepísať');
+  ok(S.now({ title: 'x' }, { extra: '<i>pruh</i>' }).includes('<i>pruh</i>'),
+    'pod vetu sa dá pridať pruh reťazca');
+  ok(S.now({ title: '<script>' }).includes('&lt;script&gt;'),
+    'text sa escapuje');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

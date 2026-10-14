@@ -92,18 +92,13 @@
         site: { label: 'Nasadiť na zákazku', onclick: 'CandProc.hireForm()', ico: 'site' },
         flags: { label: 'Rozhodnúť — pokračovať či zamietnuť', onclick: 'CandProc.rejectForm()', ico: 'alert' },
       };
-      const a = ACTION[n.key];
-      return `
-        <div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
-          <div class="nowbox-label">Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}</div>
-          <div class="nowbox-title">${UI.esc(n.title)}
-            ${n.key !== 'closed' && n.key !== 'done'
-              ? Help.btn(`cand.step.${n.key}`, { size: 14 }) : ''}</div>
-          <div class="nowbox-sub">${UI.esc(n.what)}</div>
-          ${n.why ? `<div class="nowbox-why">${UI.esc(n.why)}</div>` : ''}
-          ${a ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-            onclick="${a.onclick}">${Icon(a.ico, 17)} ${a.label}</button>` : ''}
-        </div>`;
+      // Uzavretý kandidát nemá krok, ku ktorému by bola vysvetlivka.
+      const hotovo = n.key === 'closed' || n.key === 'done';
+      return Shell.now(n, {
+        label: `Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}`,
+        help: hotovo ? '' : `cand.step.${n.key}`,
+        action: ACTION[n.key],
+      });
     },
 
     stepHtml(cand, step, sp) {

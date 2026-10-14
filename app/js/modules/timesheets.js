@@ -144,41 +144,52 @@
      * Čo spraviť teraz — jedna veta a jedno tlačidlo, rovnako ako na nábore
      * a na zákazke.
      *
-     * Na tejto obrazovke sú vždy len dve možnosti: buď niečo visí na
-     * schválení (a sú to peniaze, ktoré sa nedostanú do podkladu), alebo za
-     * vybrané obdobie nie sú zapísané hodiny. Keď je oboje v poriadku,
-     * obrazovka mlčí — veta „všetko je v poriadku" nad zoznamom je len šum.
+     * Na tejto obrazovke sú tri možnosti: buď niečo visí na schválení (a sú to
+     * peniaze, ktoré sa nedostanú do podkladu), alebo za vybrané obdobie nie sú
+     * zapísané hodiny, alebo je to v poriadku. Aj tretia možnosť má vetu —
+     * obrazovka, ktorá raz mlčí a raz nie, vyzerá každý deň inak.
      */
     nowHtml(rows) {
       const nesch = rows.filter(t => !t.approved);
       if (nesch.length) {
-        const h = nesch.reduce((s, t) => s + Number(t.hours || 0), 0);
-        return `<div class="nowbox nowbox-hot">
-          <div class="nowbox-label">Čo spraviť teraz</div>
-          <div class="nowbox-title">Schváliť hodiny ${Help.btn('card.hours.approve', { size: 14 })}</div>
-          <div class="nowbox-sub">${nesch.length} ${Shell.plural(nesch.length, 'výkaz', 'výkazy', 'výkazov')}
-            za ${Math.round(h)} ${Shell.plural(Math.round(h), 'hodinu', 'hodiny', 'hodín')} čaká na schválenie.</div>
-          <div class="nowbox-why">Neschválené hodiny sa do podkladu na faktúru nedostanú —
-            nie sú stratené, ale v tomto mesiaci sa za ne nevyfakturuje.</div>
-          <button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-            onclick="Tms.approveShown()">${Icon('check', 17)}
-            Schváliť všetkých ${nesch.length}</button>
-        </div>`;
+        const h = Math.round(nesch.reduce((s, t) => s + Number(t.hours || 0), 0));
+        return Shell.now({
+          title: 'Schváliť hodiny', hot: true,
+          what: `${nesch.length} ${Shell.plural(nesch.length, 'výkaz', 'výkazy', 'výkazov')} `
+            + `za ${h} ${Shell.plural(h, 'hodinu', 'hodiny', 'hodín')} čaká na schválenie.`,
+          why: 'Neschválené hodiny sa do podkladu na faktúru nedostanú — nie sú '
+            + 'stratené, ale v tomto mesiaci sa za ne nevyfakturuje.',
+        }, {
+          help: 'card.hours.approve',
+          action: { label: `Schváliť všetkých ${nesch.length}`, ico: 'check',
+            onclick: 'Tms.approveShown()' },
+        });
       }
       // Bez nasadení sa hodiny zapísať nedajú, takže vyzvať na to je nezmysel.
       const asg = this.assignments.filter(a => a.status !== 'cancelled');
       if (!rows.length && asg.length) {
-        return `<div class="nowbox">
-          <div class="nowbox-label">Čo spraviť teraz</div>
-          <div class="nowbox-title">Zapísať hodiny</div>
-          <div class="nowbox-sub">Za vybrané obdobie nie je zapísaná ani jedna hodina.</div>
-          <div class="nowbox-why">Hodiny, ktoré nikto nezapísal, sa nevyfakturujú —
-            a nikto si to nevšimne, nie je s čím porovnať.</div>
-          <button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-            onclick="Tms.weekForm()">${Icon('calendar', 17)} Zapísať týždeň</button>
-        </div>`;
+        return Shell.now({
+          title: 'Zapísať hodiny',
+          what: 'Za vybrané obdobie nie je zapísaná ani jedna hodina.',
+          why: 'Hodiny, ktoré nikto nezapísal, sa nevyfakturujú — a nikto si to '
+            + 'nevšimne, nie je s čím porovnať.',
+        }, {
+          help: 'card.hours.approve',
+          action: { label: 'Zapísať týždeň', ico: 'calendar', onclick: 'Tms.weekForm()' },
+        });
       }
-      return '';
+      const h = Math.round(rows.reduce((s, t) => s + Number(t.hours || 0), 0));
+      return Shell.now({
+        title: asg.length ? 'Hodiny sú schválené' : 'Nikto nie je nasadený',
+        what: asg.length
+          ? `${h} ${Shell.plural(h, 'hodina', 'hodiny', 'hodín')} za vybrané obdobie `
+            + 'ide do podkladu na faktúru.'
+          : 'Kým nie je nikto na stavbe, nie je čo zapisovať.',
+        why: asg.length
+          ? 'Schválené hodiny sa už nemenia. Oprava ide ako nový záznam, aby bolo '
+            + 'vidieť, čo odberateľ podpísal.'
+          : 'Nasadenie sa robí na zákazke — hodiny sa potom zapisujú tu.',
+      }, { help: 'card.hours.approve' });
     },
 
     /**
