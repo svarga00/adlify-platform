@@ -70,11 +70,16 @@
       const missing = KINDS.filter(k => k[0] !== 'other')
         .filter(k => !company.some(c => c.kind === k[0]));
 
+      // Čo zastaví stavbu najskôr. Štyri čísla pod tým hovoria, ako to stojí;
+      // táto veta hovorí, čo spraviť — a hlavne dokedy, lebo pri compliance
+      // sú lehoty celý problém (A1 až 45 dní, §48b štyri až osem týždňov).
+      const teraz = DanubraCompliance.nowNext({
+        items: this.items, workerDocs: this.workerDocs, workers: this.workers, today,
+      });
+
       el.innerHTML = Danubra.header('Compliance',
         `${company.length} firemných položiek · ${a1Problems.length} problémov s A1`) +
-        (problems.length ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('alert', 14)} ${problems.length} ${problems.length === 1 ? 'položka je' : 'položiek je'}
-          neplatných — bez nich sa nesmie vysielať ani fakturovať.</div>` : '') + `
+        this.nowHtml(teraz) + `
 
         <div class="kpi-grid" style="margin-bottom:16px;">
           <div class="kpi"><div class="kpi-label">Platné položky</div>
@@ -116,6 +121,29 @@
               · vystavenie trvá až 45 dní</span></span>
           ${this.stateBadge(x.st)}
         </div>`).join('')}` : ''}`;
+    },
+
+    /**
+     * Jedna veta a jedno tlačidlo. Poradie drží knižnica: najprv človek na
+     * stavbe bez A1 (padne to na firmu), potom neplatné firemné povolenie,
+     * potom to, čomu sa končí platnosť.
+     */
+    nowHtml(n) {
+      const AKCIA = {
+        a1: { label: 'Otvoriť živnostníkov', onclick: "Danubra.go('workers')", ico: 'workers' },
+        a1soon: { label: 'Otvoriť živnostníkov', onclick: "Danubra.go('workers')", ico: 'workers' },
+        company: { label: 'Zaevidovať položku', onclick: `Cmp.form(null,'${n.kind || ''}')`, ico: 'plus' },
+        companysoon: { label: 'Otvoriť položku', onclick: `Cmp.form(null,'${n.kind || ''}')`, ico: 'edit' },
+      };
+      const a = AKCIA[n.key];
+      return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}" style="margin-bottom:16px;">
+        <div class="nowbox-label">Čo spraviť teraz</div>
+        <div class="nowbox-title">${UI.esc(n.title)} ${Help.btn('card.cmp.now', { size: 14 })}</div>
+        <div class="nowbox-sub">${UI.esc(n.what)}</div>
+        <div class="nowbox-why">${UI.esc(n.why)}</div>
+        ${a ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
+          onclick="${a.onclick}">${Icon(a.ico, 17)} ${a.label}</button>` : ''}
+      </div>`;
     },
 
     row(i) {
