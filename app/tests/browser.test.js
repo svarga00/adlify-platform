@@ -744,7 +744,9 @@ console.log('Prehliadač');
         || x.startsWith('Zápisy') || x.startsWith('Partie')),
         'kandidáti, inzeráty, zápisy ani partie už v menu nie sú',
         out.menu.join(' | '));
-      ok(out.zalozky.join(',') === 'Čo teraz,Kandidáti,Inzeráty,Zápisy',
+      // Inzercia a výdavky (bývalé „Marketing") je tam piata: je to to isté
+      // rozhodnutie — kde inzerovať a koľko to stojí.
+      ok(out.zalozky.join(',') === 'Čo teraz,Kandidáti,Inzeráty,Inzercia a výdavky,Zápisy',
         'sú to záložky Náboru', out.zalozky.join(','));
       ok((out.zalozkaTeraz || '').trim() === 'Čo teraz',
         'a je vidieť, na ktorej práve stojím', out.zalozkaTeraz);

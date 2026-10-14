@@ -6,7 +6,7 @@ ako je.
 
 Stav k 5. 10. 2026.
 
-> Toto je napísaná verzia. **Živá je v appke** pod PREHĽAD → „Ako to ide":
+> Toto je napísaná verzia. **Živá je v appke** v hornom pruhu pod „Ako to ide":
 > tie isté kroky, ale pri každom je vidieť, koľko tam práve stojí.
 
 ---

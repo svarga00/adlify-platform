@@ -271,6 +271,62 @@ if (D) {
     !dok.length);
 }
 
+// ── Menu: jedenásť položiek, nie dvadsaťštyri ───────────────────────────────
+// „Je tam na mňa veľa vecí, málo zvýraznených." V menu stálo 24 položiek
+// v ôsmich skupinách a človek, ktorý appku nepostavil, nemal podľa čoho
+// vybrať. Dnes je v ňom jedenásť položiek v piatich skupinách — a všetko
+// ostatné je záložkou niektorej z nich.
+if (D) {
+  const restoreMe = D.me, restoreMem = D.members;
+  D.me = { role: 'admin', active: true };
+  D.members = [{ role: 'admin', active: true }];
+
+  const vlavo = D.sidebarNav().map(n => n[0]);
+  t(`v ľavom menu je ${vlavo.length} položiek, nie dvadsaťštyri`, vlavo.length <= 12);
+  t(`a skupín je ${D.navGroups.length}, nie osem`, D.navGroups.length <= 5);
+
+  // Rodičia, ktorí v menu musia stáť — na nich sa dá dostať zo všetkého
+  // ostatného cez záložky.
+  for (const k of ['dashboard', 'opportunities', 'subcontracts', 'timesheets',
+    'partners', 'hiring', 'workers', 'money', 'compliance', 'settings']) {
+    t(`${D.labelOf(k)} je v menu`, vlavo.includes(k));
+  }
+  // A tie, ktoré sa stali záložkami, v ňom stáť nesmú.
+  for (const k of ['tasks', 'messages', 'quotes', 'orders', 'contracts', 'hoursheet',
+    'candidates', 'ads', 'marketing', 'recruiting', 'crews', 'invoices', 'costs',
+    'bank', 'accommodations', 'rules', 'members']) {
+    t(`${D.labelOf(k)} je záložka, nie položka menu`,
+      !vlavo.includes(k) && D.routeAvailable(k) && !!D.parentOf(k));
+  }
+
+  // Prvá záložka musí povedať, čo na nej je. „Zákazky → Zákazky" nepovie nič.
+  for (const k of ['dashboard', 'subcontracts', 'timesheets', 'partners', 'hiring',
+    'workers', 'money', 'settings']) {
+    const tabs = D.tabsOf(k);
+    t(`${D.labelOf(k)} má záložky (${tabs.map(x => x[1]).join(' | ')})`, tabs.length >= 2);
+    t(`a prvá nehovorí „${D.labelOf(k)} → ${tabs[0][1]}"`,
+      tabs[0][1] !== D.labelOf(k) || tabs[0][1].length <= 10);
+  }
+
+  // **Toto je to miesto, ktoré sa ľahko pokazí.** Záložka bez práva na rodiča
+  // by zmizla úplne: koordinátor má prijaté faktúry, ale nie banku — a „Kde sú
+  // peniaze" sa pýta na právo banky. Vtedy sa záložka musí vrátiť do menu.
+  D.me = { role: 'coordinator', active: true };
+  t('koordinátor nemá „Kde sú peniaze"', !D.routeAvailable('money'));
+  t('ale prijaté faktúry mu z menu nezmizli',
+    D.sidebarNav().some(n => n[0] === 'costs'));
+  t('a nekreslia sa ako záložka niečoho, na čo nemá', D.parentOf('costs') === null);
+  t('vydané faktúry nemá vôbec, takže v menu nie sú',
+    !D.routeAvailable('invoices') && !D.sidebarNav().some(n => n[0] === 'invoices'));
+
+  // Účtovníctvo má banku, takže peniaze vidí ako jednu položku so záložkami.
+  D.me = { role: 'accountant', active: true };
+  t('účtovníctvo má „Kde sú peniaze" ako jednu položku',
+    D.sidebarNav().some(n => n[0] === 'money') && D.parentOf('bank') === 'money');
+
+  D.me = restoreMe; D.members = restoreMem;
+}
+
 // ── Nábor je jedna položka, nie štyri ───────────────────────────────────────
 // Nábor zaberal v menu štyri riadky (Nábor, Kandidáti, Inzeráty, Zápisy) a kto
 // naberal, musel najprv vedieť, na ktorom má byť. Partia je navyše možnosť,
@@ -305,7 +361,7 @@ if (D) {
     zalozky[0] === 'hiring' && zalozky.includes('ads') && zalozky.includes('recruiting'));
   t('prvá záložka nehovorí „Nábor → Nábor"', D.tabsOf('candidates')[0][1] === 'Čo teraz');
   t('pruh záložiek sa vykreslí', /pill.*active/.test(D.tabsHtml('candidates')));
-  t('a obrazovka bez detí ho nemá', D.tabsHtml('invoices') === '');
+  t('a obrazovka bez detí ho nemá', D.tabsHtml('compliance') === '');
 
   // Záložky patria zoznamu, nie otvorenému záznamu. Nad menom človeka by
   // vyzerali ako jeho vlastnosti — a „Partie" nad Jozefom Malým nedáva zmysel.

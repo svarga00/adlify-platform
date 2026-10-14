@@ -91,52 +91,58 @@ window.Danubra = {
   // Navigácia. Položka bez oblasti je spoločná pre všetky agendy.
   // [key, label, ikona, oblasť?, modul?]
   // Modul sa dá zapísať piatym prvkom; `null` znamená „nikdy sa neskrýva".
+  // Poradie v skupine je zároveň poradím záložiek v mega menu: rodič a hneď
+  // za ním jeho záložky. V ľavom menu sa kreslia len rodičia (`sidebarNav`),
+  // takže z 24 položiek v ôsmich skupinách zostalo **jedenásť v piatich**.
   navGroups: [
-    ['PREHĽAD',    [['dashboard', 'Prehľad', 'dashboard'], ['flow', 'Ako to ide', 'repeat'],
-                    // „Ako to ide" je mapa appky, nie ďalšia agenda. V ľavom
-                    // menu sedela medzi dennou prácou a vyzerala ako miesto,
-                    // kam sa chodí pracovať. Kreslí sa hore (`topRoutes`) —
-                    // tu zostáva preto, aby mala oblasť, právo aj vysvetlivku.
+    // Denná práca. „Ako to ide" je mapa appky, nie ďalšia agenda — kreslí sa
+    // hore (`topRoutes`), tu zostáva preto, aby mala oblasť, právo aj
+    // vysvetlivku. Úlohy a Správy sú záložky Prehľadu: je to tá istá otázka
+    // („čo mám robiť"), len inak zobrazená.
+    ['DENNE',      [['dashboard', 'Prehľad', 'dashboard'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
-                    ['messages', 'Správy', 'mail']]],
-    // Možnosti sú pred ponukou: to, čo príde telefonátom, než sa z toho vôbec
-    // stane zákazka. Je to zámerne samostatná agenda — zapisuje ju každý
-    // z tímu a nemá sa to miešať s tým, čo už beží.
-    ['PRÍLEŽITOSTI', [['opportunities', 'Možnosti', 'offers', 'staffing', 'contracts']]],
-    ['ZÁKAZKY',    [['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
+                    ['messages', 'Správy', 'mail'],
+                    ['flow', 'Ako to ide', 'repeat'],
+                    // Možnosti sú pred ponukou: to, čo príde telefonátom, než
+                    // sa z toho vôbec stane zákazka. Stoja samostatne hneď za
+                    // Prehľadom — zapisuje ich každý z tímu, aj z telefónu.
+                    ['opportunities', 'Možnosti', 'offers', 'staffing', 'contracts']]],
+    // Jedna zákazka je jedna vec: ponuka, objednávka, zmluva a stavba sú jej
+    // štyri papiere. V menu preto stojí **Zákazky** a tie tri sú jej záložky.
+    ['ZÁKAZKY',    [['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
+                    ['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
                     ['orders', 'Objednávky', 'orders', 'staffing', 'contracts'],
                     ['contracts', 'Zmluvy', 'note', 'staffing', 'contracts'],
-                    ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
-                    ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts']]],
+                    ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts'],
+                    // Ubytovania sú bez agendy zámerne — po archivácii
+                    // obchodnej časti zostávajú ako náklad zákazky (R4).
+                    ['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
+                    ['accommodations', 'Ubytovania', 'bed', undefined, null]]],
     // Nábor bol rozsypaný na sedem položiek a kto naberal, musel vedieť, na
     // ktorej má byť. V menu sú tri: **Nábor**, **Živnostníci**, **Remeslá**.
-    // Kandidáti, Inzeráty a Zápisy sú záložky Náboru; Partie záložka
+    // Kandidáti, Inzeráty, Zápisy a Inzercia sú záložky Náboru; Partie záložka
     // Živnostníkov — partia je možnosť (človek môže prísť sám alebo v partii),
     // a kvôli možnosti sa nedrží položka v menu. Viď `navParent`.
     ['ĽUDIA',      [['hiring', 'Nábor', 'zap', 'staffing', 'recruiting'],
                     ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
                     ['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
+                    ['marketing', 'Marketing', 'marketing'],
+                    ['recruiting', 'Zápisy z hovorov', 'note', 'staffing', 'recruiting'],
                     ['workers', 'Živnostníci', 'workers', 'staffing', null],
                     ['crews', 'Partie', 'workers', 'staffing', null],
-                    ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
-                    ['recruiting', 'Zápisy z hovorov', 'note', 'staffing', 'recruiting']]],
-    // Ubytovania sú bez agendy zámerne — po archivácii obchodnej časti
-    // zostávajú dostupné ako náklad zákazky (R4).
-    ['DATABÁZA',   [['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
-                    ['accommodations', 'Ubytovania', 'bed', undefined, null]]],
+                    ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting']]],
     // „Náklady" sa volali Náklady, hoci prvá záložka na nich sú **prijaté
     // faktúry**. Kto ich hľadal podľa mena, nenašiel ich — názov v menu
-    // o nich nehovoril nič.
+    // o nich nehovoril nič. Dnes je v menu jedna otázka: kde sú peniaze.
     ['PENIAZE',    [['money', 'Kde sú peniaze', 'wallet', 'staffing', 'finance'],
                     ['invoices', 'Vydané faktúry', 'invoices', 'staffing', 'finance'],
                     ['costs', 'Prijaté faktúry a náklady', 'receipt', 'staffing', 'finance'],
                     ['bank', 'Banka a cash-flow', 'invoices', 'staffing', 'finance']]],
-    ['RAST',       [['marketing', 'Marketing', 'marketing']]],
     ['SYSTÉM',     [['compliance', 'Compliance', 'shield', 'staffing', null],
-                    ['members', 'Používatelia', 'clients'],
+                    ['settings', 'Nastavenia', 'settings'],
                     ['rules', 'Cenník a pravidlá', 'rules'],
-                    ['settings', 'Nastavenia', 'settings']]],
+                    ['members', 'Používatelia', 'clients']]],
   ],
 
   // ── Čo ktorá obrazovka robí ──────────────────────────────────────────────
@@ -291,7 +297,10 @@ window.Danubra = {
       { key: 'subcontracts', label: 'Zákazky', ico: 'site' },
       { key: '__plus', label: '', plus: true },
       { key: 'hiring', label: 'Nábor', ico: 'zap' },
-      { key: 'candidates', label: 'Kandidáti', ico: 'user' },
+      // Kandidáti sú záložka Náboru, takže sa spodný tab pri nich nikdy
+      // nezvýraznil (`navActive()` ukáže rodiča). Na jeho mieste je Možnosť:
+      // z telefónu sa najčastejšie zapisuje práve to, čo niekto zavolal.
+      { key: 'opportunities', label: 'Možnosti', ico: 'offers' },
     ],
   },
 
@@ -317,27 +326,58 @@ window.Danubra = {
    * fungujú ďalej a v mega menu („Všetko") sú vidieť všetky.
    */
   navParent: {
-    candidates: 'hiring', ads: 'hiring', recruiting: 'hiring',
+    // Prehľad odpovedá na „čo mám robiť". Úlohy a Správy odpovedajú na to isté
+    // inak — nie je to tretia agenda, sú to ďalšie dva pohľady.
+    tasks: 'dashboard', messages: 'dashboard',
+    // Ponuka, objednávka a zmluva sú papiere k jednej zákazke, nie tri agendy.
+    quotes: 'subcontracts', orders: 'subcontracts', contracts: 'subcontracts',
+    hoursheet: 'timesheets',
+    candidates: 'hiring', ads: 'hiring', marketing: 'hiring', recruiting: 'hiring',
     crews: 'workers',
+    // „Kde sú peniaze" je otázka. Vydané, prijaté a banka sú tri odpovede
+    // na ňu — preto sú to jej záložky a nie tri riadky v menu.
+    invoices: 'money', costs: 'money', bank: 'money',
+    accommodations: 'partners',
+    rules: 'settings', members: 'settings',
   },
 
   // Na záložke je málo miesta a názov z menu je tam dlhý. „Nábor → Nábor"
   // navyše nič nepovie — prvá záložka má povedať, čo na nej je.
   navTabLabel: {
     hiring: 'Čo teraz', workers: 'Ľudia', recruiting: 'Zápisy',
-    trades: 'Remeslá',
+    trades: 'Remeslá', marketing: 'Inzercia a výdavky',
+    subcontracts: 'Stavby', timesheets: 'Hodiny', hoursheet: 'Výkaz',
+    partners: 'Odberatelia', money: 'Kde stoja', costs: 'Prijaté faktúry',
+    settings: 'Firma a agendy', tasks: 'Úlohy',
   },
 
   allNav() { return this.navGroups.flatMap(g => g[1]); },
   visibleNav() { return this.allNav().filter(i => this.inArea(i)); },
-  /** Čo kreslí ľavé menu — bez horného pruhu a bez záložiek iných obrazoviek. */
+  /**
+   * Čo kreslí ľavé menu — bez horného pruhu a bez záložiek iných obrazoviek.
+   *
+   * Bez práva na obrazovku sa položka nekreslí vôbec. Dovtedy sa kreslila
+   * a klik na ňu vrátil človeka na prehľad: tlačidlo, ktoré nič nespraví.
+   * To isté pravidlo už platilo v hornom pruhu (`topLinks`).
+   */
   sidebarNav() {
     return this.visibleNav()
-      .filter(i => !this.topRoutes.includes(i[0]) && !this.navParent[i[0]]);
+      .filter(i => !this.topRoutes.includes(i[0]) && !this.parentOf(i[0])
+        && this.can(i[0]));
   },
 
-  /** Obrazovka, ktorej je táto len záložkou (null = je samostatná). */
-  parentOf(key) { return this.navParent[key] || null; },
+  /**
+   * Obrazovka, ktorej je táto len záložkou (null = je samostatná).
+   *
+   * **Keď na rodiča právo nie je, záložka sa stane samostatnou položkou menu.**
+   * Bez toho by zmizla úplne: koordinátor má prijaté faktúry, ale nie banku —
+   * a „Kde sú peniaze" sa pýta na právo banky. Záložka bez rodiča by sa
+   * nenakreslila nikde a obrazovka by sa dala otvoriť len cez adresu.
+   */
+  parentOf(key) {
+    const p = this.navParent[key];
+    return p && this.routeAvailable(p) ? p : null;
+  },
 
   /**
    * Ktorá položka menu sa má zvýrazniť. Pri záložke je to jej rodič — inak by

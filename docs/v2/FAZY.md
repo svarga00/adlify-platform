@@ -48,8 +48,8 @@ Krátke zhrnutie po každej fáze: čo je hotové, čo treba otestovať rukami,
 1. **Navigácia** — po prihlásení nie je vidieť Dopyty, Ponuky, Objednávky,
    Aktívne pobyty ani Firmy a kontakty. Prepínač agend nad menu zmizol,
    lebo je zapnutá jediná agenda.
-2. **Ubytovania zostali** — položka „Ubytovania" je v skupine DATABÁZA
-   a otvorí sa. To je zámer (R4): ubytovanie je náklad zákazky.
+2. **Ubytovania zostali** — „Ubytovania" sú záložkou Odberateľov (skupina ZÁKAZKY)
+   a otvoria sa. To je zámer (R4): ubytovanie je náklad zákazky.
 3. **Starý odkaz** — `#/inquiries` v adresnom riadku musí skončiť na
    dashboarde, nie na archivovanej obrazovke.
 4. **Vrátenie agendy** — Nastavenia → Zapnuté agendy → zapnúť
