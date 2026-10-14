@@ -140,6 +140,40 @@
       });
     },
 
+    /**
+     * Čo spraviť teraz na **zozname** zákaziek. Na otvorenej zákazke hovorí
+     * vetu jej vlastný reťazec (`nowHtml`); tu ide o to, **ktorá zo zákaziek**
+     * je na rade.
+     *
+     * Predtým tu bol červený pruh „n zákaziek nespĺňa podmienky vyslania" —
+     * a človek musel sám hľadať, ktorá to je. Dnes je v nej meno a tlačidlo
+     * ju otvorí.
+     */
+    nowListHtml(active) {
+      const vety = (active || []).map((x) => {
+        const n = DanubraSite.next(this.chain(x), x);
+        if (!n || ['closed', 'done', 'wait'].includes(n.key)) return null;
+        return { ...n, title: `${n.title} — ${x.title || x.contract_number || 'zákazka'}`,
+          id: x.id };
+      }).filter(Boolean);
+      const n = DanubraNow.pick(vety) || {
+        key: 'ok',
+        title: active && active.length ? 'Zákazky bežia' : 'Žiadna zákazka nebeží',
+        what: active && active.length
+          ? `${active.length} ${Shell.plural(active.length, 'zákazka nemá', 'zákazky nemajú', 'zákaziek nemá')} nič otvorené.`
+          : 'Zákazka vzniká z možnosti alebo z ponuky.',
+        why: 'Hodiny a faktúry sa riešia na konkrétnej zákazke — reťazec piatich '
+          + 'krokov je v jej detaile.',
+        hot: false,
+      };
+      return Shell.now(n, {
+        help: 'card.sub.list',
+        action: n.id
+          ? { label: 'Otvoriť zákazku', ico: 'site', onclick: `Sub.detail('${n.id}')` }
+          : { label: 'Nová zákazka', ico: 'plus', onclick: 'Sub.form()' },
+      });
+    },
+
     async view(el) {
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Sub.form()">${Icon('plus')} Nová zákazka</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
@@ -149,14 +183,11 @@
       if (this.filters.work_type) rows = rows.filter(x => x.work_type === this.filters.work_type);
 
       const active = this.items.filter(x => x.status === 'active');
-      const blocked = active.filter(x => !this.check(x).ok).length;
       const deployed = this.assignments.filter(a => a.status === 'active').length;
 
       el.innerHTML = Danubra.header(Danubra.labelOf('subcontracts'),
         `${this.items.length} celkom · ${active.length} prebieha · ${deployed} ľudí nasadených`) +
-        (blocked ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('alert', 14)} ${blocked} ${blocked === 1 ? 'prebiehajúca zákazka nespĺňa' : 'prebiehajúcich zákaziek nespĺňa'}
-          podmienky vyslania — otvor detail a doplň chýbajúce doklady.</div>` : '') + `
+        this.nowListHtml(active) + `
         <div class="pillbar" style="margin-bottom:10px;width:max-content;max-width:100%;overflow-x:auto;">
           <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Sub.setF('status','')">Všetky</button>
           ${STATUS.map(s => {
@@ -420,25 +451,20 @@
         hours: { label: 'Odpracované hodiny', onclick: "Danubra.go('timesheets')", ico: 'clock' },
         money: { label: 'Obdobia a podklady', onclick: 'Sub.scrollTo(\'periods\')', ico: 'wallet' },
       };
-      const a = ACTION[n.key];
-
-      return `
-        <div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
-          <div class="nowbox-label">Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}</div>
-          <div class="nowbox-title">${UI.esc(n.title)}
-            ${n.key !== 'closed' && n.key !== 'done' && n.key !== 'wait'
-              ? Help.btn(`sub.step.${n.key}`, { size: 14 }) : ''}</div>
-          <div class="nowbox-sub">${UI.esc(n.what)}</div>
-          ${n.why ? `<div class="nowbox-why">${UI.esc(n.why)}</div>` : ''}
-          ${a ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-            onclick="${a.onclick}">${Icon(a.ico, 17)} ${a.label}</button>` : ''}
+      // Uzavretá či čakajúca zákazka nemá krok, ku ktorému by bola vysvetlivka.
+      const bezKroku = ['closed', 'done', 'wait'].includes(n.key);
+      return Shell.now(n, {
+        label: `Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}`,
+        help: bezKroku ? '' : `sub.step.${n.key}`,
+        action: ACTION[n.key],
+        extra: `
           <div class="chainbar">
             ${steps.map(s => `<span class="chainbar-step cb-${s.state}${
               s.key === n.key ? ' is-now' : ''}" title="${UI.esc(`${s.title} — ${s.detail}`)}">
               <b>${s.n}</b><span>${UI.esc(s.title)}</span></span>`).join('')}
           </div>
-          <div class="nowbox-why">${pr.done} z ${pr.total} krokov hotových.</div>
-        </div>`;
+          <div class="nowbox-why">${pr.done} z ${pr.total} krokov hotových.</div>`,
+      });
     },
 
     /** Posun na sekciu profilu. Z vety „čo teraz" sa musí dať ísť tam, kde sa to rieši. */

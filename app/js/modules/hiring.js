@@ -100,22 +100,26 @@
 
       el.innerHTML = Danubra.header('Nábor', 'Päť krokov od potreby po človeka na stavbe')
         + this.learnHtml()
-        + `
-        <div class="flow-now${h.hot ? ' flow-hot' : ''}">
-          <div class="flow-now-txt">
-            <b>${UI.esc(h.title)}</b>
-            <span>${UI.esc(h.sub)}</span>
-          </div>
-          ${teraz && teraz.action ? `
-            <button class="flow-go" onclick="${teraz.action.onclick}">
-              ${Icon(teraz.key === 'call' ? 'phone' : 'chevron', 22)}
-              ${UI.esc(teraz.action.label)}</button>` : ''}
-        </div>
+        // „Čo teraz" vyzeralo na nábore inak než na všetkých ostatných
+        // obrazovkách — bol to vlastný pruh s vlastným tlačidlom. Je to tá
+        // istá veta, takže sa kreslí tým istým komponentom; pod ňou zostal
+        // priebeh piatich krokov.
+        + Shell.now({
+          title: h.title, what: h.sub, hot: h.hot,
+          why: teraz && teraz.lead ? teraz.lead : '',
+        }, {
+          label: `Čo spraviť teraz${teraz && teraz.n ? ` · krok ${teraz.n} z 5` : ''}`,
+          help: 'card.hire.now',
+          action: teraz && teraz.action
+            ? { label: teraz.action.label, onclick: teraz.action.onclick,
+              ico: teraz.key === 'call' ? 'phone' : 'chevron' }
+            : null,
+          extra: `
+            <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
+            <div class="flow-bar-txt">${p.done} z ${p.total} krokov hotových</div>`,
+        })
 
-        <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
-        <div class="flow-bar-txt">${p.done} z ${p.total} krokov hotových</div>
-
-        <div class="flow">${kroky.map(k => this.stepHtmlBig(k, teraz)).join('')}</div>
+        + `<div class="flow">${kroky.map(k => this.stepHtmlBig(k, teraz)).join('')}</div>
 
         ${this.plansHtml()}
         ${this.elsewhereHtml()}`;
@@ -686,6 +690,9 @@
             : UI.badge(`chýba ${pr.total - pr.done} z ${pr.total}`, 'amber')}
           ${sum ? UI.badge(sum.text, sum.tone === 'ok' ? 'green' : sum.tone === 'warn' ? 'amber' : 'gray') : ''}
         </div>
+
+        ${this.planNowHtml(p, mine)}
+
         <div class="kv">
           <div><span>Remeslo</span><strong>${this.tradeName(p.trade_key)}</strong></div>
           <div><span>Počet</span><strong>${p.headcount || '—'}</strong></div>
@@ -714,6 +721,28 @@
             : `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','active')">Spustiť nábor</button>`}
           <button class="btn btn-danger btn-sm" onclick="Hire.del('${p.id}')">Zmazať</button>
         </div>`;
+    },
+
+    /**
+     * Čo spraviť s týmto konkrétnym náborom. Na zozname náborov hovorí veta
+     * o celom reťazci (`DanubraFlow`); tu ide o **jeden** nábor: či má
+     * napísané zadanie, či z neho už niečo vzniklo a či niekto nečaká na
+     * prvý hovor.
+     */
+    planNowHtml(p, mine) {
+      const n = DanubraNow.plans({ plans: [p], candidates: mine || [] });
+      const AKCIA = {
+        call: { label: 'Zavolať kandidátovi', ico: 'phone',
+          onclick: n.id ? `Danubra.open('candidate','${n.id}')` : '' },
+        brief: { label: 'Napísať zadanie', ico: 'edit', onclick: 'Kit.focusBrief()' },
+        analyze: { label: 'Zanalyzovať zadanie', ico: 'zap',
+          onclick: `Kit.analyze('${p.id}')` },
+      };
+      const a = AKCIA[n.key];
+      return Shell.now(n, {
+        label: 'Čo spraviť s týmto náborom', help: 'card.hire.plan',
+        action: a && a.onclick ? a : null,
+      });
     },
 
     // ── Staré okno (ponechané pre odkazy, ktoré ho ešte volajú) ───────────

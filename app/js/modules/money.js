@@ -66,6 +66,26 @@
       };
     },
 
+    /**
+     * Jedna veta, čo spraviť s peniazmi. Obrazovka má desať čísel a dva
+     * grafy — bez vety si z nej človek musí poradie naliehavosti odvodiť sám.
+     *
+     * Poradie drží knižnica (`DanubraNow.money`): najprv účet, ktorý nevyjde
+     * (to sú výplaty), potom cudzie peniaze, ktoré už mali byť naše, až
+     * potom to, čo stojí na nás.
+     */
+    nowHtml(stages, verdict) {
+      const n = DanubraNow.money({ stages, verdict });
+      const AKCIA = {
+        cash: { label: 'Otvoriť banku a cash-flow', onclick: "Danubra.go('bank')", ico: 'invoices' },
+        overdue: { label: 'Otvoriť vydané faktúry', onclick: "Danubra.go('invoices')", ico: 'phone' },
+        unbilled: { label: 'Otvoriť odpracované hodiny', onclick: "Danubra.go('timesheets')", ico: 'clock' },
+        toinvoice: { label: 'Otvoriť vydané faktúry', onclick: "Danubra.go('invoices')", ico: 'invoices' },
+        approval: { label: 'Otvoriť vydané faktúry', onclick: "Danubra.go('invoices')", ico: 'check' },
+      };
+      return Shell.now(n, { help: 'card.money.now', action: AKCIA[n.key] });
+    },
+
     setWeeks(n) { this.weeks = Number(n) || 8; Danubra.renderRoute(); },
     toggle(key) { this.open = { ...this.open, [key]: !this.open[key] }; Danubra.renderRoute(); },
 
@@ -180,6 +200,7 @@
 
       el.innerHTML = Danubra.header('Kde sú peniaze',
         `${Money.format(sum.total)} čaká · ${Money.format(sp.free)} sa dá minúť`)
+        + this.nowHtml(stages, v)
         + `<p class="fl-intro">Dve otázky na jednom mieste: <strong>kde stoja naše
             peniaze</strong> a <strong>koľko sa z nich dá minúť a dokedy</strong>.
             Prvá sa rieši po štádiách — niečo stojí na nás, niečo na odberateľovi.

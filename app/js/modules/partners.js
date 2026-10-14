@@ -39,17 +39,39 @@
       });
     },
 
+    /**
+     * Jedna veta, čo spraviť s odberateľmi. Všetko sa to točí okolo
+     * USt-IdNr: bez neho sa nedá fakturovať v reverse charge podľa §13b
+     * a daň by sme zaplatili my.
+     *
+     * Predtým tu bol červený pruh „nemá USt-IdNr" a tým to skončilo —
+     * či je číslo **platné**, nikto nikdy nezistil. Overenie v registri
+     * (VIES) je teraz jedno kliknutie a jeho výsledok sa pamätá s dátumom.
+     */
+    nowHtml() {
+      const n = DanubraNow.clients(this.items);
+      const AKCIA = {
+        invalid: { label: 'Otvoriť odberateľa', ico: 'alert' },
+        vat: { label: 'Doplniť USt-IdNr', ico: 'edit' },
+        verify: { label: 'Otvoriť a preveriť', ico: 'shield' },
+        ok: { label: 'Pridať odberateľa', onclick: 'Prt.form()', ico: 'plus' },
+      };
+      const a = AKCIA[n.key];
+      return Shell.now(n, {
+        help: 'card.prt.now',
+        action: a && (a.onclick ? a : (n.id
+          ? { ...a, onclick: `Prt.detail('${n.id}')` } : null)),
+      });
+    },
+
     async view(el) {
       Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Prt.form()">${Icon('plus')} Pridať odberateľa</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.filtered();
-      const noVat = this.items.filter(p => !p.ust_idnr).length;
 
       el.innerHTML = Danubra.header('Odberatelia v Nemecku',
         `${this.items.length} celkom · ${this.items.filter(p => p.is_construction).length} stavebných`) +
-        (noVat ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('alert', 14)} ${noVat} ${noVat === 1 ? 'odberateľ nemá' : 'odberateľov nemá'} USt-IdNr —
-          bez neho sa nedá fakturovať v režime reverse charge §13b.</div>` : '') + `
+        this.nowHtml() + `
         <div class="filterbar">
           <input class="fb-search" placeholder="Hľadať názov, mesto, kontakt, USt-IdNr…" value="${UI.esc(this.filters.q)}"
             oninput="Prt.setF('q',this.value)">

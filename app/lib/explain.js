@@ -409,6 +409,164 @@
       ],
       links: [['opportunities', 'Možnosti'], ['hiring', 'Nábor']],
     },
+    // ── „Čo spraviť teraz" na ostatných obrazovkách ────────────────────────
+    // Každá obrazovka v menu začína jednou vetou a nič iné na nej nekričí.
+    // Tieto vysvetlivky hovoria, **podľa čoho je poradie** — pretože to je
+    // to jediné, čo sa na takej vete dá pokaziť.
+    'card.sub.list': {
+      title: 'Čo spraviť teraz so zákazkami',
+      lead: 'Ktorá zo zákaziek je na rade — nie koľko ich nespĺňa podmienky.',
+      what: [
+        'Veta sa pozerá na reťazec každej prebiehajúcej zákazky a vyberie tú, ktorá '
+        + 'najviac horí. Poradie naliehavosti je: doklady, ľudia, peniaze, hodiny, '
+        + 'dohodnuté podmienky.',
+      ],
+      how: [
+        'Je v nej **meno zákazky** a tlačidlo ju otvorí. Predtým tu bol pruh '
+        + '„n zákaziek nespĺňa podmienky vyslania" a človek musel sám hľadať, ktorá '
+        + 'to je.',
+      ],
+      why: [
+        'Ľudia na stavbe bez papierov sú drahší problém než nedoplnený termín — preto '
+        + 'sa nehľadá prvý nehotový krok, ale ten, ktorý najviac horí.',
+      ],
+      links: [['subcontracts', 'Zákazky'], ['compliance', 'Compliance']],
+    },
+    'card.wrk.now': {
+      title: 'Čo spraviť teraz so živnostníkmi',
+      lead: 'Najprv A1, potom IBAN, až potom telefón a remeslo.',
+      what: [
+        'A1 je prvé a horí: bez platného A1 sa nesmie vyslať a pri kontrole na stavbe '
+        + 'to padne na firmu, nie na človeka. Vybavenie trvá týždne, preto sa to rieši '
+        + 'štyridsaťpäť dní dopredu.',
+        'Druhý je IBAN u človeka, ktorý **už stojí na stavbe**. Na konci mesiaca príde '
+        + 'jeho faktúra a nebude sa dať zaplatiť.',
+      ],
+      how: [
+        'Platnosti dokladov sa riešia v Compliance — tam je vidieť, čo zastaví '
+        + 'nasadenie. Tu je to, bez čoho sa človeku nedá zaplatiť a nedá sa s ním '
+        + 'spojiť.',
+      ],
+      why: [
+        'Ľudia na čiernej listine a neaktívni sa nepočítajú. Appka by hlásila '
+        + 'chýbajúci IBAN u človeka, s ktorým už nikdy nebudeme robiť.',
+      ],
+      links: [['workers', 'Živnostníci'], ['compliance', 'Compliance']],
+    },
+    'card.prt.now': {
+      title: 'Čo spraviť teraz s odberateľmi',
+      lead: 'Všetko sa to točí okolo USt-IdNr — bez neho sa nedá fakturovať v reverse charge.',
+      what: [
+        'Neplatné číslo je prvé a horí: faktúra v reverse charge s neplatným USt-IdNr '
+        + 'je naša daň, nie ich. Číslo treba overiť u odberateľa — nestačí ho prepísať.',
+        'Potom firma, ktorá číslo vôbec nemá: nedá sa jej fakturovať podľa §13b UStG '
+        + 'ani ju preveriť v registri.',
+      ],
+      how: [
+        '**„Register neodpovedal" nie je „firma neexistuje."** Nedostupnosť registra '
+        + 'je v poradí posledná a nehorí — nie je to chyba odberateľa.',
+      ],
+      why: [
+        'Overenie si pamätá dátum. Pri dlhej zákazke má zmysel ho zopakovať: keď '
+        + 'odberateľ firmu zruší, ukáže sa to až pri ďalšom overení.',
+      ],
+      links: [['partners', 'Odberatelia v Nemecku'], ['invoices', 'Vydané faktúry']],
+    },
+    'card.trades.now': {
+      title: 'Čo spraviť teraz s remeslami',
+      lead: 'Remeslo bez otázok znamená, že hovor s remeselníkom je improvizácia.',
+      what: [
+        'Prvé je remeslo, ktoré nemá ani jednu zapnutú otázku. Bez otázok vedie hovor '
+        + 'každý inak a potom sa nedá porovnať, kto je lepší.',
+        'Druhé je to, čo vzniklo samo — otázky z analýzy zadania a polia zo zápisov '
+        + 'z hovorov. Ukladajú sa **vypnuté** a niekto ich má prečítať.',
+      ],
+      how: [
+        'Overovacia otázka je tá, pri ktorej kandidát nevie, že sa ňou preveruje. '
+        + 'Bez nej sa nedá zistiť, či naozaj robil to, čo tvrdí.',
+      ],
+      why: [
+        'Appka nezapína otázky sama. V hovore sa nemá objaviť otázka, ktorú nikto '
+        + 'z nás nečítal.',
+      ],
+      links: [['trades', 'Remeslá a otázky'], ['hiring', 'Nábor']],
+    },
+    'card.settings.firm': {
+      title: 'Čo doplniť vo fakturačných údajoch',
+      lead: 'Poradie nie je podľa formulára, ale podľa toho, čo sa stane, keď údaj chýba.',
+      what: [
+        'Názov firmy, adresa a IČO **zastavia dokument**: appka ho odberateľovi '
+        + 'nepustí, pretože je to papier, na ktorom nie je napísané, kto ho posiela.',
+        'IBAN a Steuernummer dokument nezastavia, len ho zhoršia — bez IBAN-u sa '
+        + 'nevykreslí QR platba a odberateľ prepisuje číslo účtu ručne.',
+      ],
+      how: [
+        'Údaje sa vypĺňajú **raz**. Dokumenty si ich berú odtiaľto, nikde nie sú '
+        + 'zapečené — keď sa firma premenuje, premenuje sa na všetkých naraz.',
+      ],
+      why: [
+        'IČ DPH sa nevyžaduje zámerne: firma nie je platiteľom DPH a na dokumentoch '
+        + 'je k tomu veta. Vyžadovať ho by znamenalo, že appka navždy hlási chybu, '
+        + 'ktorá nie je chybou.',
+      ],
+      links: [['settings', 'Nastavenia'], ['invoices', 'Vydané faktúry']],
+    },
+    'card.money.now': {
+      title: 'Čo spraviť teraz s peniazmi',
+      lead: 'Najprv účet, ktorý nevyjde, potom cudzie peniaze, až potom to, čo stojí na nás.',
+      what: [
+        'Účet, ktorý nevyjde, je prvý a horí: výplaty a faktúry od živnostníkov '
+        + 'nepočkajú. Rieši sa to skôr — vyfakturovaním toho, čo je hotové, alebo '
+        + 'odložením toho, čo počká.',
+        'Potom faktúry po splatnosti. Sú to naše peniaze u niekoho iného a kto sa '
+        + 'neozve, dostane zaplatené posledný.',
+      ],
+      how: [
+        'Z toho, čo stojí na nás, sa začína **najväčšou sumou** — nie poradím '
+        + 'štádií. Je to to, čo sa dá pohnúť vlastnou rukou.',
+      ],
+      why: [
+        'Číslo „minúť sa dá" je najnižší bod celého výhľadu, nie zostatok na konci. '
+        + 'Kto sa pozerá na koniec, minie to, čo bude v treťom týždni chýbať.',
+      ],
+      links: [['money', 'Kde sú peniaze'], ['bank', 'Banka a cash-flow']],
+    },
+    'card.hire.now': {
+      title: 'Čo spraviť teraz v nábore',
+      lead: 'Nie prvý nehotový krok, ale ten, ktorý najviac horí.',
+      what: [
+        'Zavolať človeku, ktorý čaká dvadsať minút, je naliehavejšie než pripraviť '
+        + 'inzerát, ktorý počká do zajtra. Preto sa nehľadá prvý nehotový krok, ale '
+        + 'ten, pri ktorom plynie čas niekomu inému.',
+      ],
+      how: [
+        'Cieľ zo zadania je ozvať sa do desiatich minút od ozvania. Po desiatich '
+        + 'minútach veta zčervená.',
+      ],
+      why: [
+        'Pod vetou je priebeh piatich krokov. Je to to isté, čo ukazuje „Ako to ide" '
+        + 'v hornom pruhu — len pre nábor.',
+      ],
+      links: [['hiring', 'Nábor'], ['candidates', 'Kandidáti']],
+    },
+    'card.hire.plan': {
+      title: 'Čo spraviť s týmto náborom',
+      lead: 'Jeden nábor: zadanie, analýza a kandidáti, ktorí z neho prišli.',
+      what: [
+        'Prvý je kandidát bez prvého hovoru. Živnostník, ktorý hľadá prácu, volá na '
+        + 'viac inzerátov — rozhoduje, kto sa ozve prvý.',
+        'Potom zadanie: bez neho nemá appka z čoho spraviť podklady ani otázky.',
+      ],
+      how: [
+        'Analýzu spúšťa **človek**, nie appka. Z jedného zadania vzniknú texty na web, '
+        + 'Bazoš aj Facebook, otázky do hovoru a chýbajúce polia náboru.',
+      ],
+      why: [
+        'Keď je zadanie aj analýza hotová, ďalší krok je na podkladoch: doplniť miesta '
+        + 'označené [XX]. Inzerát s [XX] nikto neberie vážne.',
+      ],
+      links: [['hiring', 'Nábor'], ['ads', 'Inzeráty']],
+    },
     'card.opp.now': {
       title: 'Čo spraviť teraz s možnosťami',
       lead: 'Najprv odpovedať na novú, potom preveriť firmu, potom doplniť údaje.',

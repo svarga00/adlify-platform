@@ -3308,6 +3308,98 @@ console.log('Prehliadač');
       ok(vis.card, 'samotná karta zostáva');
       await page.close();
     }
+
+    // ── Jedna zvýraznená vec na obrazovku ────────────────────────────────
+    // „Je tam na mňa veľa vecí, málo zvýraznených." Pravidlo appky je odvtedy
+    // jedno: **každá obrazovka v menu začína jednou vetou „čo teraz" a nič
+    // iné na nej nekričí.** Toto je test, ktorý padne, keď nová obrazovka
+    // vetu nemá — alebo keď na nej budú dve.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        // Dáta sú zámerne také, aby na každej obrazovke niečo chýbalo:
+        // prázdna obrazovka by vetu mala tiež, ale nedokázala by, že sa
+        // poradie naliehavosti vôbec počíta.
+        const DATA = {
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', status: 'deployed' }],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH' }],
+          trades: [{ key: 'zvarac', name_sk: 'Zvárač', sort_order: 1 }],
+          recruitment_plans: [{ id: 'r1', title: 'Wörthsee', status: 'active',
+            trade_key: 'zvarac', headcount: 4, city: 'Wörthsee' }],
+          candidates: [{ id: 'c1', full_name: 'Marek', status: 'new', plan_id: 'r1',
+            received_at: '2026-10-13T07:00:00Z' }],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' } }],
+          subcontracts: [{ id: 'sc1', title: 'Kotolňa', status: 'active' }],
+          timesheets: [], assignments: [], periods: [], invoices: [], costs: [],
+          bills: [], bank_transactions: [], v_cashflow: [],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        DB.update = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        const res = {};
+        // Presne tie obrazovky, ktoré stoja v ľavom menu. Zoznam sa berie
+        // z appky, nie z tohto testu — nová položka v menu sem pribudne sama.
+        const menu = Danubra.sidebarNav().map(x => x[0]);
+        for (const key of menu) {
+          const fn = Danubra.views[key];
+          if (typeof fn !== 'function') { res[key] = { chyba: 'obrazovka neexistuje' }; continue; }
+          // Moduly si pamätajú otvorený záznam aj načítané dáta — treba ich
+          // prinútiť načítať sa znova, inak sa vykreslí detail z iného testu.
+          for (const h of Object.values(Danubra.entities)) {
+            const m = window[h.handle];
+            if (m && 'openId' in m) m.openId = null;
+            if (m && 'loaded' in m) m.loaded = false;
+          }
+          Danubra.route = key;
+          view.innerHTML = '';
+          try { await fn.call(Danubra, view); } catch (e) { res[key] = { chyba: e.message }; continue; }
+          await new Promise(r => setTimeout(r, 60));
+          const boxy = [...view.querySelectorAll('.nowbox')];
+          res[key] = {
+            pocet: boxy.length,
+            title: boxy[0] ? boxy[0].querySelector('.nowbox-title').textContent.trim() : '',
+            label: boxy[0] ? boxy[0].querySelector('.nowbox-label').textContent.trim() : '',
+            why: boxy[0] && boxy[0].querySelector('.nowbox-why')
+              ? boxy[0].querySelector('.nowbox-why').textContent.trim() : '',
+            tlacidla: boxy[0] ? boxy[0].querySelectorAll('.btn').length : 0,
+            // Červené pruhy navyše. Veta „čo teraz" má byť jediná vec, ktorá
+            // kričí — pruh nad zoznamom je presne to, čo sa s ňou bije.
+            pruhy: view.querySelectorAll('.warnbox').length,
+          };
+        }
+        return { res, menu };
+      });
+
+      ok(out.menu.length >= 8, `v ľavom menu je ${out.menu.length} obrazoviek`,
+        out.menu.join(', '));
+      for (const key of out.menu) {
+        const r = out.res[key] || {};
+        ok(!r.chyba, `${key} sa vykreslí`, r.chyba);
+        if (r.chyba) continue;
+        ok(r.pocet === 1, `${key} má práve jednu vetu „čo teraz" (${r.pocet})`,
+          `nadpis: ${r.title}`);
+        ok(r.title && r.title.length > 3, `${key}: veta nie je prázdna`, r.title);
+        ok(r.tlacidla <= 1, `${key}: v nej je najviac jedno tlačidlo (${r.tlacidla})`);
+        ok(/^Čo /.test(r.label), `${key}: nadpisok hovorí „Čo…" (${r.label})`);
+        ok(r.pruhy === 0, `${key}: a nad zoznamom nie je červený pruh navyše (${r.pruhy})`);
+      }
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

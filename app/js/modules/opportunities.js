@@ -86,14 +86,10 @@
       const label = { new: 'Otvoriť možnosť', verify: 'Otvoriť a preveriť',
         fill: 'Otvoriť a doplniť', followup: 'Otvoriť ponuku',
         ok: 'Pridať možnosť' }[n.key] || 'Otvoriť';
-      return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
-        <div class="nowbox-label">Čo spraviť teraz</div>
-        <div class="nowbox-title">${UI.esc(n.title)} ${Help.btn('card.opp.now', { size: 14 })}</div>
-        <div class="nowbox-sub">${UI.esc(n.what)}</div>
-        <div class="nowbox-why">${UI.esc(n.why)}</div>
-        <button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-          onclick="${kam}">${Icon(n.key === 'new' ? 'phone' : 'chevron', 17)} ${label}</button>
-      </div>`;
+      return Shell.now(n, {
+        help: 'card.opp.now',
+        action: { label, onclick: kam, ico: n.key === 'new' ? 'phone' : 'chevron' },
+      });
     },
 
     card(x) {
@@ -204,16 +200,15 @@
           </select>
         </div>
 
-        <div class="nowbox${v.state === 'invalid' ? ' nowbox-hot' : ''}">
-          <div class="nowbox-label">Firma</div>
-          <div class="nowbox-title">${UI.esc(v.label)} ${Help.btn('card.opp.verify', { size: 14 })}</div>
-          <div class="nowbox-sub">${UI.esc(v.detail)}</div>
-          ${x.verified_at ? `<div class="nowbox-why">Pýtali sme sa ${UI.date(x.verified_at)}.
-            Staré overenie nie je overenie — pri zmene firmy to zopakuj.</div>` : ''}
-          ${x.company_vat ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-            onclick="Opp.verify('${x.id}')">${Icon('shield', 17)}
-            ${x.verify_result ? 'Preveriť znova' : 'Preveriť v registri'}</button>` : ''}
-        </div>
+        ${Shell.now({
+          title: v.label, what: v.detail, hot: v.state === 'invalid',
+          why: x.verified_at ? `Pýtali sme sa ${UI.date(x.verified_at)}. Staré overenie `
+            + 'nie je overenie — pri zmene firmy to zopakuj.' : '',
+        }, {
+          label: 'Firma', help: 'card.opp.verify',
+          action: x.company_vat ? { ico: 'shield', onclick: `Opp.verify('${x.id}')`,
+            label: x.verify_result ? 'Preveriť znova' : 'Preveriť v registri' } : null,
+        })}
 
         ${chyba.length ? `<div class="form-section">Čo doplniť</div>
           ${chyba.map(c => `<div class="list-row" style="cursor:default;align-items:flex-start;">

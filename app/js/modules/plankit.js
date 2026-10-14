@@ -75,6 +75,14 @@
           </div>`).join('')}`;
     },
 
+    /** Posun na zadanie. Z vety „čo spraviť" sa musí dať ísť tam, kde sa píše. */
+    focusBrief() {
+      const el = document.getElementById('plan-brief');
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus();
+    },
+
     // ── Zadanie ───────────────────────────────────────────────────────────
     /**
      * Čo o zákazke vieme, voľným textom. Píše to ten, kto zákazku priniesol —

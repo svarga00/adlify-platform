@@ -69,9 +69,7 @@
       el.innerHTML = Danubra.header(Danubra.labelOf('trades'),
         `${this.trades.length} remesiel · ${this.chips.filter(c => c.active !== false).length} polí`
         + (pend.length ? ` · ${pend.length} čaká na potvrdenie` : '')) +
-        (pend.length ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('zap', 14)} Z poznámok vzniklo ${pend.length}
-          ${pend.length === 1 ? 'nové pole' : 'nových polí'} — potvrď, čo chceš používať.</div>` : '') + `
+        this.nowHtml() + `
         <div class="pillbar" style="margin-bottom:14px;width:max-content;flex-wrap:wrap;">
           <button class="pill${this.tab === 'trades' ? ' active' : ''}" onclick="Trades.setTab('trades')">Remeslá</button>
           <button class="pill${this.tab === 'chips' ? ' active' : ''}" onclick="Trades.setTab('chips')">Polia do hovoru</button>
@@ -79,6 +77,24 @@
         </div>
         ${this.tab === 'trades' ? this.tradesHtml()
           : this.tab === 'chips' ? this.chipsHtml() : this.questionsHtml()}`;
+    },
+
+    /**
+     * Jedna veta, čo spraviť s remeslami. Bez otázok je hovor s remeselníkom
+     * improvizácia a každý ho vedie inak — potom sa nedá porovnať, kto je
+     * lepší. Poradie drží knižnica (`DanubraNow.trades`).
+     */
+    nowHtml() {
+      const n = DanubraNow.trades({
+        trades: this.trades, questions: this.questions, chips: this.chips,
+      });
+      const AKCIA = {
+        questions: { label: 'Pridať otázku', onclick: 'Trades.qForm()', ico: 'plus' },
+        hidden: { label: 'Pridať overovaciu otázku', onclick: 'Trades.qForm()', ico: 'plus' },
+        pending: { label: 'Prejsť, čo čaká', onclick: "Trades.setTab('chips')", ico: 'check' },
+        ok: { label: 'Pridať remeslo', onclick: 'Trades.tForm()', ico: 'plus' },
+      };
+      return Shell.now(n, { help: 'card.trades.now', action: AKCIA[n.key] });
     },
 
     setTab(t) { this.tab = t; Danubra.renderRoute(); },

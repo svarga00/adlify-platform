@@ -222,6 +222,31 @@
       ], ['zivnostnici']);
     },
 
+    /**
+     * Jedna veta, čo spraviť s ľuďmi — rovnako ako na ostatných obrazovkách.
+     *
+     * Predtým tu bol červený pruh o A1 a nič iné; chýbajúci IBAN u človeka,
+     * ktorý už stojí na stavbe, sa nedozvedel nikto, kým neprišla jeho
+     * faktúra. Poradie drží knižnica (`DanubraNow.people`): A1, potom IBAN,
+     * telefón a remeslo.
+     */
+    nowHtml(a1Issues) {
+      const n = DanubraNow.people({ workers: this.items, a1: a1Issues });
+      const AKCIA = {
+        a1: { label: 'Otvoriť Compliance', onclick: "Danubra.go('compliance')", ico: 'shield' },
+        iban_hot: { label: 'Otvoriť kartu človeka', ico: 'edit' },
+        iban: { label: 'Otvoriť kartu človeka', ico: 'edit' },
+        phone: { label: 'Otvoriť kartu človeka', ico: 'edit' },
+        trade: { label: 'Otvoriť kartu človeka', ico: 'edit' },
+      };
+      const a = AKCIA[n.key];
+      return Shell.now(n, {
+        help: 'card.wrk.now',
+        action: a && (a.onclick ? a : (n.id
+          ? { ...a, onclick: `Wrk.detail('${n.id}')` } : null)),
+      });
+    },
+
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.profile(el, this.openId);
@@ -238,9 +263,7 @@
       // klikol.
       el.innerHTML = Danubra.header(Danubra.labelOf('workers'),
         `${this.items.length} v databáze · ${ready} pripravených · ${deployed} vyslaných`) +
-        (a1Issues ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('alert', 14)} ${a1Issues} ${a1Issues === 1 ? 'pracovník má problém' : 'pracovníkov má problém'} s dokladom A1 —
-          bez platného A1 sa nesmie vyslať.</div>` : '') + `
+        this.nowHtml(a1Issues) + `
         <div class="pillbar" style="margin-bottom:14px;width:max-content;max-width:100%;overflow-x:auto;">
           <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Wrk.setF('status','')">Všetci</button>
           ${STATUS.map(s => {
