@@ -462,6 +462,27 @@
       links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
     },
 
+    'card.bills.now': {
+      title: 'Čo spraviť teraz s prijatými faktúrami',
+      lead: 'Najprv to, čo nesedí s hodinami, potom čo je po splatnosti, potom nové.',
+      what: [
+        'Sporná faktúra sú peniaze, ktoré by sme zaplatili zbytočne. Appka ju porovná '
+        + 'so **schválenými** hodinami sama — rozdiel treba doriešiť s človekom, nie schváliť.',
+        'Faktúra po splatnosti je jediná vec na tejto obrazovke, ktorá kazí vzťah: kto '
+        + 'nedostane zaplatené načas, naberie sa inde a povie to ďalším.',
+      ],
+      how: [
+        'Schváliť faktúru, ktorá nesedí, sa dá len s poznámkou, ktorá vysvetlí prečo — '
+        + 'a tú poznámku drží databáza, nie obrazovka.',
+      ],
+      why: [
+        'Do podkladu aj do porovnania idú len schválené hodiny. Keď faktúra nesedí, '
+        + 'býva to častejšie tým, že hodiny ešte nikto neschválil, než tým, že si '
+        + 'živnostník vymýšľa.',
+      ],
+      links: [['costs', 'Prijaté faktúry a náklady'], ['timesheets', 'Odpracované hodiny']],
+    },
+
     'card.inv.now': {
       title: 'Čo spraviť teraz s faktúrami',
       lead: 'Najprv schválenie, potom faktúry po splatnosti, nakoniec rozpracované podklady.',

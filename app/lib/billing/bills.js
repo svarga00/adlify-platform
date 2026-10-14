@@ -138,6 +138,92 @@
     return { ok: reasons.length === 0, reasons, warnings, check: c };
   }
 
+  // ── Čo na prijatých faktúrach čaká na nás ─────────────────────────────────
+
+  /**
+   * Prijaté faktúry rozdelené podľa toho, čo s nimi treba spraviť — a jedna
+   * vec, ktorá je na rade.
+   *
+   * Poradie je iné než pri vydaných faktúrach, a zámerne:
+   *
+   *   1. **nesedí s hodinami** (`disputed`) — tu ide o peniaze, ktoré by sme
+   *      zaplatili zbytočne. Rozdiel treba doriešiť s človekom, nie schváliť.
+   *   2. **po splatnosti a schválená** — živnostník čaká na peniaze. Toto je
+   *      jediná vec na tejto obrazovke, ktorá kazí vzťah: kto nedostane
+   *      zaplatené načas, naberie sa inde.
+   *   3. **neskontrolovaná** (`received`) — prišla a nikto ju neprešiel.
+   *   4. **schválená, nezaplatená** — čaká na úhradu, ale ešte je čas.
+   */
+  const SPORNE = 'disputed';
+  const NESKONTROLOVANE = ['received'];
+  const PRED_UHRADOU = ['checked', 'approved'];
+
+  function den(x) { return x ? String(x).slice(0, 10) : null; }
+
+  function queue(bills = [], today) {
+    const dnes = den(today) || new Date().toISOString().slice(0, 10);
+    const live = (bills || []).filter(b => b && b.status !== 'cancelled');
+
+    const disputed = live.filter(b => b.status === SPORNE);
+    const toCheck = live.filter(b => NESKONTROLOVANE.includes(b.status));
+    const toPay = live.filter(b => PRED_UHRADOU.includes(b.status));
+    const latePay = toPay.filter(b => den(b.due_date) && den(b.due_date) < dnes);
+
+    const suma = (list) => list.reduce((s, b) => s + M.toCents(b.amount), 0);
+    const prvy = (list) => list.slice().sort((a, b) =>
+      String(den(a.due_date) || '9999').localeCompare(String(den(b.due_date) || '9999')))[0] || null;
+
+    let next = null;
+    if (disputed.length) {
+      next = {
+        key: 'disputed',
+        title: disputed.length === 1 ? 'Doriešiť faktúru, ktorá nesedí' : 'Doriešiť faktúry, ktoré nesedia',
+        what: `${disputed.length} ${plural(disputed.length, 'faktúra nesedí', 'faktúry nesedia', 'faktúr nesedí')} `
+          + `so schválenými hodinami · ${M.format(suma(disputed))}`,
+        why: 'Rozdiel treba doriešiť s človekom, nie schváliť. Bez poznámky, ktorá vysvetlí '
+          + 'prečo, sa schváliť ani nedá.',
+        hot: true, bill: prvy(disputed), count: disputed.length, cents: suma(disputed),
+      };
+    } else if (latePay.length) {
+      next = {
+        key: 'pay',
+        title: 'Zaplatiť živnostníkovi',
+        what: `${latePay.length} ${plural(latePay.length, 'faktúra je', 'faktúry sú', 'faktúr je')} `
+          + `po splatnosti · ${M.format(suma(latePay))}`,
+        why: 'Kto nedostane zaplatené načas, naberie sa inde — a povie to ďalším. '
+          + 'Toto je na tejto obrazovke to jediné, čo kazí vzťah.',
+        hot: true, bill: prvy(latePay), count: latePay.length, cents: suma(latePay),
+      };
+    } else if (toCheck.length) {
+      next = {
+        key: 'check',
+        title: toCheck.length === 1 ? 'Skontrolovať faktúru' : 'Skontrolovať faktúry',
+        what: `${toCheck.length} ${plural(toCheck.length, 'faktúra prišla', 'faktúry prišli', 'faktúr prišlo')} `
+          + `a nikto ich neprešiel · ${M.format(suma(toCheck))}`,
+        why: 'Appka ju porovná so schválenými hodinami sama — treba len otvoriť a pozrieť, '
+          + 'či rozdiel niečo znamená.',
+        hot: false, bill: prvy(toCheck), count: toCheck.length, cents: suma(toCheck),
+      };
+    } else if (toPay.length) {
+      next = {
+        key: 'willpay',
+        title: 'Pripravené na úhradu',
+        what: `${toPay.length} ${plural(toPay.length, 'schválená faktúra', 'schválené faktúry', 'schválených faktúr')} `
+          + `· ${M.format(suma(toPay))}`,
+        why: 'Ešte je čas. Dátum splatnosti je pri každej z nich.',
+        hot: false, bill: prvy(toPay), count: toPay.length, cents: suma(toPay),
+      };
+    }
+
+    return {
+      disputed, toCheck, toPay, latePay, next,
+      disputedCents: suma(disputed), toCheckCents: suma(toCheck),
+      toPayCents: suma(toPay), latePayCents: suma(latePay),
+      // Čo čaká na nás dokopy: sporné a neskontrolované.
+      waiting: disputed.length + toCheck.length,
+    };
+  }
+
   /** Riadky do `Shell.sums` — porovnanie faktúry s podkladom. */
   function sumLines(c) {
     const lines = [{ label: 'Fakturuje', cents: c.amount }];
@@ -231,7 +317,7 @@
   }
 
   const API = {
-    TOLERANCE, expected, check, review, sumLines,
+    TOLERANCE, expected, check, review, sumLines, queue,
     byCategory, recurringDates, addMonths, economics, plural,
   };
   window.DanubraBills = API;

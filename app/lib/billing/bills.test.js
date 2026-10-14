@@ -229,5 +229,73 @@ console.log('Prijaté faktúry a náklady');
     'prázdne riadky nezhodia');
 }
 
+// ── Čo na prijatých faktúrach čaká na nás ───────────────────────────────────
+// Poradie je iné než pri vydaných faktúrach, a zámerne: sporná faktúra sú
+// peniaze, ktoré by sme zaplatili zbytočne, a faktúra po splatnosti je jediná
+// vec na tejto obrazovke, ktorá kazí vzťah so živnostníkom.
+{
+  const DNES = '2026-10-14';
+  const b = (id, status, extra = {}) => ({ id, status, amount: 100, ...extra });
+
+  eq(B.queue([], DNES).next, null, 'bez faktúr nič nečaká');
+  eq(B.queue(undefined, DNES).next, null, 'ani bez vstupu to nespadne');
+  eq(B.queue([], DNES).disputed.length, 0, 'zoznamy sú prázdne, nie undefined');
+
+  const q = B.queue([
+    b('s', 'disputed', { amount: 500, due_date: '2026-10-20' }),
+    b('p', 'approved', { amount: 300, due_date: '2026-10-01' }),
+    b('k', 'received', { amount: 200 }),
+  ], DNES);
+  eq(q.next.key, 'disputed', 'sporná faktúra je prvá — ide o peniaze zbytočne von');
+  ok(q.next.hot, 'a horí');
+  ok(/nesedí so schválenými hodinami/.test(q.next.what), 'povie, čo je zle', q.next.what);
+  ok(/nie schváliť/.test(q.next.why), 'a čo s tým', q.next.why);
+  eq(q.next.bill.id, 's', 'tlačidlo vedie na tú faktúru');
+
+  // Po splatnosti je druhé: živnostník čaká na peniaze.
+  const po = B.queue([b('p', 'approved', { amount: 300, due_date: '2026-10-01' })], DNES);
+  eq(po.next.key, 'pay', 'keď nič nie je sporné, ide sa platiť');
+  ok(po.next.hot, 'a to horí');
+  ok(/naberie sa inde/.test(po.next.why), 's dôvodom, ktorý nie je o peniazoch', po.next.why);
+  eq(po.latePay.length, 1, 'po splatnosti sa počíta podľa dátumu');
+  eq(B.queue([b('p', 'approved', { due_date: '2026-10-30' })], DNES).latePay.length, 0,
+    'faktúra pred splatnosťou medzi ne nepatrí');
+  eq(B.queue([b('p', 'approved', { due_date: '2026-10-30' })], DNES).next.key, 'willpay',
+    'a je z nej „pripravené na úhradu"');
+  ok(!B.queue([b('p', 'approved', { due_date: '2026-10-30' })], DNES).next.hot,
+    'čo nehorí — ešte je čas');
+
+  // Neskontrolovaná je tretia.
+  const k = B.queue([b('k', 'received', { amount: 200 })], DNES);
+  eq(k.next.key, 'check', 'prišlá faktúra, ktorú nikto neprešiel');
+  ok(!k.next.hot, 'nehorí');
+  ok(/porovná so schválenými hodinami sama/.test(k.next.why),
+    'a je napísané, že porovnanie spraví appka', k.next.why);
+
+  // Zaplatená ani zrušená sa neráta nikam.
+  eq(B.queue([b('z', 'cancelled', { amount: 999, due_date: '2026-01-01' })], DNES).next, null,
+    'zrušená faktúra nič nečaká');
+  eq(B.queue([b('u', 'paid', { amount: 999, due_date: '2026-01-01' })], DNES).next, null,
+    'zaplatená tiež nie');
+
+  // Sumy a počty do vety.
+  const viac = B.queue([
+    b('s1', 'disputed', { amount: 100 }), b('s2', 'disputed', { amount: 250 }),
+    b('k1', 'received', { amount: 50 }),
+    b('p1', 'approved', { amount: 400, due_date: '2026-10-01' }),
+  ], DNES);
+  eq(viac.disputedCents, 35000, 'suma sporných v centoch');
+  eq(viac.latePayCents, 40000, 'aj po splatnosti');
+  eq(viac.waiting, 3, 'na nás čakajú sporné a neskontrolované');
+  ok(/2 faktúry nesedia/.test(viac.next.what), 'množné číslo sedí', viac.next.what);
+
+  // Najstaršia splatnosť je prvá.
+  const poradie = B.queue([
+    b('nova', 'received', { due_date: '2026-12-01' }),
+    b('stara', 'received', { due_date: '2026-10-05' }),
+  ], DNES);
+  eq(poradie.next.bill.id, 'stara', 'na rade je tá s najstaršou splatnosťou');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);
