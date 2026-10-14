@@ -54,6 +54,9 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json',
   '.svg': 'image/svg+xml', '.png': 'image/png',
+  // Písmo. Bez správneho typu ho prehliadač odmietne a test by tvrdil, že
+  // rozhranie vyzerá inak, hoci v prevádzke vyzerá správne.
+  '.woff2': 'font/woff2',
 };
 
 /** Presmerovania z netlify.toml, aby test nebežal na inom nastavení než ostro. */
@@ -692,18 +695,18 @@ console.log('Prehliadač');
             html: v.innerHTML,
             menu: [...document.querySelectorAll('#sidebar-nav .nav-item')]
               .map(x => x.textContent.trim()).filter(Boolean),
-            zalozky: [...v.querySelectorAll('.subtabs .pill')]
+            zalozky: [...v.querySelectorAll('.subtabs .subtab')]
               .map(x => x.textContent.trim()),
-            zalozkaTeraz: (v.querySelector('.subtabs .pill.active') || {}).textContent,
+            zalozkaTeraz: (v.querySelector('.subtabs .subtab.active') || {}).textContent,
             // A či sa cez záložku naozaj prepne — vrátane toho, že sa zvýrazní
             // tá, na ktorej človek stojí.
             poKliku: await (async () => {
-              v.querySelector('.subtabs .pill[data-key=candidates]')?.click();
+              v.querySelector('.subtabs .subtab[data-key=candidates]')?.click();
               await new Promise(r => setTimeout(r, 400));
               const w = document.getElementById('view');
               return {
                 nadpis: (w.querySelector('.page-title') || {}).textContent || '',
-                aktivna: ((w.querySelector('.subtabs .pill.active') || {}).textContent || '').trim(),
+                aktivna: ((w.querySelector('.subtabs .subtab.active') || {}).textContent || '').trim(),
                 menu: [...document.querySelectorAll('#sidebar-nav .nav-item.active')]
                   .map(x => x.textContent.trim()),
               };

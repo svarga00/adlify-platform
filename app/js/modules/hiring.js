@@ -99,7 +99,6 @@
       const teraz = DanubraFlow.next(kroky);
 
       el.innerHTML = Danubra.header('Nábor', 'Päť krokov od potreby po človeka na stavbe')
-        + this.learnHtml()
         // „Čo teraz" vyzeralo na nábore inak než na všetkých ostatných
         // obrazovkách — bol to vlastný pruh s vlastným tlačidlom. Je to tá
         // istá veta, takže sa kreslí tým istým komponentom; pod ňou zostal
@@ -118,6 +117,11 @@
             <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
             <div class="flow-bar-txt">${p.done} z ${p.total} krokov hotových</div>`,
         })
+
+        // Zaškolenie je ponuka, nie úloha. Stálo nad vetou „čo teraz" a bolo
+        // výraznejšie než ona — prvé, čo človek na nábore videl, bol modrý
+        // pruh o zaškolení, nie to, čo má spraviť.
+        + this.learnHtml()
 
         + `<div class="flow">${kroky.map(k => this.stepHtmlBig(k, teraz)).join('')}</div>
 
@@ -159,16 +163,16 @@
           <button class="btn btn-ghost btn-sm" onclick="Learn.open()">Zopakovať</button>
         </div>`;
       }
-      return `<div class="flow-now learn-cta">
-        <div class="flow-now-txt">
+      return `<div class="learn-cta">
+        <div class="learn-cta-txt">
           <b>${s.done ? 'Dokonči zaškolenie' : 'Si tu prvýkrát?'}</b>
           <span>${s.done
             ? `Zostávajú ${s.total - s.done} kroky a ${s.minutesLeft} minút.`
             : 'Hodina a budeš vedieť viesť hovor sám — vrátane cvičného hovoru, '
               + 'kde appka hovorí za kandidáta.'}</span>
         </div>
-        <button class="flow-go" onclick="Learn.open()">
-          ${Icon('zap', 22)} ${s.done ? 'Pokračovať' : 'Začať zaškolenie'}</button>
+        <button class="btn btn-outline btn-sm" onclick="Learn.open()">
+          ${Icon('zap', 15)} ${s.done ? 'Pokračovať' : 'Začať zaškolenie'}</button>
       </div>`;
     },
 

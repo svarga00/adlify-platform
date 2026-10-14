@@ -42,7 +42,7 @@
   const CSS = `
     *{box-sizing:border-box}
     body{margin:0;padding:0;background:#fff;color:${BRAND.navy};
-      font-family:Archivo,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.55}
+      font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.55}
     .page{max-width:800px;margin:0 auto;padding:38px 44px}
     .head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
       padding-bottom:18px;border-bottom:2px solid ${BRAND.navy}}
@@ -108,7 +108,7 @@
     return `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap" rel="stylesheet">
 <style>${CSS}</style></head><body>
 ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">${esc(title)}</span>
 <button onclick="window.print()">Uložiť ako PDF / vytlačiť</button></div>` : ''}

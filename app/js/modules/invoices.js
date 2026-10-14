@@ -747,7 +747,7 @@
       });
       if (!rows.length) {
         return UI.toast(skipped.length
-          ? 'Toto výnimka nerieši — oprav to, na čo blokátor ukazuje'
+          ? 'Toto výnimka nerieši — oprav to, na čo appka ukazuje'
           : 'Niet čo povoliť — nič neblokuje', 'err');
       }
       const { error } = await DB.from('overrides').insert(rows);

@@ -116,7 +116,9 @@
         ? (check.warnings || []).length
           ? `Podmienky splnené, ${(check.warnings || []).length} ${plural((check.warnings || []).length, 'upozornenie', 'upozornenia', 'upozornení')}.`
           : 'Podmienky vyslania sú splnené.'
-        : `${check.blockers.length} ${plural(check.blockers.length, 'blokátor', 'blokátory', 'blokátorov')}: `
+        // „Blokátor" je slovo z appky, nie z firmy. Je to podmienka vyslania:
+        // A1, hlásenie Zoll, SOKA-BAU, USt-IdNr odberateľa.
+        : `Nespĺňa ${check.blockers.length} ${plural(check.blockers.length, 'podmienku', 'podmienky', 'podmienok')}: `
           + check.blockers.slice(0, 2).map(b => b.label).join(' · '),
       todo: check.ok ? null
         : (check.blockers[0] && (check.blockers[0].fix || check.blockers[0].label)) || null,
