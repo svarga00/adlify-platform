@@ -237,5 +237,72 @@ console.log('Banka a cash-flow');
     'po splatnosti sa pripomenie');
 }
 
+// ── Čo spraviť teraz na banke ───────────────────────────────────────────────
+// Celá obrazovka stojí na jednom čísle: na zostatku z posledného výpisu. Keď
+// je výpis starý, výhľad je fikcia — a nič na obrazovke to predtým nepovedalo.
+{
+  const DNES = '2026-10-14';
+  const f = B.forecast({ balance: 500000, items: [], weeks: 8, today: DNES });
+  const sc = B.scaleCheck(f, {});
+  const tx = (date, match = 'matched') => ({ booked_at: date, match_status: match });
+
+  const prazdno = B.nowNext({ forecast: f, scale: sc, txs: [], today: DNES });
+  eq(prazdno.key, 'import', 'bez pohybov treba načítať výpis');
+  ok(/zostatok je nula/.test(prazdno.what), 'a povie sa, že zostatok je nula', prazdno.what);
+  ok(!prazdno.hot, 'nehorí to — appka sa len ešte nepoužíva');
+
+  const stary = B.nowNext({ forecast: f, scale: sc, txs: [tx('2026-09-20')], today: DNES });
+  eq(stary.key, 'import', 'starý výpis je prvý na rade');
+  ok(/24 dní/.test(stary.what), 'povie, aký je starý', stary.what);
+  ok(stary.hot, 'a nad dva týždne to horí');
+  ok(/nesprávneho čísla/.test(stary.why), 'aj čo to znamená pre výhľad', stary.why);
+
+  const tyzden = B.nowNext({ forecast: f, scale: sc, txs: [tx('2026-10-06')], today: DNES });
+  eq(tyzden.key, 'import', 'po týždni sa výpis už pýta');
+  ok(!tyzden.hot, 'ale ešte nehorí');
+  eq(B.nowNext({ forecast: f, scale: sc, txs: [tx('2026-10-10')], today: DNES }).key, 'ok',
+    'štyri dni starý výpis je v poriadku');
+
+  // Mínus na účte je dôležitejší než nespárované pohyby.
+  const doMinusu = B.forecast({
+    balance: 10000, weeks: 8, today: DNES,
+    items: [{ expected_on: '2026-10-20', amount: -500 }],
+  });
+  const minus = B.nowNext({ forecast: doMinusu, scale: B.scaleCheck(doMinusu, {}),
+    txs: [tx('2026-10-13', 'unmatched')], today: DNES });
+  eq(minus.key, 'negative', 'mínus na účte má prednosť pred párovaním');
+  ok(minus.hot, 'a horí');
+  ok(/Výplaty sa odložiť nedajú/.test(minus.why), 's dôvodom, ktorý nie je o účtovníctve',
+    minus.why);
+
+  const parovanie = B.nowNext({ forecast: f, scale: sc,
+    txs: [tx('2026-10-13', 'unmatched'), tx('2026-10-12', 'unmatched')], today: DNES });
+  eq(parovanie.key, 'match', 'nespárované pohyby sú ďalšie');
+  ok(/2 pohyby nie sú/.test(parovanie.what), 'množné číslo sedí', parovanie.what);
+  ok(/vyzerá bohatší/.test(parovanie.why), 'a je povedané, čím to klame', parovanie.why);
+
+  // Tesná rezerva: nie je to prekážka, ale treba o tom vedieť.
+  // Pozor na jednotky: `balance` je v centoch (súčet pohybov), `items` majú
+  // sumu v eurách — `forecast` si ju prepočíta sám. Zmiešať to znamená výhľad
+  // o dva rády vedľa.
+  const tesne = B.forecast({
+    balance: 300000, weeks: 8, today: DNES,
+    items: [{ expected_on: '2026-10-20', amount: -1000 }],
+  });
+  const tenky = B.nowNext({ forecast: tesne, scale: B.scaleCheck(tesne, {}),
+    txs: [tx('2026-10-13')], today: DNES });
+  eq(tenky.key, 'thin', 'tesná rezerva je posledná v poradí');
+  ok(!tenky.hot, 'nehorí');
+  ok(/pri nábore/.test(tenky.why), 'a je napísané, kedy to je dôležité', tenky.why);
+
+  const vporiadku = B.nowNext({ forecast: f, scale: sc, txs: [tx('2026-10-13')], today: DNES });
+  eq(vporiadku.key, 'ok', 'keď je všetko v poriadku, povie sa to tiež');
+  ok(/Najnižší bod/.test(vporiadku.what), 'aj s číslom', vporiadku.what);
+
+  // Prázdny vstup nesmie nič zhodiť.
+  ok(B.nowNext({}).key, 'bez vstupu to nespadne');
+  ok(B.nowNext().key, 'ani bez argumentu');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);
