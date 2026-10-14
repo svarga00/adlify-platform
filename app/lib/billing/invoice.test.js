@@ -232,5 +232,87 @@ console.log('Vydaná faktúra');
   eq(I.fmtDe(123456789), '1.234.567,89', 'milióny');
 }
 
+// ── Čo na faktúrach čaká na nás ─────────────────────────────────────────────
+// Obrazovka faktúr bola zoznam s filtrami: „čo mám teraz spraviť" sa z nej
+// dalo vyčítať len vtedy, keď človek vedel, ktorý stav čo znamená — a stavy
+// sú dva razy dva, lebo v1 a v2 ich pomenovali inak.
+{
+  const DNES = '2026-10-14';
+  const f = (id, status, extra = {}) => ({ id, status, total: 100, ...extra });
+
+  const prazdne = I.queue([], DNES);
+  eq(prazdne.next, null, 'bez faktúr nič nečaká');
+  eq(prazdne.pending.length, 0, 'a zoznamy sú prázdne, nie undefined');
+  eq(I.queue(undefined, DNES).next, null, 'ani bez vstupu to nespadne');
+
+  // Schválenie je prvé: je to jediná vec, ktorá stojí len na nás.
+  const q = I.queue([
+    f('a', 'pending_approval', { total: 1000, due_date: '2026-11-01' }),
+    f('b', 'sent', { total: 500, due_date: '2026-10-01' }),
+    f('c', 'draft', { total: 200 }),
+  ], DNES);
+  eq(q.next.key, 'approve', 'schválenie má prednosť pred po splatnosti');
+  ok(/1 faktúra čaká na schválenie/.test(q.next.what), 'a povie, koľko ich je', q.next.what);
+  // Tisíce sú oddelené nezlomiteľnou medzerou (U+00A0) — `Money.format` to tak
+  // robí zámerne, aby sa suma nezalomila na dva riadky. S obyčajnou medzerou
+  // by tento test padol na niečom, čo je v poriadku.
+  ok(/1\u00A0000,00/.test(q.next.what), 'aj za koľko', JSON.stringify(q.next.what));
+  ok(/neodíde/.test(q.next.why), 'a prečo to stojí na nás', q.next.why);
+  ok(!q.next.hot, 'nehorí to — je to v našich rukách');
+  eq(q.next.invoice.id, 'a', 'tlačidlo vedie na konkrétnu faktúru');
+
+  // Po splatnosti: berie sa aj z dátumu, nie len zo stavu.
+  const po = I.queue([f('b', 'sent', { total: 500, due_date: '2026-10-01' })], DNES);
+  // Bez tejto poistky by test pri chybe spadol na `null.key` a namiesto vety
+  // o tom, čo je zlé, by vypísal výnimku.
+  ok(po.next, 'faktúra po splatnosti sa vôbec nájde');
+  eq(po.next && po.next.key, 'overdue', 'keď netreba nič schvaľovať, ide sa po peniazoch');
+  ok(po.next.hot, 'a to horí');
+  ok(/prestala počítať v cash-flow/.test(po.next.why), 's vysvetlením, čo to znamená');
+  eq(po.overdue.length, 1, 'faktúra po splatnosti sa nájde aj podľa dátumu, nie len stavu');
+  eq(I.queue([f('x', 'sent', { due_date: '2026-10-20' })], DNES).overdue.length, 0,
+    'faktúra pred splatnosťou medzi ne nepatrí');
+  eq(I.queue([f('x', 'overdue', { due_date: null })], DNES).overdue.length, 1,
+    'a stav „po splatnosti" platí aj bez dátumu');
+
+  // Zrušená faktúra nie je ani dlh, ani práca.
+  const zrusena = I.queue([f('z', 'cancelled', { total: 9999, due_date: '2026-01-01' })], DNES);
+  eq(zrusena.next, null, 'zrušená faktúra nič nečaká');
+  eq(zrusena.overdueCents, 0, 'a do dlhu sa neráta');
+
+  // Zaplatená tiež nie.
+  eq(I.queue([f('p', 'paid', { due_date: '2026-01-01' })], DNES).next, null,
+    'zaplatená faktúra tiež nie');
+
+  // Rozpracované sú tretie — nikto ich ešte neposlal na schválenie.
+  const draft = I.queue([f('c', 'draft', { total: 200 })], DNES);
+  eq(draft.next.key, 'draft', 'rozpracovaný podklad je na rade ako posledný');
+  ok(/hotová práca/.test(draft.next.why), 'a je povedané, čo to je');
+
+  // Oba názvy stavu pre schválenie (v1 aj v2) sa musia počítať.
+  eq(I.queue([f('a', 'draft_pending_approval')], DNES).pending.length, 1,
+    'starý názov stavu sa počíta tiež');
+  eq(I.queue([f('a', 'pending_approval')], DNES).pending.length, 1, 'aj nový');
+
+  // Sumy a počty do vety nad zoznamom.
+  const viac = I.queue([
+    f('a', 'pending_approval', { total: 100 }),
+    f('b', 'pending_approval', { total: 250 }),
+    f('c', 'draft', { total: 50 }),
+    f('d', 'overdue', { total: 400 }),
+  ], DNES);
+  eq(viac.pendingCents, 35000, 'suma na schválenie sa spočíta v centoch');
+  eq(viac.overdueCents, 40000, 'aj po splatnosti');
+  eq(viac.waiting, 3, 'a čo čaká na nás, je schválenie plus rozpracované');
+  ok(/2 faktúry čakajú/.test(viac.next.what), 'množné číslo sedí', viac.next.what);
+
+  // Najstaršia splatnosť je prvá — tá horí najdlhšie.
+  const poradie = I.queue([
+    f('nova', 'pending_approval', { due_date: '2026-12-01' }),
+    f('stara', 'pending_approval', { due_date: '2026-10-05' }),
+  ], DNES);
+  eq(poradie.next.invoice.id, 'stara', 'na rade je tá s najstaršou splatnosťou');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

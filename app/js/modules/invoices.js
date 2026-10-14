@@ -79,11 +79,13 @@
       const unpaid = this.items.filter(x => !SETTLED.includes(x.status));
       const unpaidSum = unpaid.reduce((s, x) => s + Number(x.total || 0), 0);
 
+      // Čo na faktúrach čaká na nás. Zoznam s filtrami nepovie, čo spraviť —
+      // povie, čo tam je. Toto povie jedno aj druhé.
+      const q = DanubraInvoice.queue(this.items, Danubra._dayISO());
+
       el.innerHTML = Danubra.header(Danubra.labelOf('invoices'),
         `${this.items.length} celkom · neuhradené ${UI.money(unpaidSum)}`) +
-        (pending.length ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('alert', 14)} ${pending.length} ${pending.length === 1 ? 'návrh čaká' : 'návrhov čaká'} na schválenie —
-          faktúry za priebežnú službu sa neodosielajú automaticky.</div>` : '') + `
+        this.nowHtml(q) + `
         <div class="pillbar" style="margin-bottom:10px;width:max-content;max-width:100%;overflow-x:auto;">
           <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Inv.setF('status','')">Všetky</button>
           ${STATUS.map(s => {
@@ -105,7 +107,56 @@
                   `V databáze je ${this.items.length} faktúr, ale ani jedna nevyhovuje.`)
               : UI.empty('invoices', 'Žiadne faktúry', 'Vystaviť sa dá z objednávky, z dopytu alebo úplne voľne.',
                   `<button class="btn btn-primary" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`))
-          : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
+          : this.listHtml(rows, q)}`;
+    },
+
+    /**
+     * Jedna veta a jedno tlačidlo. Poradie drží knižnica (`DanubraInvoice.queue`):
+     * najprv schválenie, pretože to je jediná vec, ktorá stojí len na nás,
+     * potom faktúry po splatnosti, nakoniec rozpracované podklady.
+     */
+    nowHtml(q) {
+      const n = q.next;
+      if (!n) {
+        return `<div class="nowbox">
+          <div class="nowbox-label">Čo spraviť teraz</div>
+          <div class="nowbox-title">Nič nečaká ${Help.btn('card.inv.now', { size: 14 })}</div>
+          <div class="nowbox-sub">Nič nie je na schválenie ani po splatnosti.</div>
+          <div class="nowbox-why">Keď niečo pribudne, bude to tu napísané ako prvé.</div>
+        </div>`;
+      }
+      const kam = n.invoice ? `Inv.detail('${n.invoice.id}')` : null;
+      const label = { approve: 'Otvoriť na schválenie', overdue: 'Otvoriť najstaršiu',
+        draft: 'Otvoriť podklad' }[n.key] || 'Otvoriť';
+      return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
+        <div class="nowbox-label">Čo spraviť teraz</div>
+        <div class="nowbox-title">${UI.esc(n.title)} ${Help.btn('card.inv.now', { size: 14 })}</div>
+        <div class="nowbox-sub">${UI.esc(n.what)}</div>
+        <div class="nowbox-why">${UI.esc(n.why)}</div>
+        ${kam ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
+          onclick="${kam}">${Icon(n.key === 'overdue' ? 'phone' : 'check', 17)} ${label}</button>` : ''}
+      </div>`;
+    },
+
+    /**
+     * Zoznam. Hore to, čo čaká na nás — schválenie a rozpracované podklady —
+     * až pod tým ostatné. Pri zapnutom filtri stavu sa nedelí: človek si už
+     * vybral, čo chce vidieť, a dve sekcie by ho klamali o tom, čo je vo filtri.
+     */
+    listHtml(rows, q) {
+      if (this.filters.status) {
+        return `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`;
+      }
+      const nase = new Set([...q.pending, ...q.drafts].map(x => x.id));
+      const hore = rows.filter(x => nase.has(x.id));
+      const zvysok = rows.filter(x => !nase.has(x.id));
+      if (!hore.length) return `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`;
+
+      return `
+        <div class="form-section">Čaká na teba (${hore.length})</div>
+        <div class="cards">${hore.map(x => this.card(x)).join('')}</div>
+        ${zvysok.length ? `<div class="form-section">Ostatné (${zvysok.length})</div>
+          <div class="cards">${zvysok.map(x => this.card(x)).join('')}</div>` : ''}`;
     },
 
     /** Komu sa fakturuje: v2 nemeckému odberateľovi, v1 klientovi z ubytovania. */

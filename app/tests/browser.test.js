@@ -1963,6 +1963,105 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Faktúry: čo čaká na nás je hore, nie vo filtri ────────────────────
+    // Obrazovka faktúr bola zoznam s filtrami. „Čo mám teraz spraviť" sa z nej
+    // dalo vyčítať len vtedy, keď človek vedel, ktorý stav čo znamená — a
+    // stavy sú dva razy dva, lebo v1 a v2 ich pomenovali inak.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          invoices: [
+            { id: 'i1', invoice_number: '2026001', status: 'pending_approval',
+              total: 5280, currency: 'EUR', partner_id: 'p1', due_date: '2026-11-10',
+              issue_date: '2026-10-10' },
+            { id: 'i2', invoice_number: '2026002', status: 'sent',
+              total: 1200, currency: 'EUR', partner_id: 'p1', due_date: '2026-10-01',
+              issue_date: '2026-09-01' },
+            { id: 'i3', invoice_number: '2026003', status: 'paid',
+              total: 900, currency: 'EUR', partner_id: 'p1', due_date: '2026-09-15',
+              issue_date: '2026-08-15' },
+            { id: 'i4', invoice_number: '', status: 'draft',
+              total: 300, currency: 'EUR', partner_id: 'p1' },
+          ],
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE' }],
+          invoice_items: [], clients: [], orders: [], overrides: [],
+          subcontracts: [], periods: [],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'invoices';
+        Inv.loaded = false;
+        Inv.filters = { status: '', q: '', period: 'all', from: '', to: '' };
+        await Danubra.views.invoices.call(Danubra, view);
+
+        const box = view.querySelector('.nowbox');
+        const čítaj = () => ({
+          label: box ? box.querySelector('.nowbox-label').textContent.trim() : '',
+          title: box ? box.querySelector('.nowbox-title').textContent.trim() : '',
+          sub: box ? box.querySelector('.nowbox-sub').textContent.trim() : '',
+          why: box ? box.querySelector('.nowbox-why').textContent.trim() : '',
+          onclick: box && box.querySelector('.btn')
+            ? box.querySelector('.btn').getAttribute('onclick') : '',
+          hot: !!view.querySelector('.nowbox-hot'),
+          help: !!(box && box.querySelector('.help-btn')),
+        });
+        const teraz = čítaj();
+        const sekcie = [...view.querySelectorAll('.form-section')].map(e => e.textContent.trim());
+        const prvaSkupina = [...view.querySelectorAll('.cards')][0];
+        const horne = prvaSkupina
+          ? [...prvaSkupina.querySelectorAll('.acc-name')].map(e => e.textContent.trim()) : [];
+
+        // Pri zapnutom filtri sa zoznam nedelí — človek si už vybral.
+        Inv.filters.status = 'paid';
+        await Danubra.views.invoices.call(Danubra, view);
+        const vofiltri = {
+          sekcie: [...view.querySelectorAll('.form-section')].map(e => e.textContent.trim()),
+        };
+
+        return { teraz, sekcie, horne, vofiltri };
+      });
+
+      ok(/Čo spraviť teraz/.test(out.teraz.label), 'faktúry hovoria, čo spraviť teraz',
+        out.teraz.label);
+      ok(/Schváliť/.test(out.teraz.title),
+        'a schválenie má prednosť pred faktúrou po splatnosti', out.teraz.title);
+      ok(/1 faktúra čaká na schválenie/.test(out.teraz.sub), 'povie, koľko ich je',
+        out.teraz.sub);
+      ok(/neodíde/.test(out.teraz.why), 'aj prečo to stojí na nás', out.teraz.why);
+      ok(!out.teraz.hot, 'nehorí to — je to v našich rukách');
+      ok(/Inv\.detail\('i1'\)/.test(out.teraz.onclick || ''),
+        'tlačidlo vedie na tú faktúru, ktorá čaká', out.teraz.onclick);
+      ok(out.teraz.help, 'a je pri tom vysvetlivka');
+
+      ok(out.sekcie.some(x => /Čaká na teba \(2\)/.test(x)),
+        'hore je to, čo čaká na nás — návrh a rozpracovaný podklad',
+        out.sekcie.join(' | '));
+      ok(out.sekcie.some(x => /Ostatné \(2\)/.test(x)), 'pod tým ostatné',
+        out.sekcie.join(' | '));
+      ok(out.horne.includes('2026001'), 'faktúra na schválenie je v hornej skupine',
+        out.horne.join(', '));
+      ok(!out.horne.includes('2026003'), 'a zaplatená tam nie je', out.horne.join(', '));
+      ok(out.vofiltri.sekcie.length === 0,
+        'pri zapnutom filtri sa zoznam nedelí', out.vofiltri.sekcie.join(' | '));
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Nábor: podklady, prompty a kde sme inzerovali na jednom mieste ────
     // Ku každému náboru vzniká jeden dokument: zadanie, zhrnutie zákazky a
     // texty na web, Bazoš CZ a SK, Facebook CZ a SK, reklamu, obrázky a
