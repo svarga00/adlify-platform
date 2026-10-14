@@ -374,8 +374,34 @@
       }
       await Hire.load();
       await this.load(planId);
-      UI.toast(`Hotovo — ${out.blocks || 0} ${Shell.plural(out.blocks || 0,
-        'text', 'texty', 'textov')} pripravených ako návrh`, 'ok');
+
+      // Čo analýza spravila. Nestačí povedať „hotovo": človek musí vedieť,
+      // čo mu pribudlo do náboru a čo ešte musí potvrdiť.
+      const polia = (out.plan || []).length;
+      const casti = [
+        `${out.blocks || 0} ${Shell.plural(out.blocks || 0, 'text', 'texty', 'textov')}`,
+        polia ? `${polia} ${Shell.plural(polia, 'pole', 'polia', 'polí')} náboru` : null,
+        out.questions ? `${out.questions} ${Shell.plural(out.questions,
+          'otázka', 'otázky', 'otázok')} do hovoru` : null,
+      ].filter(Boolean);
+      UI.toast(`Hotovo — ${casti.join(' · ')}`, 'ok');
+
+      if (out.questions) {
+        UI.modal('Pribudli otázky do hovoru', `
+          <div class="regimebox">${Icon('check', 14)}
+            ${out.questions} ${Shell.plural(out.questions, 'otázka', 'otázky', 'otázok')}
+            pre remeselníka ${Shell.plural(out.questions, 'je', 'sú', 'je')} pripravených
+            ako <strong>návrh</strong>.</div>
+          <p style="font-size:13px;color:var(--ink-sub);">Zoznam otázok je to, podľa čoho
+            sa rozhoduje o ľuďoch, takže doň nič nepribudne samo. Prečítaj ich a potvrď
+            v Remeslách a otázkach — dovtedy sa v hovore neponúkajú.</p>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
+            <button class="btn btn-primary"
+              onclick="UI.closeModal();Danubra.go('trades')">
+              ${Icon('wrench', 15)} Prečítať otázky</button>
+          </div>`);
+      }
       Danubra.renderRoute();
     },
   };

@@ -310,5 +310,81 @@ console.log('\nCash-flow');
   ok(r.scaleSafe, 's faktoringom je dlhá splatnosť únosná');
 }
 
+// ── Čo spraviť teraz v compliance ───────────────────────────────────────────
+// Compliance bola zoznam pravidiel so štyrmi číslami. Z toho sa nedalo
+// povedať, čo zastaví stavbu najskôr — a lehoty sú pri tom to podstatné:
+// A1 sa vybavuje až 45 dní, Freistellung §48b štyri až osem týždňov.
+{
+  console.log('\nČo spraviť teraz v compliance');
+  const DNES = '2026-10-14';
+  const VSETKO = ['ust_idnr', 'soka_registration', 'handwerksrolle', 'freistellung_48b']
+    .map(kind => ({ scope: 'company', kind, valid_to: '2027-06-30' }));
+  const clovek = (id, name, status = 'deployed') => ({ id, full_name: name, status });
+  const a1 = (worker_id, valid_to) => ({ kind: 'a1', worker_id, valid_to });
+
+  // Prázdna appka: povolenia ešte nikto nezaevidoval.
+  eq(C.nowNext({ today: DNES }).key, 'company', 'bez zaevidovaných povolení sa pýtajú povolenia');
+  ok(C.nowNext({}).key, 'bez vstupu to nespadne');
+
+  // Človek na stavbe bez A1 je prvý — padne to na firmu, nie na neho.
+  const bezA1 = C.nowNext({ today: DNES, items: VSETKO,
+    workers: [clovek('w1', 'Jozef Malý')], workerDocs: [] });
+  eq(bezA1.key, 'a1', 'chýbajúce A1 u nasadeného človeka je prvé');
+  ok(bezA1.hot, 'a horí');
+  ok(/Jozef Malý/.test(bezA1.what), 'vo vete je meno', bezA1.what);
+  ok(/padne na nás/.test(bezA1.why), 'aj to, na koho to padne', bezA1.why);
+  ok(/45 dní/.test(bezA1.why), 'a koľko trvá vybavenie', bezA1.why);
+
+  // Kto ešte nie je na stavbe, je tiež problém — ale nehorí tak.
+  const pripraveny = C.nowNext({ today: DNES, items: VSETKO,
+    workers: [clovek('w1', 'Jozef Malý', 'ready')], workerDocs: [] });
+  eq(pripraveny.key, 'a1', 'aj u pripraveného človeka');
+  ok(!pripraveny.hot, 'ale nehorí — ešte nie je na stavbe');
+  ok(/nasadiť nedá/.test(pripraveny.why), 'a je povedané, čo to blokuje', pripraveny.why);
+
+  // Neplatné firemné povolenie je druhé.
+  const zleUst = C.nowNext({ today: DNES,
+    items: [...VSETKO.filter(i => i.kind !== 'ust_idnr'),
+      { scope: 'company', kind: 'ust_idnr', valid_to: '2026-09-30' }],
+    workers: [clovek('w1', 'Jozef Malý')], workerDocs: [a1('w1', '2027-01-01')] });
+  eq(zleUst.key, 'company', 'neplatné povolenie je na rade po A1');
+  ok(zleUst.hot, 'a horí');
+  ok(/USt-IdNr/.test(zleUst.what), 'povie sa menom, nie kľúčom', zleUst.what);
+  ok(/reverse charge/.test(zleUst.why), 'aj čo to spôsobí', zleUst.why);
+
+  // A1, ktoré sa končí do 45 dní, znamená „podaj to dnes".
+  const konci = C.nowNext({ today: DNES, items: VSETKO,
+    workers: [clovek('w1', 'Jozef Malý')], workerDocs: [a1('w1', '2026-11-10')] });
+  eq(konci.key, 'a1soon', 'A1 pred koncom platnosti');
+  ok(!konci.hot, 'nehorí, ale treba to podať');
+  ok(/podaj to dnes/.test(konci.why), 'a je povedané prečo', konci.why);
+
+  // Povolenie, ktorému sa končí platnosť, je posledné.
+  const konciFirma = C.nowNext({ today: DNES,
+    items: [...VSETKO.filter(i => i.kind !== 'freistellung_48b'),
+      { scope: 'company', kind: 'freistellung_48b', valid_to: '2026-11-01' }],
+    workers: [clovek('w1', 'Jozef Malý')], workerDocs: [a1('w1', '2027-01-01')] });
+  eq(konciFirma.key, 'companysoon', 'povolenie pred koncom platnosti je posledné');
+  ok(/4–8 týždňov/.test(konciFirma.why), 's lehotou, ktorá naozaj platí', konciFirma.why);
+  ok(/15 %/.test(konciFirma.why), 'a čo to stojí', konciFirma.why);
+
+  // Všetko v poriadku sa povie tiež.
+  const dobre = C.nowNext({ today: DNES, items: VSETKO,
+    workers: [clovek('w1', 'Jozef Malý')], workerDocs: [a1('w1', '2027-01-01')] });
+  eq(dobre.key, 'ok', 'keď je všetko platné, povie sa to');
+  ok(!dobre.hot, 'a nehorí');
+
+  // Novší doklad prekryje starší, nie naopak.
+  const dvaDoklady = C.nowNext({ today: DNES, items: VSETKO,
+    workers: [clovek('w1', 'Jozef Malý')],
+    workerDocs: [a1('w1', '2026-01-01'), a1('w1', '2027-01-01')] });
+  eq(dvaDoklady.key, 'ok', 'starý doklad vedľa nového nerobí problém');
+
+  // Človek, ktorý u nás nerobí, sa do compliance nepočíta.
+  eq(C.nowNext({ today: DNES, items: VSETKO,
+    workers: [clovek('w9', 'Bývalý', 'archived')], workerDocs: [] }).key, 'ok',
+    'archivovaný človek už A1 nepotrebuje');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

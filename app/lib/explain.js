@@ -462,6 +462,28 @@
       links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
     },
 
+    'card.cmp.now': {
+      title: 'Čo spraviť teraz v compliance',
+      lead: 'Najprv človek na stavbe bez A1, potom neplatné povolenie, potom lehoty.',
+      what: [
+        'Človek na stavbe bez platného A1 je prvý: pri kontrole to padne na nás ako na '
+        + 'firmu, nie na neho — a vystavenie trvá až 45 dní, takže to nemá ako dobehnúť.',
+        'Bez USt-IdNr sa nedá fakturovať v reverse charge, bez Freistellung §48b '
+        + 'odberateľ zrazí 15 % z faktúry, bez SOKA-BAU a bez oznámenia §9 HwO sa '
+        + 'nesmie pracovať.',
+      ],
+      how: [
+        'Lehoty sú tie, ktoré platia v skutočnosti, nie okrúhle čísla: A1 až 45 dní, '
+        + 'Freistellung §48b štyri až osem týždňov cez ELSTER. Preto „končí za mesiac" '
+        + 'znamená „podaj to dnes".',
+      ],
+      why: [
+        'Compliance bola zoznam pravidiel so štyrmi číslami. Z toho sa nedalo povedať, '
+        + 'čo zastaví stavbu najskôr — a pri compliance sú lehoty celý problém.',
+      ],
+      links: [['compliance', 'Compliance'], ['workers', 'Živnostníci']],
+    },
+
     'card.bank.now': {
       title: 'Čo spraviť teraz na banke',
       lead: 'Najprv výpis, lebo celý výhľad stojí na zostatku z neho.',

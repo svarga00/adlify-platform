@@ -46,6 +46,132 @@
     return 'valid';
   }
 
+  // ── Čo spraviť teraz v compliance ─────────────────────────────────────────
+
+  /**
+   * Jedna vec, ktorú treba vybaviť. Compliance bola zoznam pravidiel so
+   * štyrmi číslami — a z toho sa nedalo povedať, čo zastaví stavbu najskôr.
+   *
+   * Poradie je podľa toho, čo sa stane, keď sa tomu nikto nevenuje:
+   *
+   *   1. **A1 človeku, ktorý už je na stavbe** — pri kontrole to padne na nás
+   *      ako na firmu, nie na neho. A vystavenie trvá až 45 dní, takže to
+   *      nemá ako dobehnúť.
+   *   2. **neplatné firemné povolenie** — bez USt-IdNr sa nedá fakturovať
+   *      v reverse charge, bez §48b odberateľ zrazí 15 %, bez SOKA a bez
+   *      §9 HwO sa nesmie pracovať.
+   *   3. **A1, ktoré sa končí** — 45 dní je presne tá doba, ktorú vybavenie
+   *      trvá, takže „končí za mesiac" znamená „podaj to dnes".
+   *   4. **firemné povolenie, ktoré sa končí.**
+   *
+   * Lehoty sú v dňoch a sú to tie, ktoré platia v skutočnosti, nie okrúhle
+   * čísla: A1 45 dní, Freistellung §48b 4–8 týždňov.
+   */
+  const A1_LEHOTA = 45;
+  const BLOKUJUCE = ['ust_idnr', 'soka_registration', 'handwerksrolle', 'freistellung_48b'];
+
+  function nowNext(o = {}) {
+    const today = day(o.today) || new Date().toISOString().slice(0, 10);
+    const items = (o.items || []).filter(i => i && i.scope === 'company');
+    const workers = (o.workers || []).filter(w => w && ['ready', 'deployed'].includes(w.status));
+    const docs = o.workerDocs || [];
+
+    // Najnovšie A1 na človeka. Starší doklad neprekryje novší.
+    const a1 = new Map();
+    for (const d of docs) {
+      if (!d || d.kind !== 'a1') continue;
+      const cur = a1.get(d.worker_id);
+      if (!cur || String(d.valid_to || '') > String(cur.valid_to || '')) a1.set(d.worker_id, d);
+    }
+    const sA1 = workers.map(w => ({
+      worker: w, doc: a1.get(w.id) || null,
+      state: docState(a1.get(w.id), today, A1_LEHOTA),
+    }));
+    const naStavbe = (x) => x.worker.status === 'deployed';
+    const a1Zle = sA1.filter(x => ['missing', 'expired'].includes(x.state));
+    const a1Konci = sA1.filter(x => x.state === 'expiring');
+
+    const sItems = items.map(i => ({ item: i, state: docState(i, today, A1_LEHOTA) }));
+    const chybaUplne = BLOKUJUCE
+      .filter(k => !items.some(i => i.kind === k))
+      .map(k => ({ item: { kind: k }, state: 'missing' }));
+    const zle = [...sItems.filter(x => x.state === 'expired'), ...chybaUplne];
+    const konci = sItems.filter(x => x.state === 'expiring');
+
+    const kto = (list) => list.map(x => x.worker.full_name).filter(Boolean).join(', ');
+
+    if (a1Zle.length) {
+      const naStavbach = a1Zle.filter(naStavbe);
+      const prvy = (naStavbach[0] || a1Zle[0]);
+      return {
+        key: 'a1', title: naStavbach.length ? 'Človek na stavbe bez platného A1' : 'Doplniť A1',
+        what: `${a1Zle.length} ${plural(a1Zle.length, 'človek', 'ľudia', 'ľudí')}: ${kto(a1Zle)}`,
+        why: naStavbach.length
+          ? 'Pri kontrole to padne na nás ako na firmu, nie na neho. A vystavenie trvá '
+            + 'až 45 dní, takže to nemá ako dobehnúť — podať sa to musí dnes.'
+          : 'Bez A1 sa nasadiť nedá. Vybavenie trvá až 45 dní, takže to nie je vec na '
+            + 'poslednú chvíľu.',
+        hot: naStavbach.length > 0, count: a1Zle.length, worker: prvy.worker,
+      };
+    }
+    if (zle.length) {
+      const prvy = zle[0];
+      return {
+        key: 'company', title: 'Vybaviť firemné povolenie',
+        what: `${zle.length} ${plural(zle.length, 'položka', 'položky', 'položiek')} `
+          + `je neplatná alebo chýba: ${zle.map(x => KIND_LABEL[x.item.kind] || x.item.kind).join(', ')}`,
+        why: 'Bez USt-IdNr sa nedá fakturovať v reverse charge, bez Freistellung §48b '
+          + 'odberateľ zrazí 15 % z faktúry, bez SOKA-BAU a bez oznámenia §9 HwO sa '
+          + 'nesmie pracovať.',
+        hot: true, count: zle.length, kind: prvy.item.kind,
+      };
+    }
+    if (a1Konci.length) {
+      return {
+        key: 'a1soon', title: 'Podať A1 na ďalšie obdobie',
+        what: `${a1Konci.length} ${plural(a1Konci.length, 'A1 sa končí', 'A1 sa končia', 'A1 sa končí')} `
+          + `do ${A1_LEHOTA} dní: ${kto(a1Konci)}`,
+        why: `Vybavenie trvá až ${A1_LEHOTA} dní — „končí za mesiac" teda znamená `
+          + '„podaj to dnes".',
+        hot: false, count: a1Konci.length, worker: a1Konci[0].worker,
+      };
+    }
+    if (konci.length) {
+      return {
+        key: 'companysoon', title: 'Obnoviť firemné povolenie',
+        what: `${konci.length} ${plural(konci.length, 'položke sa končí', 'položkám sa končí', 'položkám sa končí')} `
+          + `platnosť: ${konci.map(x => KIND_LABEL[x.item.kind] || x.item.kind).join(', ')}`,
+        why: 'Freistellungsbescheinigung §48b sa vybavuje 4–8 týždňov cez ELSTER. '
+          + 'Keď sa to nechá na koniec, 15 % z faktúry si odberateľ zrazí.',
+        hot: false, count: konci.length, kind: konci[0].item.kind,
+      };
+    }
+    return {
+      key: 'ok', title: 'Všetko platné',
+      what: `${items.length} ${plural(items.length, 'firemná položka', 'firemné položky', 'firemných položiek')}`
+        + `, ${workers.length} ${plural(workers.length, 'človek', 'ľudia', 'ľudí')} s platným A1`,
+      why: 'Keď sa niečomu bude blížiť koniec platnosti, bude to tu napísané ako prvé.',
+      hot: false, count: 0,
+    };
+  }
+
+  function plural(n, one, few, many) {
+    const x = Math.abs(n);
+    if (x === 1) return one;
+    if (x >= 2 && x <= 4) return few;
+    return many;
+  }
+
+  // Názvy, ktoré sa píšu vo vete. Musia sedieť s `KINDS` v obrazovke
+  // compliance — človek nemá vidieť raz „ust_idnr" a raz „USt-IdNr".
+  const KIND_LABEL = {
+    freistellung_48b: 'Freistellungsbescheinigung §48b',
+    ust_idnr: 'USt-IdNr',
+    soka_registration: 'Registrácia SOKA-BAU',
+    handwerksrolle: 'Oznámenie §9 HwO',
+    insurance: 'Betriebshaftpflicht',
+  };
+
   /**
    * Skontroluje pripravenosť zákazky a jej nasadení.
    *
@@ -280,7 +406,8 @@
     };
   }
 
-  const API = { checkSubcontract, anuRisk, cashflowCheck, docState, REQUIRED, ANU_SIGNALS, SEVERITY };
+  const API = { checkSubcontract, anuRisk, cashflowCheck, docState, nowNext,
+    REQUIRED, ANU_SIGNALS, SEVERITY, KIND_LABEL, A1_LEHOTA };
   if (typeof window !== 'undefined') window.DanubraCompliance = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

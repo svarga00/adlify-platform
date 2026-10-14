@@ -122,6 +122,48 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
     // Bez kľúča to nie je chyba, ale ani ticho.
     ok(/skipped: 'no_api_key'/.test(src),
       'bez kľúča k modelu funkcia povie, že nie je nastavená');
+
+    // ── Zo zadania má vzniknúť celý nábor, nie len texty ──────────────────
+    // Polia náboru musia sedieť so stĺpcami tabuľky; vymyslené pole by sa
+    // tichom zahodilo a nikto by nevedel, že analýza ich mala vyplniť.
+    const planFields = (src.match(/const PLAN_FIELDS = \[([^\]]*)\]/) || [, ''])[1]
+      .split(',').map(x => x.trim().replace(/^'|'$/g, '')).filter(Boolean);
+    ok(planFields.length >= 7, `analýza vypĺňa polia náboru (${planFields.length})`,
+      planFields.join(', '));
+    const planSchema = fs.readFileSync(path.join(__dirname, '..', 'database', 'migrations',
+      '009_recruiting_playbook.sql'), 'utf8')
+      + fs.readFileSync(path.join(__dirname, '..', 'database', 'migrations',
+        '001_schema.sql'), 'utf8');
+    const nezname = planFields.filter(f => !new RegExp(`\\b${f}\\b`).test(planSchema));
+    ok(nezname.length === 0, 'a každé z nich je skutočný stĺpec náboru',
+      `neznáme: ${nezname.join(', ')}`);
+
+    // Kanály musia sedieť s tými, ktoré ponúka obrazovka náboru.
+    const fnKanaly = (src.match(/const KANALY = \[([^\]]*)\]/) || [, ''])[1]
+      .split(',').map(x => x.trim().replace(/^'|'$/g, '')).filter(Boolean).sort();
+    const hiring = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'hiring.js'), 'utf8');
+    // Pozor na hranicu zoznamu: prvá `]` je koniec prvej dvojice, nie celého
+    // poľa. Hľadá sa preto `];`.
+    const zacatok = hiring.indexOf('const CHANNELS = [');
+    const uiKanaly = [...hiring.slice(zacatok, hiring.indexOf('];', zacatok))
+      .matchAll(/\['(\w+)',/g)].map(m => m[1]).sort();
+    ok(JSON.stringify(fnKanaly) === JSON.stringify(uiKanaly),
+      'kanály náboru sedia s tými, ktoré ponúka obrazovka',
+      `funkcia: ${fnKanaly.join(', ')}\n    appka: ${uiKanaly.join(', ')}`);
+
+    // Nič sa nesmie prepísať a nič vymyslieť.
+    ok(/if \(stare !== null && stare !== undefined && stare !== ''\) continue;/.test(src),
+      'pole, ktoré už niekto vyplnil, sa neprepíše');
+    ok(/platneRemeslo\(nove\)/.test(src),
+      'a kľúč remesla sa overí proti databáze — vymyslený by svietil ako kľúč');
+    ok(/offer_rate' \|\| k === 'client_rate'\) && !\(Number\(nove\) > 0\)/.test(src),
+      'sadzba sa zapíše len ako číslo väčšie od nuly');
+
+    // Otázky pre remeselníka pribudnú ako návrh, nie ako hotové.
+    ok(/active: false/.test(src), 'otázky do hovoru pribudnú ako návrh, nie aktívne');
+    ok(/znama\.has\(/.test(src), 'a otázka, ktorá už v databáze je, sa nepridá druhýkrát');
+    ok(/kind: 'knowledge'/.test(src),
+      'druh otázky je ten, ktorý v databáze existuje');
   }
 }
 

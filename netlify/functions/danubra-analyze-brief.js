@@ -59,6 +59,14 @@ const BLOCKS = {
 
 const FACTS = ['position', 'place', 'project', 'form', 'condition', 'housing', 'rate', 'start', 'contact'];
 
+// Polia samotného náboru. Vyplnia sa len tie, ktoré sú v zadaní — sadzba,
+// ktorú si model domyslí, by sa dostala do marže aj do inzerátu.
+const PLAN_FIELDS = ['trade_key', 'headcount', 'city', 'country', 'start_date',
+  'offer_rate', 'client_rate', 'legal_form', 'skill_level'];
+
+// Kde sa dá inzerovať. Musí sedieť s `CHANNELS` v `app/js/modules/hiring.js`.
+const KANALY = ['referral', 'meta_ads', 'facebook', 'profesia', 'tiktok', 'web'];
+
 const SCHEMA = {
   name: 'podklady_k_naboru',
   description: 'Zhrnutie ponúkanej zákazky a texty na jednotlivé kanály, pripravené na vloženie.',
@@ -81,6 +89,42 @@ const SCHEMA = {
         type: 'array',
         description: 'Konkrétne otázky, ktoré treba položiť odberateľovi, aby sa doplnilo ' + CHYBA + '.',
         items: { type: 'string' },
+      },
+      plan: {
+        type: 'object',
+        description: 'Polia samotného náboru. Vynechaj všetko, čo v zadaní nie je — '
+          + 'nič nedopĺňaj z hlavy. Sadzby len vtedy, keď sú v zadaní číslom.',
+        properties: {
+          trade_key: { type: 'string', description: 'Presný kľúč remesla zo zoznamu, inak vynechaj.' },
+          headcount: { type: 'integer', description: 'Koľko ľudí sa hľadá dokopy.' },
+          city: { type: 'string' },
+          country: { type: 'string', description: 'Dvojpísmenový kód, napríklad DE.' },
+          start_date: { type: 'string', description: 'RRRR-MM-DD. Keď je nástup „dohodou", vynechaj.' },
+          offer_rate: { type: 'number', description: 'Čo ponúkame živnostníkovi, €/h.' },
+          client_rate: { type: 'number', description: 'Čo fakturujeme odberateľovi, €/h.' },
+          legal_form: { type: 'string', enum: ['szco', 'employee'] },
+          skill_level: { type: 'string', enum: ['werker', 'fachwerker'] },
+          channels: { type: 'array', items: { type: 'string', enum: KANALY },
+            description: 'Kde má zmysel inzerovať.' },
+        },
+      },
+      questions: {
+        type: 'array',
+        description: 'Otázky pre remeselníka do telefonátu — odborné, na toto remeslo '
+          + 'a túto prácu. Nie všeobecné („máte prax?"), ale také, na ktorých sa pozná, '
+          + 'či to naozaj robil. Najviac osem. Prázdne pole je správna odpoveď, keď '
+          + 'zadanie o remesle nič konkrétne nehovorí.',
+        items: {
+          type: 'object',
+          properties: {
+            question_sk: { type: 'string', description: 'Otázka po slovensky.' },
+            question_de: { type: 'string', description: 'Tá istá otázka po nemecky, ak sa dá.' },
+            good_answer: { type: 'string', description: 'Čo má zaznieť, aby to bolo v poriadku.' },
+            red_flag_answer: { type: 'string', description: 'Odpoveď, pri ktorej treba zbystriť.' },
+            weight: { type: 'integer', description: '1 bežná, 3 kľúčová — na tú sa treba spýtať.' },
+          },
+          required: ['question_sk', 'good_answer'],
+        },
       },
       blocks: {
         type: 'array',
@@ -140,6 +184,20 @@ images: p_1x1, p_4x5, p_9x16 (fotorealistické prompty bez textu v obrázku),
   sa dopĺňajú v Canve: nadpis, podnadpis, pruh, pilulka so sumou a telefónom)
 voice_cz/voice_sk: script
 
+POLIA NÁBORU (plan)
+Vyplň len to, čo je v zadaní. Kľúč remesla musí byť presne jeden z kľúčov,
+ktoré dostaneš v zozname remesiel — keď ani jeden nesedí, vynechaj ho. Sadzby
+vyplň len vtedy, keď sú v zadaní číslom; „dohodou" alebo [XX] znamená
+vynechať. Dátum nástupu je dátum, nie slovo.
+
+OTÁZKY PRE REMESELNÍKA (questions)
+Také, na ktorých sa pozná, či prácu naozaj robil — nie „máte prax?". Pri
+potrubí sa pýtaj na rozsahy, polohy zvárania, úpravu hrán, spády; pri
+sadrokartóne na rozteče a dvojité opláštenie. Ku každej napíš, čo má zaznieť,
+a keď to má zmysel, aj odpoveď, pri ktorej treba zbystriť. Váhu 3 dávaj len
+otázkam, na ktoré sa treba spýtať. Nemecké znenie pridaj, keď sa dá —
+živnostník to bude slýchať na stavbe.
+
 PRAVIDLÁ, KTORÉ PLATIA V TOMTO BIZNISE
 - Je to zmluva o dielo (Werkvertrag), nie prenájom ľudí. Píš o diele a jeho
   rozsahu, nikdy o „pridelení pracovníkov" ani o „práci pod vedením zákazníka".
@@ -149,7 +207,7 @@ PRAVIDLÁ, KTORÉ PLATIA V TOMTO BIZNISE
   rizikách, čo treba vopred: oznámenie Handwerkskammer podľa §9 HwO, A1,
   certifikát EN ISO 9606-1.`;
 
-async function analyze(brief, plan, supplier) {
+async function analyze(brief, plan, supplier, trades) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('Chýba ANTHROPIC_API_KEY');
 
@@ -166,6 +224,9 @@ async function analyze(brief, plan, supplier) {
 
   const bloky = Object.entries(BLOCKS)
     .map(([ch, list]) => `${ch}: ${list.join(', ')}`).join('\n');
+  // Zoznam remesiel ide modelu preto, aby `trade_key` sedel s databázou.
+  // Vymyslený kľúč by v appke svietil ako „zvaraci-potrubia" namiesto názvu.
+  const remesla = (trades || []).map(t => `${t.key} = ${t.name_sk}`).join('\n') || '(žiadne)';
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -182,6 +243,8 @@ async function analyze(brief, plan, supplier) {
       messages: [{
         role: 'user',
         content: `${POKYNY}\n\nZOZNAM KANÁLOV A BLOKOV (iné nepoužívaj):\n${bloky}\n\n`
+          + `REMESLÁ V DATABÁZE (kľúč = názov; iný kľúč nepoužívaj):\n${remesla}\n\n`
+          + `KDE SA DÁ INZEROVAŤ (iné nepoužívaj): ${KANALY.join(', ')}\n\n`
           + `ČO O NÁBORE VIEME Z APPKY:\n${kontext || '(nič)'}\n\n`
           + `ZADANIE OD KOLEGU:\n${brief}`,
       }],
@@ -226,7 +289,12 @@ exports.handler = async (event) => {
       .from('danubra_settings').select('supplier').limit(1).maybeSingle();
     const supplier = (cfg && cfg.supplier) || {};
 
-    const out = await analyze(plan.brief, plan, supplier);
+    // Remeslá z databázy, aby kľúč sedel. Vymyslený kľúč by v appke svietil
+    // ako „zvaraci-potrubia" namiesto názvu remesla.
+    const { data: trades } = await supabase
+      .from('danubra_trades').select('key,name_sk').eq('active', true).limit(100);
+
+    const out = await analyze(plan.brief, plan, supplier, trades || []);
 
     // ── Zhrnutie zákazky ────────────────────────────────────────────────
     // Údaj, ktorý už človek vyplnil, sa neprepíše — model dopĺňa, neprepisuje.
@@ -239,7 +307,34 @@ exports.handler = async (event) => {
     if (Array.isArray(out.risks) && out.risks.length) facts._risks = out.risks;
     if (Array.isArray(out.ask) && out.ask.length) facts._ask = out.ask;
 
+    // ── Polia samotného náboru ──────────────────────────────────────────
+    // Vyplní sa **len to, čo je prázdne**. Čo človek napísal, zostáva — model
+    // dopĺňa, neprepisuje. A čo nie je v zadaní, zostane prázdne: sadzba,
+    // ktorú si model domyslí, by sa dostala do marže aj do inzerátu.
+    const planPatch = {};
+    const navrh = out.plan || {};
+    const platneRemeslo = (k) => (trades || []).some(t => t.key === k);
+    for (const k of PLAN_FIELDS) {
+      const nove = navrh[k];
+      if (nove === undefined || nove === null || nove === '') continue;
+      const stare = plan[k];
+      if (stare !== null && stare !== undefined && stare !== '') continue;
+      if (k === 'trade_key' && !platneRemeslo(nove)) continue;
+      if ((k === 'offer_rate' || k === 'client_rate') && !(Number(nove) > 0)) continue;
+      if (k === 'headcount' && !(Number(nove) > 0)) continue;
+      if (k === 'start_date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(nove))) continue;
+      planPatch[k] = nove;
+    }
+    // Kanály sa dopĺňajú, nie prepisujú — človek si mohol niektoré vypnúť.
+    const kanaly = (navrh.channels || []).filter(c => KANALY.includes(c));
+    if (kanaly.length) {
+      const uz = Array.isArray(plan.channels) ? plan.channels : [];
+      const spolu = [...new Set([...uz, ...kanaly])];
+      if (spolu.length !== uz.length) planPatch.channels = spolu;
+    }
+
     await supabase.from('danubra_recruitment_plans').update({
+      ...planPatch,
       analysis: facts,
       analyzed_at: new Date().toISOString(),
     }).eq('id', planId);
@@ -272,8 +367,49 @@ exports.handler = async (event) => {
       if (ei) throw new Error(ei.message);
     }
 
+    // ── Otázky pre remeselníka ──────────────────────────────────────────
+    // Pribudnú ako **návrh**: `active = false`. Zoznam otázok je to, podľa
+    // čoho sa rozhoduje o ľuďoch, takže doň nesmie pribudnúť nič, čo človek
+    // nevidel. Potvrdia sa v Remeslách a otázkach.
+    let otazky = 0;
+    const tradeKey = planPatch.trade_key || plan.trade_key || null;
+    if (Array.isArray(out.questions) && out.questions.length) {
+      // Čo už v databáze je, sa nepridáva druhýkrát — ani ako návrh.
+      const { data: maju } = await supabase
+        .from('danubra_screening_questions').select('question_sk').limit(1000);
+      const znama = new Set((maju || []).map(q => String(q.question_sk || '').trim().toLowerCase()));
+
+      const qrows = [];
+      for (const q of out.questions.slice(0, 8)) {
+        const text = String((q && q.question_sk) || '').trim();
+        if (!text || znama.has(text.toLowerCase())) continue;
+        qrows.push({
+          code: null,
+          trade_key: tradeKey,
+          phase: 'phone',
+          // `knowledge` je druh, ktorý v databáze už existuje pre odborné
+          // otázky. Vymyslený druh by sa v Remeslách nikde nezobrazil.
+          kind: 'knowledge',
+          question_sk: text,
+          question_de: String(q.question_de || '') || null,
+          good_answer: String(q.good_answer || '') || null,
+          red_flag_answer: String(q.red_flag_answer || '') || null,
+          weight: [1, 2, 3].includes(Number(q.weight)) ? Number(q.weight) : 1,
+          segment: 'trade',
+          active: false,
+        });
+      }
+      if (qrows.length) {
+        const { error: eq } = await supabase
+          .from('danubra_screening_questions').insert(qrows);
+        if (!eq) otazky = qrows.length;
+      }
+    }
+
     return { statusCode: 200, headers: cors, body: JSON.stringify({
       blocks: rows.length,
+      plan: Object.keys(planPatch),
+      questions: otazky,
       facts: FACTS.filter(k => facts[k]).length,
       risks: (out.risks || []).length,
       ask: (out.ask || []).length,
