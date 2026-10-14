@@ -53,6 +53,90 @@
     return { gross, withheld, net: gross - withheld, pct };
   }
 
+  // ── Čo na faktúrach čaká na nás ───────────────────────────────────────────
+
+  /**
+   * Faktúry rozdelené podľa toho, čo s nimi treba spraviť — a jedna vec,
+   * ktorá je na rade.
+   *
+   * Obrazovka faktúr bola zoznam s filtrami. „Čo mám teraz spraviť" sa z nej
+   * dalo vyčítať, len keď človek vedel, ktorý stav čo znamená — a stavy sú
+   * dva razy dva, lebo v1 a v2 ich pomenovali inak.
+   *
+   * Poradie je zámerné:
+   *
+   *   1. **schválenie** — jediná vec, ktorá stojí len na nás. Faktúra bez
+   *      schválenia neodíde, takže tu peniaze stoja kvôli nám.
+   *   2. **po splatnosti** — peniaze, ktoré mali byť na účte. Stojí to na
+   *      odberateľovi, ale zavolať mu musíme my.
+   *   3. **rozpracované** — podklad, ktorý ešte nikto neposlal na schválenie.
+   *
+   * Po splatnosti sa neberie len podľa stavu: stav prepisuje nočná úloha,
+   * takže faktúra so zajtrajším dátumom a dnešnou splatnosťou by sa inak
+   * dva dni nikde neukázala.
+   */
+  const SCHVALENIE = ['pending_approval', 'draft_pending_approval'];
+  const NEUHRADENE = ['issued', 'sent', 'overdue'];
+
+  function den(x) { return x ? String(x).slice(0, 10) : null; }
+
+  function queue(invoices = [], today) {
+    const dnes = den(today) || new Date().toISOString().slice(0, 10);
+    const live = (invoices || []).filter(x => x && x.status !== 'cancelled');
+
+    const pending = live.filter(x => SCHVALENIE.includes(x.status));
+    const overdue = live.filter(x => x.status === 'overdue'
+      || (NEUHRADENE.includes(x.status) && den(x.due_date) && den(x.due_date) < dnes));
+    const drafts = live.filter(x => x.status === 'draft');
+
+    const suma = (list) => list.reduce((s, x) => s + M.toCents(x.total), 0);
+    const prvy = (list) => list.slice().sort((a, b) =>
+      String(den(a.due_date) || '9999').localeCompare(String(den(b.due_date) || '9999')))[0] || null;
+
+    let next = null;
+    if (pending.length) {
+      next = {
+        key: 'approve', title: pending.length === 1 ? 'Schváliť faktúru' : 'Schváliť faktúry',
+        what: `${pending.length} ${plural(pending.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} `
+          + `na schválenie · ${M.format(suma(pending))}`,
+        why: 'Bez schválenia faktúra neodíde. Toto je jediná vec na tejto obrazovke, '
+          + 'ktorá stojí len na nás.',
+        hot: false, invoice: prvy(pending), count: pending.length, cents: suma(pending),
+      };
+    } else if (overdue.length) {
+      next = {
+        key: 'overdue', title: 'Zavolať odberateľovi',
+        what: `${overdue.length} ${plural(overdue.length, 'faktúra je', 'faktúry sú', 'faktúr je')} `
+          + `po splatnosti · ${M.format(suma(overdue))}`,
+        why: 'Appka s týmito peniazmi prestala počítať v cash-flow — radšej opatrne. '
+          + 'Späť sa započítajú, keď prídu.',
+        hot: true, invoice: prvy(overdue), count: overdue.length, cents: suma(overdue),
+      };
+    } else if (drafts.length) {
+      next = {
+        key: 'draft', title: 'Dokončiť rozpracované',
+        what: `${drafts.length} ${plural(drafts.length, 'podklad', 'podklady', 'podkladov')} `
+          + 'nikto neposlal na schválenie',
+        why: 'Rozpracovaná faktúra je hotová práca, za ktorú ešte nikto nezaplatil.',
+        hot: false, invoice: prvy(drafts), count: drafts.length, cents: suma(drafts),
+      };
+    }
+
+    return {
+      pending, overdue, drafts, next,
+      pendingCents: suma(pending), overdueCents: suma(overdue),
+      // Čo čaká na nás dokopy — do jednej vety nad zoznamom.
+      waiting: pending.length + drafts.length,
+    };
+  }
+
+  function plural(n, one, few, many) {
+    const a = Math.abs(n);
+    if (a === 1) return one;
+    if (a >= 2 && a <= 4) return few;
+    return many;
+  }
+
   /** Riadky do `Shell.sums` — presne to, čo treba vidieť pred schválením. */
   function sumLines(inv = {}) {
     const w = withholding(inv);
@@ -284,7 +368,7 @@
   }
 
   const API = {
-    FLOW, canGo, nextSteps,
+    FLOW, canGo, nextSteps, queue, SCHVALENIE,
     withholding, withholdingApplies, sumLines,
     reviewBeforeApproval,
     sfPayload, COUNTRY_ID, fmtDe,

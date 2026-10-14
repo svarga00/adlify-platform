@@ -462,6 +462,27 @@
       links: [['ads', 'Inzeráty'], ['marketing', 'Marketing']],
     },
 
+    'card.inv.now': {
+      title: 'Čo spraviť teraz s faktúrami',
+      lead: 'Najprv schválenie, potom faktúry po splatnosti, nakoniec rozpracované podklady.',
+      what: [
+        'Schválenie je jediná vec na tejto obrazovke, ktorá stojí **len na nás** — '
+        + 'bez neho faktúra neodíde, takže peniaze stoja kvôli nám.',
+        'Po splatnosti sú peniaze, ktoré mali byť na účte. Stojí to na odberateľovi, '
+        + 'ale zavolať mu musíme my.',
+      ],
+      how: [
+        'Po splatnosti sa neberie len podľa stavu, ale aj podľa dátumu. Stav prepisuje '
+        + 'nočná úloha, takže faktúra so dnešnou splatnosťou by sa inak dva dni nikde '
+        + 'neukázala.',
+      ],
+      why: [
+        'Faktúru po splatnosti appka prestane počítať do cash-flow — radšej opatrne, '
+        + 'nech sa nemíňa to, čo ešte neprišlo. Keď peniaze prídu, započítajú sa späť.',
+      ],
+      links: [['invoices', 'Vydané faktúry'], ['money', 'Kde sú peniaze']],
+    },
+
     'card.hours.approve': {
       title: 'Schvaľovanie hodín',
       lead: 'Schválené hodiny idú do podkladu na faktúru. Neschválené nie.',
