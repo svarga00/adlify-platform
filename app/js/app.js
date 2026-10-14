@@ -99,6 +99,10 @@ window.Danubra = {
                     // tu zostáva preto, aby mala oblasť, právo aj vysvetlivku.
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['messages', 'Správy', 'mail']]],
+    // Možnosti sú pred ponukou: to, čo príde telefonátom, než sa z toho vôbec
+    // stane zákazka. Je to zámerne samostatná agenda — zapisuje ju každý
+    // z tímu a nemá sa to miešať s tým, čo už beží.
+    ['PRÍLEŽITOSTI', [['opportunities', 'Možnosti', 'offers', 'staffing', 'contracts']]],
     ['ZÁKAZKY',    [['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
                     ['orders', 'Objednávky', 'orders', 'staffing', 'contracts'],
                     ['contracts', 'Zmluvy', 'note', 'staffing', 'contracts'],
@@ -144,6 +148,7 @@ window.Danubra = {
     money: 'Kde stoja naše peniaze a koľko sa z nich dá minúť a dokedy',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
     messages: 'Komunikácia pri zázname, ktorého sa týka',
+    opportunities: 'Potenciálne zákazky — čo príde telefonátom, než z toho je ponuka',
     quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',
     orders: 'Čo si objednal odberateľ a čo sme objednali u živnostníka',
     contracts: 'Zmluvy o dielo a dodatky. Dohodnuté podmienky sa neprepisujú',

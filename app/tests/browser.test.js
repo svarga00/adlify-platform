@@ -1963,6 +1963,116 @@ console.log('Prehliadač');
       await page.close();
     }
 
+    // ── Možnosti: nízky prah a overenie, ktoré nelže ──────────────────────
+    // Možnosť je to, čo príde telefonátom. Dve veci sú na nej podstatné:
+    // formulár musí byť taký krátky, aby to kolega naozaj zapísal, a overenie
+    // firmy nesmie z „register neodpovedal" spraviť „firma neexistuje".
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          opportunities: [
+            { id: 'o1', title: 'Kotolňa Wörthsee', status: 'new',
+              company_name: 'GU Ulm GmbH', created_at: '2026-10-12T08:00:00Z' },
+            { id: 'o2', title: 'Hala Pasing', status: 'checking',
+              company_name: 'Bau Pasing GmbH', company_vat: 'DE999999999',
+              contact_phone: '+49 170 1', trade_key: 'zvarac', headcount: 2,
+              city: 'München', rate_client: 34, rate_worker: 22,
+              start_date: '2026-12-01', created_at: '2026-10-05T08:00:00Z' },
+          ],
+          trades: [{ key: 'zvarac', name_sk: 'Zvárač' }],
+        };
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        const zapisy = [];
+        DB.insert = async (t, row) => { zapisy.push([t, row]); return { data: { id: 'new', ...row }, error: null }; };
+        DB.update = async () => ({ data: null, error: null });
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const view = document.getElementById('view');
+        Danubra.route = 'opportunities';
+        Opp.loaded = false; Opp.openId = null;
+        Opp.filters = { status: '', q: '' };
+        await Danubra.views.opportunities.call(Danubra, view);
+
+        const box = view.querySelector('.nowbox');
+        const teraz = {
+          title: box ? box.querySelector('.nowbox-title').textContent.trim() : '',
+          sub: box ? box.querySelector('.nowbox-sub').textContent.trim() : '',
+          why: box ? box.querySelector('.nowbox-why').textContent.trim() : '',
+          onclick: box && box.querySelector('.btn')
+            ? box.querySelector('.btn').getAttribute('onclick') : '',
+          hot: !!view.querySelector('.nowbox-hot'),
+        };
+
+        // Formulár musí byť krátky, inak to nikto nezapíše.
+        Opp.form();
+        const polia = [...document.querySelectorAll('#opp-form [name]')].map(e => e.name);
+        UI.closeModal();
+
+        // Otvorená možnosť: overenie firmy, keď register neodpovedal.
+        Opp.items[1].verify_result = { unavailable: true, reason: 'http_503' };
+        Opp.openId = 'o2';
+        await Danubra.views.opportunities.call(Danubra, view);
+        const firma = {
+          label: (view.querySelector('.nowbox-title') || {}).textContent || '',
+          detail: (view.querySelector('.nowbox-sub') || {}).textContent || '',
+          hot: !!view.querySelector('.nowbox-hot'),
+        };
+
+        // A keď register firmu nepozná — to už je iná vec.
+        Opp.items[1].verify_result = { valid: false };
+        await Danubra.views.opportunities.call(Danubra, view);
+        const neplatna = {
+          label: (view.querySelector('.nowbox-title') || {}).textContent || '',
+          hot: !!view.querySelector('.nowbox-hot'),
+        };
+
+        return { teraz, polia, firma, neplatna, zapisy };
+      });
+
+      // Nová možnosť je prvá a horí.
+      ok(/Ozvať sa na novú možnosť/.test(out.teraz.title),
+        'možnosti začínajú tým, že sa treba ozvať', out.teraz.title);
+      ok(out.teraz.hot, 'a horí to — odberateľ sa pýta viacerých');
+      ok(/kto sa ozve prvý/.test(out.teraz.why),
+        's dôvodom, ktorý nie je o appke', out.teraz.why);
+      ok(/Opp\.detail\('o1'\)/.test(out.teraz.onclick || ''),
+        'tlačidlo vedie na tú, čo čaká najdlhšie', out.teraz.onclick);
+
+      // Nízky prah: štyri polia.
+      ok(out.polia.length === 4,
+        'formulár má štyri polia — vysoký prah znamená, že sa možnosť nezapíše',
+        out.polia.join(', '));
+      ok(out.polia.includes('title') && out.polia.includes('contact_phone')
+        && out.polia.includes('brief'),
+        'a sú to tie, bez ktorých sa možnosť nepohne', out.polia.join(', '));
+
+      // Toto je to podstatné na overovaní.
+      ok(/Register neodpovedal/.test(out.firma.label),
+        'keď register neodpovie, povie sa to tak', out.firma.label);
+      ok(/nie je to to isté/i.test(out.firma.detail),
+        'a výslovne, že to nie je „firma neexistuje"', out.firma.detail);
+      ok(!out.firma.hot, 'nedostupnosť registra nehorí — treba to skúsiť neskôr');
+
+      ok(/USt-IdNr neplatné/.test(out.neplatna.label),
+        'keď register firmu nepozná, povie sa to inak', out.neplatna.label);
+      ok(out.neplatna.hot, 'a to už horí');
+
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+
     // ── Compliance: najskôr človek na stavbe bez A1 ───────────────────────
     // Obrazovka bola zoznam pravidiel so štyrmi číslami. Z toho sa nedalo
     // povedať, čo zastaví stavbu najskôr — a pri compliance sú lehoty celý
