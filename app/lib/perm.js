@@ -115,6 +115,10 @@
     money: 'bank',
     // Objednávka je dohodnutá podmienka ako ponuka a zmluva — rovnaké právo.
     orders: 'contracts',
+    // Možnosť je to, z čoho vznikne ponuka alebo zákazka. Kto smie na ponuky,
+    // smie aj na možnosti — zvlášť právo by znamenalo, že kolega zapíše
+    // telefonát, ale nikdy neuvidí, čo z neho bolo.
+    opportunities: 'contracts',
   };
 
   /** Z názvu obrazovky urob kľúč práva. */

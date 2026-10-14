@@ -387,6 +387,66 @@
     },
 
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
+    // ── Možnosti ─────────────────────────────────────────────────────────
+    'screen.opportunities': {
+      title: 'Možnosti',
+      lead: 'Potenciálne zákazky — to, čo príde telefonátom, než z toho je ponuka.',
+      what: [
+        'Príde telefonát: „máme stavbu pri Mníchove, potrebujeme štyroch zváračov." '
+        + 'Toto je miesto, kam sa to zapíše — aj keď o tom vieme málo.',
+        'Z možnosti vznikne **nábor** (zadanie sa prenesie a analýza z neho spraví '
+        + 'podklady, otázky do hovoru aj polia náboru) alebo **zákazka**, keď sa dohodne.',
+      ],
+      how: [
+        'Formulár má štyri polia zámerne: názov, firmu, telefón a to, čo potrebujú. '
+        + 'Zvyšok dopĺňa ten, kto to bude riešiť — vysoký prah znamená, že sa možnosť '
+        + 'nezapíše vôbec.',
+      ],
+      why: [
+        'Možnosť, ktorá nie je zapísaná, neexistuje. Keď z nej nič nebude, zostane '
+        + 'so stavom „stratená" a s dôvodom — o pol roka sa tá istá firma ozve znova '
+        + 'a vtedy je dobré vedieť, čo bolo naposledy.',
+      ],
+      links: [['opportunities', 'Možnosti'], ['hiring', 'Nábor']],
+    },
+    'card.opp.now': {
+      title: 'Čo spraviť teraz s možnosťami',
+      lead: 'Najprv odpovedať na novú, potom preveriť firmu, potom doplniť údaje.',
+      what: [
+        'Nová možnosť je prvá a horí: odberateľ, ktorý hľadá ľudí, sa pýta viacerých. '
+        + 'Rozhoduje, kto sa ozve prvý — nie kto má lepšiu cenu.',
+        'Potom firma: robiť ponuku firme, ktorú register nepozná, je strata času.',
+      ],
+      how: [
+        'Chýbajúce údaje sú v poradí, v akom ich treba: USt-IdNr skôr než sadzbu, '
+        + 'pretože bez neho sa firma nedá ani preveriť, ani jej fakturovať.',
+      ],
+      why: [
+        'Ponuka, pri ktorej je ticho, je posledná v poradí — ticho neznamená nie, '
+        + 'znamená, že to má na stole niekto, kto má ďalších desať vecí.',
+      ],
+      links: [['opportunities', 'Možnosti'], ['quotes', 'Ponuky']],
+    },
+    'card.opp.verify': {
+      title: 'Overenie firmy v registri',
+      lead: 'Appka sa pýta oficiálneho registra EU (VIES), či firma pod tým číslom existuje.',
+      what: [
+        'USt-IdNr rozhoduje o dvoch veciach: či sa dá fakturovať v reverse charge podľa '
+        + '§13b, a či firma existuje tak, ako tvrdí. Register vráti aj názov a adresu, '
+        + 'pod ktorými ju pozná.',
+      ],
+      how: [
+        '**„Register neodpovedal" nie je „firma neexistuje."** VIES je často mimo '
+        + 'prevádzky aj niekoľko hodín — prvé znamená skúsiť neskôr, druhé znamená '
+        + 'nerobiť s nimi. Appka to rozlišuje a nikdy z nedostupnosti nespraví neplatnosť.',
+      ],
+      why: [
+        'Staré overenie nie je overenie: firmy sa premenúvajú, rušia a mení sa im '
+        + 'registrácia. Preto je pri výsledku dátum, kedy sa appka pýtala.',
+      ],
+      links: [['opportunities', 'Možnosti'], ['partners', 'Odberatelia v Nemecku']],
+    },
+
     // ── Podklady k náboru ────────────────────────────────────────────────
     'card.kit.brief': {
       title: 'Zadanie — čo o zákazke vieme',
