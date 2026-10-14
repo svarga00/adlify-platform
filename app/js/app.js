@@ -396,16 +396,32 @@ window.Danubra = {
       .filter(k => this.navParent[k] === parent)];
     return keys
       .filter(k => this.routeAvailable(k))
-      .map(k => [k, this.navTabLabel[k] || this.labelOf(k)]);
+      .map(k => [k, this.navTabLabel[k] || this.labelOf(k), this.icoOf(k)]);
   },
 
-  /** Pruh záložiek pod nadpisom. Pri obrazovke bez detí sa nekreslí. */
+  /** Ikona obrazovky — tá istá, akú má v menu. */
+  icoOf(key) {
+    const n = this.allNav().find(x => x[0] === key);
+    return n ? n[2] : 'chevron';
+  },
+
+  /**
+   * Pruh záložiek pod nadpisom. Pri obrazovke bez detí sa nekreslí.
+   *
+   * **Nie sú to pilulky.** Pilulky sú v appke filtre („Všetky / Rokovanie /
+   * Prebieha") a tie bývajú hneď pod záložkami — dva rovnaké pruhy nad sebou
+   * si človek pomýlil a klikal do filtra, keď chcel prepnúť obrazovku.
+   * Záložky sú preto podčiarknuté a majú ikonu, rovnakú ako v menu: je to to
+   * isté miesto, len inudy.
+   */
   tabsHtml(key) {
     const tabs = this.tabsOf(key);
     if (tabs.length < 2) return '';
-    return `<div class="pillbar subtabs">${tabs.map(([k, label]) =>
-      `<button class="pill${k === key ? ' active' : ''}" data-key="${k}"
-        onclick="Danubra.go('${k}')">${UI.esc(label)}</button>`).join('')}</div>`;
+    return `<div class="subtabs" role="tablist">${tabs.map(([k, label, ico]) =>
+      `<button class="subtab${k === key ? ' active' : ''}" data-key="${k}"
+        role="tab" aria-selected="${k === key}"
+        onclick="Danubra.go('${k}')">${Icon(ico, 15)}<span>${UI.esc(label)}</span></button>`)
+      .join('')}</div>`;
   },
   /** Čo kreslí horný pruh. Bez práva na obrazovku sa odkaz nekreslí vôbec. */
   topLinks() {
@@ -876,17 +892,24 @@ window.Danubra = {
    * Cesta nad nadpisom. Bez nej sa po prekliknutí z upozornenia nedá povedať,
    * kde človek skončil — každá obrazovka vyzerá rovnako.
    */
+  /**
+   * Cesta nad nadpisom. Je v nej len to, čím sa dá niekam ísť.
+   *
+   * Dovtedy v nej stál aj názov skupiny z menu — „Prehľad / ZÁKAZKY /
+   * Zákazky". Veľkými písmenami, bez odkazu, a pri polovici obrazoviek
+   * povedal to isté, čo nadpis o riadok nižšie. Na zozname teda nezostalo
+   * nič: nadpis obrazovky je rovno pod tým a nemá zmysel ho písať dvakrát.
+   */
   crumbs(trail = []) {
+    if (this.route === 'dashboard' && !trail.length) return '';
     const parts = [
       `<button onclick="Danubra.go('dashboard')">Prehľad</button>`,
-      ...(this.route === 'dashboard' ? [] : [
-        `<span>${UI.esc(this.groupOf(this.route) || '')}</span>`,
-        trail.length
-          ? `<button onclick="Danubra.go('${this.route}')">${UI.esc(this.labelOf(this.route))}</button>`
-          : `<span>${UI.esc(this.labelOf(this.route))}</span>`,
-      ].filter(x => !/>\s*<\/span>$/.test(x))),
+      ...(this.route === 'dashboard' || !trail.length ? [] : [
+        `<button onclick="Danubra.go('${this.route}')">${UI.esc(this.labelOf(this.route))}</button>`,
+      ]),
       ...trail.map(x => `<span>${UI.esc(x)}</span>`),
     ];
+    if (parts.length < 2) return '';
     return `<div class="crumbs">${parts.join('<span class="crumb-sep">/</span>')}</div>`;
   },
 
@@ -1392,15 +1415,13 @@ window.Danubra = {
       why = 'Keď sa niečo zasekne, bude to tu napísané ako prvé.';
     }
 
-    return `
-      <div class="nowbox${hot ? ' nowbox-hot' : ''} no-print">
-        <div class="nowbox-label">${UI.esc(label)}</div>
-        <div class="nowbox-title">${UI.esc(title)} ${Help.btn('dash.headline', { size: 14 })}</div>
-        <div class="nowbox-sub">${UI.esc(sub)}</div>
-        ${why ? `<div class="nowbox-why">${UI.esc(why)}</div>` : ''}
-        ${akcia ? `<button type="button" class="btn btn-primary btn-block" style="margin-top:10px;"
-          onclick="${akcia.onclick}">${Icon(akcia.ico, 17)} ${UI.esc(akcia.label)}</button>` : ''}
-      </div>
+    // Vykresľuje to ten istý komponent ako na ostatných obrazovkách. Dovtedy
+    // mal prehľad vlastný opis toho istého bloku — a keď sa blok zmenil,
+    // prehľad zostal vyzerať inak než zvyšok appky.
+    return Shell.now(
+      { title, what: sub, why, hot, key: akcia ? '' : 'ok' },
+      { label, help: 'dash.headline', action: akcia, cls: 'no-print' },
+    ) + `
       <!-- Na papieri je veta bez tlačidla — tlač nemá kam klikať. -->
       <div class="headline headline-${taskLine.tone === 'bad' ? 'bad' : taskLine.tone === 'warn' ? 'warn' : 'ok'} only-print">
         <span>${UI.esc(taskLine.text)}</span>

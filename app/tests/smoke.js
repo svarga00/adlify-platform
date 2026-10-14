@@ -194,21 +194,38 @@ if (D) {
     }
   })(dir);
 
-  // Nemecký text sa nepočíta — je to slovo, ktoré sa na nemeckej stavbe
-  // naozaj používa, a appka ho učí, nie ním hovorí.
-  const POVOLENE = [/de: 'Ich suche den Polier\.'/];
+  // Slová, ktorými appka nesmie hovoriť k človeku, a čo sa pri každom
+  // z nich **smie**. Je to zoznam, nie jedno slovo: zakaždým, keď sa ukáže,
+  // že nejaké slovo v tejto firme nikto nepoužíva, pribudne sem riadok.
+  const SLOVNIK = [
+    {
+      slovo: /polier/i,
+      // Nemecký text sa nepočíta — je to slovo, ktoré sa na nemeckej stavbe
+      // naozaj používa, a appka ho učí, nie ním hovorí.
+      povolene: [/de: 'Ich suche den Polier\.'/],
+    },
+    {
+      // „Blokátor" je slovo z appky: je to **podmienka vyslania** (A1,
+      // hlásenie Zoll, SOKA-BAU, USt-IdNr odberateľa). V anglických názvoch
+      // v kóde (`blockers`, `blocker`) zostáva — tie nikto nečíta.
+      slovo: /blokátor|blokátor(y|ov|om|e)/i,
+      povolene: [/blokátor reklám/],   // to je naozaj blokátor reklám
+    },
+  ];
   const najdene = [];
   for (const f of subory) {
     for (const [i, line] of fs.readFileSync(f, 'utf8').split('\n').entries()) {
-      if (!/polier/i.test(line)) continue;
-      if (POVOLENE.some(re => re.test(line))) continue;
       // Komentár v kóde to slovo vysvetľuje — nehovorí ním k človeku.
       if (/^\s*(\/\/|\*|\/\*|<!--)/.test(line)) continue;
-      najdene.push(`${path.relative(root, f)}:${i + 1}`);
+      for (const x of SLOVNIK) {
+        if (!x.slovo.test(line)) continue;
+        if (x.povolene.some(re => re.test(line))) continue;
+        najdene.push(`${path.relative(root, f)}:${i + 1}`);
+      }
     }
   }
-  t(`appka nehovorí slovom „polier"${najdene.length ? ' — ' + najdene.join(', ') : ''}`,
-    !najdene.length);
+  t(`appka nehovorí slovami, ktoré vo firme nikto nepoužíva${
+    najdene.length ? ' — ' + najdene.join(', ') : ''}`, !najdene.length);
 }
 
 // ── Nastavenia: jeden riadok, jedno miesto ──────────────────────────────────
@@ -269,6 +286,35 @@ if (D) {
     });
   t(`každý dokument najprv skontroluje fakturačné údaje${dok.length ? ' — chýba: ' + dok.join(', ') : ''}`,
     !dok.length);
+}
+
+// ── Písmo si nesieme so sebou ───────────────────────────────────────────────
+// Appka ho ťahala z Google Fonts cez `@import` v CSS. Prehliadač ho musí
+// stiahnuť **pred** vykreslením čohokoľvek, a keď sa nenačítal, celé
+// rozhranie zrazu vyzeralo inak. Odvtedy je v `vendor/fonts/`.
+{
+  const css = fs.readFileSync(path.join(root, 'app.css'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+
+  t('CSS neťahá písmo z cudzieho servera', !/@import url\(['"]?https?:/.test(css));
+  t('ani index.html', !/fonts\.(googleapis|gstatic)\.com/.test(html));
+
+  const subory = ['inter-latin.woff2', 'inter-latin-ext.woff2',
+    'plex-mono-400-latin.woff2', 'plex-mono-600-latin.woff2'];
+  const chyba = subory.filter(f => !fs.existsSync(path.join(root, 'vendor', 'fonts', f)));
+  t(`súbory písma sú v repozitári${chyba.length ? ' — chýba: ' + chyba.join(', ') : ''}`,
+    !chyba.length);
+
+  // Každý `@font-face` musí ukazovať na súbor, ktorý naozaj existuje. Preklep
+  // v ceste sa inak prejaví až v prehliadači — a len tým, že text vyzerá inak.
+  const cesty = [...css.matchAll(/url\('\.\/(vendor\/fonts\/[^']+)'\)/g)].map(m => m[1]);
+  t(`každý @font-face ukazuje na existujúci súbor (${cesty.length})`,
+    cesty.length >= 4 && cesty.every(c => fs.existsSync(path.join(root, c))));
+
+  // Bez `latin-ext` by appka nevedela po slovensky: ž, ť, ľ, ô.
+  t('podmnožina s mäkčeňmi je medzi nimi',
+    cesty.some(c => /latin-ext/.test(c)));
+  t('a rozsah znakov pre ňu je zapísaný', /U\+0100-02BA/.test(css));
 }
 
 // ── Menu: jedenásť položiek, nie dvadsaťštyri ───────────────────────────────
@@ -360,7 +406,7 @@ if (D) {
   t(`záložky náboru: ${zalozky.join(', ')}`,
     zalozky[0] === 'hiring' && zalozky.includes('ads') && zalozky.includes('recruiting'));
   t('prvá záložka nehovorí „Nábor → Nábor"', D.tabsOf('candidates')[0][1] === 'Čo teraz');
-  t('pruh záložiek sa vykreslí', /pill.*active/.test(D.tabsHtml('candidates')));
+  t('pruh záložiek sa vykreslí', /subtab.*active/.test(D.tabsHtml('candidates')));
   t('a obrazovka bez detí ho nemá', D.tabsHtml('compliance') === '');
 
   // Záložky patria zoznamu, nie otvorenému záznamu. Nad menom človeka by
@@ -920,8 +966,19 @@ if (D) {
     sandbox.location.hash = hashWas;
   }
 
-  // Cesta nad nadpisom — bez nej sa po prekliknutí nedá povedať, kde človek je.
-  t('hlavička ukazuje cestu', /class="crumbs"/.test(D.header('Test', '')));
+  // Cesta nad nadpisom. Je v nej len to, čím sa dá niekam ísť: na zozname
+  // nič (nadpis je rovno pod ňou), na otvorenom zázname cesta späť.
+  {
+    const bol = D.route;
+    D.route = 'workers';
+    t('na zozname sa cesta nekreslí — bola by to tá istá veta dvakrát',
+      !/class="crumbs"/.test(D.header('Živnostníci', '')));
+    const detail = D.header('Jozef Malý', '', '', ['Jozef Malý']);
+    t('na otvorenom zázname cesta je', /class="crumbs"/.test(detail));
+    t('a dá sa ňou vrátiť na zoznam', /Danubra\.go\('workers'\)/.test(detail));
+    t('bez názvu skupiny veľkými písmenami', !/ĽUDIA/.test(detail));
+    D.route = bol;
+  }
   t('cesta vedie späť na prehľad', /Danubra\.go\('dashboard'\)/.test(D.header('Test', '')));
 }
 

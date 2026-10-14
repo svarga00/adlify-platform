@@ -230,21 +230,30 @@
    *   help     kľúč vysvetlivky
    *   action   { label, onclick, ico } — jedno tlačidlo, nikdy dve
    *   extra    HTML pod vetou (napr. pruh reťazca na zákazke)
+   *   cls      ďalšia trieda na obal (napr. `no-print`)
    */
   function now(n, o = {}) {
     if (!n) return '';
     const a = o.action;
     const help = (window.Help && o.help) ? Help.btn(o.help, { size: 14 }) : '';
-    return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}">
-      <div class="nowbox-label">${esc(o.label || 'Čo spraviť teraz')}</div>
-      <div class="nowbox-title">${esc(n.title || '')}${help}</div>
-      ${n.what ? `<div class="nowbox-sub">${esc(n.what)}</div>` : ''}
-      ${n.why ? `<div class="nowbox-why">${esc(n.why)}</div>` : ''}
-      ${a && a.onclick ? `<button type="button" class="btn btn-primary btn-block"
-        style="margin-top:10px;" onclick="${a.onclick}">${
-        typeof Icon === 'function' ? Icon(a.ico || 'chevron', 17) : ''} ${
-        esc(a.label || 'Otvoriť')}</button>` : ''}
-      ${o.extra || ''}
+    const ico = (name, size) => (typeof Icon === 'function' ? Icon(name, size) : '');
+    // Znak naľavo povie, o čo ide, skôr než sa to prečíta: výkričník, keď to
+    // horí, a blesk, keď to len čaká. Pri „nič nečaká" je to fajka — tichá
+    // veta nemá vyzerať ako úloha.
+    const znak = o.ico || (n.hot ? 'alert' : n.key === 'ok' ? 'check' : 'zap');
+    return `<div class="nowbox${n.hot ? ' nowbox-hot' : ''}${
+      n.key === 'ok' ? ' nowbox-ok' : ''}${o.cls ? ' ' + o.cls : ''}">
+      <span class="nowbox-ico">${ico(znak, 17)}</span>
+      <div class="nowbox-body">
+        <div class="nowbox-label">${esc(o.label || 'Čo spraviť teraz')}</div>
+        <div class="nowbox-title">${esc(n.title || '')}${help}</div>
+        ${n.what ? `<div class="nowbox-sub">${esc(n.what)}</div>` : ''}
+        ${n.why ? `<div class="nowbox-why">${esc(n.why)}</div>` : ''}
+        ${a && a.onclick ? `<button type="button" class="btn btn-primary nowbox-go"
+          onclick="${a.onclick}">${ico(a.ico || 'chevron', 16)} ${
+          esc(a.label || 'Otvoriť')}</button>` : ''}
+        ${o.extra || ''}
+      </div>
     </div>`;
   }
 

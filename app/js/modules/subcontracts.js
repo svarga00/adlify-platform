@@ -85,7 +85,20 @@
     asgOf(scId) { return this.assignments.filter(a => a.subcontract_id === scId); },
     companyItems() { return this.compliance.filter(c => c.scope === 'company'); },
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
-    typeLabel(t) { const x = WORK_TYPE.find(y => y[0] === t); return x ? x[1] : t; },
+    // Zákazka nemusí mať zapísaný druh práce. Dovtedy sa v karte vypísalo
+    // doslova „undefined" — appka má vtedy mlčať, nie hovoriť po anglicky.
+    typeLabel(t) { const x = WORK_TYPE.find(y => y[0] === t); return x ? x[1] : ''; },
+
+    /**
+     * Koľko podmienok zákazka nespĺňa, po slovensky.
+     *
+     * Dovtedy tu stálo „3 blokátorov" — slovo, ktoré v tejto firme nikto
+     * nepoužíva, a k tomu v zlom tvare. Je to podmienka: A1, hlásenie Zoll,
+     * SOKA-BAU, USt-IdNr odberateľa.
+     */
+    chybaText(n) {
+      return `nespĺňa ${n} ${Shell.plural(n, 'podmienku', 'podmienky', 'podmienok')}`;
+    },
 
     /**
      * Reťazec zákazky: dohodnuté → smie sa začať → ľudia → hodiny → peniaze.
@@ -153,8 +166,15 @@
       const vety = (active || []).map((x) => {
         const n = DanubraSite.next(this.chain(x), x);
         if (!n || ['closed', 'done', 'wait'].includes(n.key)) return null;
-        return { ...n, title: `${n.title} — ${x.title || x.contract_number || 'zákazka'}`,
-          id: x.id };
+        // Nadpis je **čo spraviť**, nie ako sa volá krok. „Smie sa začať" je
+        // názov kroku a ako výzva neznamená nič; „Doplniť do registra
+        // compliance" je to, čo má človek spraviť.
+        return {
+          ...n,
+          title: n.what || n.title,
+          what: `${n.title} · krok ${n.n} z 5 — ${x.title || x.contract_number || 'zákazka'}`,
+          id: x.id,
+        };
       }).filter(Boolean);
       const n = DanubraNow.pick(vety) || {
         key: 'ok',
@@ -188,18 +208,24 @@
       el.innerHTML = Danubra.header(Danubra.labelOf('subcontracts'),
         `${this.items.length} celkom · ${active.length} prebieha · ${deployed} ľudí nasadených`) +
         this.nowListHtml(active) + `
-        <div class="pillbar" style="margin-bottom:10px;width:max-content;max-width:100%;overflow-x:auto;">
-          <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Sub.setF('status','')">Všetky</button>
-          ${STATUS.map(s => {
-            const n = this.items.filter(x => x.status === s[0]).length;
-            return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Sub.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
-          }).join('')}
+        <!-- Jeden riadok filtrov, nie dva. Dva pruhy pilulok nad sebou vyzerali
+             ako záložky obrazovky a človek klikal do filtra, keď chcel prepnúť
+             obrazovku. Stav sú pilulky (klikajú sa najčastejšie), druh práce je
+             výber — používa sa raz za čas. -->
+        <div class="filterbar">
+          <div class="pillbar pillbar-xs">
+            <button class="pill${!this.filters.status ? ' active' : ''}" onclick="Sub.setF('status','')">Všetky</button>
+            ${STATUS.map(s => {
+              const n = this.items.filter(x => x.status === s[0]).length;
+              return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Sub.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
+            }).join('')}
+          </div>
+          <select onchange="Sub.setF('work_type',this.value)">
+            <option value="">Dielňa aj stavba</option>
+            ${WORK_TYPE.map(t => `<option value="${t[0]}" ${this.filters.work_type === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}
+          </select>
+          <span class="fb-count">${rows.length} ${Shell.plural(rows.length, 'zákazka', 'zákazky', 'zákaziek')}</span>
         </div>
-        <div class="pillbar" style="margin-bottom:14px;width:max-content;max-width:100%;">
-          <button class="pill${!this.filters.work_type ? ' active' : ''}" onclick="Sub.setF('work_type','')">Oboje</button>
-          ${WORK_TYPE.map(t => `<button class="pill${this.filters.work_type === t[0] ? ' active' : ''}" onclick="Sub.setF('work_type','${t[0]}')">${t[1]}</button>`).join('')}
-        </div>
-        <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
           ? UI.empty('site', 'Žiadne zákazky', 'Začni dielenskou zákazkou — má najnižšiu reguláciu.',
               `<button class="btn btn-primary" onclick="Sub.form()">${Icon('plus')} Nová zákazka</button>`)
@@ -225,12 +251,18 @@
             ${sc.contract_id ? Danubra.link('contract', sc.contract_id, 'Zmluva o dielo') : ''}
           </div>` : ''}
           <div class="acc-meta">
-            <span>${Icon(sc.work_type === 'construction' ? 'site' : 'wrench', 14)} ${this.typeLabel(sc.work_type)}</span>
-            <span>${Icon('user', 14)} ${asg.length} ${asg.length === 1 ? 'človek' : 'ľudí'}</span>
+            ${this.typeLabel(sc.work_type)
+              ? `<span>${Icon(sc.work_type === 'construction' ? 'site' : 'wrench', 14)} ${this.typeLabel(sc.work_type)}</span>`
+              : ''}
+            <span>${Icon('user', 14)} ${asg.length} ${
+              Shell.plural(asg.length, 'človek', 'ľudia', 'ľudí')}</span>
             ${sc.charge_rate ? `<span>${Icon('euro', 14)} ${UI.money(sc.charge_rate)}/h</span>` : ''}
-            ${sc.date_from ? `<span>${Icon('calendar', 14)} ${UI.dateRange(sc.date_from, sc.date_to)}</span>` : ''}
-            ${!chk.ok ? `<span style="color:var(--red);font-weight:700;">${Icon('alert', 14)} ${chk.blockers.length} blokátorov</span>`
-              : chk.warnings.length ? `<span style="color:var(--amber);font-weight:700;">${Icon('alert', 14)} ${chk.warnings.length} upozornení</span>` : ''}
+            ${sc.date_from || sc.date_to ? `<span>${Icon('calendar', 14)} ${UI.dateRange(sc.date_from, sc.date_to)}</span>` : ''}
+            <!-- Fakt, nie poplach. Poplach je blok pod tým („čo teraz") a v karte
+                 má kričať jedna vec, nie dve o tom istom. -->
+            ${!chk.ok ? `<span>${Icon('alert', 14)} ${this.chybaText(chk.blockers.length)}</span>`
+              : chk.warnings.length ? `<span>${Icon('alert', 14)} ${
+                chk.warnings.length} ${Shell.plural(chk.warnings.length, 'upozornenie', 'upozornenia', 'upozornení')}</span>` : ''}
           </div>
           ${this.cardNow(sc)}
         </div>`;
@@ -340,7 +372,8 @@
         <div class="${chk.ok ? 'regimebox' : 'warnbox'}" style="margin-bottom:14px;">
           ${chk.ok
             ? `${Icon('check', 14)} Podmienky vyslania sú splnené${chk.warnings.length ? ` — ${chk.warnings.length} upozornení nižšie` : ''}.`
-            : `${Icon('alert', 14)} <strong>Nesmie sa začať:</strong> ${chk.blockers.length} ${chk.blockers.length === 1 ? 'blokátor' : 'blokátorov'} nižšie.`}
+            : `${Icon('alert', 14)} <strong>Nesmie sa začať:</strong> ${
+              this.chybaText(chk.blockers.length)} — sú nižšie.`}
         </div>
 
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
@@ -731,7 +764,7 @@
       if (status === 'active') {
         const chk = this.check(sc);
         if (!chk.ok) {
-          return UI.toast(`Nedá sa spustiť — ${chk.blockers.length} blokátorov compliance`, 'err');
+          return UI.toast(`Nedá sa spustiť — ${this.chybaText(chk.blockers.length)}`, 'err');
         }
       }
       const patch = { status };

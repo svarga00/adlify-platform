@@ -37,8 +37,15 @@ window.UI = {
     catch { return String(d); }
   },
 
+  /**
+   * Obdobie. Zákazka často nemá koniec — dovtedy sa kreslilo „01. 09. 2026 – —",
+   * čo vyzerá ako chýbajúci údaj, hoci je to zámer: beží, kým sa neukončí.
+   */
   dateRange(from, to) {
-    return `${this.date(from)} – ${this.date(to)}`;
+    if (from && to) return `${this.date(from)} – ${this.date(to)}`;
+    if (from) return `od ${this.date(from)}`;
+    if (to) return `do ${this.date(to)}`;
+    return '—';
   },
 
   // Počet nocí medzi dvoma dátumami (UTC, bez DST posunov)

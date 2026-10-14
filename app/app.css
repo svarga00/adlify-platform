@@ -1,8 +1,49 @@
 /* ============================================================================
    DANUBRA Hub — dizajn podľa schváleného návrhu rozhrania
-   Archivo + IBM Plex Mono · navy #0A1B3D · oranžová #F07E22
+   Inter + IBM Plex Mono · navy #0A1B3D · oranžová #F07E22
    ============================================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+/* Písmo si nesieme so sebou, rovnako ako Supabase a mapu (pozri
+   vendor/README.md). Predtým sa ťahalo z Google Fonts cez `@import` — a to je
+   najhorší možný spôsob: prehliadač ho musí stiahnuť **pred** vykreslením
+   čohokoľvek, takže na pomalej sieti sa appka chvíľu nekreslí vôbec, a keď
+   sa nenačítal (blokátor, firemná sieť), celé rozhranie zrazu vyzeralo
+   inak — systémovým písmom, inými rozmermi, inými riadkami.
+
+   Archivo vystriedal **Inter**: je to písmo robené na rozhrania. Číslice má
+   rovnako široké (`tnum`), takže sumy pod sebou sedia na desatinnú čiarku,
+   a pri 12–13 px je čitateľnejšie — a práve v tej veľkosti je v appke väčšina
+   textu. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 800;          /* jeden premenný súbor namiesto piatich rezov */
+  font-display: swap;
+  src: url('./vendor/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  /* Bez tohto podsúboru nemá appka mäkčene a dĺžne: ž, ť, ľ, ô, ĺ, ŕ. */
+  src: url('./vendor/fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('./vendor/fonts/plex-mono-400-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal; font-weight: 600; font-display: swap;
+  src: url('./vendor/fonts/plex-mono-600-latin.woff2') format('woff2');
+}
 
 :root {
   --brand:        #F07E22;
@@ -51,8 +92,12 @@
 html, body {
   margin: 0; padding: 0; min-height: 100%;
   background: var(--bg); color: var(--ink);
-  font-family: Archivo, system-ui, -apple-system, sans-serif;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Číslice rovnakej šírky. Bez toho sa suma 1 111,00 € kreslí užšie než
+     8 888,00 € a stĺpec s peniazmi vyzerá krivo. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv05' 1;
 }
 body { font-size: 14px; line-height: 1.5; }
 a { color: var(--blue); text-decoration: none; }
@@ -231,12 +276,15 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .bottom-nav { display: none; }
 
 /* ── Page header ─────────────────────────────────────────────────────────── */
+/* Hlavička obrazovky. Nadpis, pod ním čísla a za nimi — s odstupom — záložky.
+   Odstupy sú zámerne väčšie: keď je všetko nalepené na sebe, človek nevidí,
+   kde jedna vec končí a druhá začína, a celá obrazovka sa číta ako jeden blok. */
 .page-head {
   display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
 }
-.page-title { font-size: 25px; font-weight: 800; letter-spacing: -.035em; margin: 0; }
-.page-sub { font-size: 13px; color: var(--ink-sub); margin-top: 3px; }
+.page-title { font-size: 26px; font-weight: 800; letter-spacing: -.035em; margin: 0; }
+.page-sub { font-size: 13px; color: var(--ink-sub); margin-top: 4px; }
 
 /* Kde som. Cesta je klikateľná, takže sa dá vrátiť o krok, nie len „domov". */
 .crumbs {
@@ -544,18 +592,54 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* Záložky obrazovky. Nábor zaberal v menu štyri riadky a kto naberal, musel
    najprv vedieť, na ktorom má byť — je to jedna práca, tak je to jedna položka
    so záložkami. Sedia pod nadpisom, aby bolo vidieť, že patria k nemu. */
-.subtabs { margin: -4px 0 16px; width: fit-content; }
-/* Záložky obrazovky. Nábor ich má päť a Zákazky štyri — na telefóne sa radšej
-   posúvajú do strany, než aby sa zlomili na dva riadky: dva riadky pilulok
-   vyzerajú ako dva rôzne pruhy a človek hľadá, ktorý z nich je ten jeho. */
+/* ── Záložky obrazovky ────────────────────────────────────────────────────
+   Nie sú to pilulky. Pilulky sú v appke **filtre** a bývajú hneď pod nimi —
+   dva rovnaké pruhy nad sebou si človek pomýlil a klikal do filtra, keď
+   chcel prepnúť obrazovku. Záložka má preto podčiarknutie a ikonu (tú istú,
+   akú má obrazovka v menu), filter zostal pilulkou. */
+.subtabs {
+  display: flex; gap: 3px; margin: 16px 0 22px;
+  border-bottom: 2px solid var(--border);
+}
+.subtab {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid transparent; border-bottom: 0; cursor: pointer;
+  background: transparent; margin-bottom: -2px;
+  padding: 11px 17px 12px; border-radius: var(--radius) var(--radius) 0 0;
+  font-size: 14px; font-weight: 650; color: var(--ink-sub); white-space: nowrap;
+  transition: background .12s, color .12s, box-shadow .12s;
+}
+.subtab svg { flex: none; opacity: .7; }
+.subtab:hover { background: var(--field); color: var(--ink); }
+.subtab:hover svg { opacity: 1; }
+/* Otvorená záložka je **list, ktorý leží navrchu**: biela, s rámikom, ktorý
+   sa dole otvára do obsahu, a s oranžovou hranou hore. Podčiarknutie samo
+   o sebe bolo pritiché — človek nevidel, že sa dá prepínať. */
+.subtab.active {
+  color: var(--navy); font-weight: 800; background: #fff;
+  border-color: var(--border); box-shadow: 0 -2px 0 var(--brand) inset;
+  position: relative;
+}
+.subtab.active::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
+  background: #fff;
+}
+.subtab.active::before {
+  content: ''; position: absolute; left: -1px; right: -1px; top: -1px; height: 3px;
+  background: var(--brand); border-radius: var(--radius) var(--radius) 0 0;
+}
+.subtab.active svg { opacity: 1; color: var(--brand); }
+/* Nábor má päť záložiek a Zákazky štyri — na telefóne sa posúvajú do strany,
+   nie lámu na dva riadky. */
 @media (max-width: 720px) {
   .subtabs {
-    flex-wrap: nowrap; overflow-x: auto; width: auto;
-    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
   .subtabs::-webkit-scrollbar { display: none; }
+  .subtab { padding-left: 10px; padding-right: 10px; }
 }
 .pillbar-xs { padding: 2px; }
+.filterbar .pillbar { border: 0; background: transparent; padding: 0; }
 .pillbar-xs .pill { padding: 4px 9px; font-size: 11.5px; gap: 4px; }
 
 /* ── Pruh filtrov na prehľade ────────────────────────────────────────────── */
@@ -674,7 +758,14 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .toast.toast-err { background: var(--red); }
 
 /* ── Filtre / zoznamy ────────────────────────────────────────────────────── */
-.filterbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; align-items: center; }
+/* Pruh filtrov. Je to **ovládanie zoznamu**, takže vyzerá ako jedna vec
+   a stojí v bielom páse: predtým voľne plávali pilulky a výber medzi vetou
+   „čo teraz" a kartami, a nebolo vidieť, k čomu patria. */
+.filterbar {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 10px; margin-bottom: 16px;
+}
 /* `.fb-search` je obal, nie samotné pole. Bez `width:100%` na vstupe sa obal
    roztiahol, vstup zostal krátky a výber odletel na druhý koniec obrazovky. */
 .filterbar .fb-search { flex: 1 1 260px; min-width: 200px; max-width: 520px; }
@@ -686,6 +777,10 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .filterbar input:focus, .filterbar select:focus { outline: none; border-color: var(--brand); }
 .count-line { color: var(--ink-mute); font-size: 12.5px; margin: 2px 2px 12px; font-family: var(--mono); letter-spacing: .04em; }
+/* Počet patrí k filtru, nie pod neho: je to odpoveď na to, čo je v ňom
+   nastavené. Samostatný riadok „4 ZÁZNAMOV" bol len ďalší riadok navyše. */
+.fb-count { margin-left: auto; color: var(--ink-mute); font-size: 12.5px; font-weight: 600; }
+
 
 .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .acc-card {
@@ -1227,22 +1322,49 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 /* ── Čo spraviť teraz ──────────────────────────────────────────────────────
    Jedna veta nad zoznamom krokov. Celé zjednodušenie náboru je v tom, že si
    z piatich krokov nikto nemusí vyberať — appka povie jeden. */
+/* Veta „čo spraviť teraz". Jediná vec na obrazovke, ktorá smie kričať —
+   ale kričať znamená **byť jasná**, nie veľká a červená. Predtým to bola
+   plocha cez celú šírku a v nej oranžový pás tlačidla; vyzeralo to ako
+   výstraha aj vtedy, keď sa nič nedialo.
+
+   Dnes je to biela karta so znakom naľavo (výkričník, keď horí, blesk, keď
+   čaká, fajka, keď je pokoj) a s tlačidlom normálnej veľkosti. Farba je len
+   v pruhu naľavo a v znaku. */
 .nowbox {
+  display: flex; align-items: flex-start; gap: 13px;
   border: 1px solid var(--border); border-left: 3px solid var(--brand);
-  border-radius: var(--radius-sm); background: var(--field);
-  padding: 12px 14px; margin-bottom: 14px;
+  border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm);
+  padding: 14px 16px; margin-bottom: 16px;
 }
-.nowbox-hot { border-left-color: var(--red); background: var(--red-50); }
+.nowbox-body { min-width: 0; flex: 1; }
+.nowbox-ico {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%; margin-top: 1px;
+  background: var(--brand-50); color: var(--brand-700);
+}
+.nowbox-hot { border-left-color: var(--red); background: #FFFBFB; }
+.nowbox-hot .nowbox-ico { background: var(--red-50); color: var(--red); }
+.nowbox-ok { border-left-color: var(--green); }
+.nowbox-ok .nowbox-ico { background: var(--green-50); color: var(--green); }
 .nowbox-label {
-  font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
   color: var(--ink-mute);
 }
 .nowbox-title {
-  font-size: 17px; font-weight: 800; margin-top: 3px;
+  font-size: 16.5px; font-weight: 800; margin-top: 2px; letter-spacing: -.01em;
   display: flex; align-items: center; gap: 6px;
 }
 .nowbox-sub { font-size: 13.5px; color: var(--ink-sub); margin-top: 3px; }
 .nowbox-why { font-size: 12.5px; color: var(--ink-mute); margin-top: 6px; line-height: 1.5; }
+/* Tlačidlo je široké presne tak, ako je dlhý jeho text. Pás cez celú šírku
+   vyzeral ako hlavná vec na obrazovke — ale hlavná vec je tá veta nad ním. */
+.nowbox-go { margin-top: 11px; }
+/* Veta „čo teraz" je samostatná vec — nie prvý riadok zoznamu. */
+.nowbox { margin-bottom: 22px; }
+@media (max-width: 560px) {
+  .nowbox { padding: 13px 14px; gap: 11px; }
+  .nowbox-go { width: 100%; }
+}
 
 /* ── Podklady k náboru ────────────────────────────────────────────────────
    Jeden blok = jedno tlačidlo Kopírovať, pretože presne tak sa to aj vkladá:
@@ -1322,7 +1444,10 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .card-now b { display: block; font-size: 12px; font-weight: 800; }
 .card-now span { display: block; font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
-.card-now-hot { background: var(--red-50); border-left-color: var(--red); }
+/* Horúca karta má červený pruh a červený nadpis — nie celú červenú plochu.
+   Keď sú v zozname tri také karty, tri plochy prekričia vetu nad zoznamom,
+   ktorá hovorí, ktorá z nich je na rade. */
+.card-now-hot { background: #FFF7F7; border-left-color: var(--red); }
 .card-now-hot b { color: var(--red); }
 
 /* Päť krokov reťazca pod vetou. Je to orientácia („kde v tom stojím"), nie
@@ -1948,7 +2073,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   position: fixed; inset: 0; z-index: 999;
   display: flex; align-items: center; justify-content: center;
   padding: 20px; background: var(--bg, #F7F9FD);
-  font-family: Archivo, system-ui, -apple-system, sans-serif;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
 }
 .fatal-card {
   max-width: 520px; background: #fff; border: 1px solid #E3EAF7;
@@ -1987,7 +2112,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
   color: var(--ink-mute); text-transform: uppercase;
 }
 .hs-kw strong {
-  display: block; font-family: Archivo, sans-serif; font-size: 30px;
+  display: block; font-family: Inter, sans-serif; font-size: 30px;
   letter-spacing: -.03em; color: var(--navy); line-height: 1;
 }
 .hs-kw span { font-size: 11px; letter-spacing: .1em; }
@@ -2796,16 +2921,30 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .flow-txt em { display: block; font-size: 13px; color: var(--ink-mute); font-style: normal; margin-top: 4px; }
 .flow-done .flow-n { background: var(--green-50); color: var(--green); }
 .flow-hot .flow-n { background: var(--amber-50); color: var(--brand); }
-.flow-step.is-now { border-color: var(--brand); border-width: 2px; padding: 20px 18px; }
-.flow-step.is-now .flow-txt b { font-size: 20px; }
+/* Krok, ktorý je na rade. Je to **orientácia**, nie druhá výzva: veta „čo
+   teraz" nad zoznamom hovorí to isté a bola by to tá istá vec dvakrát,
+   obe veľké. Preto len oranžová hrana zľava a tmavší nadpis. */
+.flow-step.is-now {
+  border-left: 3px solid var(--brand); background: #fff;
+}
+.flow-step.is-now .flow-n { background: var(--brand-50); color: var(--brand-700); }
+.flow-step.is-now .flow-txt b { color: var(--navy); }
 
 @media (max-width: 560px) {
   .flow-now-txt b { font-size: 21px; }
   .flow-go { width: 100%; justify-content: center; }
 }
 
-/* Zaškolenie v Nábore. Veľké, kým ním človek neprešiel — potom jeden riadok. */
-.learn-cta { border-color: var(--blue); background: #F4F8FF; margin-bottom: 14px; }
+/* Ponuka zaškolenia. Je to **ponuka**, nie úloha — preto tichý pruh pod
+   vetou „čo teraz", nie modrý rámik s veľkým tlačidlom nad ňou. */
+.learn-cta {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  flex-wrap: wrap; background: var(--field); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 15px; margin: 0 0 18px;
+}
+.learn-cta-txt { min-width: 0; }
+.learn-cta-txt b { display: block; font-size: 14px; }
+.learn-cta-txt span { display: block; font-size: 12.5px; color: var(--ink-sub); margin-top: 2px; }
 .learn-done {
   display: flex; align-items: center; gap: 10px; font-size: 13px;
   color: var(--ink-sub); background: var(--green-50); border-radius: var(--radius);
