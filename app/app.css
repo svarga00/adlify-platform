@@ -762,6 +762,8 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 }
 .toast.toast-ok { background: var(--green); }
 .toast.toast-err { background: var(--red); }
+/* Upozornenie, nie chyba: niečo chýba, ale ísť ďalej sa dá. */
+.toast.toast-warn { background: var(--amber); }
 
 /* ── Filtre / zoznamy ────────────────────────────────────────────────────── */
 /* Pruh filtrov. Je to **ovládanie zoznamu**, takže vyzerá ako jedna vec

@@ -61,6 +61,29 @@ for (const f of subory) {
 ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
   stare.join(', '));
 
+// ── Rozdelenie dopytu: povinné polia musia sedieť s knižnicou ───────────────
+// Model vracia stavby podľa schémy vo funkcii; appka ich prijíma podľa
+// pravidiel v `lib/inquiry.js`. Keď sa tie dva zoznamy rozídu, model vráti
+// stavbu bez mesta, appka ju odmietne a nikto nevie prečo.
+{
+  global.window = global;
+  const I = require('../lib/inquiry.js');
+  const src = fs.readFileSync(path.join(DIR, 'danubra-split-inquiry.js'), 'utf8');
+
+  const m = src.match(/required:\s*\['title',\s*'city',\s*'headcount'\]/);
+  ok(!!m, 'funkcia pýta od modelu názov, mesto a počet ľudí');
+  const vApp = I.POVINNE.map(x => x.key);
+  ok(JSON.stringify(vApp) === JSON.stringify(['title', 'city', 'headcount']),
+    'a appka vyžaduje presne tie isté', vApp.join(', '));
+
+  // Funkcia nesmie nič zapisovať — zápis je rozhodnutie človeka. Toto je to
+  // pravidlo, ktoré sa najľahšie poruší pri „však to rovno ulož".
+  ok(!/\.insert\(|\.upsert\(|\.update\(/.test(src),
+    'rozdelenie dopytu do databázy nič nezapisuje');
+  ok(/ANTHROPIC_API_KEY/.test(src) && /no_api_key/.test(src),
+    'a bez kľúča to povie, nie spadne');
+}
+
 // ── Kanály a bloky musia sedieť s appkou ────────────────────────────────────
 // Funkcia `danubra-analyze-brief` vracia texty po kanáloch a appka ich
 // zobrazuje podľa `lib/recruiting/kit.js`. Sú to dva zoznamy na dvoch
