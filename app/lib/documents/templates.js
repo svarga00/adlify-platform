@@ -854,6 +854,149 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     return shell(`Infolist — ${(worker && worker.full_name) || 'stavba'}`, body);
   }
 
+  // ── OBJEDNÁVKA OD NEMECKÉHO ODBERATEĽA, DVOJJAZYČNE ──────────────────────
+  // Tretí krok, druhý papier. Rámcová zmluva hovorí, **ako** sa spolupracuje;
+  // objednávka hovorí, **čo, kde, odkedy a za koľko** — a práve ona je tým,
+  // čím individuálna zmluva o dielo vzniká.
+  //
+  // Dvojjazyčne v dvoch stĺpcoch, rovnako ako zmluva: on podpisuje po nemecky,
+  // my čítame po slovensky.
+
+  /** Pevné dvojice popiskov. Oddelene od údajov, nech sa dajú opraviť naraz. */
+  const BESTELLUNG_L = {
+    title: 'Objednávka / Bestellung',
+    scope: ['Rozsah objednaných prác', 'Umfang der bestellten Arbeiten'],
+    price: ['Cenové a kvantitatívne podmienky', 'Preis- und Mengenbedingungen'],
+    from: ['Termín začatia vykonávania diela', 'Termin für den Beginn der Ausführung'],
+    to: ['Termín ukončenia vykonávania diela', 'Termin für die Fertigstellung'],
+    place: ['Miesto vykonania diela', 'Ausführungsort'],
+    special: ['Osobitné dojednania a podmienky realizácie',
+      'Besondere Vereinbarungen und Ausführungsbedingungen'],
+    ext: ['s možným predĺžením', 'mit möglicher Verlängerung'],
+  };
+
+  /**
+   * @param {Object} o
+   *   order     { number, scope_sk, scope_de, rate, hours_week, date_from,
+   *               date_to, extendable, places, special_sk, special_de }
+   *   supplier  naše fakturačné údaje
+   *   client    odberateľ
+   *   ramcova   { number, signedAt } — zmluva, na ktorú sa objednávka odvoláva
+   *   chyba     čo doplniť pred podpisom
+   */
+  function bestellung({ order = {}, supplier = {}, client = {},
+    ramcova = null, chyba = [] } = {}) {
+    const o = order;
+    const dvoj = (n, sk, de) => `<div class="bil">
+      <div class="bil-n">${n}.</div>
+      <div class="bil-sk">${sk}</div>
+      <div class="bil-de">${de}</div>
+    </div>`;
+    const riadok = (n, label, hodnota) => dvoj(n,
+      `<strong>${esc(label[0])}:</strong><br>${hodnota}`,
+      `<strong>${esc(label[1])}:</strong><br>${hodnota}`);
+
+    const sadzba = o.rate != null
+      ? `${money(o.rate, o.currency || 'EUR', 'sk-SK')} / `
+      : null;
+    const cenaSk = o.rate != null
+      ? `Odmena za vykonanie diela je stanovená dohodou zmluvných strán vo výške `
+        + `<strong>${money(o.rate, o.currency || 'EUR', 'sk-SK')} / hodina</strong>.`
+        + (o.hours_week ? ` Predpokladaný časový rozsah: ${esc(o.hours_week)}.` : '')
+      : '<span class="todo">Sadzba nie je dohodnutá.</span>';
+    const cenaDe = o.rate != null
+      ? `Die Vergütung für die Erstellung des Werkes wird durch Vereinbarung der `
+        + `Vertragsparteien in Höhe von <strong>${money(o.rate, o.currency || 'EUR', 'de-DE')} `
+        + `/ Stunde</strong> festgelegt.`
+        + ((o.hours_week_de || o.hours_week)
+          ? ` Voraussichtlicher Zeitaufwand: ${esc(o.hours_week_de || o.hours_week)}.` : '')
+      : '<span class="todo">Der Satz ist nicht vereinbart.</span>';
+
+    // Adresa stavby je v oboch stĺpcoch tá istá — ale krajina nie: v nemeckom
+    // stĺpci nemá stáť „Nemecko". Keď nemecký variant nie je, použije sa
+    // slovenský; je to adresa, nie veta.
+    const zoznamMiest = (list) => {
+      const m = (list || []).filter(Boolean);
+      return m.length
+        ? `<ul class="clean" style="margin:4px 0 0">${
+          m.map(x => '<li>' + esc(x) + '</li>').join('')}</ul>`
+        : '<span class="todo">—</span>';
+    };
+    const miestaSk = zoznamMiest(o.places);
+    const miestaDe = zoznamMiest((o.places_de && o.places_de.length)
+      ? o.places_de : o.places);
+
+    const body = header(BESTELLUNG_L.title, o.number || '', [], supplier) + `
+      ${chyba.length ? `<div class="par"><p class="todo">Pred podpisom doplniť /
+        Vor Unterzeichnung zu ergänzen: ${esc(chyba.map(c => c.title).join(', '))}.</p></div>` : ''}
+
+      <div class="cols">
+        <div class="col"><div class="lbl">Zhotoviteľ / Auftragnehmer</div><div class="val">
+          <strong>${esc(supplier.name || '—')}</strong><br>
+          ${supplier.address ? esc(supplier.address) + '<br>' : ''}
+          ${supplier.company_id ? 'IČO / Ident.-Nr.: ' + esc(supplier.company_id) + '<br>' : ''}
+          ${supplier.vat_id ? 'IČ DPH / USt-IdNr.: ' + esc(supplier.vat_id) + '<br>' : ''}
+          ${supplier.tax_number_de ? 'Steuernummer: ' + esc(supplier.tax_number_de) + '<br>' : ''}
+          ${supplier.iban ? 'IBAN: ' + esc(supplier.iban) : ''}
+        </div></div>
+        <div class="col"><div class="lbl">Objednávateľ / Auftraggeber</div><div class="val">
+          <strong>${esc(client.name || '—')}</strong><br>
+          ${client.address ? esc(client.address) + '<br>' : ''}
+          ${client.registration_no ? 'Reg.-Nr.: ' + esc(client.registration_no) + '<br>' : ''}
+          ${client.ust_idnr ? 'IČ DPH / USt-IdNr.: ' + esc(client.ust_idnr) + '<br>' : ''}
+          ${client.contact_person ? 'Zastúpený / Vertreten durch: ' + esc(client.contact_person) : ''}
+        </div></div>
+      </div>
+
+      <div class="par">
+        ${ramcova && ramcova.number
+          ? dvoj(1,
+            `V nadväznosti na ustanovenia <strong>Rámcovej zmluvy o dielo
+             č. ${esc(ramcova.number)}</strong>${ramcova.signedAt
+              ? `, uzatvorenej dňa ${date(ramcova.signedAt)}` : ''}, si Objednávateľ
+             u Zhotoviteľa objednáva zhotovenie diela podľa nasledujúcej špecifikácie:<br>
+             ${o.scope_sk ? '<strong>' + esc(o.scope_sk) + '</strong>'
+              : '<span class="todo">Rozsah prác nie je popísaný.</span>'}`,
+            `In Anlehnung an die Bestimmungen des <strong>Rahmenwerkvertrages
+             Nr. ${esc(ramcova.number)}</strong>${ramcova.signedAt
+              ? `, abgeschlossen am ${date(ramcova.signedAt)}` : ''}, bestellt der
+             Auftraggeber beim Auftragnehmer die Herstellung des Werkes gemäß folgender
+             Spezifikation:<br>
+             ${o.scope_de ? '<strong>' + esc(o.scope_de) + '</strong>'
+              : '<span class="todo">Der Arbeitsumfang ist nicht beschrieben.</span>'}`)
+          : `<p class="todo">Objednávka sa neodvoláva na rámcovú zmluvu o dielo —
+             doplň jej číslo a dátum. / Die Bestellung nimmt auf keinen
+             Rahmenwerkvertrag Bezug.</p>`}
+
+        ${dvoj(2, cenaSk, cenaDe)}
+        ${riadok(3, BESTELLUNG_L.from, o.date_from
+          ? date(o.date_from) : '<span class="todo">—</span>')}
+        ${riadok(4, BESTELLUNG_L.to, o.date_to
+          ? date(o.date_to) + (o.extendable
+            ? ` <span style="color:#6F7C95">(${esc(BESTELLUNG_L.ext[0])} / ${
+              esc(BESTELLUNG_L.ext[1])})</span>` : '')
+          : '<span class="todo">—</span>')}
+        ${dvoj(5,
+          `<strong>${esc(BESTELLUNG_L.place[0])}:</strong><br>${miestaSk}`,
+          `<strong>${esc(BESTELLUNG_L.place[1])}:</strong><br>${miestaDe}`)}
+        ${(o.special_sk || o.special_de) ? dvoj(6,
+          `<strong>${esc(BESTELLUNG_L.special[0])}:</strong><br>${esc(o.special_sk || '')}`,
+          `<strong>${esc(BESTELLUNG_L.special[1])}:</strong><br>${esc(o.special_de || '')}`) : ''}
+      </div>
+
+      <div class="par"><p>${esc(mestoZAdresy(supplier) || '…')}, dňa / am ${
+        esc(date(o.signed_at || new Date().toISOString().slice(0, 10)))}</p></div>
+      <div class="sigs">
+        <div class="sig"><div class="line"></div>
+          <div class="who">Zhotoviteľ / Auftragnehmer</div></div>
+        <div class="sig"><div class="line"></div>
+          <div class="who">Objednávateľ / Auftraggeber</div></div>
+      </div>
+      ${footSigned(supplier)}`;
+
+    return shell(`${BESTELLUNG_L.title} ${o.number || ''}`, body);
+  }
+
   // ── RÁMCOVÁ ZMLUVA S NEMECKÝM ODBERATEĽOM ────────────────────────────────
   // Tretí krok. Dvojjazyčne **v dvoch stĺpcoch vedľa seba**, nie slovenský
   // blok a pod ním nemecký: takto je na prvý pohľad vidieť, že obe verzie
@@ -1171,8 +1314,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();

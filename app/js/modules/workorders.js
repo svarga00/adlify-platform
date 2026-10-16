@@ -42,7 +42,9 @@
     async load() {
       const [o, p, w, wd, sc, c, a] = await Promise.all([
         DB.list('work_orders', { order: { column: 'created_at', ascending: false }, limit: 500 }),
-        DB.list('partners', { select: 'id,name', limit: 300 }),
+        DB.list('partners', {
+          select: 'id,name,address,postal_code,city,country,registration_no,ust_idnr,contact_person',
+          limit: 300 }),
         // Na objednávke musí byť zhotoviteľ identifikovateľný — meno nestačí.
         DB.list('workers', {
           select: 'id,full_name,company_id,tax_id,address,business_address,phone,email', limit: 500 }),
@@ -51,7 +53,8 @@
         DB.list('worker_documents', {
           select: 'id,worker_id,kind,reference,valid_from', limit: 2000 }),
         DB.list('subcontracts', { select: 'id,title,contract_number,charge_rate', limit: 300 }),
-        DB.list('contracts', { select: 'id,contract_number,title,partner_id', limit: 300 }),
+        DB.list('contracts', {
+          select: 'id,contract_number,title,partner_id,signed_at', limit: 300 }),
         DB.list('assignments', {
           select: 'id,subcontract_id,worker_id,status,date_from,date_to,worker_rate', limit: 2000 }),
       ]);
@@ -329,9 +332,56 @@
           <p style="font-size:13px;white-space:pre-wrap;">${UI.esc(o.notes)}</p>` : ''}
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="Ord.form('${o.id}')">${Icon('edit', 14)} Upraviť</button>
+          ${o.kind === 'customer' ? `
+            <!-- Potvrdenie je papier, ktorý posielame my. Objednávka SK/DE je
+                 dokument, ktorý podpisujú obe strany a ktorým vzniká
+                 individuálna zmluva o dielo. -->
+            <button class="btn btn-outline" onclick="Ord.bestellung('${o.id}')">
+              ${Icon('doc', 14)} Objednávka SK/DE</button>` : ''}
           <button class="btn btn-primary" onclick="Ord.document('${o.id}')">
             ${Icon('doc', 14)} ${o.kind === 'customer' ? 'Potvrdenie objednávky' : 'Objednávka'}</button>
         </div>`, { wide: true });
+    },
+
+    /**
+     * Dvojjazyčná objednávka pre nemeckého odberateľa.
+     *
+     * `Auftragsbestätigung` je **potvrdenie** jeho objednávky — papier, ktorý
+     * posielame my. Toto je tá objednávka samotná: dokument, ktorý sa odvoláva
+     * na rámcovú zmluvu a podpisujú ho obe strany. Práve ňou vzniká
+     * individuálna zmluva o dielo.
+     */
+    async bestellung(id) {
+      const o = this.rows.find(x => x.id === id);
+      if (!o) return;
+      if (!Danubra.supplierReady('Objednávka')) return;
+      const supplier = Danubra.supplier();
+      const p = this.partnerOf(o.partner_id);
+      // Rámcová zmluva s týmto odberateľom. Bez nej sa to na papier napíše.
+      const c = this.contracts.find(x => x.partner_id === o.partner_id);
+
+      const html = DanubraPapers.bestellung({
+        order: {
+          number: o.order_number, scope_sk: o.scope, scope_de: o.scope_de || o.scope,
+          rate: o.rate, currency: o.currency,
+          hours_week: o.hours_week, hours_week_de: o.hours_week_de,
+          date_from: o.date_from, date_to: o.date_to, extendable: !!o.extendable,
+          places: o.places || [], places_de: o.places_de || [],
+          special_sk: o.notes, special_de: o.notes_de,
+          signed_at: o.received_at,
+        },
+        supplier,
+        client: {
+          name: p.name,
+          address: [p.address, p.postal_code, p.city, p.country].filter(Boolean).join(', '),
+          registration_no: p.registration_no, ust_idnr: p.ust_idnr,
+          contact_person: p.contact_person,
+        },
+        ramcova: c ? { number: c.contract_number, signedAt: c.signed_at } : null,
+      });
+      const okno = window.open('', '_blank');
+      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
+      okno.document.open(); okno.document.write(html); okno.document.close();
     },
 
     /** Doklad. Odberateľovi po nemecky, živnostníkovi po slovensky. */
