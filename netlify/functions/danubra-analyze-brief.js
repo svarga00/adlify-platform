@@ -29,6 +29,8 @@
 //   CLAUDE_MODEL_TEXT      — voliteľné, predvolene claude-sonnet-5-5
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
+// Čítanie odpovede modelu je na jednom mieste — pozri app/lib/ai.js.
+const AI = require('../../app/lib/ai.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -235,26 +237,20 @@ async function analyze(brief, plan, supplier, trades) {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 16000,
-      tools: [SCHEMA],
-      tool_choice: { type: 'tool', name: 'podklady_k_naboru' },
-      messages: [{
-        role: 'user',
-        content: `${POKYNY}\n\nZOZNAM KANÁLOV A BLOKOV (iné nepoužívaj):\n${bloky}\n\n`
-          + `REMESLÁ V DATABÁZE (kľúč = názov; iný kľúč nepoužívaj):\n${remesla}\n\n`
-          + `KDE SA DÁ INZEROVAŤ (iné nepoužívaj): ${KANALY.join(', ')}\n\n`
-          + `ČO O NÁBORE VIEME Z APPKY:\n${kontext || '(nič)'}\n\n`
-          + `ZADANIE OD KOLEGU:\n${brief}`,
-      }],
-    }),
+    body: JSON.stringify(AI.body({
+      model: MODEL, tool: SCHEMA, maxTokens: 16000,
+      prompt: `${POKYNY}\n\nZOZNAM KANÁLOV A BLOKOV (iné nepoužívaj):\n${bloky}\n\n`
+        + `REMESLÁ V DATABÁZE (kľúč = názov; iný kľúč nepoužívaj):\n${remesla}\n\n`
+        + `KDE SA DÁ INZEROVAŤ (iné nepoužívaj): ${KANALY.join(', ')}\n\n`
+        + `ČO O NÁBORE VIEME Z APPKY:\n${kontext || '(nič)'}\n\n`
+        + `ZADANIE OD KOLEGU:\n${brief}`,
+    })),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `Analýza zlyhala (${res.status})`);
-  const use = (data.content || []).find(c => c.type === 'tool_use');
-  if (!use || !use.input) throw new Error('Model nevrátil podklady');
-  return use.input;
+  if (!res.ok) throw new Error(AI.errorText(data, res.status, 'Analýza'));
+  const out = AI.pickTool(data, SCHEMA.name);
+  if (!out) throw new Error('Model nevrátil podklady');
+  return out;
 }
 
 exports.handler = async (event) => {
