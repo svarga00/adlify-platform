@@ -411,6 +411,7 @@
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Wrk.closeProfile()">${Icon('back', 15)} Späť</button>
         <button class="btn btn-outline btn-sm" onclick="Wrk.gdpr('${w.id}')">${Icon('shield', 14)} Súhlas GDPR</button>
+        <button class="btn btn-outline btn-sm" onclick="Wrk.zmluva('${w.id}')">${Icon('doc', 14)} Zmluva o dielo</button>
         <button class="btn btn-outline btn-sm" onclick="Wrk.form('${w.id}')">${Icon('edit', 14)} Upraviť</button>`);
 
       // Účet sa načíta až tu — zoznam ľudí naň nečaká.
@@ -569,6 +570,22 @@
         </div>
         ${docs.length ? docs.map(row).join('')
           : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
+        ${docs.some(d => d.kind === 'contract') ? '' : `
+          <!-- Piaty krok reťazca. Bez zmluvy to nie je subdodávka. -->
+          <div class="list-row" style="cursor:default;align-items:flex-start;">
+            <span class="dot amber" style="margin-top:5px;"></span>
+            <span style="flex:1;font-size:13px;">
+              <strong>Chýba rámcová zmluva o dielo</strong>
+              <span style="display:block;color:var(--ink-mute);font-size:12px;">
+                Bez nej to nie je subdodávka, ale zamestnávanie.</span>
+            </span>
+            <span class="row-acts">
+              <button class="btn btn-ghost btn-sm" onclick="Wrk.zmluva('${w.id}')">
+                ${Icon('doc', 14)} Vytlačiť</button>
+              <button class="btn btn-outline btn-sm" onclick="Wrk.zmluvaForm('${w.id}')">
+                ${Icon('check', 14)} Zapísať podpísanú</button>
+            </span>
+          </div>`}
         ${docs.some(d => d.kind === 'gdpr') ? '' : `
           <!-- Súhlas GDPR je štvrtý krok reťazca a chýba najčastejšie: papier
                sa vytlačí, podpíše a potom zabudne zapísať. -->
@@ -986,6 +1003,75 @@
       if (!uz) {
         UI.toast('Keď ho podpíše, zapíš to cez „Zapísať podpísaný súhlas"', 'warn');
       }
+    },
+
+    // ── Rámcová zmluva o dielo ────────────────────────────────────────────
+    // Piaty krok reťazca. Bez nej to nie je subdodávka, ale zamestnávanie —
+    // a pri kontrole to nesie firma, nie živnostník.
+
+    /**
+     * Otvorí zmluvu na vytlačenie. Sumy a lehoty sa berú z Nastavení, takže
+     * zdvihnutie pokuty nie je zásah do kódu.
+     */
+    zmluva(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return UI.toast('Nenájdené', 'err');
+      if (!Danubra.supplierReady('Rámcová zmluva o dielo')) return;
+
+      const supplier = Danubra.supplier();
+      // Číslo si nesie podpísaný doklad; kým nie je, zmluva sa tlačí bez neho.
+      const doklad = this.docsOf(workerId).find(d => d.kind === 'contract');
+      const zmluva = DanubraSubcontract.build({
+        worker: w, supplier, rules: Danubra.cfg('subcontract'),
+        signedAt: (doklad && doklad.valid_from) || undefined,
+        validTo: (doklad && doklad.valid_to) || undefined,
+        number: (doklad && doklad.reference) || '',
+      });
+      const chyba = DanubraSubcontract.missing({ worker: w, supplier });
+
+      const html = DanubraPapers.ramcovaZmluva({ zmluva, chyba });
+      const okno = window.open('', '_blank');
+      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
+      okno.document.open(); okno.document.write(html); okno.document.close();
+
+      if (chyba.length) {
+        UI.toast(`Pred podpisom doplň: ${chyba.map(c => c.title).join(', ')}`, 'warn');
+      }
+    },
+
+    /** Zapíše podpísanú zmluvu ako doklad — rovnako ako A1 alebo súhlas. */
+    zmluvaForm(workerId) {
+      const dnes = new Date().toISOString().slice(0, 10);
+      const koniec = DanubraSubcontract.koniecRoka(dnes);
+      UI.modal('Zapísať podpísanú zmluvu', `
+        <form id="zml-form" onsubmit="event.preventDefault();Wrk.saveZmluva('${workerId}')">
+          <div class="regimebox">Zmluva sa spravidla uzatvára do konca kalendárneho
+            roka. Appka upozorní skôr, než sa skončí — nie potom.</div>
+          <div class="form-grid">
+            ${UI.field('reference', 'Číslo zmluvy', { placeholder: 'napr. 2026-093' })}
+            ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
+            ${UI.field('valid_to', 'Platí do', { type: 'date', value: koniec })}
+          </div>
+          ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2 })}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Zapísať</button>
+          </div>
+        </form>`);
+    },
+
+    async saveZmluva(workerId) {
+      const d = UI.formData(document.getElementById('zml-form'));
+      if (!d.valid_from) return UI.toast('Zadaj dátum podpisu', 'err');
+      const { error } = await DB.insert('worker_documents', {
+        worker_id: workerId, kind: 'contract', reference: d.reference || null,
+        valid_from: d.valid_from, valid_to: d.valid_to || null,
+        notes: d.notes || null, status: 'valid',
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.closeModal();
+      UI.toast('Zmluva zapísaná', 'ok');
+      await this.load(); this.detail(workerId);
     },
 
     /** Zapíše podpísaný súhlas ako doklad. Dátum je deň podpisu, nie dnešok. */
