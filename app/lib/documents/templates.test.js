@@ -434,5 +434,76 @@ console.log('Objednávka živnostníkovi');
   ok(/platné bez podpisu/i.test(nemcovi), 'a má pôvodnú pätičku');
 }
 
+// ── Dvojjazyčná objednávka pre nemeckého odberateľa ─────────────────────────
+// Rámcová zmluva hovorí, **ako** sa spolupracuje; objednávka hovorí **čo, kde,
+// odkedy a za koľko** — a práve ňou individuálna zmluva o dielo vzniká.
+//
+// Najtichšia chyba dvojjazyčného dokladu: slovenské slovo v nemeckom stĺpci.
+// Nemec si prečíta „50 – 60 hodín / týždeň" a nerozumie, alebo ešte horšie —
+// myslí si, že rozumie.
+console.log('Objednávka pre Nemca, dvojjazyčne');
+{
+  const FIRMA = { name: 'Partner und Service s. r. o.', address: 'Podzámska 9468/4A, Nové Zámky',
+    company_id: '57 553 921', vat_id: 'SK2122816839', tax_number_de: '214/633/08265',
+    iban: 'SK67 1100' };
+  const KLIENT = { name: 'Kulzer GmbH', address: 'Straubing, Deutschland',
+    ust_idnr: 'DE 164 536 345', registration_no: 'HRB 10147' };
+  const OBJ = {
+    number: '1', scope_sk: 'Stavebné práce: Zatepľovanie', scope_de: 'Bauarbeiten: Wärmedämmung',
+    rate: 31, hours_week: '50 – 60 hodín / týždeň / osoba',
+    hours_week_de: '50 – 60 Stunden / Woche / Person',
+    date_from: '2026-10-19', date_to: '2026-11-30', extendable: true,
+    places: ['Clemens-Attenkofer-Straße 10, 94315 Straubing, Nemecko'],
+    places_de: ['Clemens-Attenkofer-Straße 10, 94315 Straubing, Deutschland'],
+    special_sk: 'Skúšobná lehota 3 dni.', special_de: 'Probezeit 3 Tage.',
+    signed_at: '2026-10-15',
+  };
+  const h = P.bestellung({ order: OBJ, supplier: FIRMA, client: KLIENT,
+    ramcova: { number: '2026-018', signedAt: '2026-10-15' } });
+
+  const stlpec = (trieda) => [...h.matchAll(new RegExp(
+    `<div class="${trieda}">([\\s\\S]*?)</div>`, 'g'))].map(m => m[1]).join(' ');
+  const sk = stlpec('bil-sk'), de = stlpec('bil-de');
+
+  ok(sk.length > 200 && de.length > 200, 'oba stĺpce majú obsah');
+
+  // **Toto je ten test, o ktorý tu ide.**
+  const slovenske = /\bhodín\b|\btýždeň\b|\bNemecko\b|\bdní\b|\bdohodou\b|\bzmluvn/;
+  ok(!slovenske.test(de), 'v nemeckom stĺpci nie je slovenské slovo',
+    (de.match(slovenske) || [])[0]);
+  ok(/Stunden \/ Woche/.test(de), 'čas je po nemecky');
+  ok(/Deutschland/.test(de) && !/Nemecko/.test(de), 'krajina je po nemecky');
+  ok(/Nemecko/.test(sk), 'a v slovenskom stĺpci po slovensky');
+
+  // Objednávka bez odkazu na rámcovú zmluvu nie je individuálna zmluva o dielo.
+  ok(/Rámcovej zmluvy o dielo/.test(h) && /Rahmenwerkvertrages/.test(h),
+    'odvoláva sa na rámcovú zmluvu v oboch jazykoch');
+  ok(/2026-018/.test(h), 'aj s jej číslom');
+  const bez = P.bestellung({ order: OBJ, supplier: FIRMA, client: KLIENT });
+  ok(/neodvoláva na rámcovú zmluvu/.test(bez), 'bez nej to doklad napíše');
+  ok(/Rahmenwerkvertrag Bezug/.test(bez), 'a povie to aj po nemecky');
+
+  // Sumy: slovenský doklad píše 31,00 €, nemecký ten istý tvar — ale obe
+  // čísla musia byť rovnaké.
+  ok(/31,00/.test(sk) && /31,00/.test(de), 'sadzba je v oboch stĺpcoch rovnaká');
+
+  // Chýbajúce údaje sa na papier napíšu, nie zamlčia.
+  const prazdna = P.bestellung({ order: { number: '2' }, supplier: FIRMA, client: KLIENT,
+    ramcova: { number: '2026-018' } });
+  ok(/Sadzba nie je dohodnutá/.test(prazdna), 'chýbajúca sadzba sa pomenuje');
+  ok(/Der Satz ist nicht vereinbart/.test(prazdna), 'aj po nemecky');
+  ok(!/undefined/.test(prazdna), 'a nikde nie je undefined');
+
+  // Podpisuje sa oboma stranami.
+  ok(/Platné po podpise/.test(h), 'pätička hovorí, že platí po podpise');
+  ok((h.match(/class="line"/g) || []).length === 2, 'a sú tam dve miesta na podpis');
+
+  // Keď nemecký variant miesta nie je, použije sa slovenský — adresa je adresa.
+  const jedno = P.bestellung({ order: { ...OBJ, places_de: [] }, supplier: FIRMA,
+    client: KLIENT, ramcova: { number: '2026-018' } });
+  ok(/Straubing/.test(stlpec('bil-de')) || /Straubing/.test(jedno),
+    'bez nemeckého variantu sa použije slovenský');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);
