@@ -81,6 +81,9 @@
     .par h3{font-size:12.5px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;
       color:${BRAND.navy}}
     .par p{margin:0 0 6px;font-size:12.5px;line-height:1.55}
+    /* Odstavce zmluvy sú číslované — v spore sa odkazuje na „čl. V bod 2". */
+    .par-ol{margin:0;padding-left:20px;font-size:12.5px;line-height:1.55}
+    .par-ol li{margin:0 0 5px}
     .sigs{display:flex;gap:40px;margin-top:38px;page-break-inside:avoid}
     .sig{flex:1}
     .sig .line{border-bottom:1px solid #6F7C95;height:46px}
@@ -811,6 +814,71 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     return shell(`Infolist — ${(worker && worker.full_name) || 'stavba'}`, body);
   }
 
+  // ── RÁMCOVÁ ZMLUVA O DIELO SO ŽIVNOSTNÍKOM ───────────────────────────────
+  // Piaty krok reťazca. Text je dáta (`lib/documents/subcontract.js`), tu sa
+  // z nich robí papier — aby sa pri zmene pokuty nemuselo hrabať v HTML.
+
+  /**
+   * @param {Object} o
+   *   zmluva    výstup z `DanubraSubcontract.build()`
+   *   chyba     zoznam z `DanubraSubcontract.missing()` — vypíše sa na papier
+   */
+  function ramcovaZmluva({ zmluva, chyba = [] } = {}) {
+    if (!zmluva) return shell('Rámcová zmluva o dielo', '<p>Chýbajú údaje.</p>');
+    const { worker = {}, supplier = {}, clanky = [] } = zmluva;
+    const S = (typeof require !== 'undefined' && typeof module !== 'undefined')
+      ? require('./subcontract.js') : window.DanubraSubcontract;
+
+    // Tučné `**takto**` z textu článkov — v zmluve to nesie dôraz, ktorý tam
+    // dal právnik, a nemá sa stratiť.
+    const tucne = (t) => esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    const body = header('Rámcová zmluva o dielo', zmluva.number,
+      ['uzavretá podľa § 536 a nasl. Obchodného zákonníka'], supplier) + `
+      ${chyba.length ? `<div class="par"><p class="todo">Pred podpisom doplniť:
+        ${esc(chyba.map(c => c.title).join(', '))}.</p></div>` : ''}
+
+      <div class="par"><h3>Článok I. — Zmluvné strany</h3></div>
+      <div class="cols">
+        <div class="col"><div class="lbl">Objednávateľ</div><div class="val">
+          <strong>${esc(supplier.name || '—')}</strong><br>
+          ${supplier.address ? esc(supplier.address) + '<br>' : ''}
+          ${supplier.company_id ? 'IČO: ' + esc(supplier.company_id) + '<br>' : ''}
+          ${supplier.tax_id ? 'DIČ: ' + esc(supplier.tax_id) + '<br>' : ''}
+          ${supplier.register ? esc(supplier.register) + '<br>' : ''}
+          ${supplier.phone ? esc(supplier.phone) + '<br>' : ''}
+          ${supplier.email ? esc(supplier.email) : ''}
+        </div></div>
+        <div class="col"><div class="lbl">Zhotoviteľ</div><div class="val">
+          <strong>${esc(worker.full_name || '—')}</strong><br>
+          ${worker.business_address || worker.address
+            ? esc(worker.business_address || worker.address) + '<br>' : ''}
+          ${worker.ico ? 'IČO: ' + esc(worker.ico) + '<br>' : ''}
+          ${worker.tax_id ? 'DIČ: ' + esc(worker.tax_id) + '<br>' : ''}
+          ${worker.bank_iban ? 'IBAN: ' + esc(worker.bank_iban) + '<br>' : ''}
+          ${worker.phone ? esc(worker.phone) + '<br>' : ''}
+          ${worker.email ? esc(worker.email) : ''}
+        </div></div>
+      </div>
+
+      ${clanky.map(c => `<div class="par">
+        <h3>Článok ${esc(c.rim)} — ${esc(c.nadpis)}</h3>
+        <ol class="par-ol">${c.body.map(x => '<li>' + tucne(x) + '</li>').join('')}</ol>
+      </div>`).join('')}
+
+      <div class="par"><p>${esc(mestoZAdresy(supplier) || '…')}, dňa ${
+        esc(S ? S.den(zmluva.signedAt) : zmluva.signedAt)}</p></div>
+      <div class="sigs">
+        <div class="sig"><div class="line"></div>
+          <div class="who">Objednávateľ — ${esc(supplier.name || '')}</div></div>
+        <div class="sig"><div class="line"></div>
+          <div class="who">Zhotoviteľ — ${esc(worker.full_name || '')}</div></div>
+      </div>
+      ${footSigned(supplier)}`;
+
+    return shell('Rámcová zmluva o dielo — ' + (worker.full_name || ''), body);
+  }
+
   // ── SÚHLAS SO SPRACOVANÍM OSOBNÝCH ÚDAJOV ────────────────────────────────
   // Štvrtý krok v reťazci. Držíme meno živnostníka, jeho doklad totožnosti,
   // A1, živnostenský list, telefón aj číslo účtu — a posielame ich nemeckému
@@ -1001,8 +1069,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();

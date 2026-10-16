@@ -146,6 +146,27 @@
         // Odberateľ napíše „ab Montag" a nevie, koľko ľudí vieme zohnať. Toto
         // je to číslo, podľa ktorého appka povie, či to stíhame — pri dopyte
         // na trinásť ľudí aj pri rozhodovaní, či prijať ďalšiu stavbu.
+        // Zmluva so živnostníkom je dáta, nie HTML: právnik opraví vetu,
+        // majiteľ zdvihne pokutu — a nikto nemá siahať do kódu.
+        this.section('Zmluva so živnostníkom',
+          'Sumy a lehoty, ktoré sa vypíšu do rámcovej zmluvy o dielo. Zmena sa '
+          + 'prejaví na každej ďalšej zmluve; tie podpísané zostávajú, ako boli.',
+          'subcontract', [
+          ['fakturacia_dni', 'Fakturuje každých (dní)', 'number', 14],
+          ['splatnost_dni', 'Splatnosť jeho faktúry (dní)', 'number', 14],
+          ['zaruka_mes', 'Záruka za akosť diela (mesiacov)', 'number', 24],
+          ['reklamacia_dni', 'Odstránenie vady do (dní)', 'number', 10],
+          ['freistellung_poplatok', 'Poplatok pri zrážkovej dani €', 'number', 50],
+          ['pokuta_alkohol', 'Pokuta — alkohol na pracovisku €', 'number', 500],
+          ['pokuta_fajcenie', 'Pokuta — fajčenie €', 'number', 350],
+          ['pokuta_omeskanie_den', 'Pokuta — omeškanie za deň €', 'number', 250],
+          ['pokuta_nenastupenie', 'Pokuta — nenastúpenie €', 'number', 2500],
+          ['pokuta_mlcanlivost', 'Pokuta — mlčanlivosť €', 'number', 400],
+          ['pokuta_konkurencia', 'Pokuta — zákaz konkurencie €', 'number', 10000],
+          ['konkurencia_roky', 'Zákaz konkurencie po skončení (rokov)', 'number', 2],
+          ['vypoved_mes', 'Výpovedná lehota (mesiacov)', 'number', 1],
+        ]) +
+
         this.section('Koľko ľudí vieme nabrať',
           'Z toho sa počíta, či sa dopyt dá stihnúť. Keď príde e-mail na trinásť '
           + 'ľudí od pondelka, appka to povie hneď — nie v pondelok.',
