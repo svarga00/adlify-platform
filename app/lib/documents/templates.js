@@ -46,10 +46,12 @@
     .page{max-width:800px;margin:0 auto;padding:38px 44px}
     .head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
       padding-bottom:18px;border-bottom:2px solid ${BRAND.navy}}
-    .brand{display:flex;align-items:center;gap:9px}
-    .brand-name{font-size:19px;font-weight:800;letter-spacing:-.02em}
+    .brand{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+    /* „Partner und Service s. r. o." sa nesmie zlomiť na „s. r." a „o." —
+       názov firmy na doklade vyzerá potom ako preklep. */
+    .brand-name{font-size:19px;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
     .brand-sub{font-size:9.5px;letter-spacing:.16em;color:#6F7C95;font-family:ui-monospace,monospace}
-    .doc-title{text-align:right}
+    .doc-title{text-align:right;flex:1 1 auto;min-width:0}
     .doc-title h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em}
     .doc-title .num{font-family:ui-monospace,monospace;font-size:13px;color:${BRAND.orange};font-weight:700}
     .cols{display:flex;gap:34px;margin:24px 0}
@@ -84,6 +86,14 @@
     /* Odstavce zmluvy sú číslované — v spore sa odkazuje na „čl. V bod 2". */
     .par-ol{margin:0;padding-left:20px;font-size:12.5px;line-height:1.55}
     .par-ol li{margin:0 0 5px}
+    /* Dvojjazyčný odstavec: vľavo slovensky, vpravo nemecky, pod sebou číslo.
+       Takto je vidieť, že obe verzie hovoria to isté. */
+    .bil{display:grid;grid-template-columns:22px 1fr 1fr;gap:0 14px;margin:0 0 9px;
+      page-break-inside:avoid}
+    .bil-n{font-size:12px;color:#96A2BA;font-weight:700;padding-top:1px}
+    .bil-sk,.bil-de{font-size:11.5px;line-height:1.5}
+    .bil-de{color:#44506B}
+    @media print{.bil{grid-template-columns:22px 1fr 1fr}}
     .sigs{display:flex;gap:40px;margin-top:38px;page-break-inside:avoid}
     .sig{flex:1}
     .sig .line{border-bottom:1px solid #6F7C95;height:46px}
@@ -126,7 +136,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     const name = supplier && supplier.name;
     return `<div class="head">
       <div class="brand">${LOGO}${name ? `<div>
-        <div class="brand-name">${esc(name)}</div>
+        <div class="brand-name">${esc(name).replace(/\b(s\.|r\.|o\.|a\.|spol\.|GmbH|UG)\s/g,
+          (m) => m.trim() + '&nbsp;')}</div>
         ${supplier.tagline ? `<div class="brand-sub">${esc(supplier.tagline)}</div>` : ''}
       </div>` : ''}</div>
       <div class="doc-title"><h1>${esc(docTitle)}</h1>
@@ -843,6 +854,68 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     return shell(`Infolist — ${(worker && worker.full_name) || 'stavba'}`, body);
   }
 
+  // ── RÁMCOVÁ ZMLUVA S NEMECKÝM ODBERATEĽOM ────────────────────────────────
+  // Tretí krok. Dvojjazyčne **v dvoch stĺpcoch vedľa seba**, nie slovenský
+  // blok a pod ním nemecký: takto je na prvý pohľad vidieť, že obe verzie
+  // hovoria to isté — a keď sa jedna zmení a druhá nie, vidieť to tiež.
+
+  function rahmenvertrag({ zmluva, chyba = [] } = {}) {
+    if (!zmluva) return shell('Rámcová zmluva o dielo', '<p>Chýbajú údaje.</p>');
+    const { supplier = {}, client = {}, clanky = [] } = zmluva;
+
+    const strana = (titul, x, pole) => `<div class="col">
+      <div class="lbl">${esc(titul)}</div><div class="val">
+        <strong>${esc(x[pole.name] || '—')}</strong><br>
+        ${x[pole.address] ? esc(x[pole.address]) + '<br>' : ''}
+        ${x[pole.ico] ? 'IČO / Ident.-Nr.: ' + esc(x[pole.ico]) + '<br>' : ''}
+        ${x[pole.register] ? esc(x[pole.register]) + '<br>' : ''}
+        ${x[pole.vat] ? 'IČ DPH / USt-IdNr.: ' + esc(x[pole.vat]) + '<br>' : ''}
+        ${x[pole.steuer] ? 'Steuernummer: ' + esc(x[pole.steuer]) + '<br>' : ''}
+        ${x[pole.iban] ? 'IBAN: ' + esc(x[pole.iban]) + '<br>' : ''}
+        ${x[pole.phone] ? esc(x[pole.phone]) + '<br>' : ''}
+        ${x[pole.email] ? esc(x[pole.email]) + '<br>' : ''}
+        ${x[pole.rep] ? 'Zastúpený / Vertreten durch: ' + esc(x[pole.rep]) : ''}
+      </div></div>`;
+
+    const body = header('Rámcová zmluva o dielo / Rahmenwerkvertrag', zmluva.number,
+      ['uzatvorená podľa § 536 a nasl. zákona č. 513/1991 Zb. Obchodný zákonník',
+        'abgeschlossen gemäß § 536 ff. des Gesetzes Nr. 513/1991 Slg. Handelsgesetzbuch'],
+      supplier) + `
+      ${chyba.length ? `<div class="par"><p class="todo">Pred podpisom doplniť /
+        Vor Unterzeichnung zu ergänzen: ${esc(chyba.map(c => c.title).join(', '))}.</p></div>` : ''}
+
+      <div class="par"><h3>Článok I. Zmluvné strany / Artikel I. Vertragsparteien</h3></div>
+      <div class="cols">
+        ${strana('Zhotoviteľ / Auftragnehmer', supplier, { name: 'name', address: 'address',
+          ico: 'company_id', register: 'register', vat: 'vat_id', steuer: 'tax_number_de',
+          iban: 'iban', phone: 'phone', email: 'email', rep: 'representative' })}
+        ${strana('Objednávateľ / Auftraggeber', client, { name: 'name', address: 'address',
+          ico: 'registration_no', register: 'register', vat: 'ust_idnr', steuer: 'tax_number',
+          iban: '', phone: 'phone', email: 'email', rep: 'contact_person' })}
+      </div>
+
+      ${clanky.map(c => `<div class="par">
+        <h3>Článok ${esc(c.rim)} ${esc(c.sk)} / Artikel ${esc(c.rim)} ${esc(c.de)}</h3>
+        ${c.body.map((p, i) => `<div class="bil">
+          <div class="bil-n">${i + 1}.</div>
+          <div class="bil-sk">${esc(p.sk)}</div>
+          <div class="bil-de">${esc(p.de)}</div>
+        </div>`).join('')}
+      </div>`).join('')}
+
+      <div class="par"><p>${esc(mestoZAdresy(supplier) || '…')}, dňa / am ${
+        esc(date(zmluva.signedAt))}</p></div>
+      <div class="sigs">
+        <div class="sig"><div class="line"></div>
+          <div class="who">Zhotoviteľ / Auftragnehmer — ${esc(supplier.name || '')}</div></div>
+        <div class="sig"><div class="line"></div>
+          <div class="who">Objednávateľ / Auftraggeber — ${esc(client.name || '')}</div></div>
+      </div>
+      ${footSigned(supplier)}`;
+
+    return shell('Rámcová zmluva / Rahmenwerkvertrag — ' + (client.name || ''), body);
+  }
+
   // ── RÁMCOVÁ ZMLUVA O DIELO SO ŽIVNOSTNÍKOM ───────────────────────────────
   // Piaty krok reťazca. Text je dáta (`lib/documents/subcontract.js`), tu sa
   // z nich robí papier — aby sa pri zmene pokuty nemuselo hrabať v HTML.
@@ -1098,8 +1171,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();
