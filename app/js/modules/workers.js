@@ -213,7 +213,9 @@
         ['Telefón', w => w.phone],
         ['E-mail', w => w.email],
         ['Mesto', w => w.city],
-        ['IČO', w => w.ico],
+        // IČO živnostníka je `company_id` (migrácia 014). Stĺpec `ico` v databáze
+        // nie je a export ho roky vypisoval prázdny.
+        ['IČO', w => w.company_id],
         ['Forma', w => (w.legal_form === 'szco' ? 'živnostník' : 'zamestnanec')],
         ['Sadzba €/h', w => DanubraExport.num(w.hourly_cost)],
         ['A1', w => DOC[this.docStatus(w.id).state] || ''],

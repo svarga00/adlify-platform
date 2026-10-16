@@ -25,7 +25,7 @@ function ok(c, msg, detail) {
 
 console.log('Rámcová zmluva o dielo');
 
-const CLOVEK = { full_name: 'Cyril Demeter', ico: '53941870',
+const CLOVEK = { full_name: 'Cyril Demeter', company_id: '53941870',
   address: 'Brekov 81, 066 01 Brekov', bank_iban: 'SK89 0000' };
 const FIRMA = { name: 'Partner und Service s. r. o.', company_id: '57 553 921',
   address: 'Podzámska 9468/4A, 940 71 Nové Zámky', tax_id: '2122816839',
@@ -124,11 +124,11 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
   ok(chyba.every(c => c.title && c.title.length > 3), 'a každá je pomenovaná po slovensky');
 
   // Zmluva bez IČO zhotoviteľa nie je zmluva so živnostníkom.
-  const bezIco = S.missing({ worker: { ...CLOVEK, ico: '' }, supplier: FIRMA });
-  eq(bezIco.map(c => c.key), ['ico'], 'chýbajúce IČO živnostníka sa pomenuje');
+  const bezIco = S.missing({ worker: { ...CLOVEK, company_id: '' }, supplier: FIRMA });
+  eq(bezIco.map(c => c.key), ['company_id'], 'chýbajúce IČO živnostníka sa pomenuje');
   const bezRegistra = S.missing({ worker: CLOVEK, supplier: { ...FIRMA, register: '' } });
   eq(bezRegistra.map(c => c.key), ['register'], 'aj chýbajúci zápis v registri');
-  eq(S.missing({ worker: { ...CLOVEK, ico: '   ' }, supplier: FIRMA }).length, 1,
+  eq(S.missing({ worker: { ...CLOVEK, company_id: '   ' }, supplier: FIRMA }).length, 1,
     'samé medzery nie sú údaj');
 }
 

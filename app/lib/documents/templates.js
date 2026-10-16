@@ -610,7 +610,18 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
    * nám ju — presne tie znaky, podľa ktorých sa dielo odlišuje od prenájmu
    * pracovnej sily.
    */
-  function workOrder({ order, supplier, partner, worker, subcontract }) {
+  /**
+   * @param {Object} o
+   *   ramcova  { number, signedAt } — rámcová zmluva, na ktorú sa objednávka
+   *            odvoláva. **Bez nej to nie je individuálna zmluva o dielo**,
+   *            len papier s cenou: článok III. rámcovej zmluvy hovorí, že
+   *            individuálna zmluva vzniká práve vystavením objednávky a jej
+   *            akceptáciou — a objednávka sa na ňu musí odvolať.
+   *   places   ďalšie miesta výkonu. Živnostník nerobí vždy na jednej adrese;
+   *            vo vzore ich je sedem plus celé územie oboch štátov.
+   */
+  function workOrder({ order, supplier, partner, worker, subcontract,
+    ramcova = null, places = [] } = {}) {
     const o = order || {};
     const pre = o.kind === 'customer';
     const loc = pre ? 'de-DE' : 'sk-SK';
@@ -665,9 +676,22 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
             </div></div>
             <div class="col"><div class="lbl">Zhotoviteľ</div><div class="val">
               <strong>${esc(protistrana.name || '—')}</strong><br>
+              ${worker && (worker.business_address || worker.address)
+                ? esc(worker.business_address || worker.address) + '<br>' : ''}
+              ${worker && worker.company_id ? 'IČO: ' + esc(worker.company_id) + '<br>' : ''}
+              ${worker && worker.phone ? esc(worker.phone) + '<br>' : ''}
+              ${worker && worker.email ? esc(worker.email) + '<br>' : ''}
               <span style="color:#6F7C95">samostatne zárobkovo činná osoba</span>
             </div></div>
           </div>`}
+
+      ${!pre ? (ramcova && ramcova.number ? `<div class="note">
+        Objednávateľ si na základe <strong>Rámcovej zmluvy o dielo
+        č. ${esc(ramcova.number)}</strong>${ramcova.signedAt
+          ? ` uzavretej dňa ${date(ramcova.signedAt)}` : ''} objednáva
+        u Zhotoviteľa nasledovný rozsah činností.</div>`
+        : `<p class="todo">Objednávka sa neodvoláva na rámcovú zmluvu o dielo —
+          doplň jej číslo a dátum, inak to nie je individuálna zmluva o dielo.</p>`) : ''}
 
       <h2 class="ss-h">${esc(L.scope)}</h2>
       ${o.scope
@@ -677,6 +701,11 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       <div class="ss-row"><div class="lbl">${esc(L.site)}</div>
         <div class="val">${esc((subcontract && (subcontract.title
           || subcontract.contract_number)) || '—')}</div></div>
+      ${(places || []).length ? `<div class="ss-row">
+        <div class="lbl">${pre ? 'Weitere Ausführungsorte' : 'Miesta výkonu'}</div>
+        <div class="val"><ul class="clean" style="margin:0">${
+          places.filter(Boolean).map(x => '<li>' + esc(x) + '</li>').join('')}</ul></div>
+      </div>` : ''}
       <div class="ss-row"><div class="lbl">${esc(L.term)}</div>
         <div class="val">${o.date_from ? `${date(o.date_from)} – ${date(o.date_to)}` : '—'}</div></div>
       <div class="ss-row"><div class="lbl">${esc(L.price)}</div>
@@ -703,7 +732,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
         <div class="sig"><div class="line"></div><div class="who">Za objednávateľa</div></div>
         <div class="sig"><div class="line"></div><div class="who">Zhotoviteľ — prijímam objednávku</div></div>
       </div>`}
-      ${foot(supplier)}`;
+      ${pre ? foot(supplier) : footSigned(supplier)}`;
     return shell(`${L.title} ${o.order_number || ''}`, body);
   }
 
@@ -853,7 +882,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
           <strong>${esc(worker.full_name || '—')}</strong><br>
           ${worker.business_address || worker.address
             ? esc(worker.business_address || worker.address) + '<br>' : ''}
-          ${worker.ico ? 'IČO: ' + esc(worker.ico) + '<br>' : ''}
+          ${worker.company_id ? 'IČO: ' + esc(worker.company_id) + '<br>' : ''}
           ${worker.tax_id ? 'DIČ: ' + esc(worker.tax_id) + '<br>' : ''}
           ${worker.bank_iban ? 'IBAN: ' + esc(worker.bank_iban) + '<br>' : ''}
           ${worker.phone ? esc(worker.phone) + '<br>' : ''}
@@ -954,7 +983,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
           ${worker.birth_date ? 'dátum narodenia: ' + date(worker.birth_date) + '<br>' : ''}
           ${worker.address ? esc(worker.address) + '<br>' : ''}
           ${worker.city ? esc(worker.city) + '<br>' : ''}
-          ${worker.ico ? 'IČO: ' + esc(worker.ico) : ''}
+          ${worker.company_id ? 'IČO: ' + esc(worker.company_id) : ''}
         </div></div>
       </div>
 

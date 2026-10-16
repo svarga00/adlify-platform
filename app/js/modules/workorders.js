@@ -35,21 +35,28 @@
   ];
 
   const Ord = {
-    rows: [], partners: [], workers: [], subcontracts: [], contracts: [],
+    rows: [], partners: [], workers: [], workerDocs: [], subcontracts: [], contracts: [],
     assignments: [], loaded: false,
     kind: 'customer', q: '',
 
     async load() {
-      const [o, p, w, sc, c, a] = await Promise.all([
+      const [o, p, w, wd, sc, c, a] = await Promise.all([
         DB.list('work_orders', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('partners', { select: 'id,name', limit: 300 }),
-        DB.list('workers', { select: 'id,full_name', limit: 500 }),
+        // Na objednávke musí byť zhotoviteľ identifikovateľný — meno nestačí.
+        DB.list('workers', {
+          select: 'id,full_name,company_id,tax_id,address,business_address,phone,email', limit: 500 }),
+        // Rámcové zmluvy: objednávka sa na ne musí odvolať, inak to nie je
+        // individuálna zmluva o dielo (čl. III. rámcovej zmluvy).
+        DB.list('worker_documents', {
+          select: 'id,worker_id,kind,reference,valid_from', limit: 2000 }),
         DB.list('subcontracts', { select: 'id,title,contract_number,charge_rate', limit: 300 }),
         DB.list('contracts', { select: 'id,contract_number,title,partner_id', limit: 300 }),
         DB.list('assignments', {
           select: 'id,subcontract_id,worker_id,status,date_from,date_to,worker_rate', limit: 2000 }),
       ]);
       this.rows = o.data || []; this.partners = p.data || []; this.workers = w.data || [];
+      this.workerDocs = wd.data || [];
       this.subcontracts = sc.data || []; this.contracts = c.data || [];
       this.assignments = a.data || [];
       this.loaded = true;
@@ -57,6 +64,18 @@
 
     partnerOf(id) { return this.partners.find(x => x.id === id) || {}; },
     workerOf(id) { return this.workers.find(x => x.id === id) || {}; },
+
+    /**
+     * Rámcová zmluva živnostníka. Objednávka sa na ňu musí odvolať — článok
+     * III. rámcovej zmluvy hovorí, že individuálna zmluva o dielo vzniká
+     * práve vystavením objednávky a jej akceptáciou.
+     */
+    ramcovaOf(workerId) {
+      const d = (this.workerDocs || [])
+        .filter(x => x.worker_id === workerId && x.kind === 'contract')
+        .sort((a, b) => String(b.valid_from || '').localeCompare(String(a.valid_from || '')))[0];
+      return d ? { number: d.reference || '', signedAt: d.valid_from || '' } : null;
+    },
     subOf(id) { return this.subcontracts.find(x => x.id === id) || {}; },
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[0]; return UI.badge(m[1], m[2]); },
 
@@ -326,6 +345,7 @@
         partner: o.partner_id ? this.partnerOf(o.partner_id) : null,
         worker: o.worker_id ? this.workerOf(o.worker_id) : null,
         subcontract: this.subOf(o.subcontract_id),
+        ramcova: o.worker_id ? this.ramcovaOf(o.worker_id) : null,
       });
       const w = window.open('', '_blank');
       if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');

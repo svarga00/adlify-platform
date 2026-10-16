@@ -378,7 +378,7 @@
    */
   const POVINNE = [
     { key: 'full_name', kto: 'worker', title: 'meno živnostníka' },
-    { key: 'ico', kto: 'worker', title: 'IČO živnostníka' },
+    { key: 'company_id', kto: 'worker', title: 'IČO živnostníka' },
     { key: 'address', kto: 'worker', title: 'adresu živnostníka' },
     { key: 'name', kto: 'supplier', title: 'názov našej firmy' },
     { key: 'company_id', kto: 'supplier', title: 'naše IČO' },
