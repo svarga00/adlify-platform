@@ -410,6 +410,7 @@
 
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Wrk.closeProfile()">${Icon('back', 15)} Späť</button>
+        <button class="btn btn-outline btn-sm" onclick="Wrk.gdpr('${w.id}')">${Icon('shield', 14)} Súhlas GDPR</button>
         <button class="btn btn-outline btn-sm" onclick="Wrk.form('${w.id}')">${Icon('edit', 14)} Upraviť</button>`);
 
       // Účet sa načíta až tu — zoznam ľudí naň nečaká.
@@ -568,6 +569,23 @@
         </div>
         ${docs.length ? docs.map(row).join('')
           : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
+        ${docs.some(d => d.kind === 'gdpr') ? '' : `
+          <!-- Súhlas GDPR je štvrtý krok reťazca a chýba najčastejšie: papier
+               sa vytlačí, podpíše a potom zabudne zapísať. -->
+          <div class="list-row" style="cursor:default;align-items:flex-start;">
+            <span class="dot amber" style="margin-top:5px;"></span>
+            <span style="flex:1;font-size:13px;">
+              <strong>Chýba súhlas GDPR</strong>${Help.btn('doc.gdpr', { size: 13 })}
+              <span style="display:block;color:var(--ink-mute);font-size:12px;">
+                Držíme jeho doklady a posielame ich odberateľovi aj úradom.</span>
+            </span>
+            <span class="row-acts">
+              <button class="btn btn-ghost btn-sm" onclick="Wrk.gdpr('${w.id}')">
+                ${Icon('doc', 14)} Vytlačiť</button>
+              <button class="btn btn-outline btn-sm" onclick="Wrk.gdprForm('${w.id}')">
+                ${Icon('check', 14)} Zapísať podpísaný</button>
+            </span>
+          </div>`}
       </div>`;
     },
 
@@ -942,6 +960,65 @@
     },
 
     // ── Doklady ───────────────────────────────────────────────────────────
+    // ── Súhlas so spracovaním osobných údajov ─────────────────────────────
+    // Štvrtý krok reťazca. Držíme jeho doklad totožnosti, A1 aj číslo účtu
+    // a posielame to nemeckému odberateľovi, na stavbu a úradom — bez jeho
+    // súhlasu na to nemáme právo.
+
+    /**
+     * Otvorí súhlas na vytlačenie. Údaje prevádzkovateľa sa berú z Nastavení;
+     * keď tam nie sú, papier by nemal kto podpísať — preto rovnaká kontrola
+     * ako pri ostatných dokumentoch.
+     */
+    gdpr(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return UI.toast('Nenájdené', 'err');
+      if (!Danubra.supplierReady('Súhlas so spracovaním osobných údajov')) return;
+
+      const html = DanubraPapers.gdprConsent({ worker: w, supplier: Danubra.supplier() });
+      const okno = window.open('', '_blank');
+      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
+      okno.document.open(); okno.document.write(html); okno.document.close();
+
+      // Vytlačiť ešte neznamená podpísať. Zapisuje sa až to, čo má podpis —
+      // inak by reťazec tvrdil, že súhlas máme, a pritom leží na stole.
+      const uz = this.docsOf(workerId).some(d => d.kind === 'gdpr');
+      if (!uz) {
+        UI.toast('Keď ho podpíše, zapíš to cez „Zapísať podpísaný súhlas"', 'warn');
+      }
+    },
+
+    /** Zapíše podpísaný súhlas ako doklad. Dátum je deň podpisu, nie dnešok. */
+    gdprForm(workerId) {
+      const dnes = new Date().toISOString().slice(0, 10);
+      UI.modal('Zapísať podpísaný súhlas', `
+        <form id="gdpr-form" onsubmit="event.preventDefault();Wrk.saveGdpr('${workerId}')">
+          <div class="regimebox">Zapisuje sa až podpísaný papier. Dokým ho nemáme,
+            reťazec správne hlási, že súhlas chýba.</div>
+          ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
+          ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2,
+            placeholder: 'napr. podpísané na stavbe, sken v zložke' })}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Zapísať</button>
+          </div>
+        </form>`);
+    },
+
+    async saveGdpr(workerId) {
+      const d = UI.formData(document.getElementById('gdpr-form'));
+      if (!d.valid_from) return UI.toast('Zadaj dátum podpisu', 'err');
+      // Súhlas nemá platnosť „do" — platí, kým ho človek neodvolá.
+      const { error } = await DB.insert('worker_documents', {
+        worker_id: workerId, kind: 'gdpr', valid_from: d.valid_from,
+        notes: d.notes || null, status: 'valid',
+      });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.closeModal();
+      UI.toast('Súhlas zapísaný', 'ok');
+      await this.load(); this.detail(workerId);
+    },
+
     addDoc(workerId) {
       const body = `
         <form id="doc-form" onsubmit="event.preventDefault();Wrk.saveDoc('${workerId}')">

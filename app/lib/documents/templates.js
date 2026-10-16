@@ -159,6 +159,35 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     </div>`;
   }
 
+  /**
+   * Pätička dokumentu, ktorý sa **podpisuje perom**. Obyčajná pätička tvrdí
+   * „vystavené elektronicky, platné bez podpisu" — na súhlase alebo zmluve
+   * je to presne naopak a papier by si protirečil.
+   */
+  function footSigned(supplier) {
+    return `<div class="foot">
+      <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}${supplier?.phone ? ' · ' + esc(supplier.phone) : ''}</span>
+      <span>Platné po podpise oboma stranami</span>
+    </div>`;
+  }
+
+  /**
+   * Mesto z adresy — bez PSČ a bez krajiny. „Podzámska 9468/4A, 940 71 Nové
+   * Zámky" → „Nové Zámky". Používa sa vo vete „V …, dňa …".
+   */
+  function mestoZAdresy(supplier) {
+    if (supplier && supplier.city) return String(supplier.city).trim();
+    const časti = String((supplier && supplier.address) || '').split(',');
+    for (let i = časti.length - 1; i >= 0; i--) {
+      const t = časti[i].replace(/\b\d{3}\s?\d{2}\b/g, '').trim();
+      // Posledná časť býva krajina; mesto je to, čo zostane po odstránení PSČ.
+      if (t && !/^(slovensko|slovakia|slowakei|nemecko|deutschland|sr|sk|de)$/i.test(t)) {
+        return t;
+      }
+    }
+    return '';
+  }
+
   function foot(supplier) {
     return `<div class="foot">
       <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}${supplier?.phone ? ' · ' + esc(supplier.phone) : ''}</span>
@@ -782,6 +811,133 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     return shell(`Infolist — ${(worker && worker.full_name) || 'stavba'}`, body);
   }
 
+  // ── SÚHLAS SO SPRACOVANÍM OSOBNÝCH ÚDAJOV ────────────────────────────────
+  // Štvrtý krok v reťazci. Držíme meno živnostníka, jeho doklad totožnosti,
+  // A1, živnostenský list, telefón aj číslo účtu — a posielame ich nemeckému
+  // odberateľovi, na stavbu a úradom. Bez jeho súhlasu na to nemáme právo.
+  //
+  // Text je podľa vzoru, ktorý firma používa. Údaje prevádzkovateľa sa ťahajú
+  // z Nastavení: na papieri, ktorý podpisuje človek, nesmie byť nič zapečené
+  // v kóde — pri zmene sídla by to nikto nenašiel.
+
+  /** Na čo presne sa súhlas dáva. Je to zoznam, nie veta — má sa dať prečítať. */
+  const GDPR_UCEL = [
+    'Uzavretie obchodnej dokumentácie (zmluva o dielo, objednávky)',
+    'Vybavovanie formulárov A1',
+    'Vybavovanie administratívnych úkonov vo vzťahu k inštitúciám v Slovenskej '
+      + 'republike a v Nemecku',
+    'Príprava a podanie dokumentov príslušným orgánom',
+    'Komunikácia s orgánmi verejnej moci, sociálneho a zdravotného zabezpečenia '
+      + 'a daňovými orgánmi',
+    'Vedenie evidencie zmluvných vzťahov',
+    'Iné súvisiace činnosti objednané dotknutou osobou',
+  ];
+
+  const GDPR_PRIJEMCOVIA = [
+    'Orgánom verejnej moci v Slovenskej republike a v Nemecku',
+    'Inštitúciám sociálneho a zdravotného zabezpečenia',
+    'Daňovým orgánom',
+    'Odberateľovi, na ktorého stavbe sa dielo vykonáva — v rozsahu nutnom na '
+      + 'vstup na stavbu a na kontrolu podľa nemeckých predpisov',
+    'Zmluvným partnerom prevádzkovateľa (napríklad účtovník, právne služby)',
+    'Iným oprávneným subjektom, ak to vyžaduje právny predpis',
+  ];
+
+  const GDPR_PRAVA = [
+    'Právo na informácie a prístup k osobným údajom',
+    'Právo na opravu a na vymazanie osobných údajov',
+    'Právo na obmedzenie spracúvania',
+    'Právo na oznámenie opravy, vymazania alebo obmedzenia spracúvania',
+    'Právo na prenosnosť údajov',
+    'Právo namietať a právo nebyť predmetom automatizovaného rozhodovania '
+      + 'vrátane profilovania',
+    'Právo podať sťažnosť na Úrad na ochranu osobných údajov Slovenskej republiky',
+  ];
+
+  /**
+   * @param {Object} o
+   *   worker    živnostník — meno, adresa, dátum narodenia, IČO
+   *   supplier  fakturačné údaje z Nastavení
+   *   place     kde sa podpisuje (predvolene sídlo prevádzkovateľa)
+   */
+  function gdprConsent({ worker = {}, supplier = {}, place = '' } = {}) {
+    // Mesto z adresy, bez PSČ: „V 940 71 Nové Zámky" nie je veta, akú by
+    // niekto napísal rukou.
+    const mesto = place || mestoZAdresy(supplier);
+    const zoznam = (items) => '<ul class="clean">'
+      + items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+
+    const body = header('Súhlas so spracovaním osobných údajov', '', [], supplier) + `
+      <div class="par"><p>V zmysle zákona č. 18/2018 Z. z. o ochrane osobných údajov
+        a Nariadenia Európskeho parlamentu a Rady (EÚ) 2016/679 z 27. apríla 2016
+        o ochrane fyzických osôb pri spracúvaní osobných údajov a o voľnom pohybe
+        takýchto údajov (GDPR).</p></div>
+
+      <div class="cols">
+        <div class="col"><div class="lbl">Prevádzkovateľ</div><div class="val">
+          <strong>${esc(supplier.name || '—')}</strong><br>
+          ${supplier.address ? esc(supplier.address) + '<br>' : ''}
+          ${supplier.company_id ? 'IČO: ' + esc(supplier.company_id) + '<br>' : ''}
+          ${supplier.tax_id ? 'DIČ: ' + esc(supplier.tax_id) + '<br>' : ''}
+          ${supplier.register ? esc(supplier.register) : ''}
+        </div></div>
+        <div class="col"><div class="lbl">Dotknutá osoba</div><div class="val">
+          <strong>${esc(worker.full_name || '—')}</strong><br>
+          ${worker.birth_date ? 'dátum narodenia: ' + date(worker.birth_date) + '<br>' : ''}
+          ${worker.address ? esc(worker.address) + '<br>' : ''}
+          ${worker.city ? esc(worker.city) + '<br>' : ''}
+          ${worker.ico ? 'IČO: ' + esc(worker.ico) : ''}
+        </div></div>
+      </div>
+
+      <div class="par"><h3>Vyhlásenie o udelení súhlasu</h3>
+        <p>Dotknutá osoba týmto udeľuje prevádzkovateľovi výslovný, slobodný,
+          konkrétny a informovaný súhlas so spracovaním svojich osobných údajov
+          na účely uvedené nižšie.</p></div>
+
+      <div class="par"><h3>Rozsah spracúvaných osobných údajov</h3>
+        <p>Meno a priezvisko, dátum narodenia alebo rodné číslo, bydlisko, štátna
+          príslušnosť, doklad totožnosti, údaje o živnostenskom oprávnení, číslo
+          bankového účtu, kontaktné údaje a ďalšie údaje potrebné na splnenie
+          objednaných služieb.</p></div>
+
+      <div class="par"><h3>Účel spracúvania</h3>
+        ${zoznam(GDPR_UCEL)}</div>
+
+      <div class="par"><h3>Príjemcovia osobných údajov</h3>
+        ${zoznam(GDPR_PRIJEMCOVIA)}</div>
+
+      <div class="par"><h3>Prenos do zahraničia</h3>
+        <p>Osobné údaje môžu byť prenášané v rámci Európskej únie, najmä do
+          Spolkovej republiky Nemecko, za účelom vybavenia administratívnych
+          úkonov a plnenia povinností na stavbe.</p></div>
+
+      <div class="par"><h3>Doba uchovávania</h3>
+        <p>Po dobu nevyhnutnú na splnenie účelu spracúvania, najmenej po dobu
+          trvania zmluvného vzťahu, a následne po dobu vyžadovanú právnymi
+          predpismi alebo do odvolania súhlasu.</p></div>
+
+      <div class="par"><h3>Práva dotknutej osoby</h3>
+        ${zoznam(GDPR_PRAVA)}</div>
+
+      <div class="par"><h3>Odvolanie súhlasu</h3>
+        <p>Súhlas je možné kedykoľvek odvolať, a to písomne na adrese sídla
+          prevádzkovateľa alebo e-mailom${supplier.email ? ' na ' + esc(supplier.email) : ''}.
+          Odvolanie súhlasu nemá vplyv na zákonnosť spracúvania pred jeho
+          odvolaním ani na spracúvanie, ktoré prevádzkovateľovi ukladá zákon.</p></div>
+
+      <div class="par"><p>V ${esc(mesto || '…')}, dňa ${date(new Date().toISOString())}</p></div>
+      <div class="sigs">
+        <div class="sig"><div class="line"></div>
+          <div class="who">${esc(supplier.name || 'Prevádzkovateľ')}</div></div>
+        <div class="sig"><div class="line"></div>
+          <div class="who">${esc(worker.full_name || 'Dotknutá osoba')}</div></div>
+      </div>
+      ${footSigned(supplier)}`;
+
+    return shell('Súhlas GDPR — ' + (worker.full_name || ''), body);
+  }
+
   function handover({ order, client, data, supplier }) {
     const d = data || {};
     const code = (l, v) => v ? `<div class="code"><div class="lbl">${esc(l)}</div><div class="v">${esc(v)}</div></div>` : '';
@@ -845,8 +1001,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();

@@ -432,6 +432,28 @@
       ],
       links: [['subcontracts', 'Zákazky'], ['compliance', 'Compliance']],
     },
+    'doc.gdpr': {
+      title: 'Súhlas so spracovaním osobných údajov',
+      lead: 'Štvrtý krok reťazca. Bez neho nemáme právo držať jeho doklady.',
+      what: [
+        'Držíme jeho meno, dátum narodenia, doklad totožnosti, živnostenský list, '
+        + 'A1, telefón aj číslo účtu — a posielame to nemeckému odberateľovi, '
+        + 'na stavbu a úradom v oboch krajinách.',
+        'Papier vymenúva **komu** a **načo** to ide. Bez toho to nie je '
+        + 'informovaný súhlas a neplatí.',
+      ],
+      how: [
+        'Vytlačí sa, podpíše sa oboma stranami a až potom sa zapíše do appky. '
+        + 'Vytlačiť neznamená podpísať — dokým papier nemá podpis, reťazec '
+        + 'správne hlási, že súhlas chýba.',
+      ],
+      why: [
+        'Súhlas nemá platnosť „do": platí, kým ho človek neodvolá. Odvolanie '
+        + 'nemá vplyv na to, čo sme spracovali predtým, ani na to, čo nám '
+        + 'ukladá zákon.',
+      ],
+      links: [['workers', 'Živnostníci'], ['compliance', 'Compliance']],
+    },
     'card.wrk.now': {
       title: 'Čo spraviť teraz so živnostníkmi',
       lead: 'Najprv A1, potom IBAN, až potom telefón a remeslo.',
