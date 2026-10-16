@@ -61,6 +61,29 @@ for (const f of subory) {
 ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
   stare.join(', '));
 
+// ── Vynútený nástroj zhodí každé volanie ───────────────────────────────────
+// `tool_choice: { type: 'tool' }` tento model neprijme:
+//   „tool_choice: type "tool" and "any" are not supported for this model"
+// Bolo to vo **všetkých štyroch** funkciách, ktoré sa pýtajú modelu, a ani
+// jedna preto nikdy nefungovala. Testy sa k modelu nedostanú, takže toto je
+// jediné miesto, kde sa to dá zachytiť.
+{
+  const sTool = [];
+  const bezAi = [];
+  for (const f of subory) {
+    const src = fs.readFileSync(path.join(DIR, f), 'utf8');
+    if (!/api\.anthropic\.com/.test(src)) continue;
+    if (/tool_choice/.test(src)) sTool.push(f);
+    // Čítanie odpovede má byť na jednom mieste — inak sa to o pol roka
+    // opraví na troch súboroch a štvrtý zostane.
+    if (!/require\(['"]\.\.\/\.\.\/app\/lib\/ai\.js['"]\)/.test(src)) bezAi.push(f);
+  }
+  ok(sTool.length === 0, 'žiadna funkcia si nevynucuje nástroj cez tool_choice',
+    sTool.join(', '));
+  ok(bezAi.length === 0, 'a každá číta odpoveď modelu cez app/lib/ai.js',
+    bezAi.join(', '));
+}
+
 // ── Rozdelenie dopytu: povinné polia musia sedieť s knižnicou ───────────────
 // Model vracia stavby podľa schémy vo funkcii; appka ich prijíma podľa
 // pravidiel v `lib/inquiry.js`. Keď sa tie dva zoznamy rozídu, model vráti

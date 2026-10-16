@@ -14,6 +14,8 @@
 //   CLAUDE_MODEL        — voliteľné, predvolene claude-haiku-4-5-20251001
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
+// Čítanie odpovede modelu je na jednom mieste — pozri app/lib/ai.js.
+const AI = require('../../app/lib/ai.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -122,27 +124,21 @@ async function extract(transcript, context) {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 2000,
-      tools: [EXTRACTION_SCHEMA],
-      tool_choice: { type: 'tool', name: 'zaznam_dohod' },
-      messages: [{
-        role: 'user',
-        content: `Toto je prepis náborového telefonátu${context ? ` s osobou: ${context}` : ''}. `
-          + `Zapíš, na čom sa strany dohodli — najmä mzda, ubytovanie, termín nástupu, diéty, `
-          + `doprava a pracovný čas.\n\nDôležité: zapisuj iba to, čo v hovore skutočne zaznelo. `
-          + `Nič nedomýšľaj ani nedopĺňaj. Ak niečo zaznelo nejasne alebo len ako možnosť, `
-          + `zníž istotu a uveď to medzi otvorenými otázkami.\n\n`
-          + `PREPIS:\n${transcript}`,
-      }],
-    }),
+    body: JSON.stringify(AI.body({
+      model: CLAUDE_MODEL, tool: EXTRACTION_SCHEMA, maxTokens: 2000,
+      prompt: `Toto je prepis náborového telefonátu${context ? ` s osobou: ${context}` : ''}. `
+        + `Zapíš, na čom sa strany dohodli — najmä mzda, ubytovanie, termín nástupu, diéty, `
+        + `doprava a pracovný čas.\n\nDôležité: zapisuj iba to, čo v hovore skutočne zaznelo. `
+        + `Nič nedomýšľaj ani nedopĺňaj. Ak niečo zaznelo nejasne alebo len ako možnosť, `
+        + `zníž istotu a uveď to medzi otvorenými otázkami.\n\n`
+        + `PREPIS:\n${transcript}`,
+    })),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `Extrakcia zlyhala (${res.status})`);
-  const toolUse = (data.content || []).find(c => c.type === 'tool_use');
-  if (!toolUse) throw new Error('Model nevrátil štruktúrovaný výstup');
-  return toolUse.input;
+  if (!res.ok) throw new Error(AI.errorText(data, res.status, 'Zápis z hovoru'));
+  const out = AI.pickTool(data, EXTRACTION_SCHEMA.name);
+  if (!out) throw new Error('Model nevrátil štruktúrovaný výstup');
+  return out;
 }
 
 exports.handler = async (event) => {

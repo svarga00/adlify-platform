@@ -29,6 +29,8 @@
 //   CLAUDE_MODEL_TEXT      — voliteľné, predvolene claude-sonnet-5-5
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
+// Čítanie odpovede modelu je na jednom mieste — pozri app/lib/ai.js.
+const AI = require('../../app/lib/ai.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -162,24 +164,18 @@ async function split(text, list) {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 8000,
-      tools: [SCHEMA],
-      tool_choice: { type: 'tool', name: 'stavby_z_dopytu' },
-      messages: [{
-        role: 'user',
-        content: `${POKYNY}\n\nREMESLÁ V DATABÁZE (kľúč = názov; iný kľúč nepoužívaj):\n`
-          + `${remesla}\n\nDNES JE ${dnes}. Dátumy bez roka patria do najbližšej budúcnosti.\n\n`
-          + `DOPYT:\n${String(text).slice(0, MAX_ZNAKOV)}`,
-      }],
-    }),
+    body: JSON.stringify(AI.body({
+      model: MODEL, tool: SCHEMA, maxTokens: 8000,
+      prompt: `${POKYNY}\n\nREMESLÁ V DATABÁZE (kľúč = názov; iný kľúč nepoužívaj):\n`
+        + `${remesla}\n\nDNES JE ${dnes}. Dátumy bez roka patria do najbližšej budúcnosti.\n\n`
+        + `DOPYT:\n${String(text).slice(0, MAX_ZNAKOV)}`,
+    })),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `Rozdelenie zlyhalo (${res.status})`);
-  const use = (data.content || []).find(c => c.type === 'tool_use');
-  if (!use || !use.input) throw new Error('Model nevrátil stavby');
-  return use.input;
+  if (!res.ok) throw new Error(AI.errorText(data, res.status, 'Rozdelenie dopytu'));
+  const out = AI.pickTool(data, SCHEMA.name);
+  if (!out) throw new Error('Model nevrátil stavby');
+  return out;
 }
 
 exports.handler = async (event) => {

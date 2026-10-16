@@ -13,6 +13,8 @@
 //   CLAUDE_MODEL        — voliteľné, predvolene claude-haiku-4-5-20251001
 // ============================================================================
 const { createClient } = require('@supabase/supabase-js');
+// Čítanie odpovede modelu je na jednom mieste — pozri app/lib/ai.js.
+const AI = require('../../app/lib/ai.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://eidkljfaeqvvegiponwl.supabase.co',
@@ -63,31 +65,25 @@ async function suggest(notes, tradeName, existing) {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 1200,
-      tools: [SCHEMA],
-      tool_choice: { type: 'tool', name: 'navrhy_poli' },
-      messages: [{
-        role: 'user',
-        content: `Náborár si počas telefonátu s remeselníkom (${tradeName}) zapísal poznámky. `
-          + `Aplikácia mu pri ďalších hovoroch ponúka zaškrtávacie polia — krátke tvrdenia, `
-          + `ktoré len klepne. Navrhni polia, ktoré mu chýbali.\n\n`
-          + `Pravidlá:\n`
-          + `- Iba to, čo sa bude opakovať aj pri iných ľuďoch. Nič, čo platí len pre tohto človeka.\n`
-          + `- Bez mien, bez telefónnych čísel, bez zdravotných diagnóz.\n`
-          + `- Dve až šesť slov. Nie otázka, ale tvrdenie: „vie rozteč 625", nie „vie rozteč?".\n`
-          + `- Ak sa to už nachádza medzi existujúcimi poľami, nenavrhuj to znova.\n`
-          + `- Radšej nič než vata. Prázdny zoznam je správna odpoveď, keď v poznámkach nič nové nie je.\n\n`
-          + `EXISTUJÚCE POLIA:\n${existing.join('\n') || '(žiadne)'}\n\n`
-          + `POZNÁMKY Z HOVOROV:\n${notes}`,
-      }],
-    }),
+    body: JSON.stringify(AI.body({
+      model: CLAUDE_MODEL, tool: SCHEMA, maxTokens: 1200,
+      prompt: `Náborár si počas telefonátu s remeselníkom (${tradeName}) zapísal poznámky. `
+        + `Aplikácia mu pri ďalších hovoroch ponúka zaškrtávacie polia — krátke tvrdenia, `
+        + `ktoré len klepne. Navrhni polia, ktoré mu chýbali.\n\n`
+        + `Pravidlá:\n`
+        + `- Iba to, čo sa bude opakovať aj pri iných ľuďoch. Nič, čo platí len pre tohto človeka.\n`
+        + `- Bez mien, bez telefónnych čísel, bez zdravotných diagnóz.\n`
+        + `- Dve až šesť slov. Nie otázka, ale tvrdenie: „vie rozteč 625", nie „vie rozteč?".\n`
+        + `- Ak sa to už nachádza medzi existujúcimi poľami, nenavrhuj to znova.\n`
+        + `- Radšej nič než vata. Prázdny zoznam je správna odpoveď, keď v poznámkach nič nové nie je.\n\n`
+        + `EXISTUJÚCE POLIA:\n${existing.join('\n') || '(žiadne)'}\n\n`
+        + `POZNÁMKY Z HOVOROV:\n${notes}`,
+    })),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `Návrh zlyhal (${res.status})`);
-  const toolUse = (data.content || []).find(c => c.type === 'tool_use');
-  return toolUse?.input?.chips || [];
+  if (!res.ok) throw new Error(AI.errorText(data, res.status, 'Návrh polí'));
+  const out = AI.pickTool(data, SCHEMA.name);
+  return (out && out.chips) || [];
 }
 
 exports.handler = async (event) => {
