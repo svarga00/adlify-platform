@@ -69,12 +69,12 @@
       el.innerHTML = Danubra.header(Danubra.labelOf('trades'),
         `${this.trades.length} remesiel · ${this.chips.filter(c => c.active !== false).length} polí`
         + (pend.length ? ` · ${pend.length} čaká na potvrdenie` : '')) +
-        this.nowHtml() + `
-        <div class="pillbar" style="margin-bottom:14px;width:max-content;flex-wrap:wrap;">
-          <button class="pill${this.tab === 'trades' ? ' active' : ''}" onclick="Trades.setTab('trades')">Remeslá</button>
-          <button class="pill${this.tab === 'chips' ? ' active' : ''}" onclick="Trades.setTab('chips')">Polia do hovoru</button>
-          <button class="pill${this.tab === 'questions' ? ' active' : ''}" onclick="Trades.setTab('questions')">Otázky do hovoru</button>
-        </div>
+        this.nowHtml() +
+        Shell.tabs([
+          ['trades', 'Remeslá', 'wrench', this.trades.length],
+          ['chips', 'Polia do hovoru', 'note', this.chips.filter(c => c.active !== false).length],
+          ['questions', 'Otázky do hovoru', 'user', this.questions.filter(q => q.active !== false).length],
+        ], this.tab, k => `Trades.setTab('${k}')`) + `
         ${this.tab === 'trades' ? this.tradesHtml()
           : this.tab === 'chips' ? this.chipsHtml() : this.questionsHtml()}`;
     },

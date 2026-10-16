@@ -257,6 +257,28 @@
     </div>`;
   }
 
+  // ── Záložky vnútri obrazovky ──────────────────────────────────────────────
+  // Appka mala na jednu a tú istú vec **tri vzhľady**: záložky obrazovky
+  // (`.subtab`), pilulky v Remeslách a v Marketingu (`.pill`) a čipy v Banke
+  // a v Prijatých faktúrach (`.fb-chip`). Je to to isté — prepnutie obsahu
+  // obrazovky — tak to vyzerá rovnako.
+
+  /**
+   * @param {Array} items    [[kľúč, názov, ikona?, počet?]]
+   * @param {string} active  kľúč otvorenej záložky
+   * @param {Function} href  (kľúč) => obsah onclick
+   */
+  function tabs(items, active, href) {
+    const list = (items || []).filter(Boolean);
+    if (list.length < 2) return '';
+    const ico = (name) => (typeof Icon === 'function' ? Icon(name, 15) : '');
+    return `<div class="subtabs" role="tablist">${list.map(([key, label, icon, count]) =>
+      `<button class="subtab${key === active ? ' active' : ''}" data-key="${key}"
+        role="tab" aria-selected="${key === active}" onclick="${href(key)}">${
+        icon ? ico(icon) : ''}<span>${esc(label)}</span>${
+        count != null ? `<em class="subtab-n">${count}</em>` : ''}</button>`).join('')}</div>`;
+  }
+
   // ── Poznámky, ktoré sa dajú len pridať ────────────────────────────────────
   // Tvrdé pravidlo zo zadania: nič sa fyzicky nemaže. Komponent preto
   // nekreslí tlačidlo na zmazanie ani na úpravu — nie „zakázané", ale
@@ -509,7 +531,7 @@
   }
 
   const API = {
-    detail, asideBlock, fact, now,
+    detail, asideBlock, fact, now, tabs,
     list, filterbar, filterRows, matches, pluck, norm,
     periodRange, periodSlug, exportCsv,
     notes, noteRow,

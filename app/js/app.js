@@ -2801,19 +2801,26 @@ window.Danubra = {
   // `DanubraChain`; tu sa len kreslí.
 
   async _flowLoad() {
-    const [ads, plans, cands, wrk, docs, prt, quo, con, subs, asg, ts, per, inv, bills] =
+    const [opp, ads, plans, cands, wrk, docs, prt, quo, con, subs, asg, ts, per, inv, bills] =
       await Promise.all([
+        DB.list('opportunities', { select: 'id,status', limit: 300 }),
         DB.list('ads', { select: 'id,active', limit: 300 }),
         DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
         DB.list('candidates', {
           select: 'id,status,first_contact_at,converted_worker_id', limit: 1000 }),
-        DB.list('workers', { select: 'id', limit: 1000 }),
-        DB.list('v_worker_documents', { select: 'id,worker_id,validity', limit: 2000 }),
+        // `status` kvôli krokom 4 a 5: chýbajúci papier u človeka, s ktorým už
+        // nerobíme, nie je úloha.
+        DB.list('workers', { select: 'id,status', limit: 1000 }),
+        // `kind` kvôli tomu istému: súhlas GDPR a zmluva sú doklady ako A1,
+        // len sa pýtame na iný druh.
+        DB.list('v_worker_documents', { select: 'id,worker_id,kind,validity', limit: 2000 }),
         DB.list('partners', { select: 'id,country,ust_idnr', limit: 300 }),
         DB.list('quotes', { select: 'id,status,valid_until', limit: 300 }),
         DB.list('contracts', { select: 'id,status,signed_at', limit: 300 }),
         DB.list('subcontracts', { select: 'id,status,contract_id', limit: 300 }),
-        DB.list('assignments', { select: 'id,subcontract_id,status', limit: 2000 }),
+        // `worker_id` kvôli tomu, aby sa dalo povedať „je **na stavbe** bez
+        // zmluvy" — to je iná naliehavosť než „nemá zmluvu".
+        DB.list('assignments', { select: 'id,subcontract_id,worker_id,status', limit: 2000 }),
         DB.list('timesheets', { select: 'id,hours,work_date,period_id', limit: 5000 }),
         DB.list('periods', { select: 'id,status,period_to', limit: 500 }),
         DB.list('invoices', { select: 'id,status,due_date', limit: 1000 }),
@@ -2822,6 +2829,7 @@ window.Danubra = {
     const S = (r) => r.data || [];
     return {
       today: this._dayISO(),
+      opportunities: S(opp),
       ads: S(ads), plans: S(plans), candidates: S(cands), workers: S(wrk),
       documents: S(docs), partners: S(prt), quotes: S(quo), contracts: S(con),
       subcontracts: S(subs), assignments: S(asg), timesheets: S(ts),
@@ -2860,7 +2868,6 @@ window.Danubra = {
     async flow(view) {
       view.innerHTML = this.header('Ako to ide') + UI.loading();
       const x = await this._flowLoad();
-      const lanes = DanubraChain.lanes(x);
       const kroky = DanubraChain.all(x);
       const head = DanubraChain.headline(kroky);
       const sum = DanubraChain.summary(kroky);
@@ -2877,18 +2884,11 @@ window.Danubra = {
             onclick="Danubra.go('${head.step.route}')">Otvoriť</button>` : ''}
           ${Help.btn('screen.flow')}
         </div>
-        <p class="fl-intro">Takto ide práca od začiatku po koniec. Ľavá dráha sú
-          ľudia, pravá zákazky — stretnú sa v nasadení a odtiaľ je to už jedna
-          cesta na účet. Pri každom kroku je vľavo, koľko toho tam je, a vpravo,
-          koľko čaká na teba.</p>
-        <div class="fl-lanes">
-          ${lanes.map(l => `<section class="fl-lane fl-lane-${l.key}">
-            <div class="fl-lane-head">
-              <h2>${UI.esc(l.label)}</h2>
-              <p>${UI.esc(l.lead)}</p>
-            </div>
-            ${l.steps.map(s => this._flowStep(s)).join('')}
-          </section>`).join('')}
+        <p class="fl-intro">Sedem krokov, ako to vo firme naozaj ide — od dopytu
+          po zaplatenú faktúru. Pri každom je vľavo, koľko toho tam je, a vpravo,
+          koľko čaká na teba. Krok otvorí obrazovku, kde sa to rieši.</p>
+        <div class="fl-steps">
+          ${kroky.map(s => this._flowStep(s)).join('')}
         </div>`;
     },
 

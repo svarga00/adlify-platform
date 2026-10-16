@@ -81,10 +81,10 @@
             <div class="kpi-delta">za celé obdobie</div></div>
         </div>
 
-        <div class="pillbar" style="margin-bottom:14px;width:max-content;">
-          <button class="pill${this.tab === 'listings' ? ' active' : ''}" onclick="Mkt.setTab('listings')">Inzeráty ${this.listings.length}</button>
-          <button class="pill${this.tab === 'expenses' ? ' active' : ''}" onclick="Mkt.setTab('expenses')">Výdavky ${this.expenses.length}</button>
-        </div>
+        ${Shell.tabs([
+          ['listings', 'Inzeráty', 'marketing', this.listings.length],
+          ['expenses', 'Výdavky', 'receipt', this.expenses.length],
+        ], this.tab, k => `Mkt.setTab('${k}')`)}
         ${this.tab === 'listings' ? this.listingsHtml() : this.expensesHtml()}`;
     },
 
