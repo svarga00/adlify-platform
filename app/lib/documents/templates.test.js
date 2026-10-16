@@ -337,7 +337,7 @@ console.log('Súhlas GDPR');
     register: 'Obchodný register Okresného súdu Nitra, odd. Sro, vl. č. 69265/N',
     address: 'Podzámska 9468/4A, 940 71 Nové Zámky, Slovensko', city: '' };
   const CLOVEK = { full_name: 'Cyril Demeter', address: 'Brekov 81, 066 01 Brekov',
-    ico: '53941870', birth_date: '1985-03-12' };
+    company_id: '53941870', birth_date: '1985-03-12' };
   const h = P.gdprConsent({ worker: CLOVEK, supplier: FIRMA });
 
   ok(/Cyril Demeter/.test(h), 'je v ňom meno človeka');
@@ -380,6 +380,58 @@ console.log('Súhlas GDPR');
   for (const x of [...P.GDPR_UCEL, ...P.GDPR_PRIJEMCOVIA, ...P.GDPR_PRAVA]) {
     ok(x.length > 10 && !/undefined/.test(x), `zrozumiteľná položka: ${x.slice(0, 40)}…`);
   }
+}
+
+// ── Objednávka živnostníkovi: odkaz na rámcovú zmluvu ───────────────────────
+// Článok III. rámcovej zmluvy hovorí, že individuálna zmluva o dielo vzniká
+// vystavením objednávky a jej akceptáciou. Objednávka, ktorá sa na rámcovú
+// zmluvu neodvolá, je preto len papier s cenou.
+console.log('Objednávka živnostníkovi');
+{
+  const CLOVEK = { full_name: 'Cyril Demeter', company_id: '53941870',
+    address: 'Brekov 81, 066 01 Brekov', phone: '+421940920655' };
+  const OBJ = { order_number: 'OBJ-2026-0007', kind: 'worker', price_model: 'hourly',
+    rate: 27, date_from: '2026-10-19', date_to: '2026-12-31',
+    scope: 'Dokončovacie stavebné práce pri realizácii exteriérov a interiérov' };
+
+  const s = P.workOrder({ order: OBJ, supplier: SUPPLIER, worker: CLOVEK,
+    ramcova: { number: '2026-093', signedAt: '2026-10-16' } });
+  ok(/Rámcovej zmluvy o dielo/.test(s), 'objednávka sa odvoláva na rámcovú zmluvu');
+  ok(/2026-093/.test(s), 'aj s jej číslom');
+  ok(/16\. 10\. 2026/.test(s), 'aj s dátumom uzavretia');
+
+  // Toto je to, čo sa pri objednávke stratí najľahšie.
+  const bez = P.workOrder({ order: OBJ, supplier: SUPPLIER, worker: CLOVEK });
+  ok(/neodvoláva na rámcovú zmluvu/.test(bez),
+    'bez nej to doklad napíše na papier');
+  ok(/todo/.test(bez), 'a je to zvýraznené, nie schované');
+
+  // Zhotoviteľ musí byť identifikovateľný — meno samo nestačí.
+  ok(/53941870/.test(s), 'je v nej IČO zhotoviteľa');
+  ok(/Brekov 81/.test(s), 'aj jeho adresa');
+  ok(/\+421940920655/.test(s), 'aj telefón');
+
+  // Živnostník nerobí vždy na jednej adrese.
+  const viac = P.workOrder({ order: OBJ, supplier: SUPPLIER, worker: CLOVEK,
+    ramcova: { number: '2026-093' },
+    places: ['Multscherstraße 11, 89077 Ulm', 'celé územie Nemeckej republiky', ''] });
+  ok(/Miesta výkonu/.test(viac), 'ďalšie miesta výkonu sa vypíšu');
+  ok(/89077 Ulm/.test(viac) && /celé územie Nemeckej republiky/.test(viac),
+    'aj konkrétna adresa, aj plošná formulácia');
+  ok(!/<li><\/li>/.test(viac), 'a prázdne miesto sa nevypíše');
+  ok(!/Miesta výkonu/.test(s), 'bez nich sa ten riadok nekreslí');
+
+  // Papier sa podpisuje — nesmie tvrdiť, že podpis netreba.
+  ok(/Platné po podpise/.test(s), 'pätička hovorí, že platí po podpise');
+  ok(!/platné bez podpisu/i.test(s), 'a netvrdí opak');
+
+  // Potvrdenie objednávky odberateľovi je iný papier: ten sa neposiela
+  // na podpis, ale ako potvrdenie — a tam pôvodná pätička sedí.
+  const nemcovi = P.workOrder({ order: { ...OBJ, kind: 'customer' },
+    supplier: SUPPLIER, partner: CLIENT });
+  ok(/Auftragsbestätigung/.test(nemcovi), 'potvrdenie odberateľovi je po nemecky');
+  ok(!/Rámcovej zmluvy/.test(nemcovi), 'a neodvoláva sa na zmluvu so živnostníkom');
+  ok(/platné bez podpisu/i.test(nemcovi), 'a má pôvodnú pätičku');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
