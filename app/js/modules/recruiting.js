@@ -82,11 +82,11 @@
             <div class="kpi-delta">s nahrávaním</div></div>
         </div>
 
-        <div class="pillbar" style="margin-bottom:14px;width:max-content;">
-          <button class="pill${this.tab === 'promises' ? ' active' : ''}" onclick="Rec.setTab('promises')">Dohody ${this.promises.length}</button>
-          <button class="pill${this.tab === 'calls' ? ' active' : ''}" onclick="Rec.setTab('calls')">Hovory ${this.recordings.length}</button>
-          <button class="pill${this.tab === 'consents' ? ' active' : ''}" onclick="Rec.setTab('consents')">Súhlasy ${this.consents.length}</button>
-        </div>
+        ${Shell.tabs([
+          ['promises', 'Dohody', 'note', this.promises.length],
+          ['calls', 'Hovory', 'phone', this.recordings.length],
+          ['consents', 'Súhlasy', 'shield', this.consents.length],
+        ], this.tab, k => `Rec.setTab('${k}')`)}
         ${this.tab === 'promises' ? this.promisesHtml()
           : this.tab === 'calls' ? this.callsHtml() : this.consentsHtml()}`;
     },

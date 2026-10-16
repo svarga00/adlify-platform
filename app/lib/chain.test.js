@@ -5,8 +5,10 @@
 // Mapa má jednu úlohu: povedať človeku, ktorý appku nepostavil, **v akom
 // poradí sa to robí a kde sa to práve zastavilo**. Preto sa tu nestráži len
 // to, či čísla sedia, ale aj to, či sú vety zrozumiteľné a či reťazec drží
-// pokope — každý krok musí vedieť, čo je po ňom, a každá dráha musí mať
-// aspoň jeden krok.
+// pokope — každý krok musí vedieť, čo je po ňom.
+//
+// Krokov je sedem a sú to tie, ktoré pomenoval majiteľ. Dovtedy ich bolo
+// štrnásť v štyroch dráhach — rozpísané podľa databázy, nie podľa práce.
 // ============================================================================
 global.window = global;
 const F = require('./chain.js');
@@ -25,12 +27,17 @@ const TODAY = '2026-10-05';
 /** Appka, v ktorej je všetko vybavené. Od nej sa odvíja každý ďalší prípad. */
 const CISTO = {
   today: TODAY,
+  opportunities: [{ id: 'o1', status: 'won' }],
   ads: [{ id: 'ad1', active: true }],
   plans: [{ id: 'p1', status: 'active', headcount: 3 }],
   candidates: [{ id: 'c1', status: 'hired', first_contact_at: '2026-09-01T10:00:00Z',
     converted_worker_id: 'w1' }],
-  workers: [{ id: 'w1', full_name: 'Ján Novák' }],
-  documents: [{ id: 'd1', worker_id: 'w1', validity: 'valid' }],
+  workers: [{ id: 'w1', full_name: 'Ján Novák', status: 'deployed' }],
+  documents: [
+    { id: 'd1', worker_id: 'w1', kind: 'a1', validity: 'valid' },
+    { id: 'd2', worker_id: 'w1', kind: 'gdpr', validity: 'valid' },
+    { id: 'd3', worker_id: 'w1', kind: 'contract', validity: 'valid' },
+  ],
   partners: [{ id: 'pt1', name: 'Vogel GmbH', country: 'DE', ust_idnr: 'DE812345678' }],
   quotes: [{ id: 'q1', status: 'accepted' }],
   contracts: [{ id: 'z1', status: 'active', signed_at: '2026-08-01' }],
@@ -49,7 +56,7 @@ const krok = (key, zmena = {}) => F.step(key, { ...CISTO, ...zmena });
 console.log('Keď je všetko vybavené');
 {
   const kroky = F.all(CISTO);
-  eq(kroky.length, 14, 'reťazec má štrnásť krokov');
+  eq(kroky.length, 7, 'reťazec má sedem krokov');
   eq(kroky.filter(k => k.state !== 'calm').map(k => k.key), [],
     'vo vybavenej appke nič nesvieti');
   eq(kroky.every(k => k.todoText), true,
@@ -57,155 +64,172 @@ console.log('Keď je všetko vybavené');
   const h = F.headline(kroky);
   eq(h.tone, 'calm', 'hlavička je pokojná');
   ok(/priechodný/.test(h.text), 'a povie, že reťazec drží');
-  eq(F.summary(kroky), { total: 14, blocked: 0, watch: 0, clear: 14, items: 0 },
+  eq(F.summary(kroky), { total: 7, blocked: 0, watch: 0, clear: 7, items: 0 },
     'súhrn sedí');
 }
 
-// ── Ľudia ───────────────────────────────────────────────────────────────────
-console.log('Dráha ľudí');
+// ── 1 · Dopyt ───────────────────────────────────────────────────────────────
+console.log('1 · Dopyt na zákazku');
 {
-  // 1. Nábor beží, ale nemá sa kto ozvať.
-  const bezInzeratu = krok('ads', { ads: [{ id: 'ad1', active: false }] });
-  eq(bezInzeratu.state, 'bad', 'nábor bez inzerátu je chyba, nie detail');
-  eq(bezInzeratu.todo, 1, 'a je ich toľko, koľko beží náborov');
-  ok(/nemá sa kto ozvať/.test(bezInzeratu.todoText), 'povie sa to po ľudsky');
-  eq(krok('ads', { plans: [], ads: [] }).state, 'calm',
-    'žiadny nábor a žiadny inzerát nie je chyba — len sa nenaberá');
+  // Odberateľ, ktorý hľadá ľudí, volá viacerým. Rozhoduje, kto sa ozve prvý.
+  const novy = krok('dopyt', { opportunities: [{ id: 'o1', status: 'new' }] });
+  eq(novy.state, 'bad', 'nový dopyt bez odpovede horí');
+  eq(novy.todo, 1, 'a je to jeden');
+  ok(/na prvú odpoveď/.test(novy.todoText), 'veta povie, čo sa čaká');
 
-  // 2. Telefonát do desiatich minút.
-  const caka = krok('call', { candidates: [
-    { id: 'c1', status: 'new', first_contact_at: null },
-    { id: 'c2', status: 'new', first_contact_at: null },
-    // Odmietnutému sa už volať netreba.
-    { id: 'c3', status: 'rejected', first_contact_at: null },
-  ] });
-  eq(caka.todo, 2, 'odmietnutý kandidát sa do čakajúcich neráta');
-  eq(caka.state, 'bad', 'nezavolaný človek je červený — do desiatich minút berie prácu inde');
-  ok(/čakajú na prvý telefonát/.test(caka.todoText), 'veta hovorí, čo spraviť');
+  const prepadnuta = krok('dopyt', { opportunities: [],
+    quotes: [{ id: 'q1', status: 'sent', valid_until: '2026-09-20' }] });
+  eq(prepadnuta.state, 'bad', 'ponuka, ktorej prepadla platnosť bez odpovede, horí');
 
-  // 3. Preverenie.
-  const visi = krok('screening', { candidates: [
-    { id: 'c1', status: 'screening', first_contact_at: '2026-09-20T10:00:00Z' },
-    { id: 'c2', status: 'hired', first_contact_at: '2026-09-20T10:00:00Z', converted_worker_id: 'w9' },
-    { id: 'c3', status: 'new', first_contact_at: null },
-  ] });
-  eq(visi.todo, 1, 'visí ten, komu sme volali a nerozhodli sme');
-  eq(visi.have, 2, '„preverení" sú tí, s ktorými sme hovorili');
-  eq(visi.state, 'watch', 'rozhodnutie je na dnes, nie na včera');
-
-  // 4. Doklady.
-  const zleDoklady = krok('workers', { documents: [
-    { id: 'd1', worker_id: 'w1', validity: 'expired' },
-    { id: 'd2', worker_id: 'w1', validity: 'expired' },
-    { id: 'd3', worker_id: 'w2', validity: 'expiring' },
-  ] });
-  eq(zleDoklady.todo, 1, 'počítajú sa ľudia, nie doklady — dvom dokladom jedného človeka');
-  eq(zleDoklady.state, 'bad', 'bez platných dokladov sa nenasadzuje');
-  ok(/nasadiť sa nedá/.test(zleDoklady.todoText), 'a je napísané prečo');
-}
-
-// ── Zákazky ─────────────────────────────────────────────────────────────────
-console.log('Dráha zákaziek');
-{
-  const bezUst = krok('partners', { partners: [
-    { id: 'p1', country: 'DE', ust_idnr: null },
-    { id: 'p2', country: 'DE', ust_idnr: 'DE1' },
-    // Slovenský odberateľ USt-IdNr nepotrebuje.
-    { id: 'p3', country: 'SK', ust_idnr: null },
-  ] });
-  eq(bezUst.todo, 1, 'USt-IdNr sa pýta len od zahraničného odberateľa');
-  ok(/faktúra im neodíde/.test(bezUst.todoText), 'povie sa dôsledok, nie názov stĺpca');
-
-  const prepadnuta = krok('quotes', { quotes: [
-    { id: 'q1', status: 'sent', valid_until: '2026-09-20' },
-    { id: 'q2', status: 'sent', valid_until: '2026-11-20' },
-  ] });
-  eq(prepadnuta.state, 'bad', 'ponuka po platnosti bez odpovede je chyba');
-  eq(prepadnuta.todo, 1, 'a ráta sa len tá prepadnutá');
-  const caka = krok('quotes', { quotes: [{ id: 'q1', status: 'sent', valid_until: '2026-11-20' }] });
+  const caka = krok('dopyt', { opportunities: [],
+    quotes: [{ id: 'q1', status: 'sent', valid_until: '2026-11-20' }] });
   eq(caka.state, 'watch', 'ponuka v platnosti je len na sledovanie');
-  eq(krok('quotes', { quotes: [{ id: 'q1', status: 'accepted' }] }).state, 'calm',
-    'prijatá ponuka už nečaká');
-
-  const nepodpisana = krok('contracts', { contracts: [
-    { id: 'z1', status: 'active', signed_at: null },
-    { id: 'z2', status: 'cancelled', signed_at: null },
-  ] });
-  eq(nepodpisana.todo, 1, 'zrušená zmluva sa nepodpisuje');
-
-  const bezZmluvy = krok('subcontracts', { subcontracts: [
-    { id: 's1', status: 'active', contract_id: null },
-    { id: 's2', status: 'active', contract_id: 'z1' },
-    { id: 's3', status: 'completed', contract_id: null },
-  ] });
-  eq(bezZmluvy.todo, 1, 'ukončená zákazka bez zmluvy sa už nerieši');
-  eq(bezZmluvy.have, 2, '„beží" sú len aktívne');
+  eq(krok('dopyt', { opportunities: [], quotes: [] }).state, 'calm',
+    'bez dopytov a ponúk sa nekričí');
 }
 
-// ── Stretnutie ──────────────────────────────────────────────────────────────
-console.log('Kde sa dráhy stretnú');
+// ── 2 · Inzeráty a záujemcovia ──────────────────────────────────────────────
+console.log('2 · Inzeráty a záujemcovia');
 {
-  const prazdna = krok('assignments', {
+  // Nábor bez inzerátu je najtichšia chyba: nič nehorí, len sa nikto neozýva.
+  const bezInzeratu = krok('nabor', { ads: [{ id: 'ad1', active: false }] });
+  eq(bezInzeratu.state, 'bad', 'bežiaci nábor bez inzerátu horí');
+  ok(/nemá sa kto ozvať/.test(bezInzeratu.todoText), 'a povie prečo');
+  eq(krok('nabor', { plans: [], ads: [] }).state, 'calm',
+    'bez náboru netreba inzerát — a nekričí sa');
+
+  const caka = krok('nabor', { candidates: [
+    { id: 'c1', status: 'new', first_contact_at: null },
+    { id: 'c2', status: 'rejected', first_contact_at: null },
+  ] });
+  eq(caka.todo, 1, 'zamietnutý sa na hovor nepočíta');
+  eq(caka.state, 'bad', 'človek, ktorý sa ozval a nikto mu nezavolal, horí');
+
+  const visi = krok('nabor', { candidates: [
+    { id: 'c1', status: 'screening', first_contact_at: '2026-10-01T09:00:00Z' },
+  ] });
+  eq(visi.state, 'watch', 'rozhodnutie po hovore je na sledovanie, nie požiar');
+}
+
+// ── 3 · Objednávka a zmluva s Nemcom ────────────────────────────────────────
+console.log('3 · Objednávka a zmluva s Nemcom');
+{
+  const bezZmluvy = krok('nemec', { subcontracts: [
+    { id: 's1', status: 'active', contract_id: null },
+  ] });
+  eq(bezZmluvy.state, 'bad', 'bežiaca stavba bez zmluvy horí');
+
+  const nepodpisana = krok('nemec', { contracts: [
+    { id: 'z1', status: 'active', signed_at: null },
+  ] });
+  eq(nepodpisana.state, 'watch', 'nepodpísaná zmluva je na sledovanie');
+
+  // Bez USt-IdNr sa nedá fakturovať v reverse charge podľa §13b.
+  const bezUst = krok('nemec', { partners: [
+    { id: 'pt1', country: 'DE', ust_idnr: null },
+    { id: 'pt2', country: 'SK', ust_idnr: null },
+  ] });
+  eq(bezUst.todo, 1, 'slovenský odberateľ USt-IdNr nepotrebuje');
+  ok(/faktúra im neodíde/.test(bezUst.todoText), 'veta povie dôsledok');
+}
+
+// ── 4 · Súhlas GDPR ─────────────────────────────────────────────────────────
+console.log('4 · Súhlas GDPR od živnostníka');
+{
+  const bezSuhlasu = { documents: CISTO.documents.filter(d => d.kind !== 'gdpr') };
+
+  // Človek, ktorý už stojí na stavbe, je iná naliehavosť než človek v evidencii.
+  const naStavbe = krok('gdpr', bezSuhlasu);
+  eq(naStavbe.state, 'bad', 'človek na stavbe bez súhlasu horí');
+  ok(/na stavbe/.test(naStavbe.todoText), 'a veta to povie');
+
+  const vEvidencii = krok('gdpr', { ...bezSuhlasu, assignments: [] });
+  eq(vEvidencii.state, 'watch', 'človek bez nasadenia je len na sledovanie');
+  eq(vEvidencii.todo, 1, 'a je to jeden');
+
+  // S kým už nerobíme, toho nemá zmysel doháňať.
+  eq(krok('gdpr', { ...bezSuhlasu, assignments: [],
+    workers: [{ id: 'w1', status: 'inactive' }] }).state, 'calm',
+  'neaktívny živnostník sa nepočíta');
+  eq(krok('gdpr', { ...bezSuhlasu, assignments: [],
+    workers: [{ id: 'w1', status: 'blacklist' }] }).state, 'calm',
+  'ani čierna listina');
+
+  eq(krok('gdpr').have, 1, 'podpísaný súhlas sa počíta');
+}
+
+// ── 5 · Zmluva so živnostníkom ──────────────────────────────────────────────
+console.log('5 · Zmluva so živnostníkom');
+{
+  const bezZmluvy = { documents: CISTO.documents.filter(d => d.kind !== 'contract') };
+  const naStavbe = krok('zmluva', bezZmluvy);
+  eq(naStavbe.state, 'bad', 'človek na stavbe bez zmluvy horí');
+
+  // Rámcová zmluva sa spravidla končí 31. decembra — a to sa nemá zistiť
+  // 2. januára, keď už je na stavbe.
+  const konci = krok('zmluva', { documents: [
+    { id: 'd3', worker_id: 'w1', kind: 'contract', validity: 'expiring' },
+  ] });
+  eq(konci.state, 'watch', 'končiaca zmluva je na sledovanie');
+  ok(/platnosť/.test(konci.todoText), 'a veta povie, že ide o platnosť');
+
+  eq(krok('zmluva').state, 'calm', 'platná zmluva nič nevyžaduje');
+}
+
+// ── 6 · Objednávka a papiere ────────────────────────────────────────────────
+console.log('6 · Objednávka a papiere v poriadku');
+{
+  const zleDoklady = krok('objednavka', { documents: [
+    { id: 'd1', worker_id: 'w1', kind: 'a1', validity: 'expired' },
+    { id: 'd2', worker_id: 'w1', kind: 'medical', validity: 'expired' },
+  ] });
+  eq(zleDoklady.todo, 1, 'počítajú sa ľudia, nie doklady');
+  eq(zleDoklady.state, 'bad', 'bez platných dokladov sa nasadiť nedá');
+
+  const prazdna = krok('objednavka', {
     subcontracts: [{ id: 's1', status: 'active', contract_id: 'z1' },
       { id: 's2', status: 'active', contract_id: 'z1' }],
-    assignments: [{ id: 'a1', subcontract_id: 's1', status: 'active' }],
   });
-  eq(prazdna.todo, 1, 'bežiaca zákazka bez ľudí');
-  eq(prazdna.state, 'bad', 'je to červené — platíme za stavbu, na ktorej nikto nie je');
-  eq(prazdna.have, 1, 'nasadených je jeden');
+  eq(prazdna.todo, 1, 'stavba, na ktorej nie je nikto, je úloha');
+  eq(prazdna.state, 'bad', 'a horí — stavba nepočká');
 
-  // Nasadenie na ukončenej zákazke sa do „ľudí na stavbách" neráta — rovnako
-  // ako na prehľade. Keby sa to tu počítalo inak, dve obrazovky by o tej istej
-  // veci tvrdili dve rôzne čísla.
-  const ukoncena = krok('assignments', {
-    subcontracts: [{ id: 's1', status: 'completed' }],
-    assignments: [{ id: 'a1', subcontract_id: 's1', status: 'active' }],
-  });
-  eq(ukoncena.have, 0, 'na ukončenej zákazke nikto „na stavbe" nie je');
+  const konci = krok('objednavka', { documents: [
+    { id: 'd1', worker_id: 'w1', kind: 'a1', validity: 'expiring' },
+  ] });
+  eq(konci.state, 'watch', 'končiaci doklad je na sledovanie');
 }
 
-// ── Peniaze ─────────────────────────────────────────────────────────────────
-console.log('Dráha peňazí');
+// ── 7 · Ubytovanie, hodiny a faktúry ────────────────────────────────────────
+console.log('7 · Ubytovanie, hodiny a faktúry');
 {
-  const stare = krok('timesheets', { timesheets: [
-    { id: 't1', hours: 8, work_date: '2026-09-01', period_id: null },
-    { id: 't2', hours: 8, work_date: '2026-10-04', period_id: null },
-    // V uzavretom období — to už nie je „mimo obdobia".
-    { id: 't3', hours: 100, work_date: '2026-07-01', period_id: 'pe9' },
-  ] });
-  eq(stare.have, 16, 'sčítajú sa len hodiny mimo obdobia');
-  eq(stare.todo, 1, 'a upozorní sa na tie staršie než dva týždne');
-
-  const zrele = krok('periods', { periods: [
-    { id: 'pe1', status: 'open', period_to: '2026-09-30' },
-    { id: 'pe2', status: 'open', period_to: '2026-10-31' },
-    { id: 'pe3', status: 'closed', period_to: '2026-08-31' },
-  ] });
-  eq(zrele.todo, 1, 'uzavrieť treba to, čomu uplynul koniec');
-  eq(zrele.state, 'bad', 'bez uzavretia nevznikne faktúra — to drží celý zvyšok');
-
-  eq(krok('invoices', { invoices: [{ id: 'i1', status: 'pending_approval' }] }).todo, 1,
-    'faktúra na schválenie');
-  eq(krok('invoices', { invoices: [{ id: 'i1', status: 'pending_approval' }] }).state, 'watch',
-    'čaká na človeka, ale nehorí');
-
-  // Sporná prijatá faktúra má prednosť pred tými na kontrolu — je to iný
-  // problém a rieši sa inak.
-  const sporna = krok('bills', { bills: [
-    { id: 'b1', status: 'disputed' }, { id: 'b2', status: 'received' }] });
-  eq(sporna.state, 'bad', 'sporná faktúra je červená');
-  eq(sporna.todo, 1, 'a ráta sa len tá sporná');
-  eq(krok('bills', { bills: [{ id: 'b2', status: 'received' }] }).state, 'watch',
-    'faktúra na kontrolu je oranžová');
-
-  const meska = krok('bank', { invoices: [
-    { id: 'i1', status: 'sent', due_date: '2026-09-20' },
+  const meska = krok('stavba', { invoices: [
+    { id: 'i1', status: 'sent', due_date: '2026-08-01' },
     { id: 'i2', status: 'paid', due_date: '2026-08-01' },
     { id: 'i3', status: 'draft', due_date: '2026-08-01' },
     { id: 'i4', status: 'sent', due_date: TODAY },
   ] });
   eq(meska.todo, 1, 'zaplatená, rozpracovaná ani dnes splatná nemešká');
-  eq(meska.have, 1, '„zaplatené" sa počíta zvlášť');
+  eq(meska.state, 'bad', 'faktúra po splatnosti horí');
+
+  const zrele = krok('stavba', { periods: [
+    { id: 'pe1', status: 'open', period_to: '2026-09-30' },
+  ] });
+  eq(zrele.state, 'bad', 'obdobie po konci čaká na uzavretie');
+  ok(/faktúra nevznikne/.test(zrele.todoText), 'a veta povie dôsledok');
+
+  const sporna = krok('stavba', { bills: [{ id: 'b1', status: 'disputed' }] });
+  eq(sporna.state, 'bad', 'sporná prijatá faktúra horí');
+
+  const naSchvalenie = krok('stavba', { invoices: [
+    { id: 'i1', status: 'pending_approval' },
+  ] });
+  eq(naSchvalenie.state, 'watch', 'schválenie je na sledovanie');
+
+  const stare = krok('stavba', { timesheets: [
+    { id: 't1', hours: 8, work_date: '2026-09-15', period_id: null },
+  ] });
+  eq(stare.state, 'watch', 'hodiny staršie než dva týždne sú na sledovanie');
+  eq(krok('stavba').have, 1, '„zaplatené" sa počíta zvlášť');
 }
 
 // ── Hlavička ────────────────────────────────────────────────────────────────
@@ -219,12 +243,12 @@ console.log('Prvá veta na obrazovke');
   });
   const h = F.headline(kroky);
   eq(h.tone, 'bad', 'niečo stojí');
-  eq(h.step.key, 'call', 'a je to ten najskorší krok, nie posledný');
+  eq(h.step.key, 'nabor', 'a je to ten najskorší krok, nie posledný');
   ok(/na 2 miestach/.test(h.text), 'povie sa, koľko miest stojí');
 
   const jedno = F.headline(F.all({ ...CISTO,
     invoices: [{ id: 'i1', status: 'sent', due_date: '2026-08-01' }] }));
-  ok(/kroku 14/.test(jedno.text), 'pri jednom mieste sa povie číslo kroku');
+  ok(/kroku 7/.test(jedno.text), 'pri jednom mieste sa povie číslo kroku');
 
   const sledovat = F.headline(F.all({ ...CISTO,
     contracts: [{ id: 'z1', status: 'active', signed_at: null }] }));
@@ -234,27 +258,16 @@ console.log('Prvá veta na obrazovke');
   eq(F.headline([]).step, null, 'prázdny zoznam nespadne');
 }
 
-// ── Dráhy ───────────────────────────────────────────────────────────────────
-console.log('Dráhy');
-{
-  const l = F.lanes(CISTO);
-  eq(l.map(x => x.key), ['ludia', 'zakazky', 'spolu', 'peniaze'],
-    'štyri dráhy v poradí, v akom sa myslí');
-  eq(l.map(x => x.steps.length), [4, 4, 1, 5], 'a kroky v nich');
-  eq(l.every(x => x.steps.length > 0), true, 'prázdna dráha by bola chyba v definícii');
-  eq(l.every(x => x.label && x.lead), true, 'každá dráha má názov aj vysvetlenie');
-}
-
 // ── Odolnosť ────────────────────────────────────────────────────────────────
 console.log('Odolnosť');
 {
   const prazdne = F.all({});
-  eq(prazdne.length, 14, 'prázdny balík dá všetky kroky');
+  eq(prazdne.length, 7, 'prázdny balík dá všetky kroky');
   eq(prazdne.every(k => k.todoText), true, 'a každý niečo povie');
   eq(F.step('neexistuje', CISTO), null, 'neznámy krok nevráti nič, nespadne');
   // Keď príde jeden dotaz rozbitý, zvyšok mapy musí zostať užitočný.
-  eq(F.step('call', { candidates: null }).todo, 0, 'chýbajúce pole je prázdny zoznam');
-  eq(F.step('timesheets', { timesheets: [{ hours: 'x', period_id: null }] }).have, 0,
+  eq(F.step('nabor', { candidates: null }).todo, 0, 'chýbajúce pole je prázdny zoznam');
+  eq(F.step('stavba', { timesheets: [{ hours: 'x', period_id: null }] }).have, 0,
     'nečíselné hodiny sú nula, nie NaN');
 }
 
@@ -267,21 +280,22 @@ console.log('Zmluva');
   eq(kluce.length, new Set(kluce).size, 'kľúče sa neopakujú');
   eq(F.STEPS.map(s => s.n), F.STEPS.map((_, i) => i + 1),
     'čísla krokov idú po sebe od jednotky — to je celá pointa mapy');
-  const draky = new Set(F.LANES.map(l => l.key));
   for (const s of F.STEPS) {
     ok(s.title && s.lead, `${s.key}: má názov aj vetu, čo to je`);
     ok(s.next, `${s.key}: má napísané, čo je po ňom`);
     ok(s.ico, `${s.key}: má ikonu`);
     ok(s.route, `${s.key}: vedie na obrazovku`);
-    ok(draky.has(s.lane), `${s.key}: patrí do existujúcej dráhy`);
     ok(typeof s.have === 'function' && typeof s.todo === 'function'
       && typeof s.haveText === 'function', `${s.key}: má všetky tri funkcie`);
     // Veta „čo to je" má byť veta, nie nálepka.
     ok(s.lead.length > 30 && /[.!?]$/.test(s.lead), `${s.key}: vysvetlenie je veta`);
   }
+  // Je ich sedem zámerne — presne tie, ktoré pomenoval majiteľ. Ôsmy krok
+  // znamená, že sa pridal niečí nápad, nie jeho práca.
+  eq(F.STEPS.length, 7, 'krokov je sedem, nie viac');
   // Posledný krok reťazec uzatvára — ak pribudne ďalší, toto treba prepísať
   // vedome, nie omylom.
-  ok(/uzavrel/.test(F.STEPS[F.STEPS.length - 1].next),
+  ok(/uzavrie/.test(F.STEPS[F.STEPS.length - 1].next),
     'posledný krok povie, že tým sa to končí');
 }
 

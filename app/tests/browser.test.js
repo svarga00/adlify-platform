@@ -1934,12 +1934,19 @@ console.log('Prehliadač');
         })();
       });
 
-      ok(out.kroky.length === 14, 'mapa má štrnásť krokov',
+      // Sedem krokov tak, ako ich pomenoval majiteľ — nie štrnásť podľa toho,
+      // čo je v databáze.
+      ok(out.kroky.length === 7, 'mapa má sedem krokov',
         `má ${out.kroky.length}`);
-      ok(out.kroky.map(k => k.n).join(',') === '1,2,3,4,5,6,7,8,9,10,11,12,13,14',
+      ok(out.kroky.map(k => k.n).join(',') === '1,2,3,4,5,6,7',
         'a sú očíslované po poradí', out.kroky.map(k => k.n).join(','));
-      ok(out.drahy.join(' | ') === 'Ľudia | Zákazky | Tu sa stretnú | Peniaze',
-        'v štyroch dráhach', out.drahy.join(' | '));
+      ok(out.kroky.map(k => k.title).join(' | ')
+        === 'Dopyt na zákazku | Inzeráty a záujemcovia | Objednávka a zmluva s Nemcom'
+          + ' | Súhlas GDPR od živnostníka | Zmluva so živnostníkom'
+          + ' | Objednávka a papiere v poriadku | Ubytovanie, hodiny a faktúry',
+      'a sú to jeho kroky, nie názvy tabuliek', out.kroky.map(k => k.title).join(' | '));
+      ok(out.drahy.length === 0, 'žiadne dráhy — je to jedna cesta zhora nadol',
+        out.drahy.join(' | '));
       ok(out.kroky.every(k => k.lead && k.next),
         'každý krok povie, čo to je aj čo je po ňom');
       ok(out.kroky.every(k => k.help),
@@ -1947,13 +1954,11 @@ console.log('Prehliadač');
       ok(out.kroky.every(k => k.go), 'z každého kroku sa dá ísť tam, kde sa rieši');
 
       // Hlavička musí ukázať najskorší zaseknutý krok, nie posledný.
-      ok(/kroku 1/.test(out.headline),
+      ok(/kroku 2/.test(out.headline),
         'hlavička ukáže najskorší zaseknutý krok', out.headline);
-      ok(/inzerát/i.test(out.kroky[0].todo) || /ozvať/.test(out.kroky[0].todo),
-        'nábor bez inzerátu je vidieť ako chyba', out.kroky[0].todo);
-      ok(/fl-bad/.test(out.kroky[0].cls), 'a je červený');
-      ok(/čaká na prvý telefonát/.test(out.kroky[1].todo),
-        'nezavolaný človek tiež', out.kroky[1].todo);
+      ok(/inzerát/i.test(out.kroky[1].todo) || /ozvať/.test(out.kroky[1].todo),
+        'nábor bez inzerátu je vidieť ako chyba', out.kroky[1].todo);
+      ok(/fl-bad/.test(out.kroky[1].cls), 'a je červený');
 
       // Mapa patrí hore, nie do ľavého menu.
       ok(out.hore.includes('Ako to ide'), '„Ako to ide" je v hornom pruhu',
