@@ -146,6 +146,21 @@
         // Odberateľ napíše „ab Montag" a nevie, koľko ľudí vieme zohnať. Toto
         // je to číslo, podľa ktorého appka povie, či to stíhame — pri dopyte
         // na trinásť ľudí aj pri rozhodovaní, či prijať ďalšiu stavbu.
+        this.section('Zmluva s nemeckým odberateľom',
+          'Lehoty a sumy do dvojjazyčnej rámcovej zmluvy. Prestoj je prázdne miesto '
+          + 'aj v podpísanej zmluve — kým sa nevyplní, na papieri sa vypíše ako '
+          + 'chýbajúci údaj, nie ako nula.',
+          'framework_de', [
+          ['objednavka_dni', 'Objednávka vopred (pracovných dní)', 'number', 5],
+          ['fakturacia_dni', 'Fakturujeme každých (dní)', 'number', 14],
+          ['splatnost_dni', 'Splatnosť našej faktúry (dní)', 'number', 7],
+          ['urok_omeskanie_pct', 'Pokuta za deň omeškania (%)', 'number', 0.05],
+          ['prestoj_pokuta', 'Prestoj — € za osobu a deň', 'number', ''],
+          ['vykaz_namietka_dni', 'Namietnutie výkazu do (prac. dní)', 'number', 3],
+          ['vypoved_dni', 'Výpovedná lehota (dní)', 'number', 7],
+          ['odstupenie_omeskanie_dni', 'Odstúpenie po omeškaní (dní)', 'number', 10],
+        ]) +
+
         // Zmluva so živnostníkom je dáta, nie HTML: právnik opraví vetu,
         // majiteľ zdvihne pokutu — a nikto nemá siahať do kódu.
         this.section('Zmluva so živnostníkom',

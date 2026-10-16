@@ -152,6 +152,39 @@
 
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
 
+    /**
+     * Rámcová zmluva s nemeckým odberateľom — dvojjazyčne.
+     *
+     * On podpisuje po nemecky, my čítame po slovensky. Lehoty a sumy sa berú
+     * z Nastavení, takže zmena splatnosti nie je zásah do kódu.
+     */
+    rahmen(id) {
+      const p = this.items.find(x => x.id === id);
+      if (!p) return UI.toast('Nenájdené', 'err');
+      if (!Danubra.supplierReady('Rámcová zmluva o dielo')) return;
+
+      const supplier = Danubra.supplier();
+      const client = {
+        name: p.name, address: [p.address, p.postal_code, p.city, p.country]
+          .filter(Boolean).join(', '),
+        registration_no: p.registration_no, ust_idnr: p.ust_idnr,
+        phone: p.phone, email: p.email, contact_person: p.contact_person,
+      };
+      const zmluva = DanubraFrameworkDe.build({
+        supplier, client, rules: Danubra.cfg('framework_de'),
+      });
+      const chyba = DanubraFrameworkDe.missing({ supplier, client });
+
+      const html = DanubraPapers.rahmenvertrag({ zmluva, chyba });
+      const okno = window.open('', '_blank');
+      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
+      okno.document.open(); okno.document.write(html); okno.document.close();
+
+      if (chyba.length) {
+        UI.toast(`Pred podpisom doplň: ${chyba.map(c => c.title).join(', ')}`, 'warn');
+      }
+    },
+
     async detail(id) {
       const p = this.items.find(x => x.id === id);
       if (!p) return UI.toast('Nenájdené', 'err');
@@ -220,6 +253,8 @@
 
         <div class="modal-actions">
           <button class="btn btn-danger btn-sm" onclick="Prt.del('${p.id}')">Zmazať</button>
+          <button class="btn btn-outline btn-sm" onclick="Prt.rahmen('${p.id}')">
+            ${Icon('doc', 14)} Rámcová zmluva SK/DE</button>
           <button class="btn btn-outline btn-sm" onclick="Prt.form('${p.id}')">Upraviť</button>
         </div>`;
       UI.modal(p.name, body, { wide: true });
