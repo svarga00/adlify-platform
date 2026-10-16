@@ -254,7 +254,12 @@
           ['name', 'Názov firmy', 'text', '', 'Presný názov podľa registra'],
           ['iban', 'IBAN', 'text', '', 'SK00 0000 0000 0000 0000 0000'],
           ['company_id', 'IČO', 'text'],
+          ['tax_id', 'DIČ', 'text'],
           ['vat_id', 'IČ DPH', 'text'],
+          // Na súhlase GDPR aj na rámcovej zmluve musí byť, kde je firma
+          // zapísaná. Bez toho sú to papiere bez identifikácie prevádzkovateľa.
+          ['register', 'Zápis v registri', 'text', '',
+            'napr. Obchodný register Okresného súdu Nitra, odd. Sro, vl. č. 69265/N'],
           // Nemecké daňové číslo. Bez neho sa na výkaze hodín ani na faktúre
           // nedá uviesť — a pole na jeho vyplnenie tu doteraz vôbec nebolo,
           // hoci dokument sa naň odvolával.

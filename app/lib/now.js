@@ -59,6 +59,9 @@
     { key: 'tax_number_de', title: 'Steuernummer (DE)',
       why: 'Výkaz hodín aj faktúra pre nemeckého odberateľa sa naň odvolávajú. '
         + 'Bez neho tam zostane prázdne miesto.' },
+    { key: 'register', title: 'zápis v obchodnom registri',
+      why: 'Súhlas GDPR aj rámcová zmluva musia povedať, kde je firma zapísaná — '
+        + 'inak je to papier bez identifikácie toho, kto ho vydal.' },
   ];
 
   /** Čo doplniť v Nastaveniach. `supplier` je oddiel `supplier` z nastavení. */

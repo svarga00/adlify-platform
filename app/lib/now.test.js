@@ -33,7 +33,8 @@ console.log('Čo spraviť teraz');
 // tvar, obrazovka by mlčala — a nikto by nevedel, že niečo čaká.
 {
   const vsetky = [
-    N.firm({}), N.firm({ name: 'A', address: 'B', company_id: 'C', iban: 'D', tax_number_de: 'E' }),
+    N.firm({}), N.firm({ name: 'A', address: 'B', company_id: 'C', iban: 'D',
+      tax_number_de: 'E', register: 'F' }),
     N.clients([]), N.clients([{ id: 'p1', name: 'GU' }]),
     N.people({}), N.people({ workers: [{ id: 'w1', full_name: 'Ján', status: 'ready', bank_iban: 'SK', phone: '+421', profession: 'zvarac' }] }),
     N.plans({}), N.plans({ plans: [{ id: 'r1', title: 'Wörthsee', brief: 'x', analyzed_at: '2026-10-10' }] }),
@@ -57,8 +58,8 @@ console.log('Čo spraviť teraz');
   const prazdne = N.firm({});
   eq(prazdne.key, 'name', 'z prázdnych nastavení sa začína názvom firmy');
   ok(prazdne.hot, 'a horí to — bez názvu appka dokument nepustí');
-  eq(prazdne.count, 5, 'počíta všetko, čo chýba');
-  ok(/4 ďalšie údaje/.test(prazdne.what), 'a povie, koľko toho ešte je', prazdne.what);
+  eq(prazdne.count, 6, 'počíta všetko, čo chýba');
+  ok(/5 ďalších údajov/.test(prazdne.what), 'a povie, koľko toho ešte je', prazdne.what);
 
   const sNazvom = N.firm({ name: 'Partner und Service s. r. o.' });
   eq(sNazvom.key, 'address', 'potom adresa');
@@ -68,12 +69,17 @@ console.log('Čo spraviť teraz');
   ok(/QR/.test(sTromi.why), 's dôvodom, ktorý povie, čo sa stane bez neho', sTromi.why);
 
   const steuer = N.firm({ name: 'A', address: 'B', company_id: 'C', iban: 'D' });
-  eq(steuer.key, 'tax_number_de', 'posledné je nemecké daňové číslo');
-  ok(/Je to posledný údaj/.test(steuer.what), 'a vie, že je posledné', steuer.what);
+  eq(steuer.key, 'tax_number_de', 'po IBAN-e je nemecké daňové číslo');
+  const posledny = N.firm({ name: 'A', address: 'B', company_id: 'C', iban: 'D',
+    tax_number_de: 'E' });
+  eq(posledny.key, 'register', 'posledný je zápis v obchodnom registri');
+  ok(/Je to posledný údaj/.test(posledny.what), 'a vie, že je posledný', posledny.what);
+  ok(/GDPR/.test(posledny.why), 's dôvodom, načo je', posledny.why);
 
   // IČ DPH sa nevyžaduje zámerne: firma nie je platiteľom DPH a appka by
   // hlásila chybu, ktorá nie je chybou.
-  const hotovo = N.firm({ name: 'A', address: 'B', company_id: 'C', iban: 'D', tax_number_de: 'E' });
+  const hotovo = N.firm({ name: 'A', address: 'B', company_id: 'C', iban: 'D',
+    tax_number_de: 'E', register: 'F' });
   eq(hotovo.key, 'ok', 'bez IČ DPH je to v poriadku');
   ok(!N.FIRMA.some(f => f.key === 'vat_id'), 'IČ DPH nie je medzi vyžadovanými');
 

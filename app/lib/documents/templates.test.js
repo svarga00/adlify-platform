@@ -327,5 +327,60 @@ console.log('Dokumenty');
   ok(/todo/.test(bez), 'a je to zvýraznené');
 }
 
+// ── Súhlas so spracovaním osobných údajov ───────────────────────────────────
+// Štvrtý krok reťazca. Držíme jeho doklad totožnosti, A1, číslo účtu — a
+// posielame to nemeckej firme, na stavbu a úradom. Papier musí povedať
+// **komu** a **načo**, inak ten súhlas nie je informovaný a neplatí.
+console.log('Súhlas GDPR');
+{
+  const FIRMA = { ...SUPPLIER, company_id: '57 553 921', tax_id: '2122816839',
+    register: 'Obchodný register Okresného súdu Nitra, odd. Sro, vl. č. 69265/N',
+    address: 'Podzámska 9468/4A, 940 71 Nové Zámky, Slovensko', city: '' };
+  const CLOVEK = { full_name: 'Cyril Demeter', address: 'Brekov 81, 066 01 Brekov',
+    ico: '53941870', birth_date: '1985-03-12' };
+  const h = P.gdprConsent({ worker: CLOVEK, supplier: FIRMA });
+
+  ok(/Cyril Demeter/.test(h), 'je v ňom meno človeka');
+  ok(/Partner und Service/.test(h), 'aj názov prevádzkovateľa');
+  ok(/57 553 921/.test(h) && /2122816839/.test(h), 'IČO aj DIČ z Nastavení');
+  ok(/69265\/N/.test(h), 'aj zápis v obchodnom registri');
+  ok(/12\. 03\. 1985/.test(h), 'dátum narodenia sa vypíše po slovensky');
+
+  // Bez týchto štyroch vecí to podľa GDPR nie je informovaný súhlas.
+  ok(/18\/2018/.test(h) && /2016\/679/.test(h), 'odvoláva sa na zákon aj na nariadenie');
+  ok(/Účel spracúvania/i.test(h), 'povie, načo to je');
+  ok(/Príjemcovia/i.test(h), 'komu sa to posiela');
+  ok(/Doba uchovávania/i.test(h), 'ako dlho to držíme');
+  ok(/Odvolanie súhlasu/i.test(h), 'a že sa to dá odvolať');
+  ok(/Úrad na ochranu osobných údajov/.test(h), 'aj kam sa dá sťažovať');
+
+  // Nemecko sa musí spomenúť menovite: posielame tam jeho údaje.
+  ok(/Nemeck/.test(h), 'prenos do Nemecka je pomenovaný');
+  ok(/Odberateľovi/.test(h), 'a že údaje ide aj odberateľovi');
+
+  // Papier, ktorý sa podpisuje perom, nesmie tvrdiť, že podpis netreba.
+  ok(/Platné po podpise/.test(h), 'pätička hovorí, že platí po podpise');
+  ok(!/platné bez podpisu/i.test(h), 'a netvrdí opak');
+  ok((h.match(/class="line"/g) || []).length === 2, 'sú tam dve miesta na podpis');
+
+  // „V 940 71 Nové Zámky" nie je veta, akú by niekto napísal rukou.
+  const m = h.match(/V ([^,]+), dňa/);
+  eq(m && m[1], 'Nové Zámky', 'mesto je bez PSČ a bez krajiny');
+  ok(/V Košiciach, dňa/.test(P.gdprConsent({ worker: CLOVEK, supplier: FIRMA,
+    place: 'Košiciach' })), 'a dá sa prepísať');
+
+  // Chýbajúce údaje nesmú vyrobiť „undefined" ani vymyslenú firmu.
+  const prazdny = P.gdprConsent({});
+  ok(!/undefined/.test(prazdny), 'bez údajov tam nie je undefined');
+  ok(/Dotknutá osoba/.test(prazdny), 'a papier sa aj tak vykreslí');
+
+  // Zoznamy sú na jednom mieste, aby sa dali doplniť bez hľadania v HTML.
+  ok(P.GDPR_UCEL.length >= 5 && P.GDPR_PRIJEMCOVIA.length >= 4
+    && P.GDPR_PRAVA.length >= 6, 'účely, príjemcovia a práva sú vymenované');
+  for (const x of [...P.GDPR_UCEL, ...P.GDPR_PRIJEMCOVIA, ...P.GDPR_PRAVA]) {
+    ok(x.length > 10 && !/undefined/.test(x), `zrozumiteľná položka: ${x.slice(0, 40)}…`);
+  }
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);
