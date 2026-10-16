@@ -141,6 +141,17 @@
           'staffing', [
           ['target_margin_per_worker', 'Minimálna marža na pracovníka €', 'number', 1000],
           ['dso_alert_days', 'Doba inkasa, nad ktorou neškálovať (dní)', 'number', 45],
+        ]) +
+
+        // Odberateľ napíše „ab Montag" a nevie, koľko ľudí vieme zohnať. Toto
+        // je to číslo, podľa ktorého appka povie, či to stíhame — pri dopyte
+        // na trinásť ľudí aj pri rozhodovaní, či prijať ďalšiu stavbu.
+        this.section('Koľko ľudí vieme nabrať',
+          'Z toho sa počíta, či sa dopyt dá stihnúť. Keď príde e-mail na trinásť '
+          + 'ľudí od pondelka, appka to povie hneď — nie v pondelok.',
+          'staffing', [
+          ['hire_per_week_min', 'Najmenej ľudí za týždeň', 'number', 2],
+          ['hire_per_week_max', 'Najviac ľudí za týždeň', 'number', 6],
         ]);
     },
 

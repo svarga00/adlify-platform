@@ -15,6 +15,7 @@
 // ============================================================================
 (function () {
   const O = window.DanubraOpp;
+  const Inq = window.DanubraInquiry;
 
   const Opp = {
     items: [], trades: [], loaded: false, openId: null,
@@ -40,8 +41,11 @@
 
     // ── Zoznam ────────────────────────────────────────────────────────────
     async view(el) {
-      Danubra.setActions(
-        `<button class="btn btn-primary btn-sm" onclick="Opp.form()">${Icon('plus')} Pridať možnosť</button>`);
+      Danubra.setActions(`
+        <button class="btn btn-outline btn-sm" onclick="Opp.inquiryForm()">
+          ${Icon('mail')} Vložiť dopyt</button>
+        <button class="btn btn-primary btn-sm" onclick="Opp.form()">
+          ${Icon('plus')} Pridať možnosť</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.profile(el, this.openId);
 
@@ -145,6 +149,176 @@
             <button type="submit" class="btn btn-primary">${Icon('check')} Zapísať</button>
           </div>
         </form>`);
+    },
+
+    // ── Dopyt od odberateľa: jeden e-mail, viac stavieb ───────────────────
+    // Nemecká firma nenapíše „potrebujeme štyroch ľudí". Napíše e-mail, v ktorom
+    // sú tri projekty naraz — tri mestá, tri termíny, tri nábory. Dovtedy sa
+    // taký e-mail zapísal ako jedna možnosť a všetko ostatné zostalo vo voľnom
+    // texte.
+
+    inquiryForm() {
+      UI.modal('Vložiť dopyt od odberateľa', `
+        <form id="opp-inq" onsubmit="event.preventDefault();Opp.splitInquiry()">
+          <div class="regimebox">Vlož celý e-mail aj s podpisom. Appka z neho vytiahne
+            jednotlivé stavby — mesto, počet ľudí, sadzbu a termín — a ukáže ti ich
+            skôr, než sa čokoľvek založí.</div>
+          ${UI.field('text', 'E-mail od odberateľa', { type: 'textarea', rows: 12,
+            required: true, placeholder: 'Sem vlož celý e-mail, pokojne aj po nemecky.' })}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary" id="opp-inq-btn">
+              ${Icon('zap')} Rozdeliť na stavby</button>
+          </div>
+        </form>`);
+    },
+
+    async splitInquiry() {
+      const d = UI.formData(document.getElementById('opp-inq'));
+      if (!d.text || d.text.trim().length < 40) {
+        return UI.toast('Vlož celý e-mail — z dvoch viet sa stavby vytiahnuť nedajú', 'err');
+      }
+      const btn = document.getElementById('opp-inq-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Čítam dopyt…'; }
+      let out;
+      try {
+        const res = await fetch('/.netlify/functions/danubra-split-inquiry', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: d.text }),
+        });
+        out = await res.json();
+        if (out.error) throw new Error(out.error);
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Rozdeliť na stavby'; }
+        return UI.toast('Nepodarilo sa: ' + e.message, 'err');
+      }
+      if (out.skipped) return UI.toast(out.message || 'Nie je to nastavené', 'err');
+
+      this._inq = {
+        projects: (out.projects || []).map(p => Inq.normalize(p)),
+        client: out.client || {}, payment: out.payment || '', risks: out.risks || [],
+        raw: d.text,
+      };
+      this.inquiryPreview();
+    },
+
+    /**
+     * Čo sa v dopyte našlo — **pred** tým, než sa čokoľvek založí.
+     *
+     * Je tu aj veta o tom, či to vôbec stíhame: pri 2–6 ľuďoch týždenne je
+     * trinásť ľudí robota na tri týždne a pondelkový nástup je výmysel.
+     * Lepšie to vedieť teraz než v pondelok, keď tam nikto nepríde.
+     */
+    inquiryPreview() {
+      const q = this._inq;
+      if (!q) return;
+      const sum = Inq.summary(q.projects);
+      const kap = Inq.capacity({ projects: q.projects, perWeek: this.kapacita(),
+        today: Danubra._dayISO() });
+      const sk = Inq.skonto(q.payment);
+      const zle = q.projects.filter(p => !Inq.usable(p));
+
+      UI.modal(`Našlo sa: ${sum.text}`, `
+        ${kap.late.length ? `<div class="warnbox">${Icon('alert', 14)}
+          <strong>Toto nestíhame.</strong> ${UI.esc(kap.text)}
+          ${kap.late.map(p => `<br>${UI.esc(p.city)} chceš od ${UI.date(p.start_date)},
+            najskôr to vieš ${UI.date(p.hotovo)} — o ${p.meskanie}
+            ${Shell.plural(p.meskanie, 'deň', 'dni', 'dní')} neskôr.`).join('')}
+        </div>` : `<div class="regimebox">${UI.esc(kap.text)}</div>`}
+
+        ${sk ? `<div class="regimebox">${UI.esc(Inq.skontoText(sk))}
+          Zapísané tak, ako to prišlo: <strong>${UI.esc(q.payment)}</strong></div>` : ''}
+
+        <div class="form-section">Stavby</div>
+        ${q.projects.map((p, i) => `
+          <div class="list-row" style="cursor:default;align-items:flex-start;">
+            <span class="dot ${Inq.usable(p) ? 'green' : 'amber'}" style="margin-top:5px;"></span>
+            <span style="flex:1;font-size:13px;">
+              <strong>${UI.esc(p.title || '(bez názvu)')}</strong>
+              <span style="display:block;color:var(--ink-mute);font-size:12px;">
+                ${[p.city, p.headcount ? `${p.headcount} ${Shell.plural(p.headcount, 'človek', 'ľudia', 'ľudí')}` : null,
+                  p.rate_client ? `${String(p.rate_client).replace('.', ',')} €/h` : null,
+                  p.start_date ? `od ${UI.date(p.start_date)}` : 'bez termínu',
+                ].filter(Boolean).map(UI.esc).join(' · ')}</span>
+              ${Inq.problems(p).length ? `<span style="display:block;color:var(--amber);font-size:12px;">
+                chýba ${UI.esc(Inq.problems(p).map(x => x.title).join(', '))} — doplníš to po založení</span>` : ''}
+            </span>
+            <label class="chk" title="Založiť túto stavbu">
+              <input type="checkbox" id="inq-${i}" checked></label>
+          </div>`).join('')}
+
+        ${q.risks.length ? `<div class="form-section">Na čo si dať pozor</div>
+          ${q.risks.map(r => `<div class="list-row" style="cursor:default;align-items:flex-start;">
+            <span class="dot amber" style="margin-top:5px;"></span>
+            <span style="flex:1;font-size:13px;">${UI.esc(r)}</span></div>`).join('')}` : ''}
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          <button type="button" class="btn btn-primary" onclick="Opp.saveInquiry()">
+            ${Icon('check')} Založiť označené</button>
+        </div>`, { wide: true });
+      if (zle.length) {
+        UI.toast(`${zle.length} ${Shell.plural(zle.length, 'stavba nemá', 'stavby nemajú', 'stavieb nemá')} `
+          + 'všetko — založiť sa dajú aj tak', 'warn');
+      }
+    },
+
+    /** Koľko ľudí vieme nabrať za týždeň. Dá sa prepísať v Nastaveniach. */
+    kapacita() {
+      const s = Danubra.cfg('staffing');
+      return {
+        min: Number(s.hire_per_week_min) || Inq.KAPACITA.min,
+        max: Number(s.hire_per_week_max) || Inq.KAPACITA.max,
+      };
+    },
+
+    async saveInquiry() {
+      const q = this._inq;
+      if (!q) return;
+      const vybrane = q.projects.filter((_, i) => {
+        const el = document.getElementById(`inq-${i}`);
+        return el ? el.checked : true;
+      });
+      if (!vybrane.length) return UI.toast('Nič nie je označené', 'err');
+
+      const sk = Inq.skonto(q.payment);
+      const rows = vybrane.map(p => ({
+        title: p.title || `${p.city} — ${q.client.company_name || 'dopyt'}`,
+        city: p.city || null,
+        country: p.country || 'DE',
+        trade_key: p.trade_key || null,
+        headcount: p.headcount,
+        rate_client: p.rate_client,
+        start_date: p.start_date,
+        company_name: q.client.company_name || null,
+        company_vat: q.client.company_vat || null,
+        contact_name: q.client.contact_name || null,
+        contact_phone: q.client.contact_phone || null,
+        contact_email: q.client.contact_email || null,
+        source: 'e-mail',
+        status: 'new',
+        // Zadanie pre nábor: čo sa robí, požiadavky a podmienky, ktoré platili
+        // na celý e-mail. Z tohto sa potom robia podklady.
+        brief: [
+          p.brief,
+          p.address ? `Adresa stavby: ${p.address}` : null,
+          p.hours_week ? `Hodiny: ${p.hours_week}` : null,
+          p.duration ? `Trvanie: ${p.duration}` : null,
+          p.requirements && p.requirements.length
+            ? `Požiadavky:\n- ${p.requirements.join('\n- ')}` : null,
+          q.payment ? `Platobné podmienky: ${q.payment}${
+            sk ? ` (${Inq.skontoText(sk)})` : ''}` : null,
+        ].filter(Boolean).join('\n\n') || null,
+        created_by: Danubra.user?.id || null,
+      }));
+
+      const { data, error } = await DB.insertMany('opportunities', rows);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      if (Array.isArray(data)) this.items.unshift(...data);
+      this._inq = null;
+      UI.closeModal();
+      UI.toast(`Založené: ${rows.length} ${Shell.plural(rows.length, 'možnosť', 'možnosti', 'možností')}`, 'ok');
+      Danubra.renderRoute();
     },
 
     async save() {
