@@ -81,9 +81,25 @@ console.log('\nbilling regime (§6.3)');
   eq(r.warning, null, 'SK bez varovania');
 }
 {
-  const r = determineBillingRegime({ country: 'DE', vat_id: 'DE123456789' });
+  // Firma je neplatiteľ DPH registrovaný podľa §7a. Reverse charge sa dá
+  // preniesť len s **vlastným** IČ DPH — preto sa pozerá aj na našu stranu.
+  const NASA = { vat_id: 'SK2122816839' };
+  const r = determineBillingRegime({ country: 'DE', vat_id: 'DE123456789' }, NASA);
   eq(r.regime, 'eu_reverse_charge', 'DE + IČ DPH → eu_reverse_charge');
-  ok(r.warning && r.warning.includes('§7a'), 'reverse charge → §7a varovanie');
+  eq(r.note, 'Prenesenie daňovej povinnosti — reverse charge.', 'poznámka na faktúre');
+  eq(r.warning, null, 's vlastným IČ DPH sa appka nepýta');
+
+  // Upozornenie, ktoré svieti vždy, sa po treťom raze prestane čítať.
+  // Toto musí svietiť len vtedy, keď je naozaj čo riešiť.
+  const bez = determineBillingRegime({ country: 'DE', vat_id: 'DE123456789' }, {});
+  ok(bez.warning && bez.warning.includes('§7a'),
+    'bez vlastného IČ DPH appka povie, že reverse charge neobstojí');
+  ok(bez.warning.includes('Nastaveniach'), 'a kde sa to doplní');
+  eq(bez.regime, 'eu_reverse_charge', 'režim zostáva — chýba doklad, nie dôvod');
+
+  // Starý podpis sa používa na archivovanej obrazovke klientov.
+  const stary = determineBillingRegime({ country: 'DE', vat_id: 'DE123456789' });
+  eq(stary.regime, 'eu_reverse_charge', 'volanie bez našej strany nespadne');
 }
 {
   const r = determineBillingRegime({ country: 'DE', vat_id: null });

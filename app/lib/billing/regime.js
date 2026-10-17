@@ -16,12 +16,26 @@ const EU_COUNTRIES = [
 
 /**
  * Určí fakturačný režim z klienta.
- * @param {Object} client - { country, vat_id }
+ *
+ * `supplier` je **naša** strana z Nastavení. Firma je *neplatiteľ DPH
+ * registrovaný podľa §7a*: domáce faktúry sú bez DPH, ale na službu do EÚ
+ * sa prenáša daňová povinnosť — a to sa dá len s vlastným IČ DPH. Preto:
+ *
+ *   * **máme IČ DPH** → reverse charge je v poriadku a appka mlčí,
+ *   * **nemáme ho** → faktúra by neobstála a appka to povie natvrdo.
+ *
+ * Dovtedy tu pri každej nemeckej faktúre svietilo „skontroluj registráciu
+ * podľa §7a" — aj keď bola registrácia dávno vybavená. Upozornenie, ktoré
+ * svieti vždy, sa po treťom raze prestane čítať.
+ *
+ * @param {Object} client   - { country, vat_id }
+ * @param {Object} supplier - { vat_id } z Nastavení (nepovinné)
  * @returns {{ regime:string, note:string, warning:(string|null) }}
  */
-function determineBillingRegime(client) {
+function determineBillingRegime(client, supplier) {
   const country = String(client?.country || '').toUpperCase().trim();
   const vatId = String(client?.vat_id || '').trim();
+  const nasVatId = String(supplier?.vat_id || '').trim();
 
   if (country === 'SK') {
     return {
@@ -35,8 +49,11 @@ function determineBillingRegime(client) {
     return {
       regime: 'eu_reverse_charge',
       note: 'Prenesenie daňovej povinnosti — reverse charge.',
-      // §6.3: pri prvom reverse_charge upozorni na §7a registráciu
-      warning: 'Skontroluj registráciu podľa §7a pred odoslaním.',
+      // Bez vlastného IČ DPH nie je reverse charge čím podložiť. S ním sa
+      // niet na čo pýtať.
+      warning: nasVatId ? null
+        : 'Nemáme zapísané vlastné IČ DPH — bez registrácie podľa §7a reverse '
+          + 'charge neobstojí. Doplň ho v Nastaveniach.',
     };
   }
 
