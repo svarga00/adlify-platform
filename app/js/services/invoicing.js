@@ -31,9 +31,15 @@ window.Invoicing = {
     return d.toISOString().slice(0, 10);
   },
 
-  /** Spoločné polia podľa fakturačného režimu klienta (§6.3). */
+  /**
+   * Spoločné polia podľa fakturačného režimu klienta (§6.3).
+   *
+   * Druhý argument je **naša** strana: reverse charge sa dá preniesť len
+   * s vlastným IČ DPH (§7a), takže appka musí vedieť, či ho máme.
+   */
   regimeFor(client) {
-    return window.DanubraBillingRegime.determineBillingRegime(client || {});
+    return window.DanubraBillingRegime.determineBillingRegime(
+      client || {}, Danubra.supplier());
   },
 
   /**
