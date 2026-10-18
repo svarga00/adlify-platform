@@ -1493,14 +1493,6 @@ window.Danubra = {
     const úlohy = taskLine && taskLine.tone !== 'ok';
 
     let label = 'Čo spraviť teraz', title, sub, why = '', akcia = null, hot = false;
-    // Krok reťazca už ukazuje zoznam siedmich krokov priamo pod týmto
-    // („teraz toto"). Dva bloky s tou istou vetou nad sebou by len mátli —
-    // rámik tu ostáva pre úlohy, ktoré v krokoch nie sú.
-    const lenTlac = `
-      <div class="headline headline-${taskLine.tone === 'bad' ? 'bad' : taskLine.tone === 'warn' ? 'warn' : 'ok'} only-print">
-        <span>${UI.esc(taskLine.text)}</span>
-      </div>`;
-    if ((horí && krok) || !úlohy) return lenTlac;
 
     if (horí && krok) {
       label += ` · krok ${krok.n} zo 7`;
