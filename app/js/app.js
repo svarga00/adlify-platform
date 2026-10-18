@@ -527,6 +527,9 @@ window.Danubra = {
     for (const id of ['btn-help', 'btn-help-m']) {
       const h = document.getElementById(id); if (h) h.innerHTML = Icon('help', 18);
     }
+    const pp = document.getElementById('btn-papers');
+    if (pp) pp.innerHTML = `${Icon('doc', 16)}<span>Papiere</span>`;
+    const pm = document.getElementById('btn-papers-m'); if (pm) pm.innerHTML = Icon('doc', 18);
     this._buildNav();
     this._render();
     window.addEventListener('hashchange', () => this._syncRoute());

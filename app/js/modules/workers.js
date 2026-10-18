@@ -392,12 +392,14 @@
       }
       if (i.needs === 'assign') {
         return Danubra.routeAvailable('subcontracts')
-          ? b('btn-primary', "UI.closeModal();Danubra.go('subcontracts')", 'site', 'Vybrať stavbu') : '';
+          ? b('btn-primary', "UI.closeModal();Danubra.go('subcontracts')", 'site', 'Vybrať zákazku') : '';
       }
+      const infolist = b('btn-outline', `Wrk.paperSiteSheet('${w.id}')`, 'pin', 'Infolist na stavbu');
       if (i.needs === 'order') {
-        return b('btn-primary', `Ord.newFor('${i.assignmentId}')`, 'orders', 'Vystaviť objednávku');
+        return b('btn-primary', `Ord.newFor('${i.assignmentId}')`, 'orders', 'Vystaviť objednávku')
+          + infolist;
       }
-      return '';
+      return b('btn-ghost', `Wrk.paperOrder('${w.id}')`, 'print', 'Objednávka') + infolist;
     },
 
     /** Zoznam troch vecí s tlačidlami. Rovnaký na profile aj v okne „Ďalej". */
@@ -530,8 +532,6 @@
 
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Wrk.closeProfile()">${Icon('back', 15)} Späť</button>
-        <button class="btn btn-outline btn-sm" onclick="Wrk.gdpr('${w.id}')">${Icon('shield', 14)} Súhlas GDPR</button>
-        <button class="btn btn-outline btn-sm" onclick="Wrk.zmluva('${w.id}')">${Icon('doc', 14)} Zmluva o dielo</button>
         <button class="btn btn-outline btn-sm" onclick="Wrk.form('${w.id}')">${Icon('edit', 14)} Upraviť</button>`);
 
       // Účet sa načíta až tu — zoznam ľudí naň nečaká.
@@ -1113,6 +1113,7 @@
       const w = this.items.find(x => x.id === workerId);
       if (!w) return UI.toast('Nenájdené', 'err');
       if (!Danubra.supplierReady('Súhlas so spracovaním osobných údajov')) return;
+      if (this.doplnit(w, 'gdpr', () => this.gdpr(workerId))) return;
 
       const html = DanubraPapers.gdprConsent({ worker: w, supplier: Danubra.supplier() });
       const okno = window.open('', '_blank');
@@ -1139,6 +1140,7 @@
       const w = this.items.find(x => x.id === workerId);
       if (!w) return UI.toast('Nenájdené', 'err');
       if (!Danubra.supplierReady('Rámcová zmluva o dielo')) return;
+      if (this.doplnit(w, 'zmluva', () => this.zmluva(workerId))) return;
 
       const supplier = Danubra.supplier();
       // Platná zmluva sa tlačí znova so svojím číslom a dátumami. Keď žiadna
@@ -1165,6 +1167,120 @@
       if (chyba.length) {
         UI.toast(`Pred podpisom doplň: ${chyba.map(c => c.title).join(', ')}`, 'warn');
       }
+    },
+
+    // ── Údaje do papiera ──────────────────────────────────────────────────
+    // Papier sa plní z karty človeka. Keď v nej niečo chýba, appka sa
+    // nespýta až pri podpise („a IČO?"), ale **pred otvorením papiera** —
+    // len na to, čo chýba, uloží to k nemu a papier otvorí. Nabudúce sa
+    // už nepýta.
+    DOPLNIT: {
+      gdpr: [
+        ['address', 'Trvalé bydlisko', { placeholder: 'ulica a číslo, PSČ, obec' }],
+      ],
+      zmluva: [
+        ['company_id', 'IČO živnostníka', { placeholder: 'napr. 53941870' }],
+        ['address', 'Adresa (miesto podnikania)', { placeholder: 'ulica a číslo, PSČ, obec' }],
+      ],
+      objednavka: [
+        ['company_id', 'IČO živnostníka', { placeholder: 'napr. 53941870' }],
+        ['address', 'Adresa (miesto podnikania)', { placeholder: 'ulica a číslo, PSČ, obec' }],
+      ],
+    },
+    DOC_NAZOV: { gdpr: 'súhlasu GDPR', zmluva: 'zmluvy', objednavka: 'objednávky' },
+
+    chybaUdaje(w, doc) {
+      return (this.DOPLNIT[doc] || []).filter(([k]) => !String(w[k] || '').trim());
+    },
+
+    /**
+     * Keď niečo chýba, otvorí krátky formulár a vráti `true` — volajúci
+     * papier zatiaľ neotvára. Po uložení sa papier otvorí sám (`pokracuj`).
+     */
+    doplnit(w, doc, pokracuj) {
+      const chyba = this.chybaUdaje(w, doc);
+      if (!chyba.length) return false;
+      this._dop = { id: w.id, keys: chyba.map(c => c[0]), pokracuj };
+      UI.modal(`Do ${this.DOC_NAZOV[doc] || 'papiera'} ${chyba.length === 1 ? 'chýba jeden údaj' : `chýbajú ${chyba.length} údaje`}`, `
+        <form id="dop-form" onsubmit="event.preventDefault();Wrk.saveDoplnit()">
+          <div class="regimebox">Všetko ostatné sa vezme z karty — <b>${UI.esc(w.full_name)}</b>.
+            Toto sa uloží k nemu, takže nabudúce sa už nepýtam.</div>
+          ${chyba.map(([k, label, o]) => UI.field(k, label, { required: true, ...o })).join('')}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Uložiť a otvoriť papier</button>
+          </div>
+        </form>`);
+      return true;
+    },
+
+    saveDoplnit() {
+      const d = this._dop;
+      if (!d) return;
+      const f = UI.formData(document.getElementById('dop-form'));
+      const patch = {};
+      for (const k of d.keys) {
+        const v = String(f[k] || '').trim();
+        if (!v) return UI.toast('Vyplň všetky polia', 'err');
+        patch[k] = v;
+      }
+      const w = this.items.find(x => x.id === d.id);
+      Object.assign(w, patch);
+      UI.closeModal();
+      this._dop = null;
+      // Papier sa otvára hneď, v tom istom kliknutí — prehliadač by inak
+      // nové okno po čakaní na databázu zablokoval. Uloženie ide súbežne.
+      d.pokracuj();
+      DB.update('workers', d.id, patch).then(({ error } = {}) => {
+        if (error) UI.toast('Papier je otvorený, ale údaj sa neuložil: ' + error.message, 'err');
+      });
+    },
+
+    /** Jeho nasadenia, ktoré ešte bežia alebo len začnú. */
+    activeAsg(workerId) {
+      return this.assignments.filter(a => a.worker_id === workerId
+        && ['planned', 'active'].includes(a.status));
+    },
+
+    /**
+     * Objednávka živnostníkovi. Keď ešte nie je na zákazke, povie to; keď
+     * objednávku nemá, založí ju predvyplnenú; keď ju má, otvorí ju.
+     */
+    async paperOrder(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      const it = this.stepsOf(w).items.find(i => i.key === 'objednavka');
+      if (it.needs === 'assign') {
+        UI.toast(`${w.full_name} ešte nie je na žiadnej zákazke. Objednávka sa viaže na zákazku — najprv ho nasaď.`, 'warn');
+        return Danubra.routeAvailable('subcontracts') && Danubra.go('subcontracts');
+      }
+      if (it.needs === 'order') return Ord.newFor(it.assignmentId);
+      if (!Danubra.supplierReady('Objednávka')) return;
+      if (this.doplnit(w, 'objednavka', () => this.paperOrder(workerId))) return;
+      // Okno sa otvorí ešte pred načítaním — po čakaní by ho prehliadač zablokoval.
+      const okno = Ord.loaded ? null : window.open('', '_blank');
+      if (!Ord.loaded) await Ord.load();
+      const asg = this.activeAsg(workerId).map(a => a.id);
+      const o = Ord.rows.find(r => r.kind === 'worker' && asg.includes(r.assignment_id)
+        && r.status !== 'cancelled');
+      if (!o) { if (okno) okno.close(); return UI.toast('Objednávka sa nenašla', 'err'); }
+      return Ord.document(o.id, okno);
+    },
+
+    /** Infolist na stavbu pre jeho najbližšie nasadenie. */
+    async paperSiteSheet(workerId) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      const asg = this.activeAsg(workerId)
+        .sort((a, b) => String(a.date_from || '').localeCompare(String(b.date_from || '')))[0];
+      if (!asg) {
+        UI.toast(`${w.full_name} ešte nie je na žiadnej zákazke — infolist nemá kam poslať.`, 'warn');
+        return Danubra.routeAvailable('subcontracts') && Danubra.go('subcontracts');
+      }
+      if (!Danubra.supplierReady('Infolist na stavbu')) return;
+      const okno = Sub.loaded ? null : window.open('', '_blank');
+      if (!Sub.loaded) await Sub.load();
+      return Sub.siteSheet(asg.id, okno);
     },
 
     /**

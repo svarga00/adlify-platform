@@ -47,7 +47,8 @@
           limit: 300 }),
         // Na objednávke musí byť zhotoviteľ identifikovateľný — meno nestačí.
         DB.list('workers', {
-          select: 'id,full_name,company_id,tax_id,address,business_address,phone,email', limit: 500 }),
+          select: 'id,full_name,company_id,tax_id,address,business_address,phone,email,hourly_cost',
+          limit: 500 }),
         // Rámcové zmluvy: objednávka sa na ne musí odvolať, inak to nie je
         // individuálna zmluva o dielo (čl. III. rámcovej zmluvy).
         DB.list('worker_documents', {
@@ -194,7 +195,8 @@
         kind: 'worker', assignment_id: a.id,
         title: sc.title || sc.contract_number || '',
         date_from: a.date_from, date_to: a.date_to,
-        price_model: 'hourly', rate: a.worker_rate,
+        // Sadzba z nasadenia; keď tam nie je, jeho bežná sadzba z karty.
+        price_model: 'hourly', rate: a.worker_rate || this.workerOf(a.worker_id).hourly_cost,
       });
     },
 
@@ -408,10 +410,10 @@
     },
 
     /** Doklad. Odberateľovi po nemecky, živnostníkovi po slovensky. */
-    async document(id) {
+    async document(id, okno) {
       const o = this.rows.find(x => x.id === id);
-      if (!o) return;
-      if (!Danubra.supplierReady('Objednávka')) return;
+      if (!o) { if (okno) okno.close(); return; }
+      if (!Danubra.supplierReady('Objednávka')) { if (okno) okno.close(); return; }
       const supplier = Danubra.supplier();
       const html = DanubraPapers.workOrder({
         order: o, supplier,
@@ -420,7 +422,8 @@
         subcontract: this.subOf(o.subcontract_id),
         ramcova: o.worker_id ? this.ramcovaOf(o.worker_id) : null,
       });
-      const w = window.open('', '_blank');
+      // `okno` je otvorené vopred, keď sa pred papierom ešte načítavalo.
+      const w = okno || window.open('', '_blank');
       if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
       w.document.open(); w.document.write(html); w.document.close();
     },
