@@ -3410,6 +3410,118 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+
+    // ── Papiere na dva kliky ────────────────────────────────────────────────
+    // „Keď mám zvoleného živnostníka, nech mi údaje prehodí do zmluvy,
+    // objednávky, GDPR." Tlačidlo Papiere → papier → človek → hotový papier.
+    // Keď chýba IČO alebo adresa, appka sa spýta, uloží to k nemu a papier
+    // otvorí v tom istom kliknutí (inak by ho prehliadač zablokoval).
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          workers: [
+            { id: 'w1', full_name: 'Cyril Demeter', status: 'ready', legal_form: 'szco',
+              city: 'Brekov' },
+            { id: 'w2', full_name: 'Jozef Malý', status: 'deployed', legal_form: 'szco',
+              company_id: '111', address: 'Žilina 1', hourly_cost: 22 },
+          ],
+          assignments: [{ id: 'a2', worker_id: 'w2', subcontract_id: 'sc1', status: 'planned',
+            date_from: '2026-11-02' }],
+          subcontracts: [{ id: 'sc1', title: 'Kotolňa Wörthsee', status: 'active' }],
+          worker_documents: [], work_orders: [], partners: [], contracts: [],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.',
+            address: 'Nové Zámky', company_id: '57553921', register: 'OR OS Nitra' } }],
+        };
+        const zapisy = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        DB.update = async (t, id, patch) => { zapisy.push({ t, id, patch }); return { error: null }; };
+        DB.signedDocUrls = async () => new Map();
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        const okna = [];
+        window.open = () => {
+          const o = { html: '', document: { open() {}, write(h) { o.html += h; }, close() {} },
+            close() { o.zavrete = true; } };
+          okna.push(o); return o;
+        };
+
+        Danubra._buildNav();
+        const tlacidlo = !!document.querySelector('#btn-papers');
+        Pap.open();
+        const dlazdice = [...document.querySelectorAll('#ui-modal .pap-tile b')]
+          .map(b => b.textContent.trim());
+        await Pap.pick('zmluva');
+        const ludia = [...document.querySelectorAll('#ui-modal .pap-row b')]
+          .map(b => b.textContent.trim());
+        Pap.setQ('cyril');
+        const poHladani = document.querySelectorAll('#ui-modal .pap-row').length;
+
+        // Cyrilovi chýba IČO aj adresa — appka sa spýta.
+        Pap.run('w1');
+        const pyta = [...document.querySelectorAll('#dop-form input')].map(i => i.name);
+        const otvoreneSkor = okna.length;
+        document.querySelector('#dop-form [name=company_id]').value = '53941870';
+        document.querySelector('#dop-form [name=address]').value = 'Brekov 81';
+        Wrk.saveDoplnit();
+        await new Promise(r => setTimeout(r, 50));
+        const zmluva = okna[0] ? okna[0].html : '';
+
+        // Druhýkrát sa už nepýta.
+        UI.closeModal();
+        Wrk.zmluva('w1');
+        const znova = !document.querySelector('#dop-form');
+
+        // Objednávka: Jozef je na zákazke a objednávku nemá → založí sa predvyplnená.
+        await Wrk.paperOrder('w2');
+        const obj = {
+          nazov: (document.querySelector('#ui-modal [name=title]') || {}).value,
+          od: (document.querySelector('#ui-modal [name=date_from]') || {}).value,
+          sadzba: (document.querySelector('#ui-modal [name=rate]') || {}).value,
+          nasadenie: (document.querySelector('#ui-modal [name=assignment_id]') || {}).value,
+        };
+        UI.closeModal();
+        // Cyril na zákazke nie je — objednávku ani infolist mu appka nevymyslí.
+        const pred = okna.length;
+        await Wrk.paperSiteSheet('w1');
+        return { tlacidlo, dlazdice, ludia, poHladani, pyta, otvoreneSkor, zmluva, zapisy,
+          znova, obj, infolistBezZakazky: okna.length === pred, okien: okna.length };
+      });
+
+      ok(out.tlacidlo, 'tlačidlo Papiere je v hornom pruhu');
+      ok(out.dlazdice.length === 6, `ponúkne šesť papierov (${out.dlazdice.join(', ')})`);
+      ok(out.dlazdice[0] === 'Rámcová zmluva s Nemcom' && out.dlazdice[2] === 'Súhlas GDPR',
+        'v poradí siedmich krokov', out.dlazdice.join(', '));
+      ok(out.ludia.includes('Cyril Demeter') && out.ludia.includes('Jozef Malý'),
+        'vyberá sa zo živnostníkov', out.ludia.join(', '));
+      ok(out.poHladani === 1, 'a dá sa hľadať');
+      ok(out.pyta.join(',') === 'company_id,address', 'keď chýba IČO a adresa, spýta sa len na ne',
+        out.pyta.join(','));
+      ok(out.otvoreneSkor === 0, 'a papier dovtedy neotvorí');
+      ok(/Cyril Demeter/.test(out.zmluva) && /53941870/.test(out.zmluva) && /Brekov 81/.test(out.zmluva),
+        'po uložení sa zmluva otvorí s menom, IČO aj adresou');
+      ok(out.zapisy.some(z => z.t === 'workers' && z.id === 'w1' && z.patch.company_id === '53941870'),
+        'a údaje sa uložia k človeku');
+      ok(out.znova, 'nabudúce sa už nepýta');
+      ok(out.obj.nasadenie === 'a2' && out.obj.nazov === 'Kotolňa Wörthsee'
+        && out.obj.od === '2026-11-02' && Number(out.obj.sadzba) === 22,
+        'objednávka sa predvyplní zo zákazky, termínu a jeho sadzby', JSON.stringify(out.obj));
+      ok(out.infolistBezZakazky, 'bez zákazky sa infolist neotvorí naprázdno');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

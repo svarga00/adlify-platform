@@ -1203,9 +1203,9 @@
      * napísané, čo chýba, a appka to povie ešte pred odoslaním. Zistiť to
      * v kancelárii je lacnejšie než v pondelok ráno pred bránou.
      */
-    async siteSheet(asgId) {
+    async siteSheet(asgId, okno) {
       const a = this.assignments.find(x => x.id === asgId);
-      if (!a) return UI.toast('Nasadenie sa nenašlo.', 'err');
+      if (!a) { if (okno) okno.close(); return UI.toast('Nasadenie sa nenašlo.', 'err'); }
       const sc = this.items.find(x => x.id === a.subcontract_id);
       const worker = this.workerOf(a.worker_id);
       const partner = (this.partners || []).find(p => p.id === (sc || {}).partner_id) || null;
@@ -1218,7 +1218,7 @@
         && lod.some(l => l.id === st.lodging_id));
       const lodging = mine ? lod.find(l => l.id === mine.lodging_id) : (lod[0] || null);
 
-      if (!Danubra.supplierReady('Infolist na stavbu')) return;
+      if (!Danubra.supplierReady('Infolist na stavbu')) { if (okno) okno.close(); return; }
       const supplier = Danubra.supplier();
       const state = DanubraSiteSheet.check({
         worker, assignment: a, subcontract: sc || {}, partner, lodging });
@@ -1228,7 +1228,7 @@
         worker, assignment: a, subcontract: sc || {}, partner, lodging, supplier,
         trade: (sc || {}).trade || null, state,
       });
-      const w = window.open('', '_blank');
+      const w = okno || window.open('', '_blank');
       if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
       w.document.open(); w.document.write(html); w.document.close();
     },
