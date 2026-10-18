@@ -693,7 +693,8 @@ console.log('Prehliadač');
           return {
             text: v.innerText.replace(/\s+/g, ' '),
             html: v.innerHTML,
-            menu: [...document.querySelectorAll('#sidebar-nav .nav-item')]
+            // Názov položky, bez čísla kroku pred ním.
+            menu: [...document.querySelectorAll('#sidebar-nav .nav-item .nav-text')]
               .map(x => x.textContent.trim()).filter(Boolean),
             zalozky: [...v.querySelectorAll('.subtabs .subtab')]
               .map(x => x.textContent.trim()),
@@ -707,7 +708,7 @@ console.log('Prehliadač');
               return {
                 nadpis: (w.querySelector('.page-title') || {}).textContent || '',
                 aktivna: ((w.querySelector('.subtabs .subtab.active') || {}).textContent || '').trim(),
-                menu: [...document.querySelectorAll('#sidebar-nav .nav-item.active')]
+                menu: [...document.querySelectorAll('#sidebar-nav .nav-item.active .nav-text')]
                   .map(x => x.textContent.trim()),
               };
             })(),
@@ -731,7 +732,7 @@ console.log('Prehliadač');
       // Päť krokov pod tým: kde v tom reťazci sme.
       ok((out.html.match(/class="flow-step/g) || []).length === 5,
         'pod tým je päť krokov reťazca');
-      ok(out.text.includes('z 5 krokov hotových'), 'a koľko z nich je hotových');
+      ok(out.text.includes('z 5 fáz hotových'), 'a koľko z nich je hotových');
       ok(out.html.includes('is-now'), 'ten, ktorý je na rade, je zvýraznený');
       ok(out.text.includes('Murár × 4'), 'plán ukazuje názov remesla, nie kľúč',
         out.text.slice(0, 300));
@@ -1928,7 +1929,7 @@ console.log('Prehliadač');
             drahy: [...view.querySelectorAll('.fl-lane-head h2')].map(h => h.textContent.trim()),
             headline: view.querySelector('.headline').textContent.replace(/\s+/g, ' ').trim(),
             hore: text('#top-links .top-link'),
-            vlavo: text('#sidebar-nav .nav-item'),
+            vlavo: text('#sidebar-nav .nav-item .nav-text'),
             horeAktivne: text('#top-links .top-link.active'),
           };
         })();
@@ -2051,8 +2052,8 @@ console.log('Prehliadač');
         return { teraz, polia, firma, neplatna, zapisy };
       });
 
-      // Nová možnosť je prvá a horí.
-      ok(/Ozvať sa na novú možnosť/.test(out.teraz.title),
+      // Nový dopyt je prvý a horí.
+      ok(/Ozvať sa na nový dopyt/.test(out.teraz.title),
         'možnosti začínajú tým, že sa treba ozvať', out.teraz.title);
       ok(out.teraz.hot, 'a horí to — odberateľ sa pýta viacerých');
       ok(/kto sa ozve prvý/.test(out.teraz.why),
@@ -2948,7 +2949,7 @@ console.log('Prehliadač');
         out.tlacidlo);
       ok(out.kotvy.length === 2, 'sekcie, na ktoré veta posiela, existujú',
         out.kotvy.join(','));
-      ok(/z 5 krokov hotových|krokov hotových/.test(out.teraz),
+      ok(/z 5 fáz hotových|fáz hotových/.test(out.teraz),
         'a koľko z piatich krokov je hotových', out.teraz.slice(-80));
 
       // V zozname musí byť vidieť, v ktorom kroku zákazka stojí. Tu je to
@@ -3051,7 +3052,8 @@ console.log('Prehliadač');
 
       // Jedna veta hore. Toto je celé zjednodušenie: nikto si nevyberá z piatich
       // krokov, appka povie jeden.
-      ok(/Čo spraviť teraz · krok 1 z 5/.test(out.novy.teraz),
+      // „Krok" je v appke len jeden zo siedmich; vnútri náboru sú to fázy.
+      ok(/Čo spraviť teraz · fáza 1 z 5/.test(out.novy.teraz),
         'hore je jedna veta — čo spraviť teraz a koľkatý je to krok', out.novy.teraz);
       ok(/Zavolať/.test(out.novy.teraz), 'a je to ten správny krok', out.novy.teraz);
       ok(out.novy.hot, 'nezavolaný človek horí');

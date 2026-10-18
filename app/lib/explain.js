@@ -356,8 +356,10 @@
       lead: 'Celý reťazec od telefonátu po peniaze na účte, v poradí, v akom sa '
         + 'to robí — a pri každom kroku, koľko tam práve čaká na teba.',
       what: [
-        'Štrnásť krokov v štyroch dráhach. Ľudia a zákazky idú vedľa seba a nič '
-        + 'o sebe nevedia, kým sa nestretnú v nasadení. Odtiaľ je to už jedna cesta.',
+        'Sedem krokov tak, ako ide práca: dopyt, nábor, zmluva s Nemcom, súhlas GDPR, '
+        + 'zmluva so živnostníkom, objednávka a papiere, hodiny a faktúry.',
+        'Rovnakých sedem čísel je v ľavom menu aj nad nadpisom každej obrazovky — '
+        + 'slovo „krok" v appke znamená vždy jeden z nich.',
         'Pri každom kroku sú dve čísla. Vľavo „koľko toho tu je" — informácia. '
         + 'Vpravo „koľko čaká na teba" — práca.',
         'Krok sa dá otvoriť a ide sa rovno na obrazovku, kde sa to rieši.',
@@ -389,25 +391,25 @@
     // ── Karty v ostatných moduloch ──────────────────────────────────────────
     // ── Možnosti ─────────────────────────────────────────────────────────
     'screen.opportunities': {
-      title: 'Možnosti',
+      title: 'Dopyty',
       lead: 'Potenciálne zákazky — to, čo príde telefonátom, než z toho je ponuka.',
       what: [
         'Príde telefonát: „máme stavbu pri Mníchove, potrebujeme štyroch zváračov." '
         + 'Toto je miesto, kam sa to zapíše — aj keď o tom vieme málo.',
-        'Z možnosti vznikne **nábor** (zadanie sa prenesie a analýza z neho spraví '
+        'Z dopytu vznikne **nábor** (zadanie sa prenesie a analýza z neho spraví '
         + 'podklady, otázky do hovoru aj polia náboru) alebo **zákazka**, keď sa dohodne.',
       ],
       how: [
         'Formulár má štyri polia zámerne: názov, firmu, telefón a to, čo potrebujú. '
-        + 'Zvyšok dopĺňa ten, kto to bude riešiť — vysoký prah znamená, že sa možnosť '
+        + 'Zvyšok dopĺňa ten, kto to bude riešiť — vysoký prah znamená, že sa dopyt '
         + 'nezapíše vôbec.',
       ],
       why: [
-        'Možnosť, ktorá nie je zapísaná, neexistuje. Keď z nej nič nebude, zostane '
+        'Dopyt, ktorý nie je zapísaný, neexistuje. Keď z nej nič nebude, zostane '
         + 'so stavom „stratená" a s dôvodom — o pol roka sa tá istá firma ozve znova '
         + 'a vtedy je dobré vedieť, čo bolo naposledy.',
       ],
-      links: [['opportunities', 'Možnosti'], ['hiring', 'Nábor']],
+      links: [['opportunities', 'Dopyty'], ['hiring', 'Nábor']],
     },
     // ── „Čo spraviť teraz" na ostatných obrazovkách ────────────────────────
     // Každá obrazovka v menu začína jednou vetou a nič iné na nej nekričí.
@@ -566,7 +568,7 @@
         + 'minútach veta zčervená.',
       ],
       why: [
-        'Pod vetou je priebeh piatich krokov. Je to to isté, čo ukazuje „Ako to ide" '
+        'Pod vetou je priebeh piatich fáz náboru. Je to to isté, čo ukazuje „Ako to ide" '
         + 'v hornom pruhu — len pre nábor.',
       ],
       links: [['hiring', 'Nábor'], ['candidates', 'Kandidáti']],
@@ -590,10 +592,10 @@
       links: [['hiring', 'Nábor'], ['ads', 'Inzeráty']],
     },
     'card.opp.now': {
-      title: 'Čo spraviť teraz s možnosťami',
+      title: 'Čo spraviť teraz s dopytmi',
       lead: 'Najprv odpovedať na novú, potom preveriť firmu, potom doplniť údaje.',
       what: [
-        'Nová možnosť je prvá a horí: odberateľ, ktorý hľadá ľudí, sa pýta viacerých. '
+        'Nový dopyt je prvý a horí: odberateľ, ktorý hľadá ľudí, sa pýta viacerých. '
         + 'Rozhoduje, kto sa ozve prvý — nie kto má lepšiu cenu.',
         'Potom firma: robiť ponuku firme, ktorú register nepozná, je strata času.',
       ],
@@ -605,7 +607,7 @@
         'Ponuka, pri ktorej je ticho, je posledná v poradí — ticho neznamená nie, '
         + 'znamená, že to má na stole niekto, kto má ďalších desať vecí.',
       ],
-      links: [['opportunities', 'Možnosti'], ['quotes', 'Ponuky']],
+      links: [['opportunities', 'Dopyty'], ['quotes', 'Ponuky']],
     },
     'card.opp.verify': {
       title: 'Overenie firmy v registri',
@@ -624,7 +626,7 @@
         'Staré overenie nie je overenie: firmy sa premenúvajú, rušia a mení sa im '
         + 'registrácia. Preto je pri výsledku dátum, kedy sa appka pýtala.',
       ],
-      links: [['opportunities', 'Možnosti'], ['partners', 'Odberatelia v Nemecku']],
+      links: [['opportunities', 'Dopyty'], ['partners', 'Odberatelia v Nemecku']],
     },
 
     // ── Podklady k náboru ────────────────────────────────────────────────
@@ -1266,7 +1268,7 @@
         'Dopyt, ktorý nie je zapísaný, neexistuje. O pol roka sa tá istá firma '
         + 'ozve znova a vtedy je dobré vedieť, čo bolo naposledy.',
       ],
-      links: [['opportunities', 'Možnosti'], ['quotes', 'Ponuky']],
+      links: [['opportunities', 'Dopyty'], ['quotes', 'Ponuky']],
     },
     'flow.nabor': {
       title: '2 · Inzeráty a záujemcovia',
@@ -2345,7 +2347,7 @@
       title: 'Zaškolenie',
       lead: 'Posaď sem hocikoho a za hodinu vie viesť hovor sám.',
       what: [
-        'Päť krokov: čo vlastne robíme, jedno remeslo poriadne, skúšanie z neho, '
+        'Päť častí: čo vlastne robíme, jedno remeslo poriadne, skúšanie z neho, '
         + 'ako vyzerá hovor, a cvičný hovor nanečisto.',
         'Postup sa drží v tomto prehliadači. Je to osobná vec jedného človeka, '
         + 'nie firemný záznam o tom, kto čo vie.',

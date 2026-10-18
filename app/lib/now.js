@@ -99,7 +99,7 @@
     const list = (partners || []).filter(Boolean);
     if (!list.length) {
       return ok('Žiadni odberatelia',
-        'Keď sa z možnosti stane zákazka, odberateľ sa zapíše sem.',
+        'Keď sa z dopytu stane zákazka, odberateľ sa zapíše sem.',
         'Fakturuje sa odberateľovi, nie stavbe — preto má vlastnú kartu.');
     }
 

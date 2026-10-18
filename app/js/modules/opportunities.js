@@ -43,9 +43,9 @@
     async view(el) {
       Danubra.setActions(`
         <button class="btn btn-outline btn-sm" onclick="Opp.inquiryForm()">
-          ${Icon('mail')} Vložiť dopyt</button>
+          ${Icon('mail')} Vložiť e-mail</button>
         <button class="btn btn-primary btn-sm" onclick="Opp.form()">
-          ${Icon('plus')} Pridať možnosť</button>`);
+          ${Icon('plus')} Zapísať dopyt</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.profile(el, this.openId);
 
@@ -53,7 +53,7 @@
       const s = O.summary(this.items);
       const rows = this.rows();
 
-      el.innerHTML = Danubra.header('Možnosti',
+      el.innerHTML = Danubra.header('Dopyty',
         `${s.live} ${Shell.plural(s.live, 'rozpracovaná', 'rozpracované', 'rozpracovaných')}`
         + (s.rate != null ? ` · úspešnosť ${UI.pct(s.rate)}` : ''))
         + this.nowHtml(q) + `
@@ -69,10 +69,10 @@
         ${rows.length === 0
           ? (this.items.length
               ? UI.empty('search', 'Filtru nič nesedí', 'Skús iný stav.')
-              : UI.empty('offers', 'Zatiaľ žiadne možnosti',
+              : UI.empty('offers', 'Zatiaľ žiadne dopyty',
                   'Keď sa niekto ozve, zapíš to sem — aj keď o tom vieš málo. '
-                  + 'Možnosť, ktorá nie je zapísaná, neexistuje.',
-                  `<button class="btn btn-primary" onclick="Opp.form()">${Icon('plus')} Pridať možnosť</button>`))
+                  + 'Dopyt, ktorý nie je zapísaný, neexistuje.',
+                  `<button class="btn btn-primary" onclick="Opp.form()">${Icon('plus')} Zapísať dopyt</button>`))
           : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
     },
 
@@ -87,9 +87,9 @@
 
     nowHtml(n) {
       const kam = n.opp ? `Opp.detail('${n.opp.id}')` : 'Opp.form()';
-      const label = { new: 'Otvoriť možnosť', verify: 'Otvoriť a preveriť',
+      const label = { new: 'Otvoriť dopyt', verify: 'Otvoriť a preveriť',
         fill: 'Otvoriť a doplniť', followup: 'Otvoriť ponuku',
-        ok: 'Pridať možnosť' }[n.key] || 'Otvoriť';
+        ok: 'Zapísať dopyt' }[n.key] || 'Otvoriť';
       return Shell.now(n, {
         help: 'card.opp.now',
         action: { label, onclick: kam, ico: n.key === 'new' ? 'phone' : 'chevron' },
@@ -131,16 +131,16 @@
      * že sa možnosť nezapíše vôbec, a to je najhoršie, čo sa môže stať.
      */
     form() {
-      UI.modal('Nová možnosť', `
+      UI.modal('Nový dopyt', `
         <form id="opp-form" onsubmit="event.preventDefault();Opp.save()">
           <div class="regimebox">Stačí to, čo vieš z telefonátu. Ostatné sa dopĺňa potom —
-            možnosť, ktorá nie je zapísaná, neexistuje.</div>
+            dopyt, ktorý nie je zapísaný, neexistuje.</div>
           ${UI.field('title', 'O čo ide', { required: true,
             placeholder: 'napr. Kotolňa Wörthsee — zvárači',
             hint: 'Krátko, aby sa to dalo nájsť v zozname.' })}
           ${UI.field('company_name', 'Firma', { placeholder: 'kto sa ozval' })}
           ${UI.field('contact_phone', 'Telefón', {
-            hint: 'E-mail môže ležať tri dni. Telefón je to, čím sa možnosť pohne.' })}
+            hint: 'E-mail môže ležať tri dni. Telefón je to, čím sa dopyt pohne.' })}
           ${UI.field('brief', 'Čo potrebujú', { type: 'textarea', rows: 4,
             placeholder: 'Čo sa stavia, koľko ľudí, aké remeslo, odkedy, za koľko — '
               + 'aj neučesane, pokojne skopírovaný e-mail.' })}
@@ -317,7 +317,7 @@
       if (Array.isArray(data)) this.items.unshift(...data);
       this._inq = null;
       UI.closeModal();
-      UI.toast(`Založené: ${rows.length} ${Shell.plural(rows.length, 'možnosť', 'možnosti', 'možností')}`, 'ok');
+      UI.toast(`Založené: ${rows.length} ${Shell.plural(rows.length, 'dopyt', 'dopyty', 'dopytov')}`, 'ok');
       Danubra.renderRoute();
     },
 

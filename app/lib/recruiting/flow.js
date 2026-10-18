@@ -34,7 +34,7 @@
     { key: 'docs', n: 4, title: 'Doklady',
       lead: 'Bez nich sa nasadiť nedá.' },
     { key: 'site', n: 5, title: 'Na stavbu',
-      lead: 'Posledný krok — a to je celé.' },
+      lead: 'Posledná fáza — a to je celé.' },
   ];
 
   const min = (iso, now) => (iso

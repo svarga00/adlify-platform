@@ -172,7 +172,7 @@
         return {
           ...n,
           title: n.what || n.title,
-          what: `${n.title} · krok ${n.n} z 5 — ${x.title || x.contract_number || 'zákazka'}`,
+          what: `${n.title} · fáza ${n.n} z 5 — ${x.title || x.contract_number || 'zákazka'}`,
           id: x.id,
         };
       }).filter(Boolean);
@@ -181,7 +181,7 @@
         title: active && active.length ? 'Zákazky bežia' : 'Žiadna zákazka nebeží',
         what: active && active.length
           ? `${active.length} ${Shell.plural(active.length, 'zákazka nemá', 'zákazky nemajú', 'zákaziek nemá')} nič otvorené.`
-          : 'Zákazka vzniká z možnosti alebo z ponuky.',
+          : 'Zákazka vzniká z dopytu alebo z ponuky.',
         why: 'Hodiny a faktúry sa riešia na konkrétnej zákazke — reťazec piatich '
           + 'krokov je v jej detaile.',
         hot: false,
@@ -487,7 +487,7 @@
       // Uzavretá či čakajúca zákazka nemá krok, ku ktorému by bola vysvetlivka.
       const bezKroku = ['closed', 'done', 'wait'].includes(n.key);
       return Shell.now(n, {
-        label: `Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}`,
+        label: `Čo spraviť teraz${n.n ? ` · fáza ${n.n} z 5` : ''}`,
         help: bezKroku ? '' : `sub.step.${n.key}`,
         action: ACTION[n.key],
         extra: `
@@ -496,7 +496,7 @@
               s.key === n.key ? ' is-now' : ''}" title="${UI.esc(`${s.title} — ${s.detail}`)}">
               <b>${s.n}</b><span>${UI.esc(s.title)}</span></span>`).join('')}
           </div>
-          <div class="nowbox-why">${pr.done} z ${pr.total} krokov hotových.</div>`,
+          <div class="nowbox-why">${pr.done} z ${pr.total} fáz hotových.</div>`,
       });
     },
 

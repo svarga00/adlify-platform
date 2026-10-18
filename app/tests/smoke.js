@@ -382,10 +382,17 @@ if (D) {
   D.me = { role: 'admin', active: true };
   D.members = [{ role: 'admin', active: true }];
 
-  const ludia = D.sidebarNav().filter(n => D.groupOf(n[0]) === 'ĽUDIA').map(n => n[0]);
+  // Menu je zoradené podľa siedmich krokov, takže skupina „Ľudia" už nie je.
+  // Pravidlo ostáva: pre ľudí sú v menu tri položky, nie sedem.
+  const vlavo = D.sidebarNav().map(n => n[0]);
+  const ludia = ['hiring', 'workers', 'trades', 'candidates', 'ads', 'recruiting', 'crews']
+    .filter(k => vlavo.includes(k));
   t(`v menu sú tri položky pre ľudí — ${ludia.join(', ')}`,
     ludia.length === 3 && ludia.includes('hiring') && ludia.includes('workers')
       && ludia.includes('trades'));
+  t('a menu ide v poradí siedmich krokov',
+    ['opportunities', 'hiring', 'partners', 'workers', 'subcontracts', 'timesheets']
+      .map(k => vlavo.indexOf(k)).every((x, i, a) => x >= 0 && (i === 0 || x > a[i - 1])));
 
   const deti = ['candidates', 'ads', 'recruiting', 'crews'];
   t('kandidáti, inzeráty, zápisy ani partie nie sú v menu',
@@ -447,8 +454,10 @@ if (D) {
     prec.every(k => !D.visibleNav().some(n => n[0] === k)));
   t('a nedá sa na ňu dostať ani odkazom',
     prec.every(k => !D.routeAvailable(k)));
+  // „Dopyty" sa dnes volajú dopyty na zákazku (krok 1) — ubytovacie dopyty
+  // sa preto hľadajú podľa obrazovky, nie podľa slova.
   t('mega menu ju neukazuje',
-    !D.megaHtml().includes('Dopyty') && !D.megaHtml().includes('Aktívne pobyty'));
+    !D.megaHtml().includes("goFromMega('inquiries')") && !D.megaHtml().includes('Aktívne pobyty'));
   t('ani príznak v nastaveniach ju nevráti — už neexistuje',
     (() => { D.modules = { ...D.modules, accommodation: true };
       const vrat = prec.some(k => D.routeAvailable(k)) || D.visibleAreas().length > 1;

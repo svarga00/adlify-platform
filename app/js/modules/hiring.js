@@ -98,7 +98,7 @@
       const p = DanubraFlow.progress(kroky);
       const teraz = DanubraFlow.next(kroky);
 
-      el.innerHTML = Danubra.header('Nábor', 'Päť krokov od potreby po človeka na stavbe')
+      el.innerHTML = Danubra.header('Nábor', 'Päť fáz od potreby po človeka na stavbe')
         // „Čo teraz" vyzeralo na nábore inak než na všetkých ostatných
         // obrazovkách — bol to vlastný pruh s vlastným tlačidlom. Je to tá
         // istá veta, takže sa kreslí tým istým komponentom; pod ňou zostal
@@ -107,7 +107,7 @@
           title: h.title, what: h.sub, hot: h.hot,
           why: teraz && teraz.lead ? teraz.lead : '',
         }, {
-          label: `Čo spraviť teraz${teraz && teraz.n ? ` · krok ${teraz.n} z 5` : ''}`,
+          label: `Čo spraviť teraz${teraz && teraz.n ? ` · fáza ${teraz.n} z 5` : ''}`,
           help: 'card.hire.now',
           action: teraz && teraz.action
             ? { label: teraz.action.label, onclick: teraz.action.onclick,
@@ -115,7 +115,7 @@
             : null,
           extra: `
             <div class="flow-bar"><i style="width:${p.pct}%"></i></div>
-            <div class="flow-bar-txt">${p.done} z ${p.total} krokov hotových</div>`,
+            <div class="flow-bar-txt">${p.done} z ${p.total} fáz hotových</div>`,
         })
 
         // Zaškolenie je ponuka, nie úloha. Stálo nad vetou „čo teraz" a bolo
