@@ -41,15 +41,19 @@
       // Partie a nasadenia sa načítavajú spolu s ľuďmi zámerne: bez nich je
       // kartotéka len zoznam mien a človek musí inde zisťovať, kde ten človek
       // vlastne je a s kým chodí.
-      const [w, d, o, c, a, s] = await Promise.all([
+      const [w, d, o, c, a, s, wo] = await Promise.all([
         DB.list('workers', { order: { column: 'created_at', ascending: false }, limit: 500 }),
         DB.list('worker_documents', { limit: 2000 }),
         DB.list('overrides', { filters: { entity_type: 'worker' }, limit: 1000 }),
         DB.list('crews', { select: 'id,name,status', limit: 200 }),
         DB.list('assignments', { select: 'id,worker_id,subcontract_id,crew_id,status,date_from,date_to', limit: 1000 }),
         DB.list('subcontracts', { select: 'id,title,contract_number,partner_id,status,site_city', limit: 300 }),
+        // Objednávky živnostníkom — kvôli tretej veci na karte človeka
+        // („má stavbu aj objednávku?"). Len to, čo treba na odpoveď.
+        DB.list('work_orders', { select: 'id,kind,worker_id,assignment_id,status', limit: 2000 }),
         Enums.load(),
       ]);
+      this.orders = (wo && wo.data) || [];
       this.items = w.data || []; this.docs = d.data || [];
       this.overrides = o.data || [];
       this.crews = c.data || []; this.assignments = a.data || []; this.subs = s.data || [];
@@ -193,6 +197,14 @@
           if (f.doc === 'problem' && !['missing', 'expired'].includes(st)) return false;
           if (f.doc === 'expiring' && st !== 'expiring') return false;
           if (f.doc === 'ok' && st !== 'valid') return false;
+          // Kroky 4–6 reťazca. Na tieto filtre vedú tlačidlá z Prehľadu,
+          // preto rátajú presne tak ako on: ľudia, s ktorými už nerobíme,
+          // sa nepočítajú.
+          const kus = { nogdpr: 0, nocontract: 1, noorder: 2 }[f.doc];
+          if (kus !== undefined) {
+            if (['inactive', 'blacklist'].includes(w.status)) return false;
+            if (this.stepsOf(w).items[kus].done) return false;
+          }
         }
         return true;
       });
@@ -282,7 +294,10 @@
               options: [['', 'Všetky profesie'], ...PROFESSIONS] },
             { value: this.filters.doc, label: 'Doklady',
               onchange: 'Wrk.setF("doc", this.value)',
-              options: [['', 'Doklady — všetko'], ['problem', 'Chýba alebo prepadol A1'],
+              options: [['', 'Doklady — všetko'],
+                ['nogdpr', 'Chýba súhlas GDPR'], ['nocontract', 'Chýba zmluva o dielo'],
+                ['noorder', 'Chýba stavba alebo objednávka'],
+                ['problem', 'Chýba alebo prepadol A1'],
                 ['expiring', 'A1 čoskoro skončí'], ['ok', 'A1 platí']] },
           ],
           exportCsv: 'Wrk.exportCsv()',
@@ -326,6 +341,7 @@
             ${this.statusBadge(w.status)}
           </div>
           ${links ? `<div class="link-row" style="margin-bottom:9px;">${links}</div>` : ''}
+          ${this.stepChips(w)}
           <div class="acc-meta">
             ${w.phone ? `<span>${Icon('phone', 14)} ${UI.esc(w.phone)}</span>` : ''}
             ${rate ? `<span>${Icon('euro', 14)} ${UI.money(rate)} / h</span>` : ''}
@@ -338,6 +354,108 @@
     },
 
     setF(k, v) { this.filters[k] = v; Danubra.renderRoute(); },
+
+    // ── Čo ešte treba, aby mohol ísť na stavbu ────────────────────────────
+    // Kroky 4–6 reťazca pre jedného človeka: súhlas, zmluva, objednávka.
+    // Počíta to `DanubraChain.personSteps`; tu sa to len kreslí — na karte
+    // v zozname ako tri značky, na profile ako zoznam s tlačidlami.
+
+    stepsOf(w) {
+      return DanubraChain.personSteps({ worker: w, docs: this.docs,
+        assignments: this.assignments, orders: this.orders || [] });
+    },
+
+    /** Tri značky na karte v zozname. Hneď vidno, komu čo chýba. */
+    stepChips(w) {
+      if (['inactive', 'blacklist'].includes(w.status)) return '';
+      const KRATKO = { gdpr: 'GDPR', zmluva: 'Zmluva', objednavka: 'Objednávka' };
+      return `<div class="w-steps">${this.stepsOf(w).items.map(i => `
+        <span class="w-step ${i.done ? (i.warn ? 'is-warn' : 'is-done') : 'is-todo'}"
+          title="${UI.esc(`${i.title}: ${i.text}`)}">
+          ${Icon(i.done ? (i.warn ? 'clock' : 'check') : 'x', 12)} ${KRATKO[i.key]}</span>`).join('')}
+      </div>`;
+    },
+
+    /** Tlačidlá pri jednej veci — vždy to, čo sa s ňou dá spraviť teraz. */
+    stepActs(w, i) {
+      const b = (cls, onclick, ico, label) =>
+        `<button class="btn ${cls} btn-sm" onclick="${onclick}">${Icon(ico, 14)} ${label}</button>`;
+      if (i.key === 'gdpr') {
+        return i.done ? b('btn-ghost', `Wrk.gdpr('${w.id}')`, 'print', 'Vytlačiť znova')
+          : b('btn-outline', `Wrk.gdpr('${w.id}')`, 'print', 'Vytlačiť súhlas')
+            + b('btn-primary', `Wrk.gdprForm('${w.id}')`, 'check', 'Zapísať podpísaný');
+      }
+      if (i.key === 'zmluva') {
+        return (i.done && !i.warn) ? b('btn-ghost', `Wrk.zmluva('${w.id}')`, 'print', 'Vytlačiť znova')
+          : b('btn-outline', `Wrk.zmluva('${w.id}')`, 'print', 'Vytlačiť zmluvu')
+            + b('btn-primary', `Wrk.zmluvaForm('${w.id}')`, 'check', 'Zapísať podpísanú');
+      }
+      if (i.needs === 'assign') {
+        return Danubra.routeAvailable('subcontracts')
+          ? b('btn-primary', "UI.closeModal();Danubra.go('subcontracts')", 'site', 'Vybrať stavbu') : '';
+      }
+      if (i.needs === 'order') {
+        return b('btn-primary', `Ord.newFor('${i.assignmentId}')`, 'orders', 'Vystaviť objednávku');
+      }
+      return '';
+    },
+
+    /** Zoznam troch vecí s tlačidlami. Rovnaký na profile aj v okne „Ďalej". */
+    stepsHtml(w) {
+      const st = this.stepsOf(w);
+      return `<ol class="ps-list">${st.items.map(i => {
+        const cls = i.done ? (i.warn ? 'ps-warn' : 'ps-done')
+          : (st.next && st.next.key === i.key ? 'ps-next' : 'ps-todo');
+        return `<li class="ps-item ${cls}">
+          <span class="ps-n">${i.done && !i.warn ? Icon('check', 18) : i.n}</span>
+          <div class="ps-main">
+            <div class="ps-title">${UI.esc(i.title)}${
+              cls === 'ps-next' ? '<span class="ps-now">teraz toto</span>' : ''}</div>
+            <div class="ps-text">${UI.esc(i.text)}</div>
+            <div class="ps-acts">${cls === 'ps-next' ? this.stepActs(w, i)
+              // Plné tlačidlo má len vec, ktorá je na rade — inak by kričali všetky.
+              : this.stepActs(w, i).replace(/btn-primary/g, 'btn-outline')}</div>
+          </div>
+        </li>`;
+      }).join('')}</ol>`;
+    },
+
+    stepsCard(w) {
+      if (w.legal_form && w.legal_form !== 'szco') return '';
+      const st = this.stepsOf(w);
+      return `<div class="card card-pad ps">
+        <div class="card-head">
+          <div class="card-title">${Icon('briefcase', 15)} Čo treba, aby mohol ísť na stavbu${
+            Help.btn('card.worker.steps', { size: 13 })}</div>
+          ${st.done ? UI.badge('všetko hotové', 'green')
+            : UI.badge(`${st.left === 1 ? 'chýba 1 vec' : `chýbajú ${st.left} veci`}`, 'amber')}
+        </div>
+        ${this.stepsHtml(w)}
+      </div>`;
+    },
+
+    /**
+     * Okno „Čo ďalej". Otvorí sa samo po tom, čo sa z kandidáta stal
+     * živnostník, a po každom zapísanom papieri — aby nikto nemusel vedieť,
+     * že po súhlase ide zmluva a po zmluve objednávka.
+     */
+    nextSteps(workerId, intro) {
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return;
+      const st = this.stepsOf(w);
+      if (st.done) return UI.toast(`${intro ? intro + ' ' : ''}${w.full_name} môže ísť na stavbu.`, 'ok');
+      UI.modal(`Čo ďalej — ${w.full_name}`, `
+        ${intro ? `<div class="headline headline-ok" style="margin-bottom:12px;">
+          ${Icon('check', 18)}<span>${UI.esc(intro)}</span></div>` : ''}
+        <p class="ps-lead">Aby mohol ísť na stavbu, treba ešte ${
+          st.left === 1 ? 'jednu vec' : `${st.left} veci`}. Idú v tomto poradí:</p>
+        ${this.stepsHtml(w)}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
+          <button class="btn btn-outline" onclick="UI.closeModal();Wrk.detail('${w.id}')">
+            ${Icon('user', 14)} Otvoriť kartu</button>
+        </div>`);
+    },
 
     // ── Profil ────────────────────────────────────────────────────────────
     // `detail()` zostáva ako vstupný bod, lebo naň odkazuje celá appka
@@ -467,6 +585,8 @@
           </div>
         </div>
         ${CommPanel.render({ contact: { phone: w.phone, email: w.email, whatsapp: w.whatsapp, name: w.full_name }, entity: { type: 'worker', id: w.id } })}
+
+        ${this.stepsCard(w)}
 
         <div class="profile-cols">
           ${this.accountCard(w, acct)}
@@ -1021,13 +1141,19 @@
       if (!Danubra.supplierReady('Rámcová zmluva o dielo')) return;
 
       const supplier = Danubra.supplier();
-      // Číslo si nesie podpísaný doklad; kým nie je, zmluva sa tlačí bez neho.
-      const doklad = this.docsOf(workerId).find(d => d.kind === 'contract');
+      // Platná zmluva sa tlačí znova so svojím číslom a dátumami. Keď žiadna
+      // nie je — alebo sa končí a ide nová — dostane ďalšie voľné číslo
+      // a to isté sa potom ponúkne pri zápise podpísanej.
+      const zItem = this.stepsOf(w).items.find(i => i.key === 'zmluva');
+      const doklad = (zItem.done && !zItem.warn)
+        ? this.docsOf(workerId).filter(d => d.kind === 'contract')
+          .sort((a, b) => String(b.valid_from || '').localeCompare(String(a.valid_from || '')))[0]
+        : null;
       const zmluva = DanubraSubcontract.build({
         worker: w, supplier, rules: Danubra.cfg('subcontract'),
         signedAt: (doklad && doklad.valid_from) || undefined,
         validTo: (doklad && doklad.valid_to) || undefined,
-        number: (doklad && doklad.reference) || '',
+        number: (doklad && doklad.reference) || this.cisloNavrh(workerId),
       });
       const chyba = DanubraSubcontract.missing({ worker: w, supplier });
 
@@ -1041,6 +1167,22 @@
       }
     },
 
+    /**
+     * Navrhnuté číslo zmluvy pre človeka. Drží sa, kým sa zmluva nezapíše —
+     * vytlačená a zapísaná zmluva tak majú to isté číslo, a dvom ľuďom
+     * v jednom sedení sa nenavrhne to isté.
+     */
+    _cislaNavrh: {},
+    cisloNavrh(workerId) {
+      if (this._cislaNavrh[workerId]) return this._cislaNavrh[workerId];
+      const refs = [
+        ...this.docs.filter(d => d.kind === 'contract').map(d => d.reference),
+        ...Object.values(this._cislaNavrh),
+      ];
+      this._cislaNavrh[workerId] = DanubraSubcontract.nextNumber(refs);
+      return this._cislaNavrh[workerId];
+    },
+
     /** Zapíše podpísanú zmluvu ako doklad — rovnako ako A1 alebo súhlas. */
     zmluvaForm(workerId) {
       const dnes = new Date().toISOString().slice(0, 10);
@@ -1050,7 +1192,8 @@
           <div class="regimebox">Zmluva sa spravidla uzatvára do konca kalendárneho
             roka. Appka upozorní skôr, než sa skončí — nie potom.</div>
           <div class="form-grid">
-            ${UI.field('reference', 'Číslo zmluvy', { placeholder: 'napr. 2026-093' })}
+            ${UI.field('reference', 'Číslo zmluvy', { value: this.cisloNavrh(workerId),
+              hint: 'Ďalšie voľné číslo — rovnaké ako na vytlačenej zmluve. Dá sa prepísať.' })}
             ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
             ${UI.field('valid_to', 'Platí do', { type: 'date', value: koniec })}
           </div>
@@ -1072,8 +1215,11 @@
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal();
-      UI.toast('Zmluva zapísaná', 'ok');
-      await this.load(); this.detail(workerId);
+      delete this._cislaNavrh[workerId];
+      await this.load(); await this.detail(workerId);
+      // Zmluva podpísaná → ďalšia vec je stavba a objednávka. Appka ju podá
+      // sama, nikto nemusí vedieť, kam ísť.
+      this.nextSteps(workerId, 'Zmluva je zapísaná.');
     },
 
     /** Zapíše podpísaný súhlas ako doklad. Dátum je deň podpisu, nie dnešok. */
@@ -1103,8 +1249,8 @@
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal();
-      UI.toast('Súhlas zapísaný', 'ok');
-      await this.load(); this.detail(workerId);
+      await this.load(); await this.detail(workerId);
+      this.nextSteps(workerId, 'Súhlas je zapísaný.');
     },
 
     addDoc(workerId) {

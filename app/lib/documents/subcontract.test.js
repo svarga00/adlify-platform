@@ -142,5 +142,16 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
   eq(S.eur(2500), '2 500 €'.replace(/ /, ' '), 'suma je po slovensky');
 }
 
+// ── Číslo zmluvy ────────────────────────────────────────────────────────────
+// Navrhuje sa z už zapísaných zmlúv, nie z počítadla faktúr.
+{
+  eq(S.nextNumber([], 2026), '2026-001', 'prvá zmluva v roku');
+  eq(S.nextNumber(['2026-093', '2026-012'], 2026), '2026-094', 'ďalšia po najvyššej');
+  eq(S.nextNumber(['2025-140', '2026-002'], 2026), '2026-003', 'minulý rok sa nepočíta');
+  eq(S.nextNumber(['2026/7', ' 2026-008 '], 2026), '2026-009', 'lomka aj medzery sa znesú');
+  eq(S.nextNumber(['ZoD-12', null, '', 'abc'], 2026), '2026-001', 'cudzie tvary sa ignorujú');
+  eq(S.nextNumber(['2026-999'], 2026), '2026-1000', 'za 999 to nespadne');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);

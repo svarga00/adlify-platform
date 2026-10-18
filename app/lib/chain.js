@@ -58,6 +58,8 @@
     {
       n: 1, key: 'dopyt', ico: 'offers', route: 'opportunities',
       title: 'Dopyt na zákazku',
+      hint: 'Zapíš, kto potrebuje ľudí — koľko, kam, od kedy a za koľko.',
+      cta: ['Odpovedať na dopyty', 'Vložiť dopyt'],
       lead: 'Niekto sa ozve, že potrebuje ľudí. Zapíše to ten, kto to prijal — '
         + 'aj keď o tom vie málo.',
       next: 'Keď to dáva zmysel, ide von ponuka.',
@@ -89,6 +91,8 @@
     {
       n: 2, key: 'nabor', ico: 'marketing', route: 'hiring',
       title: 'Inzeráty a záujemcovia',
+      hint: 'Spusti inzeráty a každému, kto sa ozve, zavolaj späť do desiatich minút.',
+      cta: ['Ozvať sa ľuďom', 'Otvoriť nábor'],
       lead: 'Zo zadania vzniknú texty na web, Bazoš a Facebook. Kto sa ozve, '
         + 'tomu sa treba ozvať späť do desiatich minút.',
       next: 'Zo záujemcu, ktorý prejde, bude živnostník.',
@@ -123,6 +127,8 @@
     {
       n: 3, key: 'nemec', ico: 'note', route: 'contracts',
       title: 'Objednávka a zmluva s Nemcom',
+      hint: 'Rámcová zmluva a objednávka s nemeckou firmou — po slovensky aj po nemecky.',
+      cta: ['Doriešiť zmluvy', 'Zmluvy s odberateľmi'],
       lead: 'Dvojjazyčne: on podpisuje po nemecky, my čítame po slovensky. '
         + 'Je to dielo, nie hodiny — inak hrozí Arbeitnehmerüberlassung.',
       next: 'Z dohodnutej zmluvy vznikne konkrétna stavba.',
@@ -153,6 +159,8 @@
     {
       n: 4, key: 'gdpr', ico: 'shield', route: 'workers',
       title: 'Súhlas GDPR od živnostníka',
+      hint: 'Živnostník podpíše súhlas, že smieme držať jeho údaje a doklady.',
+      cta: ['Doplniť súhlasy', 'Otvoriť živnostníkov'],
       lead: 'Držíme jeho meno, doklady a telefón. Bez jeho súhlasu na to nemáme právo.',
       next: 'So súhlasom sa s ním dá spísať zmluva.',
       have: (x) => poctyDokladov(x, 'gdpr').maju,
@@ -173,6 +181,8 @@
     {
       n: 5, key: 'zmluva', ico: 'doc', route: 'workers',
       title: 'Zmluva so živnostníkom',
+      hint: 'Rámcová zmluva o dielo so živnostníkom, zvyčajne do 31. 12.',
+      cta: ['Doplniť zmluvy', 'Otvoriť živnostníkov'],
       lead: 'Rámcová zmluva o dielo, zvyčajne do konca kalendárneho roka. '
         + 'Bez nej je to zamestnávanie, nie subdodávka.',
       next: 'Na zmluvu sa viaže konkrétna objednávka.',
@@ -198,6 +208,8 @@
     {
       n: 6, key: 'objednavka', ico: 'orders', route: 'subcontracts',
       title: 'Objednávka a papiere v poriadku',
+      hint: 'Objednávka na konkrétnu stavbu a k nej A1, Zoll a ostatné papiere.',
+      cta: ['Doriešiť papiere', 'Otvoriť stavby'],
       lead: 'Konkrétna objednávka na konkrétnu stavbu — a k nej A1, hlásenie Zoll '
         + 'a ostatné papiere, bez ktorých sa tam nesmie.',
       next: 'S papiermi v poriadku môže nastúpiť.',
@@ -232,6 +244,8 @@
     {
       n: 7, key: 'stavba', ico: 'clock', route: 'timesheets',
       title: 'Ubytovanie, hodiny a faktúry',
+      hint: 'Kde spí, koľko odrobil a faktúra Nemcovi — každý týždeň.',
+      cta: ['Vybaviť hodiny a faktúry', 'Zapísať hodiny'],
       lead: 'Človek je na stavbe: má kde spať, hodiny sa zapisujú a z nich vzniká '
         + 'faktúra odberateľovi aj kontrola faktúry od neho.',
       next: 'Úhradou na účet sa to uzavrie.',
@@ -320,7 +334,9 @@
     try { todo = s.todo(data) || todo; } catch { todo = { n: 0, state: CALM, text: '' }; }
     return {
       n: s.n, key: s.key, ico: s.ico, route: s.route,
-      title: s.title, lead: s.lead, next: s.next,
+      title: s.title, lead: s.lead, next: s.next, hint: s.hint || s.lead,
+      // Tlačidlo hovorí, čo sa ide robiť — iné, keď niečo čaká, a iné, keď je čisto.
+      cta: (todo.n ? (s.cta || [])[0] : (s.cta || [])[1]) || 'Otvoriť',
       have, haveText: s.haveText(have),
       todo: todo.n || 0, todoText: todo.text || '', state: todo.state || CALM,
     };
@@ -371,9 +387,111 @@
     };
   }
 
+  // ── Kde v reťazci práve som ──────────────────────────────────────────────
+  // Obrazovka v menu je miesto v appke. Človek, ktorý ju otvorí, sa ale pýta
+  // niečo iné: **ktorý krok práce je toto a čo príde potom.** Bez toho je
+  // „Živnostníci" len zoznam mien — a nikoho nenapadne, že práve tu sa robí
+  // súhlas GDPR aj zmluva.
+  //
+  // Obrazovka, ktorá do reťazca nepatrí (Úlohy, Nastavenia), tu nie je
+  // a pruh sa na nej nekreslí.
+  const ROUTE_STEPS = {
+    opportunities: [1], quotes: [1],
+    hiring: [2], candidates: [2], ads: [2], marketing: [2], recruiting: [2], trades: [2],
+    contracts: [3], partners: [3],
+    // Súhlas aj zmluva sa robia na karte toho istého človeka.
+    workers: [4, 5], crews: [4, 5],
+    subcontracts: [6], orders: [6], compliance: [6],
+    timesheets: [7], hoursheet: [7], accommodations: [7],
+    money: [7], invoices: [7], costs: [7], bank: [7],
+  };
+
+  /**
+   * Na ktorom kroku je obrazovka a ktorý ide po ňom.
+   * `{ from, to, steps, next }` alebo `null`, keď obrazovka v reťazci nie je.
+   */
+  function stepOfRoute(route) {
+    const n = ROUTE_STEPS[route];
+    if (!n) return null;
+    const from = n[0], to = n[n.length - 1];
+    const steps = STEPS.filter(s => s.n >= from && s.n <= to)
+      .map(s => ({ n: s.n, key: s.key, title: s.title, route: s.route }));
+    const po = STEPS.find(s => s.n === to + 1);
+    return { from, to, steps,
+      next: po ? { n: po.n, key: po.key, title: po.title, route: po.route } : null };
+  }
+
+  // ── Čo ešte treba pri jednom človeku ─────────────────────────────────────
+  // Kroky 4 až 6 sa nerobia „pre firmu", ale pre konkrétneho živnostníka:
+  // jeho súhlas, jeho zmluva, jeho objednávka. Reťazec povie, že trom ľuďom
+  // chýba zmluva; karta človeka má povedať, **čo ešte chýba práve jemu** —
+  // a v akom poradí.
+  //
+  // Doklady sú tu riadky z `worker_documents` (bez stĺpca `validity`), preto
+  // sa platnosť počíta z `valid_to`.
+  const KONCI_DNI = 30;
+  function personSteps(input) {
+    const x = input || {};
+    const w = x.worker || {};
+    const today = day(x.today) || day(new Date().toISOString());
+    // „Vyžiadaný" alebo „chýba" je záznam o tom, že papier **nemáme**.
+    const docs = arr(x.docs).filter(d => d && d.worker_id === w.id
+      && !['requested', 'missing'].includes(d.status));
+    const asg = arr(x.assignments).filter(a => a && a.worker_id === w.id
+      && ['planned', 'active'].includes(a.status));
+    const ord = arr(x.orders).filter(o => o && o.kind === 'worker' && o.status !== 'cancelled');
+
+    const gdpr = docs.find(d => d.kind === 'gdpr');
+    const zmluvy = docs.filter(d => d.kind === 'contract')
+      .sort((a, b) => String(b.valid_to || '9999').localeCompare(String(a.valid_to || '9999')));
+    const zmluva = zmluvy[0];
+    const zDo = zmluva && day(zmluva.valid_to);
+    const zPlati = !!zmluva && (!zDo || zDo >= today);
+    const zKonci = zPlati && zDo && dni(zDo, today) <= KONCI_DNI;
+
+    const bezObj = asg.filter(a => !ord.some(o => o.assignment_id === a.id));
+
+    const items = [
+      {
+        key: 'gdpr', n: 4, title: 'Súhlas GDPR',
+        done: !!gdpr,
+        text: gdpr ? `Podpísaný ${denSk(gdpr.valid_from)}.`.replace(' .', '.')
+          : 'Vytlač súhlas, nechaj ho podpísať a zapíš to.',
+      },
+      {
+        key: 'zmluva', n: 5, title: 'Rámcová zmluva o dielo',
+        done: zPlati, warn: !!zKonci,
+        text: zPlati
+          ? (zDo ? `${zKonci ? 'Končí' : 'Platí do'} ${denSk(zDo)}${zKonci ? ' — priprav novú.' : '.'}`
+            : 'Platí bez obmedzenia.')
+          : (zmluva ? `Skončila ${denSk(zDo)} — treba novú.`
+            : 'Vytlač zmluvu, nechaj ju podpísať a zapíš to.'),
+      },
+      {
+        key: 'objednavka', n: 6, title: 'Stavba a objednávka',
+        done: asg.length > 0 && bezObj.length === 0,
+        needs: !asg.length ? 'assign' : (bezObj.length ? 'order' : null),
+        assignmentId: bezObj.length ? bezObj[0].id : null,
+        text: !asg.length ? 'Ešte nie je na žiadnej stavbe. Vyber mu stavbu.'
+          : (bezObj.length ? 'Je na stavbe, ale nemá objednávku. Bez nej to nie je dielo.'
+            : 'Má stavbu aj objednávku.'),
+      },
+    ];
+    const next = items.find(i => !i.done) || null;
+    return { items, next, done: !next, left: items.filter(i => !i.done).length };
+  }
+
+  function denSk(s) {
+    const d = day(s);
+    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+    const [y, m, dd] = d.split('-').map(Number);
+    return `${dd}. ${m}. ${y}`;
+  }
+
   const API = {
-    STEPS, CALM, WATCH, BAD,
+    STEPS, CALM, WATCH, BAD, ROUTE_STEPS,
     step, all, headline, summary, plural, dni, poctyDokladov,
+    stepOfRoute, personSteps,
   };
   if (typeof window !== 'undefined') window.DanubraChain = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

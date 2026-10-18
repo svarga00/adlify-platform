@@ -394,7 +394,25 @@
     });
   }
 
-  const API = { SUMY, POVINNE, clanky, build, missing, koniecRoka, den, eur, plural };
+  /**
+   * Ďalšie voľné číslo zmluvy v tvare „2026-093".
+   *
+   * Zámerne to **nie je** `danubra_next_number`: ten istý počítadlo prideľuje
+   * čísla faktúr a každé jeho zavolanie číslo spotrebuje — aj keď sa zmluva
+   * nakoniec nepodpíše. Tu sa číslo len navrhne z toho, čo je už zapísané,
+   * a v formulári sa dá prepísať. Kto raz napíše 094, ďalšia dostane 095.
+   */
+  function nextNumber(refs, rok) {
+    const y = String(rok || new Date().getFullYear());
+    let max = 0;
+    for (const r of refs || []) {
+      const m = String(r || '').trim().match(/^(\d{4})\s*[-/]\s*(\d{1,5})$/);
+      if (m && m[1] === y) max = Math.max(max, Number(m[2]));
+    }
+    return `${y}-${String(max + 1).padStart(3, '0')}`;
+  }
+
+  const API = { SUMY, POVINNE, clanky, build, missing, koniecRoka, den, eur, plural, nextNumber };
   if (typeof window !== 'undefined') window.DanubraSubcontract = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

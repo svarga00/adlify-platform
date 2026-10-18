@@ -1133,6 +1133,27 @@
       ],
       links: [['costs', 'Náklady'], ['timesheets', 'Odpracované hodiny']],
     },
+    'card.worker.steps': {
+      title: 'Čo treba, aby mohol ísť na stavbu',
+      lead: 'Kroky 4, 5 a 6 z reťazca — pre tohto jedného človeka a v tomto poradí.',
+      what: [
+        '**Súhlas GDPR** — vytlačíš, on podpíše, zapíšeš dátum podpisu.',
+        '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Číslo sa navrhne '
+        + 'samo ako ďalšie voľné; vytlačená a zapísaná zmluva majú to isté.',
+        '**Stavba a objednávka** — nasadíš ho na stavbu a vystavíš mu objednávku. '
+        + 'Termín, stavba a sadzba sa do nej doplnia z nasadenia.',
+      ],
+      how: [
+        'Modrým je označená vec, ktorá je na rade. Po každom zapísanom papieri '
+        + 'appka sama ponúkne ďalší.',
+        'Zmluva sa mesiac pred koncom sfarbí na oranžovo — vtedy treba novú.',
+      ],
+      why: [
+        'Bez súhlasu nemáme právo držať jeho údaje, bez zmluvy je to zamestnávanie '
+        + 'a bez objednávky to pri kontrole nie je dielo, ale prenájom ľudí.',
+      ],
+      links: [['workers', 'Živnostníci'], ['orders', 'Objednávky']],
+    },
     'card.worker.readiness': {
       title: 'Smieme ho nasadiť?',
       lead: 'Čo mu chýba na to, aby mohol ísť na nemeckú stavbu.',
