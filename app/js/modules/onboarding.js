@@ -125,7 +125,7 @@
         : this.practiceHtml();
 
       el.innerHTML = Danubra.header('Nábor',
-        `Zaškolenie · krok ${k.n} z 5 — ${k.title} · ${k.minutes} minút`)
+        `Zaškolenie · časť ${k.n} z 5 — ${k.title} · ${k.minutes} minút`)
         + `<button class="btn btn-ghost btn-sm" style="margin-bottom:12px;"
              onclick="Learn.back()">${Icon('back', 15)} Späť na zaškolenie</button>`
         + telo;

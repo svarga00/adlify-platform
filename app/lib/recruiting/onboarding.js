@@ -110,7 +110,7 @@
     const n = next(steps);
     if (!p.done) {
       return { title: 'Zaškolenie za hodinu',
-        sub: `Päť krokov, ${totalMinutes()} minút. Na konci budeš vedieť viesť `
+        sub: `Päť častí, ${totalMinutes()} minút. Na konci budeš vedieť viesť `
           + 'hovor sám a rozoznať človeka, ktorý remeslo robil, od toho, kto o ňom počul.' };
     }
     return { title: n.title, sub: `${n.lead} Zostáva ${p.minutesLeft} minút.` };

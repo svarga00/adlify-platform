@@ -99,47 +99,47 @@ window.Danubra = {
     // hore (`topRoutes`), tu zostáva preto, aby mala oblasť, právo aj
     // vysvetlivku. Úlohy a Správy sú záložky Prehľadu: je to tá istá otázka
     // („čo mám robiť"), len inak zobrazená.
-    ['DENNE',      [['dashboard', 'Prehľad', 'dashboard'],
+    ['DNES',       [['dashboard', 'Prehľad', 'dashboard'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['messages', 'Správy', 'mail'],
-                    ['flow', 'Ako to ide', 'repeat'],
-                    // Možnosti sú pred ponukou: to, čo príde telefonátom, než
-                    // sa z toho vôbec stane zákazka. Stoja samostatne hneď za
-                    // Prehľadom — zapisuje ich každý z tímu, aj z telefónu.
-                    ['opportunities', 'Možnosti', 'offers', 'staffing', 'contracts']]],
-    // Jedna zákazka je jedna vec: ponuka, objednávka, zmluva a stavba sú jej
-    // štyri papiere. V menu preto stojí **Zákazky** a tie tri sú jej záložky.
-    ['ZÁKAZKY',    [['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
+                    ['flow', 'Ako to ide', 'repeat']]],
+    // **Menu je sedem krokov práce, v poradí, v akom sa robia.** Dovtedy bolo
+    // zoradené podľa toho, čo je v databáze (Zákazky, Ľudia, Peniaze) — a kto
+    // sa učil appku, musel sa naučiť dve poradia: jedno na Prehľade, druhé
+    // v menu. Číslo pri položke je to isté číslo ako na Prehľade a v pruhu
+    // nad nadpisom (`DanubraChain.ROUTE_STEPS`).
+    //
+    // Záložky idú za svojím rodičom a patria k tomu istému kroku: ponuka je
+    // odpoveď na dopyt (1), zmluva s Nemcom patrí k odberateľovi (3),
+    // ubytovanie k ľuďom na stavbe (7).
+    ['7 KROKOV PRÁCE', [
+                    ['opportunities', 'Dopyty', 'offers', 'staffing', 'contracts'],
                     ['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
-                    ['orders', 'Objednávky', 'orders', 'staffing', 'contracts'],
-                    ['contracts', 'Zmluvy', 'note', 'staffing', 'contracts'],
-                    ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
-                    ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts'],
-                    // Ubytovania sú bez agendy zámerne — po archivácii
-                    // obchodnej časti zostávajú ako náklad zákazky (R4).
-                    ['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
-                    ['accommodations', 'Ubytovania', 'bed', undefined, null]]],
-    // Nábor bol rozsypaný na sedem položiek a kto naberal, musel vedieť, na
-    // ktorej má byť. V menu sú tri: **Nábor**, **Živnostníci**, **Remeslá**.
-    // Kandidáti, Inzeráty, Zápisy a Inzercia sú záložky Náboru; Partie záložka
-    // Živnostníkov — partia je možnosť (človek môže prísť sám alebo v partii),
-    // a kvôli možnosti sa nedrží položka v menu. Viď `navParent`.
-    ['ĽUDIA',      [['hiring', 'Nábor', 'zap', 'staffing', 'recruiting'],
+                    ['hiring', 'Nábor', 'zap', 'staffing', 'recruiting'],
                     ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
                     ['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
                     ['marketing', 'Marketing', 'marketing'],
                     ['recruiting', 'Zápisy z hovorov', 'note', 'staffing', 'recruiting'],
+                    ['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
+                    ['contracts', 'Zmluvy', 'note', 'staffing', 'contracts'],
                     ['workers', 'Živnostníci', 'workers', 'staffing', null],
                     ['crews', 'Partie', 'workers', 'staffing', null],
-                    ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting']]],
-    // „Náklady" sa volali Náklady, hoci prvá záložka na nich sú **prijaté
-    // faktúry**. Kto ich hľadal podľa mena, nenašiel ich — názov v menu
-    // o nich nehovoril nič. Dnes je v menu jedna otázka: kde sú peniaze.
-    ['PENIAZE',    [['money', 'Kde sú peniaze', 'wallet', 'staffing', 'finance'],
+                    ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
+                    ['orders', 'Objednávky', 'orders', 'staffing', 'contracts'],
+                    ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
+                    ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts'],
+                    // Ubytovania sú bez agendy zámerne — po archivácii
+                    // obchodnej časti zostávajú ako náklad zákazky (R4).
+                    ['accommodations', 'Ubytovania', 'bed', undefined, null],
+                    // „Náklady" sa volali Náklady, hoci prvá záložka na nich sú
+                    // **prijaté faktúry**. V menu je preto otázka: kde sú peniaze.
+                    ['money', 'Kde sú peniaze', 'wallet', 'staffing', 'finance'],
                     ['invoices', 'Vydané faktúry', 'invoices', 'staffing', 'finance'],
                     ['costs', 'Prijaté faktúry a náklady', 'receipt', 'staffing', 'finance'],
                     ['bank', 'Banka a cash-flow', 'invoices', 'staffing', 'finance']]],
-    ['SYSTÉM',     [['compliance', 'Compliance', 'shield', 'staffing', null],
+    // Veci, ktoré sa nastavia raz a potom sa z nich len čerpá.
+    ['NASTAVENIE', [['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
+                    ['compliance', 'Compliance', 'shield', 'staffing', null],
                     ['settings', 'Nastavenia', 'settings'],
                     ['rules', 'Cenník a pravidlá', 'rules'],
                     ['members', 'Používatelia', 'clients']]],
@@ -300,7 +300,7 @@ window.Danubra = {
       // Kandidáti sú záložka Náboru, takže sa spodný tab pri nich nikdy
       // nezvýraznil (`navActive()` ukáže rodiča). Na jeho mieste je Možnosť:
       // z telefónu sa najčastejšie zapisuje práve to, čo niekto zavolal.
-      { key: 'opportunities', label: 'Možnosti', ico: 'offers' },
+      { key: 'opportunities', label: 'Dopyty', ico: 'offers' },
     ],
   },
 
@@ -329,15 +329,16 @@ window.Danubra = {
     // Prehľad odpovedá na „čo mám robiť". Úlohy a Správy odpovedajú na to isté
     // inak — nie je to tretia agenda, sú to ďalšie dva pohľady.
     tasks: 'dashboard', messages: 'dashboard',
-    // Ponuka, objednávka a zmluva sú papiere k jednej zákazke, nie tri agendy.
-    quotes: 'subcontracts', orders: 'subcontracts', contracts: 'subcontracts',
-    hoursheet: 'timesheets',
+    // Každá záložka patrí k tomu istému kroku ako jej rodič: ponuka je
+    // odpoveď na dopyt (krok 1), zmluva s Nemcom patrí k odberateľovi (3),
+    // objednávka živnostníkovi k zákazke (6) a ubytovanie k ľuďom na stavbe (7).
+    quotes: 'opportunities', contracts: 'partners', orders: 'subcontracts',
+    hoursheet: 'timesheets', accommodations: 'timesheets',
     candidates: 'hiring', ads: 'hiring', marketing: 'hiring', recruiting: 'hiring',
     crews: 'workers',
     // „Kde sú peniaze" je otázka. Vydané, prijaté a banka sú tri odpovede
     // na ňu — preto sú to jej záložky a nie tri riadky v menu.
     invoices: 'money', costs: 'money', bank: 'money',
-    accommodations: 'partners',
     rules: 'settings', members: 'settings',
   },
 
@@ -346,7 +347,7 @@ window.Danubra = {
   navTabLabel: {
     hiring: 'Čo teraz', workers: 'Ľudia', recruiting: 'Zápisy',
     trades: 'Remeslá', marketing: 'Inzercia a výdavky',
-    subcontracts: 'Stavby', timesheets: 'Hodiny', hoursheet: 'Výkaz',
+    subcontracts: 'Zákazky', timesheets: 'Hodiny', opportunities: 'Dopyty', hoursheet: 'Výkaz',
     partners: 'Odberatelia', money: 'Kde stoja', costs: 'Prijaté faktúry',
     settings: 'Firma a agendy', tasks: 'Úlohy',
   },
@@ -611,7 +612,7 @@ window.Danubra = {
       ${visible.map(([key, label, ico]) => {
         const b = this.badges[key];
         return `<button class="nav-item${key === this.navActive() ? ' active' : ''}" data-key="${key}" onclick="Danubra.go('${key}')">
-          ${Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
+          ${(glabel === this.STEP_GROUP && this.navStepHtml(key)) || Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
         </button>`;
       }).join('')}`;
     }).join('');
@@ -631,6 +632,37 @@ window.Danubra = {
       : `<button class="tab${t.key === this.navActive() ? ' active' : ''}" data-key="${t.key}" onclick="Danubra.go('${t.key}')">
            <span class="tab-ico">${Icon(t.ico, 20)}</span><span class="tab-label">${t.label}</span></button>`
     ).join('');
+  },
+
+  /**
+   * Číslo kroku namiesto ikony — veľká odrážka, podľa ktorej sa dá v menu
+   * ísť zhora nadol tak, ako ide práca. Farba je stav kroku z Prehľadu:
+   * červená horí, oranžová čaká. Kým sa reťazec nenačítal, je číslo sivé.
+   */
+  STEP_GROUP: '7 KROKOV PRÁCE',
+  navStepHtml(key) {
+    const kde = window.DanubraChain && DanubraChain.stepOfRoute(key);
+    if (!kde) return '';
+    const text = kde.from === kde.to ? `${kde.from}` : `${kde.from}–${kde.to}`;
+    const stavy = (this._chain || []).filter(k => k.n >= kde.from && k.n <= kde.to)
+      .map(k => k.state);
+    const st = stavy.includes('bad') ? 'bad' : stavy.includes('watch') ? 'watch'
+      : stavy.length ? 'calm' : '';
+    const slovom = { bad: ' — niečo horí', watch: ' — niečo čaká', calm: '' }[st] || '';
+    return `<span class="nav-step${st ? ` nav-step-${st}` : ''}${text.length > 1 ? ' is-wide' : ''}"
+      title="Krok ${text} zo 7${slovom}">${text}</span>`;
+  },
+
+  /**
+   * Reťazec na pozadí, keď sa appka neotvorila Prehľadom (odkaz, záložka).
+   * Bez neho by čísla v menu zostali sivé, kým človek na Prehľad nepríde.
+   */
+  _ensureChain() {
+    if (this._chain || this._chainLoading || !this.user || !window.DanubraChain) return;
+    this._chainLoading = this._flowLoad()
+      .then((x) => { this._chain = DanubraChain.all(x); this._buildNav(); })
+      .catch(() => {})
+      .finally(() => { this._chainLoading = null; });
   },
 
   // ── Mega menu ─────────────────────────────────────────────────────────────
@@ -823,6 +855,7 @@ window.Danubra = {
     const view = document.getElementById('view');
     this.setActions('');
     const fn = this.views[this.route];
+    if (this.route !== 'dashboard' && this.route !== 'flow') this._ensureChain();
 
     if (!fn) {
       view.innerHTML = this.header(this.labelOf(this.route), 'Pripravujeme v ďalšom kroku.')
@@ -1006,7 +1039,7 @@ window.Danubra = {
    * Čísla a grafy sú pod tým — tie odpovedajú na „ako sa darí", nie na
    * „čo mám robiť".
    */
-  _dashSteps(kroky, focus) {
+  _dashSteps(kroky, focus, now) {
     const sum = DanubraChain.summary(kroky);
     const CHIP = {
       bad: ['alert', 'Horí'], watch: ['clock', 'Čaká'],
@@ -1017,6 +1050,14 @@ window.Danubra = {
       const text = s.state !== 'calm' ? s.todoText : (s.have ? s.haveText : s.todoText);
       const akcia = this._stepAction(s);
       const teraz = focus && focus.key === s.key;
+      // Krok, ktorý je na rade, je rámik „Čo spraviť teraz" — s dôvodom
+      // a veľkým tlačidlom. Ostatné sú tiché riadky.
+      if (now && now.step === s.key) {
+        return `<li class="st7-step st7-${stav} is-now">
+          <span class="st7-n" aria-hidden="true">${s.n}</span>
+          <div class="st7-nowwrap">${now.box}</div>
+        </li>`;
+      }
       return `<li class="st7-step st7-${stav}${teraz ? ' is-focus' : ''}">
         <span class="st7-n" aria-hidden="true">${s.n}</span>
         <div class="st7-card">
@@ -1494,16 +1535,23 @@ window.Danubra = {
 
     let label = 'Čo spraviť teraz', title, sub, why = '', akcia = null, hot = false;
 
+    // Keď je to krok reťazca, rámik sa nekreslí navrch, ale **do zoznamu
+    // siedmich krokov, na miesto toho kroku** (`_dashSteps`). Predtým stála
+    // tá istá veta dvakrát pod sebou — navrchu a potom znova pri kroku.
+    this._nowStep = null;
+    const krokovaAkcia = (k) => {
+      const onclick = this._stepAction(k);
+      return onclick ? { label: k.cta, onclick, ico: k.ico || 'chevron' } : null;
+    };
+
     if (horí && krok) {
       label += ` · krok ${krok.n} zo 7`;
       title = krok.title;
       sub = krok.todoText || chainHead.text;
       why = krok.lead || '';
       hot = true;
-      if (this.routeAvailable(krok.route)) {
-        akcia = { label: `Otvoriť ${this.labelOf(krok.route)}`,
-          onclick: `Danubra.go('${krok.route}')`, ico: krok.ico || 'chevron' };
-      }
+      akcia = krokovaAkcia(krok);
+      this._nowStep = krok.key;
     } else if (úlohy) {
       title = tc && tc.overdue ? 'Vybaviť úlohy po termíne' : 'Vybaviť dnešné úlohy';
       sub = taskLine.text;
@@ -1511,13 +1559,12 @@ window.Danubra = {
       hot = taskLine.tone === 'bad';
       akcia = { label: 'Otvoriť Úlohy', onclick: "Danubra.go('tasks')", ico: 'tasks' };
     } else if (krok) {
-      title = `Najbližšie na rade: ${krok.title.toLowerCase()}`;
+      label += ` · krok ${krok.n} zo 7`;
+      title = krok.title;
       sub = krok.todoText || chainHead.text;
       why = krok.lead || '';
-      if (this.routeAvailable(krok.route)) {
-        akcia = { label: `Otvoriť ${this.labelOf(krok.route)}`,
-          onclick: `Danubra.go('${krok.route}')`, ico: krok.ico || 'chevron' };
-      }
+      akcia = krokovaAkcia(krok);
+      this._nowStep = krok.key;
     } else {
       title = 'Nič nestojí';
       sub = (chainHead && chainHead.text) || 'Celý reťazec je priechodný.';
@@ -1527,14 +1574,18 @@ window.Danubra = {
     // Vykresľuje to ten istý komponent ako na ostatných obrazovkách. Dovtedy
     // mal prehľad vlastný opis toho istého bloku — a keď sa blok zmenil,
     // prehľad zostal vyzerať inak než zvyšok appky.
-    return Shell.now(
-      { title, what: sub, why, hot, key: akcia ? '' : 'ok' },
-      { label, help: 'dash.headline', action: akcia, cls: 'no-print' },
-    ) + `
-      <!-- Na papieri je veta bez tlačidla — tlač nemá kam klikať. -->
-      <div class="headline headline-${taskLine.tone === 'bad' ? 'bad' : taskLine.tone === 'warn' ? 'warn' : 'ok'} only-print">
+    return {
+      box: Shell.now(
+        { title, what: sub, why, hot, key: akcia ? '' : 'ok' },
+        { label, help: 'dash.headline', action: akcia, cls: 'no-print' },
+      ),
+      // Na papieri je veta bez tlačidla — tlač nemá kam klikať.
+      print: `<div class="headline headline-${taskLine.tone === 'bad' ? 'bad'
+        : taskLine.tone === 'warn' ? 'warn' : 'ok'} only-print">
         <span>${UI.esc(taskLine.text)}</span>
-      </div>`;
+      </div>`,
+      step: this._nowStep,
+    };
   },
 
   _dashAlerts(x) {
@@ -3012,6 +3063,8 @@ window.Danubra = {
       // treba domyslieť zo šiestich čísel, a to je presne to, čo nikto nerobí.
       // Dotazy sú úzke (id a stav) a idú súbežne, takže to nič nezdrží.
       const [x, chainData] = await Promise.all([this._dashLoad(), this._flowLoad()]);
+      // Reťazec skôr, než sa prekreslí menu — čísla krokov v ňom sú farebné.
+      this._chain = DanubraChain.all(chainData);
       // Export si dáta neťahá znova — vyváža presne to, čo je na obrazovke.
       this._dashData = x;
 
@@ -3030,8 +3083,7 @@ window.Danubra = {
 
       // Prvá veta na obrazovke. Nie graf, nie číslo — veta. A pod ňou jedno
       // tlačidlo, ktoré vedie presne tam, kde sa to rieši.
-      const chain = DanubraChain.all(chainData);
-      this._chain = chain;
+      const chain = this._chain;
       const chainHead = DanubraChain.headline(chain);
       const head = DanubraTasks.headline(x.tasks, x.today);
       const alerts = this._dashAlerts(x);
@@ -3043,6 +3095,7 @@ window.Danubra = {
       // Šesť čísel. Číslo aj zoznam za ním počíta `DanubraDetail` z tých istých
       // riadkov — preto sa tu už nič neráta druhýkrát.
       const kpis = DanubraDetail.all(x.kpiData);
+      const teraz = this._dashNow(chainHead, line, tc);
       // „Len čo treba riešiť" necháva na obrazovke dlaždice, ktoré nie sú
       // v pokoji. Nemení to čísla — mení to, koľko ich treba prejsť očami.
       const vidno = this.dashFilter.onlyIssues
@@ -3065,8 +3118,9 @@ window.Danubra = {
             x.siteName2 ? ` · zákazka ${UI.esc(x.siteName2)}` : ''} ·
             vytlačené ${UI.esc(today)}</span>
         </div>
-        ${this._dashNow(chainHead, line, tc)}
-        ${this._dashSteps(chain, chainHead.step)}
+        ${teraz.print}
+        ${teraz.step ? '' : teraz.box}
+        ${this._dashSteps(chain, null, teraz)}
         <h2 class="dash-sub">Čísla</h2>
         ${vidno.length ? `<div class="kpi-grid">
           ${vidno.map(d => `

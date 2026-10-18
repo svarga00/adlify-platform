@@ -95,7 +95,7 @@
       // Uzavretý kandidát nemá krok, ku ktorému by bola vysvetlivka.
       const hotovo = n.key === 'closed' || n.key === 'done';
       return Shell.now(n, {
-        label: `Čo spraviť teraz${n.n ? ` · krok ${n.n} z 5` : ''}`,
+        label: `Čo spraviť teraz${n.n ? ` · fáza ${n.n} z 5` : ''}`,
         help: hotovo ? '' : `cand.step.${n.key}`,
         action: ACTION[n.key],
       });

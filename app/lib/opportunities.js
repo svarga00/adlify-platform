@@ -51,7 +51,7 @@
       why: 'Bez neho sa firma nedá preveriť v registri ani jej fakturovať '
         + 'v reverse charge podľa §13b.' },
     { key: 'contact_phone', title: 'telefón na kontakt',
-      why: 'E-mail môže ležať tri dni. Telefón je to, čím sa možnosť pohne.' },
+      why: 'E-mail môže ležať tri dni. Telefón je to, čím sa dopyt pohne.' },
     { key: 'trade_key', title: 'remeslo',
       why: 'Bez neho sa nedá spraviť nábor ani povedať, koho hľadáme.' },
     { key: 'headcount', title: 'koľko ľudí',
@@ -135,8 +135,8 @@
     const nove = zive.filter(o => o.status === 'new');
     if (nove.length) {
       return {
-        key: 'new', title: nove.length === 1 ? 'Ozvať sa na novú možnosť' : 'Ozvať sa na nové možnosti',
-        what: `${nove.length} ${plural(nove.length, 'možnosť čaká', 'možnosti čakajú', 'možností čaká')} `
+        key: 'new', title: nove.length === 1 ? 'Ozvať sa na nový dopyt' : 'Ozvať sa na nové dopyty',
+        what: `${nove.length} ${plural(nove.length, 'dopyt čaká', 'dopyty čakajú', 'dopytov čaká')} `
           + 'na prvú odpoveď.',
         why: 'Odberateľ, ktorý hľadá ľudí, sa pýta viacerých. Rozhoduje, kto sa ozve '
           + 'prvý — nie kto má lepšiu cenu.',
@@ -191,11 +191,11 @@
     }
 
     return {
-      key: 'ok', title: zive.length ? 'Všetky možnosti sú rozpracované' : 'Žiadne možnosti',
+      key: 'ok', title: zive.length ? 'Všetky dopyty sú rozpracované' : 'Žiadne dopyty',
       what: zive.length
-        ? `${zive.length} ${plural(zive.length, 'možnosť', 'možnosti', 'možností')} bez chýbajúcich údajov.`
+        ? `${zive.length} ${plural(zive.length, 'dopyt', 'dopyty', 'dopytov')} bez chýbajúcich údajov.`
         : 'Keď sa niekto ozve, zapíš to sem — aj keď o tom vieš málo.',
-      why: 'Možnosť, ktorá nie je zapísaná, neexistuje. O pol roka sa tá istá firma '
+      why: 'Dopyt, ktorý nie je zapísaný, neexistuje. O pol roka sa tá istá firma '
         + 'ozve znova a bude dobré vedieť, čo bolo naposledy.',
       hot: false, opp: null, count: 0,
     };
