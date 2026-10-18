@@ -511,8 +511,19 @@
       if (window.Wrk) { Wrk.loaded = false; }
       if (silent) return { id: workerId };
       UI.closeModal();
-      UI.toast(`${c.full_name} je medzi živnostníkmi`, 'ok');
       await this.load(); Danubra.renderRoute();
+      // Z kandidáta je živnostník — ďalšie sú súhlas GDPR a zmluva. Appka ich
+      // podá sama; dovtedy sa o nich dalo dozvedieť len z Prehľadu.
+      await this.offerNext(workerId, `${c.full_name} je medzi živnostníkmi.`);
+    },
+
+    /** Otvorí „Čo ďalej" pri novom živnostníkovi. Kto nemá Živnostníkov, dostane len hlášku. */
+    async offerNext(workerId, intro) {
+      if (!window.Wrk || !workerId || !Danubra.routeAvailable('workers')) {
+        return UI.toast(intro, 'ok');
+      }
+      await Wrk.load();
+      Wrk.nextSteps(workerId, intro);
     },
 
     async form(id) {

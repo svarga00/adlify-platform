@@ -350,8 +350,8 @@
         await Cand.convert(cand.id, { silent: true, keepStatus: true });
       }
       UI.closeModal();
-      UI.toast(`${cand.full_name} je nastúpený`, 'ok');
       await Cand.load(); Danubra.renderRoute();
+      await Cand.offerNext(cand.converted_worker_id, `${cand.full_name} je nastúpený.`);
     },
 
     rejectForm() {

@@ -180,10 +180,31 @@
     },
 
     // ── Formulár ──────────────────────────────────────────────────────────
-    form(id) {
-      const o = id ? (this.rows.find(x => x.id === id) || {}) : { kind: this.kind };
+    /**
+     * Nová objednávka živnostníkovi rovno k nasadeniu — z karty človeka
+     * („Vystaviť objednávku"). Stavba, termín a sadzba sa vyplnia z nasadenia,
+     * aby sa nič neprepisovalo druhýkrát.
+     */
+    async newFor(assignmentId) {
+      if (!this.loaded) await this.load();
+      const a = this.assignments.find(x => x.id === assignmentId);
+      if (!a) return UI.toast('Nasadenie sa nenašlo', 'err');
+      const sc = this.subOf(a.subcontract_id);
+      this.form(null, {
+        kind: 'worker', assignment_id: a.id,
+        title: sc.title || sc.contract_number || '',
+        date_from: a.date_from, date_to: a.date_to,
+        price_model: 'hourly', rate: a.worker_rate,
+      });
+    },
+
+    form(id, preset) {
+      const o = id ? (this.rows.find(x => x.id === id) || {})
+        : { kind: this.kind, ...(preset || {}) };
       const k = o.kind || this.kind;
-      const voľné = this.assignments.filter(a => a.status === 'active'
+      // Objednávka patrí pred nástup, nie po ňom — preto aj plánované
+      // nasadenia. Dovtedy sa ponúkali len tie, čo už bežali.
+      const voľné = this.assignments.filter(a => ['planned', 'active'].includes(a.status)
         && (a.id === o.assignment_id || !this.rows.some(r => r.assignment_id === a.id)));
 
       const strana = k === 'customer'
@@ -294,6 +315,8 @@
       UI.closeModal();
       UI.toast(id ? 'Uložené' : 'Objednávka založená', 'ok');
       this.loaded = false;
+      // Karta človeka sa pýta „má objednávku?" — musí to vedieť hneď.
+      if (window.Wrk) Wrk.loaded = false;
       Danubra.renderRoute();
     },
 

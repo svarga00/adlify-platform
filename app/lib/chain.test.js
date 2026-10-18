@@ -299,5 +299,97 @@ console.log('Zmluva');
     'posledný krok povie, že tým sa to končí');
 }
 
+// ── Kde v reťazci som ───────────────────────────────────────────────────────
+console.log('Krok obrazovky');
+{
+  eq(F.stepOfRoute('opportunities').from, 1, 'Možnosti sú prvý krok');
+  eq(F.stepOfRoute('candidates').from, 2, 'Kandidáti sú druhý');
+  const w = F.stepOfRoute('workers');
+  eq([w.from, w.to], [4, 5], 'na Živnostníkoch sa robí súhlas aj zmluva');
+  eq(w.steps.map(s => s.key), ['gdpr', 'zmluva'], 'a oba kroky sú vymenované');
+  eq(w.next.n, 6, 'ďalej je objednávka');
+  eq(F.stepOfRoute('invoices').next, null, 'za siedmym krokom už nič nie je');
+  eq(F.stepOfRoute('settings'), null, 'Nastavenia v reťazci nie sú');
+  eq(F.stepOfRoute('tasks'), null, 'ani Úlohy');
+  // Každý krok musí mať aspoň jednu obrazovku — inak by sa na neho
+  // z pruhu nedalo dostať.
+  for (const s of F.STEPS) {
+    ok(Object.values(F.ROUTE_STEPS).some(n => n.includes(s.n)), `krok ${s.n} má obrazovku`);
+    ok(F.ROUTE_STEPS[s.route] && F.ROUTE_STEPS[s.route].includes(s.n),
+      `krok ${s.n} vedie na obrazovku, ktorá o ňom vie`);
+  }
+}
+
+// ── Tlačidlo a veta pri kroku ───────────────────────────────────────────────
+console.log('Tlačidlo pri kroku');
+{
+  for (const s of F.STEPS) {
+    ok(s.hint && s.hint.length > 20 && s.hint.length <= 90 && /[.!?]$/.test(s.hint),
+      `${s.key}: jedna krátka veta, čo sa tu robí`, s.hint);
+    ok(Array.isArray(s.cta) && s.cta.length === 2 && s.cta.every(Boolean),
+      `${s.key}: tlačidlo má text, keď niečo čaká, aj keď je čisto`);
+  }
+  const caka = F.step('dopyt', { opportunities: [{ status: 'new' }] });
+  eq(caka.cta, 'Odpovedať na dopyty', 'keď dopyt čaká, tlačidlo vedie k odpovedi');
+  eq(F.step('dopyt', {}).cta, 'Vložiť dopyt', 'keď nečaká nič, ponúkne nový');
+}
+
+// ── Čo ešte treba pri jednom človeku ────────────────────────────────────────
+console.log('Karta človeka');
+{
+  const W = { id: 'w1' };
+  const T = '2026-10-18';
+  const nic = F.personSteps({ worker: W, today: T });
+  eq(nic.items.map(i => i.key), ['gdpr', 'zmluva', 'objednavka'], 'tri veci v poradí reťazca');
+  eq(nic.next.key, 'gdpr', 'nový človek začína súhlasom');
+  eq(nic.left, 3, 'chýbajú mu všetky tri');
+
+  const gd = { worker_id: 'w1', kind: 'gdpr', valid_from: '2026-10-01', status: 'valid' };
+  const zm = { worker_id: 'w1', kind: 'contract', valid_from: '2026-10-02',
+    valid_to: '2026-12-31', status: 'valid' };
+  const poGdpr = F.personSteps({ worker: W, today: T, docs: [gd] });
+  eq(poGdpr.next.key, 'zmluva', 'po súhlase ide zmluva');
+  ok(/1\. 10\. 2026/.test(poGdpr.items[0].text), 'pri súhlase je dátum podpisu');
+
+  // Vyžiadaný papier ešte nie je papier.
+  eq(F.personSteps({ worker: W, today: T,
+    docs: [{ ...gd, status: 'requested' }] }).next.key, 'gdpr', 'vyžiadaný súhlas sa nepočíta');
+  // Cudzí doklad sa nepočíta.
+  eq(F.personSteps({ worker: W, today: T,
+    docs: [{ ...gd, worker_id: 'w2' }] }).next.key, 'gdpr', 'ani súhlas iného človeka');
+
+  const poZml = F.personSteps({ worker: W, today: T, docs: [gd, zm] });
+  eq(poZml.next.key, 'objednavka', 'po zmluve ide stavba a objednávka');
+  eq(poZml.next.needs, 'assign', 'najprv mu treba vybrať stavbu');
+
+  const asg = { id: 'a1', worker_id: 'w1', status: 'planned' };
+  const naStavbe = F.personSteps({ worker: W, today: T, docs: [gd, zm], assignments: [asg] });
+  eq(naStavbe.next.needs, 'order', 'na stavbe bez objednávky treba objednávku');
+  eq(naStavbe.next.assignmentId, 'a1', 'a vie, ku ktorému nasadeniu');
+
+  const hotovo = F.personSteps({ worker: W, today: T, docs: [gd, zm], assignments: [asg],
+    orders: [{ kind: 'worker', assignment_id: 'a1', status: 'draft' }] });
+  eq(hotovo.done, true, 'so súhlasom, zmluvou a objednávkou je hotovo');
+  eq(F.personSteps({ worker: W, today: T, docs: [gd, zm], assignments: [asg],
+    orders: [{ kind: 'worker', assignment_id: 'a1', status: 'cancelled' }] }).done, false,
+    'zrušená objednávka nie je objednávka');
+  eq(F.personSteps({ worker: W, today: T, docs: [gd, zm],
+    assignments: [{ ...asg, status: 'ended' }] }).next.needs, 'assign',
+    'skončené nasadenie neznamená, že je na stavbe');
+
+  // Zmluva do konca roka sa raz skončí — a appka to má povedať skôr.
+  const skoncila = F.personSteps({ worker: W, today: '2027-01-05', docs: [gd, zm] });
+  eq(skoncila.next.key, 'zmluva', 'skončená zmluva sa musí obnoviť');
+  ok(/Skončila 31\. 12\. 2026/.test(skoncila.items[1].text), 'a povie, kedy skončila');
+  const konci = F.personSteps({ worker: W, today: '2026-12-10', docs: [gd, zm] });
+  eq(konci.items[1].done, true, 'zmluva, ktorá ešte platí, je v poriadku');
+  eq(konci.items[1].warn, true, 'ale mesiac pred koncom sa ozve');
+  // Novšia zmluva prebije starú.
+  const nova = { ...zm, valid_from: '2027-01-02', valid_to: '2027-12-31' };
+  eq(F.personSteps({ worker: W, today: '2027-01-05', docs: [gd, zm, nova] }).items[1].done,
+    true, 'nová zmluva prebije skončenú');
+  eq(F.personSteps({}).items.length, 3, 'bez údajov nespadne');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

@@ -926,7 +926,7 @@ window.Danubra = {
   // človeku — nad menom by vyzerali ako jeho vlastnosti.
   header(title, sub, right, trail, lead) {
     const help = window.Help ? Help.btn(`screen.${this.route}`, { size: 15 }) : '';
-    return `<div class="page-head">
+    return `${this.stepBar(this.route)}<div class="page-head">
       <div style="min-width:0;">
         ${this.crumbs(trail)}
         <div class="page-title-row">
@@ -940,6 +940,115 @@ window.Danubra = {
       ${right || ''}
     </div>
     ${(trail && trail.length) ? '' : this.tabsHtml(this.route)}`;
+  },
+
+  // ── Krok X zo 7 ──────────────────────────────────────────────────────────
+  // Na každej obrazovke, ktorá patrí do reťazca, je nad nadpisom pruh: ktorý
+  // krok práce je toto a čo príde potom. Bez neho je „Živnostníci" len zoznam
+  // mien a nikoho nenapadne, že práve tu sa robí súhlas GDPR aj zmluva.
+  //
+  // Farby bodiek sú z posledného načítania reťazca (Prehľad alebo „Ako to
+  // ide"). Kým sa nenačítal, sú bodky sivé — pruh nečaká na dotazy.
+  _chain: null,
+
+  stepBar(route) {
+    if (!window.DanubraChain || ['dashboard', 'flow'].includes(route)) return '';
+    const kde = DanubraChain.stepOfRoute(route);
+    if (!kde) return '';
+    const stav = new Map((this._chain || []).map(k => [k.n, k.state]));
+    const bodky = DanubraChain.STEPS.map((k) => {
+      const tu = k.n >= kde.from && k.n <= kde.to;
+      const st = stav.get(k.n) || '';
+      const ide = this.routeAvailable(k.route);
+      return `<button class="sb-dot${tu ? ' is-here' : ''}${st ? ` sb-${st}` : ''}"
+        ${ide ? `onclick="Danubra.go('${k.route}')"` : 'disabled'}
+        title="Krok ${k.n} · ${UI.esc(k.title)}"
+        aria-label="Krok ${k.n}: ${UI.esc(k.title)}">${k.n}</button>`;
+    }).join('');
+    const ktory = kde.from === kde.to ? `Krok ${kde.from} zo 7` : `Kroky ${kde.from}–${kde.to} zo 7`;
+    const co = kde.steps.map(k => k.title).join(' · ');
+    const dalej = kde.next
+      ? (this.routeAvailable(kde.next.route)
+        ? `<button class="sb-next" onclick="Danubra.go('${kde.next.route}')">
+            <span>Ďalej:</span> <b>${kde.next.n} · ${UI.esc(kde.next.title)}</b> ${Icon('chevron', 13)}</button>`
+        : `<span class="sb-next is-off"><span>Ďalej:</span> ${kde.next.n} · ${UI.esc(kde.next.title)}</span>`)
+      : '<span class="sb-next is-off">Posledný krok — úhradou sa to uzavrie.</span>';
+    return `<nav class="stepbar no-print" aria-label="Kde v práci som">
+      <div class="sb-dots">${bodky}</div>
+      <div class="sb-txt"><b>${ktory}</b> <span>${UI.esc(co)}</span></div>
+      ${dalej}
+    </nav>`;
+  },
+
+  /**
+   * Čo spraví tlačidlo pri kroku na Prehľade. Nie „otvor obrazovku", ale
+   * „otvor ju tak, aby bolo hneď vidieť, čo treba" — pri súhlase a zmluve
+   * rovno zoznam ľudí, ktorým chýbajú.
+   */
+  _stepAction(s) {
+    const caka = s.todo > 0;
+    if (s.key === 'dopyt' && !caka && window.Opp && this.routeAvailable('opportunities')) {
+      return 'Opp.inquiryForm()';
+    }
+    if (s.key === 'nemec' && !caka && this.routeAvailable('partners')) {
+      return "Danubra.go('partners')";
+    }
+    if (['gdpr', 'zmluva'].includes(s.key) && window.Wrk && this.routeAvailable('workers')) {
+      const f = caka ? (s.key === 'gdpr' ? 'nogdpr' : 'nocontract') : '';
+      return `Wrk.openId=null;Wrk.filters.doc='${f}';Danubra.go('workers')`;
+    }
+    return this.routeAvailable(s.route) ? `Danubra.go('${s.route}')` : '';
+  },
+
+  /**
+   * Sedem krokov na Prehľade. Je to prvá vec pod „čo spraviť teraz":
+   * veľké číslo, ikona, jedna veta, stav a jedno tlačidlo rovno k práci.
+   * Čísla a grafy sú pod tým — tie odpovedajú na „ako sa darí", nie na
+   * „čo mám robiť".
+   */
+  _dashSteps(kroky, focus) {
+    const sum = DanubraChain.summary(kroky);
+    const CHIP = {
+      bad: ['alert', 'Horí'], watch: ['clock', 'Čaká'],
+    };
+    const riadky = kroky.map((s) => {
+      const chip = CHIP[s.state] || (s.have ? ['check', 'V poriadku'] : ['info', 'Zatiaľ prázdne']);
+      const stav = s.state === 'calm' && !s.have ? 'empty' : s.state;
+      const text = s.state !== 'calm' ? s.todoText : (s.have ? s.haveText : s.todoText);
+      const akcia = this._stepAction(s);
+      const teraz = focus && focus.key === s.key;
+      return `<li class="st7-step st7-${stav}${teraz ? ' is-focus' : ''}">
+        <span class="st7-n" aria-hidden="true">${s.n}</span>
+        <div class="st7-card">
+          <span class="st7-ico">${Icon(s.ico, 20)}</span>
+          <div class="st7-main">
+            <div class="st7-title">${UI.esc(s.title)}${
+              teraz ? '<span class="st7-now">teraz toto</span>' : ''}${
+              Help.btn(`flow.${s.key}`, { size: 13 })}</div>
+            <div class="st7-hint">${UI.esc(s.hint)}</div>
+            <div class="st7-state">
+              <span class="st7-chip">${Icon(chip[0], 13)} ${chip[1]}</span>
+              <span class="st7-txt">${UI.esc(text)}</span>
+            </div>
+          </div>
+          ${akcia ? `<button class="btn ${teraz ? 'btn-primary' : 'btn-outline'} st7-go no-print"
+            onclick="${akcia}">${UI.esc(s.cta)} ${Icon('chevron', 14)}</button>` : ''}
+        </div>
+      </li>`;
+    }).join('');
+    return `<section class="st7" aria-label="Sedem krokov">
+      <div class="st7-head">
+        <h2>Sedem krokov od dopytu po faktúru</h2>
+        <span class="st7-sum">${sum.blocked
+          ? `<b class="t-bad">${sum.blocked} ${Shell.plural(sum.blocked, 'horí', 'horia', 'horí')}</b>` : ''}${
+          sum.blocked && sum.watch ? ' · ' : ''}${sum.watch
+          ? `<b class="t-watch">${sum.watch} ${Shell.plural(sum.watch, 'čaká', 'čakajú', 'čaká')}</b>` : ''}${
+          !sum.blocked && !sum.watch ? '<b class="t-ok">nič nestojí</b>' : ''}</span>
+        ${this.routeAvailable('flow') ? `<button class="link-inline no-print"
+          onclick="Danubra.go('flow')">Podrobne ${Icon('chevron', 12)}</button>` : ''}
+      </div>
+      <ol class="st7-list">${riadky}</ol>
+    </section>`;
   },
 
   setActions(html) {
@@ -1384,9 +1493,17 @@ window.Danubra = {
     const úlohy = taskLine && taskLine.tone !== 'ok';
 
     let label = 'Čo spraviť teraz', title, sub, why = '', akcia = null, hot = false;
+    // Krok reťazca už ukazuje zoznam siedmich krokov priamo pod týmto
+    // („teraz toto"). Dva bloky s tou istou vetou nad sebou by len mátli —
+    // rámik tu ostáva pre úlohy, ktoré v krokoch nie sú.
+    const lenTlac = `
+      <div class="headline headline-${taskLine.tone === 'bad' ? 'bad' : taskLine.tone === 'warn' ? 'warn' : 'ok'} only-print">
+        <span>${UI.esc(taskLine.text)}</span>
+      </div>`;
+    if ((horí && krok) || !úlohy) return lenTlac;
 
     if (horí && krok) {
-      label += ` · krok ${krok.n} zo 14`;
+      label += ` · krok ${krok.n} zo 7`;
       title = krok.title;
       sub = krok.todoText || chainHead.text;
       why = krok.lead || '';
@@ -2869,6 +2986,7 @@ window.Danubra = {
       view.innerHTML = this.header('Ako to ide') + UI.loading();
       const x = await this._flowLoad();
       const kroky = DanubraChain.all(x);
+      this._chain = kroky;
       const head = DanubraChain.headline(kroky);
       const sum = DanubraChain.summary(kroky);
 
@@ -2921,6 +3039,7 @@ window.Danubra = {
       // Prvá veta na obrazovke. Nie graf, nie číslo — veta. A pod ňou jedno
       // tlačidlo, ktoré vedie presne tam, kde sa to rieši.
       const chain = DanubraChain.all(chainData);
+      this._chain = chain;
       const chainHead = DanubraChain.headline(chain);
       const head = DanubraTasks.headline(x.tasks, x.today);
       const alerts = this._dashAlerts(x);
@@ -2955,6 +3074,8 @@ window.Danubra = {
             vytlačené ${UI.esc(today)}</span>
         </div>
         ${this._dashNow(chainHead, line, tc)}
+        ${this._dashSteps(chain, chainHead.step)}
+        <h2 class="dash-sub">Čísla</h2>
         ${vidno.length ? `<div class="kpi-grid">
           ${vidno.map(d => `
             <div class="kpi kpi-${d.state}">
