@@ -179,6 +179,101 @@
     };
   }
 
+  // ── Náborový plán po týždňoch ────────────────────────────────────────────
+  // „Cieľ máme nabrať 2–6 ľudí týždenne, viac ani nevládzeme."
+  //
+  // `capacity` povie jednou vetou, či to stíhame. Toto je **plán**: ktorý
+  // týždeň koho naberáme. Stavby idú podľa nástupu — kto nastupuje skôr, ten
+  // sa naberá skôr — a do týždňa sa dá najviac toľko ľudí, koľko vládzeme
+  // (`perWeek.max`). Pri slabšom tempe (`perWeek.min`) sa povie, dokedy by
+  // to trvalo, aby to nebolo prekvapenie.
+  //
+  // Týždeň 1 začína dnes (nie v pondelok): plán sa robí v deň, keď prišiel
+  // dopyt, a „tento týždeň" od stredy má len tri dni.
+  //
+  // projects: [{ key, title, city, headcount, start_date }]
+  function schedule({ projects = [], perWeek = KAPACITA, today, limit = 26 } = {}) {
+    const dnes = String(today || new Date().toISOString().slice(0, 10)).slice(0, 10);
+    const max = Math.max(1, Number(perWeek && perWeek.max) || KAPACITA.max);
+    const min = Math.max(1, Math.min(max, Number(perWeek && perWeek.min) || KAPACITA.min));
+
+    const list = (projects || []).filter(p => p && Number(p.headcount) > 0)
+      .map((p, i) => ({ ...p, key: p.key != null ? p.key : i, headcount: Number(p.headcount) }))
+      // Stabilné poradie: podľa nástupu, bez termínu na koniec, inak ako prišli.
+      .map((p, i) => ({ p, i }))
+      .sort((a, b) => String(a.p.start_date || '9999').localeCompare(String(b.p.start_date || '9999'))
+        || a.i - b.i)
+      .map(x => x.p);
+
+    // Rozdelí ľudí do týždňov pri danom tempe. Vráti týždne a kedy je ktorá
+    // stavba obsadená.
+    const rozdel = (tempo) => {
+      const zostava = new Map(list.map(p => [p.key, p.headcount]));
+      const hotovo = new Map();
+      const weeks = [];
+      for (let w = 0; w < limit && [...zostava.values()].some(v => v > 0); w++) {
+        const from = posun(dnes, w * 7), to = posun(dnes, w * 7 + 6);
+        let volne = tempo;
+        const items = [];
+        for (const p of list) {
+          const ost = zostava.get(p.key);
+          if (!ost || !volne) continue;
+          const vezmem = Math.min(ost, volne);
+          zostava.set(p.key, ost - vezmem);
+          volne -= vezmem;
+          items.push({ key: p.key, title: p.title || p.city || '', city: p.city || '', count: vezmem });
+          if (ost - vezmem === 0) hotovo.set(p.key, to);
+        }
+        weeks.push({ n: w + 1, from, to, items, total: tempo - volne });
+      }
+      return { weeks, hotovo };
+    };
+
+    const best = rozdel(max);
+    const worst = rozdel(min);
+    const people = list.reduce((s, p) => s + p.headcount, 0);
+    const out = list.map((p) => {
+      const ready = best.hotovo.get(p.key) || null;
+      const readyWorst = worst.hotovo.get(p.key) || null;
+      const late = !!(p.start_date && ready && ready > p.start_date);
+      return { ...p, ready, readyWorst, late,
+        lateDays: late ? dni(ready, p.start_date) : 0,
+        weeks: best.weeks.filter(w => w.items.some(x => x.key === p.key))
+          .map(w => ({ n: w.n, from: w.from, to: w.to,
+            count: w.items.find(x => x.key === p.key).count })) };
+    });
+    const lateN = out.filter(p => p.late).length;
+    return {
+      people, max, min,
+      weeks: best.weeks,
+      weeksBest: best.weeks.length, weeksWorst: worst.weeks.length,
+      projects: out,
+      late: out.filter(p => p.late),
+      text: !people ? 'Niet koho hľadať.'
+        : `${people} ${plural(people, 'človek', 'ľudia', 'ľudí')} pri ${max} týždenne = `
+          + `${best.weeks.length} ${plural(best.weeks.length, 'týždeň', 'týždne', 'týždňov')}`
+          + (worst.weeks.length > best.weeks.length
+            ? `, pri slabom tempe (${min} týždenne) ${worst.weeks.length}.` : '.')
+          + (lateN ? ` ${lateN} ${plural(lateN, 'stavba nestihne', 'stavby nestihnú', 'stavieb nestihne')} nástup.` : ''),
+    };
+  }
+
+  /** „20.–26. 10." — týždeň krátko, bez roka. */
+  function weekLabel(from, to) {
+    const d = (s) => { const [, m, dd] = String(s).split('-').map(Number); return { m, d: dd }; };
+    const a = d(from), b = d(to);
+    if (!a.m || !b.m) return '';
+    return a.m === b.m ? `${a.d}.–${b.d}. ${b.m}.` : `${a.d}. ${a.m}. – ${b.d}. ${b.m}.`;
+  }
+
+  /** Text do poznámky náboru: kedy koľko ľudí. */
+  function planText(p) {
+    if (!p || !p.weeks || !p.weeks.length) return '';
+    return 'Náborový plán: ' + p.weeks.map(w =>
+      `týždeň ${w.n} (${weekLabel(w.from, w.to)}) ${w.count} ${plural(w.count, 'človek', 'ľudia', 'ľudí')}`)
+      .join(', ') + '.';
+  }
+
   function posun(d, o) {
     const t = Date.parse(String(d).slice(0, 10) + 'T00:00:00Z');
     if (!Number.isFinite(t)) return d;
@@ -210,6 +305,7 @@
   const API = {
     KAPACITA, POVINNE,
     normalize, problems, usable, skonto, skontoText, capacity, summary,
+    schedule, weekLabel, planText,
   };
   if (typeof window !== 'undefined') window.DanubraInquiry = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

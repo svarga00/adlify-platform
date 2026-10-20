@@ -3522,6 +3522,92 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+
+    // ── Z dopytu rovno náborový plán a podklady ─────────────────────────────
+    // „Z takýchto podkladov potrebujem vypracovať náborový plán a všetky
+    // podklady. Cieľ 2–6 ľudí týždenne." E-mail → plán po týždňoch → jedným
+    // klikom dopyty, nábory s termínom a podklady pre každý.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        DB.list = async () => ({ data: [], error: null });
+        DB.count = async () => 0;
+        const vlozene = {};
+        let n = 0;
+        DB.insertMany = async (t, rows) => {
+          vlozene[t] = rows;
+          return { data: rows.map(r => ({ id: `${t}-${++n}`, ...r })), error: null };
+        };
+        const zmeny = [];
+        DB.update = async (t, id, patch) => { zmeny.push({ t, id, patch }); return { error: null }; };
+        const volania = [];
+        window.fetch = async (u, o) => {
+          volania.push(JSON.parse(o.body).planId);
+          return { ok: true, json: async () => ({ blocks: 6, questions: 4 }) };
+        };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra._dayISO = () => '2026-10-20';
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        Opp._inq = {
+          projects: [
+            { title: 'Hammelburg', city: 'Hammelburg', headcount: 5, rate_client: 34,
+              start_date: '2026-10-22', brief: 'Trockenbau.', requirements: [] },
+            { title: 'Gengenbach', city: 'Gengenbach', headcount: 4, rate_client: 34,
+              start_date: '2026-11-30', brief: 'Trockenbau.', requirements: [] },
+          ],
+          client: { company_name: 'B&M Projekte GmbH' }, payment: '', risks: [], raw: '',
+        };
+        Opp.inquiryPreview();
+        const m = () => document.getElementById('ui-modal');
+        const tyzdne = [...m().querySelectorAll('.wplan-week')].map(w => w.innerText.replace(/\s+/g, ' '));
+        const neskoro = m().querySelectorAll('.inq-when.is-late').length;
+        const tlacidla = [...m().querySelectorAll('.modal-actions .btn')].map(b => b.textContent.trim());
+
+        // Odškrtnutá stavba z plánu vypadne hneď.
+        document.getElementById('inq-1').checked = false;
+        Opp.inqRepaint();
+        const poOdskrtnuti = m().querySelectorAll('.wplan-week').length;
+        document.getElementById('inq-1').checked = true;
+        Opp.inqRepaint();
+
+        await Opp.saveInquiry(true);
+        return { tyzdne, neskoro, tlacidla, poOdskrtnuti, vlozene, zmeny, volania,
+          vysledok: m() ? m().innerText : '' };
+      });
+
+      ok(out.tyzdne.length === 2, `plán má dva týždne (${out.tyzdne.length})`);
+      ok(/Hammelburg 5/.test(out.tyzdne[0]) && /Gengenbach 1/.test(out.tyzdne[0]) && /6 z 6/.test(out.tyzdne[0]),
+        'prvý týždeň: Hammelburg 5 a Gengenbach 1 — šesť, viac nevládzeme', out.tyzdne[0]);
+      ok(out.neskoro === 1, 'Hammelburg s nástupom o dva dni sa ukáže ako nestihnutý');
+      ok(out.tlacidla.some(t => /Založiť nábor a pripraviť podklady/.test(t)),
+        'jedno tlačidlo založí nábor aj podklady', out.tlacidla.join(' | '));
+      ok(out.tlacidla.some(t => /Len zapísať dopyty/.test(t)), 'a dá sa aj len zapísať');
+      ok(out.poOdskrtnuti === 1, 'odškrtnutá stavba z plánu hneď vypadne');
+      const plany = out.vlozene.recruitment_plans || [];
+      ok((out.vlozene.opportunities || []).length === 2, 'zapíšu sa dva dopyty');
+      ok(plany.length === 2, 'a ku každému nábor');
+      ok(plany.every(p => p.status === 'draft'), 'nábor je koncept — nič sa nezverejní samo');
+      ok(plany[0].deadline === '2026-10-22', 'termín náboru je nástup', plany[0].deadline);
+      ok(/týždeň 1 \(20\.–26\. 10\.\) 5 ľudí/.test(plany[0].notes || ''),
+        'a v nábore je napísané, ktorý týždeň koľko ľudí', plany[0].notes);
+      ok(plany.every(p => p.brief), 'zadanie sa prenesie');
+      ok(out.zmeny.filter(z => z.t === 'opportunities' && z.patch.plan_id).length === 2,
+        'dopyty sa prepoja s náborom');
+      ok(out.volania.length === 2, 'podklady sa pripravia pre oba nábory');
+      ok(/Nábor je pripravený/.test(out.vysledok) && /6 textov na inzeráty/.test(out.vysledok),
+        'a appka povie, čo pripravila a čo ďalej', out.vysledok.slice(0, 200));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

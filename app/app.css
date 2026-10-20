@@ -3171,3 +3171,52 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .pap-empty { padding: 18px; text-align: center; color: var(--ink-mute); font-size: 13.5px; }
 @media (max-width: 640px) { .pap-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .top-papers span { display: none; } .top-papers { padding: 0 10px; } }
+
+/* ── Náborový plán po týždňoch ──────────────────────────────────────────── */
+.wplan { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card);
+  padding: 14px; margin-bottom: 14px; }
+.wplan.is-late { border-color: #F3D4B6; }
+.wplan-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+.wplan-head b { display: block; font-size: 15px; }
+.wplan-head span { font-size: 13px; color: var(--ink-sub); }
+.wplan-ico { flex: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--blue-50); color: var(--blue); }
+.wplan.is-late .wplan-ico { background: var(--amber-50); color: var(--amber); }
+.wplan-weeks { display: flex; flex-direction: column; }
+.wplan-week { display: grid; grid-template-columns: 130px 1fr 120px; gap: 12px; align-items: center;
+  padding: 8px 0; border-top: 1px solid var(--border-soft); }
+.wplan-w b { display: block; font-size: 13.5px; }
+.wplan-w span { font-size: 12px; color: var(--ink-mute); }
+.wplan-items { display: flex; flex-wrap: wrap; gap: 5px; }
+.wplan-chip { display: inline-flex; gap: 5px; align-items: center; padding: 3px 9px; border-radius: 999px;
+  background: var(--field); font-size: 12.5px; }
+.wplan-chip b { color: var(--blue); }
+.wplan-total { font-size: 12px; color: var(--ink-sub); display: flex; align-items: center; gap: 7px;
+  justify-content: flex-end; font-variant-numeric: tabular-nums; }
+.wplan-bar { flex: 1; max-width: 60px; height: 6px; border-radius: 3px; background: var(--field); overflow: hidden; }
+.wplan-bar i { display: block; height: 100%; background: var(--blue); }
+.wplan-more { font-size: 12.5px; color: var(--ink-mute); padding-top: 8px; }
+@media (max-width: 640px) {
+  .wplan-week { grid-template-columns: 1fr; gap: 6px; }
+  .wplan-total { justify-content: flex-start; }
+}
+.inq-when { display: block; font-size: 12px; color: var(--green); margin-top: 2px; }
+.inq-when.is-late { color: var(--amber); font-weight: 600; }
+.inq-next { margin: 14px 0 4px; padding: 12px 14px; border-radius: var(--radius-lg);
+  background: var(--blue-50); font-size: 13px; }
+.inq-next b { display: flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.inq-next ol { margin: 6px 0 4px; padding-left: 20px; line-height: 1.6; }
+.inq-next > span { color: var(--ink-sub); font-size: 12.5px; }
+.prep-list { display: flex; flex-direction: column; gap: 8px; }
+.prep-row { display: flex; gap: 11px; align-items: center; padding: 11px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.prep-ico { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--field); color: var(--ink-sub); }
+.prep-ok .prep-ico { background: var(--green-50); color: var(--green); }
+.prep-err .prep-ico, .prep-skipped .prep-ico, .prep-nobrief .prep-ico { background: var(--amber-50); color: var(--amber); }
+.prep-run .prep-ico { animation: prep-pulse 1.2s ease-in-out infinite; }
+@keyframes prep-pulse { 50% { opacity: .4; } }
+.prep-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.prep-txt b { font-size: 14px; }
+.prep-txt em { font-style: normal; font-size: 12.5px; color: var(--ink-sub); }
+.prep-txt .prep-plan { color: var(--blue); }

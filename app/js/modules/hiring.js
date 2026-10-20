@@ -125,6 +125,7 @@
 
         + `<div class="flow">${kroky.map(k => this.stepHtmlBig(k, teraz)).join('')}</div>
 
+        ${this.weekPlanHtml()}
         ${this.plansHtml()}
         ${this.elsewhereHtml()}`;
     },
@@ -173,6 +174,49 @@
         </div>
         <button class="btn btn-outline btn-sm" onclick="Learn.open()">
           ${Icon('zap', 15)} ${s.done ? 'Pokračovať' : 'Začať zaškolenie'}</button>
+      </div>`;
+    },
+
+    // ── Plán po týždňoch ──────────────────────────────────────────────────
+    // „Cieľ máme nabrať 2–6 ľudí týždenne." Zo všetkých otvorených náborov
+    // (mínus tí, čo už sú nabraní) sa spraví jeden plán: ktorý týždeň koho
+    // naberáme. Počíta to `DanubraInquiry.schedule` — ten istý výpočet ako
+    // pri vložení e-mailu, takže plán na Nábore a v dopyte nikdy nebude iný.
+    nabrani(planId) {
+      return this.candidates.filter(c => c.plan_id === planId
+        && ['ready', 'placed'].includes(c.status)).length;
+    },
+
+    weekSchedule() {
+      if (!window.DanubraInquiry) return null;
+      const projects = this.plans.filter(p => ['draft', 'active'].includes(p.status))
+        .map(p => ({ key: p.id, title: p.title, city: p.city || p.title,
+          start_date: p.start_date,
+          headcount: Math.max(0, (Number(p.headcount) || 0) - this.nabrani(p.id)) }));
+      return DanubraInquiry.schedule({ projects,
+        perWeek: window.Opp ? Opp.kapacita() : undefined, today: Danubra._dayISO() });
+    },
+
+    weekPlanHtml() {
+      const s = this.weekSchedule();
+      if (!s || !s.people || !window.Opp) return '';
+      return `<div class="form-section">Plán na najbližšie týždne</div>
+        ${Opp.planHtml(s, { title: 'Koho naberáme po týždňoch', limit: 6 })}`;
+    },
+
+    /** Riadok v nábore: kedy podľa plánu budú ľudia. */
+    planLineHtml(p) {
+      const s = this.weekSchedule();
+      const sp = s && s.projects.find(x => x.key === p.id);
+      if (!sp || !sp.weeks.length) return '';
+      const nabr = this.nabrani(p.id);
+      return `<div class="${sp.late ? 'warnbox' : 'regimebox'}">
+        ${Icon(sp.late ? 'alert' : 'calendar', 14)}
+        ${UI.esc(DanubraInquiry.planText(sp))}
+        ${nabr ? ` Už nabraní: ${nabr}.` : ''}
+        ${sp.late ? `<strong>Nástup ${UI.date(sp.start_date)} sa nestihne — ľudí budeš mať
+          ${UI.date(sp.ready)}, o ${sp.lateDays} ${Shell.plural(sp.lateDays, 'deň', 'dni', 'dní')} neskôr.</strong>`
+          : ` Ľudí budeš mať do ${UI.date(sp.ready)}.`}
       </div>`;
     },
 
@@ -708,6 +752,7 @@
             ${m.marginPerHour} €/h · ${UI.pct(m.marginPct)}</strong></div>
           <div><span>Kandidáti</span><strong>${mine.length}</strong></div>
         </div>
+        ${this.planLineHtml(p)}
 
         ${Kit.html(p)}
 

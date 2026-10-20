@@ -173,5 +173,52 @@ const VSETKY = [HAMMELBURG, FRIESENHEIM, GENGENBACH];
   eq(I.summary([{ title: 'x' }]).people, 0, 'projekt bez počtu ľudí sa počíta ako nula');
 }
 
+// ── Náborový plán po týždňoch ───────────────────────────────────────────────
+// B&M: trinásť ľudí na tri stavby, nástup o pár dní. Pri šiestich týždenne
+// je to plán na tri týždne — a ani jedna stavba nástup nestihne.
+{
+  const P = I.schedule({ projects: VSETKY, perWeek: { min: 2, max: 6 }, today: '2026-10-16' });
+  eq(P.people, 13, 'trinásť ľudí');
+  eq(P.weeks.length, 3, 'pri šiestich týždenne tri týždne');
+  eq(P.weeksWorst, 7, 'pri dvoch týždenne sedem');
+  eq(P.weeks.map(w => w.total), [6, 6, 1], 'do týždňa nikdy viac, než vládzeme');
+  eq(P.weeks[0].items.map(x => `${x.city} ${x.count}`), ['Hammelburg 5', 'Friesenheim 1'],
+    'prvý týždeň: najprv stavba, ktorá nastupuje skôr, zvyšok miesta ďalšej');
+  eq(P.weeks[1].items.map(x => `${x.city} ${x.count}`), ['Friesenheim 3', 'Gengenbach 3'],
+    'druhý týždeň dokončí Friesenheim a začne Gengenbach');
+  eq([P.weeks[0].from, P.weeks[0].to], ['2026-10-16', '2026-10-22'], 'týždeň 1 začína dnes');
+
+  const h = P.projects.find(p => p.city === 'Hammelburg');
+  eq(h.ready, '2026-10-22', 'Hammelburg je obsadený na konci prvého týždňa');
+  eq(h.late, true, 'a nástup 19. 10. nestihne');
+  eq(h.lateDays, 3, 'o tri dni');
+  eq(P.late.length, 3, 'nestihne ani jedna stavba');
+  ok(/13 ľudí pri 6 týždenne = 3 týždne, pri slabom tempe \(2 týždenne\) 7\. 3 stavby nestihnú nástup\./
+    .test(P.text), 'veta to povie celé', P.text);
+  eq(I.planText(h), 'Náborový plán: týždeň 1 (16.–22. 10.) 5 ľudí.', 'text do náboru');
+  eq(I.planText(P.projects.find(p => p.city === 'Friesenheim')),
+    'Náborový plán: týždeň 1 (16.–22. 10.) 1 človek, týždeň 2 (23.–29. 10.) 3 ľudia.',
+    'stavba rozdelená na dva týždne');
+  eq(I.weekLabel('2026-10-30', '2026-11-05'), '30. 10. – 5. 11.', 'týždeň cez dva mesiace');
+
+  // Keď je času dosť, nič nemešká.
+  const vcas = I.schedule({ projects: [{ ...HAMMELBURG, start_date: '2026-11-30' }],
+    perWeek: { min: 2, max: 6 }, today: '2026-10-16' });
+  eq(vcas.late.length, 0, 's nástupom o mesiac sa to stíha');
+  ok(!/nestihn/.test(vcas.text), 'a veta nestraší', vcas.text);
+
+  // Stavba bez termínu ide na koniec — nevie sa, kedy ju treba.
+  const bez = I.schedule({ projects: [{ title: 'Bez', city: 'X', headcount: 2 },
+    { ...GENGENBACH, headcount: 2 }], perWeek: { min: 2, max: 6 }, today: '2026-10-16' });
+  eq(bez.weeks[0].items.map(x => x.city), ['Gengenbach', 'X'], 'stavba bez termínu ide na koniec');
+
+  eq(I.schedule({ projects: [] }).weeks.length, 0, 'bez stavieb prázdny plán');
+  ok(/Niet koho/.test(I.schedule({ projects: [] }).text), 'a povie sa to');
+  eq(I.schedule({ projects: VSETKY, perWeek: { min: 9, max: 6 }, today: '2026-10-16' }).weeksWorst,
+    3, 'minimum vyššie než maximum sa zarovná — slabé tempo nemôže byť rýchlejšie');
+  eq(I.schedule({ projects: [{ city: 'A', headcount: 100 }], perWeek: { max: 1 },
+    today: '2026-10-16', limit: 5 }).weeks.length, 5, 'plán sa nepočíta donekonečna');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);
