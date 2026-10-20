@@ -213,24 +213,107 @@
       const q = this._inq;
       if (!q) return;
       const sum = Inq.summary(q.projects);
-      const kap = Inq.capacity({ projects: q.projects, perWeek: this.kapacita(),
-        today: Danubra._dayISO() });
       const sk = Inq.skonto(q.payment);
       const zle = q.projects.filter(p => !Inq.usable(p));
 
       UI.modal(`Našlo sa: ${sum.text}`, `
-        ${kap.late.length ? `<div class="warnbox">${Icon('alert', 14)}
-          <strong>Toto nestíhame.</strong> ${UI.esc(kap.text)}
-          ${kap.late.map(p => `<br>${UI.esc(p.city)} chceš od ${UI.date(p.start_date)},
-            najskôr to vieš ${UI.date(p.hotovo)} — o ${p.meskanie}
-            ${Shell.plural(p.meskanie, 'deň', 'dni', 'dní')} neskôr.`).join('')}
-        </div>` : `<div class="regimebox">${UI.esc(kap.text)}</div>`}
+        <div id="inq-plan">${this.inqPlanHtml()}</div>
 
         ${sk ? `<div class="regimebox">${UI.esc(Inq.skontoText(sk))}
           Zapísané tak, ako to prišlo: <strong>${UI.esc(q.payment)}</strong></div>` : ''}
 
-        <div class="form-section">Stavby</div>
-        ${q.projects.map((p, i) => `
+        <div class="form-section">Stavby — odškrtni, čo nechceš</div>
+        <div id="inq-stavby">${this.inqRowsHtml()}</div>
+
+        ${q.risks.length ? `<div class="form-section">Na čo si dať pozor</div>
+          ${q.risks.map(r => `<div class="list-row" style="cursor:default;align-items:flex-start;">
+            <span class="dot amber" style="margin-top:5px;"></span>
+            <span style="flex:1;font-size:13px;">${UI.esc(r)}</span></div>`).join('')}` : ''}
+
+        <div class="inq-next">
+          <b>${Icon('zap', 15)} Čo sa stane po kliknutí</b>
+          <ol>
+            <li>Každá stavba sa zapíše ako dopyt (krok 1).</li>
+            <li>Ku každej sa založí nábor s termínom podľa plánu (krok 2).</li>
+            <li>Appka napíše podklady: texty inzerátov a otázky do telefonátu.</li>
+          </ol>
+          <span>Nič sa nezverejní samo — texty si pred spustením prečítaš.</span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          <button type="button" class="btn btn-outline" onclick="Opp.saveInquiry(false)">
+            Len zapísať dopyty</button>
+          <button type="button" class="btn btn-primary" onclick="Opp.saveInquiry(true)">
+            ${Icon('zap')} Založiť nábor a pripraviť podklady</button>
+        </div>`, { wide: true });
+      if (zle.length) {
+        UI.toast(`${zle.length} ${Shell.plural(zle.length, 'stavba nemá', 'stavby nemajú', 'stavieb nemá')} `
+          + 'všetko — založiť sa dajú aj tak', 'warn');
+      }
+    },
+
+    /** Označené stavby — z nich sa robí plán aj zápis. */
+    inqChecked() {
+      const q = this._inq;
+      return q.projects.map((p, i) => ({ ...p, key: i })).filter((_, i) => {
+        const el = document.getElementById(`inq-${i}`);
+        return el ? el.checked : true;
+      });
+    },
+
+    inqSchedule() {
+      return Inq.schedule({ projects: this.inqChecked(), perWeek: this.kapacita(),
+        today: Danubra._dayISO() });
+    },
+
+    inqPlanHtml() { return this.planHtml(this.inqSchedule()); },
+
+    /**
+     * Plán po týždňoch: ktorý týždeň koľko ľudí na ktorú stavbu. Kreslí sa
+     * aj na obrazovke Nábor — preto je to tu ako samostatný kúsok.
+     */
+    planHtml(sched, opts = {}) {
+      if (!sched || !sched.people) {
+        return `<div class="regimebox">${UI.esc((sched && sched.text) || 'Niet koho hľadať.')}</div>`;
+      }
+      const late = sched.late.length;
+      return `<div class="wplan${late ? ' is-late' : ''}">
+        <div class="wplan-head">
+          <span class="wplan-ico">${Icon(late ? 'alert' : 'calendar', 16)}</span>
+          <div>
+            <b>${UI.esc(opts.title || 'Náborový plán')}</b>
+            <span>${UI.esc(sched.text)}</span>
+          </div>
+        </div>
+        <div class="wplan-weeks">
+          ${sched.weeks.slice(0, opts.limit || 8).map(w => `
+            <div class="wplan-week">
+              <div class="wplan-w"><b>Týždeň ${w.n}</b><span>${UI.esc(Inq.weekLabel(w.from, w.to))}</span></div>
+              <div class="wplan-items">${w.items.map(x => `
+                <span class="wplan-chip">${UI.esc(x.city || x.title)} <b>${x.count}</b></span>`).join('')}</div>
+              <div class="wplan-total" title="Najviac ${sched.max} týždenne">
+                <span class="wplan-bar"><i style="width:${Math.round(100 * w.total / sched.max)}%"></i></span>
+                ${w.total} z ${sched.max}</div>
+            </div>`).join('')}
+          ${sched.weeks.length > (opts.limit || 8) ? `<div class="wplan-more">
+            … a ďalších ${sched.weeks.length - (opts.limit || 8)} týždňov</div>` : ''}
+        </div>
+      </div>`;
+    },
+
+    inqRowsHtml() {
+      const q = this._inq;
+      const sched = this.inqSchedule();
+      return q.projects.map((p, i) => {
+        const sp = sched.projects.find(x => x.key === i);
+        const kedy = sp && sp.ready
+          ? (sp.late
+            ? `<span class="inq-when is-late">${Icon('alert', 12)} ľudí budeš mať ${UI.date(sp.ready)} —
+                o ${sp.lateDays} ${Shell.plural(sp.lateDays, 'deň', 'dni', 'dní')} po nástupe</span>`
+            : `<span class="inq-when">${Icon('check', 12)} ľudí budeš mať do ${UI.date(sp.ready)}</span>`)
+          : '';
+        return `
           <div class="list-row" style="cursor:default;align-items:flex-start;">
             <span class="dot ${Inq.usable(p) ? 'green' : 'amber'}" style="margin-top:5px;"></span>
             <span style="flex:1;font-size:13px;">
@@ -238,28 +321,30 @@
               <span style="display:block;color:var(--ink-mute);font-size:12px;">
                 ${[p.city, p.headcount ? `${p.headcount} ${Shell.plural(p.headcount, 'človek', 'ľudia', 'ľudí')}` : null,
                   p.rate_client ? `${String(p.rate_client).replace('.', ',')} €/h` : null,
-                  p.start_date ? `od ${UI.date(p.start_date)}` : 'bez termínu',
+                  p.start_date ? `nástup ${UI.date(p.start_date)}` : 'bez termínu',
                 ].filter(Boolean).map(UI.esc).join(' · ')}</span>
+              ${kedy}
               ${Inq.problems(p).length ? `<span style="display:block;color:var(--amber);font-size:12px;">
                 chýba ${UI.esc(Inq.problems(p).map(x => x.title).join(', '))} — doplníš to po založení</span>` : ''}
             </span>
             <label class="chk" title="Založiť túto stavbu">
-              <input type="checkbox" id="inq-${i}" checked></label>
-          </div>`).join('')}
+              <input type="checkbox" id="inq-${i}" checked onchange="Opp.inqRepaint()"></label>
+          </div>`;
+      }).join('');
+    },
 
-        ${q.risks.length ? `<div class="form-section">Na čo si dať pozor</div>
-          ${q.risks.map(r => `<div class="list-row" style="cursor:default;align-items:flex-start;">
-            <span class="dot amber" style="margin-top:5px;"></span>
-            <span style="flex:1;font-size:13px;">${UI.esc(r)}</span></div>`).join('')}` : ''}
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-          <button type="button" class="btn btn-primary" onclick="Opp.saveInquiry()">
-            ${Icon('check')} Založiť označené</button>
-        </div>`, { wide: true });
-      if (zle.length) {
-        UI.toast(`${zle.length} ${Shell.plural(zle.length, 'stavba nemá', 'stavby nemajú', 'stavieb nemá')} `
-          + 'všetko — založiť sa dajú aj tak', 'warn');
+    /** Odškrtnutá stavba sa z plánu vypadne hneď — nie až po založení. */
+    inqRepaint() {
+      const plan = document.getElementById('inq-plan');
+      if (plan) plan.innerHTML = this.inqPlanHtml();
+      // Riadky sa prekresľujú bez straty zaškrtnutia — len veta „kedy".
+      const stav = this._inq.projects.map((_, i) => {
+        const el = document.getElementById(`inq-${i}`); return el ? el.checked : true;
+      });
+      const box = document.getElementById('inq-stavby');
+      if (box) {
+        box.innerHTML = this.inqRowsHtml();
+        stav.forEach((v, i) => { const el = document.getElementById(`inq-${i}`); if (el) el.checked = v; });
       }
     },
 
@@ -272,14 +357,12 @@
       };
     },
 
-    async saveInquiry() {
+    async saveInquiry(sNaborom) {
       const q = this._inq;
       if (!q) return;
-      const vybrane = q.projects.filter((_, i) => {
-        const el = document.getElementById(`inq-${i}`);
-        return el ? el.checked : true;
-      });
+      const vybrane = this.inqChecked();
       if (!vybrane.length) return UI.toast('Nič nie je označené', 'err');
+      const sched = this.inqSchedule();
 
       const sk = Inq.skonto(q.payment);
       const rows = vybrane.map(p => ({
@@ -316,9 +399,130 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       if (Array.isArray(data)) this.items.unshift(...data);
       this._inq = null;
-      UI.closeModal();
-      UI.toast(`Založené: ${rows.length} ${Shell.plural(rows.length, 'dopyt', 'dopyty', 'dopytov')}`, 'ok');
-      Danubra.renderRoute();
+      if (!sNaborom || !Array.isArray(data)) {
+        UI.closeModal();
+        UI.toast(`Založené: ${rows.length} ${Shell.plural(rows.length, 'dopyt', 'dopyty', 'dopytov')}`, 'ok');
+        return Danubra.renderRoute();
+      }
+      return this.makePlans(vybrane, data, sched);
+    },
+
+    // ── Z dopytu rovno nábor a podklady ───────────────────────────────────
+    /**
+     * „Z takýchto podkladov potrebujem vypracovať náborový plán a všetky
+     * podklady k tomu." Ku každej stavbe nábor s termínom podľa plánu, a do
+     * každého podklady (texty a otázky) — naraz, nie po jednom.
+     *
+     * Nábor sa zakladá ako koncept: nič sa nezverejní, kým si texty niekto
+     * neprečíta a nábor nespustí.
+     */
+    async makePlans(vybrane, opps, sched) {
+      UI.modal('Zakladám nábor', UI.loading());
+      const plans = vybrane.map((p, i) => {
+        const o = opps[i] || {};
+        const sp = sched.projects.find(x => x.key === p.key) || {};
+        return {
+          title: o.title || p.title || p.city,
+          trade_key: p.trade_key || null,
+          headcount: p.headcount || 1,
+          city: p.city || null,
+          country: p.country || 'DE',
+          start_date: p.start_date || null,
+          // „Dokedy musím mať ľudí" — do nástupu. Bez nástupu podľa plánu.
+          deadline: p.start_date || sp.ready || null,
+          client_rate: p.rate_client || null,
+          legal_form: 'szco',
+          status: 'draft',
+          brief: o.brief || null,
+          notes: Inq.planText(sp) || null,
+          created_by: Danubra.user?.id || null,
+        };
+      });
+      const { data, error } = await DB.insertMany('recruitment_plans', plans);
+      if (error || !Array.isArray(data)) {
+        UI.closeModal();
+        Danubra.renderRoute();
+        return UI.toast('Dopyty sú zapísané, ale nábor sa nezaložil: '
+          + ((error && error.message) || 'neznáma chyba'), 'err');
+      }
+      await Promise.all(data.map((pl, i) => opps[i] && DB.update('opportunities', opps[i].id,
+        { plan_id: pl.id, status: 'checking' })));
+      data.forEach((pl, i) => { const o = this.items.find(x => x.id === (opps[i] || {}).id);
+        if (o) { o.plan_id = pl.id; o.status = 'checking'; } });
+      if (window.Hire) Hire.loaded = false;
+
+      this._prep = data.map(pl => ({ id: pl.id, title: pl.title, city: pl.city,
+        notes: pl.notes, state: pl.brief ? 'run' : 'nobrief', text: '' }));
+      this.prepPaint();
+      // Podklady pre všetky stavby naraz — každá je samostatné volanie.
+      await Promise.all(this._prep.map(x => x.state === 'run' ? this.prepOne(x) : null));
+      this.prepPaint(true);
+    },
+
+    async prepOne(x) {
+      try {
+        const res = await fetch('/.netlify/functions/danubra-analyze-brief', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planId: x.id }),
+        });
+        if (!res.ok) throw new Error(`server odpovedal ${res.status}`);
+        const out = await res.json().catch(() => ({}));
+        if (out.skipped) { x.state = 'skipped'; x.text = 'Texty sa nepripravili — na serveri chýba kľúč k modelu.'; }
+        else {
+          x.state = 'ok';
+          x.text = [
+            `${out.blocks || 0} ${Shell.plural(out.blocks || 0, 'text', 'texty', 'textov')} na inzeráty`,
+            out.questions ? `${out.questions} ${Shell.plural(out.questions, 'otázka', 'otázky', 'otázok')} do telefonátu` : null,
+          ].filter(Boolean).join(' · ');
+        }
+      } catch (e) {
+        x.state = 'err'; x.text = `Podklady sa nepripravili (${e.message}). Dajú sa spustiť v nábore.`;
+      }
+      this.prepPaint();
+    },
+
+    prepPaint(hotovo) {
+      const rows = this._prep || [];
+      const bezi = rows.some(x => x.state === 'run');
+      const IKONA = { run: 'clock', ok: 'check', err: 'alert', skipped: 'alert', nobrief: 'alert' };
+      UI.modal(bezi ? 'Pripravujem podklady…' : 'Nábor je pripravený', `
+        ${bezi ? `<div class="regimebox">Píšem texty inzerátov a otázky do telefonátu pre
+          ${rows.length} ${Shell.plural(rows.length, 'stavbu', 'stavby', 'stavieb')}. Trvá to
+          zvyčajne do minúty — okno môžeš nechať otvorené.</div>`
+          : `<div class="headline headline-ok" style="margin-bottom:12px;">${Icon('check', 18)}
+            <span>Dopyty sú zapísané a ku každému je nábor.</span></div>`}
+        <div class="prep-list">${rows.map(x => `
+          <div class="prep-row prep-${x.state}">
+            <span class="prep-ico">${Icon(IKONA[x.state] || 'clock', 16)}</span>
+            <span class="prep-txt">
+              <b>${UI.esc(x.title || x.city || 'Nábor')}</b>
+              <em>${UI.esc(x.state === 'run' ? 'Pripravujem podklady…'
+                : x.state === 'nobrief' ? 'Bez zadania — dopíš ho v nábore a daj pripraviť podklady.'
+                  : x.text)}</em>
+              ${x.notes ? `<em class="prep-plan">${UI.esc(x.notes)}</em>` : ''}
+            </span>
+            ${!bezi ? `<button class="btn btn-outline btn-sm"
+              onclick="UI.closeModal();Danubra.go('hiring');setTimeout(()=>Hire.detail('${x.id}'),300)">
+              Otvoriť</button>` : ''}
+          </div>`).join('')}</div>
+        ${!bezi ? `<div class="inq-next">
+          <b>${Icon('chevron', 15)} Čo teraz</b>
+          <ol>
+            <li>Otvor nábor a prečítaj texty — oprav, čo nesedí.</li>
+            <li>Vlož inzeráty (web, Bazoš, Facebook) a klikni „Spustiť nábor".</li>
+            <li>Kto sa ozve, tomu zavolaj do desiatich minút.</li>
+          </ol>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal();Danubra.renderRoute()">Zavrieť</button>
+          <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('hiring')">
+            ${Icon('zap')} Otvoriť nábor</button>
+        </div>` : ''}`, { wide: true });
+      if (hotovo) {
+        const ok = rows.filter(x => x.state === 'ok').length;
+        UI.toast(`Hotovo — ${rows.length} ${Shell.plural(rows.length, 'nábor', 'nábory', 'náborov')}`
+          + (ok ? `, podklady pre ${ok}` : ''), ok === rows.length ? 'ok' : 'warn');
+      }
     },
 
     async save() {
