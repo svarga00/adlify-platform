@@ -106,6 +106,16 @@ const SCHEMA = {
           skill_level: { type: 'string', enum: ['werker', 'fachwerker'] },
           channels: { type: 'array', items: { type: 'string', enum: KANALY },
             description: 'Kde má zmysel inzerovať.' },
+          new_trade: {
+            type: 'object',
+            description: 'Len keď žiadne remeslo zo zoznamu nesedí: nové remeslo, ktoré '
+              + 'appka založí. Keď nejaké sedí, vynechaj.',
+            properties: {
+              key: { type: 'string', description: 'Malými písmenami bez diakritiky, napríklad omietkar.' },
+              name_sk: { type: 'string', description: 'Napríklad Omietkár.' },
+              name_de: { type: 'string', description: 'Napríklad Verputzer.' },
+            },
+          },
         },
       },
       blocks: {
@@ -328,9 +338,41 @@ async function run(planId, { regen = false } = {}) {
   // Remeslá z databázy, aby kľúč sedel. Vymyslený kľúč by v appke svietil
   // ako „zvaraci-potrubia" namiesto názvu remesla.
   const { data: trades } = await supabase
-    .from('danubra_trades').select('key,name_sk').eq('active', true).limit(100);
+    .from('danubra_trades').select('key,name_sk,active').limit(200);
+  const vsetkyRemesla = trades || [];
 
-  const out = await analyze(plan.brief, plan, supplier, trades || []);
+  const out = await analyze(plan.brief, plan,
+    supplier, vsetkyRemesla.filter(t => t.active !== false));
+
+  // ── Remeslo, ktoré v zozname nie je ──────────────────────────────────
+  // Lixenried: omietkár v zozname nebol, nábor ostal bez remesla a otázky
+  // do hovoru sa nemali ku komu priradiť. Keď model povie, že žiadne
+  // remeslo nesedí, appka ho založí — a nábor aj otázky sa naň naviažu.
+  // Rovnako, keď nábor ukazuje na remeslo, ktoré v zozname chýba.
+  const kluc = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+  const najdi = (k, meno) => vsetkyRemesla.find(t => t.key === k
+    || (meno && String(t.name_sk || '').toLowerCase() === String(meno).toLowerCase()));
+  const navrhRemesla = (out.plan && out.plan.new_trade) || null;
+  let noveRemeslo = null;
+  if (plan.trade_key && !najdi(plan.trade_key)) {
+    noveRemeslo = { key: plan.trade_key,
+      name_sk: (navrhRemesla && navrhRemesla.name_sk) || (plan.trade_key.charAt(0).toUpperCase()
+        + plan.trade_key.slice(1)),
+      name_de: (navrhRemesla && navrhRemesla.name_de) || null };
+  } else if (!plan.trade_key && !(out.plan || {}).trade_key && navrhRemesla
+      && kluc(navrhRemesla.key || navrhRemesla.name_sk) && navrhRemesla.name_sk) {
+    const k = kluc(navrhRemesla.key || navrhRemesla.name_sk);
+    const uz = najdi(k, navrhRemesla.name_sk);
+    if (uz) out.plan.trade_key = uz.key;
+    else noveRemeslo = { key: k, name_sk: String(navrhRemesla.name_sk).trim(),
+      name_de: navrhRemesla.name_de ? String(navrhRemesla.name_de).trim() : null };
+  }
+  if (noveRemeslo) {
+    // Pre kontrolu kľúča nižšie už platí — v databáze bude skôr, než sa zapíše nábor.
+    vsetkyRemesla.push({ key: noveRemeslo.key, name_sk: noveRemeslo.name_sk, active: true });
+    if (!plan.trade_key) out.plan = { ...(out.plan || {}), trade_key: noveRemeslo.key };
+  }
 
   // Texty, ktoré sa dajú použiť. Keď model nevrátil ani jeden, nezapíše sa
   // nič — ani zhrnutie. Inak by nábor vyzeral pripravený a texty by chýbali.
@@ -391,7 +433,7 @@ async function run(planId, { regen = false } = {}) {
   // Čo do polí náboru vyplnila appka minule. Pri pregenerovaní sa smie
   // prepísať len hodnota, ktorá je stále tá od appky — človekom zmenená nie.
   const odAppky = facts._ai_plan || {};
-  const platneRemeslo = (k) => (trades || []).some(t => t.key === k);
+  const platneRemeslo = (k) => vsetkyRemesla.some(t => t.key === k);
   for (const k of PLAN_FIELDS) {
     const nove = navrh[k];
     if (nove === undefined || nove === null || nove === '') continue;
@@ -463,6 +505,17 @@ async function run(planId, { regen = false } = {}) {
     }
   }
 
+  // Nové remeslo do zoznamu — skôr, než sa naň nábor naviaže. Keby sa
+  // nezapísalo, nábor ostane bez neho (radšej než ukazovať na nič).
+  if (noveRemeslo) {
+    const { error: er } = await supabase.from('danubra_trades').insert({
+      key: noveRemeslo.key, name_sk: noveRemeslo.name_sk, name_de: noveRemeslo.name_de,
+      sort_order: 900, active: true,
+      summary: 'Remeslo pridala appka pri príprave náboru — doplň sadzby a príručku.',
+    });
+    if (er) { noveRemeslo = null; delete planPatch.trade_key; }
+  }
+
   // Zhrnutie a polia náboru až teraz — keď sú texty zapísané. Inak by
   // nábor hlásil „pripravené" a texty by boli staré.
   facts._ai_plan = { ...odAppky, ...planPatch };
@@ -517,6 +570,7 @@ async function run(planId, { regen = false } = {}) {
     replaced: zaloha,
     kept: regen ? ostava.length : 0,
     regen,
+    newTrade: noveRemeslo ? noveRemeslo.name_sk : null,
     plan: Object.keys(planPatch),
     questions: otazky,
     facts: FACTS.filter(k => facts[k]).length,

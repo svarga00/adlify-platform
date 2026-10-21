@@ -197,6 +197,14 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
     ok(/if \(!nove\.size\)/.test(src) && src.indexOf('if (!nove.size)') < src.indexOf('analysis: facts'),
       'keď model nevráti žiadny text, nezapíše sa nič — ani zhrnutie');
     ok(/stop_reason === 'max_tokens'/.test(src), 'nedokončená odpoveď sa nezapíše');
+    // Remeslo, ktoré v zozname nie je (omietkár), sa založí — inak nábor ostane
+    // bez remesla a otázky do hovoru sa nemajú ku čomu priradiť.
+    ok(/new_trade/.test(src) && /from\('danubra_trades'\)\.insert/.test(src),
+      'nové remeslo sa pri príprave založí');
+    ok(src.indexOf("from('danubra_trades').insert") < src.indexOf('analysis: facts'),
+      'skôr, než sa naň nábor naviaže');
+    // Otázky do hovoru sú stále len návrh — človek ich musí vidieť.
+    ok(/active: false/.test(src), 'otázky od appky sú návrh, nie rovno v hovore');
     ok(/DOPLNKY OD NÁS/.test(src) && /_extra/.test(src),
       'doplnky od nás (fakturácia, benefity, poznámky) idú modelu do textov');
     const poradie = ['facts: {', 'plan: {', 'blocks: {', 'questions: {', 'risks: {', 'ask: {']
