@@ -253,6 +253,173 @@ async function analyze(brief, plan, supplier, trades) {
   return out;
 }
 
+/**
+ * Celá analýza jedného náboru: zadanie → zhrnutie, polia náboru, texty po
+ * kanáloch a návrhy otázok. Zapisuje rovno do databázy a vráti, čo pribudlo.
+ *
+ * Volá ju aj `danubra-analyze-brief-background` — texty do šiestich kanálov
+ * sa píšu minútu aj dve a bežná funkcia na Netlify skončí skôr (504). Na
+ * pozadí môže bežať až pätnásť minút.
+ */
+async function run(planId) {
+  if (!planId) throw new Error('Chýba planId');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    // Bez kľúča to nie je chyba — appka to povie a podklady sa dajú písať
+    // ručne. Tiché zlyhanie by vyzeralo ako pokazená funkcia.
+    return { skipped: 'no_api_key', blocks: 0 };
+  }
+
+  const { data: plan, error: ep } = await supabase
+    .from('danubra_recruitment_plans').select('*').eq('id', planId).maybeSingle();
+  if (ep) throw new Error(ep.message);
+  if (!plan) throw new Error('Nábor sa nenašiel');
+  if (!plan.brief || !plan.brief.trim()) throw new Error('Nábor nemá zadanie');
+
+  const { data: cfg } = await supabase
+    .from('danubra_settings').select('supplier').limit(1).maybeSingle();
+  const supplier = (cfg && cfg.supplier) || {};
+
+  // Remeslá z databázy, aby kľúč sedel. Vymyslený kľúč by v appke svietil
+  // ako „zvaraci-potrubia" namiesto názvu remesla.
+  const { data: trades } = await supabase
+    .from('danubra_trades').select('key,name_sk').eq('active', true).limit(100);
+
+  const out = await analyze(plan.brief, plan, supplier, trades || []);
+
+  // ── Zhrnutie zákazky ────────────────────────────────────────────────
+  // Údaj, ktorý už človek vyplnil, sa neprepíše — model dopĺňa, neprepisuje.
+  const facts = { ...(plan.analysis || {}) };
+  for (const k of FACTS) {
+    const nove = String((out.facts || {})[k] || '').trim();
+    const stare = String(facts[k] || '').trim();
+    if (!stare && nove) facts[k] = nove;
+  }
+  if (Array.isArray(out.risks) && out.risks.length) facts._risks = out.risks;
+  if (Array.isArray(out.ask) && out.ask.length) facts._ask = out.ask;
+
+  // ── Polia samotného náboru ──────────────────────────────────────────
+  // Vyplní sa **len to, čo je prázdne**. Čo človek napísal, zostáva — model
+  // dopĺňa, neprepisuje. A čo nie je v zadaní, zostane prázdne: sadzba,
+  // ktorú si model domyslí, by sa dostala do marže aj do inzerátu.
+  const planPatch = {};
+  const navrh = out.plan || {};
+  const platneRemeslo = (k) => (trades || []).some(t => t.key === k);
+  for (const k of PLAN_FIELDS) {
+    const nove = navrh[k];
+    if (nove === undefined || nove === null || nove === '') continue;
+    const stare = plan[k];
+    if (stare !== null && stare !== undefined && stare !== '') continue;
+    if (k === 'trade_key' && !platneRemeslo(nove)) continue;
+    if ((k === 'offer_rate' || k === 'client_rate') && !(Number(nove) > 0)) continue;
+    if (k === 'headcount' && !(Number(nove) > 0)) continue;
+    if (k === 'start_date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(nove))) continue;
+    planPatch[k] = nove;
+  }
+  // Kanály sa dopĺňajú, nie prepisujú — človek si mohol niektoré vypnúť.
+  const kanaly = (navrh.channels || []).filter(c => KANALY.includes(c));
+  if (kanaly.length) {
+    const uz = Array.isArray(plan.channels) ? plan.channels : [];
+    const spolu = [...new Set([...uz, ...kanaly])];
+    if (spolu.length !== uz.length) planPatch.channels = spolu;
+  }
+
+  await supabase.from('danubra_recruitment_plans').update({
+    ...planPatch,
+    analysis: facts,
+    analyzed_at: new Date().toISOString(),
+  }).eq('id', planId);
+
+  // ── Texty po kanáloch ───────────────────────────────────────────────
+  const { data: existing } = await supabase
+    .from('danubra_plan_assets')
+    .select('id,channel,block,body,source,approved_at')
+    .eq('plan_id', planId).is('archived_at', null);
+  const mam = new Set((existing || []).map(a => `${a.channel}:${a.block}`));
+
+  const rows = [];
+  for (const b of (out.blocks || [])) {
+    const channel = String(b.channel || '');
+    const block = String(b.block || '');
+    const body = String(b.body || '').trim();
+    if (!body) continue;
+    if (!BLOCKS[channel] || !BLOCKS[channel].includes(block)) continue;
+    // Čo už niekto napísal, sa nechá na pokoji.
+    if (mam.has(`${channel}:${block}`)) continue;
+    rows.push({
+      plan_id: planId, channel, block, body,
+      source: 'ai',              // návrh — appka ho označí a človek ho prečíta
+      approved_at: null,
+    });
+  }
+
+  if (rows.length) {
+    const { error: ei } = await supabase.from('danubra_plan_assets').insert(rows);
+    if (ei) throw new Error(ei.message);
+  }
+
+  // ── Otázky pre remeselníka ──────────────────────────────────────────
+  // Pribudnú ako **návrh**: `active = false`. Zoznam otázok je to, podľa
+  // čoho sa rozhoduje o ľuďoch, takže doň nesmie pribudnúť nič, čo človek
+  // nevidel. Potvrdia sa v Remeslách a otázkach.
+  let otazky = 0;
+  const tradeKey = planPatch.trade_key || plan.trade_key || null;
+  if (Array.isArray(out.questions) && out.questions.length) {
+    // Čo už v databáze je, sa nepridáva druhýkrát — ani ako návrh.
+    const { data: maju } = await supabase
+      .from('danubra_screening_questions').select('question_sk').limit(1000);
+    const znama = new Set((maju || []).map(q => String(q.question_sk || '').trim().toLowerCase()));
+
+    const qrows = [];
+    for (const q of out.questions.slice(0, 8)) {
+      const text = String((q && q.question_sk) || '').trim();
+      if (!text || znama.has(text.toLowerCase())) continue;
+      qrows.push({
+        code: null,
+        trade_key: tradeKey,
+        phase: 'phone',
+        // `knowledge` je druh, ktorý v databáze už existuje pre odborné
+        // otázky. Vymyslený druh by sa v Remeslách nikde nezobrazil.
+        kind: 'knowledge',
+        question_sk: text,
+        question_de: String(q.question_de || '') || null,
+        good_answer: String(q.good_answer || '') || null,
+        red_flag_answer: String(q.red_flag_answer || '') || null,
+        weight: [1, 2, 3].includes(Number(q.weight)) ? Number(q.weight) : 1,
+        segment: 'trade',
+        active: false,
+      });
+    }
+    if (qrows.length) {
+      const { error: eq } = await supabase
+        .from('danubra_screening_questions').insert(qrows);
+      if (!eq) otazky = qrows.length;
+    }
+  }
+
+  return {
+    blocks: rows.length,
+    plan: Object.keys(planPatch),
+    questions: otazky,
+    facts: FACTS.filter(k => facts[k]).length,
+    risks: (out.risks || []).length,
+    ask: (out.ask || []).length,
+    model: MODEL,
+  };
+}
+
+/**
+ * Stav behu na pozadí. Zapisuje sa do náboru (`analysis._job`), lebo funkcia
+ * na pozadí prehliadaču nič nevráti — appka sa každých pár sekúnd pozrie,
+ * či je hotovo. `id` je značka z prehliadača, aby sa starý výsledok
+ * nepomýlil s novým.
+ */
+async function setJob(planId, job) {
+  const { data } = await supabase.from('danubra_recruitment_plans')
+    .select('analysis').eq('id', planId).maybeSingle();
+  const analysis = { ...((data && data.analysis) || {}), _job: job };
+  await supabase.from('danubra_recruitment_plans').update({ analysis }).eq('id', planId);
+}
+
 exports.handler = async (event) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -263,155 +430,13 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
-
   try {
     const { planId } = JSON.parse(event.body || '{}');
-    if (!planId) throw new Error('Chýba planId');
-
-    if (!process.env.ANTHROPIC_API_KEY) {
-      // Bez kľúča to nie je chyba — appka to povie a podklady sa dajú písať
-      // ručne. Tiché zlyhanie by vyzeralo ako pokazená funkcia.
-      return { statusCode: 200, headers: cors,
-        body: JSON.stringify({ skipped: 'no_api_key', blocks: 0 }) };
-    }
-
-    const { data: plan, error: ep } = await supabase
-      .from('danubra_recruitment_plans').select('*').eq('id', planId).maybeSingle();
-    if (ep) throw new Error(ep.message);
-    if (!plan) throw new Error('Nábor sa nenašiel');
-    if (!plan.brief || !plan.brief.trim()) throw new Error('Nábor nemá zadanie');
-
-    const { data: cfg } = await supabase
-      .from('danubra_settings').select('supplier').limit(1).maybeSingle();
-    const supplier = (cfg && cfg.supplier) || {};
-
-    // Remeslá z databázy, aby kľúč sedel. Vymyslený kľúč by v appke svietil
-    // ako „zvaraci-potrubia" namiesto názvu remesla.
-    const { data: trades } = await supabase
-      .from('danubra_trades').select('key,name_sk').eq('active', true).limit(100);
-
-    const out = await analyze(plan.brief, plan, supplier, trades || []);
-
-    // ── Zhrnutie zákazky ────────────────────────────────────────────────
-    // Údaj, ktorý už človek vyplnil, sa neprepíše — model dopĺňa, neprepisuje.
-    const facts = { ...(plan.analysis || {}) };
-    for (const k of FACTS) {
-      const nove = String((out.facts || {})[k] || '').trim();
-      const stare = String(facts[k] || '').trim();
-      if (!stare && nove) facts[k] = nove;
-    }
-    if (Array.isArray(out.risks) && out.risks.length) facts._risks = out.risks;
-    if (Array.isArray(out.ask) && out.ask.length) facts._ask = out.ask;
-
-    // ── Polia samotného náboru ──────────────────────────────────────────
-    // Vyplní sa **len to, čo je prázdne**. Čo človek napísal, zostáva — model
-    // dopĺňa, neprepisuje. A čo nie je v zadaní, zostane prázdne: sadzba,
-    // ktorú si model domyslí, by sa dostala do marže aj do inzerátu.
-    const planPatch = {};
-    const navrh = out.plan || {};
-    const platneRemeslo = (k) => (trades || []).some(t => t.key === k);
-    for (const k of PLAN_FIELDS) {
-      const nove = navrh[k];
-      if (nove === undefined || nove === null || nove === '') continue;
-      const stare = plan[k];
-      if (stare !== null && stare !== undefined && stare !== '') continue;
-      if (k === 'trade_key' && !platneRemeslo(nove)) continue;
-      if ((k === 'offer_rate' || k === 'client_rate') && !(Number(nove) > 0)) continue;
-      if (k === 'headcount' && !(Number(nove) > 0)) continue;
-      if (k === 'start_date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(nove))) continue;
-      planPatch[k] = nove;
-    }
-    // Kanály sa dopĺňajú, nie prepisujú — človek si mohol niektoré vypnúť.
-    const kanaly = (navrh.channels || []).filter(c => KANALY.includes(c));
-    if (kanaly.length) {
-      const uz = Array.isArray(plan.channels) ? plan.channels : [];
-      const spolu = [...new Set([...uz, ...kanaly])];
-      if (spolu.length !== uz.length) planPatch.channels = spolu;
-    }
-
-    await supabase.from('danubra_recruitment_plans').update({
-      ...planPatch,
-      analysis: facts,
-      analyzed_at: new Date().toISOString(),
-    }).eq('id', planId);
-
-    // ── Texty po kanáloch ───────────────────────────────────────────────
-    const { data: existing } = await supabase
-      .from('danubra_plan_assets')
-      .select('id,channel,block,body,source,approved_at')
-      .eq('plan_id', planId).is('archived_at', null);
-    const mam = new Set((existing || []).map(a => `${a.channel}:${a.block}`));
-
-    const rows = [];
-    for (const b of (out.blocks || [])) {
-      const channel = String(b.channel || '');
-      const block = String(b.block || '');
-      const body = String(b.body || '').trim();
-      if (!body) continue;
-      if (!BLOCKS[channel] || !BLOCKS[channel].includes(block)) continue;
-      // Čo už niekto napísal, sa nechá na pokoji.
-      if (mam.has(`${channel}:${block}`)) continue;
-      rows.push({
-        plan_id: planId, channel, block, body,
-        source: 'ai',              // návrh — appka ho označí a človek ho prečíta
-        approved_at: null,
-      });
-    }
-
-    if (rows.length) {
-      const { error: ei } = await supabase.from('danubra_plan_assets').insert(rows);
-      if (ei) throw new Error(ei.message);
-    }
-
-    // ── Otázky pre remeselníka ──────────────────────────────────────────
-    // Pribudnú ako **návrh**: `active = false`. Zoznam otázok je to, podľa
-    // čoho sa rozhoduje o ľuďoch, takže doň nesmie pribudnúť nič, čo človek
-    // nevidel. Potvrdia sa v Remeslách a otázkach.
-    let otazky = 0;
-    const tradeKey = planPatch.trade_key || plan.trade_key || null;
-    if (Array.isArray(out.questions) && out.questions.length) {
-      // Čo už v databáze je, sa nepridáva druhýkrát — ani ako návrh.
-      const { data: maju } = await supabase
-        .from('danubra_screening_questions').select('question_sk').limit(1000);
-      const znama = new Set((maju || []).map(q => String(q.question_sk || '').trim().toLowerCase()));
-
-      const qrows = [];
-      for (const q of out.questions.slice(0, 8)) {
-        const text = String((q && q.question_sk) || '').trim();
-        if (!text || znama.has(text.toLowerCase())) continue;
-        qrows.push({
-          code: null,
-          trade_key: tradeKey,
-          phase: 'phone',
-          // `knowledge` je druh, ktorý v databáze už existuje pre odborné
-          // otázky. Vymyslený druh by sa v Remeslách nikde nezobrazil.
-          kind: 'knowledge',
-          question_sk: text,
-          question_de: String(q.question_de || '') || null,
-          good_answer: String(q.good_answer || '') || null,
-          red_flag_answer: String(q.red_flag_answer || '') || null,
-          weight: [1, 2, 3].includes(Number(q.weight)) ? Number(q.weight) : 1,
-          segment: 'trade',
-          active: false,
-        });
-      }
-      if (qrows.length) {
-        const { error: eq } = await supabase
-          .from('danubra_screening_questions').insert(qrows);
-        if (!eq) otazky = qrows.length;
-      }
-    }
-
-    return { statusCode: 200, headers: cors, body: JSON.stringify({
-      blocks: rows.length,
-      plan: Object.keys(planPatch),
-      questions: otazky,
-      facts: FACTS.filter(k => facts[k]).length,
-      risks: (out.risks || []).length,
-      ask: (out.ask || []).length,
-      model: MODEL,
-    }) };
+    return { statusCode: 200, headers: cors, body: JSON.stringify(await run(planId)) };
   } catch (e) {
     return { statusCode: 500, headers: cors, body: JSON.stringify({ error: e.message }) };
   }
 };
+
+exports.run = run;
+exports.setJob = setJob;

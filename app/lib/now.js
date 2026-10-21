@@ -296,9 +296,9 @@
     if (bezAnalyzy.length) {
       return {
         key: 'analyze',
-        title: `Zanalyzovať zadanie — ${bezAnalyzy[0].title || 'nábor bez názvu'}`,
+        title: `Pripraviť podklady — ${bezAnalyzy[0].title || 'nábor bez názvu'}`,
         what: `${bezAnalyzy.length} ${plural(bezAnalyzy.length, 'nábor má', 'nábory majú', 'náborov má')} `
-          + 'zadanie, z ktorého ešte nič nevzniklo.',
+          + 'zadanie, ale ešte nemá texty inzerátov ani otázky do telefonátu.',
         why: 'Z jedného zadania vzniknú texty na web, Bazoš aj Facebook, otázky '
           + 'do hovoru a chýbajúce polia náboru. Spustiť to je rozhodnutie '
           + 'človeka — appka to sama nerobí.',
