@@ -441,7 +441,7 @@
       try {
         const res = await Invoicing.createSubcontractInvoice({ subcontract: sc, partner, timesheets: ts });
         if (res.skipped) return UI.toast('Nie je čo fakturovať', 'err');
-        UI.toast(`Faktúra ${res.invoice.invoice_number} vystavená`, 'ok');
+        UI.toast(`Návrh faktúry ${res.invoice.invoice_number} čaká na schválenie`, 'ok');
         await this.load(); Danubra.go('invoices'); Danubra.renderRoute();
       } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
     },
@@ -544,7 +544,7 @@
           order, inquiry: this._srcInquiry || null,
         });
         UI.closeModal();
-        UI.toast(`Faktúra ${invoice.invoice_number} vystavená`, 'ok');
+        UI.toast(`Návrh faktúry ${invoice.invoice_number} čaká na schválenie`, 'ok');
         this._srcOrder = null; this._srcInquiry = null;
         await this.load(); Danubra.renderRoute();
       } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
@@ -558,7 +558,7 @@
       try {
         if (type === 'service_fee') {
           const { invoice } = await Invoicing.createServiceFee(order, client);
-          UI.toast(`Faktúra ${invoice.invoice_number} vystavená`, 'ok');
+          UI.toast(`Návrh faktúry ${invoice.invoice_number} čaká na schválenie`, 'ok');
         } else {
           const { data: segs } = await DB.list('order_service_periods', { filters: { order_id: orderId } });
           const now = new Date();

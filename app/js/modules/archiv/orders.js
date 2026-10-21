@@ -430,7 +430,7 @@
       const o = this._cur;
       try {
         const { invoice } = await Invoicing.createServiceFee(o, this.clientOf(o.client_id));
-        UI.toast(`Faktúra ${invoice.invoice_number} vystavená`, 'ok');
+        UI.toast(`Návrh faktúry ${invoice.invoice_number} čaká na schválenie`, 'ok');
         await this._refresh();
       } catch (e) { UI.toast('Chyba: ' + e.message, 'err'); }
     },
