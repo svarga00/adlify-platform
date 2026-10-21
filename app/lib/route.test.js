@@ -26,6 +26,19 @@ console.log('Cesta na stavbu');
   ok(/q=%C5%BDilina/.test(u), 'diakritika ide správne zakódovaná', u);
 }
 
+// ── Podoby adresy ───────────────────────────────────────────────────────────
+// Lixenried: „93437 Lixenried b. Furth im Walde, Nemecko" sa nenašlo.
+{
+  eq(R.variants('93437 Lixenried b. Furth im Walde, Nemecko'),
+    ['93437 Lixenried bei Furth im Walde', '93437 Lixenried',
+      '93437 Lixenried b. Furth im Walde, Nemecko', 'Lixenried'],
+    'očistená adresa, PSČ s obcou, pôvodný text, samotná obec');
+  eq(R.variants('Nitra'), ['Nitra'], 'jednoduché mesto ostane jedno');
+  eq(R.variants('Hammelburg, Deutschland'), ['Hammelburg', 'Hammelburg, Deutschland'],
+    'krajina sa skúsi aj bez nej');
+  eq(R.variants(''), [], 'prázdne nič');
+}
+
 // ── Odpoveď Nominatimu ──────────────────────────────────────────────────────
 {
   eq(R.pickPlace([{ lat: '49.2231', lon: '18.7394',

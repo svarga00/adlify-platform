@@ -31,6 +31,26 @@
     return `${NOMINATIM}?${p.toString()}`;
   }
 
+  /**
+   * Podoby adresy, ktoré sa skúsia za sebou, kým sa niečo nenájde.
+   *
+   * „93437 Lixenried b. Furth im Walde, Nemecko" Nominatim nenájde: „b." je
+   * skratka (bei) a „Nemecko" je po slovensky. Skúsi sa očistená adresa,
+   * potom PSČ s obcou, pôvodný text a nakoniec samotná obec.
+   */
+  const KRAJINY_SLOVOM = /\b(Nemecko|Nemecku|Rakúsko|Rakúsku|Česko|Česku|Slovensko|Slovensku|Poľsko|Maďarsko|Deutschland|Germany|Österreich|Austria)\b/gi;
+  function variants(q) {
+    const t = String(q || '').trim();
+    if (!t) return [];
+    const ciste = t.replace(/\bb\.\s*/gi, 'bei ').replace(/\bi\.\s*/g, 'im ')
+      .replace(KRAJINY_SLOVOM, '').replace(/\s*,\s*(,\s*)+/g, ', ')
+      .replace(/^[,\s]+|[,\s]+$/g, '').replace(/\s{2,}/g, ' ').trim();
+    const psc = (t.match(/\b(\d{4,5})\b/) || [])[1];
+    const obec = ciste.replace(/\b\d{4,5}\b/g, '').split(',')[0].trim().split(/\s+/)[0] || '';
+    const out = [ciste, psc && obec ? `${psc} ${obec}` : '', t, obec];
+    return [...new Set(out.map(x => x.trim()).filter(x => x.length > 1))];
+  }
+
   /** Prvý výsledok Nominatimu → { lat, lng, label } alebo null. */
   function pickPlace(json) {
     const r = Array.isArray(json) ? json[0] : null;
@@ -97,7 +117,7 @@
       ? `${mesto}, Deutschland` : mesto;
   }
 
-  const API = { KRAJINY, geocodeUrl, pickPlace, routeUrl, pickRoute, durationText,
+  const API = { KRAJINY, variants, geocodeUrl, pickPlace, routeUrl, pickRoute, durationText,
     sentence, googleDirUrl, destinationOf };
   if (typeof window !== 'undefined') window.DanubraRoute = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

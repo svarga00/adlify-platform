@@ -735,7 +735,7 @@
       const r = this.route;
       return `
         <div class="qq-q">Odkiaľ by ste cestovali?</div>
-        <div class="qq-lead">Napíš mesto alebo adresu — appka povie, koľko je to na stavbu
+        <div class="qq-lead">Napíšte mesto alebo adresu — appka povie, koľko je to na stavbu
           (${UI.esc(k.kam)}).</div>
         <div class="qq-route-in">
           <input id="route-from" class="cq2-other" placeholder="napr. Žilina alebo Hlinkova 5, Prešov"
@@ -791,7 +791,8 @@
       try {
         const res = await fetch('/.netlify/functions/danubra-route', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from, to }),
+          // Miesto stavby, ktoré sa už raz našlo, ide rovno so súradnicami.
+          body: JSON.stringify({ from, to, toPlace: ((this.plan || {}).analysis || {})._geo || null }),
         });
         r = await res.json();
         if (r.error) throw new Error(r.error);
@@ -807,6 +808,12 @@
       if (!r.error && this.cand) {
         DB.update('candidates', this.cand.id, { city: from }).then(() => {});
         this.cand.city = from;
+      }
+      // Miesto stavby sa zapamätá pri nábore — nabudúce sa už nehľadá.
+      if (!r.error && this.plan && !((this.plan.analysis || {})._geo)) {
+        const analysis = { ...(this.plan.analysis || {}), _geo: r.to };
+        this.plan.analysis = analysis;
+        DB.update('recruitment_plans', this.plan.id, { analysis }).then(() => {});
       }
       this.render();
       if (r.error) {

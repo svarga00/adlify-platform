@@ -23,6 +23,22 @@ async function geocode(q) {
   return R.pickPlace(await res.json());
 }
 
+const pauza = (ms) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Skúsi podoby adresy za sebou (R.variants), kým sa niečo nenájde.
+ * Nominatim povoľuje jeden dotaz za sekundu, preto medzi nimi pauza.
+ */
+async function geocodeAny(q, max = 3) {
+  const v = R.variants(q).slice(0, max);
+  for (let i = 0; i < v.length; i++) {
+    if (i) await pauza(1000);
+    const p = await geocode(v[i]);
+    if (p) return p;
+  }
+  return null;
+}
+
 exports.handler = async (event) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -35,15 +51,19 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
   try {
-    const { from, to } = JSON.parse(event.body || '{}');
+    const { from, to, toPlace } = JSON.parse(event.body || '{}');
     if (!String(from || '').trim()) throw new Error('Chýba, odkiaľ ide');
-    if (!String(to || '').trim()) throw new Error('Chýba, kam ide — nábor nemá miesto');
+    if (!String(to || '').trim() && !toPlace) throw new Error('Chýba, kam ide — nábor nemá miesto');
+
+    // Miesto stavby, ktoré sa už raz našlo, posiela appka rovno so súradnicami.
+    const znamy = toPlace && Number.isFinite(Number(toPlace.lat)) && Number.isFinite(Number(toPlace.lng))
+      ? { lat: Number(toPlace.lat), lng: Number(toPlace.lng), label: String(toPlace.label || to || '') } : null;
 
     // Nominatim povoľuje jeden dotaz za sekundu — preto za sebou, nie naraz.
-    const a = await geocode(from);
+    const a = await geocodeAny(from, 2);
     if (!a) return { statusCode: 200, headers: cors, body: JSON.stringify({ notFound: 'from' }) };
-    await new Promise(r => setTimeout(r, 1100));
-    const b = await geocode(to);
+    if (!znamy) await pauza(1000);
+    const b = znamy || await geocodeAny(to, 3);
     if (!b) return { statusCode: 200, headers: cors, body: JSON.stringify({ notFound: 'to', from: a }) };
 
     const res = await fetch(R.routeUrl(a, b), { headers: { 'User-Agent': UA } });
