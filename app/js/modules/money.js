@@ -19,17 +19,19 @@
     loaded: false,
     subcontracts: [], assignments: [], timesheets: [], periods: [],
     invoices: [], costs: [], partners: [], cashflow: [], balance: 0,
+    bills: [], workers: [],
     open: {},          // ktoré štádium je rozbalené
+    duesOpen: { 'pay-late': true, 'pay-week': true, 'wait-late': true, 'wait-week': true },
     weeks: 8,
 
     async load() {
-      const [sc, a, ts, per, inv, c, prt, cf, tx] = await Promise.all([
+      const [sc, a, ts, per, inv, c, prt, cf, tx, bl, wk] = await Promise.all([
         DB.list('subcontracts', { select: 'id,title,contract_number,status,charge_rate', limit: 300 }),
         DB.list('assignments', { select: 'id,subcontract_id,worker_id,status,charge_rate', limit: 2000 }),
         DB.list('timesheets', { select: 'id,assignment_id,hours,work_date,period_id', limit: 5000 }),
         DB.list('periods', { select: 'id,subcontract_id,status,period_from,period_to,amount_charged', limit: 500 }),
         DB.list('invoices', {
-          select: 'id,invoice_number,status,total,amount_net,withholding_amount,due_date,partner_id,period_id',
+          select: 'id,invoice_number,status,total,amount_net,withholding_amount,due_date,partner_id,period_id,client_id',
           limit: 1000 }),
         DB.list('costs', {
           select: 'id,description,category,amount,cost_date,rebillable,rebilled_invoice_id,subcontract_id',
@@ -37,7 +39,12 @@
         DB.list('partners', { select: 'id,name', limit: 300 }),
         DB.list('v_cashflow', { limit: 1000 }),
         DB.list('bank_transactions', { select: 'amount', limit: 2000 }),
+        DB.list('bills', {
+          select: 'id,bill_number,amount,status,due_date,issue_date,worker_id,supplier_name,supplier_iban,variable_symbol',
+          limit: 1000 }),
+        DB.list('workers', { select: 'id,full_name', limit: 1000 }),
       ]);
+      this.bills = bl.data || []; this.workers = wk.data || [];
       this.subcontracts = sc.data || []; this.assignments = a.data || [];
       this.timesheets = ts.data || []; this.periods = per.data || [];
       this.invoices = inv.data || []; this.costs = c.data || [];
@@ -84,6 +91,64 @@
         approval: { label: 'Otvoriť vydané faktúry', onclick: "Danubra.go('invoices')", ico: 'check' },
       };
       return Shell.now(n, { help: 'card.money.now', action: AKCIA[n.key] });
+    },
+
+    // ── Čo zaplatiť a na čo čakáme ───────────────────────────────────────
+    // „Poriadok v prijatých a vydaných faktúrach — čo máme platiť a čo
+    // čakáme." Počíta lib/money/dues.js.
+    dues() {
+      const wn = new Map(this.workers.map(w => [w.id, w.full_name]));
+      const pn = new Map(this.partners.map(p => [p.id, p.name]));
+      return DanubraDues.dues({ bills: this.bills, invoices: this.invoices, today: this.today(),
+        workerName: id => wn.get(id) || null, partnerName: id => pn.get(id) || null });
+    },
+
+    toggleDue(key) { this.duesOpen = { ...this.duesOpen, [key]: !this.duesOpen[key] }; Danubra.renderRoute(); },
+
+    duesHtml() {
+      if (!window.DanubraDues) return '';
+      const d = this.dues();
+      const STAV = { received: 'prijatá', checked: 'skontrolovaná', approved: 'schválená', disputed: 'sporná',
+        issued: 'vystavená', sent: 'odoslaná', overdue: 'po splatnosti' };
+      const riadok = (r) => {
+        const can = Danubra.canOpen(r.type, r.id);
+        return `<button class="due-row${r.late ? ' is-late' : ''}" ${can ? `onclick="Danubra.open('${r.type}','${r.id}')"` : 'disabled'}>
+          <span class="due-who">${UI.esc(r.who)}
+            <em>${r.number ? `${UI.esc(r.number)} · ` : ''}${UI.esc(STAV[r.status] || r.status)}</em></span>
+          <span class="due-when">${r.due
+            ? (r.late ? `${r.late} ${Shell.plural(r.late, 'deň', 'dni', 'dní')} po` : UI.date(r.due))
+            : 'bez splatnosti'}${r.guessedDue ? ' *' : ''}</span>
+          <strong>${Money.format(r.cents)}</strong></button>`;
+      };
+      const stlpec = (side, title, ico, data, empty, extra) => `
+        <div class="due-col due-${side}">
+          <div class="due-head">${Icon(ico, 16)} <b>${title}</b><strong>${Money.format(data.total)}</strong></div>
+          ${extra || ''}
+          ${data.count ? data.groups.filter(g => g.rows.length).map(g => {
+            const key = `${side}-${g.key}`;
+            const open = !!this.duesOpen[key];
+            return `<div class="due-group due-g-${g.key}">
+              <button class="due-ghead" onclick="Mon.toggleDue('${key}')" aria-expanded="${open}">
+                <span>${g.label} <em>${g.rows.length}</em></span><b>${Money.format(g.cents)}</b>
+                <span class="ms-caret">${Icon('chevron', 13)}</span></button>
+              ${open ? g.rows.map(riadok).join('') : ''}</div>`;
+          }).join('') : `<p class="due-none">${empty}</p>`}
+        </div>`;
+      const review = d.pay.review ? `<button class="due-review" onclick="Danubra.go('costs')">
+          ${Icon('doc', 14)} ${d.pay.review} ${Shell.plural(d.pay.review, 'nahratá faktúra čaká', 'nahraté faktúry čakajú', 'nahratých faktúr čaká')}
+          na kontrolu — do súm sa ráta až po potvrdení</button>` : '';
+      return `<div class="card card-pad due-card">
+        ${Danubra._cardHead('wallet', 'Čo zaplatiť a na čo čakáme', '', '', '', 'card.money.dues')}
+        <p class="due-sentence">${UI.esc(DanubraDues.sentence(d))}</p>
+        <div class="due-grid">
+          ${stlpec('pay', 'Zaplatiť', 'receipt', d.pay, 'Nič netreba platiť.', review)}
+          ${stlpec('wait', 'Čakáme', 'invoices', d.wait, 'Nikto nám nič nedlhuje.')}
+        </div>
+        <p class="card-note">Zaplatiť = prijaté faktúry od živnostníkov a dodávateľov, ktoré ešte
+          nie sú uhradené. Čakáme = vydané faktúry, suma, ktorá reálne príde (po zrážke §48b).
+          ${d.pay.groups.some(g => g.rows.some(r => r.guessedDue)) ? '* splatnosť nie je na faktúre, ráta sa 14 dní od vystavenia.' : ''}</p>
+      </div>
+      <div style="height:14px"></div>`;
     },
 
     setWeeks(n) { this.weeks = Number(n) || 8; Danubra.renderRoute(); },
@@ -201,6 +266,7 @@
       el.innerHTML = Danubra.header('Kde sú peniaze',
         `${Money.format(sum.total)} čaká · ${Money.format(sp.free)} sa dá minúť`)
         + this.nowHtml(stages, v)
+        + this.duesHtml()
         + `<p class="fl-intro">Dve otázky na jednom mieste: <strong>kde stoja naše
             peniaze</strong> a <strong>koľko sa z nich dá minúť a dokedy</strong>.
             Prvá sa rieši po štádiách — niečo stojí na nás, niečo na odberateľovi.
