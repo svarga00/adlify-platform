@@ -21,7 +21,9 @@
       const [b, c, w, per, ts, a, s] = await Promise.all([
         DB.list('bills', { order: { column: 'issue_date', ascending: false }, limit: 500 }),
         DB.list('costs', { order: { column: 'cost_date', ascending: false }, limit: 1000 }),
-        DB.list('workers', { select: 'id,full_name,company_id,company_name,bank_iban,hourly_cost', limit: 500 }),
+        DB.list('workers', { select: 'id,full_name,company_id,company_name,bank_iban,hourly_cost,phone,'
+          + 'tax_id,vat_id,vat_payer,address,city,business_address,business_city,business_zip,'
+          + 'self_billing,self_billing_prefix', limit: 500 }),
         DB.list('periods', { limit: 500 }),
         DB.list('timesheets', { limit: 5000 }),
         DB.list('assignments', { limit: 1000 }),
@@ -57,7 +59,8 @@
       // sporné, potom po splatnosti, potom neskontrolované.
       const q = DanubraBills.queue(this.bills, Danubra._dayISO());
       Danubra.setActions(this.tab === 'bills'
-        ? `<button class="btn btn-outline btn-sm" onclick="Bank.payForm()">${Icon('wallet')} Pripraviť platby</button>
+        ? `${this.selfWorkers().length ? `<button class="btn btn-outline btn-sm" onclick="Cost.selfForm()">${Icon('receipt')} Vystaviť za živnostníkov</button>` : ''}
+           <button class="btn btn-outline btn-sm" onclick="Bank.payForm()">${Icon('wallet')} Pripraviť platby</button>
            <button class="btn btn-outline btn-sm" onclick="Cost.billForm()">${Icon('plus')} Zadať ručne</button>
            <button class="btn btn-primary btn-sm" onclick="Cost.pickFiles()">${Icon('upload')} Nahrať faktúry</button>`
         : `<button class="btn btn-primary btn-sm" onclick="Cost.costForm()">${Icon('plus')} Náklad</button>`);
@@ -83,10 +86,10 @@
      */
     nowHtml(q) {
       const n = q.next || this.nicNecaka();
-      const label = { disputed: 'Otvoriť spornú', pay: 'Otvoriť najstaršiu', review: 'Skontrolovať',
+      const label = { disputed: 'Otvoriť spornú', pay: 'Otvoriť najstaršiu', review: 'Skontrolovať', self: 'Otvoriť návrh',
         check: 'Otvoriť na kontrolu', willpay: 'Pozrieť schválené' }[n.key] || 'Otvoriť';
       const ico = { disputed: 'alert', pay: 'wallet', check: 'check', willpay: 'calendar',
-        review: 'doc' }[n.key] || 'chevron';
+        review: 'doc', self: 'receipt' }[n.key] || 'chevron';
       const open = n.key === 'review' ? 'reviewBill' : 'billDetail';
       return Shell.now(n, {
         help: 'card.bills.now',
@@ -226,7 +229,7 @@
     },
 
     billKind(s) {
-      return { received: 'gray', checked: 'blue', disputed: 'red', review: 'amber',
+      return { received: 'gray', checked: 'blue', disputed: 'red', review: 'amber', self_draft: 'amber', self_sent: 'blue',
         approved: 'green', paid: 'green', discarded: 'gray' }[s] || 'gray';
     },
 
@@ -507,15 +510,187 @@
       if (url) window.open(url, '_blank', 'noopener'); else UI.toast('Doklad sa nedá otvoriť', 'err');
     },
 
+    // ── Faktúry, ktoré vystavujeme za živnostníkov ────────────────────────
+    // „V niektorých prípadoch potrebujeme vystavovať faktúry aj za
+    // živnostníkov nám." Návrh vznikne zo schválených hodín uzavretého
+    // obdobia (danubra_self_bill_draft), vystaví ho admin
+    // (danubra_self_bill_issue) a živnostník ho potvrdí cez odkaz.
+
+    selfWorkers() { return this.workers.filter(w => w.self_billing && !w.vat_payer); },
+
+    /** Kto má v ktorom uzavretom období schválené hodiny a ešte nemá faktúru. */
+    selfCandidates() {
+      const ludia = new Map(this.selfWorkers().map(w => [w.id, w]));
+      const out = new Map();
+      for (const t of this.timesheets) {
+        if (!t.approved || !t.period_id || !ludia.has(t.worker_id)) continue;
+        const p = this.periods.find(x => x.id === t.period_id);
+        if (!p || p.status === 'open') continue;
+        const k = `${t.period_id}|${t.worker_id}`;
+        const o = out.get(k) || { period: p, worker: ludia.get(t.worker_id), hours: 0 };
+        o.hours += Number(t.hours) || 0;
+        out.set(k, o);
+      }
+      // Už má faktúru za toto obdobie (našu alebo svoju) — druhú nerobíme.
+      const ma = new Set(this.bills.filter(b => b.status !== 'discarded' && b.period_id)
+        .map(b => `${b.period_id}|${b.worker_id}`));
+      return [...out.entries()].filter(([k]) => !ma.has(k)).map(([, v]) => v)
+        .sort((a, b) => String(b.period.period_to).localeCompare(String(a.period.period_to)));
+    },
+
+    selfForm() {
+      const list = this.selfCandidates();
+      this._selfList = list;
+      if (!this.selfWorkers().length) {
+        return UI.modal('Faktúry za živnostníkov', `
+          <div class="regimebox" style="margin:0;">Zatiaľ nemáte žiadneho živnostníka, za ktorého
+            vystavujeme faktúry. Zapína sa na jeho karte (Upraviť → „Faktúry zaňho vystavujeme my")
+            a platí od podpisu rámcovej zmluvy s touto dohodou.</div>
+          <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button></div>`);
+      }
+      if (!list.length) {
+        return UI.modal('Faktúry za živnostníkov', `
+          <div class="regimebox" style="margin:0;">Nie je z čoho — v uzavretých obdobiach nemá nikto
+            zo živnostníkov, za ktorých fakturujeme, schválené hodiny bez faktúry.</div>
+          <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button></div>`);
+      }
+      UI.modal('Pripraviť faktúry za živnostníkov', `
+        <div class="regimebox" style="margin:0 0 12px;">Appka pripraví návrh faktúry v mene živnostníka
+          zo <b>schválených hodín</b> uzavretého obdobia. Vystaví ho až administrátor; potom sa pošle
+          živnostníkovi na potvrdenie.</div>
+        <div class="pay-list">${list.map((c, i) => `
+          <label class="pay-row">
+            <input type="checkbox" name="self" value="${i}" checked>
+            <span class="pay-who"><b>${UI.esc(c.worker.full_name)}</b>
+              <em>${UI.esc(this.subOf(c.period.subcontract_id).title || 'Zákazka')} ·
+                ${UI.dateRange(c.period.period_from, c.period.period_to)}</em></span>
+            <strong>${Math.round(c.hours * 100) / 100} h</strong>
+          </label>`).join('')}</div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          <button class="btn btn-primary" id="self-go" onclick="Cost.selfDrafts()">Pripraviť návrhy</button>
+        </div>`, { wide: true });
+    },
+
+    async selfDrafts() {
+      const vyber = [...document.querySelectorAll('input[name="self"]:checked')]
+        .map(i => this._selfList[Number(i.value)]).filter(Boolean);
+      if (!vyber.length) return UI.toast('Nič nie je vybrané', 'err');
+      const btn = document.getElementById('self-go');
+      if (btn) { btn.disabled = true; btn.textContent = 'Pripravujem…'; }
+      let ok = 0;
+      for (const c of vyber) {
+        const { error } = await DB.rpc('self_bill_draft', { p_period: c.period.id, p_worker: c.worker.id });
+        if (error) UI.toast(`${c.worker.full_name}: ${error.message}`, 'err'); else ok++;
+      }
+      UI.closeModal();
+      if (ok) UI.toast(ok === 1 ? 'Návrh je pripravený — čaká na schválenie' : `Pripravených ${ok} návrhov — čakajú na schválenie`, 'ok');
+      this.loaded = false; await this.load(); Danubra.renderRoute();
+    },
+
+    /** Faktúra za živnostníka ako dokument — návrh aj vystavená. */
+    selfDoc(id) {
+      const b = this.bills.find(x => x.id === id);
+      if (!b) return;
+      const w = this.workerOf(b.worker_id);
+      const p = this.periods.find(x => x.id === b.period_id) || null;
+      const html = DanubraPapers.selfInvoice({ bill: b, worker: {
+        ...w, address: w.business_address || w.address, city: w.business_city || w.city, zip: w.business_zip,
+        iban: w.bank_iban }, company: Danubra.supplier(), period: p });
+      const okno = window.open('', '_blank');
+      if (!okno) return UI.toast('Povoľte vyskakovacie okná pre zobrazenie dokumentu', 'err');
+      okno.document.open(); okno.document.write(html); okno.document.close();
+    },
+
+    /** Schváliť a vystaviť — číslo z radu živnostníka. Smie len admin (stráži databáza). */
+    async selfIssue(id) {
+      const b = this.bills.find(x => x.id === id);
+      if (!b) return;
+      const w = this.workerOf(b.worker_id);
+      if (!await UI.confirm(`Vystaviť faktúru v mene ${w.full_name || 'živnostníka'} na `
+        + `${Money.format(Money.toCents(b.amount))}?\n\nDostane číslo z jeho radu a pošlete mu ju na potvrdenie.`)) return;
+      const due = Number((Danubra.cfg('subcontract') || {}).splatnost_dni) || 14;
+      const { data, error } = await DB.rpc('self_bill_issue', { p_bill: id, p_due_days: due });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      UI.toast(`Vystavená ${data || ''} — pošlite ju živnostníkovi na potvrdenie`, 'ok');
+      this.loaded = false; await this.load(); this.billDetail(id);
+    },
+
+    selfLink(b) {
+      return `${location.origin}/app/potvrdenie.html?t=${b.confirm_token}`;
+    },
+
+    selfMessage(b) {
+      const w = this.workerOf(b.worker_id);
+      const s = Danubra.supplier() || {};
+      return `Dobrý deň${w.full_name ? `, ${w.full_name.split(' ')[0]}` : ''}, za odpracované hodiny sme `
+        + `za Vás vystavili faktúru ${b.bill_number} na ${Money.format(Money.toCents(b.amount))}. `
+        + `Skontrolujte ju prosím a potvrďte: ${this.selfLink(b)} — ${s.name || ''}`.trim();
+    },
+
+    async selfSend(id, how) {
+      const b = this.bills.find(x => x.id === id);
+      if (!b || !b.confirm_token) return;
+      const w = this.workerOf(b.worker_id);
+      const text = this.selfMessage(b);
+      const tel = String(w.phone || '').replace(/[^\d+]/g, '');
+      if (how === 'copy') {
+        try { await navigator.clipboard.writeText(text); UI.toast('Správa s odkazom je skopírovaná', 'ok'); }
+        catch { UI.ask('Skopírujte si správu:', text); }
+      } else if (how === 'wa') {
+        if (!tel) return UI.toast('Živnostník nemá telefón', 'err');
+        window.open(`https://wa.me/${tel.replace(/^\+/, '')}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+      } else if (how === 'sms') {
+        if (!tel) return UI.toast('Živnostník nemá telefón', 'err');
+        location.href = `sms:${tel}?body=${encodeURIComponent(text)}`;
+      }
+      if (!b.sent_to_worker_at) {
+        await DB.update('bills', id, { sent_to_worker_at: new Date().toISOString() });
+        b.sent_to_worker_at = new Date().toISOString();
+      }
+    },
+
+    selfHtml(b) {
+      const w = this.workerOf(b.worker_id);
+      const riadky = (b.lines || []).map(l => `<div><span>${UI.esc(l.description || 'Práce')}</span>
+        <span>${Number(l.hours || 0)} h × ${Money.format(Money.toCents(l.rate))}</span>
+        <b>${Money.format(Money.toCents(l.total))}</b></div>`).join('');
+      let stav = '';
+      if (b.status === 'self_draft') {
+        stav = `<div class="regimebox" style="margin:0 0 12px;">Návrh zo schválených hodín. Po schválení
+          dostane číslo z radu živnostníka a pošlete mu ho na potvrdenie.</div>`;
+      } else if (b.status === 'self_sent') {
+        stav = `<div class="regimebox" style="margin:0 0 12px;">${b.sent_to_worker_at
+          ? `Poslané ${UI.date(b.sent_to_worker_at)} — čaká, kým ju ${UI.esc(w.full_name || 'živnostník')} potvrdí.`
+          : `Vystavená. <b>Pošlite ju živnostníkovi na potvrdenie</b> — bez potvrdenia sa neplatí.`}
+          <div class="self-send">
+            <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','wa')">${Icon('whatsapp', 14)} WhatsApp</button>
+            <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','sms')">${Icon('phone', 14)} SMS</button>
+            <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','copy')">${Icon('copy', 14)} Kopírovať odkaz</button>
+          </div></div>`;
+      } else if (b.worker_confirmed_at) {
+        stav = `<div class="regimebox" style="margin:0 0 12px;">${Icon('check', 14)} Živnostník ju potvrdil
+          ${UI.date(b.worker_confirmed_at)}.</div>`;
+      } else if (b.worker_note) {
+        stav = `<div class="warnbox br-warn"><div>${Icon('alert', 14)}<span>Živnostník nesúhlasí:
+          ${UI.esc(b.worker_note)}</span></div></div>`;
+      }
+      return `${stav}<div class="self-lines">${riadky}</div>`;
+    },
+
     billDetail(id) {
       const b = this.bills.find(x => x.id === id);
       if (!b) return UI.toast('Nenájdené', 'err');
+      // Nahratá z PDF a nepotvrdená sa otvára na kontrolu, nie ako hotová.
+      if (b.status === 'review') return this.reviewBill(id);
       const w = this.workerOf(b.worker_id);
+      const self = b.source === 'self_billing';
       const rev = DanubraBills.review(this.ctx(b));
       const c = rev.check;
 
-      const next = { received: 'checked', checked: 'approved', disputed: 'approved',
-        approved: 'paid' }[b.status];
+      // Za živnostníka: schvaľuje sa vystavením (admin), potom potvrdí on.
+      const next = self && ['self_draft', 'self_sent'].includes(b.status) ? null
+        : { received: 'checked', checked: 'approved', disputed: 'approved', approved: 'paid' }[b.status];
       const nextLabel = { checked: 'Označiť skontrolovanú', approved: 'Schváliť',
         paid: 'Označiť uhradenú' }[next];
 
@@ -524,6 +699,8 @@
           ${UI.badge(Enums.label('bill_status', b.status), this.billKind(b.status))}
           ${b.bill_number ? `<span class="mono" style="color:var(--ink-mute);">${UI.esc(b.bill_number)}</span>` : ''}
         </div>
+
+        ${self ? `<div class="form-section">Faktúra, ktorú vystavujeme za živnostníka</div>${this.selfHtml(b)}` : ''}
 
         <div class="form-section">Porovnanie s hodinami</div>
         ${Shell.sums({ lines: DanubraBills.sumLines(c),
@@ -554,7 +731,12 @@
 
         <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
           ${b.storage_path ? `<button class="btn btn-outline btn-sm" onclick="Cost.openDoc('${b.id}')">${Icon('doc')} Doklad</button>` : ''}
-          <button class="btn btn-outline btn-sm" onclick="Cost.billForm('${b.id}')">Upraviť</button>
+          ${self ? `<button class="btn btn-outline btn-sm" onclick="Cost.selfDoc('${b.id}')">${Icon('doc')} ${b.bill_number ? 'Faktúra' : 'Náhľad návrhu'}</button>` : ''}
+          ${self && ['self_draft', 'self_sent', 'disputed'].includes(b.status)
+            ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Cost.discardBill('${b.id}')">Zahodiť</button>` : ''}
+          ${self ? '' : `<button class="btn btn-outline btn-sm" onclick="Cost.billForm('${b.id}')">Upraviť</button>`}
+          ${self && b.status === 'self_draft'
+            ? `<button class="btn btn-primary btn-sm" onclick="Cost.selfIssue('${b.id}')">${Icon('check')} Schváliť a vystaviť</button>` : ''}
           ${next ? `<button class="btn btn-primary btn-sm" onclick="Cost.setBillStatus('${b.id}','${next}')">${nextLabel}</button>` : ''}
         </div>`;
       UI.modal(`Faktúra od ${w.full_name || b.supplier_name || 'dodávateľa'}`, body, { wide: true });

@@ -167,6 +167,10 @@
     // Nahraté z PDF, ešte nepotvrdené. Kým ich človek neodklikne, nie sú
     // záväzok — ale treba ich prejsť, inak sa na ne zabudne.
     const review = live.filter(b => b.status === 'review');
+    // Faktúry, ktoré vystavujeme za živnostníka: návrh čaká na admina,
+    // vystavená na potvrdenie živnostníka.
+    const selfDraft = live.filter(b => b.status === 'self_draft');
+    const selfSent = live.filter(b => b.status === 'self_sent');
     const disputed = live.filter(b => b.status === SPORNE);
     const toCheck = live.filter(b => NESKONTROLOVANE.includes(b.status));
     const toPay = live.filter(b => PRED_UHRADOU.includes(b.status));
@@ -198,6 +202,16 @@
           + 'alebo v IBAN-e.',
         hot: false, bill: review.find(b => b.extract_status !== 'pending') || review[0],
         count: review.length, cents: suma(review),
+      };
+    } else if (selfDraft.length) {
+      next = {
+        key: 'self',
+        title: selfDraft.length === 1 ? 'Vystaviť faktúru za živnostníka' : 'Vystaviť faktúry za živnostníkov',
+        what: `${selfDraft.length} ${plural(selfDraft.length, 'návrh čaká', 'návrhy čakajú', 'návrhov čaká')} `
+          + `na schválenie · ${M.format(suma(selfDraft))}`,
+        why: 'Pripravila ich appka zo schválených hodín. Vystaví ich administrátor — potom '
+          + 'sa pošlú živnostníkovi na potvrdenie.',
+        hot: false, bill: selfDraft[0], count: selfDraft.length, cents: suma(selfDraft),
       };
     } else if (latePay.length) {
       next = {
@@ -231,11 +245,11 @@
     }
 
     return {
-      review, disputed, toCheck, toPay, latePay, next,
+      review, selfDraft, selfSent, disputed, toCheck, toPay, latePay, next,
       disputedCents: suma(disputed), toCheckCents: suma(toCheck),
       toPayCents: suma(toPay), latePayCents: suma(latePay),
       // Čo čaká na nás dokopy: sporné a neskontrolované.
-      waiting: review.length + disputed.length + toCheck.length,
+      waiting: review.length + selfDraft.length + disputed.length + toCheck.length,
     };
   }
 

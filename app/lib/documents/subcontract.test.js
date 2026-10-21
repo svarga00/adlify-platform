@@ -153,5 +153,21 @@ const clanok = (z, rim) => z.clanky.find(c => c.rim === rim);
   eq(S.nextNumber(['2026-999'], 2026), '2026-1000', 'za 999 to nespadne');
 }
 
+// ── Vyhotovovanie faktúr za živnostníka ────────────────────────────────────
+{
+  const bez = S.build({ worker: { full_name: 'Ján' }, supplier: {} });
+  ok(!/Vyhotovovanie faktúr Objednávateľom/.test(text(bez)), 'bez dohody v zmluve nie je');
+  const s = S.build({ worker: { full_name: 'Ján', self_billing: true }, supplier: {} });
+  const v = clanok(s, 'V.');
+  ok(v.body.some(p => /Vyhotovovanie faktúr Objednávateľom/.test(p)), 'so živnostníkom, za ktorého fakturujeme, je v článku V.');
+  ok(/do 5 dní od doručenia nevznesie námietku/.test(text(s)), 'lehota na námietku');
+  ok(/samostatnom číselnom rade Zhotoviteľa/.test(text(s)), 'vlastný číselný rad');
+  ok(/zodpovedá Zhotoviteľ/.test(text(s)), 'za údaje zodpovedá živnostník');
+  eq(s.clanky.length, bez.clanky.length, 'počet článkov sa nemení — číslovanie sedí');
+  ok(S.build({ worker: { self_billing: true }, selfBilling: false }).selfBilling === false, 'dá sa vypnúť');
+  ok(/do 7 dní od doručenia/.test(text(S.build({ worker: { self_billing: true }, rules: { samofakt_namietka_dni: 7 } }))),
+    'lehota sa berie z Nastavení');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);

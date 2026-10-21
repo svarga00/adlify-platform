@@ -38,6 +38,7 @@
     konkurencia_roky: 2,        // zákaz konkurencie po skončení
     vypoved_mes: 1,             // výpovedná lehota
     dorucenie_dni: 5,           // fikcia doručenia poštou
+    samofakt_namietka_dni: 5,   // dokedy môže namietať faktúru, ktorú sme vystavili zaňho
     freistellung_poplatok: 50,  // spracovateľský poplatok pri zrážkovej dani
     pokuta_alkohol: 500,
     pokuta_fajcenie: 350,
@@ -81,7 +82,36 @@
    *
    * @param {Object} o  { s } — sumy a lehoty po zlúčení s Nastaveniami
    */
-  function clanky({ s = SUMY } = {}) {
+  /**
+   * Dohoda o vyhotovovaní faktúr odberateľom (samofakturácia). Zákon ju
+   * vyžaduje písomne a s podmienkami, za ktorých dodávateľ faktúru akceptuje.
+   * Pridáva sa do článku V., len keď sa so živnostníkom na tom dohodneme
+   * (`self_billing` na jeho karte).
+   */
+  function samofakturacia(s = SUMY) {
+    return [
+      '**Vyhotovovanie faktúr Objednávateľom.** Zmluvné strany sa dohodli, že faktúry za '
+        + 'dielo podľa tejto Zmluvy vyhotovuje v mene a na účet Zhotoviteľa Objednávateľ '
+        + '(vyhotovenie faktúry odberateľom). Podkladom je súpis vykonaných prác potvrdený '
+        + 'podľa bodu 2 tohto článku a sadzba dohodnutá v objednávke.',
+      'Faktúru vyhotovenú Objednávateľom doručí Objednávateľ Zhotoviteľovi elektronicky — '
+        + 'odkazom zaslaným SMS, e-mailom alebo cez WhatsApp na kontakty uvedené v záhlaví '
+        + `tejto Zmluvy. Zhotoviteľ ju akceptuje potvrdením cez tento odkaz. Ak do `
+        + `${dni(s.samofakt_namietka_dni)} od doručenia nevznesie námietku s uvedením `
+        + 'dôvodu, má sa za to, že faktúru akceptoval.',
+      'Faktúry vyhotovené Objednávateľom sa číslujú v samostatnom číselnom rade Zhotoviteľa. '
+        + 'Za dielo, za ktoré Objednávateľ vyhotovil faktúru, Zhotoviteľ vlastnú faktúru '
+        + 'nevystavuje.',
+      'Za správnosť údajov o Zhotoviteľovi uvedených na faktúre (najmä obchodné meno, sídlo, '
+        + 'IČO, DIČ a číslo účtu) a za daňové a účtovné spracovanie faktúry zodpovedá '
+        + 'Zhotoviteľ. Zmenu týchto údajov, ako aj registráciu za platiteľa DPH, je povinný '
+        + 'Objednávateľovi oznámiť bezodkladne.',
+      'Vyhotovovanie faktúr Objednávateľom môže ktorákoľvek Zmluvná strana písomne ukončiť; '
+        + 'ukončenie je účinné od nasledujúceho fakturačného obdobia.',
+    ];
+  }
+
+  function clanky({ s = SUMY, selfBilling = false } = {}) {
     return [
       {
         rim: 'II.', nadpis: 'Predmet zmluvy',
@@ -164,6 +194,7 @@
             + `o ${mesiace(s.splatnost_predlzenie_mes)}.`,
           'Faktúra musí obsahovať všetky zákonné náležitosti; inak je Objednávateľ oprávnený '
             + 'vrátiť ju na prepracovanie a plynie nová lehota splatnosti.',
+          ...(selfBilling ? samofakturacia(s) : []),
         ],
       },
       {
@@ -341,7 +372,8 @@
    *   validTo    koniec platnosti (predvolene 31. 12. toho roka)
    *   number     číslo zmluvy
    */
-  function build({ worker = {}, supplier = {}, rules = {}, signedAt, validTo, number } = {}) {
+  function build({ worker = {}, supplier = {}, rules = {}, signedAt, validTo, number,
+    selfBilling = !!(worker && worker.self_billing) } = {}) {
     const s = { ...SUMY };
     for (const k of Object.keys(SUMY)) {
       const v = Number(rules[k]);
@@ -360,7 +392,8 @@
       validTo: koniec,
       sumy: s,
       worker, supplier,
-      clanky: clanky({ s }).map(c => ({
+      selfBilling,
+      clanky: clanky({ s, selfBilling }).map(c => ({
         ...c, body: c.body.map(p => p.replace('{{TRVANIE}}', trvanie)),
       })),
     };
@@ -412,7 +445,7 @@
     return `${y}-${String(max + 1).padStart(3, '0')}`;
   }
 
-  const API = { SUMY, POVINNE, clanky, build, missing, koniecRoka, den, eur, plural, nextNumber };
+  const API = { SUMY, POVINNE, clanky, samofakturacia, build, missing, koniecRoka, den, eur, plural, nextNumber };
   if (typeof window !== 'undefined') window.DanubraSubcontract = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

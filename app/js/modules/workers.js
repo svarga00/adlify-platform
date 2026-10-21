@@ -908,6 +908,9 @@
         ['Meno na živnosti', w.company_name],
         ['IČO', w.company_id], ['DIČ', w.tax_id],
         ['IČ DPH', w.vat_id], ['Platiteľ DPH', w.vat_payer ? 'Áno' : 'Nie'],
+        ['Faktúry vystavujeme my', w.self_billing
+          ? `Áno${w.self_billing_prefix ? `, rad ${w.self_billing_prefix}` : ''}${w.self_billing_since ? ` (od ${UI.date(w.self_billing_since)})` : ''}`
+          : null],
         ['Adresa podnikania', [w.business_address, w.business_zip, w.business_city]
           .filter(Boolean).join(', ') || null],
         ['IBAN', w.bank_iban],
@@ -1061,7 +1064,16 @@
             ${UI.field('own_tools', '', { type: 'checkbox', value: w.own_tools, placeholder: 'Vlastné náradie' })}
             ${UI.field('regulated_trade', '', { type: 'checkbox', value: w.regulated_trade, placeholder: 'Regulované remeslo (§9 HwO)' })}
             ${UI.field('vat_payer', '', { type: 'checkbox', value: w.vat_payer, placeholder: 'Platiteľ DPH' })}
+            ${UI.field('self_billing', '', { type: 'checkbox', value: w.self_billing,
+              placeholder: 'Faktúry zaňho vystavujeme my' })}
           </div>
+          <div class="form-grid">
+            ${UI.field('self_billing_prefix', 'Číselný rad jeho faktúr (keď ich vystavujeme my)', {
+              value: w.self_billing_prefix || '', placeholder: 'napr. NOVAK — faktúry budú NOVAK-2026-001' })}
+          </div>
+          <div class="field-hint" style="margin:-4px 0 10px;font-size:12px;color:var(--ink-mute);">
+            „Faktúry zaňho vystavujeme my" pridá do rámcovej zmluvy dohodu o vyhotovovaní faktúr
+            odberateľom (článok V.). Platí až od podpisu takej zmluvy. Pre platiteľa DPH sa nepoužíva.</div>
           ${UI.field('skills_csv', 'Zručnosti (čiarkou)', { value: (w.skills || []).join(', ') })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: w.notes })}
           <div class="modal-actions">
@@ -1080,6 +1092,17 @@
       // Prázdny dátum musí ísť do databázy ako null, nie ako prázdny reťazec.
       ['cooperating_since', 'available_from', 'trade_licence_from']
         .forEach(k => { if (payload[k] === '') payload[k] = null; });
+      // Faktúry zaňho vystavujeme my: odkedy a v akom rade. Rad sa predvyplní
+      // z priezviska, nech sa nepletie s inými živnostníkmi.
+      const prev = id ? (this.items.find(x => x.id === id) || {}) : {};
+      if (payload.self_billing) {
+        if (!prev.self_billing_since) payload.self_billing_since = new Date().toISOString().slice(0, 10);
+        const rad = String(payload.self_billing_prefix || '').trim() || String(d.full_name).trim().split(/\s+/).pop();
+        payload.self_billing_prefix = rad.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || null;
+      } else {
+        payload.self_billing_prefix = String(payload.self_billing_prefix || '').trim() || null;
+      }
       payload.skills = (d.skills_csv || '').split(',').map(s => s.trim()).filter(Boolean);
       payload.trade_licence_scopes = (d.scopes_csv || '').split(',').map(s => s.trim()).filter(Boolean);
       delete payload.skills_csv;
