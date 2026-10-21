@@ -179,6 +179,8 @@ priprav podklady na nábor.
 - Konkrétna stavba predáva, „niekde v Nemecku" nie. Vypichni, čo sa stavia, čo
   už stojí a čo je na rade.
 - Žiadne emoji. Žiadne superlatívy. Toto čítajú remeselníci, nie marketéri.
+- Kandidátom vykáme. Otázky do telefonátu aj texty inzerátov píš vo vykaní
+  („Máte živnosť?", „Ponúkame Vám…"), nikdy nie tykaním.
 
 JAZYKY
 - web, bazos_sk, fb_sk, ads_sk, voice_sk: slovensky
