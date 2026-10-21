@@ -41,7 +41,9 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const unmatched = this.txs.filter(t => t.match_status === 'unmatched').length;
 
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Bank.importForm()">
+      Danubra.setActions(`<button class="btn btn-outline btn-sm" onclick="Bank.payForm()">
+        ${Icon('wallet', 14)} Pripraviť platby</button>
+        <button class="btn btn-primary btn-sm" onclick="Bank.importForm()">
         ${Icon('upload', 14)} Načítať výpis</button>`);
       el.innerHTML = Danubra.header(Danubra.labelOf('bank'),
         'Čo príde, čo odíde a či to vyjde')
@@ -281,12 +283,12 @@
     importForm() {
       const body = `
         <div class="regimebox" style="margin:0 0 12px;">
-          Stačí CSV z internet bankingu — netreba ho upravovať. Appka si nájde
-          stĺpce sama a riadky, ktoré nepochopí, vypíše. Ten istý výpis sa
-          nenaimportuje dvakrát.</div>
+          Najlepšie je <b>výpis vo formáte XML (camt.053)</b> — v Business Bankingu Tatra banky
+          ho stiahnete pri výpisoch z účtu, keď ako formát zvolíte XML. Ide aj CSV z internet
+          bankingu, netreba ho upravovať. Ten istý výpis sa nenaimportuje dvakrát.</div>
         <label class="fld">
-          <span>Súbor s výpisom</span>
-          <input type="file" id="bank-file" accept=".csv,.txt,text/csv"
+          <span>Súbor s výpisom (XML alebo CSV)</span>
+          <input type="file" id="bank-file" accept=".xml,.csv,.txt,text/csv,application/xml,text/xml"
             onchange="Bank.readFile(this)">
         </label>
         <div style="text-align:center;color:var(--ink-mute);font-size:12px;margin:10px 0;">
@@ -310,13 +312,15 @@
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
+        // Kódovanie (UTF-8 alebo Windows-1250) sa rozpozná samo — inak by sa
+        // rozsypali mená s diakritikou.
+        const { text } = DanubraSepa.decode(reader.result);
+        if (DanubraSepa.isCamt(text)) return this.showParsed(DanubraSepa.parseCamt(text), 'XML výpis (camt.053)');
         const box = document.getElementById('bank-paste');
-        if (box) box.value = String(reader.result || '');
+        if (box) box.value = text;
         this.parsePasted();
       };
-      // Slovenské banky exportujú aj vo Windows-1250; UTF-8 je ale bežnejšie
-      // a pri zlom kódovaní sa rozsypú len názvy, nie sumy ani dátumy.
-      reader.readAsText(file, 'utf-8');
+      reader.readAsArrayBuffer(file);
     },
 
     parsePasted() {
@@ -326,7 +330,14 @@
       if (!box) return;
       if (!text.trim()) { box.innerHTML = ''; if (btn) btn.disabled = true; this.pending = null; return; }
 
-      const r = DanubraBank.parseCsv(text);
+      if (DanubraSepa.isCamt(text)) return this.showParsed(DanubraSepa.parseCamt(text), 'XML výpis (camt.053)');
+      this.showParsed(DanubraBank.parseCsv(text), 'CSV');
+    },
+
+    showParsed(r, kind) {
+      const box = document.getElementById('bank-preview');
+      const btn = document.getElementById('bank-save');
+      if (!box) return;
       if (r.error) {
         box.innerHTML = `<div class="warnbox">${Icon('alert', 14)} ${UI.esc(r.error)}</div>`;
         if (btn) btn.disabled = true; this.pending = null; return;
@@ -342,9 +353,11 @@
             { label: 'Výdaje', cents: Math.abs(s.expense), kind: 'minus' },
           ],
           totalLabel: 'Rozdiel',
-          note: `${s.count} ${s.count === 1 ? 'pohyb' : s.count < 5 ? 'pohyby' : 'pohybov'}`
+          note: `${kind}: ${s.count} ${s.count === 1 ? 'pohyb' : s.count < 5 ? 'pohyby' : 'pohybov'}`
             + (s.from ? ` za obdobie ${UI.dateRange(s.from, s.to)}` : ''),
         })}
+        ${r.closing ? `<div class="regimebox">Zostatok na účte podľa výpisu k ${UI.date(r.closing.date)}:
+          <b>${Money.format(r.closing.cents)}</b></div>` : ''}
         ${r.skipped.length ? `<div class="warnbox" style="margin-top:10px;">
           ${Icon('alert', 14)} ${r.skipped.length}
           ${r.skipped.length === 1 ? 'riadok sa nedal prečítať' : 'riadkov sa nedalo prečítať'}:
@@ -387,6 +400,84 @@
       this.loaded = false; await this.load(); Danubra.renderRoute();
     },
   };
+
+  // ── Príkazy na úhradu ─────────────────────────────────────────────────
+  // Appka pripraví súbor SEPA XML (pain.001) so schválenými prijatými
+  // faktúrami. V Business Bankingu Tatra banky sa nahrá a podpíše naraz —
+  // appka sama nič neodošle. Logika je v lib/bank/sepa.js.
+  Object.assign(Bank, {
+    async payForm() {
+      const [{ data: bills }, { data: workers }] = await Promise.all([
+        DB.list('bills', { limit: 1000 }),
+        DB.list('workers', { select: 'id,full_name,company_name,bank_iban', limit: 1000 }),
+      ]);
+      const list = DanubraSepa.billPayments(bills || [], workers || [])
+        .sort((a, b) => String(a.due || '9999').localeCompare(String(b.due || '9999')));
+      this._pay = list;
+      const s = Danubra.supplier() || {};
+      const today = Danubra._dayISO();
+      if (!list.length) {
+        return UI.modal('Pripraviť platby', `
+          <div class="regimebox" style="margin:0;">Nie je čo platiť — žiadna prijatá faktúra nie je
+            <b>schválená</b>. Platiť sa dá len schválená faktúra; schvaľuje sa v Prijatých faktúrach.</div>
+          <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('costs')">
+            Otvoriť prijaté faktúry</button></div>`);
+      }
+      const riadok = (p, i) => `
+        <label class="pay-row${p.problems.length ? ' is-bad' : ''}">
+          <input type="checkbox" name="pay" value="${i}" ${p.problems.length ? 'disabled' : 'checked'}
+            onchange="Bank.payTotal()">
+          <span class="pay-who"><b>${UI.esc(p.name || '—')}</b>
+            <em>${UI.esc(p.iban || 'bez IBAN-u')}${p.vs ? ` · VS ${UI.esc(p.vs)}` : ''}${p.due ? ` · splatná ${UI.date(p.due)}` : ''}</em>
+            ${p.problems.length ? `<em class="pay-bad">${Icon('alert', 12)} ${UI.esc(p.problems.join(', '))} — doplňte v prijatej faktúre</em>` : ''}
+            ${p.ibanDiffers ? `<em class="pay-bad">${Icon('alert', 12)} IBAN na faktúre je iný než u živnostníka v appke — overte si ho</em>` : ''}</span>
+          <strong>${Money.format(p.cents)}</strong>
+        </label>`;
+      UI.modal('Pripraviť platby', `
+        <div class="regimebox" style="margin:0 0 12px;">Appka pripraví súbor s príkazmi
+          (SEPA XML). V Business Bankingu Tatra banky ho nahráte ako dávku platieb
+          (import súboru s platbami) a podpíšete naraz. Appka sama nič neodošle.</div>
+        ${!s.iban ? `<div class="warnbox br-warn"><div>${Icon('alert', 14)}<span>Chýba IBAN našej firmy —
+          doplňte ho v Nastaveniach → Fakturačné údaje.</span></div></div>` : ''}
+        <div class="pay-list">${list.map(riadok).join('')}</div>
+        <div class="form-grid" style="margin-top:12px;">
+          ${UI.field('pay_date', 'Dátum platby', { type: 'date', value: today })}
+          <div class="fld"><span>Spolu</span><strong id="pay-total" style="font-size:20px;"></strong></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          <button class="btn btn-primary" onclick="Bank.payDownload()">${Icon('download')} Stiahnuť súbor pre banku</button>
+        </div>`, { wide: true });
+      this.payTotal();
+    },
+
+    paySelected() {
+      return [...document.querySelectorAll('input[name="pay"]:checked')]
+        .map(i => this._pay[Number(i.value)]).filter(Boolean);
+    },
+
+    payTotal() {
+      const el = document.getElementById('pay-total');
+      const sel = this.paySelected();
+      if (el) el.textContent = `${Money.format(sel.reduce((t, p) => t + p.cents, 0))} · ${sel.length} ${Shell.plural(sel.length, 'platba', 'platby', 'platieb')}`;
+    },
+
+    payDownload() {
+      const s = Danubra.supplier() || {};
+      const sel = this.paySelected();
+      const date = document.querySelector('[name="pay_date"]')?.value || Danubra._dayISO();
+      const r = DanubraSepa.pain001({ debtor: { name: s.name, iban: s.iban }, payments: sel, date });
+      if (!r.xml) return UI.toast(r.errors[0] || 'Súbor sa nedal pripraviť', 'err');
+      const blob = new Blob([r.xml], { type: 'application/xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `platby-${date}.xml`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      UI.closeModal();
+      UI.toast(`Súbor s ${r.count} ${Shell.plural(r.count, 'platbou', 'platbami', 'platbami')} (${Money.format(r.cents)}) je stiahnutý — nahrajte ho v banke`, 'ok');
+    },
+  });
 
   window.Bank = Bank;
   Danubra.views.bank = function (el) { return Bank.view(el); };

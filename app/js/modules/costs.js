@@ -57,7 +57,8 @@
       // sporné, potom po splatnosti, potom neskontrolované.
       const q = DanubraBills.queue(this.bills, Danubra._dayISO());
       Danubra.setActions(this.tab === 'bills'
-        ? `<button class="btn btn-outline btn-sm" onclick="Cost.billForm()">${Icon('plus')} Zadať ručne</button>
+        ? `<button class="btn btn-outline btn-sm" onclick="Bank.payForm()">${Icon('wallet')} Pripraviť platby</button>
+           <button class="btn btn-outline btn-sm" onclick="Cost.billForm()">${Icon('plus')} Zadať ručne</button>
            <button class="btn btn-primary btn-sm" onclick="Cost.pickFiles()">${Icon('upload')} Nahrať faktúry</button>`
         : `<button class="btn btn-primary btn-sm" onclick="Cost.costForm()">${Icon('plus')} Náklad</button>`);
       const head = Danubra.header(Danubra.labelOf('costs'),
