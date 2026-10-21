@@ -244,6 +244,12 @@
       this.ad = this.ads.find(a => a.id === cand.ad_id) || null;
       this.segments = this.buildSegments(cand.profession, cand.ad_id);
       this.notes = new Map(); this.answers = new Map();
+      // Čo už odpovedal na odborné otázky, ostane vybrané.
+      const { data: odp } = await DB.list('screening_answers', { filters: { candidate_id: candidateId }, limit: 300 });
+      for (const row of odp || []) {
+        const a = window.DanubraCallQ && DanubraCallQ.fromRow(row);
+        if (a && row.question_id) this.answers.set(`db:${row.question_id}`, a);
+      }
       this.qStep = {}; this.route = null; this.routeFrom = cand.city || '';
       this.setup = false;
       this.segIndex = 0;
@@ -407,7 +413,7 @@
 
     /** Priebežné zhrnutie — vidíš ho celý hovor, netreba listovať späť. */
     liveHtml() {
-      const ticked = [...this.ticked.values()];
+      const ticked = this.scoreItems();
       const r = CH.scoreChips(ticked);
       const s = CH.summarize(ticked);
       const V = { strong: ['Sedí', 'ok'], ok: ['Použiteľný', 'ok'], weak: ['Slabý', 'warn'],
@@ -576,39 +582,12 @@
         </div>`;
     },
 
-    /**
-     * Otázky k tejto časti hovoru. Sú tu na čítanie, nie na odškrtávanie —
-     * odpoveď sa zapíše vlastnými slovami do poznámky pod nimi. Odškrtávacie
-     * pole je tvrdenie, otázka je otázka; miešať to by znamenalo, že sa
-     * zaškrtne „opýtané" namiesto toho, čo zaznelo.
-     *
-     * „Čo chcem počuť" a „pri čom zbystriť" sú skryté pod klepnutím —
-     * pri telefóne treba vidieť otázku, nie odsek textu.
-     */
+    /** Pridať otázku k časti hovoru. */
     questionsHtml(seg) {
-      const qs = seg.questions || [];
-      if (!qs.length) {
-        return `<button class="q-add" onclick="Guide.addQuestionPrompt('${seg.key}')">
-          ${Icon('plus', 13)} pridať otázku k tejto časti</button>`;
-      }
-      return `<div class="q-list">
-        <div class="q-head">${Icon('help', 13)} Na čo sa opýtať</div>
-        ${qs.map(q => `
-          <details class="q-item">
-            <summary>
-              <span class="q-text">${UI.esc(q.question_sk)}</span>
-              ${(q.weight || 1) >= 3 ? `<em class="q-key">kľúčová</em>` : ''}
-              ${q.ad_id ? `<em class="q-src">k inzerátu</em>`
-                : (q.trade_key ? `<em class="q-src">k remeslu</em>` : '')}
-            </summary>
-            ${q.good_answer ? `<p class="q-good">${Icon('check', 12)} ${UI.esc(q.good_answer)}</p>` : ''}
-            ${q.red_flag_answer ? `<p class="q-bad">${Icon('alert', 12)} ${UI.esc(q.red_flag_answer)}</p>` : ''}
-            <button class="q-edit" onclick="event.preventDefault();Guide.editQuestion('${q.id}')">
-              ${Icon('edit', 12)} upraviť</button>
-          </details>`).join('')}
-        <button class="q-add" onclick="Guide.addQuestionPrompt('${seg.key}')">
-          ${Icon('plus', 13)} pridať otázku</button>
-      </div>`;
+      // Odborné otázky sú vyššie, na klik (dobre / čiastočne / zle) — tu sa
+      // dá už len pridať nová.
+      return `<button class="q-add" onclick="Guide.addQuestionPrompt('${seg.key}')">
+        ${Icon('plus', 13)} pridať otázku k tejto časti</button>`;
     },
 
     /**
@@ -711,13 +690,25 @@
       return st !== null && st !== undefined;
     },
 
+    /** Pri odbornej otázke: čo chceme počuť a pri čom zbystriť — podľa toho sa hodnotí. */
+    judgeHtml(q) {
+      if (!q.dbId) return '';
+      return `<div class="qq-judge">
+        ${q.weight >= 3 ? `<em class="q-key">kľúčová</em>` : ''}
+        ${q.good ? `<p class="q-good">${Icon('check', 12)} ${UI.esc(q.good)}</p>` : ''}
+        ${q.bad ? `<p class="q-bad">${Icon('alert', 12)} ${UI.esc(q.bad)}</p>` : ''}
+        <button class="q-edit" onclick="Guide.editQuestion('${q.dbId}')">${Icon('edit', 12)} upraviť otázku</button>
+      </div>`;
+    },
+
     questionStepHtml(seg, q) {
       const sel = this.callQState(q);
       const a = this.answers && this.answers.get(q.key);
       return `
         <div class="qq-q">${UI.esc(q.q)}</div>
+        ${this.judgeHtml(q)}
         <div class="qq-ans">
-          ${q.answers.map((ans, i) => `<button class="qq-a pol-${ans.chip ? ans.chip.polarity : 'neutral'}${
+          ${q.answers.map((ans, i) => `<button class="qq-a pol-${ans.chip ? ans.chip.polarity : (ans.polarity || 'neutral')}${
             sel === i ? ' on' : ''}" onclick="Guide.answer('${seg.key}','${q.key}',${i})"
             ${ans.chip && ans.chip.hint ? `title="${UI.esc(ans.chip.hint)}"` : ''}>
             <kbd>${i + 1}</kbd><span>${UI.esc(ans.label)}</span></button>`).join('')}
@@ -862,6 +853,9 @@
       if (!CQ) return { questions: [], rest: seg.chips };
       const usable = this.chips.filter(c => !c.trade_key || c.trade_key === this.trade?.key);
       const g = CQ.group(seg.key, usable, seg.chips);
+      // Odborné otázky k remeslu / inzerátu idú za pevnými — tiež na klik
+      // („odpovedal dobre / čiastočne / zle"), nielen na čítanie.
+      g.questions = [...g.questions, ...(seg.questions || []).map(CQ.fromDbQuestion)];
       this._cq = this._cq || {};
       this._cq[seg.key] = g.questions;
       return g;
@@ -878,8 +872,9 @@
       const a = this.answers && this.answers.get(q.key);
       return `<div class="cq2" id="cq2-${q.key}">
         <div class="cq2-q">${UI.esc(q.q)}</div>
+        ${q.dbId ? `<details class="cq2-judge"><summary>čo chceme počuť</summary>${this.judgeHtml(q)}</details>` : ''}
         <div class="cq2-ans">
-          ${q.answers.map((ans, i) => `<button class="cq2-a pol-${ans.chip ? ans.chip.polarity : 'neutral'}${
+          ${q.answers.map((ans, i) => `<button class="cq2-a pol-${ans.chip ? ans.chip.polarity : (ans.polarity || 'neutral')}${
             sel === i ? ' on' : ''}" onclick="Guide.answer('${segKey}','${q.key}',${i})"
             ${ans.chip && ans.chip.hint ? `title="${UI.esc(ans.chip.hint)}"` : ''}>
             ${sel === i ? Icon('check', 13) : ''}${UI.esc(ans.label)}</button>`).join('')}
@@ -912,6 +907,7 @@
         if (a.chip && !this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id);
         this.answers.set(qKey, { idx: i });
       }
+      if (q.dbId) { this.persistAnswer(q); this.refreshAside(); }
       // Otázka po otázke: odpoveď hneď posunie ďalej (krátko, nech je vidieť, čo sa zvolilo).
       if (this._stepCtx && this._stepCtx.segKey === segKey && !vypnut) {
         this.render();
@@ -929,9 +925,39 @@
       q.answers.forEach((a) => { if (a.chip && this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id); });
       const pred = this.answers.get(qKey);
       this.answers.set(qKey, { other: (pred && pred.other) || '' });
+      if (q.dbId) this.refreshAside();
       if (this._stepCtx) this.render();
       else this.paintCallQ(segKey, q);
       setTimeout(() => document.getElementById(`cq2-in-${qKey}`)?.focus(), 20);
+    },
+
+    /**
+     * Hodnotenie odbornej otázky do `screening_answers` — hneď po klepnutí,
+     * ako polia. Zrušený výber sa nemaže, len sa vyprázdni hodnotenie.
+     */
+    async persistAnswer(q) {
+      if (!this.cand || !q || !q.dbId) return;
+      const row = DanubraCallQ.answerRow(q, this.answers.get(q.key))
+        || { question_id: q.dbId, answer_text: null, rating: null, flagged: false };
+      const { error } = await DB.from('screening_answers').upsert({
+        candidate_id: this.cand.id, plan_id: this.plan?.id || null, ...row,
+        asked_at: new Date().toISOString(), created_by: Danubra.user?.id || null,
+      }, { onConflict: 'candidate_id,question_id' });
+      if (error) UI.toast('Odpoveď sa neuložila: ' + error.message, 'err');
+    },
+
+    /** Všetky odborné otázky tohto hovoru (zo všetkých častí). */
+    dbQuestions() {
+      const CQ = window.DanubraCallQ;
+      if (!CQ) return [];
+      return (this.segments || []).flatMap(s => (s.questions || []).map(CQ.fromDbQuestion));
+    },
+
+    /** Čo ide do skóre: zaškrtnuté polia + hodnotenia odborných otázok. */
+    scoreItems() {
+      const CQ = window.DanubraCallQ;
+      const hodnotenia = CQ ? CQ.ratingItems(this.dbQuestions(), this.answers) : [];
+      return [...this.ticked.values(), ...hodnotenia];
     },
 
     // ── Zaškrtávanie ──────────────────────────────────────────────────────
@@ -979,7 +1005,7 @@
 
     /** Úzka lišta pre mobil: skóre, počet zaškrtnutých a varovania. */
     miniHtml() {
-      const ticked = [...this.ticked.values()];
+      const ticked = this.scoreItems();
       const r = CH.scoreChips(ticked);
       const V = { strong: 'ok', ok: 'ok', weak: 'warn', reject: 'bad', unknown: 'mute' };
       const flags = ticked.filter(c => c.polarity === 'flag').length;
@@ -1044,6 +1070,12 @@
 
     // ── Prechod medzi segmentmi ───────────────────────────────────────────
     async saveNote(segKey) {
+      // Odborná otázka s vlastnou odpoveďou („iné") sa zapíše až tu — pri
+      // písaní by sa ukladalo po každom písmene.
+      for (const q of ((this._cq || {})[segKey] || []).filter(x => x.dbId)) {
+        const a = this.answers.get(q.key);
+        if (a && a.other != null) this.persistAnswer(q);
+      }
       const el = document.getElementById('seg-note');
       // Odpovede bez poľa („Sám", „Nie") a vlastné „iné" idú do poznámky —
       // inak by sa z hovoru stratili.
@@ -1083,8 +1115,8 @@
 
     // ── Záver hovoru ──────────────────────────────────────────────────────
     callSummary() {
-      const r = CH.callOutcome([...this.ticked.values()]);
-      const s = CH.summarize([...this.ticked.values()]);
+      const r = CH.callOutcome(this.scoreItems());
+      const s = CH.summarize(this.scoreItems());
       const good = r.verdict === 'strong' || r.verdict === 'ok';
       return `
         <div class="guide-done">
@@ -1134,7 +1166,7 @@
     },
 
     async finishCall(action) {
-      const ticked = [...this.ticked.values()];
+      const ticked = this.scoreItems();
       const r = CH.callOutcome(ticked);
       const patch = {
         screening_score: r.percent,

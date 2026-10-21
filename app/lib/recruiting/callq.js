@@ -157,7 +157,78 @@
     return out;
   }
 
-  const API = { QUESTIONS, QUICK, otazky, group, selected, noteLines };
+  // ── Odborné otázky z databázy (k remeslu, k inzerátu) ────────────────────
+  // „Toto by sme mali vedieť zaškrtnúť." Pri odbornej otázke nie je odpoveď
+  // áno/nie — je napísané, čo chceme počuť a pri čom zbystriť. Náborár
+  // posúdi, ako odpovedal: dobre, čiastočne, zle. Hodnotenie ide do tabuľky
+  // `screening_answers` (rating 0 nevie · 1 slabé · 2 dobré) a do skóre.
+  const RATINGS = [
+    { label: 'Odpovedal dobre', rating: 2, polarity: 'plus' },
+    { label: 'Čiastočne', rating: 1, polarity: 'neutral' },
+    { label: 'Zle / nevie', rating: 0, polarity: 'minus' },
+  ];
+
+  /** Otázka z databázy v tvare, s ktorým vie hovor pracovať. */
+  function fromDbQuestion(q) {
+    return {
+      key: `db:${q.id}`, dbId: q.id, q: String(q.question_sk || '').trim(),
+      good: q.good_answer || '', bad: q.red_flag_answer || '',
+      weight: q.weight || 1, ad: !!q.ad_id,
+      answers: RATINGS.map(r => ({ label: r.label, chip: null, rating: r.rating, polarity: r.polarity })),
+    };
+  }
+
+  /** Krátky názov otázky do zhrnutia — celá veta by sa do bočného panela nezmestila. */
+  function shortQ(text, max = 60) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim().replace(/\?$/, '');
+    if (t.length <= max) return t;
+    const cut = t.slice(0, max);
+    return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), 20)).replace(/[,\s–-]+$/, '')}…`;
+  }
+
+  /**
+   * Hodnotenia odborných otázok ako položky do skóre (rovnaký tvar ako pole
+   * hovoru). Dobrá odpoveď je plus, zlá mínus, s váhou otázky — kľúčová
+   * otázka váži trikrát viac. „Čiastočne" a „iné" skóre nehýbu.
+   */
+  function ratingItems(questions, answers) {
+    const out = [];
+    const videne = new Set();
+    for (const q of questions || []) {
+      if (!q || !q.dbId || videne.has(q.key)) continue;
+      videne.add(q.key);
+      const a = answers && answers.get ? answers.get(q.key) : null;
+      if (!a || a.idx == null || !q.answers[a.idx]) continue;
+      const ans = q.answers[a.idx];
+      out.push({ id: q.key, label: shortQ(q.q), polarity: ans.polarity, weight: q.weight || 1 });
+    }
+    return out;
+  }
+
+  /** Riadok do `screening_answers` z odpovede v hovore (null = nič na zápis). */
+  function answerRow(q, a) {
+    if (!q || !q.dbId || !a) return null;
+    if (a.other != null) {
+      const txt = String(a.other).trim();
+      return txt ? { question_id: q.dbId, answer_text: txt, rating: null, flagged: false } : null;
+    }
+    const ans = q.answers[a.idx];
+    if (!ans) return null;
+    return { question_id: q.dbId, answer_text: ans.label, rating: ans.rating,
+      flagged: ans.rating === 0 && (q.weight || 1) >= 3 };
+  }
+
+  /** Uložená odpoveď → výber v hovore (pri pokračovaní v hovore). */
+  function fromRow(row) {
+    if (!row) return null;
+    if (row.rating == null) return row.answer_text ? { other: row.answer_text } : null;
+    const r = Number(row.rating) >= 2 ? 2 : Number(row.rating);
+    const idx = RATINGS.findIndex(x => x.rating === r);
+    return idx >= 0 ? { idx } : null;
+  }
+
+  const API = { QUESTIONS, QUICK, otazky, group, selected, noteLines,
+    RATINGS, fromDbQuestion, shortQ, ratingItems, answerRow, fromRow };
   if (typeof window !== 'undefined') window.DanubraCallQ = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

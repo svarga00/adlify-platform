@@ -3356,3 +3356,13 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   .qq-route-in { flex-direction: column; align-items: stretch; }
   .qq-keys { display: none; }
 }
+
+/* Odborná otázka v hovore: čo chceme počuť / pri čom zbystriť, podľa toho sa hodnotí. */
+.qq-judge { margin: 4px 0 2px; max-width: 640px; padding: 10px 0 2px; border-radius: var(--radius-lg);
+  background: var(--field); }
+.qq-judge .q-key { display: inline-block; margin: 0 12px 8px; }
+.qq-judge .q-good, .qq-judge .q-bad { font-size: 14px; }
+.cq2-judge { margin: -2px 0 8px; }
+.cq2-judge > summary { cursor: pointer; font-size: 12.5px; color: var(--blue); list-style: none; }
+.cq2-judge > summary::-webkit-details-marker { display: none; }
+.cq2-judge[open] .qq-judge { margin-top: 6px; }

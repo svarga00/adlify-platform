@@ -76,5 +76,41 @@ const CHIPS = [
   eq(Q.noteLines(g.questions, new Map()), [], 'bez odpovedí prázdne');
 }
 
+// ── Odborné otázky z databázy ───────────────────────────────────────────────
+{
+  const db = { id: 'q1', question_sk: 'Aký systém sanačných omietok ste spracovávali (WTA) a aký bol postup vrstiev?',
+    good_answer: 'Spritzbewurf, Porengrundputz, Sanierputz', red_flag_answer: 'Nepozná WTA', weight: 3 };
+  const q = Q.fromDbQuestion(db);
+  eq(q.key, 'db:q1', 'kľúč sa nebije s pevnými otázkami');
+  eq(q.answers.map(a => a.label), ['Odpovedal dobre', 'Čiastočne', 'Zle / nevie'], 'tri hodnotenia');
+  ok(q.answers.every(a => a.chip === null), 'bez poľa — ide do poznámky aj do tabuľky odpovedí');
+  eq([q.good, q.bad], ['Spritzbewurf, Porengrundputz, Sanierputz', 'Nepozná WTA'], 'čo chceme počuť je pri otázke');
+
+  const lahka = Q.fromDbQuestion({ id: 'q2', question_sk: 'Robíte aj ručne?', weight: 1 });
+  const ans = new Map([['db:q1', { idx: 0 }], ['db:q2', { idx: 2 }]]);
+  eq(Q.ratingItems([q, lahka, q], ans).map(x => [x.polarity, x.weight]), [['plus', 3], ['minus', 1]],
+    'dobrá kľúčová = plus 3, zlá bežná = mínus 1; otázka sa nezráta dvakrát');
+  eq(Q.ratingItems([q], new Map([['db:q1', { idx: 1 }]]))[0].polarity, 'neutral', 'čiastočne skóre nehýbe');
+  eq(Q.ratingItems([q], new Map([['db:q1', { other: 'neviem' }]])), [], 'iné sa do skóre neráta');
+  ok(Q.ratingItems([q], ans)[0].label.length <= 61, 'do zhrnutia ide krátky názov');
+
+  eq(Q.answerRow(q, { idx: 2 }), { question_id: 'q1', answer_text: 'Zle / nevie', rating: 0, flagged: true },
+    'zlá odpoveď na kľúčovú otázku je varovanie');
+  eq(Q.answerRow(lahka, { idx: 2 }).flagged, false, 'na bežnú nie');
+  eq(Q.answerRow(q, { other: ' len vápenná ' }), { question_id: 'q1', answer_text: 'len vápenná', rating: null, flagged: false },
+    'vlastná odpoveď sa zapíše slovami');
+  eq(Q.answerRow(q, { other: '' }), null, 'prázdne iné sa nezapisuje');
+  eq(Q.answerRow({ key: 'zivnost', answers: [] }, { idx: 0 }), null, 'pevné otázky sem nepatria');
+
+  eq(Q.fromRow({ rating: 3 }), { idx: 0 }, 'staré „presné" je dobre');
+  eq(Q.fromRow({ rating: 1 }), { idx: 1 }, 'slabé je čiastočne');
+  eq(Q.fromRow({ rating: 0 }), { idx: 2 }, 'nevie je zle');
+  eq(Q.fromRow({ rating: null, answer_text: 'iba ručne' }), { other: 'iba ručne' }, 'slovami ostane slovami');
+
+  eq(Q.noteLines([q], new Map([['db:q1', { idx: 0 }]])),
+    ['Aký systém sanačných omietok ste spracovávali (WTA) a aký bol postup vrstiev? — Odpovedal dobre'],
+    'hodnotenie ide aj do poznámky k hovoru');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);
