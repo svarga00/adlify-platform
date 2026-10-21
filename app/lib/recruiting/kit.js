@@ -232,7 +232,7 @@
     if (gapCount) {
       out.push({ key: 'gaps', done: false,
         text: `Doplniť ${gapCount} ${plural(gapCount, 'údaj', 'údaje', 'údajov')} `
-          + `označených ${CHYBA} (sadzba, nástup, dĺžka)`,
+          + `označených ${CHYBA} (sadzba, nástup, trvanie)`,
         why: 'Inzerát s nedoplnenou sadzbou priťahuje telefonáty, na ktoré sa nedá odpovedať.' });
     }
     if (!Number(plan.offer_rate)) {
@@ -270,9 +270,40 @@
     { key: 'housing', title: 'Ubytovanie' },
     { key: 'rate', title: 'Sadzba pre živnostníka', must: true,
       hint: 'Koľko €/h dostane živnostník — nie koľko platí Nemec.' },
-    { key: 'start', title: 'Nástup a dĺžka', must: true },
+    // Nástup je len dátum, trvanie zvlášť. Spolu v jednom poli to bolo
+    // „[XX] (denný začiatok 6:30)" — dátum, čas aj dĺžka v jednej vete
+    // a nič z toho sa nedalo použiť. Čas začiatku práce patrí do podmienky.
+    { key: 'start', title: 'Nástup', must: true, type: 'date',
+      hint: 'Len dátum. Čas začiatku práce patrí do podmienky.' },
+    { key: 'duration', title: 'Trvanie zákazky', must: true, type: 'duration',
+      hint: 'Počet týždňov alebo dlhodobá.' },
     { key: 'contact', title: 'Kontakt', must: true },
   ];
+
+  /** „26.10.2026" aj „2026-10-26" → „2026-10-26". Inak prázdne. */
+  function isoDatum(v) {
+    const t = String(v || '').trim();
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = t.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    return '';
+  }
+
+  /** „8 týždňov" → { weeks: 8 }, „dlhodobá" → { longTerm: true }. */
+  function trvanie(v) {
+    const t = String(v || '').trim();
+    if (/dlhodob|langfrist|unbefrist/i.test(t)) return { weeks: null, longTerm: true };
+    const m = t.match(/(\d+)\s*(týž|tyz|wo)/i);
+    return { weeks: m ? Number(m[1]) : null, longTerm: false };
+  }
+
+  /** Späť do textu, ako ho čítajú texty aj model. */
+  function trvanieText({ weeks, longTerm } = {}) {
+    if (longTerm) return 'dlhodobá';
+    const n = Number(weeks);
+    return n > 0 ? `${n} ${plural(n, 'týždeň', 'týždne', 'týždňov')}` : '';
+  }
 
   function factsState(analysis = {}) {
     return FACTS.map(f => {
@@ -291,7 +322,7 @@
   const API = {
     CHYBA, CHANNELS, BLOCKS, FACTS,
     channel, blocks, blockDef, gaps, channelState, state, summary, checklist,
-    factsState, plural,
+    factsState, plural, isoDatum, trvanie, trvanieText,
   };
   if (typeof window !== 'undefined') window.DanubraKit = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

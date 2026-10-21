@@ -59,7 +59,15 @@ const BLOCKS = {
   images: ['p_1x1', 'p_4x5', 'p_9x16', 'pt_1x1', 'pt_4x5', 'pt_9x16', 'canva'],
 };
 
-const FACTS = ['position', 'place', 'project', 'form', 'condition', 'housing', 'rate', 'start', 'contact'];
+const FACTS = ['position', 'place', 'project', 'form', 'condition', 'housing', 'rate', 'start', 'duration', 'contact'];
+// Čo ktoré pole zhrnutia znamená — modelu, aby nástup nebol veta s časom.
+const FACT_POPIS = {
+  start: 'Dátum nástupu, len dátum v tvare RRRR-MM-DD. Čas začiatku práce sem nepatrí '
+    + '(ten patrí do condition). Keď dátum nie je, ' + CHYBA + '.',
+  duration: 'Trvanie zákazky: „N týždňov" alebo „dlhodobá". Keď nie je známe, ' + CHYBA + '.',
+  condition: 'Podmienky práce — aj čas začiatku práce, sobota, náradie, jazyk.',
+  rate: 'Sadzba pre živnostníka €/h — nie sadzba odberateľa.',
+};
 
 // Polia samotného náboru. Vyplnia sa len tie, ktoré sú v zadaní — sadzba,
 // ktorú si model domyslí, by sa dostala do marže aj do inzerátu.
@@ -78,7 +86,8 @@ const SCHEMA = {
       facts: {
         type: 'object',
         description: 'Zhrnutie zákazky. Čo v zadaní nie je, nechaj ako ' + CHYBA + '.',
-        properties: Object.fromEntries(FACTS.map(k => [k, { type: 'string' }])),
+        properties: Object.fromEntries(FACTS.map(k => [k,
+          FACT_POPIS[k] ? { type: 'string', description: FACT_POPIS[k] } : { type: 'string' }])),
         required: FACTS,
       },
       plan: {
@@ -152,6 +161,8 @@ const POKYNY = `Si asistent slovenskej firmy, ktorá posiela slovenských a čes
 priprav podklady na nábor.
 
 ČO JE NAJDÔLEŽITEJŠIE
+- Nástup je dátum, trvanie je počet týždňov alebo „dlhodobá" — dve rôzne veci.
+  Čas začiatku práce (napríklad 6:30) patrí do podmienok, nie k nástupu.
 - Nevymýšľaj si. Sadzbu, dátum nástupu, dĺžku práce ani nič iné, čo v zadaní
   nie je, nedoplňuj — napíš presne ${CHYBA}. Radšej päť ${CHYBA} než jedno
   vymyslené číslo.
@@ -230,7 +241,8 @@ async function analyze(brief, plan, supplier, trades) {
   // inak by pregenerovanie znova napísalo [XX] tam, kde už údaj je.
   const NAZOV = { position: 'Pozícia', place: 'Miesto', project: 'Projekt',
     form: 'Forma spolupráce', condition: 'Podmienka', housing: 'Ubytovanie',
-    rate: 'Sadzba pre živnostníka', start: 'Nástup a dĺžka', contact: 'Kontakt' };
+    rate: 'Sadzba pre živnostníka', start: 'Nástup (dátum)', duration: 'Trvanie zákazky',
+    contact: 'Kontakt' };
   const a = plan.analysis || {};
   const ludske = a._human || {};
   const zhrnutie = FACTS.map((k) => {
@@ -344,8 +356,18 @@ async function run(planId, { regen = false } = {}) {
   const facts = { ...(plan.analysis || {}) };
   const human = facts._human || {};
   const predtym = {};
+  // Nástup je dátum. Keď ho model napíše po slovensky („26.10.2026"),
+  // prepíše sa na RRRR-MM-DD, aby ho appka vedela dať do kalendára.
+  const iso = (v) => {
+    const t = String(v || '').trim();
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return t;
+    m = t.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+    return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : t;
+  };
   for (const k of FACTS) {
-    const nove = String((out.facts || {})[k] || '').trim();
+    let nove = String((out.facts || {})[k] || '').trim();
+    if (k === 'start') nove = iso(nove);
     const stare = String(facts[k] || '').trim();
     if (!nove) continue;
     if (!stare) facts[k] = nove;
