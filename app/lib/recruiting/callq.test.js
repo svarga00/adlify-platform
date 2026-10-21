@@ -34,6 +34,9 @@ const CHIPS = [
     for (const q of list) {
       ok(q.answers.length >= 2 && q.answers.length <= 3, `${seg}/${q.key}: 2–3 odpovede`);
       ok(/\?|\.$/.test(q.q), `${seg}/${q.key}: je to otázka, ktorá sa dá povedať nahlas`);
+      // Kandidátom vykáme. („si predstavujete" je zvratné „si", nie tykanie.)
+      ok(!/\b(máš|vieš|ti|ideš|hovoríš|pošleš|dopravíš|chceš|potrebuješ|poznáš|predstavuješ|robil si|si robil)\b/i.test(q.q),
+        `${seg}/${q.key}: vykáme`, q.q);
     }
   }
   const kluce = Object.values(Q.QUESTIONS).flat().map(q => q.key);
@@ -67,8 +70,8 @@ const CHIPS = [
   eq(Q.selected(z, new Set()), null, 'nič zaškrtnuté = nič vybrané');
 
   const ans = new Map([['partia', { idx: 0 }], ['zivnost', { idx: 0 }], ['nastup', { other: 'od 1. decembra' }]]);
-  eq(Q.noteLines(g.questions, ans), ['Ideš sám, alebo s partiou? — Sám',
-    'Kedy vieš nastúpiť? — od 1. decembra'],
+  eq(Q.noteLines(g.questions, ans), ['Pôjdete sám, alebo s partiou? — Sám',
+    'Kedy viete nastúpiť? — od 1. decembra'],
     'do poznámky ide odpoveď bez poľa a vlastné „iné" — nie to, čo je už pole');
   eq(Q.noteLines(g.questions, new Map()), [], 'bez odpovedí prázdne');
 }

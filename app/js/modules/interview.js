@@ -734,7 +734,7 @@
     routeStepHtml(seg, k) {
       const r = this.route;
       return `
-        <div class="qq-q">Odkiaľ by si cestoval?</div>
+        <div class="qq-q">Odkiaľ by ste cestovali?</div>
         <div class="qq-lead">Napíš mesto alebo adresu — appka povie, koľko je to na stavbu
           (${UI.esc(k.kam)}).</div>
         <div class="qq-route-in">

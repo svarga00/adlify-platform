@@ -14,6 +14,8 @@
 // varovania aj história kandidáta fungujú bez zmeny. Odpoveď bez poľa
 // („Sám", „Nie") sa zapíše do poznámky k časti hovoru.
 //
+// Kandidátom **vykáme** — otázky sú napísané tak, ako sa majú povedať.
+//
 // Polia, ktoré do žiadnej otázky nepatria, ostávajú pod otázkami ako
 // „ďalšie postrehy" — nič sa nestratí.
 //
@@ -24,76 +26,76 @@
 
   const QUESTIONS = {
     intro: [
-      Q('zivnost', 'Máš živnosť?', [
+      Q('zivnost', 'Máte živnosť?', [
         ['Áno, aktívnu', 'Má aktívnu živnosť'],
         ['Nie, ale založí si', 'Živnosť si založí'],
         ['Nie a nechce', 'Nemá a nechce živnosť']]),
-      Q('partia', 'Ideš sám, alebo s partiou?', [
+      Q('partia', 'Pôjdete sám, alebo s partiou?', [
         ['Sám'], ['S partiou', 'Je to partia']]),
-      Q('nemcina', 'Hovoríš po nemecky?', [
+      Q('nemcina', 'Hovoríte po nemecky?', [
         ['Aspoň základ', 'Vie po nemecky aspoň základ'],
         ['Nikto v partii', 'Nikto v partii nevie po nemecky']]),
-      Q('nastup', 'Kedy vieš nastúpiť?', [
+      Q('nastup', 'Kedy viete nastúpiť?', [
         ['Do dvoch týždňov', 'Vie nastúpiť do dvoch týždňov'], ['Neskôr']]),
-      Q('naradie', 'Máš vlastné náradie?', [
+      Q('naradie', 'Máte vlastné náradie?', [
         ['Áno', 'Má vlastné náradie'], ['Nie']]),
-      Q('auto', 'Máš auto?', [
+      Q('auto', 'Máte auto?', [
         ['Áno', 'Má vlastné auto'], ['Nie']]),
     ],
     verify: [
-      Q('referencia', 'Pre koho si naposledy robil?', [
+      Q('referencia', 'Pre koho ste naposledy robili?', [
         ['Dal meno aj číslo', 'Dal meno aj číslo na toho, pre koho robil'],
         ['Nepamätá si', 'Nepamätá si, pre koho robil']]),
-      Q('stavba', 'Opíš mi stavbu, kde si naposledy robil.', [
+      Q('stavba', 'Opíšte mi stavbu, kde ste naposledy robili.', [
         ['Konkrétne', 'Vie opísať konkrétnu stavbu'],
         ['Len všeobecne', 'Prax opisuje len všeobecne']]),
-      Q('fotky', 'Pošleš fotky svojej práce?', [
+      Q('fotky', 'Pošlete mi fotky svojej práce?', [
         ['Posiela', 'Posiela fotky prác'],
         ['Sľubuje, neposiela', 'Fotky sľubuje, neposiela']]),
-      Q('mesiace', 'Čo si robil posledné mesiace?', [
+      Q('mesiace', 'Čo ste robili posledné mesiace?', [
         ['Robil súvisle', 'Posledné mesiace robil súvisle'],
         ['Má dieru', 'Diera v posledných mesiacoch']]),
     ],
     legal: [
-      Q('a1', 'Vieš, čo je A1?', [
+      Q('a1', 'Viete, čo je A1?', [
         ['Vie', 'Vie, čo je A1'],
         ['Tvrdí, že netreba', 'Tvrdí, že A1 netreba'],
         ['Nevie']]),
-      Q('doklady', 'Dokedy ti platia doklady?', [
+      Q('doklady', 'Dokedy vám platia doklady?', [
         ['Viac než pol roka', 'Doklad platný viac než pol roka'],
         ['Čoskoro končia', 'Doklad čoskoro končí']]),
-      Q('odbory', 'Máš v živnosti odbory na toto remeslo?', [
+      Q('odbory', 'Máte v živnosti odbory na toto remeslo?', [
         ['Áno', 'Má odbory na to remeslo'], ['Nie']]),
-      Q('zdravie', 'Zdravotne si v poriadku — výšky, bremená?', [
+      Q('zdravie', 'Zdravotne ste v poriadku — výšky, bremená?', [
         ['Bez obmedzení', 'Zdravotne bez obmedzení'],
         ['Má obmedzenie', 'Zdravotné obmedzenie']]),
     ],
     logistics: [
-      Q('dlzka', 'Na ako dlho by si išiel?', [
+      Q('dlzka', 'Na ako dlho by ste išli?', [
         ['Dlhodobo, aspoň 3 mesiace', 'Nastúpi dlhodobo, aspoň tri mesiace'],
         ['Len pár týždňov', 'Len na pár týždňov']]),
-      Q('doprava', 'Ako sa dopravíš?', [
+      Q('doprava', 'Ako sa dopravíte?', [
         ['Vyrieši sám', 'Dopravu si vyrieši sám'],
         ['Nemá ako', 'Nemá ako sa dopraviť']]),
-      Q('ubytovanie', 'Vadí ti bývať s ďalšími?', [
+      Q('ubytovanie', 'Vadí vám bývať s ďalšími?', [
         ['Je to v poriadku', 'Zdieľané ubytovanie je v poriadku'],
         ['Chce vlastnú izbu', 'Trvá na vlastnej izbe']]),
-      Q('turnus', 'Vyhovuje ti turnus 3 týždne + 1 doma?', [
+      Q('turnus', 'Vyhovuje vám turnus 3 týždne + 1 doma?', [
         ['Vyhovuje', 'Turnus 3+1 mu vyhovuje'], ['Nie']]),
-      Q('doma', 'Doma to máš dohodnuté?', [
+      Q('doma', 'Doma to máte dohodnuté?', [
         ['Áno', 'Doma to má dohodnuté'], ['Ešte nie']]),
     ],
     money: [
-      Q('sadzba', 'Koľko si predstavuješ na hodinu?', [
+      Q('sadzba', 'Koľko si predstavujete na hodinu?', [
         ['Sedí s ponukou', 'Sadzba sedí s ponukou'],
         ['Chce výrazne viac', 'Chce výrazne viac']]),
-      Q('hodiny', 'Koľko hodín týždenne chceš robiť?', [
+      Q('hodiny', 'Koľko hodín týždenne chcete robiť?', [
         ['Okolo 50 h', 'Päťdesiat hodín týždenne mu vyhovuje'],
         ['Len 8 h denne', 'Chce len osem hodín denne']]),
-      Q('zaloha', 'Potrebuješ zálohu?', [
+      Q('zaloha', 'Potrebujete zálohu?', [
         ['Nepotrebuje', 'Zálohu nepotrebuje'],
         ['Chce zálohu vopred', 'Pýtal zálohu vopred']]),
-      Q('kolega', 'Poznáš niekoho, kto by šiel tiež?', [
+      Q('kolega', 'Poznáte niekoho, kto by išiel tiež?', [
         ['Áno', 'Má kolegu, ktorý by šiel tiež'], ['Nie']]),
     ],
   };
