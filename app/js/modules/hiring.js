@@ -784,7 +784,7 @@
         call: { label: 'Zavolať kandidátovi', ico: 'phone',
           onclick: n.id ? `Danubra.open('candidate','${n.id}')` : '' },
         brief: { label: 'Napísať zadanie', ico: 'edit', onclick: 'Kit.focusBrief()' },
-        analyze: { label: 'Zanalyzovať zadanie', ico: 'zap',
+        analyze: { label: 'Pripraviť podklady', ico: 'zap',
           onclick: `Kit.analyze('${p.id}')` },
       };
       const a = AKCIA[n.key];

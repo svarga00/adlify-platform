@@ -100,7 +100,7 @@
             <button class="btn btn-outline btn-sm" onclick="Kit.saveBrief('${plan.id}')">
               ${Icon('check', 14)} Uložiť zadanie</button>
             <button class="btn btn-primary btn-sm" onclick="Kit.analyze('${plan.id}')">
-              ${Icon('zap', 14)} Zanalyzovať a pripraviť texty</button>
+              ${Icon('zap', 14)} Pripraviť podklady (texty a otázky)</button>
             <span class="kit-note">${plan.analyzed_at
               ? `Naposledy zanalyzované ${UI.date(plan.analyzed_at)}`
               : 'Analýza vyplní zhrnutie aj texty po kanáloch. Všetko sa dá prepísať.'}</span>
@@ -343,6 +343,45 @@
      * zo servera, nie z prehliadača — kľúč k modelu je v premenných prostredia
      * a do appky sa nikdy nedostane.
      */
+    /**
+     * Spustí analýzu na pozadí a počká na výsledok.
+     *
+     * Texty do šiestich kanálov sa píšu minútu aj dve. Bežná funkcia na
+     * Netlify skončí skôr (504) a podklady by sa nepripravili. Funkcia na
+     * pozadí hneď odpovie „prijaté" a výsledok zapíše do náboru — tu sa
+     * každé štyri sekundy pozrieme, či je hotovo.
+     *
+     * Vráti to isté, čo predtým vracala funkcia: `{ blocks, questions, plan,
+     * skipped }`. Pri chybe hodí výnimku s vetou, ktorá sa dá ukázať.
+     */
+    async runAnalysis(planId, { onTick, timeoutMs = 6 * 60 * 1000 } = {}) {
+      const job = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      let res;
+      try {
+        res = await fetch('/.netlify/functions/danubra-analyze-brief-background', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planId, job }),
+        });
+      } catch (e) {
+        throw new Error('server neodpovedal');
+      }
+      if (!res.ok && res.status !== 202) throw new Error(`server odpovedal ${res.status}`);
+
+      const zaciatok = Date.now();
+      while (Date.now() - zaciatok < timeoutMs) {
+        await new Promise(r => setTimeout(r, 4000));
+        if (onTick) onTick(Math.round((Date.now() - zaciatok) / 1000));
+        const { data } = await DB.list('recruitment_plans',
+          { select: 'id,analysis', filters: { id: planId }, limit: 1 });
+        const j = data && data[0] && data[0].analysis && data[0].analysis._job;
+        if (!j || j.id !== job) continue;
+        if (j.status === 'done') return j;
+        if (j.status === 'error') throw new Error(j.error || 'analýza zlyhala');
+      }
+      throw new Error('trvá to dlhšie než šesť minút — podklady sa možno ešte dopíšu, '
+        + 'pozri nábor o chvíľu');
+    },
+
     async analyze(planId) {
       const el = document.getElementById('plan-brief');
       const brief = el ? el.value : '';
@@ -352,22 +391,35 @@
       // Zadanie sa uloží aj tak — keby analýza spadla, text sa nestratí.
       await this.saveBrief(planId);
 
-      UI.toast('Analyzujem… môže to chvíľu trvať', 'ok');
-      let res;
+      // Okno počas písania. Dá sa zavrieť — podklady sa na serveri dopíšu
+      // aj tak a pri ďalšom otvorení náboru tu budú.
+      const okno = (sek) => UI.modal('Pripravujem podklady…', `
+        <div class="prep-row prep-run">
+          <span class="prep-ico">${Icon('clock', 16)}</span>
+          <span class="prep-txt">
+            <b>Píšem texty inzerátov a otázky do telefonátu</b>
+            <em>Trvá to zvyčajne 1–2 minúty${sek ? ` · ${sek} s` : ''}. Okno môžeš zavrieť —
+              podklady sa uložia aj tak a uvidíš ich v nábore.</em>
+          </span>
+        </div>`);
+      okno(0);
+      let out;
       try {
-        res = await fetch('/.netlify/functions/danubra-analyze-brief', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ planId }),
-        });
+        out = await this.runAnalysis(planId, {
+          onTick: (sek) => { if (document.getElementById('ui-modal')) okno(sek); } });
       } catch (e) {
-        return UI.toast('Server neodpovedal: ' + (e.message || e), 'err');
+        UI.closeModal();
+        return UI.modal('Podklady sa nepripravili', `
+          <div class="warnbox">${Icon('alert', 14)} ${UI.esc(e.message)}</div>
+          <p style="font-size:13px;color:var(--ink-sub);">Zadanie ostalo uložené.
+            Skús to znova — keď to nepôjde ani druhýkrát, pošli mi túto hlášku.</p>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+            <button class="btn btn-primary" onclick="UI.closeModal();Kit.analyze('${planId}')">
+              ${Icon('repeat')} Skúsiť znova</button>
+          </div>`);
       }
-      if (!res.ok) {
-        const t = await res.text().catch(() => '');
-        return UI.toast(`Analýza sa nepodarila (${res.status}). ${t.slice(0, 120)}`, 'err');
-      }
-      const out = await res.json().catch(() => ({}));
+      UI.closeModal();
       if (out.skipped) {
         return UI.modal('Analýza nie je nastavená', `
           <div class="warnbox">${Icon('alert', 14)}

@@ -3535,7 +3535,17 @@ console.log('Prehliadač');
       await page.waitForTimeout(1100);
 
       const out = await page.evaluate(async () => {
-        DB.list = async () => ({ data: [], error: null });
+        // Podklady sa píšu na pozadí: server odpovie 202 a výsledok zapíše
+        // do náboru (`analysis._job`), appka sa naň pýta.
+        const joby = {};
+        DB.list = async (t, o = {}) => {
+          if (t === 'recruitment_plans' && o.filters && o.filters.id) {
+            const id = o.filters.id;
+            return { data: [{ id, analysis: { _job: { id: joby[id], status: 'done',
+              blocks: 6, questions: 4 } } }], error: null };
+          }
+          return { data: [], error: null };
+        };
         DB.count = async () => 0;
         const vlozene = {};
         let n = 0;
@@ -3547,8 +3557,10 @@ console.log('Prehliadač');
         DB.update = async (t, id, patch) => { zmeny.push({ t, id, patch }); return { error: null }; };
         const volania = [];
         window.fetch = async (u, o) => {
-          volania.push(JSON.parse(o.body).planId);
-          return { ok: true, json: async () => ({ blocks: 6, questions: 4 }) };
+          const b = JSON.parse(o.body);
+          volania.push({ u, planId: b.planId });
+          joby[b.planId] = b.job;
+          return { ok: false, status: 202, json: async () => ({}) };
         };
         Danubra.user = { id: 'test', email: 'test@firma.sk' };
         Danubra.me = { role: 'admin', active: true };
@@ -3603,6 +3615,8 @@ console.log('Prehliadač');
       ok(out.zmeny.filter(z => z.t === 'opportunities' && z.patch.plan_id).length === 2,
         'dopyty sa prepoja s náborom');
       ok(out.volania.length === 2, 'podklady sa pripravia pre oba nábory');
+      ok(out.volania.every(v => /analyze-brief-background/.test(v.u)),
+        'na pozadí — písanie trvá dlhšie, než bežná funkcia vydrží (504)');
       ok(/Nábor je pripravený/.test(out.vysledok) && /6 textov na inzeráty/.test(out.vysledok),
         'a appka povie, čo pripravila a čo ďalej', out.vysledok.slice(0, 200));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));

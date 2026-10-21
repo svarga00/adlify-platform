@@ -68,9 +68,13 @@ for (const m of sql.matchAll(/create table if not exists\s+(danubra_\w+)\s*\(([\
   }
 }
 
-// `alter table … add column [if not exists] <stĺpec>`
-for (const m of sql.matchAll(/alter table\s+(danubra_\w+)\s+add column(?:\s+if not exists)?\s+([a-z_][a-z0-9_]*)/gi)) {
-  add(m[1], m[2]);
+// `alter table … add column [if not exists] <stĺpec>` — aj viac naraz:
+//   alter table x add column if not exists a text, add column if not exists b jsonb;
+// Predtým sa čítal len prvý a ostatné test hlásil ako chýbajúce.
+for (const m of sql.matchAll(/alter table\s+(?:if exists\s+)?(danubra_\w+)([\s\S]*?);/gi)) {
+  for (const c of m[2].matchAll(/add column(?:\s+if not exists)?\s+([a-z_][a-z0-9_]*)/gi)) {
+    add(m[1], c[1]);
+  }
 }
 
 // Pohľady. `x.*` zdedí stĺpce základnej tabuľky, `… as alias` pridá alias.

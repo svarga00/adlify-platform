@@ -460,13 +460,10 @@
     },
 
     async prepOne(x) {
+      x.state = 'run'; x.text = '';
       try {
-        const res = await fetch('/.netlify/functions/danubra-analyze-brief', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ planId: x.id }),
-        });
-        if (!res.ok) throw new Error(`server odpovedal ${res.status}`);
-        const out = await res.json().catch(() => ({}));
+        // Na pozadí — písanie trvá dlhšie, než bežná funkcia vydrží (504).
+        const out = await Kit.runAnalysis(x.id);
         if (out.skipped) { x.state = 'skipped'; x.text = 'Texty sa nepripravili — na serveri chýba kľúč k modelu.'; }
         else {
           x.state = 'ok';
@@ -476,9 +473,17 @@
           ].filter(Boolean).join(' · ');
         }
       } catch (e) {
-        x.state = 'err'; x.text = `Podklady sa nepripravili (${e.message}). Dajú sa spustiť v nábore.`;
+        x.state = 'err'; x.text = `Podklady sa nepripravili (${e.message}).`;
       }
       this.prepPaint();
+    },
+
+    /** Zopakuje podklady pre jeden nábor priamo z tohto okna. */
+    async prepRetry(id) {
+      const x = (this._prep || []).find(r => r.id === id);
+      if (!x) return;
+      this.prepPaint();
+      await this.prepOne(x);
     },
 
     prepPaint(hotovo) {
@@ -488,7 +493,8 @@
       UI.modal(bezi ? 'Pripravujem podklady…' : 'Nábor je pripravený', `
         ${bezi ? `<div class="regimebox">Píšem texty inzerátov a otázky do telefonátu pre
           ${rows.length} ${Shell.plural(rows.length, 'stavbu', 'stavby', 'stavieb')}. Trvá to
-          zvyčajne do minúty — okno môžeš nechať otvorené.</div>`
+          zvyčajne 1–2 minúty. Okno môžeš zavrieť — podklady sa dopíšu aj tak
+          a uvidíš ich v Nábore.</div>`
           : `<div class="headline headline-ok" style="margin-bottom:12px;">${Icon('check', 18)}
             <span>Dopyty sú zapísané a ku každému je nábor.</span></div>`}
         <div class="prep-list">${rows.map(x => `
@@ -501,6 +507,8 @@
                   : x.text)}</em>
               ${x.notes ? `<em class="prep-plan">${UI.esc(x.notes)}</em>` : ''}
             </span>
+            ${x.state === 'err' && !bezi ? `<button class="btn btn-primary btn-sm"
+              onclick="Opp.prepRetry('${x.id}')">${Icon('repeat', 14)} Skúsiť znova</button>` : ''}
             ${!bezi ? `<button class="btn btn-outline btn-sm"
               onclick="UI.closeModal();Danubra.go('hiring');setTimeout(()=>Hire.detail('${x.id}'),300)">
               Otvoriť</button>` : ''}
