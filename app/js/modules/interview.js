@@ -481,7 +481,8 @@
             <button class="trade-tile${this.trade?.key === t.key ? ' on' : ''}"
               onclick="Guide.pickTrade('${t.key}')">
               <span class="tt-name">${UI.esc(t.name_sk)}</span>
-              <span class="tt-rate">${t.rate_worker_min}–${t.rate_worker_max} €/h</span>
+              ${t.rate_worker_min || t.rate_worker_max ? `<span class="tt-rate">${
+                t.rate_worker_min || '?'}–${t.rate_worker_max || '?'} €/h</span>` : ''}
             </button>`).join('')}
         </div>`}
 

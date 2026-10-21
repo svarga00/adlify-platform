@@ -204,6 +204,67 @@
         ${Opp.planHtml(s, { title: 'Koho naberáme po týždňoch', limit: 6 })}`;
     },
 
+    // ── Otázky do telefonátu pri nábore ───────────────────────────────────
+    // Appka ich pri príprave podkladov navrhne, ale do hovoru nepustí nič,
+    // čo človek nevidel — zoznam otázok je to, podľa čoho sa rozhoduje
+    // o ľuďoch. Doteraz sa potvrdzovali len v Remeslách, kam nikto nechodil,
+    // takže návrhy ostávali ležať a v hovore neboli. Tu sú pri nábore,
+    // ku ktorému patria, a pustia sa jedným klikom.
+    callQuestionsHtml(p) {
+      if (!p.trade_key) {
+        return `<div class="form-section">Otázky do telefonátu</div>
+          <div class="regimebox">Nábor nemá remeslo, takže otázky nemajú ku čomu patriť.
+            Pri pregenerovaní podkladov ho appka doplní — aj keď v zozname ešte nie je.</div>`;
+      }
+      const qs = this.questions.filter(q => q.trade_key === p.trade_key
+        && (q.phase || 'phone') === 'phone');
+      const vHovore = qs.filter(q => q.active);
+      const navrhy = qs.filter(q => !q.active)
+        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const meno = this.tradeName(p.trade_key);
+      return `<div class="form-section" id="plan-questions">Otázky do telefonátu · ${UI.esc(meno)}</div>
+        <div class="cq">
+          <div class="cq-head">
+            <span>${Icon('phone', 14)} <b>${vHovore.length}</b> ${
+              Shell.plural(vHovore.length, 'otázka je', 'otázky sú', 'otázok je')} v hovore</span>
+            ${navrhy.length ? `<button class="btn btn-primary btn-sm"
+              onclick="Hire.useQuestions('${p.id}', null)">${Icon('check', 14)}
+              Použiť všetky návrhy (${navrhy.length})</button>` : ''}
+          </div>
+          ${navrhy.length ? `<p class="cq-note">Návrhy od appky — prečítaj a pusti do hovoru.
+            Kým ich nepoužiješ, v hovore nie sú.</p>
+            ${navrhy.slice(0, 12).map(q => `<div class="cq-row">
+              <div class="cq-txt"><b>${UI.esc(q.question_sk)}</b>
+                ${q.good_answer ? `<span>Má zaznieť: ${UI.esc(q.good_answer)}</span>` : ''}</div>
+              <button class="btn btn-outline btn-sm" onclick="Hire.useQuestions('${p.id}','${q.id}')">
+                Použiť</button>
+            </div>`).join('')}
+            ${navrhy.length > 12 ? `<p class="cq-note">… a ďalších ${navrhy.length - 12}
+              v Remeslách a otázkach.</p>` : ''}`
+            : `<p class="cq-note">Žiadne návrhy nečakajú.${vHovore.length ? '' : ' Pregeneruj podklady —'
+              + ' appka navrhne otázky na toto remeslo.'}</p>`}
+          ${vHovore.length ? `<details class="cq-live"><summary>Čo sa pýtame (${vHovore.length})</summary>
+            ${vHovore.map(q => `<div class="cq-row is-live"><div class="cq-txt">
+              <b>${UI.esc(q.question_sk)}</b></div></div>`).join('')}</details>` : ''}
+        </div>`;
+    },
+
+    /** Pustí návrh do hovoru — jeden, alebo všetky pri tomto remesle (`id` = null). */
+    async useQuestions(planId, id) {
+      const p = this.plans.find(x => x.id === planId);
+      if (!p) return;
+      const ktore = this.questions.filter(q => !q.active
+        && (id ? q.id === id : q.trade_key === p.trade_key && (q.phase || 'phone') === 'phone'));
+      for (const q of ktore) {
+        const { error } = await DB.update('screening_questions', q.id, { active: true });
+        if (error) return UI.toast('Chyba: ' + error.message, 'err');
+        q.active = true;
+      }
+      if (window.Trades) Trades.loaded = false;
+      UI.toast(`${ktore.length} ${Shell.plural(ktore.length, 'otázka je', 'otázky sú', 'otázok je')} v hovore`, 'ok');
+      Danubra.renderRoute();
+    },
+
     /** Riadok v nábore: kedy podľa plánu budú ľudia. */
     planLineHtml(p) {
       const s = this.weekSchedule();
@@ -805,6 +866,8 @@
           <div><span>Kandidáti</span><strong>${mine.length}</strong></div>
         </div>
         ${this.planLineHtml(p)}
+
+        ${this.callQuestionsHtml(p)}
 
         ${Kit.html(p)}
 

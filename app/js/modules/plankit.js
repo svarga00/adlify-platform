@@ -592,14 +592,17 @@
             ${out.questions} ${Shell.plural(out.questions, 'otázka', 'otázky', 'otázok')}
             pre remeselníka ${Shell.plural(out.questions, 'je', 'sú', 'je')} pripravených
             ako <strong>návrh</strong>.</div>
+          ${out.newTrade ? `<div class="regimebox">${Icon('plus', 14)} Pribudlo remeslo
+            <strong>${UI.esc(out.newTrade)}</strong> — v zozname nebolo. Sadzby a príručku
+            k nemu doplníš v Remeslách a otázkach.</div>` : ''}
           <p style="font-size:13px;color:var(--ink-sub);">Zoznam otázok je to, podľa čoho
-            sa rozhoduje o ľuďoch, takže doň nič nepribudne samo. Prečítaj ich a potvrď
-            v Remeslách a otázkach — dovtedy sa v hovore neponúkajú.</p>
+            sa rozhoduje o ľuďoch, takže doň nič nepribudne samo. Sú v nábore pod
+            „Otázky do telefonátu" — prečítaj ich a pusti do hovoru jedným klikom.</p>
           <div class="modal-actions">
             <button class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
             <button class="btn btn-primary"
-              onclick="UI.closeModal();Danubra.go('trades')">
-              ${Icon('wrench', 15)} Prečítať otázky</button>
+              onclick="UI.closeModal();setTimeout(()=>{const e=document.getElementById('plan-questions');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},200)">
+              ${Icon('phone', 15)} Prečítať otázky</button>
           </div>`);
       }
       Danubra.renderRoute();
