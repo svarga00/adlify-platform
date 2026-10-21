@@ -3254,3 +3254,9 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--field); }
 @media (max-width: 900px) { .kit-extras { grid-template-columns: 1fr; } }
 .pcard-note { color: var(--ink-mute); font-size: 11.5px; }
+.kit-dur { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kit-dur input[type=number] { width: 84px; }
+.kit-dur > span { font-size: 13px; color: var(--ink-sub); }
+.kit-dur-long { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600;
+  margin-left: auto; cursor: pointer; }
+.kit-was { display: block; font-style: normal; font-size: 11.5px; color: var(--ink-mute); margin-top: 3px; }

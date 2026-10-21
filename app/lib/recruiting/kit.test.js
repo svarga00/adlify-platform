@@ -171,15 +171,27 @@ console.log('\nPRED ZVEREJNENÍM');
 console.log('\nZHRNUTIE ZÁKAZKY');
 {
   eq(K.FACTS.map(f => f.key),
-    ['position', 'place', 'project', 'form', 'condition', 'housing', 'rate', 'start', 'contact'],
-    'deväť polí zhrnutia');
+    ['position', 'place', 'project', 'form', 'condition', 'housing', 'rate', 'start', 'duration', 'contact'],
+    'desať polí zhrnutia — nástup a trvanie zvlášť');
+  eq(K.isoDatum('26.10.2026'), '2026-10-26', 'slovenský dátum sa prečíta');
+  eq(K.isoDatum('2026-10-26'), '2026-10-26', 'aj ISO');
+  eq(K.isoDatum('1. 3. 2027'), '2027-03-01', 'aj s medzerami a bez núl');
+  eq(K.isoDatum('[XX] (denný začiatok 6:30)'), '', 'čas nie je dátum');
+  eq(K.trvanie('8 týždňov'), { weeks: 8, longTerm: false }, 'počet týždňov');
+  eq(K.trvanie('dlhodobá'), { weeks: null, longTerm: true }, 'dlhodobá');
+  eq(K.trvanie('[XX]'), { weeks: null, longTerm: false }, 'nevyplnené');
+  eq(K.trvanieText({ weeks: 1 }), '1 týždeň', 'jeden týždeň');
+  eq(K.trvanieText({ weeks: 3 }), '3 týždne', 'tri týždne');
+  eq(K.trvanieText({ weeks: 12 }), '12 týždňov', 'dvanásť týždňov');
+  eq(K.trvanieText({ longTerm: true, weeks: 5 }), 'dlhodobá', 'dlhodobá má prednosť');
+  eq(K.trvanieText({}), '', 'nič');
   ok(K.FACTS.filter(f => f.must).length >= 6, 'väčšina je povinná');
   const st = K.factsState({ position: 'Zvárač WIG (2×)', rate: '[XX] €/hod.' });
   eq(st.find(f => f.key === 'position').filled, true, 'vyplnené pole je vyplnené');
   eq(st.find(f => f.key === 'place').filled, false, 'nevyplnené nie');
   eq(st.find(f => f.key === 'rate').gaps, 1, 'a nedoplnený údaj je vidieť aj tu');
-  eq(K.factsState({}).length, 9, 'prázdna analýza nespadne');
-  eq(K.factsState().length, 9, 'ani žiadna');
+  eq(K.factsState({}).length, 10, 'prázdna analýza nespadne');
+  eq(K.factsState().length, 10, 'ani žiadna');
 }
 
 console.log(`\n${passed} prešlo, ${failed} zlyhalo\n`);

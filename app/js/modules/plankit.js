@@ -158,13 +158,7 @@
             onclick="Kit.analyze('${plan.id}', { regen: true })">${Icon('repeat', 14)} Pregenerovať</button>` : ''}
         </div>` : ''}
         <div class="kit-facts">
-          ${facts.map(f => `
-            <label class="kit-fact${f.gaps ? ' has-gap' : ''}">
-              <span>${UI.esc(f.title)}${f.must ? ' *' : ''}</span>
-              <input data-fact="${f.key}" value="${UI.esc(f.body)}"
-                placeholder="${UI.esc(f.hint || '')}"
-                onchange="Kit.saveFact('${plan.id}','${f.key}',this.value)">
-            </label>`).join('')}
+          ${facts.map(f => this.factField(plan, f)).join('')}
         </div>`;
     },
 
@@ -208,6 +202,58 @@
       if (p) p.analysis = next;
       UI.toast('Uložené — pri pregenerovaní sa to zapracuje do textov', 'ok');
       Danubra.renderRoute();
+    },
+
+    /**
+     * Jedno pole zhrnutia. Nástup je kalendár, trvanie počet týždňov alebo
+     * „dlhodobá" — nie voľný text, do ktorého sa zmestil dátum, čas aj dĺžka
+     * naraz a nič z toho sa nedalo použiť.
+     */
+    factField(plan, f) {
+      const zahlavie = `<span>${UI.esc(f.title)}${f.must ? ' *' : ''}</span>`;
+      const chyba = f.gaps || (f.must && !f.filled);
+      if (f.type === 'date') {
+        const iso = K.isoDatum(f.body);
+        // Starý text, z ktorého sa dátum nedal prečítať — aby sa nestratil.
+        const povodne = f.body && !iso && !f.body.includes(K.CHYBA) ? f.body : '';
+        return `<label class="kit-fact${!iso ? ' has-gap' : ''}">${zahlavie}
+          <input type="date" data-fact="${f.key}" value="${iso}"
+            onchange="Kit.saveStart('${plan.id}',this.value)">
+          ${povodne ? `<em class="kit-was">bolo: ${UI.esc(povodne)}</em>` : ''}
+        </label>`;
+      }
+      if (f.type === 'duration') {
+        const t = K.trvanie(f.body);
+        return `<div class="kit-fact${!t.weeks && !t.longTerm ? ' has-gap' : ''}">${zahlavie}
+          <div class="kit-dur">
+            <input type="number" min="1" max="104" inputmode="numeric" placeholder="počet"
+              value="${t.weeks || ''}" ${t.longTerm ? 'disabled' : ''}
+              onchange="Kit.saveDuration('${plan.id}',this.value,false)">
+            <span>týždňov</span>
+            <label class="kit-dur-long"><input type="checkbox" ${t.longTerm ? 'checked' : ''}
+              onchange="Kit.saveDuration('${plan.id}','',this.checked)"> dlhodobá</label>
+          </div>
+        </div>`;
+      }
+      return `<label class="kit-fact${chyba && f.gaps ? ' has-gap' : ''}">${zahlavie}
+        <input data-fact="${f.key}" value="${UI.esc(f.body)}"
+          placeholder="${UI.esc(f.hint || '')}"
+          onchange="Kit.saveFact('${plan.id}','${f.key}',this.value)">
+      </label>`;
+    },
+
+    /** Nástup do zhrnutia aj do náboru — inak by karta náboru ukazovala iný dátum. */
+    async saveStart(planId, iso) {
+      if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const { error } = await DB.update('recruitment_plans', planId, { start_date: iso });
+        if (error) return UI.toast('Chyba: ' + error.message, 'err');
+        const p = Hire.plans.find(x => x.id === planId); if (p) p.start_date = iso;
+      }
+      return this.saveFact(planId, 'start', iso || '');
+    },
+
+    saveDuration(planId, weeks, longTerm) {
+      return this.saveFact(planId, 'duration', K.trvanieText({ weeks, longTerm }));
     },
 
     async saveFact(planId, key, value) {
