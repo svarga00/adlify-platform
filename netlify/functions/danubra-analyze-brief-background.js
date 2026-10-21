@@ -15,16 +15,16 @@
 const { run, setJob } = require('./danubra-analyze-brief.js');
 
 exports.handler = async (event) => {
-  let planId = null, job = null;
+  let planId = null, job = null, regen = false;
   try {
-    ({ planId, job } = JSON.parse(event.body || '{}'));
+    ({ planId, job, regen } = JSON.parse(event.body || '{}'));
   } catch { return; }
   if (!planId || !job) return;
 
   const started_at = new Date().toISOString();
   await setJob(planId, { id: job, status: 'running', started_at });
   try {
-    const out = await run(planId);
+    const out = await run(planId, { regen: !!regen });
     await setJob(planId, { id: job, status: 'done', started_at,
       finished_at: new Date().toISOString(), ...out });
   } catch (e) {

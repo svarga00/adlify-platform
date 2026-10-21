@@ -165,6 +165,22 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
       'texty od modelu sa ukladajú ako návrh, nie ako schválené');
     // A nesmie prepísať to, čo už niekto napísal.
     ok(/mam\.has\(/.test(src), 'a neprepíšu text, ktorý už niekto napísal');
+
+    // ── Pregenerovanie ────────────────────────────────────────────────────
+    // „Dopísal som do zadania, čo chýbalo — nechce sa mi písať všetko znova."
+    // Prepíše sa len to, čo napísala appka; čo človek upravil alebo schválil,
+    // ostáva. A nič sa fyzicky nemaže.
+    ok(/async function run\(planId, \{ regen = false \}/.test(src),
+      'analýza vie pregenerovať');
+    ok(/a\.source === 'ai' && !a\.approved_at/.test(src),
+      'pri pregenerovaní sa nahradia len neupravené a neschválené návrhy appky');
+    ok(/archived_at: new Date\(\)\.toISOString\(\)/.test(src) && !/\.delete\(\)/.test(src),
+      'staré texty sa odložia do archívu, nemažú sa');
+    ok(/!human\[k\]/.test(src) && /_predtym/.test(src),
+      'zhrnutie prepísané človekom ostane a stará hodnota sa odloží');
+    ok(/_ai_plan/.test(src), 'polia náboru sa prepíšu len keď sú stále tie od appky');
+    const bg = fs.readFileSync(path.join(DIR, 'danubra-analyze-brief-background.js'), 'utf8');
+    ok(/regen/.test(bg), 'pregenerovanie ide aj cez funkciu na pozadí');
     // Bez kľúča to nie je chyba, ale ani ticho.
     ok(/skipped: 'no_api_key'/.test(src),
       'bez kľúča k modelu funkcia povie, že nie je nastavená');
@@ -198,7 +214,10 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
       `funkcia: ${fnKanaly.join(', ')}\n    appka: ${uiKanaly.join(', ')}`);
 
     // Nič sa nesmie prepísať a nič vymyslieť.
-    ok(/if \(stare !== null && stare !== undefined && stare !== ''\) continue;/.test(src),
+    // Vyplnené pole sa preskočí — jedine pri pregenerovaní, a to len keď je
+    // v ňom stále hodnota, ktorú tam minule dala appka.
+    ok(/if \(!prazdne && !zAppky\) continue;/.test(src)
+      && /regen && odAppky\[k\] !== undefined && String\(odAppky\[k\]\) === String\(stare\)/.test(src),
       'pole, ktoré už niekto vyplnil, sa neprepíše');
     ok(/platneRemeslo\(nove\)/.test(src),
       'a kľúč remesla sa overí proti databáze — vymyslený by svietil ako kľúč');

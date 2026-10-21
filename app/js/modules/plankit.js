@@ -90,6 +90,12 @@
      */
     briefHtml(plan) {
       const brief = plan.brief || '';
+      // Podklady už sú (zanalyzované alebo aspoň texty) → tlačidlo pregeneruje.
+      const maPodklady = !!plan.analyzed_at || (this.assets || []).some(a => !a.archived_at);
+      const a = plan.analysis || {};
+      // Zadanie sa zmenilo od poslednej prípravy — podklady sú podľa starého.
+      const zmenene = maPodklady && typeof a._brief === 'string'
+        && a._brief.trim() !== String(brief).trim();
       return `
         <div class="form-section">Zadanie — čo o zákazke vieme
           ${Help.btn('card.kit.brief', { size: 13 })}</div>
@@ -99,12 +105,21 @@
           <div class="kit-brief-acts">
             <button class="btn btn-outline btn-sm" onclick="Kit.saveBrief('${plan.id}')">
               ${Icon('check', 14)} Uložiť zadanie</button>
-            <button class="btn btn-primary btn-sm" onclick="Kit.analyze('${plan.id}')">
-              ${Icon('zap', 14)} Pripraviť podklady (texty a otázky)</button>
-            <span class="kit-note">${plan.analyzed_at
-              ? `Naposledy zanalyzované ${UI.date(plan.analyzed_at)}`
-              : 'Analýza vyplní zhrnutie aj texty po kanáloch. Všetko sa dá prepísať.'}</span>
+            ${maPodklady
+              ? `<button class="btn btn-primary btn-sm" onclick="Kit.analyze('${plan.id}', { regen: true })">
+                  ${Icon('repeat', 14)} Pregenerovať podklady</button>`
+              : `<button class="btn btn-primary btn-sm" onclick="Kit.analyze('${plan.id}')">
+                  ${Icon('zap', 14)} Pripraviť podklady (texty a otázky)</button>`}
+            <span class="kit-note">${maPodklady
+              ? `${plan.analyzed_at ? `Pripravené ${UI.date(plan.analyzed_at)}. ` : ''}`
+                + 'Pregenerovanie vezme zadanie, ako je teraz. Prepíše len to, čo napísala '
+                + 'appka — čo si upravil alebo schválil, ostane.'
+              : 'Vyplní zhrnutie aj texty po kanáloch. Všetko sa dá prepísať.'}</span>
           </div>
+          ${zmenene ? `<div class="warnbox" style="margin-top:8px;">${Icon('alert', 14)}
+            Zadanie si od poslednej prípravy zmenil — texty sú ešte podľa starého.
+            <button class="link-inline" onclick="Kit.analyze('${plan.id}', { regen: true })">
+              Pregenerovať</button></div>` : ''}
         </div>`;
     },
 
@@ -144,7 +159,9 @@
 
     async saveFact(planId, key, value) {
       const p = Hire.plans.find(x => x.id === planId);
-      const next = { ...((p && p.analysis) || {}), [key]: value };
+      const prev = (p && p.analysis) || {};
+      // Čo človek v zhrnutí prepísal, pregenerovanie nechá na pokoji.
+      const next = { ...prev, [key]: value, _human: { ...(prev._human || {}), [key]: true } };
       const { error } = await DB.update('recruitment_plans', planId, { analysis: next });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       if (p) p.analysis = next;
@@ -354,13 +371,13 @@
      * Vráti to isté, čo predtým vracala funkcia: `{ blocks, questions, plan,
      * skipped }`. Pri chybe hodí výnimku s vetou, ktorá sa dá ukázať.
      */
-    async runAnalysis(planId, { onTick, timeoutMs = 6 * 60 * 1000 } = {}) {
+    async runAnalysis(planId, { onTick, timeoutMs = 6 * 60 * 1000, regen = false } = {}) {
       const job = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       let res;
       try {
         res = await fetch('/.netlify/functions/danubra-analyze-brief-background', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ planId, job }),
+          body: JSON.stringify({ planId, job, regen }),
         });
       } catch (e) {
         throw new Error('server neodpovedal');
@@ -382,18 +399,37 @@
         + 'pozri nábor o chvíľu');
     },
 
-    async analyze(planId) {
+    async analyze(planId, { regen = false, potvrdene = false } = {}) {
       const el = document.getElementById('plan-brief');
       const brief = el ? el.value : '';
       if (!brief.trim()) {
         return UI.toast('Najprv napíš do zadania, čo o zákazke vieme', 'err');
+      }
+      if (regen && !potvrdene) {
+        const vlastne = (this.assets || []).filter(a => !a.archived_at
+          && (a.source !== 'ai' || a.approved_at)).length;
+        return UI.modal('Pregenerovať podklady?', `
+          <p style="font-size:14px;margin:0 0 10px;">Appka vezme zadanie, ako je teraz,
+            a napíše texty a zhrnutie znova.</p>
+          <ul class="clean" style="font-size:13.5px;line-height:1.7;margin:0 0 6px;">
+            <li>${Icon('repeat', 13)} Prepíše sa, čo napísala appka a nikto to neupravil.</li>
+            <li>${Icon('check', 13)} Čo si upravil alebo schválil, ostane${
+              vlastne ? ` (${vlastne} ${Shell.plural(vlastne, 'text', 'texty', 'textov')})` : ''}.</li>
+            <li>${Icon('lock', 13)} Staré texty sa nemažú — odložia sa do archívu.</li>
+          </ul>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button class="btn btn-primary"
+              onclick="UI.closeModal();Kit.analyze('${planId}', { regen: true, potvrdene: true })">
+              ${Icon('repeat')} Pregenerovať</button>
+          </div>`);
       }
       // Zadanie sa uloží aj tak — keby analýza spadla, text sa nestratí.
       await this.saveBrief(planId);
 
       // Okno počas písania. Dá sa zavrieť — podklady sa na serveri dopíšu
       // aj tak a pri ďalšom otvorení náboru tu budú.
-      const okno = (sek) => UI.modal('Pripravujem podklady…', `
+      const okno = (sek) => UI.modal(regen ? 'Pregenerúvam podklady…' : 'Pripravujem podklady…', `
         <div class="prep-row prep-run">
           <span class="prep-ico">${Icon('clock', 16)}</span>
           <span class="prep-txt">
@@ -405,7 +441,7 @@
       okno(0);
       let out;
       try {
-        out = await this.runAnalysis(planId, {
+        out = await this.runAnalysis(planId, { regen,
           onTick: (sek) => { if (document.getElementById('ui-modal')) okno(sek); } });
       } catch (e) {
         UI.closeModal();
@@ -415,7 +451,8 @@
             Skús to znova — keď to nepôjde ani druhýkrát, pošli mi túto hlášku.</p>
           <div class="modal-actions">
             <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-            <button class="btn btn-primary" onclick="UI.closeModal();Kit.analyze('${planId}')">
+            <button class="btn btn-primary"
+              onclick="UI.closeModal();Kit.analyze('${planId}', { regen: ${regen}, potvrdene: true })">
               ${Icon('repeat')} Skúsiť znova</button>
           </div>`);
       }
@@ -444,7 +481,10 @@
         out.questions ? `${out.questions} ${Shell.plural(out.questions,
           'otázka', 'otázky', 'otázok')} do hovoru` : null,
       ].filter(Boolean);
-      UI.toast(`Hotovo — ${casti.join(' · ')}`, 'ok');
+      if (out.regen && out.kept) {
+        casti.push(`${out.kept} ${Shell.plural(out.kept, 'tvoj text ostal', 'tvoje texty ostali', 'tvojich textov ostalo')}`);
+      }
+      UI.toast(`${out.regen ? 'Pregenerované' : 'Hotovo'} — ${casti.join(' · ')}`, 'ok');
 
       if (out.questions) {
         UI.modal('Pribudli otázky do hovoru', `
