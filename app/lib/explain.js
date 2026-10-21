@@ -330,6 +330,25 @@
       ],
       links: [['subcontracts', 'Zákazky'], ['invoices', 'Vydané faktúry']],
     },
+    'card.money.dues': {
+      title: 'Čo zaplatiť a na čo čakáme',
+      lead: 'Prijaté faktúry, ktoré treba zaplatiť, a vydané, na ktorých peniaze čakáme — po termínoch.',
+      what: [
+        'Vľavo prijaté faktúry od živnostníkov a dodávateľov, ktoré ešte nie sú uhradené. '
+        + 'Vpravo vydané faktúry, ktoré odberateľ ešte nezaplatil.',
+        'Každá strana je rozdelená na po splatnosti, tento týždeň, neskôr a bez splatnosti.',
+      ],
+      how: [
+        'Pri vydaných faktúrach sa ráta suma, ktorá reálne príde na účet — po zrážke §48b.',
+        'Faktúry nahraté z PDF, ktoré ešte nikto nepotvrdil, sa do súm nerátajú; je pri nich '
+        + 'len upozornenie, koľko ich čaká na kontrolu.',
+        'Keď na prijatej faktúre chýba splatnosť, ráta sa 14 dní od vystavenia (označené hviezdičkou).',
+      ],
+      why: [
+        'Kto nedostane zaplatené načas, naberie sa inde. A kto nám mešká, tomu treba zavolať '
+        + 'skôr, než sa z toho stane zvyk.',
+      ],
+    },
     'card.money.spend': {
       title: 'Koľko sa dá minúť a dokedy',
       lead: 'Týždenný výhľad zostatku a to, koľko sa z neho dá bezpečne použiť.',
