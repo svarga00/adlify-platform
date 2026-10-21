@@ -734,7 +734,9 @@ console.log('Prehliadač');
         'pod tým je päť krokov reťazca');
       ok(out.text.includes('z 5 fáz hotových'), 'a koľko z nich je hotových');
       ok(out.html.includes('is-now'), 'ten, ktorý je na rade, je zvýraznený');
-      ok(out.text.includes('Murár × 4'), 'plán ukazuje názov remesla, nie kľúč',
+      // Plán je karta: remeslo menom a „0 z 4 nabraných" (nie kľúč „murar × 4").
+      ok(out.text.includes('Murár') && /0 z 4 nabraných/.test(out.text) && !/murar ×/.test(out.text),
+        'plán ukazuje názov remesla, nie kľúč',
         out.text.slice(0, 300));
       ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),
         'a odtiaľto sa dá ísť na zvyšok náboru');

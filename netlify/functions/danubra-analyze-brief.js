@@ -81,17 +81,6 @@ const SCHEMA = {
         properties: Object.fromEntries(FACTS.map(k => [k, { type: 'string' }])),
         required: FACTS,
       },
-      risks: {
-        type: 'array',
-        description: 'Čo môže zákazku zhodiť alebo čo treba doveriť u odberateľa. '
-          + 'Krátke vety po slovensky. Prázdne pole je správna odpoveď, keď nič nevidíš.',
-        items: { type: 'string' },
-      },
-      ask: {
-        type: 'array',
-        description: 'Konkrétne otázky, ktoré treba položiť odberateľovi, aby sa doplnilo ' + CHYBA + '.',
-        items: { type: 'string' },
-      },
       plan: {
         type: 'object',
         description: 'Polia samotného náboru. Vynechaj všetko, čo v zadaní nie je — '
@@ -110,6 +99,20 @@ const SCHEMA = {
             description: 'Kde má zmysel inzerovať.' },
         },
       },
+      blocks: {
+        type: 'array',
+        description: 'Texty na kanály. Iba kanály a bloky zo zadaného zoznamu.',
+        items: {
+          type: 'object',
+          properties: {
+            channel: { type: 'string', enum: Object.keys(BLOCKS) },
+            block: { type: 'string' },
+            body: { type: 'string', description: 'Text na priame vloženie. Bez emoji.' },
+          },
+          required: ['channel', 'block', 'body'],
+        },
+      },
+    },
       questions: {
         type: 'array',
         description: 'Otázky pre remeselníka do telefonátu — odborné, na toto remeslo '
@@ -128,20 +131,18 @@ const SCHEMA = {
           required: ['question_sk', 'good_answer'],
         },
       },
-      blocks: {
+      risks: {
         type: 'array',
-        description: 'Texty na kanály. Iba kanály a bloky zo zadaného zoznamu.',
-        items: {
-          type: 'object',
-          properties: {
-            channel: { type: 'string', enum: Object.keys(BLOCKS) },
-            block: { type: 'string' },
-            body: { type: 'string', description: 'Text na priame vloženie. Bez emoji.' },
-          },
-          required: ['channel', 'block', 'body'],
-        },
+        description: 'Čo môže zákazku zhodiť alebo čo treba doveriť u odberateľa. '
+          + 'Krátke vety po slovensky, najviac päť. Prázdne pole je správna odpoveď, keď nič nevidíš.',
+        items: { type: 'string' },
       },
-    },
+      ask: {
+        type: 'array',
+        description: 'Konkrétne otázky, ktoré treba položiť odberateľovi, aby sa doplnilo '
+          + CHYBA + '. Najviac päť, krátko.',
+        items: { type: 'string' },
+      },
     required: ['facts', 'blocks'],
   },
 };
@@ -238,6 +239,14 @@ async function analyze(brief, plan, supplier, trades) {
     return `${NAZOV[k] || k}: ${v}${ludske[k] ? ' (potvrdil človek)' : ''}`;
   }).filter(Boolean).join('\n');
 
+  // Doplnky od nás — fakturácia, benefity, poznámky. V zadaní od Nemca nie
+  // sú nikdy, sú naše; keď ich niekto napísal, patria do textov.
+  const ex = a._extra || {};
+  const doplnky = [['billing', 'Fakturácia pre živnostníka'], ['benefits', 'Benefity a výhody'],
+    ['more', 'Ďalšie podklady a poznámky']]
+    .map(([k, l]) => (String(ex[k] || '').trim() ? `${l}: ${String(ex[k]).trim()}` : null))
+    .filter(Boolean).join('\n');
+
   const bloky = Object.entries(BLOCKS)
     .map(([ch, list]) => `${ch}: ${list.join(', ')}`).join('\n');
   // Zoznam remesiel ide modelu preto, aby `trade_key` sedel s databázou.
@@ -252,7 +261,7 @@ async function analyze(brief, plan, supplier, trades) {
       'content-type': 'application/json',
     },
     body: JSON.stringify(AI.body({
-      model: MODEL, tool: SCHEMA, maxTokens: 16000,
+      model: MODEL, tool: SCHEMA, maxTokens: 24000,
       prompt: `${POKYNY}\n\nZOZNAM KANÁLOV A BLOKOV (iné nepoužívaj):\n${bloky}\n\n`
         + `REMESLÁ V DATABÁZE (kľúč = názov; iný kľúč nepoužívaj):\n${remesla}\n\n`
         + `KDE SA DÁ INZEROVAŤ (iné nepoužívaj): ${KANALY.join(', ')}\n\n`
@@ -260,11 +269,19 @@ async function analyze(brief, plan, supplier, trades) {
         + (zhrnutie ? 'ZHRNUTIE ZÁKAZKY Z MINULEJ PRÍPRAVY. Údaje „potvrdil človek" platia vždy '
           + 'a použi ich v textoch aj v zhrnutí. Ostatné sú z minulej prípravy — keď zadanie '
           + `hovorí inak, platí zadanie.\n${zhrnutie}\n\n` : '')
+        + (doplnky ? 'DOPLNKY OD NÁS — platia. Zapracuj ich do textov tam, kde sa hodia; '
+          + `nič k nim nepridávaj a nič nezveličuj.\n${doplnky}\n\n` : '')
         + `ZADANIE OD KOLEGU:\n${brief}`,
     })),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(AI.errorText(data, res.status, 'Analýza'));
+  // Odpoveď sa nezmestila do limitu — je nedokončená. Polovičné podklady
+  // sa nezapíšu; radšej nič, než texty, ktoré končia v polovici vety.
+  if (data.stop_reason === 'max_tokens') {
+    throw new Error('Odpoveď bola príliš dlhá a nedokončila sa. Nič som nezmenil — '
+      + 'skús to znova; ak to zlyhá aj druhýkrát, skráť zadanie.');
+  }
   const out = AI.pickTool(data, SCHEMA.name);
   if (!out) throw new Error('Model nevrátil podklady');
   return out;
@@ -302,6 +319,20 @@ async function run(planId, { regen = false } = {}) {
     .from('danubra_trades').select('key,name_sk').eq('active', true).limit(100);
 
   const out = await analyze(plan.brief, plan, supplier, trades || []);
+
+  // Texty, ktoré sa dajú použiť. Keď model nevrátil ani jeden, nezapíše sa
+  // nič — ani zhrnutie. Inak by nábor vyzeral pripravený a texty by chýbali.
+  const nove = new Map();
+  for (const b of (out.blocks || [])) {
+    const channel = String((b && b.channel) || '');
+    const block = String((b && b.block) || '');
+    const body = String((b && b.body) || '').trim();
+    if (!body || !BLOCKS[channel] || !BLOCKS[channel].includes(block)) continue;
+    nove.set(`${channel}:${block}`, { channel, block, body });
+  }
+  if (!nove.size) {
+    throw new Error('Model nevrátil žiadne texty. Nič som nezmenil — skús to o chvíľu znova.');
+  }
 
   // ── Zhrnutie zákazky ────────────────────────────────────────────────
   // Údaj, ktorý už človek vyplnil, sa neprepíše — model dopĺňa, neprepisuje.
@@ -372,42 +403,40 @@ async function run(planId, { regen = false } = {}) {
     .from('danubra_plan_assets')
     .select('id,channel,block,body,source,approved_at')
     .eq('plan_id', planId).is('archived_at', null);
-  // Pri pregenerovaní sa návrhy od appky, ktoré nikto neupravil ani
-  // neschválil, odložia do archívu (nemažú sa) a napíšu sa nové. Čo človek
-  // upravil (`source: 'human'`) alebo schválil, ostáva.
-  let zaloha = 0;
-  if (regen) {
-    const stare = (existing || []).filter(a => a.source === 'ai' && !a.approved_at);
-    if (stare.length) {
-      const { error: ea } = await supabase.from('danubra_plan_assets')
-        .update({ archived_at: new Date().toISOString() }).in('id', stare.map(a => a.id));
-      if (ea) throw new Error(ea.message);
-      zaloha = stare.length;
-    }
-  }
-  const ostava = regen
-    ? (existing || []).filter(a => !(a.source === 'ai' && !a.approved_at)) : (existing || []);
+  // Pri pregenerovaní sa nahrádza **text po texte**: starý návrh od appky
+  // ide do archívu len vtedy, keď za neho prišiel nový. Predtým sa najprv
+  // odložili všetky staré a potom sa zapísali nové — a keď model nové
+  // nevrátil, nábor zostal bez textov (Lixenried, 21. 10.). Čo človek
+  // upravil (`source: 'human'`) alebo schválil, sa nenahrádza nikdy.
+  const lenNavrh = (a) => a.source === 'ai' && !a.approved_at;
+  const nahradim = regen
+    ? (existing || []).filter(a => lenNavrh(a) && nove.has(`${a.channel}:${a.block}`)) : [];
+  const nahradeneId = new Set(nahradim.map(a => a.id));
+  const ostava = (existing || []).filter(a => !nahradeneId.has(a.id));
   const mam = new Set(ostava.map(a => `${a.channel}:${a.block}`));
 
   const rows = [];
-  for (const b of (out.blocks || [])) {
-    const channel = String(b.channel || '');
-    const block = String(b.block || '');
-    const body = String(b.body || '').trim();
-    if (!body) continue;
-    if (!BLOCKS[channel] || !BLOCKS[channel].includes(block)) continue;
+  for (const [kluc, b] of nove) {
     // Čo už niekto napísal, sa nechá na pokoji.
-    if (mam.has(`${channel}:${block}`)) continue;
+    if (mam.has(kluc)) continue;
     rows.push({
-      plan_id: planId, channel, block, body,
+      plan_id: planId, channel: b.channel, block: b.block, body: b.body,
       source: 'ai',              // návrh — appka ho označí a človek ho prečíta
       approved_at: null,
     });
   }
 
+  // Najprv nové, až potom staré do archívu — keby zápis zlyhal, staré ostanú.
   if (rows.length) {
     const { error: ei } = await supabase.from('danubra_plan_assets').insert(rows);
     if (ei) throw new Error(ei.message);
+  }
+  let zaloha = 0;
+  if (nahradim.length) {
+    const { error: ea } = await supabase.from('danubra_plan_assets')
+      .update({ archived_at: new Date().toISOString() }).in('id', nahradim.map(a => a.id));
+    if (ea) throw new Error(ea.message);
+    zaloha = nahradim.length;
   }
 
   // ── Otázky pre remeselníka ──────────────────────────────────────────
