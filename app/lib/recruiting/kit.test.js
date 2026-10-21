@@ -185,6 +185,18 @@ console.log('\nZHRNUTIE ZÁKAZKY');
   eq(K.trvanieText({ weeks: 12 }), '12 týždňov', 'dvanásť týždňov');
   eq(K.trvanieText({ longTerm: true, weeks: 5 }), 'dlhodobá', 'dlhodobá má prednosť');
   eq(K.trvanieText({}), '', 'nič');
+
+  // Štítky v doplnkoch: klik pridá, druhý klik odoberie, vlastný text ostane.
+  eq(K.toggleItem('', 'splatnosť 14 dní'), 'splatnosť 14 dní', 'do prázdneho poľa');
+  eq(K.toggleItem('Prvá faktúra so skoršou úhradou', 'splatnosť 14 dní'),
+    'Prvá faktúra so skoršou úhradou, splatnosť 14 dní', 'za vlastný text');
+  eq(K.toggleItem('Prvá faktúra so skoršou úhradou, splatnosť 14 dní', 'splatnosť 14 dní'),
+    'Prvá faktúra so skoršou úhradou', 'druhý klik odoberie');
+  eq(K.toggleItem('doprava hradená;  Záloha pred prvou výplatou', 'záloha pred prvou výplatou'),
+    'doprava hradená', 'bez ohľadu na veľké písmená a oddeľovač');
+  eq(K.hasItem('faktúra raz za mesiac, splatnosť 7 dní', 'splatnosť 7 dní'), true, 'štítok je zapnutý');
+  eq(K.hasItem('splatnosť 14 dní', 'splatnosť 7 dní'), false, 'iný nie');
+  eq(K.hasItem('', 'x'), false, 'prázdne pole nespadne');
   ok(K.FACTS.filter(f => f.must).length >= 6, 'väčšina je povinná');
   const st = K.factsState({ position: 'Zvárač WIG (2×)', rate: '[XX] €/hod.' });
   eq(st.find(f => f.key === 'position').filled, true, 'vyplnené pole je vyplnené');
