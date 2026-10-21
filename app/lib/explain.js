@@ -2022,7 +2022,7 @@
 
     'screen.costs': {
       title: 'Náklady',
-      lead: 'Faktúry od živnostníkov a všetko ostatné, čo firmu stojí peniaze.',
+      lead: 'Faktúry od živnostníkov a dodávateľov (aj nahraté z PDF) a všetko ostatné, čo firmu stojí peniaze.',
       what: [
         'Prijatá faktúra od živnostníka sa kontroluje oproti schváleným hodinám.',
         'Ostatné náklady sú ubytovanie, doprava, náradie, réžia.',

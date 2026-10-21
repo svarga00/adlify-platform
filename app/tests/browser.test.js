@@ -3646,6 +3646,72 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+
+    // ── Prijaté faktúry z PDF ─────────────────────────────────────────────
+    // Nahratý súbor ide do úložiska, faktúra vznikne „Na kontrolu" a číta sa
+    // na pozadí. Potvrdená musí vedieť, od koho je, a mať sumu.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+
+      const out = await page.evaluate(async () => {
+        const res = { vlozene: [], volania: [], zmeny: [] };
+        DB.list = async () => ({ data: [], error: null });
+        DB.uploadDoc = async (f, o) => ({ path: `${o.folder}/x/${f.name}`, error: null });
+        DB.insert = async (t, row) => { res.vlozene.push({ t, row }); return { data: { id: 'nova', ...row }, error: null }; };
+        DB.update = async (t, id, patch) => { res.zmeny.push({ t, id, patch }); return { data: {}, error: null }; };
+        DB.signedDocUrl = async () => ({ url: null });
+        window.fetch = async (u, o) => { res.volania.push({ u, body: o && o.body }); return { json: async () => ({}) }; };
+        Danubra.user = { id: 'u1' };
+        Danubra.route = 'costs';
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+
+        await Cost.upload([
+          new File(['%PDF-1.4'], 'faktura.pdf', { type: 'application/pdf' }),
+          new File(['<Invoice/>'], 'efaktura.xml', { type: '' }),
+          new File(['x'], 'tabulka.xlsx', { type: 'application/vnd.ms-excel' }),
+        ]);
+        clearTimeout(Cost._poll); Cost._poll = null;
+
+        // Kontrola: bez sumy a bez dodávateľa sa nepotvrdí.
+        Cost.bills = [{ id: 'r1', status: 'review', extract_status: 'done', amount: 0, source: 'pdf',
+          storage_path: 'p.pdf', extracted: { _file: 'faktura.pdf', supplier: {}, uncertain: [] } }];
+        Cost.reviewBill('r1');
+        await Cost.confirmReview('r1');
+        res.bezSumy = res.zmeny.length;
+        const form = document.getElementById('br-form');
+        form.querySelector('[name="amount"]').value = '540';
+        form.querySelector('[name="supplier_name"]').value = 'Hotel Krone';
+        form.querySelector('[name="supplier_iban"]').value = 'sk31 1200 0000 1987 4263 7541';
+        await Cost.confirmReview('r1');
+        res.potvrdena = res.zmeny.find(z => z.id === 'r1');
+        res.zoznam = Cost.reviewHtml(DanubraBills.queue([{ id: 'a', status: 'review', extract_status: 'pending',
+          amount: 0, extracted: { _file: 'a.pdf' } }], '2026-10-21'));
+        UI.closeModal();
+        return res;
+      });
+
+      const faktury = out.vlozene.filter(v => v.t === 'bills');
+      ok(faktury.length === 2, 'PDF aj e-faktúra sa nahrajú, Excel nie', String(faktury.length));
+      ok(faktury.every(f => f.row.status === 'review' && f.row.extract_status === 'pending'),
+        'nahratá faktúra čaká na kontrolu a číta sa');
+      ok(faktury.map(f => f.row.source).join() === 'pdf,xml', 'vie, či je to PDF alebo e-faktúra');
+      ok(out.volania.filter(v => /read-bill-background/.test(v.u)).length === 2,
+        'číta sa na pozadí, na serveri — kľúč k modelu nie je v prehliadači');
+      ok(out.bezSumy === 0, 'bez sumy a dodávateľa sa nepotvrdí');
+      const p = (out.potvrdena || {}).patch || {};
+      ok(p.status === 'received' && p.amount === 540 && p.supplier_name === 'Hotel Krone',
+        'potvrdená ide medzi prijaté', JSON.stringify(p).slice(0, 200));
+      ok(p.supplier_iban === 'SK3112000000198742637541', 'IBAN sa uloží bez medzier');
+      ok(p.confirmed_by === 'u1', 'zapíše sa, kto ju potvrdil');
+      ok(/Na kontrolu/.test(out.zoznam) && /Čítam/.test(out.zoznam), 'karta Na kontrolu ukáže, čo sa ešte číta');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

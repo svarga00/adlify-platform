@@ -119,5 +119,20 @@ const TOOL = { name: 'stavby_z_dopytu', description: 'x', input_schema: { type: 
   ok(!/Analýza zlyhalo/.test(A.errorText({}, 418, 'Analýza')), 'a po slovensky');
 }
 
+// ── Prílohy (PDF, fotka) ────────────────────────────────────────────────────
+{
+  const pdf = A.attachment('JVBERi0=', 'application/pdf');
+  eq(pdf.type, 'document', 'PDF ide ako dokument');
+  eq(A.attachment('x', 'image/png').type, 'image', 'fotka ako obrázok');
+  eq(A.attachment('x', 'application/zip'), null, 'iný súbor model neprečíta');
+  eq(A.attachment('', 'application/pdf'), null, 'prázdny súbor nič');
+  const b = A.body({ model: 'm', tool: { name: 't' }, prompt: 'Prečítaj', docs: [pdf] });
+  const c = b.messages[0].content;
+  ok(Array.isArray(c) && c[0].type === 'document' && c[1].type === 'text' && /Prečítaj/.test(c[1].text),
+    'príloha je pred zadaním');
+  eq(typeof A.body({ model: 'm', tool: { name: 't' }, prompt: 'x' }).messages[0].content, 'string',
+    'bez prílohy zostáva obyčajný text');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);

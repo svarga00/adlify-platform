@@ -172,7 +172,7 @@ window.Danubra = {
     accommodations: 'Databáza ubytovaní — náklad zákazky, nie obchod',
     clients: 'Firmy a kontakty z ubytovacej agendy',
     invoices: 'Faktúry odberateľom. Bez schválenia sa žiadna nevystaví',
-    costs: 'Faktúry od živnostníkov a ostatné náklady',
+    costs: 'Faktúry od živnostníkov a dodávateľov a ostatné náklady',
     bank: 'Výpis z účtu, párovanie a či bude na výplaty',
     marketing: 'Inzeráty a odkiaľ chodia ľudia',
     compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
@@ -1497,7 +1497,7 @@ window.Danubra = {
       periodsClosed: periods.filter(p => p.status === 'closed'),
       invApprove: invoices.filter(i => i.status === 'pending_approval'),
       invOverdue: invoices.filter(i => openInv(i) && i.due_date && i.due_date < d),
-      billsToCheck: billsAll.filter(b => ['received', 'checked'].includes(b.status)),
+      billsToCheck: billsAll.filter(b => ['review', 'received', 'checked'].includes(b.status)),
       billsDisputed: billsAll.filter(b => b.status === 'disputed'),
       docsExpired: documents.filter(x => x.validity === 'expired'),
       docsExpiring: documents.filter(x => x.validity === 'expiring'),
@@ -2308,7 +2308,7 @@ window.Danubra = {
           ['Rozdiel', E.money(w.diff), 'EUR'],
           ['Zostatok na konci', E.money(w.endBalance), 'EUR'],
           ['Vyfakturované odberateľom', E.money(x.econ.invoiced), 'EUR'],
-          ['Faktúry od živnostníkov', E.money(-x.econ.bills), 'EUR'],
+          ['Prijaté faktúry', E.money(-x.econ.bills), 'EUR'],
           ['Ostatné náklady', E.money(-x.econ.costs), 'EUR'],
           ['Zostáva (marža)', E.money(x.econ.margin), 'EUR'],
           ['Marža', x.econ.marginPct != null ? E.num(x.econ.marginPct, 1) : '', '%'],
@@ -2335,7 +2335,7 @@ window.Danubra = {
           ['Po splatnosti — odíde', E.money(c.late.out), 'malo odísť dávno'],
           ['Vystavené faktúry v splatnosti', E.money(c.in.invoices), ''],
           ['Ostatné príjmy', E.money(c.in.other), ''],
-          ['Faktúry živnostníkov', E.money(c.out.bills), ''],
+          ['Prijaté faktúry', E.money(c.out.bills), ''],
           ['Ostatné náklady', E.money(c.out.costs), 'ubytovanie, doprava, réžia'],
           [`Zostatok o ${c.horizon} týždňov`, E.money(c.end), ''],
           ['Najnižší bod', E.money(c.lowest.balance),
@@ -2439,7 +2439,7 @@ window.Danubra = {
       rows: (x, E) => [
         ['Položka', 'Suma'],
         ['Vyfakturované odberateľom', E.money(x.econ.invoiced)],
-        ['Faktúry od živnostníkov', E.money(-x.econ.bills)],
+        ['Prijaté faktúry', E.money(-x.econ.bills)],
         ['Ostatné náklady', E.money(-x.econ.costs)],
         ['Zostáva', E.money(x.econ.margin)],
         ['Marža v %', x.econ.marginPct != null ? E.num(x.econ.marginPct, 1) : ''],
@@ -2565,7 +2565,7 @@ window.Danubra = {
           <div class="form-section" style="margin:0 0 4px;">Čo odíde</div>
           ${c.late.out ? row('Po splatnosti', Money.format(c.late.out),
             'malo odísť dávno', 'cf-out cf-late') : ''}
-          ${c.out.bills ? row('Faktúry živnostníkov', Money.format(c.out.bills), '', 'cf-out') : ''}
+          ${c.out.bills ? row('Prijaté faktúry', Money.format(c.out.bills), '', 'cf-out') : ''}
           ${c.out.costs ? row('Náklady', Money.format(c.out.costs),
             'ubytovanie, doprava, réžia', 'cf-out') : ''}
           ${!c.late.out && !c.out.total ? `<div class="cf-none">Nič s termínom.</div>` : ''}
@@ -2941,7 +2941,7 @@ window.Danubra = {
       ${DanubraChart.waterfall({
         steps: [
           { label: 'Fakturované', value: e.invoiced, kind: 'level' },
-          { label: 'Živnostníkom', value: -e.bills, kind: 'delta' },
+          { label: 'Prijaté faktúry', value: -e.bills, kind: 'delta' },
           { label: 'Náklady', value: -e.costs, kind: 'delta' },
           { label: 'Zostáva', value: e.margin, kind: 'level' },
         ],

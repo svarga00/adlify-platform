@@ -27,19 +27,38 @@
    * Namiesto vynútenia sa modelu v texte povie, že odpoveď má poslať cez
    * nástroj. V praxi to stačí; keby raz nie, `pickTool` to podchytí.
    */
-  function body({ model, tool, prompt, maxTokens = 8000 }) {
+  function body({ model, tool, prompt, maxTokens = 8000, docs = null }) {
     if (!model) throw new Error('Chýba model');
     if (!tool || !tool.name) throw new Error('Chýba nástroj');
+    const text = `${prompt}\n\nODPOVEDZ CEZ NÁSTROJ ${tool.name}. `
+      + 'Nepíš nič pred ním ani za ním.';
     return {
       model,
       max_tokens: maxTokens,
       tools: [tool],
       messages: [{
         role: 'user',
-        content: `${prompt}\n\nODPOVEDZ CEZ NÁSTROJ ${tool.name}. `
-          + 'Nepíš nič pred ním ani za ním.',
+        // Prílohy (PDF, fotka) idú pred zadanie — model si ich najprv prečíta.
+        content: Array.isArray(docs) && docs.length
+          ? [...docs, { type: 'text', text }] : text,
       }],
     };
+  }
+
+  /**
+   * Príloha pre model zo súboru v base64: PDF ako dokument, fotka ako
+   * obrázok. Iný typ → null (model by ho neprečítal).
+   */
+  function attachment(base64, mediaType) {
+    const t = String(mediaType || '').toLowerCase();
+    if (!base64) return null;
+    if (t === 'application/pdf') {
+      return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } };
+    }
+    if (['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(t)) {
+      return { type: 'image', source: { type: 'base64', media_type: t, data: base64 } };
+    }
+    return null;
   }
 
   /**
@@ -117,7 +136,7 @@
     return `${co ? co + ' — ' : ''}volanie modelu zlyhalo (${status}).`;
   }
 
-  const API = { body, pickTool, najdiJson, errorText };
+  const API = { body, attachment, pickTool, najdiJson, errorText };
   if (typeof window !== 'undefined') window.DanubraAi = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
