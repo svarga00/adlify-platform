@@ -162,8 +162,11 @@
 
   function queue(bills = [], today) {
     const dnes = den(today) || new Date().toISOString().slice(0, 10);
-    const live = (bills || []).filter(b => b && b.status !== 'cancelled');
+    const live = (bills || []).filter(b => b && b.status !== 'cancelled' && b.status !== 'discarded');
 
+    // Nahraté z PDF, ešte nepotvrdené. Kým ich človek neodklikne, nie sú
+    // záväzok — ale treba ich prejsť, inak sa na ne zabudne.
+    const review = live.filter(b => b.status === 'review');
     const disputed = live.filter(b => b.status === SPORNE);
     const toCheck = live.filter(b => NESKONTROLOVANE.includes(b.status));
     const toPay = live.filter(b => PRED_UHRADOU.includes(b.status));
@@ -184,10 +187,22 @@
           + 'prečo, sa schváliť ani nedá.',
         hot: true, bill: prvy(disputed), count: disputed.length, cents: suma(disputed),
       };
+    } else if (review.length) {
+      const citam = review.filter(b => b.extract_status === 'pending').length;
+      next = {
+        key: 'review',
+        title: review.length === 1 ? 'Potvrdiť nahratú faktúru' : 'Potvrdiť nahraté faktúry',
+        what: `${review.length} ${plural(review.length, 'faktúra čaká', 'faktúry čakajú', 'faktúr čaká')} `
+          + `na kontrolu${citam ? ` · ${citam} sa ešte číta` : ''}`,
+        why: 'Appka ich prečítala, ale potvrdiť musí človek — model sa občas pomýli v čísle '
+          + 'alebo v IBAN-e.',
+        hot: false, bill: review.find(b => b.extract_status !== 'pending') || review[0],
+        count: review.length, cents: suma(review),
+      };
     } else if (latePay.length) {
       next = {
         key: 'pay',
-        title: 'Zaplatiť živnostníkovi',
+        title: 'Zaplatiť faktúry po splatnosti',
         what: `${latePay.length} ${plural(latePay.length, 'faktúra je', 'faktúry sú', 'faktúr je')} `
           + `po splatnosti · ${M.format(suma(latePay))}`,
         why: 'Kto nedostane zaplatené načas, naberie sa inde — a povie to ďalším. '
@@ -216,11 +231,11 @@
     }
 
     return {
-      disputed, toCheck, toPay, latePay, next,
+      review, disputed, toCheck, toPay, latePay, next,
       disputedCents: suma(disputed), toCheckCents: suma(toCheck),
       toPayCents: suma(toPay), latePayCents: suma(latePay),
       // Čo čaká na nás dokopy: sporné a neskontrolované.
-      waiting: disputed.length + toCheck.length,
+      waiting: review.length + disputed.length + toCheck.length,
     };
   }
 

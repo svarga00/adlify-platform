@@ -56,11 +56,12 @@
       // Čo na prijatých faktúrach čaká na nás. Poradie drží knižnica:
       // sporné, potom po splatnosti, potom neskontrolované.
       const q = DanubraBills.queue(this.bills, Danubra._dayISO());
-      Danubra.setActions(
-        `<button class="btn btn-primary btn-sm" onclick="Cost.${this.tab === 'bills' ? 'billForm' : 'costForm'}()">
-          ${Icon('plus')} ${this.tab === 'bills' ? 'Prijatá faktúra' : 'Náklad'}</button>`);
+      Danubra.setActions(this.tab === 'bills'
+        ? `<button class="btn btn-outline btn-sm" onclick="Cost.billForm()">${Icon('plus')} Zadať ručne</button>
+           <button class="btn btn-primary btn-sm" onclick="Cost.pickFiles()">${Icon('upload')} Nahrať faktúry</button>`
+        : `<button class="btn btn-primary btn-sm" onclick="Cost.costForm()">${Icon('plus')} Náklad</button>`);
       const head = Danubra.header(Danubra.labelOf('costs'),
-        'Čo nám fakturujú živnostníci a čo stojí všetko ostatné')
+        'Čo nám fakturujú živnostníci a dodávatelia a čo stojí všetko ostatné')
         + `<div class="filterbar" style="margin-bottom:12px;">
              <button class="fb-chip${this.tab === 'bills' ? ' active' : ''}" onclick="Cost.setTab('bills')">
                Prijaté faktúry<em>${this.bills.length}</em></button>
@@ -69,7 +70,9 @@
            </div>`
         + (this.tab === 'bills' ? this.nowHtml(q) : '');
 
-      el.innerHTML = head + (this.tab === 'bills' ? this.billsHtml(q) : this.costsHtml());
+      el.innerHTML = head + (this.tab === 'bills'
+        ? this.dropHtml() + this.reviewHtml(q) + this.billsHtml(q) : this.costsHtml());
+      this.pollIfReading();
     },
 
     /**
@@ -79,12 +82,14 @@
      */
     nowHtml(q) {
       const n = q.next || this.nicNecaka();
-      const label = { disputed: 'Otvoriť spornú', pay: 'Otvoriť najstaršiu',
+      const label = { disputed: 'Otvoriť spornú', pay: 'Otvoriť najstaršiu', review: 'Skontrolovať',
         check: 'Otvoriť na kontrolu', willpay: 'Pozrieť schválené' }[n.key] || 'Otvoriť';
-      const ico = { disputed: 'alert', pay: 'wallet', check: 'check', willpay: 'calendar' }[n.key] || 'chevron';
+      const ico = { disputed: 'alert', pay: 'wallet', check: 'check', willpay: 'calendar',
+        review: 'doc' }[n.key] || 'chevron';
+      const open = n.key === 'review' ? 'reviewBill' : 'billDetail';
       return Shell.now(n, {
         help: 'card.bills.now',
-        action: n.bill ? { label, ico, onclick: `Cost.billDetail('${n.bill.id}')` } : null,
+        action: n.bill ? { label, ico, onclick: `Cost.${open}('${n.bill.id}')` } : null,
       });
     },
 
@@ -116,7 +121,9 @@
         return `
           <div class="card card-pad list-card" onclick="Cost.billDetail('${b.id}')">
             <div class="card-head">
-              <div class="card-title">${UI.esc(b.worker_name || '—')}</div>
+              <div class="card-title">${UI.esc(b.worker_name || '—')}${b.worker_id ? ''
+                : ` <span style="color:var(--ink-mute);font-weight:400;font-size:12.5px;">· ${
+                  UI.esc(Enums.label('cost_category', b.category) || 'dodávateľ')}</span>`}</div>
               ${UI.badge(Enums.label('bill_status', b.status), this.billKind(b.status))}
             </div>
             <div class="meta-row">
@@ -135,9 +142,9 @@
       return Shell.list({
         rows, total: this.bills.length, render: card, layout: 'cards',
         emptyIcon: 'invoices', emptyTitle: 'Zatiaľ žiadna prijatá faktúra',
-        emptySub: 'Keď živnostník pošle faktúru, zadaj ju sem — porovná sa s hodinami.',
+        emptySub: 'Nahrajte PDF faktúry — appka ju prečíta. Faktúra od živnostníka sa porovná s hodinami.',
         filter: {
-          search: { value: this.filters.q, placeholder: 'Hľadať podľa čísla alebo mena…',
+          search: { value: this.filters.q, placeholder: 'Hľadať podľa čísla, mena alebo dodávateľa…',
             oninput: 'Cost.setF("q", this.value)' },
           selects: [{
             value: this.filters.status, label: 'Stav',
@@ -172,9 +179,14 @@
     /** Prijaté faktúry po filtroch. Export vyváža presne toto. */
     billRows() {
       const f = this.filters;
+      // Nahraté na kontrolu a zahodené sú v zozname len na vyžiadanie (filter
+      // stavu) — na kontrolu majú vlastnú kartu hore.
+      const rows = f.status ? this.bills
+        : this.bills.filter(b => !['review', 'discarded'].includes(b.status));
       return Shell.filterRows(
-        this.bills.map(b => ({ ...b, worker_name: this.workerOf(b.worker_id).full_name || '' })),
-        { q: f.q, fields: ['bill_number', 'worker_name'],
+        rows.map(b => ({ ...b,
+          worker_name: this.workerOf(b.worker_id).full_name || b.supplier_name || '' })),
+        { q: f.q, fields: ['bill_number', 'worker_name', 'variable_symbol'],
           equals: { status: f.status },
           period: { field: 'issue_date', key: f.period, from: f.from, to: f.to } });
     },
@@ -183,7 +195,9 @@
       const f = this.filters;
       Shell.exportCsv(this.billRows(), [
         ['Číslo', b => b.bill_number],
-        ['Živnostník', b => b.worker_name],
+        ['Od koho', b => b.worker_name],
+        ['IČO', b => b.supplier_ico || this.workerOf(b.worker_id).company_id],
+        ['VS', b => b.variable_symbol],
         ['Vystavená', b => b.issue_date],
         ['Splatnosť', b => b.due_date],
         ['Stav', b => Enums.label('bill_status', b.status)],
@@ -211,8 +225,285 @@
     },
 
     billKind(s) {
-      return { received: 'gray', checked: 'blue', disputed: 'red',
-        approved: 'green', paid: 'green' }[s] || 'gray';
+      return { received: 'gray', checked: 'blue', disputed: 'red', review: 'amber',
+        approved: 'green', paid: 'green', discarded: 'gray' }[s] || 'gray';
+    },
+
+    // ── Nahrať faktúry zo súboru ──────────────────────────────────────────
+    // „Chcem to vedieť nahrávať cez PDF, kde vyextrahuješ, čo treba."
+    // Súbor ide do privátneho úložiska, faktúra vznikne „Na kontrolu" a server
+    // ju na pozadí prečíta (danubra-read-bill-background). Potvrdzuje človek.
+
+    pickFiles() { document.getElementById('bill-files')?.click(); },
+
+    dropHtml() {
+      return `<label class="bill-drop" id="bill-drop"
+          ondragover="event.preventDefault();this.classList.add('over')"
+          ondragleave="this.classList.remove('over')"
+          ondrop="event.preventDefault();this.classList.remove('over');Cost.upload(event.dataTransfer.files)">
+          <input type="file" id="bill-files" multiple hidden
+            accept=".pdf,.xml,application/pdf,application/xml,text/xml,image/*"
+            onchange="Cost.upload(this.files);this.value=''">
+          <span class="bill-drop-ico">${Icon('upload', 22)}</span>
+          <span><b>Pretiahnite sem faktúry</b> alebo kliknite a vyberte — aj viac naraz.
+            <em>PDF, fotka alebo e-faktúra (XML). Appka z nich prečíta dodávateľa, sumy,
+            splatnosť aj IBAN.</em></span>
+        </label>`;
+    },
+
+    async upload(files) {
+      const list = [...(files || [])];
+      if (!list.length) return;
+      if (!window.DanubraExtract) return UI.toast('Čítanie faktúr sa nenačítalo — obnovte stránku', 'err');
+      let n = 0;
+      UI.toast(list.length === 1 ? 'Nahrávam faktúru…' : `Nahrávam ${list.length} faktúr…`, 'ok');
+      for (const file of list) {
+        const kind = DanubraExtract.fileKind(file);
+        if (!kind) { UI.toast(`${file.name}: tento súbor neviem prečítať (PDF, XML, JPG, PNG)`, 'err'); continue; }
+        if (file.size > 25 * 1024 * 1024) { UI.toast(`${file.name}: súbor je väčší ako 25 MB`, 'err'); continue; }
+        // Prehliadač niekedy typ nepovie — úložisko by súbor bez typu odmietlo.
+        const typ = file.type || { pdf: 'application/pdf', xml: 'application/xml', image: 'image/jpeg' }[kind];
+        const f = file.type ? file : new File([file], file.name, { type: typ });
+        const up = await DB.uploadDoc(f, { folder: 'prijate-faktury', entityId: Danubra._dayISO() });
+        if (up.error || !up.path) {
+          UI.toast(`${file.name}: nenahralo sa (${(up.error && up.error.message) || 'chyba úložiska'})`, 'err');
+          continue;
+        }
+        const { data: bill, error } = await DB.insert('bills', {
+          status: 'review', source: kind, storage_path: up.path, amount: 0,
+          extract_status: 'pending', extracted: { _file: file.name },
+          created_by: Danubra.user?.id || null,
+        });
+        if (error) { UI.toast(`${file.name}: ${error.message}`, 'err'); continue; }
+        this.read(bill.id);
+        n++;
+      }
+      if (n) UI.toast(n === 1 ? 'Nahraté — appka ju číta' : `Nahraté (${n}) — appka ich číta`, 'ok');
+      this.loaded = false; await this.load(); Danubra.renderRoute();
+    },
+
+    /** Spustí čítanie na serveri. Odpovie hneď (202), výsledok sa zapíše k faktúre. */
+    read(id) {
+      const s = Danubra.supplier() || {};
+      fetch('/.netlify/functions/danubra-read-bill-background', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billId: id, company: { name: s.name || '', ico: s.company_id || '' } }),
+      }).catch(() => {});
+    },
+
+    /** Kým sa niečo číta, každé tri sekundy sa pozrie, či je hotovo. */
+    pollIfReading() {
+      const citam = this.bills.some(b => b.status === 'review' && b.extract_status === 'pending');
+      if (!citam || this._poll) return;
+      let kolo = 0;
+      const krok = async () => {
+        kolo++;
+        const { data } = await DB.list('bills', { order: { column: 'issue_date', ascending: false }, limit: 500 });
+        if (data) this.bills = data;
+        const este = this.bills.some(b => b.status === 'review' && b.extract_status === 'pending');
+        if (Danubra.route === 'costs' && this.tab === 'bills') {
+          const open = this._reviewOpen && this.bills.find(b => b.id === this._reviewOpen);
+          if (open && open.extract_status !== 'pending' && document.getElementById('br-form-wait')) {
+            this.reviewBill(open.id);
+          }
+          const box = document.getElementById('bill-review');
+          if (box) box.outerHTML = this.reviewHtml(DanubraBills.queue(this.bills, Danubra._dayISO()));
+        }
+        // Po troch minútach to vzdá — niečo sa pokazilo a treba to vidieť.
+        if (este && kolo < 60) this._poll = setTimeout(krok, 3000);
+        else { this._poll = null; if (Danubra.route === 'costs') Danubra.renderRoute(); }
+      };
+      this._poll = setTimeout(krok, 3000);
+    },
+
+    /** Karta „Na kontrolu": čo je nahraté a ešte nepotvrdené. */
+    reviewHtml(q) {
+      const list = (q && q.review) || [];
+      if (!list.length) return '<div id="bill-review"></div>';
+      const s = Danubra.supplier() || {};
+      const riadok = (b) => {
+        const x = b.extracted || {};
+        const kto = this.workerOf(b.worker_id).full_name || b.supplier_name || x._file || 'Faktúra';
+        let stav;
+        if (b.extract_status === 'pending') stav = `<span class="br-reading">${Icon('clock', 13)} Čítam…</span>`;
+        else if (b.extract_status === 'error') stav = `<span style="color:var(--red);">${Icon('alert', 13)} Nepodarilo sa prečítať</span>`;
+        else {
+          const w = DanubraExtract.warnings(x, { worker: b.worker_id ? this.workerOf(b.worker_id) : null,
+            company: { ico: s.company_id }, bills: this.bills, selfId: b.id });
+          stav = w.length ? `<span style="color:var(--amber);">${Icon('alert', 13)} ${w.length} na overenie</span>`
+            : `<span style="color:var(--green);">${Icon('check', 13)} Prečítaná</span>`;
+        }
+        return `<button class="list-row br-row" onclick="Cost.reviewBill('${b.id}')">
+          <span style="flex:1;min-width:0;"><strong>${UI.esc(kto)}</strong>
+            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">
+              ${b.bill_number ? `${UI.esc(b.bill_number)} · ` : ''}${Number(b.amount) ? Money.format(Money.toCents(b.amount)) : '—'}
+              ${b.due_date ? ` · splatná ${UI.date(b.due_date)}` : ''}</span></span>
+          <span class="br-state">${stav}</span>
+          <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+      };
+      return `<div class="card br-card" id="bill-review">
+        <div class="br-head">${Icon('doc', 15)} Na kontrolu <em>${list.length}</em>
+          <span>Appka faktúru prečítala — skontrolujte a potvrďte.</span></div>
+        ${list.map(riadok).join('')}
+      </div>`;
+    },
+
+    /** Kontrola nahratej faktúry: vľavo doklad, vpravo čo z neho appka prečítala. */
+    reviewBill(id) {
+      const b = this.bills.find(x => x.id === id);
+      if (!b) return UI.toast('Nenájdené', 'err');
+      this._reviewOpen = id;
+      const x = b.extracted || {};
+      const s = Danubra.supplier() || {};
+      const worker = b.worker_id ? this.workerOf(b.worker_id) : null;
+      const periods = this.periods.filter(p => p.status !== 'open')
+        .map(p => [p.id, `${this.subOf(p.subcontract_id).title || 'Zákazka'} · ${UI.dateRange(p.period_from, p.period_to)}`]);
+
+      if (b.extract_status === 'pending') {
+        UI.modal('Čítam faktúru…', `
+          <div id="br-form-wait" class="regimebox">${Icon('clock', 14)} Appka práve číta
+            <b>${UI.esc(x._file || 'súbor')}</b>. Zvyčajne to trvá do pol minúty — okno sa
+            samo obnoví, keď bude hotovo.</div>
+          <div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`);
+        return;
+      }
+
+      const warn = b.extract_status === 'done'
+        ? DanubraExtract.warnings(x, { worker, company: { ico: s.company_id }, bills: this.bills, selfId: b.id }) : [];
+      const how = x._match === 'ico' ? 'podľa IČO' : x._match === 'iban' ? 'podľa IBAN-u'
+        : x._match === 'name' ? 'podľa mena — overte' : null;
+
+      const body = `
+        <div class="br-grid">
+          <div class="br-doc" id="br-doc"><div class="br-doc-wait">${Icon('doc', 18)} Načítavam doklad…</div></div>
+          <form id="br-form" onsubmit="event.preventDefault();Cost.confirmReview('${b.id}')">
+            ${b.extract_status === 'error' ? `<div class="warnbox br-warn">
+              <div>${Icon('alert', 14)}<span>${UI.esc(b.extract_error || 'Faktúru sa nepodarilo prečítať.')}</span></div>
+              <div style="font-weight:400;">Doplňte údaje ručne podľa dokladu, alebo
+              <a href="#" onclick="event.preventDefault();Cost.rereadBill('${b.id}')">skúste to znova</a>.</div></div>` : ''}
+            ${warn.length ? `<div class="warnbox br-warn">
+              ${warn.map(t => `<div>${Icon('alert', 13)}<span>${UI.esc(t)}</span></div>`).join('')}</div>` : ''}
+            ${x.note ? `<div class="notebox" style="margin:0 0 12px;">${UI.esc(x.note)}</div>` : ''}
+
+            <div class="form-section" style="margin-top:0;">Od koho</div>
+            <div class="form-grid">
+              ${UI.field('worker_id', `Živnostník${how && b.worker_id ? ` (${how})` : ''}`, { value: b.worker_id || '', add: 'worker',
+                options: [['', '— nie je živnostník (iný dodávateľ) —'], ...this.workers.map(w => [w.id, w.full_name])] })}
+              ${UI.field('supplier_name', 'Dodávateľ', { value: b.supplier_name || '' })}
+              ${UI.field('supplier_ico', 'IČO', { value: b.supplier_ico || '' })}
+              ${UI.field('supplier_ic_dph', 'IČ DPH', { value: b.supplier_ic_dph || '' })}
+              ${UI.field('supplier_iban', 'IBAN', { value: b.supplier_iban || '' })}
+              ${UI.field('category', 'Druh nákladu', { value: b.category || '',
+                options: [['', '— vyberte —'], ...Enums.options('cost_category')] })}
+            </div>
+
+            <div class="form-section">Faktúra</div>
+            <div class="form-grid">
+              ${UI.field('bill_number', 'Číslo faktúry', { value: b.bill_number || '' })}
+              ${UI.field('variable_symbol', 'Variabilný symbol', { value: b.variable_symbol || '' })}
+              ${UI.field('amount', 'Na úhradu € (s DPH)', { type: 'number', value: Number(b.amount) || '', required: true })}
+              ${UI.field('vat_amount', 'Z toho DPH €', { type: 'number', value: Number(b.vat_amount) || 0 })}
+              ${UI.field('issue_date', 'Vystavená', { type: 'date', value: b.issue_date || '' })}
+              ${UI.field('due_date', 'Splatnosť', { type: 'date', value: b.due_date || '' })}
+              ${UI.field('subcontract_id', 'Zákazka (nepovinné)', { value: b.subcontract_id || '', add: 'subcontract',
+                options: [['', '— žiadna —'], ...this.subcontracts.map(z => [z.id, z.title])] })}
+              ${UI.field('period_id', 'Obdobie hodín (živnostník)', { value: b.period_id || '',
+                options: [['', '— bez obdobia —'], ...periods] })}
+            </div>
+            ${(x.items || []).length ? `<details class="br-items"><summary>Položky na faktúre (${x.items.length})</summary>
+              ${x.items.map(i => `<div><span>${UI.esc(i.description || '—')}</span>
+                <b>${i.total != null ? Money.format(Money.toCents(i.total)) : ''}</b></div>`).join('')}</details>` : ''}
+            ${UI.field('note', 'Poznámka', { type: 'textarea', value: b.note || '' })}
+            <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+              <button type="button" class="btn btn-ghost" style="color:var(--red);margin-right:auto;"
+                onclick="Cost.discardBill('${b.id}')">Zahodiť</button>
+              <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
+              <button type="submit" class="btn btn-primary">${Icon('check')} Potvrdiť faktúru</button>
+            </div>
+          </form>
+        </div>`;
+      UI.modal(`Skontrolovať faktúru${x._file ? ` · ${x._file}` : ''}`, body, { wide: true });
+      // Doklad a formulár vedľa seba — na to je bežné okno úzke.
+      const cards = document.querySelectorAll('.modal-card');
+      if (cards.length) cards[cards.length - 1].classList.add('modal-xl');
+      this.paintDoc(b);
+    },
+
+    /** Náhľad dokladu z privátneho úložiska (krátkodobý podpísaný odkaz). */
+    async paintDoc(b) {
+      const el = document.getElementById('br-doc');
+      if (!el) return;
+      const { url } = await DB.signedDocUrl(b.storage_path, 900);
+      if (!url) { el.innerHTML = `<div class="br-doc-wait">${Icon('alert', 16)} Doklad sa nedá zobraziť.</div>`; return; }
+      if (b.source === 'image') el.innerHTML = `<img src="${UI.esc(url)}" alt="Faktúra">`;
+      else if (b.source === 'xml') {
+        el.innerHTML = `<div class="br-doc-wait">${Icon('doc', 16)} E-faktúra (XML) — údaje sa prečítali
+          priamo zo súboru, bez odhadu.<br><a href="${UI.esc(url)}" target="_blank" rel="noopener">Stiahnuť XML</a></div>`;
+      } else {
+        el.innerHTML = `<iframe src="${UI.esc(url)}#view=FitH" title="Faktúra"></iframe>
+          <a class="br-doc-open" href="${UI.esc(url)}" target="_blank" rel="noopener">${Icon('doc', 13)} Otvoriť v novom okne</a>`;
+      }
+    },
+
+    async confirmReview(id) {
+      const d = UI.formData(document.getElementById('br-form'));
+      const amount = Number(d.amount);
+      if (!(amount > 0)) return UI.toast('Doplňte sumu na úhradu', 'err');
+      if (!d.worker_id && !String(d.supplier_name || '').trim()) {
+        return UI.toast('Vyberte živnostníka alebo napíšte dodávateľa', 'err');
+      }
+      const payload = { ...d, amount, vat_amount: Number(d.vat_amount) || 0 };
+      payload.base_amount = Math.round((amount - payload.vat_amount) * 100) / 100;
+      payload.supplier_iban = DanubraExtract.ibanClean(d.supplier_iban) || null;
+      ['worker_id', 'issue_date', 'due_date', 'period_id', 'subcontract_id', 'category',
+        'supplier_name', 'supplier_ico', 'supplier_ic_dph', 'bill_number', 'variable_symbol']
+        .forEach(k => { if (payload[k] === '') payload[k] = null; });
+      if (payload.worker_id && !payload.category) payload.category = 'work';
+      if (payload.period_id) {
+        const p = this.periods.find(x => x.id === payload.period_id);
+        if (p) payload.subcontract_id = p.subcontract_id;
+      }
+      Object.assign(payload, { status: 'received', confirmed_at: new Date().toISOString(),
+        confirmed_by: Danubra.user?.id || null });
+      const { error } = await DB.update('bills', id, payload);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      this._reviewOpen = null;
+      UI.closeModal();
+      this.loaded = false; await this.load();
+      const dalsia = this.bills.find(b => b.status === 'review' && b.extract_status !== 'pending');
+      UI.toast(dalsia ? 'Potvrdená — otváram ďalšiu' : 'Faktúra potvrdená', 'ok');
+      Danubra.renderRoute();
+      if (dalsia) setTimeout(() => this.reviewBill(dalsia.id), 150);
+    },
+
+    /** Zahodená sa nemaže — doklad zostane, len sa nepočíta. */
+    async discardBill(id) {
+      const why = await UI.ask('Prečo ju zahadzujete? (napr. „nahratá dvakrát", „nie je to faktúra")');
+      if (why == null) return;
+      const b = this.bills.find(x => x.id === id) || {};
+      const note = [b.note, `Zahodená: ${why.trim() || 'bez dôvodu'}`].filter(Boolean).join('\n');
+      const { error } = await DB.update('bills', id, { status: 'discarded', note });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      this._reviewOpen = null;
+      UI.closeModal(); UI.toast('Zahodená', 'ok');
+      this.loaded = false; await this.load(); Danubra.renderRoute();
+    },
+
+    async rereadBill(id) {
+      const { error } = await DB.update('bills', id, { extract_status: 'pending', extract_error: null });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      this.read(id);
+      const b = this.bills.find(x => x.id === id);
+      if (b) { b.extract_status = 'pending'; b.extract_error = null; }
+      this.reviewBill(id);
+      this.pollIfReading();
+    },
+
+    async openDoc(id) {
+      const b = this.bills.find(x => x.id === id);
+      if (!b || !b.storage_path) return;
+      const { url } = await DB.signedDocUrl(b.storage_path, 900);
+      if (url) window.open(url, '_blank', 'noopener'); else UI.toast('Doklad sa nedá otvoriť', 'err');
     },
 
     billDetail(id) {
@@ -247,8 +538,12 @@
           : '<div class="regimebox" style="margin-top:12px;">Faktúra sedí a má všetko, čo treba.</div>'}
 
         <div class="kv" style="margin-top:14px;">
-          <div><span>Živnostník</span><strong>${UI.esc(w.full_name || '—')}</strong></div>
-          ${w.company_id ? `<div><span>IČO</span><strong>${UI.esc(w.company_id)}</strong></div>` : ''}
+          ${b.worker_id ? `<div><span>Živnostník</span><strong>${UI.esc(w.full_name || '—')}</strong></div>`
+            : `<div><span>Dodávateľ</span><strong>${UI.esc(b.supplier_name || '—')}</strong></div>`}
+          ${(w.company_id || b.supplier_ico) ? `<div><span>IČO</span><strong>${UI.esc(w.company_id || b.supplier_ico)}</strong></div>` : ''}
+          ${b.category ? `<div><span>Druh</span><strong>${UI.esc(Enums.label('cost_category', b.category))}</strong></div>` : ''}
+          ${b.variable_symbol ? `<div><span>VS</span><strong class="mono">${UI.esc(b.variable_symbol)}</strong></div>` : ''}
+          ${b.supplier_iban ? `<div><span>IBAN</span><strong class="mono">${UI.esc(b.supplier_iban)}</strong></div>` : ''}
           ${b.issue_date ? `<div><span>Vystavená</span><strong>${UI.date(b.issue_date)}</strong></div>` : ''}
           ${b.due_date ? `<div><span>Splatnosť</span><strong>${UI.date(b.due_date)}</strong></div>` : ''}
           ${this.periodLabel(b.period_id) ? `<div><span>Obdobie</span><strong>${this.periodLabel(b.period_id)}</strong></div>` : ''}
@@ -257,10 +552,11 @@
         ${b.note ? `<div class="notebox">${UI.esc(b.note)}</div>` : ''}
 
         <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+          ${b.storage_path ? `<button class="btn btn-outline btn-sm" onclick="Cost.openDoc('${b.id}')">${Icon('doc')} Doklad</button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="Cost.billForm('${b.id}')">Upraviť</button>
           ${next ? `<button class="btn btn-primary btn-sm" onclick="Cost.setBillStatus('${b.id}','${next}')">${nextLabel}</button>` : ''}
         </div>`;
-      UI.modal(`Faktúra od ${w.full_name || 'živnostníka'}`, body, { wide: true });
+      UI.modal(`Faktúra od ${w.full_name || b.supplier_name || 'dodávateľa'}`, body, { wide: true });
     },
 
     /**
@@ -304,8 +600,12 @@
             Keď faktúru naviažeš na uzavreté obdobie, appka ju hneď porovná
             so schválenými hodinami. Bez obdobia sa schvaľuje naslepo.</div>
           <div class="form-grid">
-            ${UI.field('worker_id', 'Od koho', { value: b.worker_id, required: true, add: 'worker',
-              options: [['', '— vyber —'], ...this.workers.map(w => [w.id, w.full_name])] })}
+            ${UI.field('worker_id', 'Živnostník', { value: b.worker_id, add: 'worker',
+              options: [['', '— nie je živnostník (iný dodávateľ) —'], ...this.workers.map(w => [w.id, w.full_name])] })}
+            ${UI.field('supplier_name', 'Dodávateľ (ak nie je živnostník)', { value: b.supplier_name })}
+            ${UI.field('category', 'Druh nákladu', { value: b.category || '',
+              options: [['', '— vyberte —'], ...Enums.options('cost_category')] })}
+            ${UI.field('variable_symbol', 'Variabilný symbol', { value: b.variable_symbol })}
             ${UI.field('bill_number', 'Ich číslo faktúry', { value: b.bill_number })}
             ${UI.field('amount', 'Suma €', { type: 'number', value: b.amount, required: true })}
             ${UI.field('period_id', 'Obdobie', { value: b.period_id,
@@ -350,11 +650,15 @@
 
     async saveBill(id) {
       const d = UI.formData(document.getElementById('bill-form'));
-      if (!d.worker_id) return UI.toast('Vyber, od koho faktúra je', 'err');
-      if (!d.amount) return UI.toast('Zadaj sumu', 'err');
+      if (!d.worker_id && !String(d.supplier_name || '').trim()) {
+        return UI.toast('Vyberte živnostníka alebo napíšte dodávateľa', 'err');
+      }
+      if (!d.amount) return UI.toast('Zadajte sumu', 'err');
       const payload = { ...d };
       payload.amount = Number(d.amount);
-      ['issue_date', 'due_date', 'period_id'].forEach(k => { if (payload[k] === '') payload[k] = null; });
+      ['worker_id', 'issue_date', 'due_date', 'period_id', 'category', 'supplier_name', 'variable_symbol']
+        .forEach(k => { if (payload[k] === '') payload[k] = null; });
+      if (payload.worker_id && !payload.category) payload.category = 'work';
       // Zákazku odvodíme z obdobia — nech sa nezadáva dvakrát.
       if (payload.period_id) {
         const p = this.periods.find(x => x.id === payload.period_id);

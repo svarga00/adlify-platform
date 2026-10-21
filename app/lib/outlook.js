@@ -294,7 +294,7 @@
       { key: 'start', label: 'Na účte dnes', value: start, kind: 'level' },
       { key: 'late', label: 'Po splatnosti', value: sum.lateIn + sum.lateOut, kind: 'delta' },
       { key: 'in', label: 'Príde z faktúr', value: sum.invoices + sum.otherIn, kind: 'delta' },
-      { key: 'bills', label: 'Živnostníkom', value: sum.bills, kind: 'delta' },
+      { key: 'bills', label: 'Prijaté faktúry', value: sum.bills, kind: 'delta' },
       { key: 'costs', label: 'Náklady', value: sum.costs + sum.otherOut, kind: 'delta' },
       { key: 'end', label: `O ${horizon} týždňov`, value: w.endBalance, kind: 'level' },
     ].filter(s => s.kind === 'level' || s.value !== 0);

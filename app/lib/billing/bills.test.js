@@ -297,5 +297,23 @@ console.log('Prijaté faktúry a náklady');
   eq(poradie.next.bill.id, 'stara', 'na rade je tá s najstaršou splatnosťou');
 }
 
+// ── Nahraté z PDF čakajú na kontrolu ───────────────────────────────────────
+{
+  const DNES = '2026-10-21';
+  const q = B.queue([
+    { id: 'r1', status: 'review', extract_status: 'pending', amount: 0 },
+    { id: 'r2', status: 'review', extract_status: 'done', amount: 500 },
+    { id: 'z', status: 'discarded', amount: 999 },
+    { id: 'p', status: 'approved', amount: 100, due_date: '2020-01-01' },
+  ], DNES);
+  eq(q.next.key, 'review', 'nahraté faktúry idú pred platbami — inak sa na ne zabudne');
+  eq(q.next.bill.id, 'r2', 'otvorí sa tá, ktorá je už prečítaná');
+  ok(/1 sa ešte číta/.test(q.next.what), 'povie, že sa ešte číta', q.next.what);
+  eq(q.review.length, 2, 'zahodená sa nepočíta');
+  ok(!q.toPay.some(b => b.id === 'z'), 'zahodená sa neplatí');
+  eq(B.queue([{ id: 'd', status: 'disputed', amount: 1 }, { id: 'r', status: 'review', amount: 1 }], DNES).next.key,
+    'disputed', 'sporná má prednosť');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);
