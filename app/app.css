@@ -3297,3 +3297,13 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   border: 1.5px solid var(--blue); border-radius: var(--radius-lg); }
 .cq2-rest { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
   color: var(--ink-mute); margin: 4px 0 8px; }
+.opp-card-acts { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.opp-del { width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--radius-sm);
+  border: 1px solid transparent; background: none; color: var(--ink-mute); cursor: pointer; }
+.opp-del:hover { border-color: var(--red); color: var(--red); background: var(--red-50); }
+.acc-card.is-archived { opacity: .75; }
+.opp-arch-note { font-size: 12.5px; color: var(--ink-mute); margin: -4px 0 8px; }
+.opp-why { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.opp-why-opt { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.opp-why-text { flex: 1; min-width: 0; padding: 6px 9px; font: inherit; font-size: 13.5px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); }
