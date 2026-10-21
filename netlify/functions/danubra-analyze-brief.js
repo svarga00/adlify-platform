@@ -261,7 +261,7 @@ async function analyze(brief, plan, supplier, trades) {
  * sa píšu minútu aj dve a bežná funkcia na Netlify skončí skôr (504). Na
  * pozadí môže bežať až pätnásť minút.
  */
-async function run(planId) {
+async function run(planId, { regen = false } = {}) {
   if (!planId) throw new Error('Chýba planId');
   if (!process.env.ANTHROPIC_API_KEY) {
     // Bez kľúča to nie je chyba — appka to povie a podklady sa dajú písať
@@ -288,12 +288,25 @@ async function run(planId) {
 
   // ── Zhrnutie zákazky ────────────────────────────────────────────────
   // Údaj, ktorý už človek vyplnil, sa neprepíše — model dopĺňa, neprepisuje.
+  //
+  // **Pregenerovanie** (`regen`): človek dopísal do zadania, čo chýbalo, a
+  // chce podklady podľa nového zadania. Vtedy sa prepíše to, čo napísala
+  // appka — ale nie to, čo človek v zhrnutí sám upravil (`_human`). Stará
+  // hodnota sa odloží do `_predtym`, nič sa nestratí.
   const facts = { ...(plan.analysis || {}) };
+  const human = facts._human || {};
+  const predtym = {};
   for (const k of FACTS) {
     const nove = String((out.facts || {})[k] || '').trim();
     const stare = String(facts[k] || '').trim();
-    if (!stare && nove) facts[k] = nove;
+    if (!nove) continue;
+    if (!stare) facts[k] = nove;
+    else if (regen && !human[k] && stare !== nove) { predtym[k] = stare; facts[k] = nove; }
   }
+  if (Object.keys(predtym).length) facts._predtym = { ...(facts._predtym || {}), ...predtym };
+  // Zadanie, z ktorého podklady vznikli — appka podľa neho pozná, že sa
+  // odvtedy zmenilo a podklady treba pregenerovať.
+  facts._brief = plan.brief;
   if (Array.isArray(out.risks) && out.risks.length) facts._risks = out.risks;
   if (Array.isArray(out.ask) && out.ask.length) facts._ask = out.ask;
 
@@ -303,12 +316,17 @@ async function run(planId) {
   // ktorú si model domyslí, by sa dostala do marže aj do inzerátu.
   const planPatch = {};
   const navrh = out.plan || {};
+  // Čo do polí náboru vyplnila appka minule. Pri pregenerovaní sa smie
+  // prepísať len hodnota, ktorá je stále tá od appky — človekom zmenená nie.
+  const odAppky = facts._ai_plan || {};
   const platneRemeslo = (k) => (trades || []).some(t => t.key === k);
   for (const k of PLAN_FIELDS) {
     const nove = navrh[k];
     if (nove === undefined || nove === null || nove === '') continue;
     const stare = plan[k];
-    if (stare !== null && stare !== undefined && stare !== '') continue;
+    const prazdne = stare === null || stare === undefined || stare === '';
+    const zAppky = regen && odAppky[k] !== undefined && String(odAppky[k]) === String(stare);
+    if (!prazdne && !zAppky) continue;
     if (k === 'trade_key' && !platneRemeslo(nove)) continue;
     if ((k === 'offer_rate' || k === 'client_rate') && !(Number(nove) > 0)) continue;
     if (k === 'headcount' && !(Number(nove) > 0)) continue;
@@ -323,6 +341,7 @@ async function run(planId) {
     if (spolu.length !== uz.length) planPatch.channels = spolu;
   }
 
+  facts._ai_plan = { ...odAppky, ...planPatch };
   await supabase.from('danubra_recruitment_plans').update({
     ...planPatch,
     analysis: facts,
@@ -334,7 +353,22 @@ async function run(planId) {
     .from('danubra_plan_assets')
     .select('id,channel,block,body,source,approved_at')
     .eq('plan_id', planId).is('archived_at', null);
-  const mam = new Set((existing || []).map(a => `${a.channel}:${a.block}`));
+  // Pri pregenerovaní sa návrhy od appky, ktoré nikto neupravil ani
+  // neschválil, odložia do archívu (nemažú sa) a napíšu sa nové. Čo človek
+  // upravil (`source: 'human'`) alebo schválil, ostáva.
+  let zaloha = 0;
+  if (regen) {
+    const stare = (existing || []).filter(a => a.source === 'ai' && !a.approved_at);
+    if (stare.length) {
+      const { error: ea } = await supabase.from('danubra_plan_assets')
+        .update({ archived_at: new Date().toISOString() }).in('id', stare.map(a => a.id));
+      if (ea) throw new Error(ea.message);
+      zaloha = stare.length;
+    }
+  }
+  const ostava = regen
+    ? (existing || []).filter(a => !(a.source === 'ai' && !a.approved_at)) : (existing || []);
+  const mam = new Set(ostava.map(a => `${a.channel}:${a.block}`));
 
   const rows = [];
   for (const b of (out.blocks || [])) {
@@ -398,6 +432,9 @@ async function run(planId) {
 
   return {
     blocks: rows.length,
+    replaced: zaloha,
+    kept: regen ? ostava.length : 0,
+    regen,
     plan: Object.keys(planPatch),
     questions: otazky,
     facts: FACTS.filter(k => facts[k]).length,
@@ -431,8 +468,8 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
   try {
-    const { planId } = JSON.parse(event.body || '{}');
-    return { statusCode: 200, headers: cors, body: JSON.stringify(await run(planId)) };
+    const { planId, regen } = JSON.parse(event.body || '{}');
+    return { statusCode: 200, headers: cors, body: JSON.stringify(await run(planId, { regen: !!regen })) };
   } catch (e) {
     return { statusCode: 500, headers: cors, body: JSON.stringify({ error: e.message }) };
   }
