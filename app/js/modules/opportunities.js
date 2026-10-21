@@ -39,6 +39,11 @@
     },
     badge(s) { const m = O.status(s); return UI.badge(m[1], m[2]); },
 
+    // Odstránené dopyty (`archived_at`) v zozname ani v počítadlách nie sú —
+    // fyzicky sa ale nemažú a dajú sa vrátiť (migrácia 048).
+    live() { return this.items.filter(x => !x.archived_at); },
+    archived() { return this.items.filter(x => x.archived_at); },
+
     // ── Zoznam ────────────────────────────────────────────────────────────
     async view(el) {
       Danubra.setActions(`
@@ -49,9 +54,11 @@
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       if (this.openId) return this.profile(el, this.openId);
 
-      const q = O.nowNext(this.items, Danubra._dayISO());
-      const s = O.summary(this.items);
+      const live = this.live();
+      const q = O.nowNext(live, Danubra._dayISO());
+      const s = O.summary(live);
       const rows = this.rows();
+      const odlozene = this.archived().length;
 
       el.innerHTML = Danubra.header('Dopyty',
         `${s.live} ${Shell.plural(s.live, 'rozpracovaná', 'rozpracované', 'rozpracovaných')}`
@@ -61,13 +68,15 @@
           <button class="pill${!this.filters.status ? ' active' : ''}"
             onclick="Opp.setF('status','')">Všetky</button>
           ${O.STATUS.map(st => {
-            const n = this.items.filter(x => x.status === st[0]).length;
+            const n = live.filter(x => x.status === st[0]).length;
             return n ? `<button class="pill${this.filters.status === st[0] ? ' active' : ''}"
               onclick="Opp.setF('status','${st[0]}')">${st[1]} ${n}</button>` : '';
           }).join('')}
+          ${odlozene ? `<button class="pill${this.filters.status === '__arch' ? ' active' : ''}"
+            onclick="Opp.setF('status','__arch')">${Icon('trash', 12)} Odstránené ${odlozene}</button>` : ''}
         </div>
         ${rows.length === 0
-          ? (this.items.length
+          ? (live.length || this.filters.status === '__arch'
               ? UI.empty('search', 'Filtru nič nesedí', 'Skús iný stav.')
               : UI.empty('offers', 'Zatiaľ žiadne dopyty',
                   'Keď sa niekto ozve, zapíš to sem — aj keď o tom vieš málo. '
@@ -78,7 +87,10 @@
 
     rows() {
       const f = this.filters;
-      return Shell.filterRows(this.items, {
+      if (f.status === '__arch') {
+        return Shell.filterRows(this.archived(), { q: f.q, fields: ['title', 'company_name', 'city'] });
+      }
+      return Shell.filterRows(this.live(), {
         q: f.q, fields: ['title', 'company_name', 'city'],
         equals: { status: f.status },
       });
@@ -101,14 +113,23 @@
       const chyba = O.missing(x);
       const m = O.margin(x);
       return `
-        <div class="acc-card card" onclick="Opp.detail('${x.id}')">
+        <div class="acc-card card${x.archived_at ? ' is-archived' : ''}" onclick="Opp.detail('${x.id}')">
           <div class="acc-card-head">
             <div style="min-width:0;">
               <div class="acc-name">${UI.esc(x.title)}</div>
               <div class="acc-loc">${UI.esc(x.company_name || 'firma nezadaná')}</div>
             </div>
-            ${this.badge(x.status)}
+            <span class="opp-card-acts">
+              ${x.archived_at ? UI.badge('odstránený', 'gray') : this.badge(x.status)}
+              ${x.archived_at
+                ? `<button class="btn btn-outline btn-sm" title="Vrátiť do zoznamu"
+                    onclick="event.stopPropagation();Opp.restore('${x.id}')">${Icon('repeat', 13)} Vrátiť</button>`
+                : `<button class="opp-del" title="Odstrániť dopyt" aria-label="Odstrániť dopyt"
+                    onclick="event.stopPropagation();Opp.archiveForm('${x.id}')">${Icon('trash', 15)}</button>`}
+            </span>
           </div>
+          ${x.archived_at ? `<div class="opp-arch-note">Odstránené ${UI.date(x.archived_at)}${
+            x.archived_reason ? ` · ${UI.esc(x.archived_reason)}` : ''}</div>` : ''}
           <div class="acc-meta">
             ${x.trade_key ? `<span>${Icon('wrench', 14)} ${UI.esc(this.tradeName(x.trade_key))}</span>` : ''}
             ${x.headcount ? `<span>${Icon('user', 14)} ${x.headcount}</span>` : ''}
@@ -570,7 +591,10 @@
       if (!x) { this.openId = null; return UI.toast('Nenájdené', 'err'); }
 
       Danubra.setActions(`
-        <button class="btn btn-ghost btn-sm" onclick="Opp.closeProfile()">${Icon('back', 15)} Späť</button>`);
+        <button class="btn btn-ghost btn-sm" onclick="Opp.closeProfile()">${Icon('back', 15)} Späť</button>
+        ${x.archived_at
+          ? `<button class="btn btn-outline btn-sm" onclick="Opp.restore('${x.id}')">${Icon('repeat', 14)} Vrátiť do zoznamu</button>`
+          : `<button class="btn btn-outline btn-sm" onclick="Opp.archiveForm('${x.id}')">${Icon('trash', 14)} Odstrániť</button>`}`);
 
       const v = O.verification(x);
       const chyba = O.missing(x);
@@ -668,6 +692,75 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       const x = this.items.find(o => o.id === id); if (x) x.brief = el.value;
       UI.toast('Uložené', 'ok');
+    },
+
+    // ── Odstránenie ───────────────────────────────────────────────────────
+    /**
+     * Okno pred odstránením: prečo a či zrušiť aj nábor, ktorý z dopytu
+     * vznikol. Dopyt sa nemaže — odloží sa a dá sa vrátiť.
+     */
+    archiveForm(id) {
+      const x = this.items.find(o => o.id === id);
+      if (!x) return;
+      const nabor = x.plan_id && window.Hire ? (Hire.plans || []).find(p => p.id === x.plan_id) : null;
+      const DOVODY = ['Duplicita — ten istý dopyt je tu dvakrát', 'Zapísané omylom', 'Odberateľ to zrušil'];
+      UI.modal('Odstrániť dopyt?', `
+        <p style="margin:0 0 12px;font-size:14px;"><b>${UI.esc(x.title)}</b></p>
+        <div class="regimebox">Zo zoznamu aj z počítadiel zmizne. Nič sa nemaže —
+          nájdeš ho pod „Odstránené" a dá sa vrátiť.</div>
+        <div class="form-section">Prečo</div>
+        <div class="opp-why">
+          ${DOVODY.map((d, i) => `<label class="opp-why-opt"><input type="radio" name="opp-why"
+            value="${UI.esc(d)}" ${i === 0 ? 'checked' : ''}> ${UI.esc(d)}</label>`).join('')}
+          <label class="opp-why-opt"><input type="radio" name="opp-why" value="__ine"> Iný dôvod:
+            <input id="opp-why-text" class="opp-why-text" placeholder="napíš krátko"
+              onfocus="document.querySelector('input[name=opp-why][value=__ine]').checked=true"></label>
+        </div>
+        ${x.plan_id ? `<label class="chk" style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
+          <input type="checkbox" id="opp-plan-too" checked>
+          <span>Zrušiť aj nábor${nabor ? ` „${UI.esc(nabor.title)}"` : ''}, ktorý z neho vznikol.
+            <em style="display:block;font-style:normal;color:var(--ink-mute);font-size:12.5px;">
+            Nábor sa nezmaže — dostane stav „zrušený" a texty ostanú.</em></span></label>` : ''}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Nechať</button>
+          <button class="btn btn-danger" onclick="Opp.archive('${x.id}')">${Icon('trash', 14)} Odstrániť</button>
+        </div>`);
+    },
+
+    async archive(id) {
+      const x = this.items.find(o => o.id === id);
+      if (!x) return;
+      const volba = document.querySelector('input[name=opp-why]:checked');
+      let dovod = volba ? volba.value : '';
+      if (dovod === '__ine') dovod = (document.getElementById('opp-why-text')?.value || '').trim() || 'iný dôvod';
+      const ajNabor = !!document.getElementById('opp-plan-too')?.checked;
+
+      const patch = { archived_at: new Date().toISOString(), archived_reason: dovod || null };
+      const { error } = await DB.update('opportunities', id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      Object.assign(x, patch);
+      if (ajNabor && x.plan_id) {
+        const { error: ep } = await DB.update('recruitment_plans', x.plan_id, { status: 'cancelled' });
+        if (ep) UI.toast('Dopyt je odstránený, ale nábor sa nezrušil: ' + ep.message, 'err');
+        if (window.Hire) Hire.loaded = false;
+      }
+      UI.closeModal();
+      this.openId = null;
+      UI.toast('Dopyt je odstránený — nájdeš ho pod „Odstránené"', 'ok');
+      Danubra._chain = null;
+      Danubra.renderRoute();
+    },
+
+    async restore(id) {
+      const x = this.items.find(o => o.id === id);
+      if (!x) return;
+      const { error } = await DB.update('opportunities', id, { archived_at: null, archived_reason: null });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      x.archived_at = null; x.archived_reason = null;
+      if (!this.archived().length && this.filters.status === '__arch') this.filters.status = '';
+      UI.toast('Dopyt je späť v zozname. Nábor, ak bol zrušený, obnov v Nábore.', 'ok');
+      Danubra._chain = null;
+      Danubra.renderRoute();
     },
 
     async setStatus(id, status) {

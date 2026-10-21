@@ -2966,7 +2966,8 @@ window.Danubra = {
   async _flowLoad() {
     const [opp, ads, plans, cands, wrk, docs, prt, quo, con, subs, asg, ts, per, inv, bills] =
       await Promise.all([
-        DB.list('opportunities', { select: 'id,status', limit: 300 }),
+        // Odstránené dopyty (migrácia 048) sa do reťazca nepočítajú.
+        DB.list('opportunities', { select: 'id,status,archived_at', limit: 300 }),
         DB.list('ads', { select: 'id,active', limit: 300 }),
         DB.list('recruitment_plans', { select: 'id,status,headcount', limit: 200 }),
         DB.list('candidates', {
@@ -2992,7 +2993,7 @@ window.Danubra = {
     const S = (r) => r.data || [];
     return {
       today: this._dayISO(),
-      opportunities: S(opp),
+      opportunities: S(opp).filter(o => !o.archived_at),
       ads: S(ads), plans: S(plans), candidates: S(cands), workers: S(wrk),
       documents: S(docs), partners: S(prt), quotes: S(quo), contracts: S(con),
       subcontracts: S(subs), assignments: S(asg), timesheets: S(ts),
