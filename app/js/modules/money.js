@@ -134,6 +134,9 @@
               ${open ? g.rows.map(riadok).join('') : ''}</div>`;
           }).join('') : `<p class="due-none">${empty}</p>`}
         </div>`;
+      const platby = d.pay.ready.length ? `<button class="due-paybtn" onclick="Bank.payForm()">
+          ${Icon('download', 14)} Pripraviť platby pre banku · ${d.pay.ready.length}
+          ${Shell.plural(d.pay.ready.length, 'schválená', 'schválené', 'schválených')}</button>` : '';
       const review = d.pay.review ? `<button class="due-review" onclick="Danubra.go('costs')">
           ${Icon('doc', 14)} ${d.pay.review} ${Shell.plural(d.pay.review, 'nahratá faktúra čaká', 'nahraté faktúry čakajú', 'nahratých faktúr čaká')}
           na kontrolu — do súm sa ráta až po potvrdení</button>` : '';
@@ -141,7 +144,7 @@
         ${Danubra._cardHead('wallet', 'Čo zaplatiť a na čo čakáme', '', '', '', 'card.money.dues')}
         <p class="due-sentence">${UI.esc(DanubraDues.sentence(d))}</p>
         <div class="due-grid">
-          ${stlpec('pay', 'Zaplatiť', 'receipt', d.pay, 'Nič netreba platiť.', review)}
+          ${stlpec('pay', 'Zaplatiť', 'receipt', d.pay, 'Nič netreba platiť.', review + platby)}
           ${stlpec('wait', 'Čakáme', 'invoices', d.wait, 'Nikto nám nič nedlhuje.')}
         </div>
         <p class="card-note">Zaplatiť = prijaté faktúry od živnostníkov a dodávateľov, ktoré ešte
