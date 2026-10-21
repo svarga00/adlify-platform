@@ -44,7 +44,7 @@ window.Invoicing = {
 
   /**
    * Faktúra za sprostredkovateľský poplatok z objednávky.
-   * Vzniká ako `issued` — je to priama fakturácia, nie automatický návrh.
+   * Vzniká ako návrh — vystaví sa až po schválení adminom (§5.2), ako každá.
    */
   async createServiceFee(order, client) {
     const r = this.regimeFor(client);
@@ -63,7 +63,7 @@ window.Invoicing = {
     const total = items.reduce((s, i) => s + i.total, 0);
     return this._create({
       order, client, type: 'service_fee', items, total, regime: r.regime,
-      status: 'issued',
+      status: 'draft_pending_approval',
     });
   },
 
@@ -109,13 +109,17 @@ window.Invoicing = {
     const r = this.regimeFor(client);
     return this._create({
       order, inquiry, client, type, items: clean, total,
-      regime: r.regime, status: 'issued', dueDays,
+      regime: r.regime, status: 'draft_pending_approval', dueDays,
     });
   },
 
   /**
    * Faktúra za subdodávku — z potvrdených, ešte nefakturovaných hodín.
    * Nemeckým odberateľom sa fakturuje netto v režime reverse charge §13b.
+   *
+   * Ide do v2 toku (odberateľ + zákazka) ako `pending_approval`: vystaví sa
+   * až po schválení adminom. Predtým vznikala rovno ako vystavená a odberateľa
+   * zapisovala do `client_id` — schvaľovanie sa tak obišlo.
    */
   async createSubcontractInvoice({ subcontract, partner, timesheets, dueDays }) {
     const open = (timesheets || []).filter(t => t.approved && !t.invoiced_at);
@@ -150,7 +154,7 @@ window.Invoicing = {
       ? 'eu_reverse_charge' : 'other';
 
     const res = await this._create({
-      client: partner, type: 'other', items, total, regime, status: 'issued',
+      partner, type: 'other', items, total, regime, status: 'pending_approval',
       dueDays: dueDays ?? partner?.payment_terms_days ?? 30,
       subcontract,
     });
@@ -163,12 +167,14 @@ window.Invoicing = {
     return res;
   },
 
-  async _create({ order, inquiry, client, subcontract, type, items, total, regime, status, billing_period_from, billing_period_to, dueDays = 14 }) {
+  async _create({ order, inquiry, client, partner, subcontract, type, items, total, regime, status, billing_period_from, billing_period_to, dueDays = 14 }) {
     const number = await this.nextNumber();
     const issue = new Date().toISOString().slice(0, 10);
     const { data: inv, error } = await DB.insert('invoices', {
       invoice_number: number,
       client_id: client?.id || order?.client_id || null,
+      partner_id: partner?.id || null,
+      subcontract_id: subcontract?.id || null,
       order_id: order?.id || null,
       type, issue_date: issue, due_date: this._plusDays(dueDays, issue),
       delivery_date: billing_period_to || issue,
@@ -182,12 +188,14 @@ window.Invoicing = {
     await DB.from('invoice_items').insert(rows);
 
     // Záznam do osi tam, kde faktúra vznikla (objednávka, dopyt alebo klient)
-    const note = `Vystavená faktúra ${number} na ${window.DanubraPapers.money(total)}`
-      + (status === 'draft_pending_approval' ? ' (čaká na schválenie)' : '');
+    const caka = ['draft', 'pending_approval', 'draft_pending_approval'].includes(status);
+    const note = `${caka ? 'Návrh faktúry' : 'Vystavená faktúra'} ${number} na ${window.DanubraPapers.money(total)}`
+      + (caka ? ' (čaká na schválenie)' : '');
     const target = order?.id ? ['order', order.id]
       : subcontract?.id ? ['subcontract', subcontract.id]
       : inquiry?.id ? ['inquiry', inquiry.id]
-      : client?.id ? ['client', client.id] : null;
+      : client?.id ? ['client', client.id]
+      : partner?.id ? ['partner', partner.id] : null;
     if (target) {
       await DB.insert('activities', {
         entity_type: target[0], entity_id: target[1], type: 'system', body: note,
