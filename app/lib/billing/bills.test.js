@@ -315,5 +315,17 @@ console.log('Prijaté faktúry a náklady');
     'disputed', 'sporná má prednosť');
 }
 
+// ── Faktúry za živnostníkov ────────────────────────────────────────────────
+{
+  const q = B.queue([
+    { id: 's1', status: 'self_draft', amount: 4000 },
+    { id: 's2', status: 'self_sent', amount: 1000 },
+    { id: 'p', status: 'approved', amount: 100, due_date: '2020-01-01' },
+  ], '2026-10-21');
+  eq(q.next.key, 'self', 'návrh za živnostníka čaká na admina pred platbami');
+  eq([q.selfDraft.length, q.selfSent.length], [1, 1], 'návrhy a odoslané na potvrdenie zvlášť');
+  ok(!q.toPay.some(b => b.id === 's2'), 'nepotvrdená sa ešte neplatí');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

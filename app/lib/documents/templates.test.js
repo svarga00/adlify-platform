@@ -505,5 +505,31 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
     'bez nemeckého variantu sa použije slovenský');
 }
 
+// ── Faktúra za živnostníka ──────────────────────────────────────────────────
+{
+  const bill = {
+    bill_number: 'OV-2026-001', variable_symbol: '2026001', amount: 4000, issue_date: '2026-10-21',
+    due_date: '2026-11-04', delivery_date: '2026-10-19', supplier_iban: 'SK3112000000198742637541',
+    lines: [{ description: 'Wohnpark Feuerbach', activity: 'construction', hours: 160, rate: 25, total: 4000,
+      from: '2026-10-01', to: '2026-10-19' }],
+    extracted: { _self: {
+      worker: { full_name: 'Ján Novák', company_id: '12345678', tax_id: '1122334455', address: 'Hlavná 1',
+        city: 'Nitra', zip: '949 01', iban: 'SK3112000000198742637541', vat_payer: false },
+      company: { name: 'Partner und Service s. r. o.', company_id: '57 553 921', address: 'Podzámska 9468/4A, Nové Zámky' } } },
+  };
+  const html = P.selfInvoice({ bill, worker: { full_name: 'Iné meno na karte' }, contractNo: '2026-093' });
+  const t = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  ok(/Dodávateľ Ján Novák/.test(t) && /Odberateľ Partner und Service/.test(t), 'dodávateľ je živnostník, odberateľ my', t.slice(0, 300));
+  ok(!/Iné meno na karte/.test(t), 'údaje z momentky pri vystavení, nie z dnešnej karty');
+  ok(/vyhotovenie faktúry odberateľom/.test(t), 'na faktúre je, že ju vyhotovil odberateľ');
+  ok(/rámcovej zmluve o dielo č\. 2026-093/.test(t), 'a na základe ktorej zmluvy');
+  ok(/nie je platiteľom DPH/.test(t), 'neplatiteľ DPH');
+  ok(/OV-2026-001/.test(t) && /2026001/.test(t) && /SK3112000000198742637541/.test(t), 'číslo, VS, IBAN');
+  ok(/160/.test(t) && /4\s?000,00/.test(t), 'hodiny a suma');
+  ok(!html.includes('<svg viewBox="0 0 100 100"'), 'bez nášho loga — doklad je jeho');
+  const navrh = P.selfInvoice({ bill: { amount: 10, lines: [] }, worker: { full_name: 'X' } });
+  ok(/NÁVRH/.test(navrh), 'návrh bez čísla je označený');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

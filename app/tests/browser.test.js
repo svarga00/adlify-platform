@@ -3712,6 +3712,70 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+
+    // ── Faktúry za živnostníkov ───────────────────────────────────────────
+    // Návrh zo schválených hodín uzavretého obdobia, vystavuje admin cez
+    // databázovú funkciu, živnostníkovi ide odkaz na potvrdenie.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const res = { rpc: [], zmeny: [] };
+        DB.list = async () => ({ data: [], error: null });
+        DB.rpc = async (n, a) => { res.rpc.push({ n, a }); return { data: n === 'self_bill_issue' ? 'NOVAK-2026-001' : 'nova', error: null }; };
+        DB.update = async (t, id, patch) => { res.zmeny.push({ t, id, patch }); return { data: {}, error: null }; };
+        UI.confirm = async () => true;
+        Danubra.user = { id: 'u1' }; Danubra.route = 'costs';
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        Cost.loaded = true;
+        Cost.workers = [
+          { id: 'w1', full_name: 'Ján Novák', self_billing: true, phone: '+421 900 111 222' },
+          { id: 'w2', full_name: 'Platiteľ DPH', self_billing: true, vat_payer: true },
+          { id: 'w3', full_name: 'Bez dohody' },
+        ];
+        Cost.periods = [{ id: 'p1', subcontract_id: 's1', status: 'closed', period_from: '2026-10-01', period_to: '2026-10-15' },
+          { id: 'p2', subcontract_id: 's1', status: 'open', period_from: '2026-10-16', period_to: '2026-10-31' }];
+        Cost.subcontracts = [{ id: 's1', title: 'Lixenried' }];
+        Cost.timesheets = [
+          { worker_id: 'w1', period_id: 'p1', approved: true, hours: 10 },
+          { worker_id: 'w1', period_id: 'p1', approved: true, hours: 9.5 },
+          { worker_id: 'w1', period_id: 'p2', approved: true, hours: 8 },
+          { worker_id: 'w2', period_id: 'p1', approved: true, hours: 8 },
+          { worker_id: 'w3', period_id: 'p1', approved: true, hours: 8 },
+        ];
+        Cost.bills = [];
+        res.kandidati = Cost.selfCandidates().map(c => `${c.worker.id}:${c.period.id}:${c.hours}`);
+        Cost.selfForm();
+        await Cost.selfDrafts();
+        Cost.bills = [{ id: 'b1', source: 'self_billing', status: 'self_draft', worker_id: 'w1', period_id: 'p1', amount: 487.5,
+          lines: [{ description: 'Lixenried', hours: 19.5, rate: 25, total: 487.5 }] }];
+        Cost.load = async () => {};
+        Cost.billDetail('b1');
+        res.navrh = document.querySelector('.modal-card').innerText;
+        await Cost.selfIssue('b1');
+        Cost.bills[0] = { ...Cost.bills[0], status: 'self_sent', bill_number: 'NOVAK-2026-001', confirm_token: 'a'.repeat(64) };
+        res.sprava = Cost.selfMessage(Cost.bills[0]);
+        res.znova = Cost.selfCandidates().length;
+        UI.closeModal();
+        return res;
+      });
+      ok(out.kandidati.join() === 'w1:p1:19.5',
+        'navrhne sa len živnostník s dohodou, neplatiteľ DPH, z uzavretého obdobia', out.kandidati.join());
+      ok(out.rpc.some(r => r.n === 'self_bill_draft' && r.a.p_worker === 'w1' && r.a.p_period === 'p1'),
+        'návrh pripraví databáza zo schválených hodín');
+      ok(/Schváliť a vystaviť/.test(out.navrh) && /Lixenried/.test(out.navrh), 'návrh sa dá schváliť a vystaviť', out.navrh.slice(0, 200));
+      ok(out.rpc.some(r => r.n === 'self_bill_issue' && r.a.p_bill === 'b1'),
+        'vystavenie ide cez databázu — tá pustí len admina');
+      ok(/potvrdenie\.html\?t=a{64}/.test(out.sprava) && /vystavili faktúru NOVAK-2026-001/.test(out.sprava),
+        'živnostník dostane správu s odkazom na potvrdenie (vykáme)', out.sprava);
+      ok(out.znova === 0, 'za obdobie s faktúrou sa ďalší návrh neponúka');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

@@ -318,6 +318,87 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     return shell(`${L.title} ${inv.invoice_number || ''}`, body);
   }
 
+  // ── FAKTÚRA ZA ŽIVNOSTNÍKA (vyhotovenie faktúry odberateľom) ─────────────
+  /**
+   * Faktúra v mene a na účet živnostníka, ktorú vyhotovujeme my podľa dohody
+   * v rámcovej zmluve (článok V.). Dodávateľ je on, odberateľ my — preto bez
+   * nášho loga v hlavičke: doklad je jeho, nie náš.
+   *
+   * Údaje sa berú z momentky pri vystavení (`bill.extracted._self`), nie
+   * z karty — vystavený doklad sa nemení, keď niekto neskôr opraví adresu.
+   *
+   * @param {Object} o { bill, worker, company, period }
+   */
+  function selfInvoice({ bill = {}, worker = {}, company = {}, period = null, contractNo = '' } = {}) {
+    const snap = (bill.extracted && bill.extracted._self) || {};
+    const w = { ...worker, ...(snap.worker || {}) };
+    const c = { ...company, ...(snap.company || {}) };
+    const lines = Array.isArray(bill.lines) ? bill.lines : [];
+    const ACT = { construction: 'stavebné práce', workshop: 'dielenské práce', travel: 'cesta' };
+    const draft = !bill.bill_number;
+    const rows = lines.map(l => `<tr>
+      <td>${esc(l.description || 'Práce')}${l.activity ? ` — ${esc(ACT[l.activity] || l.activity)}` : ''}
+        ${l.from ? `<div style="font-size:11px;color:#6F7C95">${date(l.from)} – ${date(l.to)}</div>` : ''}</td>
+      <td class="r">${Number(l.hours || 0).toLocaleString('sk-SK')}</td>
+      <td class="r">h</td>
+      <td class="r">${money(l.rate)}</td>
+      <td class="r"><strong>${money(l.total)}</strong></td></tr>`).join('');
+    const meno = w.company_name || w.full_name || '—';
+    const adresa = [w.address, [w.zip, w.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const vs = bill.variable_symbol || String(bill.bill_number || '').replace(/\D/g, '').slice(-10);
+    const body = `
+      <div class="head">
+        <div class="brand"><div><div class="brand-name">${esc(meno)}</div>
+          ${w.company_name && w.full_name && w.company_name !== w.full_name
+            ? `<div class="brand-sub">${esc(w.full_name)}</div>` : ''}</div></div>
+        <div class="doc-title"><h1>Faktúra</h1>
+          <div class="num">${esc(bill.bill_number || 'NÁVRH — ešte nevystavená')}</div>
+          <div style="font-size:11.5px;color:#6F7C95;">vyhotovenie faktúry odberateľom</div>
+        </div></div>
+      ${draft ? '<p class="todo">Návrh. Číslo dostane faktúra až pri vystavení — po schválení administrátorom.</p>' : ''}
+      <div class="cols">
+        <div class="col"><div class="lbl">Dodávateľ</div><div class="val">
+          <strong>${esc(meno)}</strong><br>
+          ${adresa ? esc(adresa) + '<br>' : ''}
+          ${w.company_id ? 'IČO: ' + esc(w.company_id) + '<br>' : ''}
+          ${w.tax_id ? 'DIČ: ' + esc(w.tax_id) + '<br>' : ''}
+          ${w.vat_id ? 'IČ DPH: ' + esc(w.vat_id) + '<br>' : ''}
+        </div></div>
+        <div class="col"><div class="lbl">Odberateľ</div><div class="val">
+          <strong>${esc(c.name || '—')}</strong><br>
+          ${c.address ? esc(c.address) + '<br>' : ''}
+          ${c.company_id ? 'IČO: ' + esc(c.company_id) + '<br>' : ''}
+          ${c.tax_id ? 'DIČ: ' + esc(c.tax_id) + '<br>' : ''}
+          ${c.vat_id ? 'IČ DPH: ' + esc(c.vat_id) + '<br>' : ''}
+        </div></div>
+        <div class="col"><div class="lbl">Údaje</div><div class="val" style="font-size:12px;">
+          Vystavená: <strong>${date(bill.issue_date)}</strong><br>
+          Dodanie: <strong>${date(bill.delivery_date || (period && period.period_to))}</strong><br>
+          Splatnosť: <strong>${date(bill.due_date)}</strong><br>
+          ${period ? `Obdobie: ${date(period.period_from)} – ${date(period.period_to)}` : ''}
+        </div></div>
+      </div>
+      <table><thead><tr><th>Popis</th><th class="r">Množstvo</th><th class="r">MJ</th>
+        <th class="r">Cena za MJ</th><th class="r">Spolu</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5">Bez položiek</td></tr>'}</tbody></table>
+      <div class="total"><div class="total-box">
+        <div class="total-row sum"><span>Na úhradu</span><span>${money(bill.amount)}</span></div>
+      </div></div>
+      ${w.vat_payer ? '' : '<div class="note">Dodávateľ nie je platiteľom DPH.</div>'}
+      <div class="note">Vyhotovenie faktúry odberateľom: faktúru vyhotovil odberateľ v mene a na účet
+        dodávateľa na základe písomnej dohody v rámcovej zmluve o dielo${contractNo ? ` č. ${esc(contractNo)}` : ''}.
+        Podkladom sú súpisy prác potvrdené odberateľom.</div>
+      <div class="pay"><div style="flex:1">
+        <div class="lbl">Platobné údaje</div>
+        <div class="val" style="line-height:1.9">
+          IBAN: <strong style="font-family:ui-monospace,monospace">${esc(w.iban || bill.supplier_iban || '—')}</strong><br>
+          Variabilný symbol: <strong style="font-family:ui-monospace,monospace">${esc(vs || '—')}</strong><br>
+          Suma: <strong>${money(bill.amount)}</strong>
+        </div></div></div>
+      <div class="foot"><span>${esc(meno)}</span><span>Vystavené elektronicky, platné bez podpisu</span></div>`;
+    return shell(`Faktúra ${bill.bill_number || '(návrh)'} — ${meno}`, body);
+  }
+
   // ── PONUKA PRE ODBERATEĽA (nemecky) ───────────────────────────────────────
   /**
    * Angebot. Po nemecky, lebo ho číta a rozhoduje sa podľa neho Nemec —
@@ -1314,8 +1395,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();
