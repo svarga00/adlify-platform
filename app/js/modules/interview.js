@@ -31,7 +31,7 @@
       // Inzerát je prvá otázka. Keď žiadny nebeží, pýta sa to po starom.
       this.pickMode = this.ads.some(a => a.running) ? 'ad'
         : (this.plans.length ? 'plan' : 'trade');
-      this.ticked = new Map(); this.notes = new Map();
+      this.ticked = new Map(); this.notes = new Map(); this.answers = new Map();
       // Meno a telefón sa držia tu, nie len v políčku — inak ich každé
       // klepnutie na nábor alebo typ hovoru zmazalo (okno sa prekreslí).
       this.draft = { name: '', phone: '', crew: false };
@@ -242,7 +242,7 @@
       this.plan = this.plans.find(p => p.id === cand.plan_id) || null;
       this.ad = this.ads.find(a => a.id === cand.ad_id) || null;
       this.segments = this.buildSegments(cand.profession, cand.ad_id);
-      this.notes = new Map();
+      this.notes = new Map(); this.answers = new Map();
       this.setup = false;
       this.segIndex = 0;
       this.open();
@@ -530,11 +530,17 @@
         <div class="guide-q">${UI.esc(seg.title)}</div>
         <div class="guide-lead">${UI.esc(seg.lead)}</div>
 
-        <div class="chip-list">
-          ${seg.chips.map(c => this.chipHtml(c)).join('')}
-          <button class="chip chip-add" onclick="Guide.addChipPrompt('${seg.key}')">
-            ${Icon('plus', 14)} pridať vlastné</button>
-        </div>
+        ${(() => {
+          const g = this.callQ(seg);
+          return `${g.questions.length ? `<div class="cq2-list">${g.questions
+            .map(q => this.callQHtml(seg.key, q)).join('')}</div>
+            <div class="cq2-rest">Ďalšie postrehy — zaškrtni, čo zaznelo</div>` : ''}
+          <div class="chip-list">
+            ${g.rest.map(c => this.chipHtml(c)).join('')}
+            <button class="chip chip-add" onclick="Guide.addChipPrompt('${seg.key}')">
+              ${Icon('plus', 14)} pridať vlastné</button>
+          </div>`;
+        })()}
 
         ${this.questionsHtml(seg)}
 
@@ -650,6 +656,78 @@
 
     noteChanged(segKey, value) { this.notes.set(segKey, value); },
 
+    // ── Otázky s odpoveďami na klik ───────────────────────────────────────
+    // „Konkrétne otázky a potom výber, čo povie — 2–3 možnosti alebo iné."
+    // Odpovede sú naviazané na polia hovoru, takže klik zaškrtne to isté pole
+    // ako doteraz (skóre a varovania sa nemenia). Pozri lib/recruiting/callq.js.
+    callQ(seg) {
+      const CQ = window.DanubraCallQ;
+      if (!CQ) return { questions: [], rest: seg.chips };
+      const usable = this.chips.filter(c => !c.trade_key || c.trade_key === this.trade?.key);
+      const g = CQ.group(seg.key, usable, seg.chips);
+      this._cq = this._cq || {};
+      this._cq[seg.key] = g.questions;
+      return g;
+    },
+
+    callQState(q) {
+      const a = this.answers && this.answers.get(q.key);
+      if (a) return a.other != null ? 'other' : a.idx;
+      return window.DanubraCallQ.selected(q, this.ticked);
+    },
+
+    callQHtml(segKey, q) {
+      const sel = this.callQState(q);
+      const a = this.answers && this.answers.get(q.key);
+      return `<div class="cq2" id="cq2-${q.key}">
+        <div class="cq2-q">${UI.esc(q.q)}</div>
+        <div class="cq2-ans">
+          ${q.answers.map((ans, i) => `<button class="cq2-a pol-${ans.chip ? ans.chip.polarity : 'neutral'}${
+            sel === i ? ' on' : ''}" onclick="Guide.answer('${segKey}','${q.key}',${i})"
+            ${ans.chip && ans.chip.hint ? `title="${UI.esc(ans.chip.hint)}"` : ''}>
+            ${sel === i ? Icon('check', 13) : ''}${UI.esc(ans.label)}</button>`).join('')}
+          <button class="cq2-a cq2-other-btn${sel === 'other' ? ' on' : ''}"
+            onclick="Guide.answerOther('${segKey}','${q.key}')">${Icon('edit', 12)} iné…</button>
+        </div>
+        ${sel === 'other' ? `<input class="cq2-other" id="cq2-in-${q.key}" placeholder="Čo povedal?"
+          value="${UI.esc((a && a.other) || '')}"
+          oninput="Guide.answers.set('${q.key}',{other:this.value})">` : ''}
+      </div>`;
+    },
+
+    /** Prekreslí len jednu otázku — celé okno by pri telefóne skočilo hore. */
+    paintCallQ(segKey, q) {
+      const el = document.getElementById(`cq2-${q.key}`);
+      if (el) el.outerHTML = this.callQHtml(segKey, q);
+    },
+
+    answer(segKey, qKey, i) {
+      const q = ((this._cq || {})[segKey] || []).find(x => x.key === qKey);
+      if (!q) return;
+      const vypnut = this.callQState(q) === i;
+      // Odpovede na jednu otázku sa vylučujú — iné polia tej istej otázky sa odškrtnú.
+      q.answers.forEach((a, j) => {
+        if (a.chip && this.ticked.has(a.chip.id) && (vypnut || j !== i)) this.toggleChip(a.chip.id);
+      });
+      if (vypnut) this.answers.delete(qKey);
+      else {
+        const a = q.answers[i];
+        if (a.chip && !this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id);
+        this.answers.set(qKey, { idx: i });
+      }
+      this.paintCallQ(segKey, q);
+    },
+
+    answerOther(segKey, qKey) {
+      const q = ((this._cq || {})[segKey] || []).find(x => x.key === qKey);
+      if (!q) return;
+      q.answers.forEach((a) => { if (a.chip && this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id); });
+      const pred = this.answers.get(qKey);
+      this.answers.set(qKey, { other: (pred && pred.other) || '' });
+      this.paintCallQ(segKey, q);
+      setTimeout(() => document.getElementById(`cq2-in-${qKey}`)?.focus(), 20);
+    },
+
     // ── Zaškrtávanie ──────────────────────────────────────────────────────
     /**
      * Klepnutie musí byť vidieť okamžite. Preto sa najprv prekreslí obrazovka
@@ -761,7 +839,12 @@
     // ── Prechod medzi segmentmi ───────────────────────────────────────────
     async saveNote(segKey) {
       const el = document.getElementById('seg-note');
-      const body = (el?.value || this.notes.get(segKey) || '').trim();
+      // Odpovede bez poľa („Sám", „Nie") a vlastné „iné" idú do poznámky —
+      // inak by sa z hovoru stratili.
+      const riadky = window.DanubraCallQ
+        ? DanubraCallQ.noteLines((this._cq || {})[segKey], this.answers) : [];
+      const body = [(el?.value || this.notes.get(segKey) || '').trim(), ...riadky]
+        .filter(Boolean).join('\n');
       if (!body || body === this._savedNote?.[segKey]) return;
       const { error } = await DB.insert('candidate_notes', {
         candidate_id: this.cand.id, step_key: segKey, body,
