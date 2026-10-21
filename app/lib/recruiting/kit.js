@@ -305,6 +305,25 @@
     return n > 0 ? `${n} ${plural(n, 'týždeň', 'týždne', 'týždňov')}` : '';
   }
 
+  // ── Doplnky od nás: štítky ───────────────────────────────────────────────
+  // Najbežnejšie veci (splatnosť, záloha, doprava…) sa nemusia písať — klik
+  // na štítok ich pridá do textu, druhý klik odoberie. Ukladá sa stále text,
+  // takže voľne napísané vety ostávajú a model číta to isté ako doteraz.
+  const casti = (text) => String(text || '').split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
+  const rovnake = (a, b) => a.toLowerCase().replace(/\s+/g, ' ') === b.toLowerCase().replace(/\s+/g, ' ');
+
+  /** Je štítok v texte? */
+  function hasItem(text, phrase) {
+    return casti(text).some(c => rovnake(c, phrase));
+  }
+
+  /** Pridá štítok na koniec, alebo ho odoberie, keď tam už je. */
+  function toggleItem(text, phrase) {
+    const c = casti(text);
+    const bez = c.filter(x => !rovnake(x, phrase));
+    return (bez.length === c.length ? [...c, phrase] : bez).join(', ');
+  }
+
   function factsState(analysis = {}) {
     return FACTS.map(f => {
       const body = String((analysis && analysis[f.key]) || '');
@@ -322,7 +341,7 @@
   const API = {
     CHYBA, CHANNELS, BLOCKS, FACTS,
     channel, blocks, blockDef, gaps, channelState, state, summary, checklist,
-    factsState, plural, isoDatum, trvanie, trvanieText,
+    factsState, plural, isoDatum, trvanie, trvanieText, hasItem, toggleItem,
   };
   if (typeof window !== 'undefined') window.DanubraKit = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

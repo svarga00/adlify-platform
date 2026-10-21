@@ -169,11 +169,19 @@
     // zapracuje do textov (`analysis._extra`).
     EXTRAS: [
       ['billing', 'Fakturácia pre živnostníka',
-        (dni) => `napr. faktúra raz za mesiac so súpisom prác, splatnosť ${dni} dní, záloha po prvom týždni`],
+        (dni) => `napr. faktúra raz za mesiac so súpisom prác, splatnosť ${dni} dní, záloha po prvom týždni`,
+        (dni) => ['faktúra raz za mesiac', 'faktúra každé 2 týždne', `splatnosť ${dni} dní`,
+          'splatnosť 7 dní', 'faktúra so súpisom prác a montážnym denníkom',
+          'záloha po prvom týždni', 'prvá faktúra so skoršou úhradou']],
       ['benefits', 'Benefity a výhody',
-        () => 'napr. preplatená doprava, záloha pred prvou výplatou, dlhodobá spolupráca, pracovné oblečenie'],
+        () => 'napr. preplatená doprava, záloha pred prvou výplatou, dlhodobá spolupráca, pracovné oblečenie',
+        () => ['ubytovanie hradíme', 'doprava hradená', 'záloha pred prvou výplatou',
+          'pravidelné platby načas', 'dlhodobá spolupráca', 'pomôžeme s A1 a papiermi',
+          'pracovné oblečenie', 'partia môže ísť spolu']],
       ['more', 'Ďalšie podklady a poznámky',
-        () => 'čokoľvek, čo má byť v textoch alebo čo treba vedieť — vlastnými slovami'],
+        () => 'čokoľvek, čo má byť v textoch alebo čo treba vedieť — vlastnými slovami',
+        () => ['nástup ihneď', 'nemčina nie je podmienka', 'vodičský preukaz výhodou',
+          'vlastné auto výhodou', 'práca aj v sobotu', 'vhodné aj pre partiu']],
     ],
 
     extrasHtml(plan) {
@@ -184,23 +192,35 @@
         <p class="kit-note" style="margin:-4px 0 10px;">Čo tu napíšeš, appka zapracuje do textov
           pri príprave aj pri pregenerovaní. Nemusíš vyplniť nič.</p>
         <div class="kit-extras">
-          ${this.EXTRAS.map(([k, label, ph]) => `
-            <label class="kit-fact">
+          ${this.EXTRAS.map(([k, label, ph, moznosti]) => `
+            <div class="kit-fact">
               <span>${UI.esc(label)}</span>
+              <div class="kx-chips">${moznosti(dni).map(m => `
+                <button type="button" class="kx-chip${K.hasItem(x[k], m) ? ' on' : ''}"
+                  onclick="Kit.toggleExtra('${plan.id}','${k}',this.dataset.v)"
+                  data-v="${UI.esc(m)}">${K.hasItem(x[k], m) ? Icon('check', 12) : Icon('plus', 12)}
+                  ${UI.esc(m)}</button>`).join('')}</div>
               <textarea rows="2" placeholder="${UI.esc(ph(dni))}"
                 onchange="Kit.saveExtra('${plan.id}','${k}',this.value)">${UI.esc(x[k] || '')}</textarea>
-            </label>`).join('')}
+            </div>`).join('')}
         </div>`;
     },
 
-    async saveExtra(planId, key, value) {
+    /** Klik na štítok: pridá ho do poľa, alebo ho odoberie. */
+    toggleExtra(planId, key, phrase) {
+      const p = Hire.plans.find(x => x.id === planId);
+      const teraz = (((p && p.analysis) || {})._extra || {})[key] || '';
+      return this.saveExtra(planId, key, K.toggleItem(teraz, phrase), true);
+    },
+
+    async saveExtra(planId, key, value, ticho) {
       const p = Hire.plans.find(x => x.id === planId);
       const prev = (p && p.analysis) || {};
       const next = { ...prev, _extra: { ...(prev._extra || {}), [key]: value }, _dirty: true };
       const { error } = await DB.update('recruitment_plans', planId, { analysis: next });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       if (p) p.analysis = next;
-      UI.toast('Uložené — pri pregenerovaní sa to zapracuje do textov', 'ok');
+      if (!ticho) UI.toast('Uložené — pri pregenerovaní sa to zapracuje do textov', 'ok');
       Danubra.renderRoute();
     },
 
