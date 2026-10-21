@@ -181,6 +181,11 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
     ok(/_ai_plan/.test(src), 'polia náboru sa prepíšu len keď sú stále tie od appky');
     const bg = fs.readFileSync(path.join(DIR, 'danubra-analyze-brief-background.js'), 'utf8');
     ok(/regen/.test(bg), 'pregenerovanie ide aj cez funkciu na pozadí');
+    // Čo človek doplnil do zhrnutia (sadzba, nástup), musí ísť modelu — inak
+    // pregenerovanie napíše znova [XX] tam, kde už údaj je.
+    ok(/ZHRNUTIE ZÁKAZKY Z MINULEJ PRÍPRAVY/.test(src) && /potvrdil človek/.test(src),
+      'pri pregenerovaní model dostane aj zhrnutie, ktoré človek doplnil');
+    ok(/v\.includes\(CHYBA\)/.test(src), 'ale nie údaje označené [XX] — tie nič nehovoria');
     // Bez kľúča to nie je chyba, ale ani ticho.
     ok(/skipped: 'no_api_key'/.test(src),
       'bez kľúča k modelu funkcia povie, že nie je nastavená');

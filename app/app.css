@@ -3220,3 +3220,8 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .prep-txt b { font-size: 14px; }
 .prep-txt em { font-style: normal; font-size: 12.5px; color: var(--ink-sub); }
 .prep-txt .prep-plan { color: var(--blue); }
+.kit-missing { display: flex; align-items: center; gap: 10px; }
+.kit-missing > div { flex: 1; min-width: 0; }
+.kit-missing b { display: block; }
+.kit-missing span { font-weight: 400; font-size: 12.5px; }
+@media (max-width: 640px) { .kit-missing { flex-wrap: wrap; } }

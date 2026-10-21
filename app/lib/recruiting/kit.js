@@ -268,7 +268,8 @@
     { key: 'form', title: 'Forma spolupráce', must: true },
     { key: 'condition', title: 'Podmienka', hint: 'Napríklad vlastné náradie.' },
     { key: 'housing', title: 'Ubytovanie' },
-    { key: 'rate', title: 'Sadzba', must: true },
+    { key: 'rate', title: 'Sadzba pre živnostníka', must: true,
+      hint: 'Koľko €/h dostane živnostník — nie koľko platí Nemec.' },
     { key: 'start', title: 'Nástup a dĺžka', must: true },
     { key: 'contact', title: 'Kontakt', must: true },
   ];
