@@ -32,6 +32,9 @@
       this.pickMode = this.ads.some(a => a.running) ? 'ad'
         : (this.plans.length ? 'plan' : 'trade');
       this.ticked = new Map(); this.notes = new Map();
+      // Meno a telefón sa držia tu, nie len v políčku — inak ich každé
+      // klepnutie na nábor alebo typ hovoru zmazalo (okno sa prekreslí).
+      this.draft = { name: '', phone: '', crew: false };
       this.open();
     },
 
@@ -86,6 +89,24 @@
     setPickMode(m) { this.pickMode = m; this.render(); },
 
     /**
+     * Nábor bez remesla (napríklad omietkár, ktorý v zozname remesiel nie je).
+     * Hovor sa dá začať aj tak — so všeobecnými otázkami. Kto chce aj odborné,
+     * vyberie najbližšie remeslo; nábor sa tým nemení.
+     */
+    noTradeHtml() {
+      if (this.trade || !(this.plan || this.ad)) return '';
+      return `<div class="guide-hint guide-hint-warn" style="margin-top:14px;">
+        <b>Tento nábor nemá remeslo.</b> Hovor pôjde so všeobecnými otázkami (papiere,
+        kedy môže, peniaze). Ak chceš aj odborné otázky, vyber najbližšie remeslo:
+        <div class="trade-grid trade-grid-sm" style="margin-top:8px;">
+          ${this.trades.map(t => `<button class="trade-tile"
+            onclick="Guide.trade=Guide.trades.find(x=>x.key==='${t.key}');Guide.render()">
+            <span class="tt-name">${UI.esc(t.name_sk)}</span></button>`).join('')}
+        </div>
+      </div>`;
+    },
+
+    /**
      * Krátky hovor alebo plný pohovor.
      *
      * Cieľ je ozvať sa do desiatich minút od ozvania. Celý hovor má šesť
@@ -124,18 +145,26 @@
 
     /** Založí kandidáta a hneď prejde do hovoru — bez medzikrokov. */
     async beginCall() {
-      if (!this.trade) return UI.toast('Vyber remeslo', 'err');
-      const name = document.getElementById('call-name')?.value.trim();
-      if (!name) return UI.toast('Zapíš aspoň meno', 'err');
-      const phone = document.getElementById('call-phone')?.value.trim() || null;
-      const crew = document.getElementById('call-crew')?.checked;
+      // Nábor alebo inzerát bez remesla nie je dôvod hovor nezačať — otázky
+      // budú všeobecné. Bez ničoho sa ale nevie, kam človeka zapísať.
+      if (!this.trade && !this.plan && !this.ad) {
+        return UI.toast('Vyber inzerát, nábor alebo remeslo', 'err');
+      }
+      const d = this.draft || {};
+      const name = (document.getElementById('call-name')?.value ?? d.name ?? '').trim();
+      if (!name) {
+        document.getElementById('call-name')?.focus();
+        return UI.toast('Zapíš aspoň meno', 'err');
+      }
+      const phone = (document.getElementById('call-phone')?.value ?? d.phone ?? '').trim() || null;
+      const crew = document.getElementById('call-crew')?.checked ?? !!d.crew;
 
       const btn = document.getElementById('call-go');
       if (btn) { btn.disabled = true; btn.textContent = 'Zakladám…'; }
 
       const { data: cand, error } = await DB.insert('candidates', {
         full_name: name, phone, type: crew ? 'crew' : 'individual',
-        profession: this.trade.key, legal_form: this.plan?.legal_form || 'szco',
+        profession: this.trade?.key || null, legal_form: this.plan?.legal_form || 'szco',
         // Zdroj je kanál inzerátu, nie slovo „inzerat". Doteraz sa tu
         // zapisovala hodnota, ktorá nie je v žiadnom číselníku, takže
         // v prehľade zdrojov z nej nebolo čo prečítať.
@@ -155,12 +184,13 @@
 
       Cand.items.unshift(cand);
       this.cand = cand;
-      this.segments = this.buildSegments(this.trade.key, cand.ad_id);
+      this.segments = this.buildSegments(this.trade?.key || null, cand.ad_id);
       if (!this.segments.length) {
         UI.toast('Pre toto remeslo nie sú žiadne polia', 'err');
         if (btn) { btn.disabled = false; btn.textContent = 'Začať hovor'; }
         return;
       }
+      this.draft = { name: '', phone: '', crew: false };
       this.setup = false;
       this.segIndex = 0;
       this.render();
@@ -320,6 +350,12 @@
       const p = this.plan, sub = this.subcontract(), partner = this.partnerOf(sub);
       if (!p && !sub && !this.trade && !this.ad) return this.promiseHtml();
       const row = (k, v) => v ? `<div><span>${k}</span><strong>${UI.esc(v)}</strong></div>` : '';
+      // Zo zhrnutia zákazky — to, čo sa pri náboru naozaj dohodlo. Nedoplnené
+      // [XX] sa nevypisuje: na telefóne by to vyzeralo ako údaj.
+      const fakt = (k) => {
+        const v = String(((p && p.analysis) || {})[k] || '').trim();
+        return v && !v.includes('[XX]') ? v : null;
+      };
       return `
         <div class="aside-card">
           <div class="aside-title">${Icon('site', 14)} ${UI.esc(p?.title || this.trade?.name_sk || 'Nábor')}</div>
@@ -328,11 +364,15 @@
             ${row('Kde', [p?.city || sub?.site_city, p?.country === 'DE' ? 'Nemecko' : p?.country].filter(Boolean).join(', '))}
             ${row('Nástup', p?.start_date ? UI.date(p.start_date) : null)}
             ${row('Treba ľudí', p?.headcount ? String(p.headcount) : null)}
-            ${row('Ponúkame', p?.offer_rate ? `${p.offer_rate} €/h` : null)}
+            ${row('Ponúkame', p?.offer_rate ? `${p.offer_rate} €/h` : fakt('rate'))}
+            ${row('Trvanie', fakt('duration'))}
             ${row('Forma', p ? (p.legal_form === 'employee' ? 'zamestnanec' : 'živnosť') : null)}
+            ${row('Podmienky', fakt('condition'))}
+            ${row('Ubytovanie', fakt('housing'))}
+            ${row('Navyše', ((p?.analysis || {})._extra || {}).benefits || null)}
           </div>
           ${p ? `<div class="aside-tags">
-            ${p.accommodation_provided ? '<span class="atag">ubytovanie platíme</span>' : ''}
+            ${p.accommodation_provided && !fakt('housing') ? '<span class="atag">ubytovanie platíme</span>' : ''}
             ${p.transport_provided ? '<span class="atag">doprava zabezpečená</span>' : ''}
             ${p.advance_possible ? '<span class="atag">záloha možná</span>' : ''}
           </div>` : ''}
@@ -445,11 +485,18 @@
             </button>`).join('')}
         </div>`}
 
+        ${this.noTradeHtml()}
         <input id="call-name" class="guide-note" style="margin-top:16px;" placeholder="Ako sa volá?"
+          value="${UI.esc((this.draft || {}).name || '')}" autocomplete="off"
+          oninput="Guide.draft.name=this.value"
           onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.beginCall()}">
-        <input id="call-phone" class="guide-note" style="margin-top:10px;" placeholder="Telefón (nepovinné)">
+        <input id="call-phone" class="guide-note" style="margin-top:10px;" placeholder="Telefón (nepovinné)"
+          type="tel" value="${UI.esc((this.draft || {}).phone || '')}" autocomplete="off"
+          oninput="Guide.draft.phone=this.value">
         <label class="chk chk-lg" style="margin-top:12px;display:flex;gap:10px;align-items:center;">
-          <input type="checkbox" id="call-crew"> <span style="font-size:15px;">Je to partia, nie jednotlivec</span>
+          <input type="checkbox" id="call-crew" ${(this.draft || {}).crew ? 'checked' : ''}
+            onchange="Guide.draft.crew=this.checked">
+          <span style="font-size:15px;">Je to partia, nie jednotlivec</span>
         </label>
 
         <div class="call-mode">
@@ -470,9 +517,9 @@
         <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:14px;"
           onclick="Guide.beginCall()">${Icon('phone', 20)} ${
           this.mode === 'full' ? 'Začať pohovor' : 'Začať hovor'}</button>
-        ${!this.trade ? `<div class="guide-note-hint">Vyber inzerát, nábor alebo remeslo —
-          podľa toho sa poskladajú polia aj otázky a vpravo uvidíš, čo sme
-          sľúbili.</div>` : ''}`;
+        ${!this.trade && !this.plan && !this.ad ? `<div class="guide-note-hint">Vyber inzerát, nábor
+          alebo remeslo — podľa toho sa poskladajú polia aj otázky a vpravo uvidíš,
+          čo sme sľúbili.</div>` : ''}`;
     },
 
     // ── Jedna obrazovka = jeden segment ───────────────────────────────────
