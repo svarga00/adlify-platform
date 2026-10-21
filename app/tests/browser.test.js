@@ -908,6 +908,19 @@ console.log('Prehliadač');
         Guide.ticked.set(4, Guide.chips.find(c => c.id === 4));
         Guide.render();
         res.sVlajkou = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
+
+        // Odborná otázka sa dá ohodnotiť — ide do skóre aj do tabuľky odpovedí.
+        Guide.ticked = new Map(); Guide.answers = new Map(); Guide.segIndex = 0;
+        let ulozene = null;
+        DB.from = () => ({ upsert: async (row) => { ulozene = row; return { error: null }; } });
+        const kroky = Guide.steps(Guide.segments[0]);
+        const iq = kroky.findIndex(k => k.key === 'db:q1');
+        res.odbornaKrok = iq;
+        Guide.qStep = { quick: iq }; Guide.render();
+        res.odbornaText = document.getElementById('guide').innerText.replace(/\s+/g, ' ');
+        Guide.answer('quick', 'db:q1', 0);
+        res.odbornaSkore = Guide.scoreItems().map(x => `${x.id}:${x.polarity}:${x.weight}`);
+        res.ulozene = ulozene;
         Guide.close(true);
         return res;
       });
@@ -933,6 +946,15 @@ console.log('Prehliadač');
         'vylučujúca vec prebije aj vysoké skóre');
       ok(!out.sVlajkou.includes('Pokračovať plným pohovorom'),
         'a vtedy sa plný pohovor neponúka');
+      ok(out.odbornaKrok >= 0, 'odborná otázka je v hovore ako krok, nielen na čítanie');
+      ok(/Odpovedal dobre.*Čiastočne.*Zle \/ nevie/.test(out.odbornaText),
+        'pri nej sa dá vybrať dobre / čiastočne / zle', out.odbornaText.slice(0, 200));
+      ok(out.odbornaText.includes('62,5 cm'), 'a je pri nej vidieť, čo chceme počuť');
+      ok(out.odbornaSkore.join() === 'db:q1:plus:3', 'dobrá odpoveď na kľúčovú otázku ide do skóre',
+        out.odbornaSkore.join());
+      ok(out.ulozene && out.ulozene.question_id === 'q1' && out.ulozene.rating === 2
+        && out.ulozene.candidate_id === 'c1', 'hodnotenie sa uloží ku kandidátovi',
+        JSON.stringify(out.ulozene));
       ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
