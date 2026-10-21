@@ -181,6 +181,21 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
     ok(/_ai_plan/.test(src), 'polia náboru sa prepíšu len keď sú stále tie od appky');
     const bg = fs.readFileSync(path.join(DIR, 'danubra-analyze-brief-background.js'), 'utf8');
     ok(/regen/.test(bg), 'pregenerovanie ide aj cez funkciu na pozadí');
+    // Lixenried, 21. 10.: pregenerovanie odložilo 44 textov a nové nezapísalo,
+    // lebo odpoveď modelu sa nezmestila do limitu. Toto sa nesmie zopakovať.
+    ok(/nove\.has\(`\$\{a\.channel\}:\$\{a\.block\}`\)/.test(src),
+      'starý text ide do archívu len keď za neho prišiel nový');
+    ok(src.indexOf("from('danubra_plan_assets').insert(rows)") < src.indexOf(".in('id', nahradim.map"),
+      'najprv sa zapíšu nové texty, až potom sa staré odložia');
+    ok(/if \(!nove\.size\)/.test(src) && src.indexOf('if (!nove.size)') < src.indexOf('analysis: facts'),
+      'keď model nevráti žiadny text, nezapíše sa nič — ani zhrnutie');
+    ok(/stop_reason === 'max_tokens'/.test(src), 'nedokončená odpoveď sa nezapíše');
+    ok(/DOPLNKY OD NÁS/.test(src) && /_extra/.test(src),
+      'doplnky od nás (fakturácia, benefity, poznámky) idú modelu do textov');
+    const poradie = ['facts: {', 'plan: {', 'blocks: {', 'questions: {', 'risks: {', 'ask: {']
+      .map(k => src.indexOf('      ' + k));
+    ok(poradie.every((x, i) => x > 0 && (i === 0 || x > poradie[i - 1])),
+      'texty sú v odpovedi skôr než riziká a otázky — keby sa niečo nezmestilo, nie sú to texty');
     // Čo človek doplnil do zhrnutia (sadzba, nástup), musí ísť modelu — inak
     // pregenerovanie napíše znova [XX] tam, kde už údaj je.
     ok(/ZHRNUTIE ZÁKAZKY Z MINULEJ PRÍPRAVY/.test(src) && /potvrdil človek/.test(src),

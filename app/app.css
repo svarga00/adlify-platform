@@ -3225,3 +3225,32 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .kit-missing b { display: block; }
 .kit-missing span { font-weight: 400; font-size: 12.5px; }
 @media (max-width: 640px) { .kit-missing { flex-wrap: wrap; } }
+
+/* ── Náborové plány ako karty ───────────────────────────────────────────── */
+.pcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.pcard { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 15px; cursor: pointer; display: flex; flex-direction: column; gap: 9px; }
+.pcard:hover { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(30, 79, 216, .08); }
+.pcard-active { border-left-color: var(--green); }
+.pcard-draft { border-left-color: var(--brand); }
+.pcard-paused { border-left-color: var(--amber); }
+.pcard-top { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; }
+.pcard-top b { font-size: 15px; line-height: 1.35; letter-spacing: -.01em; }
+.pcard-sub { font-size: 13px; color: var(--ink-sub); margin-top: -4px; }
+.pcard-prog { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-sub); }
+.pcard-prog b { color: var(--ink); }
+.pcard-bar { flex: 0 0 90px; height: 8px; border-radius: 4px; background: var(--field); overflow: hidden; }
+.pcard-bar i { display: block; height: 100%; background: var(--green); }
+.pcard-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-sub); }
+.pcard-meta span { display: flex; align-items: center; gap: 6px; }
+.pcard-meta em { font-style: normal; color: var(--amber); font-weight: 600; }
+.pcard-warn { font-size: 12.5px; color: var(--amber); font-weight: 600; display: flex; align-items: center; gap: 5px;
+  background: var(--amber-50); border-radius: var(--radius-sm); padding: 5px 8px; }
+.pclosed { margin: 4px 0 14px; font-size: 13px; }
+.pclosed summary { cursor: pointer; color: var(--ink-sub); font-weight: 600; padding: 6px 0; }
+@media (max-width: 640px) { .pcards { grid-template-columns: 1fr; } }
+.kit-extras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.kit-extras textarea { width: 100%; resize: vertical; font: inherit; font-size: 13.5px; padding: 9px 11px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--field); }
+@media (max-width: 900px) { .kit-extras { grid-template-columns: 1fr; } }
+.pcard-note { color: var(--ink-mute); font-size: 11.5px; }

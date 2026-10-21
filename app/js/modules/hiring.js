@@ -221,10 +221,61 @@
     },
 
     /** Náborové plány — pod postupom, lebo sú to podrobnosti, nie ďalší krok. */
+    /**
+     * Náborové plány ako karty. Riadky v zozname boli prehliadnuteľné —
+     * a pritom je to hlavná vec na obrazovke: koho naberáme, koľkých už
+     * máme a čo chýba. Bežiace a rozpracované sú karty, uzavreté len riadky.
+     */
     plansHtml() {
       if (!this.plans.length) return '';
-      return `<div class="form-section">Náborové plány</div>
-        ${this.plans.map(p => this.row(p)).join('')}`;
+      const PORADIE = { active: 0, draft: 1, paused: 2 };
+      const otvorene = this.plans.filter(p => p.status in PORADIE)
+        .sort((a, b) => PORADIE[a.status] - PORADIE[b.status]
+          || String(a.start_date || '9999').localeCompare(String(b.start_date || '9999')));
+      const zavrete = this.plans.filter(p => !(p.status in PORADIE));
+      return `<div class="form-section">Náborové plány · ${otvorene.length} otvorených</div>
+        <div class="pcards">${otvorene.map(p => this.card(p)).join('')}</div>
+        ${zavrete.length ? `<details class="pclosed"><summary>Uzavreté (${zavrete.length})</summary>
+          ${zavrete.map(p => this.row(p)).join('')}</details>` : ''}`;
+    },
+
+    /** Marža len vtedy, keď sú obe sadzby. Bez sadzby živnostníka by vyšla celá Nemcova. */
+    marzaText(p) {
+      if (!(Number(p.offer_rate) > 0) || !(Number(p.client_rate) > 0)) return null;
+      const m = S.planMargin(p);
+      return { text: `${m.marginPerHour} €/h · ${UI.pct(m.marginPct)}`, ok: m.marginPerHour > 0 };
+    },
+
+    card(p) {
+      const pr = this.progress(p);
+      const done = this.nabrani(p.id);
+      const pct = p.headcount ? Math.min(100, Math.round(100 * done / p.headcount)) : 0;
+      const marza = this.marzaText(p);
+      const mine = this.candidates.filter(c => c.plan_id === p.id && !c.outcome).length;
+      const fr = String(((p.analysis || {}).rate) || '').trim();
+      const zhrnutieSadzba = fr && !fr.includes('[XX]') ? fr : '';
+      return `<div class="pcard pcard-${UI.esc(p.status)}" onclick="Hire.detail('${p.id}')">
+        <div class="pcard-top">
+          <b>${UI.esc(p.title)}</b>
+          ${this.badge(p.status)}
+        </div>
+        <div class="pcard-sub">${[this.tradeName(p.trade_key) !== '—' ? this.tradeName(p.trade_key) : null,
+          p.city].filter(Boolean).map(UI.esc).join(' · ') || '&nbsp;'}</div>
+        <div class="pcard-prog">
+          <span class="pcard-bar"><i style="width:${pct}%"></i></span>
+          <span><b>${done} z ${p.headcount || '?'}</b> nabraných${mine ? ` · ${mine} v procese` : ''}</span>
+        </div>
+        <div class="pcard-meta">
+          <span>${Icon('calendar', 13)} ${p.start_date ? `nástup ${UI.date(p.start_date)}` : '<em>nástup chýba</em>'}</span>
+          <span>${Icon('euro', 13)} ${p.offer_rate ? `${p.offer_rate} €/h`
+            // Rozsah „25–27 €" zo zhrnutia nie je jedno číslo, ale je to údaj.
+            : (zhrnutieSadzba ? `${UI.esc(zhrnutieSadzba)} <span class="pcard-note">(zo zhrnutia)</span>`
+              : '<em>sadzba pre živnostníka chýba</em>')}${
+            marza ? ` · marža <b class="${marza.ok ? 't-ok' : 't-bad'}">${marza.text}</b>` : ''}</span>
+          <span>${Icon('doc', 13)} ${p.analyzed_at ? `podklady ${UI.date(p.analyzed_at)}` : '<em>bez podkladov</em>'}</span>
+        </div>
+        ${pr.ready ? '' : `<div class="pcard-warn">${Icon('alert', 12)} Doplň: ${UI.esc(pr.next.title.toLowerCase())}</div>`}
+      </div>`;
     },
 
     // ── Čo treba teraz ────────────────────────────────────────────────────
@@ -373,7 +424,7 @@
           <span style="color:var(--ink-mute);"> · ${this.tradeName(p.trade_key)} × ${p.headcount}</span>
           <span style="display:block;color:var(--ink-mute);font-size:12px;">
             ${p.city ? UI.esc(p.city) + ' · ' : ''}${p.start_date ? 'nástup ' + UI.date(p.start_date) + ' · ' : ''}
-            ${m.marginPerHour ? `marža ${m.marginPerHour} €/h · ` : ''}${done}/${p.headcount} ľudí
+            ${this.marzaText(p) ? `marža ${this.marzaText(p).text} · ` : ''}${done}/${p.headcount} ľudí
             ${pr.ready ? '' : ` · ${Icon('alert', 11)} chýba: ${pr.next.title.toLowerCase()}`}</span>
         </span>
         ${this.badge(p.status)}
@@ -748,8 +799,9 @@
           <div><span>Nástup</span><strong>${p.start_date ? UI.date(p.start_date) : '—'}</strong></div>
           <div><span>Ponúkame</span><strong>${p.offer_rate || '—'} €/h</strong></div>
           <div><span>Fakturujeme</span><strong>${p.client_rate || '—'} €/h</strong></div>
-          <div><span>Marža</span><strong style="color:${m.marginPerHour > 0 ? 'var(--green)' : 'var(--red)'};">
-            ${m.marginPerHour} €/h · ${UI.pct(m.marginPct)}</strong></div>
+          <div><span>Marža</span>${this.marzaText(p)
+            ? `<strong style="color:${this.marzaText(p).ok ? 'var(--green)' : 'var(--red)'};">${this.marzaText(p).text}</strong>`
+            : '<strong style="color:var(--ink-mute);font-weight:500;">— doplň sadzbu pre živnostníka</strong>'}</div>
           <div><span>Kandidáti</span><strong>${mine.length}</strong></div>
         </div>
         ${this.planLineHtml(p)}

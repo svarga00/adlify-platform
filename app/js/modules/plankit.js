@@ -51,6 +51,7 @@
       return `
         ${this.briefHtml(plan)}
         ${this.factsHtml(plan)}
+        ${this.extrasHtml(plan)}
 
         <div class="form-section" id="plan-kanaly">Podklady po kanáloch
           ${Help.btn('card.kit.channels', { size: 13 })}</div>
@@ -122,7 +123,7 @@
           ${zmenene ? `<div class="warnbox" style="margin-top:8px;">${Icon('alert', 14)}
             ${zmeneneZadanie && zmeneneZhrnutie ? 'Zadanie aj zhrnutie si od poslednej prípravy zmenil'
               : zmeneneZadanie ? 'Zadanie si od poslednej prípravy zmenil'
-                : 'Zhrnutie si od poslednej prípravy zmenil'} — texty sú ešte podľa starého.
+                : 'Zhrnutie alebo doplnky si od poslednej prípravy zmenil'} — texty sú ešte podľa starého.
             <button class="link-inline" onclick="Kit.analyze('${plan.id}', { regen: true })">
               Pregenerovať</button></div>` : ''}
         </div>`;
@@ -165,6 +166,48 @@
                 onchange="Kit.saveFact('${plan.id}','${f.key}',this.value)">
             </label>`).join('')}
         </div>`;
+    },
+
+    // ── Doplnky od nás ────────────────────────────────────────────────────
+    // Veci, ktoré v zadaní od Nemca nikdy nebudú, lebo sú naše: ako nám
+    // živnostník fakturuje, čo k tomu dostane navyše a čokoľvek ďalšie.
+    // Nepovinné — ale keď sú, appka ich pri príprave aj pregenerovaní
+    // zapracuje do textov (`analysis._extra`).
+    EXTRAS: [
+      ['billing', 'Fakturácia pre živnostníka',
+        (dni) => `napr. faktúra raz za mesiac so súpisom prác, splatnosť ${dni} dní, záloha po prvom týždni`],
+      ['benefits', 'Benefity a výhody',
+        () => 'napr. preplatená doprava, záloha pred prvou výplatou, dlhodobá spolupráca, pracovné oblečenie'],
+      ['more', 'Ďalšie podklady a poznámky',
+        () => 'čokoľvek, čo má byť v textoch alebo čo treba vedieť — vlastnými slovami'],
+    ],
+
+    extrasHtml(plan) {
+      const x = (plan.analysis && plan.analysis._extra) || {};
+      const dni = Number((Danubra.cfg('subcontract') || {}).splatnost_dni) || 14;
+      return `
+        <div class="form-section">Doplnky od nás — nepovinné</div>
+        <p class="kit-note" style="margin:-4px 0 10px;">Čo tu napíšeš, appka zapracuje do textov
+          pri príprave aj pri pregenerovaní. Nemusíš vyplniť nič.</p>
+        <div class="kit-extras">
+          ${this.EXTRAS.map(([k, label, ph]) => `
+            <label class="kit-fact">
+              <span>${UI.esc(label)}</span>
+              <textarea rows="2" placeholder="${UI.esc(ph(dni))}"
+                onchange="Kit.saveExtra('${plan.id}','${k}',this.value)">${UI.esc(x[k] || '')}</textarea>
+            </label>`).join('')}
+        </div>`;
+    },
+
+    async saveExtra(planId, key, value) {
+      const p = Hire.plans.find(x => x.id === planId);
+      const prev = (p && p.analysis) || {};
+      const next = { ...prev, _extra: { ...(prev._extra || {}), [key]: value }, _dirty: true };
+      const { error } = await DB.update('recruitment_plans', planId, { analysis: next });
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      if (p) p.analysis = next;
+      UI.toast('Uložené — pri pregenerovaní sa to zapracuje do textov', 'ok');
+      Danubra.renderRoute();
     },
 
     async saveFact(planId, key, value) {
