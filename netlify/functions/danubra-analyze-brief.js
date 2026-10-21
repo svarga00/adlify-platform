@@ -413,13 +413,6 @@ async function run(planId, { regen = false } = {}) {
     if (spolu.length !== uz.length) planPatch.channels = spolu;
   }
 
-  facts._ai_plan = { ...odAppky, ...planPatch };
-  await supabase.from('danubra_recruitment_plans').update({
-    ...planPatch,
-    analysis: facts,
-    analyzed_at: new Date().toISOString(),
-  }).eq('id', planId);
-
   // ── Texty po kanáloch ───────────────────────────────────────────────
   const { data: existing } = await supabase
     .from('danubra_plan_assets')
@@ -448,11 +441,10 @@ async function run(planId, { regen = false } = {}) {
     });
   }
 
-  // Najprv nové, až potom staré do archívu — keby zápis zlyhal, staré ostanú.
-  if (rows.length) {
-    const { error: ei } = await supabase.from('danubra_plan_assets').insert(rows);
-    if (ei) throw new Error(ei.message);
-  }
+  // Na jedno miesto (kanál + blok) smie byť v databáze len jeden živý text
+  // (index `danubra_plan_assets_live`). Preto najprv starý do archívu, potom
+  // nový — a keby zápis nového zlyhal, starý sa hneď vráti späť. Nábor tak
+  // nikdy neostane bez textov.
   let zaloha = 0;
   if (nahradim.length) {
     const { error: ea } = await supabase.from('danubra_plan_assets')
@@ -460,6 +452,26 @@ async function run(planId, { regen = false } = {}) {
     if (ea) throw new Error(ea.message);
     zaloha = nahradim.length;
   }
+  if (rows.length) {
+    const { error: ei } = await supabase.from('danubra_plan_assets').insert(rows);
+    if (ei) {
+      if (nahradim.length) {
+        await supabase.from('danubra_plan_assets')
+          .update({ archived_at: null }).in('id', nahradim.map(a => a.id));
+      }
+      throw new Error(`Texty sa nezapísali (${ei.message}). Staré ostali, nič sa nezmenilo.`);
+    }
+  }
+
+  // Zhrnutie a polia náboru až teraz — keď sú texty zapísané. Inak by
+  // nábor hlásil „pripravené" a texty by boli staré.
+  facts._ai_plan = { ...odAppky, ...planPatch };
+  await supabase.from('danubra_recruitment_plans').update({
+    ...planPatch,
+    analysis: facts,
+    analyzed_at: new Date().toISOString(),
+  }).eq('id', planId);
+
 
   // ── Otázky pre remeselníka ──────────────────────────────────────────
   // Pribudnú ako **návrh**: `active = false`. Zoznam otázok je to, podľa

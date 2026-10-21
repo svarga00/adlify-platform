@@ -185,8 +185,15 @@ ok(stare.length === 0, 'nikde nezostala cesta na starý priečinok `danubra/`',
     // lebo odpoveď modelu sa nezmestila do limitu. Toto sa nesmie zopakovať.
     ok(/nove\.has\(`\$\{a\.channel\}:\$\{a\.block\}`\)/.test(src),
       'starý text ide do archívu len keď za neho prišiel nový');
-    ok(src.indexOf("from('danubra_plan_assets').insert(rows)") < src.indexOf(".in('id', nahradim.map"),
-      'najprv sa zapíšu nové texty, až potom sa staré odložia');
+    // Na jedno miesto smie byť len jeden živý text (index plan_assets_live),
+    // takže starý ide do archívu pred zápisom nového — a pri chybe sa vráti.
+    ok(src.indexOf(".update({ archived_at: new Date().toISOString() }).in('id', nahradim.map")
+      < src.indexOf("from('danubra_plan_assets').insert(rows)"),
+      'starý text sa odloží skôr, než sa zapíše nový (jeden živý text na miesto)');
+    ok(/archived_at: null \}\)\.in\('id', nahradim\.map/.test(src),
+      'a keď zápis nového zlyhá, starý sa vráti späť');
+    ok(src.indexOf("from('danubra_plan_assets').insert(rows)") < src.indexOf('analysis: facts'),
+      'zhrnutie sa uloží až keď sú texty zapísané');
     ok(/if \(!nove\.size\)/.test(src) && src.indexOf('if (!nove.size)') < src.indexOf('analysis: facts'),
       'keď model nevráti žiadny text, nezapíše sa nič — ani zhrnutie');
     ok(/stop_reason === 'max_tokens'/.test(src), 'nedokončená odpoveď sa nezapíše');
