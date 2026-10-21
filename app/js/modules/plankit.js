@@ -94,8 +94,11 @@
       const maPodklady = !!plan.analyzed_at || (this.assets || []).some(a => !a.archived_at);
       const a = plan.analysis || {};
       // Zadanie sa zmenilo od poslednej prípravy — podklady sú podľa starého.
-      const zmenene = maPodklady && typeof a._brief === 'string'
+      const zmeneneZadanie = maPodklady && typeof a._brief === 'string'
         && a._brief.trim() !== String(brief).trim();
+      // Zhrnutie upravené od poslednej prípravy — texty o tom ešte nevedia.
+      const zmeneneZhrnutie = maPodklady && a._dirty === true;
+      const zmenene = zmeneneZadanie || zmeneneZhrnutie;
       return `
         <div class="form-section">Zadanie — čo o zákazke vieme
           ${Help.btn('card.kit.brief', { size: 13 })}</div>
@@ -117,7 +120,9 @@
               : 'Vyplní zhrnutie aj texty po kanáloch. Všetko sa dá prepísať.'}</span>
           </div>
           ${zmenene ? `<div class="warnbox" style="margin-top:8px;">${Icon('alert', 14)}
-            Zadanie si od poslednej prípravy zmenil — texty sú ešte podľa starého.
+            ${zmeneneZadanie && zmeneneZhrnutie ? 'Zadanie aj zhrnutie si od poslednej prípravy zmenil'
+              : zmeneneZadanie ? 'Zadanie si od poslednej prípravy zmenil'
+                : 'Zhrnutie si od poslednej prípravy zmenil'} — texty sú ešte podľa starého.
             <button class="link-inline" onclick="Kit.analyze('${plan.id}', { regen: true })">
               Pregenerovať</button></div>` : ''}
         </div>`;
@@ -140,11 +145,16 @@
       return `
         <div class="form-section">Zhrnutie zákazky
           ${Help.btn('card.kit.facts', { size: 13 })}</div>
-        ${chyba || gaps ? `<div class="warnbox" style="margin-bottom:10px;">
+        ${chyba || gaps ? `<div class="warnbox kit-missing" style="margin-bottom:10px;">
           ${Icon('alert', 14)}
-          ${chyba ? `${chyba} ${Shell.plural(chyba, 'povinný údaj chýba', 'povinné údaje chýbajú', 'povinných údajov chýba')}` : ''}
-          ${chyba && gaps ? ' · ' : ''}
-          ${gaps ? `${gaps} ${Shell.plural(gaps, 'údaj je označený', 'údaje sú označené', 'údajov je označených')} ${K.CHYBA}` : ''}
+          <div>
+            <b>Appka nenašla v zadaní: ${UI.esc(facts.filter(f => (f.must && !f.filled) || f.gaps)
+              .map(f => f.title.toLowerCase()).join(', '))}.</b>
+            <span>Doplň to priamo tu do poľa (prepíš ${K.CHYBA}) a klikni Pregenerovať —
+              údaj sa dostane do všetkých textov naraz.</span>
+          </div>
+          ${plan.analyzed_at ? `<button class="btn btn-primary btn-sm"
+            onclick="Kit.analyze('${plan.id}', { regen: true })">${Icon('repeat', 14)} Pregenerovať</button>` : ''}
         </div>` : ''}
         <div class="kit-facts">
           ${facts.map(f => `
@@ -161,7 +171,8 @@
       const p = Hire.plans.find(x => x.id === planId);
       const prev = (p && p.analysis) || {};
       // Čo človek v zhrnutí prepísal, pregenerovanie nechá na pokoji.
-      const next = { ...prev, [key]: value, _human: { ...(prev._human || {}), [key]: true } };
+      const next = { ...prev, [key]: value, _human: { ...(prev._human || {}), [key]: true },
+        _dirty: true };
       const { error } = await DB.update('recruitment_plans', planId, { analysis: next });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       if (p) p.analysis = next;

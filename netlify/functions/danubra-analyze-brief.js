@@ -224,6 +224,20 @@ async function analyze(brief, plan, supplier, trades) {
     supplier.email ? `E-mail: ${supplier.email}` : null,
   ].filter(Boolean).join('\n');
 
+  // Zhrnutie zákazky, ako je teraz. Čo v ňom človek doplnil (napríklad
+  // sadzbu pre živnostníka, ktorá v zadaní nebola), musí ísť do textov —
+  // inak by pregenerovanie znova napísalo [XX] tam, kde už údaj je.
+  const NAZOV = { position: 'Pozícia', place: 'Miesto', project: 'Projekt',
+    form: 'Forma spolupráce', condition: 'Podmienka', housing: 'Ubytovanie',
+    rate: 'Sadzba pre živnostníka', start: 'Nástup a dĺžka', contact: 'Kontakt' };
+  const a = plan.analysis || {};
+  const ludske = a._human || {};
+  const zhrnutie = FACTS.map((k) => {
+    const v = String(a[k] || '').trim();
+    if (!v || v.includes(CHYBA)) return null;
+    return `${NAZOV[k] || k}: ${v}${ludske[k] ? ' (potvrdil človek)' : ''}`;
+  }).filter(Boolean).join('\n');
+
   const bloky = Object.entries(BLOCKS)
     .map(([ch, list]) => `${ch}: ${list.join(', ')}`).join('\n');
   // Zoznam remesiel ide modelu preto, aby `trade_key` sedel s databázou.
@@ -243,6 +257,9 @@ async function analyze(brief, plan, supplier, trades) {
         + `REMESLÁ V DATABÁZE (kľúč = názov; iný kľúč nepoužívaj):\n${remesla}\n\n`
         + `KDE SA DÁ INZEROVAŤ (iné nepoužívaj): ${KANALY.join(', ')}\n\n`
         + `ČO O NÁBORE VIEME Z APPKY:\n${kontext || '(nič)'}\n\n`
+        + (zhrnutie ? 'ZHRNUTIE ZÁKAZKY Z MINULEJ PRÍPRAVY. Údaje „potvrdil človek" platia vždy '
+          + 'a použi ich v textoch aj v zhrnutí. Ostatné sú z minulej prípravy — keď zadanie '
+          + `hovorí inak, platí zadanie.\n${zhrnutie}\n\n` : '')
         + `ZADANIE OD KOLEGU:\n${brief}`,
     })),
   });
@@ -307,6 +324,8 @@ async function run(planId, { regen = false } = {}) {
   // Zadanie, z ktorého podklady vznikli — appka podľa neho pozná, že sa
   // odvtedy zmenilo a podklady treba pregenerovať.
   facts._brief = plan.brief;
+  // Zhrnutie je od tejto chvíle v súlade s textami.
+  facts._dirty = false;
   if (Array.isArray(out.risks) && out.risks.length) facts._risks = out.risks;
   if (Array.isArray(out.ask) && out.ask.length) facts._ask = out.ask;
 
