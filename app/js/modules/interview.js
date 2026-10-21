@@ -32,6 +32,7 @@
       this.pickMode = this.ads.some(a => a.running) ? 'ad'
         : (this.plans.length ? 'plan' : 'trade');
       this.ticked = new Map(); this.notes = new Map(); this.answers = new Map();
+      this.qStep = {}; this.route = null; this.routeFrom = '';
       // Meno a telefón sa držia tu, nie len v políčku — inak ich každé
       // klepnutie na nábor alebo typ hovoru zmazalo (okno sa prekreslí).
       this.draft = { name: '', phone: '', crew: false };
@@ -151,12 +152,12 @@
         return UI.toast('Vyber inzerát, nábor alebo remeslo', 'err');
       }
       const d = this.draft || {};
-      const name = (document.getElementById('call-name')?.value ?? d.name ?? '').trim();
+      const name = (document.getElementById('call-name')?.value || d.name || '').trim();
       if (!name) {
         document.getElementById('call-name')?.focus();
         return UI.toast('Zapíš aspoň meno', 'err');
       }
-      const phone = (document.getElementById('call-phone')?.value ?? d.phone ?? '').trim() || null;
+      const phone = (document.getElementById('call-phone')?.value || d.phone || '').trim() || null;
       const crew = document.getElementById('call-crew')?.checked ?? !!d.crew;
 
       const btn = document.getElementById('call-go');
@@ -243,6 +244,7 @@
       this.ad = this.ads.find(a => a.id === cand.ad_id) || null;
       this.segments = this.buildSegments(cand.profession, cand.ad_id);
       this.notes = new Map(); this.answers = new Map();
+      this.qStep = {}; this.route = null; this.routeFrom = cand.city || '';
       this.setup = false;
       this.segIndex = 0;
       this.open();
@@ -297,6 +299,11 @@
         body: done ? this.callSummary() : this.segmentHtml(seg),
         aside: this.asideHtml(),
       });
+      if (this.route) this.paintRouteMap();
+      // V kroku cesty sa píše hneď — kurzor do poľa.
+      if (this._stepCtx && this._stepCtx.step.type === 'route' && !this.route) {
+        setTimeout(() => document.getElementById('route-from')?.focus({ preventScroll: true }), 30);
+      }
     },
 
     shell({ title, sub, count = '', progress = 0, body, aside }) {
@@ -366,6 +373,7 @@
             ${row('Treba ľudí', p?.headcount ? String(p.headcount) : null)}
             ${row('Ponúkame', p?.offer_rate ? `${p.offer_rate} €/h` : fakt('rate'))}
             ${row('Trvanie', fakt('duration'))}
+            ${this.route ? row('Cesta', `${this.routeFrom}: ${DanubraRoute.sentence(this.route)}`) : ''}
             ${row('Forma', p ? (p.legal_form === 'employee' ? 'zamestnanec' : 'živnosť') : null)}
             ${row('Podmienky', fakt('condition'))}
             ${row('Ubytovanie', fakt('housing'))}
@@ -525,8 +533,15 @@
 
     // ── Jedna obrazovka = jeden segment ───────────────────────────────────
     segmentHtml(seg) {
+      // Otázka po otázke: kým nie sú všetky prejdené, je na obrazovke len
+      // jedna — veľká, s odpoveďami na klik alebo na klávesy 1–3.
+      const kroky = this.steps(seg);
+      const krok = (this.qStep || {})[seg.key] || 0;
+      if (kroky.length && krok < kroky.length) return this.stepHtml(seg, kroky, krok);
+      this._stepCtx = null;
       const note = this.notes.get(seg.key) || '';
       return `
+        ${kroky.length ? this.answeredHtml(seg, kroky) : ''}
         <div class="guide-q">${UI.esc(seg.title)}</div>
         <div class="guide-lead">${UI.esc(seg.lead)}</div>
 
@@ -656,6 +671,181 @@
 
     noteChanged(segKey, value) { this.notes.set(segKey, value); },
 
+    // ── Otázka po otázke ──────────────────────────────────────────────────
+    // „Aby išla otázka po otázke — rýchlo by som to vedel vyplniť a nezdržiaval."
+    // Na obrazovke je vždy jedna otázka. Odpoveď (klik alebo 1–3) hneď posunie
+    // na ďalšiu. V úvode je ako prvá „odkiaľ by si cestoval" — s trasou na stavbu.
+
+    /** Kroky časti: (cesta) + otázky s odpoveďami. */
+    steps(seg) {
+      const g = this.callQ(seg);
+      const kam = window.DanubraRoute ? DanubraRoute.destinationOf(this.plan || {}, this.subcontract() || {}) : '';
+      const cesta = ['intro', 'quick'].includes(seg.key) && kam ? [{ type: 'route', key: '_route', kam }] : [];
+      return [...cesta, ...g.questions.map(q => ({ type: 'q', key: q.key, q }))];
+    },
+
+    stepHtml(seg, kroky, i) {
+      const k = kroky[i];
+      this._stepCtx = { segKey: seg.key, n: kroky.length, step: k };
+      const bodky = kroky.map((x, j) => `<button class="qq-dot${j === i ? ' on' : ''}${
+        this.stepDone(x) ? ' done' : ''}" onclick="Guide.goStep('${seg.key}',${j})"
+        aria-label="Otázka ${j + 1}"></button>`).join('');
+      const telo = k.type === 'route' ? this.routeStepHtml(seg, k) : this.questionStepHtml(seg, k.q);
+      return `
+        <div class="qq-top">
+          <span>${UI.esc(seg.title)} · otázka <b>${i + 1}</b> z ${kroky.length}</span>
+          <div class="qq-dots">${bodky}</div>
+        </div>
+        ${telo}
+        <div class="qq-nav">
+          <button class="guide-nav-btn" onclick="Guide.stepBack('${seg.key}')" ${i === 0 && this.segIndex === 0 ? 'disabled' : ''}>
+            ${Icon('chevron', 16)} Späť</button>
+          <span class="qq-keys">klávesy <kbd>1</kbd>–<kbd>3</kbd> odpoveď · <kbd>0</kbd> iné · <kbd>→</kbd> preskočiť</span>
+          <button class="guide-nav-btn" onclick="Guide.stepNext('${seg.key}')">Preskočiť ${Icon('chevron', 16)}</button>
+        </div>`;
+    },
+
+    stepDone(k) {
+      if (k.type === 'route') return !!this.route;
+      const st = this.callQState(k.q);
+      return st !== null && st !== undefined;
+    },
+
+    questionStepHtml(seg, q) {
+      const sel = this.callQState(q);
+      const a = this.answers && this.answers.get(q.key);
+      return `
+        <div class="qq-q">${UI.esc(q.q)}</div>
+        <div class="qq-ans">
+          ${q.answers.map((ans, i) => `<button class="qq-a pol-${ans.chip ? ans.chip.polarity : 'neutral'}${
+            sel === i ? ' on' : ''}" onclick="Guide.answer('${seg.key}','${q.key}',${i})"
+            ${ans.chip && ans.chip.hint ? `title="${UI.esc(ans.chip.hint)}"` : ''}>
+            <kbd>${i + 1}</kbd><span>${UI.esc(ans.label)}</span></button>`).join('')}
+          <button class="qq-a qq-other${sel === 'other' ? ' on' : ''}"
+            onclick="Guide.answerOther('${seg.key}','${q.key}')"><kbd>0</kbd><span>Iné…</span></button>
+        </div>
+        ${sel === 'other' ? `<input class="cq2-other" id="cq2-in-${q.key}" placeholder="Čo povedal? Enter = ďalej"
+          value="${UI.esc((a && a.other) || '')}"
+          oninput="Guide.answers.set('${q.key}',{other:this.value})"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.stepNext('${seg.key}')}">` : ''}`;
+    },
+
+    // ── Cesta na stavbu ───────────────────────────────────────────────────
+    routeStepHtml(seg, k) {
+      const r = this.route;
+      return `
+        <div class="qq-q">Odkiaľ by si cestoval?</div>
+        <div class="qq-lead">Napíš mesto alebo adresu — appka povie, koľko je to na stavbu
+          (${UI.esc(k.kam)}).</div>
+        <div class="qq-route-in">
+          <input id="route-from" class="cq2-other" placeholder="napr. Žilina alebo Hlinkova 5, Prešov"
+            value="${UI.esc(this.routeFrom || '')}" autocomplete="off"
+            oninput="Guide.routeFrom=this.value"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.calcRoute('${seg.key}')}">
+          <button class="btn btn-primary" id="route-go" onclick="Guide.calcRoute('${seg.key}')">
+            ${Icon('pin', 15)} Vypočítať cestu</button>
+        </div>
+        <div id="route-box">${r ? this.routeBoxHtml(r) : ''}</div>
+        ${r ? `<button class="btn btn-primary qq-continue" onclick="Guide.stepNext('${seg.key}')">
+          Ďalšia otázka ${Icon('chevron', 15)}</button>` : ''}`;
+    },
+
+    routeBoxHtml(r) {
+      if (r.error) return `<div class="warnbox">${Icon('alert', 14)} ${UI.esc(r.error)}</div>`;
+      return `<div class="qq-route">
+        <div class="qq-route-big">${Icon('pin', 18)} <b>${r.km} km</b> · ${UI.esc(DanubraRoute.durationText(r.minutes))} autom</div>
+        <div class="qq-route-say">Povedz mu: „Je to <b>${r.km} km</b>, autom asi
+          <b>${UI.esc(DanubraRoute.durationText(r.minutes))}</b>."</div>
+        <div class="qq-route-from">${UI.esc(r.from.label)} → ${UI.esc(r.to.label)} ·
+          <a href="${UI.esc(r.mapsUrl)}" target="_blank" rel="noopener">trasa v Google Mapách</a></div>
+        <div id="route-map" class="qq-map"></div>
+      </div>`;
+    },
+
+    /** Mapa s trasou. Bez knižnice sa nevykreslí, ale čísla ostanú. */
+    paintRouteMap() {
+      const r = this.route;
+      const el = document.getElementById('route-map');
+      if (!el || !r || r.error || typeof L === 'undefined') { if (el) el.remove(); return; }
+      if (el._m) { el._m.remove(); }
+      const map = L.map(el, { scrollWheelZoom: false, zoomControl: false });
+      L.tileLayer(window.DanubraMap ? DanubraMap.tileUrl() : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(map);
+      const a = [r.from.lat, r.from.lng], b = [r.to.lat, r.to.lng];
+      L.circleMarker(a, { radius: 7, color: '#1E4FD8', fillOpacity: 1 }).addTo(map).bindTooltip(r.from.label);
+      L.circleMarker(b, { radius: 7, color: '#F07E22', fillOpacity: 1 }).addTo(map).bindTooltip(r.to.label);
+      const line = (r.line && r.line.length > 1) ? r.line : [a, b];
+      const pl = L.polyline(line, { color: '#1E4FD8', weight: 4, opacity: .8 }).addTo(map);
+      map.fitBounds(pl.getBounds(), { padding: [20, 20] });
+      setTimeout(() => { try { map.invalidateSize(); } catch {} }, 60);
+      el._m = map;
+    },
+
+    async calcRoute(segKey) {
+      const from = String(this.routeFrom || document.getElementById('route-from')?.value || '').trim();
+      if (!from) return UI.toast('Napíš, odkiaľ ide', 'err');
+      const to = DanubraRoute.destinationOf(this.plan || {}, this.subcontract() || {});
+      const btn = document.getElementById('route-go');
+      if (btn) { btn.disabled = true; btn.textContent = 'Počítam…'; }
+      let r;
+      try {
+        const res = await fetch('/.netlify/functions/danubra-route', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from, to }),
+        });
+        r = await res.json();
+        if (r.error) throw new Error(r.error);
+        if (r.notFound === 'from') throw new Error(`„${from}" som na mape nenašiel — skús mesto bez ulice.`);
+        if (r.notFound === 'to') throw new Error(`Miesto stavby „${to}" som na mape nenašiel.`);
+        if (r.noRoute) throw new Error('Trasu autom sa nepodarilo vypočítať.');
+      } catch (e) {
+        r = { error: e.message || 'Cestu sa nepodarilo vypočítať.' };
+      }
+      this.route = r.error ? null : r;
+      this.routeFrom = from;
+      // Kde býva, sa zapíše ku kandidátovi — o týždeň to bude treba znova.
+      if (!r.error && this.cand) {
+        DB.update('candidates', this.cand.id, { city: from }).then(() => {});
+        this.cand.city = from;
+      }
+      this.render();
+      if (r.error) {
+        const box = document.getElementById('route-box');
+        if (box) box.innerHTML = this.routeBoxHtml(r);
+      }
+    },
+
+    goStep(segKey, j) { this.qStep[segKey] = j; this.render(); },
+
+    stepNext(segKey) {
+      this.qStep[segKey] = ((this.qStep || {})[segKey] || 0) + 1;
+      this.render();
+    },
+
+    stepBack(segKey) {
+      const i = (this.qStep || {})[segKey] || 0;
+      if (i > 0) { this.qStep[segKey] = i - 1; return this.render(); }
+      // Na prvej otázke „Späť" vedie do predchádzajúcej časti, na jej koniec.
+      return this.prevSegment();
+    },
+
+    /** Po otázkach: čo zaznelo, s možnosťou vrátiť sa ku ktorejkoľvek. */
+    answeredHtml(seg, kroky) {
+      const riadok = (k, j) => {
+        let txt = '—';
+        if (k.type === 'route') txt = this.route ? `${this.routeFrom}: ${DanubraRoute.sentence(this.route)}` : '—';
+        else {
+          const st = this.callQState(k.q);
+          const a = this.answers && this.answers.get(k.key);
+          txt = st === 'other' ? ((a && a.other) || 'iné') : (st != null ? k.q.answers[st].label : '—');
+        }
+        const nazov = k.type === 'route' ? 'Odkiaľ cestuje' : k.q.q;
+        return `<button class="qq-sum-row${txt === '—' ? ' empty' : ''}" onclick="Guide.goStep('${seg.key}',${j})">
+          <span>${UI.esc(nazov)}</span><b>${UI.esc(txt)}</b>${Icon('edit', 12)}</button>`;
+      };
+      return `<div class="qq-sum">${kroky.map(riadok).join('')}</div>`;
+    },
+
     // ── Otázky s odpoveďami na klik ───────────────────────────────────────
     // „Konkrétne otázky a potom výber, čo povie — 2–3 možnosti alebo iné."
     // Odpovede sú naviazané na polia hovoru, takže klik zaškrtne to isté pole
@@ -715,6 +905,14 @@
         if (a.chip && !this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id);
         this.answers.set(qKey, { idx: i });
       }
+      // Otázka po otázke: odpoveď hneď posunie ďalej (krátko, nech je vidieť, čo sa zvolilo).
+      if (this._stepCtx && this._stepCtx.segKey === segKey && !vypnut) {
+        this.render();
+        clearTimeout(this._stepT);
+        this._stepT = setTimeout(() => this.stepNext(segKey), 220);
+        return;
+      }
+      if (this._stepCtx) return this.render();
       this.paintCallQ(segKey, q);
     },
 
@@ -724,7 +922,8 @@
       q.answers.forEach((a) => { if (a.chip && this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id); });
       const pred = this.answers.get(qKey);
       this.answers.set(qKey, { other: (pred && pred.other) || '' });
-      this.paintCallQ(segKey, q);
+      if (this._stepCtx) this.render();
+      else this.paintCallQ(segKey, q);
       setTimeout(() => document.getElementById(`cq2-in-${qKey}`)?.focus(), 20);
     },
 
@@ -843,6 +1042,9 @@
       // inak by sa z hovoru stratili.
       const riadky = window.DanubraCallQ
         ? DanubraCallQ.noteLines((this._cq || {})[segKey], this.answers) : [];
+      if (this.route && ['intro', 'quick'].includes(segKey)) {
+        riadky.unshift(`Cesta: ${this.routeFrom} → ${this.route.to.label}: ${DanubraRoute.sentence(this.route)}`);
+      }
       const body = [(el?.value || this.notes.get(segKey) || '').trim(), ...riadky]
         .filter(Boolean).join('\n');
       if (!body || body === this._savedNote?.[segKey]) return;
@@ -972,6 +1174,19 @@
     onKey(e) {
       if (e.key === 'Escape') return this.close();
       if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      // Otázka po otázke: 1–9 odpoveď, 0 iné, šípky ďalej/späť.
+      const c = this._stepCtx;
+      if (c && !this.setup) {
+        if (c.step.type === 'q' && /^[0-9]$/.test(e.key)) {
+          const n = Number(e.key);
+          e.preventDefault();
+          if (n === 0) return this.answerOther(c.segKey, c.step.key);
+          if (n <= c.step.q.answers.length) return this.answer(c.segKey, c.step.key, n - 1);
+          return;
+        }
+        if (e.key === 'ArrowRight') { e.preventDefault(); return this.stepNext(c.segKey); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); return this.stepBack(c.segKey); }
+      }
       if (e.key === 'ArrowRight') { e.preventDefault(); return this.nextSegment(); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); return this.prevSegment(); }
     },
