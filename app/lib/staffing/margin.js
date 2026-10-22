@@ -3,7 +3,7 @@
 // ============================================================================
 // Podľa biznis plánu:
 //   tržba   = odpracované hodiny × fakturačná sadzba
-//   náklady = hrubá mzda × (1 + odvody) + diéty × dni + ubytovanie + doprava
+//   náklady = hrubá mzda × (1 + odvody) + ubytovanie + doprava (diéty neplatíme nikomu)
 //             + SOKA-BAU (len pri stavebných prácach, % z hrubej mzdy)
 //   marža   = tržba − náklady
 //
@@ -13,7 +13,6 @@
   const DEFAULTS = {
     employer_contrib_pct: 36.2,   // odvody zamestnávateľa SR
     soka_pct: 14.7,               // ULAK od 1.7.2026 (len stavba)
-    per_diem_de: 45,              // diéty €/deň
     bau_min_lg1: 15.86,           // Bau-Mindestlohn LG1 €/h
     bau_min_lg2: 17.34,           // LG2 od 1.4.2026 (West)
     general_min_wage: 13.90,      // všeobecný Mindestlohn od 1.1.2026
@@ -29,7 +28,7 @@
    * Rozlišuje dve formy spolupráce:
    *   employee — zamestnanec: hrubá mzda + odvody + prípadná SOKA-BAU
    *   szco     — živnostník: fakturuje nám hodinovú sadzbu, žiadne odvody
-   *              ani SOKA, diéty si rieši sám (ak ich neplatíme zvlášť)
+   *              ani SOKA, diéty si rieši sám
    *
    * @param {Object} a  nasadenie: { charge_rate, legal_form, gross_monthly,
    *                                 hourly_cost, per_diem_daily,
@@ -54,8 +53,9 @@
     const subcontractorCost = isSzco ? num(a.hourly_cost) * hours : 0;
     const gross = isSzco ? 0 : num(a.gross_monthly);
     const contrib = isSzco ? 0 : gross * (num(cfg.employer_contrib_pct) / 100);
-    const perDiemRate = a.per_diem_daily != null ? num(a.per_diem_daily) : (isSzco ? 0 : num(cfg.per_diem_de));
-    const perDiem = perDiemRate * workDays;
+    // Diéty neplatíme nikomu — živnostník si ich rieši sám. Aj keby pri
+    // človeku zostala stará hodnota, do nákladov nejde.
+    const perDiem = 0;
     const accommodation = num(a.accommodation_monthly);
     const transport = num(a.transport_monthly);
     // SOKA-BAU sa odvádza z hrubej mzdy zamestnancov — živnostníkov sa netýka
@@ -86,7 +86,6 @@
       breakdown.push(['Hrubá mzda', '', -costs.gross]);
       breakdown.push(['Odvody zamestnávateľa', `${cfg.employer_contrib_pct} %`, -costs.contributions]);
     }
-    if (perDiem) breakdown.push(['Diéty', `${workDays} dní × ${r2(perDiemRate)} €`, -costs.perDiem]);
     if (accommodation) breakdown.push(['Ubytovanie', '', -costs.accommodation]);
     if (transport) breakdown.push(['Doprava', '', -costs.transport]);
     if (soka) breakdown.push(['SOKA-BAU', `${cfg.soka_pct} % z hrubej`, -costs.soka]);
