@@ -386,7 +386,7 @@
       ],
       watch: [
         'Nemeckým odberateľom sa fakturuje bez DPH (prenesenie daňovej povinnosti, §13b) — appka to doplní sama, ak má odberateľ USt-IdNr.',
-        'Zrážku §48b odvedie odberateľ — na účet príde menej, appka s tým počíta v „Čakáme".',
+        'Máme **Freistellungsbescheinigung §48b** — kým je v Compliance zapísaná ako platná, zrážková stavebná daň 15 % sa neuplatňuje a odberateľ zaplatí celú sumu. Na faktúre je to pre neho napísané po nemecky; kópiu Freistellung by mal mať.',
       ],
       links: [['invoices', 'Vydané faktúry'], ['timesheets', 'Odpracované hodiny']],
     },

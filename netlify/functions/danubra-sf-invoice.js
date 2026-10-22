@@ -144,7 +144,14 @@ async function issue(inv) {
     });
   }
 
-  const payload = buildPayload(inv);
+  // Platná Freistellung §48b (register compliance) — na faktúru ide veta,
+  // že sa zrážka neuplatňuje.
+  const { data: fsRows } = await supabase.from('danubra_compliance')
+    .select('reference,valid_from,valid_to,status').eq('kind', 'freistellung_48b').eq('scope', 'company');
+  const dnes = new Date().toISOString().slice(0, 10);
+  const fs = (fsRows || []).find(f => !['pending', 'expired', 'not_required'].includes(f.status)
+    && (!f.valid_from || f.valid_from <= dnes) && (!f.valid_to || f.valid_to >= dnes)) || null;
+  const payload = buildPayload(inv, fs);
   const res = await sfCall('/invoices/create', payload);
 
   const sfId = res && res.data && res.data.Invoice && res.data.Invoice.id;
@@ -244,7 +251,7 @@ async function pay(inv) {
 // pošle frontend — payload si musí poskladať sama z toho, čo je v databáze.
 const COUNTRY_ID = { SK: 191, CZ: 57, DE: 63, AT: 15, PL: 168, HU: 97 };
 
-function buildPayload(inv) {
+function buildPayload(inv, fs = null) {
   const partner = inv.partner || {};
   const sub = inv.subcontract || {};
   const period = inv.period || {};
@@ -257,6 +264,12 @@ function buildPayload(inv) {
   if (withheld > 0) {
     comments.push(`Bauabzugsteuer gemäß §48b EStG: ${de(withheld)} EUR `
       + `(${Number(inv.withholding_pct)} %). Auszahlungsbetrag: ${de(gross - withheld)} EUR.`);
+  } else if (fs && sub.work_type === 'construction') {
+    const d = (x) => { const m = String(x || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}.${m[2]}.${m[1]}` : ''; };
+    comments.push('Freistellungsbescheinigung gemäß §48b EStG liegt vor'
+      + (fs.reference ? ` (Nr. ${fs.reference}${fs.valid_to ? `, gültig bis ${d(fs.valid_to)}` : ''})`
+        : (fs.valid_to ? ` (gültig bis ${d(fs.valid_to)})` : ''))
+      + ' — kein Steuerabzug.');
   }
 
   const hours = round2(Number(period.hours_construction || 0)
