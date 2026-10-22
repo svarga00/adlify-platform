@@ -49,7 +49,10 @@ const KEYS = X.keys();
     const problems = [];
     if (!t.title || t.title.length < 3) problems.push('nadpis');
     if (!t.lead || t.lead.length < 40) problems.push('úvodná veta');
-    for (const part of ['what', 'how', 'why']) {
+    // Postup má namiesto „čo / ako / prečo" kroky — aspoň tri, každý celou vetou.
+    const casti = k.startsWith('guide.') ? ['steps'] : ['what', 'how', 'why'];
+    if (k.startsWith('guide.') && (!Array.isArray(t.steps) || t.steps.length < 3)) problems.push('aspoň 3 kroky');
+    for (const part of casti) {
       if (!Array.isArray(t[part]) || !t[part].length) problems.push(part);
       else if (t[part].some(p => typeof p !== 'string' || p.length < 30)) {
         problems.push(`${part} (odbyté)`);

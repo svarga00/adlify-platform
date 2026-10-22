@@ -3505,3 +3505,5 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .br-paid input { margin-top: 3px; }
 @media (min-width: 861px) { .bill-receipt { width: auto; padding: 0 16px; } }
 @media (max-width: 860px) { .br-doc { height: 38vh; min-height: 240px; } }
+.hx-steps { margin: 6px 0 0; padding-left: 22px; }
+.hx-steps li { margin: 0 0 8px; line-height: 1.55; font-size: 14px; }
