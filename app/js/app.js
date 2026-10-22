@@ -1098,6 +1098,9 @@ window.Danubra = {
   setActions(html) {
     const el = document.getElementById('topbar-actions');
     if (el) el.innerHTML = html || '';
+    // Mobil: rovnaké tlačidlá pod hlavičkou (horný pruh je tam skrytý).
+    const m = document.getElementById('m-actions');
+    if (m) m.innerHTML = html || '';
   },
 
   // ── Zvonček: čo sa stalo ───────────────────────────────────────────────────
