@@ -96,7 +96,10 @@
     @media print{.bil{grid-template-columns:22px 1fr 1fr}}
     .sigs{display:flex;gap:40px;margin-top:38px;page-break-inside:avoid}
     .sig{flex:1}
-    .sig .line{border-bottom:1px solid #6F7C95;height:46px}
+    .sig .line{border-bottom:1px solid #6F7C95;height:46px;position:relative}
+    .sig .stamp{position:absolute;left:8px;bottom:2px;max-height:92px;max-width:210px;object-fit:contain}
+    .stamp-inv{display:flex;justify-content:flex-end;margin-top:-6px}
+    .stamp-inv img{max-height:100px;max-width:220px;object-fit:contain}
     .sig .who{font-size:11px;color:#6F7C95;margin-top:5px}
     .ss-h{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#96A2BA;
       font-family:ui-monospace,monospace;margin:26px 0 10px;padding-bottom:6px;
@@ -114,17 +117,37 @@
       display:flex;justify-content:space-between;align-items:center;gap:12px}
     .toolbar button{background:${BRAND.orange};color:#fff;border:0;border-radius:8px;
       padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-    @media print{.toolbar{display:none}.page{padding:0}@page{margin:16mm}}
+    .tb-title{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .tb-acts{display:flex;gap:8px;flex:none}
+    .toolbar .tb-2{background:transparent;border:1.5px solid rgba(255,255,255,.5)}
+    .edit-hint{display:none;background:#EAF0FF;color:#1E4FD8;font-size:12.5px;padding:8px 20px;text-align:center}
+    body.editing .edit-hint{display:block}
+    body.editing .page{outline:2px dashed #1E4FD8;outline-offset:4px}
+    body.editing .page:focus{outline-style:solid}
+    @media (max-width:640px){.page{padding:22px 16px}.cols{flex-direction:column;gap:14px}
+      .sigs{flex-direction:column;gap:24px}.toolbar{padding:8px 12px}.toolbar button{padding:8px 10px;font-size:12px}
+      .tb-title{display:none}.toolbar{justify-content:flex-end}.total-box{min-width:0;width:100%}}
+    @media print{.toolbar,.edit-hint{display:none!important}.page{padding:0;outline:0!important}@page{margin:16mm}}
   `;
 
-  function shell(title, bodyHtml, { toolbar = true } = {}) {
+  /**
+   * Obal dokumentu. „Upraviť text" dovolí pred uložením do PDF prepísať
+   * hocičo priamo v dokumente (zmluva, objednávka, infolist…). Zmena sa
+   * neukladá do appky — platí pre tento výtlačok. Faktúra sa takto upravovať
+   * nedá (`editable: false`): vystavený doklad sa nemení.
+   */
+  function shell(title, bodyHtml, { toolbar = true, editable = true } = {}) {
+    const upravit = editable ? `<button class="tb-2" onclick="(function(b){var p=document.querySelector('.page');`
+      + `var on=p.isContentEditable;p.contentEditable=on?'false':'true';document.body.classList.toggle('editing',!on);`
+      + `b.textContent=on?'Upraviť text':'Hotovo';if(!on)p.focus();})(this)">Upraviť text</button>` : '';
     return `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap" rel="stylesheet">
 <style>${CSS}</style></head><body>
-${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">${esc(title)}</span>
-<button onclick="window.print()">Uložiť ako PDF / vytlačiť</button></div>` : ''}
+${toolbar ? `<div class="toolbar"><span class="tb-title">${esc(title)}</span>
+<span class="tb-acts">${upravit}<button onclick="window.print()">Uložiť ako PDF / vytlačiť</button></span></div>
+${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. Zmena platí pre tento výtlačok — potom „Uložiť ako PDF".</div>' : ''}` : ''}
 <div class="page">${bodyHtml}</div></body></html>`;
   }
 
@@ -202,10 +225,21 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     return '';
   }
 
-  function foot(supplier) {
+  /**
+   * Naša pečiatka (a podpis) z Nastavení — obrázok s priehľadným pozadím.
+   * Ide do nášho podpisového poľa a na vydanú faktúru. Keď nie je nahratá,
+   * nič sa nekreslí.
+   */
+  function stamp(supplier, cls = 'stamp') {
+    const src = supplier && supplier.stamp;
+    return src && /^data:image\/(png|jpeg|webp);base64,/.test(src)
+      ? `<img class="${cls}" src="${src}" alt="Pečiatka">` : '';
+  }
+
+  function foot(supplier, lang = 'sk') {
     return `<div class="foot">
       <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}${supplier?.phone ? ' · ' + esc(supplier.phone) : ''}</span>
-      <span>Vystavené elektronicky, platné bez podpisu</span>
+      <span>${lang === 'de' ? 'Elektronisch erstellt, ohne Unterschrift gültig' : 'Vystavené elektronicky, platné bez podpisu'}</span>
     </div>`;
   }
 
@@ -314,8 +348,9 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
           <div class="lbl">${esc(L.scan)}</div>${qrSvg}
           <div style="font-size:9.5px;color:#96A2BA;margin-top:4px">SEPA QR</div></div>` : ''}
       </div>
-      ${foot(supplier)}`;
-    return shell(`${L.title} ${inv.invoice_number || ''}`, body);
+      ${stamp(supplier) ? `<div class="stamp-inv">${stamp(supplier, 'st')}</div>` : ''}
+      ${foot(supplier, de ? 'de' : 'sk')}`;
+    return shell(`${L.title} ${inv.invoice_number || ''}`, body, { editable: false });
   }
 
   // ── FAKTÚRA ZA ŽIVNOSTNÍKA (vyhotovenie faktúry odberateľom) ─────────────
@@ -396,7 +431,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
           Suma: <strong>${money(bill.amount)}</strong>
         </div></div></div>
       <div class="foot"><span>${esc(meno)}</span><span>Vystavené elektronicky, platné bez podpisu</span></div>`;
-    return shell(`Faktúra ${bill.bill_number || '(návrh)'} — ${meno}`, body);
+    return shell(`Faktúra ${bill.bill_number || '(návrh)'} — ${meno}`, body, { editable: false });
   }
 
   // ── PONUKA PRE ODBERATEĽA (nemecky) ───────────────────────────────────────
@@ -565,7 +600,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
         Stand.</p>`) : ''}
 
       <div class="sigs">
-        <div class="sig"><div class="line"></div>
+        <div class="sig"><div class="line">${stamp(supplier)}</div>
           <div class="who">${esc(supplier?.name || 'Auftragnehmer')} · Ort, Datum</div></div>
         <div class="sig"><div class="line"></div>
           <div class="who">${esc(client?.name || 'Auftraggeber')} · Ort, Datum</div></div>
@@ -652,7 +687,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       <div class="note">Po pripísaní platby vám obratom pošleme adresu ubytovania,
       kontakt na ubytovateľa a pokyny na prevzatie.</div>
       ${foot(supplier)}`;
-    return shell(`Výzva na platbu ${order.order_number || ''}`, body);
+    return shell(`Výzva na platbu ${order.order_number || ''}`, body, { editable: false });
   }
 
   // ── POTVRDENIE MAJITEĽOVI (nemecky, §8) ───────────────────────────────────
@@ -815,13 +850,13 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       <ul class="clean">
         <li>Objednáva sa <strong>dielo</strong>, nie hodiny. Rozsah je popísaný vyššie
           a tým je aj ohraničený — čokoľvek nad rámec sa dohodne novou objednávkou.</li>
-        <li>Prácu si <strong>organizuješ sám</strong>: vlastné náradie, vlastný postup,
-          vlastné rozvrhnutie času v rámci dohodnutého termínu.</li>
-        <li>Za vykonané dielo <strong>vystavíš faktúru</strong>. Podkladom je tento
+        <li>Zhotoviteľ si prácu <strong>organizuje sám</strong>: vlastné náradie, vlastný
+          postup, vlastné rozvrhnutie času v rámci dohodnutého termínu.</li>
+        <li>Za vykonané dielo <strong>vystaví Zhotoviteľ faktúru</strong>. Podkladom je tento
           rozsah a odsúhlasený výkaz; obe sa musia zhodovať.</li>
       </ul>
       <div class="sigs">
-        <div class="sig"><div class="line"></div><div class="who">Za objednávateľa</div></div>
+        <div class="sig"><div class="line">${stamp(supplier)}</div><div class="who">Za objednávateľa</div></div>
         <div class="sig"><div class="line"></div><div class="who">Zhotoviteľ — prijímam objednávku</div></div>
       </div>`}
       ${pre ? foot(supplier) : footSigned(supplier)}`;
@@ -863,8 +898,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
         sub.title || '', sub.contract_number || ''].filter(Boolean), supplier)}
 
       <div class="note" style="border-left-color:#1E4FD8">
-        Toto si vezmi so sebou. Keď niečo nesedí, <strong>zavolaj nám skôr, než
-        niečo podpíšeš alebo začneš robiť</strong> — na stavbe sa to potom rieši ťažko.
+        Toto si prosím vezmite so sebou. Keď niečo nesedí, <strong>zavolajte nám skôr,
+        než niečo podpíšete alebo začnete robiť</strong> — na stavbe sa to potom rieši ťažko.
       </div>
 
       <h2 class="ss-h">Kam a kedy</h2>
@@ -896,15 +931,15 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
 
       <h2 class="ss-h">Ako sa hlásia hodiny</h2>
       <ul class="clean">
-        <li>Hodiny zapisuj <strong>každý deň</strong>, nie na konci týždňa — spätne sa
+        <li>Hodiny zapisujte <strong>každý deň</strong>, nie na konci týždňa — spätne sa
           nikto nespomenie, kedy sa začalo a kedy skončilo.</li>
         <li>Na konci týždňa podpíše odberateľ výkaz (<em>Stundennachweis</em>).
-          <strong>Nepodpisuj nič iné</strong>, čo ti na stavbe dajú, kým sa neozveš nám.</li>
-        <li>Z tých istých hodín vzniká tvoja faktúra nám aj naša faktúra odberateľovi.
+          <strong>Nič iné nepodpisujte</strong>, kým sa neozvete nám.</li>
+        <li>Z tých istých hodín vzniká Vaša faktúra nám aj naša faktúra odberateľovi.
           Preto sa musia zhodovať.</li>
       </ul>
 
-      <h2 class="ss-h">Nemecké vety, ktoré budeš potrebovať</h2>
+      <h2 class="ss-h">Nemecké vety, ktoré sa Vám zídu</h2>
       <table><thead><tr><th>Po slovensky</th><th>Po nemecky</th></tr></thead><tbody>
         ${vety.map(f => `<tr><td style="color:#6F7C95">${esc(f.sk)}</td>
           <td><strong>${esc(f.de)}</strong></td></tr>`).join('')}
@@ -912,19 +947,19 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
 
       <h2 class="ss-h">Keď je problém</h2>
       <ul class="clean">
-        <li><strong>Nepustia ťa na stavbu</strong> alebo chcú doklad, ktorý nemáš —
-          zavolaj nám hneď, nerieš to sám.</li>
-        <li><strong>Kontrola (Zoll, FKS)</strong> — ukáž A1 a živnostenský list,
-          buď slušný, nič nepodpisuj a zavolaj nám.</li>
+        <li><strong>Nepustia Vás na stavbu</strong> alebo chcú doklad, ktorý nemáte —
+          zavolajte nám hneď, neriešte to sami.</li>
+        <li><strong>Kontrola (Zoll, FKS)</strong> — ukážte A1 a živnostenský list,
+          buďte slušný, nič nepodpisujte a zavolajte nám.</li>
         <li><strong>Úraz</strong> — najprv 112, potom nám. Aj drobný úraz treba nahlásiť
           v ten istý deň.</li>
-        <li><strong>Chcú od teba prácu mimo dohody</strong> — povedz, že sa musíš
-          spýtať, a zavolaj. Nie je to nezdvorilosť, je to zmluva.</li>
+        <li><strong>Chcú od Vás prácu mimo dohody</strong> — povedzte, že sa musíte
+          spýtať, a zavolajte nám. Nie je to nezdvorilosť, je to zmluva.</li>
       </ul>
 
       ${supplier && (supplier.phone || supplier.email) ? `<div class="pay">
         <div style="flex:1">
-          <div class="lbl">Na nás sa dovoláš tu</div>
+          <div class="lbl">Na nás sa dovoláte tu</div>
           <div class="val" style="line-height:1.9">
             ${supplier.phone ? `Telefón: <strong>${esc(supplier.phone)}</strong><br>` : ''}
             ${supplier.email ? `E-mail: <strong>${esc(supplier.email)}</strong>` : ''}
@@ -1068,7 +1103,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       <div class="par"><p>${esc(mestoZAdresy(supplier) || '…')}, dňa / am ${
         esc(date(o.signed_at || new Date().toISOString().slice(0, 10)))}</p></div>
       <div class="sigs">
-        <div class="sig"><div class="line"></div>
+        <div class="sig"><div class="line">${stamp(supplier)}</div>
           <div class="who">Zhotoviteľ / Auftragnehmer</div></div>
         <div class="sig"><div class="line"></div>
           <div class="who">Objednávateľ / Auftraggeber</div></div>
@@ -1130,7 +1165,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       <div class="par"><p>${esc(mestoZAdresy(supplier) || '…')}, dňa / am ${
         esc(date(zmluva.signedAt))}</p></div>
       <div class="sigs">
-        <div class="sig"><div class="line"></div>
+        <div class="sig"><div class="line">${stamp(supplier)}</div>
           <div class="who">Zhotoviteľ / Auftragnehmer — ${esc(supplier.name || '')}</div></div>
         <div class="sig"><div class="line"></div>
           <div class="who">Objednávateľ / Auftraggeber — ${esc(client.name || '')}</div></div>
@@ -1195,7 +1230,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
       <div class="par"><p>${esc(mestoZAdresy(supplier) || '…')}, dňa ${
         esc(S ? S.den(zmluva.signedAt) : zmluva.signedAt)}</p></div>
       <div class="sigs">
-        <div class="sig"><div class="line"></div>
+        <div class="sig"><div class="line">${stamp(supplier)}</div>
           <div class="who">Objednávateľ — ${esc(supplier.name || '')}</div></div>
         <div class="sig"><div class="line"></div>
           <div class="who">Zhotoviteľ — ${esc(worker.full_name || '')}</div></div>
@@ -1322,7 +1357,7 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
 
       <div class="par"><p>V ${esc(mesto || '…')}, dňa ${date(new Date().toISOString())}</p></div>
       <div class="sigs">
-        <div class="sig"><div class="line"></div>
+        <div class="sig"><div class="line">${stamp(supplier)}</div>
           <div class="who">${esc(supplier.name || 'Prevádzkovateľ')}</div></div>
         <div class="sig"><div class="line"></div>
           <div class="who">${esc(worker.full_name || 'Dotknutá osoba')}</div></div>
@@ -1395,8 +1430,8 @@ ${toolbar ? `<div class="toolbar"><span style="font-size:13px;font-weight:600;">
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();

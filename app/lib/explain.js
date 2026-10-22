@@ -330,6 +330,22 @@
       ],
       links: [['subcontracts', 'Zákazky'], ['invoices', 'Vydané faktúry']],
     },
+    'card.settings.stamp': {
+      title: 'Pečiatka a podpis na dokumentoch',
+      lead: 'Naša pečiatka (aj s podpisom), ktorá sa sama objaví na papieroch, čo odchádzajú z appky.',
+      what: [
+        'Zmluvy, objednávky, súhlas GDPR a vydané faktúry ju majú v našom podpisovom poli, '
+        + 'faktúra pod platobnými údajmi.',
+      ],
+      how: [
+        'Pečiatku odfoťte alebo naskenujte na bielom papieri. Appka obrázok zmenší a biele '
+        + 'pozadie odstráni, aby pečiatka sedela na čiare podpisu.',
+        'Na faktúre, ktorú vystavujeme za živnostníka, naša pečiatka nie je — doklad je jeho.',
+      ],
+      why: [
+        'Papier s pečiatkou netreba tlačiť, pečiatkovať a skenovať späť — dá sa poslať rovno ako PDF.',
+      ],
+    },
     'card.money.dues': {
       title: 'Čo zaplatiť a na čo čakáme',
       lead: 'Prijaté faktúry, ktoré treba zaplatiť, a vydané, na ktorých peniaze čakáme — po termínoch.',

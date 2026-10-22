@@ -98,6 +98,61 @@
       await this.patch(key, out);
     },
 
+    // ── Pečiatka ──────────────────────────────────────────────────────────
+    // „Pridali by sme aj našu pečiatku." Fotka pečiatky (aj s podpisom) sa
+    // zmenší, biele pozadie sa zmení na priehľadné a uloží sa k fakturačným
+    // údajom. Dokumenty ju dajú do nášho podpisového poľa a na faktúru.
+    stampHtml() {
+      const src = this.j('supplier').stamp;
+      return `<div class="card card-pad" style="margin-bottom:16px;">
+        <div class="card-head"><div class="card-title">Pečiatka a podpis na dokumentoch${Help.btn('card.settings.stamp', { size: 13 })}</div></div>
+        <div class="regimebox" style="margin:0 0 12px;">Odfoťte alebo naskenujte pečiatku (aj s podpisom)
+          na bielom papieri. Appka biele pozadie odstráni a pečiatka sa objaví na zmluvách,
+          objednávkach, súhlase GDPR a vydaných faktúrach — v našom podpisovom poli.</div>
+        <div class="stamp-set">
+          <div class="stamp-prev">${src ? `<img src="${src}" alt="Pečiatka">` : '<span>Zatiaľ bez pečiatky</span>'}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label class="btn btn-primary btn-sm">${Icon('upload')} ${src ? 'Nahrať inú' : 'Nahrať pečiatku'}
+              <input type="file" accept="image/*" hidden onchange="Cfg.uploadStamp(this.files[0]);this.value=''"></label>
+            ${src ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Cfg.removeStamp()">Odstrániť</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    },
+
+    async uploadStamp(file) {
+      if (!file) return;
+      try {
+        const url = URL.createObjectURL(file);
+        const img = await new Promise((ok, zle) => { const i = new Image(); i.onload = () => ok(i); i.onerror = zle; i.src = url; });
+        const k = Math.min(1, 600 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        // Biele a takmer biele pozadie → priehľadné, aby pečiatka sedela na čiare.
+        const d = ctx.getImageData(0, 0, c.width, c.height);
+        for (let i = 0; i < d.data.length; i += 4) {
+          const [r, g, b] = [d.data[i], d.data[i + 1], d.data[i + 2]];
+          const svetlost = Math.min(r, g, b);
+          if (svetlost > 215) d.data[i + 3] = 0;
+          else if (svetlost > 175) d.data[i + 3] = Math.round(255 * (215 - svetlost) / 40);
+        }
+        ctx.putImageData(d, 0, 0);
+        const data = c.toDataURL('image/png');
+        if (data.length > 900000) return UI.toast('Pečiatka je príliš veľká — odfoťte ju bližšie a orežte', 'err');
+        await this.patch('supplier', { stamp: data });
+      } catch (e) {
+        UI.toast('Obrázok sa nedal načítať — skúste JPG alebo PNG', 'err');
+      }
+    },
+
+    async removeStamp() {
+      if (!await UI.confirm('Odstrániť pečiatku z dokumentov?')) return;
+      await this.patch('supplier', { stamp: null });
+    },
+
     // ── Cenník a pravidlá ─────────────────────────────────────────────────
     async rulesView(el) {
       Danubra.setActions('');
@@ -305,6 +360,8 @@
           ['address', 'Adresa', 'text'],
           ['vat_note', 'Poznámka k DPH', 'text', 'Nie sme platiteľmi DPH.'],
         ]) +
+
+        this.stampHtml() +
 
         `<div class="card card-pad" style="margin-bottom:16px;">
           <div class="card-head"><div class="card-title">Číselné rady${Help.btn('card.settings.numbers', { size: 13 })}</div></div>
