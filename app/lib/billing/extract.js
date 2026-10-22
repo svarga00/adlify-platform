@@ -229,9 +229,12 @@
     if (!f) return out;
     if (f.doc_type === 'credit_note') out.push('Je to dobropis, nie faktúra — suma nám ide späť.');
     if (f.doc_type === 'proforma') out.push('Je to zálohová faktúra — nie je daňový doklad, po zaplatení príde ostrá.');
-    if (f.doc_type === 'receipt' || f.doc_type === 'other') out.push('Nevyzerá to ako faktúra — skontrolujte, čo ste nahrali.');
+    if (f.doc_type === 'other') out.push('Nevyzerá to ako faktúra ani bloček — skontrolujte, čo ste nahrali.');
     if (f.total == null) out.push('Suma sa nedala prečítať — doplňte ju.');
-    if (!f.due_date) out.push('Chýba splatnosť — doplňte ju, inak sa v prehľade platieb ráta 14 dní od vystavenia.');
+    // Bloček je zaplatený na mieste — splatnosť nemá.
+    if (!f.due_date && f.doc_type !== 'receipt') {
+      out.push('Chýba splatnosť — doplňte ju, inak sa v prehľade platieb ráta 14 dní od vystavenia.');
+    }
     if (f.currency && f.currency !== 'EUR') out.push(`Faktúra je v mene ${f.currency}, nie v eurách.`);
     if (f.base != null && f.vat != null && f.total != null
         && Math.abs(f.base + f.vat - f.total) > 0.02) {

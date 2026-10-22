@@ -3496,3 +3496,12 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   display: grid; place-items: center; background: repeating-conic-gradient(#f3f5f9 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
 .stamp-prev img { max-width: 200px; max-height: 96px; object-fit: contain; }
 .stamp-prev span { color: var(--ink-mute); font-size: 12.5px; }
+.bill-cams { display: flex; gap: 8px; margin: -4px 0 12px; }
+.bill-cams .bill-camera { margin: 0; flex: 1; }
+.bill-receipt { min-height: 44px; justify-content: center; }
+@media (min-width: 861px) { .bill-cams { justify-content: flex-end; } .bill-receipt { flex: none !important; } }
+.br-paid { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 12px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius); font-size: 13.5px; }
+.br-paid input { margin-top: 3px; }
+@media (min-width: 861px) { .bill-receipt { width: auto; padding: 0 16px; } }
+@media (max-width: 860px) { .br-doc { height: 38vh; min-height: 240px; } }
