@@ -3472,3 +3472,22 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .qq-date-fit.fit-warn { color: var(--amber); font-weight: 600; }
 .qq-date-fit.fit-bad { color: var(--red); font-weight: 600; }
 .cq2 .qq-date { margin: 4px 0 8px; }
+
+/* Mobil: tlačidlá obrazovky pod hlavičkou (horný pruh je skrytý). */
+.m-actions { display: none; }
+@media (max-width: 860px) {
+  .m-actions:not(:empty) {
+    display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; background: var(--card);
+    border-bottom: 1px solid var(--border); scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .m-actions::-webkit-scrollbar { display: none; }
+  .m-actions .btn { flex: none; white-space: nowrap; min-height: 40px; }
+  .m-actions .btn-primary { order: -1; }
+}
+.only-mob { display: none !important; }
+.bill-camera { width: 100%; justify-content: center; margin: -4px 0 12px; min-height: 48px; font-size: 15px; }
+@media (max-width: 860px) {
+  .only-mob { display: initial !important; }
+  .bill-camera.only-mob { display: flex !important; }
+  .only-desk { display: none !important; }
+}

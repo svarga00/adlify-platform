@@ -249,9 +249,16 @@
             accept=".pdf,.xml,application/pdf,application/xml,text/xml,image/*"
             onchange="Cost.upload(this.files);this.value=''">
           <span class="bill-drop-ico">${Icon('upload', 22)}</span>
-          <span><b>Pretiahnite sem faktúry</b> alebo kliknite a vyberte — aj viac naraz.
+          <span><b class="only-desk">Pretiahnite sem faktúry</b><span class="only-desk"> alebo kliknite a vyberte — aj viac naraz.</span>
+            <b class="only-mob">Nahrať faktúry zo súboru</b>
             <em>PDF, fotka alebo e-faktúra (XML). Appka z nich prečíta dodávateľa, sumy,
             splatnosť aj IBAN.</em></span>
+        </label>
+        <!-- Na telefóne rovno fotoaparát: papierovú faktúru stačí odfotiť. -->
+        <label class="btn btn-primary bill-camera only-mob">
+          <input type="file" accept="image/*" capture="environment" hidden
+            onchange="Cost.upload(this.files);this.value=''">
+          ${Icon('upload', 16)} Odfotiť faktúru
         </label>`;
     },
 
@@ -267,7 +274,10 @@
         if (file.size > 25 * 1024 * 1024) { UI.toast(`${file.name}: súbor je väčší ako 25 MB`, 'err'); continue; }
         // Prehliadač niekedy typ nepovie — úložisko by súbor bez typu odmietlo.
         const typ = file.type || { pdf: 'application/pdf', xml: 'application/xml', image: 'image/jpeg' }[kind];
-        const f = file.type ? file : new File([file], file.name, { type: typ });
+        let f = file.type ? file : new File([file], file.name, { type: typ });
+        // Fotka z telefónu: zmenšiť a previesť na JPG (iPhone fotí v HEIC,
+        // ktorý model neprečíta, a 12 Mpx fotka sa zbytočne dlho nahráva).
+        if (kind === 'image') f = await this.toJpeg(f);
         const up = await DB.uploadDoc(f, { folder: 'prijate-faktury', entityId: Danubra._dayISO() });
         if (up.error || !up.path) {
           UI.toast(`${file.name}: nenahralo sa (${(up.error && up.error.message) || 'chyba úložiska'})`, 'err');
@@ -284,6 +294,25 @@
       }
       if (n) UI.toast(n === 1 ? 'Nahraté — appka ju číta' : `Nahraté (${n}) — appka ich číta`, 'ok');
       this.loaded = false; await this.load(); Danubra.renderRoute();
+    },
+
+    /** Fotka → JPG, dlhšia strana najviac 2200 px. Keď to nejde, ide pôvodný súbor. */
+    async toJpeg(file) {
+      try {
+        const url = URL.createObjectURL(file);
+        const img = await new Promise((ok, zle) => {
+          const i = new Image(); i.onload = () => ok(i); i.onerror = zle; i.src = url;
+        });
+        const k = Math.min(1, 2200 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.85));
+        if (!blob) return file;
+        const meno = String(file.name || 'faktura').replace(/\.[^.]+$/, '') + '.jpg';
+        return new File([blob], meno, { type: 'image/jpeg' });
+      } catch { return file; }
     },
 
     /** Spustí čítanie na serveri. Odpovie hneď (202), výsledok sa zapíše k faktúre. */
