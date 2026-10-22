@@ -143,16 +143,58 @@
     return i >= 0 ? i : null;
   }
 
-  /** Riadky do poznámky: odpovede bez poľa a vlastné „iné". */
+  // ── Termín ────────────────────────────────────────────────────────────────
+  // „Kde sa pýtam na termín alebo dátum, dať aj voľbu termínu." Otázka na
+  // „kedy" dostane popri odpovediach aj dátum — s rýchlymi voľbami a hneď
+  // s porovnaním, či stihne nástup na nábor.
+  const DATUMOVE = /(^|[^\p{L}])(kedy|odkedy|dokedy|term[íi]n|d[áa]tum|nast[úu]p)/iu;
+  function isDateQ(q) { return DATUMOVE.test(String((q && q.q) || q || '')); }
+
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const den = (s) => new Date(`${String(s).slice(0, 10)}T00:00:00Z`);
+
+  /** „2026-11-03" → „3. 11. 2026" */
+  function dateText(s) {
+    const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${Number(m[3])}. ${Number(m[2])}. ${m[1]}` : '';
+  }
+
+  /** Rýchle voľby: budúci pondelok, o dva týždne, 1. ďalšieho mesiaca. */
+  function quickDates(today) {
+    const t = den(today || new Date().toISOString());
+    const pon = new Date(t); pon.setUTCDate(t.getUTCDate() + (((8 - t.getUTCDay()) % 7) || 7));
+    const dva = new Date(t); dva.setUTCDate(t.getUTCDate() + 14);
+    const mes = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 1));
+    return [
+      { label: 'Budúci pondelok', date: iso(pon) },
+      { label: 'O 2 týždne', date: iso(dva) },
+      { label: '1. ďalšieho mesiaca', date: iso(mes) },
+    ];
+  }
+
+  /**
+   * Stihne nástup? Porovná dátum, ktorý povedal, s nástupom náboru.
+   * @returns {{tone:'ok'|'warn'|'bad', text:string}|null}
+   */
+  function planFit(date, planStart) {
+    if (!date || !planStart) return null;
+    const dni = Math.round((den(date) - den(planStart)) / 86400000);
+    if (dni <= 0) return { tone: 'ok', text: `Stihne nástup ${dateText(planStart)}.` };
+    if (dni <= 7) return { tone: 'warn', text: `O ${dni} ${dni === 1 ? 'deň' : dni < 5 ? 'dni' : 'dní'} neskôr, než je nástup (${dateText(planStart)}).` };
+    return { tone: 'bad', text: `O ${dni} dní neskôr, než je nástup (${dateText(planStart)}) — na tento nábor nestihne.` };
+  }
+
+  /** Riadky do poznámky: odpovede bez poľa, vlastné „iné" a dátum. */
   function noteLines(questions, answers) {
     const out = [];
     for (const q of questions || []) {
       const a = answers && answers.get ? answers.get(q.key) : null;
       if (!a) continue;
-      if (a.other) out.push(`${q.q} — ${a.other}`);
-      else if (a.idx != null && q.answers[a.idx] && !q.answers[a.idx].chip) {
-        out.push(`${q.q} — ${q.answers[a.idx].label}`);
-      }
+      const casti = [];
+      if (a.other) casti.push(a.other);
+      else if (a.idx != null && q.answers[a.idx] && !q.answers[a.idx].chip) casti.push(q.answers[a.idx].label);
+      if (a.date) casti.push(`dátum ${dateText(a.date)}`);
+      if (casti.length) out.push(`${q.q} — ${casti.join(' · ')}`);
     }
     return out;
   }
@@ -208,13 +250,15 @@
   /** Riadok do `screening_answers` z odpovede v hovore (null = nič na zápis). */
   function answerRow(q, a) {
     if (!q || !q.dbId || !a) return null;
+    const datum = a.date ? `dátum ${dateText(a.date)}` : '';
+    const spoj = (...x) => x.filter(Boolean).join(' · ');
     if (a.other != null) {
       const txt = String(a.other).trim();
-      return txt ? { question_id: q.dbId, answer_text: txt, rating: null, flagged: false } : null;
+      return txt || datum ? { question_id: q.dbId, answer_text: spoj(txt, datum), rating: null, flagged: false } : null;
     }
     const ans = q.answers[a.idx];
-    if (!ans) return null;
-    return { question_id: q.dbId, answer_text: ans.label, rating: ans.rating,
+    if (!ans) return datum ? { question_id: q.dbId, answer_text: datum, rating: null, flagged: false } : null;
+    return { question_id: q.dbId, answer_text: spoj(ans.label, datum), rating: ans.rating,
       flagged: ans.rating === 0 && (q.weight || 1) >= 3 };
   }
 
@@ -228,7 +272,8 @@
   }
 
   const API = { QUESTIONS, QUICK, otazky, group, selected, noteLines,
-    RATINGS, fromDbQuestion, shortQ, ratingItems, answerRow, fromRow };
+    RATINGS, fromDbQuestion, shortQ, ratingItems, answerRow, fromRow,
+    isDateQ, dateText, quickDates, planFit };
   if (typeof window !== 'undefined') window.DanubraCallQ = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
