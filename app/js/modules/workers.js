@@ -425,12 +425,22 @@
     stepsCard(w) {
       if (w.legal_form && w.legal_form !== 'szco') return '';
       const st = this.stepsOf(w);
+      // Keď je všetko hotové, karta je zbalená do jedného riadku — papiere sa
+      // dajú rozbaliť a vytlačiť znova, ale netreba ich mať stále na očiach.
+      if (st.done) {
+        return `<details class="card card-pad ps ps-done">
+          <summary class="card-head">
+            <div class="card-title">${Icon('briefcase', 15)} Môže ísť na stavbu — papiere sú v poriadku</div>
+            ${UI.badge('všetko hotové', 'green')}
+          </summary>
+          ${this.stepsHtml(w)}
+        </details>`;
+      }
       return `<div class="card card-pad ps">
         <div class="card-head">
           <div class="card-title">${Icon('briefcase', 15)} Čo treba, aby mohol ísť na stavbu${
             Help.btn('card.worker.steps', { size: 13 })}</div>
-          ${st.done ? UI.badge('všetko hotové', 'green')
-            : UI.badge(`${st.left === 1 ? 'chýba 1 vec' : `chýbajú ${st.left} veci`}`, 'amber')}
+          ${UI.badge(`${st.left === 1 ? 'chýba 1 vec' : `chýbajú ${st.left} veci`}`, 'amber')}
         </div>
         ${this.stepsHtml(w)}
       </div>`;
@@ -468,6 +478,7 @@
         if (!this.loaded) await this.load();
         if (!this.items.find(x => x.id === id)) return UI.toast('Nenájdené', 'err');
       }
+      if (this.openId !== id) this.sec = 'doklady';
       this.openId = id;
       this.acc = { workerId: null, bills: [], advances: [], timesheets: [], promises: [], loaded: false };
       // Adresa musí niesť aj id. `Danubra.go('workers')` by router prečítal
@@ -588,22 +599,32 @@
 
         ${this.stepsCard(w)}
 
-        <div class="profile-cols">
-          ${this.accountCard(w, acct)}
-          ${this.readinessCard(w, ready)}
-          ${this.docsCard(w, docs, today)}
-          ${this.advancesCard(w, acct)}
-          ${this.hoursCard(w, acct)}
-          ${this.promisesCard(w)}
-          ${isTrade ? this.billingCard(w, billing) : ''}
-          ${this.aboutCard(w)}
-        </div>
+        ${(() => {
+          // Karta bola osem kariet pod sebou. Teraz záložky — vždy jedna
+          // časť naraz, na mobile sa nemusí dlho posúvať.
+          const sekcie = {
+            doklady: `${this.readinessCard(w, ready)}${this.docsCard(w, docs, today)}`,
+            peniaze: `${this.accountCard(w, acct)}${this.hoursCard(w, acct)}${this.advancesCard(w, acct)}${
+              isTrade ? this.billingCard(w, billing) : ''}`,
+            onom: `${this.aboutCard(w)}${this.promisesCard(w)}`,
+            historia: `<div id="wrk-history">${UI.loading()}</div>`,
+          };
+          const sec = sekcie[this.sec] ? this.sec : 'doklady';
+          this._sec = sec;
+          const TABS = [['doklady', 'Doklady', 'shield'], ['peniaze', 'Peniaze', 'euro'],
+            ['onom', 'O ňom', 'user'], ['historia', 'História', 'clock']];
+          return `<div class="sec-tabs" role="tablist">
+            ${TABS.map(([k, label, ico]) => `<button role="tab" class="sec-tab${k === sec ? ' on' : ''}"
+              aria-selected="${k === sec}" onclick="Wrk.setSec('${k}')">${Icon(ico, 14)} ${label}</button>`).join('')}
+          </div>
+          <div class="sec-body profile-cols">${sekcie[sec]}</div>`;
+        })()}`;
 
-        <div class="form-section">História nasadení</div>
-        <div id="wrk-history">${UI.loading()}</div>`;
-
-      this.renderHistory(id);
+      if (this._sec === 'historia') this.renderHistory(id);
     },
+
+    sec: 'doklady',
+    setSec(k) { this.sec = k; Danubra.renderRoute(); },
 
     /** Koľko mu dlhujeme. Číslo, kvôli ktorému celá karta existuje. */
     accountCard(w, a) {

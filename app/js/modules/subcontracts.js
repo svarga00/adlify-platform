@@ -296,6 +296,7 @@
         if (!this.loaded) await this.load();
         if (!this.items.find(x => x.id === id)) return UI.toast('Nenájdené', 'err');
       }
+      if (this.openId !== id) this.sec = 'prehlad';
       this.openId = id;
       // Adresa musí niesť aj id. `Danubra.go('subcontracts')` by router prečítal
       // ako „bez id" a práve otvorený záznam by hneď zavrel.
@@ -358,25 +359,11 @@
         </div>`).join('')
         : `<div style="color:var(--green);font-size:13px;font-weight:600;">${Icon('check', 14)} Všetko v poriadku — zákazka je pripravená.</div>`;
 
-      const body = `
-        <div class="detail-head">
-          ${this.badge(sc.status)}
-          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(sc.contract_number || '')}</span>
-          <select class="verif-sel" onchange="Sub.setStatus('${sc.id}',this.value)">
-            ${STATUS.map(s => `<option value="${s[0]}" ${sc.status === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
-          </select>
-        </div>
-
-        ${this.nowHtml(sc)}
-
-        <div class="${chk.ok ? 'regimebox' : 'warnbox'}" style="margin-bottom:14px;">
-          ${chk.ok
-            ? `${Icon('check', 14)} Podmienky vyslania sú splnené${chk.warnings.length ? ` — ${chk.warnings.length} upozornení nižšie` : ''}.`
-            : `${Icon('alert', 14)} <strong>Nesmie sa začať:</strong> ${
-              this.chybaText(chk.blockers.length)} — sú nižšie.`}
-        </div>
-
-        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
+      // Detail bol jedna dlhá stránka (na mobile vyše 4 000 px). Teraz je
+      // hore stav a „čo teraz" a pod tým záložky — vždy jedna časť naraz.
+      const ludiaN = asg.filter(a => a.status !== 'cancelled').length;
+      const sekcie = {
+        prehlad: `        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         ${sc.scope ? `<div class="notebox"><strong>Dielo:</strong> ${UI.esc(sc.scope)}</div>` : ''}
 
         <div class="form-section">Kde to je</div>
@@ -392,7 +379,8 @@
                  <span>Doplniť polohu stavby</span></button>`}
         </div>
 
-        <div class="form-section" id="sub-compliance">Compliance</div>
+`,
+        compliance: `        <div class="form-section" id="sub-compliance">Compliance</div>
         ${complianceHtml}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
           ${sc.work_type === 'construction' && !sc.zoll_reported_at
@@ -400,7 +388,8 @@
           <button class="btn btn-outline btn-sm" onclick="Sub.anuCheck('${sc.id}')">${Icon('shield')} Test rizika ANÜ</button>
         </div>
 
-        <div class="form-section">Nasadení pracovníci (${asg.filter(a => a.status !== 'cancelled').length})</div>
+`,
+        ludia: `        <div class="form-section">Nasadení pracovníci (${asg.filter(a => a.status !== 'cancelled').length})</div>
         ${asg.filter(a => a.status !== 'cancelled').map(a => {
           const w = this.workerOf(a.worker_id);
           // Kto je na stavbe s výnimkou, musí byť vidieť tu — nie až v jeho
@@ -434,16 +423,19 @@
           <button class="btn btn-outline btn-sm" onclick="Sub.assignCrewForm('${sc.id}')">${Icon('workers', 14)} Nasadiť celú partiu</button>
         </div>
 
-        <div class="form-section" id="sub-periods">Obdobia a podklady</div>
-        ${this.periodsHtml(sc)}
-
         ${asg.filter(a => a.status !== 'cancelled')
           .map(a => this.checklistHtml(sc, a)).join('')}
 
-        <div class="form-section">Ubytovanie a doprava</div>
+`,
+        obdobia: `        <div class="form-section" id="sub-periods">Obdobia a podklady</div>
+        ${this.periodsHtml(sc)}
+
+`,
+        ubytovanie: `        <div class="form-section">Ubytovanie a doprava</div>
         ${this.lodgingHtml(sc, asg)}
 
-        ${eco.length ? `
+`,
+        peniaze: `        ${eco.length ? `
         <div class="form-section">Ekonomika (mesačne, orientačne pri 160 h a 21 dňoch)</div>
         <div class="service-total">
           <div><div class="code-label">Marža spolu</div>
@@ -457,7 +449,41 @@
 
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
           <button class="btn btn-danger btn-sm" onclick="Sub.del('${sc.id}')">Zmazať</button>
-        </div>`;
+        </div>`,
+      };
+      const sec = sekcie[this.sec] ? this.sec : 'prehlad';
+      const TABS = [
+        ['prehlad', 'Prehľad', 'site'],
+        ['compliance', 'Compliance', 'shield', chk.blockers.length ? `<em class="st-bad">${chk.blockers.length}</em>` : ''],
+        ['ludia', 'Ľudia', 'workers', `<em>${ludiaN}</em>`],
+        ['obdobia', 'Obdobia', 'clock'],
+        ['ubytovanie', 'Ubytovanie', 'bed'],
+        ['peniaze', 'Peniaze', 'euro'],
+      ];
+      const body = `
+        <div class="detail-head">
+          ${this.badge(sc.status)}
+          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(sc.contract_number || '')}</span>
+          <select class="verif-sel" onchange="Sub.setStatus('${sc.id}',this.value)">
+            ${STATUS.map(s => `<option value="${s[0]}" ${sc.status === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
+          </select>
+        </div>
+
+        ${this.nowHtml(sc)}
+
+        <div class="${chk.ok ? 'regimebox' : 'warnbox'}" style="margin-bottom:14px;">
+          ${chk.ok
+            ? `${Icon('check', 14)} Podmienky vyslania sú splnené${chk.warnings.length ? ` — ${chk.warnings.length} upozornení v záložke Compliance` : ''}.`
+            : `${Icon('alert', 14)} <strong>Nesmie sa začať:</strong> ${
+              this.chybaText(chk.blockers.length)} — <a href="#" onclick="event.preventDefault();Sub.setSec('compliance')">pozrieť v Compliance</a>.`}
+        </div>
+
+
+        <div class="sec-tabs" role="tablist">
+          ${TABS.map(([k, label, ico, extra]) => `<button role="tab" class="sec-tab${k === sec ? ' on' : ''}"
+            aria-selected="${k === sec}" onclick="Sub.setSec('${k}')">${Icon(ico, 14)} ${label}${extra || ''}</button>`).join('')}
+        </div>
+        <div class="sec-body">${sekcie[sec]}</div>`;
 
       el.innerHTML = Danubra.header(sc.title,
         [p?.name, sc.site_city].filter(Boolean).map(UI.esc).join(' · '),
@@ -500,10 +526,17 @@
       });
     },
 
-    /** Posun na sekciu profilu. Z vety „čo teraz" sa musí dať ísť tam, kde sa to rieši. */
+    sec: 'prehlad',
+    setSec(k) { this.sec = k; Danubra.renderRoute(); },
+
+    /** Z vety „čo teraz" sa musí dať ísť tam, kde sa to rieši — prepne záložku. */
     scrollTo(kam) {
-      const el = document.getElementById(`sub-${kam}`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const tab = { compliance: 'compliance', periods: 'obdobia' }[kam];
+      if (tab && this.sec !== tab) { this.sec = tab; Danubra.renderRoute(); }
+      setTimeout(() => {
+        const el = document.getElementById(`sub-${kam}`) || document.querySelector('.sec-tabs');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 30);
     },
 
     /** Body na mape: stavba oranžovo, ubytovania modro. */
@@ -525,6 +558,7 @@
     },
 
     renderMap(sc) {
+      if (!document.getElementById('sub-map')) return;   // mapa je v záložke Prehľad
       try { DanubraMap.render('sub-map', this.mapPoints(sc)); }
       catch (e) { console.error('[danubra] mapa sa nevykreslila', e); }
     },

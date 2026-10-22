@@ -1425,7 +1425,8 @@ console.log('Prehliadač');
           await Sub.load();
           const view = document.getElementById('view');
           // `Sub.detail()` ide cez router a adresu; tu ide o samotnú
-          // obrazovku, tak sa vykreslí priamo.
+          // obrazovku, tak sa vykreslí priamo. Checklist je v záložke Ľudia.
+          Sub.sec = 'ludia';
           await Sub.profile(view, 'sc1');
           const t = view.innerText;
           // Odškrtávacie tlačidlo smie byť jediné — to na pokyny.
@@ -2955,8 +2956,9 @@ console.log('Prehliadač');
           tlacidlo: (view.querySelector('.nowbox .btn') || { textContent: '' })
             .textContent.replace(/\s+/g, ' ').trim(),
           // Sekcie, na ktoré veta posiela, musia existovať — inak tlačidlo
-          // neposunie nikam.
-          kotvy: ['sub-compliance', 'sub-periods'].filter(id => !!document.getElementById(id)),
+          // neposunie nikam. Sú v záložkách detailu.
+          kotvy: ['compliance', 'obdobia'].filter(k => [...view.querySelectorAll('.sec-tab')]
+            .some(b => (b.getAttribute('onclick') || '').includes(`'${k}'`))),
         };
       });
 

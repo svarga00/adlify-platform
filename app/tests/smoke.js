@@ -1081,11 +1081,17 @@ async function profileCheck() {
     Wrk.loaded = false;
     await Wrk.load();
     await Wrk.detail('w1');
-    await Wrk.profile(view, 'w1');
+    // Karta je v záložkách — prejdú sa všetky a obsah sa spojí.
+    var h = '';
+    for (const k of ['doklady', 'peniaze', 'onom', 'historia']) {
+      Wrk.sec = k;
+      await Wrk.profile(view, 'w1');
+      h += view.innerHTML;
+    }
+    Wrk.sec = 'doklady';
   } finally {
     sandbox.DB.list = origList;
   }
-  const h = view.innerHTML;
 
   t('profil je obrazovka, nie okno', Wrk.openId === 'w1' && /Ján Novák/.test(h));
 
