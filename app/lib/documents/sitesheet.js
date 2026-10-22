@@ -136,9 +136,9 @@
    */
   const BRING = [
     { what: 'Formulár A1', why: 'Pýta ho nemecká finančná kontrola práce priamo na stavbe.' },
-    { what: 'Živnostenský list', why: 'Dokazuje, že si subdodávateľ, nie zamestnanec.' },
+    { what: 'Živnostenský list', why: 'Dokazuje, že ste subdodávateľ, nie zamestnanec.' },
     { what: 'Občiansky preukaz alebo pas', why: 'Bez dokladu totožnosti sa cez vrátnicu neprejde.' },
-    { what: 'Pracovná obuv a prilba', why: 'Bez nich ťa na stavbu nepustia ani na minútu.' },
+    { what: 'Pracovná obuv a prilba', why: 'Bez nich Vás na stavbu nepustia ani na minútu.' },
     { what: 'Reflexná vesta a rukavice', why: 'Na väčšine stavieb povinné.' },
     { what: 'Vlastné náradie', why: 'Ak nebolo dohodnuté inak.' },
   ];

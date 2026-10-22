@@ -232,6 +232,9 @@ console.log('Dokumenty');
     trade: 'Trockenbau',
   };
   const h = P.siteSheet({ ...zaklad, lodging: null });
+  // Živnostníkom vykáme — papier, ktorý dostanú do ruky, netyká.
+  const tyka = /(?<!\p{L})(si vezmi|zavolaj|nerieš|ukáž|buď slušný|nepodpisuj|budeš|dovoláš|tvoja|ťa|ti dajú|od teba|nemáš|organizuješ|vystavíš)(?!\p{L})/iu;
+  ok(!tyka.test(h.replace(/<[^>]+>/g, ' ')), 'infolist vyká', (h.replace(/<[^>]+>/g, ' ').match(tyka) || [])[0]);
 
   ok(/Infolist na stavbu/.test(h), 'dokument sa volá podľa toho, načo je');
   ok(h.includes('Ján Novák'), 'a je na ňom, pre koho je');
@@ -241,7 +244,7 @@ console.log('Dokumenty');
   ok(/Ich bin Subunternehmer/.test(h), 'nemecké vety sú na ňom');
   ok(/A1-Bescheinigung/.test(h), 'vrátane tej o dokladoch');
   ok(/Stundennachweis/.test(h), 'je vysvetlené, čo sa podpisuje');
-  ok(/Nepodpisuj nič iné/.test(h), 'a čo nie — to je to, kvôli čomu infolist je');
+  ok(/Nič iné nepodpisujte/.test(h), 'a čo nie — to je to, kvôli čomu infolist je');
   ok(/112/.test(h), 'pri úraze je číslo, nie odkaz na niekoho');
   ok(/maps/.test(h), 'adresa stavby má odkaz na mapu');
 
@@ -291,8 +294,8 @@ console.log('Dokumenty');
     'nie odberateľ — to by bolo obrátené a doklad by tvrdil opak toho, čo dokazuje');
   ok(/samostatne zárobkovo činná osoba/.test(w), 'a je napísané, že je živnostník');
   ok(/Montáž priečok/.test(w), 'dielo je na doklade');
-  ok(/organizuješ sám/.test(w), 'aj to, že si prácu organizuje sám');
-  ok(/vystavíš faktúru/.test(w), 'a že nám za dielo fakturuje');
+  ok(/organizuje sám/.test(w), 'aj to, že si prácu organizuje sám');
+  ok(/vystaví Zhotoviteľ faktúru/.test(w), 'a že nám za dielo fakturuje');
   ok(/nie hodiny/.test(w), 'a že sa objednáva dielo, nie hodiny');
   ok(/prijímam objednávku/.test(w), 'má podpisový riadok pre zhotoviteľa');
   // Hodinová sadzba na objednávke diela je slabšie miesto — nech je to povedané.
@@ -318,7 +321,7 @@ console.log('Dokumenty');
     's vetou, že ho treba uvádzať na faktúrach — kvôli tomu to číslo zapisujeme');
   ok(/Auftragnehmer/.test(c) && /Auftraggeber/.test(c), 'strany po nemecky');
   ok(/34,00/.test(c), 'cena v nemeckom tvare');
-  ok(!/organizuješ sám/.test(c), 'vety o diele patria len živnostníkovi');
+  ok(!/organizuje sám/.test(c), 'vety o diele patria len živnostníkovi');
 
   // Chýbajúce dielo sa nevynechá potichu ani na jednom.
   const bez = P.workOrder({ order: { kind: 'worker', title: 'x' },
@@ -529,6 +532,23 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   ok(!html.includes('<svg viewBox="0 0 100 100"'), 'bez nášho loga — doklad je jeho');
   const navrh = P.selfInvoice({ bill: { amount: 10, lines: [] }, worker: { full_name: 'X' } });
   ok(/NÁVRH/.test(navrh), 'návrh bez čísla je označený');
+}
+
+// ── Pečiatka a úprava pred tlačou ──────────────────────────────────────────
+{
+  const PNG = 'data:image/png;base64,iVBORw0KGgo=';
+  const sup = { name: 'Firma s. r. o.', stamp: PNG };
+  const W = { full_name: 'Ján Novák' };
+  const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({ worker: W, supplier: sup }) });
+  ok(z.includes(`<img class="stamp" src="${PNG}"`), 'pečiatka je v našom podpisovom poli zmluvy');
+  ok(/Upraviť text/.test(z), 'zmluva sa dá pred tlačou upraviť');
+  const f = P.invoice({ invoice: { invoice_number: '1', total: 10 }, items: [], client: { name: 'GU', country: 'DE' }, supplier: sup });
+  ok(f.includes(PNG), 'pečiatka je aj na faktúre');
+  ok(!/Upraviť text/.test(f), 'vystavená faktúra sa upravovať nedá');
+  ok(/ohne Unterschrift gültig/.test(f), 'nemecká faktúra má nemeckú pätičku');
+  ok(!P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({ worker: W, supplier: { name: 'X' } }) })
+    .includes('class="stamp"'), 'bez nahratej pečiatky sa nič nekreslí');
+  ok(P.stamp({ stamp: 'javascript:alert(1)' }) === '', 'do pečiatky sa nedá podstrčiť iný obsah');
 }
 
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);

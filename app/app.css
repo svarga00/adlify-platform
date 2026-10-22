@@ -3491,3 +3491,8 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   .bill-camera.only-mob { display: flex !important; }
   .only-desk { display: none !important; }
 }
+.stamp-set { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.stamp-prev { width: 220px; height: 110px; border: 1px dashed var(--border); border-radius: var(--radius);
+  display: grid; place-items: center; background: repeating-conic-gradient(#f3f5f9 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
+.stamp-prev img { max-width: 200px; max-height: 96px; object-fit: contain; }
+.stamp-prev span { color: var(--ink-mute); font-size: 12.5px; }
