@@ -22,7 +22,7 @@ console.log('Jednotková ekonomika (Fáza 2)');
 
 // ── Modelový príklad z biznis plánu ─────────────────────────────────────────
 // 160 h × 38 €/h = 6 080 € tržba; hrubá 2 000 € + odvody 36,2 %;
-// diéty 45 € × 21 dní; ubytovanie 350 €; doprava 150 €; SOKA 14,7 %
+// ubytovanie 350 €; doprava 150 €; SOKA 14,7 % (diéty neplatíme nikomu)
 // Plán očakáva maržu ~1 400–1 600 €.
 {
   const a = { charge_rate: 38, gross_monthly: 2000, per_diem_daily: 45,
@@ -30,10 +30,11 @@ console.log('Jednotková ekonomika (Fáza 2)');
   const r = M.assignmentMargin(a, { hours: 160, workDays: 21, workType: 'construction' });
   eq(r.revenue, 6080, 'tržba 160 h × 38 € = 6 080 €');
   eq(r.costs.contributions, 724, 'odvody 36,2 % z 2 000 € = 724 €');
-  eq(r.costs.perDiem, 945, 'diéty 21 dní × 45 € = 945 €');
+  eq(r.costs.perDiem, 0, 'diéty neplatíme nikomu — ani keď pri človeku zostala stará hodnota');
+  ok(!r.breakdown.some(b => /Diéty/.test(b[0])), 'a v rozpise nie sú');
   eq(r.costs.soka, 294, 'SOKA-BAU 14,7 % z hrubej = 294 €');
-  eq(r.totalCost, 4463, 'náklady spolu 4 463 €');
-  eq(r.margin, 1617, 'marža 1 617 €');
+  eq(r.totalCost, 3518, 'náklady spolu 3 518 € (mzda, odvody, SOKA, ubytovanie, doprava)');
+  eq(r.margin, 2562, 'marža 2 562 €');
   ok(r.margin >= 1400, 'marža sedí na rozpätie z plánu (1 400–1 600 €)');
 }
 
@@ -85,7 +86,8 @@ console.log('Jednotková ekonomika (Fáza 2)');
     { hours: 160, workDays: 21, workType: 'construction' });
   const emp = M.assignmentMargin({ ...base, legal_form: 'employee', gross_monthly: 2000, per_diem_daily: 45 },
     { hours: 160, workDays: 21, workType: 'construction' });
-  ok(szco.totalCost < emp.totalCost + 1000, 'obe formy sú porovnateľné, líšia sa štruktúrou nákladov');
+  ok(emp.costs.contributions > 0 && emp.costs.soka > 0 && szco.costs.contributions === 0 && szco.costs.soka === 0,
+    'obe formy sa líšia štruktúrou nákladov — odvody a SOKA len pri zamestnancovi');
   ok(emp.costs.soka > 0 && szco.costs.soka === 0, 'SOKA platí len pri zamestnancovi');
 }
 {

@@ -127,7 +127,7 @@ async function extract(transcript, context) {
     body: JSON.stringify(AI.body({
       model: CLAUDE_MODEL, tool: EXTRACTION_SCHEMA, maxTokens: 2000,
       prompt: `Toto je prepis náborového telefonátu${context ? ` s osobou: ${context}` : ''}. `
-        + `Zapíš, na čom sa strany dohodli — najmä mzda, ubytovanie, termín nástupu, diéty, `
+        + `Zapíš, na čom sa strany dohodli — najmä mzda, ubytovanie, termín nástupu, `
         + `doprava a pracovný čas.\n\nDôležité: zapisuj iba to, čo v hovore skutočne zaznelo. `
         + `Nič nedomýšľaj ani nedopĺňaj. Ak niečo zaznelo nejasne alebo len ako možnosť, `
         + `zníž istotu a uveď to medzi otvorenými otázkami.\n\n`

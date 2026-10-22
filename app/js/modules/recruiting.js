@@ -299,7 +299,7 @@
           </div>
 
           <div class="regimebox">Po uložení sa nahrávka prepíše a systém z nej vytiahne,
-          čo sa sľúbilo — mzda, ubytovanie, termín nástupu, diéty a doprava.
+          čo sa sľúbilo — sadzba, ubytovanie, termín nástupu a doprava.
           Súbor leží v privátnom úložisku, verejný odkaz naň nevzniká.</div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>

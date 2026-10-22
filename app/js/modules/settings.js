@@ -176,7 +176,6 @@
           'Vstupujú do výpočtu marže na pracovníka. SOKA-BAU sa účtuje len pri stavebných prácach.',
           'staffing', [
           ['employer_contrib_pct', 'Odvody zamestnávateľa SR %', 'number', 36.2],
-          ['per_diem_de', 'Diéty Nemecko €/deň', 'number', 45],
           ['soka_pct', 'SOKA-BAU %', 'number', 14.7],
         ]) +
 

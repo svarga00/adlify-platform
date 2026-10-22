@@ -961,7 +961,6 @@
         ['Spolupracuje', this.cooperationLength(w)],
         ['Hrubá mzda', w.legal_form !== 'szco' && w.gross_monthly ? UI.money(w.gross_monthly) : null],
         ['Sadzba živnostníka', w.legal_form === 'szco' && w.hourly_cost ? `${UI.money(w.hourly_cost)} / h` : null],
-        ['Diéty', w.per_diem_daily ? `${UI.money(w.per_diem_daily)} / deň` : null],
         ['Dostupný od', w.available_from ? UI.date(w.available_from) : null],
         ['Zdroj', w.source],
       ].filter(r => r[1] != null && r[1] !== '');
@@ -1053,8 +1052,7 @@
           <div class="form-section">Odmeňovanie</div>
           <div class="form-grid">
             ${UI.field('gross_monthly', 'Hrubá mzda €/mes', { type: 'number', value: w.gross_monthly })}
-            ${UI.field('per_diem_daily', 'Diéty €/deň', { type: 'number', value: w.per_diem_daily ?? 45 })}
-            ${UI.field('legal_form', 'Forma spolupráce', { value: w.legal_form || 'employee',
+            ${UI.field('legal_form', 'Forma spolupráce', { value: w.legal_form || 'szco',
               options: [['employee', 'Zamestnanec (mzda + odvody)'], ['szco', 'Živnostník (fakturuje nám)']] })}
             ${UI.field('hourly_cost', 'Sadzba živnostníka €/h', { type: 'number', value: w.hourly_cost })}
             ${UI.field('cooperating_since', 'Spolupracuje od', { type: 'date', value: w.cooperating_since })}
@@ -1109,7 +1107,7 @@
       const d = UI.formData(document.getElementById('wrk-form'));
       if (!d.full_name) return UI.toast('Meno je povinné', 'err');
       const payload = { ...d };
-      ['gross_monthly', 'per_diem_daily', 'hourly_cost'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
+      ['gross_monthly', 'hourly_cost'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
       // Prázdny dátum musí ísť do databázy ako null, nie ako prázdny reťazec.
       ['cooperating_since', 'available_from', 'trade_licence_from']
         .forEach(k => { if (payload[k] === '') payload[k] = null; });

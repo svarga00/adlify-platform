@@ -330,7 +330,6 @@
           legal_form: w?.legal_form,
           hourly_cost: w?.hourly_cost,
           gross_monthly: a.gross_monthly ?? w?.gross_monthly,
-          per_diem_daily: a.per_diem_daily ?? w?.per_diem_daily,
           accommodation_monthly: a.accommodation_monthly,
           transport_monthly: a.transport_monthly,
         }, { hours: 160, workDays: 21, workType: sc.work_type,
@@ -969,7 +968,6 @@
               hint: 'Predvyplní sa pri každom nasadení na túto zákazku a z nej sa '
                 + 'počíta, čo sa odberateľovi vyfakturuje.' })}
             ${UI.field('gross_monthly', 'Hrubá mzda €/mes', { type: 'number' })}
-            ${UI.field('per_diem_daily', 'Diéty €/deň', { type: 'number', value: 45 })}
             ${UI.field('accommodation_monthly', 'Ubytovanie €/mes', { type: 'number' })}
             ${UI.field('transport_monthly', 'Doprava €/mes', { type: 'number' })}
           </div>
@@ -1218,7 +1216,7 @@
         date_from: d.date_from || null, date_to: d.date_to || null,
         status: 'planned',
       };
-      ['charge_rate', 'gross_monthly', 'per_diem_daily', 'accommodation_monthly', 'transport_monthly']
+      ['charge_rate', 'gross_monthly', 'accommodation_monthly', 'transport_monthly']
         .forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
       const { data: asg, error } = await DB.insert('assignments', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
