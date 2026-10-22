@@ -97,7 +97,8 @@ exports.handler = async (event) => {
 
     await supabase.from('danubra_bills').update({
       ...patch,
-      extracted: { ...f, _match: m.by, _read_by: how, _file: (bill.extracted || {})._file || null },
+      extracted: { ...f, _match: m.by, _read_by: how, _file: (bill.extracted || {})._file || null,
+        ...((bill.extracted || {})._receipt ? { _receipt: true } : {}) },
       extract_status: 'done', extract_error: null,
       extracted_at: new Date().toISOString(),
     }).eq('id', billId).eq('status', 'review');

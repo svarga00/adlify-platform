@@ -330,6 +330,97 @@
       ],
       links: [['subcontracts', 'Zákazky'], ['invoices', 'Vydané faktúry']],
     },
+    // ── POSTUPY ─────────────────────────────────────────────────────────────
+    // „Niekde by som aj spísal postup so zmluvami, objednávkami a vydanými
+    // faktúrami." Krok za krokom, s názvami tlačidiel tak, ako sú v appke.
+    'guide.partner': {
+      title: 'Postup: nový odberateľ v Nemecku — rámcová zmluva',
+      lead: 'Raz na začiatku spolupráce s nemeckou firmou. Bez podpísanej rámcovej zmluvy sa na stavbu nenasadzuje.',
+      steps: [
+        'Menu **Odberatelia v Nemecku** → pridajte firmu: názov, adresa, **USt-IdNr** (appka ho overí), kontaktná osoba, splatnosť faktúr.',
+        'Tlačidlo **Papiere** (hore) → **Rámcová zmluva s Nemcom** → vyberte odberateľa. Zmluva je dvojjazyčne SK/DE a údaje sa doplnia samy.',
+        'Skontrolujte ju. Ak treba niečo zmeniť len pre tento výtlačok, **Upraviť text** → prepíšte → **Hotovo**.',
+        '**Uložiť ako PDF** a pošlite ju odberateľovi na podpis. Naša pečiatka (Nastavenia) je už na nej.',
+        'Keď príde podpísaná, zapíšte ju pri odberateľovi (dátum podpisu, platnosť). Appka potom stráži, kedy končí.',
+      ],
+      watch: [
+        'Zmena dátumu konca sa robí **dodatkom**, nie prepísaním — pôvodné podmienky zostávajú zapísané.',
+      ],
+      links: [['partners', 'Odberatelia v Nemecku']],
+    },
+    'guide.order': {
+      title: 'Postup: zákazka a objednávka od Nemca',
+      lead: 'Na každú stavbu: čo, kde, odkedy a za koľko — k rámcovej zmluve.',
+      steps: [
+        'Menu **Zákazky** → nová zákazka: odberateľ, stavba (adresa), druh práce, **sadzba €/h pre odberateľa**, termín.',
+        '**Papiere** → **Objednávka od Nemca SK/DE** → vyberte zákazku. Skontrolujte rozsah a sadzbu.',
+        '**Uložiť ako PDF** → na podpis odberateľovi. Podpísanú zapíšte k zákazke.',
+        'Na zákazku nasaďte ľudí (**Zákazky** → nasadenie). Bez platných dokladov to appka nepustí — výnimku dáva len admin.',
+      ],
+      links: [['subcontracts', 'Zákazky']],
+    },
+    'guide.worker': {
+      title: 'Postup: papiere so živnostníkom',
+      lead: 'Od súhlasu GDPR po infolist na stavbu. Všetko cez **Papiere** — údaje sa doplnia z jeho karty.',
+      steps: [
+        '**Súhlas GDPR** — podpíše ho ako prvý. Podpísaný zapíšte na jeho karte.',
+        '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Ak za neho budeme vystavovať faktúry, najprv na jeho karte zaškrtnite **„Faktúry zaňho vystavujeme my"** — zmluva potom obsahuje aj túto dohodu.',
+        '**Objednávka živnostníkovi** — na konkrétnu zákazku: čo má urobiť, kde, odkedy a za koľko.',
+        '**Infolist na stavbu** — kam prísť, kedy, za kým, ubytovanie, čo si priniesť. Pošlite mu ho deň-dva pred nástupom.',
+      ],
+      watch: [
+        'Každý papier sa dá pred tlačou upraviť (**Upraviť text**). Zmena platí len pre ten výtlačok.',
+      ],
+      links: [['workers', 'Živnostníci']],
+    },
+    'guide.invoice': {
+      title: 'Postup: vydaná faktúra odberateľovi',
+      lead: 'Z odpracovaných hodín na faktúru — a nikdy bez schválenia administrátorom.',
+      steps: [
+        '**Odpracované hodiny** — hodiny sa zapisujú priebežne a schvaľujú (podklad je Stundennachweis podpísaný odberateľom).',
+        'Na konci obdobia (napr. 14 dní) otvorte **Zákazky** → zákazka → obdobia → **Uzavrieť**. Uzavreté obdobie sa už nemení.',
+        'Pri uzavretom období kliknite **Fakturovať**. Vznikne **návrh faktúry** (nájdete ho aj v Kde sú peniaze → Vydané faktúry).',
+        'Administrátor návrh otvorí, skontroluje a dá **Schváliť**. Bez toho sa faktúra nevystaví — stráži to aj databáza.',
+        '**Vystaviť** (cez SuperFaktúru, keď bude napojená) a **Odoslať** odberateľovi.',
+        'Keď peniaze prídu, **Banka → Načítať výpis** — platba sa spáruje podľa VS a faktúra sa označí ako uhradená.',
+      ],
+      watch: [
+        'Nemeckým odberateľom sa fakturuje bez DPH (prenesenie daňovej povinnosti, §13b) — appka to doplní sama, ak má odberateľ USt-IdNr.',
+        'Zrážku §48b odvedie odberateľ — na účet príde menej, appka s tým počíta v „Čakáme".',
+      ],
+      links: [['invoices', 'Vydané faktúry'], ['timesheets', 'Odpracované hodiny']],
+    },
+    'guide.bills': {
+      title: 'Postup: prijaté faktúry, bločky a platby',
+      lead: 'Faktúry od živnostníkov a dodávateľov, bločky — a ako ich zaplatiť naraz.',
+      steps: [
+        '**Kde sú peniaze → Prijaté faktúry → Nahrať faktúry** (alebo na mobile **Odfotiť faktúru / Odfotiť bloček**).',
+        'Appka doklad prečíta. Otvorte ho v karte **Na kontrolu**, skontrolujte údaje vedľa dokladu a **Potvrdiť**. Bloček zaškrtnite ako **Už zaplatené**.',
+        'Faktúru od živnostníka appka porovná so schválenými hodinami. Keď nesedí, je **sporná** — schváliť sa dá len s vysvetlením.',
+        'Schválené faktúry → **Pripraviť platby** → stiahnete súbor → v Business Bankingu ho nahráte a podpíšete naraz.',
+        'Po **Načítať výpis** sa platby spárujú a faktúry sa označia ako uhradené.',
+      ],
+      watch: [
+        'Ak je na faktúre iný IBAN, než má živnostník v appke, appka upozorní — overte si to telefonicky, než zaplatíte.',
+      ],
+      links: [['costs', 'Prijaté faktúry'], ['bank', 'Banka']],
+    },
+    'guide.selfbill': {
+      title: 'Postup: faktúra, ktorú vystavujeme za živnostníka',
+      lead: 'Keď živnostník faktúru vystaviť nevie — vystavíme ju my v jeho mene (vyhotovenie faktúry odberateľom).',
+      steps: [
+        'Na karte živnostníka **Upraviť** → zaškrtnite **„Faktúry zaňho vystavujeme my"** (číselný rad sa predvyplní z priezviska).',
+        'Podpíšte s ním rámcovú zmluvu v tomto znení — v článku V. je dohoda o vystavovaní faktúr. Bez nej to zákon nedovoľuje.',
+        'Po uzavretí obdobia: **Prijaté faktúry → Vystaviť za živnostníkov** → appka pripraví návrh zo schválených hodín.',
+        'Administrátor otvorí návrh → **Schváliť a vystaviť** — faktúra dostane číslo z radu živnostníka.',
+        '**WhatsApp / SMS / Kopírovať odkaz** — živnostník si faktúru pozrie v telefóne a potvrdí ju (alebo namietne). Potvrdená ide do „Zaplatiť".',
+      ],
+      watch: [
+        'Platiteľovi DPH faktúru takto nevystavujeme — od 1. 1. 2027 musí ísť ako e-faktúra.',
+        'Za údaje na faktúre zodpovedá živnostník — skontrolujte, že má na karte správne IČO, DIČ a IBAN.',
+      ],
+      links: [['costs', 'Prijaté faktúry'], ['workers', 'Živnostníci']],
+    },
     'card.settings.stamp': {
       title: 'Pečiatka a podpis na dokumentoch',
       lead: 'Naša pečiatka (aj s podpisom), ktorá sa sama objaví na papieroch, čo odchádzajú z appky.',
@@ -2418,7 +2509,7 @@
   function text(key) {
     const t = T[key];
     if (!t) return '';
-    return [t.title, t.lead, ...(t.what || []), ...(t.how || []),
+    return [t.title, t.lead, ...(t.steps || []), ...(t.what || []), ...(t.how || []),
       ...(t.why || []), ...(t.watch || [])].join('\n');
   }
 

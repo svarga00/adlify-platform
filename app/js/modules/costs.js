@@ -68,7 +68,7 @@
         'Čo nám fakturujú živnostníci a dodávatelia a čo stojí všetko ostatné')
         + `<div class="filterbar" style="margin-bottom:12px;">
              <button class="fb-chip${this.tab === 'bills' ? ' active' : ''}" onclick="Cost.setTab('bills')">
-               Prijaté faktúry<em>${this.bills.length}</em></button>
+               Faktúry a bločky<em>${this.bills.length}</em></button>
              <button class="fb-chip${this.tab === 'costs' ? ' active' : ''}" onclick="Cost.setTab('costs')">
                Ostatné náklady<em>${this.costs.length}</em></button>
            </div>`
@@ -131,6 +131,7 @@
               ${UI.badge(Enums.label('bill_status', b.status), this.billKind(b.status))}
             </div>
             <div class="meta-row">
+              ${this.isReceipt(b) ? `<span>${Icon('receipt', 14)} bloček</span>` : ''}
               ${b.bill_number ? `<span>${Icon('invoices', 14)} ${UI.esc(b.bill_number)}</span>` : ''}
               <span><strong>${Money.format(Money.toCents(b.amount))}</strong></span>
               ${b.issue_date ? `<span>${Icon('clock', 14)} ${UI.date(b.issue_date)}</span>` : ''}
@@ -240,6 +241,12 @@
 
     pickFiles() { document.getElementById('bill-files')?.click(); },
 
+    /** Bloček: nahratý cez „Odfotiť bloček" alebo ho tak prečítal model. */
+    isReceipt(b) {
+      const x = (b && b.extracted) || {};
+      return !!(x._receipt || x.doc_type === 'receipt');
+    },
+
     dropHtml() {
       return `<label class="bill-drop" id="bill-drop"
           ondragover="event.preventDefault();this.classList.add('over')"
@@ -249,20 +256,27 @@
             accept=".pdf,.xml,application/pdf,application/xml,text/xml,image/*"
             onchange="Cost.upload(this.files);this.value=''">
           <span class="bill-drop-ico">${Icon('upload', 22)}</span>
-          <span><b class="only-desk">Pretiahnite sem faktúry</b><span class="only-desk"> alebo kliknite a vyberte — aj viac naraz.</span>
+          <span><b class="only-desk">Pretiahnite sem faktúry alebo bločky</b><span class="only-desk"> alebo kliknite a vyberte — aj viac naraz.</span>
             <b class="only-mob">Nahrať faktúry zo súboru</b>
             <em>PDF, fotka alebo e-faktúra (XML). Appka z nich prečíta dodávateľa, sumy,
             splatnosť aj IBAN.</em></span>
         </label>
-        <!-- Na telefóne rovno fotoaparát: papierovú faktúru stačí odfotiť. -->
-        <label class="btn btn-primary bill-camera only-mob">
-          <input type="file" accept="image/*" capture="environment" hidden
-            onchange="Cost.upload(this.files);this.value=''">
-          ${Icon('upload', 16)} Odfotiť faktúru
-        </label>`;
+        <!-- Na telefóne rovno fotoaparát: papierovú faktúru aj bloček stačí odfotiť. -->
+        <div class="bill-cams">
+          <label class="btn btn-primary bill-camera only-mob">
+            <input type="file" accept="image/*" capture="environment" hidden
+              onchange="Cost.upload(this.files);this.value=''">
+            ${Icon('upload', 16)} Odfotiť faktúru
+          </label>
+          <label class="btn btn-outline bill-camera bill-receipt">
+            <input type="file" accept="image/*,application/pdf" capture="environment" hidden multiple
+              onchange="Cost.upload(this.files,{receipt:true});this.value=''">
+            ${Icon('receipt', 16)} Odfotiť bloček
+          </label>
+        </div>`;
     },
 
-    async upload(files) {
+    async upload(files, { receipt = false } = {}) {
       const list = [...(files || [])];
       if (!list.length) return;
       if (!window.DanubraExtract) return UI.toast('Čítanie faktúr sa nenačítalo — obnovte stránku', 'err');
@@ -285,7 +299,7 @@
         }
         const { data: bill, error } = await DB.insert('bills', {
           status: 'review', source: kind, storage_path: up.path, amount: 0,
-          extract_status: 'pending', extracted: { _file: file.name },
+          extract_status: 'pending', extracted: { _file: file.name, ...(receipt ? { _receipt: true } : {}) },
           created_by: Danubra.user?.id || null,
         });
         if (error) { UI.toast(`${file.name}: ${error.message}`, 'err'); continue; }
@@ -446,6 +460,10 @@
             ${(x.items || []).length ? `<details class="br-items"><summary>Položky na faktúre (${x.items.length})</summary>
               ${x.items.map(i => `<div><span>${UI.esc(i.description || '—')}</span>
                 <b>${i.total != null ? Money.format(Money.toCents(i.total)) : ''}</b></div>`).join('')}</details>` : ''}
+            <label class="chk chk-lg br-paid">
+              <input type="checkbox" name="paid_now" ${this.isReceipt(b) ? 'checked' : ''}>
+              <span><b>Už zaplatené</b> — bloček, karta alebo hotovosť. Nepôjde do „Zaplatiť".</span>
+            </label>
             ${UI.field('note', 'Poznámka', { type: 'textarea', value: b.note || '' })}
             <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
               <button type="button" class="btn btn-ghost" style="color:var(--red);margin-right:auto;"
@@ -455,7 +473,7 @@
             </div>
           </form>
         </div>`;
-      UI.modal(`Skontrolovať faktúru${x._file ? ` · ${x._file}` : ''}`, body, { wide: true });
+      UI.modal(`Skontrolovať ${this.isReceipt(b) ? 'bloček' : 'faktúru'}${x._file ? ` · ${x._file}` : ''}`, body, { wide: true });
       // Doklad a formulár vedľa seba — na to je bežné okno úzke.
       const cards = document.querySelectorAll('.modal-card');
       if (cards.length) cards[cards.length - 1].classList.add('modal-xl');
@@ -496,8 +514,14 @@
         const p = this.periods.find(x => x.id === payload.period_id);
         if (p) payload.subcontract_id = p.subcontract_id;
       }
-      Object.assign(payload, { status: 'received', confirmed_at: new Date().toISOString(),
+      // Bloček (alebo čo sa už zaplatilo kartou či v hotovosti) ide rovno ako
+      // uhradený — do „Zaplatiť" nepatrí, do nákladov áno.
+      const zaplatene = !!payload.paid_now;
+      delete payload.paid_now;
+      if (zaplatene && !payload.category) return UI.toast('Vyberte druh nákladu (napr. palivo, náradie)', 'err');
+      Object.assign(payload, { status: zaplatene ? 'paid' : 'received', confirmed_at: new Date().toISOString(),
         confirmed_by: Danubra.user?.id || null });
+      if (zaplatene) payload.paid_at = new Date(`${payload.issue_date || Danubra._dayISO()}T12:00:00`).toISOString();
       const { error } = await DB.update('bills', id, payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       this._reviewOpen = null;

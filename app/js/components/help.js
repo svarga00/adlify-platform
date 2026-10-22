@@ -48,6 +48,10 @@
       UI.modal(t.title, `
         <div class="hx">
           <p class="hx-lead">${UI.esc(t.lead)}</p>
+          ${t.steps && t.steps.length ? `<section class="hx-sec">
+            <h4>${Icon('check', 14)} Krok za krokom</h4>
+            <ol class="hx-steps">${t.steps.map(x => `<li>${para(x).slice(3, -4)}</li>`).join('')}</ol>
+          </section>` : ''}
           ${section('doc', 'Čo to je', t.what)}
           ${section('rules', 'Ako sa to počíta', t.how)}
           ${section('zap', 'Prečo je to takto', t.why)}
@@ -74,6 +78,7 @@
     index() {
       if (!E()) return;
       const GROUPS = [
+        ['Postupy krok za krokom', k => k.startsWith('guide.')],
         ['Celá appka', k => k === 'app'],
         ['Prehľad', k => k.startsWith('dash.') || k === 'screen.dashboard'],
         ['Dlaždice hore', k => k.startsWith('kpi.')],
@@ -100,9 +105,9 @@
         </section>`;
       }).join('');
 
-      UI.modal('Vysvetlivky', `<div class="hx">
-        <p class="hx-lead">Ku každému číslu je napísané, čo to je, ako sa počíta
-          a prečo je to takto spravené.</p>
+      UI.modal('Postupy a vysvetlivky', `<div class="hx">
+        <p class="hx-lead">Hore sú postupy krok za krokom — zmluvy, objednávky, faktúry.
+          Pod nimi ku každému číslu, čo to je, ako sa počíta a prečo je to takto spravené.</p>
         ${html}
       </div>`, { wide: true });
     },

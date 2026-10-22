@@ -170,5 +170,14 @@ const UBL = `<?xml version="1.0" encoding="UTF-8"?>
   ok(X.TOOL.input_schema.required.includes('total'), 'suma je povinná');
 }
 
+// ── Bloček ─────────────────────────────────────────────────────────────────
+{
+  const w = X.warnings(X.normalize({ doc_type: 'receipt', total: 54.3, issue_date: '2026-10-22',
+    supplier: { name: 'Shell' } }));
+  eq(w, [], 'bloček bez splatnosti nie je chyba ani „nevyzerá ako faktúra"');
+  ok(X.warnings(X.normalize({ doc_type: 'other', total: 1, due_date: '2026-11-01' })).some(x => /ani bloček/.test(x)),
+    'iný papier sa ohlási');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);
