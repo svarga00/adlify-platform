@@ -3457,3 +3457,18 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .self-lines div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; padding: 6px 0;
   border-bottom: 1px solid var(--border-soft); }
 .self-lines div span:nth-child(2) { color: var(--ink-mute); }
+
+/* Otázka na termín: kalendár, rýchle voľby a či stihne nástup */
+.qq-date { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 14px 0 4px; max-width: 640px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); }
+.qq-date label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; }
+.qq-date input[type="date"] { font: inherit; font-size: 16px; padding: 8px 10px; border: 1.5px solid var(--border);
+  border-radius: var(--radius); background: var(--field); }
+.qq-date-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.qq-date-quick .chip em { font-style: normal; color: var(--ink-mute); margin-left: 4px; font-size: 12px; }
+.qq-date-quick .chip.on em { color: inherit; }
+.qq-date-fit { flex-basis: 100%; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-mute); }
+.qq-date-fit.fit-ok { color: var(--green); font-weight: 600; }
+.qq-date-fit.fit-warn { color: var(--amber); font-weight: 600; }
+.qq-date-fit.fit-bad { color: var(--red); font-weight: 600; }
+.cq2 .qq-date { margin: 4px 0 8px; }

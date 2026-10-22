@@ -687,7 +687,66 @@
     stepDone(k) {
       if (k.type === 'route') return !!this.route;
       const st = this.callQState(k.q);
-      return st !== null && st !== undefined;
+      const a = this.answers && this.answers.get(k.key);
+      return (st !== null && st !== undefined) || !!(a && a.date);
+    },
+
+    // ── Termín ────────────────────────────────────────────────────────────
+    // „Kde sa pýtam na termín alebo dátum, dať aj voľbu termínu." Pri otázke
+    // na „kedy" je kalendár, tri rýchle voľby a hneď vidieť, či stihne
+    // nástup na nábor. Dátum nástupu sa zapíše aj ku kandidátovi.
+
+    /** Nástup náboru — dátum z náboru, inak zo zhrnutia zákazky. */
+    planStart() {
+      const p = this.plan || {};
+      const z = String((p.analysis || {}).start || '');
+      return p.start_date || (/^\d{4}-\d{2}-\d{2}$/.test(z) ? z : null);
+    },
+
+    dateHtml(segKey, q) {
+      const CQ = window.DanubraCallQ;
+      if (!CQ || !CQ.isDateQ(q)) return '';
+      const a = (this.answers && this.answers.get(q.key)) || {};
+      const fit = CQ.planFit(a.date, this.planStart());
+      const id = `qd-${String(q.key).replace(/[^\w-]/g, '_')}`;
+      return `<div class="qq-date">
+        <label for="${id}">${Icon('calendar', 15)} Dátum</label>
+        <input type="date" id="${id}" value="${UI.esc(a.date || '')}"
+          onchange="Guide.setDate('${segKey}','${q.key}',this.value)">
+        <div class="qq-date-quick">
+          ${(() => {
+            const volby = CQ.quickDates(new Date().toISOString().slice(0, 10));
+            const start = this.planStart();
+            if (start && !volby.some(v => v.date === start)) volby.unshift({ label: 'Na nástup náboru', date: start });
+            return volby;
+          })().map(d => `<button class="chip${a.date === d.date ? ' on' : ''}"
+            onclick="Guide.setDate('${segKey}','${q.key}','${d.date}')">${UI.esc(d.label)}
+            <em>${UI.esc(CQ.dateText(d.date).replace(/ \d{4}$/, ''))}</em></button>`).join('')}
+        </div>
+        ${fit ? `<div class="qq-date-fit fit-${fit.tone}">${Icon(fit.tone === 'ok' ? 'check' : 'alert', 13)} ${UI.esc(fit.text)}</div>`
+          : (a.date ? '' : (this.planStart() ? `<div class="qq-date-fit">Nástup na nábor: ${UI.esc(CQ.dateText(this.planStart()))}</div>` : ''))}
+      </div>`;
+    },
+
+    setDate(segKey, qKey, iso) {
+      const q = ((this._cq || {})[segKey] || []).find(x => x.key === qKey);
+      if (!q) return;
+      const pred = this.answers.get(qKey) || {};
+      const a = { ...pred, date: iso || null };
+      if (!a.date) delete a.date;
+      if (Object.keys(a).length) this.answers.set(qKey, a); else this.answers.delete(qKey);
+      // Dátum nástupu patrí ku kandidátovi — o týždeň ho bude treba znova.
+      if (iso && this.cand && /nast[úu]p/i.test(q.q)) {
+        this.cand.expected_start = iso;
+        DB.update('candidates', this.cand.id, { expected_start: iso }).then(() => {});
+      }
+      if (q.dbId) this.persistAnswer(q);
+      if (this._stepCtx) this.render(); else this.paintCallQ(segKey, q);
+    },
+
+    setOther(qKey, value) {
+      const pred = this.answers.get(qKey) || {};
+      this.answers.set(qKey, { other: value, ...(pred.date ? { date: pred.date } : {}) });
     },
 
     /** Pri odbornej otázke: čo chceme počuť a pri čom zbystriť — podľa toho sa hodnotí. */
@@ -707,6 +766,7 @@
       return `
         <div class="qq-q">${UI.esc(q.q)}</div>
         ${this.judgeHtml(q)}
+        ${this.dateHtml(seg.key, q)}
         <div class="qq-ans">
           ${q.answers.map((ans, i) => `<button class="qq-a pol-${ans.chip ? ans.chip.polarity : (ans.polarity || 'neutral')}${
             sel === i ? ' on' : ''}" onclick="Guide.answer('${seg.key}','${q.key}',${i})"
@@ -717,7 +777,7 @@
         </div>
         ${sel === 'other' ? `<input class="cq2-other" id="cq2-in-${q.key}" placeholder="Čo povedal? Enter = ďalej"
           value="${UI.esc((a && a.other) || '')}"
-          oninput="Guide.answers.set('${q.key}',{other:this.value})"
+          oninput="Guide.setOther('${q.key}',this.value)"
           onkeydown="if(event.key==='Enter'){event.preventDefault();Guide.stepNext('${seg.key}')}">` : ''}`;
     },
 
@@ -836,6 +896,7 @@
           const st = this.callQState(k.q);
           const a = this.answers && this.answers.get(k.key);
           txt = st === 'other' ? ((a && a.other) || 'iné') : (st != null ? k.q.answers[st].label : '—');
+          if (a && a.date) txt = `${txt === '—' ? '' : `${txt} · `}${DanubraCallQ.dateText(a.date)}`;
         }
         const nazov = k.type === 'route' ? 'Odkiaľ cestuje' : k.q.q;
         return `<button class="qq-sum-row${txt === '—' ? ' empty' : ''}" onclick="Guide.goStep('${seg.key}',${j})">
@@ -863,7 +924,8 @@
 
     callQState(q) {
       const a = this.answers && this.answers.get(q.key);
-      if (a) return a.other != null ? 'other' : a.idx;
+      if (a && a.other != null) return 'other';
+      if (a && a.idx != null) return a.idx;
       return window.DanubraCallQ.selected(q, this.ticked);
     },
 
@@ -873,6 +935,7 @@
       return `<div class="cq2" id="cq2-${q.key}">
         <div class="cq2-q">${UI.esc(q.q)}</div>
         ${q.dbId ? `<details class="cq2-judge"><summary>čo chceme počuť</summary>${this.judgeHtml(q)}</details>` : ''}
+        ${this.dateHtml(segKey, q)}
         <div class="cq2-ans">
           ${q.answers.map((ans, i) => `<button class="cq2-a pol-${ans.chip ? ans.chip.polarity : (ans.polarity || 'neutral')}${
             sel === i ? ' on' : ''}" onclick="Guide.answer('${segKey}','${q.key}',${i})"
@@ -883,7 +946,7 @@
         </div>
         ${sel === 'other' ? `<input class="cq2-other" id="cq2-in-${q.key}" placeholder="Čo povedal?"
           value="${UI.esc((a && a.other) || '')}"
-          oninput="Guide.answers.set('${q.key}',{other:this.value})">` : ''}
+          oninput="Guide.setOther('${q.key}',this.value)">` : ''}
       </div>`;
     },
 
@@ -901,11 +964,14 @@
       q.answers.forEach((a, j) => {
         if (a.chip && this.ticked.has(a.chip.id) && (vypnut || j !== i)) this.toggleChip(a.chip.id);
       });
-      if (vypnut) this.answers.delete(qKey);
-      else {
+      // Dátum, ktorý už povedal, zostane — odpoveď ho neprepíše.
+      const datum = (this.answers.get(qKey) || {}).date;
+      if (vypnut) {
+        if (datum) this.answers.set(qKey, { date: datum }); else this.answers.delete(qKey);
+      } else {
         const a = q.answers[i];
         if (a.chip && !this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id);
-        this.answers.set(qKey, { idx: i });
+        this.answers.set(qKey, datum ? { idx: i, date: datum } : { idx: i });
       }
       if (q.dbId) { this.persistAnswer(q); this.refreshAside(); }
       // Otázka po otázke: odpoveď hneď posunie ďalej (krátko, nech je vidieť, čo sa zvolilo).
@@ -924,7 +990,7 @@
       if (!q) return;
       q.answers.forEach((a) => { if (a.chip && this.ticked.has(a.chip.id)) this.toggleChip(a.chip.id); });
       const pred = this.answers.get(qKey);
-      this.answers.set(qKey, { other: (pred && pred.other) || '' });
+      this.answers.set(qKey, { other: (pred && pred.other) || '', ...(pred && pred.date ? { date: pred.date } : {}) });
       if (q.dbId) this.refreshAside();
       if (this._stepCtx) this.render();
       else this.paintCallQ(segKey, q);

@@ -112,5 +112,38 @@ const CHIPS = [
     'hodnotenie ide aj do poznámky k hovoru');
 }
 
+// ── Termín ──────────────────────────────────────────────────────────────────
+{
+  ok(Q.isDateQ({ q: 'Kedy viete reálne nastúpiť a na ako dlho?' }), 'otázka na kedy je dátumová');
+  ok(Q.isDateQ({ q: 'Dokedy vám platia doklady?' }), 'dokedy tiež');
+  ok(Q.isDateQ({ q: 'Aký termín nástupu vám vyhovuje?' }), 'termín aj nástup');
+  ok(!Q.isDateQ({ q: 'Máte vlastné náradie?' }), 'bežná otázka nie');
+  ok(!Q.isDateQ({ q: 'Niekedy robíte aj v noci?' }), '„niekedy" nie je otázka na dátum');
+  eq(Q.dateText('2026-11-03'), '3. 11. 2026', 'dátum po slovensky');
+
+  // 22. 10. 2026 je štvrtok
+  eq(Q.quickDates('2026-10-22').map(x => x.date), ['2026-10-26', '2026-11-05', '2026-11-01'],
+    'budúci pondelok, o 2 týždne, 1. ďalšieho mesiaca');
+  eq(Q.quickDates('2026-10-26')[0].date, '2026-11-02', 'v pondelok je „budúci pondelok" o týždeň');
+
+  eq(Q.planFit('2026-10-26', '2026-10-26').tone, 'ok', 'v deň nástupu stihne');
+  eq(Q.planFit('2026-10-29', '2026-10-26').text, 'O 3 dni neskôr, než je nástup (26. 10. 2026).', 'pár dní neskôr');
+  eq(Q.planFit('2026-11-16', '2026-10-26').tone, 'bad', 'o tri týždne nestihne');
+  eq(Q.planFit('2026-11-16', null), null, 'bez nástupu náboru sa neporovnáva');
+
+  const g = Q.group('intro', CHIPS, []);
+  const nastup = g.questions.find(x => x.key === 'nastup');
+  eq(Q.noteLines(g.questions, new Map([['nastup', { idx: 1, date: '2026-11-03' }]])),
+    ['Kedy viete nastúpiť? — Neskôr · dátum 3. 11. 2026'], 'dátum ide do poznámky');
+  eq(Q.noteLines([nastup], new Map([['nastup', { date: '2026-11-03' }]])),
+    ['Kedy viete nastúpiť? — dátum 3. 11. 2026'], 'aj keď je zadaný len dátum');
+
+  const db = Q.fromDbQuestion({ id: 'q9', question_sk: 'Kedy viete reálne nastúpiť?', weight: 3 });
+  eq(Q.answerRow(db, { idx: 0, date: '2026-11-03' }).answer_text, 'Odpovedal dobre · dátum 3. 11. 2026',
+    'odborná otázka: hodnotenie aj dátum');
+  eq(Q.answerRow(db, { date: '2026-11-03' }), { question_id: 'q9', answer_text: 'dátum 3. 11. 2026', rating: null, flagged: false },
+    'len dátum, bez hodnotenia');
+}
+
 console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
 process.exit(failed ? 1 : 0);
