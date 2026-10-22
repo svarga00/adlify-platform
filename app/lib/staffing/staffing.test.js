@@ -386,5 +386,23 @@ console.log('\nCash-flow');
     'archivovaný človek už A1 nepotrebuje');
 }
 
+// ── Freistellung §48b je firemná ────────────────────────────────────────────
+{
+  const D = '2026-10-22';
+  const fb = (o) => ({ kind: 'freistellung_48b', scope: 'company', status: 'active', ...o });
+  eq(C.freistellung([fb({ valid_to: '2027-12-31', reference: '12/345' })], D).ok, true, 'platná Freistellung = zrážka sa neuplatní');
+  eq(C.freistellung([fb({ status: 'pending' })], D).ok, false, 'podaná žiadosť ešte nie je Freistellung');
+  eq(C.freistellung([fb({ valid_to: '2026-01-31' })], D).ok, false, 'po platnosti nie');
+  eq(C.freistellung([], D).state, 'missing', 'bez záznamu chýba');
+  eq(C.freistellung([fb({ valid_to: '2026-11-10' })], D).ok, true, 'čoskoro vyprší, ale ešte platí');
+  const sc = { work_type: 'construction', partner_id: 'p1' };
+  const sPlatnou = C.checkSubcontract({ subcontract: sc, partner: { ust_idnr: 'DE1' },
+    companyItems: [fb({ valid_to: '2027-12-31' })], workers: [], assignments: [], today: D });
+  ok(!sPlatnou.items.some(i => /zrazí odberateľ 15/.test(i.label)), 's platnou Freistellung sa zrážka v compliance nehlási');
+  const bez = C.checkSubcontract({ subcontract: sc, partner: { ust_idnr: 'DE1' },
+    companyItems: [fb({ status: 'pending' })], workers: [], assignments: [], today: D });
+  ok(bez.items.some(i => /zrazí odberateľ 15/.test(i.label)), 'bez nej áno');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

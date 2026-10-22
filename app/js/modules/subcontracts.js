@@ -334,7 +334,8 @@
           accommodation_monthly: a.accommodation_monthly,
           transport_monthly: a.transport_monthly,
         }, { hours: 160, workDays: 21, workType: sc.work_type,
-             freistellungOk: sc.freistellung_verified }, Danubra.cfg('staffing'));
+             freistellungOk: sc.freistellung_verified
+               || DanubraCompliance.freistellung(this.companyItems(), Danubra._dayISO()).ok }, Danubra.cfg('staffing'));
       });
       const port = DanubraMargin.portfolioSummary(eco);
 
@@ -1104,8 +1105,10 @@
         ? Shell.evaluate(st.ready.reasons, ovr, a.date_from || undefined)
         : { open: [], waived: [] };
 
+      // Freistellung §48b je firemná — keď ju máme, platí na každej zákazke.
+      const fsOk = DanubraCompliance.freistellung(this.companyItems(), Danubra._dayISO()).ok;
       const rows = DanubraChecks.build({
-        assignment: a, subcontract: sc, worker: w || {},
+        assignment: a, subcontract: fsOk ? { ...sc, freistellung_verified: true } : sc, worker: w || {},
         blocking: v.open.map(r => r.rule),
         waived: v.waived.map(r => r.rule),
         stays: this.stays, checks: this.assignmentChecks,
@@ -1317,10 +1320,10 @@
           Čím konkrétnejší popis diela, tým silnejší dôkaz pri kontrole.</div>
           <div class="chk-row">
             ${UI.field('freistellung_verified', '', { type: 'checkbox', value: sc.freistellung_verified,
-              placeholder: 'Odberateľ overil našu §48b',
-              hint: 'Keď nie je zaškrtnuté, z každej faktúry na tejto zákazke sa '
-                + 'zrazí 15 % a odvedie ich odberateľ nemeckému úradu. Zaškrtni len '
-                + 'vtedy, keď Freistellungsbescheinigung naozaj máme a odberateľ si ju overil.' })}
+              placeholder: 'Odberateľ má kópiu našej Freistellung §48b',
+              hint: 'Freistellungsbescheinigung máme ako firma — je zapísaná v Compliance a kým '
+                + 'platí, zrážka 15 % sa neuplatní na žiadnej zákazke. Toto políčko len hovorí, '
+                + 'že tento odberateľ kópiu dostal a overil si ju.' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: sc.notes })}
           <div class="modal-actions">

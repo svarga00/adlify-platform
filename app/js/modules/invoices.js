@@ -586,13 +586,14 @@
 
     async loadV2() {
       if (this.v2.loaded) return;
-      const [p, s, per] = await Promise.all([
+      const [p, s, per, co] = await Promise.all([
         DB.list('partners', { limit: 300 }),
         DB.list('subcontracts', { select: 'id,title,work_type,freistellung_verified,partner_id', limit: 500 }),
         DB.list('periods', { limit: 500 }),
+        DB.list('compliance', { limit: 500 }),
       ]);
       this.v2 = { partners: p.data || [], subcontracts: s.data || [],
-        periods: per.data || [], loaded: true };
+        periods: per.data || [], company: (co.data || []).filter(c => c.scope === 'company'), loaded: true };
     },
 
     ctxOf(x) {
@@ -601,6 +602,9 @@
         partner: this.v2.partners.find(p => p.id === x.partner_id) || {},
         subcontract: this.v2.subcontracts.find(s => s.id === x.subcontract_id) || {},
         period: this.v2.periods.find(p => p.id === x.period_id) || {},
+        // Freistellung §48b máme ako firma — s platnou sa zrážka neuplatňuje.
+        freistellung: window.DanubraCompliance
+          ? DanubraCompliance.freistellung(this.v2.company || [], Danubra._dayISO()) : null,
       };
     },
 

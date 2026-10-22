@@ -314,5 +314,21 @@ console.log('Vydaná faktúra');
   eq(poradie.next.invoice.id, 'stara', 'na rade je tá s najstaršou splatnosťou');
 }
 
+// ── Freistellung §48b ───────────────────────────────────────────────────────
+{
+  const stavba = { work_type: 'construction' };
+  eq(I.withholdingApplies(stavba), true, 'stavba bez Freistellung = zrážka');
+  eq(I.withholdingApplies(stavba, { ok: true }), false, 's platnou firemnou Freistellung zrážka nie je');
+  eq(I.withholdingApplies({ work_type: 'workshop' }), false, 'dielňa zrážku nemá');
+  const fs = { ok: true, doc: { reference: '12/345/67890', valid_to: '2027-12-31' } };
+  const r = I.reviewBeforeApproval({ invoice: { total: 1000, withholding_pct: 15, partner_id: 'p' },
+    partner: { id: 'p', email: 'a@b.de' }, subcontract: stavba, freistellung: fs });
+  ok(r.warnings.some(w => w.rule === 'invoice_withholding_not_due'), 'zrážka na faktúre napriek Freistellung sa ohlási');
+  const p = I.sfPayload({ invoice: { total: 1000, invoice_number: '1', vat_regime: 'reverse_charge' },
+    partner: {}, subcontract: stavba, period: {}, freistellung: fs });
+  ok(/Freistellungsbescheinigung gemäß §48b EStG liegt vor \(Nr\. 12\/345\/67890, gültig bis 31\.12\.2027\)/.test(JSON.stringify(p)),
+    'na faktúre pre Nemca je, že Freistellung máme');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

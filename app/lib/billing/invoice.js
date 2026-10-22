@@ -150,10 +150,16 @@
     return lines;
   }
 
-  /** Má sa zrážka uplatniť? Stavebné práce bez Freistellungsbescheinigung. */
-  function withholdingApplies(subcontract = {}) {
+  /**
+   * Má sa zrážka uplatniť? Stavebné práce bez Freistellungsbescheinigung.
+   * Freistellung máme ako firma (register compliance) — keď je platná,
+   * zrážka sa neuplatňuje na žiadnej zákazke.
+   * @param {Object} fs  výsledok DanubraCompliance.freistellung() — { ok }
+   */
+  function withholdingApplies(subcontract = {}, fs = null) {
     return subcontract.work_type === 'construction'
-      && !subcontract.freistellung_verified;
+      && !subcontract.freistellung_verified
+      && !(fs && fs.ok);
   }
 
   // ── Čo musí platiť pred schválením ────────────────────────────────────────
@@ -227,7 +233,7 @@
     }
 
     // §48b — nie je to prekážka, ale musí to byť vidieť pred kliknutím.
-    if (withholdingApplies(sub) && !w.withheld) {
+    if (withholdingApplies(sub, o.freistellung) && !w.withheld) {
       warnings.push({
         rule: 'invoice_missing_withholding',
         label: 'Stavebné práce bez Freistellungsbescheinigung, ale zrážka je nulová',
@@ -236,7 +242,16 @@
         severity: 'warn',
       });
     }
-    if (w.withheld) {
+    // Máme platnú Freistellung, ale faktúra zrážku ráta — to je chyba v sume.
+    if (w.withheld && o.freistellung && o.freistellung.ok) {
+      warnings.push({
+        rule: 'invoice_withholding_not_due',
+        label: 'Máme platnú Freistellungsbescheinigung — zrážka sa neuplatňuje',
+        detail: `Faktúra ráta zrážku ${M.format(w.withheld)}, hoci odberateľ má zaplatiť celú sumu. `
+          + 'Pošlite mu kópiu Freistellung, ak ju ešte nemá.',
+        severity: 'warn',
+      });
+    } else if (w.withheld) {
       warnings.push({
         rule: 'invoice_withholding',
         label: `Na účet príde ${M.format(w.net)}, nie ${M.format(w.gross)}`,
@@ -254,6 +269,16 @@
     }
 
     return { ok: reasons.length === 0, reasons, warnings, withholding: w };
+  }
+
+  /** Veta pre nemeckého odberateľa: Freistellung máme, zrážka sa neuplatní. */
+  function freistellungNote(doc = {}) {
+    const d = doc || {};
+    const datum = (x) => { const m = String(x || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}.${m[2]}.${m[1]}` : ''; };
+    return 'Freistellungsbescheinigung gemäß §48b EStG liegt vor'
+      + (d.reference ? ` (Nr. ${d.reference}` + (d.valid_to ? `, gültig bis ${datum(d.valid_to)})` : ')')
+        : (d.valid_to ? ` (gültig bis ${datum(d.valid_to)})` : ''))
+      + ' — kein Steuerabzug.';
   }
 
   // ── Payload pre SuperFaktúru ──────────────────────────────────────────────
@@ -282,6 +307,8 @@
       comments.push(
         `Bauabzugsteuer gemäß §48b EStG: ${fmtDe(w.withheld)} EUR (${w.pct} %). `
         + `Auszahlungsbetrag: ${fmtDe(w.net)} EUR.`);
+    } else if (sub.work_type === 'construction' && o.freistellung && o.freistellung.ok) {
+      comments.push(freistellungNote(o.freistellung.doc));
     }
     if (inv.note) comments.push(String(inv.note));
 
@@ -371,7 +398,7 @@
     FLOW, canGo, nextSteps, queue, SCHVALENIE,
     withholding, withholdingApplies, sumLines,
     reviewBeforeApproval,
-    sfPayload, COUNTRY_ID, fmtDe,
+    sfPayload, freistellungNote, COUNTRY_ID, fmtDe,
   };
   window.DanubraInvoice = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

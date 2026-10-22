@@ -46,6 +46,26 @@
     return 'valid';
   }
 
+  /**
+   * Máme platnú Freistellungsbescheinigung §48b? Firemná položka v registri.
+   * Kým je „pending" (žiadosť podaná, nevydaná) alebo je po platnosti, nemáme.
+   * S platnou sa **zrážková stavebná daň (15 %) neuplatňuje** — odberateľ
+   * zaplatí celú sumu.
+   * @returns {{ ok:boolean, state:string, doc:Object|null }}
+   */
+  function freistellung(companyItems = [], today) {
+    const t = day(today) || new Date().toISOString().slice(0, 10);
+    const docs = (companyItems || []).filter(c => c && c.kind === 'freistellung_48b'
+      && (!c.scope || c.scope === 'company'));
+    const doc = docs.sort((a, b) => String(b.valid_to || '9999').localeCompare(String(a.valid_to || '9999')))[0] || null;
+    if (!doc) return { ok: false, state: 'missing', doc: null };
+    if (['pending', 'expired', 'not_required'].includes(doc.status)) {
+      return { ok: false, state: doc.status, doc };
+    }
+    const st = docState(doc, t);
+    return { ok: st === 'valid' || st === 'expiring', state: st, doc };
+  }
+
   // ── Čo spraviť teraz v compliance ─────────────────────────────────────────
 
   /**
@@ -208,8 +228,7 @@
     // Zvláštny prípad §48b — bez nej sa zrazí 15 % z faktúry (nie je to zákaz,
     // ale priamy zásah do marže), preto vlastná hláška.
     if (isConstruction) {
-      const fb = (ctx.companyItems || []).find(c => c.kind === 'freistellung_48b');
-      if (docState(fb, today) !== 'valid' && docState(fb, today) !== 'expiring') {
+      if (!freistellung(ctx.companyItems, today).ok && !sc.freistellung_verified) {
         add('warning', 'Bez §48b zrazí odberateľ 15 % z faktúry',
           'Bauabzugsteuer podľa §48b EStG', 'Žiadať cez ELSTER — vybavenie 4–8 týždňov');
       }
@@ -406,7 +425,7 @@
     };
   }
 
-  const API = { checkSubcontract, anuRisk, cashflowCheck, docState, nowNext,
+  const API = { checkSubcontract, anuRisk, cashflowCheck, docState, freistellung, nowNext,
     REQUIRED, ANU_SIGNALS, SEVERITY, KIND_LABEL, A1_LEHOTA };
   if (typeof window !== 'undefined') window.DanubraCompliance = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
