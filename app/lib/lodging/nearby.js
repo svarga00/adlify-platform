@@ -20,10 +20,15 @@
   };
 
   /** Dotaz pre Overpass: ubytovanie v okruhu (km) od bodu. */
-  function overpassQuery({ lat, lng, radiusKm = 10, limit = 80 } = {}) {
+  // Netlify funkcia smie bežať ~10 s — dotaz musí skončiť skôr.
+  const OVERPASS = ['https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+
+  function overpassQuery({ lat, lng, radiusKm = 10, limit = 80, timeout = 8 } = {}) {
     const r = Math.round(Math.min(Math.max(Number(radiusKm) || 10, 1), 50) * 1000);
     const la = Number(lat).toFixed(6), ln = Number(lng).toFixed(6);
-    return `[out:json][timeout:25];`
+    return `[out:json][timeout:${timeout}];`
       + `(nwr["tourism"~"^(${Object.keys(TYPES).join('|')})$"](around:${r},${la},${ln}););`
       + `out center tags ${Math.max(1, Math.min(200, limit))};`;
   }
@@ -117,7 +122,7 @@
     };
   }
 
-  const API = { TYPES, overpassQuery, distanceKm, parse, links, toAccommodation };
+  const API = { TYPES, OVERPASS, overpassQuery, distanceKm, parse, links, toAccommodation };
   if (typeof window !== 'undefined') window.DanubraNearby = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
