@@ -822,8 +822,8 @@
       this.loaded = false; await this.load(); this.billDetail(id);
     },
 
-    billForm(id) {
-      const b = id ? this.bills.find(x => x.id === id) || {} : {};
+    billForm(id, preset) {
+      const b = id ? this.bills.find(x => x.id === id) || {} : (preset || {});
       // Ponúkame len uzavreté obdobia — z otvoreného sa porovnávať nedá.
       const periods = this.periods
         .filter(p => p.status !== 'open')
@@ -960,8 +960,8 @@
       });
     },
 
-    costForm(id) {
-      const c = id ? this.costs.find(x => x.id === id) || {} : {};
+    costForm(id, preset) {
+      const c = id ? this.costs.find(x => x.id === id) || {} : (preset || {});
       const body = `
         <form id="cost-form" onsubmit="event.preventDefault();Cost.saveCost('${id || ''}')">
           <div class="form-grid">

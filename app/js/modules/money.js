@@ -292,7 +292,7 @@
       });
       const v = DanubraPosition.verdict(sp);
 
-      el.innerHTML = Danubra.header('Peniaze',
+      el.innerHTML = Danubra.header('Fakturácia',
         `${Money.format(sum.total)} čaká · ${Money.format(sp.free)} sa dá minúť`)
         + this.actsHtml()
         + this.nowHtml(stages, v)

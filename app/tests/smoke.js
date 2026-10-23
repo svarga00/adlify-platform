@@ -329,19 +329,19 @@ if (D) {
 
   const vlavo = D.sidebarNav().map(n => n[0]);
   t(`v ľavom menu je ${vlavo.length} položiek, nie dvadsaťštyri`, vlavo.length <= 12);
-  t(`a skupín je ${D.navGroups.length}, nie osem`, D.navGroups.length <= 5);
+  t(`a skupín je ${D.navGroups.length}, nie osem`, D.navGroups.length <= 6);
 
   // Rodičia, ktorí v menu musia stáť — na nich sa dá dostať zo všetkého
   // ostatného cez záložky.
-  // Štyri miesta a Nastavenia: Dnes, Zákazky, Ľudia, Peniaze.
-  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'settings']) {
+  // Päť miest a Nastavenia: Dnes, Zákazky, Ľudia, Fakturácia, Marketing.
+  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'marketing', 'settings']) {
     t(`${D.labelOf(k)} je v menu`, vlavo.includes(k));
   }
-  t(`a nič iné (${vlavo.join(', ')})`, vlavo.length === 5);
+  t(`a nič iné (${vlavo.join(', ')})`, vlavo.length === 6);
   // A tie, ktoré sa stali záložkami, v ňom stáť nesmú.
   for (const k of ['tasks', 'messages', 'flow', 'opportunities', 'quotes', 'partners', 'orders',
-    'contracts', 'timesheets', 'hoursheet', 'hiring', 'candidates', 'ads', 'marketing',
-    'recruiting', 'crews', 'invoices', 'costs', 'bank', 'accommodations', 'trades',
+    'contracts', 'timesheets', 'hoursheet', 'hiring', 'candidates', 'ads',
+    'recruiting', 'advances', 'crews', 'invoices', 'costs', 'bank', 'accommodations', 'trades',
     'compliance', 'rules', 'members']) {
     t(`${D.labelOf(k)} je záložka, nie položka menu`,
       !vlavo.includes(k) && D.routeAvailable(k) && !!D.parentOf(k));

@@ -119,6 +119,10 @@
     // smie aj na možnosti — zvlášť právo by znamenalo, že kolega zapíše
     // telefonát, ale nikdy neuvidí, čo z neho bolo.
     opportunities: 'contracts',
+    // Zálohy a výplaty živnostníkom sú tie isté peniaze ako prijaté faktúry.
+    advances: 'costs',
+    // Dokumenty sú PDF z obrazoviek, na ktoré človek už má právo.
+    archive: 'dashboard',
   };
 
   /** Z názvu obrazovky urob kľúč práva. */

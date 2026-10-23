@@ -201,10 +201,6 @@
         ${site ? `<div class="form-section">Miesto plnenia</div>
           <div style="font-size:13px;">${Icon('map', 14)} ${UI.esc(site)}</div>` : ''}
 
-        ${c.price_model === 'hourly' && c.charge_rate ? `<div class="warnbox" style="margin-top:10px;">
-          ${Icon('alert', 14)} Cena je dohodnutá <strong>za hodinu</strong>. Pri zmluve
-          o dielo je to jeden zo znakov skrytej Arbeitnehmerüberlassung — ak sa dá,
-          prepni to na pevnú cenu alebo cenu za jednotku.</div>` : ''}
 
         ${c.retention_pct ? `<div class="regimebox" style="margin-top:10px;">
           Odberateľ si zadrží ${UI.pct(c.retention_pct)} až do konca
@@ -425,22 +421,11 @@
 
           <div class="form-section">Cena</div>
           <div class="regimebox" style="margin:0 0 12px;">
-            Dielo sa platí za dielo. <strong>Hodinová cena v zmluve o dielo je
-            jeden z hlavných znakov skrytej Arbeitnehmerüberlassung</strong> —
-            pevná cena alebo cena za jednotku je to, čo zmluvu drží. Ak to inak
-            nejde, nechaj hodinovú; dokument potom doplní vetu, že sadzba je
-            len podkladom na výpočet odmeny za dielo.</div>
+            Fakturujeme <strong>vždy po hodinách</strong>. Zmluva preto obsahuje vetu, že
+            hodinová sadzba je podkladom na výpočet odmeny za dielo — a dielo (rozsah
+            prác) musí byť v zmluve opísané. To je to, čo ju drží ako Werkvertrag.</div>
           <div class="form-grid">
-            ${UI.field('price_model', 'Ako je cena dohodnutá', {
-              value: c.price_model || 'hourly', options: Enums.options('price_model') })}
-            ${locked ? lockedField('fixed_price', 'Pevná cena €', c.fixed_price)
-              : UI.field('fixed_price', 'Pevná cena €', { type: 'number', step: '0.01',
-                value: c.fixed_price })}
-            ${UI.field('unit_label', 'Jednotka', { value: c.unit_label,
-              placeholder: 'm², bm, kus' })}
-            ${locked ? lockedField('unit_price', 'Cena za jednotku €', c.unit_price)
-              : UI.field('unit_price', 'Cena za jednotku €', { type: 'number', step: '0.01',
-                value: c.unit_price })}
+            <input type="hidden" name="price_model" value="hourly">
             ${locked ? lockedField('charge_rate', 'Sadzba €/h', c.charge_rate)
               : UI.field('charge_rate', 'Sadzba €/h', { type: 'number', step: '0.01',
                 value: c.charge_rate,

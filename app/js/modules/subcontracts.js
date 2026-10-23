@@ -521,6 +521,7 @@
               <span style="color:var(--ink-mute);display:block;font-size:12px;">
                 ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
             </span>
+            <button class="btn btn-outline btn-sm" title="Záloha alebo platba pre neho" onclick="Sub.viaWrk('payMenu','${a.worker_id}')">${Icon('wallet', 14)} Záloha</button>
             <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Zrušiť nasadenie" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
           </div>`;
         }).join('') || '<div class="js-empty">Zatiaľ nikto nie je nasadený.</div>'}
@@ -1497,13 +1498,11 @@
           </div>
           <div class="form-section">Odmena</div>
           <div class="form-grid">
-            ${UI.field('billing_model', 'Model', { value: sc.billing_model || 'hourly', options: BILLING })}
-            ${UI.field('charge_rate', 'Sadzba €/h alebo €/jednotku', { type: 'number',
-              value: sc.charge_rate,
-              hint: 'Podľa modelu vyššie: pri hodinovom je to €/h, pri jednotkovom '
-                + 'cena za jednotku.' })}
-            ${UI.field('unit_label', 'Jednotka', { value: sc.unit_label, placeholder: 'm², kus…' })}
-            ${UI.field('fixed_price', 'Pevná cena €', { type: 'number', value: sc.fixed_price })}
+            <!-- „Nikdy nerobíme na úkon, stále na hodinovku — aj pre Nemcov."
+                 Model sa preto nevyberá; staré záznamy s iným modelom zostávajú. -->
+            <input type="hidden" name="billing_model" value="hourly">
+            ${UI.field('charge_rate', 'Sadzba pre odberateľa €/h', { type: 'number', step: '0.01',
+              value: sc.charge_rate, hint: 'Fakturujeme vždy po hodinách.' })}
           </div>
           ${UI.field('scope', 'Definícia diela', { type: 'textarea', rows: 3, value: sc.scope,
             placeholder: 'Konkrétny výsledok — napr. „Montáž sadrokartónových priečok, 800 m², vrátane tmelenia"' })}
