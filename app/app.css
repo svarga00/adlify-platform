@@ -598,51 +598,41 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
    chcel prepnúť obrazovku. Záložka má preto podčiarknutie a ikonu (tú istú,
    akú má obrazovka v menu), filter zostal pilulkou. */
 .subtabs {
-  display: flex; gap: 3px; margin: 16px 0 22px;
-  border-bottom: 2px solid var(--border);
+  /* „Ak to chceme takto, musíme podkategórie nejak zvýrazniť." Záložky boli
+     tenké podčiarknuté slová a nebolo vidieť, že sa medzi nimi dá prepínať.
+     Teraz sú to veľké dlaždice v jednom pruhu: ikona, názov a pod ním
+     krátko, čo tam je. Otvorená je tmavá. */
+  display: flex; gap: 8px; margin: 14px 0 20px; padding: 6px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 .subtab {
-  display: inline-flex; align-items: center; gap: 8px;
-  border: 1px solid transparent; border-bottom: 0; cursor: pointer;
-  background: transparent; margin-bottom: -2px;
-  padding: 11px 17px 12px; border-radius: var(--radius) var(--radius) 0 0;
-  font-size: 14px; font-weight: 650; color: var(--ink-sub); white-space: nowrap;
-  transition: background .12s, color .12s, box-shadow .12s;
+  flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left;
+  border: 1px solid transparent; cursor: pointer; background: var(--field);
+  padding: 10px 12px; border-radius: var(--radius);
+  font: inherit; color: var(--ink); transition: background .12s, color .12s, border-color .12s;
 }
-.subtab svg { flex: none; opacity: .7; }
-.subtab:hover { background: var(--field); color: var(--ink); }
-.subtab:hover svg { opacity: 1; }
-/* Otvorená záložka je **list, ktorý leží navrchu**: biela, s rámikom, ktorý
-   sa dole otvára do obsahu, a s oranžovou hranou hore. Podčiarknutie samo
-   o sebe bolo pritiché — človek nevidel, že sa dá prepínať. */
-.subtab.active {
-  color: var(--navy); font-weight: 800; background: #fff;
-  border-color: var(--border); box-shadow: 0 -2px 0 var(--brand) inset;
-  position: relative;
-}
-.subtab.active::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
-  background: #fff;
-}
-.subtab.active::before {
-  content: ''; position: absolute; left: -1px; right: -1px; top: -1px; height: 3px;
-  background: var(--brand); border-radius: var(--radius) var(--radius) 0 0;
-}
-.subtab.active svg { opacity: 1; color: var(--brand); }
-/* Počet na záložke. Je to údaj, nie zvýraznenie — preto tichý, nie farebný. */
+.subtab-ico { flex: none; width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; background: var(--card); color: var(--ink-sub); border: 1px solid var(--border); }
+.subtab-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.subtab-txt b { font-size: 14.5px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subtab-txt em { font-style: normal; font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subtab:hover { border-color: var(--border); background: #fff; }
+.subtab.active { background: var(--navy); color: #fff; border-color: var(--navy); box-shadow: 0 6px 16px -10px rgba(10,27,61,.6); }
+.subtab.active .subtab-ico { background: var(--brand); border-color: var(--brand); color: #fff; }
+.subtab.active .subtab-txt em { color: rgba(255,255,255,.7); }
+/* Počet na záložke — koľko tam čaká. */
 .subtab-n {
-  font-style: normal; font-size: 11.5px; font-weight: 800; margin-left: 1px;
-  padding: 1px 6px; border-radius: 99px; background: var(--field); color: var(--ink-mute);
+  flex: none; margin-left: auto; font-style: normal; font-size: 12px; font-weight: 800;
+  padding: 2px 8px; border-radius: 99px; background: var(--brand); color: #fff;
 }
-.subtab.active .subtab-n { background: var(--brand-50); color: var(--brand-700); }
-/* Nábor má päť záložiek a Zákazky štyri — na telefóne sa posúvajú do strany,
-   nie lámu na dva riadky. */
-@media (max-width: 720px) {
-  .subtabs {
-    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
-  }
+/* Na telefóne sa dlaždice posúvajú do strany, popis pod názvom sa skryje. */
+@media (max-width: 860px) {
+  .subtabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 6px; padding: 5px; }
   .subtabs::-webkit-scrollbar { display: none; }
-  .subtab { padding-left: 10px; padding-right: 10px; }
+  .subtab { flex: 0 0 auto; padding: 8px 12px 8px 8px; }
+  .subtab-ico { width: 30px; height: 30px; }
+  .subtab-txt em { display: none; }
 }
 .pillbar-xs { padding: 2px; }
 .filterbar .pillbar { border: 0; background: transparent; padding: 0; }
@@ -3615,3 +3605,33 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .arch-bar.on .btn-ghost, .arch-bar.on .btn-outline { color: #fff; border-color: rgba(255,255,255,.45); background: transparent; }
 .js-docs { margin-top: 14px; }
 @media (max-width: 860px) { .arch-bar { bottom: calc(var(--bottomnav-h) + 8px); } }
+
+/* Voľba „z čoho vystaviť" — veľké riadky s ikonou, nie tenký zoznam. */
+.pick-list { display: flex; flex-direction: column; gap: 8px; }
+.pick-tile { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); font: inherit;
+  color: var(--ink); cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.pick-tile:hover { border-color: var(--brand); box-shadow: var(--shadow-md); }
+.pick-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; background: var(--brand-50); color: var(--brand-dark); }
+.pick-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pick-txt b { font-size: 14.5px; }
+.pick-txt em { font-style: normal; font-size: 12.5px; color: var(--ink-mute); line-height: 1.4; }
+.pick-go { flex: none; color: var(--ink-mute); display: inline-flex; }
+.more-block .pick-tile { margin-top: 8px; }
+.inv-top-acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+
+/* Peniaze — rozcestník: čo sa dá spraviť, veľkými dlaždicami. */
+.mon-acts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 16px; }
+.mon-act { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); font: inherit; color: var(--ink);
+  cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color .12s, box-shadow .12s; position: relative; }
+.mon-act:hover { border-color: var(--brand); box-shadow: var(--shadow-md); }
+.mon-act .pick-ico { width: 38px; height: 38px; }
+.mon-act b { font-size: 14.5px; }
+.mon-act em { font-style: normal; font-size: 12.5px; color: var(--ink-mute); line-height: 1.4; }
+.mon-act .subtab-n { position: absolute; top: 12px; right: 12px; }
+.mon-act.is-main { background: var(--navy); color: #fff; border-color: var(--navy); }
+.mon-act.is-main em { color: rgba(255,255,255,.72); }
+.mon-act.is-main .pick-ico { background: var(--brand); color: #fff; }
+@media (max-width: 860px) { .mon-acts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .mon-act { padding: 12px; } }

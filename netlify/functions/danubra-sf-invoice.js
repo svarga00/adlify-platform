@@ -105,7 +105,7 @@ exports.handler = async (event) => {
   // ── Stav sa číta z databázy, nie z požiadavky ─────────────────────────────
   const { data: inv, error } = await supabase
     .from('danubra_invoices')
-    .select('*, partner:danubra_partners(*), subcontract:danubra_subcontracts(*), period:danubra_periods(*)')
+    .select('*, partner:danubra_partners(*), subcontract:danubra_subcontracts(*), period:danubra_periods(*), items:danubra_invoice_items(*)')
     .eq('id', invoice_id)
     .maybeSingle();
 
@@ -281,8 +281,12 @@ function buildPayload(inv, fs = null) {
     : (sub.title || 'Subdodávateľské práce');
   const tax = reverse ? 0 : 20;
 
+  // Voľná faktúra má vlastné položky — vyhodené z návrhu (`removed_at`) nie.
+  const vlastne = (inv.items || []).filter(i => i && !i.removed_at);
   let item;
-  if (hours > 0) {
+  if (vlastne.length) {
+    item = null;
+  } else if (hours > 0) {
     const unitPrice = round2(total / hours);
     item = Math.round(unitPrice * hours * 100) === gross
       ? { name, description: 'Podľa výkazu hodín, príloha',
@@ -315,7 +319,10 @@ function buildPayload(inv, fs = null) {
       email: partner.email || undefined,
       update_addressbook: 1,
     },
-    InvoiceItem: [item],
+    InvoiceItem: vlastne.length
+      ? vlastne.map(i => ({ name: String(i.description || '').slice(0, 250) || 'Leistung',
+        quantity: Number(i.quantity) || 0, unit: i.unit || 'ks', unit_price: round2(i.unit_price), tax }))
+      : [item],
     InvoiceSetting: {
       language: partner.invoice_language || 'deu',
       bysquare: 1,

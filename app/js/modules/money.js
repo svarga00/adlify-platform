@@ -253,6 +253,32 @@
       </div>`;
     },
 
+    /**
+     * Rozcestník: štyri veci, ktoré sa s peniazmi robia. „Ako viem vystavovať
+     * faktúry a pozerať ich?" — odpoveď musí byť prvá vec na obrazovke, nie
+     * tlačidlo schované na tretej záložke.
+     */
+    actsHtml() {
+      const inv = this.invoices || [];
+      const naSchvalenie = inv.filter(x => ['draft', 'pending_approval', 'draft_pending_approval'].includes(x.status)).length;
+      const poSplatnosti = inv.filter(x => x.status === 'overdue').length;
+      const tile = (cls, ico, title, sub, onclick, n) => `
+        <button class="mon-act${cls}" onclick="${onclick}">
+          <span class="pick-ico">${Icon(ico, 18)}</span><b>${title}</b><em>${sub}</em>
+          ${n ? `<span class="subtab-n">${n}</span>` : ''}</button>`;
+      const can = (k) => Danubra.routeAvailable(k);
+      return `<div class="mon-acts">
+        ${can('invoices') ? tile(' is-main', 'plus', 'Vystaviť faktúru', 'Zo zákazky, voľnú Nemcovi alebo za živnostníka',
+          "Danubra.go('invoices');setTimeout(()=>Inv.newInvoice(),350)") : ''}
+        ${can('invoices') ? tile('', 'invoices', 'Vydané faktúry',
+          naSchvalenie || poSplatnosti
+            ? [naSchvalenie ? `${naSchvalenie} na schválenie` : '', poSplatnosti ? `${poSplatnosti} po splatnosti` : ''].filter(Boolean).join(' · ')
+            : 'Pozrieť, upraviť návrh, PDF', "Danubra.go('invoices')", naSchvalenie + poSplatnosti) : ''}
+        ${can('costs') ? tile('', 'upload', 'Nahrať faktúru / bloček', 'PDF alebo fotka — appka ich prečíta', "Danubra.go('costs')") : ''}
+        ${can('bank') ? tile('', 'wallet', 'Zaplatiť a banka', 'Príkazy na úhradu, výpis z účtu', "Danubra.go('bank')") : ''}
+      </div>`;
+    },
+
     async view(el) {
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       Danubra.setActions('');
@@ -268,6 +294,7 @@
 
       el.innerHTML = Danubra.header('Peniaze',
         `${Money.format(sum.total)} čaká · ${Money.format(sp.free)} sa dá minúť`)
+        + this.actsHtml()
         + this.nowHtml(stages, v)
         + this.duesHtml()
         + `<p class="fl-intro">Dve otázky na jednom mieste: <strong>kde stoja naše

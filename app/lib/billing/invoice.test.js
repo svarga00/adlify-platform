@@ -330,5 +330,39 @@ console.log('Vydaná faktúra');
     'na faktúre pre Nemca je, že Freistellung máme');
 }
 
+console.log('\nVOĽNÁ FAKTÚRA, POLOŽKY, ÚPRAVA NÁVRHU');
+{
+  const f = I.freeInvoice({ partner: { id: 'p1', payment_terms_days: 14 }, today: '2026-10-23', number: '2026100',
+    items: [{ description: 'Montáž zábradlia', quantity: 12.5, unit: 'h', unit_price: 38 },
+      { description: 'Doprava', quantity: 1, unit: 'paušál', unit_price: 120.1 },
+      { description: '', quantity: 1, unit_price: 99 }, { description: 'Vyhodená', quantity: 1, unit_price: 50, removed_at: 'x' }] });
+  eq(f.cents, 59510, 'súčet v centoch: 12,5 × 38 + 120,10 = 595,10 €');
+  eq([f.invoice.total, f.invoice.amount_net, f.invoice.status, f.invoice.vat_regime, f.invoice.due_date],
+    [595.1, 595.1, 'draft', 'reverse_charge', '2026-11-06'], 'návrh, reverse charge, splatnosť podľa odberateľa');
+  eq(f.items.length, 2, 'prázdny riadok a vyhodená položka sa nezapíšu');
+  eq(I.freeInvoice({ partner: { reverse_charge: false }, items: [] }).invoice.vat_regime, 'standard', 'bez reverse charge, keď ho odberateľ nemá');
+
+  eq(I.editable({ status: 'draft' }), true, 'návrh sa dá upraviť');
+  eq(I.editable({ status: 'pending_approval' }), true, 'aj keď čaká na schválenie');
+  eq(I.editable({ status: 'approved', approved_at: 'x' }), false, 'schválená už nie');
+  eq(I.editable({ status: 'issued' }), false, 'vystavená nie — doklad sa nemení');
+
+  const doc = I.docItems({ items: f.items });
+  eq(doc.map(x => x.total), [475, 120.1], 'dokument: riadky z položiek');
+  const zPodkladu = I.docItems({ invoice: { total: 1638, amount_net: 1638 }, subcontract: { title: 'Lixenried' },
+    period: { period_from: '2026-09-01', hours_construction: 42 } });
+  ok(zPodkladu.length === 1 && /Lixenried — 09\/2026/.test(zPodkladu[0].description) && zPodkladu[0].total === 1638,
+    'faktúra z podkladu: jeden riadok z obdobia, ako v SuperFaktúre');
+
+  const sf = I.sfPayload({ invoice: { ...f.invoice, total: 595.1 }, partner: { name: 'GU Ulm' }, items: f.items });
+  eq(sf.InvoiceItem.map(i => [i.name, i.quantity, i.unit_price, i.tax]),
+    [['Montáž zábradlia', 12.5, 38, 0], ['Doprava', 1, 120.1, 0]], 'do SuperFaktúry idú položky voľnej faktúry');
+
+  const r = I.reviewBeforeApproval({ invoice: { ...f.invoice, total: 600 }, partner: { id: 'p1', ust_idnr: 'DE1' }, items: f.items });
+  ok(r.reasons.some(x => x.rule === 'invoice_items_mismatch'), 'položky, ktoré nesedia so sumou, schválenie zastavia');
+  const r2 = I.reviewBeforeApproval({ invoice: f.invoice, partner: { id: 'p1', ust_idnr: 'DE1' }, items: f.items });
+  ok(!r2.reasons.some(x => x.rule === 'invoice_items_mismatch'), 'keď sedia, nie');
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo`);
 process.exit(failed ? 1 : 0);

@@ -208,6 +208,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       </div></div>
       <div class="col"><div class="lbl">${esc(L.pre)}</div><div class="val">
         <strong>${esc(client?.name || '—')}</strong><br>
+        ${client?.address ? esc(client.address) + '<br>' : ''}
         ${client?.contact_person ? esc(client.contact_person) + '<br>' : ''}
         ${client?.company_id ? esc(L.ico) + ': ' + esc(client.company_id) + '<br>' : ''}
         ${client?.vat_id ? esc(L.dph) + ': ' + esc(client.vat_id) + '<br>' : ''}

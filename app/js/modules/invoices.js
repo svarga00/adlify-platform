@@ -19,7 +19,7 @@
   ];
   const TYPE = {
     service_fee: 'Sprostredkovanie', ongoing_service: 'Priebežná služba',
-    retainer: 'Retainer', other: 'Iné',
+    retainer: 'Retainer', other: 'Iné', standard: 'Faktúra odberateľovi',
   };
   const REGIME = {
     sk_no_vat: 'SK bez DPH', eu_reverse_charge: 'Reverse charge', other: 'Na kontrolu',
@@ -61,7 +61,8 @@
     },
 
     clientOf(id) { return this.clients.find(c => c.id === id); },
-    linesOf(id) { return this.lines.filter(l => l.invoice_id === id); },
+    // Položka vyhodená z návrhu sa nemaže, len dostane `removed_at`.
+    linesOf(id) { return this.lines.filter(l => l.invoice_id === id && !l.removed_at); },
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[1]; return UI.badge(m[1], m[2]); },
 
     async view(el) {
@@ -300,6 +301,7 @@
       if (!x) return;
       // Faktúra bez fakturačných údajov je papier, podľa ktorého sa nedá
       // zaplatiť — a odberateľ ju vráti.
+      if (this.isV2(x)) return this.openDocV2(id);
       if (!Danubra.supplierReady('Faktúra')) return;
       await Invoicing.openDocument(x, this.linesOf(id), this.clientOf(x.client_id));
     },
@@ -318,18 +320,25 @@
     async newInvoice() {
       if (!this.loaded) await this.load();
       const opt = (ico, title, sub, action) => `
-        <button class="list-row" onclick="${action}">
-          <span style="color:var(--ink-mute);display:flex;">${Icon(ico, 18)}</span>
-          <span style="flex:1;"><strong>${title}</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">${sub}</span></span>
-          <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
-      UI.modal('Z čoho vystaviť faktúru?', `
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          ${opt('orders', 'Z objednávky', 'Poplatok za sprostredkovanie alebo priebežná služba', 'Inv.pickOrder()')}
-          ${opt('inquiries', 'Z dopytu', 'Ešte pred objednávkou — napríklad záloha alebo rezervácia', 'Inv.pickInquiry()')}
-          ${opt('site', 'Zo zákazky (subdodávky)', 'Z potvrdených hodín, reverse charge §13b', 'Inv.pickSubcontract()')}
-          ${opt('clients', 'Voľná faktúra', 'Vlastné položky pre ľubovoľného klienta', 'Inv.manual()')}
-        </div>`);
+        <button class="pick-tile" onclick="${action}">
+          <span class="pick-ico">${Icon(ico, 20)}</span>
+          <span class="pick-txt"><b>${title}</b><em>${sub}</em></span>
+          <span class="pick-go">${Icon('chevron', 16)}</span></button>`;
+      // Objednávky a dopyty z ubytovacej agendy (v1) sa ponúkajú len vtedy,
+      // keď nejaké sú — inak by tu stáli dve tlačidlá, ktoré nikam nevedú.
+      const stare = this.orders.length;
+      UI.modal('Vystaviť faktúru', `
+        <div class="pick-list">
+          ${opt('site', 'Zo zákazky — z odpracovaných hodín', 'Z uzavretého obdobia. Suma je z hodín, reverse charge §13b. Najčastejšie.', 'Inv.pickPeriod()')}
+          ${opt('clients', 'Voľná faktúra nemeckej firme', 'Vlastné položky — paušál, materiál, doprava, čokoľvek. Vyberiete odberateľa a napíšete riadky.', 'Inv.freeForm()')}
+          ${opt('workers', 'Za živnostníka (v jeho mene)', 'Keď faktúru za neho vystavujeme my — z jeho schválených hodín, potvrdí ju odkazom.', 'Inv.selfBill()')}
+        </div>
+        <div class="regimebox" style="margin-top:12px;">Každá faktúra vznikne ako <b>návrh</b>. Kým ju admin neschváli,
+          dá sa upraviť; po schválení sa už nemení.</div>
+        ${stare ? `<details class="more-block" style="margin-top:10px;"><summary>Staré faktúry z ubytovacej agendy</summary>
+          ${opt('orders', 'Z objednávky ubytovania', 'Sprostredkovanie alebo priebežná služba', 'Inv.pickOrder()')}
+          ${opt('clients', 'Voľná faktúra klientovi ubytovania', 'Vlastné položky pre klienta z v1', 'Inv.manual()')}
+        </details>` : ''}`, { wide: true });
     },
 
     async pickOrder() {
@@ -528,7 +537,12 @@
     },
 
     addRow() { this.syncRows(); this._rows.push({ description: '', quantity: 1, unit: 'ks', unit_price: 0 }); this.renderRows(); },
-    delRow(i) { this.syncRows(); this._rows.splice(i, 1); this.renderRows(); },
+    delRow(i) {
+      this.syncRows();
+      const [r] = this._rows.splice(i, 1);
+      if (r && r.id) (this._removed = this._removed || []).push(r.id);
+      this.renderRows();
+    },
 
     async saveManual() {
       this.syncRows();
@@ -611,7 +625,10 @@
     async detailV2(x) {
       await this.loadV2();
       const ctx = this.ctxOf(x);
-      const rev = DanubraInvoice.reviewBeforeApproval(ctx);
+      const rev = DanubraInvoice.reviewBeforeApproval({ ...ctx, items: this.linesOf(x.id) });
+      const riadky = DanubraInvoice.docItems({ invoice: x, items: this.linesOf(x.id),
+        subcontract: ctx.subcontract, period: ctx.period });
+      const upravit = DanubraInvoice.editable(x);
       const w = rev.withholding;
       const steps = DanubraInvoice.nextSteps(x);
       // Zapísaná výnimka musí schválenie aj odomknúť — inak by človek napísal
@@ -667,6 +684,19 @@
 
         ${x.sf_error ? `<div class="warnbox">${Icon('alert', 14)}
           Posledný pokus zlyhal: ${UI.esc(x.sf_error)}</div>` : ''}
+
+        <div class="inv-top-acts">
+          <button class="btn btn-primary btn-sm" onclick="Inv.openDocV2('${x.id}')">${Icon('doc', 14)} Zobraziť faktúru (PDF)</button>
+          ${upravit ? `<button class="btn btn-outline btn-sm" onclick="Inv.freeForm('${x.id}')">${Icon('edit', 14)} Upraviť návrh</button>` : ''}
+        </div>
+        ${upravit ? '' : '<div class="card-note" style="margin:0 0 8px;">Schválená faktúra sa už nemení — opravuje sa dobropisom.</div>'}
+
+        <div class="form-section">Položky</div>
+        ${riadky.map(i => `<div class="list-row" style="cursor:default;">
+          <span style="flex:1;font-size:13px;">${UI.esc(i.description)}
+            <span style="color:var(--ink-mute);font-size:12px;display:block;">
+              ${Number(i.quantity || 0).toLocaleString('sk-SK')} ${UI.esc(i.unit || '')} × ${UI.money(i.unit_price)}</span></span>
+          <strong>${UI.money(i.total)}</strong></div>`).join('') || '<div class="js-empty">Bez položiek.</div>'}
 
         <div class="form-section">Suma</div>
         ${Shell.sums({
@@ -743,7 +773,7 @@
       if (!Shell.reasonValid(reason)) {
         return UI.toast(`Dôvod musí mať aspoň ${Shell.REASON_MIN} znakov`, 'err');
       }
-      const rev = DanubraInvoice.reviewBeforeApproval(this.ctxOf(x));
+      const rev = DanubraInvoice.reviewBeforeApproval({ ...this.ctxOf(x), items: this.linesOf(x.id) });
       const open = Shell.evaluate(rev.reasons,
         DanubraOverrides.forEntity(this.overrides, 'invoice', invoiceId)).open;
       const { rows, skipped } = DanubraOverrides.rowsFor(open, {
@@ -815,6 +845,184 @@
         pay: 'Označená ako uhradená' }[action] || 'Hotovo', 'ok');
       this.loaded = false; await this.load();
       this.detail(id); Danubra.renderRoute();
+    },
+
+    // ── Vystaviť: zo zákazky (obdobie) ────────────────────────────────────
+    /** Uzavreté obdobia, z ktorých ešte faktúra nie je. */
+    async pickPeriod() {
+      await this.loadV2();
+      const fakt = new Set(this.items.filter(x => x.status !== 'cancelled' && x.period_id).map(x => x.period_id));
+      const cand = this.v2.periods.filter(p => p.status === 'closed' && !fakt.has(p.id))
+        .sort((a, b) => String(b.period_to || '').localeCompare(String(a.period_to || '')));
+      if (!cand.length) {
+        return UI.modal('Zo zákazky', `<div class="regimebox" style="margin:0;">
+          Žiadne uzavreté obdobie nečaká na faktúru. Obdobie sa uzatvára v zákazke —
+          <b>krok 7 · Hodiny a faktúra</b>: schváľte hodiny a kliknite „Uzavrieť obdobie".</div>
+          <div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('subcontracts')">${Icon('site', 14)} Otvoriť zákazky</button></div>`);
+      }
+      const sc = (id) => this.v2.subcontracts.find(x => x.id === id) || {};
+      UI.modal('Z ktorého obdobia?', `<div class="pick-list">${cand.map(p => `
+        <button class="pick-tile" onclick="UI.closeModal();Inv.fromPeriod('${p.id}')">
+          <span class="pick-ico">${Icon('clock', 20)}</span>
+          <span class="pick-txt"><b>${UI.esc(sc(p.subcontract_id).title || 'Zákazka')}</b>
+            <em>${UI.dateRange(p.period_from, p.period_to)}${p.amount_charged != null ? ` · ${UI.money(p.amount_charged)}` : ''}</em></span>
+          <span class="pick-go">${Icon('chevron', 16)}</span></button>`).join('')}</div>`, { wide: true });
+    },
+
+    async selfBill() {
+      UI.closeModal();
+      if (!window.Cost) return Danubra.go('costs');
+      if (!Cost.loaded) await Cost.load();
+      Cost.selfForm();
+    },
+
+    // ── Voľná faktúra nemeckej firme / úprava návrhu ──────────────────────
+    /**
+     * Formulár na novú voľnú faktúru aj na úpravu návrhu. Faktúra z podkladu
+     * má sumu z hodín — pri nej sa upravujú len dátumy; suma sa mení v hodinách.
+     */
+    async freeForm(id) {
+      await this.loadV2();
+      const x = id ? this.items.find(i => i.id === id) : null;
+      if (x && !DanubraInvoice.editable(x)) return UI.toast('Schválená faktúra sa už nemení', 'err');
+      const zPodkladu = !!(x && x.period_id);
+      this._editId = x ? x.id : null;
+      this._rows = x ? this.linesOf(x.id).map(l => ({ id: l.id, description: l.description, quantity: l.quantity,
+        unit: l.unit, unit_price: l.unit_price })) : [];
+      if (!zPodkladu && !this._rows.length) this._rows = [{ description: '', quantity: 1, unit: 'h', unit_price: 0 }];
+      this._removed = [];
+      const dnes = Danubra._dayISO();
+      UI.modal(x ? `Upraviť návrh ${x.invoice_number || ''}` : 'Voľná faktúra nemeckej firme', `
+        <form id="man-form" onsubmit="event.preventDefault();Inv.saveFree()">
+          <div class="form-grid">
+            ${UI.field('partner_id', 'Odberateľ', { value: x ? x.partner_id : '', required: true, add: 'partner',
+              options: [['', '— vyberte firmu —'], ...this.v2.partners.map(p => [p.id, p.name])] })}
+            ${UI.field('subcontract_id', 'Zákazka (nepovinné)', { value: x ? x.subcontract_id || '' : '',
+              // Zákazka sa zakladá v Zákazkách so všetkými krokmi — nie z faktúry.
+              add: false,
+              options: [['', '— bez zákazky —'], ...this.v2.subcontracts.map(z => [z.id, z.title])] })}
+            ${UI.field('issue_date', 'Dátum vystavenia', { type: 'date', value: x ? x.issue_date : dnes })}
+            ${UI.field('delivery_date', 'Dátum dodania', { type: 'date', value: x ? (x.delivery_date || x.issue_date) : dnes })}
+            ${UI.field('due_date', 'Splatnosť', { type: 'date', value: x ? x.due_date : '' ,
+              hint: x ? '' : 'Prázdne = podľa odberateľa (inak 30 dní).' })}
+          </div>
+          <div id="regime-hint" class="regimebox" style="margin-bottom:6px;"></div>
+          ${zPodkladu ? `<div class="notebox">Suma tejto faktúry je z uzavretého obdobia (${UI.money(x.total)}).
+            Mení sa v hodinách zákazky, nie tu — inak by faktúra nesedela s výkazom.</div>` : `
+          <div class="form-section">Položky</div>
+          <div id="item-rows"></div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="Inv.addRow()">${Icon('plus')} Pridať položku</button>
+          <div class="service-total" style="background:var(--field);border-color:var(--border);margin-top:14px;">
+            <div style="font-weight:700;">Spolu</div>
+            <div id="man-total" style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">0,00 €</div>
+          </div>`}
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} ${x ? 'Uložiť zmeny' : 'Vytvoriť návrh'}</button>
+          </div>
+        </form>`, { wide: true });
+      if (!zPodkladu) this.renderRows();
+      const form = document.getElementById('man-form');
+      form.addEventListener('input', () => { if (!zPodkladu) this.syncRows(); this.freeRegime(); });
+      form.addEventListener('change', () => this.freeRegime());
+      this.freeRegime();
+    },
+
+    freeRegime() {
+      const sel = document.querySelector('#man-form [name=partner_id]');
+      const el = document.getElementById('regime-hint');
+      if (!sel || !el) return;
+      const p = this.v2.partners.find(z => z.id === sel.value);
+      if (!p) { el.textContent = 'Vyberte odberateľa — podľa neho sa určí režim DPH a splatnosť.'; return; }
+      el.innerHTML = p.reverse_charge === false
+        ? `Režim: <strong>bežný</strong> — odberateľ nemá reverse charge.`
+        : `Režim: <strong>reverse charge §13b</strong> — bez DPH, daň odvedie odberateľ.${
+          p.ust_idnr ? '' : ' <span style="color:var(--amber);">Odberateľ nemá USt-IdNr — bez neho sa faktúra neschváli.</span>'}`;
+    },
+
+    async saveFree() {
+      const form = document.getElementById('man-form');
+      if (document.getElementById('item-rows')) this.syncRows();
+      const d = UI.formData(form);
+      const partner = this.v2.partners.find(p => p.id === d.partner_id);
+      if (!partner) return UI.toast('Vyberte odberateľa', 'err');
+      const x = this._editId ? this.items.find(i => i.id === this._editId) : null;
+      const zPodkladu = !!(x && x.period_id);
+      const f = DanubraInvoice.freeInvoice({ partner, items: this._rows, today: d.issue_date || Danubra._dayISO(),
+        subcontractId: d.subcontract_id || null });
+      if (!zPodkladu && !f.items.length) return UI.toast('Pridajte aspoň jednu položku s popisom a množstvom', 'err');
+      const datumy = { issue_date: d.issue_date || f.invoice.issue_date, delivery_date: d.delivery_date || f.invoice.delivery_date,
+        due_date: d.due_date || f.invoice.due_date };
+
+      if (!x) {
+        const { data: n, error: ne } = await DB.rpc('next_number', { p_kind: 'invoice' });
+        if (ne) return UI.toast('Číslo sa nepodarilo prideliť: ' + ne.message, 'err');
+        const { data: inv, error } = await DB.insert('invoices', { ...f.invoice, ...datumy, invoice_number: n });
+        if (error) return UI.toast('Chyba: ' + error.message, 'err');
+        const { error: e2 } = await DB.insertMany('invoice_items', f.items.map(i => ({ ...i, invoice_id: inv.id })));
+        if (e2) return UI.toast('Faktúra vznikla, ale položky sa nezapísali: ' + e2.message, 'err');
+        UI.closeModal();
+        UI.toast(`Návrh faktúry ${n} je pripravený — čaká na schválenie`, 'ok');
+        this.loaded = false; await this.load(); Danubra.renderRoute();
+        return setTimeout(() => this.detail(inv.id), 200);
+      }
+
+      // Úprava návrhu: hlavička, potom položky — nič sa nemaže, vyhodené dostanú removed_at.
+      const patch = { ...datumy, partner_id: partner.id, subcontract_id: d.subcontract_id || null };
+      if (!zPodkladu) Object.assign(patch, { total: f.invoice.total, amount_net: f.invoice.total, vat_regime: f.invoice.vat_regime });
+      const { error } = await DB.update('invoices', x.id, patch);
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      if (!zPodkladu) {
+        const at = new Date().toISOString();
+        const ops = [];
+        for (const id of this._removed) ops.push(DB.update('invoice_items', id, { removed_at: at }));
+        for (const r of this._rows) {
+          const q = Number(r.quantity) || 0;
+          const row = { description: String(r.description || '').trim(), quantity: q, unit: r.unit || 'ks',
+            unit_price: Number(r.unit_price) || 0,
+            total: Money.fromCents(Money.mul(Money.toCents(r.unit_price || 0), q)) };
+          if (!row.description || !q) { if (r.id) ops.push(DB.update('invoice_items', r.id, { removed_at: at })); continue; }
+          ops.push(r.id ? DB.update('invoice_items', r.id, row) : DB.insert('invoice_items', { ...row, invoice_id: x.id }));
+        }
+        const res = await Promise.all(ops);
+        const chyba = res.find(r => r && r.error);
+        if (chyba) return UI.toast('Položky sa neuložili celé: ' + chyba.error.message, 'err');
+      }
+      UI.closeModal();
+      UI.toast('Návrh upravený', 'ok');
+      this.loaded = false; await this.load(); Danubra.renderRoute();
+      setTimeout(() => this.detail(x.id), 200);
+    },
+
+    // ── Dokument faktúry v2 (pre Nemca, po nemecky) ───────────────────────
+    async openDocV2(id) {
+      const x = this.items.find(i => i.id === id);
+      if (!x) return;
+      if (!Danubra.supplierReady('Faktúra')) return;
+      await this.loadV2();
+      const ctx = this.ctxOf(x);
+      const p = ctx.partner || {};
+      const supplier = Danubra.supplier();
+      const items = DanubraInvoice.docItems({ invoice: x, items: this.linesOf(x.id), subcontract: ctx.subcontract, period: ctx.period });
+      const notes = [];
+      if (x.vat_regime === 'reverse_charge') notes.push('Steuerschuldnerschaft des Leistungsempfängers (§13b UStG).');
+      if (ctx.subcontract.work_type === 'construction' && ctx.freistellung && ctx.freistellung.ok && !Number(x.withholding_amount)) {
+        notes.push(DanubraInvoice.freistellungNote(ctx.freistellung.doc));
+      }
+      let qrSvg = '';
+      try {
+        if (supplier.iban && supplier.name) {
+          const { net } = DanubraPapers.payable(x);
+          qrSvg = DanubraQR.svg(DanubraQR.sepaPayload({ name: supplier.name, iban: supplier.iban, amount: net,
+            reference: String(x.invoice_number || '').replace(/\D/g, ''), note: `Rechnung ${x.invoice_number}` }), { px: 132 });
+        }
+      } catch (e) { /* bez QR sa dá zaplatiť podľa IBAN */ }
+      const client = { name: p.name, country: p.country || 'DE', vat_id: p.ust_idnr, company_id: p.registration_no,
+        contact_person: p.contact_person, address: [p.address, [p.postal_code, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') };
+      const html = DanubraPapers.invoice({ invoice: x, items, client, supplier, qrSvg, vatNote: notes.join(' '), lang: 'de' });
+      Invoicing._openHtml(html, { kind: 'rechnung', title: 'Rechnung', number: x.invoice_number, who: p.name,
+        lang: 'de', partner_id: x.partner_id || null, subcontract_id: x.subcontract_id || null });
     },
 
     /** Faktúra z uzavretého podkladu. Sumy pochádzajú z obdobia, nie z ruky. */
