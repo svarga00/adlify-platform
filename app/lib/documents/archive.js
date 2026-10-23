@@ -29,6 +29,7 @@
     angebot:      { label: 'Angebot',                group: 'ponuky' },
     rechnung:     { label: 'Rechnung',               group: 'faktury' },
     self_invoice: { label: 'Faktúra',                group: 'faktury' },
+    mahnung:      { label: 'Upomienka',              group: 'faktury' },
     ine:          { label: 'Dokument',               group: 'ine' },
   };
   const GROUPS = [

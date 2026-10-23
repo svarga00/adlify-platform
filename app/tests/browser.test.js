@@ -3963,7 +3963,7 @@ console.log('Prehliadač');
         res.schvalenaModal = !!document.getElementById('man-form');
         return res;
       });
-      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za živnostníka (v jeho mene)',
+      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za živnostníka (v jeho mene)|Za celý mesiac naraz',
         'Vystaviť faktúru: zo zákazky, voľná Nemcovi, za živnostníka — bez starej ubytovacej agendy', out.volby.join(' | '));
       ok(JSON.stringify(out.faktura) === JSON.stringify(['draft', 595, '2026101', 'reverse_charge', 'p1']),
         'voľná faktúra vznikne ako návrh s číslom, reverse charge', JSON.stringify(out.faktura));
@@ -3978,6 +3978,85 @@ console.log('Prehliadač');
       ok(out.pdf.rechnung && out.pdf.adresa && out.pdf.riadok && out.pdf.rc && out.pdf.bezDopravy,
         'PDF faktúry: po nemecky, s adresou odberateľa, položkami a §13b', JSON.stringify(out.pdf));
       ok(!out.schvalenaModal, 'schválená faktúra sa nedá upraviť');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+    // ── Upomienky, mesačná fakturácia, balík pre účtovníčku ──────────────
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const dnes = Danubra._dayISO();
+        const DATA = {
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE', ust_idnr: 'DE1', address: 'Hauptstr. 1', city: 'Ulm' }],
+          invoices: [{ id: 'i1', invoice_number: '2026088', status: 'overdue', total: 9800, amount_net: 9800, partner_id: 'p1',
+            issue_date: '2026-08-01', due_date: '2026-09-01', subcontract_id: 's1' }],
+          subcontracts: [{ id: 's1', title: 'Wohnpark', status: 'active', partner_id: 'p1' }],
+          assignments: [{ id: 'a1', subcontract_id: 's1', worker_id: 'w1', charge_rate: 34, worker_rate: 22 }],
+          timesheets: [{ id: 't1', assignment_id: 'a1', worker_id: 'w1', work_date: dnes.slice(0, 7) + '-02', hours: 8, approved: true }],
+          periods: [], invoice_reminders: [], invoice_items: [], overrides: [], clients: [], orders: [], compliance: [],
+          bills: [{ id: 'b1', supplier_name: 'Shell', amount: 80, issue_date: dnes.slice(0, 7) + '-03', status: 'paid', storage_path: 'x/shell.pdf' }],
+          costs: [], workers: [{ id: 'w1', full_name: 'Jozef Malý' }], archive: [],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.', address: 'Nové Zámky', company_id: '1', iban: 'SK3112000000198742637541' } }],
+        };
+        const zapis = []; const rpc = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async (n, a) => { rpc.push([n, a]); return { data: null, error: null }; };
+        DB.insert = async (t, row) => { zapis.push({ t, row }); return { data: { id: 'new' + zapis.length, sent_at: new Date().toISOString(), ...row }, error: null }; };
+        DB.update = async () => ({ data: null, error: null });
+        DB.client = { storage: { from: () => ({ download: async () => ({ data: new Blob(['%PDF-1.4 test']), error: null }) }) } };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
+        Danubra.route = 'invoices'; Inv.loaded = false; Inv.v2.loaded = false;
+        await Danubra.renderRoute();
+        const res = { akcie: (document.getElementById('topbar-actions') || document.body).textContent };
+        await Inv.detail('i1');
+        res.detail = document.querySelector('#ui-modal').textContent.replace(/\s+/g, ' ');
+        let html = '';
+        const stare = window.open;
+        window.open = () => ({ document: { open() {}, write(h) { html += h; }, close() {} }, close() {} });
+        await Inv.remind('i1');
+        window.open = stare;
+        res.upomienka = { de: /Zahlungserinnerung/.test(html), cislo: /2026088/.test(html), suma: /9\.800,00/.test(html), adr: /Hauptstr/.test(html) };
+        res.zapis = zapis.filter(z => z.t === 'invoice_reminders').map(z => [z.row.level, !!z.row.deadline]);
+        res.dalsia = DanubraDunning.next(Inv.items[0], Inv.reminders, dnes).reason;
+        UI.closeModal();
+
+        await Inv.monthly(dnes.slice(0, 7));
+        res.mesiac = [...document.querySelectorAll('#ui-modal .mf-row b')].map(b => b.textContent);
+        await Inv.runMonthly();
+        res.rpc = rpc.map(r => r[0]);
+        res.obdobie = zapis.filter(z => z.t === 'periods').map(z => [z.row.subcontract_id, z.row.period_from.slice(8)]);
+        UI.closeModal();
+
+        await Inv.books(dnes.slice(0, 7));
+        res.knihy = document.querySelector('#ui-modal').innerText;
+        let zip = null;
+        const dl = Docs.download;
+        Docs.download = (w, f) => { zip = f; };
+        await Inv.booksZip(true);
+        Docs.download = dl;
+        res.zip = zip ? { name: zip.name, size: zip.size, head: [...new Uint8Array(await zip.slice(0, 4).arrayBuffer())] } : null;
+        return res;
+      });
+      ok(/Mesačná fakturácia/.test(out.akcie) && /Upomienky/.test(out.akcie) && /Pre účtovníčku/.test(out.akcie),
+        'vo Vydaných sú tlačidlá Mesačná fakturácia, Upomienky, Pre účtovníčku', out.akcie.slice(0, 200));
+      ok(/Upomienky/.test(out.detail) && /Pripomienka platby/.test(out.detail), 'faktúra po splatnosti ponúkne pripomienku platby', out.detail.slice(-300));
+      ok(out.upomienka.de && out.upomienka.cislo && out.upomienka.suma && out.upomienka.adr, 'upomienka je po nemecky, s číslom, sumou a adresou', JSON.stringify(out.upomienka));
+      ok(JSON.stringify(out.zapis) === '[[1,true]]', 'a zapíše sa — stupeň 1 s novou lehotou', JSON.stringify(out.zapis));
+      ok(out.dalsia === 'wait', 'ďalšia upomienka sa hneď neponúkne');
+      ok(out.mesiac.includes('Wohnpark'), 'mesačná fakturácia ukáže zákazku s hodinami', out.mesiac.join(','));
+      ok(JSON.stringify(out.obdobie) === '[["s1","01"]]' && out.rpc.join(',') === 'close_period,invoice_from_period',
+        'založí obdobie za mesiac, uzavrie ho a pripraví faktúru', JSON.stringify(out.obdobie) + ' ' + out.rpc.join(','));
+      ok(/Vydané faktúry/.test(out.knihy) && /Prijaté faktúry/.test(out.knihy), 'prehľad pre účtovníčku ukáže vydané aj prijaté');
+      ok(out.zip && /^Uctovnictvo \d{4}-\d{2}\.zip$/.test(out.zip.name) && out.zip.head.join() === '80,75,3,4',
+        'stiahne sa jeden ZIP balík', JSON.stringify(out.zip));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
