@@ -3591,3 +3591,27 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
   .js-row-acts .btn, .js-acts .btn { flex: 1 1 auto; justify-content: center; }
   .js-now { flex-direction: column; align-items: stretch; }
 }
+
+/* Dokumenty — zoznam PDF pri človeku, firme, zákazke a na obrazovke Dokumenty. */
+.arch-group { margin-bottom: 12px; }
+.arch-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 14px; }
+.arch-head em { font-style: normal; font-size: 12px; color: var(--ink-mute); background: var(--field); border-radius: 9px; padding: 0 8px; }
+.arch-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft); }
+.arch-row:first-of-type { border-top: 0; }
+.arch-row.is-on { background: var(--brand-50); border-radius: var(--radius); }
+.arch-pick { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; cursor: pointer; }
+.arch-pick input { width: 18px; height: 18px; accent-color: var(--brand); }
+.arch-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; border: 0; background: none; padding: 4px 0;
+  text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.arch-main b { font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.arch-main span { font-size: 12px; color: var(--ink-mute); }
+.arch-main:hover b { color: var(--blue); }
+.arch-acts { flex: none; display: flex; gap: 2px; }
+.arch-bar { position: sticky; bottom: 8px; z-index: 6; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 8px 0; padding: 8px 12px; border-radius: var(--radius-lg); font-size: 13px; color: var(--ink-sub);
+  background: var(--field); border: 1px dashed var(--border); }
+.arch-bar.on { background: var(--navy); color: #fff; border: 0; box-shadow: var(--shadow-md); }
+.arch-bar.on span { flex: 1; min-width: 120px; }
+.arch-bar.on .btn-ghost, .arch-bar.on .btn-outline { color: #fff; border-color: rgba(255,255,255,.45); background: transparent; }
+.js-docs { margin-top: 14px; }
+@media (max-width: 860px) { .arch-bar { bottom: calc(var(--bottomnav-h) + 8px); } }

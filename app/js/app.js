@@ -107,7 +107,9 @@ window.Danubra = {
     ['DNES',       [['dashboard', 'Dnes', 'dashboard'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['messages', 'Správy', 'mail'],
-                    ['flow', 'Ako to ide', 'repeat']]],
+                    ['flow', 'Ako to ide', 'repeat'],
+                    // Každé PDF z appky — triedené podľa ľudí a firiem.
+                    ['archive', 'Dokumenty', 'doc']]],
     ['ZÁKAZKY',    [['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['opportunities', 'Dopyty', 'offers', 'staffing', 'contracts'],
                     ['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
@@ -144,6 +146,7 @@ window.Danubra = {
   navHints: {
     dashboard: 'Čo dnes treba spraviť, či bude na výplaty a či sa na tom zarába',
     flow: 'Celá cesta od telefonátu po peniaze — a kde sa to práve zastavilo',
+    archive: 'Všetky PDF — zmluvy, GDPR, objednávky, faktúry — pri ľuďoch a firmách; poslať aj viac naraz',
     money: 'Kde stoja naše peniaze a koľko sa z nich dá minúť a dokedy',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
     messages: 'Komunikácia pri zázname, ktorého sa týka',
@@ -319,7 +322,7 @@ window.Danubra = {
    */
   navParent: {
     // Poradie tu je poradím záložiek. Prehľad „čo dnes" a jeho ďalšie pohľady.
-    tasks: 'dashboard', messages: 'dashboard', flow: 'dashboard',
+    tasks: 'dashboard', messages: 'dashboard', flow: 'dashboard', archive: 'dashboard',
     // Zákazka: od dopytu po hodiny. Na konkrétnej zákazke je to isté ako
     // sedem krokov; tu sú zoznamy cez všetky zákazky naraz.
     opportunities: 'subcontracts', quotes: 'subcontracts', partners: 'subcontracts',
@@ -876,6 +879,8 @@ window.Danubra = {
       .then(() => {
         if (this.route !== started) return;      // medzitým sa prepla obrazovka
         this._showLoadFailures(view);
+        // Zoznamy dokumentov pri človeku, firme a zákazke (`Docs.slot`).
+        if (window.Docs) Docs.fill(view);
       })
       .catch((e) => {
         if (this.route !== started) return;

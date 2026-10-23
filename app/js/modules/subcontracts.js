@@ -418,6 +418,10 @@
 
         <div class="js-list">${job.map(stepHtml).join('')}</div>
 
+        <details class="more-block js-docs"><summary>${Icon('doc', 14)} Dokumenty zákazky</summary>
+          ${window.Docs ? Docs.slot('subcontract', sc.id, { empty: 'Zatiaľ žiadne. Infolisty, objednávky a faktúry tejto zákazky sa sem uložia, keď z nich spravíte PDF.' }) : ''}
+        </details>
+
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
           <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Sub.del('${sc.id}')">Zmazať zákazku</button>
         </div>`;
@@ -1452,9 +1456,9 @@
         worker, assignment: a, subcontract: sc || {}, partner, lodging, supplier,
         trade: (sc || {}).trade || null, state,
       });
-      const w = okno || window.open('', '_blank');
-      if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      w.document.open(); w.document.write(html); w.document.close();
+      Docs.show(okno || window.open('', '_blank'), html, { kind: 'infolist', title: 'Infolist na stavbu',
+        who: worker && worker.full_name, lang: 'sk', worker_id: a.worker_id,
+        subcontract_id: a.subcontract_id, partner_id: (sc || {}).partner_id || null });
     },
 
     async delAsg(id) {

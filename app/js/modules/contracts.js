@@ -355,9 +355,8 @@
         supplier,
         amendments: this.amendmentsOf(id).slice().reverse(),
       });
-      const w = window.open('', '_blank');
-      if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      w.document.open(); w.document.write(html); w.document.close();
+      Docs.show(window.open('', '_blank'), html, { kind: 'werkvertrag', title: 'Werkvertrag',
+        number: c.contract_number, who: p.name, lang: 'de', partner_id: c.partner_id || null });
     },
 
     async setStatus(id, status) {
