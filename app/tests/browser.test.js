@@ -741,10 +741,10 @@ console.log('Prehliadač');
       ok(out.html.includes("Danubra.go('trades')") && out.html.includes("Danubra.go('candidates')"),
         'a odtiaľto sa dá ísť na zvyšok náboru');
 
-      // Nábor je v menu **jedna** položka. Kandidáti, Inzeráty a Zápisy sú
-      // jeho záložky — predtým to boli štyri riadky v menu a kto naberal,
-      // musel najprv vedieť, na ktorom z nich má byť.
-      ok(out.menu.some(x => x.startsWith('Nábor')), 'Nábor je v menu',
+      // Nábor je záložka **Ľudí** — v menu sú štyri miesta (Dnes, Zákazky,
+      // Ľudia, Peniaze). Kandidáti, Inzeráty a Zápisy sú záložky vedľa neho.
+      ok(out.menu.some(x => x.startsWith('Ľudia')) && !out.menu.some(x => x.startsWith('Nábor')),
+        'nábor je pod Ľuďmi, nie samostatne v menu',
         out.menu.join(' | '));
       ok(!out.menu.some(x => x.startsWith('Kandidáti') || x.startsWith('Inzeráty')
         || x.startsWith('Zápisy') || x.startsWith('Partie')),
@@ -752,16 +752,16 @@ console.log('Prehliadač');
         out.menu.join(' | '));
       // Inzercia a výdavky (bývalé „Marketing") je tam piata: je to to isté
       // rozhodnutie — kde inzerovať a koľko to stojí.
-      ok(out.zalozky.join(',') === 'Čo teraz,Kandidáti,Inzeráty,Inzercia a výdavky,Zápisy',
-        'sú to záložky Náboru', out.zalozky.join(','));
-      ok((out.zalozkaTeraz || '').trim() === 'Čo teraz',
+      ok(out.zalozky.join(',') === 'Živnostníci,Nábor,Kandidáti,Inzeráty,Zápisy,Inzercia a výdavky,Partie',
+        'sú to záložky Ľudí', out.zalozky.join(','));
+      ok((out.zalozkaTeraz || '').trim() === 'Nábor',
         'a je vidieť, na ktorej práve stojím', out.zalozkaTeraz);
       ok(/Kandidáti/.test(out.poKliku.nadpis), 'klik na záložku prepne obrazovku',
         out.poKliku.nadpis);
       ok(out.poKliku.aktivna === 'Kandidáti', 'a zvýrazní sa tá, na ktorej stojím',
         out.poKliku.aktivna);
-      ok(out.poKliku.menu.join(',') === 'Nábor',
-        'v ľavom menu pritom zostane zvýraznený Nábor — je to stále tá istá práca',
+      ok(out.poKliku.menu.join(',') === 'Ľudia',
+        'v ľavom menu pritom zostanú zvýraznení Ľudia — je to stále to isté miesto',
         out.poKliku.menu.join(','));
       ok(chyby.length === 0, 'pri tom nič nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
@@ -1425,9 +1425,11 @@ console.log('Prehliadač');
           await Sub.load();
           const view = document.getElementById('view');
           // `Sub.detail()` ide cez router a adresu; tu ide o samotnú
-          // obrazovku, tak sa vykreslí priamo. Checklist je v záložke Ľudia.
-          Sub.sec = 'ludia';
+          // obrazovku, tak sa vykreslí priamo. Checklist je v kroku 4
+          // (Papiere ľudí), zbalený pod zoznamom ľudí.
+          Sub.step = 'papiere';
           await Sub.profile(view, 'sc1');
+          view.querySelectorAll('details').forEach(d => { d.open = true; });
           const t = view.innerText;
           // Odškrtávacie tlačidlo smie byť jediné — to na pokyny.
           const ticks = [...view.querySelectorAll('button')]
@@ -1956,6 +1958,8 @@ console.log('Prehliadač');
             hore: text('#top-links .top-link'),
             vlavo: text('#sidebar-nav .nav-item .nav-text'),
             horeAktivne: text('#top-links .top-link.active'),
+            zalozky: text('#view .subtabs .subtab'),
+            zalozkaAktivna: text('#view .subtabs .subtab.active'),
           };
         })();
       });
@@ -1986,15 +1990,15 @@ console.log('Prehliadač');
         'nábor bez inzerátu je vidieť ako chyba', out.kroky[1].todo);
       ok(/fl-bad/.test(out.kroky[1].cls), 'a je červený');
 
-      // Mapa patrí hore, nie do ľavého menu.
-      ok(out.hore.includes('Ako to ide'), '„Ako to ide" je v hornom pruhu',
-        out.hore.join(', '));
+      // Mapa je záložka „Dnes" — je to pohľad na to isté, nie ďalšia agenda.
+      ok(out.zalozky.includes('Ako to ide'), '„Ako to ide" je záložka pri Dnes',
+        out.zalozky.join(', '));
       ok(!out.vlavo.includes('Ako to ide'), 'a nie v ľavom menu',
         out.vlavo.join(', '));
-      ok(out.vlavo.includes('Prehľad') && out.vlavo.includes('Zákazky'),
+      ok(out.vlavo.includes('Dnes') && out.vlavo.includes('Zákazky'),
         'ľavé menu je inak celé', out.vlavo.length + ' položiek');
-      ok(out.horeAktivne.includes('Ako to ide'),
-        'a keď je otvorená, odkaz hore je zvýraznený', out.horeAktivne.join(', '));
+      ok(out.zalozkaAktivna.includes('Ako to ide'),
+        'a keď je otvorená, záložka je zvýraznená', out.zalozkaAktivna.join(', '));
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
@@ -2944,39 +2948,32 @@ console.log('Prehliadač');
         Sub.openId = 'sc1';
         await Danubra.views.subcontracts.call(Danubra, view);
 
+        const txt = (e) => e.textContent.replace(/\s+/g, ' ').trim();
         return {
           zoznam,
-          teraz: (view.querySelector('.nowbox') || { textContent: '' })
-            .textContent.replace(/\s+/g, ' ').trim(),
-          help: !!view.querySelector('.nowbox .help-btn'),
-          kroky: [...view.querySelectorAll('.chainbar-step')]
-            .map(e => e.textContent.replace(/\s+/g, ' ').trim()),
-          stavy: [...view.querySelectorAll('.chainbar-step')]
-            .map(e => (e.className.match(/cb-(\w+)/) || [])[1]),
-          tlacidlo: (view.querySelector('.nowbox .btn') || { textContent: '' })
-            .textContent.replace(/\s+/g, ' ').trim(),
-          // Sekcie, na ktoré veta posiela, musia existovať — inak tlačidlo
-          // neposunie nikam. Sú v záložkách detailu.
-          kotvy: ['compliance', 'obdobia'].filter(k => [...view.querySelectorAll('.sec-tab')]
-            .some(b => (b.getAttribute('onclick') || '').includes(`'${k}'`))),
+          teraz: txt(view.querySelector('.js-now') || { textContent: '' }),
+          kroky: [...view.querySelectorAll('.js-step .js-main b')].map(txt),
+          stavy: [...view.querySelectorAll('.js-step')]
+            .map(e => (e.className.match(/st-(ok|bad|todo)/) || [])[1]),
+          otvorene: [...view.querySelectorAll('.js-step.is-open')].map(e => e.id),
+          tlacidla: view.querySelectorAll('.js-step.is-open .js-body .btn').length,
+          sekTaby: view.querySelectorAll('.sec-tab').length,
         };
       });
 
-      ok(/Čo spraviť teraz/.test(out.teraz), 'profil zákazky hovorí, čo spraviť teraz',
+      // Zákazka je sedem krokov pod sebou — nie záložky, ktoré treba preklikať.
+      ok(/Teraz · krok \d zo 7/.test(out.teraz), 'navrchu je jedna veta, čo spraviť teraz',
         out.teraz.slice(0, 160));
-      ok(out.help, 'a je pri tom vysvetlivka');
-      ok(out.kroky.length === 5, 'pod tým je päť krokov reťazca',
+      ok(out.kroky.length === 7, 'pod tým je sedem krokov',
         `${out.kroky.length}: ${out.kroky.join(' | ')}`);
-      ok(out.kroky.join(' ').includes('Dohodnuté') && out.kroky.join(' ').includes('Peniaze'),
-        'od dohody po peniaze', out.kroky.join(' | '));
+      ok(out.kroky[0] === '1. Dopyt a dohoda' && out.kroky[6] === '7. Hodiny a faktúra',
+        'od dopytu po faktúru', out.kroky.join(' | '));
       ok(out.stavy.filter(s => s === 'ok').length >= 2,
         'čo je hotové, je zelené', out.stavy.join(','));
-      ok(out.tlacidlo.length > 0, 'a je tam tlačidlo, ktorým sa to dá spraviť',
-        out.tlacidlo);
-      ok(out.kotvy.length === 2, 'sekcie, na ktoré veta posiela, existujú',
-        out.kotvy.join(','));
-      ok(/z 5 fáz hotových|fáz hotových/.test(out.teraz),
-        'a koľko z piatich krokov je hotových', out.teraz.slice(-80));
+      ok(out.otvorene.length === 1 && out.otvorene[0] === 'js-papiere',
+        'otvorený je ten krok, ktorý je na rade (papiere — ľudia sú na stavbe bez nich)', out.otvorene.join(','));
+      ok(out.tlacidla > 0, 'a je v ňom tlačidlo, ktorým sa to dá spraviť', String(out.tlacidla));
+      ok(out.sekTaby === 0, 'záložky detailu už nie sú');
 
       // V zozname musí byť vidieť, v ktorom kroku zákazka stojí. Tu je to
       // krok 2: človek je na stavbe, ale register compliance je prázdny —
@@ -2984,9 +2981,9 @@ console.log('Prehliadač');
       ok(out.zoznam.riadok.length === 1,
         'v zozname je pri zákazke riadok o tom, kde stojí',
         JSON.stringify(out.zoznam.riadok));
-      ok(/^\d\/5 · /.test(out.zoznam.riadok[0] || ''),
-        'a koľkatý z piatich krokov to je', out.zoznam.riadok[0]);
-      ok(/2\/5 · Smie sa začať/.test(out.zoznam.riadok[0] || ''),
+      ok(/^\d\/7 · /.test(out.zoznam.riadok[0] || ''),
+        'a koľkatý zo siedmich krokov to je', out.zoznam.riadok[0]);
+      ok(/4\/7 · Papiere ľudí/.test(out.zoznam.riadok[0] || ''),
         'chýbajúce papiere majú prednosť pred hodinami', out.zoznam.riadok[0]);
       ok(out.zoznam.hot,
         'a keď sú ľudia na stavbe bez papierov, riadok je červený');
@@ -3389,7 +3386,10 @@ console.log('Prehliadač');
         const res = {};
         // Presne tie obrazovky, ktoré stoja v ľavom menu. Zoznam sa berie
         // z appky, nie z tohto testu — nová položka v menu sem pribudne sama.
-        const menu = Danubra.sidebarNav().map(x => x[0]);
+        // Menu má dnes štyri miesta; obrazovky, ktoré v ňom stáli predtým,
+        // sú ich záložkami a musia platiť rovnako.
+        const menu = [...new Set([...Danubra.sidebarNav().map(x => x[0]),
+          'opportunities', 'partners', 'timesheets', 'hiring', 'compliance'])];
         for (const key of menu) {
           const fn = Danubra.views[key];
           if (typeof fn !== 'function') { res[key] = { chyba: 'obrazovka neexistuje' }; continue; }
@@ -3420,7 +3420,7 @@ console.log('Prehliadač');
         return { res, menu };
       });
 
-      ok(out.menu.length >= 8, `v ľavom menu je ${out.menu.length} obrazoviek`,
+      ok(out.menu.length >= 8, `skúša sa ${out.menu.length} obrazoviek`,
         out.menu.join(', '));
       for (const key of out.menu) {
         const r = out.res[key] || {};

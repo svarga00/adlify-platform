@@ -61,6 +61,16 @@
         // nevyfakturoval — a to je najtichšia diera v celom reťazci.
         DB.list('invoices', { select: 'id,subcontract_id,period_id,status,total,due_date', limit: 1000 }),
       ]);
+      // Pre sedem krokov: z dopytu počet ľudí, zmluva s Nemcom a objednávky.
+      // Keď niektorá tabuľka nie je dostupná (právo), krok len nepovie viac.
+      const [op, con, wo] = await Promise.all([
+        DB.list('opportunities', { select: 'id,title,company_name,subcontract_id,headcount,status', limit: 1000 }),
+        DB.list('contracts', { select: 'id,contract_number,title,status,signed_at,partner_id', limit: 1000 }),
+        DB.list('work_orders', { select: 'id,kind,status,order_number,their_ref,subcontract_id,assignment_id,worker_id', limit: 3000 }),
+      ]);
+      this.opportunities = (op && op.data) || [];
+      this.contracts = (con && con.data) || [];
+      this.workOrders = (wo && wo.data) || [];
       this.assignmentChecks = ch.data || [];
       this.lodging = sa.data || [];
       this.accommodations = accs.data || [];
@@ -164,15 +174,14 @@
      */
     nowListHtml(active) {
       const vety = (active || []).map((x) => {
-        const n = DanubraSite.next(this.chain(x), x);
-        if (!n || ['closed', 'done', 'wait'].includes(n.key)) return null;
-        // Nadpis je **čo spraviť**, nie ako sa volá krok. „Smie sa začať" je
-        // názov kroku a ako výzva neznamená nič; „Doplniť do registra
-        // compliance" je to, čo má človek spraviť.
+        const job = this.jobSteps(x);
+        const n = DanubraJob.next(job, x);
+        if (!n.key) return null;
+        // Nadpis je **čo spraviť**, nie ako sa volá krok.
         return {
-          ...n,
-          title: n.what || n.title,
-          what: `${n.title} · fáza ${n.n} z 5 — ${x.title || x.contract_number || 'zákazka'}`,
+          key: n.key, hot: n.state === 'bad', why: n.lead,
+          title: n.text,
+          what: `Krok ${n.n} zo 7 · ${n.title} — ${x.title || x.contract_number || 'zákazka'}`,
           id: x.id,
         };
       }).filter(Boolean);
@@ -182,8 +191,7 @@
         what: active && active.length
           ? `${active.length} ${Shell.plural(active.length, 'zákazka nemá', 'zákazky nemajú', 'zákaziek nemá')} nič otvorené.`
           : 'Zákazka vzniká z dopytu alebo z ponuky.',
-        why: 'Hodiny a faktúry sa riešia na konkrétnej zákazke — reťazec piatich '
-          + 'krokov je v jej detaile.',
+        why: 'Všetko sa rieši na konkrétnej zákazke — má sedem krokov od dopytu po faktúru.',
         hot: false,
       };
       return Shell.now(n, {
@@ -275,12 +283,11 @@
      * a nikto ju nevyfakturoval, vyzerala v zozname úplne v poriadku.
      */
     cardNow(sc) {
-      const steps = this.chain(sc);
-      const n = DanubraSite.next(steps, sc);
-      if (n.key === 'closed' || n.key === 'done') return '';
-      return `<div class="card-now${n.hot ? ' card-now-hot' : ''}">
-        <b>${UI.esc(DanubraSite.line(steps, sc))}</b>
-        <span>${UI.esc(n.what)}</span>
+      const n = DanubraJob.next(this.jobSteps(sc), sc);
+      if (!n.key) return '';
+      return `<div class="card-now${n.state === 'bad' ? ' card-now-hot' : ''}">
+        <b>${n.n}/7 · ${UI.esc(n.title)}</b>
+        <span>${UI.esc(n.text)}</span>
       </div>`;
     },
 
@@ -296,7 +303,7 @@
         if (!this.loaded) await this.load();
         if (!this.items.find(x => x.id === id)) return UI.toast('Nenájdené', 'err');
       }
-      if (this.openId !== id) this.sec = 'prehlad';
+      if (this.openId !== id) this.step = undefined;
       this.openId = id;
       // Adresa musí niesť aj id. `Danubra.go('subcontracts')` by router prečítal
       // ako „bez id" a práve otvorený záznam by hneď zavrel.
@@ -359,107 +366,38 @@
         </div>`).join('')
         : `<div style="color:var(--green);font-size:13px;font-weight:600;">${Icon('check', 14)} Všetko v poriadku — zákazka je pripravená.</div>`;
 
-      // Detail bol jedna dlhá stránka (na mobile vyše 4 000 px). Teraz je
-      // hore stav a „čo teraz" a pod tým záložky — vždy jedna časť naraz.
-      const ludiaN = asg.filter(a => a.status !== 'cancelled').length;
-      const sekcie = {
-        prehlad: `        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
-        ${sc.scope ? `<div class="notebox"><strong>Dielo:</strong> ${UI.esc(sc.scope)}</div>` : ''}
+      // ── Sedem krokov ──────────────────────────────────────────────────────
+      // „Celé je to také neprehľadné." Detail mal šesť záložiek a pod nimi
+      // zoznamy; čo treba spraviť, sa človek dozvedel až keď ich preklikal.
+      // Teraz je zákazka **sedem krokov pod sebou** v poradí, v akom sa robia.
+      // Pri každom je jedna veta, čo chýba, a otvorí sa ten, ktorý je na rade.
+      const job = this.jobSteps(sc);
+      const nxt = DanubraJob.next(job, sc);
+      const open = this.step === undefined ? (nxt.key || null) : this.step;
+      this._openNow = open;
+      const pr = DanubraJob.progress(job);
+      const ctx = { sc, p, asg, chk, eco, port, complianceHtml, rows, job };
 
-        <div class="form-section">Kde to je</div>
-        <div id="sub-map" class="map-box"></div>
-        <div class="map-legend">
-          <span><i class="lg-site"></i>stavba</span>
-          <span><i class="lg-lodging"></i>ubytovanie</span>
-          ${DanubraGeo.valid(Number(sc.lat), Number(sc.lng))
-            ? `<a class="link-chip" target="_blank" rel="noopener"
-                 href="${DanubraGeo.mapsUrl(sc.lat, sc.lng)}">${Icon('site', 13)}
-                 <span>Poslať polohu stavby</span></a>`
-            : `<button class="link-chip" onclick="Sub.setCoords('${sc.id}')">${Icon('plus', 13)}
-                 <span>Doplniť polohu stavby</span></button>`}
-        </div>
-
-`,
-        compliance: `        <div class="form-section" id="sub-compliance">Compliance</div>
-        ${complianceHtml}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-          ${sc.work_type === 'construction' && !sc.zoll_reported_at
-            ? `<button class="btn btn-outline btn-sm" onclick="Sub.markZoll('${sc.id}')">${Icon('check')} Zaznamenať hlásenie Zoll</button>` : ''}
-          <button class="btn btn-outline btn-sm" onclick="Sub.anuCheck('${sc.id}')">${Icon('shield')} Test rizika ANÜ</button>
-        </div>
-
-`,
-        ludia: `        <div class="form-section">Nasadení pracovníci (${asg.filter(a => a.status !== 'cancelled').length})</div>
-        ${asg.filter(a => a.status !== 'cancelled').map(a => {
-          const w = this.workerOf(a.worker_id);
-          // Kto je na stavbe s výnimkou, musí byť vidieť tu — nie až v jeho
-          // kartotéke. Toto je obrazovka, na ktorej sa človek pýta „koho tam
-          // mám", a odpoveď „jedného bez A1" patrí k tomu.
-          const live = DanubraOverrides.live(this.overridesOf(a.worker_id));
-          const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
-          const open = st ? Shell.evaluate(st.ready.reasons,
-            this.overridesOf(a.worker_id), a.date_from || undefined).open : [];
-          return `<div class="list-row" style="cursor:default;">
-            <span style="flex:1;font-size:13px;">
-              <strong>${UI.esc(w?.full_name || '—')}</strong>
-              ${a.role === 'predak' ? UI.badge('predák', 'blue') : ''}
-              ${live.length ? UI.badge('s výnimkou', 'amber') : ''}
-              ${open.length ? UI.badge(`chýba ${open.length}`, 'red') : ''}
-              <span style="color:var(--ink-mute);display:block;font-size:12px;">
-                ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}
-                ${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
-              ${live.length ? `<span style="display:block;font-size:12px;color:var(--amber-ink,var(--amber));">
-                ${Icon('shield', 12)} ${UI.esc(live.map(o =>
-                  DanubraOverrides.meta(o.rule_key)?.label || o.rule_key).join(', '))}
-                — ${UI.esc(live[0].reason || '')}</span>` : ''}
+      const stepHtml = (s) => {
+        const on = s.key === open;
+        const ikona = s.done ? Icon('check', 16) : s.state === 'bad' ? '!' : s.n;
+        return `<section class="js-step st-${s.state}${on ? ' is-open' : ''}${s.key === nxt.key ? ' is-next' : ''}" id="js-${s.key}">
+          <button class="js-head" aria-expanded="${on}" onclick="Sub.openStep('${s.key}')">
+            <span class="js-n">${ikona}</span>
+            <span class="js-main">
+              <b>${s.n}. ${UI.esc(s.title)}</b>
+              <span class="js-detail">${UI.esc(s.detail || s.lead)}</span>
             </span>
-            <button class="btn btn-ghost btn-sm" onclick="Sub.siteSheet('${a.id}')"
-              title="Infolist na stavbu — kam prísť, kedy a za kým">${Icon('doc', 15)}</button>
-            <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
-          </div>`;
-        }).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ nikto nenasadený.</div>'}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-          <button class="btn btn-outline btn-sm" onclick="Sub.addAsg('${sc.id}')">${Icon('plus')} Nasadiť pracovníka</button>
-          <button class="btn btn-outline btn-sm" onclick="Sub.assignCrewForm('${sc.id}')">${Icon('workers', 14)} Nasadiť celú partiu</button>
-        </div>
-
-        ${asg.filter(a => a.status !== 'cancelled')
-          .map(a => this.checklistHtml(sc, a)).join('')}
-
-`,
-        obdobia: `        <div class="form-section" id="sub-periods">Obdobia a podklady</div>
-        ${this.periodsHtml(sc)}
-
-`,
-        ubytovanie: `        <div class="form-section">Ubytovanie a doprava</div>
-        ${this.lodgingHtml(sc, asg)}
-
-`,
-        peniaze: `        ${eco.length ? `
-        <div class="form-section">Ekonomika (mesačne, orientačne pri 160 h a 21 dňoch)</div>
-        <div class="service-total">
-          <div><div class="code-label">Marža spolu</div>
-            <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">${UI.money(port.margin)}</div></div>
-          <div style="text-align:right;"><div class="code-label">Na pracovníka</div>
-            <div style="font-weight:700;">${UI.money(port.marginPerWorker)} · ${UI.pct(port.marginPct)}</div></div>
-        </div>
-        ${port.marginPerWorker < 1000 ? `<div class="warnbox" style="margin-top:8px;">
-          ${Icon('alert', 14)} Marža na pracovníka je pod 1 000 € — prehodnoť sadzbu alebo segment.</div>` : ''}
-        ` : ''}
-
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
-          <button class="btn btn-danger btn-sm" onclick="Sub.del('${sc.id}')">Zmazať</button>
-        </div>`,
+            <span class="js-chev">${Icon('chevron', 16)}</span>
+          </button>
+          ${on ? `<div class="js-body">
+            ${s.todo && s.key !== nxt.key ? `<div class="js-todo${s.state === 'bad' ? ' is-bad' : ''}">${Icon(s.state === 'bad' ? 'alert' : 'chevron', 14)}
+              <span>${UI.esc(s.todo)}</span></div>` : ''}
+            ${this.stepBody(s.key, ctx)}
+          </div>` : ''}
+        </section>`;
       };
-      const sec = sekcie[this.sec] ? this.sec : 'prehlad';
-      const TABS = [
-        ['prehlad', 'Prehľad', 'site'],
-        ['compliance', 'Compliance', 'shield', chk.blockers.length ? `<em class="st-bad">${chk.blockers.length}</em>` : ''],
-        ['ludia', 'Ľudia', 'workers', `<em>${ludiaN}</em>`],
-        ['obdobia', 'Obdobia', 'clock'],
-        ['ubytovanie', 'Ubytovanie', 'bed'],
-        ['peniaze', 'Peniaze', 'euro'],
-      ];
+
       const body = `
         <div class="detail-head">
           ${this.badge(sc.status)}
@@ -469,21 +407,20 @@
           </select>
         </div>
 
-        ${this.nowHtml(sc)}
-
-        <div class="${chk.ok ? 'regimebox' : 'warnbox'}" style="margin-bottom:14px;">
-          ${chk.ok
-            ? `${Icon('check', 14)} Podmienky vyslania sú splnené${chk.warnings.length ? ` — ${chk.warnings.length} upozornení v záložke Compliance` : ''}.`
-            : `${Icon('alert', 14)} <strong>Nesmie sa začať:</strong> ${
-              this.chybaText(chk.blockers.length)} — <a href="#" onclick="event.preventDefault();Sub.setSec('compliance')">pozrieť v Compliance</a>.`}
+        <div class="js-now${nxt.state === 'bad' ? ' is-bad' : nxt.key ? '' : ' is-calm'}">
+          <div class="js-now-txt">
+            <span>${nxt.key ? `Teraz · krok ${nxt.n} zo 7` : `Hotových ${pr.done} zo 7`}</span>
+            <b>${UI.esc(nxt.text)}</b>
+          </div>
+          ${nxt.key && nxt.key !== open ? `<button class="btn btn-primary btn-sm" onclick="Sub.openStep('${nxt.key}')">
+            Ukázať ${Icon('chevron', 14)}</button>` : ''}
         </div>
 
+        <div class="js-list">${job.map(stepHtml).join('')}</div>
 
-        <div class="sec-tabs" role="tablist">
-          ${TABS.map(([k, label, ico, extra]) => `<button role="tab" class="sec-tab${k === sec ? ' on' : ''}"
-            aria-selected="${k === sec}" onclick="Sub.setSec('${k}')">${Icon(ico, 14)} ${label}${extra || ''}</button>`).join('')}
-        </div>
-        <div class="sec-body">${sekcie[sec]}</div>`;
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Sub.del('${sc.id}')">Zmazať zákazku</button>
+        </div>`;
 
       el.innerHTML = Danubra.header(sc.title,
         [p?.name, sc.site_city].filter(Boolean).map(UI.esc).join(' · '),
@@ -493,50 +430,215 @@
       this.renderMap(sc);
     },
 
-    /**
-     * Čo spraviť teraz — jedna veta, jedno tlačidlo a pod tým päť krokov.
-     *
-     * Nie je to prvý nehotový krok, ale ten, ktorý najviac horí: ľudia na
-     * stavbe bez papierov sú drahší problém než nedoplnený termín.
-     */
-    nowHtml(sc) {
-      const steps = this.chain(sc);
-      const n = DanubraSite.next(steps, sc);
-      const pr = DanubraSite.progress(steps);
-      const ACTION = {
-        deal: { label: 'Doplniť zákazku', onclick: `Sub.form('${sc.id}')`, ico: 'edit' },
-        green: { label: 'Pozrieť compliance', onclick: 'Sub.scrollTo(\'compliance\')', ico: 'shield' },
-        people: { label: 'Nasadiť pracovníka', onclick: `Sub.addAsg('${sc.id}')`, ico: 'plus' },
-        hours: { label: 'Odpracované hodiny', onclick: "Danubra.go('timesheets')", ico: 'clock' },
-        money: { label: 'Obdobia a podklady', onclick: 'Sub.scrollTo(\'periods\')', ico: 'wallet' },
-      };
-      // Uzavretá či čakajúca zákazka nemá krok, ku ktorému by bola vysvetlivka.
-      const bezKroku = ['closed', 'done', 'wait'].includes(n.key);
-      return Shell.now(n, {
-        label: `Čo spraviť teraz${n.n ? ` · fáza ${n.n} z 5` : ''}`,
-        help: bezKroku ? '' : `sub.step.${n.key}`,
-        action: ACTION[n.key],
-        extra: `
-          <div class="chainbar">
-            ${steps.map(s => `<span class="chainbar-step cb-${s.state}${
-              s.key === n.key ? ' is-now' : ''}" title="${UI.esc(`${s.title} — ${s.detail}`)}">
-              <b>${s.n}</b><span>${UI.esc(s.title)}</span></span>`).join('')}
-          </div>
-          <div class="nowbox-why">${pr.done} z ${pr.total} fáz hotových.</div>`,
+    /** Údaje pre sedem krokov jednej zákazky (`lib/staffing/job.js`). */
+    jobSteps(sc) {
+      const asg = this.asgOf(sc.id).filter(a => a.status !== 'cancelled');
+      const ids = new Set(asg.map(a => a.id));
+      const missing = {};
+      for (const a of asg) {
+        const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
+        if (!st) continue;
+        missing[a.worker_id] = Shell.evaluate(st.ready.reasons,
+          this.overridesOf(a.worker_id), a.date_from || undefined).open.map(r => r.rule);
+      }
+      const housed = asg.filter(a => this.stays.some(s => s.worker_id === a.worker_id && s.is_current
+        && this.lodging.some(l => l.id === s.lodging_id && l.subcontract_id === sc.id))).length;
+      return DanubraJob.steps({
+        subcontract: sc,
+        partner: this.partnerOf(sc.partner_id),
+        opportunity: (this.opportunities || []).find(o => o.subcontract_id === sc.id) || null,
+        contract: (this.contracts || []).find(c => c.id === sc.contract_id) || null,
+        orders: (this.workOrders || []).filter(o => o.subcontract_id === sc.id || ids.has(o.assignment_id)),
+        assignments: asg, workers: this.workers, docs: this.workerDocs, missing,
+        check: this.check(sc), site: this.chain(sc), housed, today: Danubra._dayISO(),
       });
     },
 
-    sec: 'prehlad',
-    setSec(k) { this.sec = k; Danubra.renderRoute(); },
-
-    /** Z vety „čo teraz" sa musí dať ísť tam, kde sa to rieši — prepne záložku. */
-    scrollTo(kam) {
-      const tab = { compliance: 'compliance', periods: 'obdobia' }[kam];
-      if (tab && this.sec !== tab) { this.sec = tab; Danubra.renderRoute(); }
+    // `undefined` = otvorí sa krok, ktorý je na rade; `null` = všetky zavreté.
+    step: undefined,
+    openStep(k) {
+      this.step = this.step === k || (this.step === undefined && this._openNow === k) ? null : k;
+      Danubra.renderRoute();
       setTimeout(() => {
-        const el = document.getElementById(`sub-${kam}`) || document.querySelector('.sec-tabs');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const el = document.getElementById(`js-${k}`);
+        if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 30);
+    },
+
+    /** Staré názvy záložiek → kroky. Volá ich „čo teraz" a vysvetlivky. */
+    SEC_TO_STEP: { prehlad: 'dopyt', compliance: 'papiere', ludia: 'ludia', obdobia: 'peniaze',
+      ubytovanie: 'ubytovanie', peniaze: 'peniaze' },
+    setSec(k) { this.step = this.SEC_TO_STEP[k] || k; Danubra.renderRoute(); },
+    scrollTo(kam) { this.openStep({ compliance: 'papiere', periods: 'peniaze' }[kam] || kam); },
+
+    /** Čo je vnútri kroku, keď sa otvorí. */
+    stepBody(key, c) {
+      const { sc, p, asg, chk, eco, port, complianceHtml, rows } = c;
+      const live = asg.filter(a => a.status !== 'cancelled');
+      const b = (cls, onclick, ico, label) =>
+        `<button class="btn ${cls} btn-sm" onclick="${onclick}">${Icon(ico, 14)} ${label}</button>`;
+      const acts = (...x) => `<div class="js-acts">${x.filter(Boolean).join('')}</div>`;
+      const mark = (ok, label) => `<span class="js-mark ${ok ? 'is-ok' : 'is-no'}">${Icon(ok ? 'check' : 'x', 12)} ${label}</span>`;
+      const person = (a) => DanubraJob.person({
+        assignment: a, worker: this.workerOf(a.worker_id), docs: this.workerDocs,
+        orders: this.workOrders || [], today: Danubra._dayISO(),
+        missing: (() => {
+          const st = this.asgReadiness(sc.id, a.worker_id, a.date_from);
+          return st ? Shell.evaluate(st.ready.reasons, this.overridesOf(a.worker_id),
+            a.date_from || undefined).open.map(r => r.rule) : [];
+        })(),
+      });
+      const nikto = '<div class="js-empty">Zatiaľ nikto nie je nasadený — najprv krok 2.</div>';
+
+      if (key === 'dopyt') {
+        const opp = (this.opportunities || []).find(o => o.subcontract_id === sc.id);
+        return `<div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
+          ${sc.scope ? `<div class="notebox"><strong>Dielo:</strong> ${UI.esc(sc.scope)}</div>` : ''}
+          <div class="link-row" style="margin-top:8px;">
+            ${p ? Danubra.link('partner', p.id, p.name) : ''}
+            ${sc.quote_id ? Danubra.link('quote', sc.quote_id, 'Ponuka') : ''}
+            ${opp ? `<button class="link-chip" onclick="Danubra.go('opportunities')">${Icon('offers', 13)}<span>Dopyt: ${UI.esc(opp.title || opp.company_name || '')}</span></button>` : ''}
+            ${DanubraGeo.valid(Number(sc.lat), Number(sc.lng))
+              ? `<a class="link-chip" target="_blank" rel="noopener" href="${DanubraGeo.mapsUrl(sc.lat, sc.lng)}">${Icon('pin', 13)}<span>Poloha stavby</span></a>`
+              : `<button class="link-chip" onclick="Sub.setCoords('${sc.id}')">${Icon('plus', 13)}<span>Doplniť polohu stavby</span></button>`}
+          </div>
+          ${acts(b('btn-primary', `Sub.form('${sc.id}')`, 'edit', 'Upraviť údaje zákazky'))}`;
+      }
+
+      if (key === 'ludia') {
+        return `${live.map(a => {
+          const w = this.workerOf(a.worker_id);
+          const ovr = DanubraOverrides.live(this.overridesOf(a.worker_id));
+          return `<div class="list-row" style="cursor:default;">
+            <span style="flex:1;font-size:13px;min-width:0;">
+              ${Danubra.link('worker', a.worker_id, w?.full_name || '—', { inline: true })}
+              ${a.role === 'predak' ? UI.badge('predák', 'blue') : ''}
+              ${ovr.length ? UI.badge('s výnimkou', 'amber') : ''}
+              <span style="color:var(--ink-mute);display:block;font-size:12px;">
+                ${a.date_from ? UI.dateRange(a.date_from, a.date_to) : ''}${a.charge_rate ? ` · ${UI.money(a.charge_rate)}/h` : ''}</span>
+            </span>
+            <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Zrušiť nasadenie" onclick="Sub.delAsg('${a.id}')">${Icon('x', 15)}</button>
+          </div>`;
+        }).join('') || '<div class="js-empty">Zatiaľ nikto nie je nasadený.</div>'}
+          ${acts(b('btn-primary', `Sub.addAsg('${sc.id}')`, 'plus', 'Nasadiť človeka'),
+            b('btn-outline', `Sub.assignCrewForm('${sc.id}')`, 'workers', 'Nasadiť partiu'),
+            Danubra.routeAvailable('hiring') ? b('btn-outline', "Danubra.go('hiring')", 'zap', 'Hľadať nových ľudí') : '')}`;
+      }
+
+      if (key === 'nemec') {
+        const con = (this.contracts || []).find(x => x.id === sc.contract_id);
+        const ids = new Set(live.map(a => a.id));
+        const od = (this.workOrders || []).filter(o => o.kind === 'customer' && o.status !== 'cancelled'
+          && (o.subcontract_id === sc.id || ids.has(o.assignment_id)));
+        return `<div class="js-rows">
+            <div class="js-row">${mark(!!con && (!!con.signed_at || ['signed', 'active', 'completed'].includes(con.status)), 'Zmluva o dielo')}
+              ${con ? Danubra.link('contract', con.id, con.contract_number || con.title || 'Zmluva') : '<em>zatiaľ nie je</em>'}</div>
+            <div class="js-row">${mark(od.length > 0, 'Objednávka od odberateľa')}
+              ${od.map(o => Danubra.link('order', o.id, o.their_ref || o.order_number || 'Objednávka')).join('') || '<em>nepovinné — keď ju pošle, zapíšte jej číslo</em>'}</div>
+          </div>
+          ${acts(!con && Danubra.routeAvailable('contracts') ? b('btn-primary', `Sub.newContract('${sc.id}')`, 'note', 'Pripraviť zmluvu o dielo') : '',
+            con ? b('btn-outline', `Danubra.open('contract','${con.id}')`, 'note', 'Otvoriť zmluvu') : '',
+            Danubra.routeAvailable('orders') ? b('btn-outline', `Sub.newCustomerOrder('${sc.id}')`, 'orders', 'Zapísať jeho objednávku') : '')}`;
+      }
+
+      if (key === 'papiere') {
+        if (!live.length) return nikto;
+        // Názov dokladu tak, ako ho volá checklist („Platné A1"), nie názov pravidla.
+        const meno = (r) => ((DanubraChecks.CHECKS.find(c => c.rule === r) || {}).title
+          || (window.DanubraOverrides && DanubraOverrides.meta(r)?.label) || r).replace(/^Platné /, '');
+        return `<div class="js-rows">${live.map((a) => {
+          const x = person(a);
+          return `<div class="js-row js-row-p">
+            <div class="js-who">${Danubra.link('worker', a.worker_id, x.name, { inline: true })}
+              ${mark(x.gdpr, 'GDPR')} ${mark(!x.doklady.length, x.doklady.length ? `chýba: ${x.doklady.map(meno).join(', ')}` : 'doklady')}</div>
+            <div class="js-row-acts">
+              ${x.gdpr ? '' : b('btn-outline', `Sub.viaWrk('gdpr','${a.worker_id}')`, 'print', 'Vytlačiť GDPR')
+                + b('btn-primary', `Sub.viaWrk('gdprForm','${a.worker_id}')`, 'check', 'Podpísaný')}
+              ${x.doklady.length ? b('btn-outline', `Danubra.open('worker','${a.worker_id}')`, 'plus', 'Doplniť doklad') : ''}
+            </div>
+          </div>`;
+        }).join('')}</div>
+          <div class="form-section" id="sub-compliance">Podmienky vyslania</div>
+          ${complianceHtml}
+          ${acts(sc.work_type === 'construction' && !sc.zoll_reported_at
+              ? b('btn-primary', `Sub.markZoll('${sc.id}')`, 'check', 'Zapísať hlásenie Zoll') : '',
+            b('btn-outline', `Sub.anuCheck('${sc.id}')`, 'shield', 'Test rizika ANÜ'))}
+          <details class="more-block"><summary>Checklist pred nástupom (po ľuďoch)</summary>
+            ${live.map(a => this.checklistHtml(sc, a)).join('')}</details>`;
+      }
+
+      if (key === 'zivnostnici') {
+        if (!live.length) return nikto;
+        return `<div class="js-rows">${live.map((a) => {
+          const x = person(a);
+          return `<div class="js-row js-row-p">
+            <div class="js-who">${Danubra.link('worker', a.worker_id, x.name, { inline: true })}
+              ${mark(x.zmluva, 'rámcová zmluva')} ${mark(x.objednavka, 'objednávka')}</div>
+            <div class="js-row-acts">
+              ${x.zmluva ? '' : b('btn-outline', `Sub.viaWrk('zmluva','${a.worker_id}')`, 'print', 'Vytlačiť zmluvu')
+                + b('btn-primary', `Sub.viaWrk('zmluvaForm','${a.worker_id}')`, 'check', 'Podpísaná')}
+              ${x.objednavka ? '' : b(x.zmluva ? 'btn-primary' : 'btn-outline', `Sub.newWorkerOrder('${a.id}')`, 'orders', 'Vystaviť objednávku')}
+              ${b('btn-ghost', `Sub.siteSheet('${a.id}')`, 'doc', 'Infolist')}
+            </div>
+          </div>`;
+        }).join('')}</div>
+          <p class="card-note">Infolist je papier pre živnostníka: kam prísť, kedy, za kým a kde bude bývať.</p>`;
+      }
+
+      if (key === 'ubytovanie') {
+        return `<div id="sub-map" class="map-box"></div>
+          <div class="map-legend"><span><i class="lg-site"></i>stavba</span><span><i class="lg-lodging"></i>ubytovanie</span></div>
+          ${this.lodgingHtml(sc, asg)}`;
+      }
+
+      if (key === 'peniaze') {
+        const ts = this.timesheetsOf(sc.id);
+        const neschv = ts.filter(t => !t.approved && !t.period_id);
+        return `${neschv.length ? `<div class="js-row">${mark(false, `${neschv.length} ${Shell.plural(neschv.length, 'výkaz čaká', 'výkazy čakajú', 'výkazov čaká')} na schválenie`)}</div>` : ''}
+          ${acts(Danubra.routeAvailable('timesheets') ? b('btn-primary', "Danubra.go('timesheets')", 'clock', 'Zapísať / schváliť hodiny') : '',
+            Danubra.routeAvailable('hoursheet') ? b('btn-outline', "Danubra.go('hoursheet')", 'doc', 'Výkaz pre odberateľa') : '')}
+          <div class="form-section" id="sub-periods">Obdobia a faktúry</div>
+          ${this.periodsHtml(sc)}
+          ${eco.length ? `<div class="form-section">Zarobíme (mesačne, orientačne pri 160 h)</div>
+          <div class="service-total">
+            <div><div class="code-label">Marža spolu</div>
+              <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">${UI.money(port.margin)}</div></div>
+            <div style="text-align:right;"><div class="code-label">Na človeka</div>
+              <div style="font-weight:700;">${UI.money(port.marginPerWorker)} · ${UI.pct(port.marginPct)}</div></div>
+          </div>
+          ${port.marginPerWorker < 1000 ? `<div class="warnbox" style="margin-top:8px;">
+            ${Icon('alert', 14)} Marža na človeka je pod 1 000 € — prehodnoťte sadzbu.</div>` : ''}` : ''}`;
+      }
+      return '';
+    },
+
+    /** Akcia z iného modulu, ktorý ešte nemusí mať načítané dáta. */
+    async viaWrk(fn, workerId) {
+      if (!window.Wrk || typeof Wrk[fn] !== 'function') return UI.toast('Kartotéka nie je dostupná', 'err');
+      if (!Wrk.loaded) await Wrk.load();
+      const scId = this.openId;
+      Wrk.returnTo = { workerId, at: Date.now(), fn: async () => { await this.load(); this.detail(scId); } };
+      return Wrk[fn](workerId);
+    },
+    async newWorkerOrder(asgId) {
+      if (!window.Ord) return UI.toast('Objednávky nie sú dostupné', 'err');
+      return Ord.newFor(asgId);
+    },
+    async newCustomerOrder(scId) {
+      if (!window.Ord) return UI.toast('Objednávky nie sú dostupné', 'err');
+      const sc = this.items.find(x => x.id === scId) || {};
+      if (!Ord.loaded) await Ord.load();
+      Ord.form(null, { kind: 'customer', partner_id: sc.partner_id, subcontract_id: sc.id,
+        contract_id: sc.contract_id || null, title: sc.title || '',
+        date_from: sc.date_from, date_to: sc.date_to, price_model: 'hourly', rate: sc.charge_rate });
+    },
+    async newContract(scId) {
+      const sc = this.items.find(x => x.id === scId) || {};
+      if (!window.Con) return Danubra.go('contracts');
+      if (!Con.loaded) await Con.load();
+      Con.form(null, { partner_id: sc.partner_id, title: sc.title, scope: sc.scope,
+        date_from: sc.date_from, date_to: sc.date_to, charge_rate: sc.charge_rate,
+        site_name: sc.site_name, site_city: sc.site_city, site_address: sc.site_address });
     },
 
     /** Body na mape: stavba oranžovo, ubytovania modro. */
@@ -649,133 +751,99 @@
           ${Icon('alert', 14)} Lôžok je dosť, ale ${people - housed} ${
             people - housed === 1 ? 'človek nemá' : 'ľudí nemá'} zapísané, kde býva.</div>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-          <button class="btn btn-primary btn-sm" onclick="Sub.searchLodging('${sc.id}')">${Icon('search')} Hľadať ubytovanie v okolí</button>
-          <button class="btn btn-outline btn-sm" onclick="Sub.addLodging('${sc.id}')">${Icon('plus')} Pridať ubytovanie</button>
+          <button class="btn btn-primary btn-sm" onclick="Sub.findLodging('${sc.id}')">${Icon('search')} Nájsť ubytovanie</button>
+          <button class="btn btn-outline btn-sm" onclick="Sub.addLodging('${sc.id}')">${Icon('plus')} Zapísať ručne</button>
           <button class="btn btn-outline btn-sm" onclick="Sub.editTransport('${sc.id}')">${Icon('van')} Doprava</button>
         </div>
         ${sc.transport_note ? `<div class="notebox" style="margin-top:8px;">
           <strong>Doprava${sc.transport_provided ? ' (zabezpečujeme)' : ''}:</strong> ${UI.esc(sc.transport_note)}</div>` : ''}`;
     },
 
-    // ── Hľadať ubytovanie v okolí stavby ──────────────────────────────────
-    // „Potreboval by som zakomponovať vyhľadávanie ubytovania v okolí."
-    // OpenStreetMap cez server (danubra-lodging-search); logika v
-    // lib/lodging/nearby.js. OSM nemá ceny ani voľné lôžka — na to je telefón.
-    async searchLodging(scId, radiusKm = 15) {
+    // ── Nájsť ubytovanie pri stavbe ───────────────────────────────────────
+    // Automatické hľadanie v OpenStreetMap nefungovalo spoľahlivo a našlo
+    // aj tak len hotely bez cien. Robí sa to preto tak, ako sa to robí
+    // naozaj: **najprv vlastné overené ubytovania** zoradené podľa
+    // vzdialenosti od stavby, pod nimi hľadanie cez Google Mapy a Monteurzimmer
+    // — a čo sa tam nájde, zapíše sa jedným formulárom. Uloží sa do databázy
+    // ubytovaní, takže nabudúce je už medzi vlastnými.
+    findLodging(scId) {
       const sc = this.items.find(x => x.id === scId);
       if (!sc) return;
-      this._found = { scId, radiusKm, places: [], origin: null };
+      const uz = new Set(this.occupancyOf(scId).map(l => l.accommodation_id).filter(Boolean));
+      const saved = DanubraJob.nearbySaved(this.accommodations.filter(a => !uz.has(a.id)), sc);
       const ludia = this.asgOf(scId).filter(a => a.status !== 'cancelled').length || 1;
       const odkazy = DanubraNearby.links({ city: sc.site_city || '', lat: Number(sc.lat), lng: Number(sc.lng),
         from: sc.date_from, to: sc.date_to, persons: ludia });
-      UI.modal('Ubytovanie v okolí stavby', `
-        <div class="nb-top">
-          <span>Okruh</span>
-          ${[5, 10, 15, 30].map(k => `<button class="pill${k === radiusKm ? ' active' : ''}"
-            onclick="Sub.searchLodging('${scId}', ${k})">${k} km</button>`).join('')}
-        </div>
-        <div class="nb-links">${odkazy.map(l => `<a class="link-chip" target="_blank" rel="noopener" href="${UI.esc(l.url)}">
-          ${Icon('search', 13)}<span>${UI.esc(l.label)}${l.hint ? ` <em>· ${UI.esc(l.hint)}</em>` : ''}</span></a>`).join('')}</div>
-        <div id="nb-map" class="map-box nb-map"></div>
-        <div id="nb-list"><div class="nb-wait">${Icon('search', 16)} Hľadám hotely, penzióny a ubytovne
-          v okruhu ${radiusKm} km od ${UI.esc(sc.site_city || 'stavby')}…</div></div>
-        <p class="card-note">Zdroj: OpenStreetMap. Ceny a voľné lôžka tam nie sú — zavolajte.
-          Uložené miesto sa objaví v databáze ubytovaní na overenie.</p>`, { wide: true });
+      const bezPolohy = !DanubraGeo.valid(Number(sc.lat), Number(sc.lng));
+      UI.modal('Nájsť ubytovanie', `
+        <div class="form-section" style="margin-top:0;">1. Vaše ubytovania${bezPolohy ? '' : ' v okolí stavby'}</div>
+        ${bezPolohy ? `<div class="notebox">Stavba nemá polohu, preto sa nedá zoradiť podľa vzdialenosti.
+          <button class="link-chip" onclick="UI.closeModal();Sub.setCoords('${scId}')">${Icon('plus', 13)}<span>Doplniť polohu</span></button></div>` : ''}
+        ${saved.length ? saved.slice(0, 12).map(a => `<div class="nb-row">
+          <div class="nb-main">
+            <b>${UI.esc(a.name)}</b>
+            <span class="nb-tags">${a.km != null ? `<em>${a.km} km</em>` : ''}
+              ${a.max_persons ? UI.badge(`${a.max_persons} lôžok`, 'gray') : ''}
+              ${a.price_month ? UI.badge(`${UI.money(a.price_month)}/mes`, 'gray') : ''}</span>
+            <span class="nb-sub">${UI.esc([a.address, a.city].filter(Boolean).join(', ') || '')}</span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="Sub.addLodging('${scId}','${a.id}')">${Icon('plus', 14)} Pridať</button>
+        </div>`).join('')
+          : `<div class="js-empty">${this.accommodations.length ? 'V okolí stavby zatiaľ nemáte žiadne uložené ubytovanie.'
+            : 'Zatiaľ nemáte uložené žiadne ubytovanie. Čo nájdete nižšie, uloží sa sem.'}</div>`}
 
-      let r;
-      try {
-        const res = await fetch('/.netlify/functions/danubra-lodging-search', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat: sc.lat, lng: sc.lng, radiusKm,
-            address: [sc.site_address, sc.site_city, 'Deutschland'].filter(Boolean).join(', ') }),
-        });
-        // Keď funkcia nestihne, Netlify vráti HTML stránku s chybou — nie JSON.
-        const txt = await res.text();
-        try { r = JSON.parse(txt); } catch { r = { error: 'Server nestihol odpovedať' }; }
-        if (r.error) throw new Error(r.error);
-      } catch (e) {
-        r = { error: e.message || 'Vyhľadávanie zlyhalo' };
-      }
-      // Záloha: keď server nestihol a stavba má polohu, opýta sa mapy
-      // priamo prehliadač (OpenStreetMap je verejná, bez kľúča).
-      const maPolohu = DanubraGeo.valid(Number(sc.lat), Number(sc.lng));
-      if (r.error && maPolohu) {
-        try { r = await this.searchDirect(Number(sc.lat), Number(sc.lng), radiusKm); }
-        catch (e) { r = { error: 'Mapa ubytovaní teraz neodpovedá' }; }
-      }
-      if (!this._found || this._found.scId !== scId || this._found.radiusKm !== radiusKm) return;
-      this._found.places = r.places || [];
-      this._found.origin = r.origin || null;
-      const box = document.getElementById('nb-list');
-      if (!box) return;
-      if (r.error) { box.innerHTML = `<div class="warnbox">${Icon('alert', 14)} ${UI.esc(r.error)} — skúste odkazy vyššie.</div>`; return; }
-      if (r.notFound) { box.innerHTML = `<div class="warnbox">${Icon('alert', 14)} Stavbu som na mape nenašiel — doplňte jej polohu v záložke Prehľad.</div>`; return; }
-      const p = this._found.places;
-      box.innerHTML = p.length ? `<div class="nb-count">${p.length} ${Shell.plural(p.length, 'miesto', 'miesta', 'miest')} v okruhu ${radiusKm} km</div>
-        ${p.map((x, i) => this.foundRow(x, i)).join('')}`
-        : `<div class="nb-wait">V okruhu ${radiusKm} km OpenStreetMap nič nepozná. Skúste väčší okruh alebo odkazy vyššie.</div>`;
-      try {
-        DanubraMap.render('nb-map', [
-          { lat: r.origin.lat, lng: r.origin.lng, kind: 'site', label: sc.title, sub: sc.site_city || '' },
-          ...p.slice(0, 60).map(x => ({ lat: x.lat, lng: x.lng, kind: 'lodging', label: x.name,
-            sub: `${x.typeLabel} · ${x.distanceKm} km` })),
-        ]);
-      } catch (e) { /* bez mapy sa dá žiť — zoznam je dôležitejší */ }
+        <div class="form-section">2. Hľadať na internete</div>
+        <div class="nb-links">${odkazy.map(l => `<a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${UI.esc(l.url)}">
+          ${Icon('search', 14)} ${UI.esc(l.label)}</a>`).join('')}</div>
+        <p class="card-note">Otvorí sa nová karta. Keď nájdete niečo vhodné, skopírujte odkaz a telefón a zapíšte to nižšie.</p>
+
+        <div class="form-section">3. Zapísať, čo ste našli</div>
+        <form id="ql-form" onsubmit="event.preventDefault();Sub.saveQuickLodging('${scId}')">
+          <div class="form-grid">
+            ${UI.field('name', 'Názov', { required: true, placeholder: 'napr. Monteurzimmer Huber' })}
+            ${UI.field('owner_phone', 'Telefón', { type: 'tel' })}
+            ${UI.field('link', 'Odkaz (Google Mapy alebo web)', { placeholder: 'vložte odkaz — poloha sa z neho vytiahne' })}
+            ${UI.field('city', 'Mesto', { value: sc.site_city || '' })}
+            ${UI.field('max_persons', 'Lôžok', { type: 'number' })}
+            ${UI.field('price_month', 'Cena za mesiac (€)', { type: 'number' })}
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+            <button type="submit" class="btn btn-primary">${Icon('check', 14)} Uložiť a pridať k zákazke</button>
+          </div>
+        </form>`, { wide: true });
     },
 
-    /** Priamo z prehliadača — keď server nestihol. Prvé dobré zrkadlo vyhráva. */
-    async searchDirect(lat, lng, radiusKm) {
-      const q = DanubraNearby.overpassQuery({ lat, lng, radiusKm, timeout: 20 });
-      const ctrl = new AbortController();
-      const stop = setTimeout(() => ctrl.abort(), 22000);
-      try {
-        const json = await Promise.any(DanubraNearby.OVERPASS.map(async (url) => {
-          const res = await fetch(url, { method: 'POST', signal: ctrl.signal,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}` });
-          if (!res.ok) throw new Error(String(res.status));
-          return res.json();
-        }));
-        const origin = { lat, lng };
-        return { origin, places: DanubraNearby.parse(json, origin) };
-      } finally { clearTimeout(stop); ctrl.abort(); }
-    },
-
-    foundRow(x, i) {
-      const tel = x.phone ? x.phone.split(/[;,]/)[0].trim() : '';
-      return `<div class="nb-row">
-        <div class="nb-main">
-          <b>${UI.esc(x.name)}</b>
-          <span class="nb-tags">${UI.badge(x.typeLabel, 'gray')}${x.monteur ? UI.badge('Monteurzimmer', 'green') : ''}
-            <em>${x.distanceKm} km</em></span>
-          <span class="nb-sub">${UI.esc([x.address, [x.postcode, x.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || 'adresa nie je v mape')}</span>
-          <span class="link-row">
-            ${tel ? `<a class="link-chip" href="tel:${UI.esc(tel.replace(/[^\d+]/g, ''))}">${Icon('phone', 13)}<span>${UI.esc(tel)}</span></a>` : ''}
-            ${x.website ? `<a class="link-chip" target="_blank" rel="noopener" href="${UI.esc(/^https?:/.test(x.website) ? x.website : `https://${x.website}`)}">${Icon('site', 13)}<span>Web</span></a>` : ''}
-            <a class="link-chip" target="_blank" rel="noopener" href="${DanubraGeo.mapsUrl(x.lat, x.lng)}">${Icon('pin', 13)}<span>Na mape</span></a>
-          </span>
-        </div>
-        <button class="btn btn-outline btn-sm" onclick="Sub.saveFound(${i})">${Icon('plus', 14)} Uložiť a pridať</button>
-      </div>`;
-    },
-
-    /** Uloží nájdené miesto do databázy ubytovaní a otvorí jeho pridanie k zákazke. */
-    async saveFound(i) {
-      const f = this._found;
-      const p = f && f.places[i];
-      if (!p) return;
-      const sc = this.items.find(x => x.id === f.scId);
-      const { data, error } = await DB.insert('accommodations', DanubraNearby.toAccommodation(p, { fallbackCity: sc?.site_city || '' }));
+    /** Uloží nájdené ubytovanie do databázy a hneď ho pridá k zákazke. */
+    async saveQuickLodging(scId) {
+      const sc = this.items.find(x => x.id === scId) || {};
+      const d = UI.formData(document.getElementById('ql-form'));
+      if (!String(d.name || '').trim()) return UI.toast('Zadajte názov', 'err');
+      const link = String(d.link || '').trim();
+      const c = DanubraGeo.parseCoords(link);
+      const jeMapa = /google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/i.test(link);
+      const row = {
+        name: d.name.trim(), country: 'DE', city: (d.city || sc.site_city || '—').trim() || '—',
+        owner_phone: d.owner_phone || null,
+        max_persons: d.max_persons === '' ? null : Number(d.max_persons),
+        price_month: d.price_month === '' ? null : Number(d.price_month),
+        lat: c ? c.lat : null, lng: c ? c.lng : null,
+        source: 'manual', verification_status: 'new',
+        notes: link ? `${jeMapa ? 'Mapa' : 'Web'}: ${link}` : null,
+      };
+      const { data: acc, error } = await DB.insert('accommodations', row);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
-      this.accommodations.push(data);
+      this.accommodations.push(acc);
+      const { error: e2 } = await DB.insert('subcontract_accommodations', {
+        subcontract_id: scId, accommodation_id: acc.id, name: acc.name, city: acc.city,
+        maps_url: jeMapa ? link : (c ? DanubraGeo.mapsUrl(c.lat, c.lng) : null),
+        capacity: acc.max_persons, price_monthly: acc.price_month,
+        lat: acc.lat, lng: acc.lng, date_from: sc.date_from || null, date_to: sc.date_to || null,
+      });
+      if (e2) return UI.toast('Uložené do databázy, ale k zákazke sa nepridalo: ' + e2.message, 'err');
       UI.closeModal();
-      this.addLodging(f.scId);
-      setTimeout(() => {
-        const sel = document.querySelector('#lodg-form [name="accommodation_id"]');
-        if (sel) sel.value = data.id;
-        const m = document.querySelector('#lodg-form [name="maps_url"]');
-        if (m) m.value = DanubraGeo.mapsUrl(p.lat, p.lng);
-      }, 30);
-      UI.toast('Uložené do databázy ubytovaní — doplňte lôžka a cenu', 'ok');
+      UI.toast(c ? 'Ubytovanie uložené aj s polohou' : 'Ubytovanie uložené — polohu môžete doplniť neskôr', 'ok');
+      await this.load(); Danubra.renderRoute();
     },
 
     staysOf(lodgingId) { return this.stays.filter(s => s.lodging_id === lodgingId); },
@@ -1107,7 +1175,7 @@
     },
 
     /** Ubytovanie na zákazke — buď z databázy, alebo voľne zapísané. */
-    addLodging(scId) {
+    addLodging(scId, accId) {
       const sc = this.items.find(x => x.id === scId);
       const city = sc?.site_city || '';
       // ponúkni najprv ubytovania v tom istom meste
@@ -1118,7 +1186,7 @@
       });
       UI.modal('Pridať ubytovanie', `
         <form id="lodg-form" onsubmit="event.preventDefault();Sub.saveLodging('${scId}')">
-          ${UI.field('accommodation_id', 'Z databázy ubytovaní', { add: 'accommodation',
+          ${UI.field('accommodation_id', 'Z databázy ubytovaní', { add: 'accommodation', value: accId || '',
             options: [['', '— zapíšem ručne —'], ...sorted.map(a => [a.id,
               `${a.name}${a.city ? ` · ${a.city}` : ''}${a.max_persons ? ` · ${a.max_persons} os.` : ''}`])] })}
           <div class="regimebox" style="margin:10px 0;">Ubytovanie sa berie z tej istej databázy ako

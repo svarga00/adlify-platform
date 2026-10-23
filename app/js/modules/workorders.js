@@ -319,6 +319,8 @@
       this.loaded = false;
       // Karta človeka sa pýta „má objednávku?" — musí to vedieť hneď.
       if (window.Wrk) Wrk.loaded = false;
+      // Aj zákazka — objednávka sa vystavuje priamo z jej piateho kroku.
+      if (window.Sub) Sub.loaded = false;
       Danubra.renderRoute();
     },
 

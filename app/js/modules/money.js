@@ -266,7 +266,7 @@
       });
       const v = DanubraPosition.verdict(sp);
 
-      el.innerHTML = Danubra.header('Kde sú peniaze',
+      el.innerHTML = Danubra.header('Peniaze',
         `${Money.format(sum.total)} čaká · ${Money.format(sp.free)} sa dá minúť`)
         + this.nowHtml(stages, v)
         + this.duesHtml()

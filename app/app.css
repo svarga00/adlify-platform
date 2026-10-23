@@ -3538,3 +3538,56 @@ img.doc-view { max-height: 62vh; object-fit: contain; }
 .nb-tags em { font-style: normal; font-weight: 700; font-size: 12.5px; }
 .nb-sub { color: var(--ink-mute); font-size: 12.5px; }
 @media (max-width: 640px) { .nb-row { flex-direction: column; } .nb-row .btn { width: 100%; justify-content: center; } .nb-map { height: 200px; } }
+
+/* Zákazka ako sedem krokov pod sebou — otvorený je ten, ktorý je na rade. */
+.js-now { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 0 0 12px;
+  border-radius: var(--radius-lg); background: var(--brand-50); border: 1px solid #F7D3B0; }
+.js-now.is-bad { background: var(--red-50); border-color: #F3C2C2; }
+.js-now.is-calm { background: var(--green-50); border-color: #BFE5CD; }
+.js-now-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.js-now-txt span { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-sub); }
+.js-now-txt b { font-size: 15px; line-height: 1.4; color: var(--ink); }
+.js-list { display: flex; flex-direction: column; gap: 8px; }
+.js-step { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.js-step.is-open { border-color: #C9D6F2; box-shadow: var(--shadow-md); }
+.js-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; background: transparent;
+  font: inherit; text-align: left; cursor: pointer; color: var(--ink); min-height: 56px; }
+.js-n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px; background: var(--field); color: var(--ink-sub); border: 2px solid var(--border); }
+.st-ok .js-n { background: var(--green); border-color: var(--green); color: #fff; }
+.st-bad .js-n { background: var(--red); border-color: var(--red); color: #fff; }
+.js-step.is-next:not(.st-ok):not(.st-bad) .js-n { border-color: var(--brand); color: var(--brand-dark); background: var(--brand-50); }
+.js-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.js-main b { font-size: 14.5px; }
+.st-ok .js-main b { color: var(--ink-sub); }
+.js-detail { font-size: 12.5px; color: var(--ink-mute); line-height: 1.4; }
+.st-bad .js-detail { color: var(--red); }
+.js-chev { flex: none; color: var(--ink-mute); transition: transform .15s; display: inline-flex; }
+.js-step.is-open .js-chev { transform: rotate(90deg); }
+.js-body { padding: 2px 14px 14px 56px; }
+.js-body > .form-section:first-child { margin-top: 0; }
+.js-todo { display: flex; gap: 8px; align-items: flex-start; padding: 9px 11px; margin: 0 0 10px; border-radius: var(--radius);
+  background: var(--brand-50); color: var(--ink); font-size: 13.5px; font-weight: 600; line-height: 1.45; }
+.js-todo > svg { flex: none; margin-top: 2px; color: var(--brand-dark); }
+.js-todo.is-bad { background: var(--red-50); }
+.js-todo.is-bad > svg { color: var(--red); }
+.js-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.js-rows { display: flex; flex-direction: column; }
+.js-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--border-soft); font-size: 13.5px; }
+.js-row:first-child { border-top: 0; }
+.js-row em { font-style: normal; color: var(--ink-mute); font-size: 12.5px; }
+.js-row-p { justify-content: space-between; }
+.js-who { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.js-who .link-inline { font-weight: 700; margin-right: 4px; }
+.js-row-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.js-mark { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+.js-mark.is-ok { background: var(--green-50); color: var(--green); }
+.js-mark.is-no { background: var(--red-50); color: var(--red); }
+.js-empty { color: var(--ink-mute); font-size: 13px; padding: 4px 0; }
+@media (max-width: 640px) {
+  .js-body { padding: 2px 12px 14px; }
+  .js-head { padding: 12px; }
+  .js-row-p { flex-direction: column; align-items: stretch; }
+  .js-row-acts .btn, .js-acts .btn { flex: 1 1 auto; justify-content: center; }
+  .js-now { flex-direction: column; align-items: stretch; }
+}
