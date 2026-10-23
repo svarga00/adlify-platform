@@ -56,7 +56,7 @@
       const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
       const toRenew = this.listings.filter(l => l.status === 'to_renew');
 
-      el.innerHTML = Danubra.header('Marketing',
+      el.innerHTML = Danubra.header(Danubra.labelOf('marketing'),
         `${this.listings.filter(l => l.status !== 'expired').length} aktívnych inzerátov · `
         + `minuté ${UI.money(spent)}${budget ? ` z ${UI.money(budget)}` : ''}`) +
         // Jedna veta, čo spraviť — Marketing je teraz samostatné miesto v menu.

@@ -334,14 +334,14 @@ if (D) {
   // Rodičia, ktorí v menu musia stáť — na nich sa dá dostať zo všetkého
   // ostatného cez záložky.
   // Päť miest a Nastavenia: Dnes, Zákazky, Ľudia, Fakturácia, Marketing.
-  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'marketing', 'settings']) {
+  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'leads', 'settings']) {
     t(`${D.labelOf(k)} je v menu`, vlavo.includes(k));
   }
   t(`a nič iné (${vlavo.join(', ')})`, vlavo.length === 6);
   // A tie, ktoré sa stali záložkami, v ňom stáť nesmú.
   for (const k of ['tasks', 'messages', 'flow', 'opportunities', 'quotes', 'partners', 'orders',
     'contracts', 'timesheets', 'hoursheet', 'hiring', 'candidates', 'ads',
-    'recruiting', 'advances', 'crews', 'invoices', 'costs', 'bank', 'accommodations', 'trades',
+    'recruiting', 'advances', 'campaigns', 'marketing', 'crews', 'invoices', 'costs', 'bank', 'accommodations', 'trades',
     'compliance', 'rules', 'members']) {
     t(`${D.labelOf(k)} je záložka, nie položka menu`,
       !vlavo.includes(k) && D.routeAvailable(k) && !!D.parentOf(k));

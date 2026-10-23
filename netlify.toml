@@ -38,6 +38,11 @@
   to = "/app/:splat"
   status = 301
 
+# Node 22: knižnica na posielanie e-mailov (nodemailer) potrebuje aspoň Node 20.
+# Funkcie na Netlify bežia na tej istej verzii ako build.
+[build.environment]
+  NODE_VERSION = "22"
+
 [functions]
   directory = "netlify/functions"
 

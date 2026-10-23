@@ -274,6 +274,35 @@
         ['invoices', 'Vydané faktúry']],
     },
 
+    'screen.leads': {
+      title: 'Nové firmy',
+      lead: 'Nemecké firmy, ktoré ešte nie sú odberateľmi — podobné tým, s ktorými už robíme.',
+      what: [
+        '„Hľadať podobné firmy": na mape (OpenStreetMap, zadarmo) okolo miest Vašich odberateľov, alebo cez AI na webe.',
+        'AI vezme e-mail len z Impressum/Kontaktu firmy. Keď tam nie je, nechá ho prázdny — nevymýšľa.',
+      ],
+      how: [
+        'Firma, ktorú už máte (medzi odberateľmi alebo tu), sa neuloží druhýkrát — aj keď sa píše trochu inak.',
+        'Stav: Nová → Oslovená (po e-maile sa nastaví sám) → Odpísala → Má záujem → „Urobiť odberateľa".',
+        'Poznámky sa len pridávajú, staré sa neprepisujú.',
+      ],
+      why: ['Noví odberatelia sa hľadajú podľa tých, s ktorými to funguje — nie naslepo.'],
+      links: [['campaigns', 'E-maily'], ['partners', 'Odberatelia']],
+    },
+    'screen.campaigns': {
+      title: 'E-maily firmám',
+      lead: 'Jeden text po nemecky, ktorý odíde každej vybranej firme zvlášť — z Vašej schránky.',
+      what: [
+        'Do textu sa doplní meno firmy a mesto. Pätička s odosielateľom a odkazom na odhlásenie sa pridá vždy.',
+        'Posiela sa po 40 naraz, s pauzou medzi e-mailmi, aby schránka neskončila v spame. „Pokračovať" pošle ďalšiu dávku.',
+      ],
+      how: [
+        'Kto sa odhlási, tomu už žiadny e-mail nepôjde — appka ho preskočí sama.',
+        'Posielanie potrebuje údaje schránky v Netlify: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.',
+      ],
+      why: ['V Nemecku sa obchodný e-mail smie poslať firme, pri ktorej sa dá predpokladať záujem (§ 7 UWG), a vždy s možnosťou odhlásenia.'],
+      links: [['leads', 'Nové firmy']],
+    },
     'screen.advances': {
       title: 'Zálohy a výplaty',
       lead: 'Komu sme dali zálohu a komu čo dlhujeme — za všetkých živnostníkov naraz.',
