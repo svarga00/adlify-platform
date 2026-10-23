@@ -4060,6 +4060,84 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+    // ── Marketing: nové firmy z mapy a e-mail firmám ─────────────────────
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', city: 'Ulm', email: 'bau@gu-ulm.de' }],
+          leads: [{ id: 'l0', name: 'Fliesen Huber', city: 'Ulm', email: 'info@huber.de', status: 'new', source: 'osm' },
+            { id: 'l9', name: 'Odhlásená GmbH', city: 'Ulm', email: 'off@x.de', status: 'new', source: 'osm' }],
+          subcontracts: [], lead_searches: [], campaigns: [], campaign_sends: [], email_optout: [{ email: 'off@x.de' }],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.', address: 'Nové Zámky', company_id: '57553921' } }],
+        };
+        const zapis = []; const volania = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.insert = async (t, row) => { zapis.push({ t, row }); return { data: { id: 'n' + zapis.length, ...row }, error: null }; };
+        DB.insertMany = async (t, rows) => { zapis.push({ t, rows }); return { data: rows, error: null }; };
+        DB.update = async (t, id, patch) => { zapis.push({ t, id, patch }); return { data: null, error: null }; };
+        DB.client = { auth: { getSession: async () => ({ data: { session: { access_token: 'jwt-123' } } }) } };
+        UI.confirm = async () => true;
+        const pravy = window.fetch;
+        window.fetch = async (u, o) => {
+          const url = String(u); volania.push({ url, auth: o && o.headers && o.headers.Authorization });
+          if (url.includes('nominatim')) return new Response(JSON.stringify([{ lat: '48.4', lon: '9.98', display_name: 'Ulm, BW' }]));
+          if (url.includes('interpreter')) return new Response(JSON.stringify({ elements: [
+            { type: 'node', id: 1, lat: 48.4, lon: 9.9, tags: { craft: 'builder', name: 'Müller Bau GmbH', 'addr:city': 'Neu-Ulm', email: 'info@mueller-bau.de' } },
+            { type: 'node', id: 2, lat: 48.4, lon: 9.9, tags: { craft: 'tiler', name: 'Fliesen Huber', 'addr:city': 'Ulm' } }] }));
+          if (url.includes('danubra-email-status')) return new Response(JSON.stringify({ smtp: true, from: 'P&S <info@punds.eu>' }));
+          return new Response('{}');
+        };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
+        Danubra.route = 'leads'; Lead.loaded = false;
+        await Danubra.renderRoute();
+        const res = { menu: [...document.querySelectorAll('#sidebar-nav .nav-item .nav-text')].map(x => x.textContent.trim()),
+          karty: [...document.querySelectorAll('#view .acc-name')].map(x => x.textContent.trim()) };
+        Lead.findForm();
+        const sp = window.setTimeout;
+        window.setTimeout = (f, ms) => sp(f, Math.min(ms || 0, 5));
+        await Lead.searchMap();
+        window.setTimeout = sp;
+        res.najdene = [...document.querySelectorAll('#find-out .mf-row b')].map(x => x.textContent);
+        await Lead.saveFound();
+        res.ulozene = zapis.filter(z => z.t === 'leads').map(z => [z.row.name, z.row.source, z.row.email]);
+
+        Danubra.route = 'campaigns'; Camp.loaded = false; Lead.loaded = true;
+        await Danubra.renderRoute();
+        res.smtp = document.querySelector('#view').textContent.includes('info@punds.eu');
+        await Camp.form();
+        await Camp.preview();
+        res.pocet = document.getElementById('cf-count').textContent.replace(/\s+/g, ' ');
+        res.ukazka = document.getElementById('cf-preview').textContent;
+        await Camp.save(true);
+        await new Promise(r => sp(r, 50));
+        const sends = zapis.find(z => z.t === 'campaign_sends');
+        res.adresati = sends ? sends.rows.map(r => [r.email, !!r.token && r.token.length >= 16]) : null;
+        res.funkcia = volania.filter(v => v.url.includes('email-send')).map(v => v.auth);
+        window.fetch = pravy;
+        return res;
+      });
+      ok(out.menu.includes('Marketing') && out.menu.includes('Fakturácia'), 'v menu je Marketing aj Fakturácia', out.menu.join(', '));
+      ok(out.karty.includes('Fliesen Huber'), 'Nové firmy ukazujú uložené firmy', out.karty.join(', '));
+      ok(JSON.stringify(out.najdene) === '["Müller Bau GmbH"]', 'mapa nájde firmy pri meste odberateľa, už uloženú nie', JSON.stringify(out.najdene));
+      ok(JSON.stringify(out.ulozene) === '[["Müller Bau GmbH","osm","info@mueller-bau.de"]]', 'vybraná firma sa uloží aj s e-mailom', JSON.stringify(out.ulozene));
+      ok(out.smtp, 'E-maily ukážu, z akej adresy sa posiela');
+      ok(/Odíde 1 e-mail/.test(out.pocet) && /odhlásil sa/.test(out.pocet), 'odhlásená adresa sa preskočí a povie sa to', out.pocet);
+      ok(/Fliesen Huber/.test(out.ukazka) && /Keine weiteren E-Mails erhalten/.test(out.ukazka) && /57553921/.test(out.ukazka),
+        'ukážka: meno firmy doplnené, pätička s odosielateľom a odhlásením', out.ukazka);
+      ok(JSON.stringify(out.adresati) === '[["info@huber.de",true]]', 'adresáti sa zapíšu s kľúčom na odhlásenie', JSON.stringify(out.adresati));
+      ok(out.funkcia.length === 1 && out.funkcia[0] === 'Bearer jwt-123', 'posielanie volá server s prihlásením (kľúč schránky je len tam)', JSON.stringify(out.funkcia));
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

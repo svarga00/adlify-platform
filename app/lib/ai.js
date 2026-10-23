@@ -136,7 +136,71 @@
     return `${co ? co + ' — ' : ''}volanie modelu zlyhalo (${status}).`;
   }
 
-  const API = { body, attachment, pickTool, najdiJson, errorText };
+  /**
+   * Prečíta streamovanú odpoveď (SSE) a poskladá z nej celú správu — tú istú,
+   * akú by vrátilo volanie bez streamu. Stream sa používa pri dlhých
+   * volaniach (hľadanie na webe trvá minúty), aby spojenie nespadlo na čakaní
+   * na prvú odpoveď.
+   *
+   * @param {AsyncIterable<Uint8Array>|ReadableStream} stream telo odpovede
+   * @returns {Promise<Object>} { content, stop_reason, usage, model }
+   */
+  async function readStream(stream) {
+    const msg = { content: [], stop_reason: null, usage: {}, model: null };
+    const partial = new Map();
+    let buf = '';
+    const dec = new TextDecoder();
+    const handle = (ev) => {
+      if (!ev || !ev.type) return;
+      if (ev.type === 'message_start' && ev.message) {
+        msg.model = ev.message.model; msg.usage = ev.message.usage || {}; msg.id = ev.message.id;
+      } else if (ev.type === 'content_block_start') {
+        msg.content[ev.index] = { ...ev.content_block };
+      } else if (ev.type === 'content_block_delta') {
+        const b = msg.content[ev.index]; const d = ev.delta || {};
+        if (!b) return;
+        if (d.type === 'text_delta') b.text = (b.text || '') + d.text;
+        else if (d.type === 'input_json_delta') partial.set(ev.index, (partial.get(ev.index) || '') + d.partial_json);
+        else if (d.type === 'thinking_delta') b.thinking = (b.thinking || '') + d.thinking;
+        else if (d.type === 'signature_delta') b.signature = (b.signature || '') + d.signature;
+        else if (d.type === 'citations_delta' && d.citation) (b.citations = b.citations || []).push(d.citation);
+      } else if (ev.type === 'content_block_stop') {
+        const b = msg.content[ev.index];
+        if (b && partial.has(ev.index)) {
+          const raw = partial.get(ev.index);
+          try { b.input = raw ? JSON.parse(raw) : {}; } catch { b.input = najdiJson(raw) || {}; }
+          partial.delete(ev.index);
+        }
+      } else if (ev.type === 'message_delta') {
+        if (ev.delta && ev.delta.stop_reason) msg.stop_reason = ev.delta.stop_reason;
+        if (ev.delta && ev.delta.stop_details) msg.stop_details = ev.delta.stop_details;
+        if (ev.usage) msg.usage = { ...msg.usage, ...ev.usage };
+      } else if (ev.type === 'error') {
+        msg.error = ev.error || { message: 'chyba v streame' };
+      }
+    };
+    const feed = (text) => {
+      buf += text;
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        const data = chunk.split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).join('');
+        if (!data || data === '[DONE]') continue;
+        try { handle(JSON.parse(data)); } catch { /* neúplná udalosť sa preskočí */ }
+      }
+    };
+    if (stream && typeof stream.getReader === 'function') {
+      const r = stream.getReader();
+      for (;;) { const { value, done } = await r.read(); if (done) break; feed(dec.decode(value, { stream: true })); }
+    } else {
+      for await (const part of stream) feed(typeof part === 'string' ? part : dec.decode(part, { stream: true }));
+    }
+    feed('\n\n');
+    msg.content = msg.content.filter(Boolean);
+    return msg;
+  }
+
+  const API = { body, attachment, pickTool, najdiJson, errorText, readStream };
   if (typeof window !== 'undefined') window.DanubraAi = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();

@@ -134,5 +134,35 @@ const TOOL = { name: 'stavby_z_dopytu', description: 'x', input_schema: { type: 
     'bez prílohy zostáva obyčajný text');
 }
 
-console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
-process.exit(failed ? 1 : 0);
+// ── Stream (SSE) ────────────────────────────────────────────────────────────
+(async () => {
+  const ev = (o) => `event: ${o.type}\ndata: ${JSON.stringify(o)}\n\n`;
+  const sse = [
+    ev({ type: 'message_start', message: { id: 'm1', model: 'claude-opus-5-5', usage: { input_tokens: 10 } } }),
+    ev({ type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } }),
+    ev({ type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'sig' } }),
+    ev({ type: 'content_block_stop', index: 0 }),
+    ev({ type: 'content_block_start', index: 1, content_block: { type: 'server_tool_use', id: 's1', name: 'web_search', input: {} } }),
+    ev({ type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"query":"Bau' } }),
+    ev({ type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: 'firma Ulm"}' } }),
+    ev({ type: 'content_block_stop', index: 1 }),
+    ev({ type: 'content_block_start', index: 2, content_block: { type: 'web_search_tool_result', tool_use_id: 's1', content: [{ type: 'web_search_result', url: 'https://x.de' }] } }),
+    ev({ type: 'content_block_stop', index: 2 }),
+    ev({ type: 'content_block_start', index: 3, content_block: { type: 'tool_use', id: 't1', name: 'report_leads', input: {} } }),
+    ev({ type: 'content_block_delta', index: 3, delta: { type: 'input_json_delta', partial_json: '{"leads":[{"name":"Müller"}]}' } }),
+    ev({ type: 'content_block_stop', index: 3 }),
+    ev({ type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 42 } }),
+    ev({ type: 'message_stop' }),
+  ].join('');
+  // Rozsekané na kúsky, ako to príde po sieti.
+  const parts = []; for (let i = 0; i < sse.length; i += 37) parts.push(Buffer.from(sse.slice(i, i + 37)));
+  async function* gen() { for (const p of parts) yield new Uint8Array(p); }
+  const m = await A.readStream(gen());
+  eq(m.content.map(c => c.type), ['thinking', 'server_tool_use', 'web_search_tool_result', 'tool_use'], 'stream: bloky v poradí');
+  eq(m.content[0].signature, 'sig', 'podpis myslenia sa zachová (treba ho poslať späť pri pokračovaní)');
+  eq(m.content[1].input, { query: 'Baufirma Ulm' }, 'vstup nástroja poskladaný z kúskov');
+  eq(A.pickTool(m, 'report_leads'), { leads: [{ name: 'Müller' }] }, 'výsledok cez nástroj');
+  eq([m.stop_reason, m.usage.output_tokens, m.model], ['tool_use', 42, 'claude-opus-5-5'], 'dôvod konca a spotreba');
+  console.log(`\n${passed} prešlo, ${failed} zlyhalo`);
+  process.exit(failed ? 1 : 0);
+})();

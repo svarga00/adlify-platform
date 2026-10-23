@@ -135,7 +135,9 @@ window.Danubra = {
                     ['advances', 'Zálohy a výplaty', 'user', 'staffing', 'finance'],
                     ['bank', 'Banka a cash-flow', 'euro', 'staffing', 'finance']]],
     // Marketing smerom k firmám: noví odberatelia, e-maily, inzercia.
-    ['MARKETING',  [['marketing', 'Marketing', 'marketing']]],
+    ['MARKETING',  [['leads', 'Marketing', 'marketing'],
+                    ['campaigns', 'E-maily firmám', 'mail'],
+                    ['marketing', 'Inzercia a výdavky', 'chart']]],
     // Veci, ktoré sa nastavia raz a potom sa z nich len čerpá.
     ['NASTAVENIE', [['settings', 'Nastavenia', 'settings'],
                     ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
@@ -176,6 +178,8 @@ window.Danubra = {
     bank: 'Výpis z účtu, párovanie a či bude na výplaty',
     advances: 'Zálohy živnostníkom a čo im dlhujeme — za všetkých naraz',
     marketing: 'Inzeráty a odkiaľ chodia ľudia',
+    leads: 'Nemecké firmy podobné našim odberateľom — z mapy alebo cez AI, s e-mailom a stavom oslovenia',
+    campaigns: 'E-maily firmám po nemecky, cez Vašu schránku, s odhlásením',
     compliance: 'A1, Zoll, SOKA-BAU — čo treba mať vybavené',
     members: 'Kto smie do appky a na čo',
     rules: 'Sadzby a prahy, ktoré vstupujú do výpočtov',
@@ -339,6 +343,8 @@ window.Danubra = {
     // „Kde sú peniaze" je otázka. Vydané, prijaté a banka sú tri odpovede.
     invoices: 'money', costs: 'money', advances: 'money', bank: 'money',
     trades: 'settings', compliance: 'settings', rules: 'settings', members: 'settings',
+    // Marketing: nové firmy, e-maily im, inzercia.
+    campaigns: 'leads', marketing: 'leads',
   },
 
   // Na záložke je málo miesta a názov z menu je tam dlhý. Prvá záložka má
@@ -348,7 +354,7 @@ window.Danubra = {
     subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
     timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
     workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
-    marketing: 'Inzercia a výdavky',
+    marketing: 'Inzercia a výdavky', leads: 'Nové firmy', campaigns: 'E-maily',
     money: 'Prehľad', invoices: 'Vydané', costs: 'Prijaté', advances: 'Zálohy a výplaty', bank: 'Banka',
     settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
   },
@@ -361,7 +367,8 @@ window.Danubra = {
     partners: 'Nemecké firmy', contracts: 'Zmluvy o dielo', orders: 'Od Nemca aj živnostníkom',
     timesheets: 'Kto koľko odrobil', hoursheet: 'Na podpis Nemcovi', accommodations: 'Kde ľudia bývajú',
     workers: 'Kartotéka', hiring: 'Koho hľadáme', candidates: 'Kto sa ozval', ads: 'Kde inzerujeme',
-    recruiting: 'Z telefonátov', marketing: 'Čo to stojí', crews: 'Kto chodí spolu',
+    recruiting: 'Z telefonátov', marketing: 'Portály a čo to stojí', crews: 'Kto chodí spolu',
+    leads: 'Podobné našim odberateľom', campaigns: 'Rozoslať a odhlásenia',
     money: 'Čo čaká a čo zaplatiť', invoices: 'Vystaviť a pozrieť', costs: 'Faktúry a bločky od iných',
     advances: 'Čo dlhujeme ľuďom',
     bank: 'Výpis a platby',

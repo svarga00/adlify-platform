@@ -123,6 +123,8 @@
     advances: 'costs',
     // Dokumenty sú PDF z obrazoviek, na ktoré človek už má právo.
     archive: 'dashboard',
+    // Marketing: nové firmy a e-maily patria k tomu istému ako inzercia.
+    leads: 'marketing', campaigns: 'marketing',
   };
 
   /** Z názvu obrazovky urob kľúč práva. */
