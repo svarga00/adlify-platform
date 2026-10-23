@@ -217,6 +217,16 @@
       });
     }
 
+    // Voľná faktúra: súčet položiek musí byť suma faktúry. Rozdiel vznikne,
+    // keď sa položka upraví a suma nie — a doklad by si protirečil.
+    if (liveItems(o.items).length && itemsTotal(o.items) !== w.gross) {
+      reasons.push({
+        rule: 'invoice_items_mismatch', label: 'Položky nesedia so sumou faktúry',
+        detail: `Položky dávajú ${M.format(itemsTotal(o.items))}, faktúra ${M.format(w.gross)}. Otvorte „Upraviť" a uložte znova.`,
+        severity: 'block',
+      });
+    }
+
     // Suma faktúry musí sedieť s podkladom. Rozdiel znamená, že sa niekde
     // písalo ručne — a to je miesto, kde sa strácajú peniaze.
     if (period.amount_charged != null) {
@@ -316,7 +326,12 @@
     const hours = round2(Number(period.hours_construction || 0)
       + Number(period.hours_workshop || 0) + Number(period.hours_travel || 0));
     const tax = reverse ? 0 : 20;
-    const items = [buildItem(w.gross, hours, tax, sub, period)];
+    // Voľná faktúra má vlastné položky; faktúra z podkladu jednu — z obdobia.
+    const vlastne = liveItems(o.items);
+    const items = vlastne.length
+      ? vlastne.map(i => ({ name: String(i.description || '').slice(0, 250) || 'Leistung',
+        quantity: Number(i.quantity) || 0, unit: i.unit || 'ks', unit_price: round2(i.unit_price), tax }))
+      : [buildItem(w.gross, hours, tax, sub, period)];
 
     return {
       Invoice: {
@@ -388,6 +403,77 @@
   }
 
   function round2(n) { return Math.round(Number(n) * 100) / 100; }
+
+  // ── Položky: voľná faktúra, dokument, úprava návrhu ───────────────────────
+
+  /** Položky, ktoré platia — vyhodené z návrhu (`removed_at`) sa nerátajú. */
+  function liveItems(items) {
+    return (items || []).filter(i => i && !i.removed_at);
+  }
+
+  /** Súčet položiek v centoch. Množstvo môže byť desatinné (312,5 h). */
+  function itemsTotal(items) {
+    return M.sum(liveItems(items).map(i => M.mul(M.toCents(i.unit_price || 0), Number(i.quantity) || 0)));
+  }
+
+  /**
+   * Riadky na dokument faktúry. Faktúra z podkladu nemá položky v databáze —
+   * riadok sa poskladá z obdobia rovnako ako pre SuperFaktúru, aby PDF
+   * a SuperFaktúra hovorili to isté.
+   */
+  function docItems(o = {}) {
+    const vlastne = liveItems(o.items);
+    if (vlastne.length) {
+      return vlastne.map(i => ({ description: i.description, quantity: Number(i.quantity) || 0,
+        unit: i.unit || '', unit_price: Number(i.unit_price) || 0,
+        total: M.fromCents(M.mul(M.toCents(i.unit_price || 0), Number(i.quantity) || 0)) }));
+    }
+    const inv = o.invoice || {};
+    const w = withholding(inv);
+    if (!w.gross) return [];
+    const period = o.period || {};
+    const hours = round2(Number(period.hours_construction || 0)
+      + Number(period.hours_workshop || 0) + Number(period.hours_travel || 0));
+    const it = buildItem(w.gross, hours, 0, o.subcontract || {}, period);
+    return [{ description: it.description ? `${it.name} — ${it.description}` : it.name,
+      quantity: it.quantity, unit: it.unit === 'pausal' ? 'paušál' : it.unit,
+      unit_price: it.unit_price, total: M.fromCents(w.gross) }];
+  }
+
+  /** Návrh sa dá upraviť, kým ho nikto neschválil. Vystavený doklad sa nemení. */
+  const UPRAVITELNA = ['draft', 'pending_approval', 'draft_pending_approval'];
+  function editable(inv = {}) {
+    return UPRAVITELNA.includes(inv.status) && !inv.approved_at && !inv.sf_invoice_id;
+  }
+
+  /**
+   * Voľná faktúra nemeckej firme — vlastné položky, bez podkladu z hodín.
+   * Vzniká ako návrh (databáza iný stav ani nepustí) a schvaľuje ju admin.
+   * Reverse charge §13b, keď ho odberateľ nemá vypnutý.
+   *
+   * @returns {{ invoice: Object, items: Array, cents: number }}
+   */
+  function freeInvoice({ partner = {}, items = [], today, dueDays, number, subcontractId = null } = {}) {
+    const dnes = today || new Date().toISOString().slice(0, 10);
+    const dni = Number(dueDays) || Number(partner.payment_terms_days) || 30;
+    const plus = (d, n) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    const rows = liveItems(items).filter(i => String(i.description || '').trim() && Number(i.quantity));
+    const cents = itemsTotal(rows);
+    const total = M.fromCents(cents);
+    return {
+      cents,
+      invoice: {
+        invoice_number: number || null, partner_id: partner.id || null, subcontract_id: subcontractId,
+        type: 'standard', issue_date: dnes, due_date: plus(dnes, dni), delivery_date: dnes,
+        total, currency: 'EUR', amount_net: total, withholding_pct: 0, withholding_amount: 0,
+        vat_regime: partner.reverse_charge === false ? 'standard' : 'reverse_charge',
+        status: 'draft',
+      },
+      items: rows.map(i => ({ description: String(i.description).trim(), quantity: Number(i.quantity) || 0,
+        unit: i.unit || 'ks', unit_price: Number(i.unit_price) || 0,
+        total: M.fromCents(M.mul(M.toCents(i.unit_price || 0), Number(i.quantity) || 0)) })),
+    };
+  }
   /** Nemecký zápis čísla pre poznámku na doklade. */
   function fmtDe(cents) {
     return M.fromCents(cents).toFixed(2).replace('.', ',')
@@ -399,6 +485,7 @@
     withholding, withholdingApplies, sumLines,
     reviewBeforeApproval,
     sfPayload, freistellungNote, COUNTRY_ID, fmtDe,
+    liveItems, itemsTotal, docItems, editable, freeInvoice,
   };
   window.DanubraInvoice = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

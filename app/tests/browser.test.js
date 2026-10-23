@@ -696,9 +696,9 @@ console.log('Prehliadač');
             // Názov položky, bez čísla kroku pred ním.
             menu: [...document.querySelectorAll('#sidebar-nav .nav-item .nav-text')]
               .map(x => x.textContent.trim()).filter(Boolean),
-            zalozky: [...v.querySelectorAll('.subtabs .subtab')]
+            zalozky: [...v.querySelectorAll('.subtabs .subtab .subtab-txt b')]
               .map(x => x.textContent.trim()),
-            zalozkaTeraz: (v.querySelector('.subtabs .subtab.active') || {}).textContent,
+            zalozkaTeraz: (v.querySelector('.subtabs .subtab.active .subtab-txt b') || {}).textContent,
             // A či sa cez záložku naozaj prepne — vrátane toho, že sa zvýrazní
             // tá, na ktorej človek stojí.
             poKliku: await (async () => {
@@ -707,7 +707,7 @@ console.log('Prehliadač');
               const w = document.getElementById('view');
               return {
                 nadpis: (w.querySelector('.page-title') || {}).textContent || '',
-                aktivna: ((w.querySelector('.subtabs .subtab.active') || {}).textContent || '').trim(),
+                aktivna: ((w.querySelector('.subtabs .subtab.active .subtab-txt b') || {}).textContent || '').trim(),
                 menu: [...document.querySelectorAll('#sidebar-nav .nav-item.active .nav-text')]
                   .map(x => x.textContent.trim()),
               };
@@ -1958,8 +1958,8 @@ console.log('Prehliadač');
             hore: text('#top-links .top-link'),
             vlavo: text('#sidebar-nav .nav-item .nav-text'),
             horeAktivne: text('#top-links .top-link.active'),
-            zalozky: text('#view .subtabs .subtab'),
-            zalozkaAktivna: text('#view .subtabs .subtab.active'),
+            zalozky: text('#view .subtabs .subtab .subtab-txt b'),
+            zalozkaAktivna: text('#view .subtabs .subtab.active .subtab-txt b'),
           };
         })();
       });
@@ -3870,6 +3870,113 @@ console.log('Prehliadač');
         'Dokumenty sú triedené podľa ľudí a firiem', arch.skupiny.join(' | '));
       ok(/Vybraté: 1/.test(arch.lista) && /Poslať/.test(arch.lista), 'po zaškrtnutí sa dá poslať aj viac naraz', arch.lista.replace(/\s+/g, ' '));
       ok(arch.zalozka === 'dashboard', 'Dokumenty sú záložka pri Dnes');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
+    // ── Vydané faktúry: vystaviť, pozrieť, upraviť návrh ─────────────────
+    // „Ako viem vystavovať faktúry a pozerať ich? Editovať?" Voľná faktúra
+    // nemeckej firme vznikne ako návrh s položkami, dá sa upraviť (vyhodená
+    // položka sa nemaže, dostane removed_at) a PDF je po nemecky.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const DATA = {
+          partners: [{ id: 'p1', name: 'GU Ulm GmbH', country: 'DE', ust_idnr: 'DE123456789', payment_terms_days: 14,
+            address: 'Hauptstr. 1', postal_code: '89073', city: 'Ulm' }],
+          subcontracts: [], periods: [], compliance: [], invoices: [], invoice_items: [], overrides: [],
+          clients: [], orders: [],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.', address: 'Nové Zámky',
+            company_id: '57553921', iban: 'SK3112000000198742637541' } }],
+        };
+        const zapis = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async (n) => ({ data: n === 'next_number' ? '2026101' : null, error: null });
+        DB.insert = async (t, row) => { zapis.push({ op: 'insert', t, row }); const r = { id: t + zapis.length, ...row };
+          (DATA[t] = DATA[t] || []).push(r); return { data: r, error: null }; };
+        DB.insertMany = async (t, rows) => { zapis.push({ op: 'insertMany', t, rows });
+          rows.forEach((r, i) => DATA[t].push({ id: `it${i}`, ...r })); return { data: rows, error: null }; };
+        DB.update = async (t, id, patch) => { zapis.push({ op: 'update', t, id, patch }); return { data: null, error: null }; };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true;
+        document.getElementById('app').hidden = false;
+        Danubra.route = 'invoices'; Inv.loaded = false; Inv.v2.loaded = false;
+        await Danubra.renderRoute();
+
+        const res = {};
+        await Inv.newInvoice();
+        res.volby = [...document.querySelectorAll('#ui-modal .pick-tile b')].map(b => b.textContent.trim());
+        UI.closeModal();
+
+        await Inv.freeForm();
+        document.querySelector('#man-form [name=partner_id]').value = 'p1';
+        Inv._rows = [{ description: 'Montáž zábradlia', quantity: 12.5, unit: 'h', unit_price: 38 },
+          { description: 'Doprava', quantity: 1, unit: 'paušál', unit_price: 120 }];
+        Inv.renderRows();
+        await Inv.saveFree();
+        await new Promise(r => setTimeout(r, 400));
+        const inv = zapis.find(z => z.op === 'insert' && z.t === 'invoices');
+        const pol = zapis.find(z => z.op === 'insertMany' && z.t === 'invoice_items');
+        res.faktura = inv && [inv.row.status, inv.row.total, inv.row.invoice_number, inv.row.vat_regime, inv.row.partner_id];
+        res.polozky = pol && pol.rows.map(r => [r.description, r.total, !!r.invoice_id]);
+        res.detail = (document.querySelector('#ui-modal') || { innerText: '' }).innerText;
+        UI.closeModal();
+
+        // Úprava návrhu: druhá položka von, prvá s inou cenou.
+        const id = inv && ('invoices' + (zapis.indexOf(inv) + 1));
+        Inv.items = [{ id, ...inv.row }];
+        Inv.lines = [{ id: 'L1', invoice_id: id, description: 'Montáž zábradlia', quantity: 12.5, unit: 'h', unit_price: 38 },
+          { id: 'L2', invoice_id: id, description: 'Doprava', quantity: 1, unit: 'paušál', unit_price: 120 }];
+        Inv.load = async () => {};
+        await Inv.freeForm(id);
+        Inv.delRow(1);
+        Inv._rows[0].unit_price = 40;
+        Inv.renderRows();
+        zapis.length = 0;
+        await Inv.saveFree();
+        res.uprava = zapis.map(z => [z.op, z.t, z.id || '', JSON.stringify(z.patch || z.row || {})]);
+        UI.closeModal();
+
+        // PDF dokument faktúry: po nemecky, s adresou odberateľa a položkami.
+        let html = '';
+        const stare = window.open;
+        window.open = () => ({ document: { open() {}, write(h) { html += h; }, close() {} } });
+        Inv.lines = Inv.lines.filter(l => l.id === 'L1').map(l => ({ ...l, unit_price: 40 }));
+        Inv.items[0].total = 500;
+        await Inv.openDocV2(id);
+        window.open = stare;
+        res.pdf = { rechnung: /Rechnung/.test(html), adresa: /Hauptstr\. 1/.test(html), riadok: /Montáž zábradlia/.test(html),
+          rc: /§13b UStG/.test(html), bezDopravy: !/Doprava/.test(html) };
+
+        // Schválená sa neupravuje.
+        Inv.items[0].status = 'approved'; Inv.items[0].approved_at = 'x';
+        const t0 = document.querySelectorAll('.toast').length;
+        await Inv.freeForm(id);
+        res.schvalenaModal = !!document.getElementById('man-form');
+        return res;
+      });
+      ok(out.volby.join('|') === 'Zo zákazky — z odpracovaných hodín|Voľná faktúra nemeckej firme|Za živnostníka (v jeho mene)',
+        'Vystaviť faktúru: zo zákazky, voľná Nemcovi, za živnostníka — bez starej ubytovacej agendy', out.volby.join(' | '));
+      ok(JSON.stringify(out.faktura) === JSON.stringify(['draft', 595, '2026101', 'reverse_charge', 'p1']),
+        'voľná faktúra vznikne ako návrh s číslom, reverse charge', JSON.stringify(out.faktura));
+      ok(JSON.stringify(out.polozky) === JSON.stringify([['Montáž zábradlia', 475, true], ['Doprava', 120, true]]),
+        'aj s položkami', JSON.stringify(out.polozky));
+      ok(/Zobraziť faktúru \(PDF\)/.test(out.detail) && /Upraviť návrh/.test(out.detail) && /Montáž zábradlia/.test(out.detail),
+        'po vytvorení sa otvorí detail s položkami, PDF a úpravou', out.detail.slice(0, 200));
+      ok(out.uprava.some(z => z[0] === 'update' && z[1] === 'invoice_items' && z[2] === 'L2' && /removed_at/.test(z[3])),
+        'vyhodená položka sa nemaže — dostane removed_at', JSON.stringify(out.uprava));
+      ok(!out.uprava.some(z => z[0] === 'remove'), 'nič sa nemaže');
+      ok(out.uprava.some(z => z[1] === 'invoices' && /"total":500/.test(z[3])), 'suma faktúry sa prepočíta z položiek (12,5 × 40)');
+      ok(out.pdf.rechnung && out.pdf.adresa && out.pdf.riadok && out.pdf.rc && out.pdf.bezDopravy,
+        'PDF faktúry: po nemecky, s adresou odberateľa, položkami a §13b', JSON.stringify(out.pdf));
+      ok(!out.schvalenaModal, 'schválená faktúra sa nedá upraviť');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }

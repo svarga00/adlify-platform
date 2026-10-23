@@ -348,6 +348,21 @@ window.Danubra = {
     settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
   },
 
+  // Krátko pod názvom záložky — čo tam je. Celá veta je v `navHints`.
+  navTabHint: {
+    dashboard: 'Čo treba dnes', tasks: 'Pripomienky', messages: 'Komunikácia', flow: 'Celá cesta',
+    archive: 'Všetky PDF',
+    subcontracts: 'Stavby v 7 krokoch', opportunities: 'Kto chce ľudí', quotes: 'Ceny pre Nemcov',
+    partners: 'Nemecké firmy', contracts: 'Zmluvy o dielo', orders: 'Od Nemca aj živnostníkom',
+    timesheets: 'Kto koľko odrobil', hoursheet: 'Na podpis Nemcovi', accommodations: 'Kde ľudia bývajú',
+    workers: 'Kartotéka', hiring: 'Koho hľadáme', candidates: 'Kto sa ozval', ads: 'Kde inzerujeme',
+    recruiting: 'Z telefonátov', marketing: 'Čo to stojí', crews: 'Kto chodí spolu',
+    money: 'Čo čaká a čo zaplatiť', invoices: 'Vystaviť a pozrieť', costs: 'Faktúry a bločky od iných',
+    bank: 'Výpis a platby',
+    settings: 'Firma a pečiatka', trades: 'Otázky pri nábore', compliance: 'A1, Zoll, §48b',
+    rules: 'Sadzby a prahy', members: 'Kto smie do appky',
+  },
+
   allNav() { return this.navGroups.flatMap(g => g[1]); },
   visibleNav() { return this.allNav().filter(i => this.inArea(i)); },
   /**
@@ -414,11 +429,15 @@ window.Danubra = {
   tabsHtml(key) {
     const tabs = this.tabsOf(key);
     if (tabs.length < 2) return '';
-    return `<div class="subtabs" role="tablist">${tabs.map(([k, label, ico]) =>
-      `<button class="subtab${k === key ? ' active' : ''}" data-key="${k}"
-        role="tab" aria-selected="${k === key}"
-        onclick="Danubra.go('${k}')">${Icon(ico, 15)}<span>${UI.esc(label)}</span></button>`)
-      .join('')}</div>`;
+    return `<div class="subtabs" role="tablist">${tabs.map(([k, label, ico]) => {
+      const hint = this.navTabHint[k] || '';
+      const n = this.badges[k];
+      return `<button class="subtab${k === key ? ' active' : ''}" data-key="${k}"
+        role="tab" aria-selected="${k === key}" title="${UI.esc(this.hintOf(k))}"
+        onclick="Danubra.go('${k}')"><span class="subtab-ico">${Icon(ico, 16)}</span>
+        <span class="subtab-txt"><b>${UI.esc(label)}</b>${hint ? `<em>${UI.esc(hint)}</em>` : ''}</span>${
+          n ? `<span class="subtab-n">${n}</span>` : ''}</button>`;
+    }).join('')}</div>`;
   },
   /** Čo kreslí horný pruh. Bez práva na obrazovku sa odkaz nekreslí vôbec. */
   topLinks() {
