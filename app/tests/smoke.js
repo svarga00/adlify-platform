@@ -154,7 +154,7 @@ if (D) {
   const vlavo = D.sidebarNav().map(n => n[0]);
   const hore = D.topLinks().map(n => n[0]);
   t('„Ako to ide" nie je v ľavom menu', !vlavo.includes('flow'));
-  t('ale je v hornom pruhu', hore.includes('flow'));
+  t('ale je záložkou Dnes', D.parentOf('flow') === 'dashboard');
   t('a dá sa na ňu dostať odkazom', D.routeAvailable('flow'));
   t('v mega menu zostáva, aby sa dala nájsť aj na mobile',
     D.megaHtml().includes('<b>Ako to ide</b>'));
@@ -333,21 +333,22 @@ if (D) {
 
   // Rodičia, ktorí v menu musia stáť — na nich sa dá dostať zo všetkého
   // ostatného cez záložky.
-  for (const k of ['dashboard', 'opportunities', 'subcontracts', 'timesheets',
-    'partners', 'hiring', 'workers', 'money', 'compliance', 'settings']) {
+  // Štyri miesta a Nastavenia: Dnes, Zákazky, Ľudia, Peniaze.
+  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'settings']) {
     t(`${D.labelOf(k)} je v menu`, vlavo.includes(k));
   }
+  t(`a nič iné (${vlavo.join(', ')})`, vlavo.length === 5);
   // A tie, ktoré sa stali záložkami, v ňom stáť nesmú.
-  for (const k of ['tasks', 'messages', 'quotes', 'orders', 'contracts', 'hoursheet',
-    'candidates', 'ads', 'marketing', 'recruiting', 'crews', 'invoices', 'costs',
-    'bank', 'accommodations', 'rules', 'members']) {
+  for (const k of ['tasks', 'messages', 'flow', 'opportunities', 'quotes', 'partners', 'orders',
+    'contracts', 'timesheets', 'hoursheet', 'hiring', 'candidates', 'ads', 'marketing',
+    'recruiting', 'crews', 'invoices', 'costs', 'bank', 'accommodations', 'trades',
+    'compliance', 'rules', 'members']) {
     t(`${D.labelOf(k)} je záložka, nie položka menu`,
       !vlavo.includes(k) && D.routeAvailable(k) && !!D.parentOf(k));
   }
 
   // Prvá záložka musí povedať, čo na nej je. „Zákazky → Zákazky" nepovie nič.
-  for (const k of ['dashboard', 'subcontracts', 'timesheets', 'partners', 'hiring',
-    'workers', 'money', 'settings']) {
+  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'settings']) {
     const tabs = D.tabsOf(k);
     t(`${D.labelOf(k)} má záložky (${tabs.map(x => x[1]).join(' | ')})`, tabs.length >= 2);
     t(`a prvá nehovorí „${D.labelOf(k)} → ${tabs[0][1]}"`,
@@ -387,11 +388,10 @@ if (D) {
   const vlavo = D.sidebarNav().map(n => n[0]);
   const ludia = ['hiring', 'workers', 'trades', 'candidates', 'ads', 'recruiting', 'crews']
     .filter(k => vlavo.includes(k));
-  t(`v menu sú tri položky pre ľudí — ${ludia.join(', ')}`,
-    ludia.length === 3 && ludia.includes('hiring') && ludia.includes('workers')
-      && ludia.includes('trades'));
-  t('a menu ide v poradí siedmich krokov',
-    ['opportunities', 'hiring', 'partners', 'workers', 'subcontracts', 'timesheets']
+  t(`pre ľudí je v menu jedna položka — ${ludia.join(', ')}`,
+    ludia.length === 1 && ludia.includes('workers'));
+  t('a menu ide v poradí Dnes, Zákazky, Ľudia, Peniaze',
+    ['dashboard', 'subcontracts', 'workers', 'money', 'settings']
       .map(k => vlavo.indexOf(k)).every((x, i, a) => x >= 0 && (i === 0 || x > a[i - 1])));
 
   const deti = ['candidates', 'ads', 'recruiting', 'crews'];
@@ -400,21 +400,21 @@ if (D) {
   t('ale všetky sa dajú otvoriť odkazom', deti.every(k => D.routeAvailable(k)));
   // Úvodzovka je v HTML odescapovaná (`&quot;`), preto sa hľadá len začiatok.
   t('a v mega menu je napísané, kde ich hľadať',
-    D.megaHtml().includes('Záložka v „Nábor')
-      && D.megaHtml().includes('Záložka v „Živnostníci'));
+    D.megaHtml().includes('Záložka v „Ľudia')
+      && D.megaHtml().includes('Záložka v „Zákazky'));
 
   // Partia je záložka pri živnostníkoch, nie v nábore — je to človek, ktorý
   // u nás už robí, nie krok náboru.
   t('partia patrí k živnostníkom', D.parentOf('crews') === 'workers');
-  t('a kandidáti k náboru', D.parentOf('candidates') === 'hiring');
+  t('a kandidáti aj nábor tiež', D.parentOf('candidates') === 'workers' && D.parentOf('hiring') === 'workers');
 
   // Záložky: z každej obrazovky sa dá dostať na jej súrodencov aj na rodiča.
   const zalozky = D.tabsOf('candidates').map(x => x[0]);
-  t(`záložky náboru: ${zalozky.join(', ')}`,
-    zalozky[0] === 'hiring' && zalozky.includes('ads') && zalozky.includes('recruiting'));
-  t('prvá záložka nehovorí „Nábor → Nábor"', D.tabsOf('candidates')[0][1] === 'Čo teraz');
+  t(`záložky ľudí: ${zalozky.join(', ')}`,
+    zalozky[0] === 'workers' && zalozky.includes('hiring') && zalozky.includes('ads') && zalozky.includes('recruiting'));
+  t('prvá záložka nehovorí „Ľudia → Ľudia"', D.tabsOf('candidates')[0][1] === 'Živnostníci');
   t('pruh záložiek sa vykreslí', /subtab.*active/.test(D.tabsHtml('candidates')));
-  t('a obrazovka bez detí ho nemá', D.tabsHtml('compliance') === '');
+  t('aj Compliance je záložkou Nastavení', /data-key="settings"/.test(D.tabsHtml('compliance')));
 
   // Záložky patria zoznamu, nie otvorenému záznamu. Nad menom človeka by
   // vyzerali ako jeho vlastnosti — a „Partie" nad Jozefom Malým nedáva zmysel.
@@ -425,7 +425,7 @@ if (D) {
     !D.header('Jozef Malý', '', '', ['Jozef Malý']).includes('subtabs'));
   D.route = bolo;
   t('z partie sa dá vrátiť na živnostníkov',
-    D.tabsOf('crews').map(x => x[0]).join(',') === 'workers,crews');
+    D.tabsOf('crews')[0][0] === 'workers' && D.tabsOf('crews').some(x => x[0] === 'crews'));
 
   // Bez práva na nábor sa jeho záložky nekreslia — inak by to bol odkaz,
   // ktorý vyhodí na prehľad.

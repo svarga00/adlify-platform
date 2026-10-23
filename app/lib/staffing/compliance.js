@@ -254,6 +254,10 @@
       const w = workerById.get(asg.worker_id);
       const name = w?.full_name || 'Pracovník';
       const docs = docsByWorker.get(asg.worker_id) || [];
+      // Položky o tomto človeku sa označia jeho id — zákazka v siedmich
+      // krokoch ich ukazuje pri ňom, nie medzi firemnými podmienkami.
+      const od = items.length;
+      const oznac = () => { for (let i = od; i < items.length; i++) items[i].worker_id = asg.worker_id; };
 
       // A1 — bez neho sa nesmie vyslať
       const a1 = docs.filter(d => d.kind === 'a1')
@@ -308,6 +312,7 @@
           }
         }
       }
+      oznac();
     }
 
     // ── Vlastné vedenie prác (dôkaz proti skrytej ANÜ) ───────────────────────

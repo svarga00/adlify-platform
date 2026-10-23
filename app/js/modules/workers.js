@@ -1374,10 +1374,27 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal();
       delete this._cislaNavrh[workerId];
-      await this.load(); await this.detail(workerId);
+      await this.load();
+      if (await this.backTo(workerId)) return UI.toast('Zmluva je zapísaná', 'ok');
+      await this.detail(workerId);
       // Zmluva podpísaná → ďalšia vec je stavba a objednávka. Appka ju podá
       // sama, nikto nemusí vedieť, kam ísť.
       this.nextSteps(workerId, 'Zmluva je zapísaná.');
+    },
+
+    /**
+     * Návrat tam, odkiaľ sa prišlo. GDPR a zmluva sa dajú zapísať aj priamo
+     * zo zákazky (krok 4 a 5) — vtedy sa po uložení vráti na zákazku, nie na
+     * kartu človeka. Platí len pre toho istého človeka a len chvíľu, aby
+     * zabudnutý návrat neprehodil niekoho o hodinu neskôr inam.
+     */
+    returnTo: null,
+    async backTo(workerId) {
+      const r = this.returnTo;
+      this.returnTo = null;
+      if (!r || r.workerId !== workerId || Date.now() - r.at > 30 * 60 * 1000) return false;
+      await r.fn();
+      return true;
     },
 
     /** Zapíše podpísaný súhlas ako doklad. Dátum je deň podpisu, nie dnešok. */
@@ -1407,7 +1424,9 @@
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal();
-      await this.load(); await this.detail(workerId);
+      await this.load();
+      if (await this.backTo(workerId)) return UI.toast('Súhlas je zapísaný', 'ok');
+      await this.detail(workerId);
       this.nextSteps(workerId, 'Súhlas je zapísaný.');
     },
 

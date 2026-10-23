@@ -95,52 +95,45 @@ window.Danubra = {
   // za ním jeho záložky. V ľavom menu sa kreslia len rodičia (`sidebarNav`),
   // takže z 24 položiek v ôsmich skupinách zostalo **jedenásť v piatich**.
   navGroups: [
-    // Denná práca. „Ako to ide" je mapa appky, nie ďalšia agenda — kreslí sa
-    // hore (`topRoutes`), tu zostáva preto, aby mala oblasť, právo aj
-    // vysvetlivku. Úlohy a Správy sú záložky Prehľadu: je to tá istá otázka
-    // („čo mám robiť"), len inak zobrazená.
-    ['DNES',       [['dashboard', 'Prehľad', 'dashboard'],
+    // **Menu sú štyri miesta, nie sedem krokov.** „Celé je to také
+    // neprehľadné a stále neintuitívne." Menu malo 11 položiek zoradených
+    // podľa krokov práce a človek musel vedieť, že GDPR je v Živnostníkoch,
+    // zmluva s Nemcom v Odberateľoch a objednávka v Zákazkách.
+    //
+    // Dnes sa práca robí **pri zákazke** — tá má sedem krokov pod sebou
+    // (`lib/staffing/job.js`) a z každého je tlačidlo priamo na to, čo treba.
+    // Menu preto odpovedá na štyri otázky: čo dnes, ktorá stavba, ktorí ľudia,
+    // aké peniaze. Všetko ostatné je záložkou jednej z nich a funguje ďalej.
+    ['DNES',       [['dashboard', 'Dnes', 'dashboard'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
                     ['messages', 'Správy', 'mail'],
                     ['flow', 'Ako to ide', 'repeat']]],
-    // **Menu je sedem krokov práce, v poradí, v akom sa robia.** Dovtedy bolo
-    // zoradené podľa toho, čo je v databáze (Zákazky, Ľudia, Peniaze) — a kto
-    // sa učil appku, musel sa naučiť dve poradia: jedno na Prehľade, druhé
-    // v menu. Číslo pri položke je to isté číslo ako na Prehľade a v pruhu
-    // nad nadpisom (`DanubraChain.ROUTE_STEPS`).
-    //
-    // Záložky idú za svojím rodičom a patria k tomu istému kroku: ponuka je
-    // odpoveď na dopyt (1), zmluva s Nemcom patrí k odberateľovi (3),
-    // ubytovanie k ľuďom na stavbe (7).
-    ['7 KROKOV PRÁCE', [
+    ['ZÁKAZKY',    [['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['opportunities', 'Dopyty', 'offers', 'staffing', 'contracts'],
                     ['quotes', 'Ponuky', 'offers', 'staffing', 'contracts'],
-                    ['hiring', 'Nábor', 'zap', 'staffing', 'recruiting'],
-                    ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
-                    ['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
-                    ['marketing', 'Marketing', 'marketing'],
-                    ['recruiting', 'Zápisy z hovorov', 'note', 'staffing', 'recruiting'],
                     ['partners', 'Odberatelia v Nemecku', 'clients', 'staffing', null],
                     ['contracts', 'Zmluvy', 'note', 'staffing', 'contracts'],
-                    ['workers', 'Živnostníci', 'workers', 'staffing', null],
-                    ['crews', 'Partie', 'workers', 'staffing', null],
-                    ['subcontracts', 'Zákazky', 'site', 'staffing', 'contracts'],
                     ['orders', 'Objednávky', 'orders', 'staffing', 'contracts'],
                     ['timesheets', 'Odpracované hodiny', 'clock', 'staffing', 'contracts'],
                     ['hoursheet', 'Výkaz pre odberateľa', 'doc', 'staffing', 'contracts'],
                     // Ubytovania sú bez agendy zámerne — po archivácii
                     // obchodnej časti zostávajú ako náklad zákazky (R4).
-                    ['accommodations', 'Ubytovania', 'bed', undefined, null],
-                    // „Náklady" sa volali Náklady, hoci prvá záložka na nich sú
-                    // **prijaté faktúry**. V menu je preto otázka: kde sú peniaze.
-                    ['money', 'Kde sú peniaze', 'wallet', 'staffing', 'finance'],
+                    ['accommodations', 'Ubytovania', 'bed', undefined, null]]],
+    ['ĽUDIA',      [['workers', 'Ľudia', 'workers', 'staffing', null],
+                    ['hiring', 'Nábor', 'zap', 'staffing', 'recruiting'],
+                    ['candidates', 'Kandidáti', 'user', 'staffing', 'recruiting'],
+                    ['ads', 'Inzeráty', 'marketing', 'staffing', 'recruiting'],
+                    ['recruiting', 'Zápisy z hovorov', 'note', 'staffing', 'recruiting'],
+                    ['marketing', 'Marketing', 'marketing'],
+                    ['crews', 'Partie', 'workers', 'staffing', null]]],
+    ['PENIAZE',    [['money', 'Peniaze', 'wallet', 'staffing', 'finance'],
                     ['invoices', 'Vydané faktúry', 'invoices', 'staffing', 'finance'],
                     ['costs', 'Prijaté faktúry a náklady', 'receipt', 'staffing', 'finance'],
                     ['bank', 'Banka a cash-flow', 'invoices', 'staffing', 'finance']]],
     // Veci, ktoré sa nastavia raz a potom sa z nich len čerpá.
-    ['NASTAVENIE', [['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
+    ['NASTAVENIE', [['settings', 'Nastavenia', 'settings'],
+                    ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
                     ['compliance', 'Compliance', 'shield', 'staffing', null],
-                    ['settings', 'Nastavenia', 'settings'],
                     ['rules', 'Cenník a pravidlá', 'rules'],
                     ['members', 'Používatelia', 'clients']]],
   ],
@@ -293,14 +286,13 @@ window.Danubra = {
   // Spodné taby na mobile (stred = rýchle pridanie)
   tabsByArea: {
     staffing: [
-      { key: 'dashboard', label: 'Prehľad', ico: 'dashboard' },
+      // Tie isté štyri miesta ako v menu — na telefóne aj na počítači sa
+      // hľadá na tom istom mieste.
+      { key: 'dashboard', label: 'Dnes', ico: 'dashboard' },
       { key: 'subcontracts', label: 'Zákazky', ico: 'site' },
       { key: '__plus', label: '', plus: true },
-      { key: 'hiring', label: 'Nábor', ico: 'zap' },
-      // Kandidáti sú záložka Náboru, takže sa spodný tab pri nich nikdy
-      // nezvýraznil (`navActive()` ukáže rodiča). Na jeho mieste je Možnosť:
-      // z telefónu sa najčastejšie zapisuje práve to, čo niekto zavolal.
-      { key: 'opportunities', label: 'Dopyty', ico: 'offers' },
+      { key: 'workers', label: 'Ľudia', ico: 'workers' },
+      { key: 'money', label: 'Peniaze', ico: 'wallet' },
     ],
   },
 
@@ -309,7 +301,7 @@ window.Danubra = {
   // Obrazovky, ktoré nepatria do ľavého menu, ale do horného pruhu. Nie je to
   // skrývanie — v mega menu („Všetko") sú normálne vidieť. Ide o to, že to nie
   // je agenda, kde sa pracuje, ale pohľad na to, ako appka funguje.
-  topRoutes: ['flow'],
+  topRoutes: [],
 
   /**
    * Obrazovky, ktoré sú **záložkou** inej obrazovky, nie položkou menu.
@@ -326,30 +318,31 @@ window.Danubra = {
    * fungujú ďalej a v mega menu („Všetko") sú vidieť všetky.
    */
   navParent: {
-    // Prehľad odpovedá na „čo mám robiť". Úlohy a Správy odpovedajú na to isté
-    // inak — nie je to tretia agenda, sú to ďalšie dva pohľady.
-    tasks: 'dashboard', messages: 'dashboard',
-    // Každá záložka patrí k tomu istému kroku ako jej rodič: ponuka je
-    // odpoveď na dopyt (krok 1), zmluva s Nemcom patrí k odberateľovi (3),
-    // objednávka živnostníkovi k zákazke (6) a ubytovanie k ľuďom na stavbe (7).
-    quotes: 'opportunities', contracts: 'partners', orders: 'subcontracts',
-    hoursheet: 'timesheets', accommodations: 'timesheets',
-    candidates: 'hiring', ads: 'hiring', marketing: 'hiring', recruiting: 'hiring',
-    crews: 'workers',
-    // „Kde sú peniaze" je otázka. Vydané, prijaté a banka sú tri odpovede
-    // na ňu — preto sú to jej záložky a nie tri riadky v menu.
+    // Poradie tu je poradím záložiek. Prehľad „čo dnes" a jeho ďalšie pohľady.
+    tasks: 'dashboard', messages: 'dashboard', flow: 'dashboard',
+    // Zákazka: od dopytu po hodiny. Na konkrétnej zákazke je to isté ako
+    // sedem krokov; tu sú zoznamy cez všetky zákazky naraz.
+    opportunities: 'subcontracts', quotes: 'subcontracts', partners: 'subcontracts',
+    contracts: 'subcontracts', orders: 'subcontracts', timesheets: 'subcontracts',
+    hoursheet: 'subcontracts', accommodations: 'subcontracts',
+    // Ľudia: kartotéka, nábor nových a partie.
+    hiring: 'workers', candidates: 'workers', ads: 'workers', recruiting: 'workers',
+    marketing: 'workers', crews: 'workers',
+    // „Kde sú peniaze" je otázka. Vydané, prijaté a banka sú tri odpovede.
     invoices: 'money', costs: 'money', bank: 'money',
-    rules: 'settings', members: 'settings',
+    trades: 'settings', compliance: 'settings', rules: 'settings', members: 'settings',
   },
 
-  // Na záložke je málo miesta a názov z menu je tam dlhý. „Nábor → Nábor"
-  // navyše nič nepovie — prvá záložka má povedať, čo na nej je.
+  // Na záložke je málo miesta a názov z menu je tam dlhý. Prvá záložka má
+  // povedať, čo na nej je — „Ľudia → Ľudia" nepovie nič.
   navTabLabel: {
-    hiring: 'Čo teraz', workers: 'Ľudia', recruiting: 'Zápisy',
-    trades: 'Remeslá', marketing: 'Inzercia a výdavky',
-    subcontracts: 'Zákazky', timesheets: 'Hodiny', opportunities: 'Dopyty', hoursheet: 'Výkaz',
-    partners: 'Odberatelia', money: 'Kde stoja', costs: 'Prijaté faktúry',
-    settings: 'Firma a agendy', tasks: 'Úlohy',
+    dashboard: 'Dnes', tasks: 'Úlohy', flow: 'Ako to ide',
+    subcontracts: 'Zákazky', opportunities: 'Dopyty', partners: 'Odberatelia',
+    timesheets: 'Hodiny', hoursheet: 'Výkaz', accommodations: 'Ubytovania',
+    workers: 'Živnostníci', hiring: 'Nábor', recruiting: 'Zápisy',
+    marketing: 'Inzercia a výdavky',
+    money: 'Kde stoja', invoices: 'Vydané', costs: 'Prijaté', bank: 'Banka',
+    settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
   },
 
   allNav() { return this.navGroups.flatMap(g => g[1]); },
@@ -429,7 +422,7 @@ window.Danubra = {
     return this.visibleNav()
       .filter(i => this.topRoutes.includes(i[0]) && this.can(i[0]));
   },
-  labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'Prehľad'; },
+  labelOf(key) { const n = this.allNav().find(x => x[0] === key); return n ? n[1] : 'Dnes'; },
 
   // ── Nastavenia: jeden riadok, jedno miesto ────────────────────────────────
   // Nastavenia sa predtým načítavali na štyroch miestach (`Cfg`, `Invoicing`,
@@ -611,7 +604,11 @@ window.Danubra = {
       const vlavo = new Set(this.sidebarNav().map(i => i[0]));
       const visible = items.filter(i => vlavo.has(i[0]));
       if (!visible.length) return '';
-      return `<div class="nav-group">${glabel}</div>
+      // Pri štyroch hlavných miestach by nadpis nad každou jednou položkou
+      // len zdvojil jej názov. Nadpis má zmysel tam, kde je skupina —
+      // a pred Nastaveniami, aby sa oddelili od dennej práce.
+      const nadpis = visible.length > 1 || glabel === 'NASTAVENIE';
+      return `${nadpis ? `<div class="nav-group">${glabel}</div>` : ''}
       ${visible.map(([key, label, ico]) => {
         const b = this.badges[key];
         return `<button class="nav-item${key === this.navActive() ? ' active' : ''}" data-key="${key}" onclick="Danubra.go('${key}')">
@@ -939,7 +936,7 @@ window.Danubra = {
   crumbs(trail = []) {
     if (this.route === 'dashboard' && !trail.length) return '';
     const parts = [
-      `<button onclick="Danubra.go('dashboard')">Prehľad</button>`,
+      `<button onclick="Danubra.go('dashboard')">Dnes</button>`,
       ...(this.route === 'dashboard' || !trail.length ? [] : [
         `<button onclick="Danubra.go('${this.route}')">${UI.esc(this.labelOf(this.route))}</button>`,
       ]),
@@ -962,7 +959,9 @@ window.Danubra = {
   // človeku — nad menom by vyzerali ako jeho vlastnosti.
   header(title, sub, right, trail, lead) {
     const help = window.Help ? Help.btn(`screen.${this.route}`, { size: 15 }) : '';
-    return `${this.stepBar(this.route)}<div class="page-head">
+    // Pruh „Krok X zo 7" nad každou obrazovkou sa už nekreslí: kroky sú
+    // teraz pri zákazke a dva rôzne pruhy krokov by sa bili.
+    return `<div class="page-head">
       <div style="min-width:0;">
         ${this.crumbs(trail)}
         <div class="page-title-row">
