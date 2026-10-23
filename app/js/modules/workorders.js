@@ -254,16 +254,11 @@
 
           <div class="form-section">Cena</div>
           <div class="form-grid">
-            ${UI.field('price_model', 'Model', { value: o.price_model || 'hourly',
-              options: PRICE_OPTS })}
+            <!-- Vždy po hodinách — model sa nevyberá. -->
+            <input type="hidden" name="price_model" value="hourly">
             ${UI.field('rate', 'Sadzba €/h', { type: 'number', step: '0.01', value: o.rate,
               hint: k === 'worker'
-                ? 'Na stavbe musí byť aspoň Bau-Mindestlohn.' : '' })}
-            ${UI.field('unit_price', 'Cena za jednotku €', { type: 'number', step: '0.01',
-              value: o.unit_price })}
-            ${UI.field('unit_label', 'Jednotka', { value: o.unit_label, placeholder: 'm², kus…' })}
-            ${UI.field('fixed_price', 'Pevná cena €', { type: 'number', step: '0.01',
-              value: o.fixed_price })}
+                ? 'Na stavbe musí byť aspoň Bau-Mindestlohn.' : 'Fakturujeme vždy po hodinách.' })}
             ${UI.field('status', 'Stav', { value: o.status || 'draft', options: STATUS_OPTS })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: o.notes })}

@@ -59,9 +59,16 @@
       el.innerHTML = Danubra.header('Marketing',
         `${this.listings.filter(l => l.status !== 'expired').length} aktívnych inzerátov · `
         + `minuté ${UI.money(spent)}${budget ? ` z ${UI.money(budget)}` : ''}`) +
-        (toRenew.length ? `<div class="warnbox" style="margin-bottom:14px;">
-          ${Icon('alert', 14)} ${toRenew.length} ${toRenew.length === 1 ? 'inzerát treba' : 'inzerátov treba'} obnoviť
-          do 7 dní — inak prestanú zbierať dopyt.</div>` : '') + `
+        // Jedna veta, čo spraviť — Marketing je teraz samostatné miesto v menu.
+        Shell.now(toRenew.length
+          ? { key: 'renew', hot: true, title: 'Obnoviť inzeráty',
+              what: `${toRenew.length} ${Shell.plural(toRenew.length, 'inzerát treba', 'inzeráty treba', 'inzerátov treba')} obnoviť do 7 dní.`,
+              why: 'Inzerát, ktorý vyprší, prestane zbierať dopyt — a nikto si to nevšimne.' }
+          : { key: 'ok', hot: false, title: 'Nič nečaká',
+              what: 'Žiadny inzerát netreba obnoviť.',
+              why: 'Keď sa niektorý bude blížiť ku koncu, bude to tu ako prvé.' },
+          { help: 'card.mkt.now', action: toRenew.length
+            ? { label: 'Otvoriť inzerát', ico: 'repeat', onclick: `Mkt.listingForm('${toRenew[0].id}')` } : null }) + `
 
         <div class="kpi-grid" style="margin-bottom:16px;">
           <div class="kpi"><div class="kpi-label">Minuté tento mesiac</div>

@@ -752,7 +752,7 @@ console.log('Prehliadač');
         out.menu.join(' | '));
       // Inzercia a výdavky (bývalé „Marketing") je tam piata: je to to isté
       // rozhodnutie — kde inzerovať a koľko to stojí.
-      ok(out.zalozky.join(',') === 'Živnostníci,Nábor,Kandidáti,Inzeráty,Zápisy,Inzercia a výdavky,Partie',
+      ok(out.zalozky.join(',') === 'Živnostníci,Nábor,Kandidáti,Inzeráty,Zápisy,Partie',
         'sú to záložky Ľudí', out.zalozky.join(','));
       ok((out.zalozkaTeraz || '').trim() === 'Nábor',
         'a je vidieť, na ktorej práve stojím', out.zalozkaTeraz);
@@ -1142,14 +1142,15 @@ console.log('Prehliadač');
       ok(/<span>Výpovedná lehota<\/span><strong>30 dní/.test(out.html),
         'aj výpovedná lehota');
       ok(out.t.includes('vogel@bau.de'), 'aj kontakt na odberateľa');
-      ok(out.t.includes('Arbeitnehmerüberlassung'),
-        'pri hodinovej cene sa ozve upozornenie');
+      // Fakturuje sa vždy po hodinách — upozornenie „prepni na pevnú cenu" je preč.
+      ok(!out.t.includes('prepni to na pevnú cenu'),
+        'pri hodinovej cene sa už neozýva upozornenie (vždy po hodinách)');
       ok(out.t.includes('33,00 € / h'), 'dodatok ukazuje sumu, nie surové „33"');
       ok(out.t.includes('Prišiel podpísaný'), 'nepodpísaný dodatok sa dá podpísať');
       ok(out.html.includes('Con.uploadScan'), 'sken originálu sa dá nahrať');
       ok(out.html.includes('Con.document'), 'a zmluva sa dá otvoriť ako dokument');
 
-      for (const f of ['site_name', 'price_model', 'fixed_price', 'unit_price',
+      for (const f of ['site_name', 'price_model',
         'charge_rate', 'retention_pct', 'warranty_months', 'notice_days',
         'penalty_note', 'contact_name', 'contact_email', 'contact_phone']) {
         ok(out.poliaKonceptu.includes(f), `formulár má pole „${f}"`);

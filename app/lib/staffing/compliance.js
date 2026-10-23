@@ -329,11 +329,8 @@
         'Werkvertrag musí definovať výsledok (m², kus, dokončená konštrukcia), nie hodiny',
         'Doplniť konkrétny rozsah diela do zmluvy');
     }
-    if (sc.billing_model === 'hourly') {
-      add('info', 'Fakturácia po hodinách',
-        'Hodinová odmena sama o sebe nie je zakázaná, ale v spore je slabším dôkazom Werkvertrag',
-        'Doplniť merateľný výsledok diela do zmluvy');
-    }
+    // Fakturuje sa vždy po hodinách (rozhodnutie firmy) — upozornenie pri
+    // každej zákazke by bolo len šumom. Drží to opis diela vyššie.
 
     const blockers = items.filter(i => i.severity === 'blocker');
     const warnings = items.filter(i => i.severity === 'warning');

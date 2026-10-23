@@ -274,6 +274,36 @@
         ['invoices', 'Vydané faktúry']],
     },
 
+    'screen.advances': {
+      title: 'Zálohy a výplaty',
+      lead: 'Komu sme dali zálohu a komu čo dlhujeme — za všetkých živnostníkov naraz.',
+      what: [
+        'Hore tri tlačidlá: dať zálohu, preplatiť výdavok, vyplatiť faktúry cez banku.',
+        'Pod tým každý človek, ktorý má nevyrovnanú zálohu alebo schválenú faktúru na výplatu.',
+      ],
+      how: [
+        'Suma = schválené faktúry mínus zálohy, ktoré ešte neboli odpočítané z faktúry.',
+        'To isté okno „Záloha / platba" je na karte človeka aj v zákazke pri jeho mene.',
+      ],
+      why: [
+        'Záloha daná v hotovosti na stavbe sa inak zabudne odpočítať — a zaplatí sa dvakrát.',
+      ],
+      links: [['costs', 'Prijaté faktúry'], ['bank', 'Banka']],
+    },
+    'card.adv.list': {
+      title: 'Kto čo od nás má dostať',
+      lead: 'Po ľuďoch: schválené faktúry a nevyrovnané zálohy.',
+      what: ['Kladná suma: toľko mu ešte máme poslať. „Preplatené": dali sme mu viac, než vyfakturoval.'],
+      how: ['Záloha sa odpočíta, keď sa spáruje s jeho faktúrou. Omyl sa ruší s dôvodom na jeho karte.'],
+      why: ['Na jednom mieste je vidieť, kto čaká na peniaze — skôr, než zavolá.'],
+    },
+    'card.mkt.now': {
+      title: 'Marketing — čo teraz',
+      lead: 'Jedna vec, ktorá sa má v marketingu spraviť.',
+      what: ['Najprv inzeráty, ktoré o pár dní vypršia.'],
+      how: ['Inzerát sa obnovuje na portáli; tu sa len zapíše nový dátum.'],
+      why: ['Inzerát, ktorý vyprší, prestane zbierať dopyt a nikto si to nevšimne.'],
+    },
     'screen.money': {
       title: 'Kde sú peniaze',
       lead: 'Dve otázky na jednom mieste: kde stoja naše peniaze a koľko sa z nich '

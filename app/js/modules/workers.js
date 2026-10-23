@@ -544,7 +544,8 @@
 
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Wrk.closeProfile()">${Icon('back', 15)} Späť</button>
-        <button class="btn btn-outline btn-sm" onclick="Wrk.form('${w.id}')">${Icon('edit', 14)} Upraviť</button>`);
+        <button class="btn btn-outline btn-sm" onclick="Wrk.form('${w.id}')">${Icon('edit', 14)} Upraviť</button>
+        <button class="btn btn-primary btn-sm" onclick="Wrk.payMenu('${w.id}')">${Icon('wallet', 14)} Záloha / platba</button>`);
 
       // Účet sa načíta až tu — zoznam ľudí naň nečaká.
       if (!this.acc.loaded || this.acc.workerId !== id) {
@@ -1517,6 +1518,62 @@
     },
 
     // ── Zálohy ────────────────────────────────────────────────────────────
+    // ── Záloha / platba — rýchlo, odkiaľkoľvek ───────────────────────────
+    // „Keď si otvorím človeka a chce zálohu alebo niečo potrebuje zaplatiť,
+    // aby som to rýchlo vedel zaznamenať." Jedno okno, štyri možnosti; to isté
+    // je na karte človeka, v zákazke pri jeho mene a vo Fakturácii.
+    async payMenu(workerId) {
+      if (!this.loaded) await this.load();
+      const w = this.items.find(x => x.id === workerId);
+      if (!w) return UI.toast('Človek sa nenašiel', 'err');
+      if (!this.acc.loaded || this.acc.workerId !== workerId) {
+        try { await this.loadAccount(workerId); } catch (e) { /* bez účtu len bez súhrnu */ }
+      }
+      // Súhrn je ten istý ako na karte človeka (DanubraAccount) — owed je
+      // „dlhujeme" po odpočte nevyrovnaných záloh.
+      let a = null;
+      if (this.acc.workerId === workerId) {
+        try {
+          const s = DanubraAccount.summary({ worker: w, assignments: this.assignments.filter(x => x.worker_id === workerId),
+            timesheets: this.acc.timesheets, bills: this.acc.bills, advances: this.acc.advances, today: Danubra._dayISO() });
+          a = { owed: Math.max(0, s.owed || 0), advancesOpen: s.advancesOpen || 0 };
+        } catch (e) { a = null; }
+      }
+      const tile = (what, ico, title, sub) => `<button class="pick-tile" onclick="UI.closeModal();Wrk.payDo('${workerId}','${what}')">
+        <span class="pick-ico">${Icon(ico, 20)}</span><span class="pick-txt"><b>${title}</b><em>${sub}</em></span>
+        <span class="pick-go">${Icon('chevron', 16)}</span></button>`;
+      UI.modal(`Záloha / platba · ${w.full_name}`, `
+        ${a ? `<div class="kv" style="margin:0 0 12px;">
+          <div><span>Dlhujeme mu</span><strong>${Money.format(Math.max(0, a.owed || 0))}</strong></div>
+          <div><span>Nevyrovnané zálohy</span><strong>${Money.format(a.advancesOpen || 0)}</strong></div>
+        </div>` : ''}
+        <div class="pick-list">
+          ${tile('advance', 'wallet', 'Dať zálohu', 'Hotovosť alebo prevod. Odpočíta sa z jeho najbližšej faktúry.')}
+          ${tile('expense', 'receipt', 'Preplatiť výdavok', 'Kúpil materiál, benzín, náradie… — zapíše sa ako náklad a vrátime mu to.')}
+          ${tile('bill', 'invoices', 'Jeho faktúra na zaplatenie', 'Poslal faktúru za práce — zapísať alebo nahrať PDF.')}
+          ${tile('pay', 'euro', 'Poslať peniaze na účet', 'Príkaz na úhradu do banky za jeho schválené faktúry.')}
+        </div>`, { wide: true });
+    },
+
+    /** Čo s ním — otvorí rovno správny formulár, už s jeho menom. */
+    async payDo(workerId, what) {
+      if (what === 'advance') {
+        if (!this.loaded) await this.load();
+        return this.advanceForm(workerId);
+      }
+      if (what === 'pay') {
+        if (!window.Bank) return Danubra.go('bank');
+        return Bank.payForm();
+      }
+      if (!window.Cost) return Danubra.go('costs');
+      if (!Cost.loaded) await Cost.load();
+      if (what === 'expense') {
+        return Cost.costForm(null, { worker_id: workerId, category: 'other',
+          description: 'Preplatenie výdavku', cost_date: Danubra._dayISO() });
+      }
+      return Cost.billForm(null, { worker_id: workerId, category: 'work' });
+    },
+
     advanceForm(workerId) {
       const w = this.items.find(x => x.id === workerId);
       const sites = this.assignments.filter(a => a.worker_id === workerId)
@@ -1546,6 +1603,8 @@
     },
 
     async saveAdvance(workerId) {
+      // Zálohy vo Fakturácii sa musia hneď prepočítať.
+      if (window.Adv) Adv.loaded = false;
       const d = UI.formData(document.getElementById('adv-form'));
       const amount = Number(String(d.amount).replace(',', '.'));
       if (!(amount > 0)) return UI.toast('Suma musí byť väčšia než nula', 'err');
