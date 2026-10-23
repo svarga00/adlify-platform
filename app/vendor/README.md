@@ -88,3 +88,18 @@ V odpovedi sú bloky `/* latin */` a `/* latin-ext */` — z nich si vezmi
 adresy `.woff2` a stiahni ich sem pod rovnakými názvami. `unicode-range`
 v `app.css` musí sedieť s tým, čo je v odpovedi, inak sa podmnožina načíta
 aj tam, kde netreba (alebo sa nenačíta tam, kde treba).
+
+## `html2pdf-0.10.1.bundle.min.js`
+
+PDF z dokumentu priamo v prehliadači — html2pdf.js 0.10.1 (MIT), v sebe má
+html2canvas a jsPDF. Licencie sú v `html2pdf-0.10.1.LICENSE.txt`.
+
+**Prečo.** Dokumenty sa ukladali tlačou prehliadača („Uložiť ako PDF") a Chrome
+na každú stranu pridal adresu stránky a dátum. Teraz tlačidlo „Stiahnuť PDF"
+spraví súbor rovno, s rozumným názvom, a uloží ho aj do archívu.
+
+Načítava sa až v okne dokumentu (`services/docs.js`), nie pri štarte appky —
+má takmer 1 MB a väčšina obrazoviek ho nepotrebuje.
+
+**Ako ho aktualizovať:** `npm pack html2pdf.js@<verzia>`, z balíka skopíruj
+`dist/html2pdf.bundle.min.js` a licencie a prepíš verziu v `services/docs.js`.

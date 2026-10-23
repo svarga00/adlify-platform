@@ -176,9 +176,8 @@
       const chyba = DanubraFrameworkDe.missing({ supplier, client });
 
       const html = DanubraPapers.rahmenvertrag({ zmluva, chyba });
-      const okno = window.open('', '_blank');
-      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      okno.document.open(); okno.document.write(html); okno.document.close();
+      Docs.show(window.open('', '_blank'), html, { kind: 'rahmen', title: 'Rahmenvertrag',
+        number: zmluva && zmluva.number, who: p.name, lang: 'de', partner_id: p.id });
 
       if (chyba.length) {
         UI.toast(`Pred podpisom doplň: ${chyba.map(c => c.title).join(', ')}`, 'warn');
@@ -251,6 +250,9 @@
           <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`).join('')
           || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne zákazky.</div>'}
 
+        <div class="form-section">Dokumenty</div>
+        ${window.Docs ? Docs.slot('partner', p.id, { empty: 'Zatiaľ žiadne. Rámcová zmluva, Werkvertrag, ponuka či faktúra sa sem uložia, keď z nich spravíte PDF.' }) : ''}
+
         <div class="modal-actions">
           <button class="btn btn-danger btn-sm" onclick="Prt.del('${p.id}')">Zmazať</button>
           <button class="btn btn-outline btn-sm" onclick="Prt.rahmen('${p.id}')">
@@ -258,6 +260,7 @@
           <button class="btn btn-outline btn-sm" onclick="Prt.form('${p.id}')">Upraviť</button>
         </div>`;
       UI.modal(p.name, body, { wide: true });
+      if (window.Docs) Docs.fill(document.getElementById('ui-modal'));
     },
 
     form(id) {

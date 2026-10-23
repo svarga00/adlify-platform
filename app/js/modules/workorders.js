@@ -406,9 +406,9 @@
         },
         ramcova: c ? { number: c.contract_number, signedAt: c.signed_at } : null,
       });
-      const okno = window.open('', '_blank');
-      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      okno.document.open(); okno.document.write(html); okno.document.close();
+      Docs.show(window.open('', '_blank'), html, { kind: 'objednavka', title: 'Bestellung',
+        number: o.order_number, who: p.name, lang: 'de', partner_id: o.partner_id || null,
+        subcontract_id: o.subcontract_id || null });
     },
 
     /** Doklad. Odberateľovi po nemecky, živnostníkovi po slovensky. */
@@ -425,9 +425,13 @@
         ramcova: o.worker_id ? this.ramcovaOf(o.worker_id) : null,
       });
       // `okno` je otvorené vopred, keď sa pred papierom ešte načítavalo.
-      const w = okno || window.open('', '_blank');
-      if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      w.document.open(); w.document.write(html); w.document.close();
+      const odNemca = o.kind === 'customer';
+      Docs.show(okno || window.open('', '_blank'), html, {
+        kind: odNemca ? 'auftrag' : 'objednavka', title: odNemca ? 'Auftragsbestätigung' : 'Objednávka',
+        number: o.order_number, lang: odNemca ? 'de' : 'sk',
+        who: odNemca ? this.partnerOf(o.partner_id).name : this.workerOf(o.worker_id).full_name,
+        worker_id: o.worker_id || null, partner_id: o.partner_id || null,
+        subcontract_id: o.subcontract_id || null });
     },
   };
 

@@ -124,10 +124,28 @@
     body.editing .edit-hint{display:block}
     body.editing .page{outline:2px dashed #1E4FD8;outline-offset:4px}
     body.editing .page:focus{outline-style:solid}
-    @media (max-width:640px){.page{padding:22px 16px}.cols{flex-direction:column;gap:14px}
-      .sigs{flex-direction:column;gap:24px}.toolbar{padding:8px 12px}.toolbar button{padding:8px 10px;font-size:12px}
-      .tb-title{display:none}.toolbar{justify-content:flex-end}.total-box{min-width:0;width:100%}}
-    @media print{.toolbar,.edit-hint{display:none!important}.page{padding:0;outline:0!important}@page{margin:16mm}}
+    @media (max-width:640px){body:not(.pdf-mode) .page{padding:22px 16px}body:not(.pdf-mode) .cols{flex-direction:column;gap:14px}
+      body:not(.pdf-mode) .sigs{flex-direction:column;gap:24px}.toolbar{padding:8px 12px}.toolbar button{padding:8px 10px;font-size:12px}
+      .tb-title{display:none}.toolbar{justify-content:flex-end;flex-wrap:wrap}.tb-acts{flex-wrap:wrap;justify-content:flex-end}
+      body:not(.pdf-mode) .total-box{min-width:0;width:100%}
+      body:not(.pdf-mode) .head{flex-direction:column;gap:12px}body:not(.pdf-mode) .doc-title{text-align:left}}
+    /* Rám na tlač: hlavička a päta tabuľky sa opakujú na každej strane, takže
+       okraj je aj na druhej strane — a @page môže mať nulový okraj. Pri
+       nulovom okraji Chrome nemá kam dať adresu stránky a dátum. */
+    table.pf{margin:0;width:100%}
+    table.pf>thead>tr>td,table.pf>tbody>tr>td,table.pf>tfoot>tr>td{padding:0;border:0}
+    .pf-sp{height:0}
+    .tb-doc{display:none}
+    body.has-doc .tb-doc{display:inline-block}
+    body.has-doc .tb-print-only{display:none}
+    /* Počas výroby PDF nesmie byť v dokumente lišta ani rámik úprav. */
+    body.pdf-mode .page{outline:0}
+    .tb-msg{display:none;background:#FFF4EA;color:#0A1B3D;font-size:13px;padding:9px 20px;text-align:center}
+    .tb-msg.on{display:block}
+    .tb-msg button{margin-left:10px;background:${BRAND.orange};color:#fff;border:0;border-radius:8px;
+      padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer}
+    @media print{.toolbar,.edit-hint,.tb-msg{display:none!important}.page{padding:0 16mm;outline:0!important;max-width:none}
+      .pf-sp{height:14mm}@page{size:A4;margin:0}}
   `;
 
   /**
@@ -146,9 +164,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap" rel="stylesheet">
 <style>${CSS}</style></head><body>
 ${toolbar ? `<div class="toolbar"><span class="tb-title">${esc(title)}</span>
-<span class="tb-acts">${upravit}<button onclick="window.print()">Uložiť ako PDF / vytlačiť</button></span></div>
-${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. Zmena platí pre tento výtlačok — potom „Uložiť ako PDF".</div>' : ''}` : ''}
-<div class="page">${bodyHtml}</div></body></html>`;
+<span class="tb-acts">${upravit}<button class="tb-2 tb-doc" onclick="window.print()">Tlačiť</button><button class="tb-2 tb-doc" onclick="window.__doc&&window.__doc('share')">Poslať</button><button class="tb-doc" onclick="window.__doc&&window.__doc('pdf')">Stiahnuť PDF</button><button class="tb-print-only" onclick="window.print()">Uložiť ako PDF / vytlačiť</button></span></div>
+<div class="tb-msg" id="tb-msg"></div>
+${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. Zmena platí pre tento dokument — potom „Stiahnuť PDF".</div>' : ''}` : ''}
+<div class="page"><table class="pf"><thead><tr><td><div class="pf-sp"></div></td></tr></thead>
+<tbody><tr><td><div class="pf-main">${bodyHtml}</div></td></tr></tbody>
+<tfoot><tr><td><div class="pf-sp"></div></td></tr></tfoot></table></div></body></html>`;
   }
 
   /**

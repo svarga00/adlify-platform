@@ -229,12 +229,16 @@ window.Invoicing = {
     const html = window.DanubraPapers.invoice({
       invoice: inv, items, client, supplier, qrSvg, vatNote: r.note,
     });
-    this._openHtml(html);
+    const sk = (client?.country || 'SK').toUpperCase() === 'SK';
+    this._openHtml(html, { kind: 'rechnung', title: sk ? 'Faktúra' : 'Rechnung',
+      number: inv.invoice_number, who: client && client.name, lang: sk ? 'sk' : 'de',
+      partner_id: inv.partner_id || null, subcontract_id: inv.subcontract_id || null });
   },
 
-  _openHtml(html) {
+  _openHtml(html, meta) {
     const w = window.open('', '_blank');
     if (!w) { UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err'); return; }
+    if (window.Docs && meta) return Docs.show(w, html, meta);
     w.document.open(); w.document.write(html); w.document.close();
   },
 

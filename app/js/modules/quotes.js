@@ -181,9 +181,9 @@
         trade: q.trade_key ? Wrk.professionLabel(q.trade_key) : null,
         note: q.notes || null,
       });
-      const w = window.open('', '_blank');
-      if (!w) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      w.document.open(); w.document.write(html); w.document.close();
+      Docs.show(window.open('', '_blank'), html, { kind: 'angebot', title: 'Angebot',
+        number: q.quote_number, who: partner.name, lang: 'de', partner_id: q.partner_id || null,
+        subcontract_id: q.subcontract_id || null });
     },
 
     async setStatus(id, to) {

@@ -650,9 +650,8 @@
       const html = DanubraPapers.selfInvoice({ bill: b, worker: {
         ...w, address: w.business_address || w.address, city: w.business_city || w.city, zip: w.business_zip,
         iban: w.bank_iban }, company: Danubra.supplier(), period: p });
-      const okno = window.open('', '_blank');
-      if (!okno) return UI.toast('Povoľte vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      okno.document.open(); okno.document.write(html); okno.document.close();
+      Docs.show(window.open('', '_blank'), html, { kind: 'self_invoice', title: 'Faktúra',
+        number: b.bill_number, who: w.full_name, lang: 'sk', worker_id: b.worker_id || null });
     },
 
     /** Schváliť a vystaviť — číslo z radu živnostníka. Smie len admin (stráži databáza). */

@@ -1240,6 +1240,23 @@
     // Profil je jediná obrazovka, kde je celý človek naraz — a aj jediná,
     // kde sa dá omylom povedať „dlhujeme mu X", hoci to X je odhad, nie
     // záväzok. Preto má každá karta vlastné vysvetlenie.
+    'card.worker.documents': {
+      title: 'Dokumenty',
+      lead: 'Každé PDF, ktoré sa preňho v appke spravilo — súhlas GDPR, rámcová zmluva, '
+        + 'objednávka, infolist, faktúra.',
+      what: [
+        'Ukladá sa samo, keď pri dokumente kliknete na „Stiahnuť PDF" alebo „Poslať".',
+        'Názov je vždy dátum, druh, číslo a meno — dá sa zoradiť aj v počítači.',
+      ],
+      how: [
+        'Zaškrtnite viac dokumentov a „Poslať" ich pošle naraz (Mail, WhatsApp…).',
+        'Ten istý dokument stiahnutý viackrát je v zozname raz — s počtom starších verzií.',
+      ],
+      why: [
+        'Papier, ktorý odišiel, sa dá kedykoľvek nájsť pri človeku, nie v sťahovaných súboroch.',
+        'Nič sa nemaže: „Skryť" dokument len zloží zo zoznamu, súbor zostane uložený.',
+      ],
+    },
     'card.worker.account': {
       title: 'Zárobok a čo mu dlhujeme',
       lead: 'Koľko si odrobil, koľko nám vyfakturoval, čo sme mu už dali — a čo '

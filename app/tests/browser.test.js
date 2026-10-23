@@ -3778,6 +3778,101 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+    // ── Dokumenty: PDF rovno a archív ────────────────────────────────────
+    // „Keď dám export dokumentov, nešlo by, aby sťahovalo PDF rovno?" Dokument
+    // sa otvorí v okne, „Stiahnuť PDF" spraví skutočné PDF (nie tlač Chromu
+    // s adresou stránky), uloží ho do úložiska a zapíše do archívu k človeku.
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      await page.evaluate(() => {
+        const DATA = {
+          workers: [{ id: 'w1', full_name: 'Jozef Malý', status: 'deployed', legal_form: 'szco',
+            company_id: '12345678', address: 'Hlavná 1', city: 'Žilina', zip: '01001',
+            business_address: 'Hlavná 1', business_city: 'Žilina', business_zip: '01001',
+            birth_date: '1985-03-02', dic: '1234567890', tax_id: '1234567890' }],
+          worker_documents: [], work_orders: [], assignments: [], subcontracts: [], crews: [], overrides: [],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.',
+            address: 'Nové Zámky', company_id: '57553921', register: 'OR OS Nitra' } }],
+        };
+        window.__up = []; window.__ins = [];
+        DB.list = async (t) => ({ data: (DATA[t] || []).map(x => ({ ...x })), error: null });
+        DB.count = async () => 0;
+        DB.rpc = async () => ({ data: null, error: null });
+        DB.update = async () => ({ data: null, error: null });
+        DB.insert = async (t, row) => { window.__ins.push({ t, row }); return { data: { id: 'arch1', ...row }, error: null }; };
+        DB.signedDocUrls = async () => new Map();
+        DB.client = { storage: { from: () => ({
+          upload: async (p, b) => { window.__up.push({ p, size: b.size, type: b.type }); return { data: { path: p }, error: null }; },
+        }) } };
+        Danubra.user = { id: 'test', email: 'test@firma.sk' };
+        Danubra.me = { role: 'admin', active: true };
+        Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+      });
+      await page.evaluate(() => Wrk.load());
+      const [okno] = await Promise.all([page.waitForEvent('popup'), page.evaluate(() => Wrk.gdpr('w1'))]);
+      await okno.waitForLoadState();
+      await okno.waitForFunction(() => !!window.html2pdf, null, { timeout: 20000 });
+      const lista = await okno.evaluate(() => [...document.querySelectorAll('.toolbar button')]
+        .filter(b => b.offsetParent !== null).map(b => b.textContent.trim()));
+      const tlac = await okno.evaluate(() => {
+        const css = [...document.querySelectorAll('style')].map(x => x.textContent).join('');
+        return /@page\{size:A4;margin:0\}/.test(css) && !!document.querySelector('table.pf thead .pf-sp');
+      });
+      const dlP = page.waitForEvent('download', { timeout: 40000 }).catch(() => null);
+      await okno.click('button.tb-doc:has-text("Stiahnuť PDF")');
+      const dl = await dlP;
+      let hlavicka = '';
+      if (dl) {
+        const f = await dl.path();
+        hlavicka = require('fs').readFileSync(f).slice(0, 5).toString('latin1');
+      }
+      await okno.waitForTimeout(500);
+      const sprava = await okno.evaluate(() => document.getElementById('tb-msg').textContent.trim());
+      const st = await page.evaluate(() => ({ up: window.__up, ins: window.__ins.map(x => ({ t: x.t, ...x.row })) }));
+
+      ok(lista.includes('Stiahnuť PDF') && lista.includes('Poslať') && lista.includes('Tlačiť'),
+        'v okne dokumentu je Stiahnuť PDF, Poslať a Tlačiť', lista.join(', '));
+      ok(!lista.some(t => /Uložiť ako PDF/.test(t)), 'staré „Uložiť ako PDF / vytlačiť" už nie je');
+      ok(tlac, 'tlač má nulový okraj strany — Chrome nemá kam dať adresu a dátum');
+      ok(hlavicka === '%PDF-', 'stiahne sa skutočné PDF', hlavicka || 'nič sa nestiahlo');
+      ok(st.up.length === 1 && /^archiv\/worker\/w1\//.test(st.up[0].p) && st.up[0].type === 'application/pdf',
+        'PDF sa nahrá do úložiska k človeku', JSON.stringify(st.up));
+      const zaz = st.ins.find(x => x.t === 'archive') || {};
+      ok(zaz.kind === 'gdpr' && zaz.worker_id === 'w1' && /^\d{4}-\d{2}-\d{2} Súhlas GDPR – Jozef Malý\.pdf$/.test(zaz.file_name),
+        'a zapíše sa do archívu s rozumným názvom', zaz.file_name);
+      ok(/uložené do dokumentov/.test(sprava), 'okno povie, že je stiahnuté a uložené', sprava);
+
+      // Obrazovka Dokumenty: podľa ľudí a firiem, najnovšie navrchu.
+      const arch = await page.evaluate(async () => {
+        const R = [
+          { id: 'r1', kind: 'ramcova', number: '1', worker_id: 'w1', file_name: '2026-10-23 Rámcová zmluva 1 – Jozef Malý.pdf', created_at: '2026-10-23T10:00:00Z' },
+          { id: 'r2', kind: 'werkvertrag', number: 'WV-1', partner_id: 'p1', lang: 'de', file_name: '2026-10-21 Werkvertrag WV-1 – GU Ulm GmbH.pdf', created_at: '2026-10-21T09:00:00Z' },
+        ];
+        const stare = DB.list;
+        DB.list = async (t) => t === 'archive' ? { data: R, error: null }
+          : t === 'partners' ? { data: [{ id: 'p1', name: 'GU Ulm GmbH' }], error: null } : stare(t);
+        Danubra.route = 'archive';
+        await Danubra.views.archive.call(Danubra, document.getElementById('view'));
+        const v = document.getElementById('view');
+        await Docs.pick('r1', true);
+        return {
+          skupiny: [...v.querySelectorAll('.arch-head')].map(h => h.textContent.replace(/\s+/g, ' ').trim()),
+          lista: (v.querySelector('.arch-bar') || {}).textContent || '',
+          zalozka: Danubra.parentOf('archive'),
+        };
+      });
+      ok(arch.skupiny.length === 2 && /Jozef Malý/.test(arch.skupiny[0]) && /GU Ulm/.test(arch.skupiny[1]),
+        'Dokumenty sú triedené podľa ľudí a firiem', arch.skupiny.join(' | '));
+      ok(/Vybraté: 1/.test(arch.lista) && /Poslať/.test(arch.lista), 'po zaškrtnutí sa dá poslať aj viac naraz', arch.lista.replace(/\s+/g, ' '));
+      ok(arch.zalozka === 'dashboard', 'Dokumenty sú záložka pri Dnes');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

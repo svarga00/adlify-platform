@@ -609,11 +609,14 @@
               isTrade ? this.billingCard(w, billing) : ''}`,
             onom: `${this.aboutCard(w)}${this.promisesCard(w)}`,
             historia: `<div id="wrk-history">${UI.loading()}</div>`,
+            // Každé PDF, ktoré sa preňho spravilo: GDPR, zmluva, objednávka, infolist.
+            dokumenty: `<div class="card card-pad"><div class="card-head"><div class="card-title">Dokumenty${Help.btn('card.worker.documents', { size: 13 })}</div></div>
+              ${window.Docs ? Docs.slot('worker', w.id, { empty: 'Zatiaľ žiadne. GDPR, rámcová zmluva, objednávka či infolist sa sem uložia, keď z nich spravíte PDF.' }) : ''}</div>`,
           };
           const sec = sekcie[this.sec] ? this.sec : 'doklady';
           this._sec = sec;
-          const TABS = [['doklady', 'Doklady', 'shield'], ['peniaze', 'Peniaze', 'euro'],
-            ['onom', 'O ňom', 'user'], ['historia', 'História', 'clock']];
+          const TABS = [['doklady', 'Doklady', 'shield'], ['dokumenty', 'Dokumenty', 'doc'],
+            ['peniaze', 'Peniaze', 'euro'], ['onom', 'O ňom', 'user'], ['historia', 'História', 'clock']];
           return `<div class="sec-tabs" role="tablist">
             ${TABS.map(([k, label, ico]) => `<button role="tab" class="sec-tab${k === sec ? ' on' : ''}"
               aria-selected="${k === sec}" onclick="Wrk.setSec('${k}')">${Icon(ico, 14)} ${label}</button>`).join('')}
@@ -1158,9 +1161,8 @@
       if (this.doplnit(w, 'gdpr', () => this.gdpr(workerId))) return;
 
       const html = DanubraPapers.gdprConsent({ worker: w, supplier: Danubra.supplier() });
-      const okno = window.open('', '_blank');
-      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      okno.document.open(); okno.document.write(html); okno.document.close();
+      Docs.show(window.open('', '_blank'), html, { kind: 'gdpr', title: 'Súhlas GDPR',
+        who: w.full_name, lang: 'sk', worker_id: w.id });
 
       // Vytlačiť ešte neznamená podpísať. Zapisuje sa až to, čo má podpis —
       // inak by reťazec tvrdil, že súhlas máme, a pritom leží na stole.
@@ -1202,9 +1204,8 @@
       const chyba = DanubraSubcontract.missing({ worker: w, supplier });
 
       const html = DanubraPapers.ramcovaZmluva({ zmluva, chyba });
-      const okno = window.open('', '_blank');
-      if (!okno) return UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err');
-      okno.document.open(); okno.document.write(html); okno.document.close();
+      Docs.show(window.open('', '_blank'), html, { kind: 'ramcova', title: 'Rámcová zmluva',
+        number: zmluva && zmluva.number, who: w.full_name, lang: 'sk', worker_id: w.id });
 
       if (chyba.length) {
         UI.toast(`Pred podpisom doplň: ${chyba.map(c => c.title).join(', ')}`, 'warn');
