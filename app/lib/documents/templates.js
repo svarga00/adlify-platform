@@ -712,6 +712,43 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     return shell(`Výzva na platbu ${order.order_number || ''}`, body, { editable: false });
   }
 
+  // ── UPOMIENKA (nemecky) ───────────────────────────────────────────────────
+  /**
+   * Zahlungserinnerung / Mahnung k vydanej faktúre. Text listu podľa stupňa
+   * dodá `billing/dunning.js` (`paragraphs`) — tu je len papier: kto, komu,
+   * ktorá faktúra, koľko a dokedy, a platobné údaje s QR.
+   */
+  function reminder({ invoice: inv = {}, client, supplier, title, paragraphs = [], deadline, qrSvg }) {
+    const loc = 'de-DE';
+    const p = payable(inv);
+    const vs = String(inv.invoice_number || '').replace(/\D/g, '');
+    const body = `
+      ${header(title || 'Zahlungserinnerung', inv.invoice_number, [`Datum: ${date(new Date().toISOString())}`], supplier)}
+      ${parties(supplier, client, [], 'de')}
+      ${paragraphs.map(t => `<p class="par" style="font-size:13px;line-height:1.6">${esc(t)}</p>`).join('')}
+      <table><thead><tr><th>Rechnung</th><th>Datum</th><th>Fällig am</th><th class="r">Offener Betrag</th></tr></thead><tbody>
+        <tr><td>${esc(inv.invoice_number || '—')}</td><td>${date(inv.issue_date)}</td><td>${date(inv.due_date)}</td>
+          <td class="r"><strong>${money(p.net, inv.currency, loc)}</strong></td></tr>
+      </tbody></table>
+      <div class="total"><div class="total-box">
+        <div class="total-row sum"><span>Zu zahlen bis ${date(deadline)}</span><span>${money(p.net, inv.currency, loc)}</span></div>
+      </div></div>
+      <div class="pay">
+        <div style="flex:1">
+          <div class="lbl">Bankverbindung</div>
+          <div class="val" style="line-height:1.9">
+            IBAN: <strong style="font-family:ui-monospace,monospace">${esc(supplier?.iban || '—')}</strong><br>
+            Verwendungszweck: <strong style="font-family:ui-monospace,monospace">${esc(vs)}</strong><br>
+            Betrag: <strong>${money(p.net, inv.currency, loc)}</strong>
+          </div>
+        </div>
+        ${qrSvg ? `<div style="text-align:center"><div class="lbl">Scannen und zahlen</div>${qrSvg}</div>` : ''}
+      </div>
+      <p class="par" style="font-size:13px">Mit freundlichen Grüßen<br><strong>${esc(supplier?.name || '')}</strong></p>
+      ${foot(supplier, 'de')}`;
+    return shell(`${title || 'Zahlungserinnerung'} ${inv.invoice_number || ''}`, body, { editable: true });
+  }
+
   // ── POTVRDENIE MAJITEĽOVI (nemecky, §8) ───────────────────────────────────
   function ownerConfirmation({ order, accommodation, persons, supplier }) {
     const body = `
@@ -1455,7 +1492,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, stamp, invoice, selfInvoice, reminder, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { mark: () => LOGO, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }

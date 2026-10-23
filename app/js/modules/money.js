@@ -276,7 +276,13 @@
             : 'Pozrieť, upraviť návrh, PDF', "Danubra.go('invoices')", naSchvalenie + poSplatnosti) : ''}
         ${can('costs') ? tile('', 'upload', 'Nahrať faktúru / bloček', 'PDF alebo fotka — appka ich prečíta', "Danubra.go('costs')") : ''}
         ${can('bank') ? tile('', 'wallet', 'Zaplatiť a banka', 'Príkazy na úhradu, výpis z účtu', "Danubra.go('bank')") : ''}
-      </div>`;
+      </div>
+      ${can('invoices') ? `<div class="mon-links">
+        <button class="link-chip" onclick="Danubra.go('invoices');setTimeout(()=>Inv.monthly(),350)">${Icon('calendar', 13)}<span>Mesačná fakturácia naraz</span></button>
+        <button class="link-chip" onclick="Danubra.go('invoices');setTimeout(()=>Inv.dunningList(),350)">${Icon('alert', 13)}<span>Upomienky</span></button>
+        <button class="link-chip" onclick="Danubra.go('invoices');setTimeout(()=>Inv.books(),350)">${Icon('download', 13)}<span>Pre účtovníčku (mesiac / rok)</span></button>
+        ${can('advances') ? `<button class="link-chip" onclick="Danubra.go('advances')">${Icon('user', 13)}<span>Zálohy a výplaty</span></button>` : ''}
+      </div>` : ''}`;
     },
 
     async view(el) {

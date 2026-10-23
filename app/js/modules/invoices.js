@@ -48,6 +48,7 @@
       this.overrides = ovr.data || [];
       this.loaded = true;
       await this._markOverdue();
+      if (this.loadReminders) await this.loadReminders();
     },
 
     /** Faktúry po splatnosti označ automaticky (§7 denný cron robí to isté serverovo). */
@@ -66,7 +67,12 @@
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[1]; return UI.badge(m[1], m[2]); },
 
     async view(el) {
-      Danubra.setActions(`<button class="btn btn-primary btn-sm" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`);
+      Danubra.setActions(`
+        <button class="btn btn-outline btn-sm" onclick="Inv.monthly()">${Icon('calendar', 14)} Mesačná fakturácia</button>
+        <button class="btn btn-outline btn-sm" onclick="Inv.dunningList()">${Icon('alert', 14)} Upomienky${
+          this.loaded && this.dunQueue && this.dunQueue().length ? ` (${this.dunQueue().length})` : ''}</button>
+        <button class="btn btn-outline btn-sm" onclick="Inv.books()">${Icon('download', 14)} Pre účtovníčku</button>
+        <button class="btn btn-primary btn-sm" onclick="Inv.newInvoice()">${Icon('plus')} Nová faktúra</button>`);
       if (!this.loaded) { el.innerHTML = UI.loading(); await this.load(); }
       const rows = this.rows();
 
@@ -332,6 +338,7 @@
           ${opt('site', 'Zo zákazky — z odpracovaných hodín', 'Z uzavretého obdobia. Suma je z hodín, reverse charge §13b. Najčastejšie.', 'Inv.pickPeriod()')}
           ${opt('clients', 'Voľná faktúra nemeckej firme', 'Vlastné položky — paušál, materiál, doprava, čokoľvek. Vyberiete odberateľa a napíšete riadky.', 'Inv.freeForm()')}
           ${opt('workers', 'Za živnostníka (v jeho mene)', 'Keď faktúru za neho vystavujeme my — z jeho schválených hodín, potvrdí ju odkazom.', 'Inv.selfBill()')}
+          ${opt('calendar', 'Za celý mesiac naraz', 'Všetky zákazky za mesiac: obdobia sa uzavrú a vzniknú návrhy faktúr jedným klikom.', 'Inv.monthly()')}
         </div>
         <div class="regimebox" style="margin-top:12px;">Každá faktúra vznikne ako <b>návrh</b>. Kým ju admin neschváli,
           dá sa upraviť; po schválení sa už nemení.</div>
@@ -728,6 +735,8 @@
         <div class="kv" style="margin-top:14px;">
           ${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
         </div>
+
+        ${this.dunningHtml ? this.dunningHtml(x) : ''}
 
         <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
           ${steps.map(act).join('')}
