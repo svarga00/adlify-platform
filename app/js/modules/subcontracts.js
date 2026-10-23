@@ -649,11 +649,107 @@
           ${Icon('alert', 14)} Lôžok je dosť, ale ${people - housed} ${
             people - housed === 1 ? 'človek nemá' : 'ľudí nemá'} zapísané, kde býva.</div>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <button class="btn btn-primary btn-sm" onclick="Sub.searchLodging('${sc.id}')">${Icon('search')} Hľadať ubytovanie v okolí</button>
           <button class="btn btn-outline btn-sm" onclick="Sub.addLodging('${sc.id}')">${Icon('plus')} Pridať ubytovanie</button>
           <button class="btn btn-outline btn-sm" onclick="Sub.editTransport('${sc.id}')">${Icon('van')} Doprava</button>
         </div>
         ${sc.transport_note ? `<div class="notebox" style="margin-top:8px;">
           <strong>Doprava${sc.transport_provided ? ' (zabezpečujeme)' : ''}:</strong> ${UI.esc(sc.transport_note)}</div>` : ''}`;
+    },
+
+    // ── Hľadať ubytovanie v okolí stavby ──────────────────────────────────
+    // „Potreboval by som zakomponovať vyhľadávanie ubytovania v okolí."
+    // OpenStreetMap cez server (danubra-lodging-search); logika v
+    // lib/lodging/nearby.js. OSM nemá ceny ani voľné lôžka — na to je telefón.
+    async searchLodging(scId, radiusKm = 15) {
+      const sc = this.items.find(x => x.id === scId);
+      if (!sc) return;
+      this._found = { scId, radiusKm, places: [], origin: null };
+      const ludia = this.asgOf(scId).filter(a => a.status !== 'cancelled').length || 1;
+      const odkazy = DanubraNearby.links({ city: sc.site_city || '', lat: Number(sc.lat), lng: Number(sc.lng),
+        from: sc.date_from, to: sc.date_to, persons: ludia });
+      UI.modal('Ubytovanie v okolí stavby', `
+        <div class="nb-top">
+          <span>Okruh</span>
+          ${[5, 10, 15, 30].map(k => `<button class="pill${k === radiusKm ? ' active' : ''}"
+            onclick="Sub.searchLodging('${scId}', ${k})">${k} km</button>`).join('')}
+        </div>
+        <div class="nb-links">${odkazy.map(l => `<a class="link-chip" target="_blank" rel="noopener" href="${UI.esc(l.url)}">
+          ${Icon('search', 13)}<span>${UI.esc(l.label)}${l.hint ? ` <em>· ${UI.esc(l.hint)}</em>` : ''}</span></a>`).join('')}</div>
+        <div id="nb-map" class="map-box nb-map"></div>
+        <div id="nb-list"><div class="nb-wait">${Icon('search', 16)} Hľadám hotely, penzióny a ubytovne
+          v okruhu ${radiusKm} km od ${UI.esc(sc.site_city || 'stavby')}…</div></div>
+        <p class="card-note">Zdroj: OpenStreetMap. Ceny a voľné lôžka tam nie sú — zavolajte.
+          Uložené miesto sa objaví v databáze ubytovaní na overenie.</p>`, { wide: true });
+
+      let r;
+      try {
+        const res = await fetch('/.netlify/functions/danubra-lodging-search', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: sc.lat, lng: sc.lng, radiusKm,
+            address: [sc.site_address, sc.site_city, 'Deutschland'].filter(Boolean).join(', ') }),
+        });
+        r = await res.json();
+        if (r.error) throw new Error(r.error);
+      } catch (e) {
+        r = { error: e.message || 'Vyhľadávanie zlyhalo' };
+      }
+      if (!this._found || this._found.scId !== scId || this._found.radiusKm !== radiusKm) return;
+      this._found.places = r.places || [];
+      this._found.origin = r.origin || null;
+      const box = document.getElementById('nb-list');
+      if (!box) return;
+      if (r.error) { box.innerHTML = `<div class="warnbox">${Icon('alert', 14)} ${UI.esc(r.error)} — skúste odkazy vyššie.</div>`; return; }
+      if (r.notFound) { box.innerHTML = `<div class="warnbox">${Icon('alert', 14)} Stavbu som na mape nenašiel — doplňte jej polohu v záložke Prehľad.</div>`; return; }
+      const p = this._found.places;
+      box.innerHTML = p.length ? `<div class="nb-count">${p.length} ${Shell.plural(p.length, 'miesto', 'miesta', 'miest')} v okruhu ${radiusKm} km</div>
+        ${p.map((x, i) => this.foundRow(x, i)).join('')}`
+        : `<div class="nb-wait">V okruhu ${radiusKm} km OpenStreetMap nič nepozná. Skúste väčší okruh alebo odkazy vyššie.</div>`;
+      try {
+        DanubraMap.render('nb-map', [
+          { lat: r.origin.lat, lng: r.origin.lng, kind: 'site', label: sc.title, sub: sc.site_city || '' },
+          ...p.slice(0, 60).map(x => ({ lat: x.lat, lng: x.lng, kind: 'lodging', label: x.name,
+            sub: `${x.typeLabel} · ${x.distanceKm} km` })),
+        ]);
+      } catch (e) { /* bez mapy sa dá žiť — zoznam je dôležitejší */ }
+    },
+
+    foundRow(x, i) {
+      const tel = x.phone ? x.phone.split(/[;,]/)[0].trim() : '';
+      return `<div class="nb-row">
+        <div class="nb-main">
+          <b>${UI.esc(x.name)}</b>
+          <span class="nb-tags">${UI.badge(x.typeLabel, 'gray')}${x.monteur ? UI.badge('Monteurzimmer', 'green') : ''}
+            <em>${x.distanceKm} km</em></span>
+          <span class="nb-sub">${UI.esc([x.address, [x.postcode, x.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || 'adresa nie je v mape')}</span>
+          <span class="link-row">
+            ${tel ? `<a class="link-chip" href="tel:${UI.esc(tel.replace(/[^\d+]/g, ''))}">${Icon('phone', 13)}<span>${UI.esc(tel)}</span></a>` : ''}
+            ${x.website ? `<a class="link-chip" target="_blank" rel="noopener" href="${UI.esc(/^https?:/.test(x.website) ? x.website : `https://${x.website}`)}">${Icon('site', 13)}<span>Web</span></a>` : ''}
+            <a class="link-chip" target="_blank" rel="noopener" href="${DanubraGeo.mapsUrl(x.lat, x.lng)}">${Icon('pin', 13)}<span>Na mape</span></a>
+          </span>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="Sub.saveFound(${i})">${Icon('plus', 14)} Uložiť a pridať</button>
+      </div>`;
+    },
+
+    /** Uloží nájdené miesto do databázy ubytovaní a otvorí jeho pridanie k zákazke. */
+    async saveFound(i) {
+      const f = this._found;
+      const p = f && f.places[i];
+      if (!p) return;
+      const sc = this.items.find(x => x.id === f.scId);
+      const { data, error } = await DB.insert('accommodations', DanubraNearby.toAccommodation(p, { fallbackCity: sc?.site_city || '' }));
+      if (error) return UI.toast('Chyba: ' + error.message, 'err');
+      this.accommodations.push(data);
+      UI.closeModal();
+      this.addLodging(f.scId);
+      setTimeout(() => {
+        const sel = document.querySelector('#lodg-form [name="accommodation_id"]');
+        if (sel) sel.value = data.id;
+        const m = document.querySelector('#lodg-form [name="maps_url"]');
+        if (m) m.value = DanubraGeo.mapsUrl(p.lat, p.lng);
+      }, 30);
+      UI.toast('Uložené do databázy ubytovaní — doplňte lôžka a cenu', 'ok');
     },
 
     staysOf(lodgingId) { return this.stays.filter(s => s.lodging_id === lodgingId); },
