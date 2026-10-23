@@ -967,7 +967,6 @@
             ${UI.field('charge_rate', 'Fakturačná sadzba €/h', { type: 'number', value: sc?.charge_rate,
               hint: 'Predvyplní sa pri každom nasadení na túto zákazku a z nej sa '
                 + 'počíta, čo sa odberateľovi vyfakturuje.' })}
-            ${UI.field('gross_monthly', 'Hrubá mzda €/mes', { type: 'number' })}
             ${UI.field('accommodation_monthly', 'Ubytovanie €/mes', { type: 'number' })}
             ${UI.field('transport_monthly', 'Doprava €/mes', { type: 'number' })}
           </div>
@@ -1216,7 +1215,7 @@
         date_from: d.date_from || null, date_to: d.date_to || null,
         status: 'planned',
       };
-      ['charge_rate', 'gross_monthly', 'accommodation_monthly', 'transport_monthly']
+      ['charge_rate', 'accommodation_monthly', 'transport_monthly']
         .forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
       const { data: asg, error } = await DB.insert('assignments', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');

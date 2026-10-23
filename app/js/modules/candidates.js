@@ -344,7 +344,7 @@
         ['Vlastné auto', c.has_car == null ? null : c.has_car ? 'Áno' : 'Nie'],
         ['Možný nástup', c.expected_start ? UI.date(c.expected_start) : null],
         ['Profesia', this.professionLabel(c.profession)],
-        ['Forma spolupráce', c.legal_form === 'szco' ? 'Živnostník' : 'Zamestnanec'],
+        ['Forma spolupráce', c.legal_form === 'sro' ? 's.r.o.' : 'Živnostník'],
         ['Telefón', c.phone], ['E-mail', c.email], ['Mesto', c.city],
         // Inzerát je dôležitejší než kanál: na Facebooku môže bežať päť
         // inzerátov a líšia sa sľúbenou sadzbou. Keď sa o mesiac na stavbe
@@ -542,7 +542,7 @@
             ${UI.field('email', 'E-mail', { type: 'email', value: c.email })}
             ${UI.field('profession', 'Profesia', { value: c.profession, options: [['', '—'], ...PROFESSIONS] })}
             ${UI.field('skill_level', 'Zaradenie', { value: c.skill_level, options: [['', '—'], ['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']] })}
-            ${UI.field('legal_form', 'Forma spolupráce', { value: c.legal_form || 'szco', options: [['szco', 'Živnostník'], ['employee', 'Zamestnanec']] })}
+            ${UI.field('legal_form', 'Forma spolupráce', { value: c.legal_form === 'sro' ? 'sro' : 'szco', options: [['szco', 'Živnostník'], ['sro', 's.r.o.']] })}
             ${UI.field('city', 'Mesto', { value: c.city })}
             ${UI.field('source', 'Zdroj', { value: c.source, options: [['', '—'], ...SOURCES] })}
             ${UI.field('source_detail', 'Podrobnosť k zdroju', { value: c.source_detail, placeholder: 'kampaň, kto odporučil…' })}

@@ -124,7 +124,7 @@
         });
       }
       // Živnostníci — partia zamestnancov by bola iný právny režim.
-      const employees = workersOf.filter(w => w.legal_form && w.legal_form !== 'szco');
+      const employees = workersOf.filter(w => w.legal_form === 'employee');
       if (employees.length) {
         warnings.push({
           rule: 'crew_mixed_forms',

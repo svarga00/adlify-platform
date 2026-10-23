@@ -42,7 +42,9 @@
     const hours = num(p.hours);
     const workDays = num(p.workDays);
     const isConstruction = p.workType === 'construction';
-    const isSzco = a.legal_form === 'szco';
+    // Živnostník aj s.r.o. nám fakturujú hodiny. Zamestnanec ostal len
+    // v starých záznamoch — nových už nie je.
+    const isSzco = a.legal_form !== 'employee';
 
     // ── Tržba ────────────────────────────────────────────────────────────────
     const rate = num(a.charge_rate);
@@ -113,7 +115,7 @@
     const cfg = { ...DEFAULTS, ...(s || {}) };
     // Živnostník nie je zamestnanec — minimálna mzda sa naňho nevzťahuje.
     // Pozor: ak reálne pracuje ako zamestnanec, hrozí prekvalifikovanie.
-    if (o.legalForm === 'szco') {
+    if (o.legalForm !== 'employee') {
       return { required: 0, effective: 0, ok: true, shortfall: 0, basis: 'živnostník — minimálna mzda sa neuplatňuje' };
     }
     const hours = num(o.hours);

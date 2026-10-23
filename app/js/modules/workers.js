@@ -228,7 +228,7 @@
         // IČO živnostníka je `company_id` (migrácia 014). Stĺpec `ico` v databáze
         // nie je a export ho roky vypisoval prázdny.
         ['IČO', w => w.company_id],
-        ['Forma', w => (w.legal_form === 'szco' ? 'živnostník' : 'zamestnanec')],
+        ['Forma', w => ({ szco: 'živnostník', sro: 's.r.o.' }[w.legal_form] || 'zamestnanec')],
         ['Sadzba €/h', w => DanubraExport.num(w.hourly_cost)],
         ['A1', w => DOC[this.docStatus(w.id).state] || ''],
         ['Partia', w => (this.crewOf(w) || {}).name],
@@ -318,7 +318,7 @@
         : ds.state === 'expiring' ? 'amber' : null;
       const crew = this.crewOf(w);
       const site = this.siteOf(w.id);
-      const rate = w.legal_form === 'szco' ? w.hourly_cost : null;
+      const rate = w.legal_form !== 'employee' ? w.hourly_cost : null;
 
       // Partia a stavba sú odkazy, nie text. Toto je ten rozdiel medzi
       // kartotékou a appkou, v ktorej sa dá pohybovať.
@@ -423,7 +423,7 @@
     },
 
     stepsCard(w) {
-      if (w.legal_form && w.legal_form !== 'szco') return '';
+      if (w.legal_form === 'employee') return '';
       const st = this.stepsOf(w);
       // Keď je všetko hotové, karta je zbalená do jedného riadku — papiere sa
       // dajú rozbaliť a vytlačiť znova, ale netreba ich mať stále na očiach.
@@ -539,7 +539,8 @@
       if (!w) { this.openId = null; return UI.toast('Nenájdené', 'err'); }
       const docs = this.docsOf(id);
       const today = new Date().toISOString().slice(0, 10);
-      const isTrade = w.legal_form === 'szco';
+      // Živnostník aj s.r.o. nám fakturujú — zamestnanca už nemáme.
+      const isTrade = w.legal_form !== 'employee';
 
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Wrk.closeProfile()">${Icon('back', 15)} Späť</button>
@@ -957,10 +958,10 @@
         ['Mesto', w.city], ['Jazyk', (w.language || '').toUpperCase()],
         ['Nemčina', w.german_level], ['Vodičský', w.driving_licence ? 'Áno' : null],
         ['Vlastné náradie', w.own_tools ? 'Áno' : null],
-        ['Forma spolupráce', w.legal_form === 'szco' ? 'Živnostník' : 'Zamestnanec'],
+        ['Forma spolupráce', ({ szco: 'Živnostník', sro: 's.r.o.' }[w.legal_form] || 'Zamestnanec (starý záznam)')],
         ['Spolupracuje', this.cooperationLength(w)],
         ['Hrubá mzda', w.legal_form !== 'szco' && w.gross_monthly ? UI.money(w.gross_monthly) : null],
-        ['Sadzba živnostníka', w.legal_form === 'szco' && w.hourly_cost ? `${UI.money(w.hourly_cost)} / h` : null],
+        ['Sadzba', w.legal_form !== 'employee' && w.hourly_cost ? `${UI.money(w.hourly_cost)} / h` : null],
         ['Dostupný od', w.available_from ? UI.date(w.available_from) : null],
         ['Zdroj', w.source],
       ].filter(r => r[1] != null && r[1] !== '');
@@ -1051,14 +1052,13 @@
           </div>
           <div class="form-section">Odmeňovanie</div>
           <div class="form-grid">
-            ${UI.field('gross_monthly', 'Hrubá mzda €/mes', { type: 'number', value: w.gross_monthly })}
-            ${UI.field('legal_form', 'Forma spolupráce', { value: w.legal_form || 'szco',
-              options: [['employee', 'Zamestnanec (mzda + odvody)'], ['szco', 'Živnostník (fakturuje nám)']] })}
-            ${UI.field('hourly_cost', 'Sadzba živnostníka €/h', { type: 'number', value: w.hourly_cost })}
+            ${UI.field('legal_form', 'Forma spolupráce', { value: w.legal_form === 'sro' ? 'sro' : 'szco',
+              options: [['szco', 'Živnostník (fakturuje nám)'], ['sro', 's.r.o. — firma (fakturuje nám)']] })}
+            ${UI.field('hourly_cost', 'Sadzba €/h (čo nám fakturuje)', { type: 'number', value: w.hourly_cost })}
             ${UI.field('cooperating_since', 'Spolupracuje od', { type: 'date', value: w.cooperating_since })}
             ${UI.field('source', 'Zdroj', { value: w.source, placeholder: 'odporúčanie, profesia.sk…' })}
           </div>
-          <div class="form-section">Fakturačné údaje živnosti</div>
+          <div class="form-section">Fakturačné údaje (živnosť alebo s.r.o.)</div>
           <div class="regimebox" style="margin:0 0 12px;">
             Bez IČO, IBAN-u a adresy sa jeho faktúra nedá zaúčtovať ani zapísať
             do SuperFaktúry. Platí len pri živnostníkovi.</div>
@@ -1107,7 +1107,7 @@
       const d = UI.formData(document.getElementById('wrk-form'));
       if (!d.full_name) return UI.toast('Meno je povinné', 'err');
       const payload = { ...d };
-      ['gross_monthly', 'hourly_cost'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
+      ['hourly_cost'].forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });
       // Prázdny dátum musí ísť do databázy ako null, nie ako prázdny reťazec.
       ['cooperating_since', 'available_from', 'trade_licence_from']
         .forEach(k => { if (payload[k] === '') payload[k] = null; });

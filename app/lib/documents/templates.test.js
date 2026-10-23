@@ -551,5 +551,13 @@ console.log('Objednávka pre Nemca, dvojjazyčne');
   ok(P.stamp({ stamp: 'javascript:alert(1)' }) === '', 'do pečiatky sa nedá podstrčiť iný obsah');
 }
 
+// ── s.r.o. ako zhotoviteľ ──────────────────────────────────────────────────
+{
+  const z = P.ramcovaZmluva({ zmluva: require('./subcontract.js').build({
+    worker: { full_name: 'Peter Malý', legal_form: 'sro', company_name: 'Malý Stav s.r.o.' }, supplier: { name: 'X' } }) });
+  const t = z.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  ok(/Zhotoviteľ Malý Stav s\.r\.o\. konajúca: Peter Malý, konateľ/.test(t), 'pri s.r.o. je zhotoviteľom firma a konateľ', t.slice(0, 400));
+}
+
 console.log(`\n${passed} prešlo, ${failed} padlo\n`);
 process.exit(failed ? 1 : 0);

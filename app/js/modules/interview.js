@@ -380,7 +380,7 @@
             ${row('Ponúkame', p?.offer_rate ? `${p.offer_rate} €/h` : fakt('rate'))}
             ${row('Trvanie', fakt('duration'))}
             ${this.route ? row('Cesta', `${this.routeFrom}: ${DanubraRoute.sentence(this.route)}`) : ''}
-            ${row('Forma', p ? (p.legal_form === 'employee' ? 'zamestnanec' : 'živnosť') : null)}
+            ${row('Forma', p ? (p.legal_form === 'sro' ? 's.r.o.' : 'živnosť') : null)}
             ${row('Podmienky', fakt('condition'))}
             ${row('Ubytovanie', fakt('housing'))}
             ${row('Navyše', ((p?.analysis || {})._extra || {}).benefits || null)}

@@ -74,7 +74,7 @@
     const lines = [];
     lines.push(`${name} — ${where}`);
     lines.push('');
-    if (plan.offer_rate) lines.push(`Sadzba: ${plan.offer_rate} €/h${plan.legal_form === 'szco' ? ' (živnosť)' : ' (zamestnanecký pomer)'}`);
+    if (plan.offer_rate) lines.push(`Sadzba: ${plan.offer_rate} €/h${plan.legal_form === 'sro' ? ' (s.r.o.)' : plan.legal_form === 'employee' ? ' (zamestnanecký pomer)' : ' (živnosť)'}`);
     if (plan.start_date) {
       const [y, m, d] = String(plan.start_date).slice(0, 10).split('-');
       lines.push(`Nástup: ${d}.${m}.${y}`);

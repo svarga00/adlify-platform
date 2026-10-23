@@ -576,8 +576,7 @@
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: p.headcount || 1 })}
             ${UI.field('skill_level', 'Zaradenie', { value: p.skill_level, options: [
               ['werker', 'Werker (LG1) — pomocné práce'], ['fachwerker', 'Fachwerker (LG2) — remeselník']] })}
-            ${UI.field('legal_form', 'Forma spolupráce', { value: p.legal_form, options: [
-              ['szco', 'Živnostník (fakturuje nám)'], ['employee', 'Zamestnanec (mzda + odvody)']] })}
+            ${UI.field('legal_form', 'Forma spolupráce', { value: p.legal_form === 'employee' ? 'szco' : p.legal_form, options: [['szco', 'Živnostník (fakturuje nám)'], ['sro', 's.r.o. — firma (fakturuje nám)']] })}
           </div>
           ${UI.field('title', 'Ako si nábor pomenujem', { value: p.title,
             placeholder: 'napr. Sadrokartón München — marec' })}
@@ -703,7 +702,7 @@
         <div class="kpi-grid" style="margin-top:12px;">
           <div class="kpi"><div class="kpi-label">Náklad na hodinu</div>
             <div class="kpi-value">${m.costPerHour || 0} €</div>
-            <div class="kpi-delta">${p.legal_form === 'employee' ? 'mzda + odvody' : 'fakturuje živnostník'}</div></div>
+            <div class="kpi-delta">${p.legal_form === 'sro' ? 'fakturuje firma (s.r.o.)' : 'fakturuje živnostník'}</div></div>
           <div class="kpi"><div class="kpi-label">Marža na hodinu</div>
             <div class="kpi-value" style="color:${m.marginPerHour > 0 ? 'var(--green)' : 'var(--red)'};">
               ${m.marginPerHour} €</div>

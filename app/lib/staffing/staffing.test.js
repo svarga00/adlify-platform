@@ -25,7 +25,7 @@ console.log('Jednotková ekonomika (Fáza 2)');
 // ubytovanie 350 €; doprava 150 €; SOKA 14,7 % (diéty neplatíme nikomu)
 // Plán očakáva maržu ~1 400–1 600 €.
 {
-  const a = { charge_rate: 38, gross_monthly: 2000, per_diem_daily: 45,
+  const a = { legal_form: 'employee', charge_rate: 38, gross_monthly: 2000, per_diem_daily: 45,
     accommodation_monthly: 350, transport_monthly: 150 };
   const r = M.assignmentMargin(a, { hours: 160, workDays: 21, workType: 'construction' });
   eq(r.revenue, 6080, 'tržba 160 h × 38 € = 6 080 €');
@@ -40,7 +40,7 @@ console.log('Jednotková ekonomika (Fáza 2)');
 
 // ── Dielňa: bez SOKA-BAU je marža vyššia pri rovnakých vstupoch ─────────────
 {
-  const a = { charge_rate: 38, gross_monthly: 2000, per_diem_daily: 45,
+  const a = { legal_form: 'employee', charge_rate: 38, gross_monthly: 2000, per_diem_daily: 45,
     accommodation_monthly: 350, transport_monthly: 150 };
   const stavba = M.assignmentMargin(a, { hours: 160, workDays: 21, workType: 'construction' });
   const dielna = M.assignmentMargin(a, { hours: 160, workDays: 21, workType: 'workshop' });
@@ -60,7 +60,7 @@ console.log('Jednotková ekonomika (Fáza 2)');
 
 // ── Dielňa sa nezráža ani bez §48b (netýka sa jej) ──────────────────────────
 {
-  const r = M.assignmentMargin({ charge_rate: 38, gross_monthly: 2000 },
+  const r = M.assignmentMargin({ legal_form: 'employee', charge_rate: 38, gross_monthly: 2000 },
     { hours: 160, workDays: 21, workType: 'workshop', freistellungOk: false });
   eq(r.withholding, 0, 'dielenské práce nepodliehajú Bauabzugsteuer');
 }
@@ -107,20 +107,20 @@ console.log('\nMinimálna mzda');
 }
 {
   // 2 000 € / 160 h = 12,50 €/h → pod LG1 (15,86)
-  const r = M.minWageCheck({ grossMonthly: 2000, hours: 160, workType: 'construction', skillLevel: 'werker' });
+  const r = M.minWageCheck({ legalForm: 'employee', grossMonthly: 2000, hours: 160, workType: 'construction', skillLevel: 'werker' });
   eq(r.required, 15.86, 'LG1 je 15,86 €/h');
   eq(r.effective, 12.5, 'efektívna hodinová mzda 12,50 €');
   ok(!r.ok, 'mzda pod odvetvovým minimom je zachytená');
   near(r.shortfall, 537.6, 0.1, 'doplatok do minima je vyčíslený');
 }
 {
-  const r = M.minWageCheck({ grossMonthly: 2800, hours: 160, workType: 'construction', skillLevel: 'fachwerker' });
+  const r = M.minWageCheck({ legalForm: 'employee', grossMonthly: 2800, hours: 160, workType: 'construction', skillLevel: 'fachwerker' });
   eq(r.required, 17.34, 'LG2 je 17,34 €/h');
   ok(r.ok, '2 800 € pri 160 h (17,50 €/h) vyhovuje LG2');
 }
 {
   // v dielni platí len všeobecný Mindestlohn 13,90
-  const r = M.minWageCheck({ grossMonthly: 2300, hours: 160, workType: 'workshop' });
+  const r = M.minWageCheck({ legalForm: 'employee', grossMonthly: 2300, hours: 160, workType: 'workshop' });
   eq(r.required, 13.9, 'v dielni platí všeobecný Mindestlohn');
   ok(r.ok, '2 300 € pri 160 h (14,375 €/h) vyhovuje');
 }
@@ -236,7 +236,7 @@ const TODAY = '2026-08-11';
     today: TODAY, monthlyHours: 160,
     subcontract: { work_type: 'construction', scope: 'Montáž sadrokartónových priečok, 800 m²' },
     assignments: [{ worker_id: 'w1', status: 'planned', role: 'predak', gross_monthly: 1800 }],
-    workers: [{ id: 'w1', full_name: 'Ján Kováč', skill_level: 'werker' }],
+    workers: [{ id: 'w1', full_name: 'Ján Kováč', skill_level: 'werker', legal_form: 'employee' }],
     workerDocs: [{ worker_id: 'w1', kind: 'a1', valid_to: '2027-01-01' }],
     companyItems: [{ kind: 'ust_idnr' }, { kind: 'insurance' },
       { kind: 'soka_registration' }, { kind: 'freistellung_48b', valid_to: '2027-01-01' }],
