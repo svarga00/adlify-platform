@@ -689,10 +689,19 @@
           body: JSON.stringify({ lat: sc.lat, lng: sc.lng, radiusKm,
             address: [sc.site_address, sc.site_city, 'Deutschland'].filter(Boolean).join(', ') }),
         });
-        r = await res.json();
+        // Keď funkcia nestihne, Netlify vráti HTML stránku s chybou — nie JSON.
+        const txt = await res.text();
+        try { r = JSON.parse(txt); } catch { r = { error: 'Server nestihol odpovedať' }; }
         if (r.error) throw new Error(r.error);
       } catch (e) {
         r = { error: e.message || 'Vyhľadávanie zlyhalo' };
+      }
+      // Záloha: keď server nestihol a stavba má polohu, opýta sa mapy
+      // priamo prehliadač (OpenStreetMap je verejná, bez kľúča).
+      const maPolohu = DanubraGeo.valid(Number(sc.lat), Number(sc.lng));
+      if (r.error && maPolohu) {
+        try { r = await this.searchDirect(Number(sc.lat), Number(sc.lng), radiusKm); }
+        catch (e) { r = { error: 'Mapa ubytovaní teraz neodpovedá' }; }
       }
       if (!this._found || this._found.scId !== scId || this._found.radiusKm !== radiusKm) return;
       this._found.places = r.places || [];
@@ -712,6 +721,23 @@
             sub: `${x.typeLabel} · ${x.distanceKm} km` })),
         ]);
       } catch (e) { /* bez mapy sa dá žiť — zoznam je dôležitejší */ }
+    },
+
+    /** Priamo z prehliadača — keď server nestihol. Prvé dobré zrkadlo vyhráva. */
+    async searchDirect(lat, lng, radiusKm) {
+      const q = DanubraNearby.overpassQuery({ lat, lng, radiusKm, timeout: 20 });
+      const ctrl = new AbortController();
+      const stop = setTimeout(() => ctrl.abort(), 22000);
+      try {
+        const json = await Promise.any(DanubraNearby.OVERPASS.map(async (url) => {
+          const res = await fetch(url, { method: 'POST', signal: ctrl.signal,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(q)}` });
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json();
+        }));
+        const origin = { lat, lng };
+        return { origin, places: DanubraNearby.parse(json, origin) };
+      } finally { clearTimeout(stop); ctrl.abort(); }
     },
 
     foundRow(x, i) {

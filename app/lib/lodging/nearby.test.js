@@ -25,6 +25,9 @@ const STAVBA = { lat: 49.3108, lng: 12.8456 };   // Lixenried
   ok(q.includes('around:15000,49.310800,12.845600'), 'okruh 15 km okolo stavby', q);
   ok(/hotel\|guest_house\|hostel\|motel\|apartment\|chalet/.test(q), 'hotely, penzióny, ubytovne, motely, apartmány, chaty');
   ok(N.overpassQuery({ ...STAVBA, radiusKm: 500 }).includes('around:50000'), 'okruh najviac 50 km');
+  ok(q.includes('[timeout:8]') && N.overpassQuery({ ...STAVBA, timeout: 20 }).includes('[timeout:20]'),
+    'server sa pýta krátko (8 s), prehliadač môže dlhšie');
+  ok(N.OVERPASS.length >= 2, 'viac zrkadiel mapy naraz');
   eq(N.distanceKm(STAVBA, { lat: 49.2654, lng: 12.8517 }), 5.1, 'vzdialenosť vzdušnou čiarou');
 }
 

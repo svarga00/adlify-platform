@@ -13,7 +13,6 @@ const N = require('../../app/lib/lodging/nearby.js');
 const R = require('../../app/lib/route.js');
 
 const UA = 'DANUBRA-Hub/1.0 (info@punds.eu)';
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 const H = {
   'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Content-Type': 'application/json',
@@ -21,7 +20,8 @@ const H = {
 const out = (code, body) => ({ statusCode: code, headers: H, body: JSON.stringify(body) });
 
 async function geocode(address) {
-  for (const q of R.variants(address).slice(0, 3)) {
+  // Len dve podoby adresy — na viac nie je čas (funkcia smie bežať ~10 s).
+  for (const q of R.variants(address).slice(0, 2)) {
     const res = await fetch(R.geocodeUrl(q), { headers: { 'User-Agent': UA, 'Accept-Language': 'de,sk;q=0.8' } });
     if (res.ok) {
       const p = R.pickPlace(await res.json());
@@ -32,17 +32,27 @@ async function geocode(address) {
   return null;
 }
 
+/**
+ * Opýta sa všetkých zrkadiel Overpassu naraz a berie prvú dobrú odpoveď.
+ * Každé má 8 s — funkcia na Netlify smie bežať ~10 s a keby to nestihla,
+ * prehliadač by dostal HTML stránku s chybou namiesto odpovede.
+ */
 async function overpass(query) {
-  let last = null;
-  for (const url of OVERPASS) {
-    try {
-      const res = await fetch(url, { method: 'POST', headers: { 'User-Agent': UA,
+  const ctrl = new AbortController();
+  const stop = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    return await Promise.any(N.OVERPASS.map(async (url) => {
+      const res = await fetch(url, { method: 'POST', signal: ctrl.signal, headers: { 'User-Agent': UA,
         'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(query)}` });
-      if (res.ok) return await res.json();
-      last = new Error(`Mapa ubytovaní neodpovedala (${res.status})`);
-    } catch (e) { last = e; }
+      if (!res.ok) throw new Error(`Mapa ubytovaní neodpovedala (${res.status})`);
+      return res.json();
+    }));
+  } catch (e) {
+    throw new Error('Mapa ubytovaní teraz neodpovedá');
+  } finally {
+    clearTimeout(stop);
+    ctrl.abort();
   }
-  throw last || new Error('Mapa ubytovaní neodpovedala');
 }
 
 exports.handler = async (event) => {
