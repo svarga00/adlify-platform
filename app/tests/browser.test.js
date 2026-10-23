@@ -3827,10 +3827,12 @@ console.log('Prehliadač');
       const dlP = page.waitForEvent('download', { timeout: 40000 }).catch(() => null);
       await okno.click('button.tb-doc:has-text("Stiahnuť PDF")');
       const dl = await dlP;
-      let hlavicka = '';
+      let hlavicka = '', mediaBox = [];
       if (dl) {
         const f = await dl.path();
-        hlavicka = require('fs').readFileSync(f).slice(0, 5).toString('latin1');
+        const buf = require('fs').readFileSync(f);
+        hlavicka = buf.slice(0, 5).toString('latin1');
+        mediaBox = (buf.toString('latin1').match(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)/) || []).slice(1).map(Number).map(Math.round);
       }
       await okno.waitForTimeout(500);
       const sprava = await okno.evaluate(() => document.getElementById('tb-msg').textContent.trim());
@@ -3841,12 +3843,46 @@ console.log('Prehliadač');
       ok(!lista.some(t => /Uložiť ako PDF/.test(t)), 'staré „Uložiť ako PDF / vytlačiť" už nie je');
       ok(tlac, 'tlač má nulový okraj strany — Chrome nemá kam dať adresu a dátum');
       ok(hlavicka === '%PDF-', 'stiahne sa skutočné PDF', hlavicka || 'nič sa nestiahlo');
+      ok(mediaBox.join('x') === '595x842', 'strana PDF je presne A4 na výšku', mediaBox.join('x'));
       ok(st.up.length === 1 && /^archiv\/worker\/w1\//.test(st.up[0].p) && st.up[0].type === 'application/pdf',
         'PDF sa nahrá do úložiska k človeku', JSON.stringify(st.up));
       const zaz = st.ins.find(x => x.t === 'archive') || {};
       ok(zaz.kind === 'gdpr' && zaz.worker_id === 'w1' && /^\d{4}-\d{2}-\d{2} Súhlas GDPR – Jozef Malý\.pdf$/.test(zaz.file_name),
         'a zapíše sa do archívu s rozumným názvom', zaz.file_name);
       ok(/uložené do dokumentov/.test(sprava), 'okno povie, že je stiahnuté a uložené', sprava);
+
+      // Strany A4: každá strana sa kreslí zvlášť, nič sa nestratí ani nerozsekne.
+      const a4 = await page.evaluate(() => {
+        const box = DanubraPaginate.pageBox(14);
+        const src = document.createElement('div');
+        src.style.cssText = `position:absolute;left:-30000px;top:0;width:${box.width}px;font:13px/1.6 sans-serif`;
+        const odst = Array.from({ length: 60 }, (_, i) => `<p>Odsek ${i + 1}: ${'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(3)}</p>`).join('');
+        const zoznam = `<h3>Článok II</h3><ol>${Array.from({ length: 45 }, (_, i) => `<li>Bod ${i + 1} ${'text zmluvy '.repeat(8)}</li>`).join('')}</ol>`;
+        const tab = `<table><thead><tr><th>Deň</th><th>Hodiny</th></tr></thead><tbody>${Array.from({ length: 80 }, (_, i) => `<tr><td>Riadok ${i + 1}</td><td>8</td></tr>`).join('')}</tbody></table>`;
+        src.innerHTML = `<div class="head"><b>Hlavička</b></div>${odst}<div>${zoznam}</div>${tab}<div class="sigs"><div>Podpis A</div><div>Podpis B</div></div>`;
+        document.body.appendChild(src);
+        const { pages, stage } = DanubraPaginate.paginate(document, src, box);
+        const text = (el) => el.textContent.replace(/\s+/g, '');
+        const vysky = pages.map(p => p.scrollHeight);
+        const res = {
+          strany: pages.length,
+          vysoke: vysky.filter(h => h > box.height).length,
+          // Rovnaký text v rovnakom poradí (zopakované hlavičky tabuľky sa nerátajú).
+          celyText: text(src).split('DeňHodiny').join('') === pages.map(text).join('').split('DeňHodiny').join(''),
+          hlavickaTabulky: pages.filter(p => p.querySelector('tbody tr')).every(p => !!p.querySelector('thead')),
+          cislovanie: pages.filter(p => p.querySelector('ol')).map(p => Number(p.querySelector('ol').getAttribute('start') || 1)),
+          prvyBod: pages.filter(p => p.querySelector('ol li')).map(p => (p.querySelector('ol li').textContent.match(/Bod (\d+)/) || [])[1]),
+          podpisy: pages.filter(p => p.querySelector('.sigs')).length,
+        };
+        stage.remove(); src.remove();
+        return res;
+      });
+      ok(a4.strany >= 4 && a4.vysoke === 0, `dlhý dokument sa rozdelí na strany A4, žiadna nie je vyššia (${a4.strany} strán)`, JSON.stringify(a4));
+      ok(a4.celyText, 'pri delení sa nestratí ani písmeno');
+      ok(a4.hlavickaTabulky, 'hlavička tabuľky sa zopakuje na každej strane');
+      ok(a4.cislovanie.every((n, i) => String(n) === a4.prvyBod[i]), 'číslovaný zoznam pokračuje správnym číslom na ďalšej strane',
+        JSON.stringify([a4.cislovanie, a4.prvyBod]));
+      ok(a4.podpisy === 1, 'podpisy sa nerozdelia medzi dve strany');
 
       // Obrazovka Dokumenty: podľa ľudí a firiem, najnovšie navrchu.
       const arch = await page.evaluate(async () => {

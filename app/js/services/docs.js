@@ -71,23 +71,36 @@
       const el = d.querySelector('.pf-main') || page;
       // Fonty z Google musia byť načítané, inak by PDF bolo iným písmom.
       try { await d.fonts.ready; } catch (e) { /* bez fontov to pôjde tiež */ }
+      d.body.classList.add('pdf-mode');
+      okno.scrollTo(0, 0);
+      // Strany A4 sa poskladajú vopred (lib/documents/paginate.js) a do PDF sa
+      // kreslí každá zvlášť: nič sa nekrája cez riadok a ani dlhý dokument
+      // neprekročí strop veľkosti obrázka v prehliadači na iPhone.
+      const MARGIN = 14;
+      const box = DanubraPaginate.pageBox(MARGIN);
+      const { pages, stage } = DanubraPaginate.paginate(d, el, box);
       // Nastavenia sa musia vytvoriť v okne dokumentu: knižnica sa pýta
       // `instanceof Array` a pole z tohto okna by tam neprešlo.
       const opts = okno.JSON.parse(JSON.stringify({
-        margin: [14, 14, 14, 14],
-        image: { type: 'jpeg', quality: 0.9 },
+        margin: [MARGIN, MARGIN, MARGIN, MARGIN],
+        image: { type: 'jpeg', quality: 0.92 },
         // Bez `windowWidth`: knižnica centruje dokument podľa skutočnej šírky
         // okna, a keby html2canvas počítal s inou, odreže ľavý okraj.
-        html2canvas: { scale: 1.8, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, logging: false },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        pagebreak: { mode: ['css', 'legacy'],
-          avoid: ['p', 'li', 'h1', 'h2', 'h3', '.par', '.bil', '.sigs', '.ss-row', '.total-box', '.pay', '.note', '.code', 'tbody > tr'] },
+        pagebreak: { mode: [] },
       }));
-      d.body.classList.add('pdf-mode');
-      okno.scrollTo(0, 0);
       let blob;
-      try { blob = await okno.html2pdf().set(opts).from(el).outputPdf('blob'); }
-      finally { d.body.classList.remove('pdf-mode'); }
+      try {
+        let w = okno.html2pdf().set(opts).from(pages[0]).toPdf();
+        for (const p of pages.slice(1)) {
+          w = w.get('pdf').then((pdf) => { pdf.addPage(); }).from(p).toContainer().toCanvas().toPdf();
+        }
+        blob = await w.outputPdf('blob');
+      } finally {
+        stage.remove();
+        d.body.classList.remove('pdf-mode');
+      }
       // Blob z cudzieho okna sa prevedie sem — okno sa môže medzitým zavrieť.
       return new Blob([await blob.arrayBuffer()], { type: 'application/pdf' });
     },
