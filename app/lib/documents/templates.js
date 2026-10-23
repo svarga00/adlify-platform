@@ -1211,7 +1211,9 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           ${supplier.email ? esc(supplier.email) : ''}
         </div></div>
         <div class="col"><div class="lbl">Zhotoviteľ</div><div class="val">
-          <strong>${esc(worker.full_name || '—')}</strong><br>
+          ${worker.legal_form === 'sro' && worker.company_name
+            ? `<strong>${esc(worker.company_name)}</strong><br>konajúca: ${esc(worker.full_name || '—')}, konateľ<br>`
+            : `<strong>${esc(worker.full_name || '—')}</strong><br>`}
           ${worker.business_address || worker.address
             ? esc(worker.business_address || worker.address) + '<br>' : ''}
           ${worker.company_id ? 'IČO: ' + esc(worker.company_id) + '<br>' : ''}
@@ -1233,7 +1235,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         <div class="sig"><div class="line">${stamp(supplier)}</div>
           <div class="who">Objednávateľ — ${esc(supplier.name || '')}</div></div>
         <div class="sig"><div class="line"></div>
-          <div class="who">Zhotoviteľ — ${esc(worker.full_name || '')}</div></div>
+          <div class="who">Zhotoviteľ — ${esc(worker.legal_form === 'sro' && worker.company_name
+            ? `${worker.company_name}, ${worker.full_name || ''}` : (worker.full_name || ''))}</div></div>
       </div>
       ${footSigned(supplier)}`;
 

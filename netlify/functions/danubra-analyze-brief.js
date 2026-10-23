@@ -102,7 +102,7 @@ const SCHEMA = {
           start_date: { type: 'string', description: 'RRRR-MM-DD. Keď je nástup „dohodou", vynechaj.' },
           offer_rate: { type: 'number', description: 'Čo ponúkame živnostníkovi, €/h.' },
           client_rate: { type: 'number', description: 'Čo fakturujeme odberateľovi, €/h.' },
-          legal_form: { type: 'string', enum: ['szco', 'employee'] },
+          legal_form: { type: 'string', enum: ['szco', 'sro'] },
           skill_level: { type: 'string', enum: ['werker', 'fachwerker'] },
           channels: { type: 'array', items: { type: 'string', enum: KANALY },
             description: 'Kde má zmysel inzerovať.' },
