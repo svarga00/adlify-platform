@@ -57,5 +57,9 @@
 [functions."danubra-cron-monthly"]
   schedule = "0 20 28-31 * *"
 
+# Pošta: každých 10 minút stiahne nové e-maily zo schránok (spustí funkciu na pozadí).
+[functions."danubra-mail-sync-cron"]
+  schedule = "*/10 * * * *"
+
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"

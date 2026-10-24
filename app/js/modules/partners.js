@@ -253,6 +253,9 @@
         <div class="form-section">Dokumenty</div>
         ${window.Docs ? Docs.slot('partner', p.id, { empty: 'Zatiaľ žiadne. Rámcová zmluva, Werkvertrag, ponuka či faktúra sa sem uložia, keď z nich spravíte PDF.' }) : ''}
 
+        <div class="form-section">E-maily</div>
+        ${window.Mail ? Mail.slot('partner', p.id, p.email) : ''}
+
         <div class="modal-actions">
           <button class="btn btn-danger btn-sm" onclick="Prt.del('${p.id}')">Zmazať</button>
           <button class="btn btn-outline btn-sm" onclick="Prt.rahmen('${p.id}')">
@@ -261,6 +264,7 @@
         </div>`;
       UI.modal(p.name, body, { wide: true });
       if (window.Docs) Docs.fill(document.getElementById('ui-modal'));
+      if (window.Mail) Mail.fill(document.getElementById('ui-modal'));
     },
 
     form(id) {

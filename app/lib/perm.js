@@ -125,6 +125,9 @@
     archive: 'dashboard',
     // Marketing: nové firmy a e-maily patria k tomu istému ako inzercia.
     leads: 'marketing', campaigns: 'marketing',
+    // E-maily sú to isté ako Správy; ktoré schránky vidí, určuje admin
+    // zvlášť (danubra_mailbox_access). Schránky nastavuje, kto smie na Nastavenia.
+    mail: 'messages', mailboxes: 'settings',
   };
 
   /** Z názvu obrazovky urob kľúč práva. */

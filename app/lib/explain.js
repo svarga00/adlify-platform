@@ -303,6 +303,48 @@
       why: ['V Nemecku sa obchodný e-mail smie poslať firme, pri ktorej sa dá predpokladať záujem (§ 7 UWG), a vždy s možnosťou odhlásenia.'],
       links: [['leads', 'Nové firmy']],
     },
+    'screen.mail': {
+      title: 'Správy — e-maily',
+      lead: 'Firemné e-mailové schránky na jednom mieste: Doručené, Odoslané, odpovede, prílohy.',
+      what: [
+        'Každý vidí len schránky, ktoré mu administrátor pridelil (Nastavenia → Schránky).',
+        'Nové e-maily sa sťahujú samy každých 10 minút; „Obnoviť" ich stiahne hneď.',
+        'E-mail sa sám priradí k živnostníkovi, odberateľovi alebo novej firme podľa adresy — a je vidieť aj pri nich.',
+      ],
+      how: [
+        'Odpoveď, odpoveď všetkým aj preposlanie majú podpis podľa schránky, z ktorej idú.',
+        'Prílohy sa pridajú z Dokumentov (PDF z appky) alebo z počítača.',
+        'Odoslaný e-mail sa uloží aj do Odoslaných na serveri — vidno ho v telefóne aj v Outlooku.',
+        'Obrázky z webu sú skryté, kým na ne nekliknete (môžu slúžiť na sledovanie).',
+        '„Skryť" e-mail len schová zo zoznamu — v schránke zostáva, nič sa nemaže.',
+      ],
+      why: ['Komunikácia so živnostníkmi a s Nemcami je pri nich, nie v troch aplikáciách.'],
+      links: [['mailboxes', 'Schránky'], ['messages', 'Interné poznámky']],
+    },
+    'screen.mailboxes': {
+      title: 'E-mailové schránky',
+      lead: 'Firemné schránky (info@, fakturacia@…), ich podpis a kto ich v Správach vidí.',
+      what: [
+        'Stačí e-mail a heslo — servery Websupportu a Forpsi sa doplnia samy. Pri inom hostingu ich zadáte ručne.',
+        'Heslo sa uloží zašifrované kľúčom, ktorý je len na serveri. Do prehliadača sa nikdy nevráti.',
+        'Administrátor vidí všetky schránky, ostatní len tie, pri ktorých sú zaškrtnutí.',
+      ],
+      how: [
+        '„Otestovať pripojenie" overí prijímanie (IMAP) aj odosielanie (SMTP) skôr, než schránku uložíte.',
+        'Pri prvom pripojení sa stiahne posledných 150 e-mailov z Doručených a Odoslaných.',
+        'Vypnutá schránka sa prestane sťahovať, e-maily v appke zostanú.',
+      ],
+      why: ['Heslá schránok nesmú byť v prehliadači — appka sa k serveru pripája len zo servera.'],
+      links: [['mail', 'Správy'], ['members', 'Používatelia']],
+    },
+    'card.worker.emails': {
+      title: 'E-maily',
+      lead: 'E-maily z firemných schránok, ktoré mu prišli alebo od neho prišli.',
+      what: ['Priradia sa samy podľa jeho e-mailovej adresy. Iný e-mail sa dá priradiť ručne v Správach („Priradiť").'],
+      how: ['„Napísať e-mail" otvorí nový e-mail s jeho adresou a podpisom schránky.'],
+      why: ['Čo sa s ním dohodlo e-mailom, je pri ňom — nie v niečej schránke.'],
+      links: [['mail', 'Správy']],
+    },
     'screen.advances': {
       title: 'Zálohy a výplaty',
       lead: 'Komu sme dali zálohu a komu čo dlhujeme — za všetkých živnostníkov naraz.',
