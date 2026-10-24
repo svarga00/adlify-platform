@@ -265,7 +265,8 @@
         <span>${n ? `Vybraté: <b>${n}</b>` : 'Zaškrtnite dokumenty, ktoré chcete poslať naraz.'}</span>
         ${n ? `<button class="btn btn-ghost btn-sm" onclick="Docs.clearPick()">Zrušiť výber</button>
           <button class="btn btn-outline btn-sm" onclick="Docs.downloadPicked()">${Icon('download', 14)} Stiahnuť</button>
-          <button class="btn btn-primary btn-sm" onclick="Docs.sharePicked()">${Icon('mail', 14)} Poslať</button>` : ''}
+          ${window.Mail ? `<button class="btn btn-outline btn-sm" onclick="Docs.mailPicked()">${Icon('mail', 14)} E-mailom</button>` : ''}
+          <button class="btn btn-primary btn-sm" onclick="Docs.sharePicked()">${Icon('upload', 14)} Poslať</button>` : ''}
       </div>`;
     },
 
@@ -329,6 +330,27 @@
         return UI.toast('Súbory sú pripravené — kliknite ešte raz na Poslať', 'warn');
       }
       return this.shareFrom(window, ids.map(id => this.files.get(id)), rows);
+    },
+
+    /**
+     * Vybraté dokumenty ako prílohy e-mailu z firemnej schránky (Správy).
+     * Keď patria jednému človeku alebo jednej firme, doplní sa aj adresát.
+     */
+    async mailPicked() {
+      const rows = [...this.picked].map(id => this.rows.find(r => r.id === id)).filter(Boolean);
+      if (!rows.length) return;
+      const one = (k) => { const v = [...new Set(rows.map(r => r[k]).filter(Boolean))]; return v.length === 1 ? v[0] : null; };
+      const links = { worker_id: one('worker_id'), partner_id: one('partner_id') };
+      let to = '';
+      try {
+        const [t, id] = links.partner_id ? ['partners', links.partner_id] : links.worker_id ? ['workers', links.worker_id] : [];
+        if (t) { const { data } = await DB.list(t, { select: 'id,email', filters: { id }, limit: 1 }); to = ((data || [])[0] || {}).email || ''; }
+      } catch (e) { /* adresáta doplní človek */ }
+      const lang = A().langOf(rows);
+      return Mail.compose({ to, links, sign: true,
+        subject: rows.length === 1 ? rows[0].file_name.replace(/\.pdf$/, '') : (lang === 'de' ? 'Dokumente' : 'Dokumenty'),
+        body: A().shareText(rows, { lang }),
+        attachments: rows.map(r => ({ storage_path: r.storage_path, name: r.file_name, type: 'application/pdf' })) });
     },
 
     async downloadPicked() {

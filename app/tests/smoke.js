@@ -329,15 +329,15 @@ if (D) {
 
   const vlavo = D.sidebarNav().map(n => n[0]);
   t(`v ľavom menu je ${vlavo.length} položiek, nie dvadsaťštyri`, vlavo.length <= 12);
-  t(`a skupín je ${D.navGroups.length}, nie osem`, D.navGroups.length <= 6);
+  t(`a skupín je ${D.navGroups.length}, nie osem`, D.navGroups.length <= 7);
 
   // Rodičia, ktorí v menu musia stáť — na nich sa dá dostať zo všetkého
   // ostatného cez záložky.
-  // Päť miest a Nastavenia: Dnes, Zákazky, Ľudia, Fakturácia, Marketing.
-  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'leads', 'settings']) {
+  // Šesť miest a Nastavenia: Dnes, Zákazky, Ľudia, Fakturácia, Marketing, Správy.
+  for (const k of ['dashboard', 'subcontracts', 'workers', 'money', 'leads', 'mail', 'settings']) {
     t(`${D.labelOf(k)} je v menu`, vlavo.includes(k));
   }
-  t(`a nič iné (${vlavo.join(', ')})`, vlavo.length === 6);
+  t(`a nič iné (${vlavo.join(', ')})`, vlavo.length === 7);
   // A tie, ktoré sa stali záložkami, v ňom stáť nesmú.
   for (const k of ['tasks', 'messages', 'flow', 'opportunities', 'quotes', 'partners', 'orders',
     'contracts', 'timesheets', 'hoursheet', 'hiring', 'candidates', 'ads',

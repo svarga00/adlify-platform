@@ -4174,6 +4174,145 @@ console.log('Prehliadač');
       ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
       await page.close();
     }
+    // ── Správy: e-mailový klient (viac schránok, podpis, prístupy) ──────
+    {
+      const page = await browser.newPage();
+      const chyby = [];
+      page.on('pageerror', e => chyby.push(e.message));
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1100);
+      const out = await page.evaluate(async () => {
+        const dnes = new Date().toISOString();
+        const DATA = {
+          mailboxes: [
+            { id: 'b1', name: 'Info', email: 'info@punds.eu', display_name: 'Partner und Service', signature: 'Štefan Varga\nP&S', last_sync_at: dnes, active: true },
+            { id: 'b2', name: 'Fakturácia', email: 'fakturacia@punds.eu', signature: 'Účtovné oddelenie', last_sync_at: dnes, active: true }],
+          mail_messages: [
+            { id: 'm1', mailbox_id: 'b1', folder: 'INBOX', direction: 'in', from_email: 'hans@gu-ulm.de', from_name: 'Hans Gruber',
+              to_list: [{ address: 'info@punds.eu' }], cc_list: [], subject: 'Angebot Wohnpark', sent_at: dnes, snippet: 'Guten Tag, wir brauchen…',
+              seen: false, attachments: [{ name: 'plan.pdf', size: 20480, storage_path: 'mail/b1/INBOX/7-0-plan.pdf' }], partner_id: 'p1',
+              message_id: '<abc@gu-ulm.de>', text_body: 'Guten Tag,\nwir brauchen 4 Fliesenleger.',
+              html_body: '<p onclick="x()">Guten Tag</p><script>alert(1)</script><img src="https://track.example/p.gif">' },
+            { id: 'm2', mailbox_id: 'b1', folder: 'Sent', direction: 'out', from_email: 'info@punds.eu', to_list: [{ address: 'bau@gu-ulm.de' }],
+              cc_list: [], subject: 'Ponuka', sent_at: dnes, snippet: 'Dobrý deň', seen: true, attachments: [], partner_id: 'p1' }],
+          members: [{ id: 'u1', user_id: 'uid-1', email: 'jana@punds.eu', full_name: 'Jana', role: 'coordinator', active: true },
+            { id: 'u0', user_id: 'uid-0', email: 'stefan@punds.eu', full_name: 'Štefan', role: 'admin', active: true }],
+          mailbox_access: [{ mailbox_id: 'b1', user_id: 'uid-1', active: true }],
+          workers: [], partners: [{ id: 'p1', name: 'GU Ulm GmbH', email: 'bau@gu-ulm.de' }], leads: [],
+          settings: [{ id: 's1', supplier: { name: 'Partner und Service s. r. o.' } }],
+        };
+        const volania = [];
+        DB.list = async (t, o = {}) => {
+          let r = (DATA[t] || []).map(x => ({ ...x }));
+          if (o.filters && o.filters.id) r = r.filter(x => x.id === o.filters.id);
+          return { data: r, error: null };
+        };
+        DB.count = async () => 0;
+        DB.update = async () => ({ data: null, error: null });
+        DB.client = { auth: { getSession: async () => ({ data: { session: { access_token: 'jwt-9' } } }) } };
+        const pravy = window.fetch;
+        window.fetch = async (u, o) => {
+          const url = String(u);
+          volania.push({ url, auth: o && o.headers && o.headers.Authorization, body: o && o.body ? JSON.parse(o.body) : null });
+          if (url.includes('danubra-mail-send')) return new Response(JSON.stringify({ ok: true, id: 'n1' }));
+          if (url.includes('danubra-mail-account')) return new Response(JSON.stringify({ ok: true, id: 'b3', imap: { ok: true }, smtp: { ok: true } }));
+          return new Response('{}');
+        };
+        Danubra.user = { id: 'uid-0', email: 'stefan@punds.eu' };
+        Danubra.me = { role: 'admin', active: true }; Danubra.members = [{ role: 'admin', active: true }];
+        Danubra.cfgRow = DATA.settings[0];
+        document.getElementById('login-screen').hidden = true; document.getElementById('app').hidden = false;
+        const tick = () => new Promise(r => setTimeout(r, 30));
+
+        Danubra.route = 'mail'; Mail.loaded = false; Mail.openId = null;
+        await Danubra.renderRoute();
+        const v = document.getElementById('view');
+        const res = {
+          menu: [...document.querySelectorAll('#sidebar-nav .nav-item .nav-text')].map(x => x.textContent.trim()),
+          tabs: [...document.querySelectorAll('.subtab-txt b')].map(x => x.textContent.trim()),
+          schranky: [...v.querySelectorAll('.mail-box-h b')].map(x => x.textContent),
+          teraz: (v.querySelector('.nowbox-title') || {}).textContent || '',
+          riadky: v.querySelectorAll('.mail-list .mail-row').length,
+          neprec: v.querySelectorAll('.mail-list .mail-row.unread').length,
+        };
+        await Mail.open('m1');
+        await tick(); await tick();
+        const fr = v.querySelector('iframe.mail-body');
+        res.srcdoc = fr ? fr.srcdoc : '';
+        res.sandbox = fr ? fr.getAttribute('sandbox') : '';
+        res.obrazky = v.textContent.includes('Obrázky z webu sú skryté');
+        res.priloha = [...v.querySelectorAll('.mail-att .link-chip')].map(x => x.textContent.trim());
+        res.prepojenie = [...v.querySelectorAll('.mail-meta .link-chip')].map(x => x.textContent.trim());
+        res.seen = volania.filter(x => x.url.includes('mail-send')).map(x => x.body);
+
+        await Mail.reply('m1');
+        const f = document.getElementById('mc-form');
+        res.komu = f.querySelector('[name=to]').value;
+        res.predmet = f.querySelector('[name=subject]').value;
+        res.text1 = f.querySelector('[name=text]').value;
+        const od = f.querySelector('[name=mailbox_id]');
+        od.value = 'b2'; od.dispatchEvent(new Event('change'));
+        res.text2 = f.querySelector('[name=text]').value;
+        await Mail.send();
+        const posl = volania.filter(x => x.body && x.body.action === 'send');
+        res.poslane = posl.map(x => ({ mb: x.body.mailbox_id, to: x.body.to.map(a => a.address), irt: x.body.in_reply_to, p: x.body.links.partner_id, auth: x.auth }));
+
+        // E-maily pri odberateľovi
+        const slot = document.createElement('div');
+        slot.innerHTML = Mail.slot('partner', 'p1', 'bau@gu-ulm.de');
+        document.body.appendChild(slot);
+        await Mail.fill(slot);
+        res.slot = [...slot.querySelectorAll('.mail-row b')].map(x => x.textContent.trim());
+        res.slotBtn = slot.textContent.includes('Napísať e-mail');
+        slot.remove();
+
+        // Nastavenia → Schránky
+        Danubra.route = 'mailboxes'; Mbx.loaded = false;
+        await Danubra.renderRoute();
+        res.mbx = [...v.querySelectorAll('.acc-name')].map(x => x.textContent);
+        res.vidi = v.textContent.includes('Jana');
+        res.hesla = !document.documentElement.outerHTML.includes('secret_enc');
+        Mbx.form();
+        const g = document.getElementById('mb-form');
+        res.imap1 = g.imap_host.value + ':' + g.imap_port.value + ' ' + g.smtp_host.value;
+        g.preset.value = 'forpsi'; g.preset.dispatchEvent(new Event('change'));
+        res.imap2 = g.imap_host.value;
+        g.email.value = 'zakazky@punds.eu'; g.password.value = 'tajne-heslo'; g.signature.value = 'Tím zákaziek';
+        g.querySelector('input[name=acc][value="uid-1"]').checked = true;
+        await Mbx.save();
+        const ul = volania.filter(x => x.body && x.body.action === 'save').map(x => x.body);
+        res.ulozenie = ul.map(b => ({ email: b.mailbox.email, host: b.mailbox.imap_host, pass: b.password, access: b.access, sig: b.mailbox.signature }));
+        res.zaSync = volania.some(x => x.url.includes('danubra-mail-sync-background') && x.auth === 'Bearer jwt-9');
+        window.fetch = pravy;
+        return res;
+      });
+      ok(out.menu.includes('Správy'), 'v menu sú Správy', out.menu.join(', '));
+      ok(out.tabs.includes('E-maily') && out.tabs.includes('Interné'), 'Správy majú záložky E-maily a Interné', out.tabs.join(', '));
+      ok(JSON.stringify(out.schranky) === '["Info","Fakturácia"]', 'vidno obe schránky', JSON.stringify(out.schranky));
+      ok(/1 neprečítaný e-mail/.test(out.teraz), 'veta „čo teraz" povie, koľko je neprečítaných', out.teraz);
+      ok(out.riadky === 1 && out.neprec === 1, 'v Doručených je jeden neprečítaný (odoslaný tam nie je)', `${out.riadky}/${out.neprec}`);
+      ok(out.srcdoc && !/<script/i.test(out.srcdoc) && !/onclick=/i.test(out.srcdoc) && /Content-Security-Policy/.test(out.srcdoc),
+        'HTML e-mailu je bez skriptov a s CSP', out.srcdoc.slice(0, 200));
+      ok(out.sandbox && !/allow-scripts/.test(out.sandbox), 'okno e-mailu je izolované a nespúšťa skripty', out.sandbox);
+      ok(out.obrazky, 'obrázky z webu sú skryté, kým ich človek nezapne');
+      ok(out.priloha.some(x => /plan\.pdf/.test(x)), 'príloha je vidieť', out.priloha.join(','));
+      ok(out.prepojenie.some(x => /Odberateľ/.test(x)), 'e-mail je prepojený s odberateľom', out.prepojenie.join(','));
+      ok(out.seen.some(b => b && b.action === 'seen' && b.id === 'm1' && b.seen === true), 'otvorený e-mail sa označí ako prečítaný aj na serveri', JSON.stringify(out.seen));
+      ok(/hans@gu-ulm\.de/.test(out.komu) && out.predmet === 'Re: Angebot Wohnpark', 'odpoveď: adresát a predmet', `${out.komu} / ${out.predmet}`);
+      ok(/-- \nŠtefan Varga/.test(out.text1) && /> wir brauchen 4 Fliesenleger/.test(out.text1), 'odpoveď má podpis schránky a citát', out.text1);
+      ok(/Účtovné oddelenie/.test(out.text2) && !/Štefan Varga/.test(out.text2), 'iná schránka = iný podpis', JSON.stringify(out.text2));
+      ok(JSON.stringify(out.poslane) === JSON.stringify([{ mb: 'b2', to: ['hans@gu-ulm.de'], irt: '<abc@gu-ulm.de>', p: 'p1', auth: 'Bearer jwt-9' }]),
+        'odoslanie ide cez server, z vybranej schránky, ako odpoveď a s prepojením', JSON.stringify(out.poslane));
+      ok(out.slot.length === 2 && out.slotBtn, 'pri odberateľovi sú jeho e-maily a tlačidlo Napísať', JSON.stringify(out.slot));
+      ok(JSON.stringify(out.mbx) === '["Info","Fakturácia"]' && out.vidi, 'Schránky ukážu schránky a kto ich vidí', JSON.stringify(out.mbx));
+      ok(out.hesla, 'zašifrované heslo sa do prehliadača nedostane');
+      ok(out.imap1 === 'imap.websupport.sk:993 smtp.websupport.sk' && out.imap2 === 'imap.forpsi.com', 'servery Websupportu a Forpsi sa doplnia samy', `${out.imap1} / ${out.imap2}`);
+      ok(JSON.stringify(out.ulozenie) === JSON.stringify([{ email: 'zakazky@punds.eu', host: 'imap.forpsi.com', pass: 'tajne-heslo', access: ['uid-1'], sig: 'Tím zákaziek' }]),
+        'uloženie pošle heslo len serveru, s prístupmi a podpisom', JSON.stringify(out.ulozenie));
+      ok(out.zaSync, 'po uložení sa e-maily hneď začnú sťahovať');
+      ok(chyby.length === 0, 'a nič pri tom nespadne', chyby.slice(0, 3).join('; '));
+      await page.close();
+    }
   } finally {
     await browser.close();
     server.close();

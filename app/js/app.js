@@ -106,7 +106,6 @@ window.Danubra = {
     // aké peniaze. Všetko ostatné je záložkou jednej z nich a funguje ďalej.
     ['DNES',       [['dashboard', 'Dnes', 'dashboard'],
                     ['tasks', 'Úlohy a pripomienky', 'tasks'],
-                    ['messages', 'Správy', 'mail'],
                     ['flow', 'Ako to ide', 'repeat'],
                     // Každé PDF z appky — triedené podľa ľudí a firiem.
                     ['archive', 'Dokumenty', 'doc']]],
@@ -138,12 +137,17 @@ window.Danubra = {
     ['MARKETING',  [['leads', 'Marketing', 'marketing'],
                     ['campaigns', 'E-maily firmám', 'mail'],
                     ['marketing', 'Inzercia a výdavky', 'chart']]],
+    // „Plnohodnotný mailový klient s viacerými schránkami, podpisom atď."
+    // Každý vidí len schránky, ktoré mu admin pridelí (Nastavenia → Schránky).
+    ['SPRÁVY',     [['mail', 'Správy', 'mail'],
+                    ['messages', 'Interné poznámky', 'note']]],
     // Veci, ktoré sa nastavia raz a potom sa z nich len čerpá.
     ['NASTAVENIE', [['settings', 'Nastavenia', 'settings'],
                     ['trades', 'Remeslá a otázky', 'wrench', 'staffing', 'recruiting'],
                     ['compliance', 'Compliance', 'shield', 'staffing', null],
                     ['rules', 'Cenník a pravidlá', 'rules'],
-                    ['members', 'Používatelia', 'clients']]],
+                    ['members', 'Používatelia', 'clients'],
+                    ['mailboxes', 'E-mailové schránky', 'mail']]],
   ],
 
   // ── Čo ktorá obrazovka robí ──────────────────────────────────────────────
@@ -155,7 +159,9 @@ window.Danubra = {
     archive: 'Všetky PDF — zmluvy, GDPR, objednávky, faktúry — pri ľuďoch a firmách; poslať aj viac naraz',
     money: 'Kde stoja naše peniaze a koľko sa z nich dá minúť a dokedy',
     tasks: 'Všetky úlohy a pripomienky na jednom mieste',
-    messages: 'Komunikácia pri zázname, ktorého sa týka',
+    messages: 'Interné poznámky a komunikácia pri zázname, ktorého sa týka',
+    mail: 'Firemné e-maily — viac schránok, podpis, prílohy; e-maily sa samy priradia k ľuďom a firmám',
+    mailboxes: 'Firemné schránky (info@, fakturácia@…), ich podpis a kto ich vidí',
     opportunities: 'Potenciálne zákazky — čo príde telefonátom, než z toho je ponuka',
     quotes: 'Ponuky odberateľom — marža je vidieť skôr, než ponuka odíde',
     orders: 'Čo si objednal odberateľ a čo sme objednali u živnostníka',
@@ -331,7 +337,9 @@ window.Danubra = {
    */
   navParent: {
     // Poradie tu je poradím záložiek. Prehľad „čo dnes" a jeho ďalšie pohľady.
-    tasks: 'dashboard', messages: 'dashboard', flow: 'dashboard', archive: 'dashboard',
+    tasks: 'dashboard', flow: 'dashboard', archive: 'dashboard',
+    // Správy: e-maily zo schránok a interné poznámky.
+    messages: 'mail',
     // Zákazka: od dopytu po hodiny. Na konkrétnej zákazke je to isté ako
     // sedem krokov; tu sú zoznamy cez všetky zákazky naraz.
     opportunities: 'subcontracts', quotes: 'subcontracts', partners: 'subcontracts',
@@ -343,6 +351,7 @@ window.Danubra = {
     // „Kde sú peniaze" je otázka. Vydané, prijaté a banka sú tri odpovede.
     invoices: 'money', costs: 'money', advances: 'money', bank: 'money',
     trades: 'settings', compliance: 'settings', rules: 'settings', members: 'settings',
+    mailboxes: 'settings',
     // Marketing: nové firmy, e-maily im, inzercia.
     campaigns: 'leads', marketing: 'leads',
   },
@@ -357,11 +366,13 @@ window.Danubra = {
     marketing: 'Inzercia a výdavky', leads: 'Nové firmy', campaigns: 'E-maily',
     money: 'Prehľad', invoices: 'Vydané', costs: 'Prijaté', advances: 'Zálohy a výplaty', bank: 'Banka',
     settings: 'Firma a agendy', trades: 'Remeslá', rules: 'Cenník', members: 'Používatelia',
+    mailboxes: 'Schránky', mail: 'E-maily', messages: 'Interné',
   },
 
   // Krátko pod názvom záložky — čo tam je. Celá veta je v `navHints`.
   navTabHint: {
-    dashboard: 'Čo treba dnes', tasks: 'Pripomienky', messages: 'Komunikácia', flow: 'Celá cesta',
+    dashboard: 'Čo treba dnes', tasks: 'Pripomienky', messages: 'Poznámky pri záznamoch', flow: 'Celá cesta',
+    mail: 'Doručené a odoslané', mailboxes: 'Podpis a kto ich vidí',
     archive: 'Všetky PDF',
     subcontracts: 'Stavby v 7 krokoch', opportunities: 'Kto chce ľudí', quotes: 'Ceny pre Nemcov',
     partners: 'Nemecké firmy', contracts: 'Zmluvy o dielo', orders: 'Od Nemca aj živnostníkom',
@@ -913,6 +924,8 @@ window.Danubra = {
         this._showLoadFailures(view);
         // Zoznamy dokumentov pri človeku, firme a zákazke (`Docs.slot`).
         if (window.Docs) Docs.fill(view);
+        // E-maily pri človeku a firme (`Mail.slot`).
+        if (window.Mail) Mail.fill(view);
       })
       .catch((e) => {
         if (this.route !== started) return;

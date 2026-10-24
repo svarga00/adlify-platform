@@ -610,6 +610,9 @@
               isTrade ? this.billingCard(w, billing) : ''}`,
             onom: `${this.aboutCard(w)}${this.promisesCard(w)}`,
             historia: `<div id="wrk-history">${UI.loading()}</div>`,
+            // E-maily z firemných schránok, ktoré sa ho týkajú (podľa adresy).
+            emaily: `<div class="card card-pad"><div class="card-head"><div class="card-title">E-maily${Help.btn('card.worker.emails', { size: 13 })}</div></div>
+              ${window.Mail ? Mail.slot('worker', w.id, w.email) : ''}</div>`,
             // Každé PDF, ktoré sa preňho spravilo: GDPR, zmluva, objednávka, infolist.
             dokumenty: `<div class="card card-pad"><div class="card-head"><div class="card-title">Dokumenty${Help.btn('card.worker.documents', { size: 13 })}</div></div>
               ${window.Docs ? Docs.slot('worker', w.id, { empty: 'Zatiaľ žiadne. GDPR, rámcová zmluva, objednávka či infolist sa sem uložia, keď z nich spravíte PDF.' }) : ''}</div>`,
@@ -617,7 +620,7 @@
           const sec = sekcie[this.sec] ? this.sec : 'doklady';
           this._sec = sec;
           const TABS = [['doklady', 'Doklady', 'shield'], ['dokumenty', 'Dokumenty', 'doc'],
-            ['peniaze', 'Peniaze', 'euro'], ['onom', 'O ňom', 'user'], ['historia', 'História', 'clock']];
+            ['emaily', 'E-maily', 'mail'], ['peniaze', 'Peniaze', 'euro'], ['onom', 'O ňom', 'user'], ['historia', 'História', 'clock']];
           return `<div class="sec-tabs" role="tablist">
             ${TABS.map(([k, label, ico]) => `<button role="tab" class="sec-tab${k === sec ? ' on' : ''}"
               aria-selected="${k === sec}" onclick="Wrk.setSec('${k}')">${Icon(ico, 14)} ${label}</button>`).join('')}
