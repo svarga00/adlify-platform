@@ -14,6 +14,8 @@ const { plural } = require('../shared/h');
 let passed = 0, failed = 0;
 const ok = (c, name, detail) => { if (c) { passed++; console.log(`  ✓ ${name}`); } else { failed++; console.log(`  ✗ ${name}${detail ? ` — ${String(detail).slice(0, 300)}` : ''}`); } };
 
+// Emoji a piktogramy (📍 ✓ ⚠️ ↗ ← …); šípka → v texte tlačidiel je dovolená.
+const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{25A0}-\u{25FF}\u{2190}\u{2191}\u{2193}-\u{21FF}\u{FE0F}]/u;
 const deps = { ads: async ({ demoIfEmpty }) => (demoIfEmpty ? DEMO_ADS : []) };
 const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.netlify.app', path: p.split('?')[0], query: Object.fromEntries(new URLSearchParams(p.split('?')[1] || '')), acceptLanguage: o.al || '' }, o.deps || deps);
 
@@ -67,6 +69,8 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
     ok(bezNadpisu.length === 0, 'každá stránka má nadpis h1', bezNadpisu.slice(0, 5).join(', '));
     const bezTitle = bodies.filter(([, r]) => !/<title>[^<]{3,}<\/title>/.test(r.body)).map(([u]) => u);
     ok(bezTitle.length === 0, 'každá stránka má titulok', bezTitle.slice(0, 5).join(', '));
+    const emoji = bodies.filter(([, r]) => EMOJI.test(r.body)).map(([u, r]) => `${u}: ${(r.body.match(new RegExp(`.{0,40}${EMOJI.source}.{0,20}`, 'u')) || [''])[0]}`);
+    ok(emoji.length === 0, 'v stránkach nie sú emoji ani piktogramy (len SVG ikony)', emoji.slice(0, 3).join(' | '));
     const hreflang = bodies.filter(([, r]) => (r.body.match(/hreflang="/g) || []).length < site.langs.length + 1).map(([u]) => u);
     ok(hreflang.length === 0, 'každá stránka má jazykové verzie pre vyhľadávače', hreflang.slice(0, 5).join(', '));
     for (const l of site.langs) {
@@ -74,6 +78,13 @@ const get = (p, o = {}) => handle({ method: 'GET', host: o.host || 'adlify-app.n
       ok(home && home.status === 200 && new RegExp(`<html lang="${l === 'cz' ? 'cs' : l}"`).test(home.body), `${site.domain}/${l}/ — správny jazyk stránky`);
     }
   }
+
+  console.log('Bez emoji');
+  const fs = require('fs'), pth = require('path');
+  const pub = (d) => fs.readdirSync(pth.join(__dirname, '..', 'public', d)).map((f) => pth.join(__dirname, '..', 'public', d, f));
+  const files = [...pub('js'), ...pub('css'), pth.join(__dirname, '..', 'emails.js')];
+  const sEmoji = files.filter((f) => EMOJI.test(fs.readFileSync(f, 'utf8'))).map((f) => pth.relative(pth.join(__dirname, '..'), f));
+  ok(sEmoji.length === 0, 'skripty, štýly a e-maily sú bez emoji', sEmoji.join(', '));
 
   console.log('Ponuky');
   const j = toJob({ id: 'abc123456', title: 'Zvárač TIG', trade_key: 'zvarac', city: 'Ulm', rate_offered: 30, rate_max: 33, starts_on: '2099-12-01',

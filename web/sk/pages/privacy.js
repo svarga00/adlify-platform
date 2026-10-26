@@ -8,6 +8,7 @@
 'use strict';
 
 const { esc, each } = require('../../shared/h');
+const { icon } = require('../../shared/icons');
 const { PHONE, MAIL, tel } = require('../common');
 
 const CO = 'Partner und Service s. r. o.';
@@ -107,7 +108,7 @@ function legalPage(ctx, t, { toc = true } = {}) {
   <nav class="crumbs" aria-label="breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><span class="cur" aria-current="page">${esc(t.crumb)}</span></nav>
   <div class="sp-head-in rv-in"><h1 class="sp-h1 lgl-h1">${esc(t.h1)}</h1><div class="lgl-meta"><span>${esc(t.updated)}</span><span aria-hidden="true">·</span><span>${esc(t.read)}</span></div></div>
 </div>
-${ctx.prod ? '' : '<div class="wrap"><p class="warn lgl-warn"><span aria-hidden="true">⚠️</span>Text je návrh, pred spustením ho skontroluje právnik.</p></div>'}
+${ctx.prod ? '' : `<div class="wrap"><p class="warn lgl-warn">${icon('alert')}<span>Text je návrh, pred spustením ho skontroluje právnik.</span></p></div>`}
 <div class="wrap sec-last lgl${toc ? '' : ' lgl-solo'}">
   ${toc ? `<nav class="lgl-toc" aria-label="${esc(t.toc)}"><span class="eyebrow">${esc(t.toc)}</span>${each(t.s, ([h], i) => `<a href="#s${i + 1}"><span>${i + 1}</span>${esc(h)}</a>`)}</nav>` : ''}
   <article class="lgl-art">

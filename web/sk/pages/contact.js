@@ -11,6 +11,7 @@
 
 const { esc, each } = require('../../shared/h');
 const PROF = require('../../shared/professions');
+const { icon } = require('../../shared/icons');
 const { PHONE, PHONE2, MAIL, tel } = require('../common');
 
 const ADDR = 'Podzámska 9468/4A, 940 71 Nové Zámky';
@@ -78,7 +79,7 @@ function contactForm(ctx, o = {}) {
     <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
     <div class="form-msg" role="alert"></div>
     <button type="submit" class="btn btn-primary btn-block sp-send">${esc(o.send || f.send)} →</button>
-    <template data-ok><div class="ok-ico">✓</div><h3>${esc(f.okH)}</h3><p>${esc(f.okP)}</p><p>${esc(f.okCall)}: <a class="sp-ok-tel" href="${tel(PHONE)}">${PHONE}</a></p></template>
+    <template data-ok><div class="ok-ico" aria-hidden="true">${icon('check')}</div><h3>${esc(f.okH)}</h3><p>${esc(f.okP)}</p><p>${esc(f.okCall)}: <a class="sp-ok-tel" href="${tel(PHONE)}">${PHONE}</a></p></template>
   </form>`;
 }
 

@@ -7,6 +7,7 @@
 'use strict';
 
 const { esc, each } = require('../../shared/h');
+const { icon } = require('../../shared/icons');
 const { PHONE, MAIL, tel } = require('../common');
 
 const T = {
@@ -95,7 +96,7 @@ async function render(ctx) {
   <nav class="crumbs" aria-label="Breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><span aria-current="page">${esc(t.h1)}</span></nav>
   <h1 class="eu-h1-52">${esc(t.h1)}</h1>
   <span class="eu-legal-sub">${esc(t.sub)}</span>
-  ${ctx.prod ? '' : `<p class="warn eu-warn"><span aria-hidden="true">⚠️</span> ${esc(t.warn)}</p>`}
+  ${ctx.prod ? '' : `<p class="warn eu-warn">${icon('alert')}<span>${esc(t.warn)}</span></p>`}
 </section>
 <div class="wrap eu-priv sec-last">
   <nav class="eu-toc" aria-label="${esc(t.toc)}"><span class="eyebrow">${esc(t.toc)}</span><ol>${each(t.secs, ([h], i) => `<li><a href="#ds-${i + 1}">${esc(h)}</a></li>`)}</ol></nav>

@@ -10,6 +10,7 @@
 
 const { esc, each, cls, num, plural, LOCALE } = require('../../shared/h');
 const { T: C, rate, PHONE, tel } = require('../common');
+const { icon } = require('../../shared/icons');
 
 const WA = '421910523858';
 
@@ -171,7 +172,7 @@ const T = {
   },
 };
 
-const PIN = '<span aria-hidden="true">📍</span> ';
+const PIN = icon('pin', 'ico-city');
 const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 const paras = (s) => String(s || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
   .map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
@@ -234,7 +235,7 @@ module.exports = async function render(ctx) {
   // ── Formulár (desktop a výsuvný panel) ─────────────────────────────────
   const consent = `<label class="check"><input type="checkbox" name="consent" required><span>${esc(t.consent[0])}<a href="${esc(privacy)}" target="_blank" rel="noopener">${esc(t.consent[1])}</a>${esc(t.consent[2])} *</span></label>`;
   const hidden = `<input type="hidden" name="job" value="${esc(job.slug)}"><div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>`;
-  const okTpl = (mobile) => `<template data-ok><div class="jd-ok"><span class="jd-ok-ico" aria-hidden="true">✓</span><strong class="jd-ok-h">${esc(t.ok)}</strong>
+  const okTpl = (mobile) => `<template data-ok><div class="jd-ok"><span class="jd-ok-ico" aria-hidden="true">${icon('check')}</span><strong class="jd-ok-h">${esc(t.ok)}</strong>
     <p>${esc(t.okP[0])}<b>${esc(job.title)} – ${esc(job.city)}</b>${esc(t.okP[1])}</p>
     <div class="jd-steps"><span class="jd-steps-h">${esc(t.nextH)}</span><ol>${each(t.steps, (s) => `<li>${esc(s)}</li>`)}</ol></div>
     ${mobile ? `<button type="button" class="btn btn-dark btn-block" data-sheet-close>${esc(t.backM)}</button>` : ''}</div></template>`;
@@ -260,7 +261,7 @@ module.exports = async function render(ctx) {
   <nav class="crumbs jd-crumbs" aria-label="Breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><a href="${esc(ctx.url('jobs'))}">${esc(c.nav.jobs)}</a><span aria-hidden="true">/</span><span class="crumb-cur" aria-current="page">${esc(job.title)}</span></nav>
   <div class="jd-hero rv-in">
     <img src="${esc(job.image)}" alt="" width="1184" height="400" fetchpriority="high">
-    <a class="jd-back" href="${esc(ctx.url('jobs'))}" aria-label="${esc(t.back)}">←</a>
+    <a class="jd-back" href="${esc(ctx.url('jobs'))}" aria-label="${esc(t.back)}">${icon('back')}</a>
     <div class="jd-hero-in">
       <span class="jd-status"><span class="jd-dot" aria-hidden="true"></span><span>${esc(t.active)}${job.headcount ? `<span class="jd-seek"> · ${esc(t.seek(job.headcount))}</span>` : ''}</span></span>
       <div class="jd-hero-row">
@@ -283,9 +284,9 @@ module.exports = async function render(ctx) {
     ${facts.length ? `<div class="jd-facts jd-facts-${facts.length}">${each(facts, ([k, v]) => `<div class="jd-fact rv"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`)}</div>` : ''}
     ${job.requirements.length || job.benefits.length ? `<div class="${cls('jd-two', !(job.requirements.length && job.benefits.length) && 'one')}">
       ${job.requirements.length ? `<section class="jd-card rv"><div class="jd-hgroup"><h2 class="jd-h2">${esc(t.req)}</h2><span>${esc(t.reqSub)}</span></div>
-        ${each(job.requirements, (x) => `<div class="jd-li"><span class="jd-chk" aria-hidden="true">✓</span>${esc(itemText(x).h)}</div>`)}</section>` : ''}
+        ${each(job.requirements, (x) => `<div class="jd-li"><span class="jd-chk" aria-hidden="true">${icon('check')}</span>${esc(itemText(x).h)}</div>`)}</section>` : ''}
       ${job.benefits.length ? `<section class="jd-card rv"><div class="jd-hgroup"><h2 class="jd-h2">${esc(t.offer)}</h2><span>${esc(t.offerSub)}</span></div>
-        ${each(job.benefits, (x) => { const b = itemText(x); return `<div class="jd-li jd-ben"><span class="jd-chk or" aria-hidden="true">✓</span><span><strong>${esc(b.h)}</strong>${b.p ? `<span>${esc(b.p)}</span>` : ''}</span></div>`; })}</section>` : ''}
+        ${each(job.benefits, (x) => { const b = itemText(x); return `<div class="jd-li jd-ben"><span class="jd-chk or" aria-hidden="true">${icon('check')}</span><span><strong>${esc(b.h)}</strong>${b.p ? `<span>${esc(b.p)}</span>` : ''}</span></div>`; })}</section>` : ''}
     </div>` : ''}
     ${calcOn ? `<section class="jd-calc rv" id="calc" data-calc data-rmin="${job.rateMin}" data-rmax="${job.rateMax != null ? job.rateMax : job.rateMin}" data-unit="${esc(t.hUnit)}" data-rate="${esc(r)}">
       <div class="jd-calc-l">

@@ -12,6 +12,7 @@
 
 const { esc, each, cls, plural, LOCALE } = require('../../shared/h');
 const PROF = require('../../shared/professions');
+const { icon } = require('../../shared/icons');
 const { T: C, rate, start, facets } = require('../common');
 
 const MIN = 20, MAX = 33;
@@ -100,7 +101,7 @@ const ICON = {
 };
 const svg = (d) => `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="${d}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const chevron = '<svg class="jl-sel-chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-const PIN = '<span aria-hidden="true">📍</span> ';
+const PIN = icon('pin', 'ico-city');
 
 const splitList = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
 
@@ -164,12 +165,12 @@ module.exports = async function render(ctx) {
 
   const chips = () => [
     ...S.prof.map((k) => ({ rm: `prof:${k}`, t: profName(k) })),
-    ...S.city.map((k) => ({ rm: `city:${k}`, t: `📍 ${k}` })),
+    ...S.city.map((k) => ({ rm: `city:${k}`, t: k, city: true })),
     ...(S.now ? [{ rm: 'now', t: c.now }] : []),
     ...(S.min > MIN ? [{ rm: 'min', t: t.from(S.min) }] : []),
   ];
   const active = chips();
-  const chipHtml = (kind) => each(active, (x) => `<button type="button" class="${kind}" data-rm="${esc(x.rm)}" aria-label="${esc(t.remove)}: ${esc(x.t)}">${esc(x.t)}<span aria-hidden="true">×</span></button>`);
+  const chipHtml = (kind) => each(active, (x) => `<button type="button" class="${kind}" data-rm="${esc(x.rm)}" aria-label="${esc(t.remove)}: ${esc(x.t)}">${x.city ? PIN : ''}${esc(x.t)}<span class="chip-x">${icon('close')}</span></button>`);
   const quick = [
     { q: 'now', t: t.now }, { q: 'min:25', t: t.from(25) },
     ...[...fc.prof].sort((a, b) => b.n - a.n).slice(0, 2).map((p) => ({ q: `prof:${p.key}`, t: p.name })),
@@ -182,7 +183,7 @@ module.exports = async function render(ctx) {
     const input = `<input type="checkbox" class="sr" ${chip ? '' : `name="${field}" `}value="${esc(o.key)}" data-f="${field}"${on ? ' checked' : ''}>`;
     return chip
       ? `<label class="${cls('fch', on && 'on', !n && !on && 'dim')}" data-opt="${field}" data-v="${esc(o.key)}">${input}<span>${esc(o.name)}</span><span class="fch-n" data-n>${n}</span></label>`
-      : `<label class="${cls('fo', !n && !on && 'dim')}" data-opt="${field}" data-v="${esc(o.key)}">${input}<span class="fo-box" aria-hidden="true">✓</span><span class="fo-t">${esc(o.name)}</span><span class="fo-n" data-n>${n}</span></label>`;
+      : `<label class="${cls('fo', !n && !on && 'dim')}" data-opt="${field}" data-v="${esc(o.key)}">${input}<span class="fo-box" aria-hidden="true">${icon('check')}</span><span class="fo-t">${esc(o.name)}</span><span class="fo-n" data-n>${n}</span></label>`;
   };
   const seg = (name, chip) => `<div class="${chip ? 'seg seg-m' : 'seg'}" role="radiogroup" aria-label="${esc(t.start)}">
       ${each([[false, t.any], [true, t.now]], ([v, label]) => `<label class="${cls('seg-o', S.now === v && 'on')}"><input type="radio" class="sr" name="${name}" value="${v ? '1' : ''}" data-f="now"${S.now === v ? ' checked' : ''}><span>${esc(label)}</span></label>`)}

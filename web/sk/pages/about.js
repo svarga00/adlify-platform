@@ -8,6 +8,7 @@
 
 const { esc, each } = require('../../shared/h');
 const { mark } = require('../../shared/brand');
+const { icon } = require('../../shared/icons');
 const { IMG } = require('../../shared/jobs');
 const { PHONE, PHONE2, MAIL, tel } = require('../common');
 const { ghost, mapBox, euUrl, COMPANY } = require('./contact');
@@ -106,7 +107,7 @@ const T = {
 };
 
 const pad = (i) => String(i + 1).padStart(2, '0');
-const checks = (list) => each(list, (x) => `<li><span class="sp-tick" aria-hidden="true">✓</span>${esc(x)}</li>`);
+const checks = (list) => each(list, (x) => `<li><span class="sp-tick" aria-hidden="true">${icon('check')}</span>${esc(x)}</li>`);
 
 async function render(ctx) {
   const t = T[ctx.lang];

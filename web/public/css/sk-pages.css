@@ -18,7 +18,8 @@ a.or:hover { color: var(--ink); }
 .sp-h2-40 { font-size: 40px; }
 .sp-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
 .sp-checks li { display: flex; gap: 12px; align-items: flex-start; font-size: 15.5px; line-height: 1.5; }
-.sp-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--or); color: #fff; display: grid; place-items: center; font-size: 11px; margin-top: 1px; }
+.sp-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--or); color: #fff; display: grid; place-items: center; font-size: 14px; margin-top: 1px; }
+.sp-tick .ico { stroke-width: 2.4; }
 .sp-dark { position: relative; background: var(--ink); color: #fff; overflow: hidden; }
 .sp-dark-mark { position: absolute; right: -30px; bottom: -40px; opacity: .08; pointer-events: none; }
 .sp-dark > :not(.sp-dark-mark) { position: relative; }

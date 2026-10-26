@@ -34,7 +34,8 @@
 .fo { display: flex; align-items: center; gap: 11px; padding: 7px 0; font: 500 14.5px var(--f-b); color: var(--ink); cursor: pointer; transition: opacity .2s; }
 .fo.dim, .fch.dim { opacity: .4; }
 .fo-box { flex: none; width: 18px; height: 18px; border-radius: 6px; border: 1.5px solid #C9CED8; background: #fff; color: transparent;
-  display: grid; place-items: center; font-size: 11px; font-weight: 700; line-height: 1; transition: all .2s; }
+  display: grid; place-items: center; font-size: 13px; font-weight: 700; line-height: 1; transition: all .2s; }
+.fo-box .ico { stroke-width: 2.4; }
 .fo:hover .fo-box { border-color: var(--ink); }
 .fo input:checked + .fo-box { background: var(--ink); border-color: var(--ink); color: #fff; }
 .fo input:focus-visible + .fo-box, .fch:focus-within, .seg-o:focus-within { outline: 2px solid var(--or); outline-offset: 2px; }
@@ -56,6 +57,9 @@
   cursor: pointer; font: 500 13.5px var(--f-b); animation: megaIn .2s both; transition: background .2s; }
 .jl-chip:hover { background: var(--or); }
 .jl-chip span { font-size: 15px; line-height: 1; opacity: .7; }
+.chip-x { display: inline-flex; }
+.chip-x .ico { width: 13px; height: 13px; stroke-width: 2; }
+.jl-chip .ico-city, .jl-mchip .ico-city { margin: 0 -2px 0 0; color: inherit; }
 .jl-sort { position: relative; display: flex; align-items: center; gap: 6px; border: 1px solid var(--inb); background: #fff; border-radius: 999px; padding: 0 16px; transition: border-color .2s, box-shadow .2s; }
 .jl-sort:focus-within { border-color: var(--or); box-shadow: 0 0 0 4px rgba(240, 127, 26, .15); }
 .jl-sort-l { font-size: 13.5px; color: var(--t3); white-space: nowrap; }
@@ -202,7 +206,8 @@
 .jd-two { display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; }
 .jd-two.one { grid-template-columns: 1fr; }
 .jd-li { display: flex; gap: 12px; font-size: 15.5px; line-height: 1.5; color: var(--t2); }
-.jd-chk { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink); display: grid; place-items: center; font-size: 11px; color: var(--ink); line-height: 1; }
+.jd-chk { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink); display: grid; place-items: center; font-size: 13px; color: var(--ink); line-height: 1; }
+.jd-chk .ico { stroke-width: 2.4; }
 .jd-chk.or { background: var(--or); border-color: var(--or); color: #fff; }
 .jd-ben { line-height: 1.45; }
 .jd-ben strong { display: block; font: 600 15.5px var(--f-b); color: var(--ink); }
@@ -283,7 +288,8 @@
 /* Poďakovanie (nahradí formulár) */
 .jd-apply .form-ok, .jd-sheet .form-ok { align-items: stretch; outline: none; }
 .jd-ok { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding: 20px 4px 4px; animation: rev .5s both; }
-.jd-ok-ico { width: 64px; height: 64px; border-radius: 50%; background: var(--or); color: #fff; display: grid; place-items: center; font-size: 28px; }
+.jd-ok-ico { width: 64px; height: 64px; border-radius: 50%; background: var(--or); color: #fff; display: grid; place-items: center; font-size: 30px; }
+.jd-ok-ico .ico { stroke-width: 2; }
 .jd-ok-h { font: 700 24px var(--f-h); letter-spacing: -.025em; }
 .jd-ok p { font-size: 15px; line-height: 1.55; color: var(--t2); }
 .jd-steps { align-self: stretch; text-align: left; background: var(--chalk); border-radius: 16px; padding: 16px 18px; }
@@ -413,7 +419,7 @@
   .jd-hero { height: 330px; border-radius: 0; margin: 0 -18px; }
   .jd-hero::after { background: linear-gradient(180deg, rgba(14, 22, 38, .45) 0%, rgba(14, 22, 38, 0) 35%, rgba(14, 22, 38, .88) 100%); }
   .jd-hero-in { left: 18px; right: 18px; top: auto; bottom: 18px; gap: 8px; justify-content: flex-end; }
-  .jd-back { display: grid; place-items: center; position: absolute; top: 16px; left: 16px; z-index: 2; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, .92); color: var(--ink); font-size: 18px; }
+  .jd-back { display: grid; place-items: center; position: absolute; top: 16px; left: 16px; z-index: 2; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, .92); color: var(--ink); font-size: 20px; }
   .jd-status { padding: 6px 11px; font-size: 12.5px; gap: 7px; background: rgba(255, 255, 255, .14); border: 0; }
   .jd-dot { width: 7px; height: 7px; box-shadow: none; }
   .jd-hero-row { display: block; }
@@ -439,7 +445,7 @@
   .jd-duty { font-size: 15px; }
   .jd-two { gap: 12px; }
   .jd-li { font-size: 14.5px; gap: 10px; }
-  .jd-chk { width: 20px; height: 20px; font-size: 10px; margin-top: 1px; }
+  .jd-chk { width: 20px; height: 20px; font-size: 12px; margin-top: 1px; }
   .jd-calc { padding: 20px; border-radius: 22px; gap: 16px; }
   .jd-calc-l { gap: 14px; }
   .jd-sl-row { font-size: 13.5px; }

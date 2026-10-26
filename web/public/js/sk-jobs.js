@@ -17,6 +17,9 @@
 
   // ── Pomocníky ──────────────────────────────────────────────────────────
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // Ikony = web/shared/icons.js (pin, close)
+  var PIN = '<svg class="ico ico-pin ico-city" width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 14.5s5-4.6 5-8.3a5 5 0 1 0-10 0c0 3.7 5 8.3 5 8.3Z"/><circle cx="8" cy="6.2" r="1.7"/></svg>';
+  var CLOSE = '<svg class="ico ico-close" width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
   function plural(n) {
     var f = D.forms, k = Math.abs(n);
     if (D.lang === 'sk' || D.lang === 'cz') return k === 1 ? f[0] : (k >= 2 && k <= 4 ? f[1] : f[2] || f[1]);
@@ -69,14 +72,14 @@
   function chipsData() {
     var a = [];
     S.prof.forEach(function (k) { a.push({ rm: 'prof:' + k, t: D.profs[k] || k }); });
-    S.city.forEach(function (k) { a.push({ rm: 'city:' + k, t: '📍 ' + k }); });
+    S.city.forEach(function (k) { a.push({ rm: 'city:' + k, t: k, city: true }); });
     if (S.now) a.push({ rm: 'now', t: t.now });
     if (S.min > MIN) a.push({ rm: 'min', t: from(S.min) });
     return a;
   }
   function chipHtml(list, cls) {
     return list.map(function (x) {
-      return '<button type="button" class="' + cls + '" data-rm="' + esc(x.rm) + '" aria-label="' + esc(t.remove + ': ' + x.t) + '">' + esc(x.t) + '<span aria-hidden="true">×</span></button>';
+      return '<button type="button" class="' + cls + '" data-rm="' + esc(x.rm) + '" aria-label="' + esc(t.remove + ': ' + x.t) + '">' + (x.city ? PIN : '') + esc(x.t) + '<span class="chip-x">' + CLOSE + '</span></button>';
     }).join('');
   }
 
