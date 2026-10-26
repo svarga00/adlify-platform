@@ -144,7 +144,7 @@
       + `<a href="mailto:${esc(mb.email)}" style="color:#0E1626;text-decoration:none;">${esc(mb.email)}</a> · `
       + `<a href="https://${esc(web)}" style="color:#0E1626;font-weight:600;text-decoration:none;">${esc(web)}</a></div></td></tr></table>`
       + (c.cta === false ? '' : `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:14px;"><tr><td style="background:#F4F4F1;border-radius:10px;padding:9px 14px;">`
-      + `<a href="${esc(url)}" style="font:600 13px ${F};color:#0E1626;text-decoration:none;"><span style="color:#F07F1A;">●</span>&nbsp; ${esc(c.cta_label || d.cta)} →</a></td></tr></table>`)
+      + `<a href="${esc(url)}" style="font:600 13px ${F};color:#0E1626;text-decoration:none;"><span style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#F07F1A;vertical-align:1px;"></span>&nbsp; ${esc(c.cta_label || d.cta)} →</a></td></tr></table>`)
       + `<div style="margin-top:12px;font:400 10.5px/1.5 ${F};color:#8C97AD;">${esc(ADDRESS)}</div>`;
   }
 

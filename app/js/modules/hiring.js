@@ -727,7 +727,7 @@
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(q.question_sk)}</strong>
             ${q.good_answer ? `<span style="display:block;color:var(--green);font-size:12px;margin-top:2px;">
-              ✓ ${UI.esc(q.good_answer)}</span>` : ''}
+              ${Icon('check', 12)} ${UI.esc(q.good_answer)}</span>` : ''}
             ${q.red_flag_answer ? `<span style="display:block;color:var(--red);font-size:12px;">
               ! ${UI.esc(q.red_flag_answer)}</span>` : ''}
           </span>

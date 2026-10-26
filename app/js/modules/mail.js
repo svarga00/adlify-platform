@@ -610,7 +610,7 @@
       if (box) box.innerHTML = '<div class="nb-wait">Skúšam pripojenie…</div>';
       try {
         const r = await call('danubra-mail-account', body);
-        const t = `Prijímanie (IMAP): ${r.imap.ok ? '✓ v poriadku' : `✗ ${r.imap.error}`} · Odosielanie (SMTP): ${r.smtp.ok ? '✓ v poriadku' : `✗ ${r.smtp.error}`}`;
+        const t = `Prijímanie (IMAP): ${r.imap.ok ? 'v poriadku' : `chyba — ${r.imap.error}`} · Odosielanie (SMTP): ${r.smtp.ok ? 'v poriadku' : `chyba — ${r.smtp.error}`}`;
         if (box) box.innerHTML = `<div class="${r.imap.ok && r.smtp.ok ? 'regimebox' : 'warnbox'}">${UI.esc(t)}</div>`;
         else UI.toast(t, r.imap.ok && r.smtp.ok ? 'ok' : 'err');
       } catch (e) {

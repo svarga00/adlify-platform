@@ -123,7 +123,7 @@
         <div class="stay-note">${note}</div>`;
     },
 
-    // ── SPIS ZÁKAZKY ⭐⭐ ──────────────────────────────────────────────────
+    // ── SPIS ZÁKAZKY ──────────────────────────────────────────────────
     async spis(id) {
       if (!this.loaded) await this.load();
       const o = this.items.find(x => x.id === id);
