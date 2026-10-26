@@ -42,84 +42,15 @@
 -- Spustiť raz. Druhé spustenie sa zastaví samo (pozná vzorovú firmu), aby
 -- nezmazalo, čo medzičasom pribudlo naostro.
 --
--- Celý súbor je jedna transakcia: funkcia danubra_demo_purge sa nahradí
--- (create or replace je samo o sebe atómové) a výmena dát beží v jedinom
--- bloku `do $$ … $$`. Ak čokoľvek v ňom zlyhá, nezmení sa ani jeden riadok.
+-- Celý súbor je jediný príkaz `do $$ … $$`, teda jedna transakcia v každom
+-- klientovi (SQL editor, psql, migrácia). Ak čokoľvek zlyhá, nezmení sa ani
+-- jeden riadok — ani funkcia danubra_demo_purge, ktorá sa nahrádza vnútri.
 -- ============================================================================
 
 
--- ── Vymazanie vzorových dát musí prejsť cez ochrany ──────────────────────────
--- Tlačidlo „Vymazať vzorové dáta" (danubra_demo_purge) mazalo riadky podľa
--- evidencie, ale tri ochrany ho zastavili:
---   · hodiny v uzavretom období sa nemažú (danubra_ts_frozen_trg),
---   · dodatok k zmluve sa nemaže (danubra_amendment_no_delete_trg),
---   · ostré tabuľky (archív, pošta, otázky) držia odkaz na vzorový riadok.
--- Tu sa to rieši len pre riadky, ktoré sú v evidencii — ostrých sa to netýka.
-create or replace function danubra_demo_purge()
-returns table (tabulka text, zmazanych int)
-language plpgsql security definer set search_path = public as $$
-declare
-  r record;
-  v_count int;
-begin
-  create temp table _purged (p_table text, p_count int) on commit drop;
-
-  -- Ostré záznamy, ktoré ukazujú na vzorové, si nechajú všetko okrem odkazu.
-  update danubra_archive set worker_id = null
-   where worker_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_workers');
-  update danubra_archive set partner_id = null
-   where partner_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_partners');
-  update danubra_archive set subcontract_id = null
-   where subcontract_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_subcontracts');
-  update danubra_mail_messages set worker_id = null
-   where worker_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_workers');
-  update danubra_mail_messages set partner_id = null
-   where partner_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_partners');
-  update danubra_mail_messages set lead_id = null
-   where lead_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_leads');
-  update danubra_web_submissions set candidate_id = null
-   where candidate_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_candidates');
-  update danubra_web_submissions set opportunity_id = null
-   where opportunity_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_opportunities');
-  update danubra_screening_questions set ad_id = null
-   where ad_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_ads');
-
-  -- Vzorové obdobie sa pred mazaním otvorí, inak hodiny v ňom zostanú zamknuté.
-  update danubra_periods set status = 'open'
-   where status <> 'open'
-     and id in (select row_id from danubra_demo_ledger where table_name = 'danubra_periods');
-
-  -- Dodatky sa bežne nemažú. Vzorové áno — a len tie, ktoré sú v evidencii.
-  alter table danubra_contract_amendments disable trigger danubra_amendment_no_delete_trg;
-
-  for r in
-    select table_name, array_agg(row_id) as ids
-    from danubra_demo_ledger group by table_name order by max(seq) desc
-  loop
-    if r.table_name !~ '^danubra_[a-z_]{3,60}$' then
-      raise exception 'nečakaný názov tabuľky v evidencii: %', r.table_name;
-    end if;
-    execute format('delete from %I where id = any($1)', r.table_name) using r.ids;
-    get diagnostics v_count = row_count;
-    insert into _purged values (r.table_name, v_count);
-  end loop;
-
-  alter table danubra_contract_amendments enable trigger danubra_amendment_no_delete_trg;
-
-  delete from danubra_demo_ledger;
-  return query select p_table, p_count from _purged order by p_count desc;
-end $$;
-
-comment on function danubra_demo_purge is
-  'Zmaže vzorové dáta. Maže výlučne riadky zapísané v danubra_demo_ledger — '
-  'ostrých dát sa nedotkne. Ostré odkazy na vzorové riadky nastaví na null, '
-  'vzorové obdobia otvorí a vzorové dodatky zmaže napriek ochrane.';
-
-revoke all on function danubra_demo_purge() from public;
-grant execute on function danubra_demo_purge() to authenticated;
 
 
--- ── Výmena dát ───────────────────────────────────────────────────────────────
+-- ── Celý súbor je jeden príkaz `do $$ … $$` = jedna transakcia ──────────────
 do $$
 declare
   v_d   date := current_date;
@@ -203,6 +134,77 @@ begin
     raise notice '064 už prebehla (vzorová firma Hofmann Bau GmbH existuje) — nič sa nemení.';
     return;
   end if;
+
+  -- ── Vymazanie vzorových dát musí prejsť cez ochrany ──────────────────────────
+  -- Tlačidlo „Vymazať vzorové dáta" (danubra_demo_purge) mazalo riadky podľa
+  -- evidencie, ale tri ochrany ho zastavili:
+  --   · hodiny v uzavretom období sa nemažú (danubra_ts_frozen_trg),
+  --   · dodatok k zmluve sa nemaže (danubra_amendment_no_delete_trg),
+  --   · ostré tabuľky (archív, pošta, otázky) držia odkaz na vzorový riadok.
+  -- Tu sa to rieši len pre riadky, ktoré sú v evidencii — ostrých sa to netýka.
+  create or replace function danubra_demo_purge()
+  returns table (tabulka text, zmazanych int)
+  language plpgsql security definer set search_path = public as $fn$
+  declare
+    r record;
+    v_count int;
+  begin
+    create temp table _purged (p_table text, p_count int) on commit drop;
+
+    -- Ostré záznamy, ktoré ukazujú na vzorové, si nechajú všetko okrem odkazu.
+    update danubra_archive set worker_id = null
+     where worker_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_workers');
+    update danubra_archive set partner_id = null
+     where partner_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_partners');
+    update danubra_archive set subcontract_id = null
+     where subcontract_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_subcontracts');
+    update danubra_mail_messages set worker_id = null
+     where worker_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_workers');
+    update danubra_mail_messages set partner_id = null
+     where partner_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_partners');
+    update danubra_mail_messages set lead_id = null
+     where lead_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_leads');
+    update danubra_web_submissions set candidate_id = null
+     where candidate_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_candidates');
+    update danubra_web_submissions set opportunity_id = null
+     where opportunity_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_opportunities');
+    update danubra_screening_questions set ad_id = null
+     where ad_id in (select row_id from danubra_demo_ledger where table_name = 'danubra_ads');
+
+    -- Vzorové obdobie sa pred mazaním otvorí, inak hodiny v ňom zostanú zamknuté.
+    update danubra_periods set status = 'open'
+     where status <> 'open'
+       and id in (select row_id from danubra_demo_ledger where table_name = 'danubra_periods');
+
+    -- Dodatky sa bežne nemažú. Vzorové áno — a len tie, ktoré sú v evidencii.
+    alter table danubra_contract_amendments disable trigger danubra_amendment_no_delete_trg;
+
+    for r in
+      select table_name, array_agg(row_id) as ids
+      from danubra_demo_ledger group by table_name order by max(seq) desc
+    loop
+      if r.table_name !~ '^danubra_[a-z_]{3,60}$' then
+        raise exception 'nečakaný názov tabuľky v evidencii: %', r.table_name;
+      end if;
+      execute format('delete from %I where id = any($1)', r.table_name) using r.ids;
+      get diagnostics v_count = row_count;
+      insert into _purged values (r.table_name, v_count);
+    end loop;
+
+    alter table danubra_contract_amendments enable trigger danubra_amendment_no_delete_trg;
+
+    delete from danubra_demo_ledger;
+    return query select p_table, p_count from _purged order by p_count desc;
+  end $fn$;
+
+  comment on function danubra_demo_purge is
+    'Zmaže vzorové dáta. Maže výlučne riadky zapísané v danubra_demo_ledger — '
+    'ostrých dát sa nedotkne. Ostré odkazy na vzorové riadky nastaví na null, '
+    'vzorové obdobia otvorí a vzorové dodatky zmaže napriek ochrane.';
+
+  revoke all on function danubra_demo_purge() from public;
+  grant execute on function danubra_demo_purge() to authenticated;
+
 
   select user_id into v_admin from danubra_members
    where role = 'admin' and active order by created_at limit 1;

@@ -123,6 +123,7 @@
           </div>
 
           <div class="he-upload">
+            <button type="button" class="btn btn-outline" onclick="HourEntry.blank()">${Icon('print', 15)} Prázdny list na tlač</button>
             <label class="btn btn-primary">${Icon('upload', 15)} Nahrať fotku alebo PDF
               <input type="file" accept="image/*,application/pdf" hidden onchange="HourEntry.scan(this.files[0])"></label>
             <span class="muted" id="he-scan-st">${st.scan ? `Nahraté: ${UI.esc(st.scan.name)}` : 'Fotka z mobilu stačí — aj otočená.'}</span>
@@ -184,6 +185,20 @@
         </form>`, { wide: true });
       const card = document.querySelector('#ui-modal .modal-card');
       if (card) card.classList.add('modal-xl');
+    },
+
+    /** Prázdny Stundennachweis pre túto zákazku a týždeň (s menami zo stavby). */
+    blank() {
+      this.keepForm();
+      const st = this.st;
+      const sc = Sub.items.find(s => s.id === st.subId) || {};
+      const partner = (Sub.partners || []).find(p => p.id === sc.partner_id) || null;
+      if (!Danubra.supplierReady('Stundennachweis')) return;
+      const html = DanubraPapers.stundennachweis({ supplier: Danubra.supplier(), subcontract: sc, partner,
+        week: { year: st.year, week: st.week }, workers: st.rows.map(r => ({ full_name: r.name })),
+        rows: Math.max(6, st.rows.length) });
+      Docs.show(window.open('', '_blank'), html, { kind: 'stundennachweis', title: 'Stundennachweis',
+        who: sc.title, lang: 'de', subcontract_id: sc.id, partner_id: sc.partner_id || null });
     },
 
     // ── Úpravy v tabuľke ─────────────────────────────────────────────────

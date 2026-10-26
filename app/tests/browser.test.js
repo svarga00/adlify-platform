@@ -3528,7 +3528,7 @@ console.log('Prehliadač');
       });
 
       ok(out.tlacidlo, 'tlačidlo Papiere je v hornom pruhu');
-      ok(out.dlazdice.length === 7 && out.dlazdice[6] === 'Všetko naraz na nástup',
+      ok(out.dlazdice.length === 8 && out.dlazdice.includes('Všetko naraz na nástup') && out.dlazdice.includes('Prázdny Stundennachweis'),
         `ponúkne šesť papierov a balík na nástup (${out.dlazdice.join(', ')})`);
       ok(out.dlazdice[0] === 'Rámcová zmluva s Nemcom' && out.dlazdice[2] === 'Súhlas GDPR',
         'v poradí siedmich krokov', out.dlazdice.join(', '));
