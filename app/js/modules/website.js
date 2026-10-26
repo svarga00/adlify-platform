@@ -116,7 +116,7 @@
             tip: 'Druhé číslo, ktoré je na webe vedľa hlavného. Nahradí sa všade to sivé číslo.' })}
           ${UI.field('sk_email', 'E-mail', { type: 'email', value: v('sk', 'email'), placeholder: D.sk.email })}
           ${UI.field('whatsapp', 'WhatsApp', { value: c.whatsapp || '', placeholder: D.whatsapp,
-            tip: 'Číslo, na ktoré sa otvorí WhatsApp po kliknutí na tlačidlo WhatsApp na webe. Musí mať WhatsApp a predvoľbu, napr. +421.' })}
+            tip: 'Číslo, na ktoré sa otvorí WhatsApp po kliknutí na tlačidlo WhatsApp na webe. Na tom čísle musí byť WhatsApp; píšte ho s predvoľbou, napr. +421.' })}
         </div>
         <div class="form-section">punds.eu${UI.tip('Rovnako ako pri punds.sk: číslo alebo e-mail sa vymení všade na nemeckom webe pre firmy, aj v Impressum.')}</div>
         <div class="form-grid">

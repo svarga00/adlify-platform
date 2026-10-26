@@ -990,8 +990,7 @@
             ${UI.field('partner_id', 'Odberateľ', { value: x ? x.partner_id : '', required: true, add: 'partner',
               options: [['', '— vyberte firmu —'], ...this.v2.partners.map(p => [p.id, p.name])] })}
             ${UI.field('subcontract_id', 'Zákazka (nepovinné)', { value: x ? x.subcontract_id || '' : '',
-              tip: 'Ku ktorej stavbe faktúra patrí. Sumu nemení — len sa potom ukáže pri zákazke '
-                + 'a započíta do jej výsledku.',
+              tip: 'Ku ktorej stavbe faktúra patrí. Sumu nemení — faktúra sa potom ukáže aj pri tej zákazke.',
               // Zákazka sa zakladá v Zákazkách so všetkými krokmi — nie z faktúry.
               add: false,
               options: [['', '— bez zákazky —'], ...this.v2.subcontracts.map(z => [z.id, z.title])] })}
