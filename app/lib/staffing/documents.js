@@ -261,7 +261,7 @@
     if (worker.vat_payer && !String(worker.vat_id || '').trim()) {
       reasons.push({
         rule: 'missing_billing_data', label: 'Platiteľ DPH bez IČ DPH',
-        detail: 'Buď doplň IČ DPH, alebo zruš príznak platiteľa.', severity: 'block',
+        detail: 'Buď doplňte IČ DPH, alebo zrušte príznak platiteľa.', severity: 'block',
         field: 'vat_id',
       });
     }

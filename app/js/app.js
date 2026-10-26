@@ -174,13 +174,13 @@ window.Danubra = {
     timesheets: 'Odpracované hodiny — z nich vzniká podklad na faktúru',
     hoursheet: 'Stundennachweis: týždenný papier, ktorý podpisuje odberateľ',
     ads: 'Na čo ľudia volajú a čo sme im v tom sľúbili',
-    hiring: 'Čo a koho práve naberáš, krok za krokom',
+    hiring: 'Čo a koho práve naberáme, krok za krokom',
     candidates: 'Ľudia, ktorí sa ozvali. Odtiaľto sa volá a preveruje',
     workers: 'Kartotéka živnostníkov: doklady, sadzby, fakturačné údaje',
     crews: 'Partie, ktoré chodia na stavby spolu',
     trades: 'Čo sa má pýtať pri ktorom remesle, vrátane overovacích otázok',
     recruiting: 'Zápisy z náborových hovorov',
-    partners: 'Nemecké firmy, ktorým fakturuješ',
+    partners: 'Nemecké firmy, ktorým fakturujeme',
     accommodations: 'Databáza ubytovaní — náklad zákazky, nie obchod',
     clients: 'Firmy a kontakty z ubytovacej agendy',
     invoices: 'Faktúry odberateľom. Bez schválenia sa žiadna nevystaví',
@@ -524,7 +524,7 @@ window.Danubra = {
       <div class="warnbox">${Icon('alert', 14)}
         ${UI.esc(what || 'Tento dokument')} ide odberateľovi alebo živnostníkovi a je na ňom
         napísané, kto ho posiela. Chýba: <strong>${UI.esc(chyba.join(', '))}</strong>.</div>
-      <p style="font-size:13px;color:var(--ink-sub);">Doplň to raz v Nastaveniach —
+      <p style="font-size:13px;color:var(--ink-sub);">Doplňte to raz v Nastaveniach —
         potom to appka vypíše na všetky dokumenty sama.</p>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -663,17 +663,21 @@ window.Danubra = {
       return `${nadpis ? `<div class="nav-group">${glabel}</div>` : ''}
       ${visible.map(([key, label, ico]) => {
         const b = this.badges[key];
-        return `<button class="nav-item${key === this.navActive() ? ' active' : ''}" data-key="${key}" onclick="Danubra.go('${key}')">
-          ${(glabel === this.STEP_GROUP && this.navStepHtml(key)) || Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}
+        // Položka so záložkami má šípku — na počítači sa pri nej vysunie
+        // podmenu (`_fly`), takže sa na záložku dá ísť jedným klikom.
+        const kids = this.tabsOf(key).length > 1;
+        return `<button class="nav-item${key === this.navActive() ? ' active' : ''}${kids ? ' has-kids' : ''}" data-key="${key}" onclick="Danubra.go('${key}')"${kids ? ' aria-haspopup="menu"' : ''}>
+          ${(glabel === this.STEP_GROUP && this.navStepHtml(key)) || Icon(ico, 17)}<span class="nav-text">${label}</span>${b ? `<span class="nav-badge">${b}</span>` : ''}${kids ? `<span class="nav-more" aria-hidden="true">${Icon('chevron', 14)}</span>` : ''}
         </button>`;
       }).join('')}`;
     }).join('');
 
     const nav = document.getElementById('sidebar-nav');
     if (nav && !nav._overflowBound) {
-      nav.addEventListener('scroll', () => this._navOverflow());
-      window.addEventListener('resize', () => this._navOverflow());
+      nav.addEventListener('scroll', () => { this._navOverflow(); this._flyClose(); });
+      window.addEventListener('resize', () => { this._navOverflow(); this._flyClose(); });
       nav._overflowBound = true;
+      this._flyBind(nav);
     }
     this._navOverflow();
 
@@ -715,6 +719,152 @@ window.Danubra = {
       .then((x) => { this._chain = DanubraChain.all(x); this._buildNav(); })
       .catch(() => {})
       .finally(() => { this._chainLoading = null; });
+  },
+
+  // ── Podmenu pri bočnom menu (počítač) ─────────────────────────────────────
+  // „Na desktope by bolo vhodné nejaké mega menu pri bočnom menu aspoň na
+  // hlavné veci." V menu je päť miest, ale za nimi je dvadsaťpäť obrazoviek
+  // — a na záložku sa dovtedy chodilo dvoma klikmi: najprv na miesto, potom
+  // hore na záložku. Pri myši sa teraz vedľa položky vysunie panel so všetkými
+  // jej záložkami, s vetou, čo na nich je, s počtami a s tlačidlom na to, čo
+  // sa tam robí najčastejšie. Klik na samotnú položku funguje ako predtým.
+  //
+  // Na dotykovej obrazovke sa nevysúva nič — tam by panel prekryl menu
+  // a prvý ťuk by namiesto otvorenia len ukázal podmenu.
+  navNew: {
+    dashboard:    ['Nová úloha', 'tasks', () => window.Tsk && Tsk.form()],
+    subcontracts: ['Nová zákazka', 'subcontracts', () => window.Sub && Sub.form()],
+    workers:      ['Pridať pracovníka', 'workers', () => window.Wrk && Wrk.form()],
+    money:        ['Nová faktúra', 'invoices', () => window.Inv && Inv.newInvoice()],
+    mail:         ['Napísať e-mail', 'mail', () => window.Mail && Mail.compose()],
+  },
+
+  _flyCan() {
+    return !!(window.matchMedia && matchMedia('(min-width: 861px) and (hover: hover)').matches);
+  },
+
+  _flyBind(nav) {
+    const item = (e) => e.target.closest && e.target.closest('.nav-item.has-kids');
+    nav.addEventListener('mouseover', (e) => {
+      const el = item(e);
+      if (!el || !this._flyCan()) return;
+      clearTimeout(this._flyT);
+      // Krátke zdržanie, aby sa panel neotváral pri prechode myšou cez menu.
+      const wait = document.getElementById('nav-fly') ? 60 : 140;
+      this._flyT = setTimeout(() => this._flyOpen(el), wait);
+    });
+    nav.addEventListener('mouseout', (e) => {
+      if (!item(e)) return;
+      clearTimeout(this._flyT);
+      this._flyT = setTimeout(() => this._flyClose(), 260);
+    });
+    // Klávesnica: šípka doprava otvorí podmenu a skočí doň.
+    nav.addEventListener('keydown', (e) => {
+      const el = item(e);
+      if (!el || e.key !== 'ArrowRight' || !this._flyCan()) return;
+      e.preventDefault();
+      this._flyOpen(el);
+      document.querySelector('#nav-fly .fly-item')?.focus();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('nav-fly')) {
+        const key = this._flyKey;
+        this._flyClose();
+        document.querySelector(`#sidebar-nav .nav-item[data-key="${key}"]`)?.focus();
+      }
+    });
+    window.addEventListener('hashchange', () => this._flyClose());
+  },
+
+  _flyOpen(el) {
+    const key = el.dataset.key;
+    const tabs = this.tabsOf(key);
+    if (tabs.length < 2) return this._flyClose();
+    let fly = document.getElementById('nav-fly');
+    if (!fly) {
+      fly = document.createElement('div');
+      fly.id = 'nav-fly';
+      fly.className = 'nav-fly';
+      fly.setAttribute('role', 'menu');
+      fly.addEventListener('mouseover', () => clearTimeout(this._flyT));
+      fly.addEventListener('mouseout', (e) => {
+        if (fly.contains(e.relatedTarget)) return;
+        clearTimeout(this._flyT);
+        this._flyT = setTimeout(() => this._flyClose(), 260);
+      });
+      fly.addEventListener('keydown', (e) => {
+        const items = [...fly.querySelectorAll('.fly-item, .fly-new')];
+        const i = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault(); this._flyClose();
+          document.querySelector(`#sidebar-nav .nav-item[data-key="${key}"]`)?.focus();
+        }
+      });
+      document.body.appendChild(fly);
+    }
+    if (this._flyKey !== key) fly.innerHTML = this._flyHtml(key, tabs);
+    this._flyKey = key;
+    document.querySelectorAll('#sidebar-nav .nav-item.is-fly').forEach(x => x.classList.remove('is-fly'));
+    el.classList.add('is-fly');
+    el.setAttribute('aria-expanded', 'true');
+
+    // Panel stojí pri položke, ale nikdy nevyjde pod spodok okna.
+    const r = el.getBoundingClientRect();
+    const h = fly.offsetHeight;
+    const top = Math.max(10, Math.min(r.top - 10, window.innerHeight - h - 10));
+    fly.style.top = `${top}px`;
+  },
+
+  _flyHtml(key, tabs) {
+    const wide = tabs.length > 5;
+    const nw = this.navNew[key];
+    const showNew = nw && this.routeAvailable(nw[1]);
+    return `
+      <div class="fly-head">
+        <b>${UI.esc(this.labelOf(key))}</b>
+        ${this.hintOf(key) ? `<span>${UI.esc(this.hintOf(key))}</span>` : ''}
+      </div>
+      <div class="fly-list${wide ? ' is-wide' : ''}">
+        ${tabs.map(([k, , ico]) => {
+          const n = this.badges[k];
+          const hint = this.navTabHint[k] || '';
+          return `<button class="fly-item${k === this.route ? ' active' : ''}" role="menuitem"
+            onclick="Danubra._flyGo('${k}')" title="${UI.esc(this.hintOf(k))}">
+            <span class="fly-ico">${Icon(ico, 16)}</span>
+            <span class="fly-txt"><b>${UI.esc(this.labelOf(k))}</b>${hint ? `<em>${UI.esc(hint)}</em>` : ''}</span>
+            ${n ? `<span class="nav-badge">${n}</span>` : ''}
+          </button>`;
+        }).join('')}
+      </div>
+      ${showNew ? `<div class="fly-foot">
+        <button class="fly-new" role="menuitem" onclick="Danubra._flyNew('${key}')">${Icon('plus', 15)} ${UI.esc(nw[0])}</button>
+      </div>` : ''}`;
+  },
+
+  _flyGo(key) { this._flyClose(); this.go(key); },
+
+  /** Rýchla akcia z podmenu: najprv obrazovka (kvôli dátam), potom formulár. */
+  async _flyNew(key) {
+    const nw = this.navNew[key];
+    this._flyClose();
+    if (!nw) return;
+    if (this.route !== nw[1]) {
+      this.go(nw[1]);
+      await new Promise(r => setTimeout(r, 0));
+      try { await this._routeReady; } catch { /* obrazovka hlási chybu sama */ }
+    }
+    try { await nw[2](); } catch (e) { console.error('[danubra] rýchla akcia', e); }
+  },
+
+  _flyClose() {
+    clearTimeout(this._flyT);
+    document.getElementById('nav-fly')?.remove();
+    document.querySelectorAll('#sidebar-nav .nav-item.is-fly').forEach(x => {
+      x.classList.remove('is-fly'); x.removeAttribute('aria-expanded');
+    });
+    this._flyKey = null;
   },
 
   // ── Mega menu ─────────────────────────────────────────────────────────────
@@ -797,7 +947,7 @@ window.Danubra = {
     const email = this.user?.email || '';
     return `
       <div class="mega-head">
-        <strong>Kam chceš ísť?</strong>
+        <strong>Kam chcete ísť?</strong>
         <button class="mega-x" onclick="Danubra.toggleMega(false)" aria-label="Zavrieť">${Icon('x', 18)}</button>
       </div>
       ${multiArea ? `
@@ -950,7 +1100,7 @@ window.Danubra = {
     const box = document.createElement('div');
     box.innerHTML = `<div class="warnbox" style="margin-bottom:14px;">
       ${Icon('alert', 14)} <strong>Časť údajov sa nenačítala.</strong>
-      Čo je nižšie, nemusí byť úplné — prázdny zoznam tu neznamená, že nemáš záznamy.
+      Čo je nižšie, nemusí byť úplné — prázdny zoznam tu neznamená, že záznamy nemáte.
       <ul style="margin:8px 0 0 18px;font-size:12.5px;">${list}</ul>
       <button class="btn btn-outline btn-sm" style="margin-top:10px;"
         onclick="location.reload()">Skúsiť znova</button>
@@ -1718,7 +1868,7 @@ window.Danubra = {
         <strong>V systéme sú vzorové dáta</strong> — ${x.demoRows} ${
           Shell.plural(x.demoRows, 'záznam', 'záznamy', 'záznamov')}.
         Sú tu preto, aby bolo vidieť, ako appka vyzerá naplnená.
-        Keď ideš naostro, vymaž ich; ostrých dát sa to nedotkne.
+        Keď idete naostro, vymažte ich; ostrých dát sa to nedotkne.
       </span>
       ${Help.btn('dash.demo')}
       <button class="btn btn-danger btn-sm" onclick="Danubra.purgeDemo()">
@@ -1734,7 +1884,7 @@ window.Danubra = {
     const answer = await UI.ask(
       'Vymažú sa všetky vzorové dáta. Ostrých záznamov sa to nedotkne — '
       + 'maže sa len to, čo appka sama vložila.\n\n'
-      + 'Napíš VYMAZAŤ a potvrď.');
+      + 'Napíšte VYMAZAŤ a potvrďte.');
     if (answer == null) return;
     if (String(answer).trim().toUpperCase() !== 'VYMAZAŤ') {
       return UI.toast('Nič sa nezmazalo — potvrdenie nesedelo.', 'err');
@@ -1804,7 +1954,7 @@ window.Danubra = {
     };
     UI.modal('Poskladaj si prehľad', `
       <p class="hx-lead" style="margin-bottom:14px;">Odškrtni, čo nepoužívaš, a posuň
-        hore to, na čo sa pozeráš prvé. Platí to len pre teba a pre toto zariadenie.</p>
+        hore to, na čo sa pozeráte prvé. Platí to len pre Vás a pre toto zariadenie.</p>
       <div class="dl-list">${DanubraDash.GROUPS.map(block).join('')}</div>
       <div class="modal-actions">
         ${DanubraDash.isCustom(this.dashPrefs())
@@ -1988,7 +2138,7 @@ window.Danubra = {
           onclick="Danubra.setDashFilter('from','');Danubra.setDashFilter('to','')">
           ${Icon('x', 13)} Vyprázdniť</button>` : ''}
         ${x.period.empty ? `<span class="dashbar-hint">${Icon('alert', 13)}
-          Zadaj aspoň jednu hranicu — kým tam nie je, počíta sa za celý čas.</span>`
+          Zadajte aspoň jednu hranicu — kým tam nie je, počíta sa za celý čas.</span>`
           : `<span class="dashbar-hint">${Icon('check', 13)}
           ${UI.esc(DanubraPeriod.text(x.period))}</span>`}
       </div>` : ''}
@@ -2017,7 +2167,7 @@ window.Danubra = {
   NEW: {
     partner: {
       table: 'partners', what: 'odberateľa', stale: ['Prt', 'Quo', 'Con', 'Sub'],
-      lead: 'Stačí meno. IČ DPH, splatnosť a kontakt doplníš v Odberateľoch.',
+      lead: 'Stačí meno. IČ DPH, splatnosť a kontakt doplníte v Odberateľoch.',
       label: (r) => r.name,
       fields: () => [
         ['name', 'Názov firmy', { required: true, placeholder: 'napr. Bauunternehmen Vogel GmbH' }],
@@ -2027,7 +2177,7 @@ window.Danubra = {
     },
     worker: {
       table: 'workers', what: 'živnostníka', stale: ['Wrk', 'Sub', 'Crews', 'Cost'],
-      lead: 'Stačí meno a telefón. Doklady a fakturačné údaje doplníš v kartotéke — '
+      lead: 'Stačí meno a telefón. Doklady a fakturačné údaje doplníte v kartotéke — '
         + 'bez nich sa aj tak nasadiť nedá.',
       label: (r) => r.full_name,
       fields: () => [
@@ -2038,7 +2188,7 @@ window.Danubra = {
     crew: {
       table: 'crews', what: 'partiu', stale: ['Crews', 'Sub', 'HS'],
       lead: 'Partia je skupina, ktorá chodí spolu a má jeden výkaz hodín. '
-        + 'Členov pridáš v Partiách.',
+        + 'Členov pridáte v Partiách.',
       label: (r) => r.name,
       fields: () => [
         ['name', 'Názov partie', { required: true, placeholder: 'napr. Partia Nitra' }],
@@ -2046,7 +2196,7 @@ window.Danubra = {
     },
     accommodation: {
       table: 'accommodations', what: 'ubytovanie', stale: ['Acc', 'Sub'],
-      lead: 'Stačí názov a mesto. Kapacitu a cenu doplníš v Ubytovaniach.',
+      lead: 'Stačí názov a mesto. Kapacitu a cenu doplníte v Ubytovaniach.',
       label: (r) => r.name,
       fields: () => [
         ['name', 'Názov', { required: true }],
@@ -2056,7 +2206,7 @@ window.Danubra = {
     },
     subcontract: {
       table: 'subcontracts', what: 'zákazku', stale: ['Sub', 'Hire', 'Cost', 'Wrk', 'Ads', 'HS'],
-      lead: 'Stačí názov a odberateľ. Termín, sadzbu a typ prác doplníš v Zákazkách — '
+      lead: 'Stačí názov a odberateľ. Termín, sadzbu a typ prác doplníte v Zákazkách — '
         + 'bez nich sa aj tak nedá nasadiť ani fakturovať.',
       label: (r) => r.title,
       // Odberatelia sa doťahujú až pri otvorení okna. Brať ich z pamäte modulu
@@ -2074,7 +2224,7 @@ window.Danubra = {
     },
     plan: {
       table: 'recruitment_plans', what: 'nábor', stale: ['Hire', 'Ads', 'Cand'],
-      lead: 'Stačí názov a koľko ľudí treba. Remeslo, mesto a termín doplníš v Nábore.',
+      lead: 'Stačí názov a koľko ľudí treba. Remeslo, mesto a termín doplníte v Nábore.',
       label: (r) => r.title,
       fields: () => [
         ['title', 'Názov náboru', { required: true, placeholder: 'napr. Sadrokartonári Stuttgart' }],
@@ -2083,7 +2233,7 @@ window.Danubra = {
     },
     ad: {
       table: 'ads', what: 'inzerát', stale: ['Ads', 'Hire', 'Cand', 'Trades'],
-      lead: 'Stačí názov. Znenie, kanál a sľúbenú sadzbu doplníš v Inzerátoch — '
+      lead: 'Stačí názov. Znenie, kanál a sľúbenú sadzbu doplníte v Inzerátoch — '
         + 'a práve podľa nich sa potom pri hovore vie, čo sme sľúbili.',
       label: (r) => r.title,
       fields: () => [
@@ -2138,7 +2288,7 @@ window.Danubra = {
       if (window[g]) window[g].loaded = false;
     }
     UI.toast(`${def.what[0].toUpperCase()}${def.what.slice(1)} je založený. `
-      + 'Zvyšok doplníš neskôr.', 'ok');
+      + 'Zvyšok doplníte neskôr.', 'ok');
   },
 
   // ── Detail za číslom ──────────────────────────────────────────────────────
@@ -2283,7 +2433,7 @@ window.Danubra = {
       ? `${rows.length} ${Shell.plural(rows.length, 'riadok', 'riadky', 'riadkov')}.`
       : `${rows.length} z ${d.rows.length}.`}
       ${rows.some(r => r.open && this.canOpen(r.open.type, r.open.id))
-        ? ' Klikni na riadok a otvorí sa záznam.' : ''}</p>`;
+        ? ' Kliknite na riadok a otvorí sa záznam.' : ''}</p>`;
   },
 
   // ── Karty prehľadu: hlavička, export, tlač ────────────────────────────────
@@ -2560,7 +2710,7 @@ window.Danubra = {
    */
   printDash() {
     this.toggleBell(false);
-    UI.toast('V dialógu tlače vyber „Uložiť ako PDF".');
+    UI.toast('V dialógu tlače vyberte „Uložiť ako PDF".');
     // Toast nech je vidieť skôr, než tlač zamrzne stránku.
     setTimeout(() => DanubraExport.printArea('print-dash'), 120);
   },
@@ -3109,7 +3259,7 @@ window.Danubra = {
         </div>
         <p class="fl-intro">Sedem krokov, ako to vo firme naozaj ide — od dopytu
           po zaplatenú faktúru. Pri každom je vľavo, koľko toho tam je, a vpravo,
-          koľko čaká na teba. Krok otvorí obrazovku, kde sa to rieši.</p>
+          koľko čaká na Vás. Krok otvorí obrazovku, kde sa to rieši.</p>
         <div class="fl-steps">
           ${kroky.map(s => this._flowStep(s)).join('')}
         </div>`;
@@ -3228,8 +3378,8 @@ function danubraFatal(what, detail) {
       <p>${what}</p>
       ${detail ? `<pre>${String(detail).slice(0, 400)
         .replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</pre>` : ''}
-      <p class="fatal-what">Skús stránku načítať znova. Ak to nepomôže,
-         pošli mi text vyššie — je v ňom napísané, čo sa pokazilo.</p>
+      <p class="fatal-what">Skúste stránku načítať znova. Ak to nepomôže,
+         pošlite nám text vyššie — je v ňom napísané, čo sa pokazilo.</p>
       <button onclick="location.reload()">Načítať znova</button>
     </div>`;
   document.body.appendChild(box);
@@ -3241,7 +3391,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.supabase === 'undefined' || !window.supabase.createClient) {
     return danubraFatal(
       'Nenačítala sa knižnica, cez ktorú appka hovorí s databázou.',
-      'Chýba supabase-js. Skontroluj, či sa stiahol súbor '
+      'Chýba supabase-js. Skontrolujte, či sa stiahol súbor '
       + 'vendor/supabase-js-2.116.0.js — mohol ho zablokovať blokátor reklám '
       + 'alebo sieť.');
   }

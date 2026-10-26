@@ -254,7 +254,7 @@ console.log('Dokumenty');
       site_contact_phone: null } });
   ok(/Nie je zapísané, kde presne/.test(dieravy),
     'chýbajúce miesto stretnutia je na papieri napísané');
-  ok(/Spýtaj sa u nás/.test(dieravy), 'aj to, čo s tým má človek spraviť');
+  ok(/Spýtajte sa u nás/.test(dieravy), 'aj to, čo s tým má človek spraviť');
   ok(/todo/.test(dieravy), 'a je to zvýraznené, nie schované v texte');
 
   // Ubytovanie: keď je, patrí naň aj to, čo platí v dome.

@@ -98,7 +98,7 @@ console.log('\nČO SPRAVIŤ TERAZ');
 {
   const nic = O.nowNext([], DNES);
   eq(nic.key, 'ok', 'bez možností nič nečaká');
-  ok(/zapíš to sem/.test(nic.what), 'ale povie sa, že sa to má zapisovať', nic.what);
+  ok(/zapíšte to sem/.test(nic.what), 'ale povie sa, že sa to má zapisovať', nic.what);
   ok(/neexistuje/.test(nic.why), 'a prečo', nic.why);
   eq(O.nowNext(undefined, DNES).key, 'ok', 'ani bez vstupu to nespadne');
 }

@@ -31,15 +31,15 @@
     { key: 'basics', n: 1, title: 'Čo vlastne robíme', minutes: 10,
       lead: 'Koho posielame, kam, a čo na tých stavbách platí.',
       kind: 'read' },
-    { key: 'trade', n: 2, title: 'Nauč sa jedno remeslo', minutes: 15,
-      lead: 'To, na ktoré budeš volať. Ostatné si doplníš, keď ich budeš potrebovať.',
+    { key: 'trade', n: 2, title: 'Naučte sa jedno remeslo', minutes: 15,
+      lead: 'To, na ktoré budete volať. Ostatné si doplníte, keď ich budete potrebovať.',
       kind: 'read' },
-    { key: 'quiz', n: 3, title: 'Vyskúšaj sa z neho', minutes: 10,
+    { key: 'quiz', n: 3, title: 'Vyskúšajte sa z neho', minutes: 10,
       lead: 'Nie prečítať — odpovedať.', kind: 'quiz' },
     { key: 'call', n: 4, title: 'Ako vyzerá hovor', minutes: 10,
       lead: 'Čo sa pýtam, v akom poradí a prečo.', kind: 'read' },
     { key: 'practice', n: 5, title: 'Cvičný hovor', minutes: 15,
-      lead: 'Appka hovorí za kandidáta. Ty rozhoduješ, či mu to beriem.',
+      lead: 'Appka hovorí za kandidáta. Vy rozhodujete, či mu to beriete.',
       kind: 'practice' },
   ];
 
@@ -64,7 +64,7 @@
         detail = done ? 'Prečítané.' : 'Šesť vecí, ktoré platia na každej stavbe.';
       } else if (x.key === 'trade') {
         done = !!s.trade;
-        detail = done ? `Učíš sa ${s.trade}.` : 'Vyber si remeslo a prejdi si jeho príručku.';
+        detail = done ? `Učíte sa ${s.trade}.` : 'Vyberte si remeslo a prejdite si jeho príručku.';
       } else if (x.key === 'quiz') {
         done = Number(s.quiz) >= QUIZ_PASS;
         detail = s.quiz == null ? `Treba aspoň ${QUIZ_PASS} %.`
@@ -76,7 +76,7 @@
       } else {
         done = Number(s.practice) >= PRACTICE_PASS;
         detail = s.practice == null ? `Treba aspoň ${PRACTICE_PASS} %.`
-          : done ? `Rozhodol si správne v ${Math.round(s.practice)} %.`
+          : done ? `Rozhodli ste správne v ${Math.round(s.practice)} %.`
             : `Zatiaľ ${Math.round(s.practice)} % — treba ${PRACTICE_PASS} %.`;
       }
       return { ...x, done, detail };
@@ -104,13 +104,13 @@
   function headline(steps) {
     const p = progress(steps);
     if (p.ready) {
-      return { title: 'Môžeš volať', sub: 'Prešiel si celé zaškolenie. '
-        + 'Keď si niečím nebudeš istý, príručka remesla je stále po ruke.' };
+      return { title: 'Môžete volať', sub: 'Prešli ste celé zaškolenie. '
+        + 'Keď si niečím nebudete istý, príručka remesla je stále po ruke.' };
     }
     const n = next(steps);
     if (!p.done) {
       return { title: 'Zaškolenie za hodinu',
-        sub: `Päť častí, ${totalMinutes()} minút. Na konci budeš vedieť viesť `
+        sub: `Päť častí, ${totalMinutes()} minút. Na konci budete vedieť viesť `
           + 'hovor sám a rozoznať človeka, ktorý remeslo robil, od toho, kto o ňom počul.' };
     }
     return { title: n.title, sub: `${n.lead} Zostáva ${p.minutesLeft} minút.` };
@@ -184,12 +184,12 @@
       passed: a.length > 0 && pct >= PRACTICE_PASS,
       verdict: !a.length ? ''
         : dovercive > prisne
-          ? 'Beriež ľuďom veci, ktoré sa dajú overiť. Pýtaj sa doplňujúcu '
+          ? 'Beriete ľuďom veci, ktoré sa dajú overiť. Pýtajte sa doplňujúcu '
             + 'otázku — kto to robil, odpovie bez váhania.'
           : prisne > dovercive
-            ? 'Si prísnejší, než treba. Zopár dobrých ľudí si takto odrežeš '
+            ? 'Ste prísnejší, než treba. Zopár dobrých ľudí si takto odrežete '
               + 'hneď na telefóne.'
-            : 'Posudzuješ vyrovnane.',
+            : 'Posudzujete vyrovnane.',
     };
   }
 

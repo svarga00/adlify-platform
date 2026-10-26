@@ -77,9 +77,9 @@
         </div>
         ${rows.length === 0
           ? (live.length || this.filters.status === '__arch'
-              ? UI.empty('search', 'Filtru nič nesedí', 'Skús iný stav.')
+              ? UI.empty('search', 'Filtru nič nesedí', 'Skúste iný stav.')
               : UI.empty('offers', 'Zatiaľ žiadne dopyty',
-                  'Keď sa niekto ozve, zapíš to sem — aj keď o tom vieš málo. '
+                  'Keď sa niekto ozve, zapíšte to sem — aj keď o tom viete málo. '
                   + 'Dopyt, ktorý nie je zapísaný, neexistuje.',
                   `<button class="btn btn-primary" onclick="Opp.form()">${Icon('plus')} Zapísať dopyt</button>`))
           : `<div class="cards">${rows.map(x => this.card(x)).join('')}</div>`}`;
@@ -154,7 +154,7 @@
     form() {
       UI.modal('Nový dopyt', `
         <form id="opp-form" onsubmit="event.preventDefault();Opp.save()">
-          <div class="regimebox">Stačí to, čo vieš z telefonátu. Ostatné sa dopĺňa potom —
+          <div class="regimebox">Stačí to, čo viete z telefonátu. Ostatné sa dopĺňa potom —
             dopyt, ktorý nie je zapísaný, neexistuje.</div>
           ${UI.field('title', 'O čo ide', { required: true,
             placeholder: 'napr. Kotolňa Wörthsee — zvárači',
@@ -181,11 +181,11 @@
     inquiryForm() {
       UI.modal('Vložiť dopyt od odberateľa', `
         <form id="opp-inq" onsubmit="event.preventDefault();Opp.splitInquiry()">
-          <div class="regimebox">Vlož celý e-mail aj s podpisom. Appka z neho vytiahne
-            jednotlivé stavby — mesto, počet ľudí, sadzbu a termín — a ukáže ti ich
+          <div class="regimebox">Vložte celý e-mail aj s podpisom. Appka z neho vytiahne
+            jednotlivé stavby — mesto, počet ľudí, sadzbu a termín — a ukáže Vám ich
             skôr, než sa čokoľvek založí.</div>
           ${UI.field('text', 'E-mail od odberateľa', { type: 'textarea', rows: 12,
-            required: true, placeholder: 'Sem vlož celý e-mail, pokojne aj po nemecky.' })}
+            required: true, placeholder: 'Sem vložte celý e-mail, pokojne aj po nemecky.' })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary" id="opp-inq-btn">
@@ -197,7 +197,7 @@
     async splitInquiry() {
       const d = UI.formData(document.getElementById('opp-inq'));
       if (!d.text || d.text.trim().length < 40) {
-        return UI.toast('Vlož celý e-mail — z dvoch viet sa stavby vytiahnuť nedajú', 'err');
+        return UI.toast('Vložte celý e-mail — z dvoch viet sa stavby vytiahnuť nedajú', 'err');
       }
       const btn = document.getElementById('opp-inq-btn');
       if (btn) { btn.disabled = true; btn.textContent = 'Čítam dopyt…'; }
@@ -243,7 +243,7 @@
         ${sk ? `<div class="regimebox">${UI.esc(Inq.skontoText(sk))}
           Zapísané tak, ako to prišlo: <strong>${UI.esc(q.payment)}</strong></div>` : ''}
 
-        <div class="form-section">Stavby — odškrtni, čo nechceš</div>
+        <div class="form-section">Stavby — odškrtnite, čo nechcete</div>
         <div id="inq-stavby">${this.inqRowsHtml()}</div>
 
         ${q.risks.length ? `<div class="form-section">Na čo si dať pozor</div>
@@ -258,7 +258,7 @@
             <li>Ku každej sa založí nábor s termínom podľa plánu (krok 2).</li>
             <li>Appka napíše podklady: texty inzerátov a otázky do telefonátu.</li>
           </ol>
-          <span>Nič sa nezverejní samo — texty si pred spustením prečítaš.</span>
+          <span>Nič sa nezverejní samo — texty si pred spustením prečítate.</span>
         </div>
 
         <div class="modal-actions">
@@ -330,9 +330,9 @@
         const sp = sched.projects.find(x => x.key === i);
         const kedy = sp && sp.ready
           ? (sp.late
-            ? `<span class="inq-when is-late">${Icon('alert', 12)} ľudí budeš mať ${UI.date(sp.ready)} —
+            ? `<span class="inq-when is-late">${Icon('alert', 12)} ľudí budete mať ${UI.date(sp.ready)} —
                 o ${sp.lateDays} ${Shell.plural(sp.lateDays, 'deň', 'dni', 'dní')} po nástupe</span>`
-            : `<span class="inq-when">${Icon('check', 12)} ľudí budeš mať do ${UI.date(sp.ready)}</span>`)
+            : `<span class="inq-when">${Icon('check', 12)} ľudí budete mať do ${UI.date(sp.ready)}</span>`)
           : '';
         return `
           <div class="list-row" style="cursor:default;align-items:flex-start;">
@@ -346,7 +346,7 @@
                 ].filter(Boolean).map(UI.esc).join(' · ')}</span>
               ${kedy}
               ${Inq.problems(p).length ? `<span style="display:block;color:var(--amber);font-size:12px;">
-                chýba ${UI.esc(Inq.problems(p).map(x => x.title).join(', '))} — doplníš to po založení</span>` : ''}
+                chýba ${UI.esc(Inq.problems(p).map(x => x.title).join(', '))} — doplníte to po založení</span>` : ''}
             </span>
             <label class="chk" title="Založiť túto stavbu">
               <input type="checkbox" id="inq-${i}" checked onchange="Opp.inqRepaint()"></label>
@@ -514,8 +514,8 @@
       UI.modal(bezi ? 'Pripravujem podklady…' : 'Nábor je pripravený', `
         ${bezi ? `<div class="regimebox">Píšem texty inzerátov a otázky do telefonátu pre
           ${rows.length} ${Shell.plural(rows.length, 'stavbu', 'stavby', 'stavieb')}. Trvá to
-          zvyčajne 1–2 minúty. Okno môžeš zavrieť — podklady sa dopíšu aj tak
-          a uvidíš ich v Nábore.</div>`
+          zvyčajne 1–2 minúty. Okno môžete zavrieť — podklady sa dopíšu aj tak
+          a uvidíte ich v Nábore.</div>`
           : `<div class="headline headline-ok" style="margin-bottom:12px;">${Icon('check', 18)}
             <span>Dopyty sú zapísané a ku každému je nábor.</span></div>`}
         <div class="prep-list">${rows.map(x => `
@@ -524,7 +524,7 @@
             <span class="prep-txt">
               <b>${UI.esc(x.title || x.city || 'Nábor')}</b>
               <em>${UI.esc(x.state === 'run' ? 'Pripravujem podklady…'
-                : x.state === 'nobrief' ? 'Bez zadania — dopíš ho v nábore a daj pripraviť podklady.'
+                : x.state === 'nobrief' ? 'Bez zadania — dopíšte ho v nábore a dajte pripraviť podklady.'
                   : x.text)}</em>
               ${x.notes ? `<em class="prep-plan">${UI.esc(x.notes)}</em>` : ''}
             </span>
@@ -537,9 +537,9 @@
         ${!bezi ? `<div class="inq-next">
           <b>${Icon('chevron', 15)} Čo teraz</b>
           <ol>
-            <li>Otvor nábor a prečítaj texty — oprav, čo nesedí.</li>
-            <li>Vlož inzeráty (web, Bazoš, Facebook) a klikni „Spustiť nábor".</li>
-            <li>Kto sa ozve, tomu zavolaj do desiatich minút.</li>
+            <li>Otvorte nábor a prečítajte texty — opravte, čo nesedí.</li>
+            <li>Vložte inzeráty (web, Bazoš, Facebook) a kliknite na „Spustiť nábor".</li>
+            <li>Kto sa ozve, tomu zavolajte do desiatich minút.</li>
           </ol>
         </div>
         <div class="modal-actions">
@@ -556,7 +556,7 @@
 
     async save() {
       const d = UI.formData(document.getElementById('opp-form'));
-      if (!d.title) return UI.toast('Napíš aspoň, o čo ide', 'err');
+      if (!d.title) return UI.toast('Napíšte aspoň, o čo ide', 'err');
       const { data, error } = await DB.insert('opportunities', {
         title: d.title,
         company_name: d.company_name || null,
@@ -613,7 +613,7 @@
         ${Shell.now({
           title: v.label, what: v.detail, hot: v.state === 'invalid',
           why: x.verified_at ? `Pýtali sme sa ${UI.date(x.verified_at)}. Staré overenie `
-            + 'nie je overenie — pri zmene firmy to zopakuj.' : '',
+            + 'nie je overenie — pri zmene firmy to zopakujte.' : '',
         }, {
           label: 'Firma', help: 'card.opp.verify',
           action: x.company_vat ? { ico: 'shield', onclick: `Opp.verify('${x.id}')`,
@@ -651,7 +651,7 @@
         <div class="form-section">Čo o tom vieme</div>
         <div class="kit-brief">
           <textarea id="opp-brief" rows="6"
-            placeholder="Všetko, čo vieš — aj neučesané.">${UI.esc(x.brief || '')}</textarea>
+            placeholder="Všetko, čo viete — aj neučesané.">${UI.esc(x.brief || '')}</textarea>
           <div class="kit-brief-acts">
             <button class="btn btn-outline btn-sm" onclick="Opp.saveBrief('${x.id}')">
               ${Icon('check', 14)} Uložiť</button>
@@ -707,13 +707,13 @@
       UI.modal('Odstrániť dopyt?', `
         <p style="margin:0 0 12px;font-size:14px;"><b>${UI.esc(x.title)}</b></p>
         <div class="regimebox">Zo zoznamu aj z počítadiel zmizne. Nič sa nemaže —
-          nájdeš ho pod „Odstránené" a dá sa vrátiť.</div>
+          nájdete ho pod „Odstránené" a dá sa vrátiť.</div>
         <div class="form-section">Prečo</div>
         <div class="opp-why">
           ${DOVODY.map((d, i) => `<label class="opp-why-opt"><input type="radio" name="opp-why"
             value="${UI.esc(d)}" ${i === 0 ? 'checked' : ''}> ${UI.esc(d)}</label>`).join('')}
           <label class="opp-why-opt"><input type="radio" name="opp-why" value="__ine"> Iný dôvod:
-            <input id="opp-why-text" class="opp-why-text" placeholder="napíš krátko"
+            <input id="opp-why-text" class="opp-why-text" placeholder="napíšte krátko"
               onfocus="document.querySelector('input[name=opp-why][value=__ine]').checked=true"></label>
         </div>
         ${x.plan_id ? `<label class="chk" style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
@@ -746,7 +746,7 @@
       }
       UI.closeModal();
       this.openId = null;
-      UI.toast('Dopyt je odstránený — nájdeš ho pod „Odstránené"', 'ok');
+      UI.toast('Dopyt je odstránený — nájdete ho pod „Odstránené"', 'ok');
       Danubra._chain = null;
       Danubra.renderRoute();
     },
@@ -758,7 +758,7 @@
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       x.archived_at = null; x.archived_reason = null;
       if (!this.archived().length && this.filters.status === '__arch') this.filters.status = '';
-      UI.toast('Dopyt je späť v zozname. Nábor, ak bol zrušený, obnov v Nábore.', 'ok');
+      UI.toast('Dopyt je späť v zozname. Nábor, ak bol zrušený, obnovte v Nábore.', 'ok');
       Danubra._chain = null;
       Danubra.renderRoute();
     },
@@ -786,7 +786,7 @@
      */
     async verify(id) {
       const x = this.items.find(o => o.id === id);
-      if (!x || !x.company_vat) return UI.toast('Najprv doplň USt-IdNr', 'err');
+      if (!x || !x.company_vat) return UI.toast('Najprv doplňte USt-IdNr', 'err');
       UI.toast('Pýtam sa registra…', 'ok');
       let res;
       try {
@@ -824,7 +824,7 @@
       const x = this.items.find(o => o.id === id);
       if (!x) return;
       if (!x.brief || !x.brief.trim()) {
-        return UI.toast('Najprv napíš, čo o tom vieme — to sa prenesie ako zadanie', 'err');
+        return UI.toast('Najprv napíšte, čo o tom vieme — to sa prenesie ako zadanie', 'err');
       }
       const { data, error } = await DB.insert('recruitment_plans', {
         title: x.title,

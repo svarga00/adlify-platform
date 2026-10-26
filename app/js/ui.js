@@ -175,7 +175,7 @@ window.UI = {
           const v = el ? String(el.value || '').trim() : '';
           // Povinné pole sa nedá obísť tichým uložením prázdna — vznikol by
           // záznam, ktorý sa potom hľadá, prečo nemá meno.
-          if (f.required && !v) { UI.toast(`Vyplň: ${label}`, 'err'); return undefined; }
+          if (f.required && !v) { UI.toast(`Vyplňte: ${label}`, 'err'); return undefined; }
           if (v) out[name] = v;
         }
         return out;

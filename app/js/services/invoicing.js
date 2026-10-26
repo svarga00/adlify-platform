@@ -21,7 +21,7 @@ window.Invoicing = {
   /** Pridelí ďalšie číslo faktúry (atomicky, migrácia 002). */
   async nextNumber() {
     const { data, error } = await DB.client.rpc('danubra_next_number', { p_kind: 'invoice' });
-    if (error) throw new Error('Číselný rad faktúr nie je dostupný — spusti migráciu 002. ' + error.message);
+    if (error) throw new Error('Číselný rad faktúr nie je dostupný — spustite migráciu 002. ' + error.message);
     return data;
   },
 
@@ -237,7 +237,7 @@ window.Invoicing = {
 
   _openHtml(html, meta) {
     const w = window.open('', '_blank');
-    if (!w) { UI.toast('Povoľ vyskakovacie okná pre zobrazenie dokumentu', 'err'); return; }
+    if (!w) { UI.toast('Povoľte vyskakovacie okná pre zobrazenie dokumentu', 'err'); return; }
     if (window.Docs && meta) return Docs.show(w, html, meta);
     w.document.open(); w.document.write(html); w.document.close();
   },

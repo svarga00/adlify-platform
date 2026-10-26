@@ -159,7 +159,7 @@
         <button class="btn btn-outline btn-sm" onclick="Trades.tForm('${key}')">${Icon('edit', 14)} Upraviť</button>
         ${qs.length >= DanubraTrade.QUESTIONS_MIN
           ? `<button class="btn btn-primary btn-sm" onclick="Trades.startQuiz('${key}')">
-               ${Icon('zap', 14)} Vyskúšaj ma</button>` : ''}`);
+               ${Icon('zap', 14)} Vyskúšať sa</button>` : ''}`);
 
       const sec = (x) => {
         if (x.kind === 'text') {
@@ -271,9 +271,9 @@
         return qs.length >= DanubraTrade.QUESTIONS_MIN
           ? `<div class="card card-pad quiz-cta" id="quiz">
               <div>
-                <strong>Vyskúšaj sa z tohto remesla</strong>
-                <span>${qs.length} otázok. Otázka sa ukáže, odpoveď si premyslíš
-                  a až potom uvidíš, čo chceš počuť a pri čom zbystriť.</span>
+                <strong>Vyskúšajte sa z tohto remesla</strong>
+                <span>${qs.length} otázok. Otázka sa ukáže, odpoveď si premyslíte
+                  a až potom uvidíte, čo chcete počuť a pri čom zbystriť.</span>
               </div>
               <button class="btn btn-primary" onclick="Trades.startQuiz('${t.key}')">
                 ${Icon('zap', 15)} Spustiť</button>
@@ -282,7 +282,7 @@
               <div class="card-title">Skúšanie${Help.btn('card.trades.quiz', { size: 13 })}</div>
               <p class="lesson-text">Na skúšanie treba aspoň
                 ${DanubraTrade.QUESTIONS_MIN} otázok; teraz ich je ${qs.length}.
-                Doplň ich a remeslo sa bude dať odskúšať.</p>
+                Doplňte ich a remeslo sa bude dať odskúšať.</p>
               <button class="btn btn-outline btn-sm" onclick="Trades.qForm(null,'${t.key}')">
                 ${Icon('plus', 14)} Pridať otázku</button>
             </div>`;
@@ -293,10 +293,10 @@
       if (q.i >= q.deck.length) {
         return `<div class="card card-pad quiz" id="quiz">
           <div class="card-title">Hotovo${Help.btn('card.trades.done', { size: 13 })}</div>
-          <p class="lesson-text">Prešiel si ${q.deck.length} ${
+          <p class="lesson-text">Prešli ste ${q.deck.length} ${
             Shell.plural(q.deck.length, 'otázku', 'otázky', 'otázok')}
-            a ${q.hit} z nich si vedel. Čo si nevedel, stojí za druhé kolo —
-            práve to sú otázky, ktoré kandidátovi položíš najistejšie.</p>
+            a ${q.hit} z nich ste vedeli. Čo ste nevedeli, stojí za druhé kolo —
+            práve to sú otázky, ktoré kandidátovi položíte najistejšie.</p>
           <div class="link-row">
             <button class="btn btn-primary btn-sm" onclick="Trades.startQuiz('${t.key}')">
               ${Icon('repeat', 14)} Ešte raz</button>
@@ -329,14 +329,14 @@
               Nevedel som</button>
           </div>`
         : `<button class="btn btn-primary" onclick="Trades.revealQuiz()">
-             Premyslel som si to — ukáž odpoveď</button>`}
+             Premyslené — ukázať odpoveď</button>`}
       </div>`;
     },
 
     tradesHtml() {
       if (!this.trades.length) {
         return UI.empty('wrench', 'Žiadne remeslá',
-          'Spusti migráciu 009 — príručka sa naplní sama.',
+          'Spustite migráciu 009 — príručka sa naplní sama.',
           `<button class="btn btn-primary" onclick="Trades.tForm()">${Icon('plus')} Pridať remeslo</button>`);
       }
       // Karta, nie riadok. Z tejto obrazovky sa má človek učiť — a zoznam
@@ -380,7 +380,7 @@
             ${this.trades.map(t => `<option value="${t.key}" ${this.filterTrade === t.key ? 'selected' : ''}>${UI.esc(t.name_sk)}</option>`).join('')}
           </select>
         </div>
-        ${rows.map(q => this.qRow(q)).join('') || UI.empty('note', 'Žiadne otázky', 'Pridaj prvú otázku.')}`;
+        ${rows.map(q => this.qRow(q)).join('') || UI.empty('note', 'Žiadne otázky', 'Pridajte prvú otázku.')}`;
     },
 
     // ── Polia do hovoru ───────────────────────────────────────────────────
@@ -420,7 +420,7 @@
           ${pend.map(row).join('')}` : ''}
         ${live.length ? `<div class="form-section">Používané — ${live.length}</div>
           ${live.map(row).join('')}`
-          : UI.empty('note', 'Žiadne polia', 'Spusti migráciu 012 — polia sa naplnia samy.')}`;
+          : UI.empty('note', 'Žiadne polia', 'Spustite migráciu 012 — polia sa naplnia samy.')}`;
     },
 
     async acceptChip(id) {
@@ -449,9 +449,9 @@
               ['flag', 'Varovanie'], ['neutral', 'Bez hodnotenia']] })}
             ${UI.field('weight', 'Váha (3 = rozhodujúce)', { type: 'number', value: c.weight || 1 })}
           </div>
-          ${UI.field('hint', 'Nápoveda pre teba', { type: 'textarea', rows: 2, value: c.hint })}
+          ${UI.field('hint', 'Nápoveda pre Vás', { type: 'textarea', rows: 2, value: c.hint })}
           <div class="regimebox">Varovanie s váhou 3 zamieta kandidáta samo osebe — napríklad
-          „tvrdí, že A1 netreba". Používaj ho striedmo.</div>
+          „tvrdí, že A1 netreba". Používajte ho striedmo.</div>
           <div class="modal-actions">
             ${id ? `<button type="button" class="btn btn-danger btn-sm" onclick="Trades.chipDel('${id}')">Zmazať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>

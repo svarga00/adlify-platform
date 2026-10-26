@@ -105,7 +105,7 @@
         + Shell.list({
           rows, total: this.threads.length, render: card, layout: 'cards',
           emptyIcon: 'mail', emptyTitle: 'Zatiaľ žiadna komunikácia',
-          emptySub: 'Začni poznámkou pri zázname alebo novou správou.',
+          emptySub: 'Začnite poznámkou pri zázname alebo novou správou.',
           filter: {
             search: { value: this.filters.q, placeholder: 'Hľadať predmet, meno, text…',
               oninput: 'Msg.setF("q", this.value)' },
@@ -165,7 +165,7 @@
            ${!cfg.ok && t.channel !== 'internal' ? `<div class="regimebox" style="margin:0 0 10px;">
              ${UI.esc(cfg.reason)}</div>` : ''}
            <textarea id="msg-reply" class="guide-textarea" rows="4"
-             placeholder="${t.channel === 'internal' ? 'Napíš kolegom…' : 'Napíš odpoveď…'}"></textarea>
+             placeholder="${t.channel === 'internal' ? 'Napíšte kolegom…' : 'Napíšte odpoveď…'}"></textarea>
            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
              <button class="btn btn-outline btn-sm" onclick="Msg.reply('${t.id}','note')">
                ${Icon('note', 14)} Uložiť ako poznámku</button>
@@ -178,7 +178,7 @@
     async reply(threadId, how) {
       const box = document.getElementById('msg-reply');
       const body = box ? box.value.trim() : '';
-      if (!body) return UI.toast('Napíš najprv text', 'err');
+      if (!body) return UI.toast('Najprv napíšte text', 'err');
       const t = this.threads.find(x => x.id === threadId);
       const channel = how === 'note' ? 'internal' : (t ? t.channel : 'email');
 
@@ -270,7 +270,7 @@
       const note = document.getElementById('msg-missing');
       if (note) {
         note.textContent = p.missing.length
-          ? `Doplň ešte: ${p.missing.map(k => `{{${k}}}`).join(', ')} — inak by odišla veta s dierou.`
+          ? `Doplňte ešte: ${p.missing.map(k => `{{${k}}}`).join(', ')} — inak by odišla veta s dierou.`
           : '';
       }
     },

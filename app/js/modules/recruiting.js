@@ -94,7 +94,7 @@
     promisesHtml() {
       if (!this.promises.length) {
         return UI.empty('note', 'Žiadne zachytené dohody',
-          'Pridaj nahrávku hovoru — systém z nej vytiahne, čo sa sľúbilo.',
+          'Pridajte nahrávku hovoru — systém z nej vytiahne, čo sa sľúbilo.',
           `<button class="btn btn-primary" onclick="Rec.uploadForm()">${Icon('upload')} Pridať hovor</button>`);
       }
       return this.promises.map(p => {
@@ -124,7 +124,7 @@
 
     callsHtml() {
       if (!this.recordings.length) {
-        return UI.empty('phone', 'Žiadne hovory', 'Nahrávku pridáš až keď máš zaznamenaný súhlas.',
+        return UI.empty('phone', 'Žiadne hovory', 'Nahrávku pridáte, až keď máte zaznamenaný súhlas.',
           `<button class="btn btn-primary" onclick="Rec.uploadForm()">${Icon('upload')} Pridať hovor</button>`);
       }
       return this.recordings.map(r => {
@@ -230,7 +230,7 @@
       const d = UI.formData(document.getElementById('consent-form'));
       if (!d.granted) return UI.toast('Bez potvrdenia súhlasu sa nedá pokračovať', 'err');
       if (!d.subject_id && !d.subject_name && !d.subject_phone) {
-        return UI.toast('Uveď aspoň meno alebo telefón', 'err');
+        return UI.toast('Uveďte aspoň meno alebo telefón', 'err');
       }
       const payload = {
         subject_type: 'worker', subject_id: d.subject_id || null,
@@ -339,8 +339,8 @@
           </div>
           <div id="rec-preview"></div>
           <span style="${hint}">
-            Nahráva mikrofón tohto zariadenia — daj hovor na hlasitý odposluch.
-            Súhlas si vypýtaj skôr, než klikneš na spustenie.</span>`;
+            Nahráva mikrofón tohto zariadenia — dajte hovor na hlasitý odposluch.
+            Súhlas si vypýtajte skôr, než kliknete na spustenie.</span>`;
       } else {
         box.innerHTML = `
           <label class="fld"><span>Odkaz na nahrávku</span>
@@ -363,7 +363,7 @@
     async toggleRecorder() {
       if (this._rec && this._rec.state === 'recording') return this._stopRecorder();
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-        return UI.toast('Tento prehliadač nevie nahrávať — použi súbor z mobilu', 'err');
+        return UI.toast('Tento prehliadač nevie nahrávať — použite súbor z mobilu', 'err');
       }
       let stream;
       try {
@@ -413,12 +413,12 @@
       this._stopRecorder();
       const d = UI.formData(document.getElementById('rec-form'));
       const consent = this.consents.find(c => c.id === d.consent_id);
-      if (!consent) return UI.toast('Vyber súhlas', 'err');
+      if (!consent) return UI.toast('Vyberte súhlas', 'err');
 
       const url = document.getElementById('rec-url')?.value.trim() || '';
-      if (this._mode === 'url' && !url) return UI.toast('Zadaj odkaz na nahrávku', 'err');
+      if (this._mode === 'url' && !url) return UI.toast('Zadajte odkaz na nahrávku', 'err');
       if (this._mode !== 'url' && !this._blob) {
-        return UI.toast(this._mode === 'file' ? 'Vyber zvukový súbor' : 'Najprv nahraj hovor', 'err');
+        return UI.toast(this._mode === 'file' ? 'Vyberte zvukový súbor' : 'Najprv nahrajte hovor', 'err');
       }
 
       const btn = document.getElementById('rec-save');

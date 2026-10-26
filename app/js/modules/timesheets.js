@@ -135,7 +135,7 @@
           ? (this.items.length
               ? UI.empty('search', 'Filtru nič nesedí',
                   `V databáze je ${this.items.length} záznamov o hodinách, ale ani jeden nevyhovuje.`)
-              : UI.empty('clock', 'Žiadne hodiny', 'Zapíš odpracované hodiny pre vybrané obdobie.',
+              : UI.empty('clock', 'Žiadne hodiny', 'Zapíšte odpracované hodiny pre vybrané obdobie.',
                   `<button class="btn btn-primary" onclick="Tms.form()">${Icon('plus')} Zapísať hodiny</button>`))
           : rows.map(t => this.row(t)).join('')}`;
     },
@@ -281,7 +281,7 @@
 
     weekForm(assignmentId, weekFrom) {
       const active = this.assignments.filter(a => a.status !== 'cancelled');
-      if (!active.length) return UI.toast('Najprv nasaď pracovníka na zákazku', 'err');
+      if (!active.length) return UI.toast('Najprv nasaďte pracovníka na zákazku', 'err');
       // Dátum sa vždy zarovná na pondelok — inak by „týždeň od stredy" zapísal
       // dva kusy dvoch týždňov a výkaz pre odberateľa (kalendárny týždeň) by
       // nesedel s tým, čo je v appke.
@@ -331,7 +331,7 @@
               hint: 'Dátum sa sám zarovná na pondelok toho týždňa.',
               onchange: 'Tms.weekForm(Tms.weekField("assignment_id"), this.value)' })}
             ${UI.field('activity_type', 'Činnosť', { value: 'construction',
-              hint: 'Platí pre celý týždeň. Jeden deň iného druhu dopíš cez „Jeden deň".',
+              hint: 'Platí pre celý týždeň. Jeden deň iného druhu dopíšte cez „Jeden deň".',
               options: ACTIVITY.map(a => [a[0], a[1]]) })}
           </div>
 
@@ -392,7 +392,7 @@
     async saveWeek() {
       const d = UI.formData(document.getElementById('tms-week'));
       const a = this.asgOf(d.assignment_id);
-      if (!a) return UI.toast('Vyber nasadenie', 'err');
+      if (!a) return UI.toast('Vyberte nasadenie', 'err');
 
       const rows = [];
       for (const el of document.querySelectorAll('#tms-week .week-h')) {
@@ -412,7 +412,7 @@
           description: d.description || null,
         });
       }
-      if (!rows.length) return UI.toast('Nie je čo zapísať — doplň hodiny', 'err');
+      if (!rows.length) return UI.toast('Nie je čo zapísať — doplňte hodiny', 'err');
 
       const { error } = await DB.insertMany('timesheets', rows);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
@@ -425,7 +425,7 @@
 
     form() {
       const active = this.assignments.filter(a => a.status !== 'cancelled');
-      if (!active.length) return UI.toast('Najprv nasaď pracovníka na zákazku', 'err');
+      if (!active.length) return UI.toast('Najprv nasaďte pracovníka na zákazku', 'err');
       const today = new Date().toISOString().slice(0, 10);
       const body = `
         <form id="tms-form" onsubmit="event.preventDefault();Tms.save()">
@@ -456,7 +456,7 @@
     async save() {
       const d = UI.formData(document.getElementById('tms-form'));
       const a = this.asgOf(d.assignment_id);
-      if (!a) return UI.toast('Vyber nasadenie', 'err');
+      if (!a) return UI.toast('Vyberte nasadenie', 'err');
       const payload = {
         assignment_id: d.assignment_id, worker_id: a.worker_id,
         work_date: d.work_date, hours: Number(d.hours),
@@ -465,7 +465,7 @@
         // type `time` odmietne. Výkaz si potom myslí, že časy sú zmiešané.
         time_from: d.time_from || null, time_to: d.time_to || null,
       };
-      if (!payload.hours || payload.hours <= 0) return UI.toast('Zadaj počet hodín', 'err');
+      if (!payload.hours || payload.hours <= 0) return UI.toast('Zadajte počet hodín', 'err');
       const { error } = await DB.insert('timesheets', payload);
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
       UI.closeModal(); UI.toast('Hodiny zapísané', 'ok');

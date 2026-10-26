@@ -49,7 +49,7 @@
         String(saved[k] ?? '') !== String(values[k] ?? ''));
       if (rozdiel.length) {
         this.failed = { key, message: `V databáze zostali staré hodnoty: ${rozdiel.join(', ')}.` };
-        UI.toast('Neuložilo sa to — pozri hlášku nad formulárom', 'err');
+        UI.toast('Neuložilo sa to — pozrite hlášku nad formulárom', 'err');
       } else {
         this.failed = null;
         UI.toast('Uložené', 'ok');
@@ -67,8 +67,8 @@
           <div class="card-head"><div class="card-title">${UI.esc(title)}</div></div>
           ${zle ? `<div class="warnbox" style="margin:0 0 12px;">
             ${Icon('alert', 14)} <strong>Neuložilo sa to.</strong> ${UI.esc(zle.message)}
-            Zápis do nastavení smie len administrátor — ak ním si, skús to znova
-            alebo sa odhlás a prihlás.</div>` : ''}
+            Zápis do nastavení smie len administrátor — ak ním ste, skúste to znova
+            alebo sa odhláste a prihláste.</div>` : ''}
           ${note ? `<div class="regimebox" style="margin:0 0 12px;">${note}</div>` : ''}
           <form id="${formId}" onsubmit="event.preventDefault();Cfg.saveSection('${key}','${formId}')">
             <div class="form-grid">

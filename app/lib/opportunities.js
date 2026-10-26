@@ -87,12 +87,12 @@
     // nesmie to vyzerať ako „firma neexistuje".
     if (r.unavailable) {
       return { state: 'unavailable', label: 'Register neodpovedal',
-        detail: 'Nie je to to isté ako neplatné USt-IdNr. Skús to neskôr — '
+        detail: 'Nie je to to isté ako neplatné USt-IdNr. Skúste to neskôr — '
           + 'VIES býva mimo prevádzky aj niekoľko hodín.' };
     }
     if (r.valid === false) {
       return { state: 'invalid', label: 'USt-IdNr neplatné',
-        detail: 'Register firmu s týmto číslom nepozná. Over si číslo u nich — '
+        detail: 'Register firmu s týmto číslom nepozná. Overte si číslo u nich — '
           + 'bez platného USt-IdNr sa nedá fakturovať v reverse charge.' };
     }
     if (r.valid === true) {
@@ -194,7 +194,7 @@
       key: 'ok', title: zive.length ? 'Všetky dopyty sú rozpracované' : 'Žiadne dopyty',
       what: zive.length
         ? `${zive.length} ${plural(zive.length, 'dopyt', 'dopyty', 'dopytov')} bez chýbajúcich údajov.`
-        : 'Keď sa niekto ozve, zapíš to sem — aj keď o tom vieš málo.',
+        : 'Keď sa niekto ozve, zapíšte to sem — aj keď o tom viete málo.',
       why: 'Dopyt, ktorý nie je zapísaný, neexistuje. O pol roka sa tá istá firma '
         + 'ozve znova a bude dobré vedieť, čo bolo naposledy.',
       hot: false, opp: null, count: 0,

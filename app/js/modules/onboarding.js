@@ -61,7 +61,7 @@
 
       // Hlavička hovorí „Nábor", lebo zaškolenie je jeho časť — človek má
       // vedieť, kde v appke stojí, nie sa ocitnúť na obrazovke odnikiaľ.
-      el.innerHTML = Danubra.header('Nábor', 'Zaškolenie · päť krokov, hodina, a vieš volať')
+      el.innerHTML = Danubra.header('Nábor', 'Zaškolenie · päť krokov, hodina, a viete volať')
         + `
         <div class="flow-now${p.ready ? ' flow-ready' : ''}">
           <div class="flow-now-txt">
@@ -135,7 +135,7 @@
     basicsHtml() {
       if (!this.basics.length) {
         return `<div class="card card-pad"><p class="lesson-text">
-          Základy sa zatiaľ nenačítali z databázy. Spusti migráciu 037 —
+          Základy sa zatiaľ nenačítali z databázy. Spustite migráciu 037 —
           doplní šesť vecí, ktoré platia na každej nemeckej stavbe.</p>
           <button class="btn btn-primary" onclick="Learn.hotovo('basics')">
             Rozumiem, ďalej</button></div>`;
@@ -162,8 +162,8 @@
         window.DanubraTrade && DanubraTrade.completeness(t, this.questions).questions >= 3);
       const zoznam = (hotove.length ? hotove : this.trades);
       return `<div class="card card-pad" style="margin-bottom:12px;">
-          <p class="lesson-text">Nemusíš sa učiť všetkých jedenásť. Vyber si to,
-          na ktoré budeš volať — zvyšok si doplníš, keď ho budeš potrebovať.
+          <p class="lesson-text">Nemusíte sa učiť všetkých jedenásť. Vyberte si to,
+          na ktoré budete volať — zvyšok si doplníte, keď ho budete potrebovať.
           Príručka zostáva po ruke aj počas hovoru.</p>
         </div>
         <div class="cards">${zoznam.map(t => `
@@ -196,26 +196,26 @@
       const t = this.tradeOf(key);
       if (!t) {
         return `<div class="card card-pad"><p class="lesson-text">
-          Najprv si vyber remeslo v druhom kroku.</p>
+          Najprv si vyberte remeslo v druhom kroku.</p>
           <button class="btn btn-primary" onclick="Learn.go('trade')">Vybrať remeslo</button></div>`;
       }
       const qs = window.DanubraTrade
         ? DanubraTrade.deck(this.questions, { tradeKey: key }) : [];
       return `<div class="card card-pad">
         <p class="lesson-text">Skúšanie je v príručke remesla — otázka sa ukáže,
-        odpoveď si premyslíš a až potom uvidíš, čo chceš počuť. Prejdi si ho
-        celé a vráť sa sem.</p>
+        odpoveď si premyslíte a až potom uvidíte, čo chcete počuť. Prejdite si ho
+        celé a vráťte sa sem.</p>
         ${qs.length < 5 ? `<div class="warnbox" style="margin-top:10px;">
           ${Icon('alert', 14)} Toto remeslo má zatiaľ ${qs.length}
           ${Shell.plural(qs.length, 'otázku', 'otázky', 'otázok')} — na skúšanie
-          treba aspoň päť. Doplň ich v príručke, inak sa zaškolenie nedá
+          treba aspoň päť. Doplňte ich v príručke, inak sa zaškolenie nedá
           dokončiť poctivo.</div>` : ''}
         <button class="flow-go" style="width:100%;justify-content:center;margin-top:14px;"
           onclick="Danubra.go('trades');setTimeout(()=>{Trades.open('${key}');Trades.startQuiz('${key}')},300)">
           ${Icon('zap', 20)} Spustiť skúšanie</button>
-        <div class="form-section" style="margin-top:18px;">Keď ho máš za sebou</div>
-        <p class="lesson-text">Zapíš, na koľko percent si ho zvládol. Je to na
-        teba — nikto to nekontroluje. Pod ${UI.pct(O().QUIZ_PASS)} to ale nemá zmysel
+        <div class="form-section" style="margin-top:18px;">Keď ho máte za sebou</div>
+        <p class="lesson-text">Zapíšte, na koľko percent ste ho zvládli. Je to na
+        Vás — nikto to nekontroluje. Pod ${UI.pct(O().QUIZ_PASS)} to ale nemá zmysel
         posúvať ďalej.</p>
         <div class="guide-rate" style="margin-top:10px;">
           ${[50, 70, 85, 100].map(v => `<button class="guide-rb"
@@ -234,7 +234,7 @@
           naň až vtedy, keď krátky sedí — alebo keď má človek práve čas.</p>
           <p class="lesson-text" style="margin-top:8px;">Prvá otázka je vždy tá
           istá: <strong>na ktorý inzerát voláte</strong>. Od nej sa odvíja
-          zvyšok a vďaka nej vieš, čo sme tomu človeku sľúbili.</p>
+          zvyšok a vďaka nej viete, čo sme tomu človeku sľúbili.</p>
         </div>
         <div class="lesson">${casti.map((c, i) => `
           <div class="card card-pad lesson-card">
@@ -280,7 +280,7 @@
         return `<div class="card card-pad"><p class="lesson-text">
           Na cvičný hovor treba otázky, ktoré majú aj dobrú odpoveď, aj tú,
           pri ktorej treba zbystriť. Pri tomto remesle také zatiaľ nie sú —
-          doplň ich v príručke remesla.</p>
+          doplňte ich v príručke remesla.</p>
           <button class="btn btn-primary" onclick="Danubra.go('trades')">
             Otvoriť príručku</button></div>`;
       }
@@ -293,11 +293,11 @@
             <span>${s.spravne} z ${s.total} rozhodnutí správne. ${UI.esc(s.verdict)}</span>
           </div>
           ${s.dovercive ? `<div class="warnbox" style="margin-bottom:10px;">
-            ${Icon('alert', 14)} ${s.dovercive}× si prijal odpoveď, pri ktorej
+            ${Icon('alert', 14)} ${s.dovercive}× ste prijali odpoveď, pri ktorej
             treba zbystriť. To je tá chyba, ktorá stojí peniaze — človek sa
             dostane na stavbu a nevie to.</div>` : ''}
           ${s.prisne ? `<div class="regimebox" style="margin-bottom:10px;">
-            ${s.prisne}× si odmietol dobrú odpoveď. Stojí to stratené
+            ${s.prisne}× ste odmietli dobrú odpoveď. Stojí to stratené
             telefonáty, nie peniaze — ale aj tak škoda.</div>` : ''}
           <div class="link-row">
             <button class="flow-go" onclick="Learn.hotovo('practice', ${s.pct})">
@@ -315,7 +315,7 @@
           <div class="statebar-track"><i style="width:${
             Math.round((p.i / p.deck.length) * 100)}%"></i></div>
         </div>
-        <p style="font-size:14px;color:var(--ink-mute);margin:14px 0 4px;">Pýtaš sa:</p>
+        <p style="font-size:14px;color:var(--ink-mute);margin:14px 0 4px;">Pýtate sa:</p>
         <p class="quiz-q" style="margin-bottom:10px;">${UI.esc(k.question)}</p>
         <p style="font-size:14px;color:var(--ink-mute);margin:0 0 4px;">Kandidát odpovie:</p>
         <div class="practice-answer">${UI.esc(k.answer)}</div>
@@ -324,7 +324,7 @@
           <div class="quiz-a ${k.accept ? 'quiz-good' : 'quiz-bad'}" style="margin-top:14px;">
             <b>${Icon(k.accept ? 'check' : 'alert', 14)} ${
               p.answers[p.answers.length - 1].picked === k.accept
-                ? 'Rozhodol si správne' : 'Toto bolo inak'}</b>
+                ? 'Rozhodli ste správne' : 'Toto bolo inak'}</b>
             <span>${UI.esc(k.why)}${k.accept ? ''
               : ` Dobrá odpoveď znie: ${UI.esc(k.good_answer)}`}</span>
           </div>

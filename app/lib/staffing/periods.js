@@ -107,7 +107,7 @@
         rule: 'period_unapproved',
         label: `${p.unapproved.length} ${plural(p.unapproved.length, 'výkaz', 'výkazy', 'výkazov')} nie je schválených`,
         detail: `${h} ${plural(h, 'hodina', 'hodiny', 'hodín')} sa do podkladu nedostane. `
-          + 'Schváľ ich teraz, alebo pôjdu do nasledujúceho obdobia.',
+          + 'Schváľte ich teraz, alebo pôjdu do nasledujúceho obdobia.',
         severity: 'warn',
       });
     }
@@ -116,7 +116,7 @@
       warnings.push({
         rule: 'period_missing_rate',
         label: `${p.noRate.length} ${plural(p.noRate.length, 'výkaz nemá', 'výkazy nemajú', 'výkazov nemá')} sadzbu`,
-        detail: 'Hodiny sa zarátajú, ale suma z nich vyjde nižšia. Doplň sadzbu '
+        detail: 'Hodiny sa zarátajú, ale suma z nich vyjde nižšia. Doplňte sadzbu '
           + 'na nasadení, inak bude podklad neúplný.',
         severity: 'warn',
       });
@@ -127,7 +127,7 @@
       warnings.push({
         rule: 'period_negative_margin',
         label: `Na tomto období sa prerába ${M.format(Math.abs(p.margin))}`,
-        detail: 'Fakturujeme menej, než platíme živnostníkom. Pozri sadzby na nasadeniach.',
+        detail: 'Fakturujeme menej, než platíme živnostníkom. Pozrite sadzby na nasadeniach.',
         severity: 'warn',
       });
     }
@@ -136,7 +136,7 @@
       warnings.push({
         rule: 'period_overlap',
         label: `${p.alreadyClosed.length} ${plural(p.alreadyClosed.length, 'výkaz patrí', 'výkazy patria', 'výkazov patrí')} inému obdobiu`,
-        detail: 'Nezarátajú sa znova. Skontroluj, či sa obdobia neprekrývajú.',
+        detail: 'Nezarátajú sa znova. Skontrolujte, či sa obdobia neprekrývajú.',
         severity: 'warn',
       });
     }

@@ -160,16 +160,16 @@
       const s = Learn.status();
       if (s.ready) {
         return `<div class="learn-done">
-          ${Icon('check', 15)} Zaškolenie máš za sebou.
+          ${Icon('check', 15)} Zaškolenie máte za sebou.
           <button class="btn btn-ghost btn-sm" onclick="Learn.open()">Zopakovať</button>
         </div>`;
       }
       return `<div class="learn-cta">
         <div class="learn-cta-txt">
-          <b>${s.done ? 'Dokonči zaškolenie' : 'Si tu prvýkrát?'}</b>
+          <b>${s.done ? 'Dokončite zaškolenie' : 'Ste tu prvýkrát?'}</b>
           <span>${s.done
             ? `Zostávajú ${s.total - s.done} kroky a ${s.minutesLeft} minút.`
-            : 'Hodina a budeš vedieť viesť hovor sám — vrátane cvičného hovoru, '
+            : 'Hodina a budete vedieť viesť hovor sami — vrátane cvičného hovoru, '
               + 'kde appka hovorí za kandidáta.'}</span>
         </div>
         <button class="btn btn-outline btn-sm" onclick="Learn.open()">
@@ -231,8 +231,8 @@
               onclick="Hire.useQuestions('${p.id}', null)">${Icon('check', 14)}
               Použiť všetky návrhy (${navrhy.length})</button>` : ''}
           </div>
-          ${navrhy.length ? `<p class="cq-note">Návrhy od appky — prečítaj a pusti do hovoru.
-            Kým ich nepoužiješ, v hovore nie sú.</p>
+          ${navrhy.length ? `<p class="cq-note">Návrhy od appky — prečítajte a pustite do hovoru.
+            Kým ich nepoužijete, v hovore nie sú.</p>
             ${navrhy.slice(0, 12).map(q => `<div class="cq-row">
               <div class="cq-txt"><b>${UI.esc(q.question_sk)}</b>
                 ${q.good_answer ? `<span>Má zaznieť: ${UI.esc(q.good_answer)}</span>` : ''}</div>
@@ -241,7 +241,7 @@
             </div>`).join('')}
             ${navrhy.length > 12 ? `<p class="cq-note">… a ďalších ${navrhy.length - 12}
               v Remeslách a otázkach.</p>` : ''}`
-            : `<p class="cq-note">Žiadne návrhy nečakajú.${vHovore.length ? '' : ' Pregeneruj podklady —'
+            : `<p class="cq-note">Žiadne návrhy nečakajú.${vHovore.length ? '' : ' Pregenerujte podklady —'
               + ' appka navrhne otázky na toto remeslo.'}</p>`}
           ${vHovore.length ? `<details class="cq-live"><summary>Čo sa pýtame (${vHovore.length})</summary>
             ${vHovore.map(q => `<div class="cq-row is-live"><div class="cq-txt">
@@ -275,9 +275,9 @@
         ${Icon(sp.late ? 'alert' : 'calendar', 14)}
         ${UI.esc(DanubraInquiry.planText(sp))}
         ${nabr ? ` Už nabraní: ${nabr}.` : ''}
-        ${sp.late ? `<strong>Nástup ${UI.date(sp.start_date)} sa nestihne — ľudí budeš mať
+        ${sp.late ? `<strong>Nástup ${UI.date(sp.start_date)} sa nestihne — ľudí budete mať
           ${UI.date(sp.ready)}, o ${sp.lateDays} ${Shell.plural(sp.lateDays, 'deň', 'dni', 'dní')} neskôr.</strong>`
-          : ` Ľudí budeš mať do ${UI.date(sp.ready)}.`}
+          : ` Ľudí budete mať do ${UI.date(sp.ready)}.`}
       </div>`;
     },
 
@@ -335,7 +335,7 @@
             marza ? ` · marža <b class="${marza.ok ? 't-ok' : 't-bad'}">${marza.text}</b>` : ''}</span>
           <span>${Icon('doc', 13)} ${p.analyzed_at ? `podklady ${UI.date(p.analyzed_at)}` : '<em>bez podkladov</em>'}</span>
         </div>
-        ${pr.ready ? '' : `<div class="pcard-warn">${Icon('alert', 12)} Doplň: ${UI.esc(pr.next.title.toLowerCase())}</div>`}
+        ${pr.ready ? '' : `<div class="pcard-warn">${Icon('alert', 12)} Doplňte: ${UI.esc(pr.next.title.toLowerCase())}</div>`}
       </div>`;
     },
 
@@ -468,7 +468,7 @@
         <div class="cards">
           ${odkaz('candidates', 'user', 'Kandidáti', 'celý zoznam a ich postup')}
           ${odkaz('ads', 'marketing', 'Inzeráty', 'čo beží a čo sme v nich sľúbili')}
-          ${odkaz('trades', 'wrench', 'Príručka remesiel', 'nauč sa remeslo a vyskúšaj sa')}
+          ${odkaz('trades', 'wrench', 'Príručka remesiel', 'naučte sa remeslo a vyskúšajte sa')}
           ${odkaz('recruiting', 'note', 'Zápisy z hovorov', 'čo sme komu sľúbili')}
         </div>`;
     },
@@ -572,7 +572,7 @@
         return `<form id="wiz-form" onsubmit="return false;">
           <div class="form-grid">
             ${UI.field('trade_key', 'Aké remeslo', { value: p.trade_key, required: true, add: 'trade',
-              options: [['', '— vyber remeslo —'], ...this.trades.map(t => [t.key, t.name_sk])] })}
+              options: [['', '— vyberte remeslo —'], ...this.trades.map(t => [t.key, t.name_sk])] })}
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: p.headcount || 1 })}
             ${UI.field('skill_level', 'Zaradenie', { value: p.skill_level, options: [
               ['werker', 'Werker (LG1) — pomocné práce'], ['fachwerker', 'Fachwerker (LG2) — remeselník']] })}
@@ -607,7 +607,7 @@
             ${UI.field('advance_possible', '', { type: 'checkbox', value: p.advance_possible, placeholder: 'Možná záloha pred prvou výplatou' })}
           </div>
           <div class="regimebox">Ubytovanie je najsilnejší argument v inzeráte — ľudia sa boja, že skončia
-          v aute. Ak ho máš, patrí do prvých troch riadkov.</div>
+          v aute. Ak ho máte, patrí do prvých troch riadkov.</div>
           ${nav(1, 3)}
         </form>`;
       }
@@ -635,13 +635,13 @@
         const qs = this.questionsFor(p.trade_key);
         const hidden = qs.filter(q => q.kind === 'hidden');
         return `<form id="wiz-form" onsubmit="return false;">
-          <div class="regimebox">Toto je scenár, podľa ktorého sa budeš pýtať. ${qs.length} otázok,
+          <div class="regimebox">Toto je scenár, podľa ktorého sa budete pýtať. ${qs.length} otázok,
           z toho <strong>${hidden.length} overovacích</strong> — tie znejú ako bežná odborná otázka,
           ale kandidát netuší, že sa nimi preveruje, či remeslo naozaj robil. Odpovede sa dajú overiť
           a pripraviť sa na ne z inzerátu nedá.</div>
           ${qs.length === 0
             ? `<div class="warnbox" style="margin-top:12px;">${Icon('alert', 14)}
-                Najprv vyber remeslo v prvom kroku.</div>`
+                Najprv vyberte remeslo v prvom kroku.</div>`
             : this.questionsPreview(qs)}
           <div style="margin-top:10px;">
             <button type="button" class="btn btn-outline btn-sm"
@@ -665,7 +665,7 @@
           <button type="button" class="btn btn-outline btn-sm" onclick="Hire.copyAd()">${Icon('copy')} Skopírovať</button>
         </div>
         <div class="regimebox">Odporúčania sú najlacnejší kanál a prinášajú ľudí, ktorí zostanú.
-        Ak si ho nezaškrtol, zvyčajne je to premárnená príležitosť — opýtaj sa svojich ľudí.</div>
+        Ak ste ho nezaškrtli, zvyčajne je to premárnená príležitosť — opýtajte sa svojich ľudí.</div>
         ${nav(4, null, true)}
       </form>`;
     },
@@ -712,10 +712,10 @@
             <div class="kpi-delta">${p.headcount} × 174 h</div></div>
         </div>
         ${!m.healthy ? `<div class="warnbox" style="margin-top:12px;">${Icon('alert', 14)}
-          Marža pod 15 % neuživí réžiu ani výpadok — pri jednom neodpracovanom týždni si v mínuse.
+          Marža pod 15 % neuživí réžiu ani výpadok — pri jednom neodpracovanom týždni ste v mínuse.
           ${t ? `Pri tomto remesle sa bežne fakturuje ${t.rate_client_min}–${t.rate_client_max} €/h.` : ''}</div>`
-          : `<div class="regimebox" style="margin-top:12px;">Marža je zdravá. Nezabudni, že z nej
-             ide ubytovanie, doprava a réžia — počítaj s 2–4 €/h navyše.</div>`}`;
+          : `<div class="regimebox" style="margin-top:12px;">Marža je zdravá. Nezabudnite, že z nej
+             ide ubytovanie, doprava a réžia — počítajte s 2–4 €/h navyše.</div>`}`;
     },
 
     questionsPreview(qs) {
@@ -756,7 +756,7 @@
     regenAd() {
       this._collect();
       const t = this.trade(this.editing.trade_key);
-      if (!t) return UI.toast('Najprv vyber remeslo', 'err');
+      if (!t) return UI.toast('Najprv vyberte remeslo', 'err');
       const f = document.querySelector('#wiz-form [name=ad_text]');
       if (f) f.value = S.adText(this.editing, t);
     },
@@ -771,7 +771,7 @@
     async savePlan(activate) {
       this._collect();
       const p = this.editing;
-      if (!p.trade_key) { this.goStep(1); return UI.toast('Vyber remeslo', 'err'); }
+      if (!p.trade_key) { this.goStep(1); return UI.toast('Vyberte remeslo', 'err'); }
       if (!p.title) p.title = `${this.tradeName(p.trade_key)} — ${p.city || 'bez miesta'}`;
 
       if (activate) {
@@ -827,7 +827,7 @@
       // riadkov textu, ktoré nikto nevidí.
       if (!window.Kit) {
         el.innerHTML = Danubra.header(p.title, '', '', [p.title])
-          + UI.empty('wrench', 'Podklady sa nenačítali', 'Skús obnoviť stránku.');
+          + UI.empty('wrench', 'Podklady sa nenačítali', 'Skúste obnoviť stránku.');
         return;
       }
       if (Kit.planId !== id || !Kit.loaded) {
@@ -861,7 +861,7 @@
           <div><span>Fakturujeme</span><strong>${p.client_rate || '—'} €/h</strong></div>
           <div><span>Marža</span>${this.marzaText(p)
             ? `<strong style="color:${this.marzaText(p).ok ? 'var(--green)' : 'var(--red)'};">${this.marzaText(p).text}</strong>`
-            : '<strong style="color:var(--ink-mute);font-weight:500;">— doplň sadzbu pre živnostníka</strong>'}</div>
+            : '<strong style="color:var(--ink-mute);font-weight:500;">— doplňte sadzbu pre živnostníka</strong>'}</div>
           <div><span>Kandidáti</span><strong>${mine.length}</strong></div>
         </div>
         ${this.planLineHtml(p)}

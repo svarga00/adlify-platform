@@ -89,13 +89,13 @@
    * v appke namiesto v doklade.
    */
   const HARD = {
-    invoice_no_partner: 'Nie je komu fakturovať. Doplň odberateľa.',
-    invoice_zero: 'Faktúra na nulu nie je faktúra. Skontroluj podklad.',
+    invoice_no_partner: 'Nie je komu fakturovať. Doplňte odberateľa.',
+    invoice_zero: 'Faktúra na nulu nie je faktúra. Skontrolujte podklad.',
     invoice_no_number: 'Číslo prideľuje databáza pri vytvorení z podkladu — '
       + 'nedá sa dopísať ručne.',
     invoice_no_ustidnr: 'Reverse charge §13b bez USt-IdNr sa neuznáva. '
-      + 'Doplň daňové číslo, alebo prepni režim — oboje je jeden klik.',
-    invoice_period_open: 'Hodiny sa ešte môžu zmeniť. Uzavri obdobie — '
+      + 'Doplňte daňové číslo, alebo prepnite režim — oboje je jeden klik.',
+    invoice_period_open: 'Hodiny sa ešte môžu zmeniť. Uzavrite obdobie — '
       + 'potom bude faktúra sedieť s podkladom.',
   };
 

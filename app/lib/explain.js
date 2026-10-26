@@ -47,7 +47,7 @@
         'Prehľad je prvá obrazovka po prihlásení. Neukazuje databázu — odpovedá na '
         + 'tri otázky, ktoré sa v tomto biznise pýtajú každý deň: čo dnes treba '
         + 'spraviť, bude na výplaty a zarábame na tom.',
-        'Zvonček hore hovorí, čo sa stalo, kým si sa nepozeral. Úlohy hovoria, čo '
+        'Zvonček hore hovorí, čo sa stalo, kým ste sa nepozerali. Úlohy hovoria, čo '
         + 'treba spraviť. Sú to dve rôzne otázky, preto sú to dve rôzne miesta.',
       ],
       how: [
@@ -93,7 +93,7 @@
         + 'v nákladoch, treba dobrať ľudí — filter zámerne neberú: to nie je vec '
         + 'mesiaca, ale toho, ako to stojí teraz.',
         'Keď sa nejaký dotaz nepodarí, príde chybová hláška. Prázdna karta nikdy '
-        + 'neznamená „nič tu nemáš" bez toho, aby to appka povedala.',
+        + 'neznamená „nič tu nemáte" bez toho, aby to appka povedala.',
       ],
       why: [
         'Prehľad, ktorý ukazuje počty riadkov, sa po týždni prestane čítať. Preto '
@@ -190,8 +190,8 @@
 
     'dash.events': {
       title: 'Zvonček — čo sa stalo',
-      lead: 'Úlohy hovoria, čo treba spraviť. Zvonček hovorí, čo sa stalo, kým si '
-        + 'sa nepozeral. Sú to dve rôzne otázky.',
+      lead: 'Úlohy hovoria, čo treba spraviť. Zvonček hovorí, čo sa stalo, kým ste '
+        + 'sa nepozerali. Sú to dve rôzne otázky.',
       what: [
         'Prepadnuté a končiace doklady, faktúry po splatnosti a čakajúce na '
         + 'schválenie, prišlé a sporné faktúry od živnostníkov, obdobia na uzavretie, '
@@ -630,14 +630,14 @@
     'screen.flow': {
       title: 'Ako to ide',
       lead: 'Celý reťazec od telefonátu po peniaze na účte, v poradí, v akom sa '
-        + 'to robí — a pri každom kroku, koľko tam práve čaká na teba.',
+        + 'to robí — a pri každom kroku, koľko tam práve čaká na Vás.',
       what: [
         'Sedem krokov tak, ako ide práca: dopyt, nábor, zmluva s Nemcom, súhlas GDPR, '
         + 'zmluva so živnostníkom, objednávka a papiere, hodiny a faktúry.',
         'Rovnakých sedem čísel je v ľavom menu aj nad nadpisom každej obrazovky — '
         + 'slovo „krok" v appke znamená vždy jeden z nich.',
         'Pri každom kroku sú dve čísla. Vľavo „koľko toho tu je" — informácia. '
-        + 'Vpravo „koľko čaká na teba" — práca.',
+        + 'Vpravo „koľko čaká na Vás" — práca.',
         'Krok sa dá otvoriť a ide sa rovno na obrazovku, kde sa to rieši.',
       ],
       how: [
@@ -993,7 +993,7 @@
       how: [
         'Lehoty sú tie, ktoré platia v skutočnosti, nie okrúhle čísla: A1 až 45 dní, '
         + 'Freistellung §48b štyri až osem týždňov cez ELSTER. Preto „končí za mesiac" '
-        + 'znamená „podaj to dnes".',
+        + 'znamená „podajte to dnes".',
       ],
       why: [
         'Compliance bola zoznam pravidiel so štyrmi číslami. Z toho sa nedalo povedať, '
@@ -1203,7 +1203,7 @@
     },
     'cand.step.proof': {
       title: 'Krok 2 — Preveriť',
-      lead: 'To, čo povedal do telefónu, si over u niekoho iného. Toto bolo „overenie".',
+      lead: 'To, čo povedal do telefónu, si overte u niekoho iného. Toto bolo „overenie".',
       what: [
         'Štyri veci: fotky jeho vlastnej práce, telefonát tomu, pre koho robil '
         + 'naposledy, živnosť nájdená v registri, videohovor na nemčinu.',
@@ -1364,23 +1364,23 @@
     },
     'card.trades.quiz': {
       title: 'Skúšanie z remesla',
-      lead: 'Odskúšaj sa z otázok, ktoré budeš klásť kandidátom.',
+      lead: 'Odskúšajte sa z otázok, ktoré budete klásť kandidátom.',
       what: ['Otázky sú tie isté, ktoré má náborár pri telefonáte. Kto ich vie '
         + 'sám, položí ich inak než ten, kto ich číta z obrazovky.'],
       how: [`Na spustenie treba aspoň päť otázok. Pri menšom počte by sa skúšanie `
         + 'dalo prejsť náhodou.'],
       why: [
-        'Rozdiel medzi „prečítal som si to" a „viem to posúdiť" je v tom, či vieš '
+        'Rozdiel medzi „prečítal som si to" a „viem to posúdiť" je v tom, či viete '
         + 'rozoznať človeka, ktorý remeslo robil, od toho, kto o ňom počul.',
       ],
       links: [['trades', 'Remeslá a otázky'], ['candidates', 'Kandidáti']],
     },
     'card.trades.done': {
       title: 'Výsledok skúšania',
-      lead: 'Koľko otázok si vedel — a čo s tými, ktoré nie.',
-      what: ['Čo si nevedel, stojí za druhé kolo. Práve tie otázky položíš '
-        + 'kandidátovi najistejšie, lebo si na ne sám hľadal odpoveď.'],
-      how: ['Výsledok sa nikam nezapisuje. Je to tvoja príprava, nie hodnotenie.'],
+      lead: 'Koľko otázok ste vedeli — a čo s tými, ktoré nie.',
+      what: ['Čo ste nevedeli, stojí za druhé kolo. Práve tie otázky položíte '
+        + 'kandidátovi najistejšie, lebo ste na ne sami hľadali odpoveď.'],
+      how: ['Výsledok sa nikam nezapisuje. Je to Vaša príprava, nie hodnotenie.'],
       why: ['Náborár, ktorý otázke nerozumie, ju položí tak, že kandidát počuje, '
         + 'čo má odpovedať.'],
       links: [['trades', 'Remeslá a otázky']],
@@ -1429,13 +1429,13 @@
       links: [['costs', 'Náklady'], ['timesheets', 'Odpracované hodiny']],
     },
     'card.worker.steps': {
-      title: 'Čo treba, aby mohol ísť na stavbu',
+      title: 'Papiere od nás — GDPR, zmluva, objednávka',
       lead: 'Kroky 4, 5 a 6 z reťazca — pre tohto jedného človeka a v tomto poradí.',
       what: [
-        '**Súhlas GDPR** — vytlačíš, on podpíše, zapíšeš dátum podpisu.',
+        '**Súhlas GDPR** — vytlačíte, on podpíše, zapíšete dátum podpisu.',
         '**Rámcová zmluva o dielo** — zvyčajne do konca roka. Číslo sa navrhne '
         + 'samo ako ďalšie voľné; vytlačená a zapísaná zmluva majú to isté.',
-        '**Stavba a objednávka** — nasadíš ho na stavbu a vystavíš mu objednávku. '
+        '**Stavba a objednávka** — nasadíte ho na stavbu a vystavíte mu objednávku. '
         + 'Termín, stavba a sadzba sa do nej doplnia z nasadenia.',
       ],
       how: [
@@ -2557,7 +2557,7 @@
       what: [
         'Štyri role: administrátor, koordinátor, náborár a účtovníctvo. Plus '
         + '„na mieru", keď ani jedna nesedí.',
-        'Zaškrtnuté je to, čo dáva rola. Keď to zmeníš, uloží sa presne ten '
+        'Zaškrtnuté je to, čo dáva rola. Keď to zmeníte, uloží sa presne ten '
         + 'zoznam a rola zostane len ako poznámka, z čoho sa vychádzalo.',
         'Človek sa nedá zmazať, prístup sa vypne — úlohy a schválenia, ktoré po '
         + 'ňom zostali, musia mať stále meno.',
@@ -2578,7 +2578,7 @@
         + 'používateľov a nastavení. Sú to pravidlá zo zadania, nie nastavenie.',
       ],
       watch: [
-        'Keď si sám vypneš prístup alebo si zmeníš rolu, appka ti ho naozaj vezme. '
+        'Keď si sami vypnete prístup alebo si zmeníte rolu, appka Vám ho naozaj vezme. '
         + 'Vrátiť to vie len iný administrátor — alebo sa to opraví priamo '
         + 'v databáze.',
       ],
@@ -2638,7 +2638,7 @@
 
     'screen.onboarding': {
       title: 'Zaškolenie',
-      lead: 'Posaď sem hocikoho a za hodinu vie viesť hovor sám.',
+      lead: 'Posaďte sem hocikoho a za hodinu vie viesť hovor sám.',
       what: [
         'Päť častí: čo vlastne robíme, jedno remeslo poriadne, skúšanie z neho, '
         + 'ako vyzerá hovor, a cvičný hovor nanečisto.',
@@ -2646,8 +2646,8 @@
         + 'nie firemný záznam o tom, kto čo vie.',
       ],
       how: [
-        'Cvičný hovor ukáže odpoveď kandidáta a ty rozhodneš, či ju prijímaš. '
-        + 'Appka potom povie, či si rozhodol správne.',
+        'Cvičný hovor ukáže odpoveď kandidáta a Vy rozhodnete, či ju prijímate. '
+        + 'Appka potom povie, či ste rozhodli správne.',
         'Polovica odpovedí je dobrá a polovica je tá, pri ktorej treba zbystriť — '
         + 'inak by sa dalo prejsť tým, že sa na všetko kýve.',
         'Prijať zlú odpoveď a odmietnuť dobrú sa počítajú zvlášť.',

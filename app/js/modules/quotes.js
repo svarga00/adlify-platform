@@ -222,7 +222,7 @@
             ${UI.field('title', 'Názov ponuky', { value: q.title, required: true,
               placeholder: 'napr. Sadrokartón — Leipzig, 4 ľudia' })}
             ${UI.field('partner_id', 'Odberateľ', { value: q.partner_id, required: true, add: 'partner',
-              options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
+              options: [['', '— vyberte —'], ...this.partners.map(p => [p.id, p.name])] })}
             ${UI.field('trade_key', 'Remeslo', { value: q.trade_key, add: 'trade',
               options: [['', '—'], ...Wrk.professions()] })}
             ${UI.field('headcount', 'Koľko ľudí', { type: 'number', value: q.headcount ?? 1 })}
@@ -244,7 +244,7 @@
           <div class="form-section">Peniaze</div>
           <div class="regimebox" style="margin:0 0 12px;">
             Réžia je ubytovanie, doprava a všetko ostatné prepočítané na hodinu.
-            Keď ju necháš na nule, marža bude vyzerať lepšie, než je.</div>
+            Keď ju necháte na nule, marža bude vyzerať lepšie, než je.</div>
           <div class="form-grid">
             ${UI.field('charge_rate', 'Fakturujeme €/h', { type: 'number', value: q.charge_rate,
               hint: 'Sadzba bez DPH, ktorú uvidí odberateľ v ponuke aj na faktúre.' })}
@@ -297,7 +297,7 @@
     async save(id) {
       const d = UI.formData(document.getElementById('quo-form'));
       if (!d.title) return UI.toast('Názov je povinný', 'err');
-      if (!d.partner_id) return UI.toast('Vyber odberateľa', 'err');
+      if (!d.partner_id) return UI.toast('Vyberte odberateľa', 'err');
       const payload = { ...d };
       ['charge_rate', 'worker_rate', 'overhead_per_hour', 'hours_per_month', 'headcount']
         .forEach(k => { payload[k] = d[k] === '' ? null : Number(d[k]); });

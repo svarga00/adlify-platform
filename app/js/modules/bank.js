@@ -178,7 +178,7 @@
       return Shell.list({
         rows, total: this.txs.length, render: row,
         emptyIcon: 'invoices', emptyTitle: 'Zatiaľ žiadne pohyby',
-        emptySub: 'Načítaj výpis z banky — CSV z internet bankingu stačí.',
+        emptySub: 'Načítajte výpis z banky — CSV z internet bankingu stačí.',
         filter: {
           search: { value: this.filters.q, placeholder: 'Hľadať protistranu, symbol, správu…',
             oninput: 'Bank.setF("q", this.value)' },
@@ -226,7 +226,7 @@
           <div class="form-section">Priradiť ${income ? 'k vydanej faktúre' : 'k prijatej faktúre'}</div>
           ${candidates.length ? `
             <div class="form-grid">
-              ${UI.field('target', '', { value: '', options: [['', '— vyber —'], ...candidates] })}
+              ${UI.field('target', '', { value: '', options: [['', '— vyberte —'], ...candidates] })}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
               <button class="btn btn-primary btn-sm" onclick="Bank.matchManual('${t.id}', ${income})">
@@ -250,7 +250,7 @@
     async matchManual(id, income) {
       const sel = document.querySelector('#modal [name="target"]');
       const target = sel && sel.value;
-      if (!target) return UI.toast('Vyber, k čomu to patrí', 'err');
+      if (!target) return UI.toast('Vyberte, k čomu to patrí', 'err');
       const patch = {
         match_status: 'manual', matched_at: new Date().toISOString(),
         [income ? 'matched_invoice_id' : 'matched_bill_id']: target,
@@ -292,7 +292,7 @@
             onchange="Bank.readFile(this)">
         </label>
         <div style="text-align:center;color:var(--ink-mute);font-size:12px;margin:10px 0;">
-          alebo vlož obsah rovno sem</div>
+          alebo vložte obsah rovno sem</div>
         <label class="fld">
           <textarea id="bank-paste" rows="5" placeholder="Dátum;Suma;VS;…"
             oninput="Bank.parsePasted()"></textarea>

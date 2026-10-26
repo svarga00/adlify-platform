@@ -218,7 +218,7 @@
     if (!rule.source_table || !rule.date_field) {
       reasons.push({
         rule: 'rule_no_source', label: 'Pravidlo nevie, čo má sledovať',
-        detail: 'Vyber tabuľku aj dátumový stĺpec.', severity: 'block',
+        detail: 'Vyberte tabuľku aj dátumový stĺpec.', severity: 'block',
       });
     }
     if (!String(rule.task_title_template || '').trim()) {
@@ -257,7 +257,7 @@
     if (!/^[a-z_]{3,40}$/.test(String(rule.date_field || 'xxx'))) {
       reasons.push({
         rule: 'rule_bad_date_field', label: 'Dátumový stĺpec nie je názov stĺpca',
-        detail: 'Vyber ho zo zoznamu, ktorý ponúka databáza.', severity: 'block',
+        detail: 'Vyberte ho zo zoznamu, ktorý ponúka databáza.', severity: 'block',
       });
     }
     return { ok: reasons.length === 0, reasons, warnings };

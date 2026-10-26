@@ -98,7 +98,7 @@
       if (this.trade || !(this.plan || this.ad)) return '';
       return `<div class="guide-hint guide-hint-warn" style="margin-top:14px;">
         <b>Tento nábor nemá remeslo.</b> Hovor pôjde so všeobecnými otázkami (papiere,
-        kedy môže, peniaze). Ak chceš aj odborné otázky, vyber najbližšie remeslo:
+        kedy môže, peniaze). Ak chcete aj odborné otázky, vyberte najbližšie remeslo:
         <div class="trade-grid trade-grid-sm" style="margin-top:8px;">
           ${this.trades.map(t => `<button class="trade-tile"
             onclick="Guide.trade=Guide.trades.find(x=>x.key==='${t.key}');Guide.render()">
@@ -131,7 +131,7 @@
       this.segments = this.buildSegments(this.trade?.key, this.cand?.ad_id);
       this.segIndex = 0;
       this.render();
-      UI.toast('Pokračuješ plným pohovorom — čo si zaškrtol, zostáva', 'ok');
+      UI.toast('Pokračujete plným pohovorom — čo ste zaškrtli, zostáva', 'ok');
     },
 
     /** Zákazka, na ktorú sa naberá — cez plán, alebo priamo z kandidáta. */
@@ -149,13 +149,13 @@
       // Nábor alebo inzerát bez remesla nie je dôvod hovor nezačať — otázky
       // budú všeobecné. Bez ničoho sa ale nevie, kam človeka zapísať.
       if (!this.trade && !this.plan && !this.ad) {
-        return UI.toast('Vyber inzerát, nábor alebo remeslo', 'err');
+        return UI.toast('Vyberte inzerát, nábor alebo remeslo', 'err');
       }
       const d = this.draft || {};
       const name = (document.getElementById('call-name')?.value || d.name || '').trim();
       if (!name) {
         document.getElementById('call-name')?.focus();
-        return UI.toast('Zapíš aspoň meno', 'err');
+        return UI.toast('Zapíšte aspoň meno', 'err');
       }
       const phone = (document.getElementById('call-phone')?.value || d.phone || '').trim() || null;
       const crew = document.getElementById('call-crew')?.checked ?? !!d.crew;
@@ -353,9 +353,9 @@
         <div class="aside-title">${Icon('marketing', 14)} ${UI.esc(this.ad.title)}</div>
         ${lines.length
           ? `<ul class="aside-list">${lines.map(t => `<li>${UI.esc(t)}</li>`).join('')}</ul>
-             <p class="aside-note">Toto sme sľúbili. Nesľubuj nič navyše.</p>`
-          : `<p class="aside-note">Inzerát nemá zapísané, čo sľuboval — doplň to
-             v Inzerátoch, nech to nabudúce máš po ruke.</p>`}
+             <p class="aside-note">Toto sme sľúbili. Nesľubujte nič navyše.</p>`
+          : `<p class="aside-note">Inzerát nemá zapísané, čo sľuboval — doplňte to
+             v Inzerátoch, nech to nabudúce máte po ruke.</p>`}
       </div>`;
     },
 
@@ -449,7 +449,7 @@
         return `<div class="guide-q">Chýbajú polia do hovoru</div>
           <div class="guide-hint guide-hint-warn">
             V databáze nie je ani jedno pole, takže by hovor začal prázdny.
-            Spusti migráciu <b>012_call_chips.sql</b> v Supabase SQL editore —
+            Spustite migráciu <b>012_call_chips.sql</b> v Supabase SQL editore —
             naplní 90 predpripravených polí.</div>
           <button class="guide-btn guide-btn-no" style="margin-top:16px;"
             onclick="Guide.close()">Zavrieť</button>`;
@@ -524,7 +524,7 @@
           <button class="call-mode-btn${this.mode === 'full' ? ' active' : ''}"
             onclick="Guide.setMode('full')">
             <b>Plný pohovor</b>
-            <span>Šesť častí, dvadsať minút. Keď už vieš, že má zmysel sa
+            <span>Šesť častí, dvadsať minút. Keď už viete, že má zmysel sa
               s ním baviť — alebo keď má teraz čas.</span>
           </button>
         </div>
@@ -532,8 +532,8 @@
         <button class="guide-btn guide-btn-yes" id="call-go" style="margin-top:14px;"
           onclick="Guide.beginCall()">${Icon('phone', 20)} ${
           this.mode === 'full' ? 'Začať pohovor' : 'Začať hovor'}</button>
-        ${!this.trade && !this.plan && !this.ad ? `<div class="guide-note-hint">Vyber inzerát, nábor
-          alebo remeslo — podľa toho sa poskladajú polia aj otázky a vpravo uvidíš,
+        ${!this.trade && !this.plan && !this.ad ? `<div class="guide-note-hint">Vyberte inzerát, nábor
+          alebo remeslo — podľa toho sa poskladajú polia aj otázky a vpravo uvidíte,
           čo sme sľúbili.</div>` : ''}`;
     },
 
@@ -555,7 +555,7 @@
           const g = this.callQ(seg);
           return `${g.questions.length ? `<div class="cq2-list">${g.questions
             .map(q => this.callQHtml(seg.key, q)).join('')}</div>
-            <div class="cq2-rest">Ďalšie postrehy — zaškrtni, čo zaznelo</div>` : ''}
+            <div class="cq2-rest">Ďalšie postrehy — zaškrtnite, čo zaznelo</div>` : ''}
           <div class="chip-list">
             ${g.rest.map(c => this.chipHtml(c)).join('')}
             <button class="chip chip-add" onclick="Guide.addChipPrompt('${seg.key}')">
@@ -566,7 +566,7 @@
         ${this.questionsHtml(seg)}
 
         <textarea id="seg-note" class="guide-note guide-textarea" rows="5"
-          placeholder="Čo hovorí? Píš vlastnými slovami…"
+          placeholder="Čo hovorí? Píšte vlastnými slovami…"
           oninput="Guide.noteChanged('${seg.key}', this.value)">${UI.esc(note)}</textarea>
         <div class="guide-note-hint">Poznámka sa uloží pri prechode ďalej. Neskôr z nej vieme
           navrhnúť nové polia.</div>
@@ -805,7 +805,7 @@
       if (r.error) return `<div class="warnbox">${Icon('alert', 14)} ${UI.esc(r.error)}</div>`;
       return `<div class="qq-route">
         <div class="qq-route-big">${Icon('pin', 18)} <b>${r.km} km</b> · ${UI.esc(DanubraRoute.durationText(r.minutes))} autom</div>
-        <div class="qq-route-say">Povedz mu: „Je to <b>${r.km} km</b>, autom asi
+        <div class="qq-route-say">Povedzte mu: „Je to <b>${r.km} km</b>, autom asi
           <b>${UI.esc(DanubraRoute.durationText(r.minutes))}</b>."</div>
         <div class="qq-route-from">${UI.esc(r.from.label)} → ${UI.esc(r.to.label)} ·
           <a href="${UI.esc(r.mapsUrl)}" target="_blank" rel="noopener">trasa v Google Mapách</a></div>
@@ -834,7 +834,7 @@
 
     async calcRoute(segKey) {
       const from = String(this.routeFrom || document.getElementById('route-from')?.value || '').trim();
-      if (!from) return UI.toast('Napíš, odkiaľ ide', 'err');
+      if (!from) return UI.toast('Napíšte, odkiaľ ide', 'err');
       const to = DanubraRoute.destinationOf(this.plan || {}, this.subcontract() || {});
       const btn = document.getElementById('route-go');
       if (btn) { btn.disabled = true; btn.textContent = 'Počítam…'; }
@@ -847,7 +847,7 @@
         });
         r = await res.json();
         if (r.error) throw new Error(r.error);
-        if (r.notFound === 'from') throw new Error(`„${from}" som na mape nenašiel — skús mesto bez ulice.`);
+        if (r.notFound === 'from') throw new Error(`„${from}" som na mape nenašiel — skúste mesto bez ulice.`);
         if (r.notFound === 'to') throw new Error(`Miesto stavby „${to}" som na mape nenašiel.`);
         if (r.noRoute) throw new Error('Trasu autom sa nepodarilo vypočítať.');
       } catch (e) {
@@ -1113,7 +1113,7 @@
       const label = await UI.ask('Čo pridať? (krátko, napr. „vie robiť aj podhľady")');
       if (!label || !label.trim()) return;
       const polarity = await UI.ask('Je to dobré znamenie, zlé alebo varovanie?\n'
-        + 'napíš: plus / minus / varovanie / nic', 'plus');
+        + 'napíšte: plus / minus / varovanie / nic', 'plus');
       const map = { plus: 'plus', minus: 'minus', varovanie: 'flag', nic: 'neutral' };
       const pol = map[(polarity || '').trim().toLowerCase()] || 'neutral';
 
@@ -1131,7 +1131,7 @@
       this.ticked.set(data.id, data);
       this.render();                      // nové pole sa musí objaviť v zozname
       this.persistChip(data, true);
-      UI.toast('Pole pridané — nabudúce ho už máš', 'ok');
+      UI.toast('Pole pridané — nabudúce ho už máte', 'ok');
     },
 
     // ── Prechod medzi segmentmi ───────────────────────────────────────────
@@ -1249,7 +1249,7 @@
         UI.toast('Zamietnutý a zapísaný', 'ok');
       } else if (action === 'advance') {
         CandProc.open = 'proof';
-        UI.toast('Uložené — pokračuj krokom Preveriť', 'ok');
+        UI.toast('Uložené — pokračujte krokom Preveriť', 'ok');
       } else {
         UI.toast('Uložené', 'ok');
       }

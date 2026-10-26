@@ -53,7 +53,7 @@
     const ok = (points || []).filter(p => p && DanubraGeo.valid(Number(p.lat), Number(p.lng)));
     if (!ok.length) {
       el.innerHTML = `<div class="map-empty">${Icon('site', 20)}
-        <span>Zatiaľ bez polohy. Vlož odkaz z máp pri stavbe alebo ubytovaní
+        <span>Zatiaľ bez polohy. Vložte odkaz z máp pri stavbe alebo ubytovaní
         a objaví sa tu.</span></div>`;
       return null;
     }

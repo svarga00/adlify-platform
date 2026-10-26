@@ -152,7 +152,7 @@
         what: `${a1Konci.length} ${plural(a1Konci.length, 'A1 sa končí', 'A1 sa končia', 'A1 sa končí')} `
           + `do ${A1_LEHOTA} dní: ${kto(a1Konci)}`,
         why: `Vybavenie trvá až ${A1_LEHOTA} dní — „končí za mesiac" teda znamená `
-          + '„podaj to dnes".',
+          + '„podajte to dnes".',
         hot: false, count: a1Konci.length, worker: a1Konci[0].worker,
       };
     }

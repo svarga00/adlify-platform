@@ -808,7 +808,7 @@
           && Math.abs(c.variance) > DanubraBills.TOLERANCE) {
         const why = await UI.ask(
           `Faktúra sa líši od schválených hodín o ${Money.format(c.variance)}.\n\n`
-          + 'Napíš prečo ju schvaľuješ. Zostane to pri faktúre.');
+          + 'Napíšte, prečo ju schvaľujete. Zostane to pri faktúre.');
         if (!why || why.trim().length < 5) {
           return UI.toast('Bez vysvetlenia sa sporná faktúra schváliť nedá', 'err');
         }
@@ -832,7 +832,7 @@
       const body = `
         <form id="bill-form" onsubmit="event.preventDefault();Cost.saveBill('${id || ''}')">
           <div class="regimebox" style="margin:0 0 12px;">
-            Keď faktúru naviažeš na uzavreté obdobie, appka ju hneď porovná
+            Keď faktúru naviažete na uzavreté obdobie, appka ju hneď porovná
             so schválenými hodinami. Bez obdobia sa schvaľuje naslepo.</div>
           <div class="form-grid">
             ${UI.field('worker_id', 'Živnostník', { value: b.worker_id, add: 'worker',
@@ -979,7 +979,7 @@
           ${UI.field('description', 'Popis', { value: c.description })}
           <div class="form-section">Opakovanie</div>
           <div class="regimebox" style="margin:0 0 12px;">
-            Mesačné ubytovanie sa nezadáva dvanásťkrát. Zapni opakovanie a
+            Mesačné ubytovanie sa nezadáva dvanásťkrát. Zapnite opakovanie a
             ďalšie mesiace vzniknú samy — vždy k tomu istému dňu.</div>
           <div class="chk-row">
             ${UI.field('recurring', '', { type: 'checkbox', value: c.recurring,
@@ -997,7 +997,7 @@
 
     async saveCost(id) {
       const d = UI.formData(document.getElementById('cost-form'));
-      if (!d.amount) return UI.toast('Zadaj sumu', 'err');
+      if (!d.amount) return UI.toast('Zadajte sumu', 'err');
       const payload = { ...d };
       payload.amount = Number(d.amount);
       ['subcontract_id', 'worker_id', 'recurring_until'].forEach(k => {

@@ -115,7 +115,7 @@
         what: `${neplatne.length} ${plural(neplatne.length, 'odberateľ', 'odberatelia', 'odberateľov')} `
           + `${plural(neplatne.length, 'má', 'majú', 'má')} číslo, ktoré register nepozná.`,
         why: 'Faktúra v reverse charge s neplatným USt-IdNr je naša daň, nie ich. '
-          + 'Over si číslo u nich — nestačí ho prepísať.',
+          + 'Overte si číslo u nich — nestačí ho prepísať.',
         hot: true, count: neplatne.length, id: neplatne[0].id,
       };
     }
@@ -146,7 +146,7 @@
             + 'ešte nebol preverený.',
         why: mimo === nepreverene.length
           ? 'Neodpoveď registra nie je neplatné číslo. VIES býva mimo prevádzky '
-            + 'aj niekoľko hodín — skús to neskôr.'
+            + 'aj niekoľko hodín — skúste to neskôr.'
           : 'Overenie je jedno kliknutie a zostane zapísané s dátumom. Pri kontrole '
             + 'je to dôkaz, že sme si to pozreli.',
         hot: false, count: nepreverene.length, id: nepreverene[0].id,

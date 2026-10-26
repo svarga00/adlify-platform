@@ -105,7 +105,7 @@
           ${Help.btn('card.kit.brief', { size: 13 })}</div>
         <div class="kit-brief">
           <textarea id="plan-brief" rows="${brief ? 8 : 5}"
-            placeholder="Vlož všetko, čo o zákazke vieš — aj neučesané. Čo sa stavia, kde, koľko ľudí, aké remeslo, čo je podmienka, aká sadzba, odkedy. Pokojne aj e-mail od odberateľa.">${UI.esc(brief)}</textarea>
+            placeholder="Vložte všetko, čo o zákazke viete — aj neučesané. Čo sa stavia, kde, koľko ľudí, aké remeslo, čo je podmienka, aká sadzba, odkedy. Pokojne aj e-mail od odberateľa.">${UI.esc(brief)}</textarea>
           <div class="kit-brief-acts">
             <button class="btn btn-outline btn-sm" onclick="Kit.saveBrief('${plan.id}')">
               ${Icon('check', 14)} Uložiť zadanie</button>
@@ -117,13 +117,13 @@
             <span class="kit-note">${maPodklady
               ? `${plan.analyzed_at ? `Pripravené ${UI.date(plan.analyzed_at)}. ` : ''}`
                 + 'Pregenerovanie vezme zadanie, ako je teraz. Prepíše len to, čo napísala '
-                + 'appka — čo si upravil alebo schválil, ostane.'
+                + 'appka — čo ste upravili alebo schválili, ostane.'
               : 'Vyplní zhrnutie aj texty po kanáloch. Všetko sa dá prepísať.'}</span>
           </div>
           ${zmenene ? `<div class="warnbox" style="margin-top:8px;">${Icon('alert', 14)}
-            ${zmeneneZadanie && zmeneneZhrnutie ? 'Zadanie aj zhrnutie si od poslednej prípravy zmenil'
-              : zmeneneZadanie ? 'Zadanie si od poslednej prípravy zmenil'
-                : 'Zhrnutie alebo doplnky si od poslednej prípravy zmenil'} — texty sú ešte podľa starého.
+            ${zmeneneZadanie && zmeneneZhrnutie ? 'Zadanie aj zhrnutie ste od poslednej prípravy zmenili'
+              : zmeneneZadanie ? 'Zadanie ste od poslednej prípravy zmenili'
+                : 'Zhrnutie alebo doplnky ste od poslednej prípravy zmenili'} — texty sú ešte podľa starého.
             <button class="link-inline" onclick="Kit.analyze('${plan.id}', { regen: true })">
               Pregenerovať</button></div>` : ''}
         </div>`;
@@ -151,7 +151,7 @@
           <div>
             <b>Appka nenašla v zadaní: ${UI.esc(facts.filter(f => (f.must && !f.filled) || f.gaps)
               .map(f => f.title.toLowerCase()).join(', '))}.</b>
-            <span>Doplň to priamo tu do poľa (prepíš ${K.CHYBA}) a klikni Pregenerovať —
+            <span>Doplňte to priamo tu do poľa (prepíšte ${K.CHYBA}) a kliknite na Pregenerovať —
               údaj sa dostane do všetkých textov naraz.</span>
           </div>
           ${plan.analyzed_at ? `<button class="btn btn-primary btn-sm"
@@ -189,8 +189,8 @@
       const dni = Number((Danubra.cfg('subcontract') || {}).splatnost_dni) || 14;
       return `
         <div class="form-section">Doplnky od nás — nepovinné</div>
-        <p class="kit-note" style="margin:-4px 0 10px;">Čo tu napíšeš, appka zapracuje do textov
-          pri príprave aj pri pregenerovaní. Nemusíš vyplniť nič.</p>
+        <p class="kit-note" style="margin:-4px 0 10px;">Čo tu napíšete, appka zapracuje do textov
+          pri príprave aj pri pregenerovaní. Nemusíte vyplniť nič.</p>
         <div class="kit-extras">
           ${this.EXTRAS.map(([k, label, ph, moznosti]) => `
             <div class="kit-fact">
@@ -339,7 +339,7 @@
           <textarea id="${id}" rows="${b.body.split('\n').length > 3 ? 8 : 3}"
             placeholder="${UI.esc(b.hint || 'Text na priame vloženie')}">${UI.esc(b.body)}</textarea>
           ${b.row && b.row.updated_at ? `<div class="kit-note">
-            Zmenené ${UI.date(b.row.updated_at)}${navrh ? ' · návrh od appky, prečítaj a uprav' : ''}</div>` : ''}
+            Zmenené ${UI.date(b.row.updated_at)}${navrh ? ' · návrh od appky, prečítajte a upravte' : ''}</div>` : ''}
         </div>`;
     },
 
@@ -348,7 +348,7 @@
       const text = el ? el.value : '';
       if (!text.trim()) return UI.toast('Nie je čo kopírovať', 'err');
       navigator.clipboard?.writeText(text).then(
-        () => UI.toast('Skopírované — vlož to do kanála', 'ok'),
+        () => UI.toast('Skopírované — vložte to do kanála', 'ok'),
         () => UI.toast('Nepodarilo sa skopírovať', 'err'));
     },
 
@@ -399,7 +399,7 @@
               <button class="btn btn-ghost btn-sm" onclick="Kit.openFile('${f.id}')"
                 title="Otvoriť">${Icon('doc', 15)}</button>
             </div>`).join('') || `<div style="font-size:13px;color:var(--ink-mute);">
-              Zatiaľ žiadne obrázky. Nahraj hotové, aby sa pri ďalšej zákazke dalo z čoho vyjsť.</div>`}
+              Zatiaľ žiadne obrázky. Nahrajte hotové, aby sa pri ďalšej zákazke dalo z čoho vyjsť.</div>`}
           <label class="btn btn-outline btn-sm" style="margin-top:8px;">
             ${Icon('plus', 14)} Nahrať obrázok
             <input type="file" accept="image/*" hidden onchange="Kit.upload(this)">
@@ -445,7 +445,7 @@
     adsHtml(plan) {
       if (!this.ads.length) {
         return `<div style="font-size:13px;color:var(--ink-mute);">
-          Zatiaľ nikde. Keď texty vložíš, zapíš sem odkaz — inak sa o mesiac nedá
+          Zatiaľ nikde. Keď texty vložíte, zapíšte sem odkaz — inak sa o mesiac nedá
           povedať, ktorý kanál ľudí priniesol.
           <div style="margin-top:8px;">
             <button class="btn btn-outline btn-sm"
@@ -516,14 +516,14 @@
         if (j.status === 'error') throw new Error(j.error || 'analýza zlyhala');
       }
       throw new Error('trvá to dlhšie než šesť minút — podklady sa možno ešte dopíšu, '
-        + 'pozri nábor o chvíľu');
+        + 'pozrite nábor o chvíľu');
     },
 
     async analyze(planId, { regen = false, potvrdene = false } = {}) {
       const el = document.getElementById('plan-brief');
       const brief = el ? el.value : '';
       if (!brief.trim()) {
-        return UI.toast('Najprv napíš do zadania, čo o zákazke vieme', 'err');
+        return UI.toast('Najprv napíšte do zadania, čo o zákazke vieme', 'err');
       }
       if (regen && !potvrdene) {
         const vlastne = (this.assets || []).filter(a => !a.archived_at
@@ -533,7 +533,7 @@
             a napíše texty a zhrnutie znova.</p>
           <ul class="clean" style="font-size:13.5px;line-height:1.7;margin:0 0 6px;">
             <li>${Icon('repeat', 13)} Prepíše sa, čo napísala appka a nikto to neupravil.</li>
-            <li>${Icon('check', 13)} Čo si upravil alebo schválil, ostane${
+            <li>${Icon('check', 13)} Čo ste upravili alebo schválili, ostane${
               vlastne ? ` (${vlastne} ${Shell.plural(vlastne, 'text', 'texty', 'textov')})` : ''}.</li>
             <li>${Icon('lock', 13)} Staré texty sa nemažú — odložia sa do archívu.</li>
           </ul>
@@ -554,8 +554,8 @@
           <span class="prep-ico">${Icon('clock', 16)}</span>
           <span class="prep-txt">
             <b>Píšem texty inzerátov a otázky do telefonátu</b>
-            <em>Trvá to zvyčajne 1–2 minúty${sek ? ` · ${sek} s` : ''}. Okno môžeš zavrieť —
-              podklady sa uložia aj tak a uvidíš ich v nábore.</em>
+            <em>Trvá to zvyčajne 1–2 minúty${sek ? ` · ${sek} s` : ''}. Okno môžete zavrieť —
+              podklady sa uložia aj tak a uvidíte ich v nábore.</em>
           </span>
         </div>`);
       okno(0);
@@ -568,7 +568,7 @@
         return UI.modal('Podklady sa nepripravili', `
           <div class="warnbox">${Icon('alert', 14)} ${UI.esc(e.message)}</div>
           <p style="font-size:13px;color:var(--ink-sub);">Zadanie ostalo uložené.
-            Skús to znova — keď to nepôjde ani druhýkrát, pošli mi túto hlášku.</p>
+            Skúste to znova — keď to nepôjde ani druhýkrát, pošlite mi túto hlášku.</p>
           <div class="modal-actions">
             <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
             <button class="btn btn-primary"
@@ -602,7 +602,7 @@
           'otázka', 'otázky', 'otázok')} do hovoru` : null,
       ].filter(Boolean);
       if (out.regen && out.kept) {
-        casti.push(`${out.kept} ${Shell.plural(out.kept, 'tvoj text ostal', 'tvoje texty ostali', 'tvojich textov ostalo')}`);
+        casti.push(`${out.kept} ${Shell.plural(out.kept, 'Váš text ostal', 'Vaše texty ostali', 'Vašich textov ostalo')}`);
       }
       UI.toast(`${out.regen ? 'Pregenerované' : 'Hotovo'} — ${casti.join(' · ')}`, 'ok');
 
@@ -614,10 +614,10 @@
             ako <strong>návrh</strong>.</div>
           ${out.newTrade ? `<div class="regimebox">${Icon('plus', 14)} Pribudlo remeslo
             <strong>${UI.esc(out.newTrade)}</strong> — v zozname nebolo. Sadzby a príručku
-            k nemu doplníš v Remeslách a otázkach.</div>` : ''}
+            k nemu doplníte v Remeslách a otázkach.</div>` : ''}
           <p style="font-size:13px;color:var(--ink-sub);">Zoznam otázok je to, podľa čoho
             sa rozhoduje o ľuďoch, takže doň nič nepribudne samo. Sú v nábore pod
-            „Otázky do telefonátu" — prečítaj ich a pusti do hovoru jedným klikom.</p>
+            „Otázky do telefonátu" — prečítajte ich a pustite do hovoru jedným klikom.</p>
           <div class="modal-actions">
             <button class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
             <button class="btn btn-primary"

@@ -91,7 +91,7 @@
                 : UI.empty('check', 'Nič nehorí', 'Všetko je vybavené alebo odložené na neskôr.'))
               : rows.map(t => this.row(t)).join(''))
           : (this.items.length
-              ? UI.empty('search', 'Filtru nič nesedí', 'Skús iný filter alebo iné meno.')
+              ? UI.empty('search', 'Filtru nič nesedí', 'Skúste iný filter alebo iné meno.')
               : UI.empty('check', 'Nič nehorí',
                   'Všetko je vybavené alebo odložené na neskôr.',
                   `<button class="btn btn-primary" onclick="Tsk.form()">${Icon('plus')} Nová úloha</button>`)))
@@ -155,7 +155,7 @@
         <label class="who-me-pick">
           <span>Ja som</span>
           <select onchange="Tsk.setMe(this.value)">
-            <option value="">— vyber —</option>
+            <option value="">— vyberte —</option>
             ${names.map(n => `<option value="${UI.esc(n)}"${n === me ? ' selected' : ''}>${UI.esc(n)}</option>`).join('')}
           </select>
         </label>
@@ -305,7 +305,7 @@
               options: [['low', 'Nízka'], ['normal', 'Bežná'], ['high', 'Vysoká'],
                 ['urgent', 'Súrne']] })}
             ${UI.field('assigned_name', 'Komu sa priradí', { value: r.assigned_name,
-              placeholder: 'nechaj prázdne = nepriradené' })}
+              placeholder: 'nechajte prázdne = nepriradené' })}
           </div>
           ${UI.field('description', 'Poznámka k pravidlu', { type: 'textarea', rows: 2,
             value: r.description })}
@@ -313,7 +313,7 @@
           <div class="form-section">Skúška naprázdno</div>
           <div id="rule-try">
             <p style="font-size:13px;color:var(--ink-sub);margin:0;">
-              Klepni na <strong>Skúsiť</strong> a appka spočíta, koľko úloh by
+              Klepnite na <strong>Skúsiť</strong> a appka spočíta, koľko úloh by
               z tohto pravidla dnes vzniklo — bez toho, aby čokoľvek zapísala.</p>
           </div>
           <button type="button" class="btn btn-outline btn-sm" style="margin-top:8px;"
@@ -372,7 +372,7 @@
       if (!form || !box) return;
       const d = UI.formData(form);
       if (!d.source_table || !d.date_field) {
-        return UI.toast('Najprv vyber tabuľku a dátumový stĺpec', 'err');
+        return UI.toast('Najprv vyberte tabuľku a dátumový stĺpec', 'err');
       }
       box.innerHTML = '<p style="font-size:13px;color:var(--ink-mute);margin:0;">Skúšam…</p>';
       const { data, error } = await DB.rpc('preview_task_rule', {
@@ -397,7 +397,7 @@
         ${s.length ? `<ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
           ${s.map(x => `<li>${UI.esc(x)}</li>`).join('')}</ul>` : ''}
         ${n > 50 ? `<div class="warnbox" style="margin:8px 0 0;">${Icon('alert', 14)}
-          To je veľa naraz. Skús menej dní dopredu — zoznam, v ktorom je
+          To je veľa naraz. Skúste menej dní dopredu — zoznam, v ktorom je
           päťdesiat položiek, sa neprezerá.</div>` : ''}`;
     },
 
@@ -420,7 +420,7 @@
         : await DB.insert('task_rules', { ...payload, active: true });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
 
-      UI.toast(id ? 'Pravidlo uložené' : 'Pravidlo pridané — spusti ho, nech je vidieť', 'ok');
+      UI.toast(id ? 'Pravidlo uložené' : 'Pravidlo pridané — spustite ho, nech je vidieť', 'ok');
       this.loaded = false; await this.load();
       this.rulesView();
     },
@@ -620,7 +620,7 @@
 
     async save(id) {
       const d = UI.formData(document.getElementById('tsk-form'));
-      if (!d.title) return UI.toast('Napíš, čo treba spraviť', 'err');
+      if (!d.title) return UI.toast('Napíšte, čo treba spraviť', 'err');
       const payload = { ...d };
       if (payload.due_date === '') payload.due_date = null;
       if (payload.status === 'done') payload.done_at = new Date().toISOString();

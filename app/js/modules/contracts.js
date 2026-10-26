@@ -291,7 +291,7 @@
       const file = input && input.files && input.files[0];
       if (!file) return;
       if (file.size > 25 * 1024 * 1024) {
-        return UI.toast('Súbor má viac než 25 MB — zmenši ho alebo odfoť nanovo.', 'err');
+        return UI.toast('Súbor má viac než 25 MB — zmenšite ho alebo ho odfoťte nanovo.', 'err');
       }
       UI.toast('Nahrávam…');
       const { path, error } = await DB.uploadDoc(file, { folder: 'contract', entityId: contractId });
@@ -389,12 +389,12 @@
         <form id="con-form" onsubmit="event.preventDefault();Con.save('${id || ''}')">
           ${preset && preset.quote_id ? `<div class="regimebox" style="margin:0 0 12px;">
             Zmluva vzniká z prijatej ponuky. Predmet diela sa <strong>nepredvyplnil</strong> —
-            napíš ho v reči diela („dodávka a montáž sadrokartónových priečok…"),
+            napíšte ho v reči diela („dodávka a montáž sadrokartónových priečok…"),
             nie v hodinách.</div>` : ''}
           <div class="form-grid">
             ${UI.field('title', 'Názov zmluvy', { value: c.title, required: true })}
             ${UI.field('partner_id', 'Odberateľ', { value: c.partner_id, required: true, add: 'partner',
-              options: [['', '— vyber —'], ...this.partners.map(p => [p.id, p.name])] })}
+              options: [['', '— vyberte —'], ...this.partners.map(p => [p.id, p.name])] })}
             ${UI.field('kind', 'Druh', { value: c.kind || 'werkvertrag',
               options: Enums.options('contract_kind') })}
             ${UI.field('date_from', 'Platí od', { type: 'date', value: c.date_from })}
@@ -405,7 +405,7 @@
 
           <div class="form-section">Predmet diela</div>
           <div class="regimebox" style="margin:0 0 12px;">
-            Píš dielo, nie hodiny. Pri kontrole rozhoduje obsah zmluvy, nie jej
+            Píšte dielo, nie hodiny. Pri kontrole rozhoduje obsah zmluvy, nie jej
             názov — „4 pracovníci na 160 hodín mesačne" je znak skrytej
             Arbeitnehmerüberlassung, „dodávka a montáž priečok na 2. NP" nie je.</div>
           ${UI.field('scope', '', { type: 'textarea', rows: 4, value: c.scope,
@@ -442,7 +442,7 @@
               : UI.field('retention_pct', 'Zádržné % (Sicherheitseinbehalt)', {
                 type: 'number', step: '0.1', value: c.retention_pct, placeholder: '5',
                 hint: 'Časť ceny, ktorú si odberateľ nechá do konca záruky. Býva 5 %. '
-                  + 'Sú to naše peniaze, ktoré roky ležia u neho — rátaj s nimi '
+                  + 'Sú to naše peniaze, ktoré roky ležia u neho — rátajte s nimi '
                   + 'až po uplynutí záruky.' })}
             ${UI.field('warranty_months', 'Záruka (mesiacov)', { type: 'number',
               value: c.warranty_months, placeholder: '48' })}
@@ -453,7 +453,7 @@
             Zádržné býva 5 % a odberateľ si ho drží až do konca záruky. Kto
             s ním počíta ako s peniazmi na ceste, má vo výhľade o toľko viac,
             než reálne príde.</div>
-          ${UI.field('penalty_note', 'Zmluvná pokuta — píš po nemecky, ide to do zmluvy',
+          ${UI.field('penalty_note', 'Zmluvná pokuta — píšte po nemecky, ide to do zmluvy',
             { type: 'textarea', rows: 2, value: c.penalty_note,
               placeholder: '0,2 % der Auftragssumme je angefangenem Verzugstag, '
                 + 'maximal 5 % der Auftragssumme.' })}
@@ -478,7 +478,7 @@
     async save(id) {
       const d = UI.formData(document.getElementById('con-form'));
       if (!d.title) return UI.toast('Názov je povinný', 'err');
-      if (!d.partner_id) return UI.toast('Vyber odberateľa', 'err');
+      if (!d.partner_id) return UI.toast('Vyberte odberateľa', 'err');
       const payload = { ...d };
       ['charge_rate', 'payment_terms_days', 'fixed_price', 'unit_price',
         'retention_pct', 'warranty_months', 'notice_days']
@@ -561,7 +561,7 @@
     async saveAmendment(contractId) {
       const c = this.items.find(x => x.id === contractId);
       const d = UI.formData(document.getElementById('am-form'));
-      if (!c || !d.new_value) return UI.toast('Vyplň novú hodnotu', 'err');
+      if (!c || !d.new_value) return UI.toast('Vyplňte novú hodnotu', 'err');
 
       const oldValue = c[d.field] == null ? '' : String(c[d.field]);
       const newValue = String(d.new_value).trim();
@@ -619,7 +619,7 @@
       const file = input && input.files && input.files[0];
       if (!file) return;
       if (file.size > 25 * 1024 * 1024) {
-        return UI.toast('Súbor má viac než 25 MB — zmenši ho alebo odfoť nanovo.', 'err');
+        return UI.toast('Súbor má viac než 25 MB — zmenšite ho alebo ho odfoťte nanovo.', 'err');
       }
       UI.toast('Nahrávam…');
       const { path, error } = await DB.uploadDoc(file, {

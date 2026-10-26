@@ -39,7 +39,7 @@
       key: 'call',
       n: 1,
       title: 'Zavolať',
-      lead: 'Ozval sa. Zavolaj mu do desiatich minút.',
+      lead: 'Ozval sa. Zavolajte mu do desiatich minút.',
       why: 'Kto sa ozve nám, ozve sa aj ďalším trom. Rozhoduje, kto zavolá prvý — '
         + 'nie kto má lepšiu ponuku.',
       items: [
@@ -54,7 +54,7 @@
       key: 'proof',
       n: 2,
       title: 'Preveriť',
-      lead: 'To, čo povedal do telefónu, si over u niekoho iného.',
+      lead: 'To, čo povedal do telefónu, si overte u niekoho iného.',
       why: 'Toto je krok, ktorý sa predtým volal „overenie". Je tu preto, že do telefónu '
         + 'povie každý všetko. Bez neho ide na nemeckú stavbu človek, ktorého prax nikto '
         + 'nevidel — a prvý, komu to praskne, je náš odberateľ.',
@@ -286,8 +286,8 @@
       return { key: 'closed', title: 'Zamietnutý', what: 'Dôvod je zapísaný. Nič netreba.' };
     }
     if ((flags || []).length >= 2) {
-      return { key: 'flags', title: 'Zastav sa',
-        what: `${flags.length} červené vlajky. Rozhodni, či vôbec pokračovať.`, hot: true };
+      return { key: 'flags', title: 'Zastavte sa',
+        what: `${flags.length} červené vlajky. Rozhodnite, či vôbec pokračovať.`, hot: true };
     }
     const step = (steps || []).find(s => !s.complete);
     if (!step) {
