@@ -1977,10 +1977,10 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     .hn-kw .y{font-size:13px;color:${BRAND.sub};font-weight:600}
     .hn-kw small{font-size:10px;color:${BRAND.mute};margin-left:auto;white-space:nowrap}
     .hn-band{display:flex;gap:28px;margin-bottom:12px;align-items:flex-end}
-    .hn-fields{flex:1.35;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 20px}
-    .hn-sign{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+    .hn-fields{flex:1.35;display:grid;grid-template-columns:1.2fr 1fr .9fr;gap:0 20px;align-items:end}
+    .hn-sign{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0 20px;align-items:end}
     .hn-f{min-width:0}
-    .hn-f .v{min-height:26px;border-bottom:1px solid ${BRAND.navy};font-size:12.5px;font-weight:600;line-height:1.25;
+    .hn-f .v{min-height:30px;border-bottom:1px solid ${BRAND.navy};font-size:12.5px;font-weight:600;line-height:1.25;
       padding:4px 2px 3px;display:flex;align-items:flex-end;overflow-wrap:anywhere}
     .hn-f .v.tall{min-height:40px}
     .hn-f .v i{font-weight:500;font-style:italic;color:${BRAND.sub};font-size:10.5px}
@@ -2070,13 +2070,19 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     };
     const people = f ? (f.rows || []).map((r) => ({ name: nameOf(r), cells: new Map((r.per_day || []).map((c) => [c.weekday, c.minutes])) }))
       : (workers || []).map((w) => ({ name: String((w && w.full_name) || w || '').trim(), cells: null })).filter((p) => p.name);
-    const n = Math.max(Number(rows) || 0, people.length, 1);
+    // Čistý prepis má len riadky z papiera; prázdny list aspoň `rows` riadkov na písanie.
+    const n = f ? Math.max(people.length, 1) : Math.max(Number(rows) || 0, people.length, 1);
     while (people.length < n) people.push({ name: '', cells: null });
     // Riadky sa zmestia na jednu stranu: čím viac mien, tým nižšie (ale stále sa do nich dá písať).
     const ph = Math.max(30, Math.min(46, Math.floor(300 / n)));
 
     // Hlavička: projekt, stavba, odberateľ.
-    const projekt = [sub.title, sub.contract_number].filter(Boolean).join(' · ') || (f && f.project) || '';
+    // Číslo zákazky sa nezlomí uprostred („ZAK-2026-" / „0003").
+    const cislo = sub.contract_number
+      ? `<span style="white-space:nowrap">${sub.title ? `(${esc(sub.contract_number)})` : esc(sub.contract_number)}</span>` : '';
+    const projekt = sub.title || cislo
+      ? [sub.title ? esc(sub.title) : '', cislo].filter(Boolean).join(' ')
+      : esc((f && f.project) || '');
     const baustelle = [sub.site_name, sub.site_address, sub.site_city].filter(Boolean).join(', ') || (f && f.site) || '';
     const kunde = (partner && partner.name) || (f && f.customer) || '';
     const sig = signed != null ? signed : (f ? f.signed : null);
@@ -2084,7 +2090,12 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const b = brandOf(supplier);
     const field = (label, v, cls = '') => `<div class="hn-f"><div class="v ${cls}">${v}</div><div class="lbl">${esc(label)}</div></div>`;
 
-    const cell = (p, d) => (p.cells && d ? esc(hnHours(p.cells.has(d.weekday) ? p.cells.get(d.weekday) : 0)) : '');
+    // Deň bez práce je na prepise pomlčka (na papieri „/"), nie prázdne miesto.
+    const cell = (p, d) => {
+      if (!p.cells) return '';
+      const m = p.cells.has(d.weekday) ? p.cells.get(d.weekday) : 0;
+      return m === 0 ? '<span class="hn-dash">–</span>' : esc(hnHours(m));
+    };
     const rowSum = (p) => (p.cells ? [...p.cells.values()].reduce((a, m) => a + (Number(m) || 0), 0) : 0);
     const daySum = (d) => people.reduce((a, p) => a + (p.cells ? Number(p.cells.get(d.weekday)) || 0 : 0), 0);
     const grand = people.reduce((a, p) => a + rowSum(p), 0);
@@ -2112,7 +2123,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
 
       <div class="hn-band">
         <div class="hn-fields">
-          ${field('Projekt', esc(projekt))}
+          ${field('Projekt', projekt)}
           ${field('Baustelle', esc(baustelle))}
           ${field('Kunde', esc(kunde))}
         </div>
