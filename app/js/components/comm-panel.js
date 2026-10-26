@@ -58,21 +58,20 @@ window.CommPanel = {
     try { entity = JSON.parse(decodeURIComponent(metaEnc)); } catch {}
     this._smsEntity = entity; this._smsPhone = phone;
     UI.modal('Odoslať SMS', `
-      <form id="sms-form" onsubmit="event.preventDefault();CommPanel.smsSend()">
-        <div class="fld"><span>Príjemca</span>
-          <input name="to" value="${UI.esc(phone)}" required></div>
-        <div class="fld" style="margin-top:12px;"><span>Text správy</span>
-          <textarea name="body" rows="5" oninput="CommPanel.smsPreview()"
-            placeholder="Kod dveri 1234. Nastup 1.9. Kontakt na mieste 0176..."></textarea></div>
-        <label class="chk" style="margin-top:10px;">
-          <input type="checkbox" name="stripDia" checked onchange="CommPanel.smsPreview()">
-          Odoslať bez diakritiky (zmestí sa viac textu)</label>
-        <div id="sms-info" class="regimebox" style="margin-top:12px;"></div>
+      <form id="sms-form" onsubmit="event.preventDefault();CommPanel.smsSend()"
+        oninput="CommPanel.smsPreview()" onchange="CommPanel.smsPreview()">
+        <div class="form-grid">
+          <div class="fld-full">${UI.field('to', 'Príjemca', { value: phone, required: true })}</div>
+          <div class="fld-full">${UI.field('body', 'Text správy', { type: 'textarea', rows: 5,
+            placeholder: 'Kod dveri 1234. Nastup 1.9. Kontakt na mieste 0176...' })}</div>
+          <div class="fld-full">${UI.field('stripDia', 'Odoslať bez diakritiky (zmestí sa viac textu)', { type: 'checkbox', value: true })}</div>
+        </div>
+        <div id="sms-info" class="regimebox"></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
           <button type="submit" class="btn btn-primary" id="sms-send-btn">Odoslať</button>
         </div>
-      </form>`, { wide: true });
+      </form>`);
     this.smsPreview();
   },
 

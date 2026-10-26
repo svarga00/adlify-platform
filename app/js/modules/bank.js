@@ -210,7 +210,7 @@
         <div class="detail-head">
           ${UI.badge(Enums.label('match_status', t.match_status),
             t.match_status === 'unmatched' ? 'amber' : t.match_status === 'ignored' ? 'gray' : 'green')}
-          <strong style="font-size:20px;${cents < 0 ? 'color:var(--red);' : ''}">${
+          <strong class="detail-amt${cents < 0 ? ' tx-bad' : ''}">${
             Money.format(cents, { sign: true })}</strong>
         </div>
 
@@ -227,28 +227,26 @@
           ${candidates.length ? `
             <div class="form-grid">
               ${UI.field('target', '', { value: '', options: [['', '— vyberte —'], ...candidates] })}
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-              <button class="btn btn-primary btn-sm" onclick="Bank.matchManual('${t.id}', ${income})">
-                Spárovať</button>
-              <button class="btn btn-ghost btn-sm" onclick="Bank.ignore('${t.id}')">
-                Nezaujíma nás</button>
             </div>`
             : `<div class="regimebox">Niet s čím párovať —
                ${income ? 'žiadna vystavená faktúra nečaká na úhradu'
-                 : 'žiadna schválená prijatá faktúra nečaká na zaplatenie'}.
-               <div style="margin-top:8px;">
-                 <button class="btn btn-ghost btn-sm" onclick="Bank.ignore('${t.id}')">Nezaujíma nás</button>
-               </div></div>`}`
-          : `<div class="regimebox" style="margin-top:12px;">
+                 : 'žiadna schválená prijatá faktúra nečaká na zaplatenie'}.</div>`}`
+          : `<div class="regimebox">
               ${t.match_status === 'ignored' ? 'Pohyb je označený ako nezaujímavý.'
                 : 'Pohyb je spárovaný a doklad sa tým označil ako uhradený.'}
-            </div>`}`;
+            </div>`}
+
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          ${t.match_status === 'unmatched' ? `
+            <button class="btn ${candidates.length ? 'btn-outline' : 'btn-primary'}" onclick="Bank.ignore('${t.id}')">Nezaujíma nás</button>
+            ${candidates.length ? `<button class="btn btn-primary" onclick="Bank.matchManual('${t.id}', ${income})">Spárovať</button>` : ''}` : ''}
+        </div>`;
       UI.modal('Pohyb na účte', body, { wide: true });
     },
 
     async matchManual(id, income) {
-      const sel = document.querySelector('#modal [name="target"]');
+      const sel = document.querySelector('#ui-modal [name="target"]');
       const target = sel && sel.value;
       if (!target) return UI.toast('Vyberte, k čomu to patrí', 'err');
       const patch = {
@@ -282,7 +280,7 @@
     // ── Import výpisu ─────────────────────────────────────────────────────
     importForm() {
       const body = `
-        <div class="regimebox" style="margin:0 0 12px;">
+        <div class="regimebox">
           Najlepšie je <b>výpis vo formáte XML (camt.053)</b> — v Business Bankingu Tatra banky
           ho stiahnete pri výpisoch z účtu, keď ako formát zvolíte XML. Ide aj CSV z internet
           bankingu, netreba ho upravovať. Ten istý výpis sa nenaimportuje dvakrát.</div>
@@ -291,8 +289,7 @@
           <input type="file" id="bank-file" accept=".xml,.csv,.txt,text/csv,application/xml,text/xml"
             onchange="Bank.readFile(this)">
         </label>
-        <div style="text-align:center;color:var(--ink-mute);font-size:12px;margin:10px 0;">
-          alebo vložte obsah rovno sem</div>
+        <p class="muted-sm or-sep">alebo vložte obsah rovno sem</p>
         <label class="fld">
           <textarea id="bank-paste" rows="5" placeholder="Dátum;Suma;VS;…"
             oninput="Bank.parsePasted()"></textarea>
@@ -358,10 +355,10 @@
         })}
         ${r.closing ? `<div class="regimebox">Zostatok na účte podľa výpisu k ${UI.date(r.closing.date)}:
           <b>${Money.format(r.closing.cents)}</b></div>` : ''}
-        ${r.skipped.length ? `<div class="warnbox" style="margin-top:10px;">
+        ${r.skipped.length ? `<div class="warnbox">
           ${Icon('alert', 14)} ${r.skipped.length}
           ${r.skipped.length === 1 ? 'riadok sa nedal prečítať' : 'riadkov sa nedalo prečítať'}:
-          <ul style="margin:6px 0 0 16px;font-size:12.5px;">
+          <ul class="warn-list">
             ${r.skipped.slice(0, 8).map(x => `<li>${x.line ? 'riadok ' + x.line + ' — ' : ''}${UI.esc(x.why)}</li>`).join('')}
           </ul></div>` : ''}`;
       if (btn) btn.disabled = r.rows.length === 0;
@@ -418,9 +415,11 @@
       const today = Danubra._dayISO();
       if (!list.length) {
         return UI.modal('Pripraviť platby', `
-          <div class="regimebox" style="margin:0;">Nie je čo platiť — žiadna prijatá faktúra nie je
+          <div class="regimebox">Nie je čo platiť — žiadna prijatá faktúra nie je
             <b>schválená</b>. Platiť sa dá len schválená faktúra; schvaľuje sa v Prijatých faktúrach.</div>
-          <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('costs')">
+          <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+            <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('costs')">
             Otvoriť prijaté faktúry</button></div>`);
       }
       const riadok = (p, i) => `
@@ -434,15 +433,16 @@
           <strong>${Money.format(p.cents)}</strong>
         </label>`;
       UI.modal('Pripraviť platby', `
-        <div class="regimebox" style="margin:0 0 12px;">Appka pripraví súbor s príkazmi
+        <div class="regimebox">Appka pripraví súbor s príkazmi
           (SEPA XML). V Business Bankingu Tatra banky ho nahráte ako dávku platieb
           (import súboru s platbami) a podpíšete naraz. Appka sama nič neodošle.</div>
         ${!s.iban ? `<div class="warnbox br-warn"><div>${Icon('alert', 14)}<span>Chýba IBAN našej firmy —
           doplňte ho v Nastaveniach → Fakturačné údaje.</span></div></div>` : ''}
         <div class="pay-list">${list.map(riadok).join('')}</div>
-        <div class="form-grid" style="margin-top:12px;">
+        <div class="form-section">Platba</div>
+        <div class="form-grid">
           ${UI.field('pay_date', 'Dátum platby', { type: 'date', value: today })}
-          <div class="fld"><span>Spolu</span><strong id="pay-total" style="font-size:20px;"></strong></div>
+          <div class="fld"><span>Spolu</span><strong id="pay-total" class="detail-amt"></strong></div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>

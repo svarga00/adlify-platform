@@ -329,9 +329,9 @@
       const kv = (l, v) => (v ? `<div><span>${UI.esc(l)}</span><strong>${v}</strong></div>` : '');
 
       UI.modal(o.title || 'Objednávka', `
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <div class="detail-head">
           ${this.badge(o.status)}
-          <span style="font-size:12.5px;color:var(--ink-mute);">
+          <span class="muted">
             ${o.order_number ? UI.esc(o.order_number) : 'bez čísla'} ·
             ${o.kind === 'customer' ? 'od odberateľa' : 'živnostníkovi'}</span>
         </div>
@@ -344,16 +344,17 @@
         </div>
         ${o.scope
           ? `<div class="form-section">Čo je dielo</div>
-             <p style="font-size:13.5px;line-height:1.6;white-space:pre-wrap;">${UI.esc(o.scope)}</p>`
-          : `<div class="warnbox" style="margin-top:12px;">${Icon('alert', 14)}
+             <div class="notebox">${UI.esc(o.scope)}</div>`
+          : `<div class="warnbox">${Icon('alert', 14)}
               <strong>Nie je napísané, čo je dielo.</strong>
               ${o.kind === 'worker'
                 ? 'Práve na to sa pýta kontrola — bez toho je Werkvertrag len na papieri.'
                 : 'Bez toho sa nedá skontrolovať, či faktúra sedí s objednávkou.'}</div>`}
         ${o.notes ? `<div class="form-section">Poznámka</div>
-          <p style="font-size:13px;white-space:pre-wrap;">${UI.esc(o.notes)}</p>` : ''}
+          <div class="notebox">${UI.esc(o.notes)}</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="Ord.form('${o.id}')">${Icon('edit', 14)} Upraviť</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Ord.form('${o.id}')">${Icon('edit', 14)} Upraviť</button>
           ${o.kind === 'customer' ? `
             <!-- Potvrdenie je papier, ktorý posielame my. Objednávka SK/DE je
                  dokument, ktorý podpisujú obe strany a ktorým vzniká

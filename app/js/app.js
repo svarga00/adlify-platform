@@ -672,10 +672,16 @@ window.Danubra = {
         const kids = tabs.length > 1;
         // Otvorená sekcia sa v menu rozbalí: pod ňou sú všetky jej položky
         // s ikonami, takže je vidieť, kde človek je a kam môže ďalej.
-        const open = kids && key === this.navActive();
-        return `<button class="nav-item${key === this.navActive() ? ' active' : ''}${kids ? ' has-kids' : ''}${open ? ' is-open' : ''}" data-key="${key}" onclick="Danubra.go('${key}')"${kids ? ` aria-haspopup="menu" aria-expanded="${open}"` : ''}>
-          ${(glabel === this.STEP_GROUP && this.navStepHtml(key)) || Icon(ico, 17)}<span class="nav-text">${label}</span>${b && !open ? `<span class="nav-badge">${b}</span>` : ''}${kids ? `<span class="nav-more" aria-hidden="true">${Icon('chevron', 14)}</span>` : ''}
-        </button>${open ? `<div class="nav-sub" role="group" aria-label="${UI.esc(label)}">${tabs.map(([k, , kico]) => {
+        const open = kids && this.navIsOpen(key);
+        const item = `<button class="nav-item${key === this.navActive() ? ' active' : ''}${kids ? ' has-kids' : ''}${open ? ' is-open' : ''}" data-key="${key}" onclick="Danubra.navGo('${key}')">
+          ${(glabel === this.STEP_GROUP && this.navStepHtml(key)) || Icon(ico, 17)}<span class="nav-text">${label}</span>${b && !open ? `<span class="nav-badge">${b}</span>` : ''}
+        </button>`;
+        // Šípka je samostatné tlačidlo: sekcia sa dá rozbaliť aj zbaliť bez
+        // toho, aby sa prepla obrazovka.
+        const toggle = kids ? `<button class="nav-toggle" onclick="Danubra.navToggle('${key}')"
+          aria-expanded="${open}" aria-label="${open ? 'Zbaliť' : 'Rozbaliť'}: ${UI.esc(label)}"
+          title="${open ? 'Zbaliť' : 'Rozbaliť'}">${Icon('chevron', 14)}</button>` : '';
+        return `${kids ? `<div class="nav-row${open ? ' is-open' : ''}">${item}${toggle}</div>` : item}${open ? `<div class="nav-sub" role="group" aria-label="${UI.esc(label)}">${tabs.map(([k, , kico]) => {
           const n = this.badges[k];
           return `<button class="nav-sub-item${k === this.route ? ' active' : ''}" data-sub="${k}"
             onclick="Danubra.go('${k}')" title="${UI.esc(this.hintOf(k))}">${Icon(kico, 15)}<span class="nav-text">${
@@ -733,6 +739,46 @@ window.Danubra = {
       .finally(() => { this._chainLoading = null; });
   },
 
+  // ── Rozbalené sekcie v bočnom menu ────────────────────────────────────────
+  // Otvorená sekcia je rozbalená sama. Šípkou sa dá rozbaliť aj iná alebo
+  // zbaliť aktuálna — „nech ten dropdown funguje tak aj tak". Voľba sa pamätá
+  // v prehliadači (len pohodlie, nie dáta).
+  _navState() {
+    if (!this._navSt) {
+      let v = {};
+      try { v = JSON.parse(localStorage.getItem('danubra_nav') || '{}') || {}; } catch { v = {}; }
+      this._navSt = { open: new Set(v.open || []), shut: new Set(v.shut || []) };
+    }
+    return this._navSt;
+  },
+  _navSave() {
+    const st = this._navState();
+    try { localStorage.setItem('danubra_nav', JSON.stringify({ open: [...st.open], shut: [...st.shut] })); } catch {}
+  },
+  navIsOpen(key) {
+    const st = this._navState();
+    if (st.shut.has(key)) return false;
+    return st.open.has(key) || key === this.navActive();
+  },
+  navToggle(key) {
+    const st = this._navState();
+    if (this.navIsOpen(key)) { st.open.delete(key); st.shut.add(key); }
+    else { st.shut.delete(key); st.open.add(key); }
+    this._navSave();
+    this._flyClose();
+    const nav = document.getElementById('sidebar-nav');
+    const top = nav ? nav.scrollTop : 0;
+    this._buildNav();
+    if (nav) nav.scrollTop = top;
+    document.querySelector(`#sidebar-nav .nav-row .nav-item[data-key="${key}"] + .nav-toggle`)?.focus();
+  },
+  /** Klik na sekciu: otvorí jej obrazovku a sekciu rozbalí. */
+  navGo(key) {
+    const st = this._navState();
+    if (st.shut.delete(key)) this._navSave();
+    this.go(key);
+  },
+
   // ── Podmenu pri bočnom menu (počítač) ─────────────────────────────────────
   // „Na desktope by bolo vhodné nejaké mega menu pri bočnom menu aspoň na
   // hlavné veci." V menu je päť miest, ale za nimi je dvadsaťpäť obrazoviek
@@ -756,8 +802,9 @@ window.Danubra = {
   },
 
   _flyBind(nav) {
-    // Rozbalená sekcia má položky priamo v menu — podmenu by ich len zdvojilo.
-    const item = (e) => e.target.closest && e.target.closest('.nav-item.has-kids:not(.is-open)');
+    // Podmenu sa ukáže pri každej hlavnej sekcii, aj pri rozbalenej —
+    // „mega menu nech sa mi zobrazuje pri každom hoveri na hlavnú kategóriu".
+    const item = (e) => e.target.closest && e.target.closest('.nav-item.has-kids');
     nav.addEventListener('mouseover', (e) => {
       const el = item(e);
       if (!el || !this._flyCan()) return;
@@ -1063,6 +1110,31 @@ window.Danubra = {
     this._navOverflow();
   },
 
+  /**
+   * Karty v `.panels` uložené tesne pod seba. Mriežka má riadky po 8 px
+   * a karta dostane `span` podľa svojej výšky (+ medzera 14 px). Poradie
+   * zostáva po riadkoch, ako si ho človek poskladal. Výška sa sleduje,
+   * lebo grafy a zoznamy sa dokresľujú až po vykreslení.
+   */
+  _masonry(root) {
+    (root || document).querySelectorAll('.panels').forEach((g) => {
+      if (getComputedStyle(g).display !== 'grid') return;
+      g.classList.add('is-masonry');
+      const fit = () => {
+        for (const c of g.children) {
+          const h = c.getBoundingClientRect().height;
+          c.style.gridRowEnd = `span ${Math.max(1, Math.ceil((h + 14) / 8))}`;
+        }
+      };
+      fit();
+      if (window.ResizeObserver) {
+        if (g._ro) g._ro.disconnect();
+        g._ro = new ResizeObserver(() => requestAnimationFrame(fit));
+        for (const c of g.children) g._ro.observe(c);
+      }
+    });
+  },
+
   /** Ukáž tieň na spodku menu, keď pokračuje pod okrajom. */
   _navOverflow() {
     const box = document.getElementById('sidebar-scroll');
@@ -1101,6 +1173,7 @@ window.Danubra = {
         if (window.Docs) Docs.fill(view);
         // E-maily pri človeku a firme (`Mail.slot`).
         if (window.Mail) Mail.fill(view);
+        this._masonry(view);
       })
       .catch((e) => {
         if (this.route !== started) return;

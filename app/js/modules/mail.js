@@ -240,8 +240,10 @@
         DB.list('workers', { select: 'id,full_name', limit: 2000 }), DB.list('partners', { select: 'id,name', limit: 1000 })]);
       const m = await this.full(id);
       UI.modal('Priradiť e-mail', `<form id="ma-form" onsubmit="event.preventDefault();Mail.saveAssign('${id}')">
-        ${UI.field('worker_id', 'Živnostník', { value: m.worker_id || '', add: false, options: [['', '—'], ...(w.data || []).map(x => [x.id, x.full_name])] })}
-        ${UI.field('partner_id', 'Odberateľ', { value: m.partner_id || '', add: false, options: [['', '—'], ...(p.data || []).map(x => [x.id, x.name])] })}
+        <div class="form-grid">
+          ${UI.field('worker_id', 'Živnostník', { value: m.worker_id || '', add: false, options: [['', '—'], ...(w.data || []).map(x => [x.id, x.full_name])] })}
+          ${UI.field('partner_id', 'Odberateľ', { value: m.partner_id || '', add: false, options: [['', '—'], ...(p.data || []).map(x => [x.id, x.name])] })}
+        </div>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
           <button type="submit" class="btn btn-primary">Uložiť</button></div></form>`);
     },
@@ -302,19 +304,17 @@
         <div class="form-grid">
           ${UI.field('mailbox_id', 'Od', { value: boxId, add: false, options: this.boxes.map(b => [b.id, `${b.display_name || b.name} <${b.email}>`]) })}
           ${UI.field('to', 'Komu', { value: fmt(d.to), required: true, placeholder: 'meno@firma.de, …' })}
-        </div>
-        <div class="form-grid">
           ${UI.field('cc', 'Kópia', { value: fmt(d.cc) })}
           ${UI.field('bcc', 'Skrytá kópia', { value: fmt(d.bcc) })}
+          <div class="fld-full">${UI.field('subject', 'Predmet', { value: d.subject || '' })}</div>
+          <div class="fld-full">${UI.field('text', 'Text', { type: 'textarea', rows: 14, value: body })}</div>
         </div>
-        ${UI.field('subject', 'Predmet', { value: d.subject || '' })}
-        ${UI.field('text', 'Text', { type: 'textarea', rows: 14, value: body })}
         <datalist id="mc-contacts">${this.contacts.slice(0, 3000).map(c => `<option value="${UI.esc(MM().fmtAddress(c))}">`).join('')}</datalist>
         <div class="form-section">Prílohy</div>
         <div id="mc-att" class="link-row"></div>
-        <div class="js-acts">
+        <div class="btn-row">
           <button type="button" class="btn btn-outline btn-sm" onclick="Mail.pickDocs()">${Icon('doc', 14)} Z Dokumentov</button>
-          <label class="btn btn-outline btn-sm" style="cursor:pointer;">${Icon('upload', 14)} Z počítača
+          <label class="btn btn-outline btn-sm">${Icon('upload', 14)} Z počítača
             <input type="file" multiple hidden onchange="Mail.upload(this.files)"></label>
         </div>
         <div class="modal-actions">
@@ -352,11 +352,11 @@
       const rows = DanubraArchive.latest(Docs.rows).slice(0, 300);
       const div = document.createElement('div');
       div.className = 'mc-docs';
-      div.innerHTML = `<input type="search" placeholder="Hľadať dokument…" class="arch-q" style="width:100%;margin:8px 0;"
-          oninput="this.parentElement.querySelectorAll('.mf-row').forEach(r=>r.hidden=!r.dataset.n.includes(this.value.toLowerCase()))">
+      div.innerHTML = `<label class="fld"><input type="search" placeholder="Hľadať dokument…" aria-label="Hľadať dokument"
+          oninput="this.closest('.mc-docs').querySelectorAll('.mf-row').forEach(r=>r.hidden=!r.dataset.n.includes(this.value.toLowerCase()))"></label>
         <div class="mf-list">${rows.map(r => `<label class="mf-row" data-n="${UI.esc(r.file_name.toLowerCase())}">
           <input type="checkbox" value="${r.id}"><span class="mf-main"><b>${UI.esc(r.file_name)}</b></span></label>`).join('') || '<div class="js-empty">Žiadne dokumenty.</div>'}</div>
-        <div class="js-acts"><button type="button" class="btn btn-primary btn-sm" onclick="Mail.addDocs(this)">Pridať vybrané</button></div>`;
+        <div class="btn-row"><button type="button" class="btn btn-primary btn-sm" onclick="Mail.addDocs(this)">Pridať vybrané</button></div>`;
       const host = document.getElementById('mc-att');
       if (host && !document.querySelector('.mc-docs')) host.after(div);
     },
@@ -494,7 +494,7 @@
             ${UI.field('contact_eu', 'punds.eu — meno kontaktnej osoby v potvrdení', { value: w.contact_eu || '', placeholder: 'napr. Štefan Varga' })}
             ${UI.field('phone_eu', 'punds.eu — telefón v potvrdení', { value: w.phone_eu || '', placeholder: '+421 910 523 958' })}
           </div>
-          <div class="modal-actions" style="justify-content:flex-start;"><button type="submit" class="btn btn-primary btn-sm">Uložiť</button></div>
+          <div class="modal-actions"><button type="submit" class="btn btn-primary">Uložiť</button></div>
         </form></div>`;
     },
 
@@ -533,18 +533,18 @@
           </div></details>
         <div class="form-section">Podpis</div>
         ${(() => { const c = b.signature_card || {}; return `
-        ${UI.field('sig_enabled', 'Grafický podpis punds (logo, meno, kontakty)', { type: 'checkbox', value: !!c.enabled })}
         <div class="form-grid">
+          <div class="fld-full">${UI.field('sig_enabled', 'Grafický podpis punds (logo, meno, kontakty)', { type: 'checkbox', value: !!c.enabled })}</div>
           ${UI.field('sig_name', 'Meno', { value: c.name || '', placeholder: 'Štefan Varga' })}
           ${UI.field('sig_role', 'Funkcia', { value: c.role || '', placeholder: 'Koordinátor projektov' })}
           ${UI.field('sig_phone', 'Telefón', { value: c.phone || '', placeholder: '+421 910 523 858' })}
           ${UI.field('sig_lang', 'Jazyk podpisu', { value: c.lang || 'sk', options: [['sk', 'Slovensky (punds.sk)'], ['de', 'Nemecky (punds.eu)']] })}
           ${UI.field('sig_cta_label', 'Odkaz pod podpisom (text)', { value: c.cta_label || '', placeholder: 'prázdne = podľa jazyka' })}
           ${UI.field('sig_cta_url', 'Odkaz pod podpisom (adresa)', { value: c.cta_url || '', placeholder: 'https://punds.sk' })}
-        </div>
-        <div class="sig-preview" id="sig-preview"></div>`; })()}
-        ${UI.field('signature', 'Vlastný textový podpis (namiesto grafického)', { type: 'textarea', rows: 4, value: b.signature || '',
-          placeholder: 'Prázdne = z grafického podpisu. Text sa použije v textovej verzii e-mailu.' })}
+          <div class="sig-preview fld-full" id="sig-preview"></div>
+          <div class="fld-full">${UI.field('signature', 'Vlastný textový podpis (namiesto grafického)', { type: 'textarea', rows: 4, value: b.signature || '',
+            placeholder: 'Prázdne = z grafického podpisu. Text sa použije v textovej verzii e-mailu.' })}</div>
+        </div>`; })()}
         <div class="form-section">Kto vidí túto schránku</div>
         <div class="chk-grid">${this.members.filter(m => m.role !== 'admin').map(m => `<label class="chk"><input type="checkbox" name="acc" value="${m.user_id}" ${maPristup.has(m.user_id) ? 'checked' : ''}>
           <span>${UI.esc(m.full_name || m.email)}</span></label>`).join('') || '<span class="js-empty">Iní používatelia zatiaľ nie sú — administrátor vidí všetky schránky.</span>'}</div>

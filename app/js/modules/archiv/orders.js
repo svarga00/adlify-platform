@@ -129,7 +129,11 @@
       const o = this.items.find(x => x.id === id);
       if (!o) return UI.toast('Nenájdené', 'err');
       this._cur = o;
-      UI.modal(`Spis ${o.order_number || ''}`, `<div id="spis-body">${UI.loading()}</div>`, { wide: true });
+      UI.modal(`Spis ${o.order_number || ''}`, UI.loading(), { wide: true });
+      // Telo okna je priamo spis — päta `.modal-actions` je tak posledná
+      // v tele okna a drží sa dole ako v každom inom okne.
+      const telo = document.querySelector('#ui-modal .modal-body');
+      if (telo) telo.id = 'spis-body';
       await this._loadSpis(o.id);
       this._renderSpis();
     },
@@ -162,7 +166,7 @@
         <!-- 1. Stav a postup -->
         <div class="detail-head">
           ${this.badge(o.status)}
-          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(o.order_number || '')}</span>
+          <span class="mono doc-no">${UI.esc(o.order_number || '')}</span>
         </div>
         ${this._stepper(o)}
         ${this._nextAction(o)}
@@ -180,10 +184,10 @@
 
         <!-- 3. Časová os pobytu / predĺženia -->
         ${this._exts.length ? `<div class="form-section">Predĺženia</div>
-          ${this._exts.map(e => `<div class="list-row" style="cursor:default;">
+          ${this._exts.map(e => `<div class="list-row is-static">
             <span class="dot amber"></span>
-            <span style="flex:1;">${UI.date(e.previous_date_to)} → <strong>${UI.date(e.new_date_to)}</strong>
-            ${e.reason ? `<span style="color:var(--ink-mute);"> · ${UI.esc(e.reason)}</span>` : ''}</span>
+            <span class="lr-main">${UI.date(e.previous_date_to)} → <strong>${UI.date(e.new_date_to)}</strong>
+            ${e.reason ? `<span class="lr-sub">${UI.esc(e.reason)}</span>` : ''}</span>
           </div>`).join('')}` : ''}
 
         <!-- 4. Prístupové údaje (§5.1) -->
@@ -194,33 +198,33 @@
 
         <!-- 5. Osoby -->
         <div class="form-section">Osoby (${this._persons.length}${o.persons ? ` z ${o.persons}` : ''})</div>
-        ${this._persons.map(p => `<div class="list-row" style="cursor:default;">
-          <span style="flex:1;"><strong>${UI.esc(p.full_name || '—')}</strong>
-          ${p.phone ? `<span style="color:var(--ink-mute);"> · ${UI.esc(p.phone)}</span>` : ''}</span>
+        ${this._persons.map(p => `<div class="list-row is-static">
+          <span class="lr-main"><strong>${UI.esc(p.full_name || '—')}</strong>
+          ${p.phone ? `<span class="lr-sub">${UI.esc(p.phone)}</span>` : ''}</span>
           ${p.phone ? `<a class="btn btn-ghost btn-sm" href="tel:${UI.esc(p.phone.replace(/\\s/g, ''))}">${Icon('phone', 15)}</a>` : ''}
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Ord.delPerson('${p.id}')">${Icon('x', 15)}</button>
-        </div>`).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ nikto nezapísaný.</div>'}
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Ord.addPerson()">${Icon('plus')} Pridať osobu</button>
+          <button class="btn btn-ghost btn-sm btn-text-danger" onclick="Ord.delPerson('${p.id}')">${Icon('x', 15)}</button>
+        </div>`).join('') || '<div class="js-empty">Zatiaľ nikto nezapísaný.</div>'}
+        <div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Ord.addPerson()">${Icon('plus')} Pridať osobu</button></div>
 
         <!-- 6. Priebežná služba (§6.4) -->
         ${o.ongoing_service_enabled ? this._serviceBlock(o) : ''}
 
         <!-- 7. Požiadavky (mini-ticketing) -->
         <div class="form-section">Požiadavky počas pobytu</div>
-        ${this._requests.map(r => this._reqRow(r)).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Žiadne požiadavky.</div>'}
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Ord.addRequest()">${Icon('plus')} Nová požiadavka</button>
+        ${this._requests.map(r => this._reqRow(r)).join('') || '<div class="js-empty">Žiadne požiadavky.</div>'}
+        <div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Ord.addRequest()">${Icon('plus')} Nová požiadavka</button></div>
 
         <!-- 8. Komunikácia -->
         <div class="form-section">Komunikácia a záznamy</div>
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'order', id: o.id } }) : ''}
-        ${this._acts.slice(0, 12).map(x => `<div class="list-row" style="cursor:default;">
+        ${this._acts.slice(0, 12).map(x => `<div class="list-row is-static">
           <span class="dot ${x.type === 'system' ? '' : 'green'}"></span>
-          <span style="flex:1;font-size:13px;">${UI.esc(x.body || x.type)}</span>
-          <span style="color:var(--ink-mute);font-size:11.5px;">${UI.date(x.created_at)}</span>
-        </div>`).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne záznamy.</div>'}
+          <span class="lr-main">${UI.esc(x.body || x.type)}</span>
+          <span class="muted-sm">${UI.date(x.created_at)}</span>
+        </div>`).join('') || '<div class="js-empty">Zatiaľ žiadne záznamy.</div>'}
 
         <div class="form-section">Dokumenty</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="btn-row">
           <button class="btn btn-outline btn-sm" onclick="Ord.doc('order_confirmation')">${Icon('doc')} Potvrdenie objednávky</button>
           <button class="btn btn-outline btn-sm" onclick="Ord.doc('payment_request')">${Icon('receipt')} Výzva na platbu</button>
           ${unlocked ? `<button class="btn btn-outline btn-sm" onclick="Ord.doc('owner_confirmation')">${Icon('doc')} Potvrdenie majiteľovi (DE)</button>
@@ -229,9 +233,10 @@
 
         <div class="modal-actions">
           ${o.status !== 'cancelled' && o.status !== 'completed'
-            ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Ord.cancel()">Zrušiť zákazku</button>` : ''}
-          <button class="btn btn-outline btn-sm" onclick="Ord.extend()">Predĺžiť pobyt</button>
-          ${unlocked ? `<button class="btn btn-primary btn-sm" onclick="Ord.invoice()">${Icon('receipt')} Vystaviť faktúru</button>` : ''}
+            ? `<button class="btn btn-danger" onclick="Ord.cancel()">Zrušiť zákazku</button>` : ''}
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn ${unlocked ? 'btn-outline' : 'btn-primary'}" onclick="Ord.extend()">Predĺžiť pobyt</button>
+          ${unlocked ? `<button class="btn btn-primary" onclick="Ord.invoice()">${Icon('receipt')} Vystaviť faktúru</button>` : ''}
         </div>`;
     },
 
@@ -256,8 +261,8 @@
         ending_soon: 'Označiť „končí čoskoro"',
         completed: 'Ukončiť zákazku',
       }[next] || `Posunúť na ${LABEL[next]}`;
-      return `<button class="btn btn-primary btn-block" style="margin-bottom:14px;"
-        onclick="Ord.advance('${next}')">${cta} ${Icon('chevron', 14)}</button>`;
+      return `<div class="btn-row"><button class="btn btn-outline btn-block"
+        onclick="Ord.advance('${next}')">${cta} ${Icon('chevron', 14)}</button></div>`;
     },
 
     _accessBlock(acc) {
@@ -270,7 +275,7 @@
       return `
         <div class="access-box">
           ${acc.address ? `<div class="code-item"><div class="code-label">Adresa</div>
-            <div class="code-row"><span style="font-weight:600;">${UI.esc(acc.address)}${acc.city ? `, ${UI.esc(acc.city)}` : ''}</span>
+            <div class="code-row"><b>${UI.esc(acc.address)}${acc.city ? `, ${UI.esc(acc.city)}` : ''}</b>
             <button class="btn btn-ghost btn-sm" onclick="Ord.copy('${UI.esc((acc.address || '') + ', ' + (acc.city || '')).replace(/'/g, "\\'")}')">kopírovať</button></div></div>` : ''}
           ${code('Kód dverí', acc.access_door_code)}
           ${code('Kód brány', acc.gate_code)}
@@ -278,11 +283,11 @@
           ${code('WiFi heslo', acc.wifi_password)}
           ${code('Izba', acc.room_number)}
           ${code('Poschodie', acc.floor)}
-          ${acc.access_key_location ? `<div class="code-item"><div class="code-label">Kľúče</div><div style="font-size:13px;">${UI.esc(acc.access_key_location)}</div></div>` : ''}
+          ${acc.access_key_location ? `<div class="code-item"><div class="code-label">Kľúče</div><div>${UI.esc(acc.access_key_location)}</div></div>` : ''}
           ${acc.owner_phone ? `<div class="code-item"><div class="code-label">Majiteľ</div>
-            <div class="code-row"><span style="font-weight:600;">${UI.esc(acc.owner_name || '')} ${UI.esc(acc.owner_phone)}</span>
+            <div class="code-row"><b>${UI.esc(acc.owner_name || '')} ${UI.esc(acc.owner_phone)}</b>
             <a class="btn btn-ghost btn-sm" href="tel:${UI.esc(acc.owner_phone.replace(/\s/g, ''))}">volať</a></div></div>` : ''}
-          ${acc.deposit_amount ? `<div class="code-item"><div class="code-label">Kaucia</div><div style="font-size:13px;font-weight:600;">${UI.money(acc.deposit_amount)}</div></div>` : ''}
+          ${acc.deposit_amount ? `<div class="code-item"><div class="code-label">Kaucia</div><b>${UI.money(acc.deposit_amount)}</b></div>` : ''}
         </div>`;
     },
 
@@ -296,17 +301,17 @@
         <div class="form-section">Priebežná služba · aktuálny mesiac</div>
         <div class="service-total">
           <div><div class="code-label">Za ${per.periodFrom.slice(5, 7)}/${per.periodFrom.slice(0, 4)} zatiaľ</div>
-            <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">${UI.money(calc.total)}</div></div>
-          ${openSeg ? `<div style="text-align:right;"><div class="code-label">Aktuálne</div>
-            <div style="font-weight:700;">${openSeg.persons} os. × ${UI.money(openSeg.rate)}${openSeg.paused ? ' · pozastavené' : ''}</div></div>` : ''}
+            <div class="st-sum">${UI.money(calc.total)}</div></div>
+          ${openSeg ? `<div class="st-side"><div class="code-label">Aktuálne</div>
+            <b>${openSeg.persons} os. × ${UI.money(openSeg.rate)}${openSeg.paused ? ' · pozastavené' : ''}</b></div>` : ''}
         </div>
-        ${calc.breakdown.map(b => `<div class="list-row" style="cursor:default;font-size:12.5px;">
-          <span style="flex:1;">${UI.date(b.from)} – ${UI.date(b.to)} · ${b.days} dní × ${b.persons} os. × ${UI.money(b.rate)}</span>
+        ${calc.breakdown.map(b => `<div class="list-row is-static">
+          <span class="lr-main">${UI.date(b.from)} – ${UI.date(b.to)} · ${b.days} dní × ${b.persons} os. × ${UI.money(b.rate)}</span>
           <strong>${UI.money(b.amount)}</strong></div>`).join('')}
-        ${this._segments.filter(s => s.paused).map(s => `<div class="list-row" style="cursor:default;">
-          <span class="dot amber"></span><span style="flex:1;font-size:12.5px;color:var(--ink-mute);">
+        ${this._segments.filter(s => s.paused).map(s => `<div class="list-row is-static">
+          <span class="dot amber"></span><span class="lr-main muted">
           Pozastavené od ${UI.date(s.period_from)}${s.pause_reason ? ` · ${UI.esc(s.pause_reason)}` : ''}</span></div>`).join('')}
-        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <div class="btn-row">
           <button class="btn btn-outline btn-sm" onclick="Ord.changeService()">Zmeniť osoby / sadzbu</button>
           ${openSeg && !openSeg.paused
             ? `<button class="btn btn-outline btn-sm" onclick="Ord.pauseService()">Pozastaviť</button>`
@@ -318,11 +323,11 @@
       const dot = r.status === 'resolved' ? 'green' : r.priority === 'high' ? 'red' : 'amber';
       return `<div class="list-row" onclick="Ord.toggleRequest('${r.id}')">
         <span class="dot ${dot}"></span>
-        <span style="flex:1;">
-          <strong style="${r.status === 'resolved' ? 'text-decoration:line-through;opacity:.6;' : ''}">${UI.esc(r.title || '—')}</strong>
-          ${r.description ? `<span style="color:var(--ink-mute);font-size:12.5px;display:block;">${UI.esc(r.description)}</span>` : ''}
+        <span class="lr-main">
+          <strong class="${r.status === 'resolved' ? 'is-done' : ''}">${UI.esc(r.title || '—')}</strong>
+          ${r.description ? `<span class="lr-sub">${UI.esc(r.description)}</span>` : ''}
         </span>
-        <span style="font-size:11.5px;color:var(--ink-mute);">${r.status === 'resolved' ? 'vyriešené' : 'otvorené'}</span>
+        <span class="muted-sm">${r.status === 'resolved' ? 'vyriešené' : 'otvorené'}</span>
       </div>`;
     },
 

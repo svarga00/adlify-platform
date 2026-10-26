@@ -40,13 +40,13 @@
     open() {
       const dostupne = DOCS.filter(d => this.available(d));
       UI.modal('Pripraviť papier', `
-        <p class="pap-lead">Vyberte papier. Potom vyberiete, pre koho je — údaje sa
+        <p class="modal-lead">Vyberte papier. Potom vyberiete, pre koho je — údaje sa
           doplnia samy z jeho karty.</p>
-        <div class="pap-grid">
+        <div class="pick-list">
           ${dostupne.map(d => `
-            <button class="pap-tile" onclick="Pap.pick('${d.key}')">
-              <span class="pap-ico">${Icon(d.ico, 20)}</span>
-              <span class="pap-txt">
+            <button class="pick-tile" onclick="Pap.pick('${d.key}')">
+              <span class="pick-ico">${Icon(d.ico, 20)}</span>
+              <span class="pick-txt">
                 <b>${UI.esc(d.title)}</b>
                 <em>${UI.esc(d.sub)}</em>
               </span>
@@ -74,14 +74,15 @@
       }
       const kto = { worker: 'živnostníka', partner: 'odberateľa', order: 'objednávku' }[this.doc.who];
       UI.modal(this.doc.title, `
-        <button class="btn btn-ghost btn-sm" style="margin:-4px 0 10px;" onclick="Pap.open()">
-          ${Icon('back', 14)} Iný papier</button>
         <label class="kpi-search pap-search">
           ${Icon('search', 14)}
           <input type="search" id="pap-q" placeholder="Hľadať ${kto}…" autocomplete="off"
             oninput="Pap.setQ(this.value)">
         </label>
-        <div id="pap-list" class="pap-list"></div>`, { wide: true });
+        <div id="pap-list" class="pap-list"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="Pap.open()">${Icon('back', 14)} Iný papier</button>
+        </div>`, { wide: true });
       this.paint();
       setTimeout(() => { const i = document.getElementById('pap-q'); if (i) i.focus(); }, 30);
     },
@@ -124,7 +125,7 @@
           </span>
           <span class="pap-row-go">${Icon('chevron', 16)}</span>
         </button>`).join('')
-        : `<div class="pap-empty">${this.q ? 'Nič tomu nesedí.' : (this.doc.who === 'order'
+        : `<div class="js-empty">${this.q ? 'Nič tomu nesedí.' : (this.doc.who === 'order'
           ? 'Zatiaľ žiadna objednávka od odberateľa. Založíte ju na Zákazkách → Objednávky.'
           : 'Zatiaľ tu nikto nie je.')}</div>`;
     },

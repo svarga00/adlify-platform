@@ -81,16 +81,16 @@
       const open = this.inquiries.filter(i => !['lost', 'closed'].includes(i.status));
       if (!open.length) return UI.toast('Žiadne otvorené dopyty — najprv pridajte dopyt', 'err');
       UI.modal('Ponuka z ktorého dopytu?', `
-        <div style="display:flex;flex-direction:column;gap:2px;">
+        <div class="pick-list">
           ${open.map(i => {
             const c = this.clientOf(i.client_id);
-            return `<button class="list-row" onclick="UI.closeModal();Offers.fromInquiry('${i.id}')">
-              <span style="flex:1;">
-                <strong>${UI.esc(i.target_city || '—')}</strong>
-                <span style="color:var(--ink-mute);"> · ${c ? UI.esc(c.name) : 'bez klienta'} · ${i.persons || '?'} os.</span>
-              </span><span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+            return `<button class="pick-tile" onclick="UI.closeModal();Offers.fromInquiry('${i.id}')">
+              <span class="pick-ico">${Icon('inquiries', 20)}</span>
+              <span class="pick-txt"><b>${UI.esc(i.target_city || '—')}</b>
+                <em>${c ? UI.esc(c.name) : 'bez klienta'} · ${i.persons || '?'} os.</em></span>
+              <span class="pick-go">${Icon('chevron', 16)}</span></button>`;
           }).join('')}
-        </div>`);
+        </div>`, { wide: true });
     },
 
     // ── Wizard: ponuka z dopytu ───────────────────────────────────────────
@@ -108,13 +108,13 @@
       this._wizard = { inquiryId, inq, nights, selected: new Set() };
 
       UI.modal('Nová ponuka', `
-        <div class="notebox" style="margin:0 0 14px;">
+        <div class="notebox">
           <strong>${UI.esc(inq.target_city || '—')}</strong> · ${inq.persons || '?'} osôb ·
           ${inq.date_from ? UI.dateRange(inq.date_from, inq.date_to) : 'termín neurčený'}${nights ? ` (${nights} nocí)` : ''}
         </div>
         <div class="form-section">Vyberte ubytovania do ponuky (1–3)</div>
         ${matches.length ? `<div id="wz-list">${matches.map(m => this._wizardRow(m, nights, inq)).join('')}</div>`
-          : `<div style="color:var(--ink-mute);font-size:13px;">Žiadne vhodné ubytovania v databáze.</div>`}
+          : `<div class="js-empty">Žiadne vhodné ubytovania v databáze.</div>`}
         <div class="form-section">Podmienky</div>
         <form id="offer-form" onsubmit="event.preventDefault();Offers.saveWizard()">
           <div class="form-grid">
@@ -141,13 +141,12 @@
       const total = (a.price_per_bed_night || 0) * (inq.persons || 1) * (nights || 1);
       const color = m.score >= 80 ? 'var(--green)' : m.score >= 55 ? 'var(--brand)' : 'var(--ink-mute)';
       return `
-        <label class="match-row" style="cursor:pointer;">
-          <input type="checkbox" value="${a.id}" onchange="Offers.toggleVariant('${a.id}',this.checked)"
-            style="width:18px;height:18px;accent-color:var(--brand);flex-shrink:0;">
+        <label class="match-row is-pick">
+          <input type="checkbox" value="${a.id}" onchange="Offers.toggleVariant('${a.id}',this.checked)">
           <div class="match-score" style="color:${color};border-color:${color};">${m.score}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:700;font-size:13.5px;">${UI.esc(a.name)}</div>
-            <div style="font-size:12px;color:var(--ink-mute);">
+          <div class="lr-main">
+            <strong>${UI.esc(a.name)}</strong>
+            <div class="lr-sub">
               ${UI.esc(a.city || '')} · ${a.price_per_bed_night != null ? UI.money(a.price_per_bed_night) + '/lôžko/noc' : 'bez ceny'}
               ${total ? ` · spolu ${UI.money(total)}` : ''}
             </div>
@@ -230,15 +229,15 @@
       const varHtml = vs.map((v, idx) => {
         const a = accs.find(x => x.id === v.accommodation_id) || {};
         return `<div class="match-row">
-          <div class="match-score" style="color:var(--blue);border-color:var(--blue);">${idx + 1}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:700;font-size:13.5px;">${UI.esc(a.name || 'Ubytovanie')}</div>
-            <div style="font-size:12px;color:var(--ink-mute);">
+          <div class="match-score is-num">${idx + 1}</div>
+          <div class="lr-main">
+            <strong>${UI.esc(a.name || 'Ubytovanie')}</strong>
+            <div class="lr-sub">
               ${UI.esc(a.city || '')}${a.type ? ' · ' + (TYPE_LABEL[a.type] || a.type) : ''} ·
               ${UI.money(v.price_per_bed_night || 0)}/lôžko/noc${v.nights ? ` × ${v.nights} n.` : ''}
             </div>
           </div>
-          <strong style="font-size:14px;">${UI.money(v.total_accommodation || 0)}</strong>
+          <strong>${UI.money(v.total_accommodation || 0)}</strong>
         </div>`;
       }).join('');
 
@@ -258,22 +257,22 @@
             ${STATUS.map(s => `<option value="${s[0]}" ${o.status === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
           </select>
         </div>
-        <div class="warnbox" style="background:var(--blue-50);border-color:#C3D3FA;color:var(--blue);">
+        <div class="regimebox">
           ${Icon('lock', 14)} V ponuke sa uvádza len mesto a typ ubytovania. Adresa a kontakt na ubytovateľa
           sa klientovi sprístupnia až po úhrade poplatku.
         </div>
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'inquiry', id: o.inquiry_id } }) : ''}
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         <div class="form-section">Varianty</div>
-        ${varHtml || '<div style="color:var(--ink-mute);font-size:13px;">Bez variantov.</div>'}
+        ${varHtml || '<div class="js-empty">Bez variantov.</div>'}
         <div class="form-section">Text pre klienta (WhatsApp / e-mail)</div>
-        <textarea id="offer-text" rows="12" readonly
-          style="width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.6;background:var(--field);resize:vertical;">${UI.esc(this.buildText(o, vs, accs, c, inq))}</textarea>
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Offers.copyText()">${Icon('copy')} Skopírovať text</button>
+        <label class="fld"><textarea id="offer-text" rows="12" readonly>${UI.esc(this.buildText(o, vs, accs, c, inq))}</textarea></label>
+        <div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Offers.copyText()">${Icon('copy')} Skopírovať text</button></div>
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Offers.del('${o.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Offers.del('${o.id}')">Zmazať</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${o.status !== 'accepted'
-            ? `<button class="btn btn-primary btn-sm" onclick="Offers.accept('${o.id}')">Akceptovaná ${Icon('chevron', 14)} objednávka</button>`
+            ? `<button class="btn btn-primary" onclick="Offers.accept('${o.id}')">Akceptovaná ${Icon('chevron', 14)} objednávka</button>`
             : ''}
         </div>`;
       UI.modal('Ponuka', body, { wide: true });
@@ -383,15 +382,16 @@
     _pickVariant(vs, accs) {
       return new Promise(resolve => {
         UI.modal('Ktorý variant si klient vybral?', `
-          <div style="display:flex;flex-direction:column;gap:2px;">
+          <div class="pick-list">
             ${vs.map((v, i) => {
               const a = accs.find(x => x.id === v.accommodation_id) || {};
-              return `<button class="list-row" onclick="Offers._resolvePick('${v.id}')">
-                <span style="flex:1;"><strong>${i + 1}) ${UI.esc(a.name || '—')}</strong>
-                <span style="color:var(--ink-mute);"> · ${UI.money(v.total_accommodation || 0)}</span></span>
-                <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+              return `<button class="pick-tile" onclick="Offers._resolvePick('${v.id}')">
+                <span class="pick-ico">${Icon('bed', 20)}</span>
+                <span class="pick-txt"><b>${i + 1}) ${UI.esc(a.name || '—')}</b>
+                  <em>${UI.money(v.total_accommodation || 0)}</em></span>
+                <span class="pick-go">${Icon('chevron', 16)}</span></button>`;
             }).join('')}
-          </div>`);
+          </div>`, { wide: true });
         this._pickResolver = (id) => { UI.closeModal(); resolve(vs.find(v => v.id === id) || null); };
       });
     },

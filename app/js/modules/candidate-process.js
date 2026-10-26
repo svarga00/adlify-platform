@@ -305,6 +305,7 @@
         return UI.modal('Chýba zákazka', `<div class="warnbox">${Icon('alert', 14)}
           Nastúpený kandidát sa musí naviazať na zákazku, ale žiadna nie je založená.</div>
           <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('subcontracts')">
               ${Icon('site')} Založiť zákazku</button></div>`);
       }
@@ -315,19 +316,21 @@
             ${check.reasons.map(r => UI.esc(r)).join(' ')} Môžete pokračovať, ale overte si to.</div>` : ''}
           ${check.flagCount ? `<div class="warnbox">${Icon('alert', 14)}
             Kandidát má ${check.flagCount} ${check.flagCount === 1 ? 'červenú vlajku' : 'červené vlajky'}.</div>` : ''}
-          ${UI.field('subcontract_id', 'Na ktorú zákazku nastupuje', { required: true,
-            add: 'subcontract',
-            options: list.map(s => [s.id,
-              `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`]) })}
-          ${UI.field('expected_start', 'Dátum nástupu', { type: 'date',
-            value: cand.expected_start || cand.available_from || '' })}
           <div class="regimebox">Kandidát sa objaví v spise zákazky. Ak ešte nie je medzi
           pracovníkmi, prevedieme ho tam automaticky.</div>
+          <div class="form-grid">
+            <div class="fld-full">${UI.field('subcontract_id', 'Na ktorú zákazku nastupuje', { required: true,
+              add: 'subcontract',
+              options: list.map(s => [s.id,
+                `${s.contract_number ? s.contract_number + ' · ' : ''}${s.title}${s.site_city ? ' · ' + s.site_city : ''}`]) })}</div>
+            ${UI.field('expected_start', 'Dátum nástupu', { type: 'date',
+              value: cand.expected_start || cand.available_from || '' })}
+          </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${Icon('check')} Nastúpený</button>
           </div>
-        </form>`, { wide: true });
+        </form>`);
     },
 
     async hire() {
@@ -362,8 +365,8 @@
           ${UI.field('outcome_reason', 'Dôvod (voliteľné)', { type: 'textarea', rows: 3,
             placeholder: 'napr. nedodal referencie, pýtal zálohu vopred' })}
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-danger">Zamietnuť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
           </div>
         </form>`);
     },

@@ -104,12 +104,13 @@
         ${warn}
         ${CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'client', id: c.id } })}
         <div class="kv">${rows.map(x => `<div><span>${x[0]}</span><strong>${UI.esc(x[1])}</strong></div>`).join('')}</div>
-        ${r.note ? `<div class="notebox" style="font-style:italic;">Fakturačná poznámka: „${UI.esc(r.note)}"</div>` : ''}
+        ${r.note ? `<div class="notebox is-quote">Fakturačná poznámka: „${UI.esc(r.note)}"</div>` : ''}
         ${c.notes ? `<div class="notebox">${UI.esc(c.notes)}</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Cli.del('${c.id}')">Zmazať</button>
-          <button class="btn btn-outline btn-sm" onclick="Cli.form('${c.id}')">Upraviť</button>
-          <button class="btn btn-primary btn-sm" onclick="Cli.invoice('${c.id}')">${Icon('receipt')} Vystaviť faktúru</button>
+          <button class="btn btn-danger" onclick="Cli.del('${c.id}')">Zmazať</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Cli.form('${c.id}')">Upraviť</button>
+          <button class="btn btn-primary" onclick="Cli.invoice('${c.id}')">${Icon('receipt')} Vystaviť faktúru</button>
         </div>`;
       UI.modal(c.name, body, { wide: true });
     },
@@ -152,7 +153,7 @@
         const d = UI.formData(form);
         const r = regime(d);
         document.getElementById('regime-preview').innerHTML =
-          `Fakturačný režim: <strong>${r.regime}</strong> — ${UI.esc(r.note || '')} ${r.warning ? `<span style="color:var(--amber)">${UI.esc(r.warning)}</span>` : ''}`;
+          `Fakturačný režim: <strong>${r.regime}</strong> — ${UI.esc(r.note || '')} ${r.warning ? `<span class="tx-warn">${UI.esc(r.warning)}</span>` : ''}`;
       };
       form.addEventListener('input', upd); upd();
     },

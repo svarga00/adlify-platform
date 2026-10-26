@@ -437,9 +437,9 @@
         <form id="chip-form" onsubmit="event.preventDefault();Trades.chipSave('${id || ''}')">
           ${c.suggested_from ? `<div class="regimebox">Návrh vznikol z poznámky:
             „${UI.esc(c.suggested_from)}"</div>` : ''}
-          ${UI.field('label', 'Text poľa (2–6 slov)', { value: c.label, required: true,
-            placeholder: 'napr. vie rozteč 625' })}
           <div class="form-grid">
+            <div class="fld-full">${UI.field('label', 'Text poľa (2–6 slov)', { value: c.label, required: true,
+              placeholder: 'napr. vie rozteč 625' })}</div>
             ${UI.field('segment', 'Kde v hovore', { value: c.segment || 'trade',
               options: DanubraChips.SEGMENTS.map(s => [s.key, s.title]) })}
             ${UI.field('trade_key', 'Pre remeslo', { value: c.trade_key || '', add: 'trade',
@@ -453,7 +453,7 @@
           <div class="regimebox">Varovanie s váhou 3 zamieta kandidáta samo osebe — napríklad
           „tvrdí, že A1 netreba". Používajte ho striedmo.</div>
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger btn-sm" onclick="Trades.chipDel('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Trades.chipDel('${id}')">Zmazať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
@@ -491,7 +491,7 @@
           <span style="display:block;color:var(--ink-mute);font-size:12px;margin-top:2px;">
             ${UI.esc(this.tradeName(q.trade_key))} · ${PHASE[q.phase] || q.phase}${q.weight >= 3 ? ' · kľúčová' : ''}</span>
           ${q.good_answer ? `<span style="display:block;color:var(--green);font-size:12px;">${Icon('check', 12)} ${UI.esc(q.good_answer)}</span>` : ''}
-          ${q.red_flag_answer ? `<span style="display:block;color:var(--red);font-size:12px;">! ${UI.esc(q.red_flag_answer)}</span>` : ''}
+          ${q.red_flag_answer ? `<span style="display:block;color:var(--red);font-size:12px;">${Icon('alert', 12)} ${UI.esc(q.red_flag_answer)}</span>` : ''}
         </span>
         ${UI.badge(k[0], k[1])}
       </div>`;
@@ -508,7 +508,7 @@
 
       UI.modal(t.name_sk, `
         ${t.regulated ? `<div class="warnbox">${Icon('alert', 14)} ${UI.esc(t.legal_note || '')}</div>` : ''}
-        <div class="notebox">${UI.esc(t.summary || '')}</div>
+        ${t.summary ? `<div class="notebox">${UI.esc(t.summary)}</div>` : ''}
         <div class="kv" style="margin-top:10px;">
           <div><span>Nemecky</span><strong>${UI.esc(t.name_de || '—')}</strong></div>
           <div><span>Mzdová skupina</span><strong>${UI.esc(t.lohngruppe || '—')}</strong></div>
@@ -520,13 +520,14 @@
         ${list('Vlastné náradie', t.tools)}
         ${list('Musí doložiť', t.certificates)}
         ${list('Podľa čoho spoznám, že to nerobil', t.red_flags)}
-        ${t.daily_output ? `<div class="regimebox" style="margin-top:10px;">
+        ${t.daily_output ? `<div class="regimebox">
           <b>Reálny denný výkon:</b> ${UI.esc(t.daily_output)}</div>` : ''}
         <div class="form-section">Odborné otázky (${qs.length})</div>
-        ${qs.map(q => this.qRow(q)).join('') || '<div style="font-size:13px;color:var(--ink-mute);">Zatiaľ žiadne.</div>'}
+        ${qs.map(q => this.qRow(q)).join('') || '<div class="js-empty">Zatiaľ žiadne.</div>'}
         <div class="modal-actions">
-          <button class="btn btn-outline btn-sm" onclick="Trades.qForm(null,'${t.key}')">${Icon('plus')} Pridať otázku</button>
-          <button class="btn btn-primary btn-sm" onclick="Trades.tForm('${t.key}')">${Icon('edit')} Upraviť remeslo</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Trades.qForm(null,'${t.key}')">${Icon('plus')} Pridať otázku</button>
+          <button class="btn btn-primary" onclick="Trades.tForm('${t.key}')">${Icon('edit')} Upraviť remeslo</button>
         </div>`, { wide: true });
     },
 
@@ -616,7 +617,7 @@
           že sa ňou preveruje. Najlepšie fungujú konkrétne čísla a názvy, ktoré si človek z praxe
           pamätá, ale z inzerátu sa ich nenaučí.</div>
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger btn-sm" onclick="Trades.qDel('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Trades.qDel('${id}')">Zmazať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>

@@ -32,7 +32,7 @@
       return `<div class="form-section">Upomienky</div>
         ${sent.map(r => `<div class="js-row">${UI.badge((DanubraDunning.meta(r.level) || {}).sk || `stupeň ${r.level}`, r.level >= 3 ? 'red' : 'amber')}
           <span>${UI.date(r.sent_at)}${r.deadline ? ` · nová lehota ${UI.date(r.deadline)}` : ''}</span></div>`).join('')}
-        ${n.due ? `<div class="js-acts"><button class="btn btn-primary btn-sm" onclick="Inv.remind('${x.id}')">
+        ${n.due ? `<div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Inv.remind('${x.id}')">
             ${Icon('mail', 14)} Vytvoriť: ${UI.esc(n.meta.sk)} (${UI.esc(n.meta.de)})</button></div>
             <p class="card-note">${n.overdueDays} ${Shell.plural(n.overdueDays, 'deň', 'dni', 'dní')} po splatnosti · tón: ${UI.esc(n.meta.tone)}.</p>`
           : n.wait ? `<p class="card-note">Ďalší stupeň (${UI.esc(n.meta.sk)}) sa ponúkne ${UI.date(n.wait)} — 14 dní po poslednej.</p>`
@@ -82,15 +82,16 @@
       await this.loadReminders();
       const q = this.dunQueue();
       const p = (id) => (this.partners.find(z => z.id === id) || {}).name || '—';
-      UI.modal('Upomienky', q.length ? `<div class="pick-list">${q.map(r => `
-        <div class="pick-tile" style="cursor:default;">
+      UI.modal('Upomienky', `${q.length ? `<div class="pick-list">${q.map(r => `
+        <div class="pick-tile is-static">
           <span class="pick-ico">${Icon('alert', 18)}</span>
           <span class="pick-txt"><b>${UI.esc(r.invoice.invoice_number || '—')} · ${UI.esc(p(r.invoice.partner_id))}</b>
             <em>${UI.money(r.invoice.total)} · ${r.overdueDays} ${Shell.plural(r.overdueDays, 'deň', 'dni', 'dní')} po splatnosti · na rade: ${UI.esc(r.meta.sk)}</em></span>
-          <button class="btn btn-primary btn-sm" onclick="Inv.remind('${r.invoice.id}')">Vytvoriť</button>
+          <button class="btn btn-outline btn-sm" onclick="Inv.remind('${r.invoice.id}')">Vytvoriť</button>
         </div>`).join('')}</div>
-        <p class="card-note">Upomienka je po nemecky, s novou lehotou a QR platbou. Ďalší stupeň sa ponúkne až 14 dní po predchádzajúcom.</p>`
-        : '<div class="regimebox" style="margin:0;">Žiadna faktúra nie je po splatnosti — netreba nikoho upomínať.</div>', { wide: true });
+        <p class="muted-sm">Upomienka je po nemecky, s novou lehotou a QR platbou. Ďalší stupeň sa ponúkne až 14 dní po predchádzajúcom.</p>`
+        : '<div class="regimebox">Žiadna faktúra nie je po splatnosti — netreba nikoho upomínať.</div>'}
+        <div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
     },
 
     // ── Mesačná fakturácia naraz ──────────────────────────────────────────
@@ -112,11 +113,12 @@
         skip: 'preskočí sa', done: 'hotovo' };
       const body = document.querySelector('#ui-modal .modal-body') || document.querySelector('#ui-modal .modal-card');
       const html = `
-        <div class="form-grid" style="margin-bottom:10px;">
+        <div class="regimebox">Pri každej zákazke appka spraví, čo treba: založí obdobie za mesiac,
+          uzavrie ho zo schválených hodín a pripraví <b>návrh</b> faktúry. Schvaľuje ich admin, ako vždy.</div>
+        <div class="form-grid">
           <label class="fld"><span>Mesiac</span><input type="month" value="${mesiac}" onchange="Inv.monthly(this.value)"></label>
         </div>
-        <div class="regimebox" style="margin:0 0 10px;">Pri každej zákazke appka spraví, čo treba: založí obdobie za mesiac,
-          uzavrie ho zo schválených hodín a pripraví <b>návrh</b> faktúry. Schvaľuje ich admin, ako vždy.</div>
+        <div class="form-section">Zákazky</div>
         <div class="mf-list">${plan.map((r, i) => {
           const da = ['create', 'close', 'invoice'].includes(r.action);
           return `<label class="mf-row${da ? '' : ' is-off'}">
@@ -126,7 +128,7 @@
             <span class="mf-sum">${r.hours ? `${r.hours} h · ` : ''}${da || r.action === 'done' ? Money.format(r.cents || 0) : ''}</span>
           </label>`;
         }).join('') || '<div class="js-empty">Žiadna zákazka.</div>'}</div>
-        <div id="mf-log" class="card-note"></div>
+        <div id="mf-log" class="muted-sm"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-primary" id="mf-go" ${robit.length ? '' : 'disabled'} onclick="Inv.runMonthly()">
@@ -164,10 +166,10 @@
       if (window.Sub) Sub.loaded = false;
       await this.load(); Danubra.renderRoute();
       UI.modal('Mesačná fakturácia', `
-        <div class="${chyby.length ? 'warnbox' : 'regimebox'}" style="margin:0;">Pripravených ${ok} ${Shell.plural(ok, 'návrh', 'návrhy', 'návrhov')} faktúr.
+        <div class="${chyby.length ? 'warnbox' : 'regimebox'}">Pripravených ${ok} ${Shell.plural(ok, 'návrh', 'návrhy', 'návrhov')} faktúr.
           ${ok ? 'Čakajú na schválenie vo Vydaných faktúrach.' : ''}</div>
         ${chyby.length ? `<div class="form-section">Nepodarilo sa</div>${chyby.map(c => `<div class="js-row">${UI.esc(c)}</div>`).join('')}` : ''}
-        <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal()">Hotovo</button></div>`);
+        <div class="modal-actions"><button class="btn btn-primary" onclick="UI.closeModal()">Hotovo</button></div>`, { wide: true });
     },
 
     // ── Prehľad pre účtovníčku ────────────────────────────────────────────
@@ -184,24 +186,26 @@
         partners: p.data || [], workers: w.data || [] });
       this._books = x;
       const rok = /^\d{4}$/.test(k);
-      const tile = (ico, label, n, cents) => `<div class="mon-act" style="cursor:default;">
-        <span class="pick-ico">${Icon(ico, 18)}</span><b>${label}</b><em>${n} ${Shell.plural(n, 'doklad', 'doklady', 'dokladov')} · ${Money.format(cents)}</em></div>`;
+      const tile = (ico, label, n, cents) => `<div class="pick-tile is-static">
+        <span class="pick-ico">${Icon(ico, 18)}</span>
+        <span class="pick-txt"><b>${label}</b><em>${n} ${Shell.plural(n, 'doklad', 'doklady', 'dokladov')} · ${Money.format(cents)}</em></span></div>`;
       UI.modal('Pre účtovníčku', `
-        <div class="form-grid" style="margin-bottom:10px;">
+        <div class="form-grid">
           <label class="fld"><span>Mesiac</span><input type="month" value="${rok ? '' : k}" onchange="Inv.books(this.value)"></label>
           <label class="fld"><span>alebo celý rok</span><input type="number" min="2020" max="2100" placeholder="${new Date().getFullYear()}"
             value="${rok ? k : ''}" onchange="this.value&&Inv.books(this.value)"></label>
         </div>
-        <div class="mon-acts" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+        <div class="form-section">Doklady</div>
+        <div class="pick-list">
           ${tile('invoices', 'Vydané faktúry', x.issued.length, x.totals.issued)}
           ${tile('receipt', 'Prijaté faktúry', x.received.length, x.totals.received)}
           ${tile('wallet', 'Ostatné náklady', x.costs.length, x.totals.costs)}
         </div>
         ${x.missingFiles.length ? `<div class="warnbox">${Icon('alert', 14)} K ${x.missingFiles.length}
           ${Shell.plural(x.missingFiles.length, 'prijatej faktúre', 'prijatým faktúram', 'prijatým faktúram')} chýba súbor: ${UI.esc(x.missingFiles.slice(0, 5).join(', '))}${x.missingFiles.length > 5 ? '…' : ''}.</div>` : ''}
-        <p class="card-note">Balík obsahuje tabuľky pre Excel (vydané, prijaté, náklady) a súbory: PDF prijatých faktúr
+        <p class="muted-sm">Balík obsahuje tabuľky pre Excel (vydané, prijaté, náklady) a súbory: PDF prijatých faktúr
           a PDF vydaných faktúr, ktoré sa už raz stiahli (sú v Dokumentoch).</p>
-        <div id="bk-log" class="card-note"></div>
+        <div id="bk-log" class="muted-sm"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Inv.booksZip(false)">${Icon('download', 14)} Len tabuľky</button>

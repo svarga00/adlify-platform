@@ -187,14 +187,16 @@
       const until = new Date(Date.now() + retention * 86400000).toISOString().slice(0, 10);
 
       UI.modal('Zaznamenať súhlas s nahrávaním', `
-        <div class="warnbox" style="margin-bottom:14px;">
+        <div class="warnbox">
           ${Icon('alert', 14)} Súhlas musí byť daný <strong>pred</strong> začiatkom hovoru a musí byť
           výslovný. Samotné oznámenie „hovor môže byť nahrávaný" nestačí.
         </div>
         <div class="form-section">Znenie, ktorým sa pýtame</div>
         <div class="notebox" id="consent-script">${UI.esc(script)}</div>
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;"
-          onclick="Rec.copyScript()">${Icon('copy')} Skopírovať znenie</button>
+        <div class="btn-row">
+          <button class="btn btn-outline btn-sm"
+            onclick="Rec.copyScript()">${Icon('copy')} Skopírovať znenie</button>
+        </div>
 
         <form id="consent-form" onsubmit="event.preventDefault();Rec.saveConsent()" style="margin-top:16px;">
           <div class="form-grid">
@@ -210,9 +212,11 @@
           </div>
           ${UI.field('evidence_note', 'Ako presne súhlas znel', { type: 'textarea', rows: 2,
             placeholder: 'napr. „Áno, súhlasím s nahrávaním" — zaznelo v 0:12 nahrávky' })}
-          <label class="chk" style="margin-top:12px;">
-            <input type="checkbox" name="granted" required>
-            Potvrdzujem, že osoba dala výslovný súhlas pred začiatkom hovoru</label>
+          <div class="chk-row">
+            <label class="chk">
+              <input type="checkbox" name="granted" required>
+              Potvrdzujem, že osoba dala výslovný súhlas pred začiatkom hovoru</label>
+          </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Zaznamenať súhlas</button>
@@ -274,6 +278,7 @@
             Zatiaľ nie je zaznamenaný žiadny súhlas s nahrávaním. Bez neho sa nahrávka nesmie
             spracovať — v Slovenskej republike aj v Nemecku je nahrávanie bez súhlasu trestné.</div>
           <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button class="btn btn-primary" onclick="Rec.consentForm()">${Icon('shield')} Zaznamenať súhlas</button>
           </div>`);
       }
@@ -509,9 +514,10 @@
         ${r.transcript ? `<div class="form-section">Prepis</div>
           <div class="notebox" style="max-height:220px;overflow:auto;">${UI.esc(r.transcript)}</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Rec.delRecording('${r.id}')">Zmazať nahrávku</button>
+          <button class="btn btn-danger" onclick="Rec.delRecording('${r.id}')">Zmazať nahrávku</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${['uploaded', 'failed'].includes(r.status)
-            ? `<button class="btn btn-primary btn-sm" onclick="UI.closeModal();Rec.process('${r.id}')">Spracovať</button>` : ''}
+            ? `<button class="btn btn-primary" onclick="UI.closeModal();Rec.process('${r.id}')">Spracovať</button>` : ''}
         </div>`, { wide: true });
     },
 

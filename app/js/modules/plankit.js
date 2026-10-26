@@ -529,7 +529,7 @@
         const vlastne = (this.assets || []).filter(a => !a.archived_at
           && (a.source !== 'ai' || a.approved_at)).length;
         return UI.modal('Pregenerovať podklady?', `
-          <p style="font-size:14px;margin:0 0 10px;">Appka vezme zadanie, ako je teraz,
+          <p class="modal-lead">Appka vezme zadanie, ako je teraz,
             a napíše texty a zhrnutie znova.</p>
           <ul class="clean" style="font-size:13.5px;line-height:1.7;margin:0 0 6px;">
             <li>${Icon('repeat', 13)} Prepíše sa, čo napísala appka a nikto to neupravil.</li>
@@ -557,6 +557,9 @@
             <em>Trvá to zvyčajne 1–2 minúty${sek ? ` · ${sek} s` : ''}. Okno môžete zavrieť —
               podklady sa uložia aj tak a uvidíte ich v nábore.</em>
           </span>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
         </div>`);
       okno(0);
       let out;
@@ -567,7 +570,7 @@
         UI.closeModal();
         return UI.modal('Podklady sa nepripravili', `
           <div class="warnbox">${Icon('alert', 14)} ${UI.esc(e.message)}</div>
-          <p style="font-size:13px;color:var(--ink-sub);">Zadanie ostalo uložené.
+          <p class="muted">Zadanie ostalo uložené.
             Skúste to znova — keď to nepôjde ani druhýkrát, pošlite mi túto hlášku.</p>
           <div class="modal-actions">
             <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
@@ -582,11 +585,11 @@
           <div class="warnbox">${Icon('alert', 14)}
             Na serveri chýba kľúč k modelu (<code>ANTHROPIC_API_KEY</code>), takže
             appka texty vyrobiť nevie.</div>
-          <p style="font-size:13px;color:var(--ink-sub);">Podklady sa dajú písať aj
+          <p class="muted">Podklady sa dajú písať aj
             ručne — zhrnutie aj každý kanál sa ukladá rovnako. Kľúč sa dopĺňa
             v premenných prostredia na Netlify.</p>
           <div class="modal-actions">
-            <button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button>
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           </div>`);
       }
       await Hire.load();
@@ -615,11 +618,11 @@
           ${out.newTrade ? `<div class="regimebox">${Icon('plus', 14)} Pribudlo remeslo
             <strong>${UI.esc(out.newTrade)}</strong> — v zozname nebolo. Sadzby a príručku
             k nemu doplníte v Remeslách a otázkach.</div>` : ''}
-          <p style="font-size:13px;color:var(--ink-sub);">Zoznam otázok je to, podľa čoho
+          <p class="muted">Zoznam otázok je to, podľa čoho
             sa rozhoduje o ľuďoch, takže doň nič nepribudne samo. Sú v nábore pod
             „Otázky do telefonátu" — prečítajte ich a pustite do hovoru jedným klikom.</p>
           <div class="modal-actions">
-            <button class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
             <button class="btn btn-primary"
               onclick="UI.closeModal();setTimeout(()=>{const e=document.getElementById('plan-questions');if(e)e.scrollIntoView({behavior:'smooth',block:'start'})},200)">
               ${Icon('phone', 15)} Prečítať otázky</button>

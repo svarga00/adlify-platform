@@ -169,7 +169,7 @@
           ${UI.field('trade', 'Čím sa zaoberá')}
         </div>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-          <button type="submit" class="btn btn-primary">Uložiť</button></div></form>`);
+          <button type="submit" class="btn btn-primary">Uložiť</button></div></form>`, { wide: true });
     },
     async saveForm() {
       const d = UI.formData(document.getElementById('lf-form'));
@@ -188,25 +188,25 @@
       const zaklad = ['builder', 'plasterer', 'tiler', 'painter', 'metal_construction', 'electrician', 'carpenter'];
       UI.modal('Hľadať podobné firmy', `
         <form id="find-form" onsubmit="event.preventDefault()">
-          <div class="form-section" style="margin-top:0;">Podobné ako</div>
+          <div class="form-section">Podobné ako</div>
           <div class="chk-grid">${this.partners.slice(0, 40).map(p => `<label class="chk"><input type="checkbox" name="p" value="${p.id}" checked>
             <span>${UI.esc(p.name)}${p.city ? ` <em>· ${UI.esc(p.city)}</em>` : ''}</span></label>`).join('')}</div>
-          <div class="form-grid" style="margin-top:10px;">
+          <div class="form-grid">
             ${UI.field('radius', 'Okruh okolo ich miest', { value: '50', options: [['25', '25 km'], ['50', '50 km'], ['100', '100 km']] })}
             ${UI.field('region', 'Alebo región (pre AI)', { placeholder: 'napr. Bayern, okolie Mníchova' })}
             ${UI.field('count', 'Koľko firiem (AI)', { value: '15', options: [['10', '10'], ['15', '15'], ['25', '25']] })}
+            <div class="fld-full">${UI.field('note', 'Čo hľadáme (pre AI, nepovinné)', { placeholder: 'napr. firmy na sadrokartón a suchú výstavbu, 20–200 zamestnancov' })}</div>
           </div>
-          ${UI.field('note', 'Čo hľadáme (pre AI, nepovinné)', { placeholder: 'napr. firmy na sadrokartón a suchú výstavbu, 20–200 zamestnancov' })}
           <div class="form-section">Remeslá (pre mapu)</div>
           <div class="chk-grid">${crafts.map(([k, l]) => `<label class="chk"><input type="checkbox" name="c" value="${k}" ${zaklad.includes(k) ? 'checked' : ''}><span>${UI.esc(l)}</span></label>`).join('')}</div>
+          <p class="card-note">Mapa (OpenStreetMap) je zadarmo, ale e-mail tam býva zriedka. AI prehľadá weby firiem
+            a e-mail vezme len z ich Impressum/Kontaktu — jedno hľadanie stojí rádovo centy.</p>
           <div id="find-out"></div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="button" class="btn btn-outline" onclick="Lead.searchMap()">${Icon('pin', 14)} Na mape (zadarmo)</button>
             <button type="button" class="btn btn-primary" onclick="Lead.searchAi()">${Icon('search', 14)} Cez AI (aj e-maily)</button>
           </div>
-          <p class="card-note">Mapa (OpenStreetMap) je zadarmo, ale e-mail tam býva zriedka. AI prehľadá weby firiem
-            a e-mail vezme len z ich Impressum/Kontaktu — jedno hľadanie stojí rádovo centy.</p>
         </form>`, { wide: true });
     },
 
@@ -288,7 +288,7 @@
         <div class="form-section">Našlo sa ${fresh.length} nových firiem${known.length ? ` (${known.length} už máte)` : ''}</div>
         <div class="mf-list">${fresh.map((f, i) => `<label class="mf-row"><input type="checkbox" data-i="${i}" ${f.email || f.website ? 'checked' : ''}>
           <span class="mf-main"><b>${UI.esc(f.name)}</b><em>${UI.esc([f.city, f.trade, f.email || (f.website ? 'web' : 'bez kontaktu')].filter(Boolean).join(' · '))}</em></span></label>`).join('')}</div>
-        <div class="modal-actions"><button type="button" class="btn btn-primary" onclick="Lead.saveFound()">${Icon('check', 14)} Uložiť vybrané</button></div>`
+        <div class="btn-row"><button type="button" class="btn btn-primary" onclick="Lead.saveFound()">${Icon('check', 14)} Uložiť vybrané</button></div>`
         : '<div class="regimebox">Na mape sa nenašla žiadna nová firma. Skúste väčší okruh, iné remeslá alebo hľadanie cez AI.</div>';
     },
 
@@ -366,7 +366,8 @@
       const T = { queued: 'čaká', sent: 'odoslané', failed: 'chyba', skipped: 'preskočené' };
       UI.modal('Adresáti', `<div class="mf-list">${s.map(x => `<div class="mf-row" style="cursor:default;">
         <span class="mf-main"><b>${UI.esc(x.name || x.email)}</b><em>${UI.esc(x.email)}${x.error ? ` · ${UI.esc(x.error)}` : ''}</em></span>
-        <span class="mf-sum">${T[x.status] || x.status}${x.sent_at ? ` · ${UI.date(x.sent_at)}` : ''}</span></div>`).join('') || '<div class="js-empty">Bez adresátov.</div>'}</div>`, { wide: true });
+        <span class="mf-sum">${T[x.status] || x.status}${x.sent_at ? ` · ${UI.date(x.sent_at)}` : ''}</span></div>`).join('') || '<div class="js-empty">Bez adresátov.</div>'}</div>
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
     },
 
     async form() {
@@ -374,9 +375,11 @@
       if (!this.loaded) await this.load();
       const T = LL().TEMPLATE_DE;
       UI.modal('Nový e-mail', `<form id="cf-form" onsubmit="event.preventDefault()" oninput="Camp.preview()" onchange="Camp.preview()">
-        ${UI.field('name', 'Názov (len pre Vás)', { value: `Predstavenie ${new Date().toLocaleDateString('sk-SK')}`, required: true })}
-        ${UI.field('subject', 'Predmet', { value: T.subject, required: true })}
-        ${UI.field('body', 'Text', { type: 'textarea', rows: 12, value: T.body })}
+        <div class="form-grid">
+          ${UI.field('name', 'Názov (len pre Vás)', { value: `Predstavenie ${new Date().toLocaleDateString('sk-SK')}`, required: true })}
+          ${UI.field('subject', 'Predmet', { value: T.subject, required: true })}
+          <div class="fld-full">${UI.field('body', 'Text', { type: 'textarea', rows: 12, value: T.body })}</div>
+        </div>
         <p class="card-note">Doplní sa samo: <code>{firma}</code>, <code>{mesto}</code>, <code>{remeslo}</code>, <code>{nasa_firma}</code>, <code>{podpis}</code>.
           Pätička s odosielateľom a odkazom na odhlásenie sa pridá vždy.</p>
         <div class="form-section">Komu</div>

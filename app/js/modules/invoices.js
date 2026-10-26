@@ -24,6 +24,12 @@
   const REGIME = {
     sk_no_vat: 'SK bez DPH', eu_reverse_charge: 'Reverse charge', other: 'Na kontrolu',
   };
+  /** Dlaždica výberu v okne — rovnaká pri každej voľbe „z čoho". */
+  const pickTile = ({ ico, title, sub, action }) => `
+    <button class="pick-tile" onclick="${action}">
+      ${ico ? `<span class="pick-ico">${Icon(ico, 20)}</span>` : ''}
+      <span class="pick-txt"><b>${title}</b>${sub ? `<em>${sub}</em>` : ''}</span>
+      <span class="pick-go">${Icon('chevron', 16)}</span></button>`;
 
   const Inv = {
     items: [], lines: [], clients: [], orders: [], partners: [], overrides: [],
@@ -250,7 +256,7 @@
 
       const body = `
         <div class="detail-head">${this.badge(x.status)}
-          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(x.invoice_number || '')}</span>
+          <span class="mono doc-no">${UI.esc(x.invoice_number || '')}</span>
         </div>
         ${x.status === 'draft_pending_approval' ? `<div class="warnbox">
           ${Icon('alert', 14)} Toto je návrh — pred odoslaním klientovi ho musíte schváliť.</div>` : ''}
@@ -258,27 +264,33 @@
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
 
         <div class="form-section">Položky</div>
-        ${items.map(i => `<div class="list-row" style="cursor:default;">
-          <span style="flex:1;font-size:13px;">${UI.esc(i.description)}
-            <span style="color:var(--ink-mute);font-size:12px;display:block;">
-              ${Number(i.quantity || 0).toLocaleString('sk-SK')} ${UI.esc(i.unit || '')} × ${UI.money(i.unit_price)}</span>
-          </span>
-          <strong>${UI.money(i.total)}</strong></div>`).join('') || '<div style="color:var(--ink-mute);font-size:13px;">Bez položiek.</div>'}
-        <div class="service-total" style="background:var(--field);border-color:var(--border);">
-          <div style="font-weight:700;">Na úhradu</div>
-          <div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">${UI.money(x.total, x.currency)}</div>
+        ${items.map(i => this.lineRow(i)).join('') || '<div class="js-empty">Bez položiek.</div>'}
+        <div class="service-total is-neutral">
+          <b>Na úhradu</b>
+          <span class="st-sum">${UI.money(x.total, x.currency)}</span>
         </div>
 
         <div class="modal-actions">
           ${x.status === 'draft_pending_approval'
-            ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Inv.del('${x.id}')">Zahodiť návrh</button>
-               <button class="btn btn-primary btn-sm" onclick="Inv.approve('${x.id}')">${Icon('check')} Schváliť a vystaviť</button>`
-            : `<button class="btn btn-outline btn-sm" onclick="Inv.openDoc('${x.id}')">${Icon('doc')} Dokument s QR</button>
+            ? `<button class="btn btn-danger" onclick="Inv.del('${x.id}')">Zahodiť návrh</button>
+               <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+               <button class="btn btn-primary" onclick="Inv.approve('${x.id}')">${Icon('check')} Schváliť a vystaviť</button>`
+            : `<button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+               <button class="btn btn-outline" onclick="Inv.openDoc('${x.id}')">${Icon('doc')} Dokument s QR</button>
                ${x.status !== 'paid'
-                 ? `<button class="btn btn-primary btn-sm" onclick="Inv.markPaid('${x.id}')">${Icon('check')} Označiť uhradenú</button>`
+                 ? `<button class="btn btn-primary" onclick="Inv.markPaid('${x.id}')">${Icon('check')} Označiť uhradenú</button>`
                  : ''}`}
         </div>`;
       UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
+    },
+
+    /** Riadok položky v detaile faktúry (len na čítanie). */
+    lineRow(i) {
+      return `<div class="list-row is-static">
+        <span class="lr-main">${UI.esc(i.description)}
+          <span class="lr-sub">${Number(i.quantity || 0).toLocaleString('sk-SK')} ${UI.esc(i.unit || '')} × ${UI.money(i.unit_price)}</span>
+        </span>
+        <strong>${UI.money(i.total)}</strong></div>`;
     },
 
     async approve(id) {
@@ -325,11 +337,7 @@
     // z objednávky, z dopytu, alebo úplne voľne pre klienta.
     async newInvoice() {
       if (!this.loaded) await this.load();
-      const opt = (ico, title, sub, action) => `
-        <button class="pick-tile" onclick="${action}">
-          <span class="pick-ico">${Icon(ico, 20)}</span>
-          <span class="pick-txt"><b>${title}</b><em>${sub}</em></span>
-          <span class="pick-go">${Icon('chevron', 16)}</span></button>`;
+      const opt = (ico, title, sub, action) => pickTile({ ico, title, sub, action });
       // Objednávky a dopyty z ubytovacej agendy (v1) sa ponúkajú len vtedy,
       // keď nejaké sú — inak by tu stáli dve tlačidlá, ktoré nikam nevedú.
       const stare = this.orders.length;
@@ -340,9 +348,9 @@
           ${opt('workers', 'Za živnostníka (v jeho mene)', 'Keď faktúru za neho vystavujeme my — z jeho schválených hodín, potvrdí ju odkazom.', 'Inv.selfBill()')}
           ${opt('calendar', 'Za celý mesiac naraz', 'Všetky zákazky za mesiac: obdobia sa uzavrú a vzniknú návrhy faktúr jedným klikom.', 'Inv.monthly()')}
         </div>
-        <div class="regimebox" style="margin-top:12px;">Každá faktúra vznikne ako <b>návrh</b>. Kým ju admin neschváli,
+        <div class="regimebox">Každá faktúra vznikne ako <b>návrh</b>. Kým ju admin neschváli,
           dá sa upraviť; po schválení sa už nemení.</div>
-        ${stare ? `<details class="more-block" style="margin-top:10px;"><summary>Staré faktúry z ubytovacej agendy</summary>
+        ${stare ? `<details class="more-block"><summary>Staré faktúry z ubytovacej agendy</summary>
           ${opt('orders', 'Z objednávky ubytovania', 'Sprostredkovanie alebo priebežná služba', 'Inv.pickOrder()')}
           ${opt('clients', 'Voľná faktúra klientovi ubytovania', 'Vlastné položky pre klienta z v1', 'Inv.manual()')}
         </details>` : ''}`, { wide: true });
@@ -352,35 +360,29 @@
       const cand = this.orders.filter(o => !['cancelled'].includes(o.status));
       if (!cand.length) return UI.toast('Žiadne objednávky na fakturáciu', 'err');
       UI.modal('Z ktorej objednávky?', `
-        <div style="display:flex;flex-direction:column;gap:2px;">
+        <div class="pick-list">
           ${cand.map(o => {
             const c = this.clientOf(o.client_id);
-            return `<button class="list-row" onclick="Inv.chooseType('${o.id}')">
-              <span style="flex:1;"><strong class="mono" style="font-size:12.5px;">${UI.esc(o.order_number || '—')}</strong>
-              <span style="color:var(--ink-mute);"> · ${c ? UI.esc(c.name) : '—'} · ${UI.money(o.service_fee || 0)}</span></span>
-              <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+            return pickTile({ ico: 'orders', title: UI.esc(o.order_number || '—'),
+              sub: `${c ? UI.esc(c.name) : '—'} · ${UI.money(o.service_fee || 0)}`,
+              action: `Inv.chooseType('${o.id}')` });
           }).join('')}
-        </div>`);
+        </div>`, { wide: true });
     },
 
     async chooseType(orderId) {
       const o = this.orders.find(x => x.id === orderId);
       const canOngoing = o?.ongoing_service_enabled;
       UI.modal('Za čo fakturujeme?', `
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          <button class="list-row" onclick="Inv.create('${orderId}','service_fee')">
-            <span style="flex:1;"><strong>Sprostredkovateľský poplatok</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">${UI.money(o?.service_fee || 0)}${o?.urgent_surcharge ? ` + ${UI.money(o.urgent_surcharge)} súrne` : ''}</span></span>
-            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>
-          ${canOngoing ? `<button class="list-row" onclick="Inv.create('${orderId}','ongoing_service')">
-            <span style="flex:1;"><strong>Priebežná služba za aktuálny mesiac</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Vytvorí sa ako návrh na schválenie</span></span>
-            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>` : ''}
-          <button class="list-row" onclick="Inv.manual(null,'${orderId}')">
-            <span style="flex:1;"><strong>Vlastné položky</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">Faktúra naviazaná na objednávku, obsah si určíte sami</span></span>
-            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>
-        </div>`);
+        <div class="pick-list">
+          ${pickTile({ ico: 'invoices', title: 'Sprostredkovateľský poplatok',
+            sub: `${UI.money(o?.service_fee || 0)}${o?.urgent_surcharge ? ` + ${UI.money(o.urgent_surcharge)} súrne` : ''}`,
+            action: `Inv.create('${orderId}','service_fee')` })}
+          ${canOngoing ? pickTile({ ico: 'calendar', title: 'Priebežná služba za aktuálny mesiac',
+            sub: 'Vytvorí sa ako návrh na schválenie', action: `Inv.create('${orderId}','ongoing_service')` }) : ''}
+          ${pickTile({ ico: 'edit', title: 'Vlastné položky',
+            sub: 'Faktúra naviazaná na objednávku, obsah si určíte sami', action: `Inv.manual(null,'${orderId}')` })}
+        </div>`, { wide: true });
     },
 
     async pickInquiry() {
@@ -390,15 +392,14 @@
       const open = (inqs || []).filter(i => !['lost'].includes(i.status));
       if (!open.length) return UI.toast('Žiadne dopyty', 'err');
       UI.modal('Z ktorého dopytu?', `
-        <div style="display:flex;flex-direction:column;gap:2px;">
+        <div class="pick-list">
           ${open.map(i => {
             const c = this.clientOf(i.client_id);
-            return `<button class="list-row" onclick="Inv.manualFromInquiry('${i.id}')">
-              <span style="flex:1;"><strong>${UI.esc(i.target_city || '—')}</strong>
-              <span style="color:var(--ink-mute);"> · ${c ? UI.esc(c.name) : 'bez klienta'} · ${i.persons || '?'} os.</span></span>
-              <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
+            return pickTile({ ico: 'inquiries', title: UI.esc(i.target_city || '—'),
+              sub: `${c ? UI.esc(c.name) : 'bez klienta'} · ${i.persons || '?'} os.`,
+              action: `Inv.manualFromInquiry('${i.id}')` });
           }).join('')}
-        </div>`);
+        </div>`, { wide: true });
     },
 
     async manualFromInquiry(inquiryId) {
@@ -435,13 +436,11 @@
 
       this._subs = subs; this._allTs = ts; this._asgMap = asgMap;
       UI.modal('Z ktorej zákazky?', `
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          ${cand.map(s => `<button class="list-row" onclick="Inv.createFromSubcontract('${s.id}')">
-            <span style="flex:1;"><strong>${UI.esc(s.title)}</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12.5px;">
-              ${Math.round(openBySub.get(s.id))} h nefakturovaných${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}</span></span>
-            <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`).join('')}
-        </div>`);
+        <div class="pick-list">
+          ${cand.map(s => pickTile({ ico: 'site', title: UI.esc(s.title),
+            sub: `${Math.round(openBySub.get(s.id))} h nefakturovaných${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}`,
+            action: `Inv.createFromSubcontract('${s.id}')` })).join('')}
+        </div>`, { wide: true });
     },
 
     async createFromSubcontract(scId) {
@@ -478,13 +477,13 @@
               ['ongoing_service', 'Priebežná služba'], ['retainer', 'Retainer']] })}
             ${UI.field('due_days', 'Splatnosť (dní)', { type: 'number', value: 14 })}
           </div>
-          <div id="regime-hint" class="regimebox" style="margin-bottom:6px;"></div>
+          <div id="regime-hint" class="regimebox"></div>
           <div class="form-section">Položky</div>
           <div id="item-rows"></div>
           <button type="button" class="btn btn-outline btn-sm" onclick="Inv.addRow()">${Icon('plus')} Pridať položku</button>
-          <div class="service-total" style="background:var(--field);border-color:var(--border);margin-top:14px;">
-            <div style="font-weight:700;">Spolu</div>
-            <div id="man-total" style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">0,00 €</div>
+          <div class="service-total is-neutral">
+            <b>Spolu</b>
+            <span id="man-total" class="st-sum">0,00 €</span>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -507,7 +506,7 @@
           <input placeholder="MJ" data-i="${i}" data-f="unit" value="${UI.esc(r.unit)}">
           <input type="number" step="0.01" placeholder="Cena" data-i="${i}" data-f="unit_price" value="${r.unit_price}">
           <span class="item-sum">${UI.money((Number(r.quantity) || 0) * (Number(r.unit_price) || 0))}</span>
-          <button type="button" class="btn btn-ghost btn-sm" style="color:var(--red);"
+          <button type="button" class="btn btn-ghost btn-sm btn-text-danger"
             onclick="Inv.delRow(${i})" ${this._rows.length === 1 ? 'disabled' : ''}>${Icon('x', 15)}</button>
         </div>`).join('');
       this.updateTotal();
@@ -540,7 +539,7 @@
       if (!c) { el.textContent = 'Vyberte klienta — podľa jeho krajiny a IČ DPH sa určí režim.'; return; }
       const r = Invoicing.regimeFor(c);
       el.innerHTML = `Režim: <strong>${REGIME[r.regime] || r.regime}</strong> — ${UI.esc(r.note || '')}`
-        + (r.warning ? ` <span style="color:var(--amber);">${UI.esc(r.warning)}</span>` : '');
+        + (r.warning ? ` <span class="tx-warn">${UI.esc(r.warning)}</span>` : '');
     },
 
     addRow() { this.syncRows(); this._rows.push({ description: '', quantity: 1, unit: 'ks', unit_price: 0 }); this.renderRows(); },
@@ -658,15 +657,23 @@
         // Schváliť sa nedá, kým niečo blokuje — okrem toho, čo je povolené
         // zapísanou výnimkou.
         if (to === 'approved' && !revV.ok) {
-          return `<button class="btn btn-primary btn-sm" disabled title="${
+          return `<button class="btn btn-primary" disabled title="${
             UI.esc(revV.open.map(r => r.label).join(' · '))}">${map[0]}</button>`;
         }
         const fn = to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
           : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
           : to === 'paid' ? `Inv.sfAction('${x.id}','pay')`
           : `Inv.setStatusV2('${x.id}','${to}')`;
-        return `<button class="btn ${map[1]} btn-sm" onclick="${fn}">${map[0]}</button>`;
+        return `<button class="btn ${map[1]}" onclick="${fn}">${map[0]}</button>`;
       };
+      // Päta okna: tiché kroky pred hlavnými, hlavné tlačidlo je posledné.
+      const RANK = { 'btn-ghost': 0, 'btn-outline': 1, 'btn-primary': 2 };
+      const rank = (to) => {
+        const cls = { pending_approval: 'btn-outline', approved: 'btn-primary', draft: 'btn-ghost',
+          issued: 'btn-primary', sent: 'btn-primary', paid: 'btn-outline', overdue: 'btn-ghost' }[to];
+        return RANK[cls] ?? 1;
+      };
+      const kroky = steps.slice().sort((a, b) => rank(a) - rank(b));
 
       const rows = [
         ['Odberateľ', ctx.partner.name],
@@ -686,24 +693,20 @@
       const body = `
         <div class="detail-head">
           ${this.badge(x.status)}
-          <span class="mono" style="font-size:11px;color:var(--ink-mute);letter-spacing:.1em;">${UI.esc(x.invoice_number || '')}</span>
+          <span class="mono doc-no">${UI.esc(x.invoice_number || '')}</span>
         </div>
 
         ${x.sf_error ? `<div class="warnbox">${Icon('alert', 14)}
           Posledný pokus zlyhal: ${UI.esc(x.sf_error)}</div>` : ''}
 
-        <div class="inv-top-acts">
-          <button class="btn btn-primary btn-sm" onclick="Inv.openDocV2('${x.id}')">${Icon('doc', 14)} Zobraziť faktúru (PDF)</button>
+        <div class="btn-row">
+          <button class="btn btn-outline btn-sm" onclick="Inv.openDocV2('${x.id}')">${Icon('doc', 14)} Zobraziť faktúru (PDF)</button>
           ${upravit ? `<button class="btn btn-outline btn-sm" onclick="Inv.freeForm('${x.id}')">${Icon('edit', 14)} Upraviť návrh</button>` : ''}
         </div>
-        ${upravit ? '' : '<div class="card-note" style="margin:0 0 8px;">Schválená faktúra sa už nemení — opravuje sa dobropisom.</div>'}
+        ${upravit ? '' : '<p class="muted-sm">Schválená faktúra sa už nemení — opravuje sa dobropisom.</p>'}
 
         <div class="form-section">Položky</div>
-        ${riadky.map(i => `<div class="list-row" style="cursor:default;">
-          <span style="flex:1;font-size:13px;">${UI.esc(i.description)}
-            <span style="color:var(--ink-mute);font-size:12px;display:block;">
-              ${Number(i.quantity || 0).toLocaleString('sk-SK')} ${UI.esc(i.unit || '')} × ${UI.money(i.unit_price)}</span></span>
-          <strong>${UI.money(i.total)}</strong></div>`).join('') || '<div class="js-empty">Bez položiek.</div>'}
+        ${riadky.map(i => this.lineRow(i)).join('') || '<div class="js-empty">Bez položiek.</div>'}
 
         <div class="form-section">Suma</div>
         ${Shell.sums({
@@ -727,19 +730,20 @@
           inputId: 'inv-ovr-reason',
           noOvrNote: 'Rozdiel voči podkladu smie povoliť len administrátor — '
             + 'je to to isté právo ako schválenie faktúry.',
-          okHtml: '<p style="margin:6px 0 0;font-size:13px;color:var(--ink-sub);">'
+          okHtml: '<p class="muted">'
             + 'Suma sedí s podkladom a odberateľ má všetko, čo treba.</p>',
         })}
         ${this.overridesHtml(x.id)}
 
-        <div class="kv" style="margin-top:14px;">
+        <div class="kv">
           ${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
         </div>
 
         ${this.dunningHtml ? this.dunningHtml(x) : ''}
 
-        <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
-          ${steps.map(act).join('')}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          ${kroky.map(act).join('')}
         </div>`;
       UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
     },
@@ -755,13 +759,12 @@
       const row = (o) => {
         const m = DanubraOverrides.meta(o.rule_key);
         const dead = !!o.revoked_at;
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
-          <span class="dot ${dead ? '' : 'amber'}" style="margin-top:6px;"></span>
-          <span style="flex:1;font-size:13px;${dead ? 'opacity:.55;' : ''}">
+        return `<div class="list-row is-static is-top">
+          <span class="dot ${dead ? '' : 'amber'}"></span>
+          <span class="lr-main${dead ? ' is-dead' : ''}">
             <strong>${UI.esc(m?.label || o.rule_key)}</strong>
             ${dead ? UI.badge('zrušená', 'gray') : ''}
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${o.granted_at ? UI.date(o.granted_at) : ''} · ${UI.esc(o.reason || '')}</span>
+            <span class="lr-sub">${o.granted_at ? UI.date(o.granted_at) : ''} · ${UI.esc(o.reason || '')}</span>
           </span>
           ${dead || !Danubra.isAdmin() ? '' : `<button class="btn btn-ghost btn-sm"
             onclick="Inv.revokeOverride('${o.id}','${invoiceId}')">Zrušiť</button>`}
@@ -769,9 +772,9 @@
       };
       return `<div class="form-section">Zapísané výnimky</div>
         ${all.map(row).join('')}
-        <div style="font-size:12px;color:var(--ink-mute);margin-top:4px;">
+        <p class="muted-sm">
           Výnimka sa nemaže. Zrušenie ju len prestane uplatňovať — záznam
-          zostane aj s dôvodom.</div>`;
+          zostane aj s dôvodom.</p>`;
     },
 
     async grantOverride(invoiceId) {
@@ -864,19 +867,17 @@
       const cand = this.v2.periods.filter(p => p.status === 'closed' && !fakt.has(p.id))
         .sort((a, b) => String(b.period_to || '').localeCompare(String(a.period_to || '')));
       if (!cand.length) {
-        return UI.modal('Zo zákazky', `<div class="regimebox" style="margin:0;">
+        return UI.modal('Zo zákazky', `<div class="regimebox">
           Žiadne uzavreté obdobie nečaká na faktúru. Obdobie sa uzatvára v zákazke —
           <b>krok 7 · Hodiny a faktúra</b>: schváľte hodiny a kliknite „Uzavrieť obdobie".</div>
           <div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('subcontracts')">${Icon('site', 14)} Otvoriť zákazky</button></div>`);
       }
       const sc = (id) => this.v2.subcontracts.find(x => x.id === id) || {};
-      UI.modal('Z ktorého obdobia?', `<div class="pick-list">${cand.map(p => `
-        <button class="pick-tile" onclick="UI.closeModal();Inv.fromPeriod('${p.id}')">
-          <span class="pick-ico">${Icon('clock', 20)}</span>
-          <span class="pick-txt"><b>${UI.esc(sc(p.subcontract_id).title || 'Zákazka')}</b>
-            <em>${UI.dateRange(p.period_from, p.period_to)}${p.amount_charged != null ? ` · ${UI.money(p.amount_charged)}` : ''}</em></span>
-          <span class="pick-go">${Icon('chevron', 16)}</span></button>`).join('')}</div>`, { wide: true });
+      UI.modal('Z ktorého obdobia?', `<div class="pick-list">${cand.map(p => pickTile({ ico: 'clock',
+        title: UI.esc(sc(p.subcontract_id).title || 'Zákazka'),
+        sub: `${UI.dateRange(p.period_from, p.period_to)}${p.amount_charged != null ? ` · ${UI.money(p.amount_charged)}` : ''}`,
+        action: `UI.closeModal();Inv.fromPeriod('${p.id}')` })).join('')}</div>`, { wide: true });
     },
 
     async selfBill() {
@@ -916,15 +917,15 @@
             ${UI.field('due_date', 'Splatnosť', { type: 'date', value: x ? x.due_date : '' ,
               hint: x ? '' : 'Prázdne = podľa odberateľa (inak 30 dní).' })}
           </div>
-          <div id="regime-hint" class="regimebox" style="margin-bottom:6px;"></div>
+          <div id="regime-hint" class="regimebox"></div>
           ${zPodkladu ? `<div class="notebox">Suma tejto faktúry je z uzavretého obdobia (${UI.money(x.total)}).
             Mení sa v hodinách zákazky, nie tu — inak by faktúra nesedela s výkazom.</div>` : `
           <div class="form-section">Položky</div>
           <div id="item-rows"></div>
           <button type="button" class="btn btn-outline btn-sm" onclick="Inv.addRow()">${Icon('plus')} Pridať položku</button>
-          <div class="service-total" style="background:var(--field);border-color:var(--border);margin-top:14px;">
-            <div style="font-weight:700;">Spolu</div>
-            <div id="man-total" style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;">0,00 €</div>
+          <div class="service-total is-neutral">
+            <b>Spolu</b>
+            <span id="man-total" class="st-sum">0,00 €</span>
           </div>`}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -947,7 +948,7 @@
       el.innerHTML = p.reverse_charge === false
         ? `Režim: <strong>bežný</strong> — odberateľ nemá reverse charge.`
         : `Režim: <strong>reverse charge §13b</strong> — bez DPH, daň odvedie odberateľ.${
-          p.ust_idnr ? '' : ' <span style="color:var(--amber);">Odberateľ nemá USt-IdNr — bez neho sa faktúra neschváli.</span>'}`;
+          p.ust_idnr ? '' : ' <span class="tx-warn">Odberateľ nemá USt-IdNr — bez neho sa faktúra neschváli.</span>'}`;
     },
 
     async saveFree() {

@@ -16,6 +16,11 @@
     return `<p>${safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</p>`;
   }
 
+  /** Jeden riadok s `**tučným**` bez obalu `<p>` (úvod, riadok registra). */
+  function inline(s) {
+    return UI.esc(String(s || '')).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  }
+
   function section(icon, heading, items) {
     if (!items || !items.length) return '';
     return `<section class="hx-sec">
@@ -47,7 +52,7 @@
 
       UI.modal(t.title, `
         <div class="hx">
-          <p class="hx-lead">${UI.esc(t.lead)}</p>
+          <p class="hx-lead">${inline(t.lead)}</p>
           ${t.steps && t.steps.length ? `<section class="hx-sec">
             <h4>${Icon('check', 14)} Krok za krokom</h4>
             <ol class="hx-steps">${t.steps.map(x => `<li>${para(x).slice(3, -4)}</li>`).join('')}</ol>
@@ -64,10 +69,11 @@
                 ${Icon('chevron', 12)} ${UI.esc(label)}</button>`).join('')}
             </div>
           </section>` : ''}
-          <div class="hx-foot">
-            <button class="btn btn-ghost btn-sm" onclick="Help.index()">
-              ${Icon('help', 14)} Všetky vysvetlivky</button>
-          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button type="button" class="btn btn-outline" onclick="Help.index()">
+            ${Icon('help', 14)} Všetky vysvetlivky</button>
         </div>`, { wide: true });
     },
 
@@ -98,18 +104,19 @@
               const t = E().get(k);
               return `<button class="hx-item" onclick="Help.open('${k}')">
                 <strong>${UI.esc(t.title)}</strong>
-                <span>${UI.esc(t.lead)}</span>
+                <span>${inline(t.lead)}</span>
               </button>`;
             }).join('')}
           </div>
         </section>`;
       }).join('');
 
-      UI.modal('Postupy a vysvetlivky', `<div class="hx">
-        <p class="hx-lead">Hore sú postupy krok za krokom — zmluvy, objednávky, faktúry.
+      UI.modal('Postupy a vysvetlivky', `<p class="modal-lead">Hore sú postupy krok za krokom — zmluvy, objednávky, faktúry.
           Pod nimi ku každému číslu, čo to je, ako sa počíta a prečo je to takto spravené.</p>
-        ${html}
-      </div>`, { wide: true });
+        <div class="hx">${html}</div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+        </div>`, { wide: true });
     },
   };
 

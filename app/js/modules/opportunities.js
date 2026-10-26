@@ -156,12 +156,14 @@
         <form id="opp-form" onsubmit="event.preventDefault();Opp.save()">
           <div class="regimebox">Stačí to, čo viete z telefonátu. Ostatné sa dopĺňa potom —
             dopyt, ktorý nie je zapísaný, neexistuje.</div>
-          ${UI.field('title', 'O čo ide', { required: true,
-            placeholder: 'napr. Kotolňa Wörthsee — zvárači',
-            hint: 'Krátko, aby sa to dalo nájsť v zozname.' })}
-          ${UI.field('company_name', 'Firma', { placeholder: 'kto sa ozval' })}
-          ${UI.field('contact_phone', 'Telefón', {
-            hint: 'E-mail môže ležať tri dni. Telefón je to, čím sa dopyt pohne.' })}
+          <div class="form-grid">
+            <div class="fld-full">${UI.field('title', 'O čo ide', { required: true,
+              placeholder: 'napr. Kotolňa Wörthsee — zvárači',
+              hint: 'Krátko, aby sa to dalo nájsť v zozname.' })}</div>
+            ${UI.field('company_name', 'Firma', { placeholder: 'kto sa ozval' })}
+            ${UI.field('contact_phone', 'Telefón', {
+              hint: 'E-mail môže ležať tri dni. Telefón je to, čím sa dopyt pohne.' })}
+          </div>
           ${UI.field('brief', 'Čo potrebujú', { type: 'textarea', rows: 4,
             placeholder: 'Čo sa stavia, koľko ľudí, aké remeslo, odkedy, za koľko — '
               + 'aj neučesane, pokojne skopírovaný e-mail.' })}
@@ -516,7 +518,7 @@
           ${rows.length} ${Shell.plural(rows.length, 'stavbu', 'stavby', 'stavieb')}. Trvá to
           zvyčajne 1–2 minúty. Okno môžete zavrieť — podklady sa dopíšu aj tak
           a uvidíte ich v Nábore.</div>`
-          : `<div class="headline headline-ok" style="margin-bottom:12px;">${Icon('check', 18)}
+          : `<div class="headline headline-ok">${Icon('check', 18)}
             <span>Dopyty sú zapísané a ku každému je nábor.</span></div>`}
         <div class="prep-list">${rows.map(x => `
           <div class="prep-row prep-${x.state}">
@@ -541,12 +543,12 @@
             <li>Vložte inzeráty (web, Bazoš, Facebook) a kliknite na „Spustiť nábor".</li>
             <li>Kto sa ozve, tomu zavolajte do desiatich minút.</li>
           </ol>
-        </div>
+        </div>` : ''}
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal();Danubra.renderRoute()">Zavrieť</button>
-          <button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('hiring')">
-            ${Icon('zap')} Otvoriť nábor</button>
-        </div>` : ''}`, { wide: true });
+          ${!bezi ? `<button class="btn btn-primary" onclick="UI.closeModal();Danubra.go('hiring')">
+            ${Icon('zap')} Otvoriť nábor</button>` : ''}
+        </div>`, { wide: true });
       if (hotovo) {
         const ok = rows.filter(x => x.state === 'ok').length;
         UI.toast(`Hotovo — ${rows.length} ${Shell.plural(rows.length, 'nábor', 'nábory', 'náborov')}`
@@ -705,7 +707,7 @@
       const nabor = x.plan_id && window.Hire ? (Hire.plans || []).find(p => p.id === x.plan_id) : null;
       const DOVODY = ['Duplicita — ten istý dopyt je tu dvakrát', 'Zapísané omylom', 'Odberateľ to zrušil'];
       UI.modal('Odstrániť dopyt?', `
-        <p style="margin:0 0 12px;font-size:14px;"><b>${UI.esc(x.title)}</b></p>
+        <p class="modal-lead"><b>${UI.esc(x.title)}</b></p>
         <div class="regimebox">Zo zoznamu aj z počítadiel zmizne. Nič sa nemaže —
           nájdete ho pod „Odstránené" a dá sa vrátiť.</div>
         <div class="form-section">Prečo</div>
@@ -716,14 +718,14 @@
             <input id="opp-why-text" class="opp-why-text" placeholder="napíšte krátko"
               onfocus="document.querySelector('input[name=opp-why][value=__ine]').checked=true"></label>
         </div>
-        ${x.plan_id ? `<label class="chk" style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
+        ${x.plan_id ? `<div class="chk-row"><label class="chk" style="display:flex;gap:8px;align-items:flex-start;">
           <input type="checkbox" id="opp-plan-too" checked>
           <span>Zrušiť aj nábor${nabor ? ` „${UI.esc(nabor.title)}"` : ''}, ktorý z neho vznikol.
-            <em style="display:block;font-style:normal;color:var(--ink-mute);font-size:12.5px;">
-            Nábor sa nezmaže — dostane stav „zrušený" a texty ostanú.</em></span></label>` : ''}
+            <em class="muted-sm" style="display:block;font-style:normal;">
+            Nábor sa nezmaže — dostane stav „zrušený" a texty ostanú.</em></span></label></div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="UI.closeModal()">Nechať</button>
           <button class="btn btn-danger" onclick="Opp.archive('${x.id}')">${Icon('trash', 14)} Odstrániť</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
         </div>`);
     },
 

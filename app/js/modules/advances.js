@@ -99,14 +99,14 @@
       if (!this.loaded) await this.load();
       const aktivni = this.workers.filter(w => !['inactive', 'blacklist'].includes(w.status));
       UI.modal(what === 'expense' ? 'Komu preplatiť výdavok?' : 'Komu?', `
-        <input type="search" class="arch-q" style="width:100%;margin-bottom:8px;" placeholder="Hľadať meno…"
-          oninput="document.querySelectorAll('#adv-pick .pick-tile').forEach(b=>b.hidden=!b.dataset.n.includes(this.value.toLowerCase()))">
+        <label class="kpi-search pick-search">${Icon('search', 15)}<input type="search" placeholder="Hľadať meno…" aria-label="Hľadať meno"
+          oninput="document.querySelectorAll('#adv-pick .pick-tile').forEach(b=>b.hidden=!b.dataset.n.includes(this.value.toLowerCase()))"></label>
         <div class="pick-list" id="adv-pick">${aktivni.map(w => `
           <button class="pick-tile" data-n="${UI.esc(String(w.full_name || '').toLowerCase())}"
             onclick="UI.closeModal();${what ? `Wrk.payDo('${w.id}','${what}')` : `Wrk.payMenu('${w.id}')`}">
             <span class="pick-ico">${Icon('user', 18)}</span>
             <span class="pick-txt"><b>${UI.esc(w.full_name)}</b><em>${UI.esc(w.phone || '')}</em></span>
-            <span class="pick-go">${Icon('chevron', 16)}</span></button>`).join('')}</div>`, { wide: true });
+            <span class="pick-go">${Icon('chevron', 16)}</span></button>`).join('') || '<div class="js-empty">Zatiaľ žiadni ľudia.</div>'}</div>`, { wide: true });
     },
   };
 

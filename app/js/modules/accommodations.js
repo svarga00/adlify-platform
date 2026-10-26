@@ -123,8 +123,9 @@
         ${amen.length ? `<div class="chips">${amen.map(x => `<span class="chip">${UI.esc(x)}</span>`).join('')}</div>` : ''}
         ${a.notes ? `<div class="notebox">${UI.esc(a.notes)}</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Acc.del('${a.id}')">Zmazať</button>
-          <button class="btn btn-outline btn-sm" onclick="Acc.form('${a.id}')">Upraviť</button>
+          <button class="btn btn-danger" onclick="Acc.del('${a.id}')">Zmazať</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-primary" onclick="Acc.form('${a.id}')">Upraviť</button>
         </div>`;
       UI.modal(a.name, body, { wide: true });
     },
@@ -176,7 +177,9 @@
             ${UI.field('access_key_location', 'Kde sú kľúče', { value: a.access_key_location })}
             ${UI.field('deposit_amount', 'Kaucia €', { type: 'number', value: a.deposit_amount })}
           </div>
-          ${UI.field('amenities_csv', 'Vybavenie (čiarkou)', { value: (a.amenities || []).join(', '), placeholder: 'kitchen, wifi, tv' })}
+          <div class="form-grid">
+            <div class="fld-full">${UI.field('amenities_csv', 'Vybavenie (čiarkou)', { value: (a.amenities || []).join(', '), placeholder: 'kitchen, wifi, tv' })}</div>
+          </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: a.notes })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -212,8 +215,8 @@
     // ── CSV import ────────────────────────────────────────────────────────
     importCsv() {
       const body = `
-        <p style="font-size:13px;color:var(--ink-sub);margin-top:0;">
-          Prilep CSV. Prvý riadok = hlavičky. Rozpoznané stĺpce: <code>name, city, country, type,
+        <p class="modal-lead">
+          Prilepte CSV. Prvý riadok = hlavičky. Rozpoznané stĺpce: <code>name, city, country, type,
           price_per_bed_night, max_persons, beds, owner_name, owner_phone, owner_email</code></p>
         <textarea id="csv-in" rows="10" style="width:100%;font-family:monospace;font-size:12px;"
           placeholder="name,city,country,price_per_bed_night&#10;Haus Berlin,Berlin,DE,18"></textarea>

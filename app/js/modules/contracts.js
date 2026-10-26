@@ -157,14 +157,14 @@
           </div>
           <div class="note-body">${UI.esc(label)}: ${UI.esc(fmt(a.old_value))}
             → <strong>${UI.esc(fmt(a.new_value))}</strong>${a.reason ? `\n${UI.esc(a.reason)}` : ''}</div>
-          <span class="link-row" style="margin-top:6px;">
+          <span class="btn-row">
             ${a.signed_at ? '' : `<button class="link-chip"
               onclick="Con.signAmendment('${a.id}','${id}')">${Icon('check', 13)}
               <span>Prišiel podpísaný</span></button>`}
             ${a.storage_path
               ? `<button class="link-chip" onclick="Con.openAmendmentScan('${a.id}')">
                    ${Icon('doc', 13)}<span>Sken dodatku</span></button>`
-              : `<label class="link-chip" style="cursor:pointer;">${Icon('upload', 13)}
+              : `<label class="link-chip">${Icon('upload', 13)}
                    <span>Nahrať sken</span>
                    <input type="file" hidden accept="application/pdf,image/*"
                      onchange="Con.uploadAmendmentScan('${a.id}','${id}', this)"></label>`}
@@ -175,7 +175,7 @@
       const body = `
         <div class="detail-head">
           ${UI.badge(Enums.label('contract_status', c.status), this.statusKind(c.status))}
-          ${c.contract_number ? `<span class="mono" style="color:var(--ink-mute);">${UI.esc(c.contract_number)}</span>` : ''}
+          ${c.contract_number ? `<span class="mono doc-no">${UI.esc(c.contract_number)}</span>` : ''}
           <select class="verif-sel" onchange="Con.setStatus('${c.id}',this.value)">
             ${Enums.options('contract_status').map(([k, l]) =>
               `<option value="${k}" ${c.status === k ? 'selected' : ''}>${UI.esc(l)}</option>`).join('')}
@@ -199,10 +199,9 @@
         </div>
 
         ${site ? `<div class="form-section">Miesto plnenia</div>
-          <div style="font-size:13px;">${Icon('map', 14)} ${UI.esc(site)}</div>` : ''}
+          <div>${Icon('map', 14)} ${UI.esc(site)}</div>` : ''}
 
-
-        ${c.retention_pct ? `<div class="regimebox" style="margin-top:10px;">
+        ${c.retention_pct ? `<div class="regimebox">
           Odberateľ si zadrží ${UI.pct(c.retention_pct)} až do konca
           záruky${c.warranty_months ? ` (${c.warranty_months} mesiacov od prevzatia)` : ''}.
           Tie peniaze do výhľadu cash-flow nepatria hneď.</div>` : ''}
@@ -214,29 +213,30 @@
           <div class="notebox">${UI.esc(c.penalty_note)}</div>` : ''}
 
         ${kontakt.length ? `<div class="form-section">Kontakt na strane odberateľa</div>
-          <div style="font-size:13px;">${kontakt.map(UI.esc).join(' · ')}</div>` : ''}
+          <div>${kontakt.map(UI.esc).join(' · ')}</div>` : ''}
 
         ${c.notes ? `<div class="notebox">${UI.esc(c.notes)}</div>` : ''}
 
         <div class="form-section">Dodatky</div>
-        ${locked ? `<div class="regimebox" style="margin:0 0 10px;">
+        ${locked ? `<div class="regimebox">
           Zmluva je podpísaná. Koniec platnosti a sadzba sa už neprepisujú —
           každá zmena je dodatok a zostane v histórii. Stráži to databáza,
-          nie táto obrazovka.</div>` : `<div class="regimebox" style="margin:0 0 10px;">
+          nie táto obrazovka.</div>` : `<div class="regimebox">
           Zmluva ešte nie je podpísaná, takže sa dá upraviť priamo. Po podpise
           budú koniec platnosti a sadzba chránené.</div>`}
         ${am.length ? `<div class="notes-list">${am.map(amRow).join('')}</div>`
-          : '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadny dodatok.</div>'}
-        ${locked ? `<button class="btn btn-outline btn-sm" style="margin-top:8px;"
-          onclick="Con.amendForm('${c.id}')">${Icon('plus')} Nový dodatok</button>` : ''}
+          : '<div class="js-empty">Zatiaľ žiadny dodatok.</div>'}
+        ${locked ? `<div class="btn-row"><button class="btn btn-outline btn-sm"
+          onclick="Con.amendForm('${c.id}')">${Icon('plus')} Nový dodatok</button></div>` : ''}
 
         <div class="form-section">Podpísaný originál</div>
         ${this.scanHtml(c)}
 
         <div class="modal-actions">
-          <button class="btn btn-outline btn-sm" onclick="Con.document('${c.id}')">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Con.document('${c.id}')">
             ${Icon('doc', 14)} Zmluva ako dokument</button>
-          <button class="btn btn-outline btn-sm" onclick="Con.form('${c.id}')">Upraviť</button>
+          <button class="btn btn-primary" onclick="Con.form('${c.id}')">Upraviť</button>
         </div>`;
       UI.modal(c.title, body, { wide: true });
     },
@@ -248,27 +248,25 @@
 
     scanHtml(c) {
       if (!c.storage_path) {
-        return `<div style="font-size:13px;color:var(--ink-mute);margin-bottom:6px;">
-            Naskenovaný originál tu zatiaľ nie je.</div>
-          <label class="link-chip" style="cursor:pointer;">${Icon('upload', 13)}
+        return `<div class="js-empty">Naskenovaný originál tu zatiaľ nie je.</div>
+          <div class="btn-row"><label class="link-chip">${Icon('upload', 13)}
             <span>Nahrať sken</span>
             <input type="file" hidden accept="application/pdf,image/*"
-              onchange="Con.uploadScan('${c.id}', this)"></label>`;
+              onchange="Con.uploadScan('${c.id}', this)"></label></div>`;
       }
-      return `<div class="list-row" style="cursor:default;align-items:center;">
+      return `<div class="list-row is-static">
           ${this.thumbHtml(c)}
-          <span style="flex:1;font-size:13px;">
+          <span class="lr-main">
             <strong>Podpísaný originál</strong>
-            <span style="display:block;color:var(--ink-mute);font-size:12px;">
-              ${UI.esc(String(c.storage_path).split('/').pop())}</span>
+            <span class="lr-sub">${UI.esc(String(c.storage_path).split('/').pop())}</span>
           </span>
           <button class="link-chip" onclick="Con.preview('${c.id}')">${Icon('search', 13)}<span>Náhľad</span></button>
           <button class="link-chip" onclick="Con.openScan('${c.id}')">${Icon('doc', 13)}<span>Otvoriť</span></button>
         </div>
-        <label class="link-chip" style="cursor:pointer;margin-top:6px;">${Icon('upload', 13)}
+        <div class="btn-row"><label class="link-chip">${Icon('upload', 13)}
           <span>Nahradiť</span>
           <input type="file" hidden accept="application/pdf,image/*"
-            onchange="Con.uploadScan('${c.id}', this)"></label>`;
+            onchange="Con.uploadScan('${c.id}', this)"></label></div>`;
     },
 
     /** Dlaždica vedľa riadku. Z PDF sa v malom nič neprečíta, tak tam stačí ikona. */
@@ -329,8 +327,8 @@
           ? `<iframe class="doc-view doc-view-pdf" src="${UI.esc(url)}" title="Sken zmluvy"></iframe>`
           : `<img class="doc-view" src="${UI.esc(url)}" alt="Sken zmluvy">`}
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="Con.detail('${c.id}')">Späť</button>
-          <button class="btn btn-outline" onclick="Con.openScan('${c.id}')">Otvoriť v novej karte</button>
+          <button class="btn btn-ghost" onclick="Con.detail('${c.id}')">Zavrieť</button>
+          <button class="btn btn-primary" onclick="Con.openScan('${c.id}')">Otvoriť v novej karte</button>
         </div>`, { wide: true });
     },
 
@@ -387,7 +385,7 @@
 
       const body = `
         <form id="con-form" onsubmit="event.preventDefault();Con.save('${id || ''}')">
-          ${preset && preset.quote_id ? `<div class="regimebox" style="margin:0 0 12px;">
+          ${preset && preset.quote_id ? `<div class="regimebox">
             Zmluva vzniká z prijatej ponuky. Predmet diela sa <strong>nepredvyplnil</strong> —
             napíšte ho v reči diela („dodávka a montáž sadrokartónových priečok…"),
             nie v hodinách.</div>` : ''}
@@ -404,7 +402,7 @@
           </div>
 
           <div class="form-section">Predmet diela</div>
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Píšte dielo, nie hodiny. Pri kontrole rozhoduje obsah zmluvy, nie jej
             názov — „4 pracovníci na 160 hodín mesačne" je znak skrytej
             Arbeitnehmerüberlassung, „dodávka a montáž priečok na 2. NP" nie je.</div>
@@ -420,7 +418,7 @@
           </div>
 
           <div class="form-section">Cena</div>
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Fakturujeme <strong>vždy po hodinách</strong>. Zmluva preto obsahuje vetu, že
             hodinová sadzba je podkladom na výpočet odmeny za dielo — a dielo (rozsah
             prác) musí byť v zmluve opísané. To je to, čo ju drží ako Werkvertrag.</div>
@@ -449,7 +447,7 @@
             ${UI.field('notice_days', 'Výpovedná lehota (dní)', { type: 'number',
               value: c.notice_days })}
           </div>
-          <div class="regimebox" style="margin:10px 0;">
+          <div class="regimebox">
             Zádržné býva 5 % a odberateľ si ho drží až do konca záruky. Kto
             s ním počíta ako s peniazmi na ceste, má vo výhľade o toľko viac,
             než reálne príde.</div>
@@ -531,7 +529,7 @@
       if (!c) return;
       const body = `
         <form id="am-form" onsubmit="event.preventDefault();Con.saveAmendment('${contractId}')">
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Dodatok sa nedá zmazať ani prepísať. Pôvodná hodnota zostane
             v histórii zmluvy — presne preto, aby sa dalo spätne povedať, na čo
             sa odberateľ podpísal.</div>
@@ -547,11 +545,11 @@
           ${UI.field('reason', 'Prečo', { type: 'textarea', rows: 2,
             placeholder: 'napr. odberateľ predĺžil stavbu o štyri mesiace' })}
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Con.detail('${contractId}')">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="Con.detail('${contractId}')">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Zapísať dodatok</button>
           </div>
         </form>`;
-      UI.modal('Nový dodatok', body);
+      UI.modal('Nový dodatok', body, { wide: true });
     },
 
     /**

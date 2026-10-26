@@ -160,6 +160,8 @@
       const i = id ? this.items.find(x => x.id === id) || {} : {};
       const body = `
         <form id="cmp-form" onsubmit="event.preventDefault();Cmp.save('${id || ''}')">
+          <div class="regimebox">Pri položkách s obmedzenou platnosťou žiadajte o predĺženie
+          s predstihom — §48b sa vybavuje 4 až 8 týždňov, A1 až 45 dní.</div>
           <div class="form-grid">
             ${UI.field('kind', 'Typ', { value: i.kind || presetKind || 'freistellung_48b',
               options: KINDS.map(k => [k[0], k[1]]) })}
@@ -171,10 +173,8 @@
           </div>
           ${UI.field('file_url', 'Odkaz na dokument', { type: 'url', value: i.file_url })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2, value: i.notes })}
-          <div class="regimebox">Pri položkách s obmedzenou platnosťou žiadajte o predĺženie
-          s predstihom — §48b sa vybavuje 4 až 8 týždňov, A1 až 45 dní.</div>
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger btn-sm" onclick="Cmp.del('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Cmp.del('${id}')">Zmazať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
