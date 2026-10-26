@@ -357,6 +357,11 @@
           ['email', 'E-mail', 'email'],
           ['phone', 'Telefón', 'text'],
           ['address', 'Adresa', 'text'],
+          // Hlavička a päta dokumentov (vzhľad punds). Prázdne = pri Partner
+          // und Service „punds" a web z domény e-mailu.
+          ['brand', 'Značka v hlavičke dokumentov', 'text', '', 'napr. punds'],
+          ['web', 'Web na dokumentoch', 'text', '', 'napr. punds.eu'],
+          ['bic', 'BIC / SWIFT', 'text', '', 'napr. TATRSKBX'],
           ['vat_note', 'Poznámka k DPH', 'text', 'Nie sme platiteľmi DPH.'],
         ]) +
 

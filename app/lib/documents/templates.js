@@ -16,7 +16,14 @@
 // (ktorý vzniká až po úhrade) — nikdy v offer ani order_confirmation.
 // ============================================================================
 (function () {
-  const BRAND = { orange: '#F07E22', blue: '#1E4FD8', navy: '#0A1B3D' };
+  // Vzhľad podľa návrhu „PUNDS — Tlačoviny a e-maily": tmavomodrá a oranžová,
+  // písmo Outfit na nadpisy a sumy, Hanken Grotesk na text. Rovnaká hlavička
+  // a päta na faktúre, výkaze, objednávke aj zmluve — papiere pre nemecké
+  // firmy aj pre živnostníkov vyzerajú ako od jednej firmy.
+  const BRAND = {
+    orange: '#F07F1A', navy: '#0E1626', sub: '#4A5570', mute: '#6F7A92',
+    lbl: '#8C97AD', line: '#E6E8EC', soft: '#F4F4F1',
+  };
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -31,121 +38,174 @@
   /** Text bez diakritiky — pre SMS (GSM-7). */
   const noDia = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-  // Znak, nie písmeno. Dokument ide odberateľovi a názov na ňom má byť ten
-  // z Nastavení — nie natvrdo zapísaný v kóde.
-  const LOGO = `<svg viewBox="0 0 100 100" width="28" height="28" style="display:block">
-    <rect x="4" y="56" width="24" height="40" rx="2" fill="${BRAND.navy}"/>
-    <rect x="38" y="32" width="24" height="64" rx="2" fill="${BRAND.navy}"/>
-    <rect x="72" y="4" width="24" height="92" rx="2" fill="${BRAND.orange}"/>
+  // Znak punds: dva oblúky, tmavý a oranžový.
+  const LOGO = `<svg viewBox="2.25 7.25 43.5 33.5" width="44" height="34" fill="none" style="display:block">
+    <path d="M6 34 V20 A9 9 0 0 1 24 20 V28" stroke="${BRAND.navy}" stroke-width="7.5" stroke-linecap="round"/>
+    <path d="M24 28 A9 9 0 0 0 42 28 V14" stroke="${BRAND.orange}" stroke-width="7.5" stroke-linecap="round"/>
   </svg>`;
+
+  /**
+   * Značka v hlavičke: krátky názov (punds) a pod ním celý názov drobným
+   * písmom. Krátky názov je z Nastavení (`brand`); kým tam nie je, pri
+   * „Partner und Service" je to punds. Iná firma má v hlavičke celý názov.
+   */
+  function brandOf(s = {}) {
+    const name = String((s && s.name) || '').trim();
+    const brand = String((s && s.brand) || '').trim()
+      || (/^partner\s+und\s+service\b/i.test(name) ? 'punds' : '');
+    const bezFormy = name.replace(/,?\s*(spol\.\s*s\s*r\.\s*o\.|s\.\s*r\.\s*o\.|a\.\s*s\.|GmbH|UG|k\.\s*s\.)\s*$/i, '').trim();
+    const sub = String((s && s.tagline) || '').trim() || (brand ? bezFormy : '');
+    return { name, brand, sub };
+  }
+
+  /** Web firmy: z Nastavení, inak z domény e-mailu (info@punds.eu → punds.eu). */
+  function webOf(s = {}) {
+    if (s && s.web) return String(s.web).replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const d = String((s && s.email) || '').split('@')[1] || '';
+    return d && !/^(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|azet|zoznam|centrum|post|atlas|seznam|gmx|web|t-online)\./i.test(d) ? d : '';
+  }
 
   const CSS = `
     *{box-sizing:border-box}
-    body{margin:0;padding:0;background:#fff;color:${BRAND.navy};
-      font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.55}
-    .page{max-width:800px;margin:0 auto;padding:38px 44px}
-    .head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
-      padding-bottom:18px;border-bottom:2px solid ${BRAND.navy}}
-    .brand{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+    html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{margin:0;padding:0;background:#E9EAEC;color:${BRAND.navy};
+      font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:12.5px;line-height:1.55}
+    h1,h2,h3,.brand-word,.brand-name{font-family:Outfit,'Hanken Grotesk',Arial,sans-serif}
+    /* Na obrazovke je dokument biely list A4 s oranžovým pruhom dole. */
+    .page{position:relative;max-width:794px;margin:22px auto;padding:44px 53px 34px;background:#fff;
+      box-shadow:0 1px 2px rgba(14,22,38,.08),0 16px 40px rgba(14,22,38,.14)}
+    .page::after{content:'';position:absolute;left:0;right:0;bottom:0;height:6px;background:${BRAND.orange}}
+    .page:has(.runfoot.plain)::after{display:none}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:26px}
+    .brand{display:flex;align-items:center;gap:12px;flex:0 0 auto;min-width:0}
+    .brand svg{flex:none}
+    .brand-word{font-weight:700;font-size:31px;line-height:.8;letter-spacing:-.045em;color:${BRAND.navy}}
     /* „Partner und Service s. r. o." sa nesmie zlomiť na „s. r." a „o." —
        názov firmy na doklade vyzerá potom ako preklep. */
-    .brand-name{font-size:19px;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
-    .brand-sub{font-size:9.5px;letter-spacing:.16em;color:#6F7C95;font-family:ui-monospace,monospace}
-    .doc-title{text-align:right;flex:1 1 auto;min-width:0}
-    .doc-title h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em}
-    .doc-title .num{font-family:ui-monospace,monospace;font-size:13px;color:${BRAND.orange};font-weight:700}
-    .cols{display:flex;gap:34px;margin:24px 0}
-    .col{flex:1}
-    .lbl{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#96A2BA;font-weight:700;
-      font-family:ui-monospace,monospace;margin-bottom:5px}
-    .val{font-size:13px}
-    .val strong{font-size:14px}
-    table{width:100%;border-collapse:collapse;margin:18px 0}
-    th{text-align:left;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#96A2BA;
-      font-family:ui-monospace,monospace;padding:8px 10px;border-bottom:1.5px solid #E3EAF7}
-    td{padding:10px;border-bottom:1px solid #EEF2FB;font-size:13px;vertical-align:top}
+    .brand-name{font-weight:700;font-size:19px;line-height:1.15;letter-spacing:-.02em;text-wrap:balance;max-width:300px}
+    .brand-sub{font-size:6.8px;font-weight:500;letter-spacing:.26em;color:${BRAND.mute};text-transform:uppercase;line-height:1.2;margin-top:9px}
+    .doc-title{text-align:right;flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+    .doc-title h1{margin:0 0 3px;font-size:26px;font-weight:700;line-height:1.08;letter-spacing:-.03em;text-wrap:balance}
+    .doc-title .meta{font-size:10.5px;color:${BRAND.mute};line-height:1.45}
+    .doc-title .meta b,.doc-title .num{color:${BRAND.navy};font-weight:600}
+    .cols{display:flex;gap:28px;margin:22px 0}
+    .col{flex:1;min-width:0}
+    .cols.boxed{gap:14px}
+    .cols.boxed .col{background:${BRAND.soft};border-radius:8px;padding:13px 15px}
+    .lbl{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:${BRAND.lbl};font-weight:600;margin-bottom:5px}
+    .val{font-size:11.5px;color:${BRAND.sub};line-height:1.6;overflow-wrap:anywhere}
+    .val strong{font-size:13px;color:${BRAND.navy};font-weight:600}
+    table{width:100%;border-collapse:collapse;margin:16px 0}
+    th{text-align:left;font-size:8.8px;letter-spacing:.1em;text-transform:uppercase;color:${BRAND.mute};font-weight:600;
+      padding:9px 8px;background:${BRAND.soft}}
+    td{padding:9px 8px;border-bottom:1px solid ${BRAND.line};font-size:11.5px;vertical-align:top;color:${BRAND.navy}}
     td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
-    .total{display:flex;justify-content:flex-end;margin-top:6px}
-    .total-box{min-width:320px}
-    .total-row{display:flex;justify-content:space-between;gap:18px;padding:6px 10px;font-size:13px}
-    .total-row.sum{border-top:2px solid ${BRAND.navy};margin-top:5px;padding-top:10px;
-      font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
-    .pay{display:flex;gap:26px;align-items:flex-start;background:#F7F9FD;border:1px solid #E3EAF7;
-      border-radius:12px;padding:16px 18px;margin-top:22px}
-    .note{background:#F7F9FD;border-left:3px solid ${BRAND.orange};padding:11px 15px;margin:18px 0;font-size:12.5px}
-    .foot{margin-top:34px;padding-top:14px;border-top:1px solid #E3EAF7;
-      font-size:10.5px;color:#96A2BA;display:flex;justify-content:space-between;gap:16px}
-    ul.clean{margin:8px 0;padding-left:18px}
+    td strong{font-weight:600}
+    .total{display:flex;justify-content:flex-end;margin-top:4px}
+    .total-box{min-width:300px;display:flex;flex-direction:column;gap:2px}
+    .total-row{display:flex;justify-content:space-between;align-items:baseline;gap:18px;padding:4px 2px;font-size:11.5px;
+      color:${BRAND.sub};font-variant-numeric:tabular-nums}
+    .total-row.sum{margin-top:6px;padding:11px 14px;background:${BRAND.navy};color:#fff;border-radius:7px;font-weight:600;font-size:12.5px}
+    .total-row.sum span:last-child{white-space:nowrap;font-family:Outfit,Arial,sans-serif;font-weight:700;font-size:20px;color:${BRAND.orange};letter-spacing:-.01em}
+    .pay{display:flex;gap:26px;align-items:flex-start;background:${BRAND.soft};border-radius:10px;padding:16px 18px;margin-top:20px}
+    .pay .val strong{font-size:12px}
+    .note{background:${BRAND.soft};border-left:3px solid ${BRAND.orange};border-radius:0 6px 6px 0;padding:11px 14px;margin:16px 0;
+      font-size:11px;line-height:1.6;color:${BRAND.sub}}
+    .note strong{color:${BRAND.navy}}
+    .note.info{border-left-color:${BRAND.navy}}
+    /* Záverečná veta dokumentu (napr. že platí po podpise). Údaje firmy sú v päte. */
+    .foot{margin-top:26px;font-size:9.5px;color:${BRAND.lbl};text-align:center}
+    .runfoot{margin-top:28px;padding-top:11px;border-top:1px solid ${BRAND.line};display:grid;
+      grid-template-columns:1.35fr 1fr 1fr;gap:16px;font-size:9px;line-height:1.55;color:${BRAND.mute}}
+    .runfoot>div{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+    .runfoot strong{color:${BRAND.navy};font-weight:600}
+    ul.clean{margin:8px 0;padding-left:18px;color:${BRAND.sub}}
     ul.clean li{margin:4px 0}
+    ul.clean li::marker{color:${BRAND.orange}}
+    ul.clean strong{color:${BRAND.navy}}
     /* Zmluva má paragrafy a podpisy — dokument, ktorý sa podpisuje perom,
        potrebuje miesto na to pero. */
     .par{margin:14px 0 0}
-    .par h3{font-size:12.5px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;
-      color:${BRAND.navy}}
-    .par p{margin:0 0 6px;font-size:12.5px;line-height:1.55}
+    .par h3{font-size:13px;font-weight:600;margin:0 0 5px;letter-spacing:-.01em;color:${BRAND.navy}}
+    .par h3 .cl{color:${BRAND.orange};font-weight:700;margin-right:6px}
+    .par p{margin:0 0 6px;font-size:11.5px;line-height:1.6;color:${BRAND.sub}}
+    .par p strong{color:${BRAND.navy}}
     /* Odstavce zmluvy sú číslované — v spore sa odkazuje na „čl. V bod 2". */
-    .par-ol{margin:0;padding-left:20px;font-size:12.5px;line-height:1.55}
+    .par-ol{margin:0;padding-left:22px;font-size:11.5px;line-height:1.6;color:${BRAND.sub}}
     .par-ol li{margin:0 0 5px}
+    .par-ol li::marker{color:${BRAND.mute};font-weight:600}
+    .par-ol strong{color:${BRAND.navy}}
     /* Dvojjazyčný odstavec: vľavo slovensky, vpravo nemecky, pod sebou číslo.
        Takto je vidieť, že obe verzie hovoria to isté. */
-    .bil{display:grid;grid-template-columns:22px 1fr 1fr;gap:0 14px;margin:0 0 9px;
-      page-break-inside:avoid}
-    .bil-n{font-size:12px;color:#96A2BA;font-weight:700;padding-top:1px}
-    .bil-sk,.bil-de{font-size:11.5px;line-height:1.5}
-    .bil-de{color:#44506B}
+    .bil{display:grid;grid-template-columns:22px 1fr 1fr;gap:0 14px;margin:0 0 9px;page-break-inside:avoid}
+    .bil-n{font-family:Outfit,Arial,sans-serif;font-size:11px;color:${BRAND.orange};font-weight:700;padding-top:1px}
+    .bil-sk,.bil-de{font-size:10.8px;line-height:1.55;color:${BRAND.navy}}
+    .bil-de{color:${BRAND.sub}}
     @media print{.bil{grid-template-columns:22px 1fr 1fr}}
-    .sigs{display:flex;gap:40px;margin-top:38px;page-break-inside:avoid}
+    .sigs{display:flex;gap:40px;margin-top:36px;page-break-inside:avoid}
     .sig{flex:1}
-    .sig .line{border-bottom:1px solid #6F7C95;height:46px;position:relative}
+    .sig .line{border-bottom:1px solid ${BRAND.navy};height:46px;position:relative}
     .sig .stamp{position:absolute;left:8px;bottom:2px;max-height:92px;max-width:210px;object-fit:contain}
     .stamp-inv{display:flex;justify-content:flex-end;margin-top:-6px}
     .stamp-inv img{max-height:100px;max-width:220px;object-fit:contain}
-    .sig .who{font-size:11px;color:#6F7C95;margin-top:5px}
-    .ss-h{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#96A2BA;
-      font-family:ui-monospace,monospace;margin:26px 0 10px;padding-bottom:6px;
-      border-bottom:1px solid #E3EAF7;page-break-after:avoid}
-    .ss-row{display:flex;gap:18px;padding:7px 0;border-bottom:1px solid #EEF2FB;
-      page-break-inside:avoid}
-    .ss-row .lbl{flex:0 0 150px;margin:0;padding-top:2px}
-    .ss-row .val{flex:1;min-width:0}
+    .sig .who{font-size:9.5px;color:${BRAND.mute};margin-top:6px}
+    .ss-h{font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:${BRAND.navy};margin:24px 0 8px;
+      padding-left:10px;border-left:3px solid ${BRAND.orange};line-height:1.25;page-break-after:avoid}
+    .ss-row{display:flex;gap:18px;padding:8px 0;border-bottom:1px solid ${BRAND.line};page-break-inside:avoid}
+    .ss-row .lbl{flex:0 0 150px;margin:0;padding-top:3px}
+    .ss-row .val{flex:1;min-width:0;color:${BRAND.navy}}
     /* Chýbajúci údaj sa nevynechá potichu — prázdny riadok vyzerá ako „netreba". */
     .todo{color:#C25C0C;font-weight:600}
     .codes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
-    .code{background:#F7F9FD;border:1px solid #E3EAF7;border-radius:10px;padding:11px 14px}
-    .code .v{font-family:ui-monospace,monospace;font-size:19px;font-weight:600;letter-spacing:.05em}
-    .toolbar{position:sticky;top:0;background:${BRAND.navy};color:#fff;padding:10px 20px;
-      display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .code{background:${BRAND.soft};border-radius:8px;padding:11px 14px}
+    .code .v{font-family:Outfit,Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:.03em}
+    a{color:${BRAND.navy};text-decoration:underline;text-decoration-color:${BRAND.orange};text-underline-offset:2px}
+    .toolbar{position:sticky;top:0;z-index:5;background:${BRAND.navy};color:#fff;padding:10px 20px;
+      display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:'Hanken Grotesk',Arial,sans-serif}
     .toolbar button{background:${BRAND.orange};color:#fff;border:0;border-radius:8px;
       padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
     .tb-title{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .tb-acts{display:flex;gap:8px;flex:none}
     .toolbar .tb-2{background:transparent;border:1.5px solid rgba(255,255,255,.5)}
-    .edit-hint{display:none;background:#EAF0FF;color:#1E4FD8;font-size:12.5px;padding:8px 20px;text-align:center}
+    .edit-hint{display:none;background:#FFF4EA;color:${BRAND.navy};font-size:12.5px;padding:8px 20px;text-align:center}
     body.editing .edit-hint{display:block}
-    body.editing .page{outline:2px dashed #1E4FD8;outline-offset:4px}
+    body.editing .page{outline:2px dashed ${BRAND.orange};outline-offset:4px}
     body.editing .page:focus{outline-style:solid}
-    @media (max-width:640px){body:not(.pdf-mode) .page{padding:22px 16px}body:not(.pdf-mode) .cols{flex-direction:column;gap:14px}
+    @media (max-width:640px){body:not(.pdf-mode){background:#fff}
+      body:not(.pdf-mode) .page{margin:0;padding:22px 16px 28px;box-shadow:none}body:not(.pdf-mode) .cols{flex-direction:column;gap:14px}
       body:not(.pdf-mode) .sigs{flex-direction:column;gap:24px}.toolbar{padding:8px 12px}.toolbar button{padding:8px 10px;font-size:12px}
       .tb-title{display:none}.toolbar{justify-content:flex-end;flex-wrap:wrap}.tb-acts{flex-wrap:wrap;justify-content:flex-end}
       body:not(.pdf-mode) .total-box{min-width:0;width:100%}
-      body:not(.pdf-mode) .head{flex-direction:column;gap:12px}body:not(.pdf-mode) .doc-title{text-align:left}}
+      body:not(.pdf-mode) .runfoot{grid-template-columns:1fr;gap:8px}
+      body:not(.pdf-mode) .head{flex-direction:column;gap:14px}
+      body:not(.pdf-mode) .doc-title{text-align:left;align-items:flex-start}}
     /* Rám na tlač: hlavička a päta tabuľky sa opakujú na každej strane, takže
        okraj je aj na druhej strane — a @page môže mať nulový okraj. Pri
        nulovom okraji Chrome nemá kam dať adresu stránky a dátum. */
     table.pf{margin:0;width:100%}
     table.pf>thead>tr>td,table.pf>tbody>tr>td,table.pf>tfoot>tr>td{padding:0;border:0}
-    .pf-sp{height:0}
+    .pf-sp,.pf-sp-b{height:0}
     .tb-doc{display:none}
     body.has-doc .tb-doc{display:inline-block}
     body.has-doc .tb-print-only{display:none}
     /* Počas výroby PDF nesmie byť v dokumente lišta ani rámik úprav. */
     body.pdf-mode .page{outline:0}
-    .tb-msg{display:none;background:#FFF4EA;color:#0A1B3D;font-size:13px;padding:9px 20px;text-align:center}
+    /* Strana PDF (Docs.makePdf): päta a oranžový pruh na každej strane. */
+    .pdf-sheet{position:relative;background:#fff;overflow:hidden}
+    .pdf-sheet .runfoot{position:absolute;margin:0}
+    .pdf-sheet .pdf-bar{position:absolute;left:0;right:0;bottom:0;height:6px;background:${BRAND.orange}}
+    .pdf-sheet .pdf-pno{position:absolute;font-size:8.5px;color:${BRAND.mute}}
+    .tb-msg{display:none;background:#FFF4EA;color:${BRAND.navy};font-size:13px;padding:9px 20px;text-align:center}
     .tb-msg.on{display:block}
     .tb-msg button{margin-left:10px;background:${BRAND.orange};color:#fff;border:0;border-radius:8px;
       padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer}
-    @media print{.toolbar,.edit-hint,.tb-msg{display:none!important}.page{padding:0 16mm;outline:0!important;max-width:none}
-      .pf-sp{height:14mm}@page{size:A4;margin:0}}
+    /* Tlač: päta a pruh sú na každej strane (position:fixed sa pri tlači
+       opakuje), miesto pre ne drží prázdna päta rámu. */
+    @media print{body{background:#fff}.toolbar,.edit-hint,.tb-msg{display:none!important}
+      .page{margin:0;padding:0 14mm;outline:0!important;max-width:none;box-shadow:none;position:static}
+      .page::after{position:fixed;left:0;right:0;bottom:0;height:6px}
+      .runfoot{position:fixed;left:14mm;right:14mm;bottom:8mm;margin:0;background:#fff}
+      .pf-sp{height:12mm}.pf-sp-b{height:30mm}@page{size:A4;margin:0}}
   `;
 
   /**
@@ -154,14 +214,18 @@
    * neukladá do appky — platí pre tento výtlačok. Faktúra sa takto upravovať
    * nedá (`editable: false`): vystavený doklad sa nemení.
    */
-  function shell(title, bodyHtml, { toolbar = true, editable = true } = {}) {
+  function shell(title, bodyHtml, { toolbar = true, editable = true, lang = 'sk' } = {}) {
+    // Písmo Outfit (veľká suma na úhradu) nemá šírku pevnej medzery — „12.400,00€"
+    // by sa zlepilo. V tom riadku je preto obyčajná medzera (riadok sa aj tak nezalomí).
+    bodyHtml = String(bodyHtml).replace(/<div class="total-row sum">[\s\S]*?<\/div>/g, (m) => m.replace(/\u00a0|\u202f/g, ' '));
     const upravit = editable ? `<button class="tb-2" onclick="(function(b){var p=document.querySelector('.page');`
       + `var on=p.isContentEditable;p.contentEditable=on?'false':'true';document.body.classList.toggle('editing',!on);`
       + `b.textContent=on?'Upraviť text':'Hotovo';if(!on)p.focus();})(this)">Upraviť text</button>` : '';
-    return `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8">
+    return `<!DOCTYPE html><html lang="${lang === 'de' ? 'de' : 'sk'}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${CSS}</style></head><body>
 ${toolbar ? `<div class="toolbar"><span class="tb-title">${esc(title)}</span>
 <span class="tb-acts">${upravit}<button class="tb-2 tb-doc" onclick="window.print()">Tlačiť</button><button class="tb-2 tb-doc" onclick="window.__doc&&window.__doc('share')">Poslať</button><button class="tb-doc" onclick="window.__doc&&window.__doc('pdf')">Stiahnuť PDF</button><button class="tb-print-only" onclick="window.print()">Uložiť ako PDF / vytlačiť</button></span></div>
@@ -169,36 +233,47 @@ ${toolbar ? `<div class="toolbar"><span class="tb-title">${esc(title)}</span>
 ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. Zmena platí pre tento dokument — potom „Stiahnuť PDF".</div>' : ''}` : ''}
 <div class="page"><table class="pf"><thead><tr><td><div class="pf-sp"></div></td></tr></thead>
 <tbody><tr><td><div class="pf-main">${bodyHtml}</div></td></tr></tbody>
-<tfoot><tr><td><div class="pf-sp"></div></td></tr></tfoot></table></div></body></html>`;
+<tfoot><tr><td><div class="pf-sp-b"></div></td></tr></tfoot></table></div></body></html>`;
   }
 
   /**
-   * Hlavička dokumentu. Meno firmy je z Nastavení — keď tam nie je, zostane
-   * len znak. Vymyslené meno na doklade je horšie než žiadne.
+   * Hlavička dokumentu: vľavo značka, vpravo názov dokumentu, číslo a údaje
+   * („Datum: 24.10.2026" sa vypíše ako popis a tučná hodnota). Meno firmy
+   * je z Nastavení — keď tam nie je, zostane len znak. Vymyslené meno na
+   * doklade je horšie než žiadne.
+   *
+   * @param {string} lang  'sk' | 'de' | 'both' — popis pri čísle (č. / Nr.)
    */
-  function header(docTitle, number, meta = [], supplier = null) {
-    const name = supplier && supplier.name;
+  function header(docTitle, number, meta = [], supplier = null, lang = 'sk') {
+    const b = brandOf(supplier || {});
+    const pevne = (t) => esc(t).replace(/\b(s\.|r\.|o\.|a\.|spol\.|GmbH|UG)\s/g, (m) => m.trim() + '&nbsp;');
+    const znacka = b.brand
+      ? `<div><div class="brand-word">${esc(b.brand)}</div>${b.sub ? `<div class="brand-sub">${esc(b.sub)}</div>` : ''}</div>`
+      : b.name ? `<div><div class="brand-name">${pevne(b.name)}</div>
+          ${supplier && supplier.tagline ? `<div class="brand-sub">${esc(supplier.tagline)}</div>` : ''}</div>` : '';
+    // „č. 2026-018", ale meno človeka (infolist) bez „č." — nie je to číslo.
+    const cisloPopis = { sk: 'č.', de: 'Nr.', both: 'č. / Nr.' }[lang] || 'č.';
+    const cislo = number ? `<div class="meta">${/\d/.test(String(number)) ? `${esc(cisloPopis)} ` : ''}<span class="num">${esc(number)}</span></div>` : '';
+    const riadok = (m) => {
+      const x = String(m).match(/^([^:]{1,40}):\s+(.+)$/);
+      return `<div class="meta">${x ? `${esc(x[1])} <b>${esc(x[2])}</b>` : esc(m)}</div>`;
+    };
     return `<div class="head">
-      <div class="brand">${LOGO}${name ? `<div>
-        <div class="brand-name">${esc(name).replace(/\b(s\.|r\.|o\.|a\.|spol\.|GmbH|UG)\s/g,
-          (m) => m.trim() + '&nbsp;')}</div>
-        ${supplier.tagline ? `<div class="brand-sub">${esc(supplier.tagline)}</div>` : ''}
-      </div>` : ''}</div>
-      <div class="doc-title"><h1>${esc(docTitle)}</h1>
-        ${number ? `<div class="num">${esc(number)}</div>` : ''}
-        ${meta.map(m => `<div style="font-size:11.5px;color:#6F7C95;">${esc(m)}</div>`).join('')}
-      </div></div>`;
+      <div class="brand">${LOGO}${znacka}</div>
+      <div class="doc-title"><h1>${esc(docTitle)}</h1>${cislo}${(meta || []).filter(Boolean).map(riadok).join('')}</div>
+    </div>`;
   }
 
   /**
    * Strany zmluvy. `lang: 'de'` prepne popisky — na nemeckom dokumente by
-   * „Dodávateľ" nad nemeckým textom vyzeralo ako preklep.
+   * „Dodávateľ" nad nemeckým textom vyzeralo ako preklep. `boxed` = strany
+   * v sivých rámikoch (zmluvy).
    */
-  function parties(supplier, client, extra = [], lang = 'sk') {
+  function parties(supplier, client, extra = [], lang = 'sk', { boxed = false } = {}) {
     const L = lang === 'de'
       ? { od: 'Auftragnehmer', pre: 'Auftraggeber', ico: 'Reg.-Nr.', dph: 'USt-IdNr.' }
       : { od: 'Dodávateľ', pre: 'Odberateľ', ico: 'IČO', dph: 'IČ DPH' };
-    return `<div class="cols">
+    return `<div class="cols${boxed ? ' boxed' : ''}">
       <div class="col"><div class="lbl">${esc(L.od)}</div><div class="val">
         <strong>${esc(supplier?.name || '—')}</strong><br>
         ${supplier?.address ? esc(supplier.address) + '<br>' : ''}
@@ -219,15 +294,38 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
   }
 
   /**
+   * Päta s údajmi firmy — v troch stĺpcoch ako na hlavičkovom papieri:
+   * názov a adresa · IČO a daňové čísla · účet a kontakt. V PDF a pri tlači
+   * je na každej strane (Docs.makePdf, @media print).
+   *
+   * @param {Object} s     firma (Nastavenia) alebo živnostník pri jeho faktúre
+   * @param {string} lang  'sk' | 'de' | 'both'
+   * @param {Object} o     { plain } — bez oranžového pruhu (doklad nie je náš)
+   */
+  function runFoot(s = {}, lang = 'sk', { plain = false } = {}) {
+    if (!s || !(s.name || s.address || s.company_id)) return '';
+    const de = lang === 'de';
+    const web = plain ? '' : webOf(s);
+    const st1 = [s.name && `<strong>${esc(s.name)}</strong>`, s.address && esc(s.address),
+      s.register && !de && esc(s.register)];
+    const st2 = [s.company_id && `IČO ${esc(s.company_id)}`,
+      de ? s.vat_id && `USt-IdNr. ${esc(s.vat_id)}` : s.tax_id && `DIČ ${esc(s.tax_id)}`,
+      de ? s.tax_number_de && `Steuernummer ${esc(s.tax_number_de)}` : s.vat_id && `IČ DPH ${esc(s.vat_id)}`];
+    const st3 = [s.iban && `IBAN ${esc(s.iban)}${s.bic ? ` · BIC ${esc(s.bic)}` : ''}`,
+      [web, s.phone].filter(Boolean).map(esc).join(' · '), s.email && esc(s.email)];
+    const col = (a) => `<div>${a.filter(Boolean).map(x => `<span>${x}</span>`).join('')}</div>`;
+    return `<div class="runfoot${plain ? ' plain' : ''}" data-lang="${esc(lang)}">${col(st1)}${col(st2)}${col(st3)}</div>`;
+  }
+
+  /**
    * Pätička dokumentu, ktorý sa **podpisuje perom**. Obyčajná pätička tvrdí
    * „vystavené elektronicky, platné bez podpisu" — na súhlase alebo zmluve
    * je to presne naopak a papier by si protirečil.
    */
-  function footSigned(supplier) {
-    return `<div class="foot">
-      <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}${supplier?.phone ? ' · ' + esc(supplier.phone) : ''}</span>
-      <span>Platné po podpise oboma stranami</span>
-    </div>`;
+  function footSigned(supplier, lang = 'sk', veta) {
+    const t = veta || { sk: 'Platné po podpise oboma stranami', de: 'Gültig nach Unterzeichnung durch beide Parteien',
+      both: 'Platné po podpise oboma stranami / Gültig nach Unterzeichnung durch beide Parteien' }[lang];
+    return `<div class="foot">${esc(t)}</div>${runFoot(supplier, lang)}`;
   }
 
   /**
@@ -259,10 +357,9 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
   }
 
   function foot(supplier, lang = 'sk') {
-    return `<div class="foot">
-      <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}${supplier?.phone ? ' · ' + esc(supplier.phone) : ''}</span>
-      <span>${lang === 'de' ? 'Elektronisch erstellt, ohne Unterschrift gültig' : 'Vystavené elektronicky, platné bez podpisu'}</span>
-    </div>`;
+    const t = { sk: 'Vystavené elektronicky, platné bez podpisu', de: 'Elektronisch erstellt, ohne Unterschrift gültig',
+      both: 'Vystavené elektronicky / Elektronisch erstellt' }[lang] || 'Vystavené elektronicky, platné bez podpisu';
+    return `<div class="foot">${esc(t)}</div>${runFoot(supplier, lang)}`;
   }
 
   // ── FAKTÚRA ───────────────────────────────────────────────────────────────
@@ -332,14 +429,13 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       <td class="r"><strong>${money(i.total, inv.currency, loc)}</strong></td></tr>`).join('');
 
     const body = `
-      ${header(L.title, inv.invoice_number, [], supplier)}
-      ${parties(supplier, client, [[de ? 'Angaben' : 'Údaje', `
-        <div style="font-size:12px;">
-          ${esc(L.issued)}: <strong>${date(inv.issue_date)}</strong><br>
-          ${esc(L.due)}: <strong>${date(inv.due_date)}</strong><br>
-          ${inv.delivery_date ? `${esc(L.delivery)}: ${date(inv.delivery_date)}<br>` : ''}
-          ${inv.billing_period_from ? `${esc(L.period)}: ${date(inv.billing_period_from)} – ${date(inv.billing_period_to)}` : ''}
-        </div>`]], de ? 'de' : 'sk')}
+      ${header(L.title, inv.invoice_number, [
+        `${L.issued}: ${date(inv.issue_date)}`,
+        `${L.due}: ${date(inv.due_date)}`,
+        inv.delivery_date ? `${L.delivery}: ${date(inv.delivery_date)}` : '',
+        inv.billing_period_from ? `${L.period}: ${date(inv.billing_period_from)} – ${date(inv.billing_period_to)}` : '',
+      ], supplier, de ? 'de' : 'sk')}
+      ${parties(supplier, client, [], de ? 'de' : 'sk')}
       <table><thead><tr>
         <th>${esc(L.desc)}</th><th class="r">${esc(L.qty)}</th><th class="r">${esc(L.unit)}</th>
         <th class="r">${esc(L.price)}</th><th class="r">${esc(L.sum)}</th>
@@ -368,11 +464,11 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         </div>
         ${qrSvg ? `<div style="text-align:center">
           <div class="lbl">${esc(L.scan)}</div>${qrSvg}
-          <div style="font-size:9.5px;color:#96A2BA;margin-top:4px">SEPA QR</div></div>` : ''}
+          <div style="font-size:9.5px;color:#8C97AD;margin-top:4px">SEPA QR</div></div>` : ''}
       </div>
       ${stamp(supplier) ? `<div class="stamp-inv">${stamp(supplier, 'st')}</div>` : ''}
       ${foot(supplier, de ? 'de' : 'sk')}`;
-    return shell(`${L.title} ${inv.invoice_number || ''}`, body, { editable: false });
+    return shell(`${L.title} ${inv.invoice_number || ''}`, body, { editable: false, lang: de ? 'de' : 'sk' });
   }
 
   // ── FAKTÚRA ZA ŽIVNOSTNÍKA (vyhotovenie faktúry odberateľom) ─────────────
@@ -395,7 +491,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const draft = !bill.bill_number;
     const rows = lines.map(l => `<tr>
       <td>${esc(l.description || 'Práce')}${l.activity ? ` — ${esc(ACT[l.activity] || l.activity)}` : ''}
-        ${l.from ? `<div style="font-size:11px;color:#6F7C95">${date(l.from)} – ${date(l.to)}</div>` : ''}</td>
+        ${l.from ? `<div style="font-size:11px;color:#6F7A92">${date(l.from)} – ${date(l.to)}</div>` : ''}</td>
       <td class="r">${Number(l.hours || 0).toLocaleString('sk-SK')}</td>
       <td class="r">h</td>
       <td class="r">${money(l.rate)}</td>
@@ -409,8 +505,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           ${w.company_name && w.full_name && w.company_name !== w.full_name
             ? `<div class="brand-sub">${esc(w.full_name)}</div>` : ''}</div></div>
         <div class="doc-title"><h1>Faktúra</h1>
-          <div class="num">${esc(bill.bill_number || 'NÁVRH — ešte nevystavená')}</div>
-          <div style="font-size:11.5px;color:#6F7C95;">vyhotovenie faktúry odberateľom</div>
+          <div class="meta">${bill.bill_number ? 'č. ' : ''}<span class="num">${esc(bill.bill_number || 'NÁVRH — ešte nevystavená')}</span></div>
+          <div class="meta">vyhotovenie faktúry odberateľom</div>
         </div></div>
       ${draft ? '<p class="todo">Návrh. Číslo dostane faktúra až pri vystavení — po schválení administrátorom.</p>' : ''}
       <div class="cols">
@@ -452,7 +548,9 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           Variabilný symbol: <strong style="font-family:ui-monospace,monospace">${esc(vs || '—')}</strong><br>
           Suma: <strong>${money(bill.amount)}</strong>
         </div></div></div>
-      <div class="foot"><span>${esc(meno)}</span><span>Vystavené elektronicky, platné bez podpisu</span></div>`;
+      <div class="foot">Vystavené elektronicky, platné bez podpisu</div>
+      ${runFoot({ name: meno, address: adresa, company_id: w.company_id, tax_id: w.tax_id, vat_id: w.vat_id,
+        iban: w.iban || bill.supplier_iban, phone: w.phone, email: w.email }, 'sk', { plain: true })}`;
     return shell(`Faktúra ${bill.bill_number || '(návrh)'} — ${meno}`, body, { editable: false });
   }
 
@@ -474,7 +572,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const perMonth = (Number(q.charge_rate) || 0) * (Number(q.hours_per_month) || 0)
       * (Number(q.headcount) || 1);
     const body = `
-      ${header('Angebot', q.quote_number, [], supplier)}
+      ${header('Angebot', q.quote_number, [], supplier, 'de')}
       ${parties(supplier, client, [['Angebot', `
         <div style="font-size:12px;">
           Datum: <strong>${date(q.created_at)}</strong><br>
@@ -514,8 +612,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         ${q.valid_until ? `<br>Dieses Angebot ist gültig bis <strong>${date(q.valid_until)}</strong>.` : ''}
       </div>
       ${note ? `<div class="note">${esc(note)}</div>` : ''}
-      ${foot(supplier)}`;
-    return shell(`Angebot ${q.quote_number || ''}`, body);
+      ${foot(supplier, 'de')}`;
+    return shell(`Angebot ${q.quote_number || ''}`, body, { lang: 'de' });
   }
 
   // ── WERKVERTRAG ───────────────────────────────────────────────────────────
@@ -550,16 +648,18 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
            keine Vergütung für Arbeitszeit und kein Weisungsrecht des Auftraggebers
            gegenüber den eingesetzten Personen.</p>`;
 
-    const par = (title, html) => `<div class="par"><h3>${esc(title)}</h3>${html}</div>`;
+    // „§ 4" oranžovo, názov paragrafu za ním — ako „Článok I." v zmluve so živnostníkom.
+    const par = (title, html) => `<div class="par"><h3>${esc(title)
+      .replace(/^(§\s*\d+)\s+/, '<span class="cl">$1</span>')}</h3>${html}</div>`;
 
     const body = `
-      ${header('Werkvertrag', c.contract_number, [], supplier)}
+      ${header('Werkvertrag', c.contract_number, [], supplier, 'de')}
       ${parties(supplier, client, [['Vertrag', `
         <div style="font-size:12px;">
           ${c.date_from ? `Beginn: <strong>${date(c.date_from)}</strong><br>` : ''}
           ${c.date_to ? `Ende: <strong>${date(c.date_to)}</strong><br>` : ''}
           ${c.signed_at ? `Unterschrieben: <strong>${date(c.signed_at)}</strong>` : ''}
-        </div>`]], 'de')}
+        </div>`]], 'de', { boxed: true })}
 
       <div class="lbl">Gegenstand</div>
       <div class="val" style="font-size:15px;font-weight:700;margin-bottom:4px">
@@ -628,11 +728,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           <div class="who">${esc(client?.name || 'Auftraggeber')} · Ort, Datum</div></div>
       </div>
 
-      <div class="foot">
-        <span>${esc(supplier?.name || '')}${supplier?.email ? ' · ' + esc(supplier.email) : ''}</span>
-        <span>Zwei gleichlautende Ausfertigungen</span>
-      </div>`;
-    return shell(`Werkvertrag ${c.contract_number || ''}`, body);
+      ${footSigned(supplier, 'de', 'Zwei gleichlautende Ausfertigungen')}`;
+    return shell(`Werkvertrag ${c.contract_number || ''}`, body, { lang: 'de' });
   }
 
   // Dodatok mení jedno pole zmluvy. V nemeckom dokumente musí byť nemecký
@@ -704,7 +801,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           </div>
         </div>
         ${qrSvg ? `<div style="text-align:center"><div class="lbl">Zaplatiť naskenovaním</div>${qrSvg}
-          <div style="font-size:9.5px;color:#96A2BA;margin-top:4px">SEPA QR platba</div></div>` : ''}
+          <div style="font-size:9.5px;color:#8C97AD;margin-top:4px">SEPA QR platba</div></div>` : ''}
       </div>
       <div class="note">Po pripísaní platby vám obratom pošleme adresu ubytovania,
       kontakt na ubytovateľa a pokyny na prevzatie.</div>
@@ -723,7 +820,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const p = payable(inv);
     const vs = String(inv.invoice_number || '').replace(/\D/g, '');
     const body = `
-      ${header(title || 'Zahlungserinnerung', inv.invoice_number, [`Datum: ${date(new Date().toISOString())}`], supplier)}
+      ${header(title || 'Zahlungserinnerung', inv.invoice_number, [`Datum: ${date(new Date().toISOString())}`], supplier, 'de')}
       ${parties(supplier, client, [], 'de')}
       ${paragraphs.map(t => `<p class="par" style="font-size:13px;line-height:1.6">${esc(t)}</p>`).join('')}
       <table><thead><tr><th>Rechnung</th><th>Datum</th><th>Fällig am</th><th class="r">Offener Betrag</th></tr></thead><tbody>
@@ -746,13 +843,13 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       </div>
       <p class="par" style="font-size:13px">Mit freundlichen Grüßen<br><strong>${esc(supplier?.name || '')}</strong></p>
       ${foot(supplier, 'de')}`;
-    return shell(`${title || 'Zahlungserinnerung'} ${inv.invoice_number || ''}`, body, { editable: true });
+    return shell(`${title || 'Zahlungserinnerung'} ${inv.invoice_number || ''}`, body, { editable: true, lang: 'de' });
   }
 
   // ── POTVRDENIE MAJITEĽOVI (nemecky, §8) ───────────────────────────────────
   function ownerConfirmation({ order, accommodation, persons, supplier }) {
     const body = `
-      ${header('Buchungsbestätigung', order.order_number, [], supplier)}
+      ${header('Buchungsbestätigung', order.order_number, [], supplier, 'de')}
       <div class="cols">
         <div class="col"><div class="lbl">Vermittler</div><div class="val">
           <strong>${esc(supplier?.name || '—')}</strong><br>
@@ -776,8 +873,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         <ul class="clean">${persons.map(p => `<li>${esc(p.full_name)}${p.phone ? ' · ' + esc(p.phone) : ''}</li>`).join('')}</ul>` : ''}
       <div class="note">Bitte bestätigen Sie die Buchung kurz per E-Mail oder WhatsApp.
       Die Rechnung senden Sie bitte an die oben genannte Adresse des Vermittlers.</div>
-      ${foot(supplier)}`;
-    return shell(`Buchungsbestätigung ${order.order_number || ''}`, body, { toolbar: true });
+      ${foot(supplier, 'de')}`;
+    return shell(`Buchungsbestätigung ${order.order_number || ''}`, body, { toolbar: true, lang: 'de' });
   }
 
   // ── ODOVZDÁVACÍ PROTOKOL (obsahuje adresu — až po úhrade!) ────────────────
@@ -842,9 +939,9 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         o.their_ref ? `${L.their}: ${o.their_ref}` : '',
         o.received_at ? (pre ? `Bestellung vom ${date(o.received_at)}`
           : `Prijaté ${date(o.received_at)}`) : '',
-      ].filter(Boolean), supplier)}
+      ].filter(Boolean), supplier, pre ? 'de' : 'sk')}
 
-      ${o.their_ref && pre ? `<div class="note" style="border-left-color:#1E4FD8">
+      ${o.their_ref && pre ? `<div class="note info">
         <strong>${esc(L.their)}: ${esc(o.their_ref)}</strong> — bitte bei Rückfragen
         und auf allen Rechnungen angeben.</div>` : ''}
 
@@ -867,7 +964,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
               ${worker && worker.company_id ? 'IČO: ' + esc(worker.company_id) + '<br>' : ''}
               ${worker && worker.phone ? esc(worker.phone) + '<br>' : ''}
               ${worker && worker.email ? esc(worker.email) + '<br>' : ''}
-              <span style="color:#6F7C95">samostatne zárobkovo činná osoba</span>
+              <span style="color:#6F7A92">samostatne zárobkovo činná osoba</span>
             </div></div>
           </div>`}
 
@@ -918,8 +1015,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         <div class="sig"><div class="line">${stamp(supplier)}</div><div class="who">Za objednávateľa</div></div>
         <div class="sig"><div class="line"></div><div class="who">Zhotoviteľ — prijímam objednávku</div></div>
       </div>`}
-      ${pre ? foot(supplier) : footSigned(supplier)}`;
-    return shell(`${L.title} ${o.order_number || ''}`, body);
+      ${pre ? foot(supplier, 'de') : footSigned(supplier)}`;
+    return shell(`${L.title} ${o.order_number || ''}`, body, { lang: pre ? 'de' : 'sk' });
   }
 
   // ── INFOLIST NA STAVBU ────────────────────────────────────────────────────
@@ -956,7 +1053,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       ${header('Infolist na stavbu', (worker && worker.full_name) || '', [
         sub.title || '', sub.contract_number || ''].filter(Boolean), supplier)}
 
-      <div class="note" style="border-left-color:#1E4FD8">
+      <div class="note info">
         Toto si prosím vezmite so sebou. Keď niečo nesedí, <strong>zavolajte nám skôr,
         než niečo podpíšete alebo začnete robiť</strong> — na stavbe sa to potom rieši ťažko.
       </div>
@@ -985,7 +1082,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       <h2 class="ss-h">Čo si priniesť</h2>
       <table><thead><tr><th>Vec</th><th>Prečo</th></tr></thead><tbody>
         ${S.BRING.map(b => `<tr><td><strong>${esc(b.what)}</strong></td>
-          <td style="color:#6F7C95">${esc(b.why)}</td></tr>`).join('')}
+          <td style="color:#6F7A92">${esc(b.why)}</td></tr>`).join('')}
       </tbody></table>
 
       <h2 class="ss-h">Ako sa hlásia hodiny</h2>
@@ -1000,7 +1097,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
 
       <h2 class="ss-h">Nemecké vety, ktoré sa Vám zídu</h2>
       <table><thead><tr><th>Po slovensky</th><th>Po nemecky</th></tr></thead><tbody>
-        ${vety.map(f => `<tr><td style="color:#6F7C95">${esc(f.sk)}</td>
+        ${vety.map(f => `<tr><td style="color:#6F7A92">${esc(f.sk)}</td>
           <td><strong>${esc(f.de)}</strong></td></tr>`).join('')}
       </tbody></table>
 
@@ -1101,11 +1198,11 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const miestaDe = zoznamMiest((o.places_de && o.places_de.length)
       ? o.places_de : o.places);
 
-    const body = header(BESTELLUNG_L.title, o.number || '', [], supplier) + `
+    const body = header(BESTELLUNG_L.title, o.number || '', [], supplier, 'both') + `
       ${chyba.length ? `<div class="par"><p class="todo">Pred podpisom doplniť /
         Vor Unterzeichnung zu ergänzen: ${esc(chyba.map(c => c.title).join(', '))}.</p></div>` : ''}
 
-      <div class="cols">
+      <div class="cols boxed">
         <div class="col"><div class="lbl">Zhotoviteľ / Auftragnehmer</div><div class="val">
           <strong>${esc(supplier.name || '—')}</strong><br>
           ${supplier.address ? esc(supplier.address) + '<br>' : ''}
@@ -1148,7 +1245,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
           ? date(o.date_from) : '<span class="todo">—</span>')}
         ${riadok(4, BESTELLUNG_L.to, o.date_to
           ? date(o.date_to) + (o.extendable
-            ? ` <span style="color:#6F7C95">(${esc(BESTELLUNG_L.ext[0])} / ${
+            ? ` <span style="color:#6F7A92">(${esc(BESTELLUNG_L.ext[0])} / ${
               esc(BESTELLUNG_L.ext[1])})</span>` : '')
           : '<span class="todo">—</span>')}
         ${dvoj(5,
@@ -1167,7 +1264,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         <div class="sig"><div class="line"></div>
           <div class="who">Objednávateľ / Auftraggeber</div></div>
       </div>
-      ${footSigned(supplier)}`;
+      ${footSigned(supplier, 'both')}`;
 
     return shell(`${BESTELLUNG_L.title} ${o.number || ''}`, body);
   }
@@ -1198,12 +1295,12 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     const body = header('Rámcová zmluva o dielo / Rahmenwerkvertrag', zmluva.number,
       ['uzatvorená podľa § 536 a nasl. zákona č. 513/1991 Zb. Obchodný zákonník',
         'abgeschlossen gemäß § 536 ff. des Gesetzes Nr. 513/1991 Slg. Handelsgesetzbuch'],
-      supplier) + `
+      supplier, 'both') + `
       ${chyba.length ? `<div class="par"><p class="todo">Pred podpisom doplniť /
         Vor Unterzeichnung zu ergänzen: ${esc(chyba.map(c => c.title).join(', '))}.</p></div>` : ''}
 
-      <div class="par"><h3>Článok I. Zmluvné strany / Artikel I. Vertragsparteien</h3></div>
-      <div class="cols">
+      <div class="par"><h3><span class="cl">Článok I. / Artikel I.</span>Zmluvné strany / Vertragsparteien</h3></div>
+      <div class="cols boxed">
         ${strana('Zhotoviteľ / Auftragnehmer', supplier, { name: 'name', address: 'address',
           ico: 'company_id', register: 'register', vat: 'vat_id', steuer: 'tax_number_de',
           iban: 'iban', phone: 'phone', email: 'email', rep: 'representative' })}
@@ -1213,7 +1310,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       </div>
 
       ${clanky.map(c => `<div class="par">
-        <h3>Článok ${esc(c.rim)} ${esc(c.sk)} / Artikel ${esc(c.rim)} ${esc(c.de)}</h3>
+        <h3><span class="cl">Článok ${esc(c.rim)} / Artikel ${esc(c.rim)}</span>${esc(c.sk)} / ${esc(c.de)}</h3>
         ${c.body.map((p, i) => `<div class="bil">
           <div class="bil-n">${i + 1}.</div>
           <div class="bil-sk">${esc(p.sk)}</div>
@@ -1229,7 +1326,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         <div class="sig"><div class="line"></div>
           <div class="who">Objednávateľ / Auftraggeber — ${esc(client.name || '')}</div></div>
       </div>
-      ${footSigned(supplier)}`;
+      ${footSigned(supplier, 'both')}`;
 
     return shell('Rámcová zmluva / Rahmenwerkvertrag — ' + (client.name || ''), body);
   }
@@ -1258,8 +1355,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       ${chyba.length ? `<div class="par"><p class="todo">Pred podpisom doplniť:
         ${esc(chyba.map(c => c.title).join(', '))}.</p></div>` : ''}
 
-      <div class="par"><h3>Článok I. — Zmluvné strany</h3></div>
-      <div class="cols">
+      <div class="par"><h3><span class="cl">Článok I.</span>Zmluvné strany</h3></div>
+      <div class="cols boxed">
         <div class="col"><div class="lbl">Objednávateľ</div><div class="val">
           <strong>${esc(supplier.name || '—')}</strong><br>
           ${supplier.address ? esc(supplier.address) + '<br>' : ''}
@@ -1284,7 +1381,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
       </div>
 
       ${clanky.map(c => `<div class="par">
-        <h3>Článok ${esc(c.rim)} — ${esc(c.nadpis)}</h3>
+        <h3><span class="cl">Článok ${esc(c.rim)}</span>${esc(c.nadpis)}</h3>
         <ol class="par-ol">${c.body.map(x => '<li>' + tucne(x) + '</li>').join('')}</ol>
       </div>`).join('')}
 
@@ -1364,7 +1461,7 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
         o ochrane fyzických osôb pri spracúvaní osobných údajov a o voľnom pohybe
         takýchto údajov (GDPR).</p></div>
 
-      <div class="cols">
+      <div class="cols boxed">
         <div class="col"><div class="lbl">Prevádzkovateľ</div><div class="val">
           <strong>${esc(supplier.name || '—')}</strong><br>
           ${supplier.address ? esc(supplier.address) + '<br>' : ''}
@@ -1492,8 +1589,8 @@ ${editable ? '<div class="edit-hint">Kliknite do textu a prepíšte, čo treba. 
     },
   };
 
-  window.DanubraPapers = { mark: () => LOGO, stamp, invoice, selfInvoice, reminder, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
+  window.DanubraPapers = { mark: () => LOGO, brand: brandOf, web: webOf, runFoot, CSS, stamp, invoice, selfInvoice, reminder, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, shell, esc, money, date, noDia };
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { mark: () => LOGO, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
+    module.exports = { mark: () => LOGO, brand: brandOf, web: webOf, runFoot, stamp, invoice, selfInvoice, payable, siteSheet, workOrder, quote, werkvertrag, orderConfirmation, paymentRequest, ownerConfirmation, handover, gdprConsent, ramcovaZmluva, rahmenvertrag, bestellung, BESTELLUNG_L, GDPR_UCEL, GDPR_PRIJEMCOVIA, GDPR_PRAVA, short, noDia };
   }
 })();
