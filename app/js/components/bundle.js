@@ -238,7 +238,7 @@
           k === 'email' ? `${w.email} · ${rows.length} ${rows.length === 1 ? 'príloha' : rows.length < 5 ? 'prílohy' : 'príloh'}`
             : `${w.phone} · s odkazom na všetky papiere`)}</em></span>${primary ? '' : ''}</button>`;
       UI.modal('Papiere sú pripravené', `
-        <p class="modal-lead">Všetky papiere sú uložené v dokumentoch pri ${UI.esc(w.full_name || 'človeku')}.
+        <p class="modal-lead">Všetky papiere sú uložené v Dokumentoch na karte: <b>${UI.esc(w.full_name || 'živnostník')}</b>.
           Teraz ich pošlite — každá cesta je jedna správa.</p>
         <div class="pick-list">
           ${channels.includes('email') ? btn('email', 'mail', 'Otvoriť e-mail so všetkými prílohami', true) : ''}

@@ -244,6 +244,8 @@
               tip: 'Meno človeka alebo firmy. Slúži na hľadanie v zozname správ, nikam sa neposiela.' })}
             ${UI.field('to_email', 'E-mail', { type: 'email', value: preset.to_email,
               tip: 'Adresa, kam správa odíde. Pri kanáli E-mail je povinná, spolu s predmetom.' })}
+            ${UI.field('to_phone', 'Telefón', { type: 'tel', value: preset.to_phone, placeholder: '+421 …',
+              tip: 'Číslo, kam odíde SMS alebo WhatsApp — s predvoľbou krajiny, napr. +421 alebo +49. Pri e-maile netreba.' })}
             ${UI.field('subject', 'Predmet', { value: preset.subject })}
           </div>
           ${tpl.length ? `<div class="form-section">Šablóna${UI.tip('Kliknutím vložíte hotový text (DE = po nemecky, SK = po slovensky). Prepíše, čo už je v poli Text. Čo appka nevie doplniť, ostane v {{zátvorkách}} a treba to dopísať.')}</div>
@@ -301,6 +303,7 @@
         entity_type: preset.entity_type || null,
         entity_id: preset.entity_id || null,
         to_email: d.to_email || null,
+        to_phone: d.to_phone || null,
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
 
@@ -311,6 +314,7 @@
         subject: d.subject || null,
         body: d.body,
         to_email: d.to_email || null,
+        to_phone: d.to_phone || null,
         status,
         queued_at: status === 'queued' ? new Date().toISOString() : null,
         author_name: Danubra.me ? (Danubra.me.full_name || Danubra.me.email) : null,
