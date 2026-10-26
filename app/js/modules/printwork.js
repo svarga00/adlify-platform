@@ -45,10 +45,11 @@
           <div class="card card-pad pw-prev-card"><div class="card-head"><div class="card-title">Náhľad${Help.btn('screen.printwork', { size: 13 })}</div></div><div id="pw-prev" class="pw-prev"></div>
             <div class="js-acts">${this.tab === 'letter'
               ? `<button class="btn btn-primary" onclick="Print.openLetter()">${Icon('doc', 15)} Otvoriť list</button>`
-              : `<button class="btn btn-primary" id="pw-go" onclick="Print.download()">${Icon('download', 15)} Stiahnuť PDF na tlač</button>`}</div>
-            <p class="card-note">${this.tab === 'card' ? 'Vizitka 85 × 55 mm, PDF má 91 × 61 mm (spadávka 3 mm). Tlačiareň ju oreže na presný rozmer. Odporúčanie: matný papier 400 g, tlač 4/4.'
-              : this.tab === 'env' ? 'Obálka DL 220 × 110 mm. Adresát je v mieste okienka vpravo; bez adresáta sa vytlačí len odosielateľ.'
-              : 'List sa otvorí ako dokument — dá sa ešte upraviť, stiahnuť ako PDF, poslať a uloží sa do Dokumentov.'}</p></div>
+              : `<button class="btn btn-primary" id="pw-go" onclick="Print.download()">${Icon('download', 15)} Stiahnuť PDF na tlač</button>${UI.tip(
+                'Stiahne PDF pripravené pre tlačiareň: presný rozmer, každá strana zvlášť (pri vizitke líce a rub). Pošlite ho tlačiarni tak, ako je — nič neupravujte ani nezmenšujte.')}`}</div>
+            <p class="card-note">${this.tab === 'card' ? `Vizitka 85 × 55 mm, PDF má 91 × 61 mm (spadávka 3 mm).${UI.tip('Spadávka = 3 mm navyše na každej strane. Farba a obrázky idú až cez okraj a tlačiareň ich po tlači odreže — takže na hrane vizitky nikdy neostane biely prúžok.')} Tlačiareň ju oreže na presný rozmer. Odporúčanie: matný papier 400 g, tlač 4/4.${UI.tip('400 g = hrubý, tuhý papier, aký majú bežné vizitky. Tlač 4/4 = farebne z oboch strán (4 farby na líci, 4 na rube). Toto stačí povedať tlačiarni.')}`
+              : this.tab === 'env' ? `Obálka DL 220 × 110 mm.${UI.tip('DL je bežná podlhovastá obálka, do ktorej sa zmestí list A4 zložený na tretiny. Tlačí sa bez spadávky, takže sa dá tlačiť aj na hotové obálky.')} Adresát je v mieste okienka vpravo; bez adresáta sa vytlačí len odosielateľ.`
+              : `List sa otvorí ako dokument — dá sa ešte upraviť, stiahnuť ako PDF, poslať a uloží sa do Dokumentov.${UI.tip('Hlavičkový list = firemný papier: hore logo punds, telefón, e-mail a web, dole údaje firmy. Berú sa z Nastavení (Fakturačné údaje); ak tam máte nahratú pečiatku, pridá sa nad podpis.')}`}</p></div>
         </div>`;
       const f = document.getElementById('pw-form');
       f.addEventListener('input', () => this.read());
@@ -66,22 +67,30 @@
           ${UI.field('role', 'Funkcia', { value: c.role, placeholder: 'Koordinátor projektov' })}
           ${UI.field('phone', 'Telefón', { value: c.phone })}
           ${UI.field('email', 'E-mail', { type: 'email', value: c.email })}
-          ${UI.field('web', 'Web', { value: c.web, options: [['punds.sk', 'punds.sk'], ['punds.eu', 'punds.eu']] })}
-          ${UI.field('variant', 'Variant', { value: c.variant, options: [['dark', 'Tmavá (1a/1b)'], ['orange', 'Biela s oranžovým rubom (1c)']] })}
+          ${UI.field('web', 'Web', { value: c.web, options: [['punds.sk', 'punds.sk'], ['punds.eu', 'punds.eu']],
+            tip: 'Ktorý web bude na vizitke. punds.sk = pre remeselníkov a uchádzačov, punds.eu = pre nemecké firmy.' })}
+          ${UI.field('variant', 'Variant', { value: c.variant, options: [['dark', 'Tmavá (1a/1b)'], ['orange', 'Biela s oranžovým rubom (1c)']],
+            tip: 'Tmavá: tmavomodré líce s logom, biely rub s kontaktmi. Biela: biele líce s oranžovým pásom, oranžový rub. 1a–1c sú len čísla z grafického návrhu punds.' })}
         </div>
-        ${UI.field('address', 'Adresa', { value: c.address })}`;
+        ${UI.field('address', 'Adresa', { value: c.address,
+          tip: 'Vytlačí sa len na tmavej variante (na rube). Biela s oranžovým rubom adresu nemá — je tam len telefón, e-mail a web.' })}`;
       }
       if (this.tab === 'env') {
-        return `${UI.field('sender', 'Odosielateľ', { type: 'textarea', rows: 3, value: this.env.sender })}
-          ${UI.field('to', 'Adresát (voliteľné)', { type: 'textarea', rows: 5, value: this.env.to, placeholder: 'Firma GmbH\nMusterstraße 12\n28195 Bremen\nDeutschland' })}`;
+        return `${UI.field('sender', 'Odosielateľ', { type: 'textarea', rows: 3, value: this.env.sender,
+            tip: 'Vytlačí sa vľavo dole pod logom. Každý riadok tu = nový riadok na obálke.' })}
+          ${UI.field('to', 'Adresát (voliteľné)', { type: 'textarea', rows: 5, value: this.env.to, placeholder: 'Firma GmbH\nMusterstraße 12\n28195 Bremen\nDeutschland',
+            tip: 'Vytlačí sa vpravo, kde býva okienko; prvý riadok tučne. Ak máte obálky s okienkom, nechajte prázdne. Prázdne = jedno PDF použijete pre všetky obálky.' })}`;
       }
       const l = this.letter;
       return `<div class="form-grid">
-          ${UI.field('lang', 'Jazyk listu', { value: l.lang, options: [['sk', 'Slovensky'], ['de', 'Nemecky']] })}
-          ${UI.field('place', 'Miesto', { value: l.place, placeholder: 'Nové Zámky' })}
+          ${UI.field('lang', 'Jazyk listu', { value: l.lang, options: [['sk', 'Slovensky'], ['de', 'Nemecky']],
+            tip: 'Podľa jazyka sa napíšu pevné slová listu: Adresát / Empfänger, Vec / Betreff a S pozdravom / Mit freundlichen Grüßen. Samotný text listu píšete sami.' })}
+          ${UI.field('place', 'Miesto', { value: l.place, placeholder: 'Nové Zámky',
+            tip: 'Mesto, ktoré sa vytlačí vpravo nad dnešným dátumom. Prázdne = mesto z adresy firmy v Nastaveniach.' })}
         </div>
         ${UI.field('to', 'Adresát', { type: 'textarea', rows: 4, value: l.to, placeholder: 'Firma GmbH\nMusterstraße 12\n28195 Bremen\nDeutschland' })}
-        ${UI.field('subject', 'Vec', { value: l.subject, placeholder: 'Ponuka na zabezpečenie zváračov MIG/MAG' })}
+        ${UI.field('subject', 'Vec', { value: l.subject, placeholder: 'Ponuka na zabezpečenie zváračov MIG/MAG',
+          tip: 'Krátko, o čom list je. Vytlačí sa tučne nad textom ako „Vec: …".' })}
         ${UI.field('body', 'Text (odstavce oddeľte prázdnym riadkom)', { type: 'textarea', rows: 9, value: l.body, placeholder: 'Dobrý deň,\n\nďakujeme za Váš dopyt…' })}
         <div class="form-grid">
           ${UI.field('signer', 'Podpis — meno', { value: l.signer })}

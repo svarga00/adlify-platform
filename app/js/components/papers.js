@@ -30,6 +30,9 @@
       title: 'Objednávka živnostníkovi', sub: 'Na konkrétnu zákazku — čo má urobiť a za koľko.' },
     { key: 'infolist', who: 'worker', ico: 'pin', krok: 6,
       title: 'Infolist na stavbu', sub: 'Kam prísť, kedy, za kým a kde bude spať.' },
+    // Všetko k nástupu v jednej správe — e-mailom, cez WhatsApp alebo SMS.
+    { key: 'balik', who: 'worker', ico: 'mail', krok: 6,
+      title: 'Všetko naraz na nástup', sub: 'Infolist na stavbu aj k ubytovaniu, objednávka a vzor faktúry v jednej správe.' },
   ];
 
   const Pap = {
@@ -140,6 +143,7 @@
       if (k === 'zmluva') return Wrk.zmluva(id);
       if (k === 'objednavka') return Wrk.paperOrder(id);
       if (k === 'infolist') return Wrk.paperSiteSheet(id);
+      if (k === 'balik') return Wrk.bundle(id);
       if (k === 'rahmen') return Prt.rahmen(id);
       if (k === 'bestellung') return Ord.bestellung(id);
     },

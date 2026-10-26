@@ -180,6 +180,7 @@
             ${Enums.options('contract_status').map(([k, l]) =>
               `<option value="${k}" ${c.status === k ? 'selected' : ''}>${UI.esc(l)}</option>`).join('')}
           </select>
+          ${UI.tip('Stav zmluvy, uloží sa hneď. Rozpracovaná a Odoslaná na podpis sa dajú voľne upravovať. Od „Podpísaná" ďalej sa koniec platnosti a ceny menia už len dodatkom. Pri prepnutí na Podpísaná sa doplní dnešný dátum podpisu, ak chýba.')}
         </div>
 
         ${!c.scope ? `<div class="warnbox">${Icon('alert', 14)}
@@ -188,10 +189,10 @@
 
         <div class="kv">
           <div><span>Odberateľ</span><strong>${UI.esc(this.partnerName(c.partner_id))}</strong></div>
-          <div><span>Druh</span><strong>${UI.esc(Enums.label('contract_kind', c.kind))}</strong></div>
+          <div><span>Druh${UI.tip('Zmluva o dielo (Werkvertrag) = na jednu konkrétnu prácu (stavbu). Rámcová zmluva (Rahmenvertrag) = spoločné podmienky na dlhšiu spoluprácu, jednotlivé práce sa potom objednávajú zvlášť.')}</span><strong>${UI.esc(Enums.label('contract_kind', c.kind))}</strong></div>
           ${c.date_from ? `<div><span>Platnosť</span><strong>${UI.dateRange(c.date_from, c.date_to)}</strong></div>` : ''}
           <div><span>Cena</span><strong>${this.priceText(c)}</strong></div>
-          <div><span>Splatnosť</span><strong>${c.payment_terms_days || 30} dní</strong></div>
+          <div><span>Splatnosť${UI.tip('Koľko dní po vystavení faktúry má odberateľ na zaplatenie. Z toho sa počíta dátum splatnosti na faktúre.')}</span><strong>${c.payment_terms_days || 30} dní</strong></div>
           ${c.retention_pct ? `<div><span>Zádržné</span><strong>${UI.pct(c.retention_pct)}</strong></div>` : ''}
           ${c.warranty_months ? `<div><span>Záruka</span><strong>${c.warranty_months} mes.</strong></div>` : ''}
           ${c.notice_days ? `<div><span>Výpovedná lehota</span><strong>${c.notice_days} dní</strong></div>` : ''}
@@ -234,6 +235,7 @@
 
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip('Otvorí zmluvu po nemecky (Werkvertrag) na tlač aj s dodatkami. PDF uložíte v okne tlače voľbou „Uložiť ako PDF". Podpísaný papier potom nahrajte vyššie ako sken.')}</span>
           <button class="btn btn-outline" onclick="Con.document('${c.id}')">
             ${Icon('doc', 14)} Zmluva ako dokument</button>
           <button class="btn btn-primary" onclick="Con.form('${c.id}')">Upraviť</button>
@@ -394,18 +396,20 @@
             ${UI.field('partner_id', 'Odberateľ', { value: c.partner_id, required: true, add: 'partner',
               options: [['', '— vyberte —'], ...this.partners.map(p => [p.id, p.name])] })}
             ${UI.field('kind', 'Druh', { value: c.kind || 'werkvertrag',
-              options: Enums.options('contract_kind') })}
-            ${UI.field('date_from', 'Platí od', { type: 'date', value: c.date_from })}
+              options: Enums.options('contract_kind'), tip: 'Zmluva o dielo (Werkvertrag) = na jednu konkrétnu prácu (stavbu). Rámcová zmluva (Rahmenvertrag) = spoločné podmienky na dlhšiu spoluprácu, jednotlivé práce sa potom objednávajú zvlášť.' })}
+            ${UI.field('date_from', 'Platí od', { type: 'date', value: c.date_from,
+              tip: 'Od kedy do kedy zmluva platí, teda kedy sa dielo robí. Koniec platnosti sa po podpise mení len dodatkom.' })}
             ${locked ? lockedField('date_to', 'Platí do', c.date_to)
               : UI.field('date_to', 'Platí do', { type: 'date', value: c.date_to })}
-            ${UI.field('signed_at', 'Podpísaná dňa', { type: 'date', value: c.signed_at })}
+            ${UI.field('signed_at', 'Podpísaná dňa', { type: 'date', value: c.signed_at,
+              tip: 'Deň, keď obe strany zmluvu podpísali. Nie je to začiatok platnosti — ten je v poli „Platí od".' })}
           </div>
 
           <div class="form-section">Predmet diela</div>
           <div class="regimebox">
             Píšte dielo, nie hodiny. Pri kontrole rozhoduje obsah zmluvy, nie jej
             názov — „4 pracovníci na 160 hodín mesačne" je znak skrytej
-            Arbeitnehmerüberlassung, „dodávka a montáž priečok na 2. NP" nie je.</div>
+            Arbeitnehmerüberlassung, „dodávka a montáž priečok na 2. NP" nie je.${UI.tip('Arbeitnehmerüberlassung = požičiavanie ľudí inej firme (riadi ho nemecký zákon AÜG). Na to treba v Nemecku osobitné povolenie. Ak zmluva o dielo v skutočnosti vyzerá ako požičiavanie ľudí, hrozia vysoké pokuty.')}</div>
           ${UI.field('scope', '', { type: 'textarea', rows: 4, value: c.scope,
             placeholder: 'Dodávka a montáž sadrokartónových priečok a podhľadov na 2. a 3. NP…' })}
 
@@ -443,9 +447,10 @@
                   + 'Sú to naše peniaze, ktoré roky ležia u neho — rátajte s nimi '
                   + 'až po uplynutí záruky.' })}
             ${UI.field('warranty_months', 'Záruka (mesiacov)', { type: 'number',
-              value: c.warranty_months, placeholder: '48' })}
+              value: c.warranty_months, placeholder: '48',
+              tip: 'Ako dlho po odovzdaní diela ručíme za chyby. Na nemeckých stavbách býva 48 až 60 mesiacov. Dovtedy drží odberateľ zádržné.' })}
             ${UI.field('notice_days', 'Výpovedná lehota (dní)', { type: 'number',
-              value: c.notice_days })}
+              value: c.notice_days, tip: 'Koľko dní dopredu treba zmluvu vypovedať, kým naozaj skončí.' })}
           </div>
           <div class="regimebox">
             Zádržné býva 5 % a odberateľ si ho drží až do konca záruky. Kto
@@ -535,10 +540,12 @@
             sa odberateľ podpísal.</div>
           <div class="form-grid">
             ${UI.field('field', 'Čo sa mení', { value: 'date_to',
-              options: LOCKED.map(l => [l[0], l[1]]) })}
+              options: LOCKED.map(l => [l[0], l[1]]),
+              tip: 'Ponúkajú sa len údaje, ktoré po podpise chráni databáza. Ostatné (kontakt, poznámka…) sa menia obyčajným Upraviť.' })}
             ${UI.field('new_value', 'Nová hodnota', { required: true,
               placeholder: 'dátum ako 2026-12-31, sadzba ako 31.50' })}
-            ${UI.field('signed_at', 'Dodatok podpísaný dňa', { type: 'date' })}
+            ${UI.field('signed_at', 'Dodatok podpísaný dňa', { type: 'date',
+              tip: 'Ak odberateľ dodatok ešte nepodpísal, nechajte prázdne. Keď príde podpísaný, kliknite pri ňom „Prišiel podpísaný".' })}
             ${UI.field('amendment_number', 'Číslo dodatku', {
               value: `Dodatok č. ${this.amendmentsOf(contractId).length + 1}` })}
           </div>

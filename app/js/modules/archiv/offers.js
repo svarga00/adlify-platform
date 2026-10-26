@@ -44,6 +44,8 @@
             const n = this.items.filter(o => o.status === s[0]).length;
             return `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Offers.setF('${s[0]}')">${s[1]}${n ? ` ${n}` : ''}</button>`;
           }).join('')}
+          ${UI.tip('Koncept = ponuka je pripravená, klient ju ešte nemá. Odoslaná = poslali ste mu ju. '
+            + 'Akceptovaná = klient súhlasil a vznikla objednávka. Expirovaná = prešiel dátum platnosti.')}
         </div>
         <div class="count-line">${rows.length} ZÁZNAMOV</div>
         ${rows.length === 0
@@ -112,22 +114,27 @@
           <strong>${UI.esc(inq.target_city || '—')}</strong> · ${inq.persons || '?'} osôb ·
           ${inq.date_from ? UI.dateRange(inq.date_from, inq.date_to) : 'termín neurčený'}${nights ? ` (${nights} nocí)` : ''}
         </div>
-        <div class="form-section">Vyberte ubytovania do ponuky (1–3)</div>
+        <div class="form-section">Vyberte ubytovania do ponuky (1–3)${UI.tip('Zaškrtnite 1 až 3 ubytovania — budú to '
+          + 'varianty, z ktorých si klient vyberie. Číslo vľavo je skóre zhody s dopytom (do 100).')}</div>
         ${matches.length ? `<div id="wz-list">${matches.map(m => this._wizardRow(m, nights, inq)).join('')}</div>`
           : `<div class="js-empty">Žiadne vhodné ubytovania v databáze.</div>`}
         <div class="form-section">Podmienky</div>
         <form id="offer-form" onsubmit="event.preventDefault();Offers.saveWizard()">
           <div class="form-grid">
-            ${UI.field('service_fee', 'Sprostredkovateľský poplatok €', { type: 'number', value: feeDefault })}
+            ${UI.field('service_fee', 'Sprostredkovateľský poplatok €', { type: 'number', value: feeDefault,
+              tip: 'Jednorazový poplatok za sprostredkovanie ubytovania. Adresu a kontakt klient dostane až po jeho úhrade.' })}
             ${UI.field('valid_until', 'Platnosť do', { type: 'date', value: this._plusDays(7),
               hint: 'Po tomto dni ponuka prepadne. Bez platnosti sa na ňu dá odvolať '
                 + 'aj o pol roka.' })}
-            ${UI.field('ongoing_service_rate', 'Priebežná služba €/os./deň', { type: 'number', value: rateDefault })}
+            ${UI.field('ongoing_service_rate', 'Priebežná služba €/os./deň', { type: 'number', value: rateDefault,
+              tip: 'Cena starostlivosti počas pobytu (problémy s ubytovaním, komunikácia s majiteľom, predĺženia) '
+                + 'za osobu a deň. Platí, len keď je nižšie zaškrtnutá.' })}
             ${UI.field('language', 'Jazyk ponuky', { value: this.clientOf(inq.client_id)?.language || 'sk', options: [['sk', 'SK'], ['cs', 'CS'], ['hu', 'HU']] })}
           </div>
           <div class="chk-row">
             ${UI.field('ongoing_service_enabled', '', { type: 'checkbox', value: true, placeholder: 'Zahrnúť priebežnú službu' })}
-            ${UI.field('urgent_surcharge', '', { type: 'checkbox', value: !!inq.urgent, placeholder: 'Príplatok za súrnosť' })}
+            ${UI.field('urgent_surcharge', '', { type: 'checkbox', value: !!inq.urgent, placeholder: 'Príplatok za súrnosť',
+              tip: 'Pri akceptácii sa k poplatku pripočíta 20 % navyše za súrne vybavenie.' })}
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
@@ -265,14 +272,17 @@
         <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
         <div class="form-section">Varianty</div>
         ${varHtml || '<div class="js-empty">Bez variantov.</div>'}
-        <div class="form-section">Text pre klienta (WhatsApp / e-mail)</div>
+        <div class="form-section">Text pre klienta (WhatsApp / e-mail)${UI.tip('Hotový text ponuky — skopírujte ho '
+          + 'a pošlite klientovi. Zámerne v ňom nie je adresa ubytovania. Po odoslaní prepnite stav na „Odoslaná".')}</div>
         <label class="fld"><textarea id="offer-text" rows="12" readonly>${UI.esc(this.buildText(o, vs, accs, c, inq))}</textarea></label>
         <div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Offers.copyText()">${Icon('copy')} Skopírovať text</button></div>
         <div class="modal-actions">
           <button class="btn btn-danger" onclick="Offers.del('${o.id}')">Zmazať</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${o.status !== 'accepted'
-            ? `<button class="btn btn-primary" onclick="Offers.accept('${o.id}')">Akceptovaná ${Icon('chevron', 14)} objednávka</button>`
+            ? `<button class="btn btn-primary" onclick="Offers.accept('${o.id}')">Akceptovaná ${Icon('chevron', 14)} objednávka</button>${
+              UI.tip('Klient ponuku prijal: vznikne objednávka s číslom a dopyt sa označí ako vyhraný. '
+                + 'Pri viacerých variantoch sa appka opýta, ktorý si vybral.')}`
             : ''}
         </div>`;
       UI.modal('Ponuka', body, { wide: true });

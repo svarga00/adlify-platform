@@ -62,7 +62,7 @@
 
       el.innerHTML = Danubra.header('Dopyty',
         `${s.live} ${Shell.plural(s.live, 'rozpracovaná', 'rozpracované', 'rozpracovaných')}`
-        + (s.rate != null ? ` · úspešnosť ${UI.pct(s.rate)}` : ''))
+        + (s.rate != null ? ` · úspešnosť ${UI.pct(s.rate)}${UI.tip('Z uzavretých dopytov (vyhrané aj stratené) koľko percent sme vyhrali. Ukáže sa až vtedy, keď sú uzavreté aspoň tri.')}` : ''))
         + this.nowHtml(q) + `
         <div class="pillbar" style="margin-bottom:12px;width:max-content;max-width:100%;overflow-x:auto;">
           <button class="pill${!this.filters.status ? ' active' : ''}"
@@ -134,7 +134,7 @@
             ${x.trade_key ? `<span>${Icon('wrench', 14)} ${UI.esc(this.tradeName(x.trade_key))}</span>` : ''}
             ${x.headcount ? `<span>${Icon('user', 14)} ${x.headcount}</span>` : ''}
             ${x.city ? `<span>${Icon('site', 14)} ${UI.esc(x.city)}</span>` : ''}
-            ${m.perHour != null ? `<span>${Icon('euro', 14)} marža ${Money.format(m.perHour)}/h</span>` : ''}
+            ${m.perHour != null ? `<span>${Icon('euro', 14)} marža ${Money.format(m.perHour)}/h${UI.tip('Koľko nám ostane z jednej hodiny jedného človeka: čo platí odberateľ mínus čo dáme živnostníkovi. Bez DPH.')}</span>` : ''}
           </div>
           <div class="card-now${v.state === 'invalid' ? ' card-now-hot' : ''}">
             <b>${UI.esc(v.label)}</b>
@@ -187,7 +187,8 @@
             jednotlivé stavby — mesto, počet ľudí, sadzbu a termín — a ukáže Vám ich
             skôr, než sa čokoľvek založí.</div>
           ${UI.field('text', 'E-mail od odberateľa', { type: 'textarea', rows: 12,
-            required: true, placeholder: 'Sem vložte celý e-mail, pokojne aj po nemecky.' })}
+            required: true, placeholder: 'Sem vložte celý e-mail, pokojne aj po nemecky.',
+            tip: 'Text e-mailu prečíta umelá inteligencia a rozdelí ho na jednotlivé stavby. Po kliknutí sa ešte nič neuloží — najprv uvidíte, čo našla.' })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary" id="opp-inq-btn">
@@ -245,7 +246,7 @@
         ${sk ? `<div class="regimebox">${UI.esc(Inq.skontoText(sk))}
           Zapísané tak, ako to prišlo: <strong>${UI.esc(q.payment)}</strong></div>` : ''}
 
-        <div class="form-section">Stavby — odškrtnite, čo nechcete</div>
+        <div class="form-section">Stavby — odškrtnite, čo nechcete${UI.tip('Zelená bodka = stavba má všetko potrebné. Oranžová = niečo chýba (napr. mesto alebo počet ľudí), založiť sa dá aj tak a doplníte to neskôr.')}</div>
         <div id="inq-stavby">${this.inqRowsHtml()}</div>
 
         ${q.risks.length ? `<div class="form-section">Na čo si dať pozor</div>
@@ -265,6 +266,7 @@
 
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip('Len zapísať dopyty: stavby sa uložia do zoznamu Dopyty a nič viac. Založiť nábor: navyše sa ku každej stavbe založí nábor (zatiaľ ako koncept) a appka napíše texty inzerátov.')}</span>
           <button type="button" class="btn btn-outline" onclick="Opp.saveInquiry(false)">
             Len zapísať dopyty</button>
           <button type="button" class="btn btn-primary" onclick="Opp.saveInquiry(true)">
@@ -305,7 +307,7 @@
         <div class="wplan-head">
           <span class="wplan-ico">${Icon(late ? 'alert' : 'calendar', 16)}</span>
           <div>
-            <b>${UI.esc(opts.title || 'Náborový plán')}</b>
+            <b>${UI.esc(opts.title || 'Náborový plán')}${UI.tip('Odhad, koľko ľudí treba nabrať v ktorom týždni, aby boli na stavbe včas. Počíta so stropom, koľko ľudí zvládneme nabrať za týždeň (dá sa zmeniť v Nastaveniach).')}</b>
             <span>${UI.esc(sched.text)}</span>
           </div>
         </div>
@@ -610,6 +612,7 @@
           <select class="verif-sel" onchange="Opp.setStatus('${x.id}',this.value)">
             ${O.STATUS.map(s => `<option value="${s[0]}" ${x.status === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
           </select>
+          ${UI.tip('Kde dopyt je. ' + O.STATUS.map(s => `${s[1]}: ${s[3].charAt(0).toLowerCase()}${s[3].slice(1)}`).join(' ') + ' Pri „Stratená" sa appka opýta prečo.')}
         </div>
 
         ${Shell.now({
@@ -632,15 +635,15 @@
         <div class="form-section">Údaje</div>
         <div class="kit-facts">
           ${this.fieldHtml(x, 'company_name', 'Firma')}
-          ${this.fieldHtml(x, 'company_vat', 'USt-IdNr')}
+          ${this.fieldHtml(x, 'company_vat', 'USt-IdNr', 'text', 'Nemecké IČ DPH firmy (napr. DE123456789). Podľa neho firmu preveríme v registri EÚ a bez platného čísla nemôžeme fakturovať bez DPH (prenesenie daňovej povinnosti, §13b).')}
           ${this.fieldHtml(x, 'contact_name', 'Kontakt')}
           ${this.fieldHtml(x, 'contact_phone', 'Telefón')}
           ${this.fieldHtml(x, 'contact_email', 'E-mail')}
           ${this.fieldHtml(x, 'city', 'Mesto')}
           ${this.fieldHtml(x, 'headcount', 'Koľko ľudí', 'number')}
-          ${this.fieldHtml(x, 'rate_client', 'Platia €/h', 'number')}
-          ${this.fieldHtml(x, 'rate_worker', 'Dáme €/h', 'number')}
-          ${this.fieldHtml(x, 'start_date', 'Nástup', 'date')}
+          ${this.fieldHtml(x, 'rate_client', 'Platia €/h', 'number', 'Koľko nám odberateľ zaplatí za jednu odpracovanú hodinu jedného človeka. Bez DPH.')}
+          ${this.fieldHtml(x, 'rate_worker', 'Dáme €/h', 'number', 'Koľko zaplatíme živnostníkovi za jednu jeho hodinu. Bez DPH. Rozdiel oproti „Platia" je naša marža.')}
+          ${this.fieldHtml(x, 'start_date', 'Nástup', 'date', 'Deň, od ktorého majú byť ľudia na stavbe. Podľa neho sa plánuje, dokedy treba ľudí nabrať.')}
           <label class="kit-fact"><span>Remeslo</span>
             <select onchange="Opp.setField('${x.id}','trade_key',this.value)">
               <option value="">—</option>
@@ -648,7 +651,7 @@
             </select></label>
         </div>
         ${m.perHour != null ? `<div class="kit-sum ${m.pct >= 25 ? 'kit-ok' : 'kit-warn'}">
-          Marža ${Money.format(m.perHour)}/h · ${UI.pct(m.pct)} zo sadzby odberateľa</div>` : ''}
+          Marža ${Money.format(m.perHour)}/h · ${UI.pct(m.pct)} zo sadzby odberateľa${UI.tip('„Platia €/h" mínus „Dáme €/h" = koľko nám ostane z jednej hodiny. Percento je z toho, čo platí odberateľ. Od 25 % je to zelené, menej je oranžové.')}</div>` : ''}
 
         <div class="form-section">Čo o tom vieme</div>
         <div class="kit-brief">
@@ -667,12 +670,12 @@
           : `<button class="btn btn-primary btn-block" onclick="Opp.makePlan('${x.id}')">
               ${Icon('zap', 17)} Spraviť z toho nábor</button>
              <div class="kit-note" style="margin-top:6px;">Zadanie sa prenesie a analýza
-               z neho spraví podklady, otázky do hovoru aj polia náboru.</div>`}`;
+               z neho spraví podklady, otázky do hovoru aj polia náboru.${UI.tip('Založí sa nábor ako koncept — nič sa nezverejní. Dopyt sa prepne na „Preverujeme". Texty inzerátov si potom spustíte v Nábore sami.')}</div>`}`;
     },
 
     /** Jedno pole, ktoré sa ukladá hneď po zmene — bez tlačidla „uložiť". */
-    fieldHtml(x, key, label, type = 'text') {
-      return `<label class="kit-fact"><span>${UI.esc(label)}</span>
+    fieldHtml(x, key, label, type = 'text', tip = '') {
+      return `<label class="kit-fact"><span>${UI.esc(label)}${tip ? UI.tip(tip) : ''}</span>
         <input type="${type}" value="${UI.esc(x[key] == null ? '' : x[key])}"
           onchange="Opp.setField('${x.id}','${key}',this.value)"></label>`;
     },

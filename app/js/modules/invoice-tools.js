@@ -29,11 +29,15 @@
       const n = DanubraDunning.next(x, this.reminders, Danubra._dayISO());
       const sent = this.remindersOf(x.id);
       if (!sent.length && !n.due && n.reason === 'not_overdue') return '';
-      return `<div class="form-section">Upomienky</div>
+      return `<div class="form-section">Upomienky${UI.tip('Upomienka je list po nemecky, ktorý odberateľovi '
+        + 'pripomenie nezaplatenú faktúru. Sú tri stupne: priateľská pripomienka, 1. upomienka a posledná '
+        + '2. upomienka — každá s novou lehotou na zaplatenie.')}</div>
         ${sent.map(r => `<div class="js-row">${UI.badge((DanubraDunning.meta(r.level) || {}).sk || `stupeň ${r.level}`, r.level >= 3 ? 'red' : 'amber')}
           <span>${UI.date(r.sent_at)}${r.deadline ? ` · nová lehota ${UI.date(r.deadline)}` : ''}</span></div>`).join('')}
         ${n.due ? `<div class="btn-row"><button class="btn btn-outline btn-sm" onclick="Inv.remind('${x.id}')">
-            ${Icon('mail', 14)} Vytvoriť: ${UI.esc(n.meta.sk)} (${UI.esc(n.meta.de)})</button></div>
+            ${Icon('mail', 14)} Vytvoriť: ${UI.esc(n.meta.sk)} (${UI.esc(n.meta.de)})</button>${
+              UI.tip('Otvorí upomienku ako PDF (po nemecky, s QR kódom na platbu) a zapíše ju k faktúre. '
+                + 'Odberateľovi ju pošlete sami — appka ju neodosiela.')}</div>
             <p class="card-note">${n.overdueDays} ${Shell.plural(n.overdueDays, 'deň', 'dni', 'dní')} po splatnosti · tón: ${UI.esc(n.meta.tone)}.</p>`
           : n.wait ? `<p class="card-note">Ďalší stupeň (${UI.esc(n.meta.sk)}) sa ponúkne ${UI.date(n.wait)} — 14 dní po poslednej.</p>`
             : n.reason === 'done' ? '<p class="card-note">Poslali sa všetky tri stupne. Ďalší krok je telefonát alebo vymáhanie.</p>' : ''}`;
@@ -89,7 +93,9 @@
             <em>${UI.money(r.invoice.total)} · ${r.overdueDays} ${Shell.plural(r.overdueDays, 'deň', 'dni', 'dní')} po splatnosti · na rade: ${UI.esc(r.meta.sk)}</em></span>
           <button class="btn btn-outline btn-sm" onclick="Inv.remind('${r.invoice.id}')">Vytvoriť</button>
         </div>`).join('')}</div>
-        <p class="muted-sm">Upomienka je po nemecky, s novou lehotou a QR platbou. Ďalší stupeň sa ponúkne až 14 dní po predchádzajúcom.</p>`
+        <p class="muted-sm">Upomienka je po nemecky, s novou lehotou a QR platbou. Ďalší stupeň sa ponúkne až 14 dní po predchádzajúcom.${
+          UI.tip('„Vytvoriť" otvorí PDF upomienky a zapíše ju k faktúre. Odoslať ju musíte sami — '
+            + 'e-mailom alebo poštou. Appka sama nič neposiela.')}</p>`
         : '<div class="regimebox">Žiadna faktúra nie je po splatnosti — netreba nikoho upomínať.</div>'}
         <div class="modal-actions"><button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`, { wide: true });
     },
@@ -114,11 +120,16 @@
       const body = document.querySelector('#ui-modal .modal-body') || document.querySelector('#ui-modal .modal-card');
       const html = `
         <div class="regimebox">Pri každej zákazke appka spraví, čo treba: založí obdobie za mesiac,
-          uzavrie ho zo schválených hodín a pripraví <b>návrh</b> faktúry. Schvaľuje ich admin, ako vždy.</div>
+          uzavrie ho zo schválených hodín a pripraví <b>návrh</b> faktúry. Schvaľuje ich admin, ako vždy.${
+          UI.tip('Obdobie = úsek dní (tu celý mesiac), za ktorý sa fakturuje. Uzavrieť ho znamená zmraziť '
+            + 'schválené hodiny aj sadzbu, aby sa suma faktúry už nemenila.')}</div>
         <div class="form-grid">
-          <label class="fld"><span>Mesiac</span><input type="month" value="${mesiac}" onchange="Inv.monthly(this.value)"></label>
+          <label class="fld"><span>Mesiac${UI.tip('Ktorý mesiac sa fakturuje. Predvolený je minulý — '
+            + 'fakturuje sa až po skončení mesiaca.')}</span><input type="month" value="${mesiac}" onchange="Inv.monthly(this.value)"></label>
         </div>
-        <div class="form-section">Zákazky</div>
+        <div class="form-section">Zákazky${UI.tip('Pri každej zákazke je napísané, čo appka spraví, koľko hodín '
+          + 'a za koľko. Odškrtnutú zákazku vynechá. Sivé riadky sa preskočia — dôvod je napísaný pri nich. '
+          + 'Neschválené hodiny do faktúry nejdú.')}</div>
         <div class="mf-list">${plan.map((r, i) => {
           const da = ['create', 'close', 'invoice'].includes(r.action);
           return `<label class="mf-row${da ? '' : ' is-off'}">
@@ -132,7 +143,9 @@
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-primary" id="mf-go" ${robit.length ? '' : 'disabled'} onclick="Inv.runMonthly()">
-            ${Icon('check', 14)} Pripraviť ${robit.length} ${Shell.plural(robit.length, 'návrh', 'návrhy', 'návrhov')} · ${Money.format(spolu)}</button>
+            ${Icon('check', 14)} Pripraviť ${robit.length} ${Shell.plural(robit.length, 'návrh', 'návrhy', 'návrhov')} · ${Money.format(spolu)}</button>${
+            UI.tip('Uzavrie obdobia zaškrtnutých zákaziek a vytvorí z nich návrhy faktúr. Odberateľovi nič '
+              + 'neodíde — každý návrh ešte schvaľuje admin.')}
         </div>`;
       UI.modal('Mesačná fakturácia', html, { wide: true });
     },
@@ -192,10 +205,13 @@
       UI.modal('Pre účtovníčku', `
         <div class="form-grid">
           <label class="fld"><span>Mesiac</span><input type="month" value="${rok ? '' : k}" onchange="Inv.books(this.value)"></label>
-          <label class="fld"><span>alebo celý rok</span><input type="number" min="2020" max="2100" placeholder="${new Date().getFullYear()}"
+          <label class="fld"><span>alebo celý rok${UI.tip('Napíšte rok (napr. 2026) a balík bude za celý rok '
+            + 'namiesto jedného mesiaca.')}</span><input type="number" min="2020" max="2100" placeholder="${new Date().getFullYear()}"
             value="${rok ? k : ''}" onchange="this.value&&Inv.books(this.value)"></label>
         </div>
-        <div class="form-section">Doklady</div>
+        <div class="form-section">Doklady${UI.tip('Vydané = faktúry, ktoré sme vystavili my (podľa dátumu vystavenia, '
+          + 'bez návrhov a stornovaných). Prijaté = faktúry od živnostníkov a dodávateľov. Ostatné náklady = '
+          + 'ubytovanie, doprava a pod., zapísané bez faktúry.')}</div>
         <div class="pick-list">
           ${tile('invoices', 'Vydané faktúry', x.issued.length, x.totals.issued)}
           ${tile('receipt', 'Prijaté faktúry', x.received.length, x.totals.received)}
@@ -208,8 +224,11 @@
         <div id="bk-log" class="muted-sm"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-          <button class="btn btn-outline" onclick="Inv.booksZip(false)">${Icon('download', 14)} Len tabuľky</button>
-          <button class="btn btn-primary" onclick="Inv.booksZip(true)">${Icon('download', 14)} Balík so súbormi (ZIP)</button>
+          <button class="btn btn-outline" onclick="Inv.booksZip(false)">${Icon('download', 14)} Len tabuľky</button>${
+            UI.tip('Stiahne len tri tabuľky (CSV — otvoria sa v Exceli): vydané, prijaté a náklady. Rýchle, bez PDF.')}
+          <button class="btn btn-primary" onclick="Inv.booksZip(true)">${Icon('download', 14)} Balík so súbormi (ZIP)</button>${
+            UI.tip('ZIP je jeden zbalený súbor. Okrem tabuliek obsahuje aj PDF dokladov. Čo sa nepodarilo '
+              + 'pribaliť, je vypísané v súbore „CHYBA" priamo v balíku.')}
         </div>`, { wide: true });
     },
 

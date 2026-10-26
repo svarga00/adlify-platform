@@ -93,7 +93,7 @@
         </div>`;
 
       el.innerHTML = Danubra.header(Danubra.labelOf('messages'),
-        'Komunikácia pri zázname, ktorého sa týka')
+        `Komunikácia pri zázname, ktorého sa týka${UI.tip('Vlákno = jedna téma: všetky správy a poznámky k nej pod sebou. Nič sa tu nemaže ani neprepisuje — dá sa len pridať ďalšia správa, takže vždy vidíte, čo bolo dohodnuté.')}`)
         + (!cfg.ok ? `<div class="warnbox" style="margin-bottom:14px;">
             ${Icon('alert', 14)} <strong>Odosielanie ešte nie je zapnuté.</strong>
             ${UI.esc(cfg.reason)} Interné poznámky a zápis toho, čo už odišlo inou
@@ -101,12 +101,13 @@
         + (q.queued || q.failed ? `<div class="regimebox" style="margin-bottom:14px;">
             ${q.queued ? `${q.queued} ${Shell.plural(q.queued, 'správa čaká', 'správy čakajú', 'správ čaká')} vo fronte. ` : ''}
             ${q.failed ? `${q.failed} sa nepodarilo odoslať. ` : ''}
-            Nič z toho neodišlo.</div>` : '')
+            Nič z toho neodišlo.${UI.tip('Front = správy pripravené na odoslanie. Odídu až keď bude v Nastaveniach zapnuté odosielanie (poskytovateľ a adresa odosielateľa). Dovtedy adresát nič nedostal.')}</div>` : '')
         + Shell.list({
           rows, total: this.threads.length, render: card, layout: 'cards',
           emptyIcon: 'mail', emptyTitle: 'Zatiaľ žiadna komunikácia',
           emptySub: 'Začnite poznámkou pri zázname alebo novou správou.',
           filter: {
+            right: UI.tip('Otvorené = vlákna, ktoré ešte riešite. Uzavreté = vybavené; nič sa z nich nezmazalo a dajú sa znova otvoriť. Kanál = ako komunikácia prebieha (interne, e-mail, SMS, WhatsApp).'),
             search: { value: this.filters.q, placeholder: 'Hľadať predmet, meno, text…',
               oninput: 'Msg.setF("q", this.value)' },
             selects: [
@@ -132,9 +133,11 @@
 
       Danubra.setActions(`
         <button class="btn btn-ghost btn-sm" onclick="Msg.close()">${Icon('back', 15)} Späť</button>
-        <button class="btn btn-outline btn-sm" onclick="Msg.toggleDone('${t.id}')">
+        <span style="display:inline-flex;align-items:center;"><button class="btn btn-outline btn-sm" onclick="Msg.toggleDone('${t.id}')">
           ${Icon(t.status === 'done' ? 'repeat' : 'check', 14)}
-          ${t.status === 'done' ? 'Otvoriť znova' : 'Uzavrieť'}</button>`);
+          ${t.status === 'done' ? 'Otvoriť znova' : 'Uzavrieť'}</button>${UI.tip(t.status === 'done'
+            ? 'Vráti vlákno medzi otvorené. Nič sa nemení ani neposiela.'
+            : 'Vlákno sa presunie medzi Uzavreté — správy v ňom ostanú a kedykoľvek ho otvoríte znova. Nikomu sa nič neposiela.')}</span>`);
 
       const msg = (m) => `
         <div class="msg msg-${m.direction}">
@@ -151,14 +154,15 @@
         </div>`;
 
       el.innerHTML = Danubra.header(t.subject || t.party_name || 'Vlákno',
-        [channelLabel(t.channel), t.to_email, t.party_name].filter(Boolean).join(' · '),
+        UI.esc([channelLabel(t.channel), t.to_email, t.party_name].filter(Boolean).join(' · '))
+          + UI.tip('Správy sú v poradí, ako pribúdali. Štítok pri správe hovorí, čo sa s ňou stalo, napr. Poznámka = len pre nás, Čaká na odoslanie = ešte neodišla, Odoslané = odišla, Prišlo = prijatá správa.'),
         '', [t.subject || 'Vlákno'])
         + `<div class="msg-thread">
              ${t.messages.length ? t.messages.map(msg).join('')
                : '<p class="card-note">Vo vlákne zatiaľ nič nie je.</p>'}
            </div>
            ${Danubra.canOpen(t.entity_type, t.entity_id)
-             ? `<div class="form-section">Čoho sa to týka</div>
+             ? `<div class="form-section">Čoho sa to týka${UI.tip('Záznam v appke, ku ktorému toto vlákno patrí — napr. živnostník, zákazka alebo faktúra. Kliknutím ho otvoríte.')}</div>
                 <span class="link-row">${Danubra.link(t.entity_type, t.entity_id,
                   t.party_name || '')}</span>` : ''}
            <div class="form-section">Odpovedať</div>
@@ -168,7 +172,7 @@
              placeholder="${t.channel === 'internal' ? 'Napíšte kolegom…' : 'Napíšte odpoveď…'}"></textarea>
            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
              <button class="btn btn-outline btn-sm" onclick="Msg.reply('${t.id}','note')">
-               ${Icon('note', 14)} Uložiť ako poznámku</button>
+               ${Icon('note', 14)} Uložiť ako poznámku</button>${UI.tip('Poznámku uvidia len kolegovia v appke, protistrane nikam neodíde. Po uložení sa už nedá upraviť ani zmazať.')}
              ${t.channel !== 'internal' ? `<button class="btn btn-primary btn-sm"
                onclick="Msg.reply('${t.id}','queued')">
                ${Icon('mail', 14)} ${cfg.ok ? 'Odoslať' : 'Zaradiť na odoslanie'}</button>` : ''}
@@ -234,12 +238,17 @@
             ${Icon('alert', 14)} ${UI.esc(cfg.reason)}</div>` : ''}
           <div class="form-grid">
             ${UI.field('channel', 'Kanál', { value: preset.channel || 'email',
-              options: CHANNELS })}
-            ${UI.field('party_name', 'Komu', { value: preset.party_name })}
-            ${UI.field('to_email', 'E-mail', { type: 'email', value: preset.to_email })}
+              options: CHANNELS,
+              tip: 'Interne = poznámka len pre kolegov, nikomu mimo firmy neodíde. E-mail, SMS, WhatsApp = správa pre človeka mimo firmy.' })}
+            ${UI.field('party_name', 'Komu', { value: preset.party_name,
+              tip: 'Meno človeka alebo firmy. Slúži na hľadanie v zozname správ, nikam sa neposiela.' })}
+            ${UI.field('to_email', 'E-mail', { type: 'email', value: preset.to_email,
+              tip: 'Adresa, kam správa odíde. Pri kanáli E-mail je povinná, spolu s predmetom.' })}
+            ${UI.field('to_phone', 'Telefón', { type: 'tel', value: preset.to_phone, placeholder: '+421 …',
+              tip: 'Číslo, kam odíde SMS alebo WhatsApp — s predvoľbou krajiny, napr. +421 alebo +49. Pri e-maile netreba.' })}
             ${UI.field('subject', 'Predmet', { value: preset.subject })}
           </div>
-          ${tpl.length ? `<div class="form-section">Šablóna</div>
+          ${tpl.length ? `<div class="form-section">Šablóna${UI.tip('Kliknutím vložíte hotový text (DE = po nemecky, SK = po slovensky). Prepíše, čo už je v poli Text. Čo appka nevie doplniť, ostane v {{zátvorkách}} a treba to dopísať.')}</div>
             <div class="tpl-row">
               ${tpl.map(x => `<button type="button" class="tpl-chip"
                 onclick="Msg.useTemplate('${x.key}')">
@@ -249,8 +258,8 @@
           <p class="card-note" id="msg-missing"></p>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-            <button type="button" class="btn btn-outline" onclick="Msg.saveNew('draft')">
-              Uložiť ako koncept</button>
+            <span style="display:inline-flex;align-items:center;"><button type="button" class="btn btn-outline" onclick="Msg.saveNew('draft')">
+              Uložiť ako koncept</button>${UI.tip('Koncept sa uloží do Správ, ale nikam neodíde ani sa nezaradí do frontu.')}</span>
             <button type="submit" class="btn btn-primary">
               ${cfg.ok ? 'Odoslať' : 'Zaradiť na odoslanie'}</button>
           </div>
@@ -294,6 +303,7 @@
         entity_type: preset.entity_type || null,
         entity_id: preset.entity_id || null,
         to_email: d.to_email || null,
+        to_phone: d.to_phone || null,
       });
       if (error) return UI.toast('Chyba: ' + error.message, 'err');
 
@@ -304,6 +314,7 @@
         subject: d.subject || null,
         body: d.body,
         to_email: d.to_email || null,
+        to_phone: d.to_phone || null,
         status,
         queued_at: status === 'queued' ? new Date().toISOString() : null,
         author_name: Danubra.me ? (Danubra.me.full_name || Danubra.me.email) : null,

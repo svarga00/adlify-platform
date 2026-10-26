@@ -68,16 +68,16 @@
           ako nesplnený — to je najčastejší dôvod odchodu pracovníka.</div>` : '') + `
 
         <div class="kpi-grid" style="margin-bottom:16px;">
-          <div class="kpi"><div class="kpi-label">Otvorené sľuby</div>
+          <div class="kpi"><div class="kpi-label">Otvorené sľuby${UI.tip('Dohody z hovorov (sadzba, ubytovanie, termín…), o ktorých ešte nevieme, či sme ich dodržali. Keď sa splnia alebo nesplnia, zmeňte stav pri dohode v zozname nižšie.')}</div>
             <div class="kpi-value">${open.length}</div>
             <div class="kpi-delta ${overdue.length ? 'warn' : ''}">${overdue.length ? `${overdue.length} po termíne` : 'v termíne'}</div></div>
           <div class="kpi"><div class="kpi-label">Splnené</div>
             <div class="kpi-value" style="color:var(--green);">${this.promises.filter(p => p.status === 'fulfilled').length}</div>
             <div class="kpi-delta">dodržali sme</div></div>
-          <div class="kpi"><div class="kpi-label">Nesplnené</div>
+          <div class="kpi"><div class="kpi-label">Nesplnené${UI.tip('Sľuby, ktoré sme človeku dali a nedodržali. Kvôli tomu ľudia najčastejšie odchádzajú, preto to treba riešiť hneď.')}</div>
             <div class="kpi-value" style="color:${broken.length ? 'var(--red)' : 'var(--green)'};">${broken.length}</div>
             <div class="kpi-delta">riziko odchodu</div></div>
-          <div class="kpi"><div class="kpi-label">Platné súhlasy</div>
+          <div class="kpi"><div class="kpi-label">Platné súhlasy${UI.tip('Koľko ľudí nám dalo súhlas s nahrávaním hovoru a neodvolalo ho. Bez súhlasu sa hovor nesmie nahrať ani spracovať.')}</div>
             <div class="kpi-value">${this.consents.filter(c => c.granted && !c.revoked_at).length}</div>
             <div class="kpi-delta">s nahrávaním</div></div>
         </div>
@@ -108,7 +108,7 @@
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(PROMISE_KIND[p.kind] || p.kind)}</strong>
             ${w ? `<span style="color:var(--ink-mute);"> · ${UI.esc(w.full_name)}</span>` : ''}
-            ${lowConf ? UI.badge('overiť', 'amber') : ''}
+            ${lowConf ? UI.badge('overiť', 'amber') + UI.tip('Appka si pri tejto dohode z nahrávky nie je istá. Vypočujte si hovor a skontrolujte, či sa to naozaj tak povedalo.') : ''}
             ${late ? UI.badge('po termíne', 'red') : ''}
             <span style="display:block;color:var(--ink-sub);margin-top:2px;">${UI.esc(p.statement)}</span>
             ${p.value_text ? `<span style="display:block;color:var(--ink-mute);font-size:12px;">
@@ -166,7 +166,7 @@
               ${c.retention_until ? ` · uchovať do ${UI.date(c.retention_until)}` : ''}</span>
           </span>
           ${active ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);"
-            onclick="Rec.revoke('${c.id}')">Odvolať</button>` : ''}
+            onclick="Rec.revoke('${c.id}')">Odvolať</button>${UI.tip('Použite, keď človek povie, že už nesúhlasí s nahrávaním. Súhlas prestane platiť a jeho nahrávky treba potom zmazať.')}` : ''}
         </div>`;
       }).join('');
     },
@@ -201,16 +201,19 @@
         <form id="consent-form" onsubmit="event.preventDefault();Rec.saveConsent()" style="margin-top:16px;">
           <div class="form-grid">
             ${UI.field('subject_id', 'Pracovník', { options: [['', '— nie je v databáze —'],
-              ...this.workers.map(w => [w.id, w.full_name])] })}
+              ...this.workers.map(w => [w.id, w.full_name])],
+              tip: 'Kto dal súhlas. Ak ho ešte nemáme v zozname (napr. nový kandidát), nechajte „nie je v databáze" a napíšte meno alebo telefón vedľa.' })}
             ${UI.field('subject_name', 'Meno (ak nie je v databáze)', {})}
             ${UI.field('subject_phone', 'Telefón', {})}
-            ${UI.field('method', 'Ako bol súhlas daný', { value: 'verbal_recorded', options: [
+            ${UI.field('method', 'Ako bol súhlas daný', { value: 'verbal_recorded', tip: 'Najlepší dôkaz je, keď súhlas zaznie priamo na začiatku nahrávky. SMS, e-mail alebo podpis sú tiež v poriadku — len to vyberte, aby sa dalo dohľadať.', options: [
               ['verbal_recorded', 'Ústne, zaznamenané na začiatku nahrávky'],
               ['sms', 'SMS'], ['email', 'E-mail'], ['written', 'Písomne'], ['app', 'V aplikácii']] })}
             ${UI.field('language', 'Jazyk', { value: 'sk', options: [['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['de', 'DE']] })}
-            ${UI.field('retention_until', 'Uchovávať do', { type: 'date', value: until })}
+            ${UI.field('retention_until', 'Uchovávať do', { type: 'date', value: until,
+              tip: 'Do tohto dňa smieme nahrávky tohto človeka držať. Potom sa majú zmazať (GDPR — ochrana osobných údajov). Predvolená dĺžka sa dá zmeniť v Nastaveniach.' })}
           </div>
           ${UI.field('evidence_note', 'Ako presne súhlas znel', { type: 'textarea', rows: 2,
+            tip: 'Zapíšte doslova, čo povedal, a ak je to na nahrávke, aj v ktorej minúte. Keby sa niekto neskôr sťažoval, toto je dôkaz.',
             placeholder: 'napr. „Áno, súhlasím s nahrávaním" — zaznelo v 0:12 nahrávky' })}
           <div class="chk-row">
             <label class="chk">
@@ -285,16 +288,19 @@
       this._mode = 'file'; this._blob = null; this._stopRecorder();
       UI.modal('Pridať hovor', `
         <form id="rec-form" onsubmit="event.preventDefault();Rec.saveRecording()">
-          <div class="pillbar" style="margin-bottom:14px;width:max-content;">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:14px;">
+          <div class="pillbar" style="width:max-content;">
             <button type="button" class="pill active" data-mode="file" onclick="Rec.setMode('file')">Súbor z mobilu</button>
             <button type="button" class="pill" data-mode="browser" onclick="Rec.setMode('browser')">Nahrať teraz</button>
             <button type="button" class="pill" data-mode="url" onclick="Rec.setMode('url')">Odkaz</button>
+          </div>
+          ${UI.tip('Súbor z mobilu = nahrávka, ktorú už máte v telefóne. Nahrať teraz = počítač nahráva cez mikrofón (hovor dajte na hlasitý odposluch). Odkaz = nahrávka leží na internete, napr. u telefónneho operátora.')}
           </div>
 
           <div id="rec-src"></div>
 
           <div class="form-grid" style="margin-top:14px;">
-            ${UI.field('consent_id', 'Súhlas', { required: true, options: withConsent.map(c => {
+            ${UI.field('consent_id', 'Súhlas', { required: true, tip: 'Vyberte súhlas človeka, s ktorým je hovor. Ponúkajú sa len platné, neodvolané súhlasy. Nahrávka sa zmaže v deň, do ktorého súhlas platí.', options: withConsent.map(c => {
               const w = this.workerOf(c.subject_id);
               return [c.id, `${w?.full_name || c.subject_name || c.subject_phone} · ${UI.date(c.granted_at)}`];
             }) })}
@@ -497,13 +503,13 @@
           <div><span>Kedy</span><strong>${UI.date(r.recorded_at)}</strong></div>
           <div><span>Jazyk</span><strong>${(r.language || '').toUpperCase()}</strong></div>
           ${r.duration_seconds ? `<div><span>Dĺžka</span><strong>${Math.round(r.duration_seconds / 60)} min</strong></div>` : ''}
-          ${r.delete_after ? `<div><span>Zmazať po</span><strong>${UI.date(r.delete_after)}</strong></div>` : ''}
+          ${r.delete_after ? `<div><span>Zmazať po${UI.tip('Do tohto dňa smieme nahrávku držať podľa súhlasu. Potom sa má zmazať.')}</span><strong>${UI.date(r.delete_after)}</strong></div>` : ''}
         </div>
         ${r.audio_path || r.audio_url ? `<div class="form-section">Nahrávka</div>
           <div id="rec-audio-${r.id}"><button class="btn btn-outline btn-sm"
             onclick="Rec.play('${r.id}')">${Icon('phone')} Prehrať</button></div>` : ''}
         ${r.summary ? `<div class="form-section">Zhrnutie</div><div class="notebox">${UI.esc(r.summary)}</div>` : ''}
-        ${oq.length ? `<div class="form-section">Zostalo nedohodnuté</div>
+        ${oq.length ? `<div class="form-section">Zostalo nedohodnuté${UI.tip('Veci, ktoré v hovore zazneli, ale nedohodli sa (napr. „ozveme sa k ubytovaniu"). Treba ich doriešiť ďalším telefonátom.')}</div>
           ${oq.map(q => `<div class="list-row" style="cursor:default;">
             <span class="dot amber"></span><span style="flex:1;font-size:13px;">${UI.esc(q)}</span></div>`).join('')}` : ''}
         ${prom.length ? `<div class="form-section">Zachytené dohody (${prom.length})</div>
@@ -517,7 +523,8 @@
           <button class="btn btn-danger" onclick="Rec.delRecording('${r.id}')">Zmazať nahrávku</button>
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${['uploaded', 'failed'].includes(r.status)
-            ? `<button class="btn btn-primary" onclick="UI.closeModal();Rec.process('${r.id}')">Spracovať</button>` : ''}
+            ? `<span style="align-self:center;display:inline-flex;">${UI.tip('Spracovať = nahrávka sa prepíše na text a appka z neho vytiahne, čo sa sľúbilo. Trvá to chvíľu. Pri zlyhaní to môžete skúsiť znova.')}</span>
+              <button class="btn btn-primary" onclick="UI.closeModal();Rec.process('${r.id}')">Spracovať</button>` : ''}
         </div>`, { wide: true });
     },
 

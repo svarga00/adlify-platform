@@ -180,10 +180,13 @@
       return `<div class="card card-pad">
         ${Danubra._cardHead('euro', 'Kde čakajú naše peniaze', '', '', '', 'card.money.stages')}
         <div class="ms-top">
-          <div><span>Stojí na nás</span><strong>${Money.format(sum.ours)}</strong>
+          <div><span>Stojí na nás${UI.tip('Peniaze, ktoré neprídu, kým my niečo nespravíme: uzavrieť obdobie, '
+            + 'vystaviť alebo schváliť faktúru. Pod sumou je, koľko takých krokov čaká.')}</span><strong>${Money.format(sum.ours)}</strong>
             <em>${sum.oursCount} ${Shell.plural(sum.oursCount, 'krok', 'kroky', 'krokov')}</em></div>
-          <div><span>Čaká sa na odberateľa</span><strong>${Money.format(sum.theirs)}</strong></div>
-          <div><span>Spolu</span><strong>${Money.format(sum.total)}</strong></div>
+          <div><span>Čaká sa na odberateľa${UI.tip('Vystavené faktúry, ktoré odberateľ ešte nezaplatil — v splatnosti '
+            + 'aj po nej. Tu sa už len čaká alebo upomína.')}</span><strong>${Money.format(sum.theirs)}</strong></div>
+          <div><span>Spolu${UI.tip('Všetky štádiá nižšie dokopy, aj zrážka §48b a peniaze viazané '
+            + 'v refakturovateľných nákladoch (zaplatili sme ich my a majú sa vrátiť na faktúre).')}</span><strong>${Money.format(sum.total)}</strong></div>
         </div>
         <p class="card-note">Hore je to, čo sa dá pohnúť vlastnou rukou — bez toho,
           aby niekto iný čokoľvek spravil. Dole to, na čo sa len čaká.</p>
@@ -236,14 +239,22 @@
           <span>${UI.esc(v.text)}</span>
         </div>
         <div class="ms-top">
-          <div><span>Na účte dnes</span><strong>${Money.format(sp.start)}</strong></div>
-          <div><span>Rezerva z Nastavení</span><strong>${Money.format(sp.reserve)}</strong></div>
-          <div><span>Voľné</span><strong${sp.free < 0 ? ' style="color:var(--red)"' : ''}
+          <div><span>Na účte dnes${UI.tip('Súčet všetkých pohybov načítaných z výpisov z banky. Keď niektorý '
+            + 'výpis chýba, nesedí so skutočným zostatkom.')}</span><strong>${Money.format(sp.start)}</strong></div>
+          <div><span>Rezerva z Nastavení${UI.tip('Suma, ktorá má na účte vždy zostať ako poistka (predvolene 5 000 €). '
+            + 'Mení sa v Cenník a pravidlá → Prahy pre rozhodovanie.')}</span><strong>${Money.format(sp.reserve)}</strong></div>
+          <div><span>Voľné${UI.tip('Koľko sa dá dnes minúť navyše, aby to vyšlo celý výhľad: najnižší zostatok '
+            + 'mínus rezerva. Keď je v mínuse, neminúť nič.')}</span><strong${sp.free < 0 ? ' style="color:var(--red)"' : ''}
             >${Money.format(sp.free)}</strong></div>
         </div>
         <div class="kpi-table-wrap"><table class="kpi-table">
-          <thead><tr><th>Týždeň</th><th class="ta-r">Príde</th><th class="ta-r">Odíde</th>
-            <th class="ta-r">Zostatok</th><th class="ta-r">Voľné</th></tr></thead>
+          <thead><tr><th>Týždeň</th>
+            <th class="ta-r">Príde${UI.tip('Vydané faktúry so splatnosťou v tom týždni — suma, ktorá reálne príde '
+              + '(po zrážke §48b). Faktúry po splatnosti sa nerátajú, sú vypísané pod sumou zvlášť.')}</th>
+            <th class="ta-r">Odíde${UI.tip('Prijaté faktúry a náklady so splatnosťou v tom týždni, aj tie '
+              + 'po splatnosti — dlh nezmizne.')}</th>
+            <th class="ta-r">Zostatok${UI.tip('Koľko bude na účte na konci týždňa.')}</th>
+            <th class="ta-r">Voľné${UI.tip('Zostatok mínus rezerva — koľko by v tom týždni zostalo navyše.')}</th></tr></thead>
           <tbody>${sp.rows.map(r).join('')}</tbody>
         </table></div>
         <p class="card-note">„Voľné" je zostatok mínus rezerva. Rozhoduje

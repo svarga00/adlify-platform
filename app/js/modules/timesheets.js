@@ -94,23 +94,23 @@
       }).length;
 
       el.innerHTML = Danubra.header('Odpracované hodiny',
-        `${Math.round(totalHours)} h za ${this.filters.month || 'obdobie'} · ${unapproved} neschválených`) +
+        `${Math.round(totalHours)} h za ${this.filters.month || 'obdobie'} · ${unapproved} neschválených${UI.tip('Schválené = niekto skontroloval, že hodiny sedia. Len schválené hodiny idú do podkladu na faktúru. Fajka pri riadku záznam schváli (zelená), ďalší klik schválenie zruší.')}`) +
         this.nowHtml(rows) +
         (late ? `<div class="warnbox" style="margin-bottom:14px;">
           ${Icon('alert', 14)} ${late} ${late === 1 ? 'záznam je' : 'záznamov je'} starších ako 7 dní bez schválenia —
-          dokumentácia pracovného času sa podľa §19 AEntG vedie do 7 dní po výkone práce.</div>` : '') + `
+          dokumentácia pracovného času sa podľa §19 AEntG vedie do 7 dní po výkone práce.${UI.tip('AEntG je nemecký zákon o ľuďoch vyslaných na prácu do Nemecka. Podľa §19 musí byť začiatok, koniec a dĺžka práce zapísaná najneskôr do 7 dní. Kontroluje to colná správa (Zoll).')}</div>` : '') + `
 
         <div class="kpi-grid" style="margin-bottom:16px;">
           <div class="kpi"><div class="kpi-label">Hodiny spolu</div>
             <div class="kpi-value">${Math.round(totalHours)}</div>
             <div class="kpi-delta">za vybrané obdobie</div></div>
-          <div class="kpi"><div class="kpi-label">Stavba</div>
+          <div class="kpi"><div class="kpi-label">Stavba${UI.tip('Hodiny priamo na stavenisku. Percento je z produktívnych hodín, teda stavba + dielňa (cesta sa nepočíta).')}</div>
             <div class="kpi-value" style="color:var(--amber);">${Math.round(share.constructionHours)}</div>
             <div class="kpi-delta">${UI.pct(share.pct)} z produktívnych</div></div>
           <div class="kpi"><div class="kpi-label">Dielňa</div>
             <div class="kpi-value" style="color:var(--blue);">${Math.round(share.totalHours - share.constructionHours)}</div>
             <div class="kpi-delta">bez SOKA-BAU</div></div>
-          <div class="kpi"><div class="kpi-label">SOKA-BAU</div>
+          <div class="kpi"><div class="kpi-label">SOKA-BAU${UI.tip('SOKA-BAU je nemecká stavebná pokladnica (dovolenky a dôchodky stavbárov). Keď je viac ako polovica produktívnych hodín na stavbe, vzťahuje sa na nás a treba do nej hlásiť a platiť. Počíta sa z hodín, ktoré sú práve vo filtri.')}</div>
             <div class="kpi-value" style="color:${share.sokaRequired ? 'var(--red)' : 'var(--green)'};">${share.sokaRequired ? 'Áno' : 'Nie'}</div>
             <div class="kpi-delta">${share.sokaRequired ? 'stavba nad 50 %' : 'pod hranicou 50 %'}</div></div>
         </div>
@@ -332,11 +332,11 @@
               onchange: 'Tms.weekForm(Tms.weekField("assignment_id"), this.value)' })}
             ${UI.field('activity_type', 'Činnosť', { value: 'construction',
               hint: 'Platí pre celý týždeň. Jeden deň iného druhu dopíšte cez „Jeden deň".',
-              options: ACTIVITY.map(a => [a[0], a[1]]) })}
+              options: ACTIVITY.map(a => [a[0], a[1]]), tip: 'Stavba = práca priamo na stavenisku. Dielňa = výroba alebo príprava mimo stavby (napr. v hale). Cesta = presun, do pomeru stavba/dielňa sa nepočíta. Pomer rozhoduje, či treba platiť SOKA-BAU.' })}
           </div>
 
           <div class="week-head">
-            <span>Deň</span><span>Hodiny</span><span>Od</span><span>Do</span>
+            <span>Deň</span><span>Hodiny</span><span>Od${UI.tip('Od a Do = čas začiatku a konca práce v ten deň. Nepovinné, ale tlačia sa vo výkaze hodín pre odberateľa (Stundennachweis). Prázdny deň sa nezapíše.')}</span><span>Do</span>
           </div>
           ${[0, 1, 2, 3, 4, 5, 6].map(rowHtml).join('')}
 
@@ -352,6 +352,7 @@
 
           ${UI.field('description', 'Popis práce', { type: 'textarea', rows: 2,
             hint: 'Platí pre všetky zapísané dni. Pri Werkvertrag je to doklad o diele.',
+            tip: 'Werkvertrag = zmluva o dielo: odberateľ si objednáva hotovú prácu, nie ľudí na hodiny. Popis toho, čo sa robilo, pri kontrole dokazuje, že ide o dielo a nie o požičiavanie ľudí.',
             placeholder: 'Čo sa reálne robilo' })}
 
           <div class="modal-actions">
@@ -430,14 +431,17 @@
       const body = `
         <form id="tms-form" onsubmit="event.preventDefault();Tms.save()">
           <div class="form-grid">
-            ${UI.field('assignment_id', 'Nasadenie', { required: true, options: active.map(a => {
+            ${UI.field('assignment_id', 'Nasadenie', { required: true,
+              tip: 'Nasadenie = konkrétny živnostník na konkrétnej zákazke. Zakladá sa na zákazke; podľa neho sa vie, komu a za akú sadzbu sa hodiny fakturujú.',
+              options: active.map(a => {
               const w = this.workerOf(a.worker_id); const s = this.subOf(a.subcontract_id);
               return [a.id, `${w?.full_name || '—'} · ${s?.title || '—'}`];
             }) })}
             ${UI.field('work_date', 'Dátum', { type: 'date', value: today, required: true })}
             ${UI.field('hours', 'Hodiny', { type: 'number', value: 8, required: true })}
-            ${UI.field('activity_type', 'Činnosť', { value: 'construction', options: ACTIVITY.map(a => [a[0], a[1]]) })}
+            ${UI.field('activity_type', 'Činnosť', { value: 'construction', options: ACTIVITY.map(a => [a[0], a[1]]), tip: 'Stavba = práca priamo na stavenisku. Dielňa = výroba alebo príprava mimo stavby (napr. v hale). Cesta = presun, do pomeru stavba/dielňa sa nepočíta. Pomer rozhoduje, či treba platiť SOKA-BAU.' })}
             ${UI.field('time_from', 'Od', { type: 'time',
+              tip: 'Stundennachweis = výkaz odpracovaných hodín v nemčine, ktorý dostane odberateľ a podľa ktorého fakturujeme.',
               hint: 'Nepovinné. Výkaz pre odberateľa (Stundennachweis) ich tlačí — bez nich tam je „—".' })}
             ${UI.field('time_to', 'Do', { type: 'time' })}
           </div>

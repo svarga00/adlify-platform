@@ -46,6 +46,18 @@
   from = "/punds-eu/*"
   to = "/.netlify/functions/punds-web"
   status = 200
+# Balík dokumentov pre živnostníka: WhatsApp/SMS nesú jeden krátky odkaz
+#   /b/<token>               stránka so všetkými PDF
+#   /b/<token>/<archive_id>  stiahnutie (302 na podpísaný odkaz, 60 s)
+# Skladá to funkcia punds-bundle (service role, bez prihlásenia). Prepis
+# (200) — adresa v prehliadači zostane /b/…; funkcia číta token z event.path
+# aj z adresy funkcie. Musí byť pred každým prípadným záchytným pravidlom „/*".
+[[redirects]]
+  from = "/b/*"
+  to = "/.netlify/functions/punds-bundle/:splat"
+  status = 200
+  force = true
+
 # Zdrojáky webov nie sú statické súbory — von ide len web/public.
 [[redirects]]
   from = "/web/sk/*"

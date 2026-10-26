@@ -75,7 +75,9 @@
               <div class="adv-who">${Danubra.link('worker', r.id, r.name, { inline: true })}
                 <span>${r.bills.length ? `${r.bills.length} ${Shell.plural(r.bills.length, 'faktúra', 'faktúry', 'faktúr')} ${Money.format(r.billCents)}` : 'bez faktúry'}${
                   r.advCents ? ` · zálohy ${Money.format(r.advCents)}` : ''}</span></div>
-              <b class="adv-sum${r.owed < 0 ? ' is-neg' : ''}">${r.owed < 0 ? `preplatené ${Money.format(-r.owed)}` : Money.format(r.owed)}</b>
+              <b class="adv-sum${r.owed < 0 ? ' is-neg' : ''}">${r.owed < 0 ? `preplatené ${Money.format(-r.owed)}${
+                UI.tip('Preplatené = na zálohách dostal viac, než sú jeho schválené faktúry. Rozdiel sa '
+                  + 'odpočíta z jeho ďalšej faktúry.')}` : Money.format(r.owed)}</b>
               <button class="btn btn-outline btn-sm" onclick="Wrk.payMenu('${r.id}')">${Icon('plus', 14)} Záloha / platba</button>
             </div>`).join('')
             : '<div class="js-empty">Nikto nemá nevyrovnanú zálohu ani faktúru na výplatu.</div>'}
@@ -89,7 +91,9 @@
             <div class="adv-who">${Danubra.link('worker', a.worker_id, this.nameOf(a.worker_id), { inline: true })}
               <span>${UI.date(a.paid_on)} · ${UI.esc(Enums.label('advance_method', a.method) || a.method || '')}${a.note ? ` · ${UI.esc(a.note)}` : ''}</span></div>
             <b class="adv-sum">${Money.format(Money.toCents(a.amount))}</b>
-            ${a.settled_at ? UI.badge('odpočítaná', 'green') : UI.badge('nevyrovnaná', 'amber')}
+            ${a.settled_at ? UI.badge('odpočítaná', 'green') + UI.tip('Záloha je už odpočítaná z jeho faktúry — vyrovnané.')
+              : UI.badge('nevyrovnaná', 'amber') + UI.tip('Zálohu dostal, ale ešte sa neodpočítala z jeho faktúry. '
+                + 'Odpočíta sa z najbližšej.')}
           </div>`).join('') : '<div class="js-empty">Zatiaľ žiadne zálohy.</div>'}
         </div>`;
     },

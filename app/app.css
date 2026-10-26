@@ -961,7 +961,7 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .modal-head h3 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
 .modal-x { background: none; border: 0; font-size: 18px; cursor: pointer; color: var(--ink-mute); }
 .modal-body { padding: 18px 20px 24px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.modal-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 18px; }
 /* Na počítači je okno väčšie a vzdušnejšie: „na desktope by mohol byť každý
    modal väčší a prehľadnejší". Telefón zostáva pri liste zdola cez celú
    šírku. Tlačidlá okna sú prilepené dole, takže pri dlhom formulári sa
@@ -1057,6 +1057,31 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .service-total .st-side { text-align: right; }
 .lr-main .is-done { text-decoration: line-through; opacity: .6; }
 
+.js-contact { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; flex-basis: 100%; }
+/* Balík pre živnostníka (components/bundle.js) */
+.bdl-list { display: grid; gap: 8px; }
+@media (min-width: 861px) { .bdl-list { grid-template-columns: 1fr 1fr; } }
+.bdl-it, .bdl-ch {
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: #fff;
+}
+.bdl-it:hover, .bdl-ch:hover { border-color: var(--brand); }
+.bdl-it:has(input:checked), .bdl-ch:has(input:checked) { border-color: var(--brand); background: var(--brand-50); }
+.bdl-it.is-off, .bdl-ch.is-off { opacity: .55; cursor: not-allowed; background: var(--bg); }
+.bdl-it.is-bad em { color: var(--red); }
+.bdl-it input, .bdl-ch input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--brand); flex: none; }
+.bdl-ico {
+  flex: none; width: 34px; height: 34px; border-radius: var(--radius); display: inline-flex;
+  align-items: center; justify-content: center; background: var(--bg); color: var(--navy);
+}
+.bdl-txt { min-width: 0; line-height: 1.35; }
+.bdl-txt b, .bdl-ch b { display: block; font-size: 14px; font-weight: 600; color: var(--navy); }
+.bdl-txt em, .bdl-ch em { display: block; font-style: normal; font-size: 12px; color: var(--ink-mute); margin-top: 2px; }
+.bdl-chs { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.bdl-ch span { display: flex; flex-direction: column; }
+.bdl-ch span > svg { margin-bottom: 4px; color: var(--navy); }
+.bdl-link { font-size: 12.5px; background: var(--field); padding: 7px 10px; border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+.pick-tile .bdl-txt { flex: 1; }
 /* Výber z možností (dlaždice) — rovnaký vo všetkých oknách. */
 .pick-list { display: grid; gap: 8px; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
@@ -2605,6 +2630,27 @@ input, select, textarea { font-size: 14px; color: var(--ink); }
 .headline .help-btn { margin-left: auto; color: inherit; opacity: .65; }
 .headline .help-btn:hover { opacity: 1; background: rgba(255,255,255,.55); }
 .dashbar-lead .help-btn { margin-left: 2px; }
+/* Otáznik s krátkym vysvetlením (UI.tip) — pri poli, tlačidle, údaji. */
+.tip-btn {
+  width: 18px; height: 18px; padding: 0; margin: 0 0 0 3px; flex: none; cursor: help;
+  border: 0; background: none; color: var(--ink-mute); border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: -3px;
+}
+.tip-btn:hover, .tip-btn:focus-visible { color: var(--blue); background: var(--blue-50); outline: none; }
+.fld > span .tip-btn { vertical-align: -4px; }
+.modal-actions > .tip-btn, .modal-actions .tip-btn { align-self: center; }
+.tip-pop {
+  position: fixed; z-index: 200; max-width: 300px; padding: 10px 12px;
+  background: var(--navy); color: #fff; border-radius: var(--radius);
+  font: 500 13px/1.5 Inter, sans-serif; letter-spacing: 0; text-transform: none;
+  box-shadow: 0 12px 30px -10px rgba(10,27,61,.5); pointer-events: none;
+  animation: fadeIn .12s ease;
+}
+.tip-pop::after {
+  content: ''; position: absolute; left: calc(var(--tip-x, 50%) - 5px); bottom: -5px;
+  width: 10px; height: 10px; background: var(--navy); transform: rotate(45deg);
+}
+.tip-pop.is-below::after { bottom: auto; top: -5px; }
 .mobile-head .bell-btn {
   background: var(--navy-2); border-color: var(--navy-line); color: #fff;
 }

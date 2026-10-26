@@ -24,6 +24,28 @@
   const REGIME = {
     sk_no_vat: 'SK bez DPH', eu_reverse_charge: 'Reverse charge', other: 'Na kontrolu',
   };
+  // Otáznik pri stave faktúry: čo ten stav znamená a čo bude ďalej.
+  const STATUS_TIP = {
+    draft: 'Rozpracovaná: faktúra je len pripravená a nikto ju ešte neposlal na schválenie. '
+      + 'Dá sa voľne upravovať, odberateľ o nej nevie.',
+    pending_approval: 'Čaká na schválenie: faktúru musí pozrieť a schváliť administrátor. '
+      + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.',
+    approved: 'Schválená: admin ju odsúhlasil a odteraz sa už nemení. Odberateľ ju ešte nemá — '
+      + 'ďalší krok je vystaviť ju v SuperFaktúre.',
+    issued: 'Vystavená: faktúra je platný doklad s číslom. Odberateľovi ešte e-mailom neodišla, '
+      + 'kým ju neodošlete.',
+    sent: 'Odoslaná: faktúra odišla odberateľovi e-mailom. Čaká sa na peniaze; keď prídu na účet '
+      + 'a spárujú sa v Banke, faktúra sa označí ako uhradená.',
+    paid: 'Uhradená: peniaze prišli na účet. Faktúra je uzavretá, už sa s ňou nič nerobí.',
+    overdue: 'Po splatnosti: dátum splatnosti uplynul a peniaze neprišli. Appka to označí sama. '
+      + 'Treba odberateľovi zavolať alebo poslať upomienku.',
+    cancelled: 'Stornovaná: faktúra je zrušená a nepočíta sa do žiadnych súm.',
+  };
+  STATUS_TIP.draft_pending_approval = STATUS_TIP.pending_approval;
+  const TIP_NUMBER = 'Číslo faktúry pridelí appka sama z číselného radu (Nastavenia → Číselné rady). '
+    + 'Jeho číslice sú zároveň variabilný symbol — podľa neho sa platba v Banke spáruje s faktúrou.';
+  const TIP_ITEMS = 'Každý riadok je jedna položka: popis, množstvo, MJ (merná jednotka, napr. h, ks, km) '
+    + 'a cena za jednu jednotku. Suma riadku = množstvo × cena. DPH sa nepripočítava.';
   /** Dlaždica výberu v okne — rovnaká pri každej voľbe „z čoho". */
   const pickTile = ({ ico, title, sub, action }) => `
     <button class="pick-tile" onclick="${action}">
@@ -71,6 +93,8 @@
     // Položka vyhodená z návrhu sa nemaže, len dostane `removed_at`.
     linesOf(id) { return this.lines.filter(l => l.invoice_id === id && !l.removed_at); },
     badge(s) { const m = STATUS.find(x => x[0] === s) || STATUS[1]; return UI.badge(m[1], m[2]); },
+    /** Stav aj s otáznikom — v detaile, kde je miesto na vysvetlenie. */
+    badgeTip(s) { return this.badge(s) + UI.tip(STATUS_TIP[s] || ''); },
 
     async view(el) {
       Danubra.setActions(`
@@ -105,6 +129,8 @@
             const n = this.items.filter(x => x.status === s[0]).length;
             return n ? `<button class="pill${this.filters.status === s[0] ? ' active' : ''}" onclick="Inv.setF('status','${s[0]}')">${s[1]} ${n}</button>` : '';
           }).join('')}
+          ${UI.tip('Faktúra ide krokmi: Rozpracovaná → Čaká na schválenie → Schválená → Vystavená → '
+            + 'Odoslaná → Uhradená. Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.')}
         </div>
         ${Shell.filterbar({
           search: { value: this.filters.q, placeholder: 'Hľadať číslo faktúry alebo odberateľa…',
@@ -249,19 +275,22 @@
       const rows = [
         ['Klient', c?.name], ['Typ', TYPE[x.type] || x.type],
         ['Objednávka', ord?.order_number], ['Vystavená', UI.date(x.issue_date)],
-        ['Splatnosť', UI.date(x.due_date)], ['Režim DPH', regime],
+        ['Splatnosť', UI.date(x.due_date), 'Do tohto dňa má klient zaplatiť. Keď deň uplynie a peniaze '
+          + 'neprídu, faktúra sa označí „Po splatnosti".'],
+        ['Režim DPH', regime, '„SK bez DPH" = klient je na Slovensku; nie sme platiteľ DPH, takže ju '
+          + 'nepripočítavame. „Reverse charge" = klient v inej krajine EÚ s IČ DPH; daň si odvedie sám.'],
         ['Obdobie', x.billing_period_from ? `${UI.date(x.billing_period_from)} – ${UI.date(x.billing_period_to)}` : null],
         ['Uhradená', x.paid_at ? new Date(x.paid_at).toLocaleString('sk-SK') : null],
       ].filter(r => r[1] != null && r[1] !== '');
 
       const body = `
-        <div class="detail-head">${this.badge(x.status)}
-          <span class="mono doc-no">${UI.esc(x.invoice_number || '')}</span>
+        <div class="detail-head">${this.badgeTip(x.status)}
+          <span class="mono doc-no">${UI.esc(x.invoice_number || '')}</span>${x.invoice_number ? UI.tip(TIP_NUMBER) : ''}
         </div>
         ${x.status === 'draft_pending_approval' ? `<div class="warnbox">
           ${Icon('alert', 14)} Toto je návrh — pred odoslaním klientovi ho musíte schváliť.</div>` : ''}
         ${c ? CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.name }, entity: { type: 'client', id: c.id } }) : ''}
-        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
+        <div class="kv">${rows.map(r => `<div><span>${r[0]}${r[2] ? UI.tip(r[2]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
 
         <div class="form-section">Položky</div>
         ${items.map(i => this.lineRow(i)).join('') || '<div class="js-empty">Bez položiek.</div>'}
@@ -274,11 +303,17 @@
           ${x.status === 'draft_pending_approval'
             ? `<button class="btn btn-danger" onclick="Inv.del('${x.id}')">Zahodiť návrh</button>
                <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-               <button class="btn btn-primary" onclick="Inv.approve('${x.id}')">${Icon('check')} Schváliť a vystaviť</button>`
+               <button class="btn btn-primary" onclick="Inv.approve('${x.id}')">${Icon('check')} Schváliť a vystaviť</button>${
+                 UI.tip('Týmto návrh schválite a faktúra sa stane platnou (stav Vystavená). Kým to '
+                   + 'nespravíte, klientovi sa nesmie poslať.')}`
             : `<button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-               <button class="btn btn-outline" onclick="Inv.openDoc('${x.id}')">${Icon('doc')} Dokument s QR</button>
+               <button class="btn btn-outline" onclick="Inv.openDoc('${x.id}')">${Icon('doc')} Dokument s QR</button>${
+                 UI.tip('Otvorí faktúru na tlač alebo do PDF. QR kód klient naskenuje v mobilnom '
+                   + 'bankovníctve a platba sa mu vyplní sama — suma, IBAN aj variabilný symbol.')}
                ${x.status !== 'paid'
-                 ? `<button class="btn btn-primary" onclick="Inv.markPaid('${x.id}')">${Icon('check')} Označiť uhradenú</button>`
+                 ? `<button class="btn btn-primary" onclick="Inv.markPaid('${x.id}')">${Icon('check')} Označiť uhradenú</button>${
+                   UI.tip('Kliknite, keď peniaze prišli na účet. Faktúra sa uzavrie a zmizne z neuhradených. '
+                     + 'Keď platbu spárujete v Banke, stane sa to samo.')}`
                  : ''}`}
         </div>`;
       UI.modal(`Faktúra ${x.invoice_number || ''}`, body, { wide: true });
@@ -349,7 +384,8 @@
           ${opt('calendar', 'Za celý mesiac naraz', 'Všetky zákazky za mesiac: obdobia sa uzavrú a vzniknú návrhy faktúr jedným klikom.', 'Inv.monthly()')}
         </div>
         <div class="regimebox">Každá faktúra vznikne ako <b>návrh</b>. Kým ju admin neschváli,
-          dá sa upraviť; po schválení sa už nemení.</div>
+          dá sa upraviť; po schválení sa už nemení.${UI.tip('Faktúra sa nikdy nevystaví ani neodošle bez '
+            + 'schválenia adminom. Návrh je len v appke — odberateľ o ňom nevie.')}</div>
         ${stare ? `<details class="more-block"><summary>Staré faktúry z ubytovacej agendy</summary>
           ${opt('orders', 'Z objednávky ubytovania', 'Sprostredkovanie alebo priebežná služba', 'Inv.pickOrder()')}
           ${opt('clients', 'Voľná faktúra klientovi ubytovania', 'Vlastné položky pre klienta z v1', 'Inv.manual()')}
@@ -472,13 +508,18 @@
           <div class="form-grid">
             ${UI.field('client_id', 'Klient', { value: c, required: true,
               options: [['', '— vyberte klienta —'], ...this.clients.map(x => [x.id, x.name])] })}
-            ${UI.field('type', 'Typ', { value: 'other', options: [
+            ${UI.field('type', 'Typ', { value: 'other',
+              tip: 'Za čo fakturujete. Sprostredkovanie = jednorazový poplatok za nájdené ubytovanie; '
+                + 'Priebežná služba = starostlivosť počas pobytu; Retainer = pravidelný paušál. '
+                + 'Typ sa len zapíše k faktúre, sumu nemení.', options: [
               ['other', 'Iné'], ['service_fee', 'Sprostredkovanie'],
               ['ongoing_service', 'Priebežná služba'], ['retainer', 'Retainer']] })}
-            ${UI.field('due_days', 'Splatnosť (dní)', { type: 'number', value: 14 })}
+            ${UI.field('due_days', 'Splatnosť (dní)', { type: 'number', value: 14,
+              tip: 'Koľko dní má klient na zaplatenie, počíta sa od dňa vystavenia. '
+                + 'Z toho vznikne dátum splatnosti na faktúre.' })}
           </div>
           <div id="regime-hint" class="regimebox"></div>
-          <div class="form-section">Položky</div>
+          <div class="form-section">Položky${UI.tip(TIP_ITEMS)}</div>
           <div id="item-rows"></div>
           <button type="button" class="btn btn-outline btn-sm" onclick="Inv.addRow()">${Icon('plus')} Pridať položku</button>
           <div class="service-total is-neutral">
@@ -487,7 +528,8 @@
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-            <button type="submit" class="btn btn-primary">${Icon('check')} Vystaviť faktúru</button>
+            <button type="submit" class="btn btn-primary">${Icon('check')} Vystaviť faktúru</button>${
+              UI.tip('Napriek názvu vznikne najprv návrh. Platná faktúra z neho bude až po schválení.')}
           </div>
         </form>`, { wide: true });
       this.renderRows();
@@ -654,17 +696,32 @@
           overdue: ['Po splatnosti', 'btn-ghost'],
         }[to];
         if (!map) return '';
+        // Čo tlačidlo spraví — pri nevratných krokoch hlavne to, že sa to
+        // nedá vziať späť.
+        const tip = UI.tip({
+          pending_approval: 'Faktúra pôjde administrátorovi na kontrolu. Kým ju neschváli, '
+            + 'nevystaví sa ani neodošle.',
+          approved: 'Schválením faktúru „zamknete" — odteraz sa už nemení, opraviť sa dá len dobropisom '
+            + '(opravnou faktúrou). Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom.',
+          draft: 'Vráti faktúru do rozpracovaných. Schválenie sa zmaže a po úprave ju treba schváliť znova.',
+          issued: 'Faktúra sa zapíše do SuperFaktúry (fakturačný program) a stane sa platným dokladom. '
+            + 'Odberateľovi ešte nič nepríde — to je ďalší krok.',
+          sent: 'SuperFaktúra pošle faktúru odberateľovi e-mailom (po nemecky). Poslaný e-mail sa nedá '
+            + 'vziať späť.',
+          paid: 'Zapíše úhradu aj do SuperFaktúry. Použite, keď peniaze naozaj prišli na účet — '
+            + 'zvyčajne to za Vás spraví spárovanie v Banke.',
+        }[to] || '');
         // Schváliť sa nedá, kým niečo blokuje — okrem toho, čo je povolené
         // zapísanou výnimkou.
         if (to === 'approved' && !revV.ok) {
           return `<button class="btn btn-primary" disabled title="${
-            UI.esc(revV.open.map(r => r.label).join(' · '))}">${map[0]}</button>`;
+            UI.esc(revV.open.map(r => r.label).join(' · '))}">${map[0]}</button>${tip}`;
         }
         const fn = to === 'issued' ? `Inv.sfAction('${x.id}','issue')`
           : to === 'sent' ? `Inv.sfAction('${x.id}','send')`
           : to === 'paid' ? `Inv.sfAction('${x.id}','pay')`
           : `Inv.setStatusV2('${x.id}','${to}')`;
-        return `<button class="btn ${map[1]}" onclick="${fn}">${map[0]}</button>`;
+        return `<button class="btn ${map[1]}" onclick="${fn}">${map[0]}</button>${tip}`;
       };
       // Päta okna: tiché kroky pred hlavnými, hlavné tlačidlo je posledné.
       const RANK = { 'btn-ghost': 0, 'btn-outline': 1, 'btn-primary': 2 };
@@ -679,21 +736,31 @@
         ['Odberateľ', ctx.partner.name],
         ['Zákazka', ctx.subcontract.title],
         ['Obdobie', x.billing_period_from
-          ? UI.dateRange(x.billing_period_from, x.billing_period_to) : null],
+          ? UI.dateRange(x.billing_period_from, x.billing_period_to) : null,
+          'Za ktoré dni sa fakturuje. Z týchto dní sa vzali schválené odpracované hodiny.'],
         ['Vystavená', x.issue_date ? UI.date(x.issue_date) : null],
-        ['Splatnosť', x.due_date ? UI.date(x.due_date) : null],
+        ['Splatnosť', x.due_date ? UI.date(x.due_date) : null,
+          'Do tohto dňa má odberateľ zaplatiť. Počet dní sa berie z karty odberateľa, inak 30 dní '
+            + 'od vystavenia. Potom appka faktúru označí „Po splatnosti".'],
         ['Režim DPH', x.vat_regime === 'reverse_charge'
-          ? 'Reverse charge §13b' : 'Bežný'],
+          ? 'Reverse charge §13b' : 'Bežný',
+          x.vat_regime === 'reverse_charge'
+            ? 'Reverse charge §13b (prenesenie daňovej povinnosti): na faktúre nie je DPH, nemeckú DPH '
+              + 'si odvedie odberateľ sám. Musí na to mať USt-IdNr — nemecké IČ DPH.'
+            : 'Odberateľ nemá reverse charge. DPH sa ani tak nepripočítava — nie sme platiteľ DPH.'],
         ['Schválil', x.approved_at
-          ? `${new Date(x.approved_at).toLocaleString('sk-SK')}` : null],
+          ? `${new Date(x.approved_at).toLocaleString('sk-SK')}` : null,
+          'Kedy faktúru schválil administrátor. Bez tohto záznamu sa nedá vystaviť ani odoslať.'],
         ['V SuperFaktúre', x.sf_invoice_id
-          ? `${x.sf_invoice_id} (${x.sf_environment || 'sandbox'})` : null],
+          ? `${x.sf_invoice_id} (${x.sf_environment || 'sandbox'})` : null,
+          'Číslo dokladu v SuperFaktúre — fakturačnom programe, cez ktorý faktúra odchádza. '
+            + '„sandbox" je skúšobný účet: doklad tam nie je ostrý; „production" je ostrý účet.'],
       ].filter(r => r[1] != null && r[1] !== '');
 
       const body = `
         <div class="detail-head">
-          ${this.badge(x.status)}
-          <span class="mono doc-no">${UI.esc(x.invoice_number || '')}</span>
+          ${this.badgeTip(x.status)}
+          <span class="mono doc-no">${UI.esc(x.invoice_number || '')}</span>${x.invoice_number ? UI.tip(TIP_NUMBER) : ''}
         </div>
 
         ${x.sf_error ? `<div class="warnbox">${Icon('alert', 14)}
@@ -703,12 +770,16 @@
           <button class="btn btn-outline btn-sm" onclick="Inv.openDocV2('${x.id}')">${Icon('doc', 14)} Zobraziť faktúru (PDF)</button>
           ${upravit ? `<button class="btn btn-outline btn-sm" onclick="Inv.freeForm('${x.id}')">${Icon('edit', 14)} Upraviť návrh</button>` : ''}
         </div>
-        ${upravit ? '' : '<p class="muted-sm">Schválená faktúra sa už nemení — opravuje sa dobropisom.</p>'}
+        ${upravit ? '' : `<p class="muted-sm">Schválená faktúra sa už nemení — opravuje sa dobropisom.${
+          UI.tip('Dobropis je opravná faktúra so zápornou sumou. Ruší celú pôvodnú faktúru alebo jej '
+            + 'časť — pôvodný doklad sa nikdy neprepisuje.')}</p>`}
 
         <div class="form-section">Položky</div>
         ${riadky.map(i => this.lineRow(i)).join('') || '<div class="js-empty">Bez položiek.</div>'}
 
-        <div class="form-section">Suma</div>
+        <div class="form-section">Suma${UI.tip('Fakturovaná suma je celá suma na faktúre. Pri stavebných '
+          + 'prácach bez platnej Freistellungsbescheinigung (§48b) odberateľ 15 % zrazí a pošle nemeckému '
+          + 'finančnému úradu — na účet nám príde menej.')}</div>
         ${Shell.sums({
           lines: DanubraInvoice.sumLines(x),
           totalLabel: w.withheld ? 'Na účet príde' : 'Na úhradu',
@@ -717,7 +788,9 @@
               + 'daňová povinnosť odberateľa.' : '',
         })}
 
-        <div class="form-section">Pred schválením</div>
+        <div class="form-section">Pred schválením${UI.tip('Appka tu faktúru skontroluje skôr, než ju admin '
+          + 'schváli: odberateľa, číslo, sumu oproti hodinám a USt-IdNr. Kým svieti niečo červené, '
+          + 'schváliť sa nedá.')}</div>
         ${Shell.blocker({
           reasons: [...rev.reasons, ...rev.warnings],
           overrides: DanubraOverrides.forEntity(this.overrides, 'invoice', x.id),
@@ -736,7 +809,7 @@
         ${this.overridesHtml(x.id)}
 
         <div class="kv">
-          ${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
+          ${rows.map(r => `<div><span>${r[0]}${r[2] ? UI.tip(r[2]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}
         </div>
 
         ${this.dunningHtml ? this.dunningHtml(x) : ''}
@@ -770,7 +843,9 @@
             onclick="Inv.revokeOverride('${o.id}','${invoiceId}')">Zrušiť</button>`}
         </div>`;
       };
-      return `<div class="form-section">Zapísané výnimky</div>
+      return `<div class="form-section">Zapísané výnimky${UI.tip('Výnimka = admin vedome povolil, že faktúra '
+        + 'smie ísť ďalej aj s rozdielom oproti podkladu. Zapisuje sa s dôvodom, aby bolo aj o rok jasné, '
+        + 'kto a prečo to povolil.')}</div>
         ${all.map(row).join('')}
         <p class="muted-sm">
           Výnimka sa nemaže. Zrušenie ju len prestane uplatňovať — záznam
@@ -909,18 +984,23 @@
             ${UI.field('partner_id', 'Odberateľ', { value: x ? x.partner_id : '', required: true, add: 'partner',
               options: [['', '— vyberte firmu —'], ...this.v2.partners.map(p => [p.id, p.name])] })}
             ${UI.field('subcontract_id', 'Zákazka (nepovinné)', { value: x ? x.subcontract_id || '' : '',
+              tip: 'Ku ktorej stavbe faktúra patrí. Sumu nemení — faktúra sa potom ukáže aj pri tej zákazke.',
               // Zákazka sa zakladá v Zákazkách so všetkými krokmi — nie z faktúry.
               add: false,
               options: [['', '— bez zákazky —'], ...this.v2.subcontracts.map(z => [z.id, z.title])] })}
             ${UI.field('issue_date', 'Dátum vystavenia', { type: 'date', value: x ? x.issue_date : dnes })}
-            ${UI.field('delivery_date', 'Dátum dodania', { type: 'date', value: x ? (x.delivery_date || x.issue_date) : dnes })}
+            ${UI.field('delivery_date', 'Dátum dodania', { type: 'date', value: x ? (x.delivery_date || x.issue_date) : dnes,
+              tip: 'Kedy bola práca alebo vec dodaná (pri hodinách posledný deň obdobia). Musí byť '
+                + 'na faktúre zo zákona a môže sa líšiť od dátumu vystavenia.' })}
             ${UI.field('due_date', 'Splatnosť', { type: 'date', value: x ? x.due_date : '' ,
               hint: x ? '' : 'Prázdne = podľa odberateľa (inak 30 dní).' })}
           </div>
           <div id="regime-hint" class="regimebox"></div>
-          ${zPodkladu ? `<div class="notebox">Suma tejto faktúry je z uzavretého obdobia (${UI.money(x.total)}).
+          ${zPodkladu ? `<div class="notebox">Suma tejto faktúry je z uzavretého obdobia (${UI.money(x.total)}).${
+            UI.tip('Uzavreté obdobie = hodiny za tieto dni sú schválené a zmrazené aj so sadzbou. '
+              + 'Kým z neho nie je faktúra, dá sa v zákazke znova otvoriť.')}
             Mení sa v hodinách zákazky, nie tu — inak by faktúra nesedela s výkazom.</div>` : `
-          <div class="form-section">Položky</div>
+          <div class="form-section">Položky${UI.tip(TIP_ITEMS)}</div>
           <div id="item-rows"></div>
           <button type="button" class="btn btn-outline btn-sm" onclick="Inv.addRow()">${Icon('plus')} Pridať položku</button>
           <div class="service-total is-neutral">

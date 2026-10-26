@@ -394,7 +394,8 @@
         return Danubra.routeAvailable('subcontracts')
           ? b('btn-primary', "UI.closeModal();Danubra.go('subcontracts')", 'site', 'Vybrať zákazku') : '';
       }
-      const infolist = b('btn-outline', `Wrk.paperSiteSheet('${w.id}')`, 'pin', 'Infolist na stavbu');
+      const infolist = b('btn-outline', `Wrk.paperSiteSheet('${w.id}')`, 'pin', 'Infolist na stavbu')
+        + (window.Bundle && this.activeAsg(w.id).length ? b('btn-primary', `Wrk.bundle('${w.id}')`, 'mail', 'Poslať všetko naraz') : '');
       if (i.needs === 'order') {
         return b('btn-primary', `Ord.newFor('${i.assignmentId}')`, 'orders', 'Vystaviť objednávku')
           + infolist;
@@ -1314,6 +1315,14 @@
         && r.status !== 'cancelled');
       if (!o) { if (okno) okno.close(); return UI.toast('Objednávka sa nenašla', 'err'); }
       return Ord.document(o.id, okno);
+    },
+
+    /** Všetky papiere na nástup v jednej správe (components/bundle.js). */
+    bundle(workerId) {
+      const asg = this.activeAsg(workerId)
+        .sort((a, b) => String(a.date_from || '').localeCompare(String(b.date_from || '')))[0];
+      if (!asg) return UI.toast('Ešte nie je na žiadnej zákazke — najprv ho nasaďte.', 'warn');
+      return Bundle.open(asg.id);
     },
 
     /** Infolist na stavbu pre jeho najbližšie nasadenie. */

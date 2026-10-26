@@ -57,7 +57,10 @@
       Danubra.renderRoute();
     },
 
-    /** Formulár nad jedným JSON stĺpcom. */
+    /**
+     * Formulár nad jedným JSON stĺpcom. Pole je
+     * `[kľúč, názov, typ, predvolená hodnota, placeholder, možnosti, otáznik]`.
+     */
     section(title, note, key, fields) {
       const v = this.j(key);
       const formId = `cfg-${key}`;
@@ -74,7 +77,7 @@
             <div class="form-grid">
               ${fields.map(f => UI.field(f[0], f[1], {
                 type: f[2] || 'text', value: v[f[0]] ?? f[3] ?? '',
-                placeholder: f[4] || '', options: f[5],
+                placeholder: f[4] || '', options: f[5], tip: f[6],
               })).join('')}
             </div>
             <div style="display:flex;justify-content:flex-end;margin-top:12px;">
@@ -163,11 +166,15 @@
         this.section('Ubytovanie — poplatky',
           'Predvolené hodnoty pri tvorbe ponuky. Pri konkrétnej ponuke sa dajú prepísať.',
           'pricing', [
-          ['fee_individual', 'Poplatok — jednotlivec €', 'number', 150],
+          ['fee_individual', 'Poplatok — jednotlivec €', 'number', 150, '', null,
+            'Sprostredkovateľský poplatok — jednorazová suma za nájdené ubytovanie. '
+              + 'Predvyplní sa do novej ponuky, tam sa dá prepísať.'],
           ['fee_crew', 'Poplatok — parta €', 'number', 250],
           ['fee_company', 'Poplatok — firma €', 'number', 400],
           ['urgent_percent', 'Príplatok za súrnosť %', 'number', 20],
-          ['ongoing_service_rate_default', 'Priebežná služba €/os./deň', 'number', 1.5],
+          ['ongoing_service_rate_default', 'Priebežná služba €/os./deň', 'number', 1.5, '', null,
+            'Koľko € za osobu a deň stojí priebežná služba (starostlivosť o ľudí počas pobytu). '
+              + 'Predvyplní sa do novej ponuky ubytovania.'],
           ['retainer_individual', 'Retainer — jednotlivec €', 'number', 50],
           ['retainer_company', 'Retainer — firma €', 'number', 200],
         ]) +
@@ -175,18 +182,27 @@
         this.section('Subdodávky — mzdové náklady',
           'Vstupujú do výpočtu marže na pracovníka. SOKA-BAU sa účtuje len pri stavebných prácach.',
           'staffing', [
-          ['employer_contrib_pct', 'Odvody zamestnávateľa SR %', 'number', 36.2],
-          ['soka_pct', 'SOKA-BAU %', 'number', 14.7],
+          ['employer_contrib_pct', 'Odvody zamestnávateľa SR %', 'number', 36.2, '', null,
+            'Odvody, ktoré firma platí za zamestnanca. Rátajú sa len pri zamestnancoch — '
+              + 'pri živnostníkoch je to nula, odvody si platia sami.'],
+          ['soka_pct', 'SOKA-BAU %', 'number', 14.7, '', null,
+            'Príspevok do nemeckej stavebnej kasy SOKA-BAU v % z hrubej mzdy. Ráta sa len pri '
+              + 'zamestnancoch na stavebných prácach, nie pri živnostníkoch.'],
         ]) +
 
         this.section('Subdodávky — nemecké minimálne mzdy',
           'Kontrola pri nasadení. Pod týmito sadzbami compliance zákazku zablokuje — '
           + 'rozhodujúci je tarifný nárok, aj keď sa reálne vyplatilo menej.',
           'staffing', [
-          ['bau_min_lg1', 'Bau-Mindestlohn LG1 €/h', 'number', 15.86],
+          ['bau_min_lg1', 'Bau-Mindestlohn LG1 €/h', 'number', 15.86, '', null,
+            'Najnižšia zákonná hodinová mzda na nemeckej stavbe. LG1 = jednoduché práce, '
+              + 'LG2 = odborné práce (vyučený remeselník).'],
           ['bau_min_lg2', 'Bau-Mindestlohn LG2 €/h', 'number', 17.34],
-          ['general_min_wage', 'Všeobecný Mindestlohn €/h', 'number', 13.90],
-          ['withholding_pct', 'Zrážka bez §48b %', 'number', 15],
+          ['general_min_wage', 'Všeobecný Mindestlohn €/h', 'number', 13.90, '', null,
+            'Všeobecná minimálna mzda v Nemecku na hodinu. Platí pri práci, ktorá nie je stavba.'],
+          ['withholding_pct', 'Zrážka bez §48b %', 'number', 15, '', null,
+            'Koľko % zrazí nemecký odberateľ zo stavebnej faktúry, keď nemáme platnú '
+              + 'Freistellungsbescheinigung §48b. Zo zákona 15 %. Appka to použije pri faktúre z obdobia.'],
         ]) +
 
         this.section('Prahy pre rozhodovanie',
@@ -194,7 +210,14 @@
           + 'likvidita najpravdepodobnejší dôvod zlyhania, nie nedostatok dopytu.',
           'staffing', [
           ['target_margin_per_worker', 'Minimálna marža na pracovníka €', 'number', 1000],
-          ['dso_alert_days', 'Doba inkasa, nad ktorou neškálovať (dní)', 'number', 45],
+          // Rezerva sa číta na Prehľade, v Banke aj v „Kde sú peniaze" — a nedala
+          // sa nikde nastaviť, hoci sa tam píše „Rezerva z Nastavení".
+          ['cash_buffer_min', 'Rezerva na účte €', 'number', 5000, '', null,
+            'Koľko má na účte vždy zostať ako poistka. Podľa toho appka počíta „Voľné" peniaze '
+              + 'a varuje, keď výhľad klesne pod túto sumu.'],
+          ['dso_alert_days', 'Doba inkasa, nad ktorou neškálovať (dní)', 'number', 45, '', null,
+            'Doba inkasa = koľko dní v priemere trvá, kým odberateľ zaplatí faktúru. Keď je dlhá, '
+              + 'každý ďalší človek znamená viac vlastných peňazí vopred na jeho výplatu.'],
         ]) +
 
         // Odberateľ napíše „ab Montag" a nevie, koľko ľudí vieme zohnať. Toto
@@ -205,14 +228,26 @@
           + 'aj v podpísanej zmluve — kým sa nevyplní, na papieri sa vypíše ako '
           + 'chýbajúci údaj, nie ako nula.',
           'framework_de', [
-          ['objednavka_dni', 'Objednávka vopred (pracovných dní)', 'number', 5],
-          ['fakturacia_dni', 'Fakturujeme každých (dní)', 'number', 14],
-          ['splatnost_dni', 'Splatnosť našej faktúry (dní)', 'number', 7],
-          ['urok_omeskanie_pct', 'Pokuta za deň omeškania (%)', 'number', 0.05],
-          ['prestoj_pokuta', 'Prestoj — € za osobu a deň', 'number', ''],
-          ['vykaz_namietka_dni', 'Namietnutie výkazu do (prac. dní)', 'number', 3],
+          ['objednavka_dni', 'Objednávka vopred (pracovných dní)', 'number', 5, '', null,
+            'Najmenej koľko pracovných dní vopred musí odberateľ ľudí objednať. Vypíše sa do zmluvy.'],
+          ['fakturacia_dni', 'Fakturujeme každých (dní)', 'number', 14, '', null,
+            'Ako často odberateľovi fakturujeme. Len sa vypíše do zmluvy — faktúry podľa toho '
+              + 'nevznikajú samy.'],
+          ['splatnost_dni', 'Splatnosť našej faktúry (dní)', 'number', 7, '', null,
+            'Toto číslo sa vypíše do zmluvy. Splatnosť na samotnej faktúre sa berie z karty '
+              + 'odberateľa (inak 30 dní) — nastavte ju tam rovnako.'],
+          ['urok_omeskanie_pct', 'Pokuta za deň omeškania (%)', 'number', 0.05, '', null,
+            'Koľko % z dlžnej sumy zaplatí odberateľ za každý deň, o ktorý mešká s platbou. '
+              + '0,05 % = 5 € denne z dlhu 10 000 €.'],
+          ['prestoj_pokuta', 'Prestoj — € za osobu a deň', 'number', '', '', null,
+            'Prestoj = ľudia sú na stavbe, ale vinou odberateľa nemôžu robiť. Toto zaplatí za osobu '
+              + 'a deň. Prázdne = v zmluve zostane voľné miesto na doplnenie.'],
+          ['vykaz_namietka_dni', 'Namietnutie výkazu do (prac. dní)', 'number', 3, '', null,
+            'Dokedy musí odberateľ písomne namietať výkaz hodín, ak ho odmieta podpísať. Keď nenamieta, '
+              + 'výkaz platí a fakturovať sa dá aj bez podpisu.'],
           ['vypoved_dni', 'Výpovedná lehota (dní)', 'number', 7],
-          ['odstupenie_omeskanie_dni', 'Odstúpenie po omeškaní (dní)', 'number', 10],
+          ['odstupenie_omeskanie_dni', 'Odstúpenie po omeškaní (dní)', 'number', 10, '', null,
+            'Keď odberateľ mešká s platbou dlhšie ako toľko dní, môžeme od zmluvy odstúpiť.'],
         ]) +
 
         // Zmluva so živnostníkom je dáta, nie HTML: právnik opraví vetu,
@@ -221,18 +256,24 @@
           'Sumy a lehoty, ktoré sa vypíšu do rámcovej zmluvy o dielo. Zmena sa '
           + 'prejaví na každej ďalšej zmluve; tie podpísané zostávajú, ako boli.',
           'subcontract', [
-          ['fakturacia_dni', 'Fakturuje každých (dní)', 'number', 14],
-          ['splatnost_dni', 'Splatnosť jeho faktúry (dní)', 'number', 14],
+          ['fakturacia_dni', 'Fakturuje každých (dní)', 'number', 14, '', null,
+            'Ako často nám živnostník fakturuje. Vypíše sa do jeho zmluvy.'],
+          ['splatnost_dni', 'Splatnosť jeho faktúry (dní)', 'number', 14, '', null,
+            'Do koľkých dní živnostníkovi platíme. Vypíše sa do zmluvy a dostane ju aj faktúra, '
+              + 'ktorú vystavíme za neho.'],
           ['zaruka_mes', 'Záruka za akosť diela (mesiacov)', 'number', 24],
           ['reklamacia_dni', 'Odstránenie vady do (dní)', 'number', 10],
-          ['freistellung_poplatok', 'Poplatok pri zrážkovej dani €', 'number', 50],
+          ['freistellung_poplatok', 'Poplatok pri zrážkovej dani €', 'number', 50, '', null,
+            'Keď si živnostník nevybaví Freistellung a my musíme za neho odviesť nemeckú zrážkovú daň, '
+              + 'za každú takú úhradu mu strhneme aj tento poplatok. Vypíše sa do zmluvy.'],
           ['pokuta_alkohol', 'Pokuta — alkohol na pracovisku €', 'number', 500],
           ['pokuta_fajcenie', 'Pokuta — fajčenie €', 'number', 350],
           ['pokuta_omeskanie_den', 'Pokuta — omeškanie za deň €', 'number', 250],
           ['pokuta_nenastupenie', 'Pokuta — nenastúpenie €', 'number', 2500],
           ['pokuta_mlcanlivost', 'Pokuta — mlčanlivosť €', 'number', 400],
           ['pokuta_konkurencia', 'Pokuta — zákaz konkurencie €', 'number', 10000],
-          ['konkurencia_roky', 'Zákaz konkurencie po skončení (rokov)', 'number', 2],
+          ['konkurencia_roky', 'Zákaz konkurencie po skončení (rokov)', 'number', 2, '', null,
+            'Koľko rokov po skončení spolupráce nesmie živnostník robiť priamo pre našich odberateľov.'],
           ['vypoved_mes', 'Výpovedná lehota (mesiacov)', 'number', 1],
         ]) +
 
@@ -240,7 +281,9 @@
           'Z toho sa počíta, či sa dopyt dá stihnúť. Keď príde e-mail na trinásť '
           + 'ľudí od pondelka, appka to povie hneď — nie v pondelok.',
           'staffing', [
-          ['hire_per_week_min', 'Najmenej ľudí za týždeň', 'number', 2],
+          ['hire_per_week_min', 'Najmenej ľudí za týždeň', 'number', 2, '', null,
+            'Koľko nových ľudí za týždeň naberieme aj v horšom prípade. Podľa toho appka pri dopyte '
+              + 'povie, či počet ľudí do termínu stihneme.'],
           ['hire_per_week_max', 'Najviac ľudí za týždeň', 'number', 6],
         ]);
     },
@@ -270,7 +313,8 @@
               <label class="mod-toggle">
                 <input type="checkbox" ${on(key) ? 'checked' : ''}
                   onchange="Cfg.toggleModule('${key}', this.checked)">
-                <b>${UI.esc(label)}</b>
+                <b>${UI.esc(label)}</b>${UI.tip('Vypnutím agenda zmizne z menu pre všetkých. Nič sa nemaže — '
+                  + 'po zapnutí je všetko späť, ako bolo.')}
               </label>
               <span>${UI.esc(note)}</span>
             </div>`).join('')}
@@ -342,10 +386,17 @@
           // Štvrtý prvok je **hodnota**, nie placeholder. „Firma s. r. o." sa tu
           // preto predvyplnila ako skutočný údaj a dala sa uložiť na dokumenty.
           ['name', 'Názov firmy', 'text', '', 'Presný názov podľa registra'],
-          ['iban', 'IBAN', 'text', '', 'SK00 0000 0000 0000 0000 0000'],
-          ['company_id', 'IČO', 'text'],
-          ['tax_id', 'DIČ', 'text'],
-          ['vat_id', 'IČ DPH', 'text'],
+          ['iban', 'IBAN', 'text', '', 'SK00 0000 0000 0000 0000 0000', null,
+            'Číslo nášho účtu. Tlačí sa na faktúry a do QR kódu na platbu a z neho odchádzajú '
+              + 'platby živnostníkom (súbor SEPA pre banku).'],
+          ['company_id', 'IČO', 'text', '', '', null,
+            'IČO = identifikačné číslo našej firmy z obchodného registra (8 číslic). '
+              + 'Musí byť na každej faktúre a zmluve.'],
+          ['tax_id', 'DIČ', 'text', '', '', null,
+            'DIČ = daňové identifikačné číslo od slovenského daňového úradu (10 číslic).'],
+          ['vat_id', 'IČ DPH', 'text', '', '', null,
+            'IČ DPH = DIČ s predponou SK. Máme ho, hoci nie sme platiteľ DPH (registrácia podľa §7a) — '
+              + 'bez neho nejde reverse charge na faktúrach do Nemecka.'],
           // Na súhlase GDPR aj na rámcovej zmluve musí byť, kde je firma
           // zapísaná. Bez toho sú to papiere bez identifikácie prevádzkovateľa.
           ['register', 'Zápis v registri', 'text', '',
@@ -353,7 +404,9 @@
           // Nemecké daňové číslo. Bez neho sa na výkaze hodín ani na faktúre
           // nedá uviesť — a pole na jeho vyplnenie tu doteraz vôbec nebolo,
           // hoci dokument sa naň odvolával.
-          ['tax_number_de', 'Steuernummer (DE)', 'text', '', 'napr. 12/345/67890'],
+          ['tax_number_de', 'Steuernummer (DE)', 'text', '', 'napr. 12/345/67890', null,
+            'Steuernummer je nemecké daňové číslo našej firmy od nemeckého finančného úradu. '
+              + 'Tlačí sa na dokumenty pre nemeckých odberateľov.'],
           ['email', 'E-mail', 'email'],
           ['phone', 'Telefón', 'text'],
           ['address', 'Adresa', 'text'],
@@ -361,7 +414,9 @@
           // und Service „punds" a web z domény e-mailu.
           ['brand', 'Značka v hlavičke dokumentov', 'text', '', 'napr. punds'],
           ['web', 'Web na dokumentoch', 'text', '', 'napr. punds.eu'],
-          ['bic', 'BIC / SWIFT', 'text', '', 'napr. TATRSKBX'],
+          ['bic', 'BIC / SWIFT', 'text', '', 'napr. TATRSKBX', null,
+            'BIC (SWIFT) je medzinárodný kód banky, napr. TATRSKBX = Tatra banka. '
+              + 'Tlačí sa na faktúru vedľa IBAN-u.'],
           ['vat_note', 'Poznámka k DPH', 'text', 'Nie sme platiteľmi DPH.'],
         ]) +
 
@@ -373,9 +428,11 @@
             Čísla prideľuje databáza transakčne, takže nikdy nevznikne diera ani duplicita.
             Pri zmene roka sa rad automaticky vynuluje.</div>
           <div class="kv">
-            <div><span>Objednávky</span><strong class="mono">OBJ-${ord.year || '—'}-${String(ord.current || 0).padStart(4, '0')}</strong></div>
-            <div><span>Faktúry</span><strong class="mono">${inv.year || '—'}${String(inv.current || 0).padStart(3, '0')}</strong></div>
-            <div><span>Zákazky</span><strong class="mono">ZAK-${sub.year || '—'}-${String(sub.current || 0).padStart(4, '0')}</strong></div>
+            <div><span>Objednávky${UI.tip('Číslo poslednej objednávky (OBJ-rok-poradie). Ďalšia dostane '
+              + 'o jedno vyššie — appka ho pridelí sama.')}</span><strong class="mono">OBJ-${ord.year || '—'}-${String(ord.current || 0).padStart(4, '0')}</strong></div>
+            <div><span>Faktúry${UI.tip('Číslo poslednej vydanej faktúry: rok a poradie (napr. 2026091). '
+              + 'Ďalšia dostane o jedno vyššie. Číslice z neho sú zároveň variabilný symbol pri platbe.')}</span><strong class="mono">${inv.year || '—'}${String(inv.current || 0).padStart(3, '0')}</strong></div>
+            <div><span>Zákazky${UI.tip('Číslo poslednej zákazky (ZAK-rok-poradie). Pridelí sa pri jej založení.')}</span><strong class="mono">ZAK-${sub.year || '—'}-${String(sub.current || 0).padStart(4, '0')}</strong></div>
           </div>
         </div>` +
 
@@ -392,8 +449,11 @@
         this.section('Marketing a SMS',
           '',
           'marketing', [
-          ['monthly_budget', 'Mesačný rozpočet na marketing €', 'number', 300],
-          ['sms_monthly_limit', 'Mesačný limit SMS (segmentov)', 'number', 200],
+          ['monthly_budget', 'Mesačný rozpočet na marketing €', 'number', 300, '', null,
+            'Koľko € mesačne plánujete na reklamu. V Marketingu appka ukáže, koľko z toho je minuté.'],
+          ['sms_monthly_limit', 'Mesačný limit SMS (segmentov)', 'number', 200, '', null,
+            'Najviac koľko SMS sa za mesiac odošle (dlhá správa sa počíta ako viac SMS). '
+              + 'Keď by sa limit prekročil, ďalšia SMS neodíde. 0 = bez limitu.'],
         ]) +
 
         this.section('AI nábor',
@@ -401,7 +461,9 @@
           + 'začiatkom — na Slovensku podľa §377 Trestného zákona, v Nemecku podľa §201 StGB. '
           + 'Požiadavku na súhlas nie je možné vypnúť.',
           'recruiting', [
-          ['retention_days', 'Uchovávať nahrávky (dní)', 'number', 180],
+          ['retention_days', 'Uchovávať nahrávky (dní)', 'number', 180, '', null,
+            'Koľko dní sa smie nahrávka hovoru uchovať. Pri zázname súhlasu sa podľa toho '
+              + 'zapíše dátum, dokedy smie zostať.'],
           // `{firma}` sa pri zobrazení nahradí názvom z Fakturačných údajov.
           // Predtým tu bol názov napísaný priamo v texte, takže sa pri zmene
           // firmy nezmenil a appka sa predstavovala starým menom.

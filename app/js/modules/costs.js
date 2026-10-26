@@ -11,6 +11,37 @@
 // Logika je v lib/billing/bills.js a má testy.
 // ============================================================================
 (function () {
+  // Otázniky — rovnaké vysvetlenie na viacerých miestach, preto raz tu.
+  const TIP = {
+    vs: 'Variabilný symbol je číslo, ktoré sa zadá do platobného príkazu, aby dodávateľ vedel, čo sa '
+      + 'platí. Zvyčajne je to číslo jeho faktúry. Podľa neho sa platba spáruje aj v Banke.',
+    iban: 'Číslo účtu dodávateľa, kam pôjdu peniaze. Z neho vznikne platobný príkaz pre banku — '
+      + 'skontrolujte ho podľa faktúry.',
+    ico: 'IČO je identifikačné číslo firmy alebo živnostníka z registra (na Slovensku 8 číslic). '
+      + 'Podľa neho appka spozná, od koho faktúra je.',
+    period: 'Za ktoré uzavreté obdobie živnostník fakturuje. Appka potom porovná jeho sumu '
+      + 'so schválenými hodinami × jeho sadzba a rozdiel ukáže.',
+    worker: 'Ak je to faktúra od nášho živnostníka, vyberte ho — porovná sa s jeho hodinami. '
+      + 'Ak je to iný dodávateľ (benzínka, ubytovanie, obchod), nechajte prázdne.',
+    category: 'Do akej skupiny náklad patrí (práca, palivo, ubytovanie…). Používa sa v prehľadoch '
+      + 'a v balíku pre účtovníčku.',
+  };
+  // Čo znamená stav prijatej faktúry a čo bude ďalej.
+  const BILL_TIP = {
+    review: 'Na kontrolu: faktúra je nahratá a appka ju prečítala, ale človek ešte nepotvrdil, '
+      + 'že údaje sedia.',
+    received: 'Prijatá: faktúra je zapísaná, ale ešte ju nikto neskontroloval ani neschválil.',
+    checked: 'Skontrolovaná: niekto ju prezrel. Zaplatiť sa dá až po schválení.',
+    disputed: 'Sporná: suma nesedí so schválenými hodinami. Schváliť sa dá len s napísaným dôvodom.',
+    approved: 'Schválená: faktúra je v poriadku a dá sa zaplatiť — objaví sa v „Pripraviť platby".',
+    paid: 'Uhradená: peniaze odišli. Faktúra je uzavretá.',
+    self_draft: 'Návrh za živnostníka: appka ho pripravila z jeho schválených hodín. Platný ešte '
+      + 'nie je — vystaví ho administrátor.',
+    self_sent: 'Vystavená za živnostníka: má číslo z jeho radu a čaká, kým ju živnostník cez odkaz '
+      + 'potvrdí. Bez potvrdenia sa neplatí.',
+    discarded: 'Zahodená: nikam sa nepočíta, ale doklad zostal uložený aj s dôvodom.',
+  };
+
   const Cost = {
     tab: 'bills',
     bills: [], costs: [], workers: [], periods: [], timesheets: [], assignments: [],
@@ -389,7 +420,8 @@
           <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`;
       };
       return `<div class="card br-card" id="bill-review">
-        <div class="br-head">${Icon('doc', 15)} Na kontrolu <em>${list.length}</em>
+        <div class="br-head">${Icon('doc', 15)} Na kontrolu <em>${list.length}</em>${UI.tip(BILL_TIP.review
+          + ' Kliknite na riadok, porovnajte údaje s dokladom a potvrďte.')}
           <span>Appka faktúru prečítala — skontrolujte a potvrďte.</span></div>
         ${list.map(riadok).join('')}
       </div>`;
@@ -435,26 +467,33 @@
             <div class="form-section">Od koho</div>
             <div class="form-grid">
               ${UI.field('worker_id', `Živnostník${how && b.worker_id ? ` (${how})` : ''}`, { value: b.worker_id || '', add: 'worker',
+                tip: TIP.worker,
                 options: [['', '— nie je živnostník (iný dodávateľ) —'], ...this.workers.map(w => [w.id, w.full_name])] })}
               ${UI.field('supplier_name', 'Dodávateľ', { value: b.supplier_name || '' })}
-              ${UI.field('supplier_ico', 'IČO', { value: b.supplier_ico || '' })}
-              ${UI.field('supplier_ic_dph', 'IČ DPH', { value: b.supplier_ic_dph || '' })}
-              ${UI.field('supplier_iban', 'IBAN', { value: b.supplier_iban || '' })}
-              ${UI.field('category', 'Druh nákladu', { value: b.category || '',
+              ${UI.field('supplier_ico', 'IČO', { value: b.supplier_ico || '', tip: TIP.ico })}
+              ${UI.field('supplier_ic_dph', 'IČ DPH', { value: b.supplier_ic_dph || '',
+                tip: 'IČ DPH je číslo pre daň z pridanej hodnoty (napr. SK2020123456). Má ho len platiteľ DPH — '
+                  + 'živnostník bez DPH ho nemá, vtedy nechajte prázdne.' })}
+              ${UI.field('supplier_iban', 'IBAN', { value: b.supplier_iban || '', tip: TIP.iban })}
+              ${UI.field('category', 'Druh nákladu', { value: b.category || '', tip: TIP.category,
                 options: [['', '— vyberte —'], ...Enums.options('cost_category')] })}
             </div>
 
             <div class="form-section">Faktúra</div>
             <div class="form-grid">
               ${UI.field('bill_number', 'Číslo faktúry', { value: b.bill_number || '' })}
-              ${UI.field('variable_symbol', 'Variabilný symbol', { value: b.variable_symbol || '' })}
-              ${UI.field('amount', 'Na úhradu € (s DPH)', { type: 'number', value: Number(b.amount) || '', required: true })}
-              ${UI.field('vat_amount', 'Z toho DPH €', { type: 'number', value: Number(b.vat_amount) || 0 })}
+              ${UI.field('variable_symbol', 'Variabilný symbol', { value: b.variable_symbol || '', tip: TIP.vs })}
+              ${UI.field('amount', 'Na úhradu € (s DPH)', { type: 'number', value: Number(b.amount) || '', required: true,
+                tip: 'Celá suma, ktorú máme zaplatiť — „Spolu na úhradu" z faktúry, vrátane DPH, ak ju dodávateľ účtuje.' })}
+              ${UI.field('vat_amount', 'Z toho DPH €', { type: 'number', value: Number(b.vat_amount) || 0,
+                tip: 'Koľko z tej sumy je DPH. Živnostník bez DPH ju nemá — nechajte 0. Appka z toho '
+                  + 'vypočíta sumu bez DPH (základ).' })}
               ${UI.field('issue_date', 'Vystavená', { type: 'date', value: b.issue_date || '' })}
               ${UI.field('due_date', 'Splatnosť', { type: 'date', value: b.due_date || '' })}
               ${UI.field('subcontract_id', 'Zákazka (nepovinné)', { value: b.subcontract_id || '', add: 'subcontract',
+                tip: 'Ku ktorej stavbe náklad patrí. Keď nižšie vyberiete obdobie hodín, zákazka sa doplní sama.',
                 options: [['', '— žiadna —'], ...this.subcontracts.map(z => [z.id, z.title])] })}
-              ${UI.field('period_id', 'Obdobie hodín (živnostník)', { value: b.period_id || '',
+              ${UI.field('period_id', 'Obdobie hodín (živnostník)', { value: b.period_id || '', tip: TIP.period,
                 options: [['', '— bez obdobia —'], ...periods] })}
             </div>
             ${(x.items || []).length ? `<details class="br-items"><summary>Položky na faktúre (${x.items.length})</summary>
@@ -470,7 +509,9 @@
         <div class="modal-actions">
           <button type="button" class="btn btn-danger" onclick="Cost.discardBill('${b.id}')">Zahodiť</button>
           <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-          <button type="submit" form="br-form" class="btn btn-primary">${Icon('check')} Potvrdiť faktúru</button>
+          <button type="submit" form="br-form" class="btn btn-primary">${Icon('check')} Potvrdiť faktúru</button>${
+            UI.tip('Údaje sa uložia a faktúra prejde do zoznamu ako Prijatá — pri zaškrtnutom „Už zaplatené" '
+              + 'rovno ako Uhradená. Potom ju ešte treba schváliť, aby sa dala zaplatiť.')}
         </div>`;
       UI.modal(`Skontrolovať ${this.isReceipt(b) ? 'bloček' : 'faktúru'}${x._file ? ` · ${x._file}` : ''}`, body, { wide: true });
       // Doklad a formulár vedľa seba — na to je bežné okno úzke.
@@ -609,7 +650,8 @@
       UI.modal('Pripraviť faktúry za živnostníkov', `
         <div class="regimebox">Appka pripraví návrh faktúry v mene živnostníka
           zo <b>schválených hodín</b> uzavretého obdobia. Vystaví ho až administrátor; potom sa pošle
-          živnostníkovi na potvrdenie.</div>
+          živnostníkovi na potvrdenie.${UI.tip('Samofakturácia: faktúru, ktorú by inak písal živnostník nám, '
+            + 'vystavíme za neho my. Musí to byť dohodnuté v rámcovej zmluve a živnostník ju vždy potvrdí cez odkaz.')}</div>
         <div class="pay-list">${list.map((c, i) => `
           <label class="pay-row">
             <input type="checkbox" name="self" value="${i}" checked>
@@ -620,7 +662,9 @@
           </label>`).join('')}</div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
-          <button class="btn btn-primary" id="self-go" onclick="Cost.selfDrafts()">Pripraviť návrhy</button>
+          <button class="btn btn-primary" id="self-go" onclick="Cost.selfDrafts()">Pripraviť návrhy</button>${
+            UI.tip('Vzniknú len návrhy — bez čísla a zatiaľ neplatné. Platnými ich spraví administrátor '
+              + 'tlačidlom „Schváliť a vystaviť".')}
         </div>`, { wide: true });
     },
 
@@ -717,7 +761,9 @@
           <div class="btn-row">
             <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','wa')">${Icon('whatsapp', 14)} WhatsApp</button>
             <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','sms')">${Icon('phone', 14)} SMS</button>
-            <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','copy')">${Icon('copy', 14)} Kopírovať odkaz</button>
+            <button class="btn btn-outline btn-sm" onclick="Cost.selfSend('${b.id}','copy')">${Icon('copy', 14)} Kopírovať odkaz</button>${
+              UI.tip('Pošle živnostníkovi správu s odkazom. Na odkaze si faktúru pozrie a potvrdí ju, alebo '
+                + 'napíše, s čím nesúhlasí.')}
           </div></div>`;
       } else if (b.worker_confirmed_at) {
         stav = `<div class="regimebox">${Icon('check', 14)} Živnostník ju potvrdil
@@ -744,16 +790,23 @@
         : { received: 'checked', checked: 'approved', disputed: 'approved', approved: 'paid' }[b.status];
       const nextLabel = { checked: 'Označiť skontrolovanú', approved: 'Schváliť',
         paid: 'Označiť uhradenú' }[next];
+      const nextTip = {
+        checked: 'Potvrdíte, že ste faktúru prezreli. Zaplatiť sa ešte nedá — ďalší krok je schválenie.',
+        approved: 'Faktúra pôjde na zaplatenie — objaví sa v „Pripraviť platby". Keď suma nesedí '
+          + 's hodinami, appka si vypýta dôvod a zapíše ho k faktúre.',
+        paid: 'Kliknite, keď peniaze odišli z účtu. Keď platbu spárujete v Banke, stane sa to samo.',
+      }[next];
 
       const body = `
         <div class="detail-head">
-          ${UI.badge(Enums.label('bill_status', b.status), this.billKind(b.status))}
+          ${UI.badge(Enums.label('bill_status', b.status), this.billKind(b.status))}${UI.tip(BILL_TIP[b.status] || '')}
           ${b.bill_number ? `<span class="mono doc-no">${UI.esc(b.bill_number)}</span>` : ''}
         </div>
 
         ${self ? `<div class="form-section">Faktúra, ktorú vystavujeme za živnostníka</div>${this.selfHtml(b)}` : ''}
 
-        <div class="form-section">Porovnanie s hodinami</div>
+        <div class="form-section">Porovnanie s hodinami${UI.tip('Appka vypočíta, koľko by malo byť na faktúre: '
+          + 'schválené hodiny v období × sadzba živnostníka. Rozdiel do 1 centu sa prehliadne, väčší znamená spor.')}</div>
         ${Shell.sums({ lines: DanubraBills.sumLines(c),
           totalLabel: 'Na úhradu',
           note: c.variance == null
@@ -771,8 +824,8 @@
             : `<div><span>Dodávateľ</span><strong>${UI.esc(b.supplier_name || '—')}</strong></div>`}
           ${(w.company_id || b.supplier_ico) ? `<div><span>IČO</span><strong>${UI.esc(w.company_id || b.supplier_ico)}</strong></div>` : ''}
           ${b.category ? `<div><span>Druh</span><strong>${UI.esc(Enums.label('cost_category', b.category))}</strong></div>` : ''}
-          ${b.variable_symbol ? `<div><span>VS</span><strong class="mono">${UI.esc(b.variable_symbol)}</strong></div>` : ''}
-          ${b.supplier_iban ? `<div><span>IBAN</span><strong class="mono">${UI.esc(b.supplier_iban)}</strong></div>` : ''}
+          ${b.variable_symbol ? `<div><span>VS${UI.tip(TIP.vs)}</span><strong class="mono">${UI.esc(b.variable_symbol)}</strong></div>` : ''}
+          ${b.supplier_iban ? `<div><span>IBAN${UI.tip(TIP.iban)}</span><strong class="mono">${UI.esc(b.supplier_iban)}</strong></div>` : ''}
           ${b.issue_date ? `<div><span>Vystavená</span><strong>${UI.date(b.issue_date)}</strong></div>` : ''}
           ${b.due_date ? `<div><span>Splatnosť</span><strong>${UI.date(b.due_date)}</strong></div>` : ''}
           ${this.periodLabel(b.period_id) ? `<div><span>Obdobie</span><strong>${this.periodLabel(b.period_id)}</strong></div>` : ''}
@@ -788,8 +841,10 @@
           ${self ? `<button class="btn btn-outline" onclick="Cost.selfDoc('${b.id}')">${Icon('doc')} ${b.bill_number ? 'Faktúra' : 'Náhľad návrhu'}</button>` : ''}
           ${self ? '' : `<button class="btn ${next ? 'btn-outline' : 'btn-primary'}" onclick="Cost.billForm('${b.id}')">Upraviť</button>`}
           ${self && b.status === 'self_draft'
-            ? `<button class="btn btn-primary" onclick="Cost.selfIssue('${b.id}')">${Icon('check')} Schváliť a vystaviť</button>` : ''}
-          ${next ? `<button class="btn btn-primary" onclick="Cost.setBillStatus('${b.id}','${next}')">${nextLabel}</button>` : ''}
+            ? `<button class="btn btn-primary" onclick="Cost.selfIssue('${b.id}')">${Icon('check')} Schváliť a vystaviť</button>${
+              UI.tip('Faktúra dostane číslo z radu živnostníka a stane sa platnou. Smie to len administrátor. '
+                + 'Potom ju pošlete živnostníkovi na potvrdenie.')}` : ''}
+          ${next ? `<button class="btn btn-primary" onclick="Cost.setBillStatus('${b.id}','${next}')">${nextLabel}</button>${UI.tip(nextTip)}` : ''}
         </div>`;
       UI.modal(`Faktúra od ${w.full_name || b.supplier_name || 'dodávateľa'}`, body, { wide: true });
     },
@@ -835,15 +890,17 @@
             Keď faktúru naviažete na uzavreté obdobie, appka ju hneď porovná
             so schválenými hodinami. Bez obdobia sa schvaľuje naslepo.</div>
           <div class="form-grid">
-            ${UI.field('worker_id', 'Živnostník', { value: b.worker_id, add: 'worker',
+            ${UI.field('worker_id', 'Živnostník', { value: b.worker_id, add: 'worker', tip: TIP.worker,
               options: [['', '— nie je živnostník (iný dodávateľ) —'], ...this.workers.map(w => [w.id, w.full_name])] })}
             ${UI.field('supplier_name', 'Dodávateľ (ak nie je živnostník)', { value: b.supplier_name })}
-            ${UI.field('category', 'Druh nákladu', { value: b.category || '',
+            ${UI.field('category', 'Druh nákladu', { value: b.category || '', tip: TIP.category,
               options: [['', '— vyberte —'], ...Enums.options('cost_category')] })}
-            ${UI.field('variable_symbol', 'Variabilný symbol', { value: b.variable_symbol })}
-            ${UI.field('bill_number', 'Ich číslo faktúry', { value: b.bill_number })}
-            ${UI.field('amount', 'Suma €', { type: 'number', value: b.amount, required: true })}
-            ${UI.field('period_id', 'Obdobie', { value: b.period_id,
+            ${UI.field('variable_symbol', 'Variabilný symbol', { value: b.variable_symbol, tip: TIP.vs })}
+            ${UI.field('bill_number', 'Ich číslo faktúry', { value: b.bill_number,
+              tip: 'Číslo, ktoré faktúre dal dodávateľ — nie naše. Je hore na jeho faktúre.' })}
+            ${UI.field('amount', 'Suma €', { type: 'number', value: b.amount, required: true,
+              tip: 'Celá suma na úhradu z faktúry (čo máme zaplatiť).' })}
+            ${UI.field('period_id', 'Obdobie', { value: b.period_id, tip: TIP.period,
               options: [['', '— bez obdobia —'], ...periods] })}
             ${UI.field('issue_date', 'Vystavená', { type: 'date', value: b.issue_date })}
             ${UI.field('due_date', 'Splatnosť', { type: 'date', value: b.due_date })}
@@ -977,8 +1034,10 @@
               value: c.cost_date || new Date().toISOString().slice(0, 10) })}
             ${UI.field('supplier', 'Dodávateľ', { value: c.supplier })}
             ${UI.field('subcontract_id', 'Zákazka', { value: c.subcontract_id, add: 'subcontract',
+              tip: 'Ku ktorej stavbe náklad patrí. Bez zákazky je to réžia celej firmy.',
               options: [['', '— bez zákazky —'], ...this.subcontracts.map(s => [s.id, s.title])] })}
             ${UI.field('worker_id', 'Koho sa týka', { value: c.worker_id, add: 'worker',
+              tip: 'Ktorého človeka sa náklad týka, napr. jeho ubytovanie. Je to len na prehľad.',
               options: [['', '— nikoho konkrétneho —'], ...this.workers.map(w => [w.id, w.full_name])] })}
           </div>
           ${UI.field('description', 'Popis', { value: c.description })}
@@ -991,7 +1050,8 @@
               placeholder: 'Opakuje sa každý mesiac' })}
           </div>
           ${UI.field('recurring_until', 'Opakovať do (nepovinné)', { type: 'date',
-            value: c.recurring_until })}
+            value: c.recurring_until,
+            tip: 'Do tohto dňa vznikajú ďalšie mesiace. Prázdne = opakuje sa, kým opakovanie nevypnete.' })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>

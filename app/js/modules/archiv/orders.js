@@ -165,7 +165,9 @@
       box.innerHTML = `
         <!-- 1. Stav a postup -->
         <div class="detail-head">
-          ${this.badge(o.status)}
+          ${this.badge(o.status)}${UI.tip('Objednávka ide krokmi: Nová → Čaká na platbu (poslali sme výzvu) → '
+            + 'Uhradené (poplatok prišiel, až teraz sa odomkne adresa) → Potvrdené majiteľom → Prebieha → '
+            + 'Končí čoskoro → Ukončená.')}
           <span class="mono doc-no">${UI.esc(o.order_number || '')}</span>
         </div>
         ${this._stepper(o)}
@@ -191,7 +193,8 @@
           </div>`).join('')}` : ''}
 
         <!-- 4. Prístupové údaje (§5.1) -->
-        <div class="form-section">Prístupové údaje</div>
+        <div class="form-section">Prístupové údaje${UI.tip('Adresa, kódy a kontakt na majiteľa. Klientovi sa smú '
+          + 'poslať až po úhrade poplatku — dovtedy sú v appke zamknuté.')}</div>
         ${unlocked && acc ? this._accessBlock(acc) : `
           <div class="warnbox">${Icon('lock', 14)} Adresa a kontakt na ubytovateľa sú uzamknuté, kým nie je uhradený poplatok.
             Klientovi sa nesmú poslať skôr.</div>`}
@@ -236,7 +239,8 @@
             ? `<button class="btn btn-danger" onclick="Ord.cancel()">Zrušiť zákazku</button>` : ''}
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn ${unlocked ? 'btn-outline' : 'btn-primary'}" onclick="Ord.extend()">Predĺžiť pobyt</button>
-          ${unlocked ? `<button class="btn btn-primary" onclick="Ord.invoice()">${Icon('receipt')} Vystaviť faktúru</button>` : ''}
+          ${unlocked ? `<button class="btn btn-primary" onclick="Ord.invoice()">${Icon('receipt')} Vystaviť faktúru</button>${
+            UI.tip('Vytvorí návrh faktúry za sprostredkovateľský poplatok tejto objednávky. Platná bude až po schválení.')}` : ''}
         </div>`;
     },
 
@@ -298,7 +302,9 @@
       const calc = window.DanubraBilling.calculateOngoingService(o, this._segments, per.periodFrom, per.periodTo, today);
       const openSeg = this._segments.find(s => s.period_to == null);
       return `
-        <div class="form-section">Priebežná služba · aktuálny mesiac</div>
+        <div class="form-section">Priebežná služba · aktuálny mesiac${UI.tip('Účtuje sa za každý deň pobytu: '
+          + 'počet osôb × sadzba za osobu a deň. Pri zmene počtu osôb alebo pozastavení vznikne nový úsek, '
+          + 'takže suma za mesiac sedí na deň.')}</div>
         <div class="service-total">
           <div><div class="code-label">Za ${per.periodFrom.slice(5, 7)}/${per.periodFrom.slice(0, 4)} zatiaľ</div>
             <div class="st-sum">${UI.money(calc.total)}</div></div>
@@ -314,7 +320,8 @@
         <div class="btn-row">
           <button class="btn btn-outline btn-sm" onclick="Ord.changeService()">Zmeniť osoby / sadzbu</button>
           ${openSeg && !openSeg.paused
-            ? `<button class="btn btn-outline btn-sm" onclick="Ord.pauseService()">Pozastaviť</button>`
+            ? `<button class="btn btn-outline btn-sm" onclick="Ord.pauseService()">Pozastaviť</button>${
+              UI.tip('Kým je služba pozastavená, neúčtuje sa (napr. ľudia odišli na sviatky domov). Obnovením sa znova začne rátať.')}`
             : `<button class="btn btn-outline btn-sm" onclick="Ord.resumeService()">Obnoviť</button>`}
         </div>`;
     },

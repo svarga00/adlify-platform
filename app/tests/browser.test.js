@@ -3528,7 +3528,8 @@ console.log('Prehliadač');
       });
 
       ok(out.tlacidlo, 'tlačidlo Papiere je v hornom pruhu');
-      ok(out.dlazdice.length === 6, `ponúkne šesť papierov (${out.dlazdice.join(', ')})`);
+      ok(out.dlazdice.length === 7 && out.dlazdice[6] === 'Všetko naraz na nástup',
+        `ponúkne šesť papierov a balík na nástup (${out.dlazdice.join(', ')})`);
       ok(out.dlazdice[0] === 'Rámcová zmluva s Nemcom' && out.dlazdice[2] === 'Súhlas GDPR',
         'v poradí siedmich krokov', out.dlazdice.join(', '));
       ok(out.ludia.includes('Cyril Demeter') && out.ludia.includes('Jozef Malý'),

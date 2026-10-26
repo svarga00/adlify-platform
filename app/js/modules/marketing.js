@@ -71,19 +71,19 @@
             ? { label: 'Otvoriť inzerát', ico: 'repeat', onclick: `Mkt.listingForm('${toRenew[0].id}')` } : null }) + `
 
         <div class="kpi-grid" style="margin-bottom:16px;">
-          <div class="kpi"><div class="kpi-label">Minuté tento mesiac</div>
+          <div class="kpi"><div class="kpi-label"><span>Minuté tento mesiac${UI.tip('Súčet výdavkov zo záložky Výdavky, ktoré majú dátum v tomto mesiaci. Mesačný rozpočet nastavíte v Nastaveniach (Marketing a SMS); nad 90 % sa pásik sfarbí na červeno.')}</span></div>
             <div class="kpi-value">${UI.money(spent)}</div>
             ${budget ? `<div class="kpi-delta ${pct > 90 ? 'warn' : ''}">${UI.pct(pct)} z rozpočtu</div>
               <div class="stay-bar" style="margin-top:6px;"><div class="stay-fill"
                 style="width:${pct}%;background:${pct > 90 ? 'var(--red)' : 'var(--brand)'};"></div></div>` : ''}
           </div>
-          <div class="kpi"><div class="kpi-label">Aktívne inzeráty</div>
+          <div class="kpi"><div class="kpi-label"><span>Aktívne inzeráty${UI.tip('Inzeráty so stavom Aktívny. Appka nevidí na portál — riadi sa tým, čo ste tu zapísali.')}</span></div>
             <div class="kpi-value">${this.listings.filter(l => l.status === 'active').length}</div>
             <div class="kpi-delta">zbierajú dopyt</div></div>
-          <div class="kpi"><div class="kpi-label">Na obnovenie</div>
+          <div class="kpi"><div class="kpi-label"><span>Na obnovenie${UI.tip('Inzeráty, ktorým do dátumu „Obnoviť do" ostáva 7 dní alebo menej. Appka ich označí sama, obnoviť (predĺžiť, zaplatiť) ich však treba na portáli.')}</span></div>
             <div class="kpi-value" style="color:${toRenew.length ? 'var(--amber)' : 'var(--green)'};">${toRenew.length}</div>
             <div class="kpi-delta">do 7 dní</div></div>
-          <div class="kpi"><div class="kpi-label">Výdavky spolu</div>
+          <div class="kpi"><div class="kpi-label"><span>Výdavky spolu${UI.tip('Všetky zapísané výdavky od začiatku, nielen tento mesiac.')}</span></div>
             <div class="kpi-value">${UI.money(this.expenses.reduce((a, e) => a + Number(e.amount || 0), 0))}</div>
             <div class="kpi-delta">za celé obdobie</div></div>
         </div>
@@ -132,7 +132,7 @@
             ${e.note ? `<span style="color:var(--ink-mute);display:block;font-size:12px;">${UI.esc(e.note)}</span>` : ''}
           </span>
           <strong style="font-variant-numeric:tabular-nums;">${UI.money(e.amount)}</strong>
-          <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="Mkt.delExpense('${e.id}')">${Icon('x', 15)}</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);" title="Zmazať výdavok" aria-label="Zmazať výdavok" onclick="Mkt.delExpense('${e.id}')">${Icon('x', 15)}</button>
         </div>`).join('');
     },
 
@@ -143,12 +143,16 @@
       const body = `
         <form id="mkt-l-form" onsubmit="event.preventDefault();Mkt.saveListing('${id || ''}')">
           <div class="form-grid">
-            ${UI.field('platform', 'Platforma', { value: l.platform, options: [['', '—'], ...PLATFORMS] })}
-            ${UI.field('listing_type', 'Typ inzerátu', { value: l.listing_type, placeholder: 'ubytovanie, subdodávky, nábor…' })}
+            ${UI.field('platform', 'Platforma', { value: l.platform, options: [['', '—'], ...PLATFORMS],
+              tip: 'Portál, kde inzerát visí. Monteurzimmer = ubytovanie pre robotníkov, Auftragsbank, subunternehmen-gesucht a CoCrafter = zákazky od nemeckých firiem, profesia.sk = nábor ľudí.' })}
+            ${UI.field('listing_type', 'Typ inzerátu', { value: l.listing_type, placeholder: 'ubytovanie, subdodávky, nábor…',
+              tip: 'Na čo inzerát je — len pre Vašu orientáciu v zozname. Nikam sa neposiela.' })}
             ${UI.field('language', 'Jazyk', { value: l.language, options: [['', '—'], ['sk', 'SK'], ['cs', 'CS'], ['hu', 'HU'], ['de', 'DE']] })}
-            ${UI.field('status', 'Stav', { value: l.status || 'active', options: STATUS.map(s => [s[0], s[1]]) })}
+            ${UI.field('status', 'Stav', { value: l.status || 'active', options: STATUS.map(s => [s[0], s[1]]),
+              tip: 'Na obnovenie nastaví appka sama 7 dní pred dátumom „Obnoviť do". Po obnovení na portáli vráťte stav na Aktívny a posuňte dátum. Expirovaný = inzerát skončil a už ho neobnovíte.' })}
             ${UI.field('published_at', 'Uverejnené', { type: 'date', value: l.published_at })}
-            ${UI.field('renew_at', 'Obnoviť do', { type: 'date', value: l.renew_at })}
+            ${UI.field('renew_at', 'Obnoviť do', { type: 'date', value: l.renew_at,
+              tip: 'Deň, keď inzerát na portáli vyprší alebo ho treba znova zaplatiť. Týždeň predtým sa objaví hore na tejto obrazovke ako „Obnoviť inzeráty".' })}
             <div class="fld-full">${UI.field('url', 'Odkaz', { type: 'url', value: l.url })}</div>
             <div class="fld-full">${UI.field('performance_note', 'Ako sa osvedčil', { type: 'textarea', rows: 2, value: l.performance_note,
               placeholder: 'Koľko dopytov priniesol, či sa oplatí obnoviť…' })}</div>
@@ -183,9 +187,12 @@
       const body = `
         <form id="mkt-e-form" onsubmit="event.preventDefault();Mkt.saveExpense()">
           <div class="form-grid">
-            ${UI.field('spent_at', 'Dátum', { type: 'date', value: new Date().toISOString().slice(0, 10), required: true })}
-            ${UI.field('channel', 'Kanál', { value: 'portal', options: CHANNELS })}
-            ${UI.field('amount', 'Suma €', { type: 'number', required: true })}
+            ${UI.field('spent_at', 'Dátum', { type: 'date', value: new Date().toISOString().slice(0, 10), required: true,
+              tip: 'Podľa dátumu sa výdavok zaráta do mesiaca — a teda do mesačného rozpočtu.' })}
+            ${UI.field('channel', 'Kanál', { value: 'portal', options: CHANNELS,
+              tip: 'Za čo peniaze išli: portál, platená reklama, odmena za odporúčanie… V zozname výdavkov potom vidíte, kam rozpočet ide.' })}
+            ${UI.field('amount', 'Suma €', { type: 'number', required: true,
+              tip: 'Celá suma, ktorú ste naozaj zaplatili, v eurách. Ráta sa do „Minuté tento mesiac" aj do rozpočtu.' })}
             <div class="fld-full">${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}</div>
           </div>
           <div class="modal-actions">

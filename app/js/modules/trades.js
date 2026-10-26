@@ -68,7 +68,7 @@
       const pend = this.pending();
       el.innerHTML = Danubra.header(Danubra.labelOf('trades'),
         `${this.trades.length} remesiel · ${this.chips.filter(c => c.active !== false).length} polí`
-        + (pend.length ? ` · ${pend.length} čaká na potvrdenie` : '')) +
+        + (pend.length ? ` · ${pend.length} čaká na potvrdenie${UI.tip('Polia, ktoré appka navrhla z poznámok z hovorov. Do hovoru sa dostanú, až keď ich v záložke „Polia do hovoru" potvrdíte tlačidlom Použiť.')}` : '')) +
         this.nowHtml() +
         Shell.tabs([
           ['trades', 'Remeslá', 'wrench', this.trades.length],
@@ -187,7 +187,7 @@
         [t.name_de, t.lohngruppe, t.regulated ? 'regulované remeslo' : null]
           .filter(Boolean).map(UI.esc).join(' · '), '', [t.name_sk])
         + (t.regulated ? `<div class="warnbox" style="margin-bottom:12px;">
-            ${Icon('alert', 14)} ${UI.esc(t.legal_note || 'Regulované remeslo podľa §9 HwO.')}</div>` : '')
+            ${Icon('alert', 14)} ${UI.esc(t.legal_note || 'Regulované remeslo podľa §9 HwO.')}${UI.tip('Regulované remeslo = v Nemecku ho cudzinec smie robiť, len keď to vopred ohlási remeselnej komore (Handwerkskammer) podľa §9 zákona o remeslách (HwO).')}</div>` : '')
         + this.stateBar(c)
         // Peniaze idú celé do jednej karty: najprv čísla, pod nimi veta
         // o tom, prečo sú také. Rozdeliť to znamená prečítať vysvetlenie
@@ -205,7 +205,7 @@
       return `<div class="statebar statebar-${tone}">
         <div class="statebar-head">
           <b>${c.done} z ${c.total}</b>
-          <span>${UI.esc(DanubraTrade.stateSentence(c))}</span>
+          <span>${UI.esc(DanubraTrade.stateSentence(c))}${UI.tip(`Koľko častí príručky k remeslu je vyplnených (popis, sadzby, čo robí, otázky…). Skúšať sa dá od ${DanubraTrade.QUESTIONS_MIN} otázok.`)}</span>
         </div>
         <div class="statebar-track"><i style="width:${c.pct}%"></i></div>
         ${c.missing.length ? `<div class="statebar-missing">Chýba: ${
@@ -347,7 +347,7 @@
         return `<div class="card card-pad trade-card" onclick="Trades.open('${t.key}')">
           <div class="card-head">
             <div class="card-title">${UI.esc(t.name_sk)}</div>
-            ${t.regulated ? UI.badge('regulované', 'amber') : ''}
+            ${t.regulated ? UI.badge('regulované', 'amber') + UI.tip('Toto remeslo smie cudzinec v Nemecku robiť len po ohlásení remeselnej komore (Handwerkskammer, §9 HwO).') : ''}
           </div>
           <div class="trade-de">${UI.esc(t.name_de || '')}</div>
           <p class="trade-sum">${UI.esc((t.summary || '').slice(0, 120))}${
@@ -416,7 +416,7 @@
             ${this.trades.map(t => `<option value="${t.key}" ${this.filterTrade === t.key ? 'selected' : ''}>${UI.esc(t.name_sk)}</option>`).join('')}
           </select>
         </div>
-        ${pend.length ? `<div class="form-section">Čaká na potvrdenie — ${pend.length}</div>
+        ${pend.length ? `<div class="form-section">Čaká na potvrdenie — ${pend.length}${UI.tip('Návrhy nových polí z poznámok pri hovoroch. Použiť = pole sa začne ukazovať pri hovoroch. Zahodiť = návrh sa zmaže.')}</div>
           ${pend.map(row).join('')}` : ''}
         ${live.length ? `<div class="form-section">Používané — ${live.length}</div>
           ${live.map(row).join('')}`
@@ -441,15 +441,20 @@
             <div class="fld-full">${UI.field('label', 'Text poľa (2–6 slov)', { value: c.label, required: true,
               placeholder: 'napr. vie rozteč 625' })}</div>
             ${UI.field('segment', 'Kde v hovore', { value: c.segment || 'trade',
-              options: DanubraChips.SEGMENTS.map(s => [s.key, s.title]) })}
+              options: DanubraChips.SEGMENTS.map(s => [s.key, s.title]),
+              tip: 'V ktorej časti telefonátu sa pole ukáže (Úvod, Remeslo, Dôkazy, Papiere, Logistika, Peniaze).' })}
             ${UI.field('trade_key', 'Pre remeslo', { value: c.trade_key || '', add: 'trade',
-              options: [['', 'Univerzálne'], ...this.trades.map(t => [t.key, t.name_sk])] })}
+              options: [['', 'Univerzálne'], ...this.trades.map(t => [t.key, t.name_sk])],
+              tip: 'Univerzálne = ukáže sa pri hovore s každým. Inak len pri hovore pre vybrané remeslo.' })}
             ${UI.field('polarity', 'Znamienko', { value: c.polarity || 'plus', options: [
               ['plus', 'Plus — dobré znamenie'], ['minus', 'Mínus — zlé znamenie'],
-              ['flag', 'Varovanie'], ['neutral', 'Bez hodnotenia']] })}
-            ${UI.field('weight', 'Váha (3 = rozhodujúce)', { type: 'number', value: c.weight || 1 })}
+              ['flag', 'Varovanie'], ['neutral', 'Bez hodnotenia']],
+              tip: 'Ako zaškrtnutie zmení skóre kandidáta: plus ho zvýši, mínus zníži, varovanie zníži a ukáže sa ako vec na preverenie. Bez hodnotenia = len poznámka.' })}
+            ${UI.field('weight', 'Váha (3 = rozhodujúce)', { type: 'number', value: c.weight || 1,
+              tip: 'Ako silno pole pohne skóre: 1 = trochu, 2 = viac, 3 = rozhodujúce. Varovanie s váhou 3 kandidáta samo zamietne.' })}
           </div>
-          ${UI.field('hint', 'Nápoveda pre Vás', { type: 'textarea', rows: 2, value: c.hint })}
+          ${UI.field('hint', 'Nápoveda pre Vás', { type: 'textarea', rows: 2, value: c.hint,
+            tip: 'Krátke vysvetlenie, čo pole znamená. Pri hovore sa ukáže, keď na pole nabehnete myšou.' })}
           <div class="regimebox">Varovanie s váhou 3 zamieta kandidáta samo osebe — napríklad
           „tvrdí, že A1 netreba". Používajte ho striedmo.</div>
           <div class="modal-actions">
@@ -538,20 +543,26 @@
       UI.modal(key ? 'Upraviť remeslo' : 'Nové remeslo', `
         <form id="trade-form" onsubmit="event.preventDefault();Trades.tSave('${key || ''}')">
           <div class="form-grid">
-            ${UI.field('key', 'Kľúč (bez diakritiky)', { value: t.key, required: true, placeholder: 'trockenbau' })}
+            ${UI.field('key', 'Kľúč (bez diakritiky)', { value: t.key, required: true, placeholder: 'trockenbau',
+              tip: 'Krátky technický názov bez medzier a diakritiky. Podľa neho sa remeslo spája s kandidátmi, otázkami a inzerátmi — po založení ho už nemeňte.' })}
             ${UI.field('name_sk', 'Názov', { value: t.name_sk, required: true })}
             ${UI.field('name_de', 'Nemecky', { value: t.name_de })}
-            ${UI.field('lohngruppe', 'Mzdová skupina', { value: t.lohngruppe || 'LG2', options: [['LG1', 'LG1'], ['LG2', 'LG2']] })}
-            ${UI.field('rate_worker_min', 'Pýta si od €/h', { type: 'number', value: t.rate_worker_min })}
+            ${UI.field('lohngruppe', 'Mzdová skupina', { value: t.lohngruppe || 'LG2', options: [['LG1', 'LG1'], ['LG2', 'LG2']],
+              tip: 'Lohngruppe podľa nemeckej stavebnej tarify: LG1 = pomocník, LG2 = vyučený remeselník. Podľa nej appka stráži, aby ponúknutá sadzba nebola pod minimálnou mzdou.' })}
+            ${UI.field('rate_worker_min', 'Pýta si od €/h', { type: 'number', value: t.rate_worker_min,
+              tip: 'Bežné rozpätie, koľko si živnostník v tomto remesle pýta za hodinu, bez DPH. Ukazuje sa náborárovi pri hovore.' })}
             ${UI.field('rate_worker_max', 'Pýta si do €/h', { type: 'number', value: t.rate_worker_max })}
-            ${UI.field('rate_client_min', 'Fakturujeme od €/h', { type: 'number', value: t.rate_client_min })}
+            ${UI.field('rate_client_min', 'Fakturujeme od €/h', { type: 'number', value: t.rate_client_min,
+              tip: 'Bežné rozpätie, koľko za hodinu tohto remesla fakturujeme nemeckému odberateľovi, bez DPH.' })}
             ${UI.field('rate_client_max', 'Fakturujeme do €/h', { type: 'number', value: t.rate_client_max })}
           </div>
           ${UI.field('summary', 'Čo mám o remesle vedieť', { type: 'textarea', rows: 3, value: t.summary })}
           <div class="chk-row">
-            ${UI.field('regulated', '', { type: 'checkbox', value: t.regulated, placeholder: 'Regulované remeslo (§9 HwO)' })}
+            ${UI.field('regulated', '', { type: 'checkbox', value: t.regulated, placeholder: 'Regulované remeslo (§9 HwO)',
+              tip: 'Zaškrtnite pri remeslách, ktoré cudzinec smie v Nemecku robiť len po ohlásení remeselnej komore (napr. elektrikár). Pri remesle aj kandidátovi sa potom ukáže varovanie.' })}
           </div>
-          ${UI.field('legal_note', 'Právna poznámka', { type: 'textarea', rows: 2, value: t.legal_note })}
+          ${UI.field('legal_note', 'Právna poznámka', { type: 'textarea', rows: 2, value: t.legal_note,
+            tip: 'Čo treba pri tomto remesle vybaviť z právnej stránky. Ukáže sa v červenom rámčeku pri remesle.' })}
           <div class="form-section">Zoznamy — každá položka na nový riadok</div>
           ${UI.field('work_scope', 'Čo na stavbe robí', { type: 'textarea', rows: 4, value: arr(t.work_scope) })}
           ${UI.field('materials', 'S čím pracuje', { type: 'textarea', rows: 3, value: arr(t.materials) })}
@@ -595,24 +606,32 @@
         <form id="q-form" onsubmit="event.preventDefault();Trades.qSave('${id || ''}')">
           <div class="form-grid">
             ${UI.field('trade_key', 'Pre remeslo', { value: q.trade_key || tradeKey || '', add: 'trade',
-              options: [['', 'Univerzálna — pre všetkých'], ...this.trades.map(t => [t.key, t.name_sk])] })}
+              options: [['', 'Univerzálna — pre všetkých'], ...this.trades.map(t => [t.key, t.name_sk])],
+              tip: 'Univerzálna = položí sa každému kandidátovi. Inak len pri hovore pre vybrané remeslo.' })}
             ${UI.field('kind', 'Typ otázky', { value: q.kind || 'knowledge',
-              options: Object.entries(KIND).map(([k, v]) => [k, v[0]]) })}
+              options: Object.entries(KIND).map(([k, v]) => [k, v[0]]), tip: 'Odborná = overí znalosť remesla. Overovacia = znie ako bežná otázka, ale nenápadne preverí, či to naozaj robil. Právna = papiere a živnosť; bez správnej odpovede sa nedá nasadiť. Logistika = doprava, ubytovanie, termín. Motivácia = peniaze a dôvod, prečo chce ísť.' })}
             ${UI.field('phase', 'Kedy sa pýtam', { value: q.phase || 'phone',
-              options: Object.entries(PHASE).map(([k, v]) => [k, v]) })}
-            ${UI.field('weight', 'Váha (3 = kľúčová)', { type: 'number', value: q.weight || 1 })}
-            ${UI.field('sort_order', 'Poradie', { type: 'number', value: q.sort_order || 0 })}
+              options: Object.entries(PHASE).map(([k, v]) => [k, v]),
+              tip: 'Telefón = pri prvom telefonáte (len tieto sa ukážu v sprievodcovi hovorom). Pohovor = pri dlhšom rozhovore. Na stavbe = overí sa až pri práci.' })}
+            ${UI.field('weight', 'Váha (3 = kľúčová)', { type: 'number', value: q.weight || 1,
+              tip: 'Ako veľmi odpoveď pohne skóre kandidáta: 1 = trochu, 3 = kľúčová otázka. Kľúčové sa v krátkom hovore pýtajú ako prvé.' })}
+            ${UI.field('sort_order', 'Poradie', { type: 'number', value: q.sort_order || 0,
+              tip: 'Menšie číslo = otázka sa ukáže skôr.' })}
             ${UI.field('segment', 'Kde v hovore', { value: q.segment || '',
               options: [['', 'podľa typu otázky'],
-                ...DanubraChips.SEGMENTS.map(s => [s.key, s.title])] })}
+                ...DanubraChips.SEGMENTS.map(s => [s.key, s.title])],
+              tip: 'V ktorej časti telefonátu sa otázka ukáže. „Podľa typu otázky" = appka ju zaradí sama.' })}
             ${UI.field('ad_id', 'Len k inzerátu', { value: q.ad_id || '', add: 'ad',
               options: [['', '— nie, platí všeobecne —'],
-                ...(this.ads || []).map(a => [a.id, a.title])] })}
+                ...(this.ads || []).map(a => [a.id, a.title])],
+              tip: 'Ak vyberiete inzerát, otázka sa položí len tým, ktorí volajú na tento inzerát (napr. „v inzeráte bol nástup do 2 týždňov, stíhate?").' })}
           </div>
           ${UI.field('question_sk', 'Otázka', { type: 'textarea', rows: 2, value: q.question_sk, required: true })}
           ${UI.field('question_de', 'Nemecky (voliteľné)', { type: 'textarea', rows: 2, value: q.question_de })}
-          ${UI.field('good_answer', 'Čo chcem počuť', { type: 'textarea', rows: 2, value: q.good_answer })}
-          ${UI.field('red_flag_answer', 'Pri čom zbystriť', { type: 'textarea', rows: 2, value: q.red_flag_answer })}
+          ${UI.field('good_answer', 'Čo chcem počuť', { type: 'textarea', rows: 2, value: q.good_answer,
+            tip: 'Správna odpoveď, akú by dal človek, ktorý remeslo naozaj robí. Pri hovore ju náborár vidí, aby vedel, či odpoveď sedí.' })}
+          ${UI.field('red_flag_answer', 'Pri čom zbystriť', { type: 'textarea', rows: 2, value: q.red_flag_answer,
+            tip: 'Odpoveď, ktorá prezradí, že to nerobil alebo klame. Pri hovore sa ukáže ako varovanie pre náborára.' })}
           <div class="regimebox">Overovacia otázka má znieť ako bežná odborná — kandidát nesmie tušiť,
           že sa ňou preveruje. Najlepšie fungujú konkrétne čísla a názvy, ktoré si človek z praxe
           pamätá, ale z inzerátu sa ich nenaučí.</div>

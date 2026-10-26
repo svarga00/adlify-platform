@@ -30,6 +30,19 @@
     reject: ['Nebrať', 'red'], unknown: ['Nedokončené', 'gray'],
   };
 
+  const STAGETIP = 'Kde kandidát v nábore je: Nový (ešte sme sa neozvali), Kontaktovaný (ozvali sme sa), Pohovor, Doklady (zbierame papiere), Pripravený (môže ísť na stavbu), Nasadený (už robí). Odmietnutý = nechceme ho my, Stratený = on už nechce alebo sa neozýva.';
+  // Otázniky pri údajoch v detaile kandidáta (kľúč = názov riadku).
+  const TIPS = {
+    'Typ': 'Jednotlivec = jeden človek. Partia = skupina, ktorá chce robiť spolu; za ňu hovorí vedúci partie.',
+    'Živnosť': 'Či má živnostenské oprávnenie. Bez živnosti ho nemôžeme poslať na stavbu — pracujeme len so živnostníkmi.',
+    'Nemčina v partii': 'Či je v partii aspoň jeden, kto sa dohovorí s nemeckým majstrom.',
+    'Možný nástup': 'Kedy by mohol nastúpiť na našu stavbu.',
+    'Forma spolupráce': 'Živnostník (SZČO) alebo vlastná firma s.r.o. Od toho závisí zmluva aj faktúry.',
+    'Kanál': 'Kde inzerát bežal (Facebook, Bazoš, web…) alebo odkiaľ inak o nás vedel.',
+    'Prvý kontakt': 'Kedy sme sa mu prvý raz ozvali. V zátvorke je, koľko minút po tom, čo sa ozval on.',
+    'Predstava sadzby': 'Koľko si pýta za jednu hodinu práce, bez DPH.',
+    'Dostupný od': 'Odkedy je voľný. Nie je to dohodnutý nástup.',
+  };
   const Cand = {
     items: [], ads: [], loaded: false,
     // Predvolene zoznam. Kanban s piatimi stĺpcami, z ktorých sú štyri
@@ -130,8 +143,11 @@
 
         ${this.kpiHtml(avg, placed, conv)}
 
-        <button class="btn btn-primary btn-block call-cta" onclick="Guide.startCall()">
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:14px;">
+        <button class="btn btn-primary btn-block call-cta" style="margin-bottom:0;flex:1;" onclick="Guide.startCall()">
           ${Icon('phone', 18)} Zdvihol som telefón — naberať rovno teraz</button>
+        ${UI.tip('Keď práve volá človek na inzerát: otvorí sa sprievodca hovorom. Vyberiete inzerát, zapíšete meno a appka Vám ukáže, na čo sa pýtať. Kandidát sa založí sám.')}
+        </div>
 
         <div class="filterbar">
           <input class="fb-search" placeholder="Hľadať meno, telefón, mesto…" value="${UI.esc(this.filters.q)}"
@@ -148,6 +164,7 @@
             <button class="pill${this.viewMode() === 'table' ? ' active' : ''}" onclick="Cand.setView('table')">Zoznam</button>
             <button class="pill${this.viewMode() === 'kanban' ? ' active' : ''}" onclick="Cand.setView('kanban')">Kanban</button>
           </div>
+          ${UI.tip('Kanban = kandidáti v stĺpcoch podľa stavu (Nový, Kontaktovaný, Pohovor…), aby bolo vidieť, kde sa kto zasekol. Zoznam = všetci pod sebou.')}
         </div>
 
         ${rows.length === 0
@@ -184,16 +201,16 @@
       };
 
       return `<div class="kpi-grid" style="margin-bottom:16px;">
-        ${kpi('V procese', vProcese, vProcese ? 'rozpracovaní' : 'zatiaľ nikto')}
-        ${kpi('Priemerná reakcia',
+        ${kpi(`V procese${UI.tip('Kandidáti v stave Nový, Kontaktovaný, Pohovor, Doklady alebo Pripravený — teda tí, s ktorými sa ešte niečo deje.')}`, vProcese, vProcese ? 'rozpracovaní' : 'zatiaľ nikto')}
+        ${kpi(`Priemerná reakcia${UI.tip('Koľko minút v priemere ubehlo od chvíle, keď sa kandidát ozval, po náš prvý kontakt. Cieľ je do 10 minút — kto čaká dlhšie, volá konkurencii.')}`,
           avg == null ? 'zatiaľ nemeriame' : `${avg} min`,
           avg == null ? 'nikomu sme sa ešte neozvali' : 'cieľ do 10 minút',
           avg == null ? 'var(--ink-mute)' : avg <= 10 ? 'var(--green)' : 'var(--amber)')}
-        ${kpi('Nastúpili', placed,
-          uzavreti ? `z ${uzavreti} uzavretých · ${UI.pct(conv)}`
+        ${kpi(`Nastúpili${UI.tip('Koľko kandidátov má stav Nasadený. Percento je z uzavretých — tých, pri ktorých je už rozhodnuté (nastúpili, odmietnutí alebo stratení).')}`, placed,
+          uzavreti ? `z ${uzavreti} uzavretých · ${UI.pct(Math.round(placed / uzavreti * 1000) / 10)}`
             : 'zatiaľ sa nedá počítať',
           placed ? 'var(--green)' : null)}
-        ${kpi('Odmietnutí a stratení', stratenI,
+        ${kpi(`Odmietnutí a stratení${UI.tip('Odmietnutý = nechceli sme ho my. Stratený = on odstúpil alebo sa prestal ozývať.')}`, stratenI,
           stratenI ? 'mimo procesu' : 'zatiaľ nikto')}
       </div>`;
     },
@@ -296,7 +313,7 @@
       const max = Math.max(...rows.map(r => r.total));
       const veta = DanubraAds.funnelSentence(rows);
 
-      return `<div class="form-section">Odkiaľ kandidáti prichádzajú</div>
+      return `<div class="form-section">Odkiaľ kandidáti prichádzajú${UI.tip('Pri každom inzeráte: koľko ľudí sa naň ozvalo a koľko z nich nastúpilo. Percento sa ukáže od troch ozvaných. Podľa toho viete, ktorý inzerát sa oplatí.')}</div>
         ${veta ? `<div style="font-size:13px;color:var(--ink-sub);margin:0 0 8px;">
           ${UI.esc(veta)}</div>` : ''}
         ${rows.map(r => `
@@ -367,33 +384,34 @@
           <select class="verif-sel" onchange="Cand.setStatus('${c.id}',this.value)">
             ${STAGES.map(s => `<option value="${s[0]}" ${c.status === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}
           </select>
+          ${UI.tip(STAGETIP + ' Zmena sa uloží hneď.')}
         </div>
         ${!c.first_contact_at && c.status === 'new' ? `<div class="warnbox">
           ${Icon('clock', 14)} Kandidát ešte nebol kontaktovaný. Prvá reakcia do desiatich minút
           výrazne zvyšuje šancu, že nastúpi.</div>` : ''}
         ${regulated ? `<div class="warnbox">${Icon('alert', 14)}
-          Regulované remeslo — pred nasadením treba oznámenie Handwerkskammer podľa §9 HwO.</div>` : ''}
+          Regulované remeslo — pred nasadením treba oznámenie Handwerkskammer podľa §9 HwO.${UI.tip('Handwerkskammer je nemecká remeselná komora. Niektoré remeslá (napr. elektrikár) smie cudzinec v Nemecku robiť, len keď to komore vopred ohlási (§9 zákona o remeslách, HwO).')}</div>` : ''}
         ${c.outcome ? `<div class="regimebox">
           ${c.outcome === 'hired' ? 'Kandidát nastúpil.' : 'Kandidát bol zamietnutý.'}
           ${c.outcome_reason ? UI.esc(c.outcome_reason) : ''}
           <button class="btn btn-ghost btn-sm" style="margin-left:6px;"
-            onclick="CandProc.reopen('${c.id}')">Vrátiť do procesu</button></div>` : ''}
+            onclick="CandProc.reopen('${c.id}')">Vrátiť do procesu</button>${UI.tip('Zruší „nastúpil/zamietnutý" a kandidát bude znova medzi rozpracovanými, v stave Kontaktovaný. Nič sa nezmaže.')}</div>` : ''}
         ${CommPanel.render({ contact: { phone: c.phone, email: c.email, whatsapp: c.whatsapp, name: c.full_name }, entity: { type: 'candidate', id: c.id } })}
 
-        <div class="form-section">Náborový proces</div>
+        <div class="form-section">Náborový proces${UI.tip('Kroky, ktorými musí každý kandidát prejsť, kým ide na stavbu. Pri každom kroku odškrtávate, čo je hotové. Červené varovanie = niečo, čo by ho mohlo vyradiť.')}</div>
         <div id="cand-process">${UI.loading()}</div>
 
         <div class="form-section">Údaje</div>
-        <div class="kv">${rows.map(r => `<div><span>${r[0]}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
-        <div class="form-section">Čo pri hovore zaznelo</div>
+        <div class="kv">${rows.map(r => `<div><span>${r[0]}${TIPS[r[0]] ? UI.tip(TIPS[r[0]]) : ''}</span><strong>${UI.esc(r[1])}</strong></div>`).join('')}</div>
+        <div class="form-section">Čo pri hovore zaznelo${UI.tip('Čo ste počas telefonátu odklikli: zelené hovorí pre neho, červené proti, varovania treba preveriť pred nasadením.')}</div>
         <div id="cand-chips">${UI.loading()}</div>
         ${c.screening_score != null ? `<div class="form-section">Výsledok hovoru</div>
           <div class="kpi-grid">
-            <div class="kpi"><div class="kpi-label">Skóre</div>
+            <div class="kpi"><div class="kpi-label">Skóre${UI.tip('Počíta sa z toho, čo ste pri hovore odklikli: plusy ho zvyšujú, mínusy a varovania znižujú. Od 80 % je zelené. Je to pomôcka, nie rozhodnutie.')}</div>
               <div class="kpi-value" style="color:${c.screening_score >= 80 ? 'var(--green)' : c.screening_score >= 60 ? 'var(--ink)' : 'var(--amber)'};">
                 ${Math.round(c.screening_score)} %</div>
               <div class="kpi-delta">${UI.esc((VERDICT[c.screening_verdict] || VERDICT.unknown)[0])}</div></div>
-            <div class="kpi"><div class="kpi-label">Referencia overená</div>
+            <div class="kpi"><div class="kpi-label">Referencia overená${UI.tip('Či sme volali niekomu, kto ho na poslednej stavbe viedol (majster, parťák), a potvrdil, že robí dobre. Pod tým je meno toho človeka.')}</div>
               <div class="kpi-value" style="color:${c.reference_checked ? 'var(--green)' : 'var(--amber)'};">
                 ${c.reference_checked ? 'áno' : 'nie'}</div>
               <div class="kpi-delta">${UI.esc(c.last_foreman || 'meno neuvedené')}</div></div>
@@ -406,13 +424,13 @@
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <button class="btn btn-outline" onclick="Cand.form('${c.id}')">Upraviť</button>
           ${!c.first_contact_at ? `<button class="btn btn-outline" onclick="Cand.markContacted('${c.id}')">
-            ${Icon('check')} Ozval som sa</button>` : ''}
+            ${Icon('check')} Ozval som sa</button><span style="align-self:center;display:inline-flex;">${UI.tip('Zapíše, že ste sa mu práve teraz ozvali. Z toho sa počíta čas reakcie a stav sa zmení na Kontaktovaný.')}</span>` : ''}
           <button class="btn btn-outline" onclick="Guide.continueCall('${c.id}')">
             ${Icon('phone')} ${c.screening_score != null ? 'Pokračovať v hovore' : 'Prejsť hovor'}</button>
           ${!c.outcome ? `
             <button class="btn btn-outline" onclick="CandProc.rejectForm()">Zamietnuť</button>
             <button class="btn btn-primary" onclick="CandProc.hireForm()">
-              ${Icon('check')} Nastúpený</button>` : ''}
+              ${Icon('check')} Nastúpený</button><span style="align-self:center;display:inline-flex;">${UI.tip('Zamietnuť: kandidát odíde z procesu s dôvodom. Nastúpený: vyberiete zákazku a dátum nástupu a kandidát sa prevedie medzi živnostníkov. Oboje sa dá vrátiť cez „Vrátiť do procesu".')}</span>` : ''}
         </div>`;
       UI.modal(c.full_name, body, { wide: true });
 
@@ -536,35 +554,47 @@
           <div class="form-grid">
             ${UI.field('full_name', 'Meno alebo názov partie', { value: c.full_name, required: true })}
             ${UI.field('type', 'Typ', { value: c.type || 'individual',
-              options: [['individual', 'Jednotlivec'], ['crew', 'Partia']] })}
+              options: [['individual', 'Jednotlivec'], ['crew', 'Partia']],
+              tip: 'Partia = skupina, ktorá chce robiť spolu a ozval sa za ňu jeden človek (vedúci partie). Vtedy vyplňte aj, koľkí sú.' })}
             ${UI.field('crew_size', 'Koľkí sú (pri partii)', { type: 'number', value: c.crew_size })}
-            ${UI.field('status', 'Stav', { value: c.status || 'new', options: STAGES.map(s => [s[0], s[1]]) })}
+            ${UI.field('status', 'Stav', { value: c.status || 'new', options: STAGES.map(s => [s[0], s[1]]), tip: STAGETIP })}
             ${UI.field('phone', 'Telefón', { value: c.phone })}
             ${UI.field('email', 'E-mail', { type: 'email', value: c.email })}
             ${UI.field('profession', 'Profesia', { value: c.profession, options: [['', '—'], ...PROFESSIONS] })}
-            ${UI.field('skill_level', 'Zaradenie', { value: c.skill_level, options: [['', '—'], ['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']] })}
-            ${UI.field('legal_form', 'Forma spolupráce', { value: c.legal_form === 'sro' ? 'sro' : 'szco', options: [['szco', 'Živnostník'], ['sro', 's.r.o.']] })}
+            ${UI.field('skill_level', 'Zaradenie', { value: c.skill_level, options: [['', '—'], ['werker', 'Werker (LG1)'], ['fachwerker', 'Fachwerker (LG2)']],
+              tip: 'Podľa nemeckej stavebnej tarify. Werker (mzdová skupina LG1) = pomocník, jednoduché práce. Fachwerker (LG2) = vyučený odborník, robí samostatne a stojí viac.' })}
+            ${UI.field('legal_form', 'Forma spolupráce', { value: c.legal_form === 'sro' ? 'sro' : 'szco', options: [['szco', 'Živnostník'], ['sro', 's.r.o.']],
+              tip: 'Ako s nami bude spolupracovať: ako živnostník (SZČO, fyzická osoba so živnosťou) alebo cez vlastnú firmu s.r.o. Od toho závisí, aká zmluva a faktúry sa s ním robia.' })}
             ${UI.field('city', 'Mesto', { value: c.city })}
-            ${UI.field('source', 'Zdroj', { value: c.source, options: [['', '—'], ...SOURCES] })}
+            ${UI.field('source', 'Zdroj', { value: c.source, options: [['', '—'], ...SOURCES],
+              tip: 'Odkiaľ sa o nás dozvedel. Slúži na porovnanie, ktorý kanál prináša ľudí, čo naozaj nastúpia.' })}
             ${UI.field('source_detail', 'Podrobnosť k zdroju', { value: c.source_detail, placeholder: 'kampaň, kto odporučil…' })}
-            ${UI.field('expected_rate', 'Predstava sadzby €/h', { type: 'number', value: c.expected_rate })}
-            ${UI.field('available_from', 'Dostupný od', { type: 'date', value: c.available_from })}
+            ${UI.field('expected_rate', 'Predstava sadzby €/h', { type: 'number', value: c.expected_rate,
+              tip: 'Koľko si kandidát pýta za jednu odpracovanú hodinu — to, čo by nám fakturoval ako živnostník. Bez DPH.' })}
+            ${UI.field('available_from', 'Dostupný od', { type: 'date', value: c.available_from,
+              tip: 'Odkedy je vôbec voľný (napr. keď mu končí iná práca). Nie je to dohodnutý nástup — ten je v poli „Možný nástup".' })}
             ${UI.field('german_level', 'Nemčina', { value: c.german_level, options: [['', '—'], ['ziadny', 'Žiadna'], ['zaklad', 'Základ'], ['dobry', 'Dobrá']] })}
-            ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['ua', 'UA']] })}
+            ${UI.field('language', 'Jazyk', { value: c.language, options: [['', '—'], ['sk', 'SK'], ['hu', 'HU'], ['cs', 'CS'], ['ua', 'UA']],
+              tip: 'V akom jazyku sa s ním dohovoríte a v akom mu posielať správy a dokumenty. SK slovenčina, HU maďarčina, CS čeština, UA ukrajinčina.' })}
             ${UI.field('plan_id', 'Na ktorý nábor', { value: c.plan_id || '', add: 'plan',
-              options: [['', '— žiadny konkrétny —'], ...openPlans.map(p => [p.id, p.title])] })}
+              options: [['', '— žiadny konkrétny —'], ...openPlans.map(p => [p.id, p.title])],
+              tip: 'Na ktorú konkrétnu potrebu (stavbu) ho naberáme. Ponúkajú sa len spustené nábory. Ak ešte nevieme, nechajte „žiadny konkrétny".' })}
             ${UI.field('last_site', 'Posledná stavba', { value: c.last_site, placeholder: 'mesto, firma' })}
             ${UI.field('last_foreman', 'Kto ho vie potvrdiť', { value: c.last_foreman,
-              placeholder: 'meno a telefón — kto ho na tej stavbe viedol' })}
+              placeholder: 'meno a telefón — kto ho na tej stavbe viedol',
+              tip: 'Referencia: človek (majster, parťák), ktorému môžeme zavolať a overiť, že kandidát naozaj robí to, čo hovorí.' })}
             ${UI.field('trade_license_status', 'Živnosť', { value: c.trade_license_status || '',
-              options: [['', '—'], ['active', 'Aktívna'], ['willing', 'Ochotný si založiť'], ['none', 'Nemá']] })}
-            ${UI.field('expected_start', 'Možný nástup', { type: 'date', value: c.expected_start })}
+              options: [['', '—'], ['active', 'Aktívna'], ['willing', 'Ochotný si založiť'], ['none', 'Nemá']],
+              tip: 'Pracujeme len so živnostníkmi, takže bez živnosti ho na stavbu poslať nemôžeme. „Ochotný si založiť" = zatiaľ ju nemá, ale vybaví si ju pred nástupom.' })}
+            ${UI.field('expected_start', 'Možný nástup', { type: 'date', value: c.expected_start,
+              tip: 'Deň, keď by mohol nastúpiť na našu stavbu. Pri nastúpení sa ponúkne ako dátum nástupu.' })}
           </div>
           <div class="chk-row">
             ${UI.field('whatsapp', '', { type: 'checkbox', value: c.whatsapp, placeholder: 'Má WhatsApp' })}
             ${UI.field('driving_licence', '', { type: 'checkbox', value: c.driving_licence, placeholder: 'Vodičský preukaz' })}
             ${UI.field('own_tools', '', { type: 'checkbox', value: c.own_tools, placeholder: 'Vlastné náradie' })}
-            ${UI.field('german_speaker', '', { type: 'checkbox', value: c.german_speaker, placeholder: 'Hovorí po nemecky' })}
+            ${UI.field('german_speaker', '', { type: 'checkbox', value: c.german_speaker, placeholder: 'Hovorí po nemecky',
+              tip: 'Pri partii: či je v nej aspoň jeden človek, ktorý sa dohovorí s nemeckým majstrom. Bez neho sa partia na stavbe ťažko riadi.' })}
             ${UI.field('has_car', '', { type: 'checkbox', value: c.has_car, placeholder: 'Má vlastné auto' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: c.notes })}

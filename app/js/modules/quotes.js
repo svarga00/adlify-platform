@@ -66,6 +66,7 @@
               ${Icon(m.perHour < 0 ? 'alert' : 'check', 14)}
               marža ${Money.format(m.perHour)}/h${m.pct != null ? ` · ${UI.pct(m.pct)}` : ''}
               ${m.perMonth ? ` · ${Money.format(m.perMonth)} mesačne` : ''}
+              ${UI.tip('Marža = čo fakturujeme mínus čo platíme živnostníkovi a réžia, za jednu hodinu. Percento je z fakturovanej sumy. Mesačne = za všetkých ľudí pri zadanom počte hodín.')}
             </div>
           </div>`;
       };
@@ -141,10 +142,10 @@
           <div><span>Odberateľ</span><strong>${UI.esc(this.partnerName(q.partner_id))}</strong></div>
           ${q.trade_key ? `<div><span>Remeslo</span><strong>${UI.esc(Wrk.professionLabel(q.trade_key))}</strong></div>` : ''}
           <div><span>Ľudí</span><strong>${q.headcount || 1}</strong></div>
-          <div><span>Typ prác</span><strong>${q.work_type === 'workshop' ? 'Dielenské' : 'Stavebné'}</strong></div>
+          <div><span>Typ prác${UI.tip('Stavebné = práca na stavenisku, platia prísnejšie pravidlá (SOKA-BAU, zrážka §48b, stavebná minimálna mzda). Dielenské = výroba mimo stavby, regulácia je nižšia.')}</span><strong>${q.work_type === 'workshop' ? 'Dielenské' : 'Stavebné'}</strong></div>
           ${q.site_city ? `<div><span>Miesto</span><strong>${UI.esc([q.site_address, q.site_city].filter(Boolean).join(', '))}</strong></div>` : ''}
           ${q.date_from ? `<div><span>Termín</span><strong>${UI.dateRange(q.date_from, q.date_to)}</strong></div>` : ''}
-          ${q.valid_until ? `<div><span>Platí do</span><strong>${UI.date(q.valid_until)}</strong></div>` : ''}
+          ${q.valid_until ? `<div><span>Platí do${UI.tip('Do tohto dňa je odberateľ viazaný na naše ceny. Potom ponuka prepadne a dá sa poslať znova s novou platnosťou.')}</span><strong>${UI.date(q.valid_until)}</strong></div>` : ''}
         </div>
         ${q.notes ? `<div class="notebox">${UI.esc(q.notes)}</div>` : ''}
         ${q.reject_reason ? `<div class="warnbox">
@@ -152,6 +153,12 @@
 
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <span style="align-self:center;display:inline-flex;">${UI.tip([
+            'Angebot (PDF) = ponuka po nemecky na tlač; v okne tlače vyberte „Uložiť ako PDF".',
+            kroky.includes('sent') ? 'Označiť ako odoslanú = zapíše sa dátum odoslania. Nedá sa, kým má ponuka vážnu chybu (napr. zápornú maržu alebo sadzbu pod minimálnou mzdou).' : '',
+            kroky.includes('accepted') ? 'Prijal / odmietol / prepadla = odpoveď odberateľa; pri odmietnutí sa appka spýta prečo.' : '',
+            q.status === 'accepted' ? 'Spraviť zmluvu = otvorí sa nová zmluva predvyplnená z tejto ponuky.' : '',
+          ].filter(Boolean).join(' '))}</span>
           <button class="btn btn-outline" onclick="Quo.document('${q.id}')">
             ${Icon('doc', 14)} Angebot (PDF)</button>
           <button class="btn btn-outline" onclick="Quo.form('${q.id}')">Upraviť</button>
@@ -232,6 +239,7 @@
             ${UI.field('work_type', 'Typ prác', { value: q.work_type || 'construction',
               options: [['construction', 'Stavebné (SOKA, §48b, Bau-Mindestlohn)'],
                         ['workshop', 'Dielenské (nižšia regulácia)']],
+              tip: 'SOKA = nemecká stavebná pokladnica, kam sa platia príspevky. §48b = stavebná daň: odberateľ si z faktúry strhne 15 %, ak nemáme platné potvrdenie o oslobodení (Freistellungsbescheinigung). Bau-Mindestlohn = minimálna hodinová mzda v stavebníctve.',
               hint: 'Stavba znamená vyššie odvody aj zrážku 15 % z faktúry. Pri '
                 + 'rovnakej sadzbe je z nej podstatne menšia marža než z dielne.' })}
             ${UI.field('site_city', 'Mesto', { value: q.site_city })}

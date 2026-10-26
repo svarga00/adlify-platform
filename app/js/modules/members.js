@@ -96,7 +96,8 @@
             }],
           },
         })
-        + `<div class="form-section">Čo môže len administrátor</div>
+        + `<div class="form-section">Čo môže len administrátor${UI.tip('Administrátor je rola s plnými právami. '
+             + 'Faktúra sa nikdy nevystaví ani neodošle bez schválenia adminom — a toto právo sa nedá dať nikomu inému.')}</div>
            <p class="card-note" style="margin:0 0 8px;">Toto sa nedá prideliť nikomu
              inému — ani zaškrtnutím. Sú to pravidlá zo zadania, nie nastavenie.</p>
            <div class="ad-promise">
@@ -135,16 +136,21 @@
             ${UI.field('email', 'E-mail', { type: 'email', value: m.email,
               placeholder: 'ten istý, ktorým sa prihlasuje' })}
             ${UI.field('role', 'Rola', { value: role,
+              tip: 'Rola je hotová predvoľba, na ktoré obrazovky človek smie. Čo presne dáva, je napísané '
+                + 'pod poľom. Nižšie sa to dá upraviť na mieru.',
               options: P().ROLES.map(r => [r[0], r[1]]) })}
             ${UI.field('active', '', { type: 'checkbox', value: m.active !== false,
-              placeholder: 'Má prístup do appky' })}
+              placeholder: 'Má prístup do appky',
+              tip: 'Keď odškrtnete, človek sa do appky už nedostane. Nič sa nemaže — jeho úlohy, poznámky '
+                + 'a schválenia zostanú aj s jeho menom.' })}
           </div>
           <p class="muted-sm">
             ${P().ROLES.map(r => `<span class="mem-role-note" data-role="${r[0]}"
               ${r[0] === role ? '' : 'hidden'}>${UI.esc(r[2])}</span>`).join('')}
           </p>
 
-          <div class="form-section">Na čo má</div>
+          <div class="form-section">Na čo má${UI.tip('Každé zaškrtnutie je jedna obrazovka v menu. Schvaľovanie '
+            + 'faktúr, výnimky a správa používateľov sa prideliť nedajú — tie má vždy len administrátor.')}</div>
           <p class="muted-sm">Zaškrtnuté je to, čo dáva rola.
             Keď to zmeníte, uloží sa presne tento zoznam a rola zostane len ako poznámka,
             z čoho sa vychádzalo.</p>
