@@ -181,7 +181,7 @@
       } catch (e) {
         console.error('[danubra] PDF', e);
         this.msg(okno, `PDF sa nepodarilo spraviť: ${UI.esc(e.message || e)}
-          <button onclick="window.print()">Tlačiť namiesto toho</button>`);
+          <button class="btn btn-primary btn-sm" onclick="window.print()">Tlačiť namiesto toho</button>`);
       } finally { okno.__busy = false; }
     },
 
@@ -226,7 +226,7 @@
       } catch (e) {
         if (e && e.name === 'AbortError') return;          // človek si to rozmyslel
         if (win.document.getElementById('tb-msg')) {
-          this.msg(win, `PDF je pripravené. <button onclick="window.__doc('share')">Poslať teraz</button>`);
+          this.msg(win, `PDF je pripravené. <button class="btn btn-primary btn-sm" onclick="window.__doc('share')">Poslať teraz</button>`);
         } else {
           UI.toast('Dokumenty sú pripravené — kliknite ešte raz na Poslať', 'warn');
         }

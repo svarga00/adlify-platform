@@ -508,7 +508,7 @@
 
       UI.modal(t.name_sk, `
         ${t.regulated ? `<div class="warnbox">${Icon('alert', 14)} ${UI.esc(t.legal_note || '')}</div>` : ''}
-        <div class="notebox">${UI.esc(t.summary || '')}</div>
+        ${t.summary ? `<div class="notebox">${UI.esc(t.summary)}</div>` : ''}
         <div class="kv" style="margin-top:10px;">
           <div><span>Nemecky</span><strong>${UI.esc(t.name_de || '—')}</strong></div>
           <div><span>Mzdová skupina</span><strong>${UI.esc(t.lohngruppe || '—')}</strong></div>

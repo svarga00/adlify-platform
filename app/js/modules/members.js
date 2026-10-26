@@ -127,6 +127,9 @@
 
       UI.modal(id ? (m.full_name || m.email || 'Používateľ') : 'Pridať človeka', `
         <form id="mem-form" onsubmit="event.preventDefault();Mem.save('${id || ''}')">
+          ${id ? '' : `<div class="regimebox">Človek sa musí do appky prihlásiť tým istým
+            e-mailom. Účet mu vytvorte v Supabase → Authentication; tu sa nastavuje len to,
+            na čo má.</div>`}
           <div class="form-grid">
             ${UI.field('full_name', 'Meno', { value: m.full_name, required: true })}
             ${UI.field('email', 'E-mail', { type: 'email', value: m.email,
@@ -136,22 +139,18 @@
             ${UI.field('active', '', { type: 'checkbox', value: m.active !== false,
               placeholder: 'Má prístup do appky' })}
           </div>
-          <p class="card-note" style="margin:0 0 10px;">
+          <p class="muted-sm">
             ${P().ROLES.map(r => `<span class="mem-role-note" data-role="${r[0]}"
               ${r[0] === role ? '' : 'hidden'}>${UI.esc(r[2])}</span>`).join('')}
           </p>
 
           <div class="form-section">Na čo má</div>
-          <p class="card-note" style="margin:0 0 10px;">Zaškrtnuté je to, čo dáva rola.
+          <p class="muted-sm">Zaškrtnuté je to, čo dáva rola.
             Keď to zmeníte, uloží sa presne tento zoznam a rola zostane len ako poznámka,
             z čoho sa vychádzalo.</p>
           <div class="mem-modules">${groups}</div>
 
           ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2, value: m.note })}
-
-          ${id ? '' : `<div class="regimebox">Človek sa musí do appky prihlásiť tým istým
-            e-mailom. Účet mu vytvorte v Supabase → Authentication; tu sa nastavuje len to,
-            na čo má.</div>`}
 
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>

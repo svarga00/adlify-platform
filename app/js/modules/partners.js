@@ -226,29 +226,29 @@
             <div><span>Do splatnosti</span><strong>${
               disc.onTimePct != null ? UI.pct(disc.onTimePct) : '—'}</strong></div>
             <div><span>Faktúr</span><strong>${disc.paid} z ${disc.total} uhradených</strong></div>
-            ${disc.overdue ? `<div><span>Po splatnosti</span><strong style="color:var(--red);">${
+            ${disc.overdue ? `<div><span>Po splatnosti</span><strong class="tx-bad">${
               disc.overdue} · najdlhšie ${disc.oldestOverdueDays} ${
               DanubraPayment.plural(disc.oldestOverdueDays, 'deň', 'dni', 'dní')}</strong></div>` : ''}
           </div>
           ${Shell.sums({ lines: DanubraPayment.sumLines(disc), totalLabel: 'Visí u odberateľa' })}
           ${suggested.rating && suggested.rating !== p.rating ? `
-            <div class="regimebox" style="margin-top:10px;">
+            <div class="regimebox">
               Z faktúr vychádza hodnotenie <strong>${suggested.rating.toUpperCase()}</strong>,
               uložené je ${p.rating ? `<strong>${String(p.rating).toUpperCase()}</strong>` : 'prázdne'}.
               ${UI.esc(suggested.reason)}
               ${suggested.confident ? '' : ' (zatiaľ málo faktúr na istý záver)'}
-              <button class="btn btn-outline btn-sm" style="margin-top:8px;"
-                onclick="Prt.applyRating('${p.id}','${suggested.rating}')">Prepísať na ${suggested.rating.toUpperCase()}</button>
+              <div class="btn-row"><button class="btn btn-outline btn-sm"
+                onclick="Prt.applyRating('${p.id}','${suggested.rating}')">Prepísať na ${suggested.rating.toUpperCase()}</button></div>
             </div>` : ''}
-        ` : `<div style="color:var(--ink-mute);font-size:13px;">
+        ` : `<div class="js-empty">
             Zatiaľ žiadna faktúra tomuto odberateľovi — nie je z čoho počítať.</div>`}
 
         <div class="form-section">Zákazky (${subs.length})</div>
         ${subs.map(s => `<button class="list-row" onclick="UI.closeModal();Danubra.go('subcontracts');setTimeout(()=>Sub.detail('${s.id}'),300)">
-          <span style="flex:1;font-size:13px;"><strong>${UI.esc(s.title)}</strong>
-            <span style="color:var(--ink-mute);display:block;font-size:12px;">${UI.esc(window.Sub && Sub.statusLabel ? Sub.statusLabel(s.status) : s.status)}${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}</span></span>
-          <span style="color:var(--ink-mute);display:flex;">${Icon('chevron', 15)}</span></button>`).join('')
-          || '<div style="color:var(--ink-mute);font-size:13px;">Zatiaľ žiadne zákazky.</div>'}
+          <span class="lr-main"><strong>${UI.esc(s.title)}</strong>
+            <span class="lr-sub">${UI.esc(window.Sub && Sub.statusLabel ? Sub.statusLabel(s.status) : s.status)}${s.charge_rate ? ` · ${UI.money(s.charge_rate)}/h` : ''}</span></span>
+          <span class="lr-go">${Icon('chevron', 15)}</span></button>`).join('')
+          || '<div class="js-empty">Zatiaľ žiadne zákazky.</div>'}
 
         <div class="form-section">Dokumenty</div>
         ${window.Docs ? Docs.slot('partner', p.id, { empty: 'Zatiaľ žiadne. Rámcová zmluva, Werkvertrag, ponuka či faktúra sa sem uložia, keď z nich spravíte PDF.' }) : ''}
@@ -257,10 +257,11 @@
         ${window.Mail ? Mail.slot('partner', p.id, p.email) : ''}
 
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Prt.del('${p.id}')">Zmazať</button>
-          <button class="btn btn-outline btn-sm" onclick="Prt.rahmen('${p.id}')">
+          <button class="btn btn-danger" onclick="Prt.del('${p.id}')">Zmazať</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Prt.rahmen('${p.id}')">
             ${Icon('doc', 14)} Rámcová zmluva SK/DE</button>
-          <button class="btn btn-outline btn-sm" onclick="Prt.form('${p.id}')">Upraviť</button>
+          <button class="btn btn-primary" onclick="Prt.form('${p.id}')">Upraviť</button>
         </div>`;
       UI.modal(p.name, body, { wide: true });
       if (window.Docs) Docs.fill(document.getElementById('ui-modal'));

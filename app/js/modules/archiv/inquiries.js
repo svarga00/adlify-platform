@@ -131,10 +131,11 @@
         <div id="match-panel">${UI.loading()}</div>
 
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Inq.del('${i.id}')">Zmazať</button>
-          <button class="btn btn-outline btn-sm" onclick="Inq.form('${i.id}')">Upraviť</button>
-          <button class="btn btn-outline btn-sm" onclick="Inq.invoice('${i.id}')">${Icon('receipt')} Faktúra</button>
-          <button class="btn btn-primary btn-sm" onclick="Offers.fromInquiry('${i.id}')">Vytvoriť ponuku ${Icon('chevron', 14)}</button>
+          <button class="btn btn-danger" onclick="Inq.del('${i.id}')">Zmazať</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Inq.form('${i.id}')">Upraviť</button>
+          <button class="btn btn-outline" onclick="Inq.invoice('${i.id}')">${Icon('receipt')} Faktúra</button>
+          <button class="btn btn-primary" onclick="Offers.fromInquiry('${i.id}')">Vytvoriť ponuku ${Icon('chevron', 14)}</button>
         </div>`;
       UI.modal(`Dopyt · ${i.target_city || '—'}`, body, { wide: true });
       this.renderMatches(i);
@@ -146,7 +147,7 @@
       if (!window.Acc?.loaded) { if (window.Acc) await Acc.load(); }
       const list = window.Acc?.items || [];
       if (!list.length) {
-        box.innerHTML = `<div style="color:var(--ink-mute);font-size:13px;">Databáza ubytovaní je prázdna.</div>`;
+        box.innerHTML = `<div class="js-empty">Databáza ubytovaní je prázdna.</div>`;
         return;
       }
       const matches = DanubraMatching.matchAccommodations(inquiry, list, 10);
@@ -156,9 +157,9 @@
         return `
           <div class="match-row">
             <div class="match-score" style="color:${color};border-color:${color};">${m.score}</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;font-size:13.5px;">${UI.esc(a.name)}</div>
-              <div style="font-size:12px;color:var(--ink-mute);">
+            <div class="lr-main">
+              <strong>${UI.esc(a.name)}</strong>
+              <div class="lr-sub">
                 ${UI.esc(a.city || '')} · ${a.price_per_bed_night != null ? UI.money(a.price_per_bed_night) + '/lôžko' : 'bez ceny'}
                 ${a.max_persons ? ` · max ${a.max_persons}` : ''}
               </div>

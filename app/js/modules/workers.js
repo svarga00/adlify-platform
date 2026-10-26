@@ -464,7 +464,7 @@
         ${this.stepsHtml(w)}
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
-          <button class="btn btn-primary" onclick="UI.closeModal();Wrk.detail('${w.id}')">
+          <button class="btn btn-outline" onclick="UI.closeModal();Wrk.detail('${w.id}')">
             ${Icon('user', 14)} Otvoriť kartu</button>
         </div>`);
     },
