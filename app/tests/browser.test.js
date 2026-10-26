@@ -3488,7 +3488,7 @@ console.log('Prehliadač');
         Danubra._buildNav();
         const tlacidlo = !!document.querySelector('#btn-papers');
         Pap.open();
-        const dlazdice = [...document.querySelectorAll('#ui-modal .pap-tile b')]
+        const dlazdice = [...document.querySelectorAll('#ui-modal .pick-tile b')]
           .map(b => b.textContent.trim());
         await Pap.pick('zmluva');
         const ludia = [...document.querySelectorAll('#ui-modal .pap-row b')]

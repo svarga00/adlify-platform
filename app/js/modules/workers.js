@@ -457,14 +457,14 @@
       const st = this.stepsOf(w);
       if (st.done) return UI.toast(`${intro ? intro + ' ' : ''}${w.full_name} môže ísť na stavbu.`, 'ok');
       UI.modal(`Čo ďalej — ${w.full_name}`, `
-        ${intro ? `<div class="headline headline-ok" style="margin-bottom:12px;">
+        ${intro ? `<div class="headline headline-ok">
           ${Icon('check', 18)}<span>${UI.esc(intro)}</span></div>` : ''}
-        <p class="ps-lead">Aby mohol ísť na stavbu, treba ešte ${
+        <p class="modal-lead">Aby mohol ísť na stavbu, treba ešte ${
           st.left === 1 ? 'jednu vec' : `${st.left} veci`}. Idú v tomto poradí:</p>
         ${this.stepsHtml(w)}
         <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="UI.closeModal()">Neskôr</button>
-          <button class="btn btn-outline" onclick="UI.closeModal();Wrk.detail('${w.id}')">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-primary" onclick="UI.closeModal();Wrk.detail('${w.id}')">
             ${Icon('user', 14)} Otvoriť kartu</button>
         </div>`);
     },
@@ -817,14 +817,15 @@
             : x.state === 'valid' ? UI.badge('platné', 'green') : ''}
         </div>
         ${body}
+        <p class="doc-note">Odkaz je podpísaný a platí desať minút. Doklad je
+          osobný údaj — v úložisku je neverejne a von sa dostane len takto.</p>
         <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           <a class="btn btn-outline" href="${UI.esc(url)}" target="_blank" rel="noopener noreferrer">
             ${Icon('chevron', 14)} Otvoriť v novej karte</a>
           <a class="btn btn-primary" href="${UI.esc(url)}" download>
             ${Icon('download', 14)} Stiahnuť</a>
-        </div>
-        <p class="doc-note">Odkaz je podpísaný a platí desať minút. Doklad je
-          osobný údaj — v úložisku je neverejne a von sa dostane len takto.</p>`,
+        </div>`,
         { wide: true });
     },
 
@@ -1066,7 +1067,7 @@
             ${UI.field('source', 'Zdroj', { value: w.source, placeholder: 'odporúčanie, profesia.sk…' })}
           </div>
           <div class="form-section">Fakturačné údaje (živnosť alebo s.r.o.)</div>
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Bez IČO, IBAN-u a adresy sa jeho faktúra nedá zaúčtovať ani zapísať
             do SuperFaktúry. Platí len pri živnostníkovi.</div>
           <div class="form-grid">
@@ -1095,11 +1096,10 @@
           </div>
           <div class="form-grid">
             ${UI.field('self_billing_prefix', 'Číselný rad jeho faktúr (keď ich vystavujeme my)', {
-              value: w.self_billing_prefix || '', placeholder: 'napr. NOVAK — faktúry budú NOVAK-2026-001' })}
+              value: w.self_billing_prefix || '', placeholder: 'napr. NOVAK — faktúry budú NOVAK-2026-001',
+              hint: '„Faktúry zaňho vystavujeme my" pridá do rámcovej zmluvy dohodu o vyhotovovaní faktúr '
+                + 'odberateľom (článok V.). Platí až od podpisu takej zmluvy. Pre platiteľa DPH sa nepoužíva.' })}
           </div>
-          <div class="field-hint" style="margin:-4px 0 10px;font-size:12px;color:var(--ink-mute);">
-            „Faktúry zaňho vystavujeme my" pridá do rámcovej zmluvy dohodu o vyhotovovaní faktúr
-            odberateľom (článok V.). Platí až od podpisu takej zmluvy. Pre platiteľa DPH sa nepoužíva.</div>
           ${UI.field('skills_csv', 'Zručnosti (čiarkou)', { value: (w.skills || []).join(', ') })}
           ${UI.field('notes', 'Poznámka', { type: 'textarea', value: w.notes })}
           <div class="modal-actions">
@@ -1252,7 +1252,9 @@
         <form id="dop-form" onsubmit="event.preventDefault();Wrk.saveDoplnit()">
           <div class="regimebox">Všetko ostatné sa vezme z karty — <b>${UI.esc(w.full_name)}</b>.
             Toto sa uloží k nemu, takže nabudúce sa už nepýtam.</div>
-          ${chyba.map(([k, label, o]) => UI.field(k, label, { required: true, ...o })).join('')}
+          <div class="form-grid">
+            ${chyba.map(([k, label, o]) => UI.field(k, label, { required: true, ...o })).join('')}
+          </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${Icon('check')} Uložiť a otvoriť papier</button>
@@ -1409,7 +1411,9 @@
         <form id="gdpr-form" onsubmit="event.preventDefault();Wrk.saveGdpr('${workerId}')">
           <div class="regimebox">Zapisuje sa až podpísaný papier. Dokým ho nemáme,
             reťazec správne hlási, že súhlas chýba.</div>
-          ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
+          <div class="form-grid">
+            ${UI.field('valid_from', 'Dátum podpisu', { type: 'date', value: dnes, required: true })}
+          </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea', rows: 2,
             placeholder: 'napr. podpísané na stavbe, sken v zložke' })}
           <div class="modal-actions">
@@ -1438,6 +1442,9 @@
     addDoc(workerId) {
       const body = `
         <form id="doc-form" onsubmit="event.preventDefault();Wrk.saveDoc('${workerId}')">
+          <div class="regimebox">A1 vystavuje Sociálna poisťovňa do 45 dní a platí najviac 24 mesiacov —
+          preto sa naň upozorňuje 60 dní dopredu, nie 30. Prázdne pole znamená
+          predvolený horizont podľa typu dokladu.</div>
           <div class="form-grid">
             ${UI.field('kind', 'Typ dokladu', { value: 'a1', options: this.docKinds() })}
             ${UI.field('reference', 'Číslo / referencia', {})}
@@ -1447,11 +1454,8 @@
               value: '', placeholder: 'podľa typu dokladu' })}
           </div>
           ${UI.field('notes', 'Poznámka', { type: 'textarea' })}
-          <div class="regimebox">A1 vystavuje Sociálna poisťovňa do 45 dní a platí najviac 24 mesiacov —
-          preto sa naň upozorňuje 60 dní dopredu, nie 30. Prázdne pole znamená
-          predvolený horizont podľa typu dokladu.</div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Wrk.detail('${workerId}')">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal();Wrk.detail('${workerId}')">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Pridať doklad</button>
           </div>
         </form>`;
@@ -1598,7 +1602,7 @@
             od ${UI.esc(w ? w.full_name : 'tohto živnostníka')}. Kým sa tak nestane, znižuje
             to, čo mu dlhujeme — takže sa na ňu nedá zabudnúť.</div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Zapísať zálohu</button>
           </div>
         </form>`;

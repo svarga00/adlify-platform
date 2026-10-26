@@ -230,7 +230,7 @@
 
       UI.modal('Nová správa', `
         <form id="msg-form" onsubmit="event.preventDefault();Msg.saveNew()">
-          ${!cfg.ok ? `<div class="warnbox" style="margin:0 0 12px;">
+          ${!cfg.ok ? `<div class="warnbox">
             ${Icon('alert', 14)} ${UI.esc(cfg.reason)}</div>` : ''}
           <div class="form-grid">
             ${UI.field('channel', 'Kanál', { value: preset.channel || 'email',

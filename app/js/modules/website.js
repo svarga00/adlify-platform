@@ -123,7 +123,7 @@
         <div class="form-section">Firma</div>
         ${UI.field('md', 'Konateľ (Impressum, Geschäftsführer)', { value: co.md || '', placeholder: 'Meno a priezvisko' })}
         <p class="card-note">Prázdne pole = pôvodná hodnota (sivá). Otváracie hodiny a ostatné vety sú v záložke Texty.</p>
-        <div class="modal-actions" style="justify-content:flex-start;"><button type="submit" class="btn btn-primary">Uložiť</button></div>
+        <div class="modal-actions"><button type="submit" class="btn btn-primary">Uložiť</button></div>
       </form></div>`;
     },
     async saveContacts() {
@@ -156,15 +156,13 @@
         </div>
         <div class="form-section">Funkcia</div>
         <div class="form-grid">${Object.entries(LANG).map(([l, n]) => UI.field(`role_${l}`, n, { value: (m.role && m.role[l]) || '' })).join('')}</div>
-        <div class="js-acts"><button type="button" class="btn btn-outline btn-sm" id="web-m-tr" onclick="Web.translateRole()">${Icon('repeat', 14)} Preložiť zo slovenčiny</button></div>
+        <div class="btn-row"><button type="button" class="btn btn-outline btn-sm" id="web-m-tr" onclick="Web.translateRole()">${Icon('repeat', 14)} Preložiť zo slovenčiny</button></div>
         <div class="form-section">Kde sa ukáže</div>
         <div class="form-grid">
           ${UI.field('site_sk', 'punds.sk (O nás)', { type: 'checkbox', value: (m.sites || []).includes('sk') })}
           ${UI.field('site_eu', 'punds.eu (Über uns)', { type: 'checkbox', value: (m.sites || []).includes('eu') })}
           ${UI.field('sort', 'Poradie', { type: 'number', value: m.sort || 0 })}
           ${UI.field('active', 'Zobrazovať na webe', { type: 'checkbox', value: m.active !== false })}
-        </div>
-        <div class="form-grid">
           ${UI.field('photo', 'Fotka (adresa)', { value: m.photo || '' })}
           <label class="fld"><span>Nahrať fotku</span><input type="file" accept="image/jpeg,image/png,image/webp" onchange="Web.upload(this,'photo','tim')"></label>
         </div>

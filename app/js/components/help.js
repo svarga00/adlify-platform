@@ -64,10 +64,11 @@
                 ${Icon('chevron', 12)} ${UI.esc(label)}</button>`).join('')}
             </div>
           </section>` : ''}
-          <div class="hx-foot">
-            <button class="btn btn-ghost btn-sm" onclick="Help.index()">
-              ${Icon('help', 14)} Všetky vysvetlivky</button>
-          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button type="button" class="btn btn-outline" onclick="Help.index()">
+            ${Icon('help', 14)} Všetky vysvetlivky</button>
         </div>`, { wide: true });
     },
 
@@ -105,11 +106,12 @@
         </section>`;
       }).join('');
 
-      UI.modal('Postupy a vysvetlivky', `<div class="hx">
-        <p class="hx-lead">Hore sú postupy krok za krokom — zmluvy, objednávky, faktúry.
+      UI.modal('Postupy a vysvetlivky', `<p class="modal-lead">Hore sú postupy krok za krokom — zmluvy, objednávky, faktúry.
           Pod nimi ku každému číslu, čo to je, ako sa počíta a prečo je to takto spravené.</p>
-        ${html}
-      </div>`, { wide: true });
+        <div class="hx">${html}</div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+        </div>`, { wide: true });
     },
   };
 

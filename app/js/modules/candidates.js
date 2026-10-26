@@ -402,15 +402,16 @@
         ${c.converted_worker_id ? `<div class="regimebox">
           Kandidát bol prevedený medzi pracovníkov ${UI.date(c.converted_at)}.</div>` : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Cand.del('${c.id}')">Zmazať</button>
-          <button class="btn btn-outline btn-sm" onclick="Cand.form('${c.id}')">Upraviť</button>
-          ${!c.first_contact_at ? `<button class="btn btn-outline btn-sm" onclick="Cand.markContacted('${c.id}')">
+          <button class="btn btn-danger" onclick="Cand.del('${c.id}')">Zmazať</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-outline" onclick="Cand.form('${c.id}')">Upraviť</button>
+          ${!c.first_contact_at ? `<button class="btn btn-outline" onclick="Cand.markContacted('${c.id}')">
             ${Icon('check')} Ozval som sa</button>` : ''}
-          <button class="btn btn-outline btn-sm" onclick="Guide.continueCall('${c.id}')">
+          <button class="btn btn-outline" onclick="Guide.continueCall('${c.id}')">
             ${Icon('phone')} ${c.screening_score != null ? 'Pokračovať v hovore' : 'Prejsť hovor'}</button>
           ${!c.outcome ? `
-            <button class="btn btn-outline btn-sm" onclick="CandProc.rejectForm()">Zamietnuť</button>
-            <button class="btn btn-primary btn-sm" onclick="CandProc.hireForm()">
+            <button class="btn btn-outline" onclick="CandProc.rejectForm()">Zamietnuť</button>
+            <button class="btn btn-primary" onclick="CandProc.hireForm()">
               ${Icon('check')} Nastúpený</button>` : ''}
         </div>`;
       UI.modal(c.full_name, body, { wide: true });
@@ -439,7 +440,7 @@
     chipsHtml() {
       const ticked = this.candChips || [];
       if (!ticked.length) {
-        return `<div style="font-size:13px;color:var(--ink-mute);">Zatiaľ nič — spustite hovor.</div>`;
+        return `<div class="js-empty">Zatiaľ nič — spustite hovor.</div>`;
       }
       const s = DanubraChips.summarize(ticked);
       const col = (title, items, cls) => items.length ? `<div>

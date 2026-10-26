@@ -515,7 +515,26 @@
               onclick="Hire.goStep(${s.step})">${st.done ? Icon('check', 12) : `${s.step}.`} ${s.title}</button>`;
           }).join('')}
         </div>
-        <div id="wiz-body">${this.stepHtml()}</div>`;
+        <div id="wiz-body">${this.stepHtml()}</div>
+        <div class="modal-actions" id="wiz-nav">${this.wizNav()}</div>`;
+    },
+
+    /**
+     * Päta sprievodcu. Je mimo formulára kroku, aby bola priamo v tele okna
+     * ako v každom inom okne (a na počítači sa prilepila dole). Tlačidlá
+     * formulár neodosielajú — krok sa číta cez `_collect()`.
+     */
+    wizNav() {
+      const n = this.step;
+      const back = n > 1 ? n - 1 : null;
+      const last = n >= S.PLAN_STEPS.length;
+      return `
+        <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
+        ${back ? `<button type="button" class="btn btn-outline" onclick="Hire.goStep(${back})">Predchádzajúci krok</button>` : ''}
+        <button type="button" class="btn btn-outline" onclick="Hire.savePlan(false)">Uložiť rozpracované</button>
+        ${last
+          ? `<button type="button" class="btn btn-primary" onclick="Hire.savePlan(true)">${Icon('zap')} Spustiť nábor</button>`
+          : `<button type="button" class="btn btn-primary" onclick="Hire.goStep(${n + 1})">Ďalej ${Icon('chevron', 14)}</button>`}`;
     },
 
     goStep(n) {
@@ -523,6 +542,8 @@
       this.step = n;
       const b = document.getElementById('wiz-body');
       if (b) b.innerHTML = this.stepHtml();
+      const nav = document.getElementById('wiz-nav');
+      if (nav) nav.innerHTML = this.wizNav();
       document.querySelectorAll('#ui-modal .pill').forEach((el, i) =>
         el.classList.toggle('active', i === n - 1));
     },
@@ -559,14 +580,6 @@
     stepHtml() {
       const p = this.editing;
       const t = this.trade(p.trade_key);
-      const nav = (back, next, last) => `
-        <div class="modal-actions">
-          ${back ? `<button type="button" class="btn btn-ghost" onclick="Hire.goStep(${back})">Späť</button>` : ''}
-          <button type="button" class="btn btn-outline" onclick="Hire.savePlan(false)">Uložiť rozpracované</button>
-          ${last
-            ? `<button type="button" class="btn btn-primary" onclick="Hire.savePlan(true)">${Icon('zap')} Spustiť nábor</button>`
-            : `<button type="button" class="btn btn-primary" onclick="Hire.goStep(${next})">Ďalej ${Icon('chevron', 14)}</button>`}
-        </div>`;
 
       if (this.step === 1) {
         return `<form id="wiz-form" onsubmit="return false;">
@@ -577,15 +590,14 @@
             ${UI.field('skill_level', 'Zaradenie', { value: p.skill_level, options: [
               ['werker', 'Werker (LG1) — pomocné práce'], ['fachwerker', 'Fachwerker (LG2) — remeselník']] })}
             ${UI.field('legal_form', 'Forma spolupráce', { value: p.legal_form === 'employee' ? 'szco' : p.legal_form, options: [['szco', 'Živnostník (fakturuje nám)'], ['sro', 's.r.o. — firma (fakturuje nám)']] })}
+            <div class="fld-full">${UI.field('title', 'Ako si nábor pomenujem', { value: p.title,
+              placeholder: 'napr. Sadrokartón München — marec' })}</div>
           </div>
-          ${UI.field('title', 'Ako si nábor pomenujem', { value: p.title,
-            placeholder: 'napr. Sadrokartón München — marec' })}
-          <div style="margin-top:8px;">
+          <div class="btn-row">
             <button type="button" class="btn btn-outline btn-sm"
               onclick="Hire.reloadTrade()">${Icon('repeat')} Načítať príručku k remeslu</button>
           </div>
           <div id="trade-card">${this.tradeCard(t)}</div>
-          ${nav(null, 2)}
         </form>`;
       }
 
@@ -608,7 +620,6 @@
           </div>
           <div class="regimebox">Ubytovanie je najsilnejší argument v inzeráte — ľudia sa boja, že skončia
           v aute. Ak ho máte, patrí do prvých troch riadkov.</div>
-          ${nav(1, 3)}
         </form>`;
       }
 
@@ -623,11 +634,10 @@
               placeholder: t ? `${t.rate_client_min}–${t.rate_client_max}` : '' })}
             ${UI.field('budget', 'Rozpočet na reklamu €', { type: 'number', value: p.budget })}
           </div>
-          <div style="margin-top:6px;">
+          <div class="btn-row">
             <button type="button" class="btn btn-outline btn-sm" onclick="Hire.recalc()">${Icon('repeat')} Prepočítať</button>
           </div>
           <div id="margin-box">${this.marginBox(p, m, wage, t)}</div>
-          ${nav(2, 4)}
         </form>`;
       }
 
@@ -643,11 +653,10 @@
             ? `<div class="warnbox" style="margin-top:12px;">${Icon('alert', 14)}
                 Najprv vyberte remeslo v prvom kroku.</div>`
             : this.questionsPreview(qs)}
-          <div style="margin-top:10px;">
+          <div class="btn-row">
             <button type="button" class="btn btn-outline btn-sm"
               onclick="UI.closeModal();Danubra.go('trades')">${Icon('wrench')} Upraviť otázky v príručke</button>
           </div>
-          ${nav(3, 5)}
         </form>`;
       }
 
@@ -660,13 +669,12 @@
             <input type="checkbox" data-channel="${k}" ${(p.channels || []).includes(k) ? 'checked' : ''}> ${label}</label>`).join('')}
         </div>
         ${UI.field('ad_text', 'Text inzerátu', { type: 'textarea', rows: 14, value: text })}
-        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <div class="btn-row">
           <button type="button" class="btn btn-outline btn-sm" onclick="Hire.regenAd()">${Icon('repeat')} Vygenerovať znova</button>
           <button type="button" class="btn btn-outline btn-sm" onclick="Hire.copyAd()">${Icon('copy')} Skopírovať</button>
         </div>
         <div class="regimebox">Odporúčania sú najlacnejší kanál a prinášajú ľudí, ktorí zostanú.
         Ak ste ho nezaškrtli, zvyčajne je to premárnená príležitosť — opýtajte sa svojich ľudí.</div>
-        ${nav(4, null, true)}
       </form>`;
     },
 
@@ -946,11 +954,12 @@
           </div>`).join('')}` : ''}
         ${t ? this.tradeCard(t) : ''}
         <div class="modal-actions">
-          <button class="btn btn-danger btn-sm" onclick="Hire.del('${p.id}')">Zmazať</button>
+          <button class="btn btn-danger" onclick="Hire.del('${p.id}')">Zmazať</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           ${p.status === 'active'
-            ? `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','done')">Uzavrieť</button>`
-            : `<button class="btn btn-outline btn-sm" onclick="Hire.setStatus('${p.id}','active')">Spustiť</button>`}
-          <button class="btn btn-primary btn-sm" onclick="Hire.wizard('${p.id}')">${Icon('edit')} Upraviť</button>
+            ? `<button class="btn btn-outline" onclick="Hire.setStatus('${p.id}','done')">Uzavrieť</button>`
+            : `<button class="btn btn-outline" onclick="Hire.setStatus('${p.id}','active')">Spustiť</button>`}
+          <button class="btn btn-primary" onclick="Hire.wizard('${p.id}')">${Icon('edit')} Upraviť</button>
         </div>`, { wide: true });
     },
 

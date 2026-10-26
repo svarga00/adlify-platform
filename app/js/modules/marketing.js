@@ -149,12 +149,12 @@
             ${UI.field('status', 'Stav', { value: l.status || 'active', options: STATUS.map(s => [s[0], s[1]]) })}
             ${UI.field('published_at', 'Uverejnené', { type: 'date', value: l.published_at })}
             ${UI.field('renew_at', 'Obnoviť do', { type: 'date', value: l.renew_at })}
+            <div class="fld-full">${UI.field('url', 'Odkaz', { type: 'url', value: l.url })}</div>
+            <div class="fld-full">${UI.field('performance_note', 'Ako sa osvedčil', { type: 'textarea', rows: 2, value: l.performance_note,
+              placeholder: 'Koľko dopytov priniesol, či sa oplatí obnoviť…' })}</div>
           </div>
-          ${UI.field('url', 'Odkaz', { type: 'url', value: l.url })}
-          ${UI.field('performance_note', 'Ako sa osvedčil', { type: 'textarea', rows: 2, value: l.performance_note,
-            placeholder: 'Koľko dopytov priniesol, či sa oplatí obnoviť…' })}
           <div class="modal-actions">
-            ${id ? `<button type="button" class="btn btn-danger btn-sm" onclick="Mkt.delListing('${id}')">Zmazať</button>` : ''}
+            ${id ? `<button type="button" class="btn btn-danger" onclick="Mkt.delListing('${id}')">Zmazať</button>` : ''}
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Pridať'}</button>
           </div>
@@ -186,8 +186,8 @@
             ${UI.field('spent_at', 'Dátum', { type: 'date', value: new Date().toISOString().slice(0, 10), required: true })}
             ${UI.field('channel', 'Kanál', { value: 'portal', options: CHANNELS })}
             ${UI.field('amount', 'Suma €', { type: 'number', required: true })}
+            <div class="fld-full">${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}</div>
           </div>
-          ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Zapísať</button>

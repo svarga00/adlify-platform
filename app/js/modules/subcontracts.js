@@ -783,7 +783,7 @@
         from: sc.date_from, to: sc.date_to, persons: ludia });
       const bezPolohy = !DanubraGeo.valid(Number(sc.lat), Number(sc.lng));
       UI.modal('Nájsť ubytovanie', `
-        <div class="form-section" style="margin-top:0;">1. Vaše ubytovania${bezPolohy ? '' : ' v okolí stavby'}</div>
+        <div class="form-section">1. Vaše ubytovania${bezPolohy ? '' : ' v okolí stavby'}</div>
         ${bezPolohy ? `<div class="notebox">Stavba nemá polohu, preto sa nedá zoradiť podľa vzdialenosti.
           <button class="link-chip" onclick="UI.closeModal();Sub.setCoords('${scId}')">${Icon('plus', 13)}<span>Doplniť polohu</span></button></div>` : ''}
         ${saved.length ? saved.slice(0, 12).map(a => `<div class="nb-row">
@@ -815,7 +815,7 @@
             ${UI.field('price_month', 'Cena za mesiac (€)', { type: 'number' })}
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">${Icon('check', 14)} Uložiť a pridať k zákazke</button>
           </div>
         </form>`, { wide: true });
@@ -876,15 +876,17 @@
 
       if (!opts.length) {
         return UI.modal('Ubytovať človeka', UI.empty('workers', 'Niet koho ubytovať',
-          'Všetci nasadení už majú zapísané, kde bývajú.'));
+          'Všetci nasadení už majú zapísané, kde bývajú.')
+          + `<div class="modal-actions">
+              <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button></div>`);
       }
       UI.modal('Ubytovať človeka', `
         <form id="stay-form" onsubmit="event.preventDefault();Sub.saveStay('${lodgingId}')">
           <!-- add: false — ubytúva sa ten, kto je na zákazku nasadený.
                Novo založený človek nasadený nie je, takže by sa v zozname
                aj tak neobjavil. -->
-          ${UI.field('worker_id', 'Kto', { options: opts, required: true, add: false })}
           <div class="form-grid">
+            <div class="fld-full">${UI.field('worker_id', 'Kto', { options: opts, required: true, add: false })}</div>
             ${UI.field('date_from', 'Od', { type: 'date',
               value: sc?.date_from && sc.date_from > new Date().toISOString().slice(0, 10)
                 ? sc.date_from : new Date().toISOString().slice(0, 10) })}
@@ -895,7 +897,7 @@
             databáza to nepustí. Keď sa presúva, najprv ukončite predchádzajúci pobyt.
             ${l?.capacity ? `Tu je ${l.free_beds} ${Shell.plural(l.free_beds, 'voľné lôžko', 'voľné lôžka', 'voľných lôžok')}.` : ''}</div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Ubytovať</button>
           </div>
         </form>`);
@@ -1020,16 +1022,16 @@
     /** Interaktívny test signálov skrytej Arbeitnehmerüberlassung. */
     anuCheck(id) {
       const body = `
-        <p style="font-size:13px;color:var(--ink-sub);margin-top:0;">
+        <p class="modal-lead">
           Zaškrtnite, čo na zákazke reálne platí. Rozhoduje skutočný výkon prác, nie znenie zmluvy.</p>
         <form id="anu-form" oninput="Sub.anuUpdate()">
           ${DanubraCompliance.ANU_SIGNALS.map(([k, label]) =>
             `<label class="chk" style="padding:8px 0;border-bottom:1px solid var(--border-soft);">
               <input type="checkbox" name="${k}"> ${UI.esc(label)}</label>`).join('')}
         </form>
-        <div id="anu-result" class="regimebox" style="margin-top:14px;"></div>
+        <div id="anu-result" class="regimebox"></div>
         <div class="modal-actions">
-          <button class="btn btn-outline btn-sm" onclick="Sub.detail('${id}')">Späť na zákazku</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal();Sub.detail('${id}')">Zavrieť</button>
         </div>`;
       UI.modal('Test rizika skrytej ANÜ', body, { wide: true });
       this.anuUpdate();
@@ -1174,7 +1176,7 @@
           <div id="asg-blocker">${this.asgBlockerHtml(scId, free[0].id, sc?.date_from)}</div>
 
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal();Sub.detail('${scId}')">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Nasadiť</button>
           </div>
         </form>`;
@@ -1193,12 +1195,12 @@
       });
       UI.modal('Pridať ubytovanie', `
         <form id="lodg-form" onsubmit="event.preventDefault();Sub.saveLodging('${scId}')">
-          ${UI.field('accommodation_id', 'Z databázy ubytovaní', { add: 'accommodation', value: accId || '',
-            options: [['', '— zapíšem ručne —'], ...sorted.map(a => [a.id,
-              `${a.name}${a.city ? ` · ${a.city}` : ''}${a.max_persons ? ` · ${a.max_persons} os.` : ''}`])] })}
-          <div class="regimebox" style="margin:10px 0;">Ubytovanie sa berie z tej istej databázy ako
+          <div class="regimebox">Ubytovanie sa berie z tej istej databázy ako
           v ubytovacej agende — čo ste zháňali pre klientov, môžete použiť aj pre vlastných ľudí.</div>
           <div class="form-grid">
+            <div class="fld-full">${UI.field('accommodation_id', 'Z databázy ubytovaní', { add: 'accommodation', value: accId || '',
+              options: [['', '— zapíšem ručne —'], ...sorted.map(a => [a.id,
+                `${a.name}${a.city ? ` · ${a.city}` : ''}${a.max_persons ? ` · ${a.max_persons} os.` : ''}`])] })}</div>
             ${UI.field('name', 'Názov (ak nie je v databáze)', {})}
             ${UI.field('city', 'Mesto', { value: city })}
             ${UI.field('address', 'Adresa', {})}
@@ -1209,11 +1211,11 @@
             ${UI.field('date_to', 'Do', { type: 'date', value: sc?.date_to })}
           </div>
           ${UI.field('note', 'Poznámka', { type: 'textarea', rows: 2 })}
-          <div class="regimebox" style="margin-top:10px;">Obsadenosť sa nevypisuje ručne —
+          <div class="regimebox">Obsadenosť sa nevypisuje ručne —
             počíta sa z toho, koho tam zapíšete. Ručné číslo sa rozišlo s realitou
             hneď, ako niekto odišiel.</div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal()">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Pridať</button>
           </div>
         </form>`, { wide: true });
@@ -1267,7 +1269,7 @@
             value: sc?.transport_note,
             placeholder: 'Kto vezie, akým autom, kto hradí cestu tam a späť, ako sa dostávajú na stavbu…' })}
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal();Sub.detail('${scId}')">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Uložiť</button>
           </div>
         </form>`);
@@ -1358,11 +1360,11 @@
         manual: 'Toto appka vedieť nemôže, preto sa odškrtáva rukou.',
       }[c.source];
       UI.modal(c.title, `
-        <p style="margin:0 0 10px;font-size:14px;line-height:1.6;">${UI.esc(c.why)}</p>
-        <div class="regimebox" style="margin:0;">${UI.esc(kde)}${
+        <p class="modal-lead">${UI.esc(c.why)}</p>
+        <div class="regimebox">${UI.esc(kde)}${
         c.required ? '' : ' Tento bod nástup <strong>neblokuje</strong>.'}</div>
         <div class="modal-actions">
-          <button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
         </div>`);
     },
 
@@ -1650,7 +1652,7 @@
       const pv = rev.preview;
 
       const body = `
-        <div class="regimebox" style="margin:0 0 12px;">
+        <div class="regimebox">
           Po uzavretí sa hodiny v tomto období už nedajú zmeniť ani zmazať.
           Súčty sa uložia tak, ako sú teraz — neskoršia zmena sadzby ich
           spätne neprepíše.</div>
@@ -1674,7 +1676,7 @@
           : ''}
 
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+          <button type="button" class="btn btn-ghost" onclick="UI.closeModal();Sub.detail('${scId}')">Zrušiť</button>
           ${rev.ok ? `<button class="btn btn-primary" onclick="Sub.closePeriod('${periodId}')">
             Uzavrieť obdobie</button>` : ''}
         </div>`;
@@ -1712,12 +1714,12 @@
         UI.modal('Nasadiť partiu', UI.empty('workers', 'Žiadna aktívna partia',
           'Partie sa zakladajú v ĽUDIA → Partie.')
           + `<div class="modal-actions"><button class="btn btn-ghost"
-             onclick="Sub.detail('${scId}')">Späť</button></div>`);
+             onclick="UI.closeModal();Sub.detail('${scId}')">Zavrieť</button></div>`);
         return;
       }
       const body = `
         <form id="ac-form" onsubmit="event.preventDefault();Sub.assignCrew('${scId}')">
-          <div class="regimebox" style="margin:0 0 12px;">
+          <div class="regimebox">
             Nasadia sa všetci aktívni členovia naraz. Kto na zákazke už beží,
             ten sa preskočí — dá sa to teda spustiť znova, keď do partie niekto
             pribudne. <strong>Fakturovať bude každý sám za seba.</strong></div>
@@ -1740,11 +1742,11 @@
                 + 'vyššia, než aká naozaj je.' })}
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Sub.detail('${scId}')">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="UI.closeModal();Sub.detail('${scId}')">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Nasadiť partiu</button>
           </div>
         </form>`;
-      UI.modal('Nasadiť celú partiu', body);
+      UI.modal('Nasadiť celú partiu', body, { wide: true });
     },
 
     async assignCrew(scId) {
@@ -1776,16 +1778,16 @@
           (Array.isArray(s.labels) ? s.labels : []).map(UI.esc).join(', ')
             .replace(/Nasadenie /g, '') || 'chýbajú doklady'}</li>`).join('');
         UI.modal('Nasadení nie všetci', `
-          <p style="margin:0 0 10px;font-size:14px;">
+          <p class="modal-lead">
             Nasadených <strong>${n}</strong>, ${
             skipped.length === 1 ? 'jeden zostal' : `${skipped.length} zostali`}
             na doklade.</p>
           <ul style="margin:0 0 12px;padding-left:20px;font-size:13px;line-height:1.7;">${list}</ul>
-          <div class="regimebox" style="margin:0;">Doklad sa dá doplniť v kartotéke
+          <div class="regimebox">Doklad sa dá doplniť v kartotéke
             živnostníka. Ak to nejde počkať, <strong>výnimku pri nasadení môže
             zapísať administrátor</strong> — zostane v histórii s dôvodom.</div>
           <div class="modal-actions">
-            <button class="btn btn-primary" onclick="UI.closeModal()">Rozumiem</button>
+            <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
           </div>`, { wide: true });
         return;
       }

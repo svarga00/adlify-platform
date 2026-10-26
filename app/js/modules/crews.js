@@ -157,16 +157,18 @@
 
         <div class="form-section">Členovia</div>
         ${active.length ? active.map(memberRow).join('')
-          : '<div style="color:var(--ink-mute);font-size:13px;">Partia nemá členov.</div>'}
-        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="Crews.addMemberForm('${c.id}')">
-          ${Icon('plus')} Pridať člena</button>
+          : '<div class="js-empty">Partia nemá členov.</div>'}
+        <div class="btn-row">
+          <button class="btn btn-outline btn-sm" onclick="Crews.addMemberForm('${c.id}')">
+            ${Icon('plus')} Pridať člena</button>
+        </div>
 
         ${past.length ? `
           <div class="form-section">Boli v partii</div>
           ${past.map(pastRow).join('')}` : ''}
 
         <div class="form-section">Fakturácia</div>
-        <div class="regimebox" style="margin:0 0 10px;">${UI.esc(plan.note)}</div>
+        <div class="regimebox">${UI.esc(plan.note)}</div>
         ${gaps.length ? Shell.blocker({
           reasons: gaps.map(l => ({
             rule: 'missing_billing_data',
@@ -174,10 +176,11 @@
             detail: 'Bez IČO a IBAN-u sa jeho faktúra nedá zaúčtovať.',
             severity: 'block',
           })),
-        }) : '<div style="color:var(--ink-mute);font-size:13px;">Všetci členovia majú čím fakturovať.</div>'}
+        }) : '<div class="muted">Všetci členovia majú čím fakturovať.</div>'}
 
         <div class="modal-actions">
-          <button class="btn btn-outline btn-sm" onclick="Crews.form('${c.id}')">Upraviť</button>
+          <button class="btn btn-ghost" onclick="UI.closeModal()">Zavrieť</button>
+          <button class="btn btn-primary" onclick="Crews.form('${c.id}')">Upraviť</button>
         </div>`;
       UI.modal(c.name, body, { wide: true });
     },
@@ -216,7 +219,7 @@
             <button type="submit" class="btn btn-primary">${id ? 'Uložiť' : 'Založiť'}</button>
           </div>
         </form>`;
-      UI.modal(id ? 'Upraviť partiu' : 'Nová partia', body);
+      UI.modal(id ? 'Upraviť partiu' : 'Nová partia', body, { wide: true });
     },
 
     async save(id) {
@@ -253,14 +256,14 @@
               value: new Date().toISOString().slice(0, 10) })}
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="Crews.detail('${crewId}')">Späť</button>
+            <button type="button" class="btn btn-ghost" onclick="Crews.detail('${crewId}')">Zrušiť</button>
             <button type="submit" class="btn btn-primary">Pridať</button>
           </div>
         </form>`
         : `${UI.empty('workers', 'Nikoho voľného niet',
             'Všetci z kartotéky sú už v tejto partii.')}
            <div class="modal-actions">
-             <button class="btn btn-ghost" onclick="Crews.detail('${crewId}')">Späť</button>
+             <button class="btn btn-ghost" onclick="Crews.detail('${crewId}')">Zavrieť</button>
            </div>`;
       UI.modal('Pridať člena', body);
     },
