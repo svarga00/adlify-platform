@@ -102,7 +102,7 @@
         const late = p.status === 'open' && p.due_date && p.due_date < new Date().toISOString().slice(0, 10);
         const lowConf = p.confidence != null && p.confidence < 0.6;
         return `
-        <div class="list-row" style="cursor:default;align-items:flex-start;">
+        <div class="list-row" style="align-items:flex-start;">
           <span class="dot ${p.status === 'fulfilled' ? 'green' : p.status === 'broken' ? 'red' : 'amber'}"
             style="margin-top:5px;"></span>
           <span style="flex:1;font-size:13px;">
@@ -131,7 +131,7 @@
         const w = this.workerOf(r.subject_id);
         const n = this.promises.filter(p => p.recording_id === r.id).length;
         return `
-        <div class="list-row" onclick="Rec.callDetail('${r.id}')" style="align-items:flex-start;">
+        <div class="list-row" role="button" tabindex="0" onclick="Rec.callDetail('${r.id}')" style="align-items:flex-start;">
           <span class="dot ${r.status === 'done' ? 'green' : r.status === 'failed' || !r.consent_confirmed ? 'red' : 'amber'}"
             style="margin-top:5px;"></span>
           <span style="flex:1;font-size:13px;">
@@ -155,7 +155,7 @@
         const w = this.workerOf(c.subject_id);
         const active = c.granted && !c.revoked_at;
         return `
-        <div class="list-row" style="cursor:default;align-items:flex-start;">
+        <div class="list-row" style="align-items:flex-start;">
           <span class="dot ${active ? 'green' : 'red'}" style="margin-top:5px;"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(w?.full_name || c.subject_name || c.subject_phone || '—')}</strong>
@@ -510,10 +510,10 @@
             onclick="Rec.play('${r.id}')">${Icon('phone')} Prehrať</button></div>` : ''}
         ${r.summary ? `<div class="form-section">Zhrnutie</div><div class="notebox">${UI.esc(r.summary)}</div>` : ''}
         ${oq.length ? `<div class="form-section">Zostalo nedohodnuté${UI.tip('Veci, ktoré v hovore zazneli, ale nedohodli sa (napr. „ozveme sa k ubytovaniu"). Treba ich doriešiť ďalším telefonátom.')}</div>
-          ${oq.map(q => `<div class="list-row" style="cursor:default;">
+          ${oq.map(q => `<div class="list-row">
             <span class="dot amber"></span><span style="flex:1;font-size:13px;">${UI.esc(q)}</span></div>`).join('')}` : ''}
         ${prom.length ? `<div class="form-section">Zachytené dohody (${prom.length})</div>
-          ${prom.map(p => `<div class="list-row" style="cursor:default;">
+          ${prom.map(p => `<div class="list-row">
             <span style="flex:1;font-size:13px;"><strong>${UI.esc(PROMISE_KIND[p.kind] || p.kind)}</strong>
             <span style="display:block;color:var(--ink-sub);">${UI.esc(p.statement)}</span></span>
             ${this.prBadge(p.status)}</div>`).join('')}` : ''}

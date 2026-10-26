@@ -315,7 +315,7 @@
       const mine = this.candidates.filter(c => c.plan_id === p.id && !c.outcome).length;
       const fr = String(((p.analysis || {}).rate) || '').trim();
       const zhrnutieSadzba = fr && !fr.includes('[XX]') ? fr : '';
-      return `<div class="pcard pcard-${UI.esc(p.status)}" onclick="Hire.detail('${p.id}')">
+      return `<div class="pcard pcard-${UI.esc(p.status)}" role="button" tabindex="0" onclick="Hire.detail('${p.id}')">
         <div class="pcard-top">
           <b>${UI.esc(p.title)}</b>
           ${this.badge(p.status)}
@@ -438,7 +438,7 @@
           <div class="card-title">Bežiace inzeráty (${bezia.length})</div>
           <button class="btn btn-ghost btn-sm" onclick="Danubra.go('ads')">Všetky</button>
         </div>
-        ${rows.map(r => `<div class="list-row" style="cursor:default;align-items:center;">
+        ${rows.map(r => `<div class="list-row" style="align-items:center;">
           <span style="flex:0 0 200px;font-size:13px;min-width:0;">
             <strong>${UI.esc(r.label)}</strong>
             <span style="display:block;color:var(--ink-mute);font-size:11.5px;">${UI.esc(r.sub || '')}</span>
@@ -478,7 +478,7 @@
       const m = S.planMargin(p);
       const mine = this.candidates.filter(c => c.plan_id === p.id);
       const done = mine.filter(c => ['ready', 'placed'].includes(c.status)).length;
-      return `<div class="list-row" onclick="Hire.detail('${p.id}')" style="align-items:flex-start;">
+      return `<div class="list-row" role="button" tabindex="0" onclick="Hire.detail('${p.id}')" style="align-items:flex-start;">
         <span class="dot ${p.status === 'active' ? 'green' : p.status === 'paused' ? 'amber' : ''}" style="margin-top:5px;"></span>
         <span style="flex:1;font-size:13px;">
           <strong>${UI.esc(p.title)}</strong>
@@ -744,7 +744,7 @@
         legal: ['právna', 'red'], logistics: ['logistika', 'gray'], motivation: ['motivácia', 'amber'] };
       return qs.map(q => {
         const k = KIND[q.kind] || KIND.knowledge;
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+        return `<div class="list-row" style="align-items:flex-start;">
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(q.question_sk)}</strong>
             ${q.good_answer ? `<span style="display:block;color:var(--green);font-size:12px;margin-top:2px;">
@@ -892,7 +892,7 @@
         ${Kit.html(p)}
 
         ${mine.length ? `<div class="form-section">Kandidáti z tohto náboru</div>
-          ${mine.map(c => `<div class="list-row" onclick="Danubra.go('candidates');setTimeout(()=>Cand.detail('${c.id}'),300)">
+          ${mine.map(c => `<div class="list-row" role="button" tabindex="0" onclick="Danubra.go('candidates');setTimeout(()=>Cand.detail('${c.id}'),300)">
             <span style="flex:1;font-size:13px;">${UI.esc(c.full_name)}</span>
             ${c.screening_score != null ? UI.badge(`${Math.round(c.screening_score)} %`,
               c.screening_verdict === 'strong' ? 'green' : c.screening_verdict === 'reject' ? 'red' : 'amber')
@@ -958,12 +958,12 @@
         ${!pr.ready ? `<div class="warnbox">${Icon('alert', 14)}
           Ešte chýba: ${pr.steps.filter(s => !s.done).map(s => s.title.toLowerCase()).join(', ')}.</div>` : ''}
         <div class="form-section">Priebeh</div>
-        ${pr.steps.map(s => `<div class="list-row" style="cursor:default;">
+        ${pr.steps.map(s => `<div class="list-row">
           <span class="dot ${s.done ? 'green' : ''}"></span>
           <span style="flex:1;font-size:13px;">${s.step}. ${s.title}</span>
           ${s.done ? UI.badge('hotové', 'green') : UI.badge('chýba', 'gray')}</div>`).join('')}
         ${mine.length ? `<div class="form-section">Kandidáti z tohto náboru</div>
-          ${mine.map(c => `<div class="list-row" onclick="UI.closeModal();Danubra.go('candidates');setTimeout(()=>Cand.detail('${c.id}'),300)">
+          ${mine.map(c => `<div class="list-row" role="button" tabindex="0" onclick="UI.closeModal();Danubra.go('candidates');setTimeout(()=>Cand.detail('${c.id}'),300)">
             <span style="flex:1;font-size:13px;">${UI.esc(c.full_name)}</span>
             ${c.screening_score != null ? UI.badge(`${Math.round(c.screening_score)} %`,
               c.screening_verdict === 'strong' ? 'green' : c.screening_verdict === 'reject' ? 'red' : 'amber') : UI.badge('bez skríningu', 'gray')}

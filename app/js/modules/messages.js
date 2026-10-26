@@ -72,7 +72,7 @@
         `<button class="btn btn-primary btn-sm" onclick="Msg.compose()">${Icon('plus')} Nová správa</button>`);
 
       const card = (t) => `
-        <div class="card card-pad list-card" onclick="Msg.open('${t.id}')">
+        <div class="card card-pad list-card" role="button" tabindex="0" onclick="Msg.open('${t.id}')">
           <div class="card-head">
             <div class="card-title">${UI.esc(t.subject || t.party_name || 'Bez predmetu')}</div>
             ${t.failed ? UI.badge('neodoslané', 'red')

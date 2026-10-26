@@ -145,7 +145,7 @@
           </select>
           <div class="pillbar">
             <button class="pill" onclick="HS.shift(-1)" title="Predošlý týždeň">${Icon('back', 15)}</button>
-            <button class="pill active" style="cursor:default;">KW ${s.week} / ${s.year}</button>
+            <span class="pill active is-static">KW ${s.week} / ${s.year}</span>
             <button class="pill" onclick="HS.shift(1)" title="Ďalší týždeň">${Icon('chevron', 15)}</button>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="HS.thisWeek()">Aktuálny týždeň</button>

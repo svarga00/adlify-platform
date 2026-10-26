@@ -101,7 +101,7 @@
           `<button class="btn btn-primary" onclick="Mkt.listingForm()">${Icon('plus')} Pridať inzerát</button>`);
       }
       return `<div class="cards">${this.listings.map(l => `
-        <div class="acc-card card" onclick="Mkt.listingForm('${l.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Mkt.listingForm('${l.id}')">
           <div class="acc-card-head">
             <div>
               <div class="acc-name">${UI.esc(this.platformLabel(l.platform))}</div>
@@ -125,7 +125,7 @@
           `<button class="btn btn-primary" onclick="Mkt.expenseForm()">${Icon('plus')} Pridať výdavok</button>`);
       }
       return this.expenses.map(e => `
-        <div class="list-row" style="cursor:default;">
+        <div class="list-row">
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc((CHANNELS.find(c => c[0] === e.channel) || [, e.channel])[1] || '—')}</strong>
             <span style="color:var(--ink-mute);"> · ${UI.date(e.spent_at)}</span>

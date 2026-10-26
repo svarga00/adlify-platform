@@ -226,7 +226,7 @@
       const sc = a ? this.subOf(a.subcontract_id) : null;
       const m = this.actMeta(t.activity_type);
       return `
-        <div class="list-row" style="cursor:default;">
+        <div class="list-row">
           <span class="dot ${m[2] === 'amber' ? 'amber' : m[2] === 'blue' ? '' : ''}"
             style="${m[2] === 'blue' ? 'background:var(--blue);' : ''}"></span>
           <span style="flex:1;font-size:13px;">

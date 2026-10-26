@@ -193,7 +193,7 @@
       const row = (r) => {
         const d = DanubraTasks.describeRule(r);
         const mine = this.items.filter(t => t.rule_id === r.id && t.status !== 'done').length;
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+        return `<div class="list-row" style="align-items:flex-start;">
           <button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${r.active ? 'var(--green)' : 'var(--ink-mute)'};"
             onclick="Tsk.toggleRule('${r.id}', ${!r.active})"
             title="${r.active ? 'Vypnúť pravidlo' : 'Zapnúť pravidlo'}">${Icon(r.active ? 'check' : 'x', 17)}</button>
@@ -475,7 +475,7 @@
       const done = t.status === 'done';
       const ent = t.entity_type ? ENTITY[t.entity_type] : null;
       return `
-        <div class="list-row task-row${done ? ' is-done' : ''}" onclick="Tsk.detail('${t.id}')">
+        <div class="list-row task-row${done ? ' is-done' : ''}" role="button" tabindex="0" onclick="Tsk.detail('${t.id}')">
           <button class="t-check${done ? ' on' : ''}" onclick="event.stopPropagation();Tsk.toggle('${t.id}')"
             title="${done ? 'Označiť ako otvorenú' : 'Označiť ako hotovú'}"
             aria-label="${done ? 'Označiť ako otvorenú' : 'Označiť ako hotovú'}">${Icon('check', 15)}</button>

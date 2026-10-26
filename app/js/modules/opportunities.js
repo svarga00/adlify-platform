@@ -113,7 +113,7 @@
       const chyba = O.missing(x);
       const m = O.margin(x);
       return `
-        <div class="acc-card card${x.archived_at ? ' is-archived' : ''}" onclick="Opp.detail('${x.id}')">
+        <div class="acc-card card${x.archived_at ? ' is-archived' : ''}" role="button" tabindex="0" onclick="Opp.detail('${x.id}')">
           <div class="acc-card-head">
             <div style="min-width:0;">
               <div class="acc-name">${UI.esc(x.title)}</div>
@@ -250,7 +250,7 @@
         <div id="inq-stavby">${this.inqRowsHtml()}</div>
 
         ${q.risks.length ? `<div class="form-section">Na čo si dať pozor</div>
-          ${q.risks.map(r => `<div class="list-row" style="cursor:default;align-items:flex-start;">
+          ${q.risks.map(r => `<div class="list-row" style="align-items:flex-start;">
             <span class="dot amber" style="margin-top:5px;"></span>
             <span style="flex:1;font-size:13px;">${UI.esc(r)}</span></div>`).join('')}` : ''}
 
@@ -339,7 +339,7 @@
             : `<span class="inq-when">${Icon('check', 12)} ľudí budete mať do ${UI.date(sp.ready)}</span>`)
           : '';
         return `
-          <div class="list-row" style="cursor:default;align-items:flex-start;">
+          <div class="list-row" style="align-items:flex-start;">
             <span class="dot ${Inq.usable(p) ? 'green' : 'amber'}" style="margin-top:5px;"></span>
             <span style="flex:1;font-size:13px;">
               <strong>${UI.esc(p.title || '(bez názvu)')}</strong>
@@ -626,7 +626,7 @@
         })}
 
         ${chyba.length ? `<div class="form-section">Čo doplniť</div>
-          ${chyba.map(c => `<div class="list-row" style="cursor:default;align-items:flex-start;">
+          ${chyba.map(c => `<div class="list-row" style="align-items:flex-start;">
             <span class="dot amber" style="margin-top:5px;"></span>
             <span style="flex:1;font-size:13px;"><strong>${UI.esc(c.title)}</strong>
               <span style="display:block;color:var(--ink-mute);font-size:12px;">${UI.esc(c.why)}</span>

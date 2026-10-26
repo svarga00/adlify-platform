@@ -88,7 +88,7 @@
       const card = (c) => {
         const am = this.amendmentsOf(c.id);
         return `
-          <div class="card card-pad list-card" onclick="Con.detail('${c.id}')">
+          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Con.detail('${c.id}')">
             <div class="card-head">
               <div class="card-title">${UI.esc(c.title)}</div>
               ${UI.badge(Enums.label('contract_status', c.status), this.statusKind(c.status))}

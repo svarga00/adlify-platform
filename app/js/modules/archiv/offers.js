@@ -59,7 +59,7 @@
       const vs = this.variantsOf(o.id);
       const expired = this.isExpired(o);
       return `
-        <div class="acc-card card" onclick="Offers.detail('${o.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Offers.detail('${o.id}')">
           <div class="acc-card-head">
             <div>
               <div class="acc-name">${c ? UI.esc(c.name) : 'Bez klienta'}</div>

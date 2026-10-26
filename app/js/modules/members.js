@@ -50,7 +50,7 @@
         const mods = P().modulesOf(m);
         return `
           <div class="card card-pad list-card${m.active === false ? ' is-off' : ''}"
-               ${admin ? `onclick="Mem.form('${m.id}')"` : ''}>
+               ${admin ? `role="button" tabindex="0" onclick="Mem.form('${m.id}')"` : ''}>
             <div class="card-head">
               <div class="card-title">
                 <span class="t-who">${UI.esc((m.full_name || m.email || '?').slice(0, 2).toUpperCase())}</span>

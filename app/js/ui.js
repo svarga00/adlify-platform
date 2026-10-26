@@ -385,3 +385,17 @@ window.UI = {
   },
 };
 window.UI._tipBind();
+
+// Klikateľný <div>/<span>/<tr> s role="button" sa dá stlačiť aj z klávesnice
+// (Enter, medzerník) — rovnako ako skutočné tlačidlo. Len keď je fokus priamo
+// na ňom; tlačidlo alebo pole vnútri karty si klávesy rieši samo.
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', (e) => {
+    if ((e.key !== 'Enter' && e.key !== ' ') || e.defaultPrevented || e.repeat) return;
+    const el = e.target;
+    if (!el || !el.matches || !el.matches('[role="button"][onclick]')
+      || /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+    e.preventDefault();
+    el.click();
+  });
+}

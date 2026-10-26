@@ -247,7 +247,7 @@
       const asg = this.asgOf(sc.id).filter(a => a.status !== 'cancelled');
       const chk = this.check(sc);
       return `
-        <div class="acc-card card" onclick="Sub.detail('${sc.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Sub.detail('${sc.id}')">
           <div class="acc-card-head">
             <div style="min-width:0;">
               <div class="acc-name">${UI.esc(sc.title)}</div>
@@ -358,7 +358,7 @@
 
       const sev = (s) => s === 'blocker' ? 'red' : s === 'warning' ? 'amber' : '';
       const complianceHtml = chk.items.length ? chk.items.map(i => `
-        <div class="list-row" style="cursor:default;align-items:flex-start;">
+        <div class="list-row" style="align-items:flex-start;">
           <span class="dot ${sev(i.severity)}" style="margin-top:5px;"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(i.label)}</strong>
@@ -515,7 +515,7 @@
         return `${live.map(a => {
           const w = this.workerOf(a.worker_id);
           const ovr = DanubraOverrides.live(this.overridesOf(a.worker_id));
-          return `<div class="list-row" style="cursor:default;">
+          return `<div class="list-row">
             <span style="flex:1;font-size:13px;min-width:0;">
               ${Danubra.link('worker', a.worker_id, w?.full_name || '—', { inline: true })}
               ${a.role === 'predak' ? UI.badge('predák', 'blue') : ''}
@@ -691,7 +691,7 @@
       const short = people - capacity;
 
       const stayRow = (st) => `
-        <div class="list-row" style="cursor:default;padding-left:18px;">
+        <div class="list-row" style="padding-left:18px;">
           <span class="dot ${st.is_current ? 'green' : ''}"></span>
           <span style="flex:1;font-size:12.5px;min-width:0;">
             ${Danubra.link('worker', st.worker_id, st.full_name)}
@@ -715,7 +715,7 @@
         const perBed = l.price_monthly && Number(l.occupied_now) > 0
           ? Money.split(Money.toCents(l.price_monthly), Number(l.occupied_now))[0] : null;
 
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;flex-wrap:wrap;">
+        return `<div class="list-row" style="align-items:flex-start;flex-wrap:wrap;">
           <span class="dot ${full ? 'amber' : 'green'}" style="margin-top:6px;"></span>
           <span style="flex:1;font-size:13px;min-width:0;">
             <strong>${UI.esc(l.name || 'Ubytovanie')}</strong>
@@ -1326,7 +1326,7 @@
           ? `<button class="btn btn-ghost btn-sm" style="padding:2px 4px;color:${color};"
                title="Odškrtnúť" onclick="Sub.toggleCheck('${a.id}','${r.key}')">${Icon(ico, 17)}</button>`
           : `<span style="padding:2px 4px;color:${color};line-height:1;">${Icon(ico, 17)}</span>`;
-        return `<div class="list-row" style="align-items:flex-start;cursor:default;">
+        return `<div class="list-row" style="align-items:flex-start;">
           ${mark}
           <span style="flex:1;font-size:13px;min-width:0;">
             <strong style="${r.state !== 'open' ? 'text-decoration:line-through;opacity:.55;' : ''}">${
@@ -1672,7 +1672,7 @@
       const closed = periods.map(p => {
         const margin = Money.toCents(p.amount_charged) - Money.toCents(p.amount_worker_cost);
         const canReopen = p.status === 'closed';
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+        return `<div class="list-row" style="align-items:flex-start;">
           <span class="dot ${p.status === 'invoiced' ? 'green' : p.status === 'closed' ? 'blue' : ''}"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.dateRange(p.period_from, p.period_to)}</strong>

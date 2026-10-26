@@ -66,7 +66,7 @@
         ${nehotove.length ? '' : `<div class="regimebox">${Icon('check', 14)}
           Všetko hotové — podklady sú pripravené na vloženie.</div>`}
         ${ch.map(x => `
-          <div class="list-row" style="cursor:default;align-items:flex-start;">
+          <div class="list-row" style="align-items:flex-start;">
             <span class="dot ${x.done ? 'green' : 'amber'}" style="margin-top:5px;"></span>
             <span style="flex:1;font-size:13px;">
               ${UI.esc(x.text)}
@@ -391,7 +391,7 @@
       return `
         <div class="kit-files">
           ${files.map(f => `
-            <div class="list-row" style="cursor:default;">
+            <div class="list-row">
               <span class="dot green"></span>
               <span style="flex:1;font-size:13px;">
                 <strong>${UI.esc(f.file_name || 'obrázok')}</strong>
@@ -457,7 +457,7 @@
       const kand = (adId) => (Hire.candidates || []).filter(c => c.ad_id === adId).length;
       return `
         ${this.ads.map(a => `
-          <div class="list-row" onclick="Danubra.go('ads')">
+          <div class="list-row" role="button" tabindex="0" onclick="Danubra.go('ads')">
             <span class="dot ${a.active === false ? '' : 'green'}"></span>
             <span style="flex:1;font-size:13px;min-width:0;">
               <strong>${UI.esc(a.title)}</strong>

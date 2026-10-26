@@ -154,7 +154,7 @@
         const c = DanubraBills.check(b, this.ctx(b));
         const off = c.variance != null && Math.abs(c.variance) > DanubraBills.TOLERANCE;
         return `
-          <div class="card card-pad list-card" onclick="Cost.billDetail('${b.id}')">
+          <div class="card card-pad list-card" role="button" tabindex="0" onclick="Cost.billDetail('${b.id}')">
             <div class="card-head">
               <div class="card-title">${UI.esc(b.worker_name || '—')}${b.worker_id ? ''
                 : ` <span style="color:var(--ink-mute);font-weight:400;font-size:12.5px;">· ${
@@ -974,7 +974,7 @@
       const total = Money.sum(rows.map(c => Money.toCents(c.amount)));
 
       const row = (c) => `
-        <div class="list-row" onclick="Cost.costForm('${c.id}')">
+        <div class="list-row" role="button" tabindex="0" onclick="Cost.costForm('${c.id}')">
           <span class="dot ${c.parent_cost_id ? '' : c.recurring ? 'blue' : ''}"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(c.description || Enums.label('cost_category', c.category))}</strong>

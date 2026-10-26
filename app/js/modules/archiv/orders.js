@@ -87,7 +87,7 @@
     card(o) {
       const c = this.clientOf(o.client_id), a = this.accOf(o.accommodation_id);
       return `
-        <div class="acc-card card" onclick="Ord.spis('${o.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Ord.spis('${o.id}')">
           <div class="acc-card-head">
             <div>
               <div class="acc-name mono" style="font-size:13px;letter-spacing:.02em;">${UI.esc(o.order_number || '—')}</div>
@@ -328,7 +328,7 @@
 
     _reqRow(r) {
       const dot = r.status === 'resolved' ? 'green' : r.priority === 'high' ? 'red' : 'amber';
-      return `<div class="list-row" onclick="Ord.toggleRequest('${r.id}')">
+      return `<div class="list-row" role="button" tabindex="0" onclick="Ord.toggleRequest('${r.id}')">
         <span class="dot ${dot}"></span>
         <span class="lr-main">
           <strong class="${r.status === 'resolved' ? 'is-done' : ''}">${UI.esc(r.title || '—')}</strong>

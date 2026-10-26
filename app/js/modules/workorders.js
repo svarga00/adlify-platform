@@ -155,7 +155,7 @@
         ? this.partnerOf(o.partner_id).name : this.workerOf(o.worker_id).full_name;
       const sc = this.subOf(o.subcontract_id);
       const cena = this.priceText(o);
-      return `<div class="card card-pad" style="cursor:pointer;" onclick="Ord.detail('${o.id}')">
+      return `<div class="card card-pad" role="button" tabindex="0" onclick="Ord.detail('${o.id}')">
         <div class="card-head">
           <div class="card-title">${UI.esc(o.title || '—')}</div>
           ${this.badge(o.status)}

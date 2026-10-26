@@ -206,7 +206,7 @@
       const who = this.counterparty(x);
       const late = x.status === 'overdue';
       return `
-        <div class="acc-card card" onclick="Inv.detail('${x.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Inv.detail('${x.id}')">
           <div class="acc-card-head">
             <div style="min-width:0;">
               <div class="acc-name mono" style="font-size:13px;letter-spacing:.02em;">${UI.esc(x.invoice_number || '—')}</div>

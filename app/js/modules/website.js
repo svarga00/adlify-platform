@@ -206,7 +206,7 @@
           return `<div class="card web-photo"><img src="${UI.esc(cur)}" alt="" loading="lazy">
             <div class="card-pad"><div class="acc-loc">${UI.esc(im.label)}</div>
             <div class="js-acts">${map[im.url] ? UI.badge('vlastná', 'green') : UI.badge('z WordPressu', 'amber')}
-              <label class="btn btn-outline btn-sm" style="cursor:pointer;">${Icon('upload', 14)} Nahradiť<input type="file" hidden accept="image/jpeg,image/png,image/webp" onchange="Web.replacePhoto(${i}, this)"></label>
+              <label class="btn btn-outline btn-sm">${Icon('upload', 14)} Nahradiť<input type="file" hidden accept="image/jpeg,image/png,image/webp" onchange="Web.replacePhoto(${i}, this)"></label>
               ${map[im.url] ? `<button class="btn btn-ghost btn-sm" onclick="Web.resetPhoto(${i})">Pôvodná</button>` : ''}</div></div></div>`;
         }).join('')}</div>`;
     },

@@ -74,7 +74,7 @@
     card(a) {
       const price = a.price_per_bed_night != null ? `${UI.money(a.price_per_bed_night)}/lôžko/noc` : 'cena neuvedená';
       return `
-        <div class="acc-card card" onclick="Acc.detail('${a.id}')">
+        <div class="acc-card card" role="button" tabindex="0" onclick="Acc.detail('${a.id}')">
           <div class="acc-card-head">
             <div>
               <div class="acc-name">${UI.esc(a.name)}</div>

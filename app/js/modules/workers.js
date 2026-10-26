@@ -329,7 +329,7 @@
 
       return `
         <div class="acc-card card w-card st-${UI.esc(w.status || 'candidate')}"
-             onclick="Wrk.detail('${w.id}')">
+             role="button" tabindex="0" onclick="Wrk.detail('${w.id}')">
           <div class="acc-card-head">
             <div class="w-head" style="min-width:0;">
               ${this.avatar(w)}
@@ -695,7 +695,7 @@
           : x.state === 'expired'
             ? ` · pred ${Math.abs(x.daysLeft)} ${Shell.plural(x.daysLeft, 'dňom', 'dňami', 'dňami')}`
             : ` · ešte ${x.daysLeft} ${Shell.plural(x.daysLeft, 'deň', 'dni', 'dní')}`;
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+        return `<div class="list-row" style="align-items:flex-start;">
           <span class="dot ${color}" style="margin-top:6px;"></span>
           <span style="flex:1;font-size:13px;min-width:0;">
             <strong>${UI.esc(this.docLabel(d.kind))}</strong>
@@ -706,7 +706,7 @@
               ${d.storage_path
                 ? `<button class="link-chip" onclick="Wrk.preview('${d.id}')">${Icon('search', 13)}<span>Náhľad</span></button>
                    <button class="link-chip" onclick="Wrk.openScan('${d.id}')">${Icon('doc', 13)}<span>Otvoriť</span></button>`
-                : `<label class="link-chip" style="cursor:pointer;">${Icon('upload', 13)}<span>Nahrať sken</span>
+                : `<label class="link-chip">${Icon('upload', 13)}<span>Nahrať sken</span>
                      <input type="file" hidden accept="application/pdf,image/*"
                        onchange="Wrk.uploadScan('${d.id}', this)"></label>`}
             </span>
@@ -724,7 +724,7 @@
           : '<div style="color:var(--ink-mute);font-size:13px;">Žiadne doklady — bez platného A1 sa nesmie vyslať.</div>'}
         ${docs.some(d => d.kind === 'contract') ? '' : `
           <!-- Piaty krok reťazca. Bez zmluvy to nie je subdodávka. -->
-          <div class="list-row" style="cursor:default;align-items:flex-start;">
+          <div class="list-row" style="align-items:flex-start;">
             <span class="dot amber" style="margin-top:5px;"></span>
             <span style="flex:1;font-size:13px;">
               <strong>Chýba rámcová zmluva o dielo</strong>
@@ -741,7 +741,7 @@
         ${docs.some(d => d.kind === 'gdpr') ? '' : `
           <!-- Súhlas GDPR je štvrtý krok reťazca a chýba najčastejšie: papier
                sa vytlačí, podpíše a potom zabudne zapísať. -->
-          <div class="list-row" style="cursor:default;align-items:flex-start;">
+          <div class="list-row" style="align-items:flex-start;">
             <span class="dot amber" style="margin-top:5px;"></span>
             <span style="flex:1;font-size:13px;">
               <strong>Chýba súhlas GDPR</strong>${Help.btn('doc.gdpr', { size: 13 })}
@@ -834,7 +834,7 @@
       const rows = this.acc.advances;
       const row = (v) => {
         const open = DanubraAccount.isOpenAdvance(v);
-        return `<div class="list-row" style="cursor:default;align-items:flex-start;">
+        return `<div class="list-row" style="align-items:flex-start;">
           <span class="dot ${v.voided_at ? '' : open ? 'amber' : 'green'}" style="margin-top:6px;"></span>
           <span style="flex:1;font-size:13px;min-width:0;">
             <strong style="${v.voided_at ? 'text-decoration:line-through;opacity:.55;' : ''}">${
@@ -875,7 +875,7 @@
           <div><span>Celkom</span><strong>${a.hours} h · ${Money.format(a.earned)}</strong></div>
         </div>
         ${rows.length ? rows.map(t => `
-          <div class="list-row" style="cursor:default;">
+          <div class="list-row">
             <span class="dot ${t.period_id ? 'green' : ''}"></span>
             <span style="flex:1;font-size:13px;">
               <strong>${t.hours} h</strong>
@@ -905,7 +905,7 @@
       };
       const TONE = { open: 'amber', fulfilled: 'green', broken: 'red', disputed: 'red', cancelled: '' };
       const row = (p) => `
-        <div class="list-row" style="cursor:default;align-items:flex-start;">
+        <div class="list-row" style="align-items:flex-start;">
           <span class="dot ${TONE[p.status] || ''}" style="margin-top:6px;"></span>
           <span style="flex:1;font-size:13px;min-width:0;">
             <strong>${UI.esc(p.statement || '')}</strong>
@@ -979,7 +979,7 @@
         <div class="card-head">
           <div class="card-title">O človeku${Help.btn('card.worker.person', { size: 13 })}</div>
           <span class="link-row">
-            <label class="link-chip" style="cursor:pointer;">
+            <label class="link-chip">
               ${Icon(hasPhoto ? 'edit' : 'plus', 13)}<span>${hasPhoto ? 'Zmeniť fotku' : 'Pridať fotku'}</span>
               <input type="file" hidden accept="image/*"
                 onchange="Wrk.uploadPhoto('${w.id}', this)">
@@ -1001,7 +1001,7 @@
       if (!box) return;
       const rows = await this.history(workerId);
       box.innerHTML = rows.length ? rows.map(a => `
-        <div class="list-row" style="cursor:default;">
+        <div class="list-row">
           <span class="dot ${a.status === 'active' ? 'green' : ''}"></span>
           <span style="flex:1;font-size:13px;">
             <strong>${UI.esc(a.sub?.title || 'Zákazka')}</strong>
