@@ -3786,3 +3786,26 @@ iframe.mail-body { width: 100%; min-height: 240px; border: 0; margin-top: 10px; 
 .pw-cap { font-size: 11.5px; color: var(--ink-mute); margin: -4px 0 6px; }
 .pw-letter { width: 100%; height: 640px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #E9EAEC; }
 @media (max-width: 900px) { .pw-grid { grid-template-columns: 1fr; } }
+
+/* Weby punds (Marketing → Weby) */
+.web-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.web-tile { display: flex; flex-direction: column; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; color: var(--ink); }
+.web-tile:hover { border-color: var(--brand); }
+.web-tile span { color: var(--brand); }
+.web-tile b { font: 700 28px/1.1 Outfit, Inter, sans-serif; letter-spacing: -.02em; }
+.web-tile small { color: var(--ink-mute); font-size: 12.5px; }
+.web-member { display: flex; gap: 14px; align-items: center; }
+.web-member.is-off { opacity: .55; }
+.web-member .js-acts { margin-left: auto; }
+.web-member-ph { width: 64px; height: 64px; border-radius: 14px; background: var(--field); display: grid; place-items: center; overflow: hidden; flex: none; color: var(--ink-mute); }
+.web-member-ph img { width: 100%; height: 100%; object-fit: cover; }
+.web-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.web-photo { overflow: hidden; padding: 0; }
+.web-photo img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--field); }
+.web-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.web-field { display: flex; flex-direction: column; gap: 4px; }
+.web-field input, .web-field textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; font: inherit; font-size: 13.5px; background: var(--field); }
+.web-field textarea { resize: vertical; line-height: 1.5; }
+.web-field.is-changed input, .web-field.is-changed textarea { border-color: var(--brand); background: #fff; }
+.web-path { font: 500 10.5px var(--mono); color: var(--ink-mute); }
+.web-orig { font-size: 11.5px; color: var(--ink-mute); }

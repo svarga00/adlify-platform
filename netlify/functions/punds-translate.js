@@ -44,6 +44,8 @@ exports.handler = async (event) => {
   if (!process.env.ANTHROPIC_API_KEY) return out(400, { error: 'Preklad nie je zapnutý (chýba ANTHROPIC_API_KEY v Netlify).' });
   let b;
   try { b = JSON.parse(event.body || '{}'); } catch (e) { return out(400, { error: 'Neplatné telo požiadavky.' }); }
+  // Režim „texty stránky": { texts: { cesta: text }, from: 'sk'|'de', langs: [...] } → { texts: { jazyk: { cesta: text } } }
+  if (b.texts && typeof b.texts === 'object') return translateTexts(b);
   const ad = b.ad || {};
   const langs = (b.langs || Object.keys(NAMES)).filter((l) => NAMES[l]);
   if (!ad.web_title) return out(400, { error: 'Najprv vyplňte verejný názov pozície.' });
@@ -91,3 +93,42 @@ exports.handler = async (event) => {
     return out(500, { error: String(e.message || e).slice(0, 200) });
   }
 };
+
+const LANG_NAMES = { sk: 'slovenčina', cz: 'čeština', hu: 'maďarčina', de: 'nemčina', en: 'angličtina' };
+
+/** Preklad zmenených textov stránky webu do ďalších jazykov. */
+async function translateTexts(b) {
+  const from = LANG_NAMES[b.from] ? b.from : 'sk';
+  const langs = (b.langs || []).filter((l) => LANG_NAMES[l] && l !== from).slice(0, 5);
+  const entries = Object.entries(b.texts).filter(([k, v]) => k && typeof v === 'string' && v.trim()).slice(0, 120);
+  if (!langs.length || !entries.length) return out(400, { error: 'Nie je čo prekladať.' });
+  const arr = { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, text: { type: 'string' } }, required: ['path', 'text'] } };
+  const tool = { name: 'preklady_textov', description: 'Preklady textov webovej stránky.',
+    input_schema: { type: 'object', properties: Object.fromEntries(langs.map((l) => [l, arr])), required: langs } };
+  const prompt = `Prelož texty webovej stránky punds (nábor remeselníkov na stavby v Nemecku / ponuka remeselníkov nemeckým firmám) `
+    + `z jazyka ${LANG_NAMES[from]} do: ${langs.map((l) => `${l} = ${LANG_NAMES[l]}`).join(', ')}.\n\n`
+    + `Pravidlá:\n- Prirodzený jazyk webu, nie doslovný preklad. Vykanie (cz „Vy", hu „Ön", de „Sie"), v angličtine neutrálne.\n`
+    + `- HTML značky (<b>, <a …>, <br>) a zástupné znaky ako {PHONE} a {MAIL} ponechaj presne tak.\n`
+    + `- Nemecké odborné výrazy (A1, Steuernummer, Freistellung, WDVS, AÜG, Werkvertrag) a čísla nemeň.\n`
+    + `- Vráť každú položku s rovnakou „path".\n\nTEXTY (JSON):\n${JSON.stringify(entries.map(([path, text]) => ({ path, text })))}`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify(AI.body({ model: MODEL, tool, prompt, maxTokens: 12000 })),
+    });
+    const data = await res.json();
+    if (!res.ok) return out(502, { error: AI.errorText(data, res.status, 'Preklad') });
+    const t = AI.pickTool(data, tool.name);
+    if (!t) return out(502, { error: 'Preklad sa nepodaril — skúste znova.' });
+    const known = new Set(entries.map(([k]) => k));
+    const texts = {};
+    for (const l of langs) {
+      texts[l] = {};
+      for (const x of (t[l] || [])) if (x && known.has(x.path) && typeof x.text === 'string') texts[l][x.path] = x.text.slice(0, 6000);
+    }
+    return out(200, { texts });
+  } catch (e) {
+    return out(500, { error: String(e.message || e).slice(0, 200) });
+  }
+}

@@ -374,3 +374,6 @@ ${others.length ? `<section class="wrap jd-others">
     bodyClass: 'has-mcta',
   };
 };
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

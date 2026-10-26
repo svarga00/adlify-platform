@@ -110,8 +110,10 @@ const checks = (list) => each(list, (x) => `<li><span class="sp-tick" aria-hidde
 
 async function render(ctx) {
   const t = T[ctx.lang];
-  const team = TEAM.length ? TEAM : (ctx.prod ? [] : TEAM_DEMO);
-  const demoTeam = !TEAM.length;
+  // Tím z appky (Marketing → Weby → Tím); kým je prázdny, skúšobne ukážka.
+  const real = ((ctx.content && ctx.content.team) || []).length ? ctx.content.team : TEAM;
+  const team = real.length ? real : (ctx.prod ? [] : TEAM_DEMO);
+  const demoTeam = !real.length;
   const body = `
 <div class="wrap sp-head ab-crumbs">
   <nav class="crumbs" aria-label="breadcrumb"><a href="${esc(ctx.url('home'))}">${esc(t.home)}</a><span aria-hidden="true">/</span><span class="cur" aria-current="page">${esc(t.crumb)}</span></nav>
@@ -171,3 +173,6 @@ ${team.length ? `<section class="wrap ab-sec" aria-labelledby="ab-team-h">
 
 module.exports = render;
 module.exports.DRY = DRY;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

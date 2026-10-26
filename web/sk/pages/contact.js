@@ -194,3 +194,6 @@ module.exports.ADDR = ADDR;
 module.exports.WA = WA;
 module.exports.MAPS = MAPS;
 module.exports.COMPANY = COMPANY;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

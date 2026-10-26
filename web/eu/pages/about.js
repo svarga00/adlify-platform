@@ -58,6 +58,7 @@ const T = {
 
 async function render(ctx) {
   const t = T[ctx.lang];
+  const team = (ctx.content && ctx.content.team) || [];
   const body = `
 <section class="eu-ahero">
   <div class="eu-hero-mark eu-ahero-mark" aria-hidden="true">${mark({ w: 620, light: true })}</div>
@@ -94,8 +95,11 @@ async function render(ctx) {
 
 <section class="wrap sec">
   <div class="eu-team-h rv"><h2 class="h2 eu-h2-40">${esc(t.teamH)}</h2><p class="eu-p">${esc(t.teamP)}</p></div>
-  ${ctx.prod ? '' : `<p class="warn eu-warn">${esc(t.warn)}</p>`}
-  <div class="eu-team">${each(t.team, ([role, l]) => `<div class="eu-member rv"><div class="eu-member-ph" aria-hidden="true">${mark({ w: 150 })}</div><div class="eu-member-t"><strong>${esc(role)}</strong><span>${esc(t.langs)}: ${esc(l)}</span></div></div>`)}</div>
+  ${team.length || ctx.prod ? '' : `<p class="warn eu-warn">${esc(t.warn)}</p>`}
+  <div class="eu-team">${team.length
+    // Tím z appky (Marketing → Weby → Tím): meno, funkcia v jazyku stránky, jazyky, fotka.
+    ? each(team, (m) => `<div class="eu-member rv"><div class="eu-member-ph"${m.photo ? '' : ' aria-hidden="true"'}>${m.photo ? `<img src="${esc(m.photo)}" alt="${esc(m.name)}" loading="lazy">` : mark({ w: 150 })}</div><div class="eu-member-t"><strong>${esc(m.name)}</strong>${(m.role && (m.role[ctx.lang] || m.role.de || m.role.sk)) ? `<span>${esc(m.role[ctx.lang] || m.role.de || m.role.sk)}</span>` : ''}${m.langs ? `<span>${esc(t.langs)}: ${esc(m.langs)}</span>` : ''}</div></div>`)
+    : each(t.team, ([role, l]) => `<div class="eu-member rv"><div class="eu-member-ph" aria-hidden="true">${mark({ w: 150 })}</div><div class="eu-member-t"><strong>${esc(role)}</strong><span>${esc(t.langs)}: ${esc(l)}</span></div></div>`)}</div>
 </section>
 
 <section class="wrap sec sec-last">
@@ -109,3 +113,6 @@ async function render(ctx) {
 }
 
 module.exports = render;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

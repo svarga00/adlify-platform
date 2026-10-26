@@ -60,7 +60,9 @@ const T = {
 async function render(ctx) {
   const t = T[ctx.lang];
   const ph = `<mark class="eu-mark">${esc(t.ph)}</mark>`;
-  const who = MD ? esc(MD) : (ctx.prod ? '' : ph);
+  // Konateľ: z appky (Marketing → Weby → Kontakty a firma), inak MD nižšie.
+  const md = (ctx.content && ctx.content.company && ctx.content.company.md) || MD;
+  const who = md ? esc(md) : (ctx.prod ? '' : ph);
   const cards = [
     [t.provider, ['<b>Partner und Service s. r. o.</b>', 'Podzámska 9468/4A', '940 71 Nové Zámky', esc(t.country)]],
     [t.contact, [`<b>${esc(t.phone)}: <a href="${tel(PHONE)}">${esc(PHONE)}</a></b>`, `${esc(t.mail)}: <a href="mailto:${MAIL}">${MAIL}</a>`, `${esc(t.web)}: punds.eu`]],
@@ -87,3 +89,6 @@ async function render(ctx) {
 }
 
 module.exports = render;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

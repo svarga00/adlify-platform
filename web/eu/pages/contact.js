@@ -178,3 +178,6 @@ module.exports = render;
 module.exports.enquiryForm = enquiryForm;
 module.exports.SHORT = SHORT;
 module.exports.phoneIco = phoneIco;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;

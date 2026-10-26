@@ -19,11 +19,8 @@ create table if not exists danubra_web_content (
   updated_by uuid references auth.users(id)
 );
 alter table danubra_web_content enable row level security;
-drop policy if exists danubra_web_content_read on danubra_web_content;
 create policy danubra_web_content_read on danubra_web_content for select using (auth.role() = 'authenticated');
-drop policy if exists danubra_web_content_ins on danubra_web_content;
 create policy danubra_web_content_ins on danubra_web_content for insert with check (auth.role() = 'authenticated');
-drop policy if exists danubra_web_content_upd on danubra_web_content;
 create policy danubra_web_content_upd on danubra_web_content for update using (auth.role() = 'authenticated');
 
 -- Čo prišlo z webov za posledných N dní — počty, bez mien a kontaktov.
@@ -40,5 +37,5 @@ language sql security definer set search_path = public stable as $$
   group by 1, 2, 3, 4
   order by 1 desc;
 $$;
-revoke all on function danubra_web_stats(integer) from public, anon;
 grant execute on function danubra_web_stats(integer) to authenticated;
+revoke execute on function danubra_web_stats(integer) from public, anon;

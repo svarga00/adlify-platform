@@ -152,3 +152,6 @@ ${jobs.length ? `<section class="wrap sec hm-jobs" aria-labelledby="hm-jobs-h">
 }
 
 module.exports = render;
+
+// Texty stránky — správa webov v appke ich môže prepísať (web/content.js).
+module.exports.T = T;
