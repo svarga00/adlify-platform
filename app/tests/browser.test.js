@@ -256,7 +256,7 @@ console.log('Prehliadač');
       });
 
       ok(text.includes('nenačítala'), 'zlyhaný dotaz sa ohlási');
-      ok(text.includes('neznamená, že nemáš záznamy'),
+      ok(text.includes('neznamená, že záznamy nemáte'),
         'a povie, že prázdno neznamená prázdno');
       ok(text.includes('danubra_workers'), 'aj ktorá tabuľka zlyhala');
       await page.close();
@@ -639,7 +639,7 @@ console.log('Prehliadač');
       ok(out.predOdhalenim.includes('Beriem to')
         && out.predOdhalenim.includes('zbystrím'),
         'a človek sa rozhoduje, či ju prijíma');
-      ok(!out.predOdhalenim.includes('Rozhodol si správne'),
+      ok(!out.predOdhalenim.includes('Rozhodli ste správne'),
         'pred rozhodnutím appka neprezradí odpoveď');
       ok(out.poZlom.includes('Toto bolo inak'),
         'pri zlom rozhodnutí to appka povie');
@@ -2466,7 +2466,7 @@ console.log('Prehliadač');
         'tlačidlo vedie na tú faktúru, ktorá čaká', out.teraz.onclick);
       ok(out.teraz.help, 'a je pri tom vysvetlivka');
 
-      ok(out.sekcie.some(x => /Čaká na teba \(2\)/.test(x)),
+      ok(out.sekcie.some(x => /Čaká na Vás \(2\)/.test(x)),
         'hore je to, čo čaká na nás — návrh a rozpracovaný podklad',
         out.sekcie.join(' | '));
       ok(out.sekcie.some(x => /Ostatné \(2\)/.test(x)), 'pod tým ostatné',
